@@ -231,6 +231,7 @@
     "Rank": 144,
     "SchoolMask": 215,
     "SpellVisualID": 122,
+    "TargetAuraState": 19,
     "Tooltip": 178
   },
   "SpellIcon": {

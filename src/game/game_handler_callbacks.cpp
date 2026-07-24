@@ -2888,6 +2888,10 @@ uint32_t GameHandler::getSpellTargetFlags(uint32_t spellId) const {
     return spellHandler_ ? spellHandler_->getSpellTargetFlags(spellId) : 0;
 }
 
+uint32_t GameHandler::getSpellTargetAuraState(uint32_t spellId) const {
+    return spellHandler_ ? spellHandler_->getSpellTargetAuraState(spellId) : 0;
+}
+
 const std::string& GameHandler::getSpellRank(uint32_t spellId) const {
     if (spellHandler_) return spellHandler_->getSpellRank(spellId);
     return EMPTY_STRING;

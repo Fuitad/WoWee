@@ -118,6 +118,21 @@ std::string castFailureMessage(const GameHandler& owner, uint32_t spellId,
         return "Requires a crafting tool you don't have (blacksmith hammer, mining pick, ...).";
     }
 
+    // "Target aurastate" (111) means the target isn't in the state the ability needs.
+    // Translate the spell's required Spell.dbc TargetAuraState into actionable text —
+    // Execute and Hammer of Wrath want a low-health target, etc.
+    if (result == 111) {
+        switch (owner.getSpellTargetAuraState(spellId)) {
+            case 2:  return "Target must be below 20% health.";
+            case 13: return "Target must be below 35% health.";
+            case 14: return "Target must be affected by Immolate or Shadowflame.";
+            case 16: return "Target must be afflicted by your Deadly Poison.";
+            case 17: return "Target must be enraged.";
+            case 18: return "Target must be bleeding.";
+            default: return "The target isn't in the required state for this ability.";
+        }
+    }
+
     const char* reason = getSpellCastResultString(result, powerType);
     return reason ? reason
                   : ("Spell cast failed (error " + std::to_string(result) + ")");
@@ -2614,6 +2629,7 @@ void SpellHandler::loadSpellNameCache() const {
     const uint32_t effect2Field = spellL ? spellL->field("Effect2") : 0xFFFFFFFF;
     const uint32_t durIdxField = spellL ? spellL->field("DurationIndex") : 0xFFFFFFFF;
     const uint32_t rangeIdxField = spellL ? spellL->field("RangeIndex") : 0xFFFFFFFF;
+    const uint32_t targetAuraStateField = spellL ? spellL->field("TargetAuraState") : 0xFFFFFFFF;
     const uint32_t spellVisualIdField = spellL ? spellL->field("SpellVisualID") : 0xFFFFFFFF;
     const uint32_t recoveryField = spellL ? spellL->field("RecoveryTime") : 0xFFFFFFFF;
     const uint32_t categoryRecoveryField = spellL ? spellL->field("CategoryRecoveryTime") : 0xFFFFFFFF;
@@ -2649,6 +2665,9 @@ void SpellHandler::loadSpellNameCache() const {
             }
             if (targetsField != 0xFFFFFFFF) {
                 entry.targetFlags = dbc->getUInt32(i, targetsField);
+            }
+            if (targetAuraStateField != 0xFFFFFFFF && targetAuraStateField < fieldCount) {
+                entry.targetAuraState = dbc->getUInt32(i, targetAuraStateField);
             }
             // Load effect base points for $s1/$s2/$s3 tooltip substitution
             if (ebp0Field != 0xFFFFFFFF) entry.effectBasePoints[0] = static_cast<int32_t>(dbc->getUInt32(i, ebp0Field));
@@ -2991,6 +3010,13 @@ uint32_t SpellHandler::getSpellTargetFlags(uint32_t spellId) const {
     loadSpellNameCache();
     auto it = owner_.spellNameCacheRef().find(spellId);
     return (it != owner_.spellNameCacheRef().end()) ? it->second.targetFlags : 0;
+}
+
+uint32_t SpellHandler::getSpellTargetAuraState(uint32_t spellId) const {
+    if (spellId == 0) return 0;
+    loadSpellNameCache();
+    auto it = owner_.spellNameCacheRef().find(spellId);
+    return (it != owner_.spellNameCacheRef().end()) ? it->second.targetAuraState : 0;
 }
 
 uint32_t SpellHandler::resolveHighestKnownRank(uint32_t spellId) const {

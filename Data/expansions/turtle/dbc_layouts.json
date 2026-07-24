@@ -223,6 +223,7 @@
     "Rank": 129,
     "SchoolEnum": 1,
     "SpellVisualID": 115,
+    "TargetAuraState": 17,
     "Tooltip": 147
   },
   "SpellIcon": {

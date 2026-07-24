@@ -2293,6 +2293,8 @@ public:
     /// Returns the Spell.dbc Targets bitmask (SpellCastTargetFlags) for the spell.
     /// 0x10 = TARGET_FLAG_ITEM, meaning the spell must be cast onto another item.
     uint32_t getSpellTargetFlags(uint32_t spellId) const;
+    // Spell.dbc TargetAuraState (aura state the target must be in; 0 = no requirement).
+    uint32_t getSpellTargetAuraState(uint32_t spellId) const;
 
     struct TrainerTab {
         std::string name;
@@ -2731,6 +2733,9 @@ public:
         uint32_t trivialSkillHigh = 0;
         uint32_t trivialSkillLow = 0;
         uint32_t minSkillRank = 0;
+        // Spell.dbc TargetAuraState: the aura state the target must be in for the spell
+        // to be castable (e.g. Execute → AURA_STATE_HEALTHLESS_20_PERCENT). 0 = none.
+        uint32_t targetAuraState = 0;
     };
     static constexpr size_t PLAYER_EXPLORED_ZONES_COUNT = 128;
     std::string getAreaName(uint32_t areaId) const;

@@ -376,6 +376,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
         // Applies to SPELL and MACRO slots with a known power cost.
         bool insufficientPower = false;
         bool reactiveUnavailable = false;
+        bool targetStateUnavailable = false;
         {
             uint32_t powerCheckSpellId = 0;
             if (slot.type == game::ActionBarSlot::SPELL && slot.id != 0)
@@ -422,6 +423,22 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
                     if (forbiddenState > 0 && forbiddenState <= 32 &&
                         (states & (1u << (forbiddenState - 1))) != 0)
                         reactiveUnavailable = true;
+                }
+            }
+
+            // Target aura-state gating: abilities like Execute or Hammer of Wrath are
+            // only usable when the current target is in the required state (e.g. below
+            // 20% health). The server keeps that as a bit in the target's UNIT_FIELD_AURASTATE.
+            if (powerCheckSpellId != 0 && !onCooldown && gameHandler.hasTarget()) {
+                uint32_t reqTargetState = gameHandler.getSpellTargetAuraState(powerCheckSpellId);
+                if (reqTargetState > 0 && reqTargetState <= 32) {
+                    auto targetEnt = gameHandler.getEntityManager().getEntity(gameHandler.getTargetGuid());
+                    if (targetEnt && (targetEnt->getType() == game::ObjectType::UNIT ||
+                                      targetEnt->getType() == game::ObjectType::PLAYER)) {
+                        auto tunit = std::static_pointer_cast<game::Unit>(targetEnt);
+                        if ((tunit->getAuraState() & (1u << (reqTargetState - 1))) == 0)
+                            targetStateUnavailable = true;
+                    }
                 }
             }
         }
@@ -508,7 +525,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
             if (onCooldown)          { tintColor = ImVec4(0.4f, 0.4f, 0.4f, 0.8f); }
             else if (onGCD)          { tintColor = ImVec4(0.6f, 0.6f, 0.6f, 0.85f); }
             else if (outOfRange)     { tintColor = ImVec4(0.85f, 0.35f, 0.35f, 0.9f); }
-            else if (insufficientPower || reactiveUnavailable) { tintColor = ImVec4(0.38f, 0.38f, 0.38f, 0.78f); }
+            else if (insufficientPower || reactiveUnavailable || targetStateUnavailable) { tintColor = ImVec4(0.38f, 0.38f, 0.38f, 0.78f); }
             else if (itemMissing)    { tintColor = ImVec4(0.35f, 0.35f, 0.35f, 0.7f); }
             clicked = ImGui::ImageButton("##icon",
                 (ImTextureID)(uintptr_t)iconTex,
@@ -518,7 +535,7 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
         } else {
             if (onCooldown)            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 0.8f));
             else if (outOfRange)       ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.45f, 0.15f, 0.15f, 0.9f));
-            else if (insufficientPower || reactiveUnavailable)
+            else if (insufficientPower || reactiveUnavailable || targetStateUnavailable)
                                              ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.16f, 0.16f, 0.16f, 0.85f));
             else if (itemMissing)      ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.12f, 0.12f, 0.12f, 0.7f));
             else if (slot.isEmpty())   ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.15f, 0.15f, 0.8f));
@@ -745,6 +762,21 @@ void ActionBarPanel::renderActionBar(game::GameHandler& gameHandler,
                 }
                 if (reactiveUnavailable) {
                     ImGui::TextColored(ImVec4(0.75f, 0.75f, 0.75f, 1.0f), "Requires a combat opportunity");
+                }
+                if (targetStateUnavailable) {
+                    // Name the requirement for the common cases (below-20% for Execute, etc.).
+                    uint32_t reqTargetState = gameHandler.getSpellTargetAuraState(
+                        slot.type == game::ActionBarSlot::MACRO
+                            ? resolveMacroPrimarySpellId(slot.id, gameHandler) : slot.id);
+                    const char* msg = "Target isn't in the required state";
+                    switch (reqTargetState) {
+                        case 2:  msg = "Target must be below 20% health"; break;
+                        case 13: msg = "Target must be below 35% health"; break;
+                        case 17: msg = "Target must be enraged"; break;
+                        case 18: msg = "Target must be bleeding"; break;
+                        default: break;
+                    }
+                    ImGui::TextColored(ImVec4(0.75f, 0.75f, 0.75f, 1.0f), "%s", msg);
                 }
                 if (onCooldown) {
                     float cd = slot.cooldownRemaining;
