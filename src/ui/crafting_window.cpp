@@ -171,7 +171,12 @@ void WindowManager::renderCraftingWindow(game::GameHandler& gameHandler,
         ImGui::Separator();
 
         // ---- Left: recipe list ----
-        const float listWidth = 260.0f;
+        // Size the list pane as a fraction of the available width so it grows
+        // when the window is enlarged (a fixed width kept long recipe names
+        // truncated no matter how wide the window got). The floor keeps it
+        // usable on a small window; the rest of the row goes to the detail pane.
+        const float availX = ImGui::GetContentRegionAvail().x;
+        const float listWidth = std::max(260.0f, availX * 0.42f);
         if (ImGui::BeginChild("##RecipeList", ImVec2(listWidth, 0), true)) {
             std::string filter(craftSearchFilter_);
             for (char& c : filter) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -217,6 +222,11 @@ void WindowManager::renderCraftingWindow(game::GameHandler& gameHandler,
                     craftQuantity_ = 1;
                 }
                 ImGui::PopStyleColor();
+                // Selectable clips (doesn't ellipsize) overflowing names, so
+                // surface the full name on hover for anything wider than the pane.
+                if (ImGui::IsItemHovered() &&
+                    ImGui::CalcTextSize(recipe.name).x > ImGui::GetContentRegionAvail().x)
+                    ImGui::SetTooltip("%s", recipe.name);
                 ImGui::PopID();
             }
             if (recipes.empty())
