@@ -878,6 +878,7 @@ set(WOWEE_SOURCES
     src/ui/action_bar_panel.cpp
     src/ui/window_manager.cpp
     src/ui/crafting_window.cpp
+    src/ui/gm_command_screen.cpp
     src/ui/inventory_screen.cpp
     src/ui/quest_log_screen.cpp
     src/ui/spellbook_screen.cpp

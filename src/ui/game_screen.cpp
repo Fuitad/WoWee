@@ -497,6 +497,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     if (windowManager_.renderBankWindow(gameHandler, inventoryScreen, chatPanel_))
         saveSettings();
     windowManager_.renderGuildBankWindow(gameHandler, inventoryScreen, chatPanel_);
+    windowManager_.renderGmCommandScreen(gameHandler);
     windowManager_.renderAuctionHouseWindow(gameHandler, inventoryScreen, chatPanel_);
     socialPanel_.renderDungeonFinderWindow(gameHandler, chatPanel_);
     windowManager_.renderInstanceLockouts(gameHandler);
@@ -916,6 +917,10 @@ void GameScreen::renderMicroMenu(game::GameHandler& gameHandler) {
         ImGui::SameLine();
         if (button("M##MicroMap", "World Map", showWorldMap_)) {
             showWorldMap_ = !showWorldMap_;
+        }
+        ImGui::SameLine();
+        if (button("GM##MicroGM", "GM Commands", windowManager_.showGmCommandScreen_)) {
+            windowManager_.showGmCommandScreen_ = !windowManager_.showGmCommandScreen_;
         }
         ImGui::SameLine();
         if (button("*##MicroSettings", "Settings", settingsPanel_.showSettingsWindow)) {

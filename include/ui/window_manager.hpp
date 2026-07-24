@@ -101,8 +101,17 @@ public:
     void renderTitlesWindow(game::GameHandler& gameHandler);
     void renderEquipSetWindow(game::GameHandler& gameHandler);
     void renderSkillsWindow(game::GameHandler& gameHandler);
+    // Browse/search the GM command reference and send commands to the server.
+    void renderGmCommandScreen(game::GameHandler& gameHandler);
 
     // ---- State owned by this manager ----
+
+    // GM command screen
+    bool showGmCommandScreen_ = false;
+    char gmSearchBuf_[128] = {};
+    int  gmSelectedIndex_ = -1;      // index into kGmCommands, -1 = none
+    char gmCommandBuf_[256] = {};    // editable command line sent to the server
+    int  gmMaxSecurity_ = 4;         // hide commands above this security level
 
     // Instance lockouts
     bool showInstanceLockouts_ = false;
