@@ -848,6 +848,14 @@ void SpellHandler::cancelCast() {
 }
 
 void SpellHandler::startCraftQueue(uint32_t spellId, int count) {
+    // Crafting while mounted must dismount first, then craft — matching retail.
+    // castSpell() bails out early when mounted (dismount-instead-of-cast), so
+    // dismount here BEFORE populating the queue. dismount() clears the local
+    // mount state synchronously, so the castSpell() below sees isMounted()==false
+    // and actually sends the cast. Without this, the queue was left populated
+    // with no cast in flight, freezing the crafting UI on "Crafting... N
+    // remaining" until the player manually mounted and dismounted again.
+    if (owner_.isMounted()) owner_.dismount();
     craftQueueSpellId_ = spellId;
     craftQueueRemaining_ = count;
     castSpell(spellId, 0);
