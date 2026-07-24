@@ -411,22 +411,39 @@ network::Packet GuildBankWithdrawMoneyPacket::build(uint64_t guid, uint32_t amou
     return p;
 }
 
+// CMSG_GUILD_BANK_SWAP_ITEMS (3.3.5a). The first byte selects the code path:
+//   bankToBank != 0 → move within the guild bank (two tabs); NOT used here.
+//   bankToBank == 0 → transfer between the guild bank and player inventory.
+// For the inventory path the server reads:
+//   u8 tabId, u8 slotId, u32 itemEntry, u8 autoStore
+//   if autoStore: u32 count, u8 (toChar, forced 1), u32 (0)   → bank→char auto
+//   else:         u8 playerBag, u8 playerSlot, u8 toChar, u32 splitedAmount
+// toChar: 1 = bank→character (withdraw), 0 = character→bank (deposit).
+// The old builder omitted toChar, wrote splitCount as a mid-packet u8, and the
+// deposit variant set bankToBank=1 — so item transfers were silently dropped.
 network::Packet GuildBankSwapItemsPacket::buildBankToInventory(
     uint64_t guid, uint8_t tabId, uint8_t bankSlot,
     uint8_t destBag, uint8_t destSlot, uint32_t splitCount)
 {
     network::Packet p(wireOpcode(Opcode::CMSG_GUILD_BANK_SWAP_ITEMS));
     p.writeUInt64(guid);
-    p.writeUInt8(0);  // bankToCharacter = false -> bank source
+    p.writeUInt8(0);          // bankToBank = 0 (involves player inventory)
     p.writeUInt8(tabId);
     p.writeUInt8(bankSlot);
-    p.writeUInt32(0);  // itemEntry (unused client side)
-    p.writeUInt8(0);  // autoStore = false
-    if (splitCount > 0) {
-        p.writeUInt8(splitCount);
+    p.writeUInt32(0);         // itemEntry (server ignores)
+    if (destBag == 0xFF) {
+        // Let the server drop the item into the first free inventory slot.
+        p.writeUInt8(1);      // autoStore = 1
+        p.writeUInt32(splitCount); // count (0 = whole stack)
+        p.writeUInt8(1);      // toChar = 1 (bank → character)
+        p.writeUInt32(0);     // trailing, always 0
+    } else {
+        p.writeUInt8(0);      // autoStore = 0
+        p.writeUInt8(destBag);   // playerBag
+        p.writeUInt8(destSlot);  // playerSlot
+        p.writeUInt8(1);      // toChar = 1 (withdraw)
+        p.writeUInt32(splitCount); // splitedAmount
     }
-    p.writeUInt8(destBag);
-    p.writeUInt8(destSlot);
     return p;
 }
 
@@ -436,16 +453,15 @@ network::Packet GuildBankSwapItemsPacket::buildInventoryToBank(
 {
     network::Packet p(wireOpcode(Opcode::CMSG_GUILD_BANK_SWAP_ITEMS));
     p.writeUInt64(guid);
-    p.writeUInt8(1);  // bankToCharacter = true -> char to bank
+    p.writeUInt8(0);          // bankToBank = 0 (involves player inventory)
     p.writeUInt8(tabId);
-    p.writeUInt8(bankSlot);
-    p.writeUInt32(0);  // itemEntry
-    p.writeUInt8(0);  // autoStore
-    if (splitCount > 0) {
-        p.writeUInt8(splitCount);
-    }
-    p.writeUInt8(srcBag);
-    p.writeUInt8(srcSlot);
+    p.writeUInt8(bankSlot);   // destination slot within the tab
+    p.writeUInt32(0);         // itemEntry
+    p.writeUInt8(0);          // autoStore = 0
+    p.writeUInt8(srcBag);     // playerBag
+    p.writeUInt8(srcSlot);    // playerSlot
+    p.writeUInt8(0);          // toChar = 0 (character → bank = deposit)
+    p.writeUInt32(splitCount); // splitedAmount
     return p;
 }
 

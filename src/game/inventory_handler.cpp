@@ -2158,16 +2158,12 @@ uint32_t InventoryHandler::getBankBagSlotPrice(int slotIndex) {
 
 void InventoryHandler::depositItem(uint8_t srcBag, uint8_t srcSlot) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    int freeBankSlot = -1;
-    for (int i = 0; i < effectiveBankSlots_; ++i) {
-        if (bankSlotGuids_[i] == 0) { freeBankSlot = i; break; }
-    }
-    if (freeBankSlot < 0) {
-        owner_.addSystemChatMessage("Bank is full.");
-        return;
-    }
-    uint8_t dstSlot = static_cast<uint8_t>(39 + freeBankSlot);
-    auto packet = SwapItemPacket::build(0xFF, dstSlot, srcBag, srcSlot);
+    // CMSG_AUTOBANK_ITEM lets the server place the item into the first free slot
+    // across the whole bank — the main slots AND the purchased bank bags. The
+    // old code scanned only the main bank slots and reported "Bank is full" the
+    // moment those filled, ignoring free space in the bank bags. The server
+    // replies with a bank-full error if there is genuinely no room.
+    auto packet = AutoBankItemPacket::build(srcBag, srcSlot);
     owner_.getSocket()->send(packet);
 }
 
