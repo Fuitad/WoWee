@@ -402,9 +402,9 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
         data.inventoryType = packet.readUInt32();
     }
 
-    // Validate minimum size for remaining fixed fields before inventoryType through containerSlots: 13×4 = 52 bytes
-    if (!packet.hasRemaining(52)) {
-        LOG_ERROR("SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated before statsCount (entry=", data.entry, ")");
+    // Validate the 14 fixed fields from AllowableClass through ContainerSlots.
+    if (!packet.hasRemaining(56)) {
+        LOG_ERROR("SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated before item stats (entry=", data.entry, ")");
         return false;
     }
     data.allowableClass = packet.readUInt32(); // AllowableClass
@@ -422,27 +422,14 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
     data.maxStack = static_cast<int32_t>(packet.readUInt32()); // Stackable
     data.containerSlots = packet.readUInt32();
 
-    // Read statsCount with bounds validation
-    if (!packet.hasRemaining(4)) {
-        LOG_WARNING("SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated at statsCount (entry=", data.entry, ")");
-        return true;  // Have enough for core fields; stats are optional
-    }
-    uint32_t statsCount = packet.readUInt32();
-
-    // Cap statsCount to prevent excessive iteration
-    constexpr uint32_t kMaxItemStats = 10;
-    if (statsCount > kMaxItemStats) {
-        LOG_WARNING("SMSG_ITEM_QUERY_SINGLE_RESPONSE: statsCount=", statsCount, " exceeds max ",
-                    kMaxItemStats, " (entry=", data.entry, "), capping");
-        statsCount = kMaxItemStats;
-    }
-
-    // Server sends exactly statsCount stat pairs (not always 10).
-    uint32_t statsToRead = std::min(statsCount, 10u);
-    for (uint32_t i = 0; i < statsToRead; i++) {
+    // AzerothCore's 3.3.5 item query always carries ten stat pairs. There is
+    // no count prefix; reading one shifts the damage, resistance, and delay
+    // fields by four bytes (for example, a 3600 ms weapon delay becomes fire
+    // resistance in the chat-link tooltip).
+    for (uint32_t statIndex = 0; statIndex < 10; ++statIndex) {
         // Each stat is 2 uint32s (type + value) = 8 bytes
         if (!packet.hasRemaining(8)) {
-            LOG_WARNING("SMSG_ITEM_QUERY_SINGLE_RESPONSE: stat ", i, " truncated (entry=", data.entry, ")");
+            LOG_WARNING("SMSG_ITEM_QUERY_SINGLE_RESPONSE: stat ", statIndex, " truncated (entry=", data.entry, ")");
             break;
         }
         uint32_t statType = packet.readUInt32();

@@ -494,6 +494,10 @@ public:
     // Classic 1.12 SMSG_NAME_QUERY_RESPONSE: full uint64 guid + name + realmName CString +
     // uint32 race + uint32 gender + uint32 class (TBC Variant A skips the realmName CString)
     bool parseNameQueryResponse(network::Packet& packet, NameQueryResponseData& data) override;
+
+protected:
+    // Turtle extends the otherwise-Classic item query header with BuyCount.
+    virtual bool itemQueryHasBuyCount() const { return false; }
 };
 
 /**
@@ -514,6 +518,9 @@ public:
     bool parseUpdateObject(network::Packet& packet, UpdateObjectData& data) override;
     bool parseMovementBlock(network::Packet& packet, UpdateBlock& block) override;
     bool parseMonsterMove(network::Packet& packet, MonsterMoveData& data) override;
+
+protected:
+    bool itemQueryHasBuyCount() const override { return true; }
 };
 
 /**

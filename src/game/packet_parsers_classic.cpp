@@ -1695,14 +1695,18 @@ bool ClassicPacketParsers::parseItemQueryResponse(network::Packet& packet, ItemQ
     data.displayInfoId = packet.readUInt32();
     data.quality = packet.readUInt32();
 
-    // Validate minimum size for fixed fields: Flags(4) + BuyPrice(4) + SellPrice(4) + inventoryType(4)
-    if (!packet.hasRemaining(16)) {
+    // Turtle adds BuyCount after Flags. Keep the header layout explicit so
+    // Classic and Turtle each start their shared ten-stat body aligned.
+    const bool hasBuyCount = itemQueryHasBuyCount();
+    const size_t headerSize = hasBuyCount ? 20 : 16;
+    if (!packet.hasRemaining(headerSize)) {
         LOG_ERROR("Classic SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated before inventoryType (entry=", data.entry, ")");
         return false;
     }
 
     data.itemFlags = packet.readUInt32(); // Flags
-    // Vanilla: NO Flags2
+    if (hasBuyCount) packet.readUInt32(); // Turtle BuyCount
+    // Vanilla/Turtle: NO Flags2
     packet.readUInt32(); // BuyPrice
     data.sellPrice = packet.readUInt32(); // SellPrice
 

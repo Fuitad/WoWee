@@ -172,6 +172,77 @@ TEST_CASE("SMSG_MESSAGECHAT whispers use the exact layout for every expansion", 
     }
 }
 
+TEST_CASE("WotLK item queries have ten fixed stat pairs", "[item_query][wotlk]") {
+    wowee::network::Packet packet(0);
+    packet.writeUInt32(6975);  // Whirlwind Axe
+    packet.writeUInt32(2);     // Weapon
+    packet.writeUInt32(1);     // Two-Handed Axe
+    packet.writeUInt32(0);     // Sound override subclass
+    packet.writeString("Whirlwind Axe");
+    packet.writeString("");
+    packet.writeString("");
+    packet.writeString("");
+    packet.writeUInt32(5356);  // Display ID
+    packet.writeUInt32(3);     // Rare quality
+    packet.writeUInt32(0);     // Flags
+    packet.writeUInt32(0);     // Flags2
+    packet.writeUInt32(1);     // BuyCount
+    packet.writeUInt32(100000);
+    packet.writeUInt32(20000);
+    packet.writeUInt32(17);    // Two-hand inventory type
+    packet.writeUInt32(0);     // Allowable classes
+    packet.writeUInt32(0);     // Allowable races
+    packet.writeUInt32(40);    // Item level
+    packet.writeUInt32(30);    // Required level
+    packet.writeUInt32(0);
+    packet.writeUInt32(0);
+    packet.writeUInt32(0);
+    packet.writeUInt32(0);
+    packet.writeUInt32(0);
+    packet.writeUInt32(0);
+    packet.writeUInt32(0);
+    packet.writeUInt32(0);
+    packet.writeUInt32(1);
+    packet.writeUInt32(0);
+
+    for (uint32_t statIndex = 0; statIndex < 10; ++statIndex) {
+        packet.writeUInt32(0);
+        packet.writeUInt32(0);
+    }
+    packet.writeUInt32(0);  // Scaling stat distribution
+    packet.writeUInt32(0);  // Scaling stat value
+    for (uint32_t damageIndex = 0; damageIndex < 2; ++damageIndex) {
+        packet.writeFloat(damageIndex == 0 ? 86.0f : 0.0f);
+        packet.writeFloat(damageIndex == 0 ? 130.0f : 0.0f);
+        packet.writeUInt32(0);
+    }
+    packet.writeUInt32(0);  // Armor
+    for (uint32_t resistanceIndex = 0; resistanceIndex < 6; ++resistanceIndex)
+        packet.writeUInt32(0);
+    packet.writeUInt32(3600);  // Delay
+    packet.writeUInt32(0);     // Ammo type
+    packet.writeFloat(0.0f);   // Ranged modifier
+    for (uint32_t spellIndex = 0; spellIndex < 5; ++spellIndex) {
+        for (uint32_t spellFieldIndex = 0; spellFieldIndex < 6; ++spellFieldIndex)
+            packet.writeUInt32(0);
+    }
+    packet.writeUInt32(0);  // Bonding
+    packet.writeString("");
+    packet.writeUInt32(0);
+    packet.writeUInt32(0);
+    packet.writeUInt32(0);
+    packet.writeUInt32(0);
+
+    ItemQueryResponseData item;
+    REQUIRE(ItemQueryResponseParser::parse(packet, item));
+    CHECK(item.valid);
+    CHECK(item.inventoryType == 17);
+    CHECK(item.damageMin == 86.0f);
+    CHECK(item.damageMax == 130.0f);
+    CHECK(item.delayMs == 3600);
+    CHECK(item.fireRes == 0);
+}
+
 TEST_CASE("WotLK guild achievement chat retains its trailing achievement ID",
           "[chat][achievement]") {
     constexpr uint64_t kSenderGuid = 0x42ull;
