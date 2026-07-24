@@ -2189,6 +2189,8 @@ public:
     void openBank(uint64_t guid);
     void closeBank();
     void buyBankSlot();
+    // Copper cost of the bank bag slot at the given 0-based index (BankBagSlotPrices.dbc).
+    uint32_t getBankBagSlotPrice(int slotIndex) const;
     void depositItem(uint8_t srcBag, uint8_t srcSlot);
     void withdrawItem(uint8_t srcBag, uint8_t srcSlot);
     bool isBankOpen() const;

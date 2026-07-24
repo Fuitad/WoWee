@@ -2133,6 +2133,22 @@ void InventoryHandler::buyBankSlot() {
     owner_.getSocket()->send(packet);
 }
 
+uint32_t InventoryHandler::getBankBagSlotPrice(int slotIndex) {
+    // BankBagSlotPrices.dbc — copper cost for each successive bank bag slot.
+    // These values are stable across Classic 1.12, TBC 2.4.3, and WotLK 3.3.5a.
+    static constexpr uint32_t kPrices[Inventory::BANK_BAG_SLOTS] = {
+        10000,    //   1g  — 1st slot
+        100000,   //  10g  — 2nd slot
+        250000,   //  25g  — 3rd slot
+        600000,   //  60g  — 4th slot
+        1000000,  // 100g  — 5th slot
+        2500000,  // 250g  — 6th slot
+        5000000,  // 500g  — 7th slot
+    };
+    if (slotIndex < 0 || slotIndex >= Inventory::BANK_BAG_SLOTS) return 0;
+    return kPrices[slotIndex];
+}
+
 void InventoryHandler::depositItem(uint8_t srcBag, uint8_t srcSlot) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     int freeBankSlot = -1;

@@ -1767,6 +1767,10 @@ void GameHandler::buyBankSlot() {
     if (inventoryHandler_) inventoryHandler_->buyBankSlot();
 }
 
+uint32_t GameHandler::getBankBagSlotPrice(int slotIndex) const {
+    return InventoryHandler::getBankBagSlotPrice(slotIndex);
+}
+
 void GameHandler::depositItem(uint8_t srcBag, uint8_t srcSlot) {
     if (inventoryHandler_) inventoryHandler_->depositItem(srcBag, srcSlot);
 }

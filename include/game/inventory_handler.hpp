@@ -192,6 +192,9 @@ public:
     void openBank(uint64_t guid);
     void closeBank();
     void buyBankSlot();
+    // Cost in copper to purchase the bank bag slot at the given 0-based index
+    // (BankBagSlotPrices.dbc; identical values across Classic/TBC/WotLK). 0 = free/invalid.
+    static uint32_t getBankBagSlotPrice(int slotIndex);
     void depositItem(uint8_t srcBag, uint8_t srcSlot);
     void withdrawItem(uint8_t srcBag, uint8_t srcSlot);
     bool isBankOpen() const { return bankOpen_; }

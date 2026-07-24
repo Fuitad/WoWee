@@ -181,6 +181,11 @@ public:
     // Purely client-side: reorders the local inventory struct without server interaction.
     void sortBags();
 
+    // Sort the bank the same way (main bank slots + bank bag contents). mainSlotCount is the
+    // number of usable main bank slots for the active expansion (24 Classic, 28 TBC/WotLK) so
+    // sorting never spills items into slots the server doesn't have.
+    void sortBank(int mainSlotCount);
+
     // A single swap operation using WoW bag/slot addressing (for CMSG_SWAP_ITEM).
     struct SwapOp {
         uint8_t srcBag;
@@ -192,6 +197,13 @@ public:
     // Compute the CMSG_SWAP_ITEM operations needed to reach sorted order.
     // Does NOT modify the inventory — caller is responsible for sending packets.
     std::vector<SwapOp> computeSortSwaps() const;
+    std::vector<SwapOp> computeBankSortSwaps(int mainSlotCount) const;
+
+    // WoW bag/slot addressing for bank storage (used by sort + drag-drop):
+    // main bank slots live in bag 0xFF at slot BANK_SLOT_START + index; each bank bag's
+    // contents live in bag BANK_BAG_CONTAINER_START + bagIndex.
+    static constexpr uint8_t BANK_SLOT_START = 39;
+    static constexpr uint8_t BANK_BAG_CONTAINER_START = 67;
 
     // Test data
     void populateTestItems();
