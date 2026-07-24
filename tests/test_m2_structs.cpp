@@ -80,6 +80,27 @@ TEST_CASE("Ship machinery is classified for distant bone updates", "[m2][animati
     REQUIRE(paddle.isTransportDoodad);
 }
 
+TEST_CASE("Steam Tonk vehicles are not steam VFX", "[m2][classification]") {
+    // The TBC/Turtle SteamTonk overlay is a tiny proxy that slips under the
+    // low-poly vertex gate; combined with a smoke emitter it was mis-classified
+    // as an additive spell effect (glowing translucent). A "tonk"/"tank" name
+    // must never be treated as steam VFX regardless of geometry.
+    const auto tonkLow = wowee::rendering::classifyM2Model(
+        "Creature\\SteamTonk\\SteamTonk.m2",
+        glm::vec3(-1.0f), glm::vec3(1.0f), 23, 2);
+    REQUIRE_FALSE(tonkLow.isSpellEffect);
+    const auto tonkHi = wowee::rendering::classifyM2Model(
+        "Creature\\SteamTonk\\SteamTonk.m2",
+        glm::vec3(-1.0f), glm::vec3(1.0f), 606, 1);
+    REQUIRE_FALSE(tonkHi.isSpellEffect);
+
+    // A genuine low-poly steam emitter is still a spell effect.
+    const auto steam = wowee::rendering::classifyM2Model(
+        "Spells\\Steam.m2",
+        glm::vec3(-1.0f), glm::vec3(1.0f), 40, 2);
+    REQUIRE(steam.isSpellEffect);
+}
+
 TEST_CASE("M2Sequence fields are default-initialized", "[m2]") {
     M2Sequence seq{};
     REQUIRE(seq.id == 0);

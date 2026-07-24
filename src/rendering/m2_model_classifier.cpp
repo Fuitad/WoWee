@@ -269,11 +269,14 @@ M2ClassificationResult classifyM2Model(
         "smokepuff",      "sparkle",           "spotlight",
         "volumetriclight", "wisps",            "worldtreeportal",
     });
-    // A bare "steam" substring collides with solid models — the Steam Tank
-    // vehicle, Steamwheedle doodads — turning them additive/unlit (glowing
-    // translucent). Genuine steam VFX are particle-driven, low-poly emitters,
-    // so gate the steam match on that geometry rather than the name alone.
-    const bool steamVfx = has(n, "steam")
+    // A bare "steam" substring collides with solid models — the Steam Tonk /
+    // Steam Tank vehicles, Steamwheedle doodads — turning them additive/unlit
+    // (glowing translucent). The low-poly gate below alone is not enough: the
+    // TBC/Turtle SteamTonk overlay models are tiny proxies that slip under the
+    // vertex threshold, so also exclude vehicle names outright — a "tonk"/"tank"
+    // is never a steam VFX (real ones are steam/steamgeyser/lavasteam/etc.).
+    const bool steamVehicle = has(n, "tonk") || has(n, "tank");
+    const bool steamVfx = has(n, "steam") && !steamVehicle
                         && emitterCount >= 1 && vertexCount <= 200;
     r.isSpellEffect = hasAny(n, kEffectTokens) || steamVfx
                     || (emitterCount >= 3 && vertexCount <= 200);
