@@ -2026,6 +2026,10 @@ void GameHandler::loadAchievementNameCache() {
     if (titleField == 0xFFFFFFFF) titleField = 4;
     uint32_t descField = achL ? achL->field("Description") : 0xFFFFFFFF;
     uint32_t ptsField  = achL ? achL->field("Points")      : 0xFFFFFFFF;
+    // IconID references SpellIcon.dbc for the achievement's artwork. Field 42 in the
+    // stock 3.3.5a Achievement.dbc when the layout doesn't name it.
+    uint32_t iconField = achL ? achL->field("IconID") : 0xFFFFFFFF;
+    if (iconField == 0xFFFFFFFF && dbc->getFieldCount() > 42) iconField = 42;
 
     uint32_t fieldCount = dbc->getFieldCount();
     for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
@@ -2040,6 +2044,10 @@ void GameHandler::loadAchievementNameCache() {
         if (ptsField != 0xFFFFFFFF && ptsField < fieldCount) {
             uint32_t pts = dbc->getUInt32(i, ptsField);
             if (pts > 0) achievementPointsCache_[id] = pts;
+        }
+        if (iconField != 0xFFFFFFFF && iconField < fieldCount) {
+            uint32_t iconId = dbc->getUInt32(i, iconField);
+            if (iconId > 0) achievementIconCache_[id] = iconId;
         }
     }
     LOG_INFO("Achievement: loaded ", achievementNameCache_.size(), " names from Achievement.dbc");

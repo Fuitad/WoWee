@@ -108,6 +108,10 @@ public:
     // Achievements
     bool showAchievementWindow_ = false;
     char achievementSearchBuf_[128] = {};
+    // Achievement artwork: SpellIcon.dbc ID → path, and resolved textures keyed by icon ID.
+    std::unordered_map<uint32_t, std::string> achievementIconPaths_;
+    std::unordered_map<uint32_t, VkDescriptorSet> achievementIconCache_;
+    bool achievementIconDbLoaded_ = false;
 
     // Skills / Professions
     bool showSkillsWindow_ = false;
@@ -226,6 +230,8 @@ public:
 private:
     UIServices services_;
     void loadExtendedCostDBC();
+    // Resolve an achievement's SpellIcon.dbc ID to an ImGui texture (lazy BLP load + cache).
+    VkDescriptorSet getAchievementIcon(uint32_t spellIconId);
     std::string formatExtendedCost(uint32_t extendedCostId, game::GameHandler& gameHandler);
 };
 

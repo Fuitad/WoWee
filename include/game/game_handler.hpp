@@ -1928,6 +1928,11 @@ public:
         auto it = achievementPointsCache_.find(id);
         return (it != achievementPointsCache_.end()) ? it->second : 0u;
     }
+    /// Returns the SpellIcon.dbc ID for an achievement's icon, or 0 if unknown.
+    uint32_t getAchievementIconId(uint32_t id) const {
+        auto it = achievementIconCache_.find(id);
+        return (it != achievementIconCache_.end()) ? it->second : 0u;
+    }
     /// Returns the set of achievement IDs earned by an inspected player (via SMSG_RESPOND_INSPECT_ACHIEVEMENTS).
     /// Returns nullptr if no inspect data is available for the given GUID.
     const std::unordered_set<uint32_t>* getInspectedPlayerAchievements(uint64_t guid) const {
@@ -3529,6 +3534,7 @@ private:
     std::unordered_map<uint32_t, std::string> achievementNameCache_;
     std::unordered_map<uint32_t, std::string> achievementDescCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementPointsCache_;
+    std::unordered_map<uint32_t, uint32_t>    achievementIconCache_;  // achievementId → SpellIcon.dbc ID
     bool achievementNameCacheLoaded_ = false;
     // Set of achievement IDs earned by the player (populated from SMSG_ALL_ACHIEVEMENT_DATA)
     std::unordered_set<uint32_t> earnedAchievements_;

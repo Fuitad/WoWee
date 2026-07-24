@@ -18,6 +18,7 @@
 #include "game/game_handler.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
+#include "pipeline/blp_loader.hpp"
 #include "audio/audio_coordinator.hpp"
 #include "audio/ui_sound_manager.hpp"
 #include "audio/music_manager.hpp"
@@ -4463,6 +4464,62 @@ void WindowManager::renderInstanceLockouts(game::GameHandler& gameHandler) {
 // ============================================================================
 // ─── Who Results Window ───────────────────────────────────────────────────────
 // ─── Combat Log Window ────────────────────────────────────────────────────────
+// Resolve an achievement's SpellIcon.dbc ID → ImGui texture, lazily loading the icon
+// path table and BLP on first use and caching the result (including negative results).
+VkDescriptorSet WindowManager::getAchievementIcon(uint32_t spellIconId) {
+    if (spellIconId == 0) return VK_NULL_HANDLE;
+
+    auto cit = achievementIconCache_.find(spellIconId);
+    if (cit != achievementIconCache_.end()) return cit->second;
+
+    auto* am = services_.assetManager;
+    if (!am || !am->isInitialized()) return VK_NULL_HANDLE;
+
+    // Lazy-load SpellIcon.dbc (ID → texture path) once.
+    if (!achievementIconDbLoaded_) {
+        achievementIconDbLoaded_ = true;
+        auto iconDbc = am->loadDBC("SpellIcon.dbc");
+        const auto* iconL = pipeline::getActiveDBCLayout()
+            ? pipeline::getActiveDBCLayout()->getLayout("SpellIcon") : nullptr;
+        if (iconDbc && iconDbc->isLoaded()) {
+            for (uint32_t i = 0; i < iconDbc->getRecordCount(); ++i) {
+                uint32_t id = iconDbc->getUInt32(i, iconL ? (*iconL)["ID"] : 0);
+                std::string path = iconDbc->getString(i, iconL ? (*iconL)["Path"] : 1);
+                if (id > 0 && !path.empty()) achievementIconPaths_[id] = std::move(path);
+            }
+        }
+    }
+
+    // Rate-limit GPU uploads per frame to avoid a stall when the list first scrolls
+    // into view with many uncached icons; leave uncached (do NOT store null) so a
+    // later frame retries.
+    static int achLoadsThisFrame = 0;
+    static int achLastFrame = -1;
+    int curFrame = ImGui::GetFrameCount();
+    if (curFrame != achLastFrame) { achLoadsThisFrame = 0; achLastFrame = curFrame; }
+    if (achLoadsThisFrame >= 6) return VK_NULL_HANDLE;
+
+    auto pit = achievementIconPaths_.find(spellIconId);
+    if (pit == achievementIconPaths_.end()) {
+        achievementIconCache_[spellIconId] = VK_NULL_HANDLE;  // no such icon — cache the miss
+        return VK_NULL_HANDLE;
+    }
+
+    auto blpData = am->readFile(pit->second + ".blp");
+    if (blpData.empty()) { achievementIconCache_[spellIconId] = VK_NULL_HANDLE; return VK_NULL_HANDLE; }
+    auto image = pipeline::BLPLoader::load(blpData);
+    if (!image.isValid()) { achievementIconCache_[spellIconId] = VK_NULL_HANDLE; return VK_NULL_HANDLE; }
+
+    auto* window = services_.window;
+    auto* vkCtx = window ? window->getVkContext() : nullptr;
+    if (!vkCtx) return VK_NULL_HANDLE;  // no context yet — retry next frame
+
+    ++achLoadsThisFrame;
+    VkDescriptorSet ds = vkCtx->uploadImGuiTexture(image.data.data(), image.width, image.height);
+    achievementIconCache_[spellIconId] = ds;
+    return ds;
+}
+
 // ─── Achievement Window ───────────────────────────────────────────────────────
 void WindowManager::renderAchievementWindow(game::GameHandler& gameHandler) {
     if (!showAchievementWindow_) return;
@@ -4507,9 +4564,39 @@ void WindowManager::renderAchievementWindow(game::GameHandler& gameHandler) {
                         if (lower.find(filter) == std::string::npos) continue;
                     }
                     ImGui::PushID(static_cast<int>(id));
-                    ImGui::TextColored(colors::kBrightGold, "\xE2\x98\x85");
+                    constexpr float kAchIcon = 32.0f;
+
+                    ImGui::BeginGroup();
+                    ImVec2 iconPos = ImGui::GetCursorScreenPos();
+                    ImDrawList* dl = ImGui::GetWindowDrawList();
+                    VkDescriptorSet tex = getAchievementIcon(gameHandler.getAchievementIconId(id));
+                    if (tex) {
+                        ImGui::Image((ImTextureID)(uintptr_t)tex, ImVec2(kAchIcon, kAchIcon));
+                    } else {
+                        // Icon not resolved (still loading or absent): keep the gold star as a
+                        // placeholder in a matching box so the row layout stays stable.
+                        ImGui::Dummy(ImVec2(kAchIcon, kAchIcon));
+                        dl->AddRectFilled(iconPos, ImVec2(iconPos.x + kAchIcon, iconPos.y + kAchIcon),
+                                          IM_COL32(40, 36, 20, 200));
+                        const char* star = "\xE2\x98\x85";
+                        ImVec2 ts = ImGui::CalcTextSize(star);
+                        dl->AddText(ImVec2(iconPos.x + (kAchIcon - ts.x) * 0.5f,
+                                           iconPos.y + (kAchIcon - ts.y) * 0.5f),
+                                    IM_COL32(230, 200, 90, 255), star);
+                    }
+                    // Gilded border around the achievement icon.
+                    dl->AddRect(iconPos, ImVec2(iconPos.x + kAchIcon, iconPos.y + kAchIcon),
+                                IM_COL32(200, 170, 70, 255), 3.0f, 0, 1.5f);
+
                     ImGui::SameLine();
+                    ImGui::BeginGroup();
                     ImGui::TextUnformatted(display.c_str());
+                    uint32_t rowPts = gameHandler.getAchievementPoints(id);
+                    if (rowPts > 0)
+                        ImGui::TextColored(colors::kBrightGold, "%u Points", rowPts);
+                    ImGui::EndGroup();
+                    ImGui::EndGroup();
+
                     if (ImGui::IsItemHovered()) {
                         ImGui::BeginTooltip();
                         // Points badge
@@ -4542,6 +4629,7 @@ void WindowManager::renderAchievementWindow(game::GameHandler& gameHandler) {
                         ImGui::EndTooltip();
                     }
                     ImGui::PopID();
+                    ImGui::Spacing();
                 }
                 ImGui::EndChild();
             }
