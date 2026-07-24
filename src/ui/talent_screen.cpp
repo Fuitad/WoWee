@@ -11,6 +11,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <cstdio>
+#include <climits>
 
 namespace wowee { namespace ui {
 
@@ -547,7 +549,7 @@ void TalentScreen::renderTalent(game::GameHandler& gameHandler,
 
         // Current rank description
         if (currentRank > 0 && currentRank <= 5 && talent.rankSpells[currentRank - 1] != 0) {
-            std::string desc = describeRankSpell(talent.rankSpells[currentRank - 1]);
+            std::string desc = describeRankSpell(gameHandler, talent.rankSpells[currentRank - 1]);
             if (!desc.empty()) {
                 ImGui::Spacing();
                 ImGui::TextColored(ui::colors::kTooltipGold, "Current:");
@@ -557,7 +559,7 @@ void TalentScreen::renderTalent(game::GameHandler& gameHandler,
 
         // Next rank description
         if (currentRank < talent.maxRank && currentRank < 5 && talent.rankSpells[currentRank] != 0) {
-            std::string desc = describeRankSpell(talent.rankSpells[currentRank]);
+            std::string desc = describeRankSpell(gameHandler, talent.rankSpells[currentRank]);
             if (!desc.empty()) {
                 ImGui::Spacing();
                 ImGui::TextColored(ui::colors::kBrightGreen,
@@ -633,7 +635,6 @@ void TalentScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
     uint32_t fieldCount = dbc->getFieldCount();
     uint32_t idField = 0, iconField = 133, tooltipField = 139;
     uint32_t descField = 0xFFFFFFFF;
-    uint32_t ebpField[3] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
     if (spellL) {
         try {
             uint32_t layoutId = (*spellL)["ID"];
@@ -650,11 +651,6 @@ void TalentScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
         // Description is the full "what it does" text; may be absent on older layouts.
         uint32_t f = spellL->field("Description");
         if (f != 0xFFFFFFFF && f < fieldCount) descField = f;
-        const char* ebpKeys[3] = {"EffectBasePoints0", "EffectBasePoints1", "EffectBasePoints2"};
-        for (int e = 0; e < 3; ++e) {
-            uint32_t bf = spellL->field(ebpKeys[e]);
-            if (bf != 0xFFFFFFFF && bf < fieldCount) ebpField[e] = bf;
-        }
     }
     uint32_t count = dbc->getRecordCount();
     for (uint32_t i = 0; i < count; ++i) {
@@ -672,20 +668,34 @@ void TalentScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
             std::string desc = dbc->getString(i, descField);
             if (!desc.empty()) spellDescriptions[spellId] = std::move(desc);
         }
-        // Base points are stored as (value - 1); the displayed magnitude is value + 1.
-        std::array<int32_t, 3> bp{0, 0, 0};
-        bool anyBp = false;
-        for (int e = 0; e < 3; ++e) {
-            if (ebpField[e] == 0xFFFFFFFF) continue;
-            int32_t raw = static_cast<int32_t>(dbc->getUInt32(i, ebpField[e]));
-            bp[e] = raw + 1;
-            anyBp = true;
-        }
-        if (anyBp) spellBasePoints[spellId] = bp;
     }
 }
 
-std::string TalentScreen::describeRankSpell(uint32_t spellId) const {
+namespace {
+// Format a duration in seconds the way WoW tooltips do: "12 sec", "5 min", "1 hour".
+std::string formatDurationSec(float sec) {
+    if (sec <= 0.0f) return {};
+    auto trim = [](float v) {
+        char buf[32];
+        if (v == static_cast<float>(static_cast<long>(v)))
+            snprintf(buf, sizeof(buf), "%ld", static_cast<long>(v));
+        else
+            snprintf(buf, sizeof(buf), "%.1f", v);
+        return std::string(buf);
+    };
+    if (sec >= 3600.0f && std::fmod(sec, 3600.0f) == 0.0f) {
+        float h = sec / 3600.0f;
+        return trim(h) + (h == 1.0f ? " hour" : " hours");
+    }
+    if (sec >= 60.0f) {
+        float m = sec / 60.0f;
+        return trim(m) + " min";
+    }
+    return trim(sec) + " sec";
+}
+} // namespace
+
+std::string TalentScreen::describeRankSpell(game::GameHandler& gameHandler, uint32_t spellId) const {
     // Prefer the full description; fall back to the short tooltip text.
     std::string text;
     auto dIt = spellDescriptions.find(spellId);
@@ -695,32 +705,108 @@ std::string TalentScreen::describeRankSpell(uint32_t spellId) const {
         if (tIt != spellTooltips.end()) text = tIt->second;
     }
     if (text.empty()) return text;
+    return formatSpellDescription(gameHandler, spellId, text);
+}
 
-    // Substitute the common magnitude tokens ($s1/$s2/$s3 and their $o over-time siblings)
-    // with the spell's effect base points, so "increases by $s1%" reads "increases by 5%".
-    // Other tokens ($d duration, $tN period) are left intact — they need SpellDuration data.
-    std::array<int32_t, 3> bp{0, 0, 0};
-    auto bIt = spellBasePoints.find(spellId);
-    if (bIt != spellBasePoints.end()) bp = bIt->second;
-
+std::string TalentScreen::formatSpellDescription(game::GameHandler& gameHandler,
+                                                 uint32_t selfSpellId,
+                                                 const std::string& raw) const {
     std::string out;
-    out.reserve(text.size());
-    for (size_t i = 0; i < text.size(); ++i) {
-        char c = text[i];
-        if (c == '$' && i + 2 < text.size()) {
-            char kind = text[i + 1];
-            char idx = text[i + 2];
-            if ((kind == 's' || kind == 'S' || kind == 'o' || kind == 'O') &&
-                idx >= '1' && idx <= '3') {
-                int e = idx - '1';
-                out += std::to_string(std::abs(bp[e]));
-                i += 2; // consume kind + index
+    out.reserve(raw.size());
+    const size_t n = raw.size();
+    long lastValue = -1;  // drives $l plural selection
+
+    // Resolve a base-point magnitude ($s/$o/$m/$M) for a spell + effect index.
+    auto basePoints = [&](uint32_t sid, int idx) -> long {
+        const int32_t* bp = gameHandler.getSpellEffectBasePoints(sid);
+        if (!bp || idx < 0 || idx > 2) return LONG_MIN;
+        return std::labs(static_cast<long>(bp[idx]) + 1);  // stored as value-1
+    };
+
+    for (size_t i = 0; i < n; ) {
+        char c = raw[i];
+        if (c != '$') { out += c; ++i; continue; }
+        if (i + 1 >= n) { out += c; ++i; continue; }
+
+        char next = raw[i + 1];
+
+        // Plural "$lsingular:plural;" / gender "$gmale:female;" — emit one branch.
+        if (next == 'l' || next == 'L' || next == 'g' || next == 'G') {
+            size_t semi = raw.find(';', i + 2);
+            if (semi != std::string::npos) {
+                std::string body = raw.substr(i + 2, semi - (i + 2));
+                size_t colon = body.find(':');
+                std::string a = (colon == std::string::npos) ? body : body.substr(0, colon);
+                std::string b = (colon == std::string::npos) ? body : body.substr(colon + 1);
+                bool plural = (next == 'l' || next == 'L') ? (lastValue != 1) : false;
+                out += plural ? b : a;
+                i = semi + 1;
                 continue;
             }
         }
-        out += c;
+
+        // Bracketed math expression "${...}" — can't evaluate; strip it (and a trailing %).
+        if (next == '{') {
+            size_t close = raw.find('}', i + 2);
+            if (close != std::string::npos) {
+                i = close + 1;
+                if (i < n && raw[i] == '%') ++i;
+                continue;
+            }
+        }
+
+        // General token: $ [spellId] letter [effectIndex]
+        size_t j = i + 1;
+        uint32_t refId = 0;
+        bool hasRef = false;
+        while (j < n && raw[j] >= '0' && raw[j] <= '9') {
+            refId = refId * 10 + static_cast<uint32_t>(raw[j] - '0');
+            hasRef = true;
+            ++j;
+        }
+        if (j >= n) { out += c; ++i; continue; }
+        char code = raw[j++];
+        int idx = 0;
+        if (j < n && raw[j] >= '1' && raw[j] <= '3') { idx = raw[j] - '1'; ++j; }
+        uint32_t target = hasRef ? refId : selfSpellId;
+
+        bool resolved = false;
+        switch (code) {
+            case 's': case 'S': case 'o': case 'O':
+            case 'm': case 'M': {
+                long v = basePoints(target, idx);
+                if (v != LONG_MIN) { out += std::to_string(v); lastValue = v; resolved = true; }
+                break;
+            }
+            case 'd': {
+                std::string dur = formatDurationSec(gameHandler.getSpellDuration(target));
+                if (!dur.empty()) { out += dur; resolved = true; }
+                break;
+            }
+            default: break;  // $h proc chance, $t period, $a radius, ... — not resolvable here
+        }
+
+        if (resolved) {
+            i = j;
+        } else {
+            // Drop the whole token; if it was a value slot immediately followed by '%',
+            // drop that too so we don't leave a dangling "%".
+            i = j;
+            if (i < n && raw[i] == '%') ++i;
+        }
     }
-    return out;
+
+    // Collapse whitespace left behind by stripped tokens ("a  chance" -> "a chance").
+    std::string cleaned;
+    cleaned.reserve(out.size());
+    bool prevSpace = false;
+    for (char c : out) {
+        bool isSpace = (c == ' ');
+        if (isSpace && prevSpace) continue;
+        cleaned += c;
+        prevSpace = isSpace;
+    }
+    return cleaned;
 }
 
 void TalentScreen::loadSpellIconDBC(pipeline::AssetManager* assetManager) {

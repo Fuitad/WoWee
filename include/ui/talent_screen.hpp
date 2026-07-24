@@ -46,14 +46,16 @@ private:
     std::unordered_map<uint32_t, VkDescriptorSet> spellIconCache;  // iconId -> texture
     std::unordered_map<uint32_t, std::string> spellTooltips;   // spellId -> short tooltip text
     std::unordered_map<uint32_t, std::string> spellDescriptions;  // spellId -> full effect description
-    // Effect base points per rank spell, used to substitute $s1/$s2/$s3 (and $o..) tokens
-    // in descriptions with the concrete magnitude the talent grants at that rank.
-    std::unordered_map<uint32_t, std::array<int32_t, 3>> spellBasePoints;
     std::unordered_map<uint32_t, VkDescriptorSet> bgTextureCache_;  // tabId -> bg texture
 
-    // Resolve a spell's description with $sN/$oN magnitude tokens substituted; falls back
-    // to the short tooltip, then to an empty string. Returns the display-ready text.
-    std::string describeRankSpell(uint32_t spellId) const;
+    // Resolve a rank spell's description into display-ready text: prefers the full
+    // Description, falls back to the short tooltip, then substitutes WoW's $-tokens.
+    std::string describeRankSpell(game::GameHandler& gameHandler, uint32_t spellId) const;
+    // Substitute WoW description tokens ($s/$o/$m/$M base points, $d durations — including
+    // cross-spell $<id> references — plus $l/$g plural/gender forms) using live spell data;
+    // unresolved tokens ($h proc chance, $t period, ...) are stripped cleanly.
+    std::string formatSpellDescription(game::GameHandler& gameHandler, uint32_t selfSpellId,
+                                       const std::string& raw) const;
 
     // Talent learn confirmation
     bool talentConfirmOpen_ = false;

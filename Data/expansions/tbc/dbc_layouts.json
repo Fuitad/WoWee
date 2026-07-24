@@ -228,10 +228,10 @@
     "Name": 127,
     "PowerType": 35,
     "RangeIndex": 40,
-    "Rank": 136,
+    "Rank": 144,
     "SchoolMask": 215,
     "SpellVisualID": 122,
-    "Tooltip": 154
+    "Tooltip": 178
   },
   "SpellIcon": {
     "ID": 0,
