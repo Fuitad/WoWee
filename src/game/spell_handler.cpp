@@ -635,10 +635,18 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
         return;
     }
 
-    // Casting any spell while mounted → dismount instead
+    // Casting any spell while mounted → dismount first, then cast (retail
+    // behavior: the mount is a cancellable aura that a cast removes). Exception:
+    // while actively flying (airborne on a flying mount) retail blocks the cast
+    // entirely rather than dropping the player out of the sky, so bail there.
+    // dismount() clears the local mount state synchronously, so control falls
+    // through and the cast is sent from the ground in the same action.
     if (owner_.isMounted()) {
+        if (owner_.isPlayerFlying()) {
+            owner_.addUIError("You can't do that while flying.");
+            return;
+        }
         owner_.dismount();
-        return;
     }
 
     if (casting_) {
@@ -848,14 +856,15 @@ void SpellHandler::cancelCast() {
 }
 
 void SpellHandler::startCraftQueue(uint32_t spellId, int count) {
-    // Crafting while mounted must dismount first, then craft — matching retail.
-    // castSpell() bails out early when mounted (dismount-instead-of-cast), so
-    // dismount here BEFORE populating the queue. dismount() clears the local
-    // mount state synchronously, so the castSpell() below sees isMounted()==false
-    // and actually sends the cast. Without this, the queue was left populated
-    // with no cast in flight, freezing the crafting UI on "Crafting... N
-    // remaining" until the player manually mounted and dismounted again.
-    if (owner_.isMounted()) owner_.dismount();
+    // castSpell() dismounts a ground mount and then casts, so crafting while
+    // mounted just works. But while airborne on a flying mount it blocks the
+    // cast — guard that here too so we don't populate the queue with a cast
+    // that will never fire (which would freeze the crafting UI on
+    // "Crafting... N remaining").
+    if (owner_.isMounted() && owner_.isPlayerFlying()) {
+        owner_.addUIError("You can't do that while flying.");
+        return;
+    }
     craftQueueSpellId_ = spellId;
     craftQueueRemaining_ = count;
     castSpell(spellId, 0);
