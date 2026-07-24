@@ -1788,6 +1788,7 @@ public:
     static constexpr uint8_t FACTION_FLAG_HIDDEN      = 0x04; // never shown
     static constexpr uint8_t FACTION_FLAG_INVISIBLE_FORCED = 0x08;
     static constexpr uint8_t FACTION_FLAG_PEACE_FORCED     = 0x10;
+    static constexpr uint8_t FACTION_FLAG_INACTIVE         = 0x20; // moved to the inactive list
 
     const std::vector<FactionStandingInit>& getInitialFactions() const { return initialFactions_; }
     const std::unordered_map<uint32_t, int32_t>& getFactionStandings() const { return factionStandings_; }
@@ -1804,6 +1805,16 @@ public:
         if (f & FACTION_FLAG_HIDDEN) return false;
         if (f & FACTION_FLAG_INVISIBLE_FORCED) return false;
         return (f & FACTION_FLAG_VISIBLE) != 0;
+    }
+    // Returns true if the faction has been set inactive (hidden from the active list)
+    bool isFactionInactive(uint32_t repListId) const {
+        if (repListId >= initialFactions_.size()) return false;
+        return (initialFactions_[repListId].flags & FACTION_FLAG_INACTIVE) != 0;
+    }
+    // Returns true if war cannot be declared on this faction (peace forced by the server)
+    bool isFactionPeaceForced(uint32_t repListId) const {
+        if (repListId >= initialFactions_.size()) return false;
+        return (initialFactions_[repListId].flags & FACTION_FLAG_PEACE_FORCED) != 0;
     }
     // Returns the faction ID for a given repListId (0 if unknown)
     uint32_t getFactionIdByRepListId(uint32_t repListId) const;
@@ -1832,6 +1843,11 @@ public:
     const std::string& getFactionNamePublic(uint32_t factionId) const;
     uint32_t getWatchedFactionId() const { return watchedFactionId_; }
     void setWatchedFactionId(uint32_t factionId);
+    // Declare war / make peace with a faction (CMSG_SET_FACTION_ATWAR). No-op on
+    // peace-forced factions. Updates the local flag optimistically.
+    void setFactionAtWar(uint32_t repListId, bool atWar);
+    // Move a faction to / from the inactive list (CMSG_SET_FACTION_INACTIVE).
+    void setFactionInactive(uint32_t repListId, bool inactive);
     uint32_t getLastContactListMask() const { return lastContactListMask_; }
     uint32_t getLastContactListCount() const { return lastContactListCount_; }
     bool isServerMovementAllowed() const;

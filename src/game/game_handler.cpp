@@ -2186,6 +2186,36 @@ void GameHandler::setWatchedFactionId(uint32_t factionId) {
     LOG_DEBUG("CMSG_SET_WATCHED_FACTION: repListId=", repListId, " (factionId=", factionId, ")");
 }
 
+void GameHandler::setFactionAtWar(uint32_t repListId, bool atWar) {
+    if (repListId >= initialFactions_.size()) return;
+    // The server forbids declaring war on some factions; don't fight the flag.
+    if (atWar && isFactionPeaceForced(repListId)) return;
+    // Optimistic local update; the server echoes SMSG_SET_FACTION_ATWAR to confirm.
+    if (atWar) initialFactions_[repListId].flags |=  FACTION_FLAG_AT_WAR;
+    else       initialFactions_[repListId].flags &= ~FACTION_FLAG_AT_WAR;
+    if (!isInWorld() || !socket) return;
+    // CMSG_SET_FACTION_ATWAR: uint32 repListId + uint8 flag
+    network::Packet pkt(wireOpcode(Opcode::CMSG_SET_FACTION_ATWAR));
+    pkt.writeUInt32(repListId);
+    pkt.writeUInt8(atWar ? 1u : 0u);
+    socket->send(pkt);
+    LOG_DEBUG("CMSG_SET_FACTION_ATWAR: repListId=", repListId, " atWar=", atWar);
+}
+
+void GameHandler::setFactionInactive(uint32_t repListId, bool inactive) {
+    if (repListId >= initialFactions_.size()) return;
+    // No SMSG confirmation is sent for inactive, so update the local flag directly.
+    if (inactive) initialFactions_[repListId].flags |=  FACTION_FLAG_INACTIVE;
+    else          initialFactions_[repListId].flags &= ~FACTION_FLAG_INACTIVE;
+    if (!isInWorld() || !socket) return;
+    // CMSG_SET_FACTION_INACTIVE: uint32 repListId + uint8 flag
+    network::Packet pkt(wireOpcode(Opcode::CMSG_SET_FACTION_INACTIVE));
+    pkt.writeUInt32(repListId);
+    pkt.writeUInt8(inactive ? 1u : 0u);
+    socket->send(pkt);
+    LOG_DEBUG("CMSG_SET_FACTION_INACTIVE: repListId=", repListId, " inactive=", inactive);
+}
+
 std::string GameHandler::getFactionName(uint32_t factionId) const {
     auto it = factionNameCache_.find(factionId);
     if (it != factionNameCache_.end()) return it->second;

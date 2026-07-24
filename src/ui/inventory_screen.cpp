@@ -2034,6 +2034,28 @@ void InventoryScreen::renderReputationPanel(game::GameHandler& gameHandler) {
         return tiers[0];
     };
 
+    // --- Reputation controls ---
+    // "Show inactive" reveals factions the player has parked on the inactive list.
+    static bool showInactiveFactions = false;
+    ImGui::Checkbox("Show inactive", &showInactiveFactions);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Right-click a faction to track it on the reputation bar,\n"
+                          "declare war / make peace, or set it inactive.");
+    }
+    // Count how many factions are currently parked as inactive.
+    uint32_t inactiveCount = 0;
+    for (const auto& [fid, st] : standings) {
+        uint32_t rl = gameHandler.getRepListIdByFactionId(fid);
+        if (rl != 0xFFFFFFFFu && gameHandler.isFactionInactive(rl)) ++inactiveCount;
+    }
+    if (inactiveCount > 0 && !showInactiveFactions) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("%u inactive hidden", inactiveCount);
+    }
+    ImGui::Separator();
+
     ImGui::BeginChild("##ReputationList", ImVec2(0, 0), true);
 
     // Sort: watched faction first, then alphabetically by name
@@ -2054,12 +2076,20 @@ void InventoryScreen::renderReputationPanel(game::GameHandler& gameHandler) {
         const std::string& factionName = gameHandler.getFactionNamePublic(factionId);
         const char* displayName = factionName.empty() ? "Unknown Faction" : factionName.c_str();
 
-        // Determine at-war status via repListId lookup
+        // Determine at-war / inactive status via repListId lookup
         uint32_t repListId = gameHandler.getRepListIdByFactionId(factionId);
-        bool atWar = (repListId != 0xFFFFFFFFu) && gameHandler.isFactionAtWar(repListId);
+        bool hasRepList = (repListId != 0xFFFFFFFFu);
+        bool atWar = hasRepList && gameHandler.isFactionAtWar(repListId);
+        bool inactive = hasRepList && gameHandler.isFactionInactive(repListId);
+        bool peaceForced = hasRepList && gameHandler.isFactionPeaceForced(repListId);
         bool isWatched = (factionId == watchedFactionId);
 
+        // Hide inactive factions unless the player opted to show them.
+        if (inactive && !showInactiveFactions) continue;
+
         ImGui::PushID(static_cast<int>(factionId));
+        // Dim inactive rows so they read as parked when shown.
+        if (inactive) ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
 
         // Faction name + tier label on same line; mark at-war and watched factions
         ImGui::TextColored(tier.color, "[%s]", tier.name);
@@ -2108,9 +2138,25 @@ void InventoryScreen::renderReputationPanel(game::GameHandler& gameHandler) {
                 if (ImGui::MenuItem("Track on Rep Bar"))
                     gameHandler.setWatchedFactionId(factionId);
             }
+            if (hasRepList) {
+                ImGui::Separator();
+                // War / peace toggle — disabled when the server forces peace.
+                if (peaceForced) {
+                    ImGui::BeginDisabled();
+                    ImGui::MenuItem("At War", nullptr, false);
+                    ImGui::EndDisabled();
+                } else if (ImGui::MenuItem("At War", nullptr, atWar)) {
+                    gameHandler.setFactionAtWar(repListId, !atWar);
+                }
+                // Inactive toggle — parks the faction out of the active list.
+                if (ImGui::MenuItem("Inactive", nullptr, inactive)) {
+                    gameHandler.setFactionInactive(repListId, !inactive);
+                }
+            }
             ImGui::EndPopup();
         }
 
+        if (inactive) ImGui::PopStyleVar();
         ImGui::Spacing();
         ImGui::PopID();
     }
