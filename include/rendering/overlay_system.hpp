@@ -39,11 +39,6 @@ public:
     // Fullscreen color overlay (underwater tint, etc.)
     void renderOverlay(const glm::vec4& color, VkCommandBuffer cmd);
 
-    // Fullscreen multiplicative brightness scale (scene.rgb *= scale). Uses a
-    // dst-color blend so brightness > 1 truly scales luminance instead of
-    // lerping toward white (which washed everything out). scale > 1 only.
-    void renderBrightnessScale(float scale, VkCommandBuffer cmd);
-
     /// Destroy all Vulkan resources (called before VkContext teardown).
     void cleanup();
 
@@ -53,7 +48,6 @@ public:
 private:
     void initSelectionCircle();
     void initOverlayPipeline();
-    void initBrightnessPipeline();
 
     VkContext* vkCtx_ = nullptr;
 
@@ -80,8 +74,6 @@ private:
     // Fullscreen overlay resources
     VkPipeline overlayPipeline_ = VK_NULL_HANDLE;
     VkPipelineLayout overlayPipelineLayout_ = VK_NULL_HANDLE;
-    // Multiplicative brightness pipeline (shares overlayPipelineLayout_).
-    VkPipeline brightnessPipeline_ = VK_NULL_HANDLE;
 };
 
 } // namespace rendering
