@@ -155,6 +155,7 @@ public:
     uint32_t vendorConfirmPrice_ = 0;
     std::string vendorConfirmItemName_;
     bool vendorBagsOpened_ = false;
+    bool guildBankBagsOpened_ = false;
 
     // Barber shop
     struct BarberStyleOption {

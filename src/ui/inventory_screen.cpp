@@ -2998,6 +2998,10 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
                 gameHandler_->depositItem(0xFF, static_cast<uint8_t>(23 + backpackIndex));
             } else if (gameHandler_->isBankOpen() && kind == SlotKind::BACKPACK && isBagSlot) {
                 gameHandler_->depositItem(static_cast<uint8_t>(19 + bagIndex), static_cast<uint8_t>(bagSlotIndex));
+            } else if (gameHandler_->isGuildBankOpen() && kind == SlotKind::BACKPACK && backpackIndex >= 0) {
+                gameHandler_->guildBankDepositFromInventory(0xFF, static_cast<uint8_t>(23 + backpackIndex));
+            } else if (gameHandler_->isGuildBankOpen() && kind == SlotKind::BACKPACK && isBagSlot) {
+                gameHandler_->guildBankDepositFromInventory(static_cast<uint8_t>(19 + bagIndex), static_cast<uint8_t>(bagSlotIndex));
             } else if (vendorMode_ && kind == SlotKind::BACKPACK && backpackIndex >= 0) {
                 gameHandler_->sellItemBySlot(backpackIndex);
             } else if (vendorMode_ && kind == SlotKind::BACKPACK && isBagSlot) {

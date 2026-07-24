@@ -579,6 +579,21 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         windowManager_.vendorBagsOpened_ = false;
     }
 
+    // Auto-open bags once when the guild bank first opens, so items can be
+    // right-clicked to deposit into the vault.
+    if (gameHandler.isGuildBankOpen()) {
+        if (!windowManager_.guildBankBagsOpened_) {
+            windowManager_.guildBankBagsOpened_ = true;
+            if (inventoryScreen.isSeparateBags()) {
+                inventoryScreen.openAllBags();
+            } else if (!inventoryScreen.isOpen()) {
+                inventoryScreen.setOpen(true);
+            }
+        }
+    } else {
+        windowManager_.guildBankBagsOpened_ = false;
+    }
+
     inventoryScreen.setGameHandler(&gameHandler);
     inventoryScreen.render(gameHandler.getInventory(), gameHandler.getMoneyCopper());
 
@@ -1105,6 +1120,8 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 gameHandler.closeBarberShop();
             } else if (gameHandler.isBankOpen()) {
                 gameHandler.closeBank();
+            } else if (gameHandler.isGuildBankOpen()) {
+                gameHandler.closeGuildBank();
             } else if (gameHandler.isTrainerWindowOpen()) {
                 gameHandler.closeTrainer();
             } else if (gameHandler.isMailboxOpen()) {

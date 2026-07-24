@@ -3601,6 +3601,9 @@ void WindowManager::renderGuildBankWindow(game::GameHandler& gameHandler,
         ImGui::PopID();
     }
 
+    ImGui::Spacing();
+    ImGui::TextDisabled("Left-click a slot to withdraw. Right-click a bag item to deposit.");
+
     // Money deposit/withdraw
     ImGui::Separator();
     ImGui::Text("Money:");

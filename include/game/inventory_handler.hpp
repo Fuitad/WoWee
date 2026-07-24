@@ -211,6 +211,8 @@ public:
     void withdrawGuildBankMoney(uint32_t amount);
     void guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, uint8_t destBag, uint8_t destSlot);
     void guildBankDepositItem(uint8_t tabId, uint8_t bankSlot, uint8_t srcBag, uint8_t srcSlot);
+    // Deposit an inventory item into the first free slot of the viewed tab.
+    void guildBankDepositFromInventory(uint8_t srcBag, uint8_t srcSlot);
     bool isGuildBankOpen() const { return guildBankOpen_; }
     const GuildBankData& getGuildBankData() const { return guildBankData_; }
     uint8_t getGuildBankActiveTab() const { return guildBankActiveTab_; }
