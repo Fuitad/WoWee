@@ -785,12 +785,27 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
             int32_t capeRecIdx = displayInfoDbc->findRecordById(capeDid);
             if (capeRecIdx >= 0) {
                 const uint32_t leftTexField = idiL ? (*idiL)["LeftModelTexture"] : 3u;
-                std::string capeName = displayInfoDbc->getString(
+                // RightModelTexture is the field right after LeftModelTexture.
+                // Some cloaks (e.g. Jaina's Radiance) carry their texture only in
+                // the right field; the character-preview screen checks both, so
+                // match it here — otherwise the world model shows the cape mesh
+                // untextured even though the paperdoll preview looks correct.
+                const uint32_t rightTexField = leftTexField + 1;
+                std::string leftName = displayInfoDbc->getString(
                     static_cast<uint32_t>(capeRecIdx), leftTexField);
+                std::string rightName = displayInfoDbc->getString(
+                    static_cast<uint32_t>(capeRecIdx), rightTexField);
 
-                if (!capeName.empty()) {
-                    std::replace(capeName.begin(), capeName.end(), '/', '\\');
+                std::vector<std::string> capeNames;
+                auto addCapeName = [&](const std::string& n) {
+                    if (!n.empty() &&
+                        std::find(capeNames.begin(), capeNames.end(), n) == capeNames.end())
+                        capeNames.push_back(n);
+                };
+                if (st.genderId == 1) { addCapeName(rightName); addCapeName(leftName); }
+                else                  { addCapeName(leftName);  addCapeName(rightName); }
 
+                if (!capeNames.empty()) {
                     auto hasBlpExt = [](const std::string& p) {
                         if (p.size() < 4) return false;
                         std::string ext = p.substr(p.size() - 4);
@@ -798,9 +813,6 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
                                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
                         return ext == ".blp";
                     };
-
-                    const bool hasDir = (capeName.find('\\') != std::string::npos);
-                    const bool hasExt = hasBlpExt(capeName);
 
                     std::vector<std::string> capeCandidates;
                     auto addCapeCandidate = [&](const std::string& p) {
@@ -810,23 +822,28 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
                         }
                     };
 
-                    if (hasDir) {
-                        if (hasExt) addCapeCandidate(capeName);
-                        else addCapeCandidate(capeName + ".blp");
-                    } else {
-                        std::string baseObj = "Item\\ObjectComponents\\Cape\\" + capeName;
-                        std::string baseTex = "Item\\TextureComponents\\Cape\\" + capeName;
-                        if (hasExt) {
-                            addCapeCandidate(baseObj);
-                            addCapeCandidate(baseTex);
+                    for (std::string capeName : capeNames) {
+                        std::replace(capeName.begin(), capeName.end(), '/', '\\');
+                        const bool hasDir = (capeName.find('\\') != std::string::npos);
+                        const bool hasExt = hasBlpExt(capeName);
+                        if (hasDir) {
+                            if (hasExt) addCapeCandidate(capeName);
+                            else addCapeCandidate(capeName + ".blp");
                         } else {
-                            addCapeCandidate(baseObj + ".blp");
-                            addCapeCandidate(baseTex + ".blp");
+                            std::string baseObj = "Item\\ObjectComponents\\Cape\\" + capeName;
+                            std::string baseTex = "Item\\TextureComponents\\Cape\\" + capeName;
+                            if (hasExt) {
+                                addCapeCandidate(baseObj);
+                                addCapeCandidate(baseTex);
+                            } else {
+                                addCapeCandidate(baseObj + ".blp");
+                                addCapeCandidate(baseTex + ".blp");
+                            }
+                            addCapeCandidate(baseObj + (st.genderId == 1 ? "_F.blp" : "_M.blp"));
+                            addCapeCandidate(baseObj + "_U.blp");
+                            addCapeCandidate(baseTex + (st.genderId == 1 ? "_F.blp" : "_M.blp"));
+                            addCapeCandidate(baseTex + "_U.blp");
                         }
-                        addCapeCandidate(baseObj + (st.genderId == 1 ? "_F.blp" : "_M.blp"));
-                        addCapeCandidate(baseObj + "_U.blp");
-                        addCapeCandidate(baseTex + (st.genderId == 1 ? "_F.blp" : "_M.blp"));
-                        addCapeCandidate(baseTex + "_U.blp");
                     }
 
                     const rendering::VkTexture* whiteTex = charRenderer->loadTexture("");
