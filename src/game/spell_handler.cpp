@@ -2583,6 +2583,13 @@ void SpellHandler::loadSpellNameCache() const {
         uint32_t f = spellL->field("Tooltip");
         if (f != 0xFFFFFFFF && f < dbc->getFieldCount()) tooltipField = f;
     }
+    // The full effect Description (e.g. "Restores X health over Y sec. ...become well
+    // fed...") is richer than the short Tooltip; prefer it and fall back to Tooltip.
+    uint32_t descriptionField = 0xFFFFFFFF;
+    if (spellL) {
+        uint32_t f = spellL->field("Description");
+        if (f != 0xFFFFFFFF && f < dbc->getFieldCount()) descriptionField = f;
+    }
 
     // Targets: SpellCastTargets mask the spell demands. Item-enhancement spells
     // (sharpening stones, weightstones, weapon oils) set TARGET_FLAG_ITEM here.
@@ -2621,7 +2628,10 @@ void SpellHandler::loadSpellNameCache() const {
             GameHandler::SpellNameEntry entry;
             entry.name = std::move(name);
             entry.rank = std::move(rank);
-            if (tooltipField != 0xFFFFFFFF) {
+            if (descriptionField != 0xFFFFFFFF) {
+                entry.description = dbc->getString(i, descriptionField);
+            }
+            if (entry.description.empty() && tooltipField != 0xFFFFFFFF) {
                 entry.description = dbc->getString(i, tooltipField);
             }
             if (hasSchoolMask) {

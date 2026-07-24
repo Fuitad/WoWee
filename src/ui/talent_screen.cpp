@@ -671,30 +671,6 @@ void TalentScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
     }
 }
 
-namespace {
-// Format a duration in seconds the way WoW tooltips do: "12 sec", "5 min", "1 hour".
-std::string formatDurationSec(float sec) {
-    if (sec <= 0.0f) return {};
-    auto trim = [](float v) {
-        char buf[32];
-        if (v == static_cast<float>(static_cast<long>(v)))
-            snprintf(buf, sizeof(buf), "%ld", static_cast<long>(v));
-        else
-            snprintf(buf, sizeof(buf), "%.1f", v);
-        return std::string(buf);
-    };
-    if (sec >= 3600.0f && std::fmod(sec, 3600.0f) == 0.0f) {
-        float h = sec / 3600.0f;
-        return trim(h) + (h == 1.0f ? " hour" : " hours");
-    }
-    if (sec >= 60.0f) {
-        float m = sec / 60.0f;
-        return trim(m) + " min";
-    }
-    return trim(sec) + " sec";
-}
-} // namespace
-
 std::string TalentScreen::describeRankSpell(game::GameHandler& gameHandler, uint32_t spellId) const {
     // Prefer the full description; fall back to the short tooltip text.
     std::string text;
@@ -705,108 +681,9 @@ std::string TalentScreen::describeRankSpell(game::GameHandler& gameHandler, uint
         if (tIt != spellTooltips.end()) text = tIt->second;
     }
     if (text.empty()) return text;
-    return formatSpellDescription(gameHandler, spellId, text);
-}
-
-std::string TalentScreen::formatSpellDescription(game::GameHandler& gameHandler,
-                                                 uint32_t selfSpellId,
-                                                 const std::string& raw) const {
-    std::string out;
-    out.reserve(raw.size());
-    const size_t n = raw.size();
-    long lastValue = -1;  // drives $l plural selection
-
-    // Resolve a base-point magnitude ($s/$o/$m/$M) for a spell + effect index.
-    auto basePoints = [&](uint32_t sid, int idx) -> long {
-        const int32_t* bp = gameHandler.getSpellEffectBasePoints(sid);
-        if (!bp || idx < 0 || idx > 2) return LONG_MIN;
-        return std::labs(static_cast<long>(bp[idx]) + 1);  // stored as value-1
-    };
-
-    for (size_t i = 0; i < n; ) {
-        char c = raw[i];
-        if (c != '$') { out += c; ++i; continue; }
-        if (i + 1 >= n) { out += c; ++i; continue; }
-
-        char next = raw[i + 1];
-
-        // Plural "$lsingular:plural;" / gender "$gmale:female;" — emit one branch.
-        if (next == 'l' || next == 'L' || next == 'g' || next == 'G') {
-            size_t semi = raw.find(';', i + 2);
-            if (semi != std::string::npos) {
-                std::string body = raw.substr(i + 2, semi - (i + 2));
-                size_t colon = body.find(':');
-                std::string a = (colon == std::string::npos) ? body : body.substr(0, colon);
-                std::string b = (colon == std::string::npos) ? body : body.substr(colon + 1);
-                bool plural = (next == 'l' || next == 'L') ? (lastValue != 1) : false;
-                out += plural ? b : a;
-                i = semi + 1;
-                continue;
-            }
-        }
-
-        // Bracketed math expression "${...}" — can't evaluate; strip it (and a trailing %).
-        if (next == '{') {
-            size_t close = raw.find('}', i + 2);
-            if (close != std::string::npos) {
-                i = close + 1;
-                if (i < n && raw[i] == '%') ++i;
-                continue;
-            }
-        }
-
-        // General token: $ [spellId] letter [effectIndex]
-        size_t j = i + 1;
-        uint32_t refId = 0;
-        bool hasRef = false;
-        while (j < n && raw[j] >= '0' && raw[j] <= '9') {
-            refId = refId * 10 + static_cast<uint32_t>(raw[j] - '0');
-            hasRef = true;
-            ++j;
-        }
-        if (j >= n) { out += c; ++i; continue; }
-        char code = raw[j++];
-        int idx = 0;
-        if (j < n && raw[j] >= '1' && raw[j] <= '3') { idx = raw[j] - '1'; ++j; }
-        uint32_t target = hasRef ? refId : selfSpellId;
-
-        bool resolved = false;
-        switch (code) {
-            case 's': case 'S': case 'o': case 'O':
-            case 'm': case 'M': {
-                long v = basePoints(target, idx);
-                if (v != LONG_MIN) { out += std::to_string(v); lastValue = v; resolved = true; }
-                break;
-            }
-            case 'd': {
-                std::string dur = formatDurationSec(gameHandler.getSpellDuration(target));
-                if (!dur.empty()) { out += dur; resolved = true; }
-                break;
-            }
-            default: break;  // $h proc chance, $t period, $a radius, ... — not resolvable here
-        }
-
-        if (resolved) {
-            i = j;
-        } else {
-            // Drop the whole token; if it was a value slot immediately followed by '%',
-            // drop that too so we don't leave a dangling "%".
-            i = j;
-            if (i < n && raw[i] == '%') ++i;
-        }
-    }
-
-    // Collapse whitespace left behind by stripped tokens ("a  chance" -> "a chance").
-    std::string cleaned;
-    cleaned.reserve(out.size());
-    bool prevSpace = false;
-    for (char c : out) {
-        bool isSpace = (c == ' ');
-        if (isSpace && prevSpace) continue;
-        cleaned += c;
-        prevSpace = isSpace;
-    }
-    return cleaned;
+    // Token substitution ($s/$o/$d/... incl. cross-spell refs) is shared with the
+    // spellbook and item tooltips via GameHandler.
+    return gameHandler.formatSpellDescription(spellId, text);
 }
 
 void TalentScreen::loadSpellIconDBC(pipeline::AssetManager* assetManager) {

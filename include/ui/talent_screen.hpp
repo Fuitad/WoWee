@@ -49,13 +49,9 @@ private:
     std::unordered_map<uint32_t, VkDescriptorSet> bgTextureCache_;  // tabId -> bg texture
 
     // Resolve a rank spell's description into display-ready text: prefers the full
-    // Description, falls back to the short tooltip, then substitutes WoW's $-tokens.
+    // Description, falls back to the short tooltip, then substitutes WoW's $-tokens
+    // via the shared GameHandler::formatSpellDescription.
     std::string describeRankSpell(game::GameHandler& gameHandler, uint32_t spellId) const;
-    // Substitute WoW description tokens ($s/$o/$m/$M base points, $d durations — including
-    // cross-spell $<id> references — plus $l/$g plural/gender forms) using live spell data;
-    // unresolved tokens ($h proc chance, $t period, ...) are stripped cleanly.
-    std::string formatSpellDescription(game::GameHandler& gameHandler, uint32_t selfSpellId,
-                                       const std::string& raw) const;
 
     // Talent learn confirmation
     bool talentConfirmOpen_ = false;

@@ -2245,6 +2245,11 @@ public:
     const std::string& getSpellRank(uint32_t spellId) const;
     /// Returns the tooltip/description text from Spell.dbc (empty if unknown or has no text).
     const std::string& getSpellDescription(uint32_t spellId) const;
+    /// Substitute WoW description tokens in `raw` using live spell data: $s/$o/$m/$M base
+    /// points and $d durations (incl. cross-spell $<spellId> references), plus $l/$g
+    /// plural/gender forms. Unresolvable tokens ($h proc chance, $t period) are stripped
+    /// cleanly. `selfSpellId` supplies the default source for index-only tokens like $s1.
+    std::string formatSpellDescription(uint32_t selfSpellId, const std::string& raw) const;
     // SpellFocusObject.dbc name ("Anvil", "Cooking Fire", ...) for
     // requires-spell-focus cast failures; empty if unknown.
     const std::string& getSpellFocusName(uint32_t focusId) const;

@@ -319,8 +319,9 @@ void ItemTooltipRenderer::render(
         }
         if (!triggerLabel) continue;
         const std::string& spDesc = gameHandler.getSpellDescription(sp.spellId);
-        const std::string& spText = !spDesc.empty() ? spDesc
-                                    : gameHandler.getSpellName(sp.spellId);
+        std::string spText = !spDesc.empty()
+            ? gameHandler.formatSpellDescription(sp.spellId, spDesc)
+            : gameHandler.getSpellName(sp.spellId);
         if (!spText.empty()) {
             ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 300.0f);
             ImGui::TextColored(colors::kCyan,

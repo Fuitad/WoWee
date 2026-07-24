@@ -53,6 +53,8 @@
 #include <functional>
 #include <array>
 #include <cstdlib>
+#include <cstdio>
+#include <climits>
 #include <cstring>
 #include <limits>
 #include <openssl/sha.h>
@@ -2894,6 +2896,162 @@ const std::string& GameHandler::getSpellRank(uint32_t spellId) const {
 const std::string& GameHandler::getSpellDescription(uint32_t spellId) const {
     if (spellHandler_) return spellHandler_->getSpellDescription(spellId);
     return EMPTY_STRING;
+}
+
+namespace {
+// Format a duration in seconds the way WoW tooltips do: "12 sec", "5 min", "1 hour".
+std::string formatSpellDurationSec(float sec) {
+    if (sec <= 0.0f) return {};
+    auto trim = [](float v) {
+        char buf[32];
+        if (v == static_cast<float>(static_cast<long>(v)))
+            snprintf(buf, sizeof(buf), "%ld", static_cast<long>(v));
+        else
+            snprintf(buf, sizeof(buf), "%.1f", v);
+        return std::string(buf);
+    };
+    if (sec >= 3600.0f && std::fmod(sec, 3600.0f) == 0.0f) {
+        float h = sec / 3600.0f;
+        return trim(h) + (h == 1.0f ? " hour" : " hours");
+    }
+    if (sec >= 60.0f) return trim(sec / 60.0f) + " min";
+    return trim(sec) + " sec";
+}
+} // namespace
+
+std::string GameHandler::formatSpellDescription(uint32_t selfSpellId,
+                                                const std::string& raw) const {
+    if (raw.empty()) return raw;
+
+    std::string out;
+    out.reserve(raw.size());
+    const size_t n = raw.size();
+    long lastValue = -1;  // drives $l plural selection
+
+    // Resolve a base-point magnitude ($s/$o/$m/$M) for a spell + effect index.
+    auto basePoints = [&](uint32_t sid, int idx) -> long {
+        const int32_t* bp = getSpellEffectBasePoints(sid);
+        if (!bp || idx < 0 || idx > 2) return LONG_MIN;
+        return std::labs(static_cast<long>(bp[idx]) + 1);  // stored as value-1
+    };
+
+    for (size_t i = 0; i < n; ) {
+        char c = raw[i];
+        if (c != '$') { out += c; ++i; continue; }
+        if (i + 1 >= n) { out += c; ++i; continue; }
+
+        char next = raw[i + 1];
+
+        // Plural "$lsingular:plural;" / gender "$gmale:female;" — emit one branch.
+        if (next == 'l' || next == 'L' || next == 'g' || next == 'G') {
+            size_t semi = raw.find(';', i + 2);
+            if (semi != std::string::npos) {
+                std::string body = raw.substr(i + 2, semi - (i + 2));
+                size_t colon = body.find(':');
+                std::string a = (colon == std::string::npos) ? body : body.substr(0, colon);
+                std::string b = (colon == std::string::npos) ? body : body.substr(colon + 1);
+                bool plural = (next == 'l' || next == 'L') ? (lastValue != 1) : false;
+                out += plural ? b : a;
+                i = semi + 1;
+                continue;
+            }
+        }
+
+        // Bracketed math expression "${...}" — can't evaluate; strip it (and a trailing %).
+        if (next == '{') {
+            size_t close = raw.find('}', i + 2);
+            if (close != std::string::npos) {
+                i = close + 1;
+                if (i < n && raw[i] == '%') ++i;
+                continue;
+            }
+        }
+
+        // Division token "$/N;<valueToken>" — e.g. "$/5;s1" is "s1 divided by 5"
+        // (food eat spells: "Restores $/5;s1 health per second").
+        if (next == '/') {
+            size_t k = i + 2;
+            long divisor = 0;
+            while (k < n && raw[k] >= '0' && raw[k] <= '9') { divisor = divisor * 10 + (raw[k] - '0'); ++k; }
+            if (k < n && raw[k] == ';' && divisor != 0) {
+                ++k;  // past ';'
+                uint32_t rid = 0; bool hr = false;
+                while (k < n && raw[k] >= '0' && raw[k] <= '9') { rid = rid * 10 + (raw[k] - '0'); hr = true; ++k; }
+                if (k < n) {
+                    char cd = raw[k++];
+                    int ix = 0;
+                    if (k < n && raw[k] >= '1' && raw[k] <= '3') { ix = raw[k] - '1'; ++k; }
+                    if (cd == 's' || cd == 'S' || cd == 'o' || cd == 'O' || cd == 'm' || cd == 'M') {
+                        long v = basePoints(hr ? rid : selfSpellId, ix);
+                        if (v != LONG_MIN) {
+                            long dv = v / divisor;
+                            out += std::to_string(dv);
+                            lastValue = dv;
+                            i = k;
+                            continue;
+                        }
+                    }
+                }
+            }
+            // Unparseable division token — strip through the terminating ';' if present.
+            size_t semi = raw.find(';', i + 2);
+            i = (semi != std::string::npos) ? semi + 1 : i + 2;
+            if (i < n && raw[i] == '%') ++i;
+            continue;
+        }
+
+        // General token: $ [spellId] letter [effectIndex]
+        size_t j = i + 1;
+        uint32_t refId = 0;
+        bool hasRef = false;
+        while (j < n && raw[j] >= '0' && raw[j] <= '9') {
+            refId = refId * 10 + static_cast<uint32_t>(raw[j] - '0');
+            hasRef = true;
+            ++j;
+        }
+        if (j >= n) { out += c; ++i; continue; }
+        char code = raw[j++];
+        int idx = 0;
+        if (j < n && raw[j] >= '1' && raw[j] <= '3') { idx = raw[j] - '1'; ++j; }
+        uint32_t target = hasRef ? refId : selfSpellId;
+
+        bool resolved = false;
+        switch (code) {
+            case 's': case 'S': case 'o': case 'O':
+            case 'm': case 'M': {
+                long v = basePoints(target, idx);
+                if (v != LONG_MIN) { out += std::to_string(v); lastValue = v; resolved = true; }
+                break;
+            }
+            case 'd': {
+                std::string dur = formatSpellDurationSec(getSpellDuration(target));
+                if (!dur.empty()) { out += dur; resolved = true; }
+                break;
+            }
+            default: break;  // $h proc chance, $t period, $a radius, ... — not resolvable here
+        }
+
+        if (resolved) {
+            i = j;
+        } else {
+            // Drop the whole token; a value slot immediately followed by '%' drops that too,
+            // so we don't leave a dangling "%".
+            i = j;
+            if (i < n && raw[i] == '%') ++i;
+        }
+    }
+
+    // Collapse whitespace left behind by stripped tokens ("a  chance" -> "a chance").
+    std::string cleaned;
+    cleaned.reserve(out.size());
+    bool prevSpace = false;
+    for (char c : out) {
+        bool isSpace = (c == ' ');
+        if (isSpace && prevSpace) continue;
+        cleaned += c;
+        prevSpace = isSpace;
+    }
+    return cleaned;
 }
 
 const std::string& GameHandler::getSpellFocusName(uint32_t focusId) const {

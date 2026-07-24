@@ -3309,7 +3309,9 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
                 }
                 if (!trigger) continue;
                 const std::string& spDesc = gameHandler_->getSpellDescription(sp.spellId);
-                const std::string& spText = spDesc.empty() ? gameHandler_->getSpellName(sp.spellId) : spDesc;
+                std::string spText = spDesc.empty()
+                    ? gameHandler_->getSpellName(sp.spellId)
+                    : gameHandler_->formatSpellDescription(sp.spellId, spDesc);
                 if (!spText.empty()) {
                     ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 320.0f);
                     ImGui::TextColored(ui::colors::kCyan,
@@ -3885,7 +3887,9 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
             // Prefer the spell's tooltip text (the actual effect description).
             // Fall back to the spell name if the description is empty.
             const std::string& spDesc = gameHandler_->getSpellDescription(sp.spellId);
-            const std::string& spName = spDesc.empty() ? gameHandler_->getSpellName(sp.spellId) : spDesc;
+            std::string spName = spDesc.empty()
+                ? gameHandler_->getSpellName(sp.spellId)
+                : gameHandler_->formatSpellDescription(sp.spellId, spDesc);
             if (!spName.empty()) {
                 ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 320.0f);
                 ImGui::TextColored(ui::colors::kCyan, "%s: %s", trigger, spName.c_str());

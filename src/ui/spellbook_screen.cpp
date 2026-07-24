@@ -101,6 +101,7 @@ void SpellbookScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
 
     auto tryLoad = [&](uint32_t idField, uint32_t attrField, uint32_t iconField,
                        uint32_t nameField, uint32_t rankField, uint32_t tooltipField,
+                       uint32_t descriptionField,
                        uint32_t powerTypeField, uint32_t manaCostField,
                        uint32_t castTimeIndexField, uint32_t rangeIndexField,
                        uint32_t casterAuraStateField, uint32_t casterAuraStateNotField,
@@ -118,7 +119,11 @@ void SpellbookScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
             info.iconId = dbc->getUInt32(i, iconField);
             info.name = dbc->getString(i, nameField);
             if (rankField < fc)    info.rank = dbc->getString(i, rankField);
-            if (tooltipField < fc) info.description = dbc->getString(i, tooltipField);
+            // Prefer the fuller Description (mentions e.g. the "well fed" food buff) and
+            // fall back to the short Tooltip; $-tokens are resolved at render time.
+            if (descriptionField < fc) info.description = dbc->getString(i, descriptionField);
+            if (info.description.empty() && tooltipField < fc)
+                info.description = dbc->getString(i, tooltipField);
             // Optional fields: only read if field index is valid for this DBC version
             if (powerTypeField < fc)   info.powerType = dbc->getUInt32(i, powerTypeField);
             if (manaCostField  < fc)   info.manaCost  = dbc->getUInt32(i, manaCostField);
@@ -158,6 +163,7 @@ void SpellbookScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
         // Default to UINT32_MAX for optional fields; tryLoad will skip them if >= fieldCount.
         // Avoids reading wrong data from expansion DBCs that lack these fields (e.g. Classic/TBC).
         uint32_t tooltipField      = UINT32_MAX;
+        uint32_t descriptionField  = UINT32_MAX;
         uint32_t powerTypeField    = UINT32_MAX;
         uint32_t manaCostField     = UINT32_MAX;
         uint32_t castTimeIdxField  = UINT32_MAX;
@@ -165,6 +171,7 @@ void SpellbookScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
         uint32_t casterAuraStateField = UINT32_MAX;
         uint32_t casterAuraStateNotField = UINT32_MAX;
         try { tooltipField     = (*spellL)["Tooltip"]; } catch (...) {}
+        try { descriptionField = (*spellL)["Description"]; } catch (...) {}
         try { powerTypeField   = (*spellL)["PowerType"]; } catch (...) {}
         try { manaCostField    = (*spellL)["ManaCost"]; } catch (...) {}
         try { castTimeIdxField = (*spellL)["CastingTimeIndex"]; } catch (...) {}
@@ -179,7 +186,7 @@ void SpellbookScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
             try { schoolField_ = (*spellL)["SchoolEnum"]; isSchoolEnum_ = true; } catch (...) {}
         }
         tryLoad((*spellL)["ID"], (*spellL)["Attributes"], (*spellL)["IconID"],
-                (*spellL)["Name"], (*spellL)["Rank"], tooltipField,
+                (*spellL)["Name"], (*spellL)["Rank"], tooltipField, descriptionField,
                 powerTypeField, manaCostField, castTimeIdxField, rangeIdxField,
                 casterAuraStateField, casterAuraStateNotField,
                 "expansion layout");
@@ -192,7 +199,7 @@ void SpellbookScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
         LOG_INFO("Spellbook: Retrying with WotLK field indices (DBC has ", fieldCount, " fields)");
         schoolField_  = 225;
         isSchoolEnum_ = false;
-        tryLoad(0, 4, 133, 136, 153, 139, 41, 42, 28, 46, 20, 22, "WotLK fallback");
+        tryLoad(0, 4, 133, 136, 153, 187, 170, 41, 42, 28, 46, 20, 22, "WotLK fallback");
     }
 
     dbcLoaded = !spellData.empty();
@@ -617,10 +624,11 @@ void SpellbookScreen::renderSpellTooltip(const SpellInfo* info, game::GameHandle
         ImGui::TextColored(ui::colors::kRed, "Cooldown: %.1fs", cd);
     }
 
-    // Description
+    // Description — resolve WoW $-tokens (e.g. "increased by $s1") to concrete values.
     if (!info->description.empty()) {
         ImGui::Spacing();
-        ImGui::TextWrapped("%s", info->description.c_str());
+        std::string desc = gameHandler.formatSpellDescription(info->spellId, info->description);
+        ImGui::TextWrapped("%s", desc.c_str());
     }
 
     // Usage hints — only shown when browsing the spellbook, not on action bar hover

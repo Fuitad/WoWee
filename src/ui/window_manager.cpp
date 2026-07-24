@@ -1434,9 +1434,10 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
                         }
                         const std::string& spDesc = gameHandler.getSpellDescription(spell->spellId);
                         if (!spDesc.empty()) {
+                            std::string spText = gameHandler.formatSpellDescription(spell->spellId, spDesc);
                             ImGui::Spacing();
                             ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 300.0f);
-                            ImGui::TextWrapped("%s", spDesc.c_str());
+                            ImGui::TextWrapped("%s", spText.c_str());
                             ImGui::PopTextWrapPos();
                             ImGui::Spacing();
                         }
