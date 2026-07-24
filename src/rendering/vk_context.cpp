@@ -279,9 +279,17 @@ bool VkContext::createInstance(SDL_Window* window) {
         builder.enable_extension(ext);
     }
 
-    if (enableValidation) {
+    // Allow turning validation on in a release build via env var, so the
+    // Khronos validation layer's messages (e.g. the exact VK error behind an
+    // FSR3 pipeline-creation failure) get routed to our log via debugCallback.
+    bool enableValidationEffective = enableValidation;
+    if (const char* v = std::getenv("WOWEE_VULKAN_VALIDATION")) {
+        if (v[0] && v[0] != '0') enableValidationEffective = true;
+    }
+    if (enableValidationEffective) {
         builder.request_validation_layers(true)
                .set_debug_callback(debugCallback);
+        LOG_INFO("Vulkan validation layers requested");
     }
 
     auto instRet = builder.build();
@@ -420,6 +428,14 @@ bool VkContext::createLogicalDevice() {
         }
         if (supported12.shaderInt8) {
             enabled12.shaderInt8 = VK_TRUE;
+        }
+        // The AMD FSR3 SDK backend hardcodes fp16Supported=true and always
+        // selects the fp16 shader permutations, whose wave/subgroup reductions
+        // operate on 16-bit types — that needs shaderSubgroupExtendedTypes.
+        // Without it, ffxCreateContext fails building those pipelines (rc=3).
+        if (supported12.shaderSubgroupExtendedTypes) {
+            enabled12.shaderSubgroupExtendedTypes = VK_TRUE;
+            LOG_INFO("Enabling shaderSubgroupExtendedTypes for FSR3 fp16 wave ops");
         }
         if (supported11.storageBuffer16BitAccess) {
             enabled11.storageBuffer16BitAccess = VK_TRUE;
