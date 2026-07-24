@@ -118,6 +118,20 @@ public:
     char gmArgBuf_[kGmMaxArgs][96] = {}; // per-argument text values
     int  gmArgChoice_[kGmMaxArgs] = {};  // per-argument combo selection
 
+    // "Max Out Character" quick action: which parts to apply.
+    bool gmMaxLevel_  = true;
+    bool gmMaxSpells_ = true;
+    bool gmMaxTalents_ = true;
+    bool gmMaxSkills_ = true;
+    bool gmMaxGear_   = true;
+    bool gmMaxGold_   = false;
+    // Commands queued by a quick action, drained one per frame so a burst of
+    // .additem/.learn commands doesn't trip server chat flood protection.
+    std::vector<std::string> gmPendingCmds_;
+    size_t gmPendingPos_ = 0;
+    // Build + queue the max-out command sequence for the current class/expansion.
+    void queueMaxOutCharacter(game::GameHandler& gameHandler);
+
     // Instance lockouts
     bool showInstanceLockouts_ = false;
 

@@ -11,7 +11,9 @@
 // ============================================================
 #include "ui/window_manager.hpp"
 #include "ui/chat/gm_command_data.hpp"
+#include "ui/bis_gear_data.hpp"
 #include "game/game_handler.hpp"
+#include "game/game_utils.hpp" // isActiveExpansion
 #include "game/world_packets.hpp" // game::ChatType
 #include <imgui.h>
 #include <algorithm>
@@ -132,10 +134,56 @@ std::vector<GmArg> parseArgs(std::string_view name, std::string_view syntax) {
     return args;
 }
 
+// Active expansion id as a short string for gear-table lookup.
+const char* activeExpansionId() {
+    if (game::isActiveExpansion("wotlk")) return "wotlk";
+    if (game::isActiveExpansion("tbc"))   return "tbc";
+    return "classic"; // classic / turtle
+}
+
 } // namespace
+
+void WindowManager::queueMaxOutCharacter(game::GameHandler& gameHandler) {
+    const uint8_t classId = gameHandler.getPlayerClass();
+    const char* exp = activeExpansionId();
+    const int maxLevel = game::isActiveExpansion("wotlk") ? 80 : game::isActiveExpansion("tbc") ? 70 : 60;
+
+    gmPendingCmds_.clear();
+    gmPendingPos_ = 0;
+
+    // Order matters: level first (some spells/talents require it), then learn,
+    // then skills, then gold, then gear.
+    if (gmMaxLevel_)  gmPendingCmds_.push_back(".character level " + std::to_string(maxLevel));
+    if (gmMaxSpells_) {
+        gmPendingCmds_.push_back(".learn all my class");
+        gmPendingCmds_.push_back(".learn all my spells");
+    }
+    if (gmMaxTalents_) gmPendingCmds_.push_back(".learn all my talents");
+    if (gmMaxSkills_)  gmPendingCmds_.push_back(".maxskill");
+    if (gmMaxGold_)    gmPendingCmds_.push_back(".modify money 10000000"); // 1000g
+    if (gmMaxGear_) {
+        for (uint32_t id : getMaxOutGear(exp, classId))
+            gmPendingCmds_.push_back(".additem " + std::to_string(id));
+    }
+
+    gameHandler.addSystemChatMessage(
+        "Max Out: queued " + std::to_string(gmPendingCmds_.size()) +
+        " commands (" + std::string(exp) + ", class " + std::to_string(classId) + ").");
+}
 
 void WindowManager::renderGmCommandScreen(game::GameHandler& gameHandler) {
     if (!showGmCommandScreen_) return;
+
+    // Drain queued quick-action commands one per frame so a burst of
+    // .additem/.learn messages doesn't trip server chat-flood protection.
+    if (gmPendingPos_ < gmPendingCmds_.size()) {
+        gameHandler.sendChatMessage(game::ChatType::SAY, gmPendingCmds_[gmPendingPos_], "");
+        ++gmPendingPos_;
+        if (gmPendingPos_ >= gmPendingCmds_.size()) {
+            gmPendingCmds_.clear();
+            gmPendingPos_ = 0;
+        }
+    }
 
     ImGui::SetNextWindowSize(ImVec2(680, 500), ImGuiCond_FirstUseEver);
     bool open = true;
@@ -145,6 +193,31 @@ void WindowManager::renderGmCommandScreen(game::GameHandler& gameHandler) {
         return;
     }
     if (!open) showGmCommandScreen_ = false;
+
+    // ---- Quick action: Max Out Character ----
+    if (ImGui::CollapsingHeader("Quick: Max Out Character", ImGuiTreeNodeFlags_DefaultOpen)) {
+        const bool busy = gmPendingPos_ < gmPendingCmds_.size();
+        ImGui::TextDisabled("Applies to your character for the active expansion (%s).",
+                            activeExpansionId());
+        ImGui::Checkbox("Max level", &gmMaxLevel_);  ImGui::SameLine();
+        ImGui::Checkbox("Spells", &gmMaxSpells_);     ImGui::SameLine();
+        ImGui::Checkbox("Talents", &gmMaxTalents_);   ImGui::SameLine();
+        ImGui::Checkbox("Skills", &gmMaxSkills_);     ImGui::SameLine();
+        ImGui::Checkbox("BiS gear", &gmMaxGear_);     ImGui::SameLine();
+        ImGui::Checkbox("1000g", &gmMaxGold_);
+
+        if (busy) ImGui::BeginDisabled();
+        if (ImGui::Button(busy ? "Sending..." : "Max Out Character", ImVec2(160.0f, 0.0f)))
+            queueMaxOutCharacter(gameHandler);
+        if (busy) ImGui::EndDisabled();
+        ImGui::SameLine();
+        if (busy) {
+            ImGui::Text("%zu/%zu", gmPendingPos_, gmPendingCmds_.size());
+        } else {
+            ImGui::TextDisabled("Sends GM commands (needs GM permissions server-side).");
+        }
+    }
+    ImGui::Separator();
 
     // ---- Toolbar: search + max-level filter ----
     ImGui::SetNextItemWidth(230.0f);
