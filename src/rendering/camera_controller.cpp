@@ -887,8 +887,9 @@ void CameraController::update(float deltaTime) {
                 if (nowBackward)    flyMove -= flyFwd;
                 if (nowStrafeLeft)  flyMove += right;
                 if (nowStrafeRight) flyMove -= right;
-                // Space = ascend, X = descend while airborne
-                bool flyDescend = !uiWantsKeyboard && xDown && mounted_;
+                // Space = ascend, X = descend while airborne (works on foot too,
+                // e.g. .gm fly, not just on a flying mount).
+                bool flyDescend = !uiWantsKeyboard && xDown;
                 if (nowJump)       flyMove.z += 1.0f;
                 if (flyDescend)    flyMove.z -= 1.0f;
                 float flyMoveLenSq = glm::dot(flyMove, flyMove);

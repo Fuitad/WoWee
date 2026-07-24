@@ -1643,7 +1643,10 @@ void Application::update(float deltaTime) {
                     renderer->getCameraController()->setGravityDisabled(gameHandler->isGravityDisabled());
                     renderer->getCameraController()->setFeatherFallActive(gameHandler->isFeatherFalling());
                     renderer->getCameraController()->setWaterWalkActive(gameHandler->isWaterWalking());
-                    renderer->getCameraController()->setFlyingActive(gameHandler->isPlayerFlying());
+                    // Flight physics engage on the CAN_FLY ability (flying mount
+                    // or .gm fly), not isPlayerFlying() which also needs the
+                    // FLYING flag the client only sets once already airborne.
+                    renderer->getCameraController()->setFlyingActive(gameHandler->canFly());
                     renderer->getCameraController()->setHoverActive(gameHandler->isHovering());
 
                     // Sync camera forward pitch to movement packets during flight / swimming.
