@@ -137,6 +137,14 @@ public:
     bool resyncQuestLogFromServerSlots(bool forceQueryMetadata);
     void applyQuestStateFromFields(const FlatFieldMap& fields);
     void applyPackedKillCountsFromFields(QuestLogEntry& quest);
+    // Reconcile collect-item objective progress against the player's actual
+    // bag contents. In 3.3.5a the server does not push item objective counts
+    // (unlike kill credit, which arrives packed in the quest-log update
+    // fields) — the authentic client derives them by counting matching item
+    // IDs in the bags. Called after every inventory rebuild. `carriedCounts`
+    // maps itemId -> total quantity currently held across backpack + bags.
+    void reconcileItemObjectivesFromInventory(
+        const std::unordered_map<uint32_t, uint32_t>& carriedCounts);
     void clearPendingQuestAccept(uint32_t questId);
     void triggerQuestAcceptResync(uint32_t questId, uint64_t npcGuid, const char* reason);
 

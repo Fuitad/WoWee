@@ -3484,6 +3484,29 @@ void InventoryHandler::rebuildOnlineInventory() {
     }(), " keyring=", [&](){
         int c = 0; for (auto g : owner_.keyringSlotGuidsRef()) if (g) c++; return c;
     }());
+
+    // Reconcile collect-item quest objectives against what the player is
+    // actually carrying. In 3.3.5a the server never pushes item objective
+    // counts, so this bag-count pass is the only thing that advances "collect
+    // N of item" progress when quest items are looted (or removed). Count
+    // backpack + the four equipped bags — the same set the server checks at
+    // turn-in — summing stacks per item id.
+    std::unordered_map<uint32_t, uint32_t> carriedCounts;
+    const auto& inv = owner_.inventoryRef();
+    for (int i = 0; i < inv.getBackpackSize(); i++) {
+        const auto& slot = inv.getBackpackSlot(i);
+        if (!slot.empty())
+            carriedCounts[slot.item.itemId] += std::max<uint32_t>(1, slot.item.stackCount);
+    }
+    for (int bagIdx = 0; bagIdx < 4; bagIdx++) {
+        int numSlots = inv.getBagSize(bagIdx);
+        for (int s = 0; s < numSlots; s++) {
+            const auto& slot = inv.getBagSlot(bagIdx, s);
+            if (!slot.empty())
+                carriedCounts[slot.item.itemId] += std::max<uint32_t>(1, slot.item.stackCount);
+        }
+    }
+    owner_.reconcileQuestItemObjectives(carriedCounts);
 }
 
 void InventoryHandler::maybeDetectVisibleItemLayout() {

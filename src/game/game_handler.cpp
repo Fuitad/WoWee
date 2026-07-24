@@ -2736,6 +2736,11 @@ const std::vector<GameHandler::QuestLogEntry>& GameHandler::getQuestLog() const 
     static const std::vector<QuestLogEntry> empty;
     return empty;
 }
+
+void GameHandler::reconcileQuestItemObjectives(
+    const std::unordered_map<uint32_t, uint32_t>& carriedCounts) {
+    if (questHandler_) questHandler_->reconcileItemObjectivesFromInventory(carriedCounts);
+}
 int GameHandler::getMaxQuestLogSlots() const {
     return questHandler_ ? questHandler_->maxQuestLogSlots() : 25;
 }
