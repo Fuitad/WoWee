@@ -1,6 +1,7 @@
 #include "ui/dialog_manager.hpp"
 #include "ui/inventory_screen.hpp"
 #include "ui/chat_panel.hpp"
+#include "ui/chat/chat_utils.hpp"
 #include "ui/ui_colors.hpp"
 #include "game/game_handler.hpp"
 #include "core/application.hpp"
@@ -178,9 +179,11 @@ void DialogManager::renderItemTextWindow(game::GameHandler& gameHandler) {
         return;
     }
 
-    // Parchment-toned background text
+    // Parchment-toned background text. Resolve WoW $-tokens ($g himself:herself, $n
+    // player name, $b line break, ...) the same way quest and chat text does.
+    std::string itemText = chat_utils::replaceGenderPlaceholders(gameHandler.getItemText(), gameHandler);
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.2f, 0.1f, 0.0f, 1.0f));
-    ImGui::TextWrapped("%s", gameHandler.getItemText().c_str());
+    ImGui::TextWrapped("%s", itemText.c_str());
     ImGui::PopStyleColor();
 
     ImGui::Spacing();
