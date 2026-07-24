@@ -19,6 +19,7 @@ layout(push_constant) uniform Push {
     float waveFreq;
     float waveSpeed;
     float liquidBasicType;
+    float brightness; // display brightness baked into SceneColor; divided back out
 } push;
 
 layout(set = 1, binding = 0) uniform WaterMaterial {
@@ -239,7 +240,11 @@ void main() {
     // ============================================================
     vec2 refractOffset = norm.xy * (0.02 + 0.03 * fresnel);
     vec2 refractUV = clamp(screenUV + refractOffset, vec2(0.001), vec2(0.999));
-    vec3 sceneRefract = texture(SceneColor, refractUV).rgb;
+    // The captured scene-history image already has the display brightness baked
+    // in (the final image is scene*brightness). Divide it back out so refraction
+    // samples the un-brightened scene — otherwise brightness re-applied on the
+    // water each frame compounds through this temporal capture and blows out.
+    vec3 sceneRefract = texture(SceneColor, refractUV).rgb / max(push.brightness, 0.01);
 
     float sceneDepth = texture(SceneDepth, refractUV).r;
 

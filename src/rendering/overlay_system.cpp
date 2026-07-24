@@ -26,6 +26,7 @@ void OverlaySystem::cleanup() {
     if (selCircleVertBuf_) { vmaDestroyBuffer(vkCtx_->getAllocator(), selCircleVertBuf_, selCircleVertAlloc_); selCircleVertBuf_ = VK_NULL_HANDLE; selCircleVertAlloc_ = VK_NULL_HANDLE; }
     if (selCircleIdxBuf_) { vmaDestroyBuffer(vkCtx_->getAllocator(), selCircleIdxBuf_, selCircleIdxAlloc_); selCircleIdxBuf_ = VK_NULL_HANDLE; selCircleIdxAlloc_ = VK_NULL_HANDLE; }
     if (overlayPipeline_) { vkDestroyPipeline(device, overlayPipeline_, nullptr); overlayPipeline_ = VK_NULL_HANDLE; }
+    if (brightnessPipeline_) { vkDestroyPipeline(device, brightnessPipeline_, nullptr); brightnessPipeline_ = VK_NULL_HANDLE; }
     if (overlayPipelineLayout_) { vkDestroyPipelineLayout(device, overlayPipelineLayout_, nullptr); overlayPipelineLayout_ = VK_NULL_HANDLE; }
 }
 
@@ -35,6 +36,7 @@ void OverlaySystem::recreatePipelines() {
     // Destroy only pipelines (keep geometry buffers)
     if (selCirclePipeline_) { vkDestroyPipeline(device, selCirclePipeline_, nullptr); selCirclePipeline_ = VK_NULL_HANDLE; }
     if (overlayPipeline_) { vkDestroyPipeline(device, overlayPipeline_, nullptr); overlayPipeline_ = VK_NULL_HANDLE; }
+    if (brightnessPipeline_) { vkDestroyPipeline(device, brightnessPipeline_, nullptr); brightnessPipeline_ = VK_NULL_HANDLE; }
 }
 
 void OverlaySystem::setSelectionCircle(const glm::vec3& pos, float radius, const glm::vec3& color) {
@@ -241,6 +243,67 @@ void OverlaySystem::renderOverlay(const glm::vec4& color, VkCommandBuffer cmd) {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, overlayPipeline_);
     vkCmdPushConstants(cmd, overlayPipelineLayout_,
                        VK_SHADER_STAGE_FRAGMENT_BIT, 0, 16, &color[0]);
+    vkCmdDraw(cmd, 3, 1, 0, 0);
+}
+
+void OverlaySystem::initBrightnessPipeline() {
+    if (brightnessPipeline_ != VK_NULL_HANDLE) return;
+    if (!vkCtx_) return;
+    // Reuse the overlay pipeline's layout (same fragment push constant); only
+    // the blend state differs.
+    if (!overlayPipeline_) initOverlayPipeline();
+    if (!overlayPipelineLayout_) return;
+    VkDevice device = vkCtx_->getDevice();
+
+    VkShaderModule vertMod, fragMod;
+    if (!vertMod.loadFromFile(device, "assets/shaders/postprocess.vert.spv") ||
+        !fragMod.loadFromFile(device, "assets/shaders/overlay.frag.spv")) {
+        LOG_ERROR("OverlaySystem: failed to load brightness shaders");
+        vertMod.destroy(); fragMod.destroy();
+        return;
+    }
+
+    // result.rgb = src.rgb * dst.rgb + dst.rgb * 1 = dst.rgb * (1 + src.rgb).
+    // Pushing src.rgb = (scale - 1) yields dst.rgb * scale — a true luminance
+    // multiply. Alpha is left untouched (dst passes through).
+    VkPipelineColorBlendAttachmentState mul{};
+    mul.blendEnable = VK_TRUE;
+    mul.srcColorBlendFactor = VK_BLEND_FACTOR_DST_COLOR;
+    mul.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    mul.colorBlendOp = VK_BLEND_OP_ADD;
+    mul.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    mul.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    mul.alphaBlendOp = VK_BLEND_OP_ADD;
+    mul.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                         VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+    brightnessPipeline_ = PipelineBuilder()
+        .setShaders(vertMod.stageInfo(VK_SHADER_STAGE_VERTEX_BIT),
+                    fragMod.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT))
+        .setVertexInput({}, {})
+        .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+        .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
+        .setNoDepthTest()
+        .setColorBlendAttachment(mul)
+        .setMultisample(vkCtx_->getMsaaSamples())
+        .setLayout(overlayPipelineLayout_)
+        .setRenderPass(vkCtx_->getImGuiRenderPass())
+        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+        .build(device, vkCtx_->getPipelineCache());
+
+    vertMod.destroy(); fragMod.destroy();
+    if (brightnessPipeline_) LOG_INFO("OverlaySystem: brightness pipeline initialized");
+}
+
+void OverlaySystem::renderBrightnessScale(float scale, VkCommandBuffer cmd) {
+    if (scale <= 1.0f) return; // darkening handled by the black overlay path
+    if (!brightnessPipeline_) initBrightnessPipeline();
+    if (!brightnessPipeline_ || cmd == VK_NULL_HANDLE) return;
+    // overlay.frag outputs the pushed color; the blend multiplies it by dst.
+    const glm::vec4 push(scale - 1.0f, scale - 1.0f, scale - 1.0f, 1.0f);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, brightnessPipeline_);
+    vkCmdPushConstants(cmd, overlayPipelineLayout_,
+                       VK_SHADER_STAGE_FRAGMENT_BIT, 0, 16, &push[0]);
     vkCmdDraw(cmd, 3, 1, 0, 0);
 }
 

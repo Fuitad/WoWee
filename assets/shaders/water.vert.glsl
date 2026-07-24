@@ -19,6 +19,7 @@ layout(push_constant) uniform Push {
     float waveFreq;
     float waveSpeed;
     float liquidBasicType; // 0=water, 1=ocean, 2=magma, 3=slime
+    float brightness;      // used by the fragment stage only
 } push;
 
 layout(location = 0) in vec3 aPos;

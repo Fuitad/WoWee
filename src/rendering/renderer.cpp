@@ -1839,8 +1839,10 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
             auto t0 = std::chrono::steady_clock::now();
             VkCommandBuffer cmd = beginSecondary(SEC_POST);
             setSecondaryViewportScissor(cmd);
-            if (waterRenderer && camera)
+            if (waterRenderer && camera) {
+                waterRenderer->setBrightness(postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f);
                 waterRenderer->render(cmd, perFrameSet, *camera, globalTime, false, frameIdx);
+            }
             if (weather && camera) weather->render(cmd, perFrameSet);
             if (lightning && camera && lightning->isEnabled()) lightning->render(cmd, perFrameSet);
             if (swimEffects && camera) swimEffects->render(cmd, perFrameSet);
@@ -1873,10 +1875,13 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
             if (overlaySystem_) {
                 float br = postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f;
                 if (br < 0.99f) {
+                    // Black overlay at alpha (1-br) darkens as scene*br (a true multiply).
                     overlaySystem_->renderOverlay(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f - br), cmd);
                 } else if (br > 1.01f) {
-                    float alpha = (br - 1.0f) / 1.0f;
-                    overlaySystem_->renderOverlay(glm::vec4(1.0f, 1.0f, 1.0f, alpha), cmd);
+                    // Multiply scene by br instead of lerping to white (washout). The
+                    // water refraction shader divides br back out of its captured
+                    // scene sample so this doesn't compound through the history.
+                    overlaySystem_->renderBrightnessScale(br, cmd);
                 }
             }
             if (minimap && minimap->isEnabled() && camera && window) {
@@ -2017,8 +2022,10 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
                 std::chrono::steady_clock::now() - m2Start).count();
         }
 
-        if (waterRenderer && camera)
+        if (waterRenderer && camera) {
+            waterRenderer->setBrightness(postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f);
             waterRenderer->render(currentCmd, perFrameSet, *camera, globalTime, false, frameIdx);
+        }
         if (weather && camera) weather->render(currentCmd, perFrameSet);
         if (lightning && camera && lightning->isEnabled()) lightning->render(currentCmd, perFrameSet);
         if (swimEffects && camera) swimEffects->render(currentCmd, perFrameSet);
@@ -2057,10 +2064,11 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
         if (overlaySystem_) {
             float br = postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f;
             if (br < 0.99f) {
+                // Black overlay at alpha (1-br) darkens as scene*br (a true multiply).
                 overlaySystem_->renderOverlay(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f - br), currentCmd);
             } else if (br > 1.01f) {
-                float alpha = (br - 1.0f) / 1.0f;
-                overlaySystem_->renderOverlay(glm::vec4(1.0f, 1.0f, 1.0f, alpha), currentCmd);
+                // Multiply scene by br (water shader divides it back out of refraction).
+                overlaySystem_->renderBrightnessScale(br, currentCmd);
             }
         }
         if (minimap && minimap->isEnabled() && camera && window) {

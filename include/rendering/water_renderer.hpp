@@ -127,6 +127,9 @@ public:
 
     void setRefractionEnabled(bool enabled);
     bool isRefractionEnabled() const { return refractionEnabled; }
+    // Display brightness (1.0 = neutral). The scene-history capture used for
+    // refraction bakes this in, so the shader divides it back out.
+    void setBrightness(float b) { brightness_ = b; }
 
     std::optional<float> getWaterHeightAt(float glX, float glY) const;
     /// Like getWaterHeightAt but only returns water surfaces whose height is
@@ -210,6 +213,7 @@ private:
     std::vector<WaterSurface> surfaces;
     bool renderingEnabled = true;
     bool refractionEnabled = false;
+    float brightness_ = 1.0f;
 };
 
 } // namespace rendering
