@@ -3389,6 +3389,10 @@ void WindowManager::renderBankWindow(game::GameHandler& gameHandler,
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Text("Bank Bags");
+    // Deferred confirmation for a bank-bag-slot purchase (opened after the row is drawn).
+    static bool bankBuyConfirmOpen = false;
+    static uint32_t bankBuyConfirmPrice = 0;
+    static int bankBuyConfirmSlot = -1;
     uint8_t purchased = inv.getPurchasedBankBagSlots();
     for (int i = 0; i < bankBagCount; i++) {
         if (i > 0) ImGui::SameLine();
@@ -3407,7 +3411,10 @@ void WindowManager::renderBankWindow(game::GameHandler& gameHandler,
             ImGui::BeginGroup();
             if (!isNext) ImGui::BeginDisabled();
             if (ImGui::Button(isNext ? "Buy" : "Locked", ImVec2(50, 26)) && isNext) {
-                gameHandler.buyBankSlot();
+                // Ask for confirmation rather than spending gold on a single click.
+                bankBuyConfirmOpen = true;
+                bankBuyConfirmPrice = price;
+                bankBuyConfirmSlot = i;
             }
             if (!isNext) ImGui::EndDisabled();
             // Price line under the button
@@ -3419,6 +3426,30 @@ void WindowManager::renderBankWindow(game::GameHandler& gameHandler,
             }
         }
         ImGui::PopID();
+    }
+
+    // "Are you sure?" dialog for a bank-bag-slot purchase.
+    if (bankBuyConfirmOpen) {
+        ImGui::OpenPopup("Confirm Bank Slot Purchase##bank");
+        bankBuyConfirmOpen = false;
+    }
+    if (ImGui::BeginPopupModal("Confirm Bank Slot Purchase##bank", nullptr,
+                               ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
+        ImGui::Text("Purchase bank bag slot %d?", bankBuyConfirmSlot + 1);
+        ImGui::AlignTextToFramePadding();
+        ImGui::Text("Cost:");
+        ImGui::SameLine();
+        ui::renderCoinsFromCopper(bankBuyConfirmPrice);
+        ImGui::Spacing();
+        if (ImGui::Button("Buy", ImVec2(80, 0))) {
+            gameHandler.buyBankSlot();
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel", ImVec2(80, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
     }
 
     ImGui::End();
