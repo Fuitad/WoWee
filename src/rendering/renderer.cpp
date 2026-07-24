@@ -1873,10 +1873,11 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
             if (overlaySystem_) {
                 float br = postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f;
                 if (br < 0.99f) {
+                    // Black overlay at alpha (1-br) darkens as scene*br (a true multiply).
                     overlaySystem_->renderOverlay(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f - br), cmd);
                 } else if (br > 1.01f) {
-                    float alpha = (br - 1.0f) / 1.0f;
-                    overlaySystem_->renderOverlay(glm::vec4(1.0f, 1.0f, 1.0f, alpha), cmd);
+                    // Multiply scene by br instead of lerping toward white (washout).
+                    overlaySystem_->renderBrightnessScale(br, cmd);
                 }
             }
             if (minimap && minimap->isEnabled() && camera && window) {
@@ -2057,10 +2058,11 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
         if (overlaySystem_) {
             float br = postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f;
             if (br < 0.99f) {
+                // Black overlay at alpha (1-br) darkens as scene*br (a true multiply).
                 overlaySystem_->renderOverlay(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f - br), currentCmd);
             } else if (br > 1.01f) {
-                float alpha = (br - 1.0f) / 1.0f;
-                overlaySystem_->renderOverlay(glm::vec4(1.0f, 1.0f, 1.0f, alpha), currentCmd);
+                // Multiply scene by br instead of lerping toward white (washout).
+                overlaySystem_->renderBrightnessScale(br, currentCmd);
             }
         }
         if (minimap && minimap->isEnabled() && camera && window) {
