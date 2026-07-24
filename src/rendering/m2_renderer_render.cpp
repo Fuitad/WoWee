@@ -754,13 +754,22 @@ void M2Renderer::dispatchCullCompute(VkCommandBuffer cmd, uint32_t frameIndex, c
             if (inst.cachedIsValid)          flags |= 1u;
             if (inst.cachedIsSmoke)           flags |= 2u;
             if (inst.cachedIsInvisibleTrap)   flags |= 4u;
-            // Bit 3: previouslyVisible — the shader skips HiZ for objects
-            // that were NOT rendered last frame (no reliable depth data).
-            // Hysteresis: treat as "previously visible" unless culled for
-            // 2+ consecutive frames, preventing single-frame false-cull flicker.
-            // The counter lives on the instance, so streaming churn can never
-            // pair it with a different object's history.
-            if (inst.hizPrevCulledFrames < 2)
+            // Bit 3: previouslyVisible — the shader runs the HiZ occlusion test
+            // ONLY when this bit is set (an object with no depth in last frame's
+            // pyramid can't be tested reliably). Hysteresis: keep it set unless
+            // culled for 2+ consecutive frames, preventing single-frame false-cull
+            // flicker. The counter lives on the instance, so streaming churn can
+            // never pair it with a different object's history.
+            //
+            // Server game objects (mailboxes, chests, ...) opt out of HiZ entirely
+            // by never setting this bit: they are small gameplay props that sit
+            // flush against walls and doorframes, exactly where the coarse depth
+            // pyramid reports false occlusions. Such a false-cull would persist
+            // (the prop is then not rendered, so it never regains depth to clear
+            // itself) — the "mailbox went invisible in place" report. Frustum +
+            // distance culling still bound them; only the unreliable occlusion
+            // test is waived.
+            if (inst.hizPrevCulledFrames < 2 && !inst.isGameObject)
                 flags |= 8u;
 
             input[i].sphere = glm::vec4(inst.cachedCullCenter, inst.cachedPaddedRadius);
