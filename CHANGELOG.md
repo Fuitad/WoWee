@@ -21,6 +21,7 @@
 - **The bank window lists the cost of each unpurchased bag slot.** The "Buy Slot" button gave no price and let you click slots out of order; it now shows the gold cost per slot from `BankBagSlotPrices.dbc`, and only the next slot in sequence is buyable — later ones are locked with their price shown. Buying now goes through an "are you sure?" confirmation that names the cost, rather than spending gold on a single click
 - The bank has a Sort button that arranges the main bank and every bank bag by quality, then item ID, then stack size — the same ordering as the backpack Sort, driven client-side one swap per frame
 - The bank can show every slot as one continuous grid via a "Combine bags" toggle, instead of splitting each bank bag into its own labeled section
+- **New mail announces itself.** Receiving mail while online — or logging in with mail already waiting — now prints "You have new mail." to chat and plays a notification cue, on top of the existing minimap indicator; it fires once per unread state rather than repeating while the mail sits unread
 - The keyring is interactive and always visible when enabled
 - AddOns can be enabled and disabled from a manager on character select, and unimplemented addon widget methods fall back to no-ops rather than erroring
 - The target frame no longer stays stuck at a previous target's width

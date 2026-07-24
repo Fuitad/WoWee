@@ -2090,8 +2090,7 @@ void InventoryHandler::handleSendMailResult(network::Packet& packet) {
 
 void InventoryHandler::handleReceivedMail(network::Packet& packet) {
     (void)packet;
-    hasNewMail_ = true;
-    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("UPDATE_PENDING_MAIL", {});
+    setHasNewMail(true);
 }
 
 void InventoryHandler::handleQueryNextMailTime(network::Packet& packet) {
@@ -2100,8 +2099,20 @@ void InventoryHandler::handleQueryNextMailTime(network::Packet& packet) {
     // that the previous reinterpret_cast<float*> on raw packet bytes had.
     float nextTime = packet.readFloat();
     uint32_t count = packet.readUInt32();
-    hasNewMail_ = (nextTime >= 0.0f && count > 0);
+    setHasNewMail(nextTime >= 0.0f && count > 0);
     packet.skipAll();
+}
+
+void InventoryHandler::setHasNewMail(bool value) {
+    // Announce a chat line + sound only on the rising edge (no unread -> unread), so the
+    // periodic next-mail-time poll doesn't repeat the notification while mail sits unread.
+    if (value && !hasNewMail_) {
+        owner_.addSystemChatMessage("You have new mail.");
+        if (auto* ac = owner_.services().audioCoordinator)
+            if (auto* sfx = ac->getUiSoundManager()) sfx->playMailReceived();
+    }
+    hasNewMail_ = value;
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("UPDATE_PENDING_MAIL", {});
 }
 
 // ============================================================

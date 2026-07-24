@@ -135,6 +135,12 @@ bool UiSoundManager::initialize(pipeline::AssetManager* assets) {
         }
     }
 
+    // New-mail notification (dedicated cue, falling back to the whisper sound)
+    mailSounds_.resize(1);
+    if (!loadSound("Sound\\Interface\\iTellMessage.wav", mailSounds_[0], assets)) {
+        mailSounds_ = whisperSounds_;
+    }
+
     // Minimap ping sound
     minimapPingSounds_.resize(1);
     if (!loadSound("Sound\\Interface\\MapPing.wav", minimapPingSounds_[0], assets)) {
@@ -247,6 +253,7 @@ void UiSoundManager::playTargetDeselect() { playSound(deselectTargetSounds_); }
 
 // Chat notifications
 void UiSoundManager::playWhisperReceived() { playSound(whisperSounds_); }
+void UiSoundManager::playMailReceived() { playSound(mailSounds_); }
 
 // Minimap ping
 void UiSoundManager::playMinimapPing() { playSound(minimapPingSounds_); }

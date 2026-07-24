@@ -305,6 +305,8 @@ private:
     void handleSendMailResult(network::Packet& packet);
     void handleReceivedMail(network::Packet& packet);
     void handleQueryNextMailTime(network::Packet& packet);
+    // Update the unread-mail flag, announcing (chat + sound) once on the rising edge.
+    void setHasNewMail(bool value);
     void handleEquipmentSetList(network::Packet& packet);
 
     void categorizeTrainerSpells();

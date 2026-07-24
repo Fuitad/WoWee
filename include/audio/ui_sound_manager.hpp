@@ -78,6 +78,7 @@ public:
 
     // Chat notifications
     void playWhisperReceived();
+    void playMailReceived();
 
     // Minimap ping
     void playMinimapPing();
@@ -131,6 +132,7 @@ private:
     std::vector<UISample> selectTargetSounds_;
     std::vector<UISample> deselectTargetSounds_;
     std::vector<UISample> whisperSounds_;
+    std::vector<UISample> mailSounds_;
     std::vector<UISample> minimapPingSounds_;
 
     // State tracking
