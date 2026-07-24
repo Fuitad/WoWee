@@ -421,7 +421,14 @@ jobs:
         # whose signatures the older cached keyring rejects ("unknown trust"),
         # breaking the setup -Syuu after MSYS2 rotates signing keys.
         cache: false
-        install: >-
+
+    # Install packages in a separate retried step rather than the action's `install:`
+    # list — the ARM MSYS2 mirrors intermittently drop the initial download/keyring
+    # sync, which fails the whole setup with no retry. Mirrors the release workflow.
+    - name: Install dependencies with mirror retry
+      shell: msys2 {0}
+      run: |
+        packages=(
           mingw-w64-clang-aarch64-cmake
           mingw-w64-clang-aarch64-clang
           mingw-w64-clang-aarch64-ninja
@@ -438,6 +445,15 @@ jobs:
           mingw-w64-clang-aarch64-libtommath
           mingw-w64-clang-aarch64-libtomcrypt
           git
+        )
+        for attempt in 1 2 3; do
+          if pacman -S --noconfirm --needed "${packages[@]}"; then
+            exit 0
+          fi
+          echo "MSYS2 package download failed on attempt ${attempt}; retrying..."
+          sleep $((attempt * 10))
+        done
+        exit 1
 
     - name: Build StormLib from source
       shell: msys2 {0}
