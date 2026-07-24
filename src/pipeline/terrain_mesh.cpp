@@ -189,15 +189,20 @@ std::vector<TerrainVertex> TerrainMeshGenerator::generateVertices(const MapChunk
 
     const HeightMap& heightMap = chunk.heightMap;
 
-    // WoW terrain uses 145 heights stored in a 9x17 row-major grid layout
-    const float unitSize = CHUNK_SIZE / 8.0f;  // 33.333/8 units per vertex step
-
-    // Compute render-space base from tile/chunk indices (same formula as generateChunkMesh).
-    const float tileNW_renderX = (32.0f - static_cast<float>(tileY)) * core::coords::TILE_SIZE;
-    const float tileNW_renderY = (32.0f - static_cast<float>(tileX)) * core::coords::TILE_SIZE;
-    float chunkBaseX = tileNW_renderX - static_cast<float>(chunkY) * CHUNK_SIZE;  // iy controls renderX (east-west)
-    float chunkBaseY = tileNW_renderY - static_cast<float>(chunkX) * CHUNK_SIZE;  // ix controls renderY (north-south)
-    float chunkBaseZ = chunk.position[2];  // height base (wowZ) from MCNK offset 112
+    // WoW terrain uses 145 heights stored in a 9x17 row-major grid layout.
+    //
+    // Vertex XY is derived as a SINGLE multiply from the tile index:
+    //   pos = TILE_SIZE * (32 - tile - gridStep/128)
+    // where gridStep = chunk*8 + vertexOffset runs 0..128 across the 16 chunks of a
+    // tile. The previous form subtracted the chunk base and the per-vertex step
+    // separately, so a tile's far edge (…*C - C) and the neighbouring tile's near edge
+    // ((…-1)*C) rounded to slightly different float32 values — a sub-yard gap that
+    // opened hairline "blue" T-junction cracks between tiles, worst far from the map
+    // origin (across Kalimdor). Collapsing both to one multiply makes the shared edge
+    // bit-identical on either side, closing the seam without the overlap hacks.
+    const float TS = core::coords::TILE_SIZE;
+    constexpr float kStepsPerTile = 128.0f;  // 16 chunks * 8 vertex steps
+    const float chunkBaseZ = chunk.position[2];  // height base (wowZ) from MCNK offset 112
 
     for (int index = 0; index < 145; index++) {
         int y = index / 17;  // Row (0-8)
@@ -222,9 +227,12 @@ std::vector<TerrainVertex> TerrainMeshGenerator::generateVertices(const MapChunk
         // vertex would propagate into normal computations and crash culling.
         float h = heightMap.heights[index];
         if (!std::isfinite(h)) h = 0.0f;
-        vertex.position[0] = chunkBaseX - (offsetY * unitSize);  // renderX (row = west→east)
-        vertex.position[1] = chunkBaseY - (offsetX * unitSize);  // renderY (col = north→south)
-        vertex.position[2] = chunkBaseZ + h;                      // renderZ
+        // Fractional grid position within the tile along each render axis (0..128).
+        const float gridX = static_cast<float>(chunkY) * 8.0f + offsetY;  // row → renderX (west→east)
+        const float gridY = static_cast<float>(chunkX) * 8.0f + offsetX;  // col → renderY (north→south)
+        vertex.position[0] = (32.0f - static_cast<float>(tileY) - gridX / kStepsPerTile) * TS;  // renderX
+        vertex.position[1] = (32.0f - static_cast<float>(tileX) - gridY / kStepsPerTile) * TS;  // renderY
+        vertex.position[2] = chunkBaseZ + h;                                                     // renderZ
 
         // Normal
         if (index * 3 + 2 < static_cast<int>(chunk.normals.size())) {
