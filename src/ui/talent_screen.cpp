@@ -10,6 +10,7 @@
 #include "pipeline/dbc_layout.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 namespace wowee { namespace ui {
 
@@ -546,21 +547,22 @@ void TalentScreen::renderTalent(game::GameHandler& gameHandler,
 
         // Current rank description
         if (currentRank > 0 && currentRank <= 5 && talent.rankSpells[currentRank - 1] != 0) {
-            auto tooltipIt = spellTooltips.find(talent.rankSpells[currentRank - 1]);
-            if (tooltipIt != spellTooltips.end() && !tooltipIt->second.empty()) {
+            std::string desc = describeRankSpell(talent.rankSpells[currentRank - 1]);
+            if (!desc.empty()) {
                 ImGui::Spacing();
                 ImGui::TextColored(ui::colors::kTooltipGold, "Current:");
-                ImGui::TextWrapped("%s", tooltipIt->second.c_str());
+                ImGui::TextWrapped("%s", desc.c_str());
             }
         }
 
         // Next rank description
         if (currentRank < talent.maxRank && currentRank < 5 && talent.rankSpells[currentRank] != 0) {
-            auto tooltipIt = spellTooltips.find(talent.rankSpells[currentRank]);
-            if (tooltipIt != spellTooltips.end() && !tooltipIt->second.empty()) {
+            std::string desc = describeRankSpell(talent.rankSpells[currentRank]);
+            if (!desc.empty()) {
                 ImGui::Spacing();
-                ImGui::TextColored(ui::colors::kBrightGreen, "Next Rank:");
-                ImGui::TextWrapped("%s", tooltipIt->second.c_str());
+                ImGui::TextColored(ui::colors::kBrightGreen,
+                                   currentRank == 0 ? "Effect:" : "Next Rank:");
+                ImGui::TextWrapped("%s", desc.c_str());
             }
         }
 
@@ -630,6 +632,8 @@ void TalentScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
     const auto* spellL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("Spell") : nullptr;
     uint32_t fieldCount = dbc->getFieldCount();
     uint32_t idField = 0, iconField = 133, tooltipField = 139;
+    uint32_t descField = 0xFFFFFFFF;
+    uint32_t ebpField[3] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF};
     if (spellL) {
         try {
             uint32_t layoutId = (*spellL)["ID"];
@@ -643,6 +647,14 @@ void TalentScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
                 } catch (...) {}
             }
         } catch (...) {}
+        // Description is the full "what it does" text; may be absent on older layouts.
+        uint32_t f = spellL->field("Description");
+        if (f != 0xFFFFFFFF && f < fieldCount) descField = f;
+        const char* ebpKeys[3] = {"EffectBasePoints0", "EffectBasePoints1", "EffectBasePoints2"};
+        for (int e = 0; e < 3; ++e) {
+            uint32_t bf = spellL->field(ebpKeys[e]);
+            if (bf != 0xFFFFFFFF && bf < fieldCount) ebpField[e] = bf;
+        }
     }
     uint32_t count = dbc->getRecordCount();
     for (uint32_t i = 0; i < count; ++i) {
@@ -656,7 +668,59 @@ void TalentScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
         if (!tooltip.empty()) {
             spellTooltips[spellId] = tooltip;
         }
+        if (descField != 0xFFFFFFFF) {
+            std::string desc = dbc->getString(i, descField);
+            if (!desc.empty()) spellDescriptions[spellId] = std::move(desc);
+        }
+        // Base points are stored as (value - 1); the displayed magnitude is value + 1.
+        std::array<int32_t, 3> bp{0, 0, 0};
+        bool anyBp = false;
+        for (int e = 0; e < 3; ++e) {
+            if (ebpField[e] == 0xFFFFFFFF) continue;
+            int32_t raw = static_cast<int32_t>(dbc->getUInt32(i, ebpField[e]));
+            bp[e] = raw + 1;
+            anyBp = true;
+        }
+        if (anyBp) spellBasePoints[spellId] = bp;
     }
+}
+
+std::string TalentScreen::describeRankSpell(uint32_t spellId) const {
+    // Prefer the full description; fall back to the short tooltip text.
+    std::string text;
+    auto dIt = spellDescriptions.find(spellId);
+    if (dIt != spellDescriptions.end()) text = dIt->second;
+    else {
+        auto tIt = spellTooltips.find(spellId);
+        if (tIt != spellTooltips.end()) text = tIt->second;
+    }
+    if (text.empty()) return text;
+
+    // Substitute the common magnitude tokens ($s1/$s2/$s3 and their $o over-time siblings)
+    // with the spell's effect base points, so "increases by $s1%" reads "increases by 5%".
+    // Other tokens ($d duration, $tN period) are left intact — they need SpellDuration data.
+    std::array<int32_t, 3> bp{0, 0, 0};
+    auto bIt = spellBasePoints.find(spellId);
+    if (bIt != spellBasePoints.end()) bp = bIt->second;
+
+    std::string out;
+    out.reserve(text.size());
+    for (size_t i = 0; i < text.size(); ++i) {
+        char c = text[i];
+        if (c == '$' && i + 2 < text.size()) {
+            char kind = text[i + 1];
+            char idx = text[i + 2];
+            if ((kind == 's' || kind == 'S' || kind == 'o' || kind == 'O') &&
+                idx >= '1' && idx <= '3') {
+                int e = idx - '1';
+                out += std::to_string(std::abs(bp[e]));
+                i += 2; // consume kind + index
+                continue;
+            }
+        }
+        out += c;
+    }
+    return out;
 }
 
 void TalentScreen::loadSpellIconDBC(pipeline::AssetManager* assetManager) {

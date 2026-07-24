@@ -5,6 +5,8 @@
 #include <vulkan/vulkan.h>
 #include <unordered_map>
 #include <string>
+#include <array>
+#include <cstdint>
 
 namespace wowee {
 namespace pipeline { class AssetManager; }
@@ -42,8 +44,16 @@ private:
     std::unordered_map<uint32_t, uint32_t> spellIconIds;       // spellId -> iconId
     std::unordered_map<uint32_t, std::string> spellIconPaths;  // iconId -> path
     std::unordered_map<uint32_t, VkDescriptorSet> spellIconCache;  // iconId -> texture
-    std::unordered_map<uint32_t, std::string> spellTooltips;   // spellId -> description
+    std::unordered_map<uint32_t, std::string> spellTooltips;   // spellId -> short tooltip text
+    std::unordered_map<uint32_t, std::string> spellDescriptions;  // spellId -> full effect description
+    // Effect base points per rank spell, used to substitute $s1/$s2/$s3 (and $o..) tokens
+    // in descriptions with the concrete magnitude the talent grants at that rank.
+    std::unordered_map<uint32_t, std::array<int32_t, 3>> spellBasePoints;
     std::unordered_map<uint32_t, VkDescriptorSet> bgTextureCache_;  // tabId -> bg texture
+
+    // Resolve a spell's description with $sN/$oN magnitude tokens substituted; falls back
+    // to the short tooltip, then to an empty string. Returns the display-ready text.
+    std::string describeRankSpell(uint32_t spellId) const;
 
     // Talent learn confirmation
     bool talentConfirmOpen_ = false;
