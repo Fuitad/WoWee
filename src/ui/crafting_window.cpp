@@ -171,12 +171,19 @@ void WindowManager::renderCraftingWindow(game::GameHandler& gameHandler,
         ImGui::Separator();
 
         // ---- Left: recipe list ----
-        // Size the list pane as a fraction of the available width so it grows
-        // when the window is enlarged (a fixed width kept long recipe names
-        // truncated no matter how wide the window got). The floor keeps it
-        // usable on a small window; the rest of the row goes to the detail pane.
+        // The list pane width is user-draggable via the splitter below and
+        // clamped so both panes stay usable as the window is resized. It seeds
+        // to a proportion of the window on first open (a fixed width used to keep
+        // long recipe names truncated no matter how wide the window got).
         const float availX = ImGui::GetContentRegionAvail().x;
-        const float listWidth = std::max(260.0f, availX * 0.42f);
+        const float paneHeight = ImGui::GetContentRegionAvail().y;
+        constexpr float kSplitterW = 6.0f;
+        constexpr float kMinLeft = 180.0f;
+        constexpr float kMinRight = 220.0f;
+        if (craftListPaneWidth_ <= 0.0f)
+            craftListPaneWidth_ = std::max(260.0f, availX * 0.42f);
+        const float listWidth = std::clamp(craftListPaneWidth_, kMinLeft,
+                                           std::max(kMinLeft, availX - kMinRight - kSplitterW));
         if (ImGui::BeginChild("##RecipeList", ImVec2(listWidth, 0), true)) {
             std::string filter(craftSearchFilter_);
             for (char& c : filter) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -234,7 +241,18 @@ void WindowManager::renderCraftingWindow(game::GameHandler& gameHandler,
         }
         ImGui::EndChild();
 
-        ImGui::SameLine();
+        // ---- Splitter: drag to resize the list vs detail panes ----
+        ImGui::SameLine(0.0f, 0.0f);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.7f, 0.7f, 0.35f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.9f, 0.9f, 0.9f, 0.5f));
+        ImGui::Button("##CraftSplitter", ImVec2(kSplitterW, paneHeight));
+        ImGui::PopStyleColor(3);
+        if (ImGui::IsItemHovered() || ImGui::IsItemActive())
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+        if (ImGui::IsItemActive())
+            craftListPaneWidth_ = listWidth + ImGui::GetIO().MouseDelta.x;
+        ImGui::SameLine(0.0f, 0.0f);
 
         // ---- Right: selected recipe details ----
         if (ImGui::BeginChild("##RecipeDetail", ImVec2(0, 0), true)) {

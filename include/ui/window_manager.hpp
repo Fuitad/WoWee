@@ -191,6 +191,9 @@ public:
     uint32_t craftSelectedRecipe_ = 0;
     int craftQuantity_ = 1;
     bool craftOnlyMakeable_ = false;
+    // Draggable divider between the recipe list and detail panes. 0 = not yet
+    // initialized (seeded to a proportion of the window on first render).
+    float craftListPaneWidth_ = 0.0f;
 
     // Auction house
     char auctionSearchName_[256] = "";

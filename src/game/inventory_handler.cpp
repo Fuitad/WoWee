@@ -2173,13 +2173,11 @@ void InventoryHandler::depositItem(uint8_t srcBag, uint8_t srcSlot) {
 
 void InventoryHandler::withdrawItem(uint8_t srcBag, uint8_t srcSlot) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    int freeSlot = owner_.inventoryRef().findFreeBackpackSlot();
-    if (freeSlot < 0) {
-        owner_.addSystemChatMessage("Inventory is full.");
-        return;
-    }
-    uint8_t dstSlot = static_cast<uint8_t>(Inventory::NUM_EQUIP_SLOTS + freeSlot);
-    auto packet = SwapItemPacket::build(0xFF, dstSlot, srcBag, srcSlot);
+    // CMSG_AUTOSTORE_BANK_ITEM lets the server place the item into the first
+    // free slot across ALL bags (retail right-click-to-withdraw), not just the
+    // backpack. The server replies with an inventory-full error if there's no
+    // room, so no client-side capacity check is needed here.
+    auto packet = AutoStoreBankItemPacket::build(srcBag, srcSlot);
     owner_.getSocket()->send(packet);
 }
 
@@ -2209,6 +2207,14 @@ void InventoryHandler::openGuildBank(uint64_t guid) {
     guildBankOpen_ = true;
     guildBankActiveTab_ = 0;
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("GUILDBANKFRAME_OPENED", {});
+    // CMSG_GUILD_BANKER_ACTIVATE registers this session with the guild banker so
+    // the server sends the tab list + contents (SMSG_GUILD_BANK_LIST). Without it
+    // the follow-up query-tab is rejected and no bank list ever arrives, so the
+    // window opened empty (or not at all).
+    if (owner_.getState() == WorldState::IN_WORLD && owner_.getSocket() && guid != 0) {
+        auto activate = GuildBankerActivatePacket::build(guid);
+        owner_.getSocket()->send(activate);
+    }
     queryGuildBankTab(0);
 }
 
@@ -2257,6 +2263,13 @@ void InventoryHandler::guildBankDepositItem(uint8_t tabId, uint8_t bankSlot, uin
 
 void InventoryHandler::handleGuildBankList(network::Packet& packet) {
     if (!GuildBankListParser::parse(packet, guildBankData_)) return;
+    // Receiving the bank list means the banker accepted us — make sure the
+    // window is shown even if the open path didn't (e.g. a server-initiated
+    // refresh, or the banker guid arrived only with the list).
+    if (guildBankerGuid_ != 0 && !guildBankOpen_) {
+        guildBankOpen_ = true;
+        if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("GUILDBANKFRAME_OPENED", {});
+    }
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("GUILDBANKBAGSLOTS_CHANGED", {});
     for (const auto& tab : guildBankData_.tabs) {
         for (const auto& item : tab.items) {

@@ -2355,6 +2355,7 @@ void GameHandler::performGameObjectInteractionNow(uint64_t guid) {
 
     // Determine GO type for interaction strategy
     bool isMailbox = false;
+    bool isGuildBank = false;
     bool chestLike = false;
     bool metadataPending = false;
     if (entity && entity->getType() == ObjectType::GAMEOBJECT) {
@@ -2363,6 +2364,8 @@ void GameHandler::performGameObjectInteractionNow(uint64_t guid) {
         metadataPending = (goInfo == nullptr);
         if (goInfo && goInfo->type == 19) {
             isMailbox = true;
+        } else if (goInfo && goInfo->type == 34) { // GAMEOBJECT_TYPE_GUILD_BANK
+            isGuildBank = true;
         } else if (goInfo && goInfo->type == 3) {
             chestLike = true;
         }
@@ -2500,13 +2503,17 @@ void GameHandler::performGameObjectInteractionNow(uint64_t guid) {
         scheduleGameObjectLootOpen(guid, 0.35f, 8);
     } else if (isMailbox) {
         openMailbox(guid);
+    } else if (isGuildBank) {
+        // Guild vault: CMSG_GAMEOBJ_USE above is a no-op on the server; the bank
+        // opens via CMSG_GUILD_BANKER_ACTIVATE, which openGuildBank() sends.
+        openGuildBank(guid);
     }
 
     // CMSG_GAMEOBJ_REPORT_USE triggers GO AI scripts (SmartAI, ScriptAI) which
     // is where many quest objectives grant credit. Previously this was only sent
     // for non-chest GOs, so chest-type quest objectives (Bundle of Wood, etc.)
     // never triggered the server-side quest credit script.
-    if (!isMailbox) {
+    if (!isMailbox && !isGuildBank) {
         const auto* table = getActiveOpcodeTable();
         if (table && table->hasOpcode(Opcode::CMSG_GAMEOBJ_REPORT_USE)) {
             network::Packet reportUse(wireOpcode(Opcode::CMSG_GAMEOBJ_REPORT_USE));

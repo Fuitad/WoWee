@@ -3259,6 +3259,25 @@ void WindowManager::renderBankWindow(game::GameHandler& gameHandler,
                         }
                     }
                 }
+                // Right-click: withdraw the item to the bags (retail auto-store).
+                // Maps the slot to its wire address the same way the drag path
+                // does (main bank = 0xFF/39+idx, bank bag = 67+bag/slot, bank bag
+                // container = 0xFF/67+idx), then lets the server pick a free slot.
+                if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right) &&
+                    !ImGui::GetIO().KeyShift) {
+                    bankPickupPending = false;
+                    uint8_t srcBag = 0xFF;
+                    uint8_t srcSlot = 0;
+                    if (pickType == 1) {
+                        srcBag = static_cast<uint8_t>(67 + bagIdx);
+                        srcSlot = static_cast<uint8_t>(bagSlotIdx);
+                    } else if (pickType == 2) {
+                        srcSlot = static_cast<uint8_t>(67 + mainIdx);
+                    } else { // pickType == 0: main bank slot
+                        srcSlot = static_cast<uint8_t>(39 + mainIdx);
+                    }
+                    gameHandler.withdrawItem(srcBag, srcSlot);
+                }
             } else {
                 // Drop/swap on mouse release
                 if (ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
