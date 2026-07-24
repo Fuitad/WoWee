@@ -3149,17 +3149,18 @@ void WindowManager::renderMailComposeWindow(game::GameHandler& gameHandler,
     }
 }
 
-void WindowManager::renderBankWindow(game::GameHandler& gameHandler,
+bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
                              InventoryScreen& inventoryScreen,
                              ChatPanel& chatPanel) {
-    if (!gameHandler.isBankOpen()) return;
+    if (!gameHandler.isBankOpen()) return false;
 
+    bool settingChanged = false;
     bool open = true;
     ImGui::SetNextWindowSize(ImVec2(480, 420), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Bank", &open)) {
         ImGui::End();
         if (!open) gameHandler.closeBank();
-        return;
+        return false;
     }
 
     auto& inv = gameHandler.getInventory();
@@ -3316,8 +3317,8 @@ void WindowManager::renderBankWindow(game::GameHandler& gameHandler,
     int bankSlotCount = gameHandler.getEffectiveBankSlots();
     int bankBagCount = gameHandler.getEffectiveBankBagSlots();
 
-    // Persistent view options + client-driven sort queue (mirrors the backpack Sort Bags flow).
-    static bool bankCombineBags = false;
+    // "Combine bags" is a persisted member (bankCombineBags_) so it survives
+    // relaunches; the sort queue is transient client-side state.
     static std::deque<game::Inventory::SwapOp> bankSortQueue;
 
     // Toolbar: Sort button + contiguous-view toggle
@@ -3335,7 +3336,8 @@ void WindowManager::renderBankWindow(game::GameHandler& gameHandler,
     }
 
     ImGui::SameLine();
-    ImGui::Checkbox("Combine bags", &bankCombineBags);
+    if (ImGui::Checkbox("Combine bags", &bankCombineBags_))
+        settingChanged = true;
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip("Show every bank slot as one continuous grid\ninstead of splitting bank bags into separate sections.");
     }
@@ -3350,7 +3352,7 @@ void WindowManager::renderBankWindow(game::GameHandler& gameHandler,
     ImGui::Separator();
 
     constexpr int kBankCols = 7;
-    if (bankCombineBags) {
+    if (bankCombineBags_) {
         // Contiguous view: main bank slots followed by every bank bag's contents in one grid.
         ImGui::Text("Bank Slots");
         ImGui::Spacing();
@@ -3476,6 +3478,7 @@ void WindowManager::renderBankWindow(game::GameHandler& gameHandler,
     ImGui::End();
 
     if (!open) gameHandler.closeBank();
+    return settingChanged;
 }
 
 void WindowManager::renderGuildBankWindow(game::GameHandler& gameHandler,
@@ -3525,23 +3528,33 @@ void WindowManager::renderGuildBankWindow(game::GameHandler& gameHandler,
 
     ImGui::Separator();
 
-    // Tab items (98 slots = 14 columns × 7 rows)
+    // Fixed 98-slot tab grid (14 columns × 7 rows). The server sends only the
+    // slots it has data for (often just the occupied ones, and nothing for an
+    // empty tab), so render every slot and look items up by slotId — otherwise
+    // an empty or sparsely-populated tab showed no slots at all.
     constexpr float GB_SLOT = 34.0f;
+    constexpr int kGuildTabSlots = 98;
+    const game::GuildBankItemSlot* slotLookup[kGuildTabSlots] = {};
+    for (const auto& it : data.tabItems) {
+        if (it.slotId < kGuildTabSlots && it.itemEntry != 0)
+            slotLookup[it.slotId] = &it;
+    }
     ImDrawList* gbDraw = ImGui::GetWindowDrawList();
-    for (size_t i = 0; i < data.tabItems.size(); i++) {
-        if (i % 14 != 0) ImGui::SameLine(0.0f, 2.0f);
-        const auto& item = data.tabItems[i];
-        ImGui::PushID(static_cast<int>(i) + 5000);
+    for (int gbSlot = 0; gbSlot < kGuildTabSlots; gbSlot++) {
+        if (gbSlot % 14 != 0) ImGui::SameLine(0.0f, 2.0f);
+        ImGui::PushID(gbSlot + 5000);
 
         ImVec2 pos = ImGui::GetCursorScreenPos();
+        const game::GuildBankItemSlot* itemPtr = slotLookup[gbSlot];
 
-        if (item.itemEntry == 0) {
+        if (!itemPtr) {
             gbDraw->AddRectFilled(pos, ImVec2(pos.x + GB_SLOT, pos.y + GB_SLOT),
                                   IM_COL32(30, 30, 30, 200));
             gbDraw->AddRect(pos, ImVec2(pos.x + GB_SLOT, pos.y + GB_SLOT),
                             IM_COL32(60, 60, 60, 180));
             ImGui::InvisibleButton("##gbempty", ImVec2(GB_SLOT, GB_SLOT));
         } else {
+            const auto& item = *itemPtr;
             auto* info = gameHandler.getItemInfo(item.itemEntry);
             game::ItemQuality quality = game::ItemQuality::COMMON;
             std::string name = "Item " + std::to_string(item.itemEntry);

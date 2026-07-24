@@ -77,7 +77,9 @@ public:
                           ChatPanel& chatPanel);
     void renderMailComposeWindow(game::GameHandler& gameHandler,
                                  InventoryScreen& inventoryScreen);
-    void renderBankWindow(game::GameHandler& gameHandler,
+    // Returns true when a persisted bank view option (Combine bags) changed,
+    // so the caller can save settings.
+    bool renderBankWindow(game::GameHandler& gameHandler,
                           InventoryScreen& inventoryScreen,
                           ChatPanel& chatPanel);
     void renderGuildBankWindow(game::GameHandler& gameHandler,
@@ -156,6 +158,9 @@ public:
     std::string vendorConfirmItemName_;
     bool vendorBagsOpened_ = false;
     bool guildBankBagsOpened_ = false;
+    // Bank "Combine bags" view (one contiguous grid vs per-bag sections).
+    // Persisted to settings so it survives relaunches.
+    bool bankCombineBags_ = false;
 
     // Barber shop
     struct BarberStyleOption {

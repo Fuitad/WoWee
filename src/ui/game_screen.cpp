@@ -494,7 +494,8 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     }
     windowManager_.renderMailWindow(gameHandler, inventoryScreen, chatPanel_);
     windowManager_.renderMailComposeWindow(gameHandler, inventoryScreen);
-    windowManager_.renderBankWindow(gameHandler, inventoryScreen, chatPanel_);
+    if (windowManager_.renderBankWindow(gameHandler, inventoryScreen, chatPanel_))
+        saveSettings();
     windowManager_.renderGuildBankWindow(gameHandler, inventoryScreen, chatPanel_);
     windowManager_.renderAuctionHouseWindow(gameHandler, inventoryScreen, chatPanel_);
     socialPanel_.renderDungeonFinderWindow(gameHandler, chatPanel_);
