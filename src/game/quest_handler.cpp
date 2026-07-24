@@ -1312,6 +1312,13 @@ void QuestHandler::acceptQuest() {
     // Immediately add to local quest log using available details
     addQuestToLocalLogIfMissing(questId, currentQuestDetails_.title, currentQuestDetails_.objectives);
 
+    // Auto-track newly accepted quests so their objectives appear in the
+    // on-screen tracker right away (matches retail behavior). Only the
+    // player-driven accept path lands here — quests loaded on login/resync go
+    // through addQuestToLocalLogIfMissing without tracking, so the tracker's
+    // "show all when nothing tracked" fallback still applies to those.
+    owner_.setQuestTracked(questId, true);
+
     // Play quest-accept sound
     if (auto* ac = owner_.services().audioCoordinator) {
         if (auto* sfx = ac->getUiSoundManager())
@@ -1492,6 +1499,8 @@ void QuestHandler::acceptSharedQuest() {
     network::Packet pkt(wireOpcode(Opcode::CMSG_QUEST_CONFIRM_ACCEPT));
     pkt.writeUInt32(sharedQuestId_);
     owner_.getSocket()->send(pkt);
+    // Auto-track the accepted shared quest, same as a normal accept.
+    owner_.setQuestTracked(sharedQuestId_, true);
     owner_.addSystemChatMessage("Accepted: " + sharedQuestTitle_);
 }
 
