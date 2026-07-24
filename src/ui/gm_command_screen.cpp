@@ -3,10 +3,11 @@
 // send commands to the server (part of WindowManager). Opened from
 // the micro-menu "GM" button.
 //
-// Commands are sent to the server as SAY chat messages with a "."
-// prefix (AzerothCore convention); the server does the real work and
-// enforces the player's actual permission level. This screen is just a
-// discoverable front-end over the kGmCommands reference table.
+// Each command's syntax string is parsed into labeled form fields so a
+// value like "set level 60 on player Bob" is filled in, not typed as a
+// raw string. The assembled command is sent to the server as a SAY chat
+// message with a "." prefix (AzerothCore convention); the server does
+// the real work and enforces the player's actual permission level.
 // ============================================================
 #include "ui/window_manager.hpp"
 #include "ui/chat/gm_command_data.hpp"
@@ -16,8 +17,10 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace wowee {
 namespace ui {
@@ -57,12 +60,84 @@ std::string_view firstToken(std::string_view name) {
     return sp == std::string_view::npos ? name : name.substr(0, sp);
 }
 
+// A single argument parsed out of a command's syntax string.
+enum class GmArgKind { Number, Text, Choice, Flag };
+struct GmArg {
+    std::string label;                 // "id", "player", ...
+    GmArgKind   kind = GmArgKind::Text;
+    bool        optional = false;      // was wrapped in [ ]
+    std::vector<std::string> choices;  // for Choice: {"on","off"}; Flag: {word}
+};
+
+// Parse the argument portion of a command's syntax into form fields.
+//   ".additem #id [#count]"        → Number "id"; Number "count" (optional)
+//   ".tele name $player #location" → Text "player"; Number "location"
+//   ".modify gender male/female"   → Choice {male,female}
+//   ".learn #spell [all]"          → Number "spell"; Flag "all" (optional)
+std::vector<GmArg> parseArgs(std::string_view name, std::string_view syntax) {
+    std::vector<GmArg> args;
+    std::string base = "." + std::string(name);
+    std::string syn(syntax);
+    // Strip the literal command prefix (".additem", ".tele name", ...) so only
+    // the argument tokens remain; fall back to dropping the first token.
+    std::string rest;
+    if (syn.size() >= base.size() && syn.compare(0, base.size(), base) == 0) {
+        rest = syn.substr(base.size());
+    } else {
+        size_t sp = syn.find(' ');
+        rest = (sp == std::string::npos) ? std::string() : syn.substr(sp);
+    }
+
+    std::string token;
+    auto flush = [&]() {
+        if (token.empty()) return;
+        bool optional = token.find('[') != std::string::npos;
+        // Strip brackets/braces/angle wrappers.
+        std::string clean;
+        for (char c : token)
+            if (c != '[' && c != ']' && c != '<' && c != '>' && c != '{' && c != '}')
+                clean += c;
+        token.clear();
+        if (clean.empty() || args.size() >= 8) return;
+
+        GmArg a;
+        a.optional = optional;
+        if (clean[0] == '#') {
+            a.kind = GmArgKind::Number;
+            a.label = clean.substr(1);
+        } else if (clean[0] == '$') {
+            a.kind = GmArgKind::Text;
+            a.label = clean.substr(1);
+        } else if (clean.find('/') != std::string::npos) {
+            a.kind = GmArgKind::Choice;
+            a.label = clean;
+            std::string opt;
+            for (char c : clean + "/") {
+                if (c == '/') { if (!opt.empty()) a.choices.push_back(opt); opt.clear(); }
+                else opt += c;
+            }
+        } else {
+            // A bare word is an optional literal flag (e.g. "all", "triggered").
+            a.kind = GmArgKind::Flag;
+            a.label = clean;
+            a.choices.push_back(clean);
+        }
+        args.push_back(std::move(a));
+    };
+    for (char c : rest) {
+        if (std::isspace(static_cast<unsigned char>(c))) flush();
+        else token += c;
+    }
+    flush();
+    return args;
+}
+
 } // namespace
 
 void WindowManager::renderGmCommandScreen(game::GameHandler& gameHandler) {
     if (!showGmCommandScreen_) return;
 
-    ImGui::SetNextWindowSize(ImVec2(660, 470), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(680, 500), ImGuiCond_FirstUseEver);
     bool open = true;
     if (!ImGui::Begin("GM Commands", &open)) {
         ImGui::End();
@@ -82,11 +157,12 @@ void WindowManager::renderGmCommandScreen(game::GameHandler& gameHandler) {
     ImGui::SameLine();
     ImGui::TextDisabled("(?)");
     if (ImGui::IsItemHovered()) {
-        ImGui::SetTooltip("Commands are sent to the server as chat (\".\" prefix).\n"
-                          "The server enforces your real permission level, so\n"
-                          "listing a command here does not mean you can run it.");
+        ImGui::SetTooltip("Fill in the fields and press Send. Commands go to the\n"
+                          "server as chat (\".\" prefix); the server enforces your\n"
+                          "real permission level, so a listed command may still\n"
+                          "be denied. Leave a player/name field blank to act on\n"
+                          "your current target.");
     }
-
     ImGui::Separator();
 
     const std::string filter = toLower(gmSearchBuf_);
@@ -102,23 +178,17 @@ void WindowManager::renderGmCommandScreen(game::GameHandler& gameHandler) {
         const auto& c = kGmCommands[idx];
         ImGui::PushID(idx);
         std::string label = "." + std::string(c.name);
-        if (ImGui::Selectable(label.c_str(), gmSelectedIndex_ == idx)) {
+        if (ImGui::Selectable(label.c_str(), gmSelectedIndex_ == idx))
             gmSelectedIndex_ = idx;
-            // Prefill the editable command line with ".<name> " ready for args.
-            std::snprintf(gmCommandBuf_, sizeof(gmCommandBuf_), ".%s ",
-                          std::string(c.name).c_str());
-        }
-        if (ImGui::IsItemHovered() && !c.help.empty()) {
+        if (ImGui::IsItemHovered() && !c.help.empty())
             ImGui::SetTooltip("%s\n%s", std::string(c.syntax).c_str(),
                               std::string(c.help).c_str());
-        }
         ImGui::PopID();
     };
 
     // ---- Left: command list ----
-    if (ImGui::BeginChild("##gmlist", ImVec2(300.0f, 0.0f), true)) {
+    if (ImGui::BeginChild("##gmlist", ImVec2(290.0f, 0.0f), true)) {
         if (!filter.empty()) {
-            // Flat filtered list while searching.
             int shown = 0;
             for (int i = 0; i < static_cast<int>(kGmCommands.size()); ++i) {
                 if (!passesFilters(kGmCommands[i])) continue;
@@ -127,7 +197,6 @@ void WindowManager::renderGmCommandScreen(game::GameHandler& gameHandler) {
             }
             if (shown == 0) ImGui::TextDisabled("No matching commands.");
         } else {
-            // Grouped by first token (the table is already ordered by category).
             std::string_view curGroup;
             bool haveGroup = false;
             bool headerOpen = false;
@@ -146,40 +215,97 @@ void WindowManager::renderGmCommandScreen(game::GameHandler& gameHandler) {
     ImGui::EndChild();
     ImGui::SameLine();
 
-    // ---- Right: details + execute ----
+    // ---- Right: form + execute ----
     if (ImGui::BeginChild("##gmdetail", ImVec2(0.0f, 0.0f), true)) {
         if (gmSelectedIndex_ < 0 || gmSelectedIndex_ >= static_cast<int>(kGmCommands.size())) {
             ImGui::TextDisabled("Select a command from the list.");
         } else {
             const auto& c = kGmCommands[gmSelectedIndex_];
+
+            // Reset field state whenever the selected command changes.
+            if (gmArgsForIndex_ != gmSelectedIndex_) {
+                gmArgsForIndex_ = gmSelectedIndex_;
+                gmManualEdit_ = false;
+                std::memset(gmArgBuf_, 0, sizeof(gmArgBuf_));
+                std::memset(gmArgChoice_, 0, sizeof(gmArgChoice_));
+            }
+
             ImGui::TextColored(ImVec4(1.0f, 0.82f, 0.28f, 1.0f), ".%s",
                                std::string(c.name).c_str());
-            ImGui::TextColored(securityColor(c.security), "Requires: %s",
-                               securityLabel(c.security));
-            ImGui::Separator();
-
-            ImGui::TextDisabled("Syntax");
-            ImGui::TextWrapped("%s", std::string(c.syntax).c_str());
-            ImGui::Spacing();
-            ImGui::TextDisabled("Description");
-            ImGui::TextWrapped("%s", std::string(c.help).c_str());
-            ImGui::Separator();
-
-            ImGui::TextDisabled("Command line (edit arguments, then Send)");
-            ImGui::SetNextItemWidth(-1.0f);
-            const bool entered = ImGui::InputText("##gmcmd", gmCommandBuf_, sizeof(gmCommandBuf_),
-                                                  ImGuiInputTextFlags_EnterReturnsTrue);
-            const bool sendClicked = ImGui::Button("Send", ImVec2(90.0f, 0.0f));
             ImGui::SameLine();
-            ImGui::TextDisabled("Sent to the server as a chat command.");
+            ImGui::TextColored(securityColor(c.security), "[%s]", securityLabel(c.security));
+            if (!c.help.empty()) ImGui::TextWrapped("%s", std::string(c.help).c_str());
+            ImGui::TextDisabled("Syntax: %s", std::string(c.syntax).c_str());
+            ImGui::Separator();
 
-            if ((entered || sendClicked) && gmCommandBuf_[0] != '\0') {
-                std::string cmd = gmCommandBuf_;
+            const std::vector<GmArg> args = parseArgs(c.name, c.syntax);
+
+            // Assemble the command from the field values.
+            std::string assembled = "." + std::string(c.name);
+
+            if (gmManualEdit_) {
+                ImGui::TextDisabled("Manual command line");
+                ImGui::SetNextItemWidth(-1.0f);
+                ImGui::InputText("##gmmanual", gmCommandBuf_, sizeof(gmCommandBuf_));
+                assembled = gmCommandBuf_;
+            } else if (args.empty()) {
+                ImGui::TextDisabled("This command takes no arguments.");
+            } else {
+                ImGui::TextDisabled("Arguments");
+                for (int i = 0; i < static_cast<int>(args.size()); ++i) {
+                    const GmArg& a = args[i];
+                    ImGui::PushID(i);
+                    std::string lbl = a.label + (a.optional ? " (optional)" : "");
+                    if (a.kind == GmArgKind::Flag) {
+                        bool on = gmArgChoice_[i] != 0;
+                        if (ImGui::Checkbox(a.label.c_str(), &on)) gmArgChoice_[i] = on ? 1 : 0;
+                        if (on) assembled += " " + a.choices[0];
+                    } else if (a.kind == GmArgKind::Choice) {
+                        // Build a "(unset)"-prefixed option list for optional choices.
+                        std::vector<const char*> items;
+                        if (a.optional) items.push_back("(unset)");
+                        for (const auto& o : a.choices) items.push_back(o.c_str());
+                        ImGui::SetNextItemWidth(180.0f);
+                        ImGui::Combo(lbl.c_str(), &gmArgChoice_[i], items.data(),
+                                     static_cast<int>(items.size()));
+                        const char* sel = items[std::clamp(gmArgChoice_[i], 0,
+                                                           static_cast<int>(items.size()) - 1)];
+                        if (!(a.optional && gmArgChoice_[i] == 0))
+                            assembled += " " + std::string(sel);
+                    } else {
+                        const bool numeric = (a.kind == GmArgKind::Number);
+                        ImGui::SetNextItemWidth(180.0f);
+                        ImGuiInputTextFlags f = numeric ? ImGuiInputTextFlags_CharsDecimal : 0;
+                        ImGui::InputText(lbl.c_str(), gmArgBuf_[i], sizeof(gmArgBuf_[i]), f);
+                        if (gmArgBuf_[i][0] != '\0') assembled += " " + std::string(gmArgBuf_[i]);
+                        // Player/name fields default to the current target when blank.
+                        if (!numeric &&
+                            (a.label == "player" || a.label == "name" || a.label == "target")) {
+                            ImGui::SameLine();
+                            ImGui::TextDisabled("(blank = target)");
+                        }
+                    }
+                    ImGui::PopID();
+                }
+            }
+
+            ImGui::Separator();
+            ImGui::TextDisabled("Will send:");
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(0.7f, 0.9f, 0.7f, 1.0f), "%s", assembled.c_str());
+
+            if (ImGui::Button("Send", ImVec2(90.0f, 0.0f))) {
+                std::string cmd = assembled;
                 while (!cmd.empty() && cmd.back() == ' ') cmd.pop_back();
-                if (!cmd.empty()) {
+                if (cmd.size() > 1) {
                     gameHandler.sendChatMessage(game::ChatType::SAY, cmd, "");
                     gameHandler.addSystemChatMessage("GM command sent: " + cmd);
                 }
+            }
+            ImGui::SameLine();
+            if (ImGui::Checkbox("Edit manually", &gmManualEdit_)) {
+                if (gmManualEdit_)
+                    std::snprintf(gmCommandBuf_, sizeof(gmCommandBuf_), "%s", assembled.c_str());
             }
         }
     }

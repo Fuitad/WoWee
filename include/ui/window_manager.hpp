@@ -110,8 +110,13 @@ public:
     bool showGmCommandScreen_ = false;
     char gmSearchBuf_[128] = {};
     int  gmSelectedIndex_ = -1;      // index into kGmCommands, -1 = none
-    char gmCommandBuf_[256] = {};    // editable command line sent to the server
+    int  gmArgsForIndex_ = -1;       // which selection the arg buffers belong to
+    char gmCommandBuf_[256] = {};    // manual/advanced command line
     int  gmMaxSecurity_ = 4;         // hide commands above this security level
+    bool gmManualEdit_ = false;      // edit the raw command line instead of fields
+    static constexpr int kGmMaxArgs = 8;
+    char gmArgBuf_[kGmMaxArgs][96] = {}; // per-argument text values
+    int  gmArgChoice_[kGmMaxArgs] = {};  // per-argument combo selection
 
     // Instance lockouts
     bool showInstanceLockouts_ = false;

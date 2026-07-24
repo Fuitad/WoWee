@@ -63,9 +63,19 @@ inline constexpr std::array kGmCommands = {
     GmCommandEntry{"pinfo",           2, ".pinfo [$player]",                    "Show player account info"},
     GmCommandEntry{"guid",            2, ".guid",                               "Show target GUID"},
 
+    // ── Reset ───────────────────────────────────────────────
+    GmCommandEntry{"reset level",     3, ".reset level [$player]",             "Reset level to 1"},
+    GmCommandEntry{"reset stats",     3, ".reset stats [$player]",             "Reset stats to level default"},
+    GmCommandEntry{"reset spells",    3, ".reset spells [$player]",            "Reset to starting spells"},
+    GmCommandEntry{"reset talents",   3, ".reset talents [$player]",           "Refund all talent points"},
+    GmCommandEntry{"reset achievements", 3, ".reset achievements [$player]",   "Wipe all achievements"},
+    GmCommandEntry{"reset all",       3, ".reset all spells/talents",          "Reset all players (spells or talents)"},
+
     // ── Items & inventory ───────────────────────────────────
     GmCommandEntry{"additem",         2, ".additem #id [#count]",              "Add item to inventory"},
     GmCommandEntry{"additem set",     2, ".additem set #setid",                "Add item set to inventory"},
+    GmCommandEntry{"additemset",      2, ".additemset #setid",                 "Add item set to inventory"},
+    GmCommandEntry{"repairitems",     2, ".repairitems [$player]",             "Repair all equipped items"},
 
     // ── Spells & auras ──────────────────────────────────────
     GmCommandEntry{"learn",           2, ".learn #spell [all]",                "Learn a spell"},
@@ -99,6 +109,11 @@ inline constexpr std::array kGmCommands = {
     GmCommandEntry{"modify reputation", 2, ".modify reputation #faction #val", "Set faction reputation"},
     GmCommandEntry{"modify talentpoints", 2, ".modify talentpoints #amount",  "Set talent points"},
     GmCommandEntry{"modify gender",   2, ".modify gender male/female",         "Change gender"},
+    GmCommandEntry{"modify arenapoints", 3, ".modify arenapoints #amount",     "Set arena points"},
+    GmCommandEntry{"modify drunk",    2, ".modify drunk #value",               "Set drunk level (0-100)"},
+    GmCommandEntry{"modify faction",  3, ".modify faction #factionid",         "Change target faction template"},
+    GmCommandEntry{"modify xp",       2, ".modify xp #amount",                 "Give experience points"},
+    GmCommandEntry{"modify phase",    2, ".modify phase #mask",                "Set phase mask"},
 
     // ── Cheats ──────────────────────────────────────────────
     GmCommandEntry{"cheat god",       2, ".cheat god [on/off]",                "Toggle god mode"},
@@ -232,8 +247,6 @@ inline constexpr std::array kGmCommands = {
     GmCommandEntry{"played",          0, ".played",                             "Show time played"},
     GmCommandEntry{"gear repair",     2, ".gear repair",                        "Repair all gear"},
     GmCommandEntry{"gear stats",      0, ".gear stats",                         "Show avg item level"},
-    GmCommandEntry{"reset talents",   3, ".reset talents [$player]",           "Reset talents"},
-    GmCommandEntry{"reset spells",    3, ".reset spells [$player]",            "Reset spells"},
     GmCommandEntry{"pet create",      2, ".pet create",                         "Create pet from target"},
     GmCommandEntry{"pet learn",       2, ".pet learn #spell",                  "Teach spell to pet"},
 
