@@ -1838,6 +1838,11 @@ void GameHandler::auctionSellItem(int backpackIndex, uint32_t bid,
     if (inventoryHandler_) inventoryHandler_->auctionSellItem(backpackIndex, bid, buyout, duration);
 }
 
+void GameHandler::auctionSellItemByGuid(uint64_t itemGuid, uint32_t stackCount, uint32_t bid,
+                                        uint32_t buyout, uint32_t duration) {
+    if (inventoryHandler_) inventoryHandler_->auctionSellItemByGuid(itemGuid, stackCount, bid, buyout, duration);
+}
+
 void GameHandler::auctionPlaceBid(uint32_t auctionId, uint32_t amount) {
     if (inventoryHandler_) inventoryHandler_->auctionPlaceBid(auctionId, amount);
 }

@@ -4086,45 +4086,58 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
         ImGui::Separator();
         ImGui::Text("Sell Item:");
 
-        // Item picker from backpack
+        // Item picker: every non-empty slot across the backpack and all equipped bags.
         {
             auto& inv = gameHandler.getInventory();
-            // Build list of non-empty backpack slots
-            std::string preview = (auctionSellSlotIndex_ >= 0)
-                ? ([&]() -> std::string {
-                    const auto& slot = inv.getBackpackSlot(auctionSellSlotIndex_);
-                    if (!slot.empty()) {
-                        std::string s = slot.item.name;
-                        if (slot.item.stackCount > 1) s += " x" + std::to_string(slot.item.stackCount);
-                        return s;
+            // Resolve the ItemSlot for a (bagIndex, slotIndex) pair. bagIndex -1 is the backpack.
+            auto slotAt = [&](int bagIndex, int slotIndex) -> const game::ItemSlot& {
+                return (bagIndex < 0) ? inv.getBackpackSlot(slotIndex)
+                                      : inv.getBagSlot(bagIndex, slotIndex);
+            };
+
+            std::string preview = "Select item...";
+            if (auctionSellSlotIndex_ >= 0) {
+                const auto& slot = slotAt(auctionSellBagIndex_, auctionSellSlotIndex_);
+                if (!slot.empty()) {
+                    preview = slot.item.name;
+                    if (slot.item.stackCount > 1) preview += " x" + std::to_string(slot.item.stackCount);
+                }
+            }
+
+            // Render one selectable row for a slot; centralised so backpack and bag loops share it.
+            int comboUid = 0;
+            auto renderItemRow = [&](int bagIndex, int slotIndex) {
+                const auto& slot = slotAt(bagIndex, slotIndex);
+                if (slot.empty()) return;
+                ImGui::PushID(9000 + comboUid++);
+                if (slot.item.displayInfoId != 0) {
+                    VkDescriptorSet sIcon = inventoryScreen.getItemIcon(slot.item.displayInfoId);
+                    if (sIcon) {
+                        ImGui::Image((void*)(intptr_t)sIcon, ImVec2(16, 16));
+                        ImGui::SameLine();
                     }
-                    return "Select item...";
-                })()
-                : "Select item...";
+                }
+                std::string label = slot.item.name;
+                if (slot.item.stackCount > 1) label += " x" + std::to_string(slot.item.stackCount);
+                ImVec4 iqc = InventoryScreen::getQualityColor(slot.item.quality);
+                ImGui::PushStyleColor(ImGuiCol_Text, iqc);
+                bool selected = (auctionSellBagIndex_ == bagIndex && auctionSellSlotIndex_ == slotIndex);
+                if (ImGui::Selectable(label.c_str(), selected)) {
+                    auctionSellBagIndex_ = bagIndex;
+                    auctionSellSlotIndex_ = slotIndex;
+                }
+                ImGui::PopStyleColor();
+                ImGui::PopID();
+            };
 
             ImGui::SetNextItemWidth(250);
             if (ImGui::BeginCombo("##sellitem", preview.c_str())) {
-                for (int i = 0; i < game::Inventory::BACKPACK_SLOTS; i++) {
-                    const auto& slot = inv.getBackpackSlot(i);
-                    if (slot.empty()) continue;
-                    ImGui::PushID(i + 9000);
-                    // Item icon
-                    if (slot.item.displayInfoId != 0) {
-                        VkDescriptorSet sIcon = inventoryScreen.getItemIcon(slot.item.displayInfoId);
-                        if (sIcon) {
-                            ImGui::Image((void*)(intptr_t)sIcon, ImVec2(16, 16));
-                            ImGui::SameLine();
-                        }
-                    }
-                    std::string label = slot.item.name;
-                    if (slot.item.stackCount > 1) label += " x" + std::to_string(slot.item.stackCount);
-                    ImVec4 iqc = InventoryScreen::getQualityColor(slot.item.quality);
-                    ImGui::PushStyleColor(ImGuiCol_Text, iqc);
-                    if (ImGui::Selectable(label.c_str(), auctionSellSlotIndex_ == i)) {
-                        auctionSellSlotIndex_ = i;
-                    }
-                    ImGui::PopStyleColor();
-                    ImGui::PopID();
+                for (int i = 0; i < game::Inventory::BACKPACK_SLOTS; i++)
+                    renderItemRow(-1, i);
+                for (int b = 0; b < game::Inventory::NUM_BAG_SLOTS; b++) {
+                    int bagSize = inv.getBagSize(b);
+                    for (int s = 0; s < bagSize; s++)
+                        renderItemRow(b, s);
                 }
                 ImGui::EndCombo();
             }
@@ -4159,8 +4172,15 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
         ImGui::SameLine();
 
         // Create Auction button
-        bool canCreate = auctionSellSlotIndex_ >= 0 &&
-                         !gameHandler.getInventory().getBackpackSlot(auctionSellSlotIndex_).empty() &&
+        // Resolve the currently selected slot (backpack or an equipped bag) for validation + posting.
+        const game::ItemSlot* sellSlot = nullptr;
+        if (auctionSellSlotIndex_ >= 0) {
+            auto& inv = gameHandler.getInventory();
+            sellSlot = (auctionSellBagIndex_ < 0)
+                ? &inv.getBackpackSlot(auctionSellSlotIndex_)
+                : &inv.getBagSlot(auctionSellBagIndex_, auctionSellSlotIndex_);
+        }
+        bool canCreate = sellSlot && !sellSlot->empty() && sellSlot->item.guid != 0 &&
                          (auctionSellBid_[0] > 0 || auctionSellBid_[1] > 0 || auctionSellBid_[2] > 0);
         if (!canCreate) ImGui::BeginDisabled();
         if (ImGui::Button("Create Auction")) {
@@ -4172,9 +4192,11 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
                                   + static_cast<uint32_t>(auctionSellBuyout_[2]);
             const uint32_t durationMins[] = {720, 1440, 2880};
             uint32_t dur = durationMins[auctionSellDuration_];
-            gameHandler.auctionSellItem(auctionSellSlotIndex_, bidCopper, buyoutCopper, dur);
+            gameHandler.auctionSellItemByGuid(sellSlot->item.guid, sellSlot->item.stackCount,
+                                              bidCopper, buyoutCopper, dur);
             // Clear sell inputs
             auctionSellSlotIndex_ = -1;
+            auctionSellBagIndex_ = -1;
             auctionSellBid_[0] = auctionSellBid_[1] = auctionSellBid_[2] = 0;
             auctionSellBuyout_[0] = auctionSellBuyout_[1] = auctionSellBuyout_[2] = 0;
         }

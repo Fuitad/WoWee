@@ -197,7 +197,8 @@ public:
     int auctionSellBid_[3] = {0, 0, 0};
     int auctionSellBuyout_[3] = {0, 0, 0};
     int auctionSelectedItem_ = -1;
-    int auctionSellSlotIndex_ = -1;
+    int auctionSellSlotIndex_ = -1;   // slot within the selected container
+    int auctionSellBagIndex_ = -1;    // -1 = backpack, 0..3 = equipped bag
     uint32_t auctionBrowseOffset_ = 0;
     int auctionItemClass_ = -1;
     int auctionItemSubClass_ = -1;

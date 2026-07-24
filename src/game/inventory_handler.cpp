@@ -2322,6 +2322,19 @@ void InventoryHandler::auctionSellItem(int backpackIndex, uint32_t bid,
     owner_.getSocket()->send(packet);
 }
 
+void InventoryHandler::auctionSellItemByGuid(uint64_t itemGuid, uint32_t stackCount, uint32_t bid,
+                                             uint32_t buyout, uint32_t duration) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() || auctioneerGuid_ == 0) return;
+    if (itemGuid == 0) {
+        LOG_ERROR("auctionSellItemByGuid: refusing to post with a null item GUID");
+        return;
+    }
+    if (stackCount == 0) stackCount = 1;
+    auto packet = AuctionSellItemPacket::build(auctioneerGuid_, itemGuid, stackCount, bid, buyout, duration,
+                                                isPreWotlk());
+    owner_.getSocket()->send(packet);
+}
+
 void InventoryHandler::auctionPlaceBid(uint32_t auctionId, uint32_t amount) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() || auctioneerGuid_ == 0) return;
     auto packet = AuctionPlaceBidPacket::build(auctioneerGuid_, auctionId, amount);
