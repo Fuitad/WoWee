@@ -1,5 +1,48 @@
 # Changelog
 
+## [v2.0.31-preview] — 2026-07-24
+
+### UI
+- **Auction listings show the item's rolled random property.** An auction carries the "of the …" suffix separately from the item template, so browse-tab tooltips rendered the base template only — a Bear's suffix looked identical to no suffix at all, and there was no way to tell what you were bidding on. Tooltips now fold the auction's random property and suffix factor into the same instance-aware view the bags use, so the Strength, Stamina and secondary-stat bonuses read the same in the auction house as they will in your inventory
+
+### Platform
+- **Holding a key on macOS opened the accent chooser instead of repeating it.** SDL2 leaves text input enabled for the whole session, so AppKit routed every keystroke through `NSTextInputContext` — and A, S, E and the other letters that take diacritics popped the press-and-hold menu over the game rather than moving the character. Mac builds now register `ApplePressAndHoldEnabled=NO` before `SDL_Init` brings up NSApplication. It lands in this process' registration domain, so nothing is written to your saved preferences
+
+## [v2.0.30-preview] — 2026-07-24
+
+### Rendering
+- **Brightness is a true multiply again, and no longer blows out over water.** The multiplicative overlay (scene × brightness, instead of a lerp toward white) had to be reverted once because water refraction samples a scene-history image captured from the final swapchain, which already has display brightness baked in — re-applying it each frame fed back through that temporal capture and diverged, where the old white-lerp had merely converged. The brightness factor is now passed to the water shader and divided back out of the refraction sample, so refraction sees the un-brightened scene and the display gets a real multiply. This also fixes the latent inverse, water slowly creeping to black
+- **FSR3 frame generation creates its upscale context.** "Path C upscale failed rc 3" was the AMD FFX Vulkan backend failing to build its compute pipelines: the device enabled `shaderFloat16` for fp16 math but not the 16-bit *storage* features the SDK's shaders need to pack fp16 into buffers. `storageBuffer16BitAccess`, `uniformAndStorageBuffer16BitAccess` and `shaderInt8` are now enabled where the device supports them
+- `WOWEE_VULKAN_VALIDATION=1` turns on the Khronos validation layer in a release build and routes its output to the log — the tool that identified the FSR3 failure above as SDK-side invalid shaders (4KB push constants against a 256-byte limit, NV-only SPIR-V extensions, descriptor mismatches)
+- **Steam tonks stopped glowing.** The "steam" substring in the VFX classifier also matches SteamTonk vehicle models. Gating on low-poly geometry wasn't enough — the TBC/Turtle tonk overlay models are small enough to slip under the vertex threshold, so a tonk with a smoke emitter was classified as an additive spell effect and rendered translucent. Any "tonk"/"tank" token is now excluded outright; real steam effects never carry one. Covered by a classifier regression test
+- **Cloaks are textured in the world, not just in the paperdoll.** The in-world player model read the cloak texture from ItemDisplayInfo's LeftModelTexture only, but some cloaks — Jaina's Radiance among them — store it in the right field, leaving them blank in the world while the character preview (which already checked both) looked right
+
+### Bank & Guild Bank
+- **Depositing at the bank uses your purchased bank bags.** The old path scanned only the main bank slots and announced "Bank is full" once they filled, ignoring bag space entirely; deposits now go through `CMSG_AUTOBANK_ITEM` so the server places the item in any free bank slot
+- **Right-clicking a bank item withdraws it.** The bank slot renderer had drag and shift-link but no right-click handler at all, so right-clicks were silently dropped. Withdrawal now uses `CMSG_AUTOSTORE_BANK_ITEM`, letting the server place the item in any free bag rather than only the backpack
+- **Guild vaults open when you interact with them.** Nothing called `openGuildBank()` for a type-34 GameObject, and `openGuildBank()` never sent `CMSG_GUILD_BANKER_ACTIVATE` — it only queried a tab, so no bank list ever arrived
+- **Guild bank item transfers were malformed on the wire and silently dropped.** `CMSG_GUILD_BANK_SWAP_ITEMS` was missing the toChar direction byte, wrote splitedAmount as a mid-packet u8 rather than a trailing u32, and set bankToBank=1 on deposits, which sent the server down its bank-to-bank path. Both builders now match the 3.3.5a layout, with withdrawals using the autoStore sub-format so the server auto-places into a free inventory slot
+- Right-clicking a bag item while the guild bank is open deposits it into the first free slot of the viewed tab, and bags open automatically with the vault so items are reachable. Clicking a tab previously sent a query without updating the active tab, so withdraw and deposit always targeted tab 0 — the active tab now syncs from each `SMSG_GUILD_BANK_LIST`
+- The guild bank renders a full 98-slot (14×7) grid and looks items up by slot ID. It previously drew only the slots the server sent, which is a sparse list — often just the occupied ones, and nothing at all for an empty tab
+- The bank's "Combine bags" toggle persists across relaunches (`bank_combine_bags` in settings.cfg); it was a function-local static that reset to the split view every session
+
+### Crafting
+- **Crafting while mounted no longer freezes the window.** `startCraftQueue` filled the queue and then called `castSpell`, which bails early when mounted — leaving the queue populated with nothing in flight and the UI stuck on "Crafting… N remaining" until you manually mounted and dismounted. It now dismounts synchronously before queueing, matching retail
+- The recipe list is a draggable splitter and grows with the window. It was a fixed 260px while the detail pane absorbed all extra width, so enlarging the window never revealed a truncated recipe name; anything still too wide for the pane gets a hover tooltip with the full name
+
+### Quests
+- **Collect-item objectives advance as you loot.** 3.3.5a servers don't push collect counts the way they push kill credit, so a tracker relying on `SMSG_QUESTUPDATE_ADD_ITEM` alone never moved. Item objectives are now reconciled against actual bag contents on every inventory rebuild
+- Newly accepted quests are tracked automatically, from both questgivers and shared-quest accepts. Login and resync loads are untouched, so the "show all when none tracked" fallback still covers quests you already had
+
+### Character
+- **Casting while mounted dismounts and then casts.** Previously any spell pressed while mounted just dismounted and dropped the cast. Airborne on a flying mount, the cast is refused with "You can't do that while flying" rather than dropping you out of the sky
+
+### GM Tools
+- **A searchable GM command browser**, on a new "GM" micro-menu button, over the existing 195-entry command reference. The left pane groups commands by first token (flattening to a filtered list while searching) with a max-permission filter; the right pane shows syntax, description and a security badge. Commands dispatch as SAY chat with the AzerothCore "." prefix, so the server still enforces the real permission level
+- Command syntax is parsed into labeled form fields rather than a raw editable string — `#x` becomes a numeric input, `$x` a text input, `a/b` a dropdown, `[word]` an optional checkbox — with a live "Will send" preview, player/name fields defaulting to your current target, and an "Edit manually" escape hatch. Adds 12 more commonly-used commands (the reset family, repairitems, additemset, modify arenapoints/drunk/faction/xp/phase)
+- **"Max Out Character"** detects your class and active expansion and queues a full setup: max level for the expansion (60/70/80), all class spells and talents, maxed skills, optionally 1000g, and a class-appropriate gear kit anchored on class legendaries. Commands drain one per frame to stay under the server's chat-flood protection, and per-slot toggles let you apply only the parts you want
+- **`.gm fly on` actually lets you take off.** It sets the CAN_FLY movement flag, but flight physics were gated on `isPlayerFlying()`, which also wants FLYING — a flag the server only sets once you're already airborne. Flight is now driven from CAN_FLY, and the descend key (X) works on foot instead of only on a flying mount
+
 ## [v2.0.29-preview] — 2026-07-23
 
 ### World
