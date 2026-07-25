@@ -3691,6 +3691,56 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
         return true;
     };
 
+    // Auction results carry an item's rolled random property separately from its
+    // template. Build the same instance-aware view used by inventory tooltips so
+    // "of the ..." Strength, Stamina, and secondary stat bonuses are visible.
+    auto makeAuctionItem = [&gameHandler](const game::ItemQueryResponseData& info,
+                                          const game::AuctionEntry& auction) {
+        game::ItemDef item;
+        item.itemId = auction.itemEntry;
+        item.name = info.name;
+        item.subclassName = info.subclassName;
+        item.quality = static_cast<game::ItemQuality>(info.quality);
+        item.inventoryType = static_cast<uint8_t>(info.inventoryType);
+        item.stackCount = auction.stackCount;
+        item.maxStack = std::max(1, info.maxStack);
+        item.bagSlots = info.containerSlots;
+        item.damageMin = info.damageMin;
+        item.damageMax = info.damageMax;
+        item.delayMs = info.delayMs;
+        item.armor = info.armor;
+        item.stamina = info.stamina;
+        item.strength = info.strength;
+        item.agility = info.agility;
+        item.intellect = info.intellect;
+        item.spirit = info.spirit;
+        item.displayInfoId = info.displayInfoId;
+        item.sellPrice = info.sellPrice;
+        item.itemLevel = info.itemLevel;
+        item.requiredLevel = info.requiredLevel;
+        item.bindType = info.bindType;
+        item.description = info.description;
+        item.pageTextId = info.pageTextId;
+        item.startQuestId = info.startQuestId;
+        item.randomPropertyId = static_cast<int32_t>(auction.randomPropertyId);
+        for (const auto& stat : info.extraStats)
+            item.extraStats.push_back({stat.statType, stat.statValue});
+
+        for (const auto& bonus : gameHandler.getRandomStatBonuses(
+                 item.randomPropertyId, auction.suffixFactor)) {
+            if (bonus.value == 0) continue;
+            switch (bonus.statType) {
+                case 3: item.agility += bonus.value; break;
+                case 4: item.strength += bonus.value; break;
+                case 5: item.intellect += bonus.value; break;
+                case 6: item.spirit += bonus.value; break;
+                case 7: item.stamina += bonus.value; break;
+                default: item.extraStats.push_back({bonus.statType, bonus.value}); break;
+            }
+        }
+        return item;
+    };
+
     // Tab buttons
     const char* tabNames[] = {"Browse", "Bids", "Auctions"};
     for (int i = 0; i < 3; i++) {
@@ -4042,7 +4092,8 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
                     // Item tooltip on hover; hold Shift to compare against the
                     // equipped item in the same slot; shift-click inserts a link.
                     if (ImGui::IsItemHovered() && info && info->valid) {
-                        inventoryScreen.renderItemTooltip(*info, &gameHandler.getInventory());
+                        inventoryScreen.renderItemTooltip(
+                            makeAuctionItem(*info, auction), &gameHandler.getInventory());
                     }
                     if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                         ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
