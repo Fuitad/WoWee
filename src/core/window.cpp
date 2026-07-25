@@ -4,6 +4,7 @@
 #include <SDL2/SDL_vulkan.h>
 #include <cstdlib>
 #ifdef __APPLE__
+#include "core/macos_platform.hpp"
 #include <filesystem>
 #include <mach-o/dyld.h>
 #include <vector>
@@ -51,6 +52,12 @@ Window::~Window() {
 
 bool Window::initialize() {
     LOG_INFO("Initializing window: ", config.title);
+
+#ifdef __APPLE__
+    // Before SDL_Init spins up NSApplication: holding a key should repeat it,
+    // not open the accent chooser over the game.
+    disablePressAndHoldAccents();
+#endif
 
     // Initialize SDL
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {

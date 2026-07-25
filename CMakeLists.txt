@@ -1022,6 +1022,15 @@ set(WOWEE_HEADERS
     include/ui/keybinding_manager.hpp
 )
 
+# macOS needs an Objective-C++ shim for AppKit behavior that has no SDL
+# equivalent (press-and-hold accents).  window.cpp calls into it, so every
+# target that compiles window.cpp must link it.
+set(WOWEE_MACOS_SOURCES)
+if(APPLE)
+    enable_language(OBJCXX)
+    set(WOWEE_MACOS_SOURCES src/core/macos_platform.mm)
+endif()
+
 set(WOWEE_PLATFORM_SOURCES)
 if(WIN32)
     # Copy icon into build tree so windres can find it via the relative path
@@ -1059,7 +1068,7 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 # Create executable
-add_executable(wowee ${WOWEE_SOURCES} ${WOWEE_HEADERS} ${WOWEE_PLATFORM_SOURCES})
+add_executable(wowee ${WOWEE_SOURCES} ${WOWEE_HEADERS} ${WOWEE_PLATFORM_SOURCES} ${WOWEE_MACOS_SOURCES})
 
 # Tracy profiler — zero overhead when WOWEE_ENABLE_TRACY is OFF
 if(WOWEE_ENABLE_TRACY)
@@ -1149,6 +1158,9 @@ endif()
 # Platform-specific libraries
 if(UNIX AND NOT APPLE)
     target_link_libraries(wowee PRIVATE X11)
+endif()
+if(APPLE)
+    target_link_libraries(wowee PRIVATE "-framework Foundation")
 endif()
 if(WIN32)
     target_link_libraries(wowee PRIVATE ws2_32)
@@ -1930,6 +1942,8 @@ add_executable(wowee_editor
 
     # stb_image (needed by AssetManager for PNG overrides)
     tools/editor/stb_image_impl.cpp
+
+    ${WOWEE_MACOS_SOURCES}
 )
 target_include_directories(wowee_editor PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -1961,6 +1975,9 @@ if(UNIX AND NOT APPLE)
     if(X11_FOUND)
         target_link_libraries(wowee_editor PRIVATE X11)
     endif()
+endif()
+if(APPLE)
+    target_link_libraries(wowee_editor PRIVATE "-framework Foundation")
 endif()
 if(WIN32)
     target_link_libraries(wowee_editor PRIVATE ws2_32)
