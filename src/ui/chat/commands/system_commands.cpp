@@ -118,17 +118,6 @@ public:
     std::string helpText() const override { return "Clear chat history"; }
 };
 
-// --- /logout ---
-class LogoutCommand : public IChatCommand {
-public:
-    ChatCommandResult execute(ChatCommandContext& /*ctx*/) override {
-        core::Application::getInstance().logoutToLogin();
-        return {};
-    }
-    std::vector<std::string> aliases() const override { return {"logout"}; }
-    std::string helpText() const override { return "Logout to login screen"; }
-};
-
 // --- /difficulty ---
 class DifficultyCommand : public IChatCommand {
 public:
@@ -183,7 +172,6 @@ void registerSystemCommands(ChatCommandRegistry& reg) {
     reg.registerCommand(std::make_unique<ReloadCommand>());
     reg.registerCommand(std::make_unique<StopMacroCommand>());
     reg.registerCommand(std::make_unique<ClearCommand>());
-    reg.registerCommand(std::make_unique<LogoutCommand>());
     reg.registerCommand(std::make_unique<DifficultyCommand>());
 }
 

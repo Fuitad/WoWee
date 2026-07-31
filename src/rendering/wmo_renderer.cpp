@@ -285,11 +285,10 @@ bool WMORenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
 void WMORenderer::shutdown() {
     core::Logger::getInstance().info("Shutting down WMO renderer...");
 
+    // Without a context there is nothing to free on the GPU and nothing to drain
+    // — and nothing to call it on either, which is what this used to try.
     if (!vkCtx_) {
         loadedModels.clear();
-    // Group destruction above is deferred; drain it now while the descriptor
-    // pools are still alive, since no further frames will run to drain it.
-    vkCtx_->flushDeferredCleanup();
         instances.clear();
         spatialGrid.clear();
         instanceIndexById.clear();
@@ -331,6 +330,13 @@ void WMORenderer::shutdown() {
     instances.clear();
     spatialGrid.clear();
     instanceIndexById.clear();
+
+    // destroyGroupGPU defers its frees, and those lambdas release descriptor
+    // sets from the pool destroyed just below. Drain them here, while the pool
+    // is still valid and before the pipelines and pools go: no further frames
+    // will run to drain the queue, so anything left in it either leaks or is
+    // run later against a dead pool.
+    vkCtx_->flushDeferredCleanup();
 
     // Destroy pipelines
     if (opaquePipeline_) { vkDestroyPipeline(device, opaquePipeline_, nullptr); opaquePipeline_ = VK_NULL_HANDLE; }
