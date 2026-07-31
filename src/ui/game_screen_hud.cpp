@@ -266,6 +266,19 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
         geosets.insert(1201);
     }
 
+    // Groups 17 and 18 are the Death Knight / Night Elf eye glow. Nothing here
+    // should ever select one, and the renderer only auto-skips them when no
+    // geoset filter is applied — with a filter, whatever is in this set is what
+    // gets drawn. Glowing eyes on a character that should not have them come
+    // from exactly this, so say so rather than leaving it to be spotted.
+    for (uint16_t g : geosets) {
+        const uint16_t group = g / 100;
+        if (group == 17 || group == 18) {
+            LOG_WARNING("Player geosets include eye-glow geoset ", g,
+                        " (group ", group, ") — this will draw glowing eyes");
+        }
+    }
+
     charRenderer->setActiveGeosets(instanceId, geosets);
 }
 
