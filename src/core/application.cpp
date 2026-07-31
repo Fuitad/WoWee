@@ -1573,15 +1573,24 @@ void Application::update(float deltaTime) {
                         havePlayerPos = true;
                     }
 
+                    // Counters for the summary below. "No NPCs at all" has three
+                    // possible causes that look identical in-world — the server
+                    // sent no units, the units exist but carry no display id, or
+                    // they exist and the spawner is refusing them — and the
+                    // difference decides where to look.
+                    int unitsSeen = 0, unitsNoDisplay = 0, unitsSpawned = 0, unitsQueued = 0;
+
                     const float kResyncRadiusSq = 260.0f * 260.0f;
                     for (const auto& pair : gameHandler->getEntityManager().getEntities()) {
                         uint64_t guid = pair.first;
                         const auto& entity = pair.second;
                         if (!entity || guid == playerGuid) continue;
                         if (entity->getType() != game::ObjectType::UNIT) continue;
+                        unitsSeen++;
                         auto unit = std::dynamic_pointer_cast<game::Unit>(entity);
-                        if (!unit || unit->getDisplayId() == 0) continue;
-                        if (entitySpawner_->isCreatureSpawned(guid) || entitySpawner_->isCreaturePending(guid)) continue;
+                        if (!unit || unit->getDisplayId() == 0) { unitsNoDisplay++; continue; }
+                        if (entitySpawner_->isCreatureSpawned(guid)) { unitsSpawned++; continue; }
+                        if (entitySpawner_->isCreaturePending(guid)) { unitsQueued++; continue; }
 
                         if (havePlayerPos) {
                             glm::vec3 pos(unit->getX(), unit->getY(), unit->getZ());
@@ -1606,6 +1615,24 @@ void Application::update(float deltaTime) {
                         entitySpawner_->queueCreatureSpawn(guid, unit->getDisplayId(),
                             unit->getX(), unit->getY(), unit->getZ(),
                             unit->getOrientation(), retryScale);
+                    }
+
+                    // Silent during normal play: this only speaks up when the
+                    // world holds units and none of them have a model.
+                    if (unitsSeen > 0 && unitsSpawned == 0) {
+                        LOG_WARNING("No creature models for ", unitsSeen,
+                                    " units in range (", unitsNoDisplay,
+                                    " without a display id, ", unitsQueued,
+                                    " queued, lookups built=",
+                                    entitySpawner_->areCreatureLookupsBuilt() ? "yes" : "no", ")");
+                    } else if (unitsSeen == 0) {
+                        static float noUnitsFor = 0.0f;
+                        noUnitsFor += 3.0f;
+                        if (noUnitsFor >= 9.0f) {
+                            noUnitsFor = 0.0f;
+                            LOG_WARNING("No UNIT entities in range at all — the server has "
+                                        "sent no creatures, or their update blocks were dropped");
+                        }
                     }
                 }
             }

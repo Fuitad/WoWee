@@ -180,6 +180,10 @@ void EntitySpawner::resetAllState() {
     creatureWalkingState_.clear();
     creatureFlyingState_.clear();
     creatureActiveEmotes_.clear();
+    // Carried over, a stale entry matching the creature's current stealth state
+    // suppresses the opacity call that would apply it, so a stealthed NPC came
+    // back fully opaque after a relog. shutdown() already cleared this.
+    creatureWasStealthed_.clear();
     creatureWeaponsAttached_.clear();
     creatureWeaponAttachAttempts_.clear();
     modelIdIsWolfLike_.clear();
