@@ -146,6 +146,11 @@ VkExtent2D PostProcessPipeline::getSceneRenderExtent() const {
     return vkCtx_->getSwapchainExtent();
 }
 
+bool PostProcessPipeline::usesFxaaScenePath() const {
+    return !(fsr2_.enabled && fsr2_.sceneFramebuffer)
+        && needsFXAAPass() && fxaa_.sceneFramebuffer != VK_NULL_HANDLE;
+}
+
 VkImage PostProcessPipeline::getSceneColorImage() const {
     if (fsr2_.enabled && fsr2_.sceneFramebuffer) return fsr2_.sceneColor.image;
     if (needsFXAAPass() && fxaa_.sceneFramebuffer) return fxaa_.sceneColor.image;
