@@ -92,6 +92,9 @@ public:
     void endWater1xPass(VkCommandBuffer cmd);
     bool hasWater1xPass() const { return water1xRenderPass != VK_NULL_HANDLE; }
     VkRenderPass getWater1xRenderPass() const { return water1xRenderPass; }
+    VkFramebuffer getWater1xFramebuffer(uint32_t index) const {
+        return index < water1xFramebuffers.size() ? water1xFramebuffers[index] : VK_NULL_HANDLE;
+    }
 
     void render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const Camera& camera, float time, bool use1x = false, uint32_t frameIndex = 0);
     void captureSceneHistory(VkCommandBuffer cmd,

@@ -819,7 +819,12 @@ void Renderer::applyMsaaChange() {
     if (terrainRenderer) terrainRenderer->recreatePipelines();
     if (waterRenderer) {
         waterRenderer->recreatePipelines();
-        waterRenderer->destroyWater1xResources();  // no longer used
+        // Under MSAA the water draws single-sampled in its own pass, after the
+        // scene has resolved — it is a large alpha-blended surface whose edges
+        // MSAA does nothing for, and drawing it there also keeps it out of its
+        // own refraction copy.
+        waterRenderer->destroyWater1xResources();
+        setupWater1xPass();
     }
     if (wmoRenderer) wmoRenderer->recreatePipelines();
     if (m2Renderer) m2Renderer->recreatePipelines();
@@ -905,6 +910,8 @@ void Renderer::beginFrame() {
         // Rebuild water resources that reference swapchain extent/views
         if (waterRenderer) {
             waterRenderer->recreatePipelines();
+            waterRenderer->destroyWater1xResources();
+            setupWater1xPass();
         }
         // Recreate post-process resources for new swapchain dimensions
         if (postProcessPipeline_) postProcessPipeline_->handleSwapchainResize();
@@ -2140,24 +2147,35 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
                                                vkCtx->getCurrentFrame());
         }
 
+        // Without MSAA the water continues into the scene's own framebuffer. With
+        // MSAA it draws single-sampled into the resolved image instead, which is
+        // both cheaper and what lets it leave the multisampled pass at all.
+        const bool msaaOn = vkCtx->getMsaaSamples() > VK_SAMPLE_COUNT_1_BIT;
         VkRenderPassBeginInfo contRp{};
         contRp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        contRp.renderPass = vkCtx->getSceneContinueRenderPass();
-        contRp.framebuffer = activeFramebuffer_;
-        contRp.renderArea.extent = activeRenderExtent_;
+        VkExtent2D waterExtent = activeRenderExtent_;
+        if (msaaOn) {
+            contRp.renderPass = waterRenderer->getWater1xRenderPass();
+            contRp.framebuffer = waterRenderer->getWater1xFramebuffer(currentImageIndex);
+            waterExtent = vkCtx->getSwapchainExtent();
+        } else {
+            contRp.renderPass = vkCtx->getSceneContinueRenderPass();
+            contRp.framebuffer = activeFramebuffer_;
+        }
+        contRp.renderArea.extent = waterExtent;
         vkCmdBeginRenderPass(currentCmd, &contRp, VK_SUBPASS_CONTENTS_INLINE);
 
         VkViewport vp{};
-        vp.width = static_cast<float>(activeRenderExtent_.width);
-        vp.height = static_cast<float>(activeRenderExtent_.height);
+        vp.width = static_cast<float>(waterExtent.width);
+        vp.height = static_cast<float>(waterExtent.height);
         vp.maxDepth = 1.0f;
         vkCmdSetViewport(currentCmd, 0, 1, &vp);
         VkRect2D sc{};
-        sc.extent = activeRenderExtent_;
+        sc.extent = waterExtent;
         vkCmdSetScissor(currentCmd, 0, 1, &sc);
 
-        waterRenderer->setRenderExtent(activeRenderExtent_);
-        waterRenderer->render(currentCmd, perFrameSet, *camera, globalTime, false, frameIdx);
+        waterRenderer->setRenderExtent(waterExtent);
+        waterRenderer->render(currentCmd, perFrameSet, *camera, globalTime, msaaOn, frameIdx);
     }
 
     auto renderEnd = std::chrono::steady_clock::now();
@@ -2167,8 +2185,15 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
 // Water can leave the scene pass only when there is a continuation pass to draw
 // it in, which excludes MSAA. Everything else in the frame is unaffected.
 bool Renderer::waterDrawsInContinuePass() const {
-    return waterRenderer && vkCtx
-        && vkCtx->getSceneContinueRenderPass() != VK_NULL_HANDLE;
+    if (!waterRenderer || !vkCtx) return false;
+    if (vkCtx->getMsaaSamples() > VK_SAMPLE_COUNT_1_BIT) {
+        // The 1x water pass targets the swapchain directly, so it cannot serve a
+        // frame whose scene went to an off-screen post-processing target.
+        const bool offscreenScene =
+            postProcessPipeline_ && postProcessPipeline_->getSceneFramebuffer() != VK_NULL_HANDLE;
+        return !offscreenScene && waterRenderer->hasWater1xPass();
+    }
+    return vkCtx->getSceneContinueRenderPass() != VK_NULL_HANDLE;
 }
 
 // initPostProcess(), resizePostProcess(), shutdownPostProcess() removed —
@@ -2751,9 +2776,12 @@ glm::mat4 Renderer::computeLightSpaceMatrix() {
 
 void Renderer::setupWater1xPass() {
     if (!waterRenderer || !vkCtx) return;
+    if (vkCtx->getMsaaSamples() == VK_SAMPLE_COUNT_1_BIT) return;  // scene continuation pass covers this
     VkImageView depthView = vkCtx->getDepthResolveImageView();
     if (!depthView) {
-        LOG_WARNING("No depth resolve image available - cannot create 1x water pass");
+        // Without a resolved depth buffer the single-sampled water has nothing
+        // to depth test against, so it has to stay in the multisampled pass.
+        LOG_WARNING("No depth resolve image available - water stays in the MSAA scene pass");
         return;
     }
 
