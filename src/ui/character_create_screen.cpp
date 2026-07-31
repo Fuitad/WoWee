@@ -1,5 +1,6 @@
 #include "ui/character_create_screen.hpp"
 #include "ui/selection_screen_layout.hpp"
+#include "core/logger.hpp"
 #include "ui/ui_colors.hpp"
 #include "rendering/character_preview.hpp"
 #include "rendering/renderer.hpp"
@@ -47,8 +48,19 @@ void sortUnique(std::vector<uint8_t>& ids) {
     ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
 }
 
-void useFallbackRange(std::vector<uint8_t>& ids, int maxId) {
+// Last resort when the DBC scan found nothing for this race and sex. The
+// numbers it invents are not backed by any CharSections row, so a character
+// created from them has an appearance the client cannot draw — a face picked
+// this way never resolves to a texture and the head renders bare. Keeping the
+// fallback (an empty slider is worse than a wrong one) but saying so, because
+// silently offering unrenderable choices is how a character ends up broken for
+// good at the one moment it cannot be changed.
+void useFallbackRange(const char* what, std::vector<uint8_t>& ids, int maxId) {
     if (!ids.empty()) return;
+    core::Logger::getInstance().warning(
+        "Character creation: no DBC entries for ", what,
+        " — offering an unverified 0..", maxId,
+        " range; choices may not render");
     ids.reserve(static_cast<size_t>(maxId + 1));
     for (int id = 0; id <= maxId; ++id) {
         ids.push_back(static_cast<uint8_t>(id));
@@ -297,8 +309,8 @@ void CharacterCreateScreen::updateAppearanceRanges() {
 
     sortUnique(skinIds_);
     sortUnique(hairStyleIds_);
-    useFallbackRange(skinIds_, maxSkin);
-    useFallbackRange(hairStyleIds_, maxHairStyle);
+    useFallbackRange("skin", skinIds_, maxSkin);
+    useFallbackRange("hair style", hairStyleIds_, maxHairStyle);
     maxSkin = static_cast<int>(skinIds_.size()) - 1;
     maxHairStyle = static_cast<int>(hairStyleIds_.size()) - 1;
     skin = std::clamp(skin, 0, maxSkin);
@@ -327,8 +339,8 @@ void CharacterCreateScreen::updateAppearanceRanges() {
 
     sortUnique(faceIds_);
     sortUnique(hairColorIds_);
-    useFallbackRange(faceIds_, maxFace);
-    useFallbackRange(hairColorIds_, maxHairColor);
+    useFallbackRange("face", faceIds_, maxFace);
+    useFallbackRange("hair colour", hairColorIds_, maxHairColor);
     maxFace = static_cast<int>(faceIds_.size()) - 1;
     maxHairColor = static_cast<int>(hairColorIds_.size()) - 1;
     face = std::clamp(face, 0, maxFace);
@@ -348,7 +360,7 @@ void CharacterCreateScreen::updateAppearanceRanges() {
         }
     }
     sortUnique(facialHairIds_);
-    useFallbackRange(facialHairIds_, targetSexId == 1 ? 0 : maxFacialHair);
+    useFallbackRange("facial hair", facialHairIds_, targetSexId == 1 ? 0 : maxFacialHair);
     maxFacialHair = static_cast<int>(facialHairIds_.size()) - 1;
     facialHair = std::clamp(facialHair, 0, maxFacialHair);
 

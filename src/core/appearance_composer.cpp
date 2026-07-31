@@ -134,6 +134,13 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
         bool foundUnderwear = false;
         bool foundFaceLower = false;
         bool foundHair = false;
+        // Nearest usable face if the exact (variation, colour) pair is absent.
+        // Character creation falls back to a synthetic 0..9 range whenever its
+        // DBC scan comes up empty, so a character can be created carrying a face
+        // number that has no row at all — and then has no face for good, because
+        // this lookup used to just not match and say nothing.
+        std::string faceAltLower, faceAltUpper;
+        bool haveFaceAlt = false;
         for (uint32_t r = 0; r < charSectionsDbc->getRecordCount(); r++) {
             uint32_t raceId = charSectionsDbc->getUInt32(r, csF.raceId);
             uint32_t sexId = charSectionsDbc->getUInt32(r, csF.sexId);
@@ -178,6 +185,18 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
                 }
                 foundFaceLower = true;
             }
+            // Same face variation in another skin colour, or failing that any
+            // face at all in the right colour: either beats a blank head.
+            else if (baseSection == 1 && !foundFaceLower && !haveFaceAlt &&
+                     (variationIndex == charFaceId || colorIndex == charSkinId)) {
+                std::string tex1 = charSectionsDbc->getString(r, csF.texture1);
+                std::string tex2 = charSectionsDbc->getString(r, csF.texture2);
+                if (!tex1.empty()) {
+                    faceAltLower = tex1;
+                    faceAltUpper = tex2;
+                    haveFaceAlt = true;
+                }
+            }
             // Section 4 = underwear
             else if (baseSection == 4 && !foundUnderwear && colorIndex == charSkinId) {
                 for (uint32_t f = csF.texture1; f <= csF.texture1 + 2; f++) {
@@ -191,6 +210,18 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
             }
 
             if (foundSkin && foundHair && foundFaceLower && foundUnderwear) break;
+        }
+
+        if (!foundFaceLower) {
+            LOG_WARNING("No DBC face match for face=", static_cast<int>(charFaceId),
+                        " skin=", static_cast<int>(charSkinId),
+                        " race=", targetRaceId, " sex=", targetSexId,
+                        haveFaceAlt ? " — using the nearest face instead"
+                                    : " — this character will render with no face");
+            if (haveFaceAlt) {
+                result.faceLowerPath = faceAltLower;
+                result.faceUpperPath = faceAltUpper;
+            }
         }
 
         if (!foundHair) {
