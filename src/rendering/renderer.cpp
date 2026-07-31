@@ -2193,15 +2193,6 @@ bool Renderer::waterDrawsInContinuePass() const {
             postProcessPipeline_ && postProcessPipeline_->getSceneFramebuffer() != VK_NULL_HANDLE;
         return !offscreenScene && waterRenderer->hasWater1xPass();
     }
-    // Holding the split off on the FXAA path. Enabling FXAA with the split
-    // active renders the scene into a corner of the frame, and I have not yet
-    // found which of the two is at fault — so the water goes back into the scene
-    // pass there (refraction reverts to the end-of-frame copy, i.e. the old
-    // ghosting) rather than shipping a broken picture. Not a diagnosis.
-    // WOWEE_WATER_SPLIT_FXAA=1 lifts the guard so the fault can be reproduced
-    // under validation, which is the one thing that will name it.
-    static const bool forceFxaaSplit = envFlagEnabled("WOWEE_WATER_SPLIT_FXAA");
-    if (!forceFxaaSplit && postProcessPipeline_ && postProcessPipeline_->usesFxaaScenePath()) return false;
     return vkCtx->getSceneContinueRenderPass() != VK_NULL_HANDLE;
 }
 

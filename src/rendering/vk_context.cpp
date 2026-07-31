@@ -1359,6 +1359,17 @@ bool VkContext::createOverlayRenderPass() {
         return false;
     }
 
+    // Same attachments, so ImGui's pipelines work in either, but clearing rather
+    // than loading. The loading screen draws ImGui with nothing underneath it,
+    // and it used to do that inside the scene pass — which stopped being valid
+    // once ImGui's pipelines were built single-sampled for the overlay pass.
+    color.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    color.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    if (vkCreateRenderPass(device, &rpInfo, nullptr, &overlayClearRenderPass) != VK_SUCCESS) {
+        LOG_ERROR("Failed to create clearing overlay render pass");
+        overlayClearRenderPass = VK_NULL_HANDLE;
+    }
+
     overlayFramebuffers.resize(swapchainImageViews.size());
     for (size_t i = 0; i < swapchainImageViews.size(); i++) {
         VkFramebufferCreateInfo fbInfo{};
@@ -1422,22 +1433,18 @@ bool VkContext::createSceneContinueRenderPass() {
     subpass.pColorAttachments = &colorRef;
     subpass.pDepthStencilAttachment = &depthRef;
 
-    // Wait for the scene draw and for the refraction copy that reads its result.
+    // Must match the scene pass's dependency exactly. This pass is begun against
+    // the scene's own framebuffer, and render pass compatibility is checked
+    // against how that framebuffer was created — a dependency that differs makes
+    // the begin invalid, which is undefined behaviour and rendered the frame into
+    // a corner of the screen on the FXAA path.
     VkSubpassDependency dependency{};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
     dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-                            | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
-                            | VK_PIPELINE_STAGE_TRANSFER_BIT;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-                            | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
-                             | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
-                             | VK_ACCESS_TRANSFER_READ_BIT;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
-                             | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT
-                             | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT
-                             | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
     VkRenderPassCreateInfo rpInfo{};
     rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -1463,6 +1470,10 @@ void VkContext::destroyOverlayRenderPass() {
     if (overlayRenderPass) {
         vkDestroyRenderPass(device, overlayRenderPass, nullptr);
         overlayRenderPass = VK_NULL_HANDLE;
+    }
+    if (overlayClearRenderPass) {
+        vkDestroyRenderPass(device, overlayClearRenderPass, nullptr);
+        overlayClearRenderPass = VK_NULL_HANDLE;
     }
     if (sceneContinueRenderPass) {
         vkDestroyRenderPass(device, sceneContinueRenderPass, nullptr);

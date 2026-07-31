@@ -101,6 +101,9 @@ public:
     // here, after the scene has resolved and after water refraction has copied
     // it, so the capture never contains the UI.
     VkRenderPass getOverlayRenderPass() const { return overlayRenderPass; }
+    // The same pass but clearing, for screens that draw the UI with no scene
+    // behind it. Shares getOverlayFramebuffers().
+    VkRenderPass getOverlayClearRenderPass() const { return overlayClearRenderPass; }
     const std::vector<VkFramebuffer>& getOverlayFramebuffers() const { return overlayFramebuffers; }
     // Compatible with getImGuiRenderPass(), but loads the scene instead of
     // clearing it, so drawing can continue into the same framebuffer after the
@@ -273,6 +276,7 @@ private:
     // ImGui resources
     VkRenderPass imguiRenderPass = VK_NULL_HANDLE;
     VkRenderPass overlayRenderPass = VK_NULL_HANDLE;
+    VkRenderPass overlayClearRenderPass = VK_NULL_HANDLE;
     std::vector<VkFramebuffer> overlayFramebuffers;
     VkRenderPass sceneContinueRenderPass = VK_NULL_HANDLE;
     bool createOverlayRenderPass();

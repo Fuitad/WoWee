@@ -429,25 +429,31 @@ void LoadingScreen::render() {
         VkCommandBuffer cmd = vkCtx->beginFrame(imageIndex);
         if (cmd != VK_NULL_HANDLE) {
             // Begin render pass
+            // The UI draws in the overlay pass, which is what ImGui's pipelines
+            // are built for: single-sampled and colour only. Drawing it in the
+            // scene pass instead put a 1x pipeline inside an 8x pass, which the
+            // validation layers reject and the driver renders as it pleases.
+            // This variant clears, since there is no scene underneath here.
             VkRenderPassBeginInfo rpInfo{};
             rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-            rpInfo.renderPass = vkCtx->getImGuiRenderPass();
-            rpInfo.framebuffer = vkCtx->getSwapchainFramebuffers()[imageIndex];
+            rpInfo.renderPass = vkCtx->getOverlayClearRenderPass();
+            rpInfo.framebuffer = vkCtx->getOverlayFramebuffers()[imageIndex];
             rpInfo.renderArea.offset = {0, 0};
             rpInfo.renderArea.extent = vkCtx->getSwapchainExtent();
 
-            // Render pass has 2 attachments (color + depth) or 3 with MSAA
-            VkClearValue clearValues[3]{};
+            VkClearValue clearValues[1]{};
             clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-            clearValues[1].depthStencil = {1.0f, 0};
-            clearValues[2].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-            bool msaaOn = vkCtx->getMsaaSamples() > VK_SAMPLE_COUNT_1_BIT;
-            rpInfo.clearValueCount = msaaOn ? 3 : 2;
+            rpInfo.clearValueCount = 1;
             rpInfo.pClearValues = clearValues;
 
-            vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
-            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
-            vkCmdEndRenderPass(cmd);
+            const bool overlayReady =
+                rpInfo.renderPass != VK_NULL_HANDLE &&
+                imageIndex < vkCtx->getOverlayFramebuffers().size();
+            if (overlayReady) {
+                vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
+                ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
+                vkCmdEndRenderPass(cmd);
+            }
 
             vkCtx->endFrame(cmd, imageIndex);
         }
