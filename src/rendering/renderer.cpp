@@ -1877,19 +1877,41 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
             if (overlaySystem_ && waterRenderer && camera) {
                 glm::vec3 camPos = camera->getPosition();
                 auto waterH = waterRenderer->getNearestWaterHeightAt(camPos.x, camPos.y, camPos.z);
-                constexpr float MIN_SUBMERSION_OVERLAY = 1.5f;
-                if (waterH && camPos.z < (*waterH - MIN_SUBMERSION_OVERLAY)
+                // How far the eye is under the surface. The tint used to wait
+                // until 1.5 units down and then apply to the whole screen at
+                // once, so crossing the surface was a step: no tint, no tint,
+                // fully tinted. Start it at the surface and let a waterline
+                // sweep up the view over the crossing instead.
+                constexpr float kCrossingBand = 0.55f;  // half-height of the sweep, in units
+                const float eyeDepth = waterH ? (*waterH - camPos.z) : -1.0f;
+                if (waterH && eyeDepth > -kCrossingBand
                            && !waterRenderer->isWmoWaterAt(camPos.x, camPos.y)) {
-                    float depth = *waterH - camPos.z - MIN_SUBMERSION_OVERLAY;
                     bool canal = false;
                     if (auto lt = waterRenderer->getWaterTypeAt(camPos.x, camPos.y))
                         canal = (*lt == 5 || *lt == 13 || *lt == 17);
+                    // Depth fog builds from the surface rather than from 1.5 down.
+                    const float depth = std::max(eyeDepth, 0.0f);
                     float fogStrength = 1.0f - std::exp(-depth * (canal ? 0.25f : 0.12f));
                     fogStrength = glm::clamp(fogStrength, 0.0f, 0.75f);
+                    // Hold a little tint through the crossing itself, so the
+                    // submerged half is visibly water rather than clear air.
+                    fogStrength = std::max(fogStrength, 0.10f);
                     glm::vec4 tint = canal
                         ? glm::vec4(0.01f, 0.04f, 0.10f, fogStrength)
                         : glm::vec4(0.03f, 0.09f, 0.18f, fogStrength);
-                    overlaySystem_->renderOverlay(tint, cmd);
+
+                    // Map eye depth to the line's position: at the top of the
+                    // band it sits off the bottom of the screen (nothing
+                    // tinted), at the bottom it is off the top (all tinted).
+                    const float t = glm::clamp((eyeDepth + kCrossingBand) / (2.0f * kCrossingBand),
+                                               0.0f, 1.0f);
+                    const float lineNdc = glm::mix(1.15f, -1.15f, t);
+                    const bool crossing = eyeDepth < kCrossingBand;
+                    overlaySystem_->renderWaterline(
+                        tint, lineNdc,
+                        crossing ? 0.05f : 0.0f,   // meniscus softness
+                        crossing ? 0.03f : 0.0f,   // ripple on the edge
+                        globalTime, cmd);
                 }
             }
             if (ghostMode_ && overlaySystem_) {

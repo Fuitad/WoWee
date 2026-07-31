@@ -39,6 +39,13 @@ public:
     // Fullscreen color overlay (underwater tint, etc.)
     void renderOverlay(const glm::vec4& color, VkCommandBuffer cmd);
 
+    /// Underwater tint bounded by a waterline that sweeps across the view as the
+    /// camera crosses the surface. lineNdc runs from +1 (line off the bottom, so
+    /// nothing is tinted) to -1 (off the top, so everything is), softness spans
+    /// the meniscus and rippleAmp bends the edge.
+    void renderWaterline(const glm::vec4& color, float lineNdc, float softness,
+                         float rippleAmp, float time, VkCommandBuffer cmd);
+
     // Fullscreen multiplicative brightness scale (scene.rgb *= scale). Uses a
     // dst-color blend so brightness > 1 truly scales luminance instead of
     // lerping toward white (which washed everything out). scale > 1 only.
