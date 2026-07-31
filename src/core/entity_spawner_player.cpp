@@ -1400,10 +1400,14 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
         std::string lowerPath = modelPath;
         std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(),
                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        // Fishing pools carry their motion in a looping idle — the school's fish
+        // circle inside the model — so freezing them to the bind pose leaves a
+        // pool of motionless fish hanging in the water.
         bool isAnimatedEffect = (lowerPath.find("instanceportal") != std::string::npos ||
                                   lowerPath.find("instancenewportal") != std::string::npos ||
                                   lowerPath.find("portalfx") != std::string::npos ||
-                                  lowerPath.find("spellportal") != std::string::npos);
+                                  lowerPath.find("spellportal") != std::string::npos ||
+                                  lowerPath.find("fishschool") != std::string::npos);
         if (!isAnimatedEffect && !isTransportGO) {
             // Check for totem idle animations — totems should animate, not freeze
             bool isTotem = false;
