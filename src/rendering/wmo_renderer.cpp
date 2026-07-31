@@ -436,6 +436,11 @@ bool WMORenderer::loadModel(const pipeline::WMOModel& model, uint32_t id) {
     // submission with one fence wait, instead of one per upload.
     vkCtx_->beginUploadBatch();
 
+    // Which of the three per-model passes owns the time. One of these steps was
+    // measured at 158ms, stalling terrain streaming; splitting the wrong one
+    // would not help.
+    const auto wmoLoadT0 = std::chrono::steady_clock::now();
+
     // Load textures for this model
     core::Logger::getInstance().debug("  WMO has ", model.textures.size(), " texture paths, ", model.materials.size(), " materials");
     if (assetManager && !model.textures.empty()) {
@@ -519,6 +524,8 @@ bool WMORenderer::loadModel(const pipeline::WMOModel& model, uint32_t id) {
         return {};
     };
 
+    const auto wmoLoadT1 = std::chrono::steady_clock::now();
+
     // Create GPU resources for each group
     uint32_t loadedGroups = 0;
     for (size_t gi = 0; gi < model.groups.size(); gi++) {
@@ -569,6 +576,8 @@ bool WMORenderer::loadModel(const pipeline::WMOModel& model, uint32_t id) {
         core::Logger::getInstance().warning("No valid groups loaded for WMO ", id);
         return false;
     }
+
+    const auto wmoLoadT2 = std::chrono::steady_clock::now();
 
     // Build pre-merged batches for each group (texture-sorted for efficient rendering)
     for (auto& groupRes : modelData.groups) {
@@ -887,6 +896,20 @@ bool WMORenderer::loadModel(const pipeline::WMOModel& model, uint32_t id) {
 
         if (!modelData.doodadTemplates.empty()) {
             core::Logger::getInstance().debug("WMO has ", modelData.doodadTemplates.size(), " doodad templates");
+        }
+    }
+
+    {
+        const auto wmoLoadT3 = std::chrono::steady_clock::now();
+        auto ms = [](auto a, auto b) {
+            return std::chrono::duration<float, std::milli>(b - a).count();
+        };
+        const float total = ms(wmoLoadT0, wmoLoadT3);
+        if (total > 8.0f) {
+            core::Logger::getInstance().warning(
+                "WMO ", id, " load ", total, "ms: textures=", ms(wmoLoadT0, wmoLoadT1),
+                " groups=", ms(wmoLoadT1, wmoLoadT2), " batches=", ms(wmoLoadT2, wmoLoadT3),
+                " (", model.textures.size(), " textures, ", model.groups.size(), " groups)");
         }
     }
 
