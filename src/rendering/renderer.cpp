@@ -1900,12 +1900,31 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
                         ? glm::vec4(0.01f, 0.04f, 0.10f, fogStrength)
                         : glm::vec4(0.03f, 0.09f, 0.18f, fogStrength);
 
-                    // Map eye depth to the line's position: at the top of the
-                    // band it sits off the bottom of the screen (nothing
-                    // tinted), at the bottom it is off the top (all tinted).
-                    const float t = glm::clamp((eyeDepth + kCrossingBand) / (2.0f * kCrossingBand),
-                                               0.0f, 1.0f);
-                    const float lineNdc = glm::mix(1.15f, -1.15f, t);
+                    // Anchor the line to where the water plane actually meets the
+                    // view — its horizon — not to the middle of the screen. An
+                    // infinite horizontal plane projects to the horizon whichever
+                    // side of it the eye is on, and the horizon sits above centre
+                    // whenever the camera looks down, which is most of the time in
+                    // third person. Mapping to screen centre put the darkening
+                    // well below the visible waterline.
+                    float horizonNdc = 0.0f;
+                    {
+                        const glm::vec3 fwd = camera->getForward();
+                        glm::vec3 level(fwd.x, fwd.y, 0.0f);
+                        if (glm::dot(level, level) > 1e-6f) {
+                            level = glm::normalize(level);
+                            const glm::vec4 clip =
+                                camera->getViewProjectionMatrix() * glm::vec4(level, 0.0f);
+                            if (std::abs(clip.w) > 1e-6f)
+                                horizonNdc = glm::clamp(clip.y / clip.w, -1.0f, 1.0f);
+                        }
+                    }
+                    // At the surface the line sits on the horizon; going under
+                    // sweeps it off the top, coming up sweeps it off the bottom.
+                    const float t = glm::clamp(eyeDepth / kCrossingBand, -1.0f, 1.0f);
+                    const float lineNdc = (t >= 0.0f)
+                        ? glm::mix(horizonNdc, -1.15f, t)
+                        : glm::mix(horizonNdc, 1.15f, -t);
                     const bool crossing = eyeDepth < kCrossingBand;
                     overlaySystem_->renderWaterline(
                         tint, lineNdc,
