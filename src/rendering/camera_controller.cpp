@@ -568,7 +568,16 @@ void CameraController::update(float deltaTime) {
                 waterH = waterRenderer->getWaterHeightAt(targetPos.x, targetPos.y);
             }
             constexpr float MAX_SWIM_DEPTH_FROM_SURFACE = 12.0f;
-            constexpr float MIN_SWIM_WATER_DEPTH = 1.0f;
+            // Hysteresis: starting to swim needs deeper water than continuing to
+            // swim does. With one threshold, a character wading at the boundary
+            // flipped between swim and walk every frame — each flip restarts the
+            // locomotion animation and sends a START_SWIM/STOP_SWIM pair, which
+            // is what made walking out of water stutter. The two bounds sit
+            // either side of the single 1.0 this replaces.
+            constexpr float SWIM_ENTER_WATER_DEPTH = 1.15f;
+            constexpr float SWIM_EXIT_WATER_DEPTH  = 0.85f;
+            const float MIN_SWIM_WATER_DEPTH =
+                swimming ? SWIM_EXIT_WATER_DEPTH : SWIM_ENTER_WATER_DEPTH;
             bool inWater = false;
             // Water Walk: treat water surface as ground — player walks on top, not through.
             if (waterWalkActive_ && waterH && targetPos.z >= *waterH - 0.5f) {
@@ -1837,7 +1846,16 @@ void CameraController::update(float deltaTime) {
             if (wmoRenderer) wmoH = wmoRenderer->getFloorHeight(newPos.x, newPos.y, feetZ + 2.0f);
             if (m2Renderer && !externalFollow_) m2H = m2Renderer->getFloorHeight(newPos.x, newPos.y, feetZ + 1.0f);
             auto floorH = selectHighestFloor(terrainH, wmoH, m2H);
-            constexpr float MIN_SWIM_WATER_DEPTH = 1.0f;
+            // Hysteresis: starting to swim needs deeper water than continuing to
+            // swim does. With one threshold, a character wading at the boundary
+            // flipped between swim and walk every frame — each flip restarts the
+            // locomotion animation and sends a START_SWIM/STOP_SWIM pair, which
+            // is what made walking out of water stutter. The two bounds sit
+            // either side of the single 1.0 this replaces.
+            constexpr float SWIM_ENTER_WATER_DEPTH = 1.15f;
+            constexpr float SWIM_EXIT_WATER_DEPTH  = 0.85f;
+            const float MIN_SWIM_WATER_DEPTH =
+                swimming ? SWIM_EXIT_WATER_DEPTH : SWIM_ENTER_WATER_DEPTH;
             inWater = (floorH && ((*waterH - *floorH) >= MIN_SWIM_WATER_DEPTH)) || (isOcean && !floorH);
             }
         }
