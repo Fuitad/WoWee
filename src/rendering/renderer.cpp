@@ -1889,13 +1889,19 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
                     bool canal = false;
                     if (auto lt = waterRenderer->getWaterTypeAt(camPos.x, camPos.y))
                         canal = (*lt == 5 || *lt == 13 || *lt == 17);
-                    // Depth fog builds from the surface rather than from 1.5 down.
+                    // Until the eye passes the surface the view is darkened by
+                    // looking through the water plane itself, which is strong —
+                    // its alpha runs up towards 0.9 with depth. Once the eye is
+                    // under, that plane is behind the camera and contributes
+                    // nothing, so this overlay is all that is left. Starting it
+                    // near zero made submerging brighten the scene sharply, which
+                    // is backwards. Begin at a strength comparable to what the
+                    // surface was contributing and deepen from there.
                     const float depth = std::max(eyeDepth, 0.0f);
-                    float fogStrength = 1.0f - std::exp(-depth * (canal ? 0.25f : 0.12f));
-                    fogStrength = glm::clamp(fogStrength, 0.0f, 0.75f);
-                    // Hold a little tint through the crossing itself, so the
-                    // submerged half is visibly water rather than clear air.
-                    fogStrength = std::max(fogStrength, 0.10f);
+                    constexpr float kSurfaceHandoff = 0.38f;  // matches the plane's own darkening
+                    const float depthFog = 1.0f - std::exp(-depth * (canal ? 0.25f : 0.12f));
+                    float fogStrength = kSurfaceHandoff + depthFog * (0.75f - kSurfaceHandoff);
+                    fogStrength = glm::clamp(fogStrength, kSurfaceHandoff, 0.75f);
                     glm::vec4 tint = canal
                         ? glm::vec4(0.01f, 0.04f, 0.10f, fogStrength)
                         : glm::vec4(0.03f, 0.09f, 0.18f, fogStrength);
