@@ -1133,9 +1133,20 @@ bool TerrainManager::advanceFinalization(FinalizingTile& ft) {
         // createInstance includes an O(n) bone-sibling scan that becomes expensive
         // on dense tiles with many placements and a large existing instance list.
         if (m2Renderer && ft.m2InstanceIndex < pending->m2Placements.size()) {
+            // A fixed count was overshooting: 32 instances measured at 19ms
+            // against this phase's 8ms budget, because createInstance carries an
+            // O(n) bone-sibling scan whose cost grows with the instances already
+            // present. Bound by time instead, which holds regardless of how
+            // heavy each one turns out to be.
             constexpr size_t kInstancesPerStep = 32;
+            constexpr float kInstanceBudgetMs = 4.0f;
+            const auto instanceStart = std::chrono::steady_clock::now();
             size_t created = 0;
             while (ft.m2InstanceIndex < pending->m2Placements.size() && created < kInstancesPerStep) {
+                if (created > 0 && std::chrono::duration<float, std::milli>(
+                        std::chrono::steady_clock::now() - instanceStart).count() >= kInstanceBudgetMs) {
+                    break;
+                }
                 const auto& p = pending->m2Placements[ft.m2InstanceIndex++];
                 if (p.uniqueId != 0 && placedDoodadIds.count(p.uniqueId)) {
                     continue;

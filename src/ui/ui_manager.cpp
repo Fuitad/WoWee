@@ -1,4 +1,5 @@
 #include "ui/ui_manager.hpp"
+#include <chrono>
 #include "core/window.hpp"
 #include "core/application.hpp"
 #include "core/logger.hpp"
@@ -122,6 +123,24 @@ void UIManager::update([[maybe_unused]] float deltaTime) {
 
 void UIManager::render(core::AppState appState, auth::AuthHandler* authHandler, game::GameHandler* gameHandler) {
     if (!imguiInitialized) return;
+
+    // Two ~150-200ms spikes land here every launch, before login. Decoding the
+    // auth background off the main thread did not move them, so report which
+    // application state was being drawn when one happens — that narrows it to a
+    // screen before anyone goes looking inside one.
+    const auto uiRenderStart = std::chrono::steady_clock::now();
+    struct StateReport {
+        std::chrono::steady_clock::time_point start;
+        core::AppState state;
+        ~StateReport() {
+            const float ms = std::chrono::duration<float, std::milli>(
+                std::chrono::steady_clock::now() - start).count();
+            if (ms > 50.0f) {
+                LOG_WARNING("SLOW UI screen render: ", ms, "ms in appState=",
+                            static_cast<int>(state));
+            }
+        }
+    } stateReport{uiRenderStart, appState};
 
     // Render appropriate screen based on application state
     switch (appState) {
