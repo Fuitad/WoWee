@@ -1257,20 +1257,6 @@ bool VkContext::createImGuiResources() {
             return false;
         }
 
-        // Overlay pass: identical attachments, so it is render-pass-compatible
-        // with the pipelines built against imguiRenderPass, but it preserves what
-        // is already in the swapchain instead of clearing it. This lets the frame
-        // be split — scene, then the copy for water refraction, then the UI — so
-        // the refraction capture does not contain the UI.
-        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-        attachments[0].initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-        attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;  // the UI is not depth tested
-        attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        if (vkCreateRenderPass(device, &rpInfo, nullptr, &overlayRenderPass) != VK_SUCCESS) {
-            LOG_WARNING("Failed to create overlay render pass — refraction will capture the UI");
-            overlayRenderPass = VK_NULL_HANDLE;
-        }
-
         // Framebuffers: [swapchainView, depthView]
         swapchainFramebuffers.resize(swapchainImageViews.size());
         for (size_t i = 0; i < swapchainImageViews.size(); i++) {
@@ -1312,7 +1298,94 @@ bool VkContext::createImGuiResources() {
         return false;
     }
 
+    // One creation site for the overlay pass, shared by both MSAA and non-MSAA
+    // configurations. Recreated from recreateSwapchain the same way.
+    if (!createOverlayRenderPass()) return false;
+
     return true;
+}
+
+
+// The UI draws in its own pass, after the scene has resolved and after water
+// refraction has copied the scene. Keeping it separate means the UI is never
+// part of the refraction capture, and deliberately single-sampled: ImGui draws
+// axis-aligned rectangles and pre-antialiased glyphs, which MSAA does almost
+// nothing for, so multisampling it only costs fill rate. Colour only, loading
+// what is already on the swapchain — no depth, no resolve.
+bool VkContext::createOverlayRenderPass() {
+    destroyOverlayRenderPass();
+
+    VkAttachmentDescription color{};
+    color.format = swapchainFormat;
+    color.samples = VK_SAMPLE_COUNT_1_BIT;
+    color.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    color.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    color.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    color.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    color.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    color.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference colorRef{};
+    colorRef.attachment = 0;
+    colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorRef;
+
+    // Wait for the scene resolve and for the refraction copy that reads it.
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_TRANSFER_READ_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+
+    VkRenderPassCreateInfo rpInfo{};
+    rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    rpInfo.attachmentCount = 1;
+    rpInfo.pAttachments = &color;
+    rpInfo.subpassCount = 1;
+    rpInfo.pSubpasses = &subpass;
+    rpInfo.dependencyCount = 1;
+    rpInfo.pDependencies = &dependency;
+
+    if (vkCreateRenderPass(device, &rpInfo, nullptr, &overlayRenderPass) != VK_SUCCESS) {
+        LOG_ERROR("Failed to create overlay (UI) render pass");
+        overlayRenderPass = VK_NULL_HANDLE;
+        return false;
+    }
+
+    overlayFramebuffers.resize(swapchainImageViews.size());
+    for (size_t i = 0; i < swapchainImageViews.size(); i++) {
+        VkFramebufferCreateInfo fbInfo{};
+        fbInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        fbInfo.renderPass = overlayRenderPass;
+        fbInfo.attachmentCount = 1;
+        fbInfo.pAttachments = &swapchainImageViews[i];
+        fbInfo.width = swapchainExtent.width;
+        fbInfo.height = swapchainExtent.height;
+        fbInfo.layers = 1;
+        if (vkCreateFramebuffer(device, &fbInfo, nullptr, &overlayFramebuffers[i]) != VK_SUCCESS) {
+            LOG_ERROR("Failed to create overlay framebuffer ", i);
+            destroyOverlayRenderPass();
+            return false;
+        }
+    }
+    return true;
+}
+
+void VkContext::destroyOverlayRenderPass() {
+    for (VkFramebuffer fb : overlayFramebuffers) {
+        if (fb) vkDestroyFramebuffer(device, fb, nullptr);
+    }
+    overlayFramebuffers.clear();
+    if (overlayRenderPass) {
+        vkDestroyRenderPass(device, overlayRenderPass, nullptr);
+        overlayRenderPass = VK_NULL_HANDLE;
+    }
 }
 
 void VkContext::destroyImGuiResources() {
@@ -1333,10 +1406,7 @@ void VkContext::destroyImGuiResources() {
     destroyDepthResolveImage();
     destroyDepthBuffer();
     // Framebuffers are destroyed in destroySwapchain()
-    if (overlayRenderPass) {
-        vkDestroyRenderPass(device, overlayRenderPass, nullptr);
-        overlayRenderPass = VK_NULL_HANDLE;
-    }
+    destroyOverlayRenderPass();
     if (imguiRenderPass) {
         vkDestroyRenderPass(device, imguiRenderPass, nullptr);
         imguiRenderPass = VK_NULL_HANDLE;
@@ -1599,10 +1669,7 @@ bool VkContext::recreateSwapchain(int width, int height) {
     destroyDepthBuffer();
 
     // Destroy old render pass (needs recreation if MSAA changed)
-    if (overlayRenderPass) {
-        vkDestroyRenderPass(device, overlayRenderPass, nullptr);
-        overlayRenderPass = VK_NULL_HANDLE;
-    }
+    destroyOverlayRenderPass();
     if (imguiRenderPass) {
         vkDestroyRenderPass(device, imguiRenderPass, nullptr);
         imguiRenderPass = VK_NULL_HANDLE;
@@ -1826,19 +1893,6 @@ bool VkContext::recreateSwapchain(int width, int height) {
             return false;
         }
 
-        // Rebuild the overlay pass alongside it. This path destroyed the overlay
-        // pass above, and without recreating it here the first window resize left
-        // it null for the rest of the session — which silently put water
-        // refraction back to capturing the UI.
-        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-        attachments[0].initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-        attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;  // the UI is not depth tested
-        attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        if (vkCreateRenderPass(device, &rpInfo, nullptr, &overlayRenderPass) != VK_SUCCESS) {
-            LOG_WARNING("Failed to recreate overlay render pass — refraction will capture the UI");
-            overlayRenderPass = VK_NULL_HANDLE;
-        }
-
         swapchainFramebuffers.resize(swapchainImageViews.size());
         for (size_t i = 0; i < swapchainImageViews.size(); i++) {
             VkImageView fbAttachments[2] = {swapchainImageViews[i], depthImageView};
@@ -1856,6 +1910,8 @@ bool VkContext::recreateSwapchain(int width, int height) {
             }
         }
     }
+
+    if (!createOverlayRenderPass()) return false;
 
     swapchainDirty = false;
     LOG_INFO("Swapchain recreated: ", swapchainExtent.width, "x", swapchainExtent.height);

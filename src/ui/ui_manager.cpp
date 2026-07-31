@@ -79,8 +79,11 @@ bool UIManager::initialize(core::Window* win) {
     initInfo.DescriptorPool = vkCtx->getImGuiDescriptorPool();
     initInfo.MinImageCount = 2;
     initInfo.ImageCount = vkCtx->getSwapchainImageCount();
-    initInfo.PipelineInfoMain.RenderPass = vkCtx->getImGuiRenderPass();
-    initInfo.PipelineInfoMain.MSAASamples = vkCtx->getMsaaSamples();
+    // The UI renders in the overlay pass, which is single-sampled on purpose:
+    // ImGui draws axis-aligned rects and pre-antialiased glyphs, so MSAA buys
+    // almost nothing there and costs fill rate at the sample count the scene uses.
+    initInfo.PipelineInfoMain.RenderPass = vkCtx->getOverlayRenderPass();
+    initInfo.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     initInfo.CheckVkResultFn = [](VkResult err) {
         if (err != VK_SUCCESS)
             LOG_ERROR("ImGui Vulkan error: ", static_cast<int>(err));

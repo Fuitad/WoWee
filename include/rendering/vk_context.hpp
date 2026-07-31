@@ -97,10 +97,11 @@ public:
 
     // For ImGui
     VkRenderPass getImGuiRenderPass() const { return imguiRenderPass; }
-    // Compatible with getImGuiRenderPass() but loads the swapchain rather than
-    // clearing it. Null under MSAA, where a second pass would have to resolve
-    // again and could not preserve the already-resolved image.
+    // Single-sampled, colour-only pass that loads the swapchain. The UI draws
+    // here, after the scene has resolved and after water refraction has copied
+    // it, so the capture never contains the UI.
     VkRenderPass getOverlayRenderPass() const { return overlayRenderPass; }
+    const std::vector<VkFramebuffer>& getOverlayFramebuffers() const { return overlayFramebuffers; }
     VkDescriptorPool getImGuiDescriptorPool() const { return imguiDescriptorPool; }
     const std::vector<VkFramebuffer>& getSwapchainFramebuffers() const { return swapchainFramebuffers; }
 
@@ -268,6 +269,9 @@ private:
     // ImGui resources
     VkRenderPass imguiRenderPass = VK_NULL_HANDLE;
     VkRenderPass overlayRenderPass = VK_NULL_HANDLE;
+    std::vector<VkFramebuffer> overlayFramebuffers;
+    bool createOverlayRenderPass();
+    void destroyOverlayRenderPass();
     VkDescriptorPool imguiDescriptorPool = VK_NULL_HANDLE;
 
     // Shared sampler for UI textures (created on first uploadImGuiTexture call)

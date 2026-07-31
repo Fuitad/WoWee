@@ -871,8 +871,11 @@ void Renderer::applyMsaaChange() {
     initInfo.DescriptorPool = vkCtx->getImGuiDescriptorPool();
     initInfo.MinImageCount = 2;
     initInfo.ImageCount = vkCtx->getSwapchainImageCount();
-    initInfo.PipelineInfoMain.RenderPass = vkCtx->getImGuiRenderPass();
-    initInfo.PipelineInfoMain.MSAASamples = vkCtx->getMsaaSamples();
+    // The UI renders in the overlay pass, which is single-sampled on purpose:
+    // ImGui draws axis-aligned rects and pre-antialiased glyphs, so MSAA buys
+    // almost nothing there and costs fill rate at the sample count the scene uses.
+    initInfo.PipelineInfoMain.RenderPass = vkCtx->getOverlayRenderPass();
+    initInfo.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     initInfo.CheckVkResultFn = [](VkResult err) {
         if (err != VK_SUCCESS)
             LOG_ERROR("ImGui Vulkan error: ", static_cast<int>(err));
@@ -1016,29 +1019,24 @@ void Renderer::endFrame() {
     ZoneScopedN("Renderer::endFrame");
     if (!vkCtx || currentCmd == VK_NULL_HANDLE) return;
 
-    // Track whether a post-processing path switched to an INLINE render pass.
-    // beginFrame() may have started the scene pass with SECONDARY_COMMAND_BUFFERS;
-    // post-proc paths end it and begin a new INLINE pass for the swapchain output.
-    endFrameInlineMode_ = false;
-
-    // Post-process execution (§4.3 — delegates to PostProcessPipeline)
+    // Post-process execution (§4.3 — delegates to PostProcessPipeline). Whether
+    // it swapped the scene pass for an INLINE one no longer matters to the
+    // caller: the UI is drawn in the overlay pass, which this function opens
+    // itself once whichever pass is current has been closed.
     if (postProcessPipeline_) {
-        endFrameInlineMode_ = postProcessPipeline_->executePostProcessing(
+        postProcessPipeline_->executePostProcessing(
             currentCmd, currentImageIndex, camera.get(), lastDeltaTime_);
     }
 
-    // Water refraction samples the scene as it looked before the UI was drawn.
-    // The copy cannot happen inside a render pass, so close the scene pass here,
-    // take the capture, and reopen a compatible pass that loads the swapchain
-    // for the UI. Doing this after the UI instead would refract the UI into the
-    // water. The overlay pass is null under MSAA (a second pass there would have
-    // to resolve again), in which case the capture stays where it was.
-    bool capturedSceneHistory = false;
-    if (waterRenderer && waterRenderer->isRefractionEnabled() && waterRenderer->hasSurfaces()
-        && currentImageIndex < vkCtx->getSwapchainImages().size()
-        && vkCtx->getOverlayRenderPass() != VK_NULL_HANDLE) {
-        vkCmdEndRenderPass(currentCmd);
+    // The scene is complete: close its pass so the water refraction copy can run
+    // (a copy is illegal inside a render pass), then draw the UI in the overlay
+    // pass. Capturing after the UI instead is what refracted the interface into
+    // the water. The overlay pass is single-sampled and colour-only, which is
+    // also why the UI costs the same here whatever MSAA the scene uses.
+    vkCmdEndRenderPass(currentCmd);
 
+    if (waterRenderer && waterRenderer->isRefractionEnabled() && waterRenderer->hasSurfaces()
+        && currentImageIndex < vkCtx->getSwapchainImages().size()) {
         waterRenderer->captureSceneHistory(
             currentCmd,
             vkCtx->getSwapchainImages()[currentImageIndex],
@@ -1046,12 +1044,14 @@ void Renderer::endFrame() {
             vkCtx->getSwapchainExtent(),
             vkCtx->isDepthCopySourceMsaa(),
             vkCtx->getCurrentFrame());
-        capturedSceneHistory = true;
+    }
 
+    const auto& overlayFbs = vkCtx->getOverlayFramebuffers();
+    if (vkCtx->getOverlayRenderPass() != VK_NULL_HANDLE && currentImageIndex < overlayFbs.size()) {
         VkRenderPassBeginInfo overlayRp{};
         overlayRp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
         overlayRp.renderPass = vkCtx->getOverlayRenderPass();
-        overlayRp.framebuffer = vkCtx->getSwapchainFramebuffers()[currentImageIndex];
+        overlayRp.framebuffer = overlayFbs[currentImageIndex];
         overlayRp.renderArea.extent = vkCtx->getSwapchainExtent();
         vkCmdBeginRenderPass(currentCmd, &overlayRp, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -1065,59 +1065,12 @@ void Renderer::endFrame() {
         sc.extent = ext;
         vkCmdSetScissor(currentCmd, 0, 1, &sc);
 
-        // The UI now draws into an INLINE pass regardless of what came before.
-        endFrameInlineMode_ = true;
-
-        static bool loggedSplit = false;
-        if (!loggedSplit) {
-            loggedSplit = true;
-            LOG_INFO("Water refraction: capturing scene before the UI (split frame)");
-        }
-    }
-
-    // ImGui rendering — must respect the subpass contents mode of the
-    // CURRENT render pass. Post-processing paths (FSR/FXAA) end the scene
-    // pass and begin a new INLINE pass; if none ran, we're still inside the
-    // scene pass which may be SECONDARY_COMMAND_BUFFERS when parallel recording
-    // is active. Track this via endFrameInlineMode_ (set true by any post-proc
-    // path that started an INLINE render pass).
-    if (parallelRecordingEnabled_ && !endFrameInlineMode_) {
-        // Still in the scene pass with SECONDARY_COMMAND_BUFFERS — record
-        // ImGui into a secondary command buffer.
-        VkCommandBuffer imguiCmd = beginSecondary(SEC_IMGUI);
-        setSecondaryViewportScissor(imguiCmd);
-        ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), imguiCmd);
-        vkEndCommandBuffer(imguiCmd);
-        vkCmdExecuteCommands(currentCmd, 1, &imguiCmd);
-    } else {
-        // INLINE render pass (post-process pass or non-parallel mode).
+        // ImGui's pipelines are built against the overlay pass, so it always
+        // records inline here rather than into a scene-pass secondary buffer.
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), currentCmd);
-    }
-
-    vkCmdEndRenderPass(currentCmd);
-
-    uint32_t frame = vkCtx->getCurrentFrame();
-
-    // Fallback capture for the MSAA path, where the frame could not be split and
-    // the UI is unavoidably part of the captured image.
-    if (!capturedSceneHistory && waterRenderer && waterRenderer->isRefractionEnabled()
-        && waterRenderer->hasSurfaces() && vkCtx->getOverlayRenderPass() == VK_NULL_HANDLE) {
-        static bool loggedFallback = false;
-        if (!loggedFallback) {
-            loggedFallback = true;
-            LOG_WARNING("Water refraction: no overlay render pass — capture includes the UI");
-        }
-    }
-    if (!capturedSceneHistory
-        && waterRenderer && waterRenderer->isRefractionEnabled() && waterRenderer->hasSurfaces()
-        && currentImageIndex < vkCtx->getSwapchainImages().size()) {
-        waterRenderer->captureSceneHistory(
-            currentCmd,
-            vkCtx->getSwapchainImages()[currentImageIndex],
-            vkCtx->getDepthCopySourceImage(),
-            vkCtx->getSwapchainExtent(),
-            vkCtx->isDepthCopySourceMsaa(),
-            frame);
+        vkCmdEndRenderPass(currentCmd);
+    } else {
+        LOG_ERROR("Overlay render pass missing — UI not drawn this frame");
     }
 
     // Water now renders in the main pass (renderWorld), no separate 1x pass needed.
