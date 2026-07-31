@@ -150,6 +150,7 @@ private:
 
     void updateMaterialUBO(WaterSurface& surface);
     VkDescriptorSet allocateMaterialSet();
+    VkExtent2D refractionCaptureExtent() const;
     void createSceneHistoryResources(VkExtent2D extent, VkFormat colorFormat, VkFormat depthFormat);
     void destroySceneHistoryResources();
 

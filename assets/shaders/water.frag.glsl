@@ -240,11 +240,11 @@ void main() {
     // ============================================================
     vec2 refractOffset = norm.xy * (0.02 + 0.03 * fresnel);
     vec2 refractUV = clamp(screenUV + refractOffset, vec2(0.001), vec2(0.999));
-    // The captured scene-history image already has the display brightness baked
-    // in (the final image is scene*brightness). Divide it back out so refraction
-    // samples the un-brightened scene — otherwise brightness re-applied on the
-    // water each frame compounds through this temporal capture and blows out.
-    vec3 sceneRefract = texture(SceneColor, refractUV).rgb / max(push.brightness, 0.01);
+    // The capture is taken after the scene is drawn and before the water goes
+    // over it, so it holds no water and has had no display post-processing
+    // applied yet. That means a single sharp tap is correct: there is no
+    // feedback loop to smear out, and no baked-in brightness to divide back off.
+    vec3 sceneRefract = texture(SceneColor, refractUV).rgb;
 
     float sceneDepth = texture(SceneDepth, refractUV).r;
 

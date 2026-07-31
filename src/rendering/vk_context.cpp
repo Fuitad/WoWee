@@ -1301,6 +1301,7 @@ bool VkContext::createImGuiResources() {
     // One creation site for the overlay pass, shared by both MSAA and non-MSAA
     // configurations. Recreated from recreateSwapchain the same way.
     if (!createOverlayRenderPass()) return false;
+    if (!createSceneContinueRenderPass()) return false;
 
     return true;
 }
@@ -1377,6 +1378,83 @@ bool VkContext::createOverlayRenderPass() {
     return true;
 }
 
+// Continuation of the scene pass: same attachments as the scene pass (so the
+// pipelines built for it work unchanged) but loading what is already drawn
+// instead of clearing. Water renders here, after the scene has been copied for
+// refraction, which is what keeps the water out of its own refraction source.
+// Only built without MSAA — a multisampled continuation would have to resolve a
+// second time and could not preserve the first resolve.
+bool VkContext::createSceneContinueRenderPass() {
+    if (msaaSamples_ > VK_SAMPLE_COUNT_1_BIT) {
+        sceneContinueRenderPass = VK_NULL_HANDLE;
+        return true;
+    }
+
+    VkAttachmentDescription attachments[2]{};
+    attachments[0].format = swapchainFormat;
+    attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+    attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[0].initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    attachments[1].format = depthFormat;
+    attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+    attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkAttachmentReference colorRef{};
+    colorRef.attachment = 0;
+    colorRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    VkAttachmentReference depthRef{};
+    depthRef.attachment = 1;
+    depthRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorRef;
+    subpass.pDepthStencilAttachment = &depthRef;
+
+    // Wait for the scene draw and for the refraction copy that reads its result.
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+                            | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT
+                            | VK_PIPELINE_STAGE_TRANSFER_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+                            | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+    dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+                             | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT
+                             | VK_ACCESS_TRANSFER_READ_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+                             | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT
+                             | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT
+                             | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+    VkRenderPassCreateInfo rpInfo{};
+    rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    rpInfo.attachmentCount = 2;
+    rpInfo.pAttachments = attachments;
+    rpInfo.subpassCount = 1;
+    rpInfo.pSubpasses = &subpass;
+    rpInfo.dependencyCount = 1;
+    rpInfo.pDependencies = &dependency;
+
+    if (vkCreateRenderPass(device, &rpInfo, nullptr, &sceneContinueRenderPass) != VK_SUCCESS) {
+        LOG_WARNING("Failed to create scene continuation pass — water stays in the scene pass");
+        sceneContinueRenderPass = VK_NULL_HANDLE;
+    }
+    return true;
+}
+
 void VkContext::destroyOverlayRenderPass() {
     for (VkFramebuffer fb : overlayFramebuffers) {
         if (fb) vkDestroyFramebuffer(device, fb, nullptr);
@@ -1385,6 +1463,10 @@ void VkContext::destroyOverlayRenderPass() {
     if (overlayRenderPass) {
         vkDestroyRenderPass(device, overlayRenderPass, nullptr);
         overlayRenderPass = VK_NULL_HANDLE;
+    }
+    if (sceneContinueRenderPass) {
+        vkDestroyRenderPass(device, sceneContinueRenderPass, nullptr);
+        sceneContinueRenderPass = VK_NULL_HANDLE;
     }
 }
 
@@ -1912,6 +1994,7 @@ bool VkContext::recreateSwapchain(int width, int height) {
     }
 
     if (!createOverlayRenderPass()) return false;
+    if (!createSceneContinueRenderPass()) return false;
 
     swapchainDirty = false;
     LOG_INFO("Swapchain recreated: ", swapchainExtent.width, "x", swapchainExtent.height);

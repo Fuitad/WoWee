@@ -102,6 +102,10 @@ public:
     // it, so the capture never contains the UI.
     VkRenderPass getOverlayRenderPass() const { return overlayRenderPass; }
     const std::vector<VkFramebuffer>& getOverlayFramebuffers() const { return overlayFramebuffers; }
+    // Compatible with getImGuiRenderPass(), but loads the scene instead of
+    // clearing it, so drawing can continue into the same framebuffer after the
+    // pass has been closed for a copy. Null under MSAA.
+    VkRenderPass getSceneContinueRenderPass() const { return sceneContinueRenderPass; }
     VkDescriptorPool getImGuiDescriptorPool() const { return imguiDescriptorPool; }
     const std::vector<VkFramebuffer>& getSwapchainFramebuffers() const { return swapchainFramebuffers; }
 
@@ -270,7 +274,9 @@ private:
     VkRenderPass imguiRenderPass = VK_NULL_HANDLE;
     VkRenderPass overlayRenderPass = VK_NULL_HANDLE;
     std::vector<VkFramebuffer> overlayFramebuffers;
+    VkRenderPass sceneContinueRenderPass = VK_NULL_HANDLE;
     bool createOverlayRenderPass();
+    bool createSceneContinueRenderPass();
     void destroyOverlayRenderPass();
     VkDescriptorPool imguiDescriptorPool = VK_NULL_HANDLE;
 

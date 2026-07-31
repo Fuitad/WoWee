@@ -55,6 +55,11 @@ public:
     /// Returns the render extent for the active post-process pipeline.
     /// Falls back to swapchain extent if nothing is active.
     VkExtent2D getSceneRenderExtent() const;
+    // The images behind getSceneFramebuffer(), so the scene can be copied for
+    // water refraction after it is drawn but before the water goes over it.
+    VkImage getSceneColorImage() const;
+    VkImage getSceneDepthImage() const;
+    bool sceneDepthIsMsaa() const;
 
     /// True if any post-process pipeline is active (FSR/FXAA/FSR2).
     bool hasActivePostProcess() const;

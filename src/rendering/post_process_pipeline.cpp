@@ -146,6 +146,32 @@ VkExtent2D PostProcessPipeline::getSceneRenderExtent() const {
     return vkCtx_->getSwapchainExtent();
 }
 
+VkImage PostProcessPipeline::getSceneColorImage() const {
+    if (fsr2_.enabled && fsr2_.sceneFramebuffer) return fsr2_.sceneColor.image;
+    if (needsFXAAPass() && fxaa_.sceneFramebuffer) return fxaa_.sceneColor.image;
+    if (fsr_.enabled && fsr_.sceneFramebuffer) return fsr_.sceneColor.image;
+    return VK_NULL_HANDLE;
+}
+
+VkImage PostProcessPipeline::getSceneDepthImage() const {
+    // Prefer the resolved depth where MSAA produced one: it is single-sampled and
+    // can be copied directly.
+    if (fsr2_.enabled && fsr2_.sceneFramebuffer) return fsr2_.sceneDepth.image;
+    if (needsFXAAPass() && fxaa_.sceneFramebuffer)
+        return fxaa_.sceneDepthResolve.image ? fxaa_.sceneDepthResolve.image : fxaa_.sceneDepth.image;
+    if (fsr_.enabled && fsr_.sceneFramebuffer)
+        return fsr_.sceneDepthResolve.image ? fsr_.sceneDepthResolve.image : fsr_.sceneDepth.image;
+    return VK_NULL_HANDLE;
+}
+
+bool PostProcessPipeline::sceneDepthIsMsaa() const {
+    if (!vkCtx_ || vkCtx_->getMsaaSamples() == VK_SAMPLE_COUNT_1_BIT) return false;
+    if (fsr2_.enabled && fsr2_.sceneFramebuffer) return true;  // FSR2 keeps only the sampled depth
+    if (needsFXAAPass() && fxaa_.sceneFramebuffer) return fxaa_.sceneDepthResolve.image == VK_NULL_HANDLE;
+    if (fsr_.enabled && fsr_.sceneFramebuffer) return fsr_.sceneDepthResolve.image == VK_NULL_HANDLE;
+    return true;
+}
+
 bool PostProcessPipeline::hasActivePostProcess() const {
     return (fsr2_.enabled && fsr2_.sceneFramebuffer)
         || (needsFXAAPass() && fxaa_.sceneFramebuffer)

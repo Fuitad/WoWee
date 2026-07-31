@@ -194,6 +194,10 @@ public:
     const std::vector<pipeline::CustomZoneInfo>& getCustomZones() const { return customZones_; }
 
 private:
+    // True when water is drawn in the scene continuation pass rather than in
+    // the scene pass itself (see renderWorld).
+    bool waterDrawsInContinuePass() const;
+
     void runDeferredWorldInitStep(float deltaTime);
 
     core::Window* window = nullptr;

@@ -153,7 +153,7 @@ bool WaterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLay
     // createSceneHistoryResources writes descriptor binding 3
     createReflectionResources();
 
-    createSceneHistoryResources(vkCtx->getSwapchainExtent(),
+    createSceneHistoryResources(refractionCaptureExtent(),
                                 vkCtx->getSwapchainFormat(),
                                 vkCtx->getDepthFormat());
 
@@ -215,7 +215,7 @@ void WaterRenderer::recreatePipelines() {
 
     destroyReflectionResources();
     createReflectionResources();
-    createSceneHistoryResources(vkCtx->getSwapchainExtent(),
+    createSceneHistoryResources(refractionCaptureExtent(),
                                 vkCtx->getSwapchainFormat(),
                                 vkCtx->getDepthFormat());
 
@@ -358,6 +358,16 @@ void WaterRenderer::destroySceneHistoryResources() {
     sceneDepthSampler = VK_NULL_HANDLE; // Owned by VkContext sampler cache
     sceneHistoryExtent = {0, 0};
     sceneHistoryReady = false;
+}
+
+// Refraction is a low-frequency effect: it is sampled through a rippling normal
+// that displaces it by a few pixels anyway, so the copy is kept at half the
+// display resolution. That is a quarter of the pixels to copy every frame and a
+// quarter of the sampling footprint, for a difference that is not visible
+// through moving water.
+VkExtent2D WaterRenderer::refractionCaptureExtent() const {
+    VkExtent2D full = vkCtx ? vkCtx->getSwapchainExtent() : VkExtent2D{0, 0};
+    return { std::max(1u, full.width / 2u), std::max(1u, full.height / 2u) };
 }
 
 void WaterRenderer::createSceneHistoryResources(VkExtent2D extent, VkFormat colorFormat, VkFormat depthFormat) {
@@ -1147,6 +1157,13 @@ void WaterRenderer::captureSceneHistory(VkCommandBuffer cmd,
         return;
     }
 
+    // The scene is not always rendered at the history's resolution — FSR renders
+    // smaller and upscales later. Copying the smaller image into the corner of a
+    // larger history would leave the refraction sampling a fraction of the frame
+    // stretched over all of it, so scale with a blit whenever they differ and
+    // keep the cheap straight copy when they match.
+    const bool needsScaling = (srcExtent.width != sceneHistoryExtent.width ||
+                               srcExtent.height != sceneHistoryExtent.height);
     VkExtent2D copyExtent{
         std::min(srcExtent.width, sceneHistoryExtent.width),
         std::min(srcExtent.height, sceneHistoryExtent.height)
@@ -1192,12 +1209,25 @@ void WaterRenderer::captureSceneHistory(VkCommandBuffer cmd,
              VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
              VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
-    VkImageCopy colorCopy{};
-    colorCopy.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    colorCopy.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    colorCopy.extent = {copyExtent.width, copyExtent.height, 1};
-    vkCmdCopyImage(cmd, srcColorImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                   sh.colorImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &colorCopy);
+    if (needsScaling) {
+        VkImageBlit colorBlit{};
+        colorBlit.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        colorBlit.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        colorBlit.srcOffsets[1] = {static_cast<int32_t>(srcExtent.width),
+                                   static_cast<int32_t>(srcExtent.height), 1};
+        colorBlit.dstOffsets[1] = {static_cast<int32_t>(sceneHistoryExtent.width),
+                                   static_cast<int32_t>(sceneHistoryExtent.height), 1};
+        vkCmdBlitImage(cmd, srcColorImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                       sh.colorImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                       1, &colorBlit, VK_FILTER_LINEAR);
+    } else {
+        VkImageCopy colorCopy{};
+        colorCopy.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        colorCopy.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        colorCopy.extent = {copyExtent.width, copyExtent.height, 1};
+        vkCmdCopyImage(cmd, srcColorImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                       sh.colorImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &colorCopy);
+    }
 
     barrier2(sh.colorImage, VK_IMAGE_ASPECT_COLOR_BIT,
              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -1219,12 +1249,27 @@ void WaterRenderer::captureSceneHistory(VkCommandBuffer cmd,
                  VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
                  VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
-        VkImageCopy depthCopy{};
-        depthCopy.srcSubresource = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 0, 1};
-        depthCopy.dstSubresource = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 0, 1};
-        depthCopy.extent = {copyExtent.width, copyExtent.height, 1};
-        vkCmdCopyImage(cmd, srcDepthImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                       sh.depthImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &depthCopy);
+        if (needsScaling) {
+            // Depth must not be filtered — an interpolated depth is a surface
+            // that exists nowhere.
+            VkImageBlit depthBlit{};
+            depthBlit.srcSubresource = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 0, 1};
+            depthBlit.dstSubresource = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 0, 1};
+            depthBlit.srcOffsets[1] = {static_cast<int32_t>(srcExtent.width),
+                                       static_cast<int32_t>(srcExtent.height), 1};
+            depthBlit.dstOffsets[1] = {static_cast<int32_t>(sceneHistoryExtent.width),
+                                       static_cast<int32_t>(sceneHistoryExtent.height), 1};
+            vkCmdBlitImage(cmd, srcDepthImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                           sh.depthImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                           1, &depthBlit, VK_FILTER_NEAREST);
+        } else {
+            VkImageCopy depthCopy{};
+            depthCopy.srcSubresource = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 0, 1};
+            depthCopy.dstSubresource = {VK_IMAGE_ASPECT_DEPTH_BIT, 0, 0, 1};
+            depthCopy.extent = {copyExtent.width, copyExtent.height, 1};
+            vkCmdCopyImage(cmd, srcDepthImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                           sh.depthImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &depthCopy);
+        }
 
         barrier2(sh.depthImage, VK_IMAGE_ASPECT_DEPTH_BIT,
                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,

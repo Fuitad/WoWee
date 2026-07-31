@@ -1035,7 +1035,12 @@ void Renderer::endFrame() {
     // also why the UI costs the same here whatever MSAA the scene uses.
     vkCmdEndRenderPass(currentCmd);
 
-    if (waterRenderer && waterRenderer->isRefractionEnabled() && waterRenderer->hasSurfaces()
+    // Only when water could not be moved out of the scene pass (MSAA). Otherwise
+    // renderWorld already took the copy at the one point in the frame where the
+    // scene is finished but the water is not yet over it; copying again here
+    // would replace that with an image containing the water.
+    if (!waterDrawsInContinuePass()
+        && waterRenderer && waterRenderer->isRefractionEnabled() && waterRenderer->hasSurfaces()
         && currentImageIndex < vkCtx->getSwapchainImages().size()) {
         waterRenderer->captureSceneHistory(
             currentCmd,
@@ -1850,7 +1855,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
             auto t0 = std::chrono::steady_clock::now();
             VkCommandBuffer cmd = beginSecondary(SEC_POST);
             setSecondaryViewportScissor(cmd);
-            if (waterRenderer && camera) {
+            if (waterRenderer && camera && !waterDrawsInContinuePass()) {
                 waterRenderer->setBrightness(postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f);
                 waterRenderer->render(cmd, perFrameSet, *camera, globalTime, false, frameIdx);
             }
@@ -2033,7 +2038,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
                 std::chrono::steady_clock::now() - m2Start).count();
         }
 
-        if (waterRenderer && camera) {
+        if (waterRenderer && camera && !waterDrawsInContinuePass()) {
             waterRenderer->setBrightness(postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f);
             waterRenderer->render(currentCmd, perFrameSet, *camera, globalTime, false, frameIdx);
         }
@@ -2107,8 +2112,63 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
         }
     }
 
+    // Water is drawn last, in a continuation of the scene pass, so that the
+    // refraction copy taken just before it holds the scene WITHOUT water. Taking
+    // that copy from the finished frame instead fed the water its own output:
+    // a moving object left one sharp copy per frame (a train of ghosts) and the
+    // brightness applied to the water compounded through the loop and pumped.
+    if (waterDrawsInContinuePass() && camera) {
+        vkCmdEndRenderPass(currentCmd);
+
+        VkImage sceneColor = VK_NULL_HANDLE;
+        VkImage sceneDepth = VK_NULL_HANDLE;
+        VkExtent2D sceneExtent = vkCtx->getSwapchainExtent();
+        bool depthIsMsaa = vkCtx->isDepthCopySourceMsaa();
+        if (postProcessPipeline_ && postProcessPipeline_->getSceneFramebuffer() != VK_NULL_HANDLE) {
+            sceneColor = postProcessPipeline_->getSceneColorImage();
+            sceneDepth = postProcessPipeline_->getSceneDepthImage();
+            sceneExtent = postProcessPipeline_->getSceneRenderExtent();
+            depthIsMsaa = postProcessPipeline_->sceneDepthIsMsaa();
+        } else if (currentImageIndex < vkCtx->getSwapchainImages().size()) {
+            sceneColor = vkCtx->getSwapchainImages()[currentImageIndex];
+            sceneDepth = vkCtx->getDepthCopySourceImage();
+        }
+
+        if (sceneColor != VK_NULL_HANDLE && waterRenderer->isRefractionEnabled()) {
+            waterRenderer->captureSceneHistory(currentCmd, sceneColor, sceneDepth,
+                                               sceneExtent, depthIsMsaa,
+                                               vkCtx->getCurrentFrame());
+        }
+
+        VkRenderPassBeginInfo contRp{};
+        contRp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        contRp.renderPass = vkCtx->getSceneContinueRenderPass();
+        contRp.framebuffer = activeFramebuffer_;
+        contRp.renderArea.extent = activeRenderExtent_;
+        vkCmdBeginRenderPass(currentCmd, &contRp, VK_SUBPASS_CONTENTS_INLINE);
+
+        VkViewport vp{};
+        vp.width = static_cast<float>(activeRenderExtent_.width);
+        vp.height = static_cast<float>(activeRenderExtent_.height);
+        vp.maxDepth = 1.0f;
+        vkCmdSetViewport(currentCmd, 0, 1, &vp);
+        VkRect2D sc{};
+        sc.extent = activeRenderExtent_;
+        vkCmdSetScissor(currentCmd, 0, 1, &sc);
+
+        waterRenderer->setBrightness(postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f);
+        waterRenderer->render(currentCmd, perFrameSet, *camera, globalTime, false, frameIdx);
+    }
+
     auto renderEnd = std::chrono::steady_clock::now();
     lastRenderMs = std::chrono::duration<double, std::milli>(renderEnd - renderStart).count();
+}
+
+// Water can leave the scene pass only when there is a continuation pass to draw
+// it in, which excludes MSAA. Everything else in the frame is unaffected.
+bool Renderer::waterDrawsInContinuePass() const {
+    return waterRenderer && vkCtx
+        && vkCtx->getSceneContinueRenderPass() != VK_NULL_HANDLE;
 }
 
 // initPostProcess(), resizePostProcess(), shutdownPostProcess() removed —
