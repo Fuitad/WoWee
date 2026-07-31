@@ -1027,6 +1027,48 @@ void Renderer::endFrame() {
             currentCmd, currentImageIndex, camera.get(), lastDeltaTime_);
     }
 
+    // Water refraction samples the scene as it looked before the UI was drawn.
+    // The copy cannot happen inside a render pass, so close the scene pass here,
+    // take the capture, and reopen a compatible pass that loads the swapchain
+    // for the UI. Doing this after the UI instead would refract the UI into the
+    // water. The overlay pass is null under MSAA (a second pass there would have
+    // to resolve again), in which case the capture stays where it was.
+    bool capturedSceneHistory = false;
+    if (waterRenderer && waterRenderer->isRefractionEnabled() && waterRenderer->hasSurfaces()
+        && currentImageIndex < vkCtx->getSwapchainImages().size()
+        && vkCtx->getOverlayRenderPass() != VK_NULL_HANDLE) {
+        vkCmdEndRenderPass(currentCmd);
+
+        waterRenderer->captureSceneHistory(
+            currentCmd,
+            vkCtx->getSwapchainImages()[currentImageIndex],
+            vkCtx->getDepthCopySourceImage(),
+            vkCtx->getSwapchainExtent(),
+            vkCtx->isDepthCopySourceMsaa(),
+            vkCtx->getCurrentFrame());
+        capturedSceneHistory = true;
+
+        VkRenderPassBeginInfo overlayRp{};
+        overlayRp.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        overlayRp.renderPass = vkCtx->getOverlayRenderPass();
+        overlayRp.framebuffer = vkCtx->getSwapchainFramebuffers()[currentImageIndex];
+        overlayRp.renderArea.extent = vkCtx->getSwapchainExtent();
+        vkCmdBeginRenderPass(currentCmd, &overlayRp, VK_SUBPASS_CONTENTS_INLINE);
+
+        VkExtent2D ext = vkCtx->getSwapchainExtent();
+        VkViewport vp{};
+        vp.width = static_cast<float>(ext.width);
+        vp.height = static_cast<float>(ext.height);
+        vp.maxDepth = 1.0f;
+        vkCmdSetViewport(currentCmd, 0, 1, &vp);
+        VkRect2D sc{};
+        sc.extent = ext;
+        vkCmdSetScissor(currentCmd, 0, 1, &sc);
+
+        // The UI now draws into an INLINE pass regardless of what came before.
+        endFrameInlineMode_ = true;
+    }
+
     // ImGui rendering — must respect the subpass contents mode of the
     // CURRENT render pass. Post-processing paths (FSR/FXAA) end the scene
     // pass and begin a new INLINE pass; if none ran, we're still inside the
@@ -1050,8 +1092,10 @@ void Renderer::endFrame() {
 
     uint32_t frame = vkCtx->getCurrentFrame();
 
-    // Capture scene color/depth into per-frame history images for water refraction
-    if (waterRenderer && waterRenderer->isRefractionEnabled() && waterRenderer->hasSurfaces()
+    // Fallback capture for the MSAA path, where the frame could not be split and
+    // the UI is unavoidably part of the captured image.
+    if (!capturedSceneHistory
+        && waterRenderer && waterRenderer->isRefractionEnabled() && waterRenderer->hasSurfaces()
         && currentImageIndex < vkCtx->getSwapchainImages().size()) {
         waterRenderer->captureSceneHistory(
             currentCmd,

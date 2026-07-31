@@ -1257,6 +1257,20 @@ bool VkContext::createImGuiResources() {
             return false;
         }
 
+        // Overlay pass: identical attachments, so it is render-pass-compatible
+        // with the pipelines built against imguiRenderPass, but it preserves what
+        // is already in the swapchain instead of clearing it. This lets the frame
+        // be split — scene, then the copy for water refraction, then the UI — so
+        // the refraction capture does not contain the UI.
+        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        attachments[0].initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;  // the UI is not depth tested
+        attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        if (vkCreateRenderPass(device, &rpInfo, nullptr, &overlayRenderPass) != VK_SUCCESS) {
+            LOG_WARNING("Failed to create overlay render pass — refraction will capture the UI");
+            overlayRenderPass = VK_NULL_HANDLE;
+        }
+
         // Framebuffers: [swapchainView, depthView]
         swapchainFramebuffers.resize(swapchainImageViews.size());
         for (size_t i = 0; i < swapchainImageViews.size(); i++) {
@@ -1319,6 +1333,10 @@ void VkContext::destroyImGuiResources() {
     destroyDepthResolveImage();
     destroyDepthBuffer();
     // Framebuffers are destroyed in destroySwapchain()
+    if (overlayRenderPass) {
+        vkDestroyRenderPass(device, overlayRenderPass, nullptr);
+        overlayRenderPass = VK_NULL_HANDLE;
+    }
     if (imguiRenderPass) {
         vkDestroyRenderPass(device, imguiRenderPass, nullptr);
         imguiRenderPass = VK_NULL_HANDLE;
@@ -1581,6 +1599,10 @@ bool VkContext::recreateSwapchain(int width, int height) {
     destroyDepthBuffer();
 
     // Destroy old render pass (needs recreation if MSAA changed)
+    if (overlayRenderPass) {
+        vkDestroyRenderPass(device, overlayRenderPass, nullptr);
+        overlayRenderPass = VK_NULL_HANDLE;
+    }
     if (imguiRenderPass) {
         vkDestroyRenderPass(device, imguiRenderPass, nullptr);
         imguiRenderPass = VK_NULL_HANDLE;
