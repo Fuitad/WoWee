@@ -1477,11 +1477,13 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
 
                     // Pipeline selection (per-model/batch, not per-instance)
                     const bool foliageCutout = foliageLikeModel && !model.isSpellEffect && batch.blendMode <= 3;
-                    // A forge model is nothing but the fire burning inside the
-                    // hearth — an effect overlay on a black background, the same
-                    // shape as a spell visual. Drawn opaque it fills the forge
-                    // opening with a black rectangle instead of flame.
-                    const bool fireEffectModel = model.isForge;
+                    // The fire burning in the hearth is an effect overlay on a
+                    // black background, the same shape as a spell visual; drawn
+                    // opaque it fills the forge opening with a black rectangle
+                    // instead of flame. That is true of the flame cards only —
+                    // treating the whole model this way turned the masonry and
+                    // ironwork additive, which is to say translucent.
+                    const bool fireEffectModel = batch.forgeFireCard;
                     const bool forceCutout =
                         !model.isSpellEffect && !fireEffectModel &&
                         (model.isGroundDetail || foliageCutout ||
@@ -1695,8 +1697,9 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
 
             // Pipeline selection
             uint8_t effectiveBlendMode = batch.blendMode;
-            if (model.isSpellEffect || model.isForge) {
-                // Matches the opaque pass: forge fire is an additive effect.
+            if (model.isSpellEffect || batch.forgeFireCard) {
+                // Matches the opaque pass: a forge's flame cards are additive,
+                // the forge itself is not.
                 if (effectiveBlendMode <= 1) effectiveBlendMode = 3;
                 else if (effectiveBlendMode == 4 || effectiveBlendMode == 5) effectiveBlendMode = 3;
             }

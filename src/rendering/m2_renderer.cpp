@@ -1353,6 +1353,29 @@ bool M2Renderer::hasModel(uint32_t modelId) const {
     return models.find(modelId) != models.end();
 }
 
+namespace {
+
+// Which batches of a forge are the fire, as opposed to the stone and iron it is
+// built from. classifyBatchTexture already recognises flame and glow cards; the
+// forge adds coals, lava and the reflect textures Blizzard uses for hot metal,
+// none of which carry a flame token in their name.
+bool isForgeFireTexture(const std::string& texKeyLower,
+                        const M2BatchTexClassification& tcls) {
+    if (tcls.hasFlameToken || tcls.likelyFlame || tcls.hasGlowToken
+        || tcls.hasGlowCardToken) {
+        return true;
+    }
+    static constexpr std::string_view kEmberTokens[] = {
+        "cinder", "coal", "ember", "lava", "magma", "reflect", "smoke",
+    };
+    for (auto tok : kEmberTokens) {
+        if (texKeyLower.find(tok) != std::string::npos) return true;
+    }
+    return false;
+}
+
+} // namespace
+
 void M2Renderer::markModelAsSpellEffect(uint32_t modelId) {
     auto it = models.find(modelId);
     if (it != models.end()) {
@@ -1841,10 +1864,16 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
                 if (pit != texturePropsByPtr_.end()) {
                     bgpu.hasAlpha = pit->second.hasAlpha;
                     bgpu.colorKeyBlack = pit->second.colorKeyBlack;
-                    // Forge fire uses ARMORREFLECT, an effect texture whose name
-                    // carries none of the flame/glow tokens the colour-key hint
-                    // looks for, so its black backing was being kept.
-                    if (gpuModel.isForge) bgpu.colorKeyBlack = true;
+                    // Forge fire is drawn on cards with a black backing that has
+                    // to be keyed out, and some of them use effect textures
+                    // carrying none of the flame/glow tokens the hint looks for
+                    // — coals, lava lumps, ARMORREFLECT/ORBREFLECT. Keying the
+                    // whole model instead made the masonry and ironwork
+                    // translucent, since a forge is mostly those.
+                    if (gpuModel.isForge && isForgeFireTexture(batchTexKeyLower, tcls)) {
+                        bgpu.colorKeyBlack = true;
+                        bgpu.forgeFireCard = true;
+                    }
                 }
             }
             // textureCoordIndex is an index into a texture coord combo table, not directly

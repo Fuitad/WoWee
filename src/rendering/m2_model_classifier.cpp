@@ -82,6 +82,14 @@ M2ClassificationResult classifyM2Model(
     std::string n = fullPath;
     const size_t lastSep = n.find_last_of("\\/");
     if (lastSep != std::string::npos) n = n.substr(lastSep + 1);
+    // Drop the extension too, so rules that look at how a name ends are not
+    // reading ".m2" as part of it.
+    for (std::string_view ext : {".m2", ".mdx"}) {
+        if (n.size() > ext.size() && n.compare(n.size() - ext.size(), ext.size(), ext) == 0) {
+            n.resize(n.size() - ext.size());
+            break;
+        }
+    }
 
     M2ClassificationResult r;
 
@@ -132,7 +140,24 @@ M2ClassificationResult classifyM2Model(
     // Fire / brazier / torch model detection (for ambient emitter + rendering)
     const bool fireName    = has(n, "fire") || has(n, "campfire") || has(n, "bonfire");
     const bool brazierName = has(n, "brazier") || has(n, "cauldronfire");
-    const bool forgeName   = has(n, "forge") && !has(n, "forgelava");
+    // A forge is a forge only when "forge" is what the name ends on. Matched as
+    // a bare substring it also caught Ironforge, so all 64 doodads of the city
+    // — benches, statues, cliffs, elevators, lanterns — were treated as forge
+    // fire and drawn additive, which is to say translucent. Anything after the
+    // token names something else: IronforgeBench is a bench, ForgeArms are
+    // arms, CrystalForgeController is a control panel.
+    const bool forgeName = [&] {
+        if (has(n, "forgelava")) return false;
+        const std::size_t i = n.rfind("forge");
+        if (i == std::string::npos) return false;
+        for (std::size_t k = i + 5; k < n.size(); ++k) {
+            const char c = n[k];
+            const bool qualifier = (c >= '0' && c <= '9') || c == '_' || c == '-'
+                                || c == '.' || c == ' ';
+            if (!qualifier) return false;
+        }
+        return true;
+    }();
     const bool torchName   = has(n, "torch") && !r.isKoboldFlame;
     r.isBrazierOrFire = fireName || brazierName;
     // TaurenLampPost is the small ground-level path fire used around Camp

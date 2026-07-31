@@ -96,3 +96,40 @@ TEST_CASE("a ruin misread as foliage would also lose its collision",
     CHECK(tree.isFoliageLike);
     CHECK(tree.disableAnimation);
 }
+
+// isForge forces the batch additive, so a false positive renders a solid model
+// as glowing translucent VFX — the same failure the Steam Tank had.
+TEST_CASE("only an actual forge is treated as forge fire", "[m2][classifier][forge]") {
+    SECTION("the city of Ironforge is not a forge") {
+        for (const char* n : {"IronforgeBench_Average01", "IronforgeStatue_01",
+                              "IronforgeCliff01", "IronforgeElevator",
+                              "IronforgeHangingLantern01", "IronforgeBanner01",
+                              "IronforgeSignpost", "ironforgepiston"}) {
+            INFO(n);
+            CHECK_FALSE(classify(n).isForge);
+        }
+    }
+
+    SECTION("nor is a part of one, or a panel that controls one") {
+        CHECK_FALSE(classify("Dalaran_ForgeArms").isForge);
+        CHECK_FALSE(classify("Dalaran_ForgeSmelter").isForge);
+        CHECK_FALSE(classify("BU_CrystalForgeController").isForge);
+        CHECK_FALSE(classify("UL_Forge_Iron_Press").isForge);
+    }
+
+    SECTION("real forges still are, with or without a numeric suffix") {
+        for (const char* n : {"DR_Forge_01", "OM_Forge_01", "BU_Forge_01",
+                              "ID_Forge", "TS_Forge_01", "BE_Forge01",
+                              "Dalaran_Forge", "SC_RuneForge_02",
+                              "ET_CrystalForge", "BlacksmithForge",
+                              "DarkIronForge", "Wolvar_Forge",
+                              "WORLD\\GENERIC\\HUMAN\\FORGE\\ID_FORGE.M2"}) {
+            INFO(n);
+            CHECK(classify(n).isForge);
+        }
+    }
+
+    SECTION("forge lava stays excluded as before") {
+        CHECK_FALSE(classify("UL_ForgeLava").isForge);
+    }
+}
