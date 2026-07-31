@@ -696,32 +696,40 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
             owner_.addSystemChatMessage("You have no target.");
             return;
         }
-        if (auto unit = std::dynamic_pointer_cast<Unit>(entity)) {
-            // Corpses cannot be charged.
-            if (unit->getHealth() == 0) {
+        // Charge needs an attackable unit. Game objects (mining nodes, herb nodes,
+        // chests, doors) and corpse objects can all be the current target in this
+        // client, and none of them derive from Unit — so they used to slip past the
+        // hostility checks below untouched and let the player charge at scenery.
+        auto unit = std::dynamic_pointer_cast<Unit>(entity);
+        const ObjectType targetType = entity->getType();
+        if (!unit || (targetType != ObjectType::UNIT && targetType != ObjectType::PLAYER)) {
+            owner_.addSystemChatMessage("You cannot attack that target.");
+            return;
+        }
+        // Corpses cannot be charged.
+        if (unit->getHealth() == 0) {
+            owner_.addSystemChatMessage("You cannot attack that target.");
+            return;
+        }
+        if (targetType == ObjectType::UNIT) {
+            // Neutral combat creatures (yellow-name mobs such as Goretusks)
+            // are valid Charge targets even though they are not inherently
+            // hostile. Match normal right-click combat by rejecting only
+            // service NPCs and targets the server explicitly marks as
+            // non-attackable/immune, rather than requiring hostile faction.
+            constexpr uint32_t UNIT_FLAG_NON_ATTACKABLE = 0x00000002;
+            constexpr uint32_t UNIT_FLAG_IMMUNE_TO_PC   = 0x00000100;
+            constexpr uint32_t UNIT_FLAG_NOT_SELECTABLE = 0x02000000;
+            constexpr uint32_t kBlockedChargeFlags =
+                UNIT_FLAG_NON_ATTACKABLE |
+                UNIT_FLAG_IMMUNE_TO_PC |
+                UNIT_FLAG_NOT_SELECTABLE;
+            const bool hostileOrAggressive =
+                unit->isHostile() || owner_.isAggressiveTowardPlayer(target);
+            const bool clearlyFriendly = unit->isInteractable() && !hostileOrAggressive;
+            if (clearlyFriendly || (unit->getUnitFlags() & kBlockedChargeFlags) != 0) {
                 owner_.addSystemChatMessage("You cannot attack that target.");
                 return;
-            }
-            if (entity->getType() == ObjectType::UNIT) {
-                // Neutral combat creatures (yellow-name mobs such as Goretusks)
-                // are valid Charge targets even though they are not inherently
-                // hostile. Match normal right-click combat by rejecting only
-                // service NPCs and targets the server explicitly marks as
-                // non-attackable/immune, rather than requiring hostile faction.
-                constexpr uint32_t UNIT_FLAG_NON_ATTACKABLE = 0x00000002;
-                constexpr uint32_t UNIT_FLAG_IMMUNE_TO_PC   = 0x00000100;
-                constexpr uint32_t UNIT_FLAG_NOT_SELECTABLE = 0x02000000;
-                constexpr uint32_t kBlockedChargeFlags =
-                    UNIT_FLAG_NON_ATTACKABLE |
-                    UNIT_FLAG_IMMUNE_TO_PC |
-                    UNIT_FLAG_NOT_SELECTABLE;
-                const bool hostileOrAggressive =
-                    unit->isHostile() || owner_.isAggressiveTowardPlayer(target);
-                const bool clearlyFriendly = unit->isInteractable() && !hostileOrAggressive;
-                if (clearlyFriendly || (unit->getUnitFlags() & kBlockedChargeFlags) != 0) {
-                    owner_.addSystemChatMessage("You cannot attack that target.");
-                    return;
-                }
             }
         }
         float tx = entity->getX(), ty = entity->getY(), tz = entity->getZ();
