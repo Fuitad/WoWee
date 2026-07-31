@@ -745,9 +745,13 @@ void EntitySpawner::buildCreatureDisplayLookups() {
             uint32_t variation = cfh->getUInt32(i, cfhL ? (*cfhL)["Variation"] : 2);
             uint32_t key = (raceId << 16) | (sexId << 8) | variation;
             FacialHairGeosets fhg;
-            fhg.geoset100 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset100"] : 3));
-            fhg.geoset300 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset300"] : 4));
-            fhg.geoset200 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset200"] : 5));
+            // Columns 3-5 are not the geosets: they hold a constant per race in
+            // every copy of this DBC that ships here, and reading them gave
+            // values like 2010429269 that no model has. The variant numbers are
+            // at 6-8, which is where a Draenei female's face tendrils live.
+            fhg.geoset100 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset100"] : 6));
+            fhg.geoset300 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset300"] : 7));
+            fhg.geoset200 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset200"] : 8));
             facialHairGeosetMap_[key] = fhg;
         }
         LOG_INFO("Loaded ", facialHairGeosetMap_.size(), " facial hair geoset mappings from CharacterFacialHairStyles.dbc");
@@ -1573,8 +1577,8 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             auto itFacial = facialHairGeosetMap_.find(facialKey);
             if (itFacial != facialHairGeosetMap_.end()) {
                 const auto& fhg = itFacial->second;
-                addSafeGeoset(static_cast<uint16_t>(200 + std::max<uint16_t>(fhg.geoset200, 1)));
-                addSafeGeoset(static_cast<uint16_t>(300 + std::max<uint16_t>(fhg.geoset300, 1)));
+                addSafeGeoset(static_cast<uint16_t>(200 + fhg.geoset200));
+                addSafeGeoset(static_cast<uint16_t>(300 + fhg.geoset300));
             } else {
                 addSafeGeoset(201);
                 addSafeGeoset(301);
@@ -1639,9 +1643,9 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             if (itFacial != facialHairGeosetMap_.end()) {
                 const auto& fhg = itFacial->second;
                 // DBC values are variation indices within each group; add group base
-                activeGeosets.insert(static_cast<uint16_t>(100 + std::max(fhg.geoset100, static_cast<uint16_t>(1))));
-                activeGeosets.insert(static_cast<uint16_t>(300 + std::max(fhg.geoset300, static_cast<uint16_t>(1))));
-                activeGeosets.insert(static_cast<uint16_t>(200 + std::max(fhg.geoset200, static_cast<uint16_t>(1))));
+                activeGeosets.insert(static_cast<uint16_t>(100 + fhg.geoset100));
+                activeGeosets.insert(static_cast<uint16_t>(300 + fhg.geoset300));
+                activeGeosets.insert(static_cast<uint16_t>(200 + fhg.geoset200));
             } else {
                 activeGeosets.insert(kGeosetDefaultConnector); // Default group 1: no extra
                 activeGeosets.insert(201); // Default group 2: no facial hair
@@ -2102,9 +2106,9 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                                          static_cast<uint32_t>(itExtra->second.facialHairId);
                     auto itFacial = facialHairGeosetMap_.find(facialKey);
                     if (itFacial != facialHairGeosetMap_.end()) {
-                        selectedFacial100 = static_cast<uint16_t>(100 + std::max<uint16_t>(itFacial->second.geoset100, 1));
-                        selectedFacial200 = static_cast<uint16_t>(200 + std::max<uint16_t>(itFacial->second.geoset200, 1));
-                        selectedFacial300 = static_cast<uint16_t>(300 + std::max<uint16_t>(itFacial->second.geoset300, 1));
+                        selectedFacial100 = static_cast<uint16_t>(100 + itFacial->second.geoset100);
+                        selectedFacial200 = static_cast<uint16_t>(200 + itFacial->second.geoset200);
+                        selectedFacial300 = static_cast<uint16_t>(300 + itFacial->second.geoset300);
                     }
                     auto itemDisplayDbc = assetManager_->loadDBC("ItemDisplayInfo.dbc");
                     const auto* idiL = pipeline::getActiveDBCLayout()

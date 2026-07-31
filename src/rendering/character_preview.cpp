@@ -107,9 +107,10 @@ void CharacterPreview::ensureAppearanceGeosetsLoaded() {
             uint32_t key = (raceId << 16) | (sexId << 8) | variation;
 
             FacialHairGeosets geosets;
-            geosets.geoset100 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset100"] : 3));
-            geosets.geoset300 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset300"] : 4));
-            geosets.geoset200 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset200"] : 5));
+            // Columns 6-8, not 3-5 — see the same read in EntitySpawner.
+            geosets.geoset100 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset100"] : 6));
+            geosets.geoset300 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset300"] : 7));
+            geosets.geoset200 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset200"] : 8));
             facialHairGeosetMap_[key] = geosets;
         }
         LOG_INFO("CharacterPreview: loaded ", facialHairGeosetMap_.size(), " facial hair geoset mappings");
@@ -151,9 +152,9 @@ std::unordered_set<uint16_t> CharacterPreview::buildBaseGeosets() {
                                static_cast<uint32_t>(facialHair_);
     auto itFacial = facialHairGeosetMap_.find(facialKey);
     if (itFacial != facialHairGeosetMap_.end()) {
-        activeGeosets.insert(static_cast<uint16_t>(100 + std::max<uint16_t>(itFacial->second.geoset100, 1)));
-        activeGeosets.insert(static_cast<uint16_t>(200 + std::max<uint16_t>(itFacial->second.geoset200, 1)));
-        activeGeosets.insert(static_cast<uint16_t>(300 + std::max<uint16_t>(itFacial->second.geoset300, 1)));
+        activeGeosets.insert(static_cast<uint16_t>(100 + itFacial->second.geoset100));
+        activeGeosets.insert(static_cast<uint16_t>(200 + itFacial->second.geoset200));
+        activeGeosets.insert(static_cast<uint16_t>(300 + itFacial->second.geoset300));
     } else {
         activeGeosets.insert(101);
         activeGeosets.insert(201);

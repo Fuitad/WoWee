@@ -330,9 +330,12 @@ std::unordered_set<uint16_t> AppearanceComposer::buildDefaultPlayerGeosets(uint8
                              static_cast<uint32_t>(facialId);
         auto it = facialMap.find(facialKey);
         if (it != facialMap.end()) {
-            activeGeosets.insert(static_cast<uint16_t>(100 + std::max<uint16_t>(it->second.geoset100, 1)));
-            activeGeosets.insert(static_cast<uint16_t>(200 + std::max<uint16_t>(it->second.geoset200, 1)));
-            activeGeosets.insert(static_cast<uint16_t>(300 + std::max<uint16_t>(it->second.geoset300, 1)));
+            // A zero means this channel has no feature — a night elf female has
+            // none on any of the three. Clamping to 1 handed every character the
+            // first variant of all three channels instead.
+            activeGeosets.insert(static_cast<uint16_t>(100 + it->second.geoset100));
+            activeGeosets.insert(static_cast<uint16_t>(200 + it->second.geoset200));
+            activeGeosets.insert(static_cast<uint16_t>(300 + it->second.geoset300));
         } else {
             activeGeosets.insert(101);
             activeGeosets.insert(201);

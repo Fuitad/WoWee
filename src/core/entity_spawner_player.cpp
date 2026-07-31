@@ -328,9 +328,9 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
                                static_cast<uint32_t>(facialFeatures);
     auto itFacial = facialHairGeosetMap_.find(facialKey);
     if (itFacial != facialHairGeosetMap_.end()) {
-        activeGeosets.insert(static_cast<uint16_t>(100 + std::max<uint16_t>(itFacial->second.geoset100, 1)));
-        activeGeosets.insert(static_cast<uint16_t>(200 + std::max<uint16_t>(itFacial->second.geoset200, 1)));
-        activeGeosets.insert(static_cast<uint16_t>(300 + std::max<uint16_t>(itFacial->second.geoset300, 1)));
+        activeGeosets.insert(static_cast<uint16_t>(100 + itFacial->second.geoset100));
+        activeGeosets.insert(static_cast<uint16_t>(200 + itFacial->second.geoset200));
+        activeGeosets.insert(static_cast<uint16_t>(300 + itFacial->second.geoset300));
     } else {
         activeGeosets.insert(101);
         activeGeosets.insert(201);
@@ -465,9 +465,9 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
                                static_cast<uint32_t>(st.facialFeatures);
     auto itFacial = facialHairGeosetMap_.find(facialKey);
     if (itFacial != facialHairGeosetMap_.end()) {
-        geosets.insert(static_cast<uint16_t>(100 + std::max<uint16_t>(itFacial->second.geoset100, 1)));
-        geosets.insert(static_cast<uint16_t>(200 + std::max<uint16_t>(itFacial->second.geoset200, 1)));
-        geosets.insert(static_cast<uint16_t>(300 + std::max<uint16_t>(itFacial->second.geoset300, 1)));
+        geosets.insert(static_cast<uint16_t>(100 + itFacial->second.geoset100));
+        geosets.insert(static_cast<uint16_t>(200 + itFacial->second.geoset200));
+        geosets.insert(static_cast<uint16_t>(300 + itFacial->second.geoset300));
     } else {
         geosets.insert(101);
         geosets.insert(201);

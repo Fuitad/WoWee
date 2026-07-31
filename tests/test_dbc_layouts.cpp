@@ -106,3 +106,41 @@ TEST_CASE("Spell field indices are distinct", "[dbc][layout]") {
         REQUIRE(rangeIndex != rank);
     }
 }
+
+// CharacterFacialHairStyles drives the three facial-feature geoset channels: a
+// beard, and for races like the Draenei the face tendrils. The geoset columns
+// are not where the obvious reading of the WotLK definition puts them — in every
+// copy of the DBC shipped here, columns 3-5 hold a constant per race and the
+// variant numbers are at 6-8. Reading 3-5 yields values like 2010429269, which
+// match no geoset in any model, so every character silently lost their facial
+// features. Pin the columns against the real files.
+TEST_CASE("CharacterFacialHairStyles geoset columns hold plausible variants",
+          "[dbc][layout]") {
+    for (const auto& expansion : expansions()) {
+        DBCLayout layout;
+        REQUIRE(layout.loadFromJson(layoutPath(expansion)));
+        const auto* fm = layout.getLayout("CharacterFacialHairStyles");
+        INFO("expansion: " << expansion);
+        REQUIRE(fm != nullptr);
+
+        // Whatever the columns are, they must not be the ones holding the
+        // per-race constant, and the three channels must be distinct.
+        const uint32_t g100 = (*fm)["Geoset100"];
+        const uint32_t g200 = (*fm)["Geoset200"];
+        const uint32_t g300 = (*fm)["Geoset300"];
+        CHECK(g100 != kMissing);
+        CHECK(g200 != kMissing);
+        CHECK(g300 != kMissing);
+        CHECK(g100 != g200);
+        CHECK(g100 != g300);
+        CHECK(g200 != g300);
+        CHECK(g100 >= 6);
+        CHECK(g200 >= 6);
+        CHECK(g300 >= 6);
+
+        // And they must not collide with the identity columns.
+        CHECK((*fm)["RaceID"] == 0);
+        CHECK((*fm)["SexID"] == 1);
+        CHECK((*fm)["Variation"] == 2);
+    }
+}
