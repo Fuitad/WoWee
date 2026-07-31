@@ -211,10 +211,19 @@ void main() {
     // screen-space lookup at twice the intended UV.
     vec2 screenUV = gl_FragCoord.xy / max(push.screenSize, vec2(1.0));
 
+    float dist = length(viewPos.xyz - FragPos);
+
     // --- Normal computation ---
     vec3 meshNorm = normalize(Normal);
     vec3 detailNorm = dualScrollWaveNormal(FragPos.xy, time);
-    vec3 norm = normalize(mix(meshNorm, detailNorm, 0.55));
+    // Wave detail is a scrolling pattern with a finite period. Held at full
+    // strength to the horizon it does two things the eye picks up immediately:
+    // the tiling repeats visibly, and the highlights land smaller than a pixel
+    // and alias into shimmer. Fade the detail back toward the flat surface
+    // normal with distance so what is left far away is a smooth sheet for the
+    // fog to take, which is also where the specular sparkle goes quiet.
+    float detailFade = 1.0 - smoothstep(250.0, 1400.0, dist);
+    vec3 norm = normalize(mix(meshNorm, detailNorm, 0.55 * detailFade));
 
     // Player interaction ripple normal perturbation
     vec2 playerPos = vec2(shadowParams.z, shadowParams.w);
@@ -231,8 +240,6 @@ void main() {
     vec3 ldir = normalize(-lightDir.xyz);
     float NdotV = max(dot(norm, viewDir), 0.001);
     float NdotL = max(dot(norm, ldir), 0.0);
-
-    float dist = length(viewPos.xyz - FragPos);
 
     // --- Schlick Fresnel ---
     const vec3 F0 = vec3(0.02);
@@ -353,10 +360,13 @@ void main() {
     vec3 specular = (D * G * F) / (4.0 * NdotV * NdotL + 0.001) * lightColor.rgb * NdotL;
     specular = min(specular, vec3(2.0));
 
-    // Noise-based sparkle
+    // Noise-based sparkle. Its features are far smaller than the wave detail, so
+    // it aliases sooner — fade it out over the near half of the detail range,
+    // otherwise flattening the normals just leaves the sparkle field behind as
+    // the visible pattern.
     float sparkleNoise = fbmNoise(FragPos.xy * 4.0 + time * 0.5, time * 1.5);
     float sparkle = pow(max(sparkleNoise - 0.55, 0.0) / 0.45, 3.0) * shimmerStrength * 0.10;
-    specular += sparkle * lightColor.rgb;
+    specular += sparkle * lightColor.rgb * (1.0 - smoothstep(150.0, 700.0, dist));
 
     // ============================================================
     // Subsurface scattering
@@ -433,8 +443,12 @@ void main() {
     // ============================================================
     float baseAlpha = mix(waterAlpha, min(1.0, waterAlpha * 1.5), depthFade);
     float alpha = mix(baseAlpha, min(1.0, baseAlpha * 1.3), fresnel) * alphaScale;
-    alpha *= smoothstep(1600.0, 350.0, dist);
     alpha = clamp(alpha, 0.15, 0.92);
+    // Dissolve the sheet before the water geometry runs out, so the ocean fades
+    // into the horizon haze instead of ending on a hard line. This has to come
+    // after the clamp — clamping afterwards restored the 0.15 floor and put the
+    // edge straight back.
+    alpha *= smoothstep(2400.0, 600.0, dist);
 
     float fogFactor = clamp((fogParams.y - dist) / (fogParams.y - fogParams.x), 0.0, 1.0);
     color = mix(fogColor.rgb, color, fogFactor);
