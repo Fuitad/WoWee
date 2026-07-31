@@ -260,6 +260,15 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
     vkCtx_ = ctx;
     assetManager = assets;
 
+    // Announce the renderer diagnostics this build understands, and which of
+    // them are active. A run that logs this line is definitely a build that has
+    // them, which takes the guesswork out of "did that binary include the fix?".
+    LOG_INFO("M2 render diagnostics available (NO_PARTICLES/NO_RIBBONS/NO_SKINNING): ",
+             "particles=", envFlagEnabled("WOWEE_M2_NO_PARTICLES") ? "OFF" : "on",
+             " ribbons=", envFlagEnabled("WOWEE_M2_NO_RIBBONS") ? "OFF" : "on",
+             " skinning=", envFlagEnabled("WOWEE_M2_NO_SKINNING") ? "OFF" : "on",
+             " maxBonesPerInstance=", kMaxBonesPerInstance);
+
     const unsigned hc = std::thread::hardware_concurrency();
     const size_t availableCores = (hc > 1u) ? static_cast<size_t>(hc - 1u) : 1ull;
     // Keep headroom for other frame tasks: M2 gets about half of non-main cores by default.

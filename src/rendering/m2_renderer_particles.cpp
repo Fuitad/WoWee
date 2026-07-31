@@ -391,6 +391,9 @@ void M2Renderer::updateRibbons(M2Instance& inst, const M2ModelGPU& gpu, float dt
 // ---------------------------------------------------------------------------
 void M2Renderer::renderM2Ribbons(VkCommandBuffer cmd, VkDescriptorSet perFrameSet) {
     if (!ribbonPipeline_ || !ribbonAdditivePipeline_ || !ribbonVB_ || !ribbonVBMapped_) return;
+    // Diagnostic: WOWEE_M2_NO_RIBBONS=1 drops every M2 ribbon trail draw.
+    static const bool kNoRibbons = envFlagEnabled("WOWEE_M2_NO_RIBBONS");
+    if (kNoRibbons) return;
 
     // Build camera right vector for billboard orientation
     // For ribbons we orient the quad strip along the spine with screen-space up.
@@ -541,6 +544,10 @@ void M2Renderer::renderM2Ribbons(VkCommandBuffer cmd, VkDescriptorSet perFrameSe
 
 void M2Renderer::renderM2Particles(VkCommandBuffer cmd, VkDescriptorSet perFrameSet) {
     if (!particlePipeline_ || !m2ParticleVB_) return;
+    // Diagnostic: WOWEE_M2_NO_PARTICLES=1 drops every M2 particle draw, which
+    // tells a particle artifact apart from a skinned-geometry one.
+    static const bool kNoParticles = envFlagEnabled("WOWEE_M2_NO_PARTICLES");
+    if (kNoParticles) return;
 
     // Collect all particles from all instances, grouped by texture+blend
     // Reuse persistent map — clear each group's vertex data but keep bucket structure.

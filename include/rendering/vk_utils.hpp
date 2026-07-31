@@ -78,5 +78,13 @@ inline size_t envSizeOrDefault(const char* name, size_t defValue) {
     return static_cast<size_t>(n);
 }
 
+// Opt-in rendering diagnostics, read once per process. These exist to bisect a
+// visual artifact to the subsystem that draws it: turn one off and see whether
+// the artifact survives. Any value other than "0" or empty enables the flag.
+inline bool envFlagEnabled(const char* name) {
+    const char* v = std::getenv(name);
+    return v && *v && !(v[0] == '0' && v[1] == '\0');
+}
+
 } // namespace rendering
 } // namespace wowee

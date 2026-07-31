@@ -584,6 +584,11 @@ void M2Renderer::update(float deltaTime, const glm::vec3& cameraPos, const glm::
 
 }
 
+// Diagnostic: WOWEE_M2_NO_SKINNING=1 renders every M2 in its bind pose by
+// telling the shader to ignore bones, separating a skinning artifact from one
+// drawn by the particle or ribbon systems.
+static const bool kM2NoSkinning = envFlagEnabled("WOWEE_M2_NO_SKINNING");
+
 void M2Renderer::prepareRender(uint32_t frameIndex, const Camera& camera) {
     if (!initialized_ || instances.empty()) return;
     (void)camera;  // reserved for future frustum-based culling
@@ -1227,7 +1232,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                 e.model = inst.modelMatrix;
                 e.uvOffset = glm::vec2(0.0f);
                 e.fadeAlpha = p.fadeAlpha;
-                e.useBones = p.useBones ? 1 : 0;
+                e.useBones = (p.useBones && !kM2NoSkinning) ? 1 : 0;
                 e.boneBase = p.useBones ? static_cast<int32_t>(inst.megaBoneOffset) : 0;
                 e.boneCount = static_cast<int32_t>(inst.boneMatrices.size());
                 std::memset(e._pad, 0, sizeof(e._pad));
@@ -1439,7 +1444,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                             e.model = inst.modelMatrix;
                             e.uvOffset = uvOffset;
                             e.fadeAlpha = p.fadeAlpha;
-                            e.useBones = p.useBones ? 1 : 0;
+                            e.useBones = (p.useBones && !kM2NoSkinning) ? 1 : 0;
                             e.boneBase = p.useBones ? static_cast<int32_t>(inst.megaBoneOffset) : 0;
                             e.boneCount = static_cast<int32_t>(inst.boneMatrices.size());
                             std::memset(e._pad, 0, sizeof(e._pad));
@@ -1659,7 +1664,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             e.model = instance.modelMatrix;
             e.uvOffset = uvOffset;
             e.fadeAlpha = instanceFadeAlpha;
-            e.useBones = needsBones ? 1 : 0;
+            e.useBones = (needsBones && !kM2NoSkinning) ? 1 : 0;
             e.boneBase = needsBones ? static_cast<int32_t>(instance.megaBoneOffset) : 0;
             e.boneCount = static_cast<int32_t>(instance.boneMatrices.size());
             std::memset(e._pad, 0, sizeof(e._pad));
