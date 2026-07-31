@@ -323,6 +323,25 @@ void main() {
     refractedColor = mix(refractedColor, litBase, clamp(depthFade * 0.3, 0.0, 0.5));
 
     // ============================================================
+    // Shoreline — wet sand and moving sediment
+    // ============================================================
+    // The last half metre of depth is where a beach reads as wet rather than
+    // submerged: sand darkens and loses a little saturation, and light moving
+    // on the surface throws slow banding across it. Both are keyed on depth, so
+    // they exist only at the edge and leave open water untouched.
+    float wetBand = 1.0 - smoothstep(0.0, 0.70, verticalDepth);
+    float shallowBand = 1.0 - smoothstep(0.0, 2.20, verticalDepth);
+    if (basicType < 1.5 && shallowBand > 0.001) {
+        float sediment = noiseValue(FragPos.xy * 1.6 + time * vec2(0.10, 0.06)) * 0.6
+                       + noiseValue(FragPos.xy * 3.4 - time * vec2(0.07, 0.13)) * 0.4;
+        float banding = smoothstep(0.42, 0.78, sediment);
+        refractedColor *= 1.0 + banding * 0.18 * shallowBand;
+        refractedColor = mix(refractedColor,
+                             refractedColor * vec3(0.62, 0.60, 0.56),
+                             wetBand * 0.75);
+    }
+
+    // ============================================================
     // Planar reflection — subtle, not mirror-like
     // ============================================================
     // reflWeight starts at 0; only contributes where we have valid reflection data
@@ -386,6 +405,11 @@ void main() {
     float crest = smoothstep(0.5, 1.0, WaveOffset) * 0.04;
     color += vec3(crest);
 
+    // Carried out of the shoreline block so the alpha below can make the foam
+    // opaque. Tinting alone left it invisible: at the water's edge alpha sits
+    // near its floor, so foam was being blended over the sand at 15%.
+    float shorelineFoam = 0.0;
+
     // ============================================================
     // Shoreline foam — scattered particles, not smooth bands
     // Only on terrain water (waveAmp > 0); WMO water (canals, indoor)
@@ -417,9 +441,22 @@ void main() {
         float noiseMask = noiseValue(FragPos.xy * 3.0 + time * 0.15);
         float foam = (foam1 + foam2 + foam3) * foamDepthMask * smoothstep(0.3, 0.6, noiseMask);
 
+        // Swash: the surf line itself, riding up the sand and drawing back.
+        // Scattered particles alone read as static speckle — what makes a beach
+        // look alive is a band that moves across the depth gradient. The phase
+        // is offset by low-frequency noise along the shore so the line breaks in
+        // one place before another instead of pulsing as a single ring.
+        float swashPhase = sin(time * 0.55 + noiseValue(FragPos.xy * 0.12) * 6.28);
+        float swashDepth = 0.30 + 0.18 * swashPhase;
+        float swashBand = 1.0 - smoothstep(0.0, 0.17, abs(verticalDepth - swashDepth));
+        float swashTexture = 0.55 + 0.45 * cellularFoam(foamUV * 9.0 + time * vec2(0.05, 0.12));
+        foam += swashBand * swashTexture * 0.55 * foamDepthMask;
+
         foam *= smoothstep(0.0, 0.1, verticalDepth);
+        foam = clamp(foam, 0.0, 0.85);
         // Bluer foam tint instead of near-white
-        color = mix(color, vec3(0.68, 0.78, 0.88), clamp(foam, 0.0, 0.40));
+        color = mix(color, vec3(0.78, 0.85, 0.92), foam * 0.75);
+        shorelineFoam = foam;
     }
 
     // ============================================================
@@ -444,6 +481,11 @@ void main() {
     float baseAlpha = mix(waterAlpha, min(1.0, waterAlpha * 1.5), depthFade);
     float alpha = mix(baseAlpha, min(1.0, baseAlpha * 1.3), fresnel) * alphaScale;
     alpha = clamp(alpha, 0.15, 0.92);
+    // Wet sand is a band on the beach, not a film of water, so it needs enough
+    // presence to darken what is under it; foam has to be close to opaque or it
+    // does not read at all.
+    alpha = max(alpha, wetBand * 0.42);
+    alpha = max(alpha, shorelineFoam * 0.90);
     // Dissolve the sheet before the water geometry runs out, so the ocean fades
     // into the horizon haze instead of ending on a hard line. This has to come
     // after the clamp — clamping afterwards restored the 0.15 floor and put the
