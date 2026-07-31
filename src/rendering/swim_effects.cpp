@@ -558,6 +558,50 @@ void SwimEffects::update(const Camera& camera, const CameraController& cc,
         // (not swimming) and need to live out their lifetime.
     }
 
+    // --- Wading spray ---
+    // Feet in the water but not swimming: the shoreline transition. Ripples
+    // above only spawn while swimming, so walking or riding through the
+    // shallows threw nothing but the per-footstep burst, which reads as dry.
+    // Rate rises with depth, since deeper water is displaced harder, and dies
+    // off as the surface approaches the character's waist, by which point
+    // swimming takes over.
+    if (!swimming && moving && charWaterH) {
+        const float depth = *charWaterH - charPos.z;
+        constexpr float kWadeMinDepth = 0.03f;
+        constexpr float kWadeMaxDepth = 1.60f;
+        if (depth > kWadeMinDepth && depth < kWadeMaxDepth) {
+            const float depthScale = glm::clamp(depth / 0.7f, 0.30f, 1.0f);
+            rippleSpawnAccum += 30.0f * depthScale * deltaTime;
+
+            const float yawRad = glm::radians(cc.getYaw());
+            const glm::vec2 travel(std::sin(yawRad), -std::cos(yawRad));
+
+            while (rippleSpawnAccum >= 1.0f) {
+                rippleSpawnAccum -= 1.0f;
+                if (static_cast<int>(ripples.size()) >= MAX_RIPPLE_PARTICLES) break;
+                Particle p;
+                // Around the legs, biased behind so the spray trails the stride.
+                const float side = randFloat(-0.45f, 0.45f);
+                const float back = randFloat(-0.55f, 0.15f);
+                p.position = glm::vec3(charPos.x + travel.x * back - travel.y * side,
+                                       charPos.y + travel.y * back + travel.x * side,
+                                       *charWaterH + 0.05f);
+                const float angle = randFloat(0.0f, 6.2832f);
+                const float outward = randFloat(0.5f, 1.6f) * depthScale;
+                p.velocity = glm::vec3(std::cos(angle) * outward - travel.x * 0.8f,
+                                       std::sin(angle) * outward - travel.y * 0.8f,
+                                       randFloat(0.9f, 2.2f) * depthScale);
+                p.lifetime = 0.0f;
+                p.maxLifetime = randFloat(0.25f, 0.55f);
+                p.size = randFloat(1.6f, 3.4f) * depthScale;
+                p.alpha = randFloat(0.35f, 0.65f) * depthScale;
+                ripples.push_back(p);
+            }
+        } else {
+            rippleSpawnAccum = 0.0f;
+        }
+    }
+
     // --- Bubble spawning ---
     // Require swimming state to prevent spurious bubbles on login/teleport
     // when camera may briefly appear below a water surface before grounding.
