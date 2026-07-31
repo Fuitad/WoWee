@@ -329,16 +329,30 @@ void main() {
     // submerged: sand darkens and loses a little saturation, and light moving
     // on the surface throws slow banding across it. Both are keyed on depth, so
     // they exist only at the edge and leave open water untouched.
+    // The surf front, as a depth contour that runs up the beach and back. Both
+    // the wet sand and the foam key off this so they move together; the phase is
+    // offset by low-frequency noise along the shore so one stretch breaks before
+    // another rather than the whole shoreline pulsing as a ring.
+    float swashPhase = sin(time * 0.55 + noiseValue(FragPos.xy * 0.12) * 6.28);
+    float swashDepth = 0.30 + 0.18 * swashPhase;
+
     float wetBand = 1.0 - smoothstep(0.0, 0.70, verticalDepth);
     float shallowBand = 1.0 - smoothstep(0.0, 2.20, verticalDepth);
+    // How thoroughly the surf currently covers this point. Sand deeper than the
+    // front is under the run-up and soaked; sand shallower has just been
+    // uncovered and is draining, so it lightens as the water pulls back. Keying
+    // the darkening on depth alone left the wet zone fixed while the water
+    // visibly moved over it.
+    float coveredness = smoothstep(swashDepth - 0.12, swashDepth + 0.08, verticalDepth);
     if (basicType < 1.5 && shallowBand > 0.001) {
         float sediment = noiseValue(FragPos.xy * 1.6 + time * vec2(0.10, 0.06)) * 0.6
                        + noiseValue(FragPos.xy * 3.4 - time * vec2(0.07, 0.13)) * 0.4;
         float banding = smoothstep(0.42, 0.78, sediment);
         refractedColor *= 1.0 + banding * 0.18 * shallowBand;
+        float soak = wetBand * (0.42 + 0.58 * coveredness);
         refractedColor = mix(refractedColor,
                              refractedColor * vec3(0.62, 0.60, 0.56),
-                             wetBand * 0.75);
+                             soak * 0.80);
     }
 
     // ============================================================
@@ -418,38 +432,54 @@ void main() {
     if (basicType < 1.5 && verticalDepth > 0.01 && push.waveAmp > 0.0) {
         float foamDepthMask = 1.0 - smoothstep(0.0, 1.8, verticalDepth);
 
-        // Warp UV coords with noise to break up cellular regularity
+        // Foam rides on the water rather than sitting in world space. The surf
+        // carries it up the beach and drags it back, so the whole pattern is
+        // advected by the swash: it drifts shoreward as the front runs up and
+        // reverses as it withdraws. Without this the particles held still while
+        // the water visibly moved through them.
+        vec2 drift = vec2(noiseValue(FragPos.xy * 0.09) - 0.5,
+                          noiseValue(FragPos.xy * 0.09 + vec2(19.0)) - 0.5);
+        drift = normalize(drift + vec2(0.001));
+        vec2 swashAdvect = drift * swashPhase * 1.35;
+
+        // Two warp octaves at different scales, because a single one leaves the
+        // lattice legible underneath it.
         vec2 warpOffset = vec2(
             noiseValue(FragPos.xy * 2.5 + time * 0.08) - 0.5,
             noiseValue(FragPos.xy * 2.5 + vec2(37.0) + time * 0.06) - 0.5
         ) * 1.6;
-        vec2 foamUV = FragPos.xy + warpOffset;
+        warpOffset += vec2(
+            noiseValue(FragPos.xy * 6.1 - time * 0.11) - 0.5,
+            noiseValue(FragPos.xy * 6.1 + vec2(11.0) + time * 0.09) - 0.5
+        ) * 0.55;
+        vec2 foamUV = FragPos.xy + warpOffset + swashAdvect;
 
-        // Fine scattered particles
-        float cells1 = cellularFoam(foamUV * 14.0 + time * vec2(0.15, 0.08));
-        float foam1 = (1.0 - smoothstep(0.0, 0.12, cells1)) * 0.45;
+        // Worley cells thresholded near their centres put a dot in every cell,
+        // so the cell lattice itself becomes the pattern — which is the grid.
+        // Rotate each octave and use scales that are not simple multiples, so no
+        // two lattices line up, and vary the threshold with noise so only some
+        // cells produce a speck.
+        const mat2 rot1 = mat2( 0.87, -0.50,  0.50,  0.87);   // ~30 degrees
+        const mat2 rot2 = mat2( 0.26, -0.97,  0.97,  0.26);   // ~75 degrees
+        float thresholdJitter = noiseValue(FragPos.xy * 5.0 + time * 0.2);
 
-        // Tiny spray dots
-        float cells2 = cellularFoam(foamUV * 28.0 + time * vec2(-0.12, 0.22));
-        float foam2 = (1.0 - smoothstep(0.0, 0.07, cells2)) * 0.3;
+        float cells1 = cellularFoam(rot1 * foamUV * 13.0 + time * vec2(0.15, 0.08));
+        float foam1 = (1.0 - smoothstep(0.0, 0.075 + 0.075 * thresholdJitter, cells1)) * 0.45;
 
-        // Micro specks
-        float cells3 = cellularFoam(foamUV * 50.0 + time * vec2(0.25, -0.1));
+        float cells2 = cellularFoam(rot2 * foamUV * 27.7 + time * vec2(-0.12, 0.22));
+        float foam2 = (1.0 - smoothstep(0.0, 0.045 + 0.05 * (1.0 - thresholdJitter), cells2)) * 0.30;
+
+        float cells3 = cellularFoam(foamUV * 51.3 + time * vec2(0.25, -0.1));
         float foam3 = (1.0 - smoothstep(0.0, 0.05, cells3)) * 0.18;
 
         // Noise breakup for clumping
         float noiseMask = noiseValue(FragPos.xy * 3.0 + time * 0.15);
         float foam = (foam1 + foam2 + foam3) * foamDepthMask * smoothstep(0.3, 0.6, noiseMask);
 
-        // Swash: the surf line itself, riding up the sand and drawing back.
-        // Scattered particles alone read as static speckle — what makes a beach
-        // look alive is a band that moves across the depth gradient. The phase
-        // is offset by low-frequency noise along the shore so the line breaks in
-        // one place before another instead of pulsing as a single ring.
-        float swashPhase = sin(time * 0.55 + noiseValue(FragPos.xy * 0.12) * 6.28);
-        float swashDepth = 0.30 + 0.18 * swashPhase;
+        // The surf line itself, on the contour computed above with the wet sand,
+        // so the foam sits exactly where the water currently reaches.
         float swashBand = 1.0 - smoothstep(0.0, 0.17, abs(verticalDepth - swashDepth));
-        float swashTexture = 0.55 + 0.45 * cellularFoam(foamUV * 9.0 + time * vec2(0.05, 0.12));
+        float swashTexture = 0.55 + 0.45 * cellularFoam(rot1 * foamUV * 8.6 + time * vec2(0.05, 0.12));
         foam += swashBand * swashTexture * 0.55 * foamDepthMask;
 
         foam *= smoothstep(0.0, 0.1, verticalDepth);
