@@ -1826,6 +1826,19 @@ bool VkContext::recreateSwapchain(int width, int height) {
             return false;
         }
 
+        // Rebuild the overlay pass alongside it. This path destroyed the overlay
+        // pass above, and without recreating it here the first window resize left
+        // it null for the rest of the session — which silently put water
+        // refraction back to capturing the UI.
+        attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        attachments[0].initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;  // the UI is not depth tested
+        attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        if (vkCreateRenderPass(device, &rpInfo, nullptr, &overlayRenderPass) != VK_SUCCESS) {
+            LOG_WARNING("Failed to recreate overlay render pass — refraction will capture the UI");
+            overlayRenderPass = VK_NULL_HANDLE;
+        }
+
         swapchainFramebuffers.resize(swapchainImageViews.size());
         for (size_t i = 0; i < swapchainImageViews.size(); i++) {
             VkImageView fbAttachments[2] = {swapchainImageViews[i], depthImageView};

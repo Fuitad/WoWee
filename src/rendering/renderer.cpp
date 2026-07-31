@@ -1067,6 +1067,12 @@ void Renderer::endFrame() {
 
         // The UI now draws into an INLINE pass regardless of what came before.
         endFrameInlineMode_ = true;
+
+        static bool loggedSplit = false;
+        if (!loggedSplit) {
+            loggedSplit = true;
+            LOG_INFO("Water refraction: capturing scene before the UI (split frame)");
+        }
     }
 
     // ImGui rendering — must respect the subpass contents mode of the
@@ -1094,6 +1100,14 @@ void Renderer::endFrame() {
 
     // Fallback capture for the MSAA path, where the frame could not be split and
     // the UI is unavoidably part of the captured image.
+    if (!capturedSceneHistory && waterRenderer && waterRenderer->isRefractionEnabled()
+        && waterRenderer->hasSurfaces() && vkCtx->getOverlayRenderPass() == VK_NULL_HANDLE) {
+        static bool loggedFallback = false;
+        if (!loggedFallback) {
+            loggedFallback = true;
+            LOG_WARNING("Water refraction: no overlay render pass — capture includes the UI");
+        }
+    }
     if (!capturedSceneHistory
         && waterRenderer && waterRenderer->isRefractionEnabled() && waterRenderer->hasSurfaces()
         && currentImageIndex < vkCtx->getSwapchainImages().size()) {
