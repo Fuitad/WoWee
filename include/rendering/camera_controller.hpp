@@ -453,6 +453,10 @@ private:
 
     // No-ground timer: after grace period, let the player fall instead of hovering
     float noGroundTimer_ = 0.0f;
+    // Edge trigger for the terrain-penetration rescue's log line. It fires every
+    // frame of a steep climb, and the interesting event is that it started —
+    // above all if it ever starts somewhere it should not, like a crypt.
+    bool terrainRescueActive_ = false;
     static constexpr float NO_GROUND_GRACE = 0.5f; // 500ms grace for terrain streaming
 
     // Continuous fall time (for auto-unstuck detection)

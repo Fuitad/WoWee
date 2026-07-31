@@ -265,6 +265,17 @@ public:
      */
     std::optional<float> getHeightAt(float glX, float glY) const;
 
+    /**
+     * True when the MCNK chunk containing this position is cut by terrain holes.
+     * getHeightAt interpolates straight across a hole and reports a surface that
+     * is not there, so anything reasoning about "below the terrain" has to know
+     * the heightfield is fiction here — hole-cut chunks are how cave mouths and
+     * below-ground entrances are opened up. Answered per chunk rather than per
+     * quad: this only ever gates a safety net, and being coarse in the safe
+     * direction beats depending on the hole bit's axis order.
+     */
+    bool chunkHasHoles(float glX, float glY) const;
+
     /** Get the precise MCNK AreaTable ID at a world position. */
     std::optional<uint32_t> getAreaIdAt(float glX, float glY) const;
 

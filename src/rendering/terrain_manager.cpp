@@ -2491,6 +2491,30 @@ std::optional<float> TerrainManager::getHeightAt(float glX, float glY) const {
     return std::nullopt;
 }
 
+bool TerrainManager::chunkHasHoles(float glX, float glY) const {
+    const float unitSize = CHUNK_SIZE / 8.0f;
+    (void)unitSize;
+
+    auto tileHasHoles = [&](const TerrainTile* tile) -> std::optional<bool> {
+        if (!tile || !tile->loaded) return std::nullopt;
+        int cy = static_cast<int>(std::floor((tile->maxX - glX) / CHUNK_SIZE));
+        int cx = static_cast<int>(std::floor((tile->maxY - glY) / CHUNK_SIZE));
+        if (cx < 0 || cx >= 16 || cy < 0 || cy >= 16) return std::nullopt;
+        return tile->terrain.getChunk(cx, cy).holes != 0;
+    };
+
+    const TileCoord tc = worldToTile(glX, glY);
+    auto it = loadedTiles.find(tc);
+    if (it != loadedTiles.end()) {
+        if (auto r = tileHasHoles(it->second.get())) return *r;
+    }
+    for (const auto& [coord, tile] : loadedTiles) {
+        if (coord == tc) continue;
+        if (auto r = tileHasHoles(tile.get())) return *r;
+    }
+    return false;
+}
+
 std::optional<uint32_t> TerrainManager::getAreaIdAt(float glX, float glY) const {
     const TileCoord tc = worldToTile(glX, glY);
     auto it = loadedTiles.find(tc);
