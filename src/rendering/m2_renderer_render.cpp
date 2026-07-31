@@ -54,12 +54,6 @@ uint32_t M2Renderer::createInstance(uint32_t modelId, const glm::vec3& position,
     const auto& mdlRef = modelIt->second;
     modelUnusedSince_.erase(modelId);
 
-    // A single createInstance was measured at 17ms. Neither the time budget
-    // around it nor removing the bone-seed scan moved that, so time the sections
-    // and let the log say which one it is.
-    using ciClock = std::chrono::steady_clock;
-    const auto ciT0 = ciClock::now();
-    ciClock::time_point ciT1{}, ciT2{}, ciT3{};
 
     // Deduplicate: skip if same model already at nearly the same position.
     // Uses hash map for O(1) lookup instead of O(N) scan.
@@ -141,7 +135,6 @@ uint32_t M2Renderer::createInstance(uint32_t modelId, const glm::vec3& position,
         if (!instance.boneMatrices.empty()) {
             boneSeedInstanceByModel_.emplace(modelId, instance.id);
         }
-        ciT1 = ciClock::now();
     }
 
     // Register in dedup map before pushing (uses original position, not ground-adjusted)
@@ -154,10 +147,7 @@ uint32_t M2Renderer::createInstance(uint32_t modelId, const glm::vec3& position,
         instanceDedupMap_[dk] = instance.id;
     }
 
-    if (ciT1.time_since_epoch().count() == 0) ciT1 = ciClock::now();
-    ciT2 = ciClock::now();
     instances.push_back(instance);
-    ciT3 = ciClock::now();
     size_t idx = instances.size() - 1;
     // Track special instances for fast-path iteration
     if (mdlRef.isSmoke) {
@@ -182,20 +172,6 @@ uint32_t M2Renderer::createInstance(uint32_t modelId, const glm::vec3& position,
             for (int x = minCell.x; x <= maxCell.x; x++) {
                 spatialGrid[GridCell{x, y, z}].push_back(instance.id);
             }
-        }
-    }
-
-    {
-        auto ms = [](auto a, auto b) {
-            return std::chrono::duration<float, std::milli>(b - a).count();
-        };
-        const float total = ms(ciT0, ciClock::now());
-        if (total > 5.0f) {
-            LOG_WARNING("SLOW createInstance ", total, "ms: bones=", ms(ciT0, ciT1),
-                        " dedup=", ms(ciT1, ciT2), " push=", ms(ciT2, ciT3),
-                        " grid=", ms(ciT3, ciClock::now()),
-                        " (model ", modelId, ", ", instances.size(), " instances, cap ",
-                        instances.capacity(), ")");
         }
     }
 
