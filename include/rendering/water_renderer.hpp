@@ -129,7 +129,10 @@ public:
     bool isRefractionEnabled() const { return refractionEnabled; }
     // Display brightness (1.0 = neutral). The scene-history capture used for
     // refraction bakes this in, so the shader divides it back out.
-    void setBrightness(float b) { brightness_ = b; }
+    // Size of the target the water is drawn into. Screen-space lookups derive
+    // their UVs from this rather than from the refraction texture's own size,
+    // which is deliberately smaller than the frame.
+    void setRenderExtent(VkExtent2D e) { renderExtent_ = e; }
 
     std::optional<float> getWaterHeightAt(float glX, float glY) const;
     /// Like getWaterHeightAt but only returns water surfaces whose height is
@@ -214,7 +217,7 @@ private:
     std::vector<WaterSurface> surfaces;
     bool renderingEnabled = true;
     bool refractionEnabled = false;
-    float brightness_ = 1.0f;
+    VkExtent2D renderExtent_{0, 0};
 };
 
 } // namespace rendering

@@ -19,7 +19,7 @@ layout(push_constant) uniform Push {
     float waveFreq;
     float waveSpeed;
     float liquidBasicType;
-    float brightness; // display brightness baked into SceneColor; divided back out
+    vec2 screenSize;  // size of the target being drawn into
 } push;
 
 layout(set = 1, binding = 0) uniform WaterMaterial {
@@ -206,7 +206,10 @@ void main() {
         return;
     }
 
-    vec2 screenUV = gl_FragCoord.xy / vec2(textureSize(SceneColor, 0));
+    // Derived from the render target, NOT from textureSize(SceneColor): the
+    // refraction copy is kept at half resolution, so its size would put every
+    // screen-space lookup at twice the intended UV.
+    vec2 screenUV = gl_FragCoord.xy / max(push.screenSize, vec2(1.0));
 
     // --- Normal computation ---
     vec3 meshNorm = normalize(Normal);

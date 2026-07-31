@@ -36,7 +36,7 @@ struct WaterPushConstants {
     float waveFreq;
     float waveSpeed;
     float liquidBasicType; // 0=water, 1=ocean, 2=magma, 3=slime
-    float brightness;      // display brightness baked into the scene-history capture
+    glm::vec2 screenSize;  // target size, for screen-space UVs
 };
 
 // Matches set 2 binding 3 in water.frag.glsl
@@ -1128,7 +1128,8 @@ void WaterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
         push.waveFreq = waveFreq;
         push.waveSpeed = waveSpeed;
         push.liquidBasicType = static_cast<float>(basicType);
-        push.brightness = brightness_;
+        push.screenSize = glm::vec2(static_cast<float>(renderExtent_.width),
+                                    static_cast<float>(renderExtent_.height));
 
         vkCmdPushConstants(cmd, pipelineLayout,
                             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,

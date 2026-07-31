@@ -1856,7 +1856,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
             VkCommandBuffer cmd = beginSecondary(SEC_POST);
             setSecondaryViewportScissor(cmd);
             if (waterRenderer && camera && !waterDrawsInContinuePass()) {
-                waterRenderer->setBrightness(postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f);
+                waterRenderer->setRenderExtent(activeRenderExtent_);
                 waterRenderer->render(cmd, perFrameSet, *camera, globalTime, false, frameIdx);
             }
             if (weather && camera) weather->render(cmd, perFrameSet);
@@ -2039,7 +2039,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
         }
 
         if (waterRenderer && camera && !waterDrawsInContinuePass()) {
-            waterRenderer->setBrightness(postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f);
+            waterRenderer->setRenderExtent(activeRenderExtent_);
             waterRenderer->render(currentCmd, perFrameSet, *camera, globalTime, false, frameIdx);
         }
         if (weather && camera) weather->render(currentCmd, perFrameSet);
@@ -2156,7 +2156,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
         sc.extent = activeRenderExtent_;
         vkCmdSetScissor(currentCmd, 0, 1, &sc);
 
-        waterRenderer->setBrightness(postProcessPipeline_ ? postProcessPipeline_->getBrightness() : 1.0f);
+        waterRenderer->setRenderExtent(activeRenderExtent_);
         waterRenderer->render(currentCmd, perFrameSet, *camera, globalTime, false, frameIdx);
     }
 
