@@ -183,6 +183,20 @@ void VkContext::shutdown() {
     // noise. Players never take this path.
     if (allocator) {
         if (validationActive_) {
+            // Dump what VMA still holds before tearing it down. The validation
+            // messages name each leaked handle's type but not its size, and size
+            // is what identifies the owner — a 15360 byte buffer is a character
+            // bone set, a 256 byte one a material UBO. Written next to the log.
+            char* statsJson = nullptr;
+            vmaBuildStatsString(allocator, &statsJson, VK_TRUE);
+            if (statsJson) {
+                std::ofstream out("logs/vma_leaks.json", std::ios::trunc);
+                if (out) {
+                    out << statsJson;
+                    LOG_INFO("Wrote VMA allocation dump to logs/vma_leaks.json");
+                }
+                vmaFreeStatsString(allocator, statsJson);
+            }
             LOG_INFO("Validation active — destroying VMA allocator (slow, but keeps the exit clean)");
             vmaDestroyAllocator(allocator);
         }
