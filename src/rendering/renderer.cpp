@@ -1876,7 +1876,15 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
 
             if (overlaySystem_ && waterRenderer && camera) {
                 glm::vec3 camPos = camera->getPosition();
-                auto waterH = waterRenderer->getNearestWaterHeightAt(camPos.x, camPos.y, camPos.z);
+                // The default vertical reach of this query is 15 units, meant to
+                // stop water on a cliff above being mistaken for water the camera
+                // is in. For the underwater tint that cap is the wrong end of the
+                // problem: past 15 units down the query found nothing, the
+                // overlay stopped, and the scene snapped bright at a fixed depth.
+                // Deep ocean is far deeper than that, so reach much further here.
+                constexpr float kUnderwaterReach = 400.0f;
+                auto waterH = waterRenderer->getNearestWaterHeightAt(
+                    camPos.x, camPos.y, camPos.z, kUnderwaterReach);
                 // How far the eye is under the surface. The tint used to wait
                 // until 1.5 units down and then apply to the whole screen at
                 // once, so crossing the surface was a step: no tint, no tint,
