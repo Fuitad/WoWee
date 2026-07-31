@@ -2380,6 +2380,10 @@ void EntityController::handleGameObjectQueryResponse(network::Packet& packet) {
             }
         }
 
+        // The model was spawned from the display id before this response arrived,
+        // so anything keyed off the game object's type has to be revisited now.
+        if (owner_.gameObjectInfoCallbackRef()) owner_.gameObjectInfoCallbackRef()(data.entry);
+
         // MO_TRANSPORT (type 15): assign TaxiPathNode path if available.
         const uint32_t mapId = owner_.getCurrentMapId();
         if (data.type == 15 && data.hasData && data.data[0] != 0 && owner_.getTransportManager()) {

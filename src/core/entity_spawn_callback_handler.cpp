@@ -97,6 +97,12 @@ void EntitySpawnCallbackHandler::setupCallbacks() {
         entitySpawner_.despawnGameObject(guid);
     });
 
+    // GameObject metadata arrival — settles the animation policy for models that
+    // spawned before their type was known.
+    gameHandler_.setGameObjectInfoCallback([this](uint32_t entry) {
+        entitySpawner_.onGameObjectInfoReceived(entry);
+    });
+
     // GameObject custom animation callback (e.g. chest opening)
     gameHandler_.setGameObjectCustomAnimCallback([this](uint64_t guid, uint32_t animId) {
         auto& goInstances = entitySpawner_.getGameObjectInstances();

@@ -1840,6 +1840,70 @@ void EntitySpawner::despawnCreature(uint64_t guid) {
     LOG_DEBUG("Despawned creature: guid=0x", std::hex, guid, std::dec);
 }
 
+namespace {
+
+// Game object types whose pose is server state rather than a looping idle: they
+// hold one frame until the server says otherwise (a door stands open or shut, a
+// chest sits closed until it is opened), so playing their sequence on a loop
+// would animate them open over and over. Every other type plays its idle
+// continuously, which is what retail does — fishing pools circle their fish,
+// braziers gutter, banners wave.
+bool gameObjectPoseIsStateDriven(uint32_t goType) {
+    switch (goType) {
+        case 0:   // DOOR
+        case 1:   // BUTTON
+        case 3:   // CHEST
+        case 6:   // TRAP
+        case 10:  // GOOBER
+        case 33:  // DESTRUCTIBLE_BUILDING
+        case 35:  // TRAPDOOR
+            return true;
+        default:
+            return false;
+    }
+}
+
+} // namespace
+
+void EntitySpawner::applyGameObjectAnimationPolicy(uint64_t guid, uint32_t entry,
+                                                   uint32_t instanceId) {
+    auto* m2Renderer = renderer_ ? renderer_->getM2Renderer() : nullptr;
+    if (!m2Renderer) return;
+
+    const game::GameObjectQueryResponseData* info =
+        (gameHandler_ && entry != 0) ? gameHandler_->getCachedGameObjectInfo(entry) : nullptr;
+    if (!info) {
+        // The type has not arrived yet. Freeze for now — a door caught mid-swing
+        // is worse than a pool of still fish — and revisit in
+        // onGameObjectInfoReceived once the query response lands.
+        m2Renderer->setInstanceAnimationFrozen(instanceId, true);
+        if (entry != 0) gameObjectPendingAnimPolicy_[entry].push_back(instanceId);
+        return;
+    }
+
+    const bool freeze = gameObjectPoseIsStateDriven(info->type);
+    m2Renderer->setInstanceAnimationFrozen(instanceId, freeze);
+    LOG_DEBUG("GO animation policy: guid=0x", std::hex, guid, std::dec,
+              " entry=", entry, " type=", info->type, " frozen=", freeze);
+}
+
+void EntitySpawner::onGameObjectInfoReceived(uint32_t entry) {
+    auto it = gameObjectPendingAnimPolicy_.find(entry);
+    if (it == gameObjectPendingAnimPolicy_.end()) return;
+    auto* m2Renderer = renderer_ ? renderer_->getM2Renderer() : nullptr;
+    const game::GameObjectQueryResponseData* info =
+        (gameHandler_ && m2Renderer) ? gameHandler_->getCachedGameObjectInfo(entry) : nullptr;
+    if (info && !gameObjectPoseIsStateDriven(info->type)) {
+        for (uint32_t instanceId : it->second) {
+            // No-op for instances that despawned while the query was in flight.
+            m2Renderer->setInstanceAnimationFrozen(instanceId, false);
+        }
+        LOG_DEBUG("GO animation policy resolved: entry=", entry,
+                  " type=", info->type, " unfroze ", it->second.size(), " instance(s)");
+    }
+    gameObjectPendingAnimPolicy_.erase(it);
+}
+
 void EntitySpawner::despawnGameObject(uint64_t guid) {
     pendingTransportDoodadBatches_.erase(
         std::remove_if(pendingTransportDoodadBatches_.begin(), pendingTransportDoodadBatches_.end(),

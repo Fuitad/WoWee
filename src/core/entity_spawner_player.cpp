@@ -1395,35 +1395,19 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
             m2Renderer->setSkipCollision(instanceId, true);
         }
 
-        // Freeze animation for static gameobjects, but let portals/effects/transports animate
+        // Transports are driven by the transport system rather than a looping idle.
         bool isTransportGO = gameHandler_ && gameHandler_->isTransportGuid(guid);
-        std::string lowerPath = modelPath;
-        std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(),
-                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        // Fishing pools carry their motion in a looping idle — the school's fish
-        // circle inside the model — so freezing them to the bind pose leaves a
-        // pool of motionless fish hanging in the water.
-        bool isAnimatedEffect = (lowerPath.find("instanceportal") != std::string::npos ||
-                                  lowerPath.find("instancenewportal") != std::string::npos ||
-                                  lowerPath.find("portalfx") != std::string::npos ||
-                                  lowerPath.find("spellportal") != std::string::npos ||
-                                  lowerPath.find("fishschool") != std::string::npos);
-        if (!isAnimatedEffect && !isTransportGO) {
-            // Check for totem idle animations — totems should animate, not freeze
+        if (!isTransportGO) {
+            // Totems play an explicit idle rather than the model's default sequence.
             bool isTotem = false;
-            if (m2Renderer->hasAnimation(instanceId, 245)) {         // TOTEM_SMALL
-                m2Renderer->setInstanceAnimation(instanceId, 245, true);
-                isTotem = true;
-            } else if (m2Renderer->hasAnimation(instanceId, 246)) {  // TOTEM_MEDIUM
-                m2Renderer->setInstanceAnimation(instanceId, 246, true);
-                isTotem = true;
-            } else if (m2Renderer->hasAnimation(instanceId, 247)) {  // TOTEM_LARGE
-                m2Renderer->setInstanceAnimation(instanceId, 247, true);
-                isTotem = true;
+            for (uint32_t totemAnim : {245u, 246u, 247u}) {  // TOTEM_SMALL/MEDIUM/LARGE
+                if (m2Renderer->hasAnimation(instanceId, totemAnim)) {
+                    m2Renderer->setInstanceAnimation(instanceId, totemAnim, true);
+                    isTotem = true;
+                    break;
+                }
             }
-            if (!isTotem) {
-                m2Renderer->setInstanceAnimationFrozen(instanceId, true);
-            }
+            if (!isTotem) applyGameObjectAnimationPolicy(guid, entry, instanceId);
         }
 
         gameObjectInstances_[guid] = {modelId, instanceId, false};
