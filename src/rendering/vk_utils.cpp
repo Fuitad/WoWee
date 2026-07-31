@@ -2,13 +2,50 @@
 #include "rendering/vk_context.hpp"
 #include "core/logger.hpp"
 #include <cstring>
+#include <mutex>
+#include <unordered_map>
+#include <map>
 
 namespace wowee {
 namespace rendering {
 
+namespace {
+// Leak hunt: which caller allocates the buffers that survive to shutdown.
+// Keyed by handle so a destroy cancels it out; the return address is resolved
+// offline with addr2line, which avoids needing symbols exported at runtime.
+struct BufferOrigin { const void* caller; VkDeviceSize size; };
+std::mutex& bufferOriginMutex() { static std::mutex m; return m; }
+std::unordered_map<void*, BufferOrigin>& bufferOrigins() {
+    static std::unordered_map<void*, BufferOrigin> m;
+    return m;
+}
+} // namespace
+
+void dumpLiveBufferOrigins() {
+    std::lock_guard<std::mutex> lock(bufferOriginMutex());
+    auto& live = bufferOrigins();
+    if (live.empty()) {
+        LOG_INFO("Buffer leak check: nothing outstanding from createBuffer()");
+        return;
+    }
+    std::map<std::pair<const void*, VkDeviceSize>, size_t> byCaller;
+    for (const auto& [handle, origin] : live) {
+        (void)handle;
+        byCaller[{origin.caller, origin.size}]++;
+    }
+    LOG_WARNING("Buffer leak check: ", live.size(), " buffers outstanding from createBuffer()");
+    size_t reported = 0;
+    for (const auto& [key, count] : byCaller) {
+        if (count < 16) continue;  // ignore the long tail of ones and twos
+        LOG_WARNING("  ", count, " x ", key.second, " bytes from caller ", key.first);
+        if (++reported >= 20) break;
+    }
+}
+
 AllocatedBuffer createBuffer(VmaAllocator allocator, VkDeviceSize size,
     VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
 {
+    const void* caller = __builtin_return_address(0);
     AllocatedBuffer result{};
 
     VkBufferCreateInfo bufInfo{};
@@ -26,6 +63,9 @@ AllocatedBuffer createBuffer(VmaAllocator allocator, VkDeviceSize size,
     if (vmaCreateBuffer(allocator, &bufInfo, &allocInfo,
             &result.buffer, &result.allocation, &result.info) != VK_SUCCESS) {
         LOG_ERROR("Failed to create VMA buffer (size=", size, ")");
+    } else {
+        std::lock_guard<std::mutex> lock(bufferOriginMutex());
+        bufferOrigins()[result.buffer] = {caller, size};
     }
 
     return result;
@@ -33,6 +73,10 @@ AllocatedBuffer createBuffer(VmaAllocator allocator, VkDeviceSize size,
 
 void destroyBuffer(VmaAllocator allocator, AllocatedBuffer& buffer) {
     if (buffer.buffer) {
+        {
+            std::lock_guard<std::mutex> lock(bufferOriginMutex());
+            bufferOrigins().erase(buffer.buffer);
+        }
         vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation);
         buffer.buffer = VK_NULL_HANDLE;
         buffer.allocation = VK_NULL_HANDLE;

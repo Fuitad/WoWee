@@ -197,6 +197,7 @@ void VkContext::shutdown() {
                 }
                 vmaFreeStatsString(allocator, statsJson);
             }
+            dumpLiveBufferOrigins();
             LOG_INFO("Validation active — destroying VMA allocator (slow, but keeps the exit clean)");
             vmaDestroyAllocator(allocator);
         }

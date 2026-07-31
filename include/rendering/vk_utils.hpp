@@ -26,6 +26,10 @@ struct AllocatedImage {
 };
 
 // Buffer creation
+// Reports buffers created through createBuffer() that were never destroyed,
+// grouped by calling address and size. Resolve the addresses with addr2line.
+void dumpLiveBufferOrigins();
+
 AllocatedBuffer createBuffer(VmaAllocator allocator, VkDeviceSize size,
     VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 
