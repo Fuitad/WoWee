@@ -170,11 +170,24 @@ void VkContext::shutdown() {
     LOG_DEBUG("VkContext::shutdown - destroySwapchain...");
     destroySwapchain();
 
-    // Skip vmaDestroyAllocator — it walks every allocation to free it, which
-    // takes many seconds with thousands of loaded textures/models.  The driver
-    // reclaims all device memory when we destroy the device, and the OS reclaims
-    // everything on process exit.  Skipping this makes shutdown instant.
-    allocator = VK_NULL_HANDLE;
+    // Normally skip vmaDestroyAllocator: it walks every allocation to free it,
+    // which takes many seconds with thousands of loaded textures and models. The
+    // driver reclaims all device memory when the device is destroyed and the OS
+    // reclaims the rest at process exit, so skipping it makes shutdown instant.
+    //
+    // Under validation, tear it down properly. Whatever the caches still hold is
+    // otherwise reported object by object at vkDestroyDevice — ninety thousand
+    // errors in one run — and that flood buries any real problem the layers find.
+    // Paying a few seconds on the way out is worth a usable validation signal,
+    // and it also means a genuine leak still shows up rather than hiding in the
+    // noise. Players never take this path.
+    if (allocator) {
+        if (validationActive_) {
+            LOG_INFO("Validation active — destroying VMA allocator (slow, but keeps the exit clean)");
+            vmaDestroyAllocator(allocator);
+        }
+        allocator = VK_NULL_HANDLE;
+    }
 
     LOG_DEBUG("VkContext::shutdown - vkDestroyDevice...");
     if (device) { vkDestroyDevice(device, nullptr); device = VK_NULL_HANDLE; }
@@ -291,6 +304,7 @@ bool VkContext::createInstance(SDL_Window* window) {
                .set_debug_callback(debugCallback);
         LOG_INFO("Vulkan validation layers requested");
     }
+    validationActive_ = enableValidationEffective;
 
     auto instRet = builder.build();
     if (!instRet) {

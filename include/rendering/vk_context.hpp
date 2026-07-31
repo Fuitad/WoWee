@@ -307,6 +307,8 @@ private:
 #else
     bool enableValidation = false;
 #endif
+    // Whether the layers actually came up this run, including via the env var.
+    bool validationActive_ = false;
 };
 
 } // namespace rendering
