@@ -785,3 +785,20 @@ if(WOWEE_ENABLE_ASAN AND NOT MSVC)
     target_link_options(catch2_main PRIVATE -fsanitize=address,undefined)
     message(STATUS "Test targets: ASAN + UBSan ENABLED")
 endif()
+
+# ── test_m2_classifier_foliage ───────────────────────────────
+# Pins the wind-sway classification against substring collisions: foliage
+# tokens are matched inside concatenated names, so "thorn" landed inside
+# Stranglethorn and made every troll ruin sway like a tree.
+add_executable(test_m2_classifier_foliage
+    test_m2_classifier_foliage.cpp
+    ${CMAKE_SOURCE_DIR}/src/rendering/m2_model_classifier.cpp
+)
+target_include_directories(test_m2_classifier_foliage PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_m2_classifier_foliage SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_m2_classifier_foliage PRIVATE catch2_main)
+if(TARGET glm::glm)
+    target_link_libraries(test_m2_classifier_foliage PRIVATE glm::glm)
+endif()
+add_test(NAME m2_classifier_foliage COMMAND test_m2_classifier_foliage)
+register_test_target(test_m2_classifier_foliage)

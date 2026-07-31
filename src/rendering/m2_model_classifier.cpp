@@ -16,6 +16,42 @@ inline bool has(const std::string& lower, std::string_view token) noexcept {
     return lower.find(token) != std::string::npos;
 }
 
+// Where in the name a token matched, so competing tokens can be ranked.
+// Model names are head-final compounds — StranglethornRuins is a ruin,
+// DustwallowTree is a tree — so the match ending furthest right is the one that
+// says what the model is. A longer token wins a tie on the same end position,
+// which is how "corner" beats the "corn" inside it.
+struct TokenMatch {
+    std::size_t end = 0;
+    std::size_t len = 0;
+    bool found = false;
+
+    // Ranks after `other`: ends further right, or ends level but is longer.
+    bool outranks(const TokenMatch& other) const noexcept {
+        if (!found) return false;
+        if (!other.found) return true;
+        if (end != other.end) return end > other.end;
+        return len > other.len;
+    }
+};
+
+inline TokenMatch lastMatch(const std::string& lower, std::string_view token) noexcept {
+    const std::size_t i = lower.rfind(token);
+    if (i == std::string::npos) return {};
+    return {i + token.size(), token.size(), true};
+}
+
+template <std::size_t N>
+TokenMatch lastMatchAny(const std::string& lower,
+                        const std::array<std::string_view, N>& tokens) noexcept {
+    TokenMatch best;
+    for (auto tok : tokens) {
+        const TokenMatch m = lastMatch(lower, tok);
+        if (m.outranks(best)) best = m;
+    }
+    return best;
+}
+
 // Returns true if any token in the compile-time array is a substring of `lower`.
 template <std::size_t N>
 bool hasAny(const std::string& lower,
@@ -170,10 +206,36 @@ M2ClassificationResult classifyM2Model(
         "underbrush", "vine",       "watermelon", "weed",       "wheat",
     });
 
+    // Words that name a structure. Foliage tokens have to be matched as
+    // substrings, because model names run words together with no separator
+    // (StranglethornFern01), which rules out matching on word boundaries. The
+    // price is that a short token lands inside an unrelated word: "thorn" in
+    // Stranglethorn, "corn" in Corner, "hops" in ShopSign, "crop" in Outcrop,
+    // "tree" in StreetSign. Every one of those made a rigid prop sway in the
+    // wind. Ranking the matches by where they end resolves it without a list of
+    // exceptions: StranglethornRuins is a ruin, DustwallowTree is still a tree.
+    static constexpr auto kStructureTokens = std::to_array<std::string_view>({
+        "arch",      "bridge",    "brick",     "cage",      "chest",
+        "cliff",     "column",    "corner",    "door",      "fence",
+        "floor",     "frame",     "gate",      "herbalism", "herbalist",
+        "outcrop",   "pillar",    "pylon",     "roof",      "rock",
+        "ruin",      "shield",    "sign",      "stair",     "statue",
+        "stone",     "tomb",      "tower",     "wall",
+    });
+    const TokenMatch structureHit = lastMatchAny(n, kStructureTokens);
+
     // "plant" is foliage unless "planter" is also present (planters are solid curbs).
-    const bool foliagePlant = has(n, "plant") && !isPlanter;
-    const bool foliageName  = foliagePlant || hasAny(n, kFoliageTokens);
-    const bool treeLike     = has(n, "tree");
+    TokenMatch foliageHit = lastMatchAny(n, kFoliageTokens);
+    if (!isPlanter) {
+        const TokenMatch plantHit = lastMatch(n, "plant");
+        if (plantHit.outranks(foliageHit)) foliageHit = plantHit;
+    }
+    const TokenMatch treeHit = lastMatch(n, "tree");
+
+    const bool foliagePlant = !isPlanter && has(n, "plant")
+                            && !structureHit.outranks(foliageHit);
+    const bool foliageName  = foliageHit.found && !structureHit.outranks(foliageHit);
+    const bool treeLike     = treeHit.found && !structureHit.outranks(treeHit);
     const bool hardTreePart = has(n, "trunk") || has(n, "stump") || has(n, "log");
 
     // Trees wide/tall enough to have a visible trunk → solid cylinder collision.
