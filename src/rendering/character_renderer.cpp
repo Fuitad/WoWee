@@ -1043,6 +1043,47 @@ static void blitOverlay(std::vector<uint8_t>& composite, int compW, int compH,
 }
 
 // Nearest-neighbor NxN scale blit of overlay onto composite at (dstX, dstY)
+// Blit an overlay resampled to an explicit destination size. The integer-scale
+// version below only grows an overlay, and only by a whole factor, so an overlay
+// that arrives larger than the region it belongs in was pasted at its own size
+// and covered several regions of the atlas. Nearest-neighbour is enough here:
+// these are small atlas patches, and the alternative was no resize at all.
+static void blitOverlayResampled(std::vector<uint8_t>& composite, int compW, int compH,
+                                 const pipeline::BLPImage& overlay,
+                                 int dstX, int dstY, int dstW, int dstH) {
+    if (dstW <= 0 || dstH <= 0 || overlay.width <= 0 || overlay.height <= 0) return;
+    for (int y = 0; y < dstH; ++y) {
+        const int dy = dstY + y;
+        if (dy < 0 || dy >= compH) continue;
+        const int sy = std::min(overlay.height - 1, y * overlay.height / dstH);
+        for (int x = 0; x < dstW; ++x) {
+            const int dx = dstX + x;
+            if (dx < 0 || dx >= compW) continue;
+            const int sx = std::min(overlay.width - 1, x * overlay.width / dstW);
+
+            const size_t srcIdx = (static_cast<size_t>(sy) * overlay.width + sx) * 4;
+            const uint8_t srcA = overlay.data[srcIdx + 3];
+            if (srcA == 0) continue;
+
+            const size_t dstIdx = (static_cast<size_t>(dy) * compW + dx) * 4;
+            if (srcA == 255) {
+                composite[dstIdx + 0] = overlay.data[srcIdx + 0];
+                composite[dstIdx + 1] = overlay.data[srcIdx + 1];
+                composite[dstIdx + 2] = overlay.data[srcIdx + 2];
+                composite[dstIdx + 3] = 255;
+            } else {
+                const float alpha = srcA / 255.0f;
+                const float inv = 1.0f - alpha;
+                for (int c = 0; c < 3; ++c) {
+                    composite[dstIdx + c] = static_cast<uint8_t>(
+                        overlay.data[srcIdx + c] * alpha + composite[dstIdx + c] * inv);
+                }
+                composite[dstIdx + 3] = std::max(composite[dstIdx + 3], srcA);
+            }
+        }
+    }
+}
+
 static void blitOverlayScaledN(std::vector<uint8_t>& composite, int compW, int compH,
                                 const pipeline::BLPImage& overlay, int dstX, int dstY, int scale) {
     if (scale < 1) scale = 1;
@@ -1268,20 +1309,29 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
             dstX *= coordScale;
             dstY *= coordScale;
 
-            // If overlay is 256-base sized but canvas is larger, scale the overlay up
-            int expectedW = expectedW256 * coordScale;
-            int expectedH = expectedH256 * coordScale;
-            bool needsScale = (coordScale > 1 &&
-                               overlay.width == expectedW256 && overlay.height == expectedH256);
+            // The region is a fixed fraction of the atlas, so the overlay has to
+            // land at exactly this size whatever resolution it was authored at.
+            // Growing it by a whole factor was not enough, because it only ever
+            // grew: an overlay arriving larger than its region was pasted at its
+            // own size, spilling across neighbouring regions and dragging every
+            // feature on the head to the wrong scale. These assets ship at two
+            // resolutions — a 256-wide face belongs in a 128-wide slot on a
+            // 256-wide atlas — so the two can meet whenever a lookup resolves
+            // the body and the face from different sets.
+            const int expectedW = expectedW256 * coordScale;
+            const int expectedH = expectedH256 * coordScale;
+            const bool needsResample =
+                (overlay.width != expectedW || overlay.height != expectedH);
 
             core::Logger::getInstance().info("Composite: placing '", layerPaths[layer],
                 "' (", overlay.width, "x", overlay.height,
                 ") at (", dstX, ",", dstY, ") on ", width, "x", height,
                 " expected=", expectedW, "x", expectedH,
-                needsScale ? " [SCALING]" : "");
+                needsResample ? " [RESAMPLED]" : "");
 
-            if (needsScale) {
-                blitOverlayScaledN(composite, width, height, overlay, dstX, dstY, coordScale);
+            if (needsResample) {
+                blitOverlayResampled(composite, width, height, overlay,
+                                     dstX, dstY, expectedW, expectedH);
             } else {
                 blitOverlay(composite, width, height, overlay, dstX, dstY);
             }
