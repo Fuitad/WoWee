@@ -1176,22 +1176,24 @@ bool TerrainManager::advanceFinalization(FinalizingTile& ft) {
                 &pending->preloadedWMONormalMapVariances);
             wmoRenderer->setDeferNormalMaps(true);
 
-            bool wmoWorkersIdle;
-            {
-                std::lock_guard<std::mutex> lk(queueMutex);
-                wmoWorkersIdle = loadQueue.empty() && readyQueue.empty();
-            }
-            const size_t kWmosPerStep = wmoWorkersIdle ? 2 : 1;
-            size_t uploaded = 0;
-            while (ft.wmoModelIndex < pending->wmoModels.size() && uploaded < kWmosPerStep) {
+            // One model per step, and a large model spread across several
+            // steps: a 286-group WMO took 131ms to upload in one go, against
+            // this phase's 8ms budget. Uploading two per step when the workers
+            // were idle only doubled that worst case.
+            constexpr float kWmoGroupBudgetMs = 6.0f;
+            while (ft.wmoModelIndex < pending->wmoModels.size()) {
                 auto& wmoReady = pending->wmoModels[ft.wmoModelIndex];
                 if (wmoReady.uniqueId != 0 && placedWmoIds.count(wmoReady.uniqueId)) {
                     ft.wmoModelIndex++;
-                } else {
-                    wmoRenderer->loadModel(wmoReady.model, wmoReady.modelId);
-                    ft.wmoModelIndex++;
-                    uploaded++;
+                    continue;
                 }
+                const auto result = wmoRenderer->loadModelIncremental(
+                    wmoReady.model, wmoReady.modelId, kWmoGroupBudgetMs);
+                if (result == WMORenderer::ModelLoadResult::InProgress) {
+                    break;  // same model resumes on the next call
+                }
+                ft.wmoModelIndex++;  // Complete or Failed — either way, move on
+                break;               // one model per step
             }
             wmoRenderer->setDeferNormalMaps(false);
             wmoRenderer->setPredecodedBLPCache(nullptr);

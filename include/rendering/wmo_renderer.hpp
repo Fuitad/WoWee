@@ -71,6 +71,14 @@ public:
      */
     bool loadModel(const pipeline::WMOModel& model, uint32_t id);
 
+    enum class ModelLoadResult { Complete, InProgress, Failed };
+
+    /// Upload a model a few groups at a time. InProgress means call again with
+    /// the same arguments; a single large model can otherwise take over a
+    /// hundred milliseconds, which lands as a visible hitch when terrain
+    /// streaming finalises a tile.
+    ModelLoadResult loadModelIncremental(const pipeline::WMOModel& model, uint32_t id, float budgetMs);
+
     /**
      * Check if a WMO model is currently resident in the renderer
      * @param id WMO model identifier
@@ -549,6 +557,14 @@ private:
         // For each group: which portal refs belong to it (start index, count)
         std::vector<std::pair<uint16_t, uint16_t>> groupPortalRefs;
 
+        // Set once the textures and materials below have been populated, so a
+        // resumed load skips straight to the groups it has left.
+        bool setupDone = false;
+        // Next group to upload. A large model's groups are spread across several
+        // calls under a time budget rather than uploaded in one stall.
+        size_t nextGroupIndex = 0;
+        uint32_t loadedGroups = 0;
+
         uint32_t getTotalTriangles() const {
             uint32_t total = 0;
             for (const auto& group : groups) {
@@ -729,6 +745,9 @@ private:
 
     // Loaded models (modelId -> ModelData)
     std::unordered_map<uint32_t, ModelData> loadedModels;
+    // Models part-way through an incremental load; moved into loadedModels once
+    // every group is uploaded, so a half-built model is never rendered.
+    std::unordered_map<uint32_t, ModelData> loadingModels_;
     size_t modelCacheLimit_ = 4000;
     uint32_t modelLimitRejectWarnings_ = 0;
 
