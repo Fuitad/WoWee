@@ -1,4 +1,5 @@
 #pragma once
+#include <future>
 
 #include "ui/ui_services.hpp"
 #include "auth/auth_handler.hpp"
@@ -132,7 +133,17 @@ private:
 
     // Background image (Vulkan)
     bool bgInitAttempted = false;
-    bool loadBackgroundImage();
+    // The background is a 1408x768 PNG in a 2.4MB file; decoding it on the
+    // frame it first appears cost ~190ms. Decode on a worker and upload when it
+    // arrives — the screen simply renders without it until then.
+    struct DecodedBackground {
+        std::vector<unsigned char> pixels;
+        int width = 0;
+        int height = 0;
+    };
+    std::future<DecodedBackground> bgDecodeFuture;
+    bool bgDecodeStarted = false;
+    bool uploadBackgroundImage(const unsigned char* pixels);
     void destroyBackgroundImage();
     rendering::VkContext* bgVkCtx = nullptr;
     VkImage bgImage = VK_NULL_HANDLE;

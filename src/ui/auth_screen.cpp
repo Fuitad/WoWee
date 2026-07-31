@@ -1,4 +1,6 @@
 #include "ui/auth_screen.hpp"
+#include <future>
+#include <chrono>
 #include "ui/ui_colors.hpp"
 #include "ui/settings_panel.hpp"
 #include "auth/crypto.hpp"
@@ -187,9 +189,34 @@ void AuthScreen::render(auth::AuthHandler& authHandler) {
         }
     }
 
-    if (!bgInitAttempted) {
+    // Kick the decode off once, then upload on whichever frame it lands.
+    if (!bgDecodeStarted) {
+        bgDecodeStarted = true;
+        std::string imgPath = "assets/krayonsignin.png";
+        if (!std::filesystem::exists(imgPath))
+            imgPath = (std::filesystem::current_path() / imgPath).string();
+        bgDecodeFuture = std::async(std::launch::async, [imgPath]() {
+            DecodedBackground out;
+            int channels = 0;
+            stbi_set_flip_vertically_on_load(false);
+            unsigned char* data = stbi_load(imgPath.c_str(), &out.width, &out.height, &channels, 4);
+            if (data) {
+                out.pixels.assign(data, data + static_cast<size_t>(out.width) * out.height * 4);
+                        }
+            return out;
+        });
+    }
+    if (!bgInitAttempted && bgDecodeFuture.valid() &&
+        bgDecodeFuture.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready) {
         bgInitAttempted = true;
-        loadBackgroundImage();
+        DecodedBackground decoded = bgDecodeFuture.get();
+        if (!decoded.pixels.empty()) {
+            bgWidth = decoded.width;
+            bgHeight = decoded.height;
+            uploadBackgroundImage(decoded.pixels.data());
+        } else {
+            LOG_WARNING("Auth screen: failed to decode background image");
+        }
     }
     if (bgDescriptorSet) {
         ImVec2 screen = ImGui::GetIO().DisplaySize;
@@ -932,24 +959,15 @@ static uint32_t findMemType(VkPhysicalDevice pd, uint32_t filter, VkMemoryProper
     return UINT32_MAX;
 }
 
-bool AuthScreen::loadBackgroundImage() {
+// Takes pixels already decoded on a worker thread and does the GPU-side work,
+// which has to happen on the main thread.
+bool AuthScreen::uploadBackgroundImage(const unsigned char* data) {
     auto& app = core::Application::getInstance();
     auto* renderer = app.getRenderer();
     if (!renderer) return false;
     bgVkCtx = renderer->getVkContext();
     if (!bgVkCtx) return false;
-
-    std::string imgPath = "assets/krayonsignin.png";
-    if (!std::filesystem::exists(imgPath))
-        imgPath = (std::filesystem::current_path() / imgPath).string();
-
-    int channels;
-    stbi_set_flip_vertically_on_load(false);
-    unsigned char* data = stbi_load(imgPath.c_str(), &bgWidth, &bgHeight, &channels, 4);
-    if (!data) {
-        LOG_WARNING("Auth screen: failed to load background image: ", imgPath);
-        return false;
-    }
+    if (!data) return false;
 
     VkDevice device = bgVkCtx->getDevice();
     VkPhysicalDevice physDevice = bgVkCtx->getPhysicalDevice();
@@ -981,7 +999,7 @@ bool AuthScreen::loadBackgroundImage() {
         memcpy(mapped, data, imageSize);
         vkUnmapMemory(device, stagingMemory);
     }
-    stbi_image_free(data);
+    // The pixels belong to the caller's decoded buffer, not to stb_image.
 
     // Create VkImage
     {
