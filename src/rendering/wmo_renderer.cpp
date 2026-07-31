@@ -449,9 +449,6 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
     // submission with one fence wait, instead of one per upload.
     vkCtx_->beginUploadBatch();
 
-    const auto wmoLoadT0 = std::chrono::steady_clock::now();
-    predecodedHits_ = 0;
-
     // Textures and materials are model-level and done once; a resumed call has
     // them already and goes straight to the remaining groups.
     if (!modelData.setupDone) {
@@ -556,8 +553,6 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
         return {};
     };
 
-    const auto wmoLoadT1 = std::chrono::steady_clock::now();
-
     // Create GPU resources for each group, a bounded number per call. A model
     // with hundreds of groups would otherwise upload them all in one step: the
     // worst measured was 286 groups at 131ms, against an 8ms budget.
@@ -621,8 +616,6 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
         loadingModels_.erase(id);
         return ModelLoadResult::Failed;
     }
-
-    const auto wmoLoadT2 = std::chrono::steady_clock::now();
 
     // Build pre-merged batches for each group (texture-sorted for efficient rendering)
     for (auto& groupRes : modelData.groups) {
@@ -941,21 +934,6 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
 
         if (!modelData.doodadTemplates.empty()) {
             core::Logger::getInstance().debug("WMO has ", modelData.doodadTemplates.size(), " doodad templates");
-        }
-    }
-
-    {
-        const auto wmoLoadT3 = std::chrono::steady_clock::now();
-        auto ms = [](auto a, auto b) {
-            return std::chrono::duration<float, std::milli>(b - a).count();
-        };
-        const float total = ms(wmoLoadT0, wmoLoadT3);
-        if (total > 8.0f) {
-            core::Logger::getInstance().warning(
-                "WMO ", id, " load ", total, "ms: textures=", ms(wmoLoadT0, wmoLoadT1),
-                " groups=", ms(wmoLoadT1, wmoLoadT2), " batches=", ms(wmoLoadT2, wmoLoadT3),
-                " (", model.textures.size(), " textures, ", predecodedHits_,
-                " pre-decoded, ", model.groups.size(), " groups)");
         }
     }
 
@@ -2643,7 +2621,6 @@ VkTexture* WMORenderer::loadTexture(const std::string& path) {
                 blp = std::move(pit->second);
                 predecodedBLPCache_->erase(pit);
                 resolvedKey = c;
-                predecodedHits_++;
                 break;
             }
         }
