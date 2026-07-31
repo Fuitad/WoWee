@@ -558,15 +558,21 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
     // worst measured was 286 groups at 131ms, against an 8ms budget.
     const auto groupStart = std::chrono::steady_clock::now();
     for (size_t gi = modelData.nextGroupIndex; gi < model.groups.size(); gi++) {
-        modelData.nextGroupIndex = gi + 1;
         if (budgetMs > 0.0f) {
             const float spent = std::chrono::duration<float, std::milli>(
                 std::chrono::steady_clock::now() - groupStart).count();
             if (spent >= budgetMs && gi + 1 < model.groups.size()) {
+                // Resume AT this group, not after it. Marking it done before
+                // deciding whether to stop dropped one group on the floor at
+                // every budget break, and a dropped group is a missing piece of
+                // the building — the interior floors past a doorway in
+                // Stormwind, on a model big enough to break several times.
+                modelData.nextGroupIndex = gi;
                 vkCtx_->endUploadBatch();
-                return ModelLoadResult::InProgress;  // resume here next call
+                return ModelLoadResult::InProgress;
             }
         }
+        modelData.nextGroupIndex = gi + 1;
         const auto& wmoGroup = model.groups[gi];
         // Skip empty groups
         if (wmoGroup.vertices.empty() || wmoGroup.indices.empty()) {
@@ -938,6 +944,21 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
     }
 
     modelData.setupDone = true;
+
+    // Every non-empty source group must have arrived. Uploading them across
+    // several calls under a time budget makes it possible to lose one at a
+    // resume point without anything else noticing: the model still loads, still
+    // renders, and is simply missing pieces of itself.
+    size_t expectedGroups = 0;
+    for (const auto& g : model.groups) {
+        if (!g.vertices.empty() && !g.indices.empty()) expectedGroups++;
+    }
+    if (modelData.groups.size() != expectedGroups) {
+        core::Logger::getInstance().error(
+            "WMO ", id, " uploaded ", modelData.groups.size(), " of ", expectedGroups,
+            " groups — geometry is missing from this model");
+    }
+
     loadedModels[id] = std::move(modelData);
     loadingModels_.erase(id);
     core::Logger::getInstance().debug("WMO model ", id, " loaded successfully (", modelData.loadedGroups, " groups)");
