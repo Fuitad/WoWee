@@ -3082,12 +3082,30 @@ void WindowManager::renderMailComposeWindow(game::GameHandler& gameHandler,
                 }
                 ImGui::PopStyleColor(2);
 
+                // Stack size, drawn over the icon the way the inbox and the bags
+                // both do it. Without it an attached stack looked identical to a
+                // single item, so there was no way to tell what was being sent.
+                const uint32_t stack = att.item.stackCount;
+                if (stack > 1) {
+                    char cnt[16];
+                    snprintf(cnt, sizeof(cnt), "%u", stack);
+                    const ImVec2 rmax = ImGui::GetItemRectMax();
+                    const float cw = ImGui::CalcTextSize(cnt).x;
+                    ImDrawList* dl = ImGui::GetWindowDrawList();
+                    const ImVec2 at(rmax.x - cw - 2.0f, rmax.y - 15.0f);
+                    dl->AddText(ImVec2(at.x + 1.0f, at.y + 1.0f), IM_COL32(0, 0, 0, 200), cnt);
+                    dl->AddText(at, IM_COL32(255, 255, 255, 230), cnt);
+                }
+
                 if (clicked) {
                     gameHandler.detachMailAttachment(i);
                 }
                 if (ImGui::IsItemHovered()) {
                     ImGui::BeginTooltip();
                     ImGui::TextColored(qualColor, "%s", att.item.name.c_str());
+                    if (stack > 1) {
+                        ImGui::TextColored(ui::colors::kLightGray, "Stack of %u", stack);
+                    }
                     ImGui::TextColored(ui::colors::kLightGray, "Click to remove");
                     ImGui::EndTooltip();
                 }
