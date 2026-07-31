@@ -1922,11 +1922,26 @@ void InventoryHandler::sendMail(const std::string& recipient, const std::string&
             itemGuids.push_back(att.itemGuid);
         }
     }
+    const int sendable = maxSendableMailAttachments();
+    if (static_cast<int>(itemGuids.size()) > sendable) {
+        // Should be unreachable now that attaching is capped, but dropping
+        // attachments without saying so is how this went unnoticed.
+        LOG_ERROR("sendMail: ", itemGuids.size(), " attachments but this expansion's "
+                  "packet carries ", sendable, " — refusing to send and lose the rest");
+        owner_.addSystemChatMessage("This realm's mail carries one item per letter.");
+        return;
+    }
     auto packet = owner_.getPacketParsers()->buildSendMail(mailboxGuid_, recipient, subject, body, money, cod, itemGuids);
     LOG_INFO("sendMail: to='", recipient, "' subject='", subject, "' money=", money,
              " attachments=", itemGuids.size(), " mailboxGuid=", mailboxGuid_);
     owner_.getSocket()->send(packet);
     clearMailAttachments();
+}
+
+int InventoryHandler::maxSendableMailAttachments() {
+    // Vanilla's packet has one uint64 item GUID where TBC and later have a
+    // count followed by an array.
+    return isClassicLikeExpansion() ? 1 : MAIL_MAX_ATTACHMENTS;
 }
 
 bool InventoryHandler::attachItemFromBackpack(int backpackIndex) {
@@ -1935,7 +1950,7 @@ bool InventoryHandler::attachItemFromBackpack(int backpackIndex) {
     if (slot.empty()) return false;
     uint64_t itemGuid = owner_.backpackSlotGuidsRef()[backpackIndex];
     if (itemGuid == 0) return false;
-    for (int i = 0; i < MAIL_MAX_ATTACHMENTS; ++i) {
+    for (int i = 0; i < maxSendableMailAttachments(); ++i) {
         if (!mailAttachments_[i].occupied()) {
             mailAttachments_[i].itemGuid = itemGuid;
             mailAttachments_[i].item = slot.item;
@@ -1959,7 +1974,7 @@ bool InventoryHandler::attachItemFromBag(int bagIndex, int slotIndex) {
     if (slotIndex >= static_cast<int>(it->second.numSlots)) return false;
     uint64_t itemGuid = it->second.slotGuids[slotIndex];
     if (itemGuid == 0) return false;
-    for (int i = 0; i < MAIL_MAX_ATTACHMENTS; ++i) {
+    for (int i = 0; i < maxSendableMailAttachments(); ++i) {
         if (!mailAttachments_[i].occupied()) {
             mailAttachments_[i].itemGuid = itemGuid;
             mailAttachments_[i].item = slot.item;

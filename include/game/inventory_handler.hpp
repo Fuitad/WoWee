@@ -156,7 +156,14 @@ public:
     uint64_t getVendorGuid() const { return currentVendorItems_.vendorGuid; }
 
     // ---- Mail ----
+    // Slots the UI can hold. What can actually be sent depends on the wire
+    // format — see maxSendableMailAttachments().
     static constexpr int MAIL_MAX_ATTACHMENTS = 12;
+
+    /// How many attachments this expansion's CMSG_SEND_MAIL can carry. Vanilla
+    /// writes a single item GUID, so anything past the first was silently left
+    /// in the player's bags while the UI happily accepted twelve.
+    static int maxSendableMailAttachments();
     struct MailAttachSlot {
         uint64_t itemGuid = 0;
         game::ItemDef item;

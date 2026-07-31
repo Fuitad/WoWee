@@ -2222,6 +2222,10 @@ public:
     void clearMailAttachments();
     const std::array<MailAttachSlot, 12>& getMailAttachments() const;
     int getMailAttachmentCount() const;
+    /// Attachments this realm's mail packet can actually carry — one on Vanilla,
+    /// twelve from TBC on. The compose window used to offer twelve regardless
+    /// and quietly send the first.
+    int getMaxMailAttachments() const;
     void mailTakeMoney(uint32_t mailId);
     void mailTakeItem(uint32_t mailId, uint32_t itemGuidLow);
     void mailDelete(uint32_t mailId);

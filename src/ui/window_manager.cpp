@@ -3053,13 +3053,14 @@ void WindowManager::renderMailComposeWindow(game::GameHandler& gameHandler,
 
         // Attachments section
         int attachCount = gameHandler.getMailAttachmentCount();
-        ImGui::Text("Attachments (%d/12):", attachCount);
+        const int attachMax = gameHandler.getMaxMailAttachments();
+        ImGui::Text("Attachments (%d/%d):", attachCount, attachMax);
         ImGui::SameLine();
         ImGui::TextColored(kColorGray, "Right-click items in bags to attach");
 
         const auto& attachments = gameHandler.getMailAttachments();
         // Show attachment slots in a grid (6 per row)
-        for (int i = 0; i < game::GameHandler::MAIL_MAX_ATTACHMENTS; ++i) {
+        for (int i = 0; i < attachMax; ++i) {
             if (i % 6 != 0) ImGui::SameLine();
             ImGui::PushID(i + 5000);
             const auto& att = attachments[i];

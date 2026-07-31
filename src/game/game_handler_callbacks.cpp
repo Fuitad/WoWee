@@ -1216,6 +1216,10 @@ const std::array<GameHandler::MailAttachSlot, 12>& GameHandler::getMailAttachmen
     return mailAttachments_;
 }
 
+int GameHandler::getMaxMailAttachments() const {
+    return InventoryHandler::maxSendableMailAttachments();
+}
+
 // Bank
 bool GameHandler::isBankOpen() const {
     return inventoryHandler_ ? inventoryHandler_->isBankOpen() : bankOpen_;
