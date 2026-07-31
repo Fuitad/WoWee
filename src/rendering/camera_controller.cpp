@@ -735,18 +735,24 @@ void CameraController::update(float deltaTime) {
             } else if (diveKey) {
                 verticalVelocity = -SWIM_BUOYANCY;
             } else {
-                // Gentle sink when not pressing space
-                verticalVelocity += SWIM_GRAVITY * physicsDeltaTime;
-                if (verticalVelocity < SWIM_SINK_SPEED) {
-                    verticalVelocity = SWIM_SINK_SPEED;
-                }
-                // Strong surface lock while idle/normal swim so buoyancy keeps
-                // you afloat unless you're intentionally diving.
-                if (!diveIntent) {
-                    float surfaceErr = (waterSurfaceZ - targetPos.z);
-                    verticalVelocity += surfaceErr * 7.0f * physicsDeltaTime;
-                    verticalVelocity *= std::max(0.0f, 1.0f - 3.2f * physicsDeltaTime);
-                    if (std::abs(surfaceErr) < 0.06f && std::abs(verticalVelocity) < 0.35f) {
+                // No vertical key held. Retail holds depth here rather than
+                // pulling the swimmer back to the surface: a character can idle
+                // underwater and drown doing it, which a surface spring would
+                // make impossible. The old behaviour yanked you up unless you
+                // were actively diving, so a dive only held while a key was
+                // down. Bleed off whatever vertical momentum was carried in and
+                // then hover.
+                verticalVelocity *= std::max(0.0f, 1.0f - SWIM_VERTICAL_DAMPING * physicsDeltaTime);
+                if (std::abs(verticalVelocity) < 0.05f) verticalVelocity = 0.0f;
+
+                // Near the surface a body does float up to it, which is what
+                // keeps a swimmer's head out of the water instead of drifting
+                // just below. Only within a short band, and not while the look
+                // direction says the player is diving.
+                const float surfaceErr = waterSurfaceZ - targetPos.z;
+                if (!diveIntent && surfaceErr > 0.0f && surfaceErr < SWIM_FLOAT_BAND) {
+                    verticalVelocity += surfaceErr * 6.0f * physicsDeltaTime;
+                    if (surfaceErr < 0.06f && std::abs(verticalVelocity) < 0.35f) {
                         verticalVelocity = 0.0f;
                     }
                 }

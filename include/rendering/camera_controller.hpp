@@ -323,6 +323,14 @@ private:
     static constexpr float SWIM_GRAVITY = -5.0f;
     static constexpr float SWIM_BUOYANCY = 8.0f;
     static constexpr float SWIM_SINK_SPEED = -3.0f;
+    // How fast vertical motion bleeds off when no swim-up or swim-down key is
+    // held. Retail holds depth rather than drifting, so this only arrests the
+    // momentum carried in from a jump or a dive.
+    static constexpr float SWIM_VERTICAL_DAMPING = 6.0f;
+    // Within this distance of the surface a body floats up to it; deeper than
+    // this it holds depth. Retail lets a character idle underwater — and drown
+    // doing it — so buoyancy cannot reach all the way down.
+    static constexpr float SWIM_FLOAT_BAND = 1.3f;
     static constexpr float WATER_SURFACE_OFFSET = 0.9f;
 
     // Movement input suppression (after teleport/portal, ignore held keys)
