@@ -1498,6 +1498,35 @@ void CameraController::update(float deltaTime) {
                 }
             }
 
+            // Outdoors the heightfield has exactly one surface per column, so feet
+            // below it means the player is inside the hill, which is never a valid
+            // position. Climbing a slope that rises faster than the step-up budget
+            // — a steep hill, or an ordinary one crossed in a long frame — got the
+            // terrain rejected as unreachable by selectReachableFloor3. Once inside,
+            // every later sample was rejected the same way and the gap only widened
+            // as the player fell, so nothing recovered until the void check fired 60
+            // yards down. Push back out to the surface instead.
+            //
+            // Only where there is nothing else the player could be standing in or
+            // under: a cave, a tunnel or Ironforge is legitimately beneath the
+            // heightfield, and must never be yanked up onto the mountain above it.
+            if (!swimming && !flyingActive_ && !hoverActive_ && !externalFollow_ &&
+                !cachedInsideWMO && !nearStructureSpace && centerTerrainH &&
+                verticalVelocity <= 0.0f) {
+                const float penetration = *centerTerrainH - targetPos.z;
+                // Below the shallow bound is ordinary contact and sampling jitter;
+                // above the deep bound is somewhere this heuristic cannot vouch for,
+                // which the void recovery above already handles.
+                constexpr float kMinPenetration = 0.10f;
+                constexpr float kMaxPenetration = 12.0f;
+                if (penetration > kMinPenetration && penetration < kMaxPenetration) {
+                    targetPos.z = *centerTerrainH;
+                    verticalVelocity = 0.0f;
+                    groundH = centerTerrainH;
+                    lastGroundZ = *centerTerrainH;
+                }
+            }
+
             if (groundH) {
                 hasRealGround_ = true;
                 noGroundTimer_ = 0.0f;
