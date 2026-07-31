@@ -143,3 +143,53 @@ TEST_CASE("computeBankSortSwaps addresses bank slots and bags correctly", "[inve
         CHECK(dstOk);
     }
 }
+
+TEST_CASE("sortBankBag orders one bag without touching the rest of the bank",
+          "[inventory]") {
+    Inventory inv;
+    inv.setBankSlot(0, makeItem(900, ItemQuality::POOR));
+    inv.setBankBagSize(0, 6);
+    inv.setBankBagSize(1, 6);
+    inv.setBankBagSlot(0, 0, makeItem(500, ItemQuality::COMMON));
+    inv.setBankBagSlot(0, 4, makeItem(100, ItemQuality::EPIC));
+    inv.setBankBagSlot(1, 2, makeItem(700, ItemQuality::RARE));
+
+    inv.sortBankBag(0);
+
+    // Sorted and compacted to the front of its own bag.
+    CHECK(inv.getBankBagSlot(0, 0).item.itemId == 100);
+    CHECK(inv.getBankBagSlot(0, 1).item.itemId == 500);
+    CHECK(inv.getBankBagSlot(0, 4).empty());
+
+    // Nothing pooled into the main bank, and the other bag is untouched — which
+    // is the whole point of sorting one bag rather than the whole bank.
+    CHECK(inv.getBankSlot(0).item.itemId == 900);
+    CHECK(inv.getBankSlot(1).empty());
+    CHECK(inv.getBankBagSlot(1, 2).item.itemId == 700);
+}
+
+TEST_CASE("computeBankBagSortSwaps stays inside the one bag", "[inventory]") {
+    Inventory inv;
+    inv.setBankSlot(0, makeItem(900, ItemQuality::POOR));
+    inv.setBankBagSize(2, 5);
+    inv.setBankBagSlot(2, 0, makeItem(500, ItemQuality::COMMON));
+    inv.setBankBagSlot(2, 3, makeItem(100, ItemQuality::EPIC));
+
+    const auto swaps = inv.computeBankBagSortSwaps(2);
+    CHECK(!swaps.empty());
+
+    const uint8_t expected =
+        static_cast<uint8_t>(Inventory::BANK_BAG_CONTAINER_START + 2);
+    for (const auto& op : swaps) {
+        CHECK(op.srcBag == expected);
+        CHECK(op.dstBag == expected);
+    }
+}
+
+TEST_CASE("an out-of-range bank bag index is a no-op", "[inventory]") {
+    Inventory inv;
+    inv.sortBankBag(-1);
+    inv.sortBankBag(Inventory::BANK_BAG_SLOTS);
+    CHECK(inv.computeBankBagSortSwaps(-1).empty());
+    CHECK(inv.computeBankBagSortSwaps(Inventory::BANK_BAG_SLOTS).empty());
+}

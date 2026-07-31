@@ -444,6 +444,97 @@ std::vector<Inventory::SwapOp> Inventory::computeBankSortSwaps(int mainSlotCount
     return swaps;
 }
 
+// Sort one bank bag in place. sortBank() pools every item into the main slots,
+// which destroys a bag being used as a deliberate category — a bag of herbs
+// stays a bag of herbs, just in order.
+void Inventory::sortBankBag(int bagIndex) {
+    if (bagIndex < 0 || bagIndex >= BANK_BAG_SLOTS) return;
+    BagData& bag = bankBags_[bagIndex];
+    if (bag.special) return;  // Restricted containers keep their contents in place
+
+    std::vector<ItemDef> items;
+    items.reserve(static_cast<size_t>(bag.size));
+    for (int s = 0; s < bag.size; ++s) {
+        if (!bag.slots[s].empty()) items.push_back(bag.slots[s].item);
+    }
+
+    // Same ordering as sortBags(): quality desc → itemId asc → stackCount desc.
+    std::stable_sort(items.begin(), items.end(), [](const ItemDef& a, const ItemDef& b) {
+        if (a.quality != b.quality)
+            return static_cast<int>(a.quality) > static_cast<int>(b.quality);
+        if (a.itemId != b.itemId)
+            return a.itemId < b.itemId;
+        return a.stackCount > b.stackCount;
+    });
+
+    int idx = 0;
+    const int n = static_cast<int>(items.size());
+    for (int s = 0; s < bag.size; ++s)
+        bag.slots[s].item = (idx < n) ? items[idx++] : ItemDef{};
+}
+
+std::vector<Inventory::SwapOp> Inventory::computeBankBagSortSwaps(int bagIndex) const {
+    std::vector<SwapOp> swaps;
+    if (bagIndex < 0 || bagIndex >= BANK_BAG_SLOTS) return swaps;
+    const BagData& bag = bankBags_[bagIndex];
+    if (bag.special) return swaps;  // must match sortBankBag(): never touch restricted bags
+
+    struct Entry {
+        uint8_t slot;
+        uint32_t itemId;
+        ItemQuality quality;
+        uint32_t stackCount;
+    };
+
+    std::vector<Entry> entries;
+    entries.reserve(static_cast<size_t>(bag.size));
+    for (int s = 0; s < bag.size; ++s) {
+        entries.push_back({static_cast<uint8_t>(s), bag.slots[s].item.itemId,
+                           bag.slots[s].item.quality, bag.slots[s].item.stackCount});
+    }
+
+    const int n = static_cast<int>(entries.size());
+    std::vector<int> sortedIdx(n);
+    for (int i = 0; i < n; ++i) sortedIdx[i] = i;
+
+    // Non-empty items sort by quality desc → itemId asc → stackCount desc; empties go to the end.
+    std::stable_sort(sortedIdx.begin(), sortedIdx.end(), [&](int a, int b) {
+        const bool aEmpty = (entries[a].itemId == 0);
+        const bool bEmpty = (entries[b].itemId == 0);
+        if (aEmpty != bEmpty) return bEmpty;
+        if (aEmpty) return false;
+        if (entries[a].quality != entries[b].quality)
+            return static_cast<int>(entries[a].quality) > static_cast<int>(entries[b].quality);
+        if (entries[a].itemId != entries[b].itemId)
+            return entries[a].itemId < entries[b].itemId;
+        return entries[a].stackCount > entries[b].stackCount;
+    });
+
+    const uint8_t bagAddr = static_cast<uint8_t>(BANK_BAG_CONTAINER_START + bagIndex);
+
+    std::vector<int> posOf(n);
+    for (int i = 0; i < n; ++i) posOf[i] = i;
+    std::vector<int> invPos(n);
+    for (int i = 0; i < n; ++i) invPos[i] = i;
+
+    for (int target = 0; target < n; ++target) {
+        const int need = sortedIdx[target];
+        const int cur = invPos[target];
+        if (cur == need) continue;
+        if (entries[cur].itemId == 0 && entries[need].itemId == 0) continue;
+
+        const int srcPos = posOf[need];
+        swaps.push_back({bagAddr, entries[srcPos].slot, bagAddr, entries[target].slot});
+
+        posOf[cur] = srcPos;
+        posOf[need] = target;
+        invPos[srcPos] = cur;
+        invPos[target] = need;
+    }
+
+    return swaps;
+}
+
 void Inventory::populateTestItems() {
     // Equipment
     {

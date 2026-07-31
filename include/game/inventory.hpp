@@ -186,6 +186,11 @@ public:
     // sorting never spills items into slots the server doesn't have.
     void sortBank(int mainSlotCount);
 
+    // Sort one bank bag's contents in place, leaving the rest of the bank alone.
+    // Sorting the whole bank pools everything into the main slots, which is the
+    // wrong tool when a bag is being kept as a deliberate category.
+    void sortBankBag(int bagIndex);
+
     // A single swap operation using WoW bag/slot addressing (for CMSG_SWAP_ITEM).
     struct SwapOp {
         uint8_t srcBag;
@@ -198,6 +203,7 @@ public:
     // Does NOT modify the inventory — caller is responsible for sending packets.
     std::vector<SwapOp> computeSortSwaps() const;
     std::vector<SwapOp> computeBankSortSwaps(int mainSlotCount) const;
+    std::vector<SwapOp> computeBankBagSortSwaps(int bagIndex) const;
 
     // WoW bag/slot addressing for bank storage (used by sort + drag-drop):
     // main bank slots live in bag 0xFF at slot BANK_SLOT_START + index; each bank bag's

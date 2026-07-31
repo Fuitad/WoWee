@@ -3324,7 +3324,7 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
     // Toolbar: Sort button + contiguous-view toggle
     bool sorting = !bankSortQueue.empty();
     if (sorting) ImGui::BeginDisabled();
-    if (ImGui::SmallButton(sorting ? "Sorting..." : "Sort")) {
+    if (ImGui::SmallButton(sorting ? "Sorting..." : "Sort All")) {
         // Compute swaps before mutating local state, apply the local preview, then queue packets.
         auto swaps = inv.computeBankSortSwaps(bankSlotCount);
         inv.sortBank(bankSlotCount);
@@ -3397,6 +3397,21 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
 
             ImGui::Spacing();
             ImGui::Text("Bank Bag %d (%d slots)", bagIdx + 1, bagSize);
+            // Sorting the whole bank pools everything into the main slots, so a
+            // bag being kept as a category needs its own button to stay one.
+            ImGui::SameLine();
+            ImGui::PushID(3000 + bagIdx);
+            if (sorting) ImGui::BeginDisabled();
+            if (ImGui::SmallButton("Sort")) {
+                auto bagSwaps = inv.computeBankBagSortSwaps(bagIdx);
+                inv.sortBankBag(bagIdx);
+                for (auto& sw : bagSwaps) bankSortQueue.push_back(sw);
+            }
+            if (sorting) ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+                ImGui::SetTooltip("Sort just this bag, leaving the rest of the bank alone.");
+            }
+            ImGui::PopID();
             for (int s = 0; s < bagSize; s++) {
                 if (s % kBankCols != 0) ImGui::SameLine();
                 ImGui::PushID(3000 + bagIdx * 100 + s);
