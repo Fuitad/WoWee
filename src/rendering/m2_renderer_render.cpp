@@ -112,16 +112,27 @@ uint32_t M2Renderer::createInstance(uint32_t modelId, const glm::vec3& position,
         // Seed bone matrices from an existing instance of the same model so the
         // new instance renders immediately instead of being invisible until the
         // next update() computes bones (prevents pop-in flash).
-        for (const auto& existing : instances) {
-            if (existing.modelId == modelId && !existing.boneMatrices.empty()) {
-                instance.boneMatrices = existing.boneMatrices;
-                instance.bonesDirty[0] = instance.bonesDirty[1] = true;
-                break;
+        auto seedIt = boneSeedInstanceByModel_.find(modelId);
+        if (seedIt != boneSeedInstanceByModel_.end()) {
+            auto idxIt = instanceIndexById.find(seedIt->second);
+            if (idxIt != instanceIndexById.end() && idxIt->second < instances.size()) {
+                const auto& existing = instances[idxIt->second];
+                if (existing.modelId == modelId && !existing.boneMatrices.empty()) {
+                    instance.boneMatrices = existing.boneMatrices;
+                    instance.bonesDirty[0] = instance.bonesDirty[1] = true;
+                } else {
+                    boneSeedInstanceByModel_.erase(seedIt);  // stale entry
+                }
+            } else {
+                boneSeedInstanceByModel_.erase(seedIt);  // that instance is gone
             }
         }
         // If no sibling exists yet, compute bones immediately
         if (instance.boneMatrices.empty()) {
             computeBoneMatrices(mdlRef, instance);
+        }
+        if (!instance.boneMatrices.empty()) {
+            boneSeedInstanceByModel_.emplace(modelId, instance.id);
         }
     }
 
@@ -234,15 +245,26 @@ uint32_t M2Renderer::createInstanceWithMatrix(uint32_t modelId, const glm::mat4&
         }
 
         // Seed bone matrices from an existing sibling so the instance renders immediately
-        for (const auto& existing : instances) {
-            if (existing.modelId == modelId && !existing.boneMatrices.empty()) {
-                instance.boneMatrices = existing.boneMatrices;
-                instance.bonesDirty[0] = instance.bonesDirty[1] = true;
-                break;
+        auto seedIt = boneSeedInstanceByModel_.find(modelId);
+        if (seedIt != boneSeedInstanceByModel_.end()) {
+            auto idxIt = instanceIndexById.find(seedIt->second);
+            if (idxIt != instanceIndexById.end() && idxIt->second < instances.size()) {
+                const auto& existing = instances[idxIt->second];
+                if (existing.modelId == modelId && !existing.boneMatrices.empty()) {
+                    instance.boneMatrices = existing.boneMatrices;
+                    instance.bonesDirty[0] = instance.bonesDirty[1] = true;
+                } else {
+                    boneSeedInstanceByModel_.erase(seedIt);  // stale entry
+                }
+            } else {
+                boneSeedInstanceByModel_.erase(seedIt);  // that instance is gone
             }
         }
         if (instance.boneMatrices.empty()) {
             computeBoneMatrices(mdl2, instance);
+        }
+        if (!instance.boneMatrices.empty()) {
+            boneSeedInstanceByModel_.emplace(modelId, instance.id);
         }
     } else {
         instance.animTime = randFloat(0.0f, 10000.0f);

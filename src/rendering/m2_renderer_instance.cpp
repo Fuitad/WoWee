@@ -389,6 +389,7 @@ void M2Renderer::clear() {
     instances.clear();
     spatialGrid.clear();
     instanceIndexById.clear();
+    boneSeedInstanceByModel_.clear();
     instanceDedupMap_.clear();
     for (auto& ids : cullSubmittedIds_) ids.clear();
     for (auto& ids : cullReadableIds_) ids.clear();
@@ -421,6 +422,7 @@ void M2Renderer::clearInstances() {
     instances.clear();
     spatialGrid.clear();
     instanceIndexById.clear();
+    boneSeedInstanceByModel_.clear();
     instanceDedupMap_.clear();
     for (auto& ids : cullSubmittedIds_) ids.clear();
     for (auto& ids : cullReadableIds_) ids.clear();
@@ -460,6 +462,7 @@ M2Renderer::GridCell M2Renderer::toCell(const glm::vec3& p) const {
 void M2Renderer::rebuildSpatialIndex() {
     spatialGrid.clear();
     instanceIndexById.clear();
+    boneSeedInstanceByModel_.clear();
     instanceDedupMap_.clear();
     instanceIndexById.reserve(instances.size());
     smokeInstanceIndices_.clear();

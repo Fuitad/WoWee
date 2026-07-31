@@ -758,6 +758,11 @@ private:
     static constexpr float SPATIAL_CELL_SIZE = 64.0f;
     std::unordered_map<GridCell, std::vector<uint32_t>, GridCellHash> spatialGrid;
     std::unordered_map<uint32_t, size_t> instanceIndexById;
+    // Instance to copy bone matrices from when spawning another of the same
+    // model. Finding one by scanning every instance is O(n) per spawn, which
+    // became 18ms for a single createInstance once a zone held tens of
+    // thousands of them.
+    std::unordered_map<uint32_t, uint32_t> boneSeedInstanceByModel_;
     // Collision scratch buffers are thread_local (see m2_renderer.cpp) for thread-safety.
 
     // Collision query profiling — atomic because getFloorHeight is dispatched
