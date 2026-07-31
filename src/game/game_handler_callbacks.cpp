@@ -97,6 +97,13 @@ bool containsAnyTerm(const std::string& haystack, const char* const* terms, size
     return false;
 }
 
+// GAMEOBJECT_TYPE_FISHINGHOLE. A fishing school is not a container: retail
+// gives it no interact cursor at all, and the only way to take from it is to
+// fish in it. Clicking one here sent CMSG_GAMEOBJ_USE and, while its metadata
+// was still pending, a CMSG_LOOT as well — which the server answers with the
+// hole's loot, harvesting the school in one right-click.
+constexpr uint32_t kGoTypeFishingHole = 25;
+
 bool isLootContainerName(const std::string& name) {
     const std::string lower = lowerCopy(name);
     static constexpr const char* kContainerTerms[] = {
@@ -2183,6 +2190,15 @@ void GameHandler::scheduleGameObjectLootOpen(uint64_t guid, float delaySeconds, 
     pendingGameObjectLootOpens_.push_back(pending);
 }
 
+bool GameHandler::isFishingHoleGameObject(uint64_t guid) const {
+    if (guid == 0 || !entityController_) return false;
+    auto entity = entityController_->getEntityManager().getEntity(guid);
+    if (!entity || entity->getType() != ObjectType::GAMEOBJECT) return false;
+    const auto* info = getCachedGameObjectInfo(
+        std::static_pointer_cast<GameObject>(entity)->getEntry());
+    return info && info->type == kGoTypeFishingHole;
+}
+
 void GameHandler::clearPendingGameObjectLootOpen(uint64_t guid) {
     pendingGameObjectLootOpens_.erase(
         std::remove_if(pendingGameObjectLootOpens_.begin(), pendingGameObjectLootOpens_.end(),
@@ -2314,6 +2330,14 @@ void GameHandler::performGameObjectInteractionNow(uint64_t guid) {
             goName = go->getName();
             goInfo = getCachedGameObjectInfo(goEntry);
             if (goInfo) goType = goInfo->type;
+            if (goType == kGoTypeFishingHole) {
+                // Nothing sent, and nothing scheduled: the school is fished, not
+                // opened. Silent, because retail does not respond to the click
+                // either.
+                LOG_INFO("GO fishing hole click ignored: guid=0x", std::hex, guid,
+                         std::dec, " entry=", goEntry, " name='", goName, "'");
+                return;
+            }
             if (goType == 5 && !goName.empty()) {
                 std::string lower = lowerCopy(goName);
                 if (lower.rfind("doodad_", 0) != 0) {

@@ -635,6 +635,12 @@ void GameHandler::updateTimers(float deltaTime) {
                     ++it;
                     continue;
                 }
+                // The click may have landed before the object's metadata did.
+                // A fishing school is never opened by looting it.
+                if (isFishingHoleGameObject(it->guid)) {
+                    it = pendingGameObjectLootOpens_.erase(it);
+                    continue;
+                }
                 lootTarget(it->guid);
             }
             if (it->remainingAttempts > 1) {

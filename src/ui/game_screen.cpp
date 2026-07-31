@@ -1419,10 +1419,14 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                             }
                         } else if (t == game::ObjectType::GAMEOBJECT) {
                             // Purely-decorative objects (GENERIC, type 5) have no interaction
-                            // and must never steal a click from a unit.
+                            // and must never steal a click from a unit. Neither do
+                            // fishing schools (FISHINGHOLE, type 25) — retail gives them
+                            // no interact cursor, because the only way to take from one
+                            // is to fish in it.
                             auto go = std::static_pointer_cast<game::GameObject>(entity);
                             auto* goInfo = gameHandler.getCachedGameObjectInfo(go->getEntry());
-                            if ((!goInfo || goInfo->type != 5) && centerT < bestGoCenterT) {
+                            if ((!goInfo || (goInfo->type != 5 && goInfo->type != 25)) &&
+                                centerT < bestGoCenterT) {
                                 bestGoCenterT = centerT;
                                 bestGoGuid = guid;
                             }
@@ -1649,9 +1653,12 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                                 hookedBobberT = hitT;
                                 hookedBobberGuid = guid;
                             }
-                            // Skip purely-decorative objects (GENERIC, type 5).
+                            // Skip purely-decorative objects (GENERIC, type 5) and
+                            // fishing schools (FISHINGHOLE, type 25), which are fished
+                            // rather than clicked.
                             auto* goInfo = gameHandler.getCachedGameObjectInfo(go->getEntry());
-                            if ((!goInfo || goInfo->type != 5) && centerT < bestGoCenterT) {
+                            if ((!goInfo || (goInfo->type != 5 && goInfo->type != 25)) &&
+                                centerT < bestGoCenterT) {
                                 bestGoCenterT = centerT;
                                 bestGoGuid = guid;
                             }

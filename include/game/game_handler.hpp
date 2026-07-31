@@ -1543,6 +1543,12 @@ public:
     void lootItem(uint8_t slotIndex);
     void closeLoot();
     void scheduleGameObjectLootOpen(uint64_t guid, float delaySeconds = 0.35f, uint8_t attempts = 1);
+
+    /// True once the object is known to be a fishing school. A click on one
+    /// before its query response arrives still schedules a loot open, and by the
+    /// time that fires the metadata has usually landed — so the deferred open
+    /// re-checks rather than harvesting a school the player never fished.
+    bool isFishingHoleGameObject(uint64_t guid) const;
     void clearPendingGameObjectLootOpen(uint64_t guid);
     bool hasPendingGameObjectLootOpen(uint64_t guid) const;
     bool isGatherGameObject(uint64_t guid) const;
