@@ -65,9 +65,7 @@ private:
     bool swimmingActive = false;
     bool swimMoving = false;
     ProcessHandle swimLoopPid = INVALID_PROCESS;
-    ProcessHandle oneShotPid = INVALID_PROCESS;
     std::string loopTempPath = platform::getTempFilePath("wowee_swim_loop.wav");
-    std::string oneShotTempPath = platform::getTempFilePath("wowee_activity.wav");
     std::mt19937 rng;
 
     std::chrono::steady_clock::time_point lastJumpAt{};
@@ -87,7 +85,7 @@ private:
     void rebuildSwimLoopClipsForProfile(const std::string& raceFolder, const std::string& raceBase, bool male);
     void rebuildHardLandClipsForProfile(const std::string& raceFolder, const std::string& raceBase, bool male);
     void rebuildCombatVocalClipsForProfile(const std::string& raceFolder, const std::string& raceBase, bool male);
-    bool playOneShot(const std::vector<Sample>& clips, float volume, float pitchLo, float pitchHi);
+    bool playSplash(const std::vector<Sample>& clips);
     void startSwimLoop();
     void stopSwimLoop();
     void stopOneShot();

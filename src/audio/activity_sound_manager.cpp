@@ -73,7 +73,6 @@ void ActivitySoundManager::shutdown() {
     stopSwimLoop();
     stopOneShot();
     std::remove(loopTempPath.c_str());
-    std::remove(oneShotTempPath.c_str());
     for (auto& set : landingSets) set.clips.clear();
     jumpClips.clear();
     splashEnterClips.clear();
@@ -215,36 +214,6 @@ void ActivitySoundManager::rebuildHardLandClipsForProfile(const std::string& rac
     });
 }
 
-bool ActivitySoundManager::playOneShot(const std::vector<Sample>& clips, float volume, float pitchLo, float pitchHi) {
-    if (clips.empty()) return false;
-    if (volumeScale <= 0.0001f || volume <= 0.0001f) return true; // Intentionally muted
-    if (AudioEngine::instance().getMasterVolume() <= 0.0f) return true; // Global mute
-    reapProcesses();
-    if (oneShotPid != INVALID_PROCESS) return false;
-
-    std::uniform_int_distribution<size_t> clipDist(0, clips.size() - 1);
-    const Sample& sample = clips[clipDist(rng)];
-    std::ofstream out(oneShotTempPath, std::ios::binary);
-    if (!out) return false;
-    out.write(reinterpret_cast<const char*>(sample.data.data()), static_cast<std::streamsize>(sample.data.size()));
-    out.close();
-
-    std::uniform_real_distribution<float> pitchDist(pitchLo, pitchHi);
-    float pitch = pitchDist(rng);
-    volume *= volumeScale;
-    if (volume <= 0.0001f) return true; // Intentionally muted
-    if (volume > 1.2f) volume = 1.2f;
-    std::string filter = "asetrate=44100*" + std::to_string(pitch) +
-                         ",aresample=44100,volume=" + std::to_string(volume);
-
-    oneShotPid = platform::spawnProcess({
-        "-nodisp", "-autoexit", "-loglevel", "quiet",
-        "-af", filter, oneShotTempPath
-    });
-
-    return oneShotPid != INVALID_PROCESS;
-}
-
 void ActivitySoundManager::startSwimLoop() {
     // Swimming sounds now handled by periodic playback in update() method
     // This method kept for API compatibility but does nothing
@@ -256,13 +225,9 @@ void ActivitySoundManager::stopSwimLoop() {
 }
 
 void ActivitySoundManager::stopOneShot() {
-    platform::killProcess(oneShotPid);
 }
 
 void ActivitySoundManager::reapProcesses() {
-    if (oneShotPid != INVALID_PROCESS) {
-        platform::isProcessRunning(oneShotPid);
-    }
     if (swimLoopPid != INVALID_PROCESS) {
         platform::isProcessRunning(swimLoopPid);
     }
@@ -431,6 +396,19 @@ void ActivitySoundManager::setCharacterVoiceProfile(const std::string& raceFolde
                                      " death clips=", deathClips.size());
 }
 
+// Splashes go through the mixer like every other activity sound. They used to
+// spawn ffplay on a temp file, which allowed exactly one at a time — so wading
+// in and out of the shallows dropped the second sound and logged it as an error,
+// and with the landing and jump sounds suppressed on water exit that left the
+// transition silent.
+bool ActivitySoundManager::playSplash(const std::vector<Sample>& clips) {
+    if (!AudioEngine::instance().isInitialized() || clips.empty()) return false;
+    std::uniform_int_distribution<size_t> clipDist(0, clips.size() - 1);
+    const Sample& sample = clips[clipDist(rng)];
+    std::uniform_real_distribution<float> pitchDist(0.95f, 1.05f);
+    return AudioEngine::instance().playSound2D(sample.data, 0.95f * volumeScale, pitchDist(rng));
+}
+
 void ActivitySoundManager::playWaterEnter() {
     LOG_INFO("Water entry detected - attempting to play splash sound");
     auto now = std::chrono::steady_clock::now();
@@ -440,11 +418,10 @@ void ActivitySoundManager::playWaterEnter() {
             return;
         }
     }
-    if (playOneShot(splashEnterClips, 0.95f, 0.95f, 1.05f)) {
-        LOG_INFO("Water splash enter sound played");
+    if (playSplash(splashEnterClips)) {
         lastSplashAt = now;
     } else {
-        LOG_ERROR("Failed to play water splash enter sound");
+        LOG_WARNING("Water splash enter sound unavailable (", splashEnterClips.size(), " clips loaded)");
     }
 }
 
@@ -457,11 +434,10 @@ void ActivitySoundManager::playWaterExit() {
             return;
         }
     }
-    if (playOneShot(splashExitClips, 0.95f, 0.95f, 1.05f)) {
-        LOG_INFO("Water splash exit sound played");
+    if (playSplash(splashExitClips)) {
         lastSplashAt = now;
     } else {
-        LOG_ERROR("Failed to play water splash exit sound");
+        LOG_WARNING("Water splash exit sound unavailable (", splashExitClips.size(), " clips loaded)");
     }
 }
 
