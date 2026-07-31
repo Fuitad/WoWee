@@ -1953,7 +1953,17 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
             LOG_WARNING("SLOW renderWorld breakdown: prepare=", prepTotalMs,
                         "ms (wmo=", prepWmoMs, " m2=", prepM2Ms, " char=", prepCharMs,
                         ") workers: terrain=", lastTerrainRenderMs,
-                        " wmo=", lastWMORenderMs, " m2=", lastM2RenderMs);
+                        " wmo=", lastWMORenderMs, " m2=", lastM2RenderMs,
+                        // Terrain is usually the critical path here, and its cost
+                        // is one descriptor bind plus one draw per surviving
+                        // chunk — so the counts say whether a slow frame is draw
+                        // volume or something else entirely.
+                        " | terrain chunks drawn=",
+                        terrainRenderer ? terrainRenderer->getRenderedChunkCount() : 0,
+                        " culled=",
+                        terrainRenderer ? terrainRenderer->getCulledChunkCount() : 0,
+                        " resident=",
+                        terrainRenderer ? terrainRenderer->getChunkCount() : 0);
         }
 
         // --- Execute all secondary buffers in correct draw order ---
