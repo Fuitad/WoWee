@@ -490,6 +490,18 @@ private:
     struct AsyncGameObjectLoad {
         std::future<PreparedGameObjectWMO> future;
     };
+
+    // A parsed WMO whose GPU upload is being spread across frames. Uploading a
+    // transport in one go cost ~40ms — its textures are large, and that upload
+    // has to happen on the main thread even though a worker decoded them. The
+    // result is held here because it owns the model and the decoded pixels.
+    struct PendingWmoUpload {
+        PreparedGameObjectWMO result;
+        uint32_t modelId = 0;
+    };
+    std::vector<PendingWmoUpload> pendingWmoUploads_;
+    void processPendingWmoUploads();
+    void finishWmoSpawn(const PreparedGameObjectWMO& result, uint32_t modelId);
     std::vector<AsyncGameObjectLoad> asyncGameObjectLoads_;
     void processAsyncGameObjectResults();
     struct PendingTransportDoodadBatch {

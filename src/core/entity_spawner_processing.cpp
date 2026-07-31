@@ -810,63 +810,100 @@ void EntitySpawner::processAsyncGameObjectResults() {
 
         uint32_t modelId = 0;
         auto itCache = gameObjectDisplayIdWmoCache_.find(result.displayId);
-        if (itCache != gameObjectDisplayIdWmoCache_.end()) {
-            modelId = itCache->second;
-        } else {
-            modelId = nextGameObjectWmoModelId_++;
-            wmoRenderer->setPredecodedBLPCache(&result.predecodedTextures);
-            if (!wmoRenderer->loadModel(*result.wmoModel, modelId)) {
-                wmoRenderer->setPredecodedBLPCache(nullptr);
-                LOG_WARNING("Failed to load async gameobject WMO: ", result.modelPath);
-                continue;
-            }
-            wmoRenderer->setPredecodedBLPCache(nullptr);
-            gameObjectDisplayIdWmoCache_[result.displayId] = modelId;
+        if (itCache == gameObjectDisplayIdWmoCache_.end()) {
+            // Not uploaded yet: hand it to the incremental uploader rather than
+            // pushing the whole model through here, which stalled the frame for
+            // as long as 40ms on a transport. The spawn finishes in
+            // finishWmoSpawn once every texture and group is up.
+            PendingWmoUpload pending;
+            pending.result = std::move(result);
+            pending.modelId = nextGameObjectWmoModelId_++;
+            pendingWmoUploads_.push_back(std::move(pending));
+            continue;
         }
+        modelId = itCache->second;
 
-        glm::vec3 renderPos = core::coords::canonicalToRender(
-            glm::vec3(result.x, result.y, result.z));
-        uint32_t instanceId = wmoRenderer->createInstance(
-            modelId, renderPos, glm::vec3(0.0f, 0.0f, result.orientation), result.scale);
-        if (instanceId == 0) continue;
+    finishWmoSpawn(result, modelId);
+    }
+}
 
-        gameObjectInstances_[result.guid] = {modelId, instanceId, true};
+// Creates the render instance and the transport/doodad follow-ups once a model
+// is fully uploaded. Split out so both the cached path and the incremental
+// uploader end the same way.
+void EntitySpawner::finishWmoSpawn(const PreparedGameObjectWMO& result, uint32_t modelId) {
+    auto* wmoRenderer = renderer_ ? renderer_->getWMORenderer() : nullptr;
+    if (!wmoRenderer) return;
 
-        // The synchronous WMO path notifies TransportManager after creating the
-        // render instance. Do the same here: unique/uncached transport WMOs (notably
-        // the Kraken icebreaker) otherwise become visible but remain unregistered
-        // and stationary forever.
-        if (gameHandler_ && gameHandler_->isTransportGuid(result.guid)) {
-            gameHandler_->notifyTransportSpawned(
-                result.guid, result.entry, result.displayId,
-                result.x, result.y, result.z, result.orientation);
-        }
+    glm::vec3 renderPos = core::coords::canonicalToRender(
+        glm::vec3(result.x, result.y, result.z));
+    uint32_t instanceId = wmoRenderer->createInstance(
+        modelId, renderPos, glm::vec3(0.0f, 0.0f, result.orientation), result.scale);
+    if (instanceId == 0) return;
 
-        // Queue transport doodad loading if applicable
-        std::string lowerPath = result.modelPath;
-        std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(),
-                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        if (lowerPath.find("transport") != std::string::npos) {
-            const auto* doodadTemplates = wmoRenderer->getDoodadTemplates(modelId);
-            if (doodadTemplates && !doodadTemplates->empty()) {
-                PendingTransportDoodadBatch batch;
-                batch.guid = result.guid;
-                batch.modelId = modelId;
-                batch.instanceId = instanceId;
-                batch.x = result.x;
-                batch.y = result.y;
-                batch.z = result.z;
-                batch.orientation = result.orientation;
-                batch.doodadBudget = doodadTemplates->size();
-                pendingTransportDoodadBatches_.push_back(batch);
-            }
+    gameObjectInstances_[result.guid] = {modelId, instanceId, true};
+
+    // The synchronous WMO path notifies TransportManager after creating the
+    // render instance. Do the same here: unique/uncached transport WMOs (notably
+    // the Kraken icebreaker) otherwise become visible but remain unregistered
+    // and stationary forever.
+    if (gameHandler_ && gameHandler_->isTransportGuid(result.guid)) {
+        gameHandler_->notifyTransportSpawned(
+            result.guid, result.entry, result.displayId,
+            result.x, result.y, result.z, result.orientation);
+    }
+
+    // Queue transport doodad loading if applicable
+    std::string lowerPath = result.modelPath;
+    std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (lowerPath.find("transport") != std::string::npos) {
+        const auto* doodadTemplates = wmoRenderer->getDoodadTemplates(modelId);
+        if (doodadTemplates && !doodadTemplates->empty()) {
+            PendingTransportDoodadBatch batch;
+            batch.guid = result.guid;
+            batch.modelId = modelId;
+            batch.instanceId = instanceId;
+            batch.x = result.x;
+            batch.y = result.y;
+            batch.z = result.z;
+            batch.orientation = result.orientation;
+            batch.doodadBudget = doodadTemplates->size();
+            pendingTransportDoodadBatches_.push_back(batch);
         }
     }
+}
+
+// Uploads one pending model per frame under a budget, finishing its spawn when
+// the last texture and group are in.
+void EntitySpawner::processPendingWmoUploads() {
+    if (pendingWmoUploads_.empty()) return;
+    auto* wmoRenderer = renderer_ ? renderer_->getWMORenderer() : nullptr;
+    if (!wmoRenderer) { pendingWmoUploads_.clear(); return; }
+
+    constexpr float kUploadBudgetMs = 6.0f;
+    auto& pending = pendingWmoUploads_.front();
+
+    wmoRenderer->setPredecodedBLPCache(&pending.result.predecodedTextures);
+    const auto status = wmoRenderer->loadModelIncremental(
+        *pending.result.wmoModel, pending.modelId, kUploadBudgetMs);
+    wmoRenderer->setPredecodedBLPCache(nullptr);
+
+    if (status == rendering::WMORenderer::ModelLoadResult::InProgress) return;
+
+    if (status == rendering::WMORenderer::ModelLoadResult::Complete) {
+        gameObjectDisplayIdWmoCache_[pending.result.displayId] = pending.modelId;
+        finishWmoSpawn(pending.result, pending.modelId);
+    } else {
+        LOG_WARNING("Failed to load async gameobject WMO: ", pending.result.modelPath);
+    }
+    pendingWmoUploads_.erase(pendingWmoUploads_.begin());
 }
 
 void EntitySpawner::processGameObjectSpawnQueue() {
     // Finalize any completed async WMO loads first
     processAsyncGameObjectResults();
+    // Then advance one in-progress upload, which may finish a spawn.
+    processPendingWmoUploads();
 
     if (pendingGameObjectSpawns_.empty()) return;
 
