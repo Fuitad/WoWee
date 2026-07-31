@@ -46,8 +46,10 @@ void SfxStateDriver::update(float deltaTime, Renderer* renderer,
             activitySoundManager->playJump();
         }
 
-        // Landing detection
-        if (grounded && !prevGrounded_) {
+        // Landing detection. Wading out of water reaches the ground without a
+        // fall, and retail marks that with the water-exit splash below rather
+        // than a landing thud, so a swim-to-ground transition is not a landing.
+        if (grounded && !prevGrounded_ && !prevSwimming_) {
             bool hardLanding = prevFalling_;
             activitySoundManager->playLanding(
                 footstepDriver.resolveFootstepSurface(renderer), hardLanding);

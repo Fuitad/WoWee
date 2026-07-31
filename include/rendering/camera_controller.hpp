@@ -82,7 +82,10 @@ public:
     bool isFirstPersonView() const { return thirdPerson && (userTargetDistance <= MIN_DISTANCE + 0.15f); }
     bool isGrounded() const { return grounded; }
     bool isJumping() const { return !grounded && verticalVelocity > 0.0f; }
-    bool isFalling() const { return !grounded && verticalVelocity <= 0.0f; }
+    // A swimming character is not grounded and is not rising, but it is not
+    // falling either — treating it as falling made leaving the water register as
+    // a hard landing.
+    bool isFalling() const { return !grounded && !swimming && verticalVelocity <= 0.0f; }
 
     // Call every frame while riding a transport that forces Z to a locked value
     // externally (e.g. the Deeprun Tram, which has no real floor mid-tunnel).
