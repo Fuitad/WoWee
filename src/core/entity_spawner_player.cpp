@@ -235,6 +235,12 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
         bool foundUnderwear = false;
         bool foundHair = false;
         bool foundFaceLower = false;
+        // Same nearest-face fallback the local player's composer uses. These two
+        // appearance paths have to stay in step: one is every other player in
+        // the world, the other is you, and a face that resolves for one and not
+        // the other is exactly the kind of difference nobody thinks to check.
+        std::string faceAltLower, faceAltUpper;
+        bool haveFaceAlt = false;
 
         for (uint32_t r = 0; r < charSectionsDbc->getRecordCount(); r++) {
             uint32_t rRace = charSectionsDbc->getUInt32(r, csF.raceId);
@@ -277,9 +283,29 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
                 if (!tex1.empty()) faceLowerPath = tex1;
                 if (!tex2.empty()) faceUpperPath = tex2;
                 foundFaceLower = true;
+            } else if (baseSection == 1 && !foundFaceLower && !haveFaceAlt &&
+                       (variationIndex == faceId || colorIndex == skinId)) {
+                std::string tex1 = charSectionsDbc->getString(r, csF.texture1);
+                if (!tex1.empty()) {
+                    faceAltLower = tex1;
+                    faceAltUpper = charSectionsDbc->getString(r, csF.texture2);
+                    haveFaceAlt = true;
+                }
             }
 
             if (foundSkin && foundUnderwear && foundHair && foundFaceLower) break;
+        }
+
+        if (!foundFaceLower) {
+            LOG_WARNING("spawnOnlinePlayer: no DBC face match for face=",
+                        static_cast<int>(faceId), " skin=", static_cast<int>(skinId),
+                        " race=", targetRaceId, " sex=", targetSexId,
+                        haveFaceAlt ? " — using the nearest face instead"
+                                    : " — this player will render with no face");
+            if (haveFaceAlt) {
+                faceLowerPath = faceAltLower;
+                faceUpperPath = faceAltUpper;
+            }
         }
     }
 
