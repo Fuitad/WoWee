@@ -1362,14 +1362,6 @@ void M2Renderer::markModelAsSpellEffect(uint32_t modelId) {
 }
 
 bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
-    {
-        static std::atomic<uint32_t> uploads{0};
-        const uint32_t n = ++uploads;
-        if (n % 250 == 0) {
-            LOG_WARNING("M2Renderer::loadModel call #", n, " id=", modelId,
-                        " name='", model.name, "' verts=", model.vertices.size());
-        }
-    }
     if (models.find(modelId) != models.end()) {
         // Already loaded
         return true;

@@ -1627,16 +1627,6 @@ void CharacterRenderer::resetModelTexture(uint32_t modelId, uint32_t textureSlot
 }
 
 bool CharacterRenderer::loadModel(const pipeline::M2Model& model, uint32_t id) {
-    // Leak hunt: ~20k identical vertex/index pairs survive to device destruction.
-    // Report who keeps uploading, with the model name and id, every 250 calls.
-    {
-        static std::atomic<uint32_t> uploads{0};
-        const uint32_t n = ++uploads;
-        if (n % 250 == 0) {
-            LOG_WARNING("CharacterRenderer::loadModel call #", n, " id=", id,
-                        " name='", model.name, "' verts=", model.vertices.size());
-        }
-    }
     if (!model.isValid()) {
         core::Logger::getInstance().error("Cannot load invalid M2 model");
         return false;
