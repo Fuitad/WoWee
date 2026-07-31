@@ -562,6 +562,10 @@ private:
         bool setupDone = false;
         // Next group to upload. A large model's groups are spread across several
         // calls under a time budget rather than uploaded in one stall.
+        // Next texture to upload. Uploading them all at once cost 40ms on a
+        // transport — the images are large, and the expense is the GPU upload
+        // rather than the decode, which the worker already did.
+        size_t nextTextureIndex = 0;
         size_t nextGroupIndex = 0;
         uint32_t loadedGroups = 0;
 

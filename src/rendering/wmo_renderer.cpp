@@ -459,7 +459,17 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
     // Load textures for this model
     core::Logger::getInstance().debug("  WMO has ", model.textures.size(), " texture paths, ", model.materials.size(), " materials");
     if (assetManager && !model.textures.empty()) {
-        for (size_t i = 0; i < model.textures.size(); i++) {
+        const auto texStart = std::chrono::steady_clock::now();
+        for (size_t i = modelData.nextTextureIndex; i < model.textures.size(); i++) {
+            if (budgetMs > 0.0f && i > modelData.nextTextureIndex) {
+                const float spent = std::chrono::duration<float, std::milli>(
+                    std::chrono::steady_clock::now() - texStart).count();
+                if (spent >= budgetMs) {
+                    modelData.nextTextureIndex = i;
+                    vkCtx_->endUploadBatch();
+                    return ModelLoadResult::InProgress;  // resume at this texture
+                }
+            }
             const auto& texPath = model.textures[i];
             core::Logger::getInstance().debug("    Loading texture ", i, ": ", texPath);
             VkTexture* tex = loadTexture(texPath);
@@ -527,6 +537,7 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
     }
 
 
+    modelData.nextTextureIndex = model.textures.size();
     modelData.setupDone = true;
     }  // end one-time setup
 
