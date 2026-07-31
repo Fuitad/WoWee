@@ -271,6 +271,15 @@ void main() {
     float verticalFactor = abs(viewDir.z);  // 1.0 looking straight down, ~0 at grazing
     float verticalDepth = depthDiff * max(verticalFactor, 0.05);
 
+    // Shoreline masks use depth sampled straight down the pixel rather than
+    // through the refraction offset. The refracted sample wanders with the wave
+    // normal, and near the beach it lands on dry ground, so the depth it reports
+    // collapses to nothing along wandering lines — which is where the foam and
+    // wet sand were picking up hard tile-like edges. The refraction colour still
+    // uses the offset sample; only the masks need a depth that stays put.
+    float shoreLinDepth = linearizeDepth(texture(SceneDepth, screenUV).r, near, far);
+    float shoreDepth = max(shoreLinDepth - waterLinDepth, 0.0) * max(verticalFactor, 0.05);
+
     // ============================================================
     // Beer-Lambert absorption
     // ============================================================
@@ -336,14 +345,14 @@ void main() {
     float swashPhase = sin(time * 0.55 + noiseValue(FragPos.xy * 0.12) * 6.28);
     float swashDepth = 0.30 + 0.18 * swashPhase;
 
-    float wetBand = 1.0 - smoothstep(0.0, 0.70, verticalDepth);
-    float shallowBand = 1.0 - smoothstep(0.0, 2.20, verticalDepth);
+    float wetBand = 1.0 - smoothstep(0.0, 0.70, shoreDepth);
+    float shallowBand = 1.0 - smoothstep(0.0, 2.20, shoreDepth);
     // How thoroughly the surf currently covers this point. Sand deeper than the
     // front is under the run-up and soaked; sand shallower has just been
     // uncovered and is draining, so it lightens as the water pulls back. Keying
     // the darkening on depth alone left the wet zone fixed while the water
     // visibly moved over it.
-    float coveredness = smoothstep(swashDepth - 0.12, swashDepth + 0.08, verticalDepth);
+    float coveredness = smoothstep(swashDepth - 0.12, swashDepth + 0.08, shoreDepth);
     if (basicType < 1.5 && shallowBand > 0.001) {
         float sediment = noiseValue(FragPos.xy * 1.6 + time * vec2(0.10, 0.06)) * 0.6
                        + noiseValue(FragPos.xy * 3.4 - time * vec2(0.07, 0.13)) * 0.4;
@@ -429,8 +438,8 @@ void main() {
     // Only on terrain water (waveAmp > 0); WMO water (canals, indoor)
     // has waveAmp == 0 and should not show shoreline interaction.
     // ============================================================
-    if (basicType < 1.5 && verticalDepth > 0.01 && push.waveAmp > 0.0) {
-        float foamDepthMask = 1.0 - smoothstep(0.0, 1.8, verticalDepth);
+    if (basicType < 1.5 && shoreDepth > 0.001 && push.waveAmp > 0.0) {
+        float foamDepthMask = 1.0 - smoothstep(0.0, 1.8, shoreDepth);
 
         // Foam rides on the water rather than sitting in world space. The surf
         // carries it up the beach and drags it back, so the whole pattern is
@@ -478,11 +487,24 @@ void main() {
 
         // The surf line itself, on the contour computed above with the wet sand,
         // so the foam sits exactly where the water currently reaches.
-        float swashBand = 1.0 - smoothstep(0.0, 0.17, abs(verticalDepth - swashDepth));
+        float swashBand = 1.0 - smoothstep(0.0, 0.17, abs(shoreDepth - swashDepth));
         float swashTexture = 0.55 + 0.45 * cellularFoam(rot1 * foamUV * 8.6 + time * vec2(0.05, 0.12));
         foam += swashBand * swashTexture * 0.55 * foamDepthMask;
 
-        foam *= smoothstep(0.0, 0.1, verticalDepth);
+        // Spray thrown off the front as it runs up: much finer than the foam,
+        // sparse, and only while the surf is advancing. It is what sells the
+        // edge as breaking water rather than a wet line.
+        float sprayMask = 1.0 - smoothstep(0.0, 0.11, abs(shoreDepth - swashDepth + 0.04));
+        float sprayCells = cellularFoam(rot2 * (foamUV + swashAdvect * 0.5) * 96.0
+                                        + time * vec2(0.6, -0.45));
+        float spray = (1.0 - smoothstep(0.0, 0.035, sprayCells))
+                    * sprayMask * max(swashPhase, 0.0) * 0.7;
+        foam += spray * foamDepthMask;
+
+        // Only enough of a ramp to keep the water mesh's own boundary from
+        // showing as a hard line. The old 0.1 cut removed the foam exactly where
+        // the water meets the sand, which is where it belongs.
+        foam *= smoothstep(0.0, 0.025, shoreDepth);
         foam = clamp(foam, 0.0, 0.85);
         // Bluer foam tint instead of near-white
         color = mix(color, vec3(0.78, 0.85, 0.92), foam * 0.75);
@@ -514,7 +536,7 @@ void main() {
     // Wet sand is a band on the beach, not a film of water, so it needs enough
     // presence to darken what is under it; foam has to be close to opaque or it
     // does not read at all.
-    alpha = max(alpha, wetBand * 0.42);
+    alpha = max(alpha, wetBand * 0.42 * smoothstep(0.0, 0.05, shoreDepth));
     alpha = max(alpha, shorelineFoam * 0.90);
     // Dissolve the sheet before the water geometry runs out, so the ocean fades
     // into the horizon haze instead of ending on a hard line. This has to come
