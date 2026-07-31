@@ -261,18 +261,17 @@ bool PostProcessPipeline::executePostProcessing(VkCommandBuffer cmd, uint32_t im
         // Begin swapchain render pass at full resolution for sharpening + ImGui
         VkRenderPassBeginInfo rpInfo{};
         rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        rpInfo.renderPass = vkCtx_->getImGuiRenderPass();
-        rpInfo.framebuffer = vkCtx_->getSwapchainFramebuffers()[imageIndex];
+        // Output goes through the single-sampled overlay pass. The scene pass
+        // carries the scene's sample count, and these quads are 1x.
+        rpInfo.renderPass = vkCtx_->getOverlayClearRenderPass();
+        rpInfo.framebuffer = vkCtx_->getOverlayFramebuffers()[imageIndex];
         rpInfo.renderArea.offset = {0, 0};
         rpInfo.renderArea.extent = vkCtx_->getSwapchainExtent();
 
-        bool msaaOn = (vkCtx_->getMsaaSamples() > VK_SAMPLE_COUNT_1_BIT);
-        VkClearValue clearValues[4]{};
+        // The overlay pass has one attachment whatever the scene's MSAA is.
+        VkClearValue clearValues[1]{};
         clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-        clearValues[1].depthStencil = {1.0f, 0};
-        clearValues[2].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-        clearValues[3].depthStencil = {1.0f, 0};
-        rpInfo.clearValueCount = msaaOn ? (vkCtx_->getDepthResolveImageView() ? 4u : 3u) : 2u;
+        rpInfo.clearValueCount = 1;
         rpInfo.pClearValues = clearValues;
 
         inlineMode = true; vkCmdBeginRenderPass(currentCmd_, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -338,16 +337,15 @@ bool PostProcessPipeline::executePostProcessing(VkCommandBuffer cmd, uint32_t im
         // Begin swapchain render pass (1x — no MSAA on the output pass)
         VkRenderPassBeginInfo rpInfo{};
         rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        rpInfo.renderPass = vkCtx_->getImGuiRenderPass();
-        rpInfo.framebuffer = vkCtx_->getSwapchainFramebuffers()[imageIndex];
+        // Output goes through the single-sampled overlay pass. The scene pass
+        // carries the scene's sample count, and these quads are 1x.
+        rpInfo.renderPass = vkCtx_->getOverlayClearRenderPass();
+        rpInfo.framebuffer = vkCtx_->getOverlayFramebuffers()[imageIndex];
         rpInfo.renderArea.offset = {0, 0};
         rpInfo.renderArea.extent = vkCtx_->getSwapchainExtent();
-        // The swapchain render pass always has 2 attachments when MSAA is off;
-        // FXAA output goes to the non-MSAA swapchain directly.
-        VkClearValue fxaaClear[2]{};
+        VkClearValue fxaaClear[1]{};
         fxaaClear[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-        fxaaClear[1].depthStencil = {1.0f, 0};
-        rpInfo.clearValueCount = 2;
+        rpInfo.clearValueCount = 1;
         rpInfo.pClearValues = fxaaClear;
 
         vkCmdBeginRenderPass(currentCmd_, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -380,23 +378,16 @@ bool PostProcessPipeline::executePostProcessing(VkCommandBuffer cmd, uint32_t im
         // Begin swapchain render pass at full resolution
         VkRenderPassBeginInfo fsrRpInfo{};
         fsrRpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        fsrRpInfo.renderPass = vkCtx_->getImGuiRenderPass();
-        fsrRpInfo.framebuffer = vkCtx_->getSwapchainFramebuffers()[imageIndex];
+        // Output goes through the single-sampled overlay pass. The scene pass
+        // carries the scene's sample count, and these quads are 1x.
+        fsrRpInfo.renderPass = vkCtx_->getOverlayClearRenderPass();
+        fsrRpInfo.framebuffer = vkCtx_->getOverlayFramebuffers()[imageIndex];
         fsrRpInfo.renderArea.offset = {0, 0};
         fsrRpInfo.renderArea.extent = vkCtx_->getSwapchainExtent();
 
-        bool fsrMsaaOn = (vkCtx_->getMsaaSamples() > VK_SAMPLE_COUNT_1_BIT);
-        VkClearValue fsrClearValues[4]{};
+        VkClearValue fsrClearValues[1]{};
         fsrClearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-        fsrClearValues[1].depthStencil = {1.0f, 0};
-        fsrClearValues[2].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-        fsrClearValues[3].depthStencil = {1.0f, 0};
-        if (fsrMsaaOn) {
-            bool depthRes = (vkCtx_->getDepthResolveImageView() != VK_NULL_HANDLE);
-            fsrRpInfo.clearValueCount = depthRes ? 4 : 3;
-        } else {
-            fsrRpInfo.clearValueCount = 2;
-        }
+        fsrRpInfo.clearValueCount = 1;
         fsrRpInfo.pClearValues = fsrClearValues;
 
         vkCmdBeginRenderPass(currentCmd_, &fsrRpInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -756,9 +747,9 @@ bool PostProcessPipeline::initFSRResources() {
         .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
         .setNoDepthTest()
         .setColorBlendAttachment(PipelineBuilder::blendDisabled())
-        .setMultisample(msaa)
+        .setMultisample(VK_SAMPLE_COUNT_1_BIT)
         .setLayout(fsr_.pipelineLayout)
-        .setRenderPass(vkCtx_->getImGuiRenderPass())
+        .setRenderPass(vkCtx_->getOverlayRenderPass())
         .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
         .build(device, vkCtx_->getPipelineCache());
 
@@ -1250,7 +1241,10 @@ bool PostProcessPipeline::initFSR2Resources() {
             .setColorBlendAttachment(PipelineBuilder::blendDisabled())
             .setMultisample(VK_SAMPLE_COUNT_1_BIT)
             .setLayout(fsr2_.sharpenPipelineLayout)
-            .setRenderPass(vkCtx_->getImGuiRenderPass())
+            // The output quad is single-sampled, so it belongs to the overlay
+            // pass. getImGuiRenderPass() is the scene pass, which carries the
+            // scene's sample count — an 8x pass for a 1x pipeline.
+            .setRenderPass(vkCtx_->getOverlayRenderPass())
             .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
             .build(device, vkCtx_->getPipelineCache());
 
@@ -1865,9 +1859,9 @@ bool PostProcessPipeline::initFXAAResources() {
         .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
         .setNoDepthTest()
         .setColorBlendAttachment(PipelineBuilder::blendDisabled())
-        .setMultisample(VK_SAMPLE_COUNT_1_BIT)  // swapchain pass is always 1x
+        .setMultisample(VK_SAMPLE_COUNT_1_BIT)  // the overlay pass is always 1x
         .setLayout(fxaa_.pipelineLayout)
-        .setRenderPass(vkCtx_->getImGuiRenderPass())
+        .setRenderPass(vkCtx_->getOverlayRenderPass())
         .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
         .build(device, vkCtx_->getPipelineCache());
 
