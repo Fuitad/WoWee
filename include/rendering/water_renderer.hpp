@@ -65,6 +65,16 @@ struct WaterSurface {
  * Water renderer (Vulkan) with planar reflections, Gerstner waves,
  * GGX specular, shoreline foam, and subsurface scattering.
  */
+// Matches set 2 binding 3 in water.frag.glsl. Keep kMaxWakePoints in step with
+// the MAX_WAKE_POINTS constant declared there.
+constexpr int kMaxWakePoints = 32;
+
+struct WaterFrameUBOData {
+    glm::mat4 reflViewProj{1.0f};
+    glm::vec4 wakeBounds{0.0f};              // xy = centre, z = cull radius, w = count
+    glm::vec4 wakePoints[kMaxWakePoints]{};  // xy = pos, z = age 0..1, w = strength
+};
+
 class WaterRenderer {
 public:
     WaterRenderer();
@@ -119,6 +129,13 @@ public:
 
     // Update the reflection UBO with reflected viewProj matrix
     void updateReflectionUBO(const glm::mat4& reflViewProj);
+
+    /// Feed the surface disturbance left by something moving through the water.
+    /// `intensity` is 0 when nothing is disturbing the surface. `wading` picks
+    /// churned-up froth underfoot; swimming instead lays a V wake off the
+    /// shoulders. Call once per frame.
+    void updateWake(float deltaTime, const glm::vec2& pos, const glm::vec2& travelDir,
+                    float intensity, bool wading);
 
     VkRenderPass getReflectionRenderPass() const { return reflectionRenderPass; }
     VkExtent2D getReflectionExtent() const { return {REFLECTION_WIDTH, REFLECTION_HEIGHT}; }
@@ -208,6 +225,22 @@ private:
     VkImageLayout reflectionColorLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     // Reflection UBO (mat4 reflViewProj)
+    // Surface disturbance trail. Points age out, spreading as they go; the
+    // per-point drift is what turns a swimmer's pair of emissions into a V.
+    struct WakePoint {
+        glm::vec2 pos{0.0f};
+        glm::vec2 drift{0.0f};
+        float age = 0.0f;        // seconds
+        float life = 1.0f;       // seconds
+        float strength = 0.0f;
+    };
+    std::vector<WakePoint> wakePoints_;
+    WaterFrameUBOData frameUBO_{};
+    glm::vec2 lastWakeEmitPos_{0.0f};
+    bool hasWakeEmitPos_ = false;
+
+    void uploadFrameUBO();
+
     ::VkBuffer reflectionUBO = VK_NULL_HANDLE;
     VmaAllocation reflectionUBOAlloc = VK_NULL_HANDLE;
     void* reflectionUBOMapped = nullptr;

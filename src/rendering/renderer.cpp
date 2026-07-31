@@ -562,6 +562,7 @@ bool Renderer::initialize(core::Window* win) {
         LOG_WARNING("Lightning effect initialization failed (non-fatal)");
 
     swimEffects = std::make_unique<SwimEffects>();
+    syncSwimEffectsTargetPass();
     if (!swimEffects->initialize(vkCtx, perFrameSetLayout))
         LOG_WARNING("Swim effect initialization failed (non-fatal)");
 
@@ -834,7 +835,10 @@ void Renderer::applyMsaaChange() {
     if (footprintRenderer) footprintRenderer->recreatePipelines();
     if (weather) weather->recreatePipelines();
     if (lightning) lightning->recreatePipelines();
-    if (swimEffects) swimEffects->recreatePipelines();
+    if (swimEffects) {
+        syncSwimEffectsTargetPass();
+        swimEffects->recreatePipelines();
+    }
     if (mountDust) mountDust->recreatePipelines();
     if (chargeEffect) chargeEffect->recreatePipelines();
 
@@ -1482,6 +1486,45 @@ void Renderer::update(float deltaTime) {
         swimEffects->update(*camera, *cameraController, *waterRenderer, deltaTime);
     }
 
+    // Surface disturbance the character leaves in the water. The droplet spray
+    // is thrown by SwimEffects above; this is the froth on the surface itself,
+    // which has to come from the water shader to move and light with the water.
+    if (waterRenderer && camera && cameraController) {
+        glm::vec3 charPos = camera->getPosition();
+        const glm::vec3* followTarget = cameraController->getFollowTarget();
+        if (cameraController->isThirdPerson() && followTarget) {
+            charPos = *followTarget;
+        }
+
+        const bool swimming = cameraController->isSwimming();
+        float intensity = 0.0f;
+        bool wading = false;
+
+        if (cameraController->isMoving()) {
+            if (auto waterH = waterRenderer->getWaterHeightAt(charPos.x, charPos.y)) {
+                if (swimming) {
+                    // A wake only exists where the swimmer meets the surface —
+                    // diving deep leaves the surface undisturbed.
+                    const float below = *waterH - charPos.z;
+                    intensity = glm::clamp(1.0f - (below - 0.6f) / 1.4f, 0.0f, 1.0f);
+                } else {
+                    // Ankle-deep barely marks the water; thigh-deep throws the
+                    // most, past which the character starts swimming anyway.
+                    const float depth = *waterH - charPos.z;
+                    if (depth > 0.03f && depth < 1.8f) {
+                        wading = true;
+                        intensity = glm::clamp(depth / 0.6f, 0.3f, 1.0f);
+                    }
+                }
+            }
+        }
+
+        const float yawRad = glm::radians(cameraController->getYaw());
+        const glm::vec2 travelDir(std::sin(yawRad), -std::cos(yawRad));
+        waterRenderer->updateWake(deltaTime, glm::vec2(charPos.x, charPos.y),
+                                  travelDir, intensity, wading);
+    }
+
     // Update mount dust effects
     if (mountDust) {
         mountDust->update(deltaTime);
@@ -1868,7 +1911,9 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
             }
             if (weather && camera) weather->render(cmd, perFrameSet);
             if (lightning && camera && lightning->isEnabled()) lightning->render(cmd, perFrameSet);
-            if (swimEffects && camera) swimEffects->render(cmd, perFrameSet);
+            if (swimEffects && camera && !swimEffectsDrawWithWater_) {
+                swimEffects->render(cmd, perFrameSet);
+            }
             if (mountDust && camera) mountDust->render(cmd, perFrameSet);
             if (chargeEffect && camera) chargeEffect->render(cmd, perFrameSet);
             if (footprintRenderer && camera) footprintRenderer->render(cmd, perFrameSet, *camera);
@@ -2116,7 +2161,9 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
         }
         if (weather && camera) weather->render(currentCmd, perFrameSet);
         if (lightning && camera && lightning->isEnabled()) lightning->render(currentCmd, perFrameSet);
-        if (swimEffects && camera) swimEffects->render(currentCmd, perFrameSet);
+        if (swimEffects && camera && !swimEffectsDrawWithWater_) {
+            swimEffects->render(currentCmd, perFrameSet);
+        }
         if (mountDust && camera) mountDust->render(currentCmd, perFrameSet);
         if (chargeEffect && camera) chargeEffect->render(currentCmd, perFrameSet);
         if (footprintRenderer && camera) footprintRenderer->render(currentCmd, perFrameSet, *camera);
@@ -2241,6 +2288,14 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
 
         waterRenderer->setRenderExtent(waterExtent);
         waterRenderer->render(currentCmd, perFrameSet, *camera, globalTime, msaaOn, frameIdx);
+
+        // Spray belongs on top of the surface it is thrown off. Recorded in the
+        // scene pass it went under the water instead, which the sheet then hid —
+        // barely at the shore where alpha sits near its floor, completely in the
+        // deeper water you swim in.
+        if (swimEffects && camera && swimEffectsDrawWithWater_) {
+            swimEffects->render(currentCmd, perFrameSet);
+        }
     }
 
     auto renderEnd = std::chrono::steady_clock::now();
@@ -2249,6 +2304,33 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
 
 // Water can leave the scene pass only when there is a continuation pass to draw
 // it in, which excludes MSAA. Everything else in the frame is unaffected.
+void Renderer::syncSwimEffectsTargetPass() {
+    if (!swimEffects || !vkCtx) return;
+
+    // Default: the spray stays in the scene pass, matching its MSAA sample count.
+    VkRenderPass pass = vkCtx->getImGuiRenderPass();
+    VkSampleCountFlagBits samples = vkCtx->getMsaaSamples();
+    swimEffectsDrawWithWater_ = false;
+
+    if (waterDrawsInContinuePass()) {
+        // Both continuation passes are single-sampled: with MSAA the water draws
+        // into the resolved image, and without it there is nothing to resolve.
+        if (vkCtx->getMsaaSamples() > VK_SAMPLE_COUNT_1_BIT) {
+            pass = waterRenderer->getWater1xRenderPass();
+        } else {
+            pass = vkCtx->getSceneContinueRenderPass();
+        }
+        if (pass != VK_NULL_HANDLE) {
+            samples = VK_SAMPLE_COUNT_1_BIT;
+            swimEffectsDrawWithWater_ = true;
+        } else {
+            pass = vkCtx->getImGuiRenderPass();
+        }
+    }
+
+    swimEffects->setTargetPass(pass, samples);
+}
+
 bool Renderer::waterDrawsInContinuePass() const {
     if (!waterRenderer || !vkCtx) return false;
     if (vkCtx->getMsaaSamples() > VK_SAMPLE_COUNT_1_BIT) {
@@ -2841,18 +2923,40 @@ glm::mat4 Renderer::computeLightSpaceMatrix() {
 
 void Renderer::setupWater1xPass() {
     if (!waterRenderer || !vkCtx) return;
-    if (vkCtx->getMsaaSamples() == VK_SAMPLE_COUNT_1_BIT) return;  // scene continuation pass covers this
+    if (vkCtx->getMsaaSamples() == VK_SAMPLE_COUNT_1_BIT) {
+        refreshSwimEffectsPass();  // scene continuation pass covers the water here
+        return;
+    }
     VkImageView depthView = vkCtx->getDepthResolveImageView();
     if (!depthView) {
         // Without a resolved depth buffer the single-sampled water has nothing
         // to depth test against, so it has to stay in the multisampled pass.
         LOG_WARNING("No depth resolve image available - water stays in the MSAA scene pass");
+        refreshSwimEffectsPass();
         return;
     }
 
     waterRenderer->createWater1xPass(vkCtx->getSwapchainFormat(), vkCtx->getDepthFormat());
     waterRenderer->createWater1xFramebuffers(
         vkCtx->getSwapchainImageViews(), depthView, vkCtx->getSwapchainExtent());
+
+    // The spray follows the water into its pass, and this is the first point at
+    // which that pass exists — the swim effects were built long before it, back
+    // when the only choice was the scene pass.
+    refreshSwimEffectsPass();
+}
+
+// Rebuild the spray's pipelines if the pass it should draw into has changed.
+// Only ever called with no frames in flight; recreatePipelines() destroys the
+// old pipelines outright rather than deferring them.
+void Renderer::refreshSwimEffectsPass() {
+    if (!swimEffects || !vkCtx) return;
+    const bool wasWithWater = swimEffectsDrawWithWater_;
+    syncSwimEffectsTargetPass();
+    if (swimEffectsDrawWithWater_ != wasWithWater) {
+        vkDeviceWaitIdle(vkCtx->getDevice());
+        swimEffects->recreatePipelines();
+    }
 }
 
 // ========================= Multithreaded Secondary Command Buffers =========================

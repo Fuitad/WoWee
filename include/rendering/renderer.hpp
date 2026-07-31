@@ -198,6 +198,17 @@ private:
     // the scene pass itself (see renderWorld).
     bool waterDrawsInContinuePass() const;
 
+    /// Point the swim spray at whichever pass the water ends up drawing in, so
+    /// it can be recorded after the water rather than under it. Must run before
+    /// the spray's pipelines are built, and again whenever they are rebuilt.
+    void syncSwimEffectsTargetPass();
+    void refreshSwimEffectsPass();
+
+    /// True when the spray's pipelines were built for the water continuation
+    /// pass. Draw sites test this rather than waterDrawsInContinuePass() so a
+    /// mid-run mode change cannot record a pipeline into an incompatible pass.
+    bool swimEffectsDrawWithWater_ = false;
+
     void runDeferredWorldInitStep(float deltaTime);
 
     core::Window* window = nullptr;

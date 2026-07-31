@@ -37,6 +37,13 @@ bool SwimEffects::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
     vkCtx = ctx;
     VkDevice device = vkCtx->getDevice();
 
+    // Fall back to drawing inside the scene pass when no target has been
+    // selected, which is the arrangement that predates water having its own.
+    if (targetPass_ == VK_NULL_HANDLE) {
+        targetPass_ = vkCtx->getImGuiRenderPass();
+        targetSamples_ = vkCtx->getMsaaSamples();
+    }
+
     // ---- Vertex input: pos(vec3) + size(float) + alpha(float) = 5 floats, stride = 20 bytes ----
     VkVertexInputBindingDescription binding{};
     binding.binding = 0;
@@ -94,9 +101,9 @@ bool SwimEffects::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
             .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
             .setDepthTest(true, false, VK_COMPARE_OP_LESS)
             .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx->getMsaaSamples())
+            .setMultisample(targetSamples_)
             .setLayout(ripplePipelineLayout)
-            .setRenderPass(vkCtx->getImGuiRenderPass())
+            .setRenderPass(targetPass_)
             .setDynamicStates(dynamicStates)
             .build(device, vkCtx->getPipelineCache());
 
@@ -138,9 +145,9 @@ bool SwimEffects::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
             .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
             .setDepthTest(true, false, VK_COMPARE_OP_LESS)
             .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx->getMsaaSamples())
+            .setMultisample(targetSamples_)
             .setLayout(bubblePipelineLayout)
-            .setRenderPass(vkCtx->getImGuiRenderPass())
+            .setRenderPass(targetPass_)
             .setDynamicStates(dynamicStates)
             .build(device, vkCtx->getPipelineCache());
 
@@ -184,9 +191,9 @@ bool SwimEffects::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
             .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
             .setDepthTest(false, false, VK_COMPARE_OP_LESS)
             .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx->getMsaaSamples())
+            .setMultisample(targetSamples_)
             .setLayout(insectPipelineLayout)
-            .setRenderPass(vkCtx->getImGuiRenderPass())
+            .setRenderPass(targetPass_)
             .setDynamicStates(dynamicStates)
             .build(device, vkCtx->getPipelineCache());
 
@@ -308,6 +315,13 @@ void SwimEffects::recreatePipelines() {
     if (!vkCtx) return;
     VkDevice device = vkCtx->getDevice();
 
+    // Fall back to drawing inside the scene pass when no target has been
+    // selected, which is the arrangement that predates water having its own.
+    if (targetPass_ == VK_NULL_HANDLE) {
+        targetPass_ = vkCtx->getImGuiRenderPass();
+        targetSamples_ = vkCtx->getMsaaSamples();
+    }
+
     // Destroy old pipelines (NOT layouts)
     if (ripplePipeline != VK_NULL_HANDLE) {
         vkDestroyPipeline(device, ripplePipeline, nullptr);
@@ -364,9 +378,9 @@ void SwimEffects::recreatePipelines() {
             .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
             .setDepthTest(true, false, VK_COMPARE_OP_LESS)
             .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx->getMsaaSamples())
+            .setMultisample(targetSamples_)
             .setLayout(ripplePipelineLayout)
-            .setRenderPass(vkCtx->getImGuiRenderPass())
+            .setRenderPass(targetPass_)
             .setDynamicStates(dynamicStates)
             .build(device, vkCtx->getPipelineCache());
 
@@ -391,9 +405,9 @@ void SwimEffects::recreatePipelines() {
             .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
             .setDepthTest(true, false, VK_COMPARE_OP_LESS)
             .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx->getMsaaSamples())
+            .setMultisample(targetSamples_)
             .setLayout(bubblePipelineLayout)
-            .setRenderPass(vkCtx->getImGuiRenderPass())
+            .setRenderPass(targetPass_)
             .setDynamicStates(dynamicStates)
             .build(device, vkCtx->getPipelineCache());
 
@@ -418,9 +432,9 @@ void SwimEffects::recreatePipelines() {
             .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
             .setDepthTest(false, false, VK_COMPARE_OP_LESS)
             .setColorBlendAttachment(PipelineBuilder::blendAlpha())
-            .setMultisample(vkCtx->getMsaaSamples())
+            .setMultisample(targetSamples_)
             .setLayout(insectPipelineLayout)
-            .setRenderPass(vkCtx->getImGuiRenderPass())
+            .setRenderPass(targetPass_)
             .setDynamicStates(dynamicStates)
             .build(device, vkCtx->getPipelineCache());
 
@@ -571,13 +585,18 @@ void SwimEffects::update(const Camera& camera, const CameraController& cc,
         constexpr float kWadeMaxDepth = 1.60f;
         if (depth > kWadeMinDepth && depth < kWadeMaxDepth) {
             const float depthScale = glm::clamp(depth / 0.7f, 0.30f, 1.0f);
-            rippleSpawnAccum += 30.0f * depthScale * deltaTime;
+            // Its own accumulator: the swim branch above zeroes rippleSpawnAccum
+            // on every frame it is not swimming, so a wading rate of 30/s could
+            // only ever reach 0.5 in a frame and never crossed the threshold.
+            wadeSpawnAccum += 30.0f * depthScale * deltaTime;
 
+            // Forward from yaw is (cos, sin) — the same derivation the camera
+            // controller uses to move the character.
             const float yawRad = glm::radians(cc.getYaw());
-            const glm::vec2 travel(std::sin(yawRad), -std::cos(yawRad));
+            const glm::vec2 travel(std::cos(yawRad), std::sin(yawRad));
 
-            while (rippleSpawnAccum >= 1.0f) {
-                rippleSpawnAccum -= 1.0f;
+            while (wadeSpawnAccum >= 1.0f) {
+                wadeSpawnAccum -= 1.0f;
                 if (static_cast<int>(ripples.size()) >= MAX_RIPPLE_PARTICLES) break;
                 Particle p;
                 // Around the legs, biased behind so the spray trails the stride.
@@ -598,8 +617,10 @@ void SwimEffects::update(const Camera& camera, const CameraController& cc,
                 ripples.push_back(p);
             }
         } else {
-            rippleSpawnAccum = 0.0f;
+            wadeSpawnAccum = 0.0f;
         }
+    } else {
+        wadeSpawnAccum = 0.0f;
     }
 
     // --- Bubble spawning ---

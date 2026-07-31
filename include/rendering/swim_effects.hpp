@@ -22,6 +22,15 @@ public:
     [[nodiscard]] bool initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout);
     void shutdown();
     void recreatePipelines();
+
+    /// Select the render pass these particles will be recorded into. Water now
+    /// draws after them in a pass of its own, so the spray has to move into that
+    /// pass too or the water sheet is painted straight over it. Call before
+    /// initialize() or recreatePipelines().
+    void setTargetPass(VkRenderPass pass, VkSampleCountFlagBits samples) {
+        targetPass_ = pass;
+        targetSamples_ = samples;
+    }
     void update(const Camera& camera, const CameraController& cc,
                 const WaterRenderer& water, float deltaTime);
     void render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet);
@@ -91,6 +100,10 @@ private:
     std::vector<float> bubbleVertexData;
     std::vector<float> insectVertexData;
 
+    VkRenderPass targetPass_ = VK_NULL_HANDLE;
+    VkSampleCountFlagBits targetSamples_ = VK_SAMPLE_COUNT_1_BIT;
+
+    float wadeSpawnAccum = 0.0f;
     float rippleSpawnAccum = 0.0f;
     float bubbleSpawnAccum = 0.0f;
     float insectSpawnAccum = 0.0f;

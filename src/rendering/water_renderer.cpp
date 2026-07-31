@@ -39,10 +39,7 @@ struct WaterPushConstants {
     glm::vec2 screenSize;  // target size, for screen-space UVs
 };
 
-// Matches set 2 binding 3 in water.frag.glsl
-struct ReflectionUBOData {
-    glm::mat4 reflViewProj;
-};
+
 
 WaterRenderer::WaterRenderer() = default;
 
@@ -488,7 +485,7 @@ void WaterRenderer::createSceneHistoryResources(VkExtent2D extent, VkFormat colo
         VkDescriptorBufferInfo reflUBOInfo{};
         reflUBOInfo.buffer = reflectionUBO;
         reflUBOInfo.offset = 0;
-        reflUBOInfo.range = sizeof(ReflectionUBOData);
+        reflUBOInfo.range = sizeof(WaterFrameUBOData);
 
         std::vector<VkWriteDescriptorSet> writes;
 
@@ -1813,7 +1810,7 @@ void WaterRenderer::createReflectionResources() {
     // --- Reflection UBO ---
     VkBufferCreateInfo bufCI{};
     bufCI.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufCI.size = sizeof(ReflectionUBOData);
+    bufCI.size = sizeof(WaterFrameUBOData);
     bufCI.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 
     VmaAllocationCreateInfo uboAllocCI{};
@@ -1829,7 +1826,7 @@ void WaterRenderer::createReflectionResources() {
     reflectionUBOMapped = mapInfo.pMappedData;
 
     // Initialize with identity
-    ReflectionUBOData initData{};
+    WaterFrameUBOData initData{};
     initData.reflViewProj = glm::mat4(1.0f);
     if (reflectionUBOMapped) {
         std::memcpy(reflectionUBOMapped, &initData, sizeof(initData));
@@ -1934,10 +1931,102 @@ void WaterRenderer::endReflectionPass(VkCommandBuffer cmd) {
 }
 
 void WaterRenderer::updateReflectionUBO(const glm::mat4& reflViewProj) {
+    frameUBO_.reflViewProj = reflViewProj;
+    uploadFrameUBO();
+}
+
+void WaterRenderer::uploadFrameUBO() {
     if (!reflectionUBOMapped) return;
-    ReflectionUBOData data{};
-    data.reflViewProj = reflViewProj;
-    std::memcpy(reflectionUBOMapped, &data, sizeof(data));
+    std::memcpy(reflectionUBOMapped, &frameUBO_, sizeof(frameUBO_));
+}
+
+// Disturbance trail. Points are dropped along the path rather than parented to
+// the character, so the froth stays where the water was churned and the
+// character runs out of it — froth pinned under the feet reads as a decal.
+void WaterRenderer::updateWake(float deltaTime, const glm::vec2& pos,
+                               const glm::vec2& travelDir, float intensity, bool wading) {
+    // Age the existing trail. Drift is what spreads a swimmer's two emission
+    // lines apart with distance behind, which is the V.
+    for (auto& p : wakePoints_) {
+        p.age += deltaTime;
+        p.pos += p.drift * deltaTime;
+        // Spreading water loses momentum quickly.
+        p.drift *= std::max(0.0f, 1.0f - 1.6f * deltaTime);
+    }
+    wakePoints_.erase(std::remove_if(wakePoints_.begin(), wakePoints_.end(),
+                                     [](const WakePoint& p) { return p.age >= p.life; }),
+                      wakePoints_.end());
+
+    if (intensity > 0.0f) {
+        // Emit by distance travelled, not by time: standing still in the
+        // shallows should settle rather than pile froth up in one spot.
+        const float spacing = wading ? 0.55f : 0.70f;
+        bool emit = !hasWakeEmitPos_;
+        if (!emit) {
+            const glm::vec2 delta = pos - lastWakeEmitPos_;
+            emit = glm::dot(delta, delta) >= spacing * spacing;
+        }
+
+        if (emit) {
+            hasWakeEmitPos_ = true;
+            lastWakeEmitPos_ = pos;
+
+            glm::vec2 fwd = travelDir;
+            const float fwdLenSq = glm::dot(fwd, fwd);
+            fwd = (fwdLenSq > 1e-6f) ? fwd * glm::inversesqrt(fwdLenSq) : glm::vec2(0.0f, 1.0f);
+            const glm::vec2 side(-fwd.y, fwd.x);
+
+            auto push = [&](const glm::vec2& at, const glm::vec2& drift,
+                            float life, float strength) {
+                if (static_cast<int>(wakePoints_.size()) >= kMaxWakePoints) {
+                    wakePoints_.erase(wakePoints_.begin());  // oldest goes first
+                }
+                WakePoint wp;
+                wp.pos = at;
+                wp.drift = drift;
+                wp.life = life;
+                wp.strength = strength;
+                wakePoints_.push_back(wp);
+            };
+
+            if (wading) {
+                // Legs punching through the surface: one churned patch per
+                // stride, thrown slightly forward of where the foot lands.
+                push(pos + fwd * 0.25f, side * 0.35f, 1.7f, intensity);
+            } else {
+                // Swimming: a pair off the shoulders, each drifting outward and
+                // back. The arms of the V open with age because the emissions
+                // keep separating after the swimmer has moved on.
+                const float spread = 0.45f;
+                const float lateral = 1.05f;
+                push(pos + side * spread - fwd * 0.2f,
+                     side * lateral - fwd * 0.35f, 2.4f, intensity * 0.85f);
+                push(pos - side * spread - fwd * 0.2f,
+                     -side * lateral - fwd * 0.35f, 2.4f, intensity * 0.85f);
+            }
+        }
+    } else {
+        hasWakeEmitPos_ = false;
+    }
+
+    // Pack for the shader, and build the bounding circle the fragment shader
+    // uses to reject the rest of the sheet in one test.
+    const int count = std::min(static_cast<int>(wakePoints_.size()), kMaxWakePoints);
+    glm::vec2 centre(0.0f);
+    for (int i = 0; i < count; ++i) centre += wakePoints_[i].pos;
+    if (count > 0) centre /= static_cast<float>(count);
+
+    float cullRadius = 0.0f;
+    for (int i = 0; i < count; ++i) {
+        const WakePoint& p = wakePoints_[i];
+        const float age01 = std::min(1.0f, p.age / p.life);
+        // Must cover the point's own spread, or froth is clipped mid-patch.
+        constexpr float kMaxPatchRadius = 1.75f;
+        cullRadius = std::max(cullRadius, glm::length(p.pos - centre) + kMaxPatchRadius);
+        frameUBO_.wakePoints[i] = glm::vec4(p.pos.x, p.pos.y, age01, p.strength);
+    }
+    frameUBO_.wakeBounds = glm::vec4(centre.x, centre.y, cullRadius, static_cast<float>(count));
+    uploadFrameUBO();
 }
 
 // ==============================================================
