@@ -545,40 +545,42 @@ void main() {
             for (int i = 0; i < wakeCount; ++i) {
                 vec4 wp = wakePoints[i];
                 // Churn spreads as it dies, the way a disturbed patch does.
-                float radius = mix(0.30, 1.75, wp.z);
+                float radius = mix(0.40, 1.45, wp.z);
                 float d = length(FragPos.xy - wp.xy);
-                float disc = 1.0 - smoothstep(radius * 0.25, radius, d);
-                wakeFoam += disc * wp.w * (1.0 - wp.z) * (1.0 - wp.z);
+                // Falls off from the centre out, with no plateau. A flat middle
+                // is what made these read as painted discs rather than froth.
+                float disc = 1.0 - smoothstep(0.0, radius, d);
+                wakeFoam += disc * disc * wp.w * (1.0 - wp.z);
             }
             wakeFoam = clamp(wakeFoam, 0.0, 1.0);
 
-            if (wakeFoam > 0.001) {
-                // Break the discs into bubbles with the octaves the shoreline
-                // foam uses, so froth from a footfall and froth from the surf
-                // are the same material. Scrolling faster because this water is
-                // being actively agitated, not lapping.
+            if (wakeFoam > 0.002) {
                 vec2 churnWarp = vec2(
                     noiseValue(FragPos.xy * 3.4 + time * 0.5) - 0.5,
                     noiseValue(FragPos.xy * 3.4 + vec2(23.0) - time * 0.44) - 0.5
                 ) * 0.9;
                 vec2 churnUV = FragPos.xy + churnWarp;
 
-                float churn1 = cellularFoam(churnUV * 17.0 + time * vec2(0.3, -0.22));
-                float bubbles = 1.0 - smoothstep(0.0, 0.11, churn1);
+                // cellularFoam returns distance to the nearest cell point, so a
+                // low threshold marks only the few pixels sitting on a point —
+                // specks, which left the patch between them to be filled solid.
+                // Thresholding across the middle of the range inverts that: most
+                // of the patch is foam and the gaps between cells are the
+                // texture, which is what aerated water actually looks like.
+                float cells = cellularFoam(churnUV * 12.0 + time * vec2(0.25, -0.18));
+                float cover = 1.0 - smoothstep(0.08, 0.38, cells);
 
-                float churn2 = cellularFoam(churnUV * 38.0 - time * vec2(0.18, 0.34));
-                bubbles += (1.0 - smoothstep(0.0, 0.06, churn2)) * 0.6;
+                float fine = cellularFoam(churnUV * 29.0 - time * vec2(0.14, 0.30));
+                cover = max(cover * 0.85, (1.0 - smoothstep(0.05, 0.22, fine)) * 0.5);
 
-                // Denser froth closes the gaps between bubbles, so the middle of
-                // a fresh splash reads as solid white water and the edges break
-                // up into specks.
-                float coverage = mix(clamp(bubbles, 0.0, 1.0), 1.0,
-                                     smoothstep(0.55, 1.0, wakeFoam));
-                wakeFoam *= mix(0.25, 1.0, coverage);
+                // Clumping, so the trail thins and thickens along its length.
+                cover *= 0.55 + 0.45 * noiseValue(churnUV * 2.2 + time * 0.35);
 
-                // Aerated water is brighter and whiter than foam floating on the
-                // surface, and it hides what is underneath.
-                color = mix(color, vec3(0.90, 0.94, 0.97), clamp(wakeFoam, 0.0, 0.92));
+                wakeFoam *= cover;
+                // Aerated water is lighter than the surface around it but it is
+                // still water. Near-opaque white read as paint lying on top.
+                wakeFoam = min(wakeFoam, 0.60);
+                color = mix(color, vec3(0.86, 0.91, 0.95), wakeFoam);
             }
         }
     }
@@ -610,7 +612,7 @@ void main() {
     // does not read at all.
     alpha = max(alpha, wetBand * 0.42 * smoothstep(0.0, 0.05, shoreDepth));
     alpha = max(alpha, shorelineFoam * 0.90);
-    alpha = max(alpha, wakeFoam * 0.95);
+    alpha = max(alpha, wakeFoam * 0.55);
     // Dissolve the sheet before the water geometry runs out, so the ocean fades
     // into the horizon haze instead of ending on a hard line. This has to come
     // after the clamp — clamping afterwards restored the 0.15 floor and put the

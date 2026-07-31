@@ -1950,8 +1950,10 @@ void WaterRenderer::updateWake(float deltaTime, const glm::vec2& pos,
     for (auto& p : wakePoints_) {
         p.age += deltaTime;
         p.pos += p.drift * deltaTime;
-        // Spreading water loses momentum quickly.
-        p.drift *= std::max(0.0f, 1.0f - 1.6f * deltaTime);
+        // Barely any drag. A wake's arms are straight because the separation
+        // keeps growing with distance behind; damping the drift collapsed the
+        // two arms back onto each other and the V read as a single line.
+        p.drift *= std::max(0.0f, 1.0f - 0.25f * deltaTime);
     }
     wakePoints_.erase(std::remove_if(wakePoints_.begin(), wakePoints_.end(),
                                      [](const WakePoint& p) { return p.age >= p.life; }),
@@ -1960,7 +1962,9 @@ void WaterRenderer::updateWake(float deltaTime, const glm::vec2& pos,
     if (intensity > 0.0f) {
         // Emit by distance travelled, not by time: standing still in the
         // shallows should settle rather than pile froth up in one spot.
-        const float spacing = wading ? 0.55f : 0.70f;
+        // Close enough together that the patches overlap into a continuous
+        // trail. Spaced out, each one reads as its own blob.
+        const float spacing = wading ? 0.40f : 0.60f;
         bool emit = !hasWakeEmitPos_;
         if (!emit) {
             const glm::vec2 delta = pos - lastWakeEmitPos_;
@@ -1992,17 +1996,19 @@ void WaterRenderer::updateWake(float deltaTime, const glm::vec2& pos,
             if (wading) {
                 // Legs punching through the surface: one churned patch per
                 // stride, thrown slightly forward of where the foot lands.
-                push(pos + fwd * 0.25f, side * 0.35f, 1.7f, intensity);
+                push(pos + fwd * 0.25f, side * 0.30f, 1.5f, intensity);
             } else {
                 // Swimming: a pair off the shoulders, each drifting outward and
-                // back. The arms of the V open with age because the emissions
-                // keep separating after the swimmer has moved on.
-                const float spread = 0.45f;
-                const float lateral = 1.05f;
+                // back. The arms open with age because the emissions keep
+                // separating after the swimmer has moved on, so the trail is a V
+                // even though every point is laid down on the same line.
+                const float spread = 0.50f;
+                const float lateral = 1.15f;
+                const float life = 1.9f;
                 push(pos + side * spread - fwd * 0.2f,
-                     side * lateral - fwd * 0.35f, 2.4f, intensity * 0.85f);
+                     side * lateral - fwd * 0.30f, life, intensity * 0.8f);
                 push(pos - side * spread - fwd * 0.2f,
-                     -side * lateral - fwd * 0.35f, 2.4f, intensity * 0.85f);
+                     -side * lateral - fwd * 0.30f, life, intensity * 0.8f);
             }
         }
     } else {
@@ -2021,7 +2027,7 @@ void WaterRenderer::updateWake(float deltaTime, const glm::vec2& pos,
         const WakePoint& p = wakePoints_[i];
         const float age01 = std::min(1.0f, p.age / p.life);
         // Must cover the point's own spread, or froth is clipped mid-patch.
-        constexpr float kMaxPatchRadius = 1.75f;
+        constexpr float kMaxPatchRadius = 1.45f;
         cullRadius = std::max(cullRadius, glm::length(p.pos - centre) + kMaxPatchRadius);
         frameUBO_.wakePoints[i] = glm::vec4(p.pos.x, p.pos.y, age01, p.strength);
     }
