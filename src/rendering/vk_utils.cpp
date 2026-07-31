@@ -5,6 +5,11 @@
 #include <mutex>
 #include <unordered_map>
 #include <map>
+#include <algorithm>
+#include <vector>
+#include <cstdio>
+#include <string>
+#include <dlfcn.h>
 
 namespace wowee {
 namespace rendering {
@@ -13,7 +18,7 @@ namespace {
 // Leak hunt: which caller allocates the buffers that survive to shutdown.
 // Keyed by handle so a destroy cancels it out; the return address is resolved
 // offline with addr2line, which avoids needing symbols exported at runtime.
-struct BufferOrigin { const void* caller; VkDeviceSize size; };
+struct BufferOrigin { const void* caller; const void* caller2; VkDeviceSize size; };
 std::mutex& bufferOriginMutex() { static std::mutex m; return m; }
 std::unordered_map<void*, BufferOrigin>& bufferOrigins() {
     static std::unordered_map<void*, BufferOrigin> m;
@@ -28,17 +33,35 @@ void dumpLiveBufferOrigins() {
         LOG_INFO("Buffer leak check: nothing outstanding from createBuffer()");
         return;
     }
-    std::map<std::pair<const void*, VkDeviceSize>, size_t> byCaller;
+    // Group by the caller two frames up as well: everything routed through
+    // uploadBuffer() collapses to one address otherwise.
+    std::map<std::pair<const void*, const void*>, size_t> byCaller;
     for (const auto& [handle, origin] : live) {
         (void)handle;
-        byCaller[{origin.caller, origin.size}]++;
+        byCaller[{origin.caller, origin.caller2}]++;
     }
+    // Report offsets from the module base, which is what addr2line wants.
+    auto describe = [](const void* addr) {
+        Dl_info info{};
+        if (addr && dladdr(const_cast<void*>(addr), &info) && info.dli_fbase) {
+            const auto off = reinterpret_cast<uintptr_t>(addr) - reinterpret_cast<uintptr_t>(info.dli_fbase);
+            return std::string(info.dli_sname ? info.dli_sname : "?") + " +0x" + [off]{
+                char b[32]; std::snprintf(b, sizeof(b), "%lx", static_cast<unsigned long>(off)); return std::string(b);
+            }();
+        }
+        return std::string("?");
+    };
     LOG_WARNING("Buffer leak check: ", live.size(), " buffers outstanding from createBuffer()");
     size_t reported = 0;
-    for (const auto& [key, count] : byCaller) {
-        if (count < 16) continue;  // ignore the long tail of ones and twos
-        LOG_WARNING("  ", count, " x ", key.second, " bytes from caller ", key.first);
-        if (++reported >= 20) break;
+    std::vector<std::pair<size_t, std::pair<const void*, const void*>>> ranked;
+    ranked.reserve(byCaller.size());
+    for (const auto& [key, count] : byCaller) ranked.push_back({count, key});
+    std::sort(ranked.rbegin(), ranked.rend());
+    for (const auto& [count, key] : ranked) {
+        if (count < 16) break;
+        LOG_WARNING("  ", count, " buffers from ", describe(key.first),
+                    " called by ", describe(key.second));
+        if (++reported >= 12) break;
     }
 }
 
@@ -46,6 +69,7 @@ AllocatedBuffer createBuffer(VmaAllocator allocator, VkDeviceSize size,
     VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
 {
     const void* caller = __builtin_return_address(0);
+    const void* caller2 = __builtin_return_address(1);
     AllocatedBuffer result{};
 
     VkBufferCreateInfo bufInfo{};
@@ -65,7 +89,7 @@ AllocatedBuffer createBuffer(VmaAllocator allocator, VkDeviceSize size,
         LOG_ERROR("Failed to create VMA buffer (size=", size, ")");
     } else {
         std::lock_guard<std::mutex> lock(bufferOriginMutex());
-        bufferOrigins()[result.buffer] = {caller, size};
+        bufferOrigins()[result.buffer] = {caller, caller2, size};
     }
 
     return result;
