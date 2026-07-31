@@ -996,6 +996,17 @@ void EntitySpawner::processGameObjectSpawnQueue() {
             continue;
         }
 
+        // An uncached WMO that could not get an async slot must wait for one.
+        // Falling through to the synchronous path here meant decoding its
+        // textures on the main thread: measured at 35-51ms for a transport,
+        // against this loop's 2ms budget. The async path pre-decodes them on a
+        // worker, so waiting a frame for a free slot is far cheaper than doing
+        // the work here. Only reachable when several uncached WMOs arrive at
+        // once — a zone with a few ships in view does exactly that.
+        if (isWmo && !isCached && !modelPath.empty()) {
+            break;  // retry next frame, keeping queue order
+        }
+
         // Cached WMO or M2 — spawn synchronously (cheap)
         spawnOnlineGameObject(s.guid, s.entry, s.displayId, s.x, s.y, s.z, s.orientation, s.scale);
         pendingGameObjectSpawns_.erase(pendingGameObjectSpawns_.begin());
