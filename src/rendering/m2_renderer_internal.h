@@ -294,7 +294,7 @@ inline glm::vec3 closestPointOnTriangle(const glm::vec3& p,
 
 inline void computeBoneMatrices(const M2ModelGPU& model, M2Instance& instance) {
     ZoneScopedN("M2::computeBoneMatrices");
-    size_t numBones = std::min(model.bones.size(), size_t(128));
+    size_t numBones = std::min(model.bones.size(), size_t(kMaxBonesPerInstance));
     if (numBones == 0) return;
     instance.boneMatrices.resize(numBones);
     const auto& gsd = model.globalSequenceDurations;

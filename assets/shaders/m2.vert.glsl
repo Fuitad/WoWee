@@ -31,6 +31,7 @@ struct InstanceData {
     float fadeAlpha;
     int useBones;
     int boneBase;
+    int boneCount;
 };
 layout(set = 3, binding = 0) readonly buffer InstanceSSBO {
     InstanceData instanceData[];
@@ -64,7 +65,11 @@ void main() {
     vec4 norm = vec4(aNormal, 0.0);
 
     if (uBones != 0) {
-        ivec4 bi = ivec4(aBoneIndicesF);
+        // Clamp to the range this instance actually owns. A model whose bone
+        // count exceeds the ceiling would otherwise index into the next
+        // instance's matrices and fling its vertices across the world.
+        int bCount = max(instanceData[instIdx].boneCount, 1);
+        ivec4 bi = clamp(ivec4(aBoneIndicesF), ivec4(0), ivec4(bCount - 1));
         mat4 skinMat = bones[bBase + bi.x] * aBoneWeights.x
                      + bones[bBase + bi.y] * aBoneWeights.y
                      + bones[bBase + bi.z] * aBoneWeights.z

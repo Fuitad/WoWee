@@ -588,9 +588,12 @@ void M2Renderer::prepareRender(uint32_t frameIndex, const Camera& camera) {
     if (!initialized_ || instances.empty()) return;
     (void)camera;  // reserved for future frustum-based culling
 
-    // --- Mega bone SSBO: assign slots and upload all animated instance bones ---
-    // Slot 0 = identity (non-animated), slots 1..N = animated instances.
-    uint32_t nextSlot = 1;
+    // --- Mega bone SSBO: assign ranges and upload all animated instance bones ---
+    // Offset 0 is reserved as the identity/no-bones sentinel; animated instances
+    // are packed after it at their own bone count, so a 300-bone creature gets
+    // all 300 matrices instead of being truncated into a fixed stride and
+    // reading into its neighbour's range.
+    uint32_t nextOffset = 1;
     for (size_t idx : animatedInstanceIndices_) {
         if (idx >= instances.size()) continue;
         auto& instance = instances[idx];
@@ -600,12 +603,13 @@ void M2Renderer::prepareRender(uint32_t frameIndex, const Camera& camera) {
             continue;
         }
 
-        if (nextSlot >= MEGA_BONE_MAX_INSTANCES) {
+        const uint32_t boneCount = static_cast<uint32_t>(instance.boneMatrices.size());
+        if (boneCount > MEGA_BONE_MATRIX_CAPACITY - nextOffset) {
             instance.megaBoneOffset = 0;  // Overflow — use identity
             continue;
         }
 
-        instance.megaBoneOffset = nextSlot * MAX_BONES_PER_INSTANCE;
+        instance.megaBoneOffset = nextOffset;
 
         // Upload bone matrices to mega buffer — only when they were recomputed
         // since the last upload into this frame's buffer, or the instance's
@@ -614,16 +618,14 @@ void M2Renderer::prepareRender(uint32_t frameIndex, const Camera& camera) {
         // skipping their memcpy avoids megabytes of redundant writes per frame.
         if (megaBoneMapped_[frameIndex] &&
             (instance.bonesDirty[frameIndex] ||
-             instance.megaBoneUploadedSlot[frameIndex] != nextSlot)) {
-            int numBones = std::min(static_cast<int>(instance.boneMatrices.size()),
-                                    static_cast<int>(MAX_BONES_PER_INSTANCE));
+             instance.megaBoneUploadedSlot[frameIndex] != instance.megaBoneOffset)) {
             auto* dst = static_cast<glm::mat4*>(megaBoneMapped_[frameIndex]) + instance.megaBoneOffset;
-            memcpy(dst, instance.boneMatrices.data(), numBones * sizeof(glm::mat4));
+            memcpy(dst, instance.boneMatrices.data(), boneCount * sizeof(glm::mat4));
             instance.bonesDirty[frameIndex] = false;
-            instance.megaBoneUploadedSlot[frameIndex] = nextSlot;
+            instance.megaBoneUploadedSlot[frameIndex] = instance.megaBoneOffset;
         }
 
-        nextSlot++;
+        nextOffset += boneCount;
     }
 }
 
@@ -1227,6 +1229,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                 e.fadeAlpha = p.fadeAlpha;
                 e.useBones = p.useBones ? 1 : 0;
                 e.boneBase = p.useBones ? static_cast<int32_t>(inst.megaBoneOffset) : 0;
+                e.boneCount = static_cast<int32_t>(inst.boneMatrices.size());
                 std::memset(e._pad, 0, sizeof(e._pad));
                 instanceDataCount_++;
             }
@@ -1438,6 +1441,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
                             e.fadeAlpha = p.fadeAlpha;
                             e.useBones = p.useBones ? 1 : 0;
                             e.boneBase = p.useBones ? static_cast<int32_t>(inst.megaBoneOffset) : 0;
+                            e.boneCount = static_cast<int32_t>(inst.boneMatrices.size());
                             std::memset(e._pad, 0, sizeof(e._pad));
                             instanceDataCount_++;
                         }
@@ -1657,6 +1661,7 @@ void M2Renderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const 
             e.fadeAlpha = instanceFadeAlpha;
             e.useBones = needsBones ? 1 : 0;
             e.boneBase = needsBones ? static_cast<int32_t>(instance.megaBoneOffset) : 0;
+            e.boneCount = static_cast<int32_t>(instance.boneMatrices.size());
             std::memset(e._pad, 0, sizeof(e._pad));
             instanceDataCount_++;
 

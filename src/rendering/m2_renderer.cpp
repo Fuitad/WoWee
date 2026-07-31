@@ -396,7 +396,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
     // Mega bone SSBO — consolidates all animated instance bones into one buffer per frame.
     // Slot 0 = identity matrix (for non-animated instances), slots 1..N = animated instances.
     {
-        const VkDeviceSize megaSize = MEGA_BONE_MAX_INSTANCES * MAX_BONES_PER_INSTANCE * sizeof(glm::mat4);
+        const VkDeviceSize megaSize = VkDeviceSize(MEGA_BONE_MATRIX_CAPACITY) * sizeof(glm::mat4);
         glm::mat4 identity(1.0f);
         for (int i = 0; i < 2; i++) {
             VkBufferCreateInfo bci{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};

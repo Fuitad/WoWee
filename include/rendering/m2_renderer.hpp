@@ -32,6 +32,13 @@ class VkContext;
 class VkTexture;
 class HiZSystem;
 
+// Ceiling on the bone matrices computed and uploaded for one M2 instance.
+// WoW models run well past a hundred bones — the largest shipped model has
+// 315 — and a vertex weighted to a bone above this ceiling would read outside
+// its instance's range in the mega bone buffer, which is what threw stray
+// spikes out of water elementals and other high-bone-count creatures.
+inline constexpr uint32_t kMaxBonesPerInstance = 512;
+
 /**
  * GPU representation of an M2 model
  */
@@ -550,7 +557,11 @@ private:
     // Mega bone SSBO — consolidates all per-instance bone matrices into a single buffer per frame.
     // Replaces per-instance bone SSBOs for fewer descriptor binds and enables GPU instancing.
     static constexpr uint32_t MEGA_BONE_MAX_INSTANCES = 4096;
-    static constexpr uint32_t MAX_BONES_PER_INSTANCE = 128;
+    // Per-instance bone ranges are packed at their model's true bone count
+    // rather than at a fixed stride, so the buffer is sized in matrices. The
+    // budget matches the old 4096 x 128 slots; models under the old stride
+    // now leave room for the ones above it.
+    static constexpr uint32_t MEGA_BONE_MATRIX_CAPACITY = MEGA_BONE_MAX_INSTANCES * 128;
     ::VkBuffer megaBoneBuffer_[2] = {};
     VmaAllocation megaBoneAlloc_[2] = {};
     void* megaBoneMapped_[2] = {};
@@ -564,7 +575,8 @@ private:
         float fadeAlpha;           //  4 bytes @ offset 72
         int32_t useBones;          //  4 bytes @ offset 76
         int32_t boneBase;          //  4 bytes @ offset 80
-        int32_t _pad[3] = {};      // 12 bytes @ offset 84 — align to 96 (std430)
+        int32_t boneCount;         //  4 bytes @ offset 84 — clamps skinning reads
+        int32_t _pad[2] = {};      //  8 bytes @ offset 88 — align to 96 (std430)
     };
     static constexpr uint32_t MAX_INSTANCE_DATA = 16384;
     VkDescriptorSetLayout instanceSetLayout_ = VK_NULL_HANDLE;
