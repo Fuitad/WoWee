@@ -49,6 +49,15 @@ public:
 
     // --- Public API (delegated from GameHandler) ---
     void castSpell(uint32_t spellId, uint64_t targetGuid = 0);
+
+    /// The last spell the player cast while on foot. When mounting is detected,
+    /// this identifies which of the player's indefinite self-cast auras is the
+    /// mount — scanning for one blindly can land on a racial or a tracking buff.
+    uint32_t getLastGroundCastSpellId() const { return lastGroundCastSpellId_; }
+
+    /// Record a spell cast by using an item — pre-WotLK mounts are items, and
+    /// their on-use spell never passes through castSpell().
+    void noteGroundCastSpell(uint32_t spellId) { lastGroundCastSpellId_ = spellId; }
     void cancelCast();
     void cancelAura(uint32_t spellId);
 
@@ -399,6 +408,7 @@ private:
     bool totemCategoryDbcLoaded_ = false;
 
     // Spell queue (400ms window)
+    uint32_t lastGroundCastSpellId_ = 0;
     uint32_t queuedSpellId_ = 0;
     uint64_t queuedSpellTarget_ = 0;
 

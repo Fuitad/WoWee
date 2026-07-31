@@ -2415,6 +2415,9 @@ public:
     auto& helmVisibleRef() { return helmVisible_; }
     auto& currentMountDisplayIdRef() { return currentMountDisplayId_; }
     auto& mountAuraSpellIdRef() { return mountAuraSpellId_; }
+    /// Spell of the aura currently keeping the player mounted, 0 when on foot.
+    /// Pressing this one again is a dismount, not a second mount.
+    uint32_t getMountAuraSpellId() const { return mountAuraSpellId_; }
     auto& shapeshiftFormIdRef() { return shapeshiftFormId_; }
     auto& playerRaceRef() { return playerRace_; }
     auto& serverPlayerLevelRef() { return serverPlayerLevel_; }

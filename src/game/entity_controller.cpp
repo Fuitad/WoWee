@@ -551,11 +551,22 @@ void EntityController::detectPlayerMountChange(uint32_t newMountDisplayId,
     if (newMountDisplayId != old)
         pendingEvents_.emit("UNIT_MODEL_CHANGED", {"player"});
     if (old == 0 && newMountDisplayId != 0) {
-        // Just mounted — find the mount aura (indefinite duration, self-cast)
+        // Just mounted — find the mount aura (indefinite duration, self-cast).
+        // Prefer the spell the player just cast: the blind scan below keeps the
+        // last matching aura, which is as likely to be a racial or a tracking
+        // buff as the mount, and the id has to be right or pressing the mount
+        // again cannot be recognised as a dismount.
         owner_.mountAuraSpellIdRef() = 0;
-        if (owner_.getSpellHandler()) for (const auto& a : owner_.getSpellHandler()->getPlayerAuras()) {
-            if (!a.isEmpty() && a.maxDurationMs < 0 && a.casterGuid == owner_.getPlayerGuid()) {
-                owner_.mountAuraSpellIdRef() = a.spellId;
+        if (owner_.getSpellHandler()) {
+            const uint32_t justCast = owner_.getSpellHandler()->getLastGroundCastSpellId();
+            for (const auto& a : owner_.getSpellHandler()->getPlayerAuras()) {
+                if (!a.isEmpty() && a.maxDurationMs < 0 && a.casterGuid == owner_.getPlayerGuid()) {
+                    if (justCast != 0 && a.spellId == justCast) {
+                        owner_.mountAuraSpellIdRef() = a.spellId;
+                        break;
+                    }
+                    owner_.mountAuraSpellIdRef() = a.spellId;
+                }
             }
         }
         // Pre-WotLK fallback: scan UNIT_FIELD_AURAS from same update block

@@ -646,7 +646,16 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
             owner_.addUIError("You can't do that while flying.");
             return;
         }
+        // Pressing the mount you are already riding dismounts you and stops
+        // there. Falling through to the cast would put the player straight back
+        // on the same mount, so the button appeared to do nothing.
+        const bool ridingThisMount =
+            spellId != 0 && spellId == owner_.getMountAuraSpellId();
         owner_.dismount();
+        if (ridingThisMount) {
+            LOG_INFO("Dismount via mount action: spell=", spellId);
+            return;
+        }
     }
 
     if (casting_) {
@@ -668,6 +677,10 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
         owner_.movementInfoRef().flags &= ~0x0Fu;
         owner_.sendMovement(Opcode::MSG_MOVE_STOP);
     }
+
+    // Remembered so that, if this cast turns out to be what mounted the player,
+    // the mount aura can be identified exactly rather than guessed at.
+    if (!owner_.isMounted()) lastGroundCastSpellId_ = spellId;
 
     const bool fishingCast = spellclass::isFishingCast(spellId);
     uint64_t target = targetGuid != 0 ? targetGuid : owner_.getTargetGuid();

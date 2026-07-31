@@ -1354,6 +1354,18 @@ void InventoryHandler::dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t
     LOG_DEBUG("useItem: bag=", (int)wowBag, " slot=", (int)wowSlot, " entry=", item.itemId,
               " spellId=", useSpellId);
 
+    // Pre-WotLK mounts are items, so the same rule applies to them: using the
+    // one you are riding dismounts you rather than re-summoning it.
+    if (useSpellId != 0 && owner_.isMounted() &&
+        useSpellId == owner_.getMountAuraSpellId()) {
+        owner_.dismount();
+        LOG_INFO("Dismount via mount item: entry=", item.itemId, " spell=", useSpellId);
+        return;
+    }
+    if (useSpellId != 0 && !owner_.isMounted() && owner_.getSpellHandler()) {
+        owner_.getSpellHandler()->noteGroundCastSpell(useSpellId);
+    }
+
     if (useSpellId != 0 &&
         (owner_.getSpellTargetFlags(useSpellId) & kSpellTargetFlagItem) != 0) {
         pendingItemTarget_ = PendingItemTarget{wowBag, wowSlot, itemGuid, useSpellId,
