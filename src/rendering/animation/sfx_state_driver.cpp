@@ -41,15 +41,21 @@ void SfxStateDriver::update(float deltaTime, Renderer* renderer,
             initialized_ = true;
         }
 
-        // Jump detection
-        if (jumping && !prevJumping_ && !swimming) {
+        if (!swimming && prevSwimming_) sinceWaterExit_ = 0.0f;
+        else if (sinceWaterExit_ < kWaterExitSfxSuppress) sinceWaterExit_ += deltaTime;
+        const bool justLeftWater = sinceWaterExit_ < kWaterExitSfxSuppress;
+
+        // Jump detection. Wading ashore lifts the character without a jump, and
+        // jumpClips are the character's exertion vocalisations, so a grunt there
+        // sounds like it jumped out of the lake.
+        if (jumping && !prevJumping_ && !swimming && !justLeftWater) {
             activitySoundManager->playJump();
         }
 
         // Landing detection. Wading out of water reaches the ground without a
         // fall, and retail marks that with the water-exit splash below rather
         // than a landing thud, so a swim-to-ground transition is not a landing.
-        if (grounded && !prevGrounded_ && !prevSwimming_) {
+        if (grounded && !prevGrounded_ && !justLeftWater) {
             bool hardLanding = prevFalling_;
             activitySoundManager->playLanding(
                 footstepDriver.resolveFootstepSurface(renderer), hardLanding);
