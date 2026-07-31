@@ -276,6 +276,10 @@ void CameraController::update(float deltaTime) {
     bool shiftDown = !uiWantsKeyboard && (input.isKeyPressed(SDL_SCANCODE_LSHIFT) || input.isKeyPressed(SDL_SCANCODE_RSHIFT));
     bool ctrlDown = !uiWantsKeyboard && (input.isKeyPressed(SDL_SCANCODE_LCTRL) || input.isKeyPressed(SDL_SCANCODE_RCTRL));
     bool nowJump = !uiWantsKeyboard && !sitting && !movementSuppressed && input.isKeyJustPressed(SDL_SCANCODE_SPACE);
+    // Swimming needs the held state, not the press edge: on land space is a
+    // one-shot jump, but in water it is continuous ascent, and an edge gave a
+    // single impulse that then bled away.
+    bool swimUpHeld = !uiWantsKeyboard && !sitting && !movementSuppressed && input.isKeyPressed(SDL_SCANCODE_SPACE);
     bool spaceDown = !uiWantsKeyboard && !sitting && !movementSuppressed && input.isKeyPressed(SDL_SCANCODE_SPACE);
 
     // Idle camera: any input resets the timer; timeout triggers a slow orbit pan
@@ -320,7 +324,7 @@ void CameraController::update(float deltaTime) {
             }
         }
         // Suppress player movement/input during intro.
-        keyW = keyS = keyA = keyD = keyQ = keyE = nowJump = false;
+        keyW = keyS = keyA = keyD = keyQ = keyE = nowJump = swimUpHeld = false;
     }
 
     // Tilde or NumLock toggles auto-run; any forward/backward key cancels it
@@ -730,7 +734,7 @@ void CameraController::update(float deltaTime) {
             // Spacebar = swim up, X = swim down (both continuous, not a jump)
             bool diveKey = xDown;
             bool diveIntent = diveKey || (nowForward && (forward3D.z < -0.28f));
-            if (nowJump) {
+            if (swimUpHeld) {
                 verticalVelocity = SWIM_BUOYANCY;
             } else if (diveKey) {
                 verticalVelocity = -SWIM_BUOYANCY;
