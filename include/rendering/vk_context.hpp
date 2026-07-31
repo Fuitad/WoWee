@@ -241,6 +241,11 @@ private:
     std::vector<InFlightBatch> inFlightBatches_;
 
     void runDeferredCleanup(uint32_t frameIndex);
+public:
+    // Execute all deferred destruction immediately. For shutdown paths, where no
+    // further frames will run to drain the queues naturally.
+    void flushDeferredCleanup();
+private:
     std::vector<std::function<void()>> deferredCleanup_[MAX_FRAMES_IN_FLIGHT];
 
     // Depth buffer (shared across all framebuffers)

@@ -287,6 +287,9 @@ void WMORenderer::shutdown() {
 
     if (!vkCtx_) {
         loadedModels.clear();
+    // Group destruction above is deferred; drain it now while the descriptor
+    // pools are still alive, since no further frames will run to drain it.
+    vkCtx_->flushDeferredCleanup();
         instances.clear();
         spatialGrid.clear();
         instanceIndexById.clear();

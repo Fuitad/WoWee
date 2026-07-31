@@ -348,6 +348,11 @@ void TerrainRenderer::shutdown() {
     vkDeviceWaitIdle(device);
 
     clear();
+    // clear() defers chunk destruction, and no further frames will run to drain
+    // the queue — so run it now, while the descriptor pools those lambdas free
+    // sets from are still alive. Without this every resident chunk's vertex and
+    // index buffers outlived the device: twenty thousand of each.
+    vkCtx->flushDeferredCleanup();
 
     for (auto& [path, entry] : textureCache) {
         if (entry.texture) entry.texture->destroy(device, allocator);

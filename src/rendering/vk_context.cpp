@@ -241,6 +241,21 @@ void VkContext::deferAfterAllFrameFences(std::function<void()>&& fn) {
     }
 }
 
+void VkContext::flushDeferredCleanup() {
+    // Run every queued destruction now rather than waiting for the frame slots
+    // to come around again. Subsystems defer destruction because in-flight
+    // command buffers may still reference the resources, but during shutdown no
+    // further frames are rendered, so anything queued would otherwise sit there
+    // until VkContext::shutdown drops the queues unexecuted — which is how every
+    // resident terrain chunk and WMO group ended up outliving the device.
+    //
+    // Call this while the subsystem's descriptor pools are still alive: the
+    // queued lambdas free descriptor sets from them.
+    for (uint32_t fi = 0; fi < MAX_FRAMES_IN_FLIGHT; fi++) {
+        runDeferredCleanup(fi);
+    }
+}
+
 void VkContext::runDeferredCleanup(uint32_t frameIndex) {
     auto& q = deferredCleanup_[frameIndex];
     if (q.empty()) return;

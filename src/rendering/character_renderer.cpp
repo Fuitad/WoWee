@@ -487,6 +487,10 @@ void CharacterRenderer::shutdown() {
         destroyInstanceBones(pair.second);
     }
 
+    // Model and bone destruction above is deferred; drain it now while the
+    // descriptor pools are still alive, since no further frames will run.
+    vkCtx_->flushDeferredCleanup();
+
     // Clean up texture cache (VkTexture unique_ptrs auto-destroy)
     textureCache.clear();
     texturePropsByPtr_.clear();
