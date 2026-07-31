@@ -30,27 +30,23 @@ bool MovementSoundManager::initialize(pipeline::AssetManager* assets) {
     enterWaterGiantSounds_.resize(1);
     loadSound("Sound\\Spells\\EnterWaterGiant.wav", enterWaterGiantSounds_[0], assets);
 
-    // Load water footstep sounds - walking in water (5 variations each)
+    // Water footsteps — walking through the shallows. These used to point at
+    // Sound\\Spells\\WaterFootstep*, which does not exist in the data, so every
+    // one of these loaded nothing and wading was silent. The real sets are the
+    // WaterSplash footsteps (character-sized) and the Huge variants.
+    const char kVariants[] = {'A', 'B', 'C', 'D', 'E'};
     waterFootstepSmallSounds_.resize(5);
-    loadSound("Sound\\Spells\\WaterFootstepSmall1.wav", waterFootstepSmallSounds_[0], assets);
-    loadSound("Sound\\Spells\\WaterFootstepSmall2.wav", waterFootstepSmallSounds_[1], assets);
-    loadSound("Sound\\Spells\\WaterFootstepSmall3.wav", waterFootstepSmallSounds_[2], assets);
-    loadSound("Sound\\Spells\\WaterFootstepSmall4.wav", waterFootstepSmallSounds_[3], assets);
-    loadSound("Sound\\Spells\\WaterFootstepSmall5.wav", waterFootstepSmallSounds_[4], assets);
-
     waterFootstepMediumSounds_.resize(5);
-    loadSound("Sound\\Spells\\WaterFootstepMedium1.wav", waterFootstepMediumSounds_[0], assets);
-    loadSound("Sound\\Spells\\WaterFootstepMedium2.wav", waterFootstepMediumSounds_[1], assets);
-    loadSound("Sound\\Spells\\WaterFootstepMedium3.wav", waterFootstepMediumSounds_[2], assets);
-    loadSound("Sound\\Spells\\WaterFootstepMedium4.wav", waterFootstepMediumSounds_[3], assets);
-    loadSound("Sound\\Spells\\WaterFootstepMedium5.wav", waterFootstepMediumSounds_[4], assets);
-
     waterFootstepHugeSounds_.resize(5);
-    loadSound("Sound\\Spells\\WaterFootstepHuge1.wav", waterFootstepHugeSounds_[0], assets);
-    loadSound("Sound\\Spells\\WaterFootstepHuge2.wav", waterFootstepHugeSounds_[1], assets);
-    loadSound("Sound\\Spells\\WaterFootstepHuge3.wav", waterFootstepHugeSounds_[2], assets);
-    loadSound("Sound\\Spells\\WaterFootstepHuge4.wav", waterFootstepHugeSounds_[3], assets);
-    loadSound("Sound\\Spells\\WaterFootstepHuge5.wav", waterFootstepHugeSounds_[4], assets);
+    for (int i = 0; i < 5; ++i) {
+        const std::string v(1, kVariants[i]);
+        loadSound("Sound\\Character\\Footsteps\\WaterSplash\\FootStepsMediumWater" + v + ".wav",
+                  waterFootstepSmallSounds_[i], assets);
+        loadSound("Sound\\Character\\Footsteps\\WaterSplash\\FootStepsMediumWater" + v + ".wav",
+                  waterFootstepMediumSounds_[i], assets);
+        loadSound("Sound\\Character\\Footsteps\\FootStepsHugeWater" + v + ".wav",
+                  waterFootstepHugeSounds_[i], assets);
+    }
 
     // Load jump/land vocalizations for all races
     // Human Male

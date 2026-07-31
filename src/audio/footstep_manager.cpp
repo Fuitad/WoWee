@@ -46,6 +46,19 @@ std::vector<std::string> buildHugeFootstepSet(const std::string& material) {
     return out;
 }
 
+// Water footsteps do not follow the mFootMediumLarge<material> naming the solid
+// surfaces use — there is no mFootMediumLargeWater in the data at all, so the
+// water surface was loading an empty clip set and walking through the shallows
+// was silent. The real files live under Footsteps\\WaterSplash.
+std::vector<std::string> buildWaterFootstepSet() {
+    std::vector<std::string> out;
+    for (char c = 'A'; c <= 'E'; ++c) {
+        out.push_back("Sound\\Character\\Footsteps\\WaterSplash\\FootStepsMediumWater" +
+                      std::string(1, c) + ".wav");
+    }
+    return out;
+}
+
 std::vector<std::string> buildHugeWaterFootstepSet() {
     std::vector<std::string> out;
     for (char c = 'A'; c <= 'E'; ++c) {
@@ -84,7 +97,7 @@ bool FootstepManager::initialize(pipeline::AssetManager* assets) {
     preloadSurface(surfaces, FootstepSurface::GRASS, buildClassicFootstepSet("Grass"), "character");
     preloadSurface(surfaces, FootstepSurface::WOOD, buildClassicFootstepSet("Wood"), "character");
     preloadSurface(surfaces, FootstepSurface::SNOW, buildClassicFootstepSet("Snow"), "character");
-    preloadSurface(surfaces, FootstepSurface::WATER, buildClassicFootstepSet("Water"), "character");
+    preloadSurface(surfaces, FootstepSurface::WATER, buildWaterFootstepSet(), "character");
 
     // Alternate naming seen in some builds (especially metals).
     preloadSurface(surfaces, FootstepSurface::METAL,
