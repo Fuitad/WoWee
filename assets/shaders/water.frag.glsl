@@ -47,6 +47,8 @@ layout(location = 0) out vec4 outColor;
 // ============================================================
 // Dual-scroll detail normals (multi-octave ripple overlay)
 // ============================================================
+float noiseValue(vec2 p);  // defined below; used to bend the wave fronts
+
 vec3 dualScrollWaveNormal(vec2 p, float time) {
     // Three wave octaves at different angles, frequencies, and speeds.
     // Directions are non-axis-aligned to prevent visible tiling patterns.
@@ -63,9 +65,17 @@ vec3 dualScrollWaveNormal(vec2 p, float time) {
     vec2 p2 = p + d2 * (time * s2 * 4.0);
     vec2 p3 = p + d3 * (time * s3 * 4.0);
 
-    float c1 = cos(dot(p1, d1) * f1);
-    float c2 = cos(dot(p2, d2) * f2);
-    float c3 = cos(dot(p3, d3) * f3);
+    // Bend the wave fronts. Each octave on its own is a pure cosine, which is a
+    // set of infinitely long straight ridges — in perspective those read as
+    // bright parallel lines running to the horizon, and the specular highlight
+    // rides along each crest. Perturbing the phase with low-frequency noise
+    // makes the crests wander, at the same wavelength, amplitude and speed. The
+    // noise is much coarser than the waves, so it curves them rather than
+    // roughening them.
+    float warp = noiseValue(p * 0.018 + vec2(time * 0.015)) * 6.28318;
+    float c1 = cos(dot(p1, d1) * f1 + warp);
+    float c2 = cos(dot(p2, d2) * f2 + warp * 1.7);
+    float c3 = cos(dot(p3, d3) * f3 + warp * 2.6);
 
     float dHx = c1 * d1.x * f1 * a1 + c2 * d2.x * f2 * a2 + c3 * d3.x * f3 * a3;
     float dHy = c1 * d1.y * f1 * a1 + c2 * d2.y * f2 * a2 + c3 * d3.y * f3 * a3;
