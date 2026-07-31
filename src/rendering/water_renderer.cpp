@@ -317,6 +317,12 @@ void WaterRenderer::shutdown() {
     VkDevice device = vkCtx->getDevice();
     vkDeviceWaitIdle(device);
 
+    // clear() defers surface destruction, and those lambdas free descriptor sets
+    // from the pools destroyed just below. Drain them here, while the pools are
+    // still valid — otherwise they linger until some later subsystem's flush
+    // runs them against a dead pool.
+    vkCtx->flushDeferredCleanup();
+
     destroyWater1xResources();
     destroyReflectionResources();
     destroySceneHistoryResources();
