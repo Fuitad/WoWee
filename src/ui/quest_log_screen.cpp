@@ -305,13 +305,13 @@ void QuestLogScreen::render(game::GameHandler& gameHandler, InventoryScreen& inv
                             gameHandler.shareQuestWithParty(q.questId);
                         }
                     }
-                    if (!q.complete) {
-                        ImGui::Separator();
-                        if (ImGui::MenuItem("Abandon Quest")) {
-                            gameHandler.abandonQuest(q.questId);
-                            gameHandler.setQuestTracked(q.questId, false);
-                            selectedIndex = -1;
-                        }
+                    // A quest that is complete but not yet turned in stays abandonable,
+                    // matching retail: only the reward hand-in is gated on completion.
+                    ImGui::Separator();
+                    if (ImGui::MenuItem("Abandon Quest")) {
+                        gameHandler.abandonQuest(q.questId);
+                        gameHandler.setQuestTracked(q.questId, false);
+                        selectedIndex = -1;
                     }
                     ImGui::EndPopup();
                 }
@@ -527,13 +527,12 @@ void QuestLogScreen::render(game::GameHandler& gameHandler, InventoryScreen& inv
                     }
                     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Share this quest with your party");
                 }
-                if (!sel.complete) {
-                    ImGui::SameLine();
-                    if (ImGui::Button("Abandon Quest", ImVec2(150.0f, 0.0f))) {
-                        gameHandler.abandonQuest(sel.questId);
-                        gameHandler.setQuestTracked(sel.questId, false);
-                        selectedIndex = -1;
-                    }
+                // Completed quests stay abandonable until they are turned in.
+                ImGui::SameLine();
+                if (ImGui::Button("Abandon Quest", ImVec2(150.0f, 0.0f))) {
+                    gameHandler.abandonQuest(sel.questId);
+                    gameHandler.setQuestTracked(sel.questId, false);
+                    selectedIndex = -1;
                 }
             } else {
                 ImGui::TextColored(ImVec4(0.72f, 0.72f, 0.76f, 1.0f), "Select a quest to view details.");

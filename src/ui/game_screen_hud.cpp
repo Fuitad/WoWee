@@ -1037,11 +1037,10 @@ void GameScreen::renderQuestObjectiveTracker(game::GameHandler& gameHandler) {
                         gameHandler.shareQuestWithParty(q.questId);
                     }
                 }
-                if (!q.complete) {
-                    ImGui::Separator();
-                    if (ImGui::MenuItem("Abandon Quest")) {
-                        gameHandler.abandonQuest(q.questId);
-                    }
+                // Completed quests stay abandonable until they are turned in.
+                ImGui::Separator();
+                if (ImGui::MenuItem("Abandon Quest")) {
+                    gameHandler.abandonQuest(q.questId);
                 }
                 ImGui::EndPopup();
             }
