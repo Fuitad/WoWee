@@ -410,7 +410,7 @@ bool CharacterRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFram
     std::vector<VkVertexInputAttributeDescription> charAttrs = {
         {0, 0, VK_FORMAT_R32G32B32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, position))},
         {1, 0, VK_FORMAT_R8G8B8A8_UNORM,   static_cast<uint32_t>(offsetof(CharVertexGPU, boneWeights))},
-        {2, 0, VK_FORMAT_R8G8B8A8_SINT,     static_cast<uint32_t>(offsetof(CharVertexGPU, boneIndices))},
+        {2, 0, VK_FORMAT_R8G8B8A8_UINT,     static_cast<uint32_t>(offsetof(CharVertexGPU, boneIndices))},
         {3, 0, VK_FORMAT_R32G32B32_SFLOAT,  static_cast<uint32_t>(offsetof(CharVertexGPU, normal))},
         {4, 0, VK_FORMAT_R32G32_SFLOAT,     static_cast<uint32_t>(offsetof(CharVertexGPU, texCoords))},
         {5, 0, VK_FORMAT_R32G32B32A32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, tangent))},
@@ -3109,7 +3109,7 @@ bool CharacterRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
     // Character vertex format (CharVertexGPU): stride = 56 bytes
     // loc 0: vec3 aPos          (R32G32B32_SFLOAT, offset 0)
     // loc 1: vec4 aBoneWeights  (R8G8B8A8_UNORM,   offset 12)
-    // loc 2: ivec4 aBoneIndices (R8G8B8A8_SINT,    offset 16)
+    // loc 2: uvec4 aBoneIndices (R8G8B8A8_UINT,    offset 16)
     // loc 3: vec2 aTexCoord     (R32G32_SFLOAT,    offset 32)
     VkVertexInputBindingDescription vertBind{};
     vertBind.binding = 0;
@@ -3118,7 +3118,7 @@ bool CharacterRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
     std::vector<VkVertexInputAttributeDescription> vertAttrs = {
         {0, 0, VK_FORMAT_R32G32B32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, position))},
         {1, 0, VK_FORMAT_R8G8B8A8_UNORM,   static_cast<uint32_t>(offsetof(CharVertexGPU, boneWeights))},
-        {2, 0, VK_FORMAT_R8G8B8A8_SINT,    static_cast<uint32_t>(offsetof(CharVertexGPU, boneIndices))},
+        {2, 0, VK_FORMAT_R8G8B8A8_UINT,    static_cast<uint32_t>(offsetof(CharVertexGPU, boneIndices))},
         {3, 0, VK_FORMAT_R32G32_SFLOAT,    static_cast<uint32_t>(offsetof(CharVertexGPU, texCoords))},
     };
 
@@ -3987,7 +3987,7 @@ void CharacterRenderer::recreatePipelines() {
     std::vector<VkVertexInputAttributeDescription> charAttrs = {
         {0, 0, VK_FORMAT_R32G32B32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, position))},
         {1, 0, VK_FORMAT_R8G8B8A8_UNORM,   static_cast<uint32_t>(offsetof(CharVertexGPU, boneWeights))},
-        {2, 0, VK_FORMAT_R8G8B8A8_SINT,     static_cast<uint32_t>(offsetof(CharVertexGPU, boneIndices))},
+        {2, 0, VK_FORMAT_R8G8B8A8_UINT,     static_cast<uint32_t>(offsetof(CharVertexGPU, boneIndices))},
         {3, 0, VK_FORMAT_R32G32B32_SFLOAT,  static_cast<uint32_t>(offsetof(CharVertexGPU, normal))},
         {4, 0, VK_FORMAT_R32G32_SFLOAT,     static_cast<uint32_t>(offsetof(CharVertexGPU, texCoords))},
         {5, 0, VK_FORMAT_R32G32B32A32_SFLOAT, static_cast<uint32_t>(offsetof(CharVertexGPU, tangent))},
