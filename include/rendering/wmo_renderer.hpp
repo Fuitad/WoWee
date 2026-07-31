@@ -748,6 +748,10 @@ private:
     // Models part-way through an incremental load; moved into loadedModels once
     // every group is uploaded, so a half-built model is never rendered.
     std::unordered_map<uint32_t, ModelData> loadingModels_;
+    // Textures served from the worker's pre-decoded cache during the current
+    // model load. If this is zero on a slow load, the cache is being missed and
+    // the decode is happening on the main thread.
+    size_t predecodedHits_ = 0;
     size_t modelCacheLimit_ = 4000;
     uint32_t modelLimitRejectWarnings_ = 0;
 

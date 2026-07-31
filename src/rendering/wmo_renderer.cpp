@@ -450,6 +450,7 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
     vkCtx_->beginUploadBatch();
 
     const auto wmoLoadT0 = std::chrono::steady_clock::now();
+    predecodedHits_ = 0;
 
     // Textures and materials are model-level and done once; a resumed call has
     // them already and goes straight to the remaining groups.
@@ -942,7 +943,8 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
             core::Logger::getInstance().warning(
                 "WMO ", id, " load ", total, "ms: textures=", ms(wmoLoadT0, wmoLoadT1),
                 " groups=", ms(wmoLoadT1, wmoLoadT2), " batches=", ms(wmoLoadT2, wmoLoadT3),
-                " (", model.textures.size(), " textures, ", model.groups.size(), " groups)");
+                " (", model.textures.size(), " textures, ", predecodedHits_,
+                " pre-decoded, ", model.groups.size(), " groups)");
         }
     }
 
@@ -2630,6 +2632,7 @@ VkTexture* WMORenderer::loadTexture(const std::string& path) {
                 blp = std::move(pit->second);
                 predecodedBLPCache_->erase(pit);
                 resolvedKey = c;
+                predecodedHits_++;
                 break;
             }
         }
