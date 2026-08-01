@@ -184,6 +184,8 @@ struct Emitter {
              (isTexture ? ":CreateTexture(" : ":CreateFontString(") +
              nameArg(rawName, parentName, parentVar) + ", " + quote(layerName) + ")");
 
+        emitParentKey(node, var, parentVar);
+
         if (const std::string* file = node.attr("file")) {
             line(var + ":SetTexture(" + quote(*file) + ")");
         }
@@ -295,6 +297,23 @@ struct Emitter {
         }
     }
 
+    /// Binds a region or frame to a named field on the frame containing it.
+    ///
+    /// parentKey="icon" means the owner can say self.icon rather than looking
+    /// the name up, and FrameXML's own handlers do exactly that:
+    /// QuestHonorFrameTemplate's OnLoad opens with self.icon:SetTexture(...).
+    /// Ignoring the attribute left every one of those fields nil — 242 of them
+    /// across 31 files.
+    ///
+    /// Written in brackets because the key is arbitrary text, and a key that
+    /// happens to be a Lua keyword would otherwise not parse.
+    void emitParentKey(const XmlNode& node, const std::string& var,
+                       const std::string& parentVar) {
+        const std::string* key = node.attr("parentKey");
+        if (!key || key->empty() || parentVar.empty()) return;
+        line(parentVar + "[" + quote(*key) + "] = " + var);
+    }
+
     /// Applies whatever this node inherits onto `var`. Templates apply before
     /// the frame's own settings, so anything stated on the frame overrides what
     /// it inherited — the order FrameXML relies on.
@@ -361,6 +380,9 @@ struct Emitter {
         line(var + " = CreateFrame(" + quote(node.name) + ", " +
              nameArg(rawName, parentName, parentArg) + ", " + parentArg + ")");
 
+        // Before the template applies, so a template body that reaches back
+        // through its parent for a sibling finds it already bound.
+        emitParentKey(node, var, parentArg);
         emitInherits(node, var);
         emitFrameBody(node, var, name.empty() ? parentName : name, parentArg,
                       parentName);

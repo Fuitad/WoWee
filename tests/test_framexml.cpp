@@ -208,6 +208,22 @@ TEST_CASE("$parent inside a template resolves to the frame that inherits it",
     REQUIRE_FALSE(has(r.lua, "\"MyTemplateBg\""));
 }
 
+TEST_CASE("parentKey binds a region to a field on its owner", "[framexml][emit]") {
+    // How FrameXML's handlers reach their own pieces: QuestHonorFrameTemplate's
+    // OnLoad opens with self.icon:SetTexture(...), and the icon is bound only
+    // by parentKey="icon" on the texture. Ignoring the attribute left all 242
+    // of those fields nil across 31 files.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Panel\">"
+        "<Layers><Layer><Texture name=\"$parentIcon\" parentKey=\"icon\"/></Layer></Layers>"
+        "<Frames><Frame name=\"$parentBar\" parentKey=\"bar\"/></Frames>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+
+    REQUIRE(has(r.lua, "[\"icon\"] = "));
+    REQUIRE(has(r.lua, "[\"bar\"] = "));
+}
+
 TEST_CASE("A template that inherits another applies it too", "[framexml][emit]") {
     // Templates are built from other templates constantly — 217 of FrameXML's
     // virtual frames inherit one — and the virtual branch used to return before
