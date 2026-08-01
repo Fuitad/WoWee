@@ -325,17 +325,26 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
         LOG_WARNING("AddonManager: ", path, ": ", w);
     }
 
-    const std::string dir = fs::path(path).parent_path().string();
+    const fs::path dir = fs::path(path).parent_path();
     bool ok = true;
+
+    // Resolved without regard to case, the same as the manifest's own files. A
+    // Script element says MovieFrame.lua and the file on disk is
+    // movieframe.lua, so joining the two naively fails — which took out most of
+    // FrameXML on the first attempt, one referenced script at a time.
+    auto sibling = [&](const std::string& name) {
+        const fs::path p = resolvePath(dir, name);
+        return p.empty() ? (dir / name) : p;
+    };
 
     // Order matters and is not the order the emitter reports things in. Includes
     // carry the templates a file inherits from, and scripts define the functions
     // its handlers name, so both have to be in place before any frame is built.
     for (const auto& inc : emitted.includeFiles) {
-        if (!loadXmlFile(dir + "/" + inc, depth + 1)) ok = false;
+        if (!loadXmlFile(sibling(inc).string(), depth + 1)) ok = false;
     }
     for (const auto& script : emitted.scriptFiles) {
-        if (!luaEngine_.executeFile(dir + "/" + script)) {
+        if (!luaEngine_.executeFile(sibling(script).string())) {
             LOG_ERROR("AddonManager: ", path, " referenced ", script, " which failed");
             ok = false;
         }

@@ -273,3 +273,34 @@ TEST_CASE("A Texture's inherits is not treated as a font object",
     const EmitResult r = emitFrameXml(root);
     REQUIRE_FALSE(has(r.lua, "SetFontObject"));
 }
+
+TEST_CASE("Handler bodies get their arguments by name", "[framexml][emit]") {
+    // Blizzard's inline scripts use their argument names without declaring
+    // them. Passed positionally instead, an OnUpdate body's `elapsed` is nil
+    // and the first arithmetic on it fails — which is most of FrameXML's
+    // OnUpdate handlers.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"F\"><Scripts>"
+        "<OnUpdate><![CDATA[ self.t = (self.t or 0) + elapsed ]]></OnUpdate>"
+        "<OnClick><![CDATA[ if button == \"LeftButton\" then self:Hide() end ]]></OnClick>"
+        "<OnEvent><![CDATA[ if event == \"PLAYER_LOGIN\" then self:Show() end ]]></OnEvent>"
+        "<OnValueChanged><![CDATA[ self:SetAlpha(value) ]]></OnValueChanged>"
+        "</Scripts></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+
+    REQUIRE(has(r.lua, "function(self, elapsed)"));
+    REQUIRE(has(r.lua, "function(self, button, down)"));
+    REQUIRE(has(r.lua, "function(self, event,"));
+    REQUIRE(has(r.lua, "function(self, value)"));
+    REQUIRE_FALSE(has(r.lua, "local arg1, arg2, arg3, arg4 = ..."));
+}
+
+TEST_CASE("A handler with no named arguments still takes self",
+          "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"F\"><Scripts>"
+        "<OnShow><![CDATA[ self:SetAlpha(1) ]]></OnShow>"
+        "</Scripts></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "function(self, ...)"));
+}

@@ -56,6 +56,40 @@ bool readDimension(const XmlNode& node, float& x, float& y) {
     return false;
 }
 
+
+/// The argument names a handler's body expects to find in scope. Blizzard's
+/// inline scripts use them without declaring them, so they have to be the
+/// function's parameters.
+std::string scriptParameters(const std::string& script) {
+    if (script == "OnUpdate")        return "self, elapsed";
+    if (script == "OnEvent")         return "self, event, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9";
+    if (script == "OnClick")         return "self, button, down";
+    if (script == "OnDoubleClick")   return "self, button";
+    if (script == "OnMouseDown" ||
+        script == "OnMouseUp")       return "self, button";
+    if (script == "OnDragStart" ||
+        script == "OnDragStop" ||
+        script == "OnReceiveDrag")   return "self, button";
+    if (script == "OnEnter" ||
+        script == "OnLeave")         return "self, motion";
+    if (script == "OnChar")          return "self, text";
+    if (script == "OnKeyDown" ||
+        script == "OnKeyUp")         return "self, key";
+    if (script == "OnValueChanged")  return "self, value";
+    if (script == "OnTextChanged")   return "self, isUserInput";
+    if (script == "OnMouseWheel")    return "self, delta";
+    if (script == "OnSizeChanged")   return "self, width, height";
+    if (script == "OnAttributeChanged") return "self, name, value";
+    if (script == "OnHyperlinkClick" ||
+        script == "OnHyperlinkEnter" ||
+        script == "OnHyperlinkLeave") return "self, link, text, button";
+    if (script == "OnTooltipSetItem" ||
+        script == "OnTooltipSetUnit") return "self";
+    // OnLoad, OnShow, OnHide and the rest take only self; the varargs keep an
+    // unexpected handler from erroring on arity.
+    return "self, ...";
+}
+
 struct Emitter {
     EmitResult result;
     int temp = 0;
@@ -96,10 +130,14 @@ struct Emitter {
             }
             std::string body = s.text;
             if (body.find_first_not_of(" \t\r\n") == std::string::npos) continue;
-            // Blizzard's handlers take self and the script's own arguments, and
-            // reference them by those names without declaring them.
+            // Each handler's arguments have names, and the body uses them
+            // directly without declaring them: an OnUpdate says `elapsed`, an
+            // OnClick says `button`. Passing them positionally as arg1..argN
+            // left those names nil, so every one of these bodies failed the
+            // moment it touched its own argument — arithmetic on a nil elapsed
+            // being the loudest of them.
             line(var + ":SetScript(" + quote(s.name) +
-                 ", function(self, ...) local arg1, arg2, arg3, arg4 = ...; " + body + " end)");
+                 ", function(" + scriptParameters(s.name) + ") " + body + " end)");
         }
     }
 
