@@ -45,6 +45,10 @@ add_executable(test_hill_climbing
     test_movement_limits.cpp
 )
 target_include_directories(test_hill_climbing PRIVATE ${TEST_INCLUDE_DIRS})
+# extern/ holds the vendored glm. This was the one target of forty-eight without
+# it, which went unnoticed while nothing it compiled reached for glm — Linux
+# finds a system copy regardless, so only macOS ever said so.
+target_include_directories(test_hill_climbing SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_hill_climbing PRIVATE catch2_main)
 add_test(NAME hill_climbing COMMAND test_hill_climbing)
 register_test_target(test_hill_climbing)
