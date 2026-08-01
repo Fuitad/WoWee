@@ -70,6 +70,25 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     const auto& order = tree.drawOrder();
     if (order.empty()) return;
 
+    // Resolve textures before recording anything, and only a few per frame.
+    //
+    // Uploading one ends in vkDeviceWaitIdle. Doing that from inside the draw
+    // loop stalls the whole device in the middle of building a frame, which is
+    // the shape of problem this renderer has already been bitten by once —
+    // enough synchronous submits in a row and the main loop stalls, a fence wait
+    // fails, and the device is lost. Hoisting them out means the wait happens
+    // between frames instead of during one, and the budget means a screen full
+    // of new art costs several quiet frames rather than one very long one.
+    constexpr int kUploadsPerFrame = 4;
+    int budget = kUploadsPerFrame;
+    for (const Widget* w : order) {
+        if (budget <= 0) break;
+        if (w->kind != WidgetKind::Texture || w->solidColor || w->texturePath.empty()) continue;
+        if (textures_.find(w->texturePath) != textures_.end()) continue;
+        texture(w->texturePath);
+        --budget;
+    }
+
     // Behind ImGui's own windows, so the existing interface stays on top while
     // the two coexist, but still over the 3D scene.
     ImDrawList* dl = ImGui::GetBackgroundDrawList();
@@ -90,8 +109,11 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                                   packColor(w->color, w->alpha));
                 continue;
             }
-            VkDescriptorSet tex = texture(w->texturePath);
-            if (tex == kMissing) continue;
+            // Only what is already resident. Anything still queued draws on a
+            // later frame rather than forcing an upload here.
+            auto it = textures_.find(w->texturePath);
+            if (it == textures_.end() || it->second == kMissing) continue;
+            VkDescriptorSet tex = it->second;
             // SetTexCoord is left/right/top/bottom in WoW's own order, and its
             // vertical sense already matches the image, so it passes through.
             dl->AddImage(reinterpret_cast<ImTextureID>(tex),
