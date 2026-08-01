@@ -690,6 +690,22 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     const bool selfCast = (spellId == 8690) || isSelfCastSpell(spellId);
     if (selfCast || fishingCast) target = 0;
 
+    // Spells cast at an item — Disenchant, Prospecting, Milling, the enchant
+    // formulas — carry TARGET_FLAG_ITEM in Spell.dbc's Targets. Sending one with
+    // no item in SpellCastTargets is what made the server answer "can't be
+    // disenchanted": it evaluated the question against nothing. Arm the same
+    // item-picking cursor an enchanting scroll uses and send the cast once the
+    // player chooses.
+    constexpr uint32_t kSpellTargetFlagItem = 0x10;
+    if ((getSpellTargetFlags(spellId) & kSpellTargetFlagItem) != 0) {
+        if (owner_.isAwaitingItemTarget()) {
+            owner_.addSystemChatMessage("Choose an item first.");
+            return;
+        }
+        owner_.beginSpellItemTargeting(spellId, getSpellName(spellId));
+        return;
+    }
+
     // Auto self-cast: a spell that has to be aimed at a friendly unit falls back
     // to the caster when nothing friendly is selected — no target at all, or an
     // enemy, which is the usual state mid-fight. Without it, healing yourself

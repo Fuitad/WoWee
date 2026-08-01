@@ -1410,6 +1410,15 @@ void InventoryHandler::cancelItemTargeting() {
     pendingItemTarget_.reset();
 }
 
+void InventoryHandler::beginSpellItemTargeting(uint32_t spellId, const std::string& spellName) {
+    PendingItemTarget pending;
+    pending.spellId = spellId;
+    pending.itemName = spellName;
+    pending.fromSpell = true;
+    pendingItemTarget_ = pending;
+    owner_.addSystemChatMessage("Choose an item to use " + spellName + " on.");
+}
+
 void InventoryHandler::completeItemUseOnItem(uint64_t targetItemGuid) {
     if (!isAwaitingItemTarget()) return;
     const PendingItemTarget pending = *pendingItemTarget_;
@@ -1417,6 +1426,16 @@ void InventoryHandler::completeItemUseOnItem(uint64_t targetItemGuid) {
 
     if (targetItemGuid == 0 || !owner_.getSocket()) {
         owner_.addSystemChatMessage("That is not a valid target.");
+        return;
+    }
+
+    if (pending.fromSpell) {
+        auto packet = owner_.getPacketParsers()
+            ? owner_.getPacketParsers()->buildCastSpellOnItem(pending.spellId, targetItemGuid)
+            : CastSpellPacket::buildItemTarget(pending.spellId, targetItemGuid, 0);
+        owner_.getSocket()->send(packet);
+        LOG_INFO("Casting ", pending.itemName, " (spell ", pending.spellId, ") on item 0x",
+                 std::hex, targetItemGuid, std::dec);
         return;
     }
     // Applying to itself is never valid and the server would silently drop it.

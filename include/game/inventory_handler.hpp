@@ -137,6 +137,10 @@ public:
     /// Entry of the item awaiting a target (0 if none) — drives the targeting cursor.
     uint32_t getPendingItemTargetSourceItemId() const;
     void cancelItemTargeting();
+
+    /// Arm item targeting for a spell that must be cast at an item. The cast is
+    /// sent once the player picks one.
+    void beginSpellItemTargeting(uint32_t spellId, const std::string& spellName);
     /// Sends the parked CMSG_USE_ITEM with TARGET_FLAG_ITEM against targetItemGuid.
     void completeItemUseOnItem(uint64_t targetItemGuid);
 
@@ -342,6 +346,10 @@ private:
         uint32_t spellId = 0;
         uint32_t itemId = 0;
         std::string itemName;
+        /// True when a spell is waiting for its item, rather than an item being
+        /// applied to another item. Disenchant, Prospecting, Milling and the
+        /// enchant formulas all take an item and are cast, not used.
+        bool fromSpell = false;
     };
     // mutable: isAwaitingItemTarget() drops the pending use when out of world.
     mutable std::optional<PendingItemTarget> pendingItemTarget_;

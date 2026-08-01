@@ -2792,6 +2792,10 @@ bool GameHandler::isAwaitingItemTarget() const {
     return inventoryHandler_ && inventoryHandler_->isAwaitingItemTarget();
 }
 
+void GameHandler::beginSpellItemTargeting(uint32_t spellId, const std::string& spellName) {
+    if (inventoryHandler_) inventoryHandler_->beginSpellItemTargeting(spellId, spellName);
+}
+
 uint32_t GameHandler::getPendingItemTargetSourceItemId() const {
     return inventoryHandler_ ? inventoryHandler_->getPendingItemTargetSourceItemId() : 0;
 }

@@ -59,6 +59,12 @@ public:
         return CastSpellPacket::buildGameObjectTarget(spellId, targetGuid, castCount);
     }
 
+    /** Build CMSG_CAST_SPELL with SpellCastTargets targeting an item — Disenchant,
+     *  Prospecting, Milling and the enchant formulas. */
+    virtual network::Packet buildCastSpellOnItem(uint32_t spellId, uint64_t itemGuid) {
+        return CastSpellPacket::buildItemTarget(spellId, itemGuid, 0);
+    }
+
     /** Build CMSG_USE_ITEM (WotLK default: bag + slot + castCount + spellId + itemGuid + glyphIndex + castFlags + targets)
      *  itemTargetGuid selects TARGET_FLAG_ITEM for spells that enchant another item. */
     virtual network::Packet buildUseItem(uint8_t bagIndex, uint8_t slotIndex,

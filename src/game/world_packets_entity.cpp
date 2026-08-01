@@ -1155,6 +1155,23 @@ network::Packet CastSpellPacket::buildGameObjectTarget(uint32_t spellId, uint64_
     return packet;
 }
 
+network::Packet CastSpellPacket::buildItemTarget(uint32_t spellId, uint64_t itemGuid,
+                                                 uint8_t castCount) {
+    network::Packet packet(wireOpcode(Opcode::CMSG_CAST_SPELL));
+    packet.writeUInt8(castCount);
+    packet.writeUInt32(spellId);
+    packet.writeUInt8(0x00); // castFlags = 0 for normal cast
+    // Disenchant, Prospecting, Milling and the enchant formulas are cast at an
+    // item rather than a unit; the server reads the item out of SpellCastTargets
+    // and answers "can't be disenchanted" when there is nothing there.
+    packet.writeUInt32(0x10); // TARGET_FLAG_ITEM
+    packet.writePackedGuid(itemGuid);
+
+    LOG_DEBUG("Built CMSG_CAST_SPELL: spell=", spellId, " item=0x",
+              std::hex, itemGuid, std::dec);
+    return packet;
+}
+
 network::Packet CancelAuraPacket::build(uint32_t spellId) {
     network::Packet packet(wireOpcode(Opcode::CMSG_CANCEL_AURA));
     packet.writeUInt32(spellId);
