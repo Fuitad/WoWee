@@ -1,5 +1,21 @@
 # Changelog
 
+## [Unreleased]
+
+### Original interface (FrameXML)
+- **The whole original interface loads.** All 139 files of Blizzard's own FrameXML — 13 Lua and 126 XML — build against this client's widget tree in around 380ms, behind `WOWEE_LOAD_FRAMEXML=1`. It was 67 files failing and a client frozen hard enough to need killing
+- **CreateFrame applies the template it is given.** The fourth argument was ignored outright, and that is not a missing feature so much as a trap: OptionsList_OnLoad makes one button, divides the list's height by that button's height to decide how many fit, and loops to the result. No template means no size, a height of zero, and a count of (h-8)/0 — which Lua computes happily as infinity. The loop then created frames under fresh names until memory ran out
+- **A template that inherits another applies it.** The emitter returned before `inherits` was ever read for a virtual frame, so 217 of FrameXML's 296 templates arrived without the base they are built on
+- **`parentKey` binds a region to a field on its owner.** 242 declarations across 31 files, every one of them nil, and FrameXML's handlers reach for them constantly — QuestHonorFrameTemplate's OnLoad opens with `self.icon:SetTexture(...)`
+- **A frame's `id` exists.** 848 declared across 57 files with no `GetID`/`SetID` behind them, and FrameXML concatenates the result straight into a name: `_G["PartyMemberFrame" .. self:GetID() .. "PetFrame"]`. It is set before any template runs, because a template's children load while the template is being applied
+- **Button art declared outside a Layer is created.** `<NormalTexture>`, `<HighlightTexture>`, `<ButtonText>` and their siblings were ignored; HighlightTexture alone appears in 62 files. The setters take a file path as readily as a texture, which is how LoadMicroButtonTextures uses them
+- **A scroll frame's `<ScrollChild>` is built**, and handler arguments have their real names — `OnVerticalScroll`'s body opens with `scrollbar:SetValue(offset)`, which was nil on every scroll frame in the interface
+- **`$parent` skips unnamed frames to the nearest named ancestor**, and a frame loads once when it is finished rather than once per template it is built from
+- **The missing-API stand-in answers methods, not data.** FrameXML guards its optional frames properly — `if (prefixText) then prefixText:GetText()` — and a stand-in that answers everything makes the correct check worse than no check. Widget methods are now enumerated rather than guessed at, because measurement showed methods and data cannot be told apart by shape: of the 307 method names FrameXML calls, eighteen read as nouns
+- **A runaway script costs one file rather than the session.** The load runs on the main thread during world entry, so a script that will not return freezes the client until the server drops the connection. A wall-clock deadline aborts it and names the Lua line it was on
+- **Errors carry the Lua call stack.** An error says where it happened; the interesting part is nearly always how it got there
+
+
 ## [v2.0.33-preview] — 2026-08-01
 
 ### Transports
