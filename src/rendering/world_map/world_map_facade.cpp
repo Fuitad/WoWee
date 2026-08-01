@@ -105,6 +105,10 @@ struct WorldMapFacade::Impl {
     pipeline::AssetManager* assetManager = nullptr;
     bool initialized = false;
     bool open = false;
+    // The zone the server says the player is in (SMSG_INIT_WORLD_STATES). 0 until
+    // it has said. Preferred over guessing from WorldMapArea boxes, which overlap
+    // their neighbours enough to open the map on a zone the player is merely near.
+    uint32_t playerZoneId = 0;
     std::string mapName = "Azeroth";
     std::string physicalMapName = "Azeroth";
     bool virtualMapOverride = false;
@@ -389,7 +393,7 @@ void WorldMapFacade::render(const glm::vec3& playerRenderPos,
     if (!d.data.zones().empty()) {
         d.exploration.update(d.data.zones(), displayPlayerRenderPos,
                              d.viewState.currentZoneIdx(),
-                             d.data.exploreFlagByAreaId());
+                             d.data.exploreFlagByAreaId(), d.playerZoneId);
         if (d.exploration.overlaysChanged() && d.viewState.currentZoneIdx() >= 0) {
             d.compositor.invalidateComposite();
             d.compositor.requestComposite(d.viewState.currentZoneIdx());
@@ -406,7 +410,7 @@ void WorldMapFacade::render(const glm::vec3& playerRenderPos,
             displayPlayerRenderPos = displayedPlayerPosition();
         }
 
-        int playerZone = findZoneForPlayer(d.data.zones(), displayPlayerRenderPos);
+        int playerZone = findZoneForPlayer(d.data.zones(), displayPlayerRenderPos, d.playerZoneId);
 
         // Some zones are stored on a different physical map from the continent
         // shown by the world-map UI. The draenei islands are the important case:
@@ -432,7 +436,7 @@ void WorldMapFacade::render(const glm::vec3& playerRenderPos,
                     d.viewState.setContinentIdx(-1);
                     d.viewState.setCurrentZoneIdx(-1);
                     displayPlayerRenderPos = displayedPlayerPosition();
-                    playerZone = findZoneForPlayer(d.data.zones(), displayPlayerRenderPos);
+                    playerZone = findZoneForPlayer(d.data.zones(), displayPlayerRenderPos, d.playerZoneId);
                     LOG_INFO("World map virtual continent: physical='",
                              d.physicalMapName, "' display='", d.mapName, "'");
                 }
@@ -456,7 +460,7 @@ void WorldMapFacade::render(const glm::vec3& playerRenderPos,
                 d.viewState.setContinentIdx(-1);
                 d.viewState.setCurrentZoneIdx(-1);
                 displayPlayerRenderPos = displayedPlayerPosition();
-                playerZone = findZoneForPlayer(d.data.zones(), displayPlayerRenderPos);
+                playerZone = findZoneForPlayer(d.data.zones(), displayPlayerRenderPos, d.playerZoneId);
             }
         }
 
@@ -475,7 +479,7 @@ void WorldMapFacade::render(const glm::vec3& playerRenderPos,
             d.viewState.setCurrentZoneIdx(playerZone);
             d.viewState.setLevel(ViewLevel::ZONE);
             d.exploration.update(d.data.zones(), displayPlayerRenderPos, playerZone,
-                                 d.data.exploreFlagByAreaId());
+                                 d.data.exploreFlagByAreaId(), d.playerZoneId);
             d.compositor.requestComposite(playerZone);
         } else if (d.viewState.continentIdx() >= 0) {
             d.compositor.loadZoneTextures(d.viewState.continentIdx(), d.data.zones(), d.mapName);
@@ -503,7 +507,7 @@ void WorldMapFacade::render(const glm::vec3& playerRenderPos,
             return;
 
         case InputAction::ZOOM_IN: {
-            int playerZone = findZoneForPlayer(d.data.zones(), displayPlayerRenderPos);
+            int playerZone = findZoneForPlayer(d.data.zones(), displayPlayerRenderPos, d.playerZoneId);
             // For continent→zone, verify the zone belongs to the current continent
             int candidateZone = hoveredZone >= 0 ? hoveredZone : playerZone;
             if (d.viewState.currentLevel() == ViewLevel::CONTINENT &&
@@ -633,6 +637,10 @@ void WorldMapFacade::setMapName(const std::string& name) {
 
 void WorldMapFacade::setServerExplorationMask(const std::vector<uint32_t>& masks, bool hasData) {
     impl_->exploration.setServerMask(masks, hasData);
+}
+
+void WorldMapFacade::setPlayerZoneId(uint32_t zoneId) {
+    impl_->playerZoneId = zoneId;
 }
 
 void WorldMapFacade::setPartyDots(std::vector<PartyDot> dots) {
@@ -839,6 +847,7 @@ void WorldMapFacade::Impl::renderImGuiOverlay(const glm::vec3& playerRenderPos,
         layerCtx.displayW = displayW;
         layerCtx.displayH = displayH;
         layerCtx.playerRenderPos = playerRenderPos;
+        layerCtx.playerZoneId = playerZoneId;
         layerCtx.playerYawDeg = playerYawDeg;
         layerCtx.currentZoneIdx = viewState.currentZoneIdx();
         layerCtx.continentIdx = viewState.continentIdx();

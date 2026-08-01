@@ -81,7 +81,7 @@ void PlayerMarkerLayer::render(const LayerContext& ctx) {
     bool isContinent = zone.areaID == 0;
 
     if (isContinent) {
-        int playerZone = findZoneForPlayer(*ctx.zones, ctx.playerRenderPos);
+        int playerZone = findZoneForPlayer(*ctx.zones, ctx.playerRenderPos, ctx.playerZoneId);
         if (playerZone < 0 || !zoneBelongsToContinent(*ctx.zones, playerZone, ctx.currentZoneIdx))
             return;
         float l, r, t, b;

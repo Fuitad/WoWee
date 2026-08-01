@@ -41,6 +41,9 @@ public:
 
     void setMapName(const std::string& name);
     void setServerExplorationMask(const std::vector<uint32_t>& masks, bool hasData);
+    /// The zone the server says the player is in. Used in preference to working
+    /// it out from map geometry, which can only guess between overlapping zones.
+    void setPlayerZoneId(uint32_t zoneId);
     void setPartyDots(std::vector<PartyDot> dots);
     void setTaxiNodes(std::vector<TaxiNode> nodes);
     void setQuestPois(std::vector<QuestPOI> pois);

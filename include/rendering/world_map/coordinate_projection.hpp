@@ -28,10 +28,25 @@ bool getContinentProjectionBounds(const std::vector<Zone>& zones,
 int findBestContinentForPlayer(const std::vector<Zone>& zones,
                                 const glm::vec3& playerRenderPos);
 
-/// Find the smallest zone (areaID != 0) containing the player position.
-/// Returns -1 if no zone contains the position.
+/// Find the zone the player is in.
+///
+/// authoritativeZoneId is the zone the server says the player is in, from
+/// SMSG_INIT_WORLD_STATES. When it names a zone on this map that is the answer,
+/// full stop — no geometry involved.
+///
+/// The fallback below is a guess and reads like one. WorldMapArea bounds are
+/// axis-aligned boxes around irregular zones, so neighbours overlap heavily and
+/// the best it can do is pick the box the player sits deepest inside. That is
+/// how the map came to open on a zone the player was merely near.
+///
+/// Pass 0 when the server has not said (before the first world-state packet, or
+/// on expansions that do not send one) and the geometry is used alone.
 int findZoneForPlayer(const std::vector<Zone>& zones,
-                       const glm::vec3& playerRenderPos);
+                       const glm::vec3& playerRenderPos,
+                       uint32_t authoritativeZoneId = 0);
+
+/// Index of the zone with this AreaID, or -1. Exact, no geometry.
+int findZoneByAreaId(const std::vector<Zone>& zones, uint32_t areaId);
 
 /// Test if a zone spatially belongs to a given continent.
 /// Uses parentWorldMapID when available, falls back to overlap heuristic.

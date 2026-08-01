@@ -23,10 +23,13 @@ public:
     /// @param playerRenderPos Player position in render-space
     /// @param currentZoneIdx  Currently viewed zone index
     /// @param exploreFlagByAreaId  AreaID → ExploreFlag mapping from AreaTable.dbc
+    /// @param playerZoneId The zone the server says the player is in (0 if unknown),
+    ///        used in preference to deriving it from overlapping map geometry.
     void update(const std::vector<Zone>& zones,
                 const glm::vec3& playerRenderPos,
                 int currentZoneIdx,
-                const std::unordered_map<uint32_t, uint32_t>& exploreFlagByAreaId);
+                const std::unordered_map<uint32_t, uint32_t>& exploreFlagByAreaId,
+                uint32_t playerZoneId = 0);
 
     const std::unordered_set<int>& exploredZones() const { return exploredZones_; }
     const std::unordered_set<int>& exploredOverlays() const { return exploredOverlays_; }

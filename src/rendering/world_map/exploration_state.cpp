@@ -34,7 +34,8 @@ bool ExplorationState::isBitSet(uint32_t bitIndex) const {
 void ExplorationState::update(const std::vector<Zone>& zones,
                                const glm::vec3& playerRenderPos,
                                int currentZoneIdx,
-                               const std::unordered_map<uint32_t, uint32_t>& exploreFlagByAreaId) {
+                               const std::unordered_map<uint32_t, uint32_t>& exploreFlagByAreaId,
+                               uint32_t playerZoneId) {
     overlaysChanged_ = false;
 
     if (hasServerMask_) {
@@ -51,7 +52,7 @@ void ExplorationState::update(const std::vector<Zone>& zones,
         }
         // Also reveal the zone the player is currently standing in so the map isn't
         // pitch-black the moment they first enter a new zone.
-        int curZone = findZoneForPlayer(zones, playerRenderPos);
+        int curZone = findZoneForPlayer(zones, playerRenderPos, playerZoneId);
         if (curZone >= 0) exploredZones_.insert(curZone);
 
         // Per-overlay exploration: check each overlay's areaIDs against the exploration mask
@@ -99,7 +100,7 @@ void ExplorationState::update(const std::vector<Zone>& zones,
     }
 
     if (!foundPos) {
-        int zoneIdx = findZoneForPlayer(zones, playerRenderPos);
+        int zoneIdx = findZoneForPlayer(zones, playerRenderPos, playerZoneId);
         if (zoneIdx >= 0) locallyExploredZones_.insert(zoneIdx);
     }
 

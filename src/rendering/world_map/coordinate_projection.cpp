@@ -145,8 +145,22 @@ int findBestContinentForPlayer(const std::vector<Zone>& zones,
     return bestIdx;
 }
 
+int findZoneByAreaId(const std::vector<Zone>& zones, uint32_t areaId) {
+    if (areaId == 0) return -1;
+    for (int i = 0; i < static_cast<int>(zones.size()); i++) {
+        if (zones[i].areaID == areaId) return i;
+    }
+    return -1;
+}
+
 int findZoneForPlayer(const std::vector<Zone>& zones,
-                       const glm::vec3& playerRenderPos) {
+                       const glm::vec3& playerRenderPos,
+                       uint32_t authoritativeZoneId) {
+    // The server tells us which zone the player is in. When that names a zone on
+    // this map, it is the answer and there is nothing to work out.
+    const int known = findZoneByAreaId(zones, authoritativeZoneId);
+    if (known >= 0) return known;
+
     float wowX = playerRenderPos.y;
     float wowY = playerRenderPos.x;
 

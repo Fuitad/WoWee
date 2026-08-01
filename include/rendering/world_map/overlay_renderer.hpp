@@ -26,6 +26,10 @@ struct LayerContext {
     ImVec2 imgMin;           // top-left of map image in screen space
     float displayW = 0, displayH = 0;
     glm::vec3 playerRenderPos;
+    // The zone the server says the player is in; 0 when it has not said. Layers
+    // that need "which zone is the player in" must use this in preference to
+    // deriving it, so the marker agrees with the zone the map opened on.
+    uint32_t playerZoneId = 0;
     float playerYawDeg = 0;
     int currentZoneIdx = -1;
     int continentIdx = -1;

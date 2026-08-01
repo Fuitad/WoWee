@@ -469,6 +469,11 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
     wm->setServerExplorationMask(
         gameHandler.getPlayerExploredZoneMasks(),
         gameHandler.hasPlayerExploredZoneMasks());
+    // Which zone the player is actually in, rather than which WorldMapArea box
+    // they happen to sit deepest inside. The boxes are axis-aligned rectangles
+    // around irregular zones and overlap their neighbours heavily, so opening
+    // the map could land on a zone the player was only near.
+    wm->setPlayerZoneId(gameHandler.getWorldStateZoneId());
 
     // Party member dots on world map
     {
