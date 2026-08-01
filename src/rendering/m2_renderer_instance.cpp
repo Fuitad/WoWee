@@ -156,6 +156,7 @@ void M2Renderer::setInstanceTransform(uint32_t instanceId, const glm::mat4& tran
     // Remove old grid cells before updating bounds
     GridCell oldMinCell = toCell(inst.worldBoundsMin);
     GridCell oldMaxCell = toCell(inst.worldBoundsMax);
+    const glm::vec3 oldPosition = inst.position;
 
     // Update model matrix directly
     inst.modelMatrix = transform;
@@ -163,6 +164,33 @@ void M2Renderer::setInstanceTransform(uint32_t instanceId, const glm::mat4& tran
 
     // Extract position from transform for bounds
     inst.position = glm::vec3(transform[3]);
+
+    // The dedup map is keyed on position, so it has to move with the instance.
+    // It did not, and only rebuildSpatialIndex ever put it right — which this
+    // path deliberately avoids. A ship's doodads are created at the origin and
+    // moved here a frame later, so the origin key stayed pointing at them and
+    // the next ship of the same class was handed the first ship's sails instead
+    // of its own. Both hulls then wrote their transform to the one instance, so
+    // it rendered at whichever ship updated last, and whichever hull unloaded
+    // first destroyed it for the other.
+    if (!inst.cachedIsGroundDetail) {
+        auto keyFor = [&](const glm::vec3& p) {
+            return DedupKey{inst.modelId,
+                            static_cast<int32_t>(std::round(p.x * 10.0f)),
+                            static_cast<int32_t>(std::round(p.y * 10.0f)),
+                            static_cast<int32_t>(std::round(p.z * 10.0f))};
+        };
+        const DedupKey oldKey = keyFor(oldPosition);
+        const DedupKey newKey = keyFor(inst.position);
+        if (!(oldKey == newKey)) {
+            auto oldIt = instanceDedupMap_.find(oldKey);
+            // Only drop the entry if it still names this instance.
+            if (oldIt != instanceDedupMap_.end() && oldIt->second == instanceId) {
+                instanceDedupMap_.erase(oldIt);
+            }
+            instanceDedupMap_.emplace(newKey, instanceId);
+        }
+    }
 
     // Update bounds via the cached model pointer
     if (inst.cachedModel) {

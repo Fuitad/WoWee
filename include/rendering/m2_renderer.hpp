@@ -358,9 +358,15 @@ public:
     /** Mark a loaded model as a spell effect (full-brightness particles, no collision). */
     void markModelAsSpellEffect(uint32_t modelId);
 
+    /// Instances of the same model at the same spot are treated as one placement,
+    /// which is right for the static world and wrong for anything whose position
+    /// arrives later from a parent. Pass allowPositionDedup=false for a child
+    /// instance created at a placeholder position — see the note in
+    /// setInstanceTransform on why the placeholder key outlives the placement.
     uint32_t createInstance(uint32_t modelId, const glm::vec3& position,
                             const glm::vec3& rotation = glm::vec3(0.0f),
-                            float scale = 1.0f);
+                            float scale = 1.0f,
+                            bool allowPositionDedup = true);
     uint32_t createInstanceWithMatrix(uint32_t modelId, const glm::mat4& modelMatrix,
                                        const glm::vec3& position);
 

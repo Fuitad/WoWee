@@ -36,7 +36,8 @@ namespace wowee {
 namespace rendering {
 
 uint32_t M2Renderer::createInstance(uint32_t modelId, const glm::vec3& position,
-                                     const glm::vec3& rotation, float scale) {
+                                     const glm::vec3& rotation, float scale,
+                                     bool allowPositionDedup) {
     // Reject NaN inputs at the boundary — std::round of NaN is implementation-
     // defined and a NaN instance position propagates into the GPU model matrix,
     // either tripping Vulkan validation or rendering at the world origin.
@@ -58,7 +59,7 @@ uint32_t M2Renderer::createInstance(uint32_t modelId, const glm::vec3& position,
     // Deduplicate: skip if same model already at nearly the same position.
     // Uses hash map for O(1) lookup instead of O(N) scan.
     // Spell effects are exempt — transient visuals must always create fresh instances.
-    if (!mdlRef.isGroundDetail && !mdlRef.isSpellEffect) {
+    if (allowPositionDedup && !mdlRef.isGroundDetail && !mdlRef.isSpellEffect) {
         DedupKey dk{modelId,
                     static_cast<int32_t>(std::round(position.x * 10.0f)),
                     static_cast<int32_t>(std::round(position.y * 10.0f)),
@@ -139,7 +140,7 @@ uint32_t M2Renderer::createInstance(uint32_t modelId, const glm::vec3& position,
 
     // Register in dedup map before pushing (uses original position, not ground-adjusted)
     // Spell effects are exempt from dedup tracking (transient, overlapping allowed).
-    if (!mdlRef.isGroundDetail && !mdlRef.isSpellEffect) {
+    if (allowPositionDedup && !mdlRef.isGroundDetail && !mdlRef.isSpellEffect) {
         DedupKey dk{modelId,
                     static_cast<int32_t>(std::round(position.x * 10.0f)),
                     static_cast<int32_t>(std::round(position.y * 10.0f)),

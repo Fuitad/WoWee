@@ -1335,7 +1335,14 @@ void EntitySpawner::processPendingTransportDoodads() {
                 LOG_WARNING("Transport doodad failed to upload: ", doodadTemplate.m2Path);
                 continue;
             }
-            uint32_t m2InstanceId = m2Renderer->createInstance(doodadModelId, glm::vec3(0.0f), glm::vec3(0.0f), 1.0f);
+            // Created at the origin and moved into place by the parent WMO's
+            // transform, so its position here is a placeholder and must not be
+            // deduplicated against — otherwise the second ship of a class is
+            // handed the first ship's sails rather than getting its own, and
+            // the thirteen barrels in a hold collapse into one barrel.
+            uint32_t m2InstanceId = m2Renderer->createInstance(
+                doodadModelId, glm::vec3(0.0f), glm::vec3(0.0f), 1.0f,
+                /*allowPositionDedup=*/false);
             if (m2InstanceId == 0) {
                 LOG_WARNING("Transport doodad got no instance: ", doodadTemplate.m2Path);
                 continue;
