@@ -1,4 +1,8 @@
 #include "core/entity_spawner.hpp"
+#include "core/helm_visual.hpp"
+
+// M2 attachment 11 is the helm; 0 is the shield mount.
+namespace { constexpr uint32_t kAttachHelm = 11; }
 #include "core/coordinates.hpp"
 #include "core/logger.hpp"
 #include "rendering/renderer.hpp"
@@ -1842,7 +1846,8 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             }
 
             // Hide hair under helmets: replace style-specific scalp with bald scalp
-            if (extra.equipDisplayId[0] != 0 && hairGeoset > 1) {
+            if (extra.equipDisplayId[0] != 0 && hairGeoset > 1 &&
+                core::helmHidesHair(*assetManager_, extra.equipDisplayId[0], extra.sexId)) {
                 activeGeosets.erase(hairGeoset);                              // Remove style scalp
                 activeGeosets.erase(static_cast<uint16_t>(100 + hairGeoset)); // Remove style group 1
                 activeGeosets.insert(1);    // Bald scalp cap (group 0)
@@ -1869,66 +1874,25 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             // attachment 11 explicitly defined.
             static constexpr bool kEnableNpcHelmetAttachmentsMainPath = true;
             // Load and attach helmet model if equipped
-            if (kEnableNpcHelmetAttachmentsMainPath && extra.equipDisplayId[0] != 0 && itemDisplayDbc) {
-                int32_t helmIdx = itemDisplayDbc->findRecordById(extra.equipDisplayId[0]);
-                if (helmIdx >= 0) {
-                    // Get helmet model name from ItemDisplayInfo.dbc (LeftModel)
-                    std::string helmModelName = itemDisplayDbc->getString(static_cast<uint32_t>(helmIdx), idiL ? (*idiL)["LeftModel"] : 1);
-                    if (!helmModelName.empty()) {
-                        // Convert .mdx to .m2
-                        size_t dotPos = helmModelName.rfind('.');
-                        if (dotPos != std::string::npos) {
-                            helmModelName = helmModelName.substr(0, dotPos);
-                        }
+            if (kEnableNpcHelmetAttachmentsMainPath && extra.equipDisplayId[0] != 0) {
+                const core::HelmVisual helm = core::resolveHelmVisual(
+                    *assetManager_, extra.equipDisplayId[0], extra.raceId, extra.sexId);
+                if (helm.valid()) {
+                    std::vector<std::string> helmCandidates;
+                    if (!helm.racialModelPath.empty()) helmCandidates.push_back(helm.racialModelPath);
+                    helmCandidates.push_back(helm.baseModelPath);
 
-                        // WoW helmet M2 files have per-race/gender variants with a suffix
-                        // e.g. Helm_Plate_B_01Stormwind_HuM.M2 for Human Male
-                        // ChrRaces.dbc ClientPrefix values (raceId → prefix):
-                        static const std::unordered_map<uint8_t, std::string> racePrefix = {
-                            {1, "Hu"}, {2, "Or"}, {3, "Dw"}, {4, "Ni"}, {5, "Sc"},
-                            {6, "Ta"}, {7, "Gn"}, {8, "Tr"}, {10, "Be"}, {11, "Dr"}
-                        };
-                        std::string genderSuffix = (extra.sexId == 0) ? "M" : "F";
-                        std::string raceSuffix;
-                        auto itRace = racePrefix.find(extra.raceId);
-                        if (itRace != racePrefix.end()) {
-                            raceSuffix = "_" + itRace->second + genderSuffix;
-                        }
-
-                        // Try race/gender-specific variant first, then base name
-                        std::vector<std::string> helmCandidates;
-                        if (!raceSuffix.empty()) {
-                            helmCandidates.push_back("Item\\ObjectComponents\\Head\\" + helmModelName + raceSuffix + ".m2");
-                        }
-                        helmCandidates.push_back("Item\\ObjectComponents\\Head\\" + helmModelName + ".m2");
-
-                        // Texture first: the cached model id is keyed by (geometry, texture).
-                        std::string helmTexName = itemDisplayDbc->getString(static_cast<uint32_t>(helmIdx), idiL ? (*idiL)["LeftModelTexture"] : 3);
-                        std::string helmTexPath;
-                        if (!helmTexName.empty()) {
-                            // Try race/gender suffixed texture first
-                            if (!raceSuffix.empty()) {
-                                std::string suffixedTex = "Item\\ObjectComponents\\Head\\" + helmTexName + raceSuffix + ".blp";
-                                if (assetManager_->fileExists(suffixedTex)) {
-                                    helmTexPath = suffixedTex;
-                                }
-                            }
-                            if (helmTexPath.empty()) {
-                                helmTexPath = "Item\\ObjectComponents\\Head\\" + helmTexName + ".blp";
-                            }
-                        }
-
-                        auto helm = getOrLoadAttachmentModel(helmCandidates, helmTexPath);
-                        if (helm.modelId != 0) {
-                            const auto& helmModel = *helm.model;
-                            // Attachment point 11 = Head
-                            bool attached = charRenderer->attachWeapon(instanceId, 0, helmModel, helm.modelId, helmTexPath);
-                            if (!attached) {
-                                attached = charRenderer->attachWeapon(instanceId, 11, helmModel, helm.modelId, helmTexPath);
-                            }
-                            if (attached) {
-                                LOG_DEBUG("Attached helmet model: ", helmModel.name, " tex: ", helmTexPath);
-                            }
+                    auto loaded = getOrLoadAttachmentModel(helmCandidates, helm.texturePath);
+                    if (loaded.modelId != 0) {
+                        // Attachment 11 is the helm. This attached at 0 — the shield
+                        // mount — which succeeded, so the fallback to 11 never ran and
+                        // every NPC wore their helmet on the forearm.
+                        const bool attached = charRenderer->attachWeapon(
+                            instanceId, kAttachHelm, *loaded.model, loaded.modelId,
+                            helm.texturePath);
+                        if (attached) {
+                            LOG_DEBUG("Attached helmet model: ", loaded.model->name,
+                                      " tex: ", helm.texturePath);
                         }
                     }
                 }

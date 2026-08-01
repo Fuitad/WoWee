@@ -1,5 +1,9 @@
 #include "core/entity_spawner.hpp"
 #include "core/helm_visual.hpp"
+
+// M2 attachment 11 is the helm. 0 is the shield mount, which is where head gear
+// was going: it attached, reported success, and hung off the forearm.
+namespace { constexpr uint32_t kAttachHelm = 11; }
 #include "core/coordinates.hpp"
 #include "core/logger.hpp"
 #include "rendering/renderer.hpp"
@@ -627,9 +631,8 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
     // HEAD slot is index 0 in the 19-element equipment array.
     // Helmet M2s are race/gender-specific (e.g. Helm_Plate_B_01_HuM.m2 for Human Male).
     if (displayInfoIds[0] != 0) {
-        // Detach any previously attached helmet before attaching a new one
-        charRenderer->detachWeapon(st.instanceId, 0);
-        charRenderer->detachWeapon(st.instanceId, 11);
+        // Only the helm point — detaching 0 as well would drop the shield.
+        charRenderer->detachWeapon(st.instanceId, kAttachHelm);
 
         const core::HelmVisual helm = core::resolveHelmVisual(
             *assetManager_, displayInfoIds[0], st.raceId, st.genderId);
@@ -648,12 +651,8 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
             if (helmModel.isValid()) {
                 const uint32_t helmModelId = nextWeaponModelId_++;
                 // Attachment point 0 (head bone), fallback to 11 (explicit head).
-                bool attached = charRenderer->attachWeapon(st.instanceId, 0, helmModel,
-                                                           helmModelId, helm.texturePath);
-                if (!attached) {
-                    attached = charRenderer->attachWeapon(st.instanceId, 11, helmModel,
-                                                          helmModelId, helm.texturePath);
-                }
+                const bool attached = charRenderer->attachWeapon(
+                    st.instanceId, kAttachHelm, helmModel, helmModelId, helm.texturePath);
                 if (attached) {
                     LOG_DEBUG("Attached player helmet: ", helmPath, " tex: ", helm.texturePath);
                 }
@@ -661,8 +660,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
         }
     } else {
         // No helmet equipped — detach any existing helmet model
-        charRenderer->detachWeapon(st.instanceId, 0);
-        charRenderer->detachWeapon(st.instanceId, 11);
+        charRenderer->detachWeapon(st.instanceId, kAttachHelm);
     }
 
     // --- Shoulder model attachment ---
