@@ -1,6 +1,7 @@
 // lua_action_api.cpp — Action bar, cursor/pickup, keyboard input, key bindings, and pet actions Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
+#include "game/pet_action.hpp"
 #include "imgui.h"
 
 namespace wowee::addons {
@@ -665,25 +666,30 @@ void registerActionLuaAPI(lua_State* L) {
                 {"PetAttack", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (gh && gh->hasPet() && gh->hasTarget())
-                gh->sendPetAction(0x00000007 | (2u << 24), gh->getTargetGuid()); // CMD_ATTACK
+                gh->sendPetAction(
+                    game::pet::packPetAction(game::pet::ActionType::Command, game::pet::kAttack),
+                    gh->getTargetGuid());
             return 0;
         }},
                 {"PetFollow", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (gh && gh->hasPet())
-                gh->sendPetAction(0x00000007 | (1u << 24), 0); // CMD_FOLLOW
+                gh->sendPetAction(
+                    game::pet::packPetAction(game::pet::ActionType::Command, game::pet::kFollow), 0);
             return 0;
         }},
                 {"PetWait", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (gh && gh->hasPet())
-                gh->sendPetAction(0x00000007 | (0u << 24), 0); // CMD_STAY
+                gh->sendPetAction(
+                    game::pet::packPetAction(game::pet::ActionType::Command, game::pet::kStay), 0);
             return 0;
         }},
                 {"PetPassiveMode", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (gh && gh->hasPet())
-                gh->sendPetAction(0x00000007 | (0u << 16), 0); // REACT_PASSIVE
+                gh->sendPetAction(
+                    game::pet::packPetAction(game::pet::ActionType::Reaction, game::pet::kPassive), 0);
             return 0;
         }},
                 {"CastPetAction", [](lua_State* L) -> int {
@@ -710,7 +716,8 @@ void registerActionLuaAPI(lua_State* L) {
                 {"PetDismiss", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (gh && gh->hasPet())
-                gh->sendPetAction(0x00000007 | (3u << 24), 0); // CMD_DISMISS
+                gh->sendPetAction(
+                    game::pet::packPetAction(game::pet::ActionType::Command, game::pet::kAbandon), 0);
             return 0;
         }},
                 {"IsPetAttackActive", [](lua_State* L) -> int {
@@ -721,7 +728,8 @@ void registerActionLuaAPI(lua_State* L) {
                 {"PetDefensiveMode", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (gh && gh->hasPet())
-                gh->sendPetAction(0x00000007 | (1u << 16), 0); // REACT_DEFENSIVE
+                gh->sendPetAction(
+                    game::pet::packPetAction(game::pet::ActionType::Reaction, game::pet::kDefensive), 0);
             return 0;
         }},
     };

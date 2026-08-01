@@ -7,6 +7,7 @@
 #include "core/appearance_composer.hpp"
 #include "addons/addon_manager.hpp"
 #include "core/coordinates.hpp"
+#include "game/pet_action.hpp"
 #include "core/input.hpp"
 #include "rendering/renderer.hpp"
 #include "rendering/post_process_pipeline.hpp"
@@ -74,6 +75,48 @@ namespace {
         if (t < 0.0f) return false;
         tOut = t;
         return true;
+    }
+
+    // Name a built-in pet bar slot. Both halves of the packed value matter:
+    // the ids 0/1/2 mean stay/follow/attack as commands and passive/defensive/
+    // aggressive as stances, so reading the id alone labelled half the bar
+    // wrongly and left the id-0 slots blank.
+    const char* petBuiltinName(uint32_t slotVal) {
+        namespace pet = wowee::game::pet;
+        const uint32_t id = pet::petActionId(slotVal);
+        switch (pet::petActionType(slotVal)) {
+            case pet::ActionType::Command:
+                if (id == pet::kStay)    return "Stay";
+                if (id == pet::kFollow)  return "Follow";
+                if (id == pet::kAttack)  return "Attack";
+                if (id == pet::kAbandon) return "Dismiss";
+                if (id == pet::kMoveTo)  return "Move To";
+                return nullptr;
+            case pet::ActionType::Reaction:
+                if (id == pet::kPassive)    return "Passive";
+                if (id == pet::kDefensive)  return "Defensive";
+                if (id == pet::kAggressive) return "Aggressive";
+                return nullptr;
+            default:
+                return nullptr;
+        }
+    }
+
+    const char* petBuiltinShortLabel(uint32_t slotVal) {
+        const char* full = petBuiltinName(slotVal);
+        if (!full) return nullptr;
+        namespace pet = wowee::game::pet;
+        const uint32_t id = pet::petActionId(slotVal);
+        if (pet::petActionType(slotVal) == pet::ActionType::Command) {
+            if (id == pet::kStay)    return "Sty";
+            if (id == pet::kFollow)  return "Fol";
+            if (id == pet::kAttack)  return "Atk";
+            if (id == pet::kAbandon) return "Dis";
+            return "Mov";
+        }
+        if (id == pet::kPassive)   return "Psv";
+        if (id == pet::kDefensive) return "Def";
+        return "Agg";
     }
 
     std::string getEntityName(const std::shared_ptr<wowee::game::Entity>& entity) {
@@ -680,14 +723,18 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
             };
             uint8_t curReact = gameHandler.getPetReact(); // 0=passive,1=defensive,2=aggressive
 
-            // Find each react-type slot in the action bar by known built-in IDs:
-            // 1=Passive, 4=Defensive, 6=Aggressive (WoW wire protocol)
-            static constexpr uint32_t kReactActionIds[] = { 1u, 4u, 6u };
+            // A stance slot is identified by its type as well as its id — the
+            // ids 0/1/2 also name stay/follow/attack under the command type, so
+            // matching on the id alone found the wrong slot.
+            static constexpr uint32_t kReactActionIds[] = {
+                game::pet::kPassive, game::pet::kDefensive, game::pet::kAggressive
+            };
             uint32_t reactSlotVals[3] = { 0, 0, 0 };
             const int slotTotal = game::GameHandler::PET_ACTION_BAR_SLOTS;
             for (int i = 0; i < slotTotal; ++i) {
                 uint32_t sv = gameHandler.getPetActionSlot(i);
-                uint32_t aid = sv & 0x00FFFFFFu;
+                if (game::pet::petActionType(sv) != game::pet::ActionType::Reaction) continue;
+                uint32_t aid = game::pet::petActionId(sv);
                 for (int r = 0; r < 3; ++r) {
                     if (aid == kReactActionIds[r]) { reactSlotVals[r] = sv; break; }
                 }
@@ -705,7 +752,8 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
                     // Use server-provided slot value if available; fall back to raw ID
                     uint32_t action = (reactSlotVals[r] != 0)
                         ? reactSlotVals[r]
-                        : kReactActionIds[r];
+                        : game::pet::packPetAction(game::pet::ActionType::Reaction,
+                                                   kReactActionIds[r]);
                     gameHandler.sendPetAction(action, 0);
                 }
                 ImGui::PopStyleColor(3);
@@ -726,8 +774,9 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
             const int slotCount = game::GameHandler::PET_ACTION_BAR_SLOTS;
             // Filter to non-zero slots; lay them out as small icon/text buttons.
             // Raw slot value layout (WotLK 3.3.5): low 24 bits = spell/action ID,
-            // high byte = flag (0x80=autocast on, 0x40=can-autocast, 0x0C=type).
-            // Built-in commands: id=2 follow, id=3 stay/move, id=5 attack.
+            // high byte = type. The built-in commands and stances share the ids
+            // 0/1/2, so what a slot means depends on both halves — see
+            // game/pet_action.hpp.
             auto* assetMgr = services_.assetManager;
             const float iconSz = 20.0f;
             const float spacing = 2.0f;
@@ -738,12 +787,13 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
                 uint32_t slotVal = gameHandler.getPetActionSlot(i);
                 if (slotVal == 0) continue;
 
-                uint32_t actionId = slotVal & 0x00FFFFFFu;
+                uint32_t actionId = game::pet::petActionId(slotVal);
+                const bool isSpell = game::pet::isPetSpellAction(slotVal);
                 // Use the authoritative autocast set from SMSG_PET_SPELLS spell list flags.
-                bool autocastOn   = gameHandler.isPetSpellAutocast(actionId);
+                bool autocastOn   = isSpell && gameHandler.isPetSpellAutocast(actionId);
 
-                // Cooldown tracking for pet spells (actionId > 6 are spell IDs)
-                float petCd = (actionId > 6) ? gameHandler.getSpellCooldown(actionId) : 0.0f;
+                // Cooldowns only apply to castable spells, not commands/stances.
+                float petCd = isSpell ? gameHandler.getSpellCooldown(actionId) : 0.0f;
                 bool petOnCd = (petCd > 0.0f);
 
                 ImGui::PushID(i);
@@ -751,14 +801,8 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
 
                 // Try to show spell icon; fall back to abbreviated text label.
                 VkDescriptorSet iconTex = VK_NULL_HANDLE;
-                const char* builtinLabel = nullptr;
-                if      (actionId == 1) builtinLabel = "Psv";
-                else if (actionId == 2) builtinLabel = "Fol";
-                else if (actionId == 3) builtinLabel = "Sty";
-                else if (actionId == 4) builtinLabel = "Def";
-                else if (actionId == 5) builtinLabel = "Atk";
-                else if (actionId == 6) builtinLabel = "Agg";
-                else if (assetMgr)      iconTex = getSpellIcon(actionId, assetMgr);
+                const char* builtinLabel = petBuiltinShortLabel(slotVal);
+                if (!builtinLabel && assetMgr) iconTex = getSpellIcon(actionId, assetMgr);
 
                 // Dim when on cooldown; tint green when autocast is on
                 ImVec4 tint = petOnCd
@@ -811,26 +855,24 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
 
                 if (clicked && !petOnCd) {
                     // Send pet action; use current target for spells.
-                    uint64_t targetGuid = (actionId > 5) ? gameHandler.getTargetGuid() : 0u;
+                    // Attack takes the current target; so does any castable spell.
+                    const bool wantsTarget =
+                        isSpell || (game::pet::petActionType(slotVal) == game::pet::ActionType::Command &&
+                                    actionId == game::pet::kAttack);
+                    uint64_t targetGuid = wantsTarget ? gameHandler.getTargetGuid() : 0u;
                     gameHandler.sendPetAction(slotVal, targetGuid);
                 }
                 // Right-click toggles autocast for castable pet spells (actionId > 6)
-                if (actionId > 6 && ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
+                if (isSpell && ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
                     gameHandler.togglePetSpellAutocast(actionId);
                 }
 
                 // Tooltip: rich spell info for pet spells, simple label for built-in commands
                 if (ImGui::IsItemHovered()) {
                     if (builtinLabel) {
-                        const char* tip = nullptr;
-                        if      (actionId == 1) tip = "Passive";
-                        else if (actionId == 2) tip = "Follow";
-                        else if (actionId == 3) tip = "Stay";
-                        else if (actionId == 4) tip = "Defensive";
-                        else if (actionId == 5) tip = "Attack";
-                        else if (actionId == 6) tip = "Aggressive";
+                        const char* tip = petBuiltinName(slotVal);
                         if (tip) ImGui::SetTooltip("%s", tip);
-                    } else if (actionId > 6) {
+                    } else if (isSpell) {
                         auto* spellAsset = services_.assetManager;
                         ImGui::BeginTooltip();
                         bool richOk = spellbookScreen.renderSpellInfoTooltip(actionId, gameHandler, spellAsset);

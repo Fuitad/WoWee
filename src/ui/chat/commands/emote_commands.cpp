@@ -5,6 +5,7 @@
 #include "ui/chat/i_chat_command.hpp"
 #include "ui/chat_panel.hpp"
 #include "game/game_handler.hpp"
+#include "game/pet_action.hpp"
 #include "rendering/renderer.hpp"
 #include "rendering/animation_controller.hpp"
 #include <algorithm>
@@ -155,7 +156,8 @@ class PetAttackCommand : public IChatCommand {
 public:
     ChatCommandResult execute(ChatCommandContext& ctx) override {
         uint64_t target = ctx.gameHandler.hasTarget() ? ctx.gameHandler.getTargetGuid() : 0;
-        ctx.gameHandler.sendPetAction(5, target);
+        ctx.gameHandler.sendPetAction(
+            game::pet::packPetAction(game::pet::ActionType::Command, game::pet::kAttack), target);
         return {};
     }
     std::vector<std::string> aliases() const override { return {"petattack"}; }
@@ -165,7 +167,8 @@ public:
 class PetFollowCommand : public IChatCommand {
 public:
     ChatCommandResult execute(ChatCommandContext& ctx) override {
-        ctx.gameHandler.sendPetAction(2, 0);
+        ctx.gameHandler.sendPetAction(
+            game::pet::packPetAction(game::pet::ActionType::Command, game::pet::kFollow), 0);
         return {};
     }
     std::vector<std::string> aliases() const override { return {"petfollow"}; }
@@ -175,7 +178,8 @@ public:
 class PetStayCommand : public IChatCommand {
 public:
     ChatCommandResult execute(ChatCommandContext& ctx) override {
-        ctx.gameHandler.sendPetAction(3, 0);
+        ctx.gameHandler.sendPetAction(
+            game::pet::packPetAction(game::pet::ActionType::Command, game::pet::kStay), 0);
         return {};
     }
     std::vector<std::string> aliases() const override { return {"petstay", "pethalt"}; }
@@ -185,7 +189,8 @@ public:
 class PetPassiveCommand : public IChatCommand {
 public:
     ChatCommandResult execute(ChatCommandContext& ctx) override {
-        ctx.gameHandler.sendPetAction(1, 0);
+        ctx.gameHandler.sendPetAction(
+            game::pet::packPetAction(game::pet::ActionType::Reaction, game::pet::kPassive), 0);
         return {};
     }
     std::vector<std::string> aliases() const override { return {"petpassive"}; }
@@ -195,7 +200,8 @@ public:
 class PetDefensiveCommand : public IChatCommand {
 public:
     ChatCommandResult execute(ChatCommandContext& ctx) override {
-        ctx.gameHandler.sendPetAction(4, 0);
+        ctx.gameHandler.sendPetAction(
+            game::pet::packPetAction(game::pet::ActionType::Reaction, game::pet::kDefensive), 0);
         return {};
     }
     std::vector<std::string> aliases() const override { return {"petdefensive"}; }
@@ -205,7 +211,8 @@ public:
 class PetAggressiveCommand : public IChatCommand {
 public:
     ChatCommandResult execute(ChatCommandContext& ctx) override {
-        ctx.gameHandler.sendPetAction(6, 0);
+        ctx.gameHandler.sendPetAction(
+            game::pet::packPetAction(game::pet::ActionType::Reaction, game::pet::kAggressive), 0);
         return {};
     }
     std::vector<std::string> aliases() const override { return {"petaggressive"}; }

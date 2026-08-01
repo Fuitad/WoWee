@@ -1,5 +1,6 @@
 #include "game/spell_handler.hpp"
 #include "game/spell_classification.hpp"
+#include "game/pet_action.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
 #include "game/packet_parsers.hpp"
@@ -2453,7 +2454,10 @@ void SpellHandler::sendPetAction(uint32_t action, uint64_t targetGuid) {
 
 void SpellHandler::dismissPet() {
     if (owner_.petGuidRef() == 0 || owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    auto packet = PetActionPacket::build(owner_.petGuidRef(), 0x07000000);
+    // Dismiss is COMMAND_ABANDON. Packing action 0 here sent COMMAND_STAY, so
+    // the pet planted itself instead of leaving.
+    auto packet = PetActionPacket::build(
+        owner_.petGuidRef(), pet::packPetAction(pet::ActionType::Command, pet::kAbandon));
     owner_.getSocket()->send(packet);
 }
 

@@ -694,6 +694,16 @@ target_link_libraries(test_dbc_layouts PRIVATE catch2_main)
 add_test(NAME dbc_layouts COMMAND test_dbc_layouts)
 register_test_target(test_dbc_layouts)
 
+# ── test_pet_action ─────────────────────────────────────────
+add_executable(test_pet_action
+    test_pet_action.cpp
+)
+target_include_directories(test_pet_action PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_pet_action SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_pet_action PRIVATE catch2_main)
+add_test(NAME pet_action COMMAND test_pet_action)
+register_test_target(test_pet_action)
+
 # ── test_spell_classification ───────────────────────────────
 add_executable(test_spell_classification
     test_spell_classification.cpp
