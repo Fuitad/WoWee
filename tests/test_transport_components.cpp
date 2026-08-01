@@ -303,16 +303,56 @@ TEST_CASE("Animator: a docked ship holds its arrival heading, not its spawn yaw"
     PathEntry path(std::move(spline), 301, false, true, true);
     auto t = makeTransport();
     t.basePosition = glm::vec3(0.0f);
-    const glm::quat arrival = glm::angleAxis(0.75f, glm::vec3(0.0f, 0.0f, 1.0f));
-    t.rotation = arrival;
+    t.isM2 = false;
+    t.rotation = glm::angleAxis(0.75f, glm::vec3(0.0f, 0.0f, 1.0f));
     t.dockYaw = -0.4f;
     t.hasDockYaw = true;
 
     animator.evaluateAndApply(t, path, 30000);
 
+    // Pinned to the authored dwell node, not wherever the spline overshot to.
     REQUIRE(t.position == glm::vec3(0.0f));
-    REQUIRE(t.rotation.w == Catch::Approx(arrival.w));
-    REQUIRE(t.rotation.z == Catch::Approx(arrival.z));
+
+    // The route approaches along canonical +X, so the heading through the stop
+    // is that approach plus the hull's bow offset — derived, not inherited from
+    // whatever rotation happened to be left over, and never the spawn yaw.
+    const glm::quat approach = glm::angleAxis(
+        kHullYawAlongCanonicalX, glm::vec3(0.0f, 0.0f, 1.0f));
+    const glm::quat spawn = glm::angleAxis(t.dockYaw, glm::vec3(0.0f, 0.0f, 1.0f));
+    REQUIRE(t.rotation.w == Catch::Approx(approach.w).margin(0.01f));
+    REQUIRE(t.rotation.z == Catch::Approx(approach.z).margin(0.01f));
+    REQUIRE(t.rotation.z != Catch::Approx(spawn.z).margin(0.01f));
+}
+
+TEST_CASE("Animator: a ship holds its dock instead of overshooting through the wait",
+          "[transport_animator][transport]") {
+    // A Catmull-Rom spline is not constrained to the hull of its control points,
+    // so evaluating through a repeated-position dwell key overshoots and recovers
+    // — the ship sails past its dock and comes back, for the whole wait. The hold
+    // used to apply only to the three entries with broadside berths; every ship
+    // needs it. This entry is in none of those lists.
+    TransportAnimator animator;
+    CatmullRomSpline spline({
+        {0,     glm::vec3(0.0f, 0.0f, 0.0f)},
+        {10000, glm::vec3(100.0f, 0.0f, 0.0f)},
+        {70000, glm::vec3(100.0f, 0.0f, 0.0f)},
+        {80000, glm::vec3(200.0f, 0.0f, 0.0f)},
+    });
+    PathEntry path(std::move(spline), 190536u, false, true, true);
+
+    for (uint32_t atMs : {12000u, 25000u, 40000u, 55000u, 68000u}) {
+        auto t = makeTransport(1, 190536u);
+        t.entry = 190536u;          // Kraken — not a berthRunsParallel entry
+        t.displayId = 7446u;
+        t.basePosition = glm::vec3(0.0f);
+        t.isM2 = false;
+
+        animator.evaluateAndApply(t, path, atMs);
+
+        INFO("dwell time " << atMs);
+        REQUIRE(t.position.x == Catch::Approx(100.0f));
+        REQUIRE(t.position.y == Catch::Approx(0.0f));
+    }
 }
 
 TEST_CASE("Animator: Bravery holds side-on at its dock dwell", "[transport_animator][transport]") {

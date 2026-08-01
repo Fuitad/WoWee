@@ -2506,6 +2506,16 @@ bool Renderer::initializeRenderers(pipeline::AssetManager* assetManager, const s
         if (wmoRenderer) {
             terrainManager->setWMORenderer(wmoRenderer.get());
         }
+        // A WMO's child M2 doodads — a ship's sails, its paddlewheel — are moved
+        // and destroyed through this pointer. It was never set, so every one of
+        // those paths was behind a null check that never passed: the doodads
+        // were created at the origin, never given their parent's transform, and
+        // so drawn at the middle of the map rather than on the ship. Static
+        // world doodads were unaffected, because terrain streaming places those
+        // at their world position itself and never goes through the parent.
+        if (wmoRenderer && m2Renderer) {
+            wmoRenderer->setM2Renderer(m2Renderer.get());
+        }
         // Set ambient sound manager for environmental audio emitters
         if (audioCoordinator_->getAmbientSoundManager()) {
             terrainManager->setAmbientSoundManager(audioCoordinator_->getAmbientSoundManager());

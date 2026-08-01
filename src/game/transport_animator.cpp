@@ -96,15 +96,24 @@ void TransportAnimator::evaluateAndApply(
 
     transport.position = transport.basePosition + pathOffset;
 
-    // The affected ship routes need entry-specific berth headings at their
-    // repeated-position TaxiPath dwell nodes. Blend during the final/first five
-    // seconds and hold the exact authored position for the 60-second stop.
+    // A TaxiPath route encodes a dock wait as two keys at the same position with
+    // time between them. Hold the authored position for that stop and blend the
+    // heading over the five seconds either side of it.
+    //
+    // This used to run only for the three entries in berthRunsParallel, because
+    // it was written for their broadside berths. But the position hold is not a
+    // berth-specific nicety: a Catmull-Rom spline is not constrained to the hull
+    // of its control points, so evaluating through a repeated key overshoots and
+    // recovers — the ship sails past its dock and comes back, repeatedly, for
+    // the whole length of the wait. That is the same overshoot already
+    // documented and clamped for the tram, and it applies to every ship.
+    // berthRunsParallel now decides only what it is about: the heading.
     float shipDockBlend = 0.0f;
     glm::vec3 shipApproach(0.0f);
     bool shipAtDockDwell = false;
     glm::vec3 shipDockPosition(0.0f);
     const bool needsSideOnDock = berthRunsParallel(transport.entry);
-    if (needsSideOnDock && pathEntry.worldCoords) {
+    if (pathEntry.worldCoords && !transport.isM2) {
         constexpr uint32_t kDockTurnMs = 5000u;
         const auto& keys = spline.keys();
         for (size_t i = 1; i + 1 < keys.size(); ++i) {
