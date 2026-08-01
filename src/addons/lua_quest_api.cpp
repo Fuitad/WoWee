@@ -252,7 +252,11 @@ static int lua_GetNumSkillLines(lua_State* L) {
 // GetSkillLineInfo(index) → skillName, isHeader, isExpanded, skillRank, numTempPoints, skillModifier, skillMaxRank, isAbandonable, stepCost, rankCost, minLevel, skillCostType
 static int lua_GetSkillLineInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
-    int index = static_cast<int>(luaL_checknumber(L, 1));
+    // optnumber, not checknumber: a nil index is a question this can answer
+    // with nil, and raising instead takes down whatever file asked. SkillFrame
+    // calls SkillDetailFrame_SetStatusBar with no selection during its own
+    // load, which is exactly that question.
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
     if (!gh || index < 1) {
         lua_pushnil(L);
         return 1;

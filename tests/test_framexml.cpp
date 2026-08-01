@@ -208,6 +208,27 @@ TEST_CASE("$parent inside a template resolves to the frame that inherits it",
     REQUIRE_FALSE(has(r.lua, "\"MyTemplateBg\""));
 }
 
+TEST_CASE("A template installs OnLoad but does not run it", "[framexml][emit]") {
+    // A frame is loaded once, when it is finished — not once per template it
+    // is built from. Running it per template fired ChatFrameEditBoxTemplate's
+    // OnLoad before the edit box's own OnLoad had set self.chatFrame, which is
+    // the first thing that handler indexes.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"T\" virtual=\"true\">"
+        "<Scripts><OnLoad>DoThing(self)</OnLoad></Scripts>"
+        "</Frame>"
+        "<Frame name=\"Real\" inherits=\"T\"/></Ui>");
+    const EmitResult r = emitFrameXml(root);
+
+    // Once, for the real frame — not inside the template body.
+    const std::string fire = ":GetScript(\"OnLoad\")(";
+    size_t count = 0;
+    for (size_t at = r.lua.find(fire); at != std::string::npos;
+         at = r.lua.find(fire, at + 1)) ++count;
+    REQUIRE(count == 1);
+    REQUIRE(has(r.lua, "SetScript(\"OnLoad\""));
+}
+
 TEST_CASE("parentKey binds a region to a field on its owner", "[framexml][emit]") {
     // How FrameXML's handlers reach their own pieces: QuestHonorFrameTemplate's
     // OnLoad opens with self.icon:SetTexture(...), and the icon is bound only

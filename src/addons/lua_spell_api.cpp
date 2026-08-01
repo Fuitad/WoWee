@@ -296,7 +296,14 @@ static int lua_GetSpellTabInfo(lua_State* L) {
     lua_pushstring(L, tab.texture.c_str());        // texture
     lua_pushnumber(L, offset);                     // offset (0-based for WoW compat)
     lua_pushnumber(L, tab.spellIds.size());        // numSpells
-    return 4;
+    // The highest-rank pair, which is what FrameXML actually reads: with
+    // ShowAllSpellRanks off — the default — SpellBook_GetTabInfo throws away
+    // the first offset and count and keeps these. Returning four values left
+    // numSpells nil and the page count divided by nothing. This client does
+    // not track ranks separately, so the whole tab is the highest rank.
+    lua_pushnumber(L, offset);                     // highestRankOffset
+    lua_pushnumber(L, tab.spellIds.size());        // highestRankNumSpells
+    return 6;
 }
 
 // GetSpellBookItemInfo(slot, bookType) → "SPELL", spellId

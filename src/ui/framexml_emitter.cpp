@@ -355,7 +355,8 @@ struct Emitter {
             // Inside a template the containing frame is whatever inherits it,
             // so an unqualified anchor means "my parent" and has to be asked
             // for at replay time.
-            inner.emitFrameBody(node, "self", name, "self:GetParent()");
+            inner.emitFrameBody(node, "self", name, "self:GetParent()",
+                                std::string(), /*fireOnLoad=*/false);
             line("__WoweeTemplates[" + quote(name) + "] = function(self)");
             line("local __w = {}");
             // A template can itself inherit one, and this branch used to return
@@ -397,7 +398,8 @@ struct Emitter {
     /// they need a different name from the one its regions use.
     void emitFrameBody(const XmlNode& node, const std::string& var,
                        const std::string& name, const std::string& parentVar,
-                       const std::string& ownerName = std::string()) {
+                       const std::string& ownerName = std::string(),
+                       bool fireOnLoad = true) {
         if (const XmlNode* size = node.child("Size")) {
             float w = 0, h = 0;
             if (readDimension(*size, w, h))
@@ -457,12 +459,22 @@ struct Emitter {
         }
         // Scripts last: OnLoad runs against a frame that is already built, which
         // is what every handler in FrameXML assumes.
+        //
+        // Not from inside a template body, though. A frame is loaded once, when
+        // it is finished — not once per template it is built from. Firing at
+        // each template ran ChatFrameEditBoxTemplate's OnLoad before the edit
+        // box's own OnLoad had set self.chatFrame, which is the very thing that
+        // handler opens by indexing. The template only installs the script; the
+        // frame it is applied to runs it, after its own body has had its say.
         if (const XmlNode* scripts = node.child("Scripts")) {
             emitScripts(*scripts, var);
-            if (scripts->child("OnLoad")) {
-                line("if " + var + ":GetScript(\"OnLoad\") then " +
-                     var + ":GetScript(\"OnLoad\")(" + var + ") end");
-            }
+        }
+        // Whether or not this frame declared one: a template it inherits may
+        // have installed the handler, and that frame still loads. The runtime
+        // check costs nothing when there is none.
+        if (fireOnLoad) {
+            line("if " + var + ":GetScript(\"OnLoad\") then " +
+                 var + ":GetScript(\"OnLoad\")(" + var + ") end");
         }
         if (node.attrBool("hidden")) line(var + ":Hide()");
     }

@@ -497,6 +497,28 @@ static int lua_ReturnNothing(lua_State*) { return 0; }
 /// because the caller adds them together on the next line —
 /// local start, duration = GetSummonFriendCooldown(); start + duration — and
 /// one of them missing is arithmetic on nil.
+/// The resolutions this client offers, as "WIDTHxHEIGHT" strings, and which of
+/// them is current. One entry — the window as it actually is — because this
+/// client does not enumerate modes.
+///
+/// UpdateMenuBarTop reads them together and immediately divides:
+///   string.match((({GetScreenResolutions()})[GetCurrentResolution()] or ""),
+///                "(%d+).-(%d+)")
+/// then tonumber(width) / tonumber(height). An empty list makes both nil.
+static int lua_GetScreenResolutions(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    auto* win = svc ? svc->window : nullptr;
+    const int w = win ? win->getWidth() : 1920;
+    const int h = win ? win->getHeight() : 1080;
+    lua_pushstring(L, (std::to_string(w) + "x" + std::to_string(h)).c_str());
+    return 1;
+}
+
+static int lua_GetCurrentResolution(lua_State* L) {
+    lua_pushnumber(L, 1.0);
+    return 1;
+}
+
 static int lua_ReturnNoCooldown(lua_State* L) {
     lua_pushnumber(L, 0.0);
     lua_pushnumber(L, 0.0);
@@ -522,6 +544,16 @@ static int lua_UnitFactionGroup(lua_State* L) {
 void registerSystemLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"GetSummonFriendCooldown",  lua_ReturnNoCooldown},
+                {"GetScreenResolutions",     lua_GetScreenResolutions},
+                {"GetCurrentResolution",     lua_GetCurrentResolution},
+                // Counts a loop bounds itself with. FrameXML writes
+                // "for i = 0, num-1" straight after asking, so nothing is not
+                // an answer — it is arithmetic on nil and the file is lost.
+                {"GetNumDisplayChannels",    lua_ReturnZero},
+                {"GetCurrentMapDungeonLevel", lua_ReturnZero},
+                {"Sound_GameSystem_GetNumOutputDrivers", lua_ReturnZero},
+                {"DungeonUsesTerrainMap",    lua_ReturnFalse},
+                {"GetChannelDisplayInfo",    lua_ReturnNil},
                 {"IsThreatWarningEnabled",   lua_ReturnFalse},
                 {"IsAutoRepeatAction",       lua_ReturnFalse},
                 {"IsPetAttackAction",        lua_ReturnFalse},
