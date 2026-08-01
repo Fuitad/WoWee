@@ -332,8 +332,11 @@ struct Emitter {
         }
     }
 
-    void emitFrame(const XmlNode& node, const std::string& parentVar,
-                   const std::string& parentName) {
+    /// Returns the variable holding the new frame, or empty for a virtual
+    /// one, so a caller that must hand it on — a scroll frame to its child —
+    /// can name it.
+    std::string emitFrame(const XmlNode& node, const std::string& parentVar,
+                          const std::string& parentName) {
         const std::string rawName = node.attrOr("name", "");
         const std::string name = substituteParent(rawName, parentName);
         const bool isVirtual = node.attrBool("virtual");
@@ -344,7 +347,7 @@ struct Emitter {
             // means in FrameXML.
             if (name.empty()) {
                 result.warnings.push_back("virtual frame with no name was skipped");
-                return;
+                return {};
             }
             Emitter inner;
             inner.temp = 0;
@@ -364,7 +367,7 @@ struct Emitter {
             result.lua += inner.result.lua;
             for (auto& w : inner.result.warnings) result.warnings.push_back(w);
             line("end");
-            return;
+            return {};
         }
 
         const std::string var = nextVar();
@@ -386,6 +389,7 @@ struct Emitter {
         emitInherits(node, var);
         emitFrameBody(node, var, name.empty() ? parentName : name, parentArg,
                       parentName);
+        return var;
     }
 
     /// ownerName is the name of the frame containing this one. A frame's own
@@ -432,6 +436,20 @@ struct Emitter {
         // Before Frames and Scripts, so a child anchoring to $parentNormalTexture
         // and an OnLoad reading its own label both find something there.
         emitButtonRegions(node, var, name);
+        // A scroll frame's content, which is a frame like any other but reached
+        // through SetScrollChild rather than sitting in Frames.
+        // HybridScrollFrameScrollChild_OnLoad does self:GetParent().scrollChild
+        // = self, so it has to be built and its OnLoad run — ignoring the
+        // element left self.scrollChild nil on every one of the 18 files that
+        // declare one.
+        if (const XmlNode* scrollChild = node.child("ScrollChild")) {
+            for (const XmlNode& child : scrollChild->children) {
+                if (!isFrameElement(child.name)) continue;
+                const std::string childVar = emitFrame(child, var, name);
+                if (!childVar.empty())
+                    line(var + ":SetScrollChild(" + childVar + ")");
+            }
+        }
         if (const XmlNode* frames = node.child("Frames")) {
             for (const XmlNode& child : frames->children) {
                 if (isFrameElement(child.name)) emitFrame(child, var, name);

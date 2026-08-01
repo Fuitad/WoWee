@@ -1352,6 +1352,9 @@ void LuaEngine::registerCoreAPI() {
         "    local key = (b ~= nil) and ((a or '') .. b .. (c or '')) or a\n"
         "    return self.__attributes[key]\n"
         "end\n"
+        // A scroll frame's content frame.
+        "function mt:SetScrollChild(child) self.__scrollChild = child end\n"
+        "function mt:GetScrollChild() return self.__scrollChild end\n"
         "function mt:SetFontString(fs) self.__fontString = fs end\n"
         "function mt:GetFontString() return self.__fontString end\n"
         // A button's text is its font string's text; keeping them apart means
