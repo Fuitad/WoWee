@@ -129,6 +129,24 @@ GameScreen::GameScreen() {
 }
 
 // Set UI services and propagate to child components
+
+namespace {
+/// How far the cursor may travel between press and release and still count as a
+/// click rather than a camera drag.
+///
+/// This was a flat five pixels, which is a different gesture on different
+/// screens: five pixels is a third of a percent of a 1280-wide window and a
+/// tenth of that on a 3840-wide one, so the same small hand movement that reads
+/// as a click on a modest display reads as a drag on a large one — and a
+/// discarded right-click is an NPC that cannot be interacted with at all.
+/// Scaled by the window, with a floor so it never becomes stricter than it was.
+float clickDragThreshold() {
+    const ImGuiIO& io = ImGui::GetIO();
+    const float shorter = std::min(io.DisplaySize.x, io.DisplaySize.y);
+    return std::max(5.0f, shorter * 0.008f);
+}
+}
+
 void GameScreen::setServices(const UIServices& services) {
     services_ = services;
     // Settings are loaded by the constructor before services are injected.
@@ -1292,7 +1310,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
         glm::vec2 releasePos = input.getMousePosition();
         glm::vec2 dragDelta = releasePos - leftClickPressPos_;
         float dragDistSq = glm::dot(dragDelta, dragDelta);
-        constexpr float CLICK_THRESHOLD = 5.0f;  // pixels
+        const float CLICK_THRESHOLD = clickDragThreshold();
 
         if (dragDistSq < CLICK_THRESHOLD * CLICK_THRESHOLD) {
             auto* renderer = services_.renderer;
@@ -1357,7 +1375,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
     if (rightClickWasPress_ && input.isMouseButtonJustReleased(SDL_BUTTON_RIGHT)) {
         rightClickWasPress_ = false;
         glm::vec2 rDragDelta = input.getMousePosition() - rightClickPressPos_;
-        constexpr float RCLICK_THRESHOLD = 5.0f;  // pixels
+        const float RCLICK_THRESHOLD = clickDragThreshold();
         if (glm::dot(rDragDelta, rDragDelta) >= RCLICK_THRESHOLD * RCLICK_THRESHOLD) {
             // Treated as a camera rotate — do not interact/attack.
             return;

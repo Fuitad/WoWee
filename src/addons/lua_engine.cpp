@@ -1,6 +1,8 @@
 #include "addons/lua_engine.hpp"
 #include "ui/widget_tree.hpp"
 #include <chrono>
+#include <set>
+#include <cstdlib>
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_api_registrations.hpp"
 #include "addons/toc_parser.hpp"
@@ -16,6 +18,16 @@ extern "C" {
 }
 
 namespace wowee::addons {
+
+namespace {
+/// Names asked for and not found, while the fallback is on. File-scope because
+/// the recorder is a Lua callback and the report runs at shutdown.
+std::set<std::string>& missingApiNames() {
+    static std::set<std::string> names;
+    return names;
+}
+}
+
 
 static int lua_wow_print(lua_State* L) {
     int nargs = lua_gettop(L);
@@ -794,6 +806,19 @@ static int lua_Frame_GetParent(lua_State* L) {
     return 1;
 }
 
+
+/// Records a global FrameXML or an addon asked for and did not find. Logged
+/// once per name; the set is reported at shutdown so the gap can be read off a
+/// run rather than guessed at.
+static int lua_RecordMissingApi(lua_State* L) {
+    const char* name = luaL_optstring(L, 1, "");
+    if (name && *name) {
+        LOG_INFO("[Lua] missing API called: ", name);
+        missingApiNames().insert(name);
+    }
+    return 0;
+}
+
 // CreateFrame(frameType, name, parent, template)
 static int lua_CreateFrame(lua_State* L) {
     const char* frameType = luaL_optstring(L, 1, "Frame");
@@ -904,6 +929,7 @@ bool LuaEngine::initialize() {
 }
 
 void LuaEngine::shutdown() {
+    reportMissingApi();
     if (L_) {
         lua_close(L_);
         L_ = nullptr;
@@ -1107,6 +1133,8 @@ void LuaEngine::registerCoreAPI() {
         "    return nil\n"
         "end\n"
     );
+
+    installMissingApiFallback();
 
     // Put the C bindings back over anything the Lua above defined with the same
     // name. That block exists to give unimplemented methods a harmless no-op,
@@ -2058,6 +2086,54 @@ void LuaEngine::callFrameScript(uint32_t wid, const char* script,
         lua_pop(L_, 1);
     }
     lua_pop(L_, 3);
+}
+
+
+void LuaEngine::installMissingApiFallback() {
+    // Off unless asked for. With it on, every unknown global answers, so code
+    // that checks whether a function exists before using it — which addons do
+    // constantly — sees everything as present and takes branches meant for a
+    // newer client. That is the right trade for bringing FrameXML up, where the
+    // point is to get past a missing name and find out what actually matters,
+    // and the wrong one for everyday addon loading.
+    const char* env = std::getenv("WOWEE_LUA_API_FALLBACK");
+    const bool enabled = env && *env && std::string(env) != "0";
+    if (!enabled) return;
+
+    lua_pushcfunction(L_, lua_RecordMissingApi);
+    lua_setglobal(L_, "__WoweeRecordMissingApi");
+
+    // A name in SCREAMING_SNAKE_CASE is a constant, and handing back a function
+    // where a number or a string was wanted turns a missing value into a
+    // confusing type error further away. Those stay nil. UpperCamelCase is a
+    // function, and gets one that does nothing.
+    luaL_dostring(L_,
+        "local noop = function() end\n"
+        "local seen = {}\n"
+        "setmetatable(_G, { __index = function(_, k)\n"
+        "  if type(k) ~= 'string' then return nil end\n"
+        "  if not string.find(k, '^%u') then return nil end\n"
+        "  if string.find(k, '^[A-Z][A-Z0-9_]*$') then return nil end\n"
+        "  if not seen[k] then seen[k] = true; __WoweeRecordMissingApi(k) end\n"
+        "  return noop\n"
+        "end })\n");
+
+    LOG_WARNING("LuaEngine: missing-API fallback is ON — unknown globals answer "
+                "with a no-op, so feature detection will read as present");
+}
+
+void LuaEngine::reportMissingApi() const {
+    const auto& names = missingApiNames();
+    if (names.empty()) return;
+    LOG_INFO("LuaEngine: ", names.size(), " distinct API functions were called "
+             "and not found this session");
+    std::string line;
+    for (const auto& n : names) {
+        line += n;
+        line += ' ';
+        if (line.size() > 900) { LOG_INFO("  missing: ", line); line.clear(); }
+    }
+    if (!line.empty()) LOG_INFO("  missing: ", line);
 }
 
 void LuaEngine::dispatchMouse(float x, float y, bool leftDown) {

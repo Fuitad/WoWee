@@ -77,6 +77,13 @@ private:
     uint32_t pressedWid_ = 0;
     bool leftDown_ = false;
 
+    /// Make unknown globals answer with a no-op instead of erroring, so a large
+    /// body of Lua can be brought up and the names it actually needs collected
+    /// from a run. Opt-in through WOWEE_LUA_API_FALLBACK.
+    void installMissingApiFallback();
+    /// Log the names collected, once, at shutdown.
+    void reportMissingApi() const;
+
     void registerCoreAPI();
     void registerEventAPI();
 };
