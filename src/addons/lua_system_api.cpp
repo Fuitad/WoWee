@@ -552,6 +552,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetNumDisplayChannels",    lua_ReturnZero},
                 {"GetNumMapOverlays",        lua_ReturnZero},
                 {"GetNumMapDebugObjects",    lua_ReturnZero},
+                {"GetNumDungeonMapLevels",   lua_ReturnZero},
                 // Bar offsets, added to a page number the line they
                 // are read on. No bonus or multi-cast bar is showing,
                 // and that is zero rather than nothing.

@@ -2491,6 +2491,17 @@ void LuaEngine::installMissingApiFallback() {
         "  if type(k) ~= 'string' then return nil end\n"
         "  if not string.find(k, '^%u') then return nil end\n"
         "  if string.find(k, '^[A-Z][A-Z0-9_]*$') then return nil end\n"
+        // A digit in the name means an instance, not an API function, and an
+        // instance that does not exist must read as absent. FrameXML looks
+        // frames up by building the name — _G["ChatFrame"..id.."Minimized"] —
+        // and then guards the result properly with if (frame). Answering makes
+        // that guard pass and the branch behind it runs against nothing.
+        //
+        // Measured rather than assumed: of the 4,100 distinct names FrameXML
+        // calls as functions, four contain a digit, and three of those it
+        // defines itself. Being wrong here costs a no-op for one API name,
+        // which is where this started.
+        "  if string.find(k, '%d') then return nil end\n"
         "  if not seen[k] then seen[k] = true; __WoweeRecordMissingApi(k) end\n"
         "  return missing\n"
         "end })\n");
