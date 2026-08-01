@@ -2,6 +2,7 @@
 #include "ui/widget_tree.hpp"
 #include <chrono>
 #include <cfloat>
+#include <sstream>
 #include <algorithm>
 #include <climits>
 #include <set>
@@ -2723,6 +2724,48 @@ bool LuaEngine::saveSavedVariables(const std::string& path, const std::vector<st
 
 namespace {
 
+/// Appends the Lua call stack to an error message.
+///
+/// An error says where it happened; the interesting part is nearly always how
+/// it got there. "dropdownMenu is nil at unitpopup.lua:484" cost several rounds
+/// of reading to trace back to the OnLoad that started it, and the stack was
+/// there the whole time — it just was not being asked for. Installed as the
+/// message handler so it runs before the stack unwinds.
+///
+/// Written by hand rather than through debug.traceback because the debug
+/// library is deliberately not opened.
+int luaTracebackHandler(lua_State* L) {
+    const char* msg = lua_tostring(L, 1);
+    std::string out = msg ? msg : "(error)";
+    for (int level = 1; level < 12; ++level) {
+        lua_Debug ar;
+        if (!lua_getstack(L, level, &ar)) break;
+        if (!lua_getinfo(L, "Sln", &ar)) break;
+        out += "\n      at ";
+        out += (ar.short_src[0] ? ar.short_src : "?");
+        out += ":" + std::to_string(ar.currentline);
+        if (ar.name) { out += " in "; out += ar.name; }
+    }
+    lua_pushstring(L, out.c_str());
+    return 1;
+}
+
+/// Loads and runs a chunk with the traceback handler in place. Returns the
+/// same non-zero-on-error convention as luaL_dostring.
+int runChunk(lua_State* L, const char* chunk, size_t len, const char* name) {
+    const int base = lua_gettop(L);
+    lua_pushcfunction(L, luaTracebackHandler);
+    if (luaL_loadbuffer(L, chunk, len, name) != 0) {
+        // A syntax error has no stack to walk; leave the message where the
+        // caller expects it and drop the handler underneath it.
+        lua_remove(L, base + 1);
+        return 1;
+    }
+    const int rc = lua_pcall(L, 0, 0, base + 1);
+    lua_remove(L, base + 1);
+    return rc;
+}
+
 /// When the running chunk must give up. Wall clock rather than a count of VM
 /// instructions: the runaway this was written for spends nearly all its time
 /// inside one C binding — a table rehash that grows with every call — so it
@@ -2783,7 +2826,23 @@ bool LuaEngine::executeFile(const std::string& path) {
     if (!L_) return false;
 
     BudgetGuard guard(L_, chunkTimeoutMs_);
-    int err = luaL_dofile(L_, path.c_str());
+    // Read and run rather than luaL_dofile, so the traceback handler is in
+    // place: a file that fails deep inside a handler otherwise reports only
+    // the line that broke, never the OnLoad that reached it.
+    std::string source;
+    {
+        std::ifstream in(path, std::ios::binary);
+        if (!in) {
+            lastError_ = "cannot open " + path;
+            LOG_ERROR("LuaEngine: cannot open '", path, "'");
+            return false;
+        }
+        std::stringstream ss;
+        ss << in.rdbuf();
+        source = ss.str();
+    }
+    const std::string chunkName = "@" + path;
+    int err = runChunk(L_, source.c_str(), source.size(), chunkName.c_str());
     if (err != 0) {
         const char* errMsg = lua_tostring(L_, -1);
         std::string msg = errMsg ? errMsg : "(unknown error)";
@@ -2807,7 +2866,7 @@ bool LuaEngine::executeString(const std::string& code) {
     if (!L_) return false;
 
     BudgetGuard guard(L_, chunkTimeoutMs_);
-    int err = luaL_dostring(L_, code.c_str());
+    int err = runChunk(L_, code.c_str(), code.size(), code.c_str());
     if (err != 0) {
         const char* errMsg = lua_tostring(L_, -1);
         std::string msg = errMsg ? errMsg : "(unknown error)";
