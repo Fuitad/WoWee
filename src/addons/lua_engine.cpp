@@ -2314,8 +2314,15 @@ void LuaEngine::installMissingApiFallback() {
     // without the fallback, so two separate switches where one is useless
     // without the other is only a way to be handed a wall of failures for
     // setting the obvious one.
-    const bool enabled = isSet("WOWEE_LUA_API_FALLBACK") ||
-                         isSet("WOWEE_LOAD_FRAMEXML");
+    //
+    // Said explicitly, though, the setting wins either way. The fallback is not
+    // free — it makes every feature check read as present — and now that the
+    // real gaps are closing it is worth being able to ask what it is still
+    // buying, which needs a way to turn it off with FrameXML on.
+    const char* explicitSetting = std::getenv("WOWEE_LUA_API_FALLBACK");
+    const bool enabled = (explicitSetting && *explicitSetting)
+                             ? std::string(explicitSetting) != "0"
+                             : isSet("WOWEE_LOAD_FRAMEXML");
     if (!enabled) return;
 
     lua_pushcfunction(L_, lua_RecordMissingApi);
@@ -2326,14 +2333,26 @@ void LuaEngine::installMissingApiFallback() {
     // confusing type error further away. Those stay nil. UpperCamelCase is a
     // function, and gets one that does nothing.
     luaL_dostring(L_,
-        "local noop = function() end\n"
+        // Callable, and every field of it is a method answering nil.
+        //
+        // A bare function was not enough. FrameXML looks frames up by name as
+        // often as it calls functions — local t = _G[name.."PrefixText"] — and
+        // it guards them properly, with if (t) then t:GetText(). A function
+        // passes that guard and then dies on the indexing, so the correct check
+        // was worse than no check at all: eleven files went down on that one
+        // line. Answering nil from every method lets the guarded branch run and
+        // come to nothing, which is what a missing frame should look like.
+        "local missing = setmetatable({}, {\n"
+        "  __call = function() end,\n"
+        "  __index = function() return function() return nil end end,\n"
+        "})\n"
         "local seen = {}\n"
         "setmetatable(_G, { __index = function(_, k)\n"
         "  if type(k) ~= 'string' then return nil end\n"
         "  if not string.find(k, '^%u') then return nil end\n"
         "  if string.find(k, '^[A-Z][A-Z0-9_]*$') then return nil end\n"
         "  if not seen[k] then seen[k] = true; __WoweeRecordMissingApi(k) end\n"
-        "  return noop\n"
+        "  return missing\n"
         "end })\n");
 
     LOG_WARNING("LuaEngine: missing-API fallback is ON — unknown globals answer "
