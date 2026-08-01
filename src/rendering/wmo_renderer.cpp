@@ -1,5 +1,4 @@
 #include "rendering/wmo_renderer.hpp"
-#include "rendering/movement_limits.hpp"
 #include "rendering/m2_renderer.hpp"
 #include "rendering/vk_context.hpp"
 #include "rendering/vk_texture.hpp"
@@ -3635,25 +3634,9 @@ bool WMORenderer::checkWallCollision(const glm::vec3& from, const glm::vec3& to,
                 // Skip low geometry that can be stepped over
                 if (tb.maxZ <= localFeetZ + MAX_STEP_HEIGHT) continue;
 
-                // Skip vertical surfaces the player is level with or above.
-                //
-                // The old rule was "short, and topping out near the feet", where
-                // short meant under a yard tall. That conflates being short with
-                // being steppable: a stone stair with treads taller than a yard —
-                // Stromgarde's are — has risers that fail the height test, so each
-                // one classifies as a wall and blocks. It blocks in both
-                // directions, which is why such a flight cannot be walked down at
-                // all once you have reached the top of it by some other route.
-                //
-                // What actually matters is where the surface tops out relative to
-                // the feet, not how tall it is. A face whose top is within step-up
-                // reach is something to step onto or down from; one that rises
-                // well above the feet is a wall. Tying it to the same budget the
-                // grounding code uses keeps the two from disagreeing.
+                // Skip very short vertical surfaces (stair risers)
                 float triHeight = tb.maxZ - tb.minZ;
-                const bool withinStepReach = tb.maxZ <= localFeetZ + movement::kMaxStepUp;
-                const bool shortRiser = triHeight < 1.0f && tb.maxZ <= localFeetZ + 1.2f;
-                if (withinStepReach || shortRiser) continue;
+                if (triHeight < 1.0f && tb.maxZ <= localFeetZ + 1.2f) continue;
 
                 // Use MOPY flags to filter wall collision. Blocking set is the
                 // union of both flag conventions seen in the assets:
