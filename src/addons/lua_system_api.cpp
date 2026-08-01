@@ -554,6 +554,14 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetNumBattlegroundTypes",  lua_ReturnZero},
                 {"GetCurrentMapDungeonLevel", lua_ReturnZero},
                 {"Sound_GameSystem_GetNumOutputDrivers", lua_ReturnZero},
+                {"Sound_ChatSystem_GetNumInputDrivers",  lua_ReturnZero},
+                {"Sound_ChatSystem_GetNumOutputDrivers", lua_ReturnZero},
+                {"Sound_ChatSystem_GetInputDriverNameByIndex",  lua_ReturnNil},
+                {"Sound_ChatSystem_GetOutputDriverNameByIndex", lua_ReturnNil},
+                // Nothing selected, which is a number rather than
+                // nothing: SkillFrame passes the result straight to
+                // GetSkillLineInfo as an index.
+                {"GetSelectedSkill",         lua_ReturnZero},
                 {"DungeonUsesTerrainMap",    lua_ReturnFalse},
                 {"GetChannelDisplayInfo",    lua_ReturnNil},
                 {"IsThreatWarningEnabled",   lua_ReturnFalse},

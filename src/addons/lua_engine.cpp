@@ -2465,9 +2465,22 @@ void LuaEngine::installMissingApiFallback() {
         // was worse than no check at all: eleven files went down on that one
         // line. Answering nil from every method lets the guarded branch run and
         // come to nothing, which is what a missing frame should look like.
+        // Methods answer; data fields do not.
+        //
+        // Answering everything made feature checks on a missing frame's own
+        // state read as present: FCFMin_UpdateColors tests
+        // minFrame.selectedColorTable and takes the branch that dereferences
+        // it. The same convention the fallback already uses for names —
+        // PascalCase is a method, anything else is data — applies inside the
+        // object too, so a field is nil and the guard around it works.
         "local missing = setmetatable({}, {\n"
         "  __call = function() end,\n"
-        "  __index = function() return function() return nil end end,\n"
+        "  __index = function(_, k)\n"
+        "    if type(k) == 'string' and string.find(k, '^%u') then\n"
+        "      return function() return nil end\n"
+        "    end\n"
+        "    return nil\n"
+        "  end,\n"
         "})\n"
         "local seen = {}\n"
         "setmetatable(_G, { __index = function(_, k)\n"
