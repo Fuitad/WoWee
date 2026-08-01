@@ -551,6 +551,12 @@ void registerSystemLuaAPI(lua_State* L) {
                 // an answer — it is arithmetic on nil and the file is lost.
                 {"GetNumDisplayChannels",    lua_ReturnZero},
                 {"GetNumMapOverlays",        lua_ReturnZero},
+                {"GetNumMapDebugObjects",    lua_ReturnZero},
+                // Bar offsets, added to a page number the line they
+                // are read on. No bonus or multi-cast bar is showing,
+                // and that is zero rather than nothing.
+                {"GetMultiCastBarOffset",    lua_ReturnZero},
+                {"GetBonusBarOffset",        lua_ReturnZero},
                 {"GetNumBattlegroundTypes",  lua_ReturnZero},
                 {"GetCurrentMapDungeonLevel", lua_ReturnZero},
                 {"Sound_GameSystem_GetNumOutputDrivers", lua_ReturnZero},
