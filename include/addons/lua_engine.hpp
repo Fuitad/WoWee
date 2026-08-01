@@ -87,6 +87,13 @@ private:
     std::string lastError_;
     unsigned long long chunkTimeoutMs_ = 0;
 
+    /// Runs a bootstrap Lua chunk and says so when it fails.
+    ///
+    /// Seventeen of these ran with their result thrown away, so a syntax error
+    /// in any one silently removed every method that chunk defined — and the
+    /// only symptom was a method quietly answering as though unimplemented.
+    void bootstrap(const char* code);
+
     void callFrameScript(uint32_t wid, const char* script, const char* arg = nullptr);
 
     uint32_t hoverWid_ = 0;

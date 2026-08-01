@@ -2,6 +2,7 @@
 #include "ui/widget_tree.hpp"
 #include <chrono>
 #include <cfloat>
+#include <cstring>
 #include <sstream>
 #include <algorithm>
 #include <climits>
@@ -1164,7 +1165,7 @@ void LuaEngine::registerCoreAPI() {
     lua_pop(L_, 1);
 
     // WoW-specific and not derivable from a standard library.
-    luaL_dostring(L_,
+    bootstrap(
         "function wipe(t) for k in pairs(t) do t[k] = nil end return t end\n"
         "function strtrim(s, chars)\n"
         "  chars = chars or ' \\t\\r\\n'\n"
@@ -1251,7 +1252,7 @@ void LuaEngine::registerCoreAPI() {
     // simply overwrite it, turning a working method into a no-op that still
     // answers — EnableMouse was defined here and so no frame ever took the
     // mouse, however plainly the call read in the addon.
-    luaL_dostring(L_,
+    bootstrap(
         "local mt = __WoweeFrameMT\n"
 
         "function mt:GetFrameLevel() return self.__frameLevel or 1 end\n"
@@ -1304,7 +1305,7 @@ void LuaEngine::registerCoreAPI() {
     // the matching getter would hand back nil, so button:GetNormalTexture()
     // :SetVertexColor(...) — which FrameXML does constantly to grey out an
     // unusable action — fails somewhere far from the cause.
-    luaL_dostring(L_,
+    bootstrap(
         "local mt = __WoweeFrameMT\n"
         "for _, slot in ipairs({'NormalTexture', 'PushedTexture', 'HighlightTexture',\n"
         "                       'DisabledTexture', 'CheckedTexture',\n"
@@ -1356,7 +1357,7 @@ void LuaEngine::registerCoreAPI() {
     // WoW widget methods are PascalCase, so an unknown key starting with an uppercase
     // letter is treated as an unimplemented method (harmless no-op); anything else
     // falls through to nil so ordinary addon fields keep their normal (falsy) meaning.
-    luaL_dostring(L_,
+    bootstrap(
         "local mt = __WoweeFrameMT\n"
         "local methods = mt\n"
         "local noop = function() end\n"
@@ -1413,7 +1414,7 @@ void LuaEngine::registerCoreAPI() {
     // Where XML templates land. A virtual frame compiles to a function that
     // replays itself onto a real frame, and inherits= calls it; both halves are
     // emitted by the FrameXML loader and meet here.
-    luaL_dostring(L_,
+    bootstrap(
         "__WoweeTemplates = {}\n"
         "local reported = {}\n"
         "function __WoweeMissingTemplate(name)\n"
@@ -1426,7 +1427,7 @@ void LuaEngine::registerCoreAPI() {
         "end\n");
 
     // C_Timer implementation via Lua (uses OnUpdate internally)
-    luaL_dostring(L_,
+    bootstrap(
         "C_Timer = {}\n"
         "local timers = {}\n"
         "local timerFrame = CreateFrame('Frame', '__WoweeTimerFrame')\n"
@@ -1467,7 +1468,7 @@ void LuaEngine::registerCoreAPI() {
     );
 
     // DEFAULT_CHAT_FRAME with AddMessage method (used by many addons)
-    luaL_dostring(L_,
+    bootstrap(
         "DEFAULT_CHAT_FRAME = {}\n"
         "function DEFAULT_CHAT_FRAME:AddMessage(text, r, g, b)\n"
         "    if r and g and b then\n"
@@ -1482,7 +1483,7 @@ void LuaEngine::registerCoreAPI() {
     );
 
     // hooksecurefunc — hook a function to run additional code after it
-    luaL_dostring(L_,
+    bootstrap(
         "function hooksecurefunc(tblOrName, nameOrFunc, funcOrNil)\n"
         "    local tbl, name, hook\n"
         "    if type(tblOrName) == 'table' then\n"
@@ -1502,7 +1503,7 @@ void LuaEngine::registerCoreAPI() {
 
     // LibStub — universal library version management used by Ace3 and virtually all addon libs.
     // This is the standard WoW LibStub implementation that addons embed/expect globally.
-    luaL_dostring(L_,
+    bootstrap(
         // rawget, so the missing-API fallback cannot answer this. Read through
         // the metatable, "LibStub or {}" is never nil — it is the fallback
         // object — and the shim then hangs its tables off that instead of a
@@ -1533,7 +1534,7 @@ void LuaEngine::registerCoreAPI() {
     );
 
     // CallbackHandler-1.0 — minimal implementation for Ace3-based addons
-    luaL_dostring(L_,
+    bootstrap(
         "if LibStub then\n"
         "  local CBH = LibStub:NewLibrary('CallbackHandler-1.0', 7)\n"
         "  if CBH then\n"
@@ -1566,7 +1567,7 @@ void LuaEngine::registerCoreAPI() {
     );
 
     // Noop stubs for commonly called functions that don't need implementation
-    luaL_dostring(L_,
+    bootstrap(
         "function SetDesaturation() end\n"
         "function SetPortraitTexture() end\n"
         "function StopSound() end\n"
@@ -1836,7 +1837,22 @@ void LuaEngine::registerCoreAPI() {
         "function geterrorhandler() return _errorHandler end\n"
         "function seterrorhandler(fn) if type(fn)=='function' then _errorHandler=fn end end\n"
         "function debugstack(start, count1, count2) return '' end\n"
-        "function securecall(fn, ...) if type(fn)=='function' then return fn(...) end end\n"
+        // A name is as valid as a function here, and FrameXML mostly passes a
+        // name: UIDropDownMenu_Initialize does
+        // securecall("UIDropDownMenu_InitializeHelper", frame), and the helper
+        // is what sets UIDROPDOWNMENU_INIT_MENU and zeroes every list's
+        // numButtons. Accepting only a function meant that call did nothing at
+        // all, silently, and eight files died further on indexing what it
+        // should have set.
+        //
+        // rawget, so a name this client does not have stays nil rather than
+        // becoming the missing-API object, which is not callable as a function.
+        "function securecall(fn, ...)\n"
+        "    if type(fn) == 'string' then fn = rawget(_G, fn) end\n"
+        "    if type(fn) == 'function' then return fn(...) end\n"
+        "end\n"
+        // Iterating a table the secure way, which for our purposes is next.
+        "SecureNext = next\n"
         "function issecurevariable(...) return false end\n"
         "function issecure() return false end\n"
         // GetCVarBool wraps C-side GetCVar (registered in table) for boolean queries
@@ -1944,7 +1960,7 @@ void LuaEngine::registerCoreAPI() {
     );
 
     // UIDropDownMenu framework — minimal compat for addons using dropdown menus
-    luaL_dostring(L_,
+    bootstrap(
         "UIDROPDOWNMENU_MENU_LEVEL = 1\n"
         "UIDROPDOWNMENU_MENU_VALUE = nil\n"
         "UIDROPDOWNMENU_OPEN_MENU = nil\n"
@@ -1974,7 +1990,7 @@ void LuaEngine::registerCoreAPI() {
     );
 
     // UISpecialFrames: frames in this list close on Escape key
-    luaL_dostring(L_,
+    bootstrap(
         "UISpecialFrames = {}\n"
         // Shared font objects, carrying the height and colour a FontString takes
         // from them. They were empty tables, so inheriting one changed nothing
@@ -2029,7 +2045,7 @@ void LuaEngine::registerCoreAPI() {
     );
 
     // Action bar constants and functions used by action bar addons
-    luaL_dostring(L_,
+    bootstrap(
         "NUM_ACTIONBAR_BUTTONS = 12\n"
         "NUM_ACTIONBAR_PAGES = 6\n"
         "ACTION_BUTTON_SHOW_GRID_REASON_CVAR = 1\n"
@@ -2078,7 +2094,7 @@ void LuaEngine::registerCoreAPI() {
     );
 
     // WoW table/string utility functions used by many addons
-    luaL_dostring(L_,
+    bootstrap(
         // Table utilities
         "function tContains(tbl, item)\n"
         "    for _, v in pairs(tbl) do if v == item then return true end end\n"
@@ -2365,7 +2381,7 @@ void LuaEngine::installMissingApiFallback() {
     // where a number or a string was wanted turns a missing value into a
     // confusing type error further away. Those stay nil. UpperCamelCase is a
     // function, and gets one that does nothing.
-    luaL_dostring(L_,
+    bootstrap(
         // Callable, and every field of it is a method answering nil.
         //
         // A bare function was not enough. FrameXML looks frames up by name as
@@ -2821,6 +2837,15 @@ struct BudgetGuard {
 };
 
 } // namespace
+
+void LuaEngine::bootstrap(const char* code) {
+    if (luaL_dostring(L_, code) == 0) return;
+    const char* e = lua_tostring(L_, -1);
+    const std::string head(code, std::min<size_t>(70, std::strlen(code)));
+    LOG_ERROR("LuaEngine: bootstrap chunk failed: ", e ? e : "?",
+              "  [chunk began: ", head, "]");
+    lua_pop(L_, 1);
+}
 
 bool LuaEngine::executeFile(const std::string& path) {
     if (!L_) return false;
