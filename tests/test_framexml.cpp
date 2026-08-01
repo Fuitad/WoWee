@@ -208,6 +208,25 @@ TEST_CASE("$parent inside a template resolves to the frame that inherits it",
     REQUIRE_FALSE(has(r.lua, "\"MyTemplateBg\""));
 }
 
+TEST_CASE("A template that inherits another applies it too", "[framexml][emit]") {
+    // Templates are built from other templates constantly — 217 of FrameXML's
+    // virtual frames inherit one — and the virtual branch used to return before
+    // inherits was ever emitted. InterfaceOptionsListButtonTemplate silently
+    // dropped the OptionsListButtonTemplate it is built on, so it arrived with
+    // no highlight texture and no size.
+    XmlNode root = parseOrFail(
+        "<Ui><Button name=\"Derived\" inherits=\"Base\" virtual=\"true\">"
+        "<Scripts><OnClick function=\"Foo\"/></Scripts>"
+        "</Button></Ui>");
+    const EmitResult r = emitFrameXml(root);
+
+    REQUIRE(has(r.lua, "__WoweeTemplates[\"Derived\"] = function(self)"));
+    REQUIRE(has(r.lua, "__WoweeTemplates[\"Base\"](self)"));
+    // Before the body, so the template's own settings win over the base's.
+    REQUIRE(r.lua.find("__WoweeTemplates[\"Base\"](self)") <
+            r.lua.find("SetScript(\"OnClick\""));
+}
+
 TEST_CASE("A frame's own $parent anchor means its parent, not itself",
           "[framexml][emit]") {
     // A sibling reference. VideoOptionsFrameCancel anchors to $parentApply,

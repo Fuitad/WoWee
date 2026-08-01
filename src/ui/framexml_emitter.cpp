@@ -281,6 +281,24 @@ struct Emitter {
         }
     }
 
+    /// Applies whatever this node inherits onto `var`. Templates apply before
+    /// the frame's own settings, so anything stated on the frame overrides what
+    /// it inherited — the order FrameXML relies on.
+    void emitInherits(const XmlNode& node, const std::string& var) {
+        const std::string* inherits = node.attr("inherits");
+        if (!inherits) return;
+        std::stringstream ss(*inherits);
+        std::string one;
+        while (std::getline(ss, one, ',')) {
+            one.erase(0, one.find_first_not_of(" \t"));
+            one.erase(one.find_last_not_of(" \t") + 1);
+            if (one.empty()) continue;
+            line("if __WoweeTemplates[" + quote(one) + "] then __WoweeTemplates[" +
+                 quote(one) + "](" + var + ") else __WoweeMissingTemplate(" +
+                 quote(one) + ") end");
+        }
+    }
+
     void emitFrame(const XmlNode& node, const std::string& parentVar,
                    const std::string& parentName) {
         const std::string rawName = node.attrOr("name", "");
@@ -304,6 +322,12 @@ struct Emitter {
             inner.emitFrameBody(node, "self", name, "self:GetParent()");
             line("__WoweeTemplates[" + quote(name) + "] = function(self)");
             line("local __w = {}");
+            // A template can itself inherit one, and this branch used to return
+            // before that was ever emitted — so InterfaceOptionsListButtonTemplate
+            // silently dropped the OptionsListButtonTemplate it is built on,
+            // arriving with no highlight texture and no size. First, so the
+            // template's own body overrides what it inherited.
+            emitInherits(node, "self");
             result.lua += inner.result.lua;
             for (auto& w : inner.result.warnings) result.warnings.push_back(w);
             line("end");
@@ -323,20 +347,7 @@ struct Emitter {
         line(var + " = CreateFrame(" + quote(node.name) + ", " +
              nameArg(rawName, parentName, parentArg) + ", " + parentArg + ")");
 
-        // Templates apply before the frame's own settings, so anything stated
-        // here overrides what it inherited — the order FrameXML relies on.
-        if (const std::string* inherits = node.attr("inherits")) {
-            std::stringstream ss(*inherits);
-            std::string one;
-            while (std::getline(ss, one, ',')) {
-                one.erase(0, one.find_first_not_of(" \t"));
-                one.erase(one.find_last_not_of(" \t") + 1);
-                if (one.empty()) continue;
-                line("if __WoweeTemplates[" + quote(one) + "] then __WoweeTemplates[" +
-                     quote(one) + "](" + var + ") else __WoweeMissingTemplate(" +
-                     quote(one) + ") end");
-            }
-        }
+        emitInherits(node, var);
         emitFrameBody(node, var, name.empty() ? parentName : name, parentArg,
                       parentName);
     }
