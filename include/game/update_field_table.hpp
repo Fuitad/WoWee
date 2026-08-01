@@ -84,6 +84,11 @@ enum class UF : uint16_t {
     PLAYER_FIELD_HONOR_CURRENCY,     // Accumulated honor points (uint32)
     PLAYER_FIELD_ARENA_CURRENCY,     // Accumulated arena points (uint32)
 
+    // The player's active non-combat companion, as a 64-bit guid (low word at
+    // this index, high word at the next). WotLK only — no earlier expansion
+    // published it, and none has CMSG_DISMISS_CRITTER to act on it either.
+    UNIT_FIELD_CRITTER,
+
     // GameObject fields
     GAMEOBJECT_DISPLAYID,
     GAMEOBJECT_BYTES_1,

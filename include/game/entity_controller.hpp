@@ -156,6 +156,9 @@ private:
     /// Seed a transport's route phase from the server's own path clock, so the
     /// client stops animating on a period it invented for itself.
     void applyTransportRouteClock(const UpdateBlock& block);
+    /// Note which non-combat companion is out and what called it, so casting
+    /// that spell again dismisses instead of summoning another.
+    void trackActiveCritter(const UpdateBlock& block);
 
     // Update transport-relative child attachment (non-player entities).
     //     Consolidates identical logic from CREATE/VALUES/MOVEMENT handlers.

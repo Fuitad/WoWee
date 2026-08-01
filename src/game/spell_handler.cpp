@@ -637,6 +637,16 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
         return;
     }
 
+    // Pressing the companion you already have out puts it away. A companion has
+    // no aura, so there is nothing in the buff bar to right-click and this is
+    // the only way to send one back — without it the button could only ever
+    // summon, which is why pressing it again just produced the same critter.
+    if (spellId != 0 && spellId == owner_.getActiveCritterSpellId() &&
+        owner_.getActiveCritterGuid() != 0) {
+        owner_.dismissCritter();
+        return;
+    }
+
     // Casting any spell while mounted → dismount first, then cast (retail
     // behavior: the mount is a cancellable aura that a cast removes). Exception:
     // while actively flying (airborne on a flying mount) retail blocks the cast

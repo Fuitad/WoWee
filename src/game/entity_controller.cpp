@@ -1950,6 +1950,43 @@ void EntityController::onValuesUpdateGameObject(const UpdateBlock& block, std::s
     applyTransportRouteClock(block);
 }
 
+void EntityController::trackActiveCritter(const UpdateBlock& block) {
+    // A non-combat companion is announced only by this field on the player: it
+    // gets no aura, so there is nothing in the buff bar to cancel and nothing
+    // else to notice it by. Remembering which spell called it is what lets
+    // casting that spell again put it away rather than summon a second one.
+    if (block.guid != owner_.getPlayerGuid()) return;
+    const uint16_t critterIdx = fieldIndex(UF::UNIT_FIELD_CRITTER);
+    if (critterIdx == 0xFFFF) return;   // pre-WotLK: no such field, no dismiss opcode
+
+    auto loIt = block.fields.find(critterIdx);
+    auto hiIt = block.fields.find(static_cast<uint16_t>(critterIdx + 1));
+    if (loIt == block.fields.end() && hiIt == block.fields.end()) return;
+
+    const uint32_t lo = (loIt != block.fields.end()) ? loIt->second
+                                                     : static_cast<uint32_t>(owner_.getActiveCritterGuid());
+    const uint32_t hi = (hiIt != block.fields.end())
+                            ? hiIt->second
+                            : static_cast<uint32_t>(owner_.getActiveCritterGuid() >> 32);
+    const uint64_t critterGuid = (static_cast<uint64_t>(hi) << 32) | lo;
+    if (critterGuid == owner_.getActiveCritterGuid()) return;
+
+    if (critterGuid == 0) {
+        LOG_INFO("Companion dismissed: was guid=0x", std::hex,
+                 owner_.getActiveCritterGuid(), std::dec);
+        owner_.setActiveCritter(0, 0);
+        return;
+    }
+    // Attribute it to the spell just cast from the ground, the same way the
+    // mount aura is identified — a blind guess at "some spell" would make the
+    // toggle fire on the wrong button.
+    uint32_t summonedBy = 0;
+    if (owner_.getSpellHandler()) summonedBy = owner_.getSpellHandler()->getLastGroundCastSpellId();
+    owner_.setActiveCritter(critterGuid, summonedBy);
+    LOG_INFO("Companion summoned: guid=0x", std::hex, critterGuid, std::dec,
+             " by spell=", summonedBy);
+}
+
 void EntityController::applyTransportRouteClock(const UpdateBlock& block) {
     // A moving transport publishes where it is on its route: LEVEL is the route's
     // period in milliseconds, and the high int16 of DYNAMIC is how far through
@@ -1989,6 +2026,7 @@ void EntityController::applyTransportRouteClock(const UpdateBlock& block) {
 // ============================================================
 
 void EntityController::handleCreateObject(const UpdateBlock& block, bool& newItemCreated) {
+    trackActiveCritter(block);
     pendingEvents_.clear();
 
     // 3a: Create entity from block type
@@ -2032,6 +2070,7 @@ void EntityController::handleCreateObject(const UpdateBlock& block, bool& newIte
 }
 
 void EntityController::handleValuesUpdate(const UpdateBlock& block) {
+    trackActiveCritter(block);
     auto entity = entityManager.getEntity(block.guid);
     if (!entity) {
         // Item/container entities may be absent from entityManager (e.g. server

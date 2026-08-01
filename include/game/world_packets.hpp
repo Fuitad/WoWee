@@ -1895,6 +1895,12 @@ public:
     static network::Packet build(uint32_t spellId);
 };
 
+/** CMSG_DISMISS_CRITTER packet builder (WotLK). Sends the companion away. */
+class DismissCritterPacket {
+public:
+    static network::Packet build(uint64_t critterGuid);
+};
+
 /** CMSG_PET_ACTION packet builder */
 class PetActionPacket {
 public:

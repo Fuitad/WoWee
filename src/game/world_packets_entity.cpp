@@ -1178,6 +1178,13 @@ network::Packet CancelAuraPacket::build(uint32_t spellId) {
     return packet;
 }
 
+network::Packet DismissCritterPacket::build(uint64_t critterGuid) {
+    // CMSG_DISMISS_CRITTER: critterGuid(8)
+    network::Packet packet(wireOpcode(Opcode::CMSG_DISMISS_CRITTER));
+    packet.writeUInt64(critterGuid);
+    return packet;
+}
+
 network::Packet PetActionPacket::build(uint64_t petGuid, uint32_t action, uint64_t targetGuid) {
     // CMSG_PET_ACTION: petGuid(8) + action(4) + targetGuid(8)
     network::Packet packet(wireOpcode(Opcode::CMSG_PET_ACTION));

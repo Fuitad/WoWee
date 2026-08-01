@@ -2036,6 +2036,18 @@ void GameHandler::sendPetAction(uint32_t action, uint64_t targetGuid) {
     if (spellHandler_) spellHandler_->sendPetAction(action, targetGuid);
 }
 
+void GameHandler::dismissCritter() {
+    if (activeCritterGuid_ == 0 || !getSocket() || getState() != WorldState::IN_WORLD) return;
+    const uint16_t wire = wireOpcode(Opcode::CMSG_DISMISS_CRITTER);
+    if (wire == 0xFFFF) return;   // expansion has no such opcode
+    auto pkt = DismissCritterPacket::build(activeCritterGuid_);
+    getSocket()->send(pkt);
+    LOG_INFO("Dismissing companion: guid=0x", std::hex, activeCritterGuid_, std::dec,
+             " summonedBy=", activeCritterSpellId_);
+    // The server confirms by clearing the critter field; leave the local state
+    // alone so a refused dismiss does not leave the client thinking it worked.
+}
+
 void GameHandler::dismissPet() {
     if (spellHandler_) spellHandler_->dismissPet();
 }

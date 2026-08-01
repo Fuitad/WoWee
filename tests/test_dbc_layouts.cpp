@@ -3,6 +3,8 @@
 #include "pipeline/dbc_layout.hpp"
 
 #include <filesystem>
+#include <fstream>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
 
@@ -142,5 +144,48 @@ TEST_CASE("CharacterFacialHairStyles geoset columns hold plausible variants",
         CHECK((*fm)["RaceID"] == 0);
         CHECK((*fm)["SexID"] == 1);
         CHECK((*fm)["Variation"] == 2);
+    }
+}
+
+// ── Update-field indices ────────────────────────────────────────────────────
+
+// These are read straight out of the wire, so a wrong index does not fail — it
+// quietly reports whatever field happens to sit there. UNIT_FIELD_CRITTER is the
+// only signal that a non-combat companion is out (it has no aura), and the
+// dismiss toggle keys off it, so pin it against neighbours whose values are
+// independently known.
+TEST_CASE("UNIT_FIELD_CRITTER sits where the stock WotLK layout puts it",
+          "[update_fields]") {
+    const std::string path = (std::filesystem::path(WOWEE_SOURCE_DIR) /
+        "Data" / "expansions" / "wotlk" / "update_fields.json").string();
+    std::ifstream in(path);
+    REQUIRE(in.good());
+    nlohmann::json j;
+    in >> j;
+
+    // Anchors. In 3.3.5a the unit block starts at OBJECT_END = 6, which fixes
+    // BYTES_0 at 23, HEALTH at 24 and MAXHEALTH at 32. If these still hold, the
+    // layout is the stock one and CRITTER is at 10.
+    REQUIRE(j["UNIT_FIELD_BYTES_0"].get<uint32_t>() == 23u);
+    REQUIRE(j["UNIT_FIELD_HEALTH"].get<uint32_t>() == 24u);
+    REQUIRE(j["UNIT_FIELD_MAXHEALTH"].get<uint32_t>() == 32u);
+
+    REQUIRE(j.contains("UNIT_FIELD_CRITTER"));
+    REQUIRE(j["UNIT_FIELD_CRITTER"].get<uint32_t>() == 10u);
+}
+
+TEST_CASE("Pre-WotLK expansions publish no companion field", "[update_fields]") {
+    // The field did not exist before WotLK, and neither did CMSG_DISMISS_CRITTER.
+    // Claiming an index here would read some unrelated field and hand the dismiss
+    // toggle a guid that is not a companion.
+    for (const char* expansion : {"classic", "tbc", "turtle"}) {
+        const std::string path = (std::filesystem::path(WOWEE_SOURCE_DIR) /
+            "Data" / "expansions" / expansion / "update_fields.json").string();
+        std::ifstream in(path);
+        if (!in.good()) continue;
+        nlohmann::json j;
+        in >> j;
+        INFO(expansion);
+        REQUIRE_FALSE(j.contains("UNIT_FIELD_CRITTER"));
     }
 }
