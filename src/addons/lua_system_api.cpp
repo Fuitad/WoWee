@@ -550,6 +550,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 // "for i = 0, num-1" straight after asking, so nothing is not
                 // an answer — it is arithmetic on nil and the file is lost.
                 {"GetNumDisplayChannels",    lua_ReturnZero},
+                {"GetNumMapOverlays",        lua_ReturnZero},
+                {"GetNumBattlegroundTypes",  lua_ReturnZero},
                 {"GetCurrentMapDungeonLevel", lua_ReturnZero},
                 {"Sound_GameSystem_GetNumOutputDrivers", lua_ReturnZero},
                 {"DungeonUsesTerrainMap",    lua_ReturnFalse},

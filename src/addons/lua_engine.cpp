@@ -1016,6 +1016,29 @@ static int lua_CreateFrame(lua_State* L) {
             if (comma == std::string::npos) break;
             start = comma + 1;
         }
+
+        // Built from a template here, so it is loaded here — which is what
+        // CreateFrame does in the real client. The XML path does not pass a
+        // template to this function; it applies them separately and fires
+        // OnLoad once, after the frame's own body. So this covers exactly the
+        // frames Lua builds, and OptionsList_OnLoad builds a list of them:
+        // their OnLoad is what gives each button the .text it is asked for
+        // moments later.
+        lua_getfield(L, -1, "__scripts");
+        if (lua_istable(L, -1)) {
+            lua_getfield(L, -1, "OnLoad");
+            if (lua_isfunction(L, -1)) {
+                lua_pushvalue(L, -3);            // the frame
+                if (lua_pcall(L, 1, 0, 0) != 0) {
+                    LOG_WARNING("CreateFrame: OnLoad failed: ",
+                                lua_tostring(L, -1) ? lua_tostring(L, -1) : "?");
+                    lua_pop(L, 1);
+                }
+            } else {
+                lua_pop(L, 1);
+            }
+        }
+        lua_pop(L, 1);
     }
 
     return 1;
@@ -1377,7 +1400,16 @@ void LuaEngine::registerCoreAPI() {
         "function mt:SetScrollChild(child) self.__scrollChild = child end\n"
         "function mt:GetScrollChild() return self.__scrollChild end\n"
         "function mt:SetFontString(fs) self.__fontString = fs end\n"
-        "function mt:GetFontString() return self.__fontString end\n"
+        // Made on demand when a button is asked for one it has not been
+        // given. Every button has a font string in the real client, and
+        // FrameXML assumes it: FCF_SetTabColor does
+        // minFrame:GetFontString():SetTextColor(...) without checking.
+        "function mt:GetFontString()\n"
+        "    if not self.__fontString then\n"
+        "        self.__fontString = self:CreateFontString(nil, 'OVERLAY')\n"
+        "    end\n"
+        "    return self.__fontString\n"
+        "end\n"
         // A button's text is its font string's text; keeping them apart means
         // SetText on the button quietly does nothing, which is how a bar full
         // of blank buttons happens.
