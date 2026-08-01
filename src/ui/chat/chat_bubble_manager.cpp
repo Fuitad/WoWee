@@ -7,6 +7,8 @@
 #include "core/coordinates.hpp"
 #include "core/window.hpp"
 #include <imgui.h>
+#include "ui/chat/chat_utils.hpp"
+
 #include <glm/glm.hpp>
 
 namespace wowee { namespace ui {
@@ -120,9 +122,14 @@ void ChatBubbleManager::render(game::GameHandler& gameHandler, const UIServices&
 
 void ChatBubbleManager::setupCallback(game::GameHandler& gameHandler) {
     if (!callbackSet_) {
-        gameHandler.setChatBubbleCallback([this](uint64_t guid, const std::string& msg, bool isYell) {
-            addBubble(guid, msg, isYell);
-        });
+        // Resolve $-tokens here rather than at draw time: a bubble is built once
+        // and drawn every frame. The chat panel already does this for the same
+        // text, which is why an NPC line read correctly in the log and showed
+        // its raw $r/$c/$g markers in the bubble over their head.
+        gameHandler.setChatBubbleCallback(
+            [this, &gameHandler](uint64_t guid, const std::string& msg, bool isYell) {
+                addBubble(guid, chat_utils::replaceGenderPlaceholders(msg, gameHandler), isYell);
+            });
         callbackSet_ = true;
     }
 }
