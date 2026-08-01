@@ -190,3 +190,32 @@ TEST_CASE("Strings that reach Lua are escaped", "[framexml][emit]") {
     REQUIRE(has(r.lua, "\\\"hi\\\""));
     REQUIRE(has(r.lua, "Interface\\\\Icons\\\\Foo"));
 }
+
+TEST_CASE("$parent inside a template resolves to the frame that inherits it",
+          "[framexml][emit]") {
+    // The subtlety that makes templates work at all. A region named $parentBg in
+    // a template must become FooFrameBg on the frame inheriting it, not
+    // TemplateNameBg — the template's own name is never the answer, and every
+    // frame sharing that template would collide on it if it were.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"MyTemplate\" virtual=\"true\"><Layers><Layer>"
+        "<Texture name=\"$parentBg\" setAllPoints=\"true\"/>"
+        "</Layer></Layers></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+
+    REQUIRE(has(r.lua, "GetName()"));
+    REQUIRE(has(r.lua, "\"Bg\""));
+    REQUIRE_FALSE(has(r.lua, "\"MyTemplateBg\""));
+}
+
+TEST_CASE("Outside a template $parent is resolved when emitted",
+          "[framexml][emit]") {
+    // No reason to defer it where the owning frame is already known; a literal
+    // keeps the generated code readable.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"FooFrame\"><Layers><Layer>"
+        "<Texture name=\"$parentBg\"/></Layer></Layers></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "\"FooFrameBg\""));
+    REQUIRE_FALSE(has(r.lua, "GetName()"));
+}

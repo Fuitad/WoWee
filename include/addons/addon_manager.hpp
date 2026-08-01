@@ -17,6 +17,9 @@ public:
     bool initialize(game::GameHandler* gameHandler, const LuaServices& services = {});
     void scanAddons(const std::string& addonsPath);
     void loadAllAddons();
+    /// Parse an XML file, build what it declares, and follow its includes and
+    /// scripts. depth guards against a file that includes itself.
+    bool loadXmlFile(const std::string& path, int depth);
     bool runScript(const std::string& code);
     void fireEvent(const std::string& event, const std::vector<std::string>& args = {});
     void update(float deltaTime);

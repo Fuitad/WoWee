@@ -1,6 +1,9 @@
 #include "addons/addon_manager.hpp"
 #include "core/logger.hpp"
 #include "core/config_paths.hpp"
+#include <sstream>
+#include "ui/xml_parser.hpp"
+#include "ui/framexml_emitter.hpp"
 #include <algorithm>
 #include <set>
 #include <filesystem>
@@ -174,6 +177,61 @@ std::string AddonManager::getSavedVariablesPerCharacterPath(const TocFile& addon
     return addon.basePath + "/" + addon.addonName + "." + characterName_ + ".lua.saved";
 }
 
+bool AddonManager::loadXmlFile(const std::string& path, int depth) {
+    // Includes nest, and a file that includes itself would otherwise recurse
+    // until the stack gives out.
+    constexpr int kMaxDepth = 16;
+    if (depth > kMaxDepth) {
+        LOG_ERROR("AddonManager: include nesting too deep at ", path);
+        return false;
+    }
+
+    std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        LOG_WARNING("AddonManager: XML not found: ", path);
+        return false;
+    }
+    std::stringstream buffer;
+    buffer << in.rdbuf();
+
+    ui::XmlNode root;
+    std::string error;
+    if (!ui::parseXml(buffer.str(), root, error)) {
+        LOG_ERROR("AddonManager: ", path, ": ", error);
+        return false;
+    }
+
+    ui::EmitResult emitted = ui::emitFrameXml(root);
+    for (const auto& w : emitted.warnings) {
+        LOG_WARNING("AddonManager: ", path, ": ", w);
+    }
+
+    const std::string dir = fs::path(path).parent_path().string();
+    bool ok = true;
+
+    // Order matters and is not the order the emitter reports things in. Includes
+    // carry the templates a file inherits from, and scripts define the functions
+    // its handlers name, so both have to be in place before any frame is built.
+    for (const auto& inc : emitted.includeFiles) {
+        if (!loadXmlFile(dir + "/" + inc, depth + 1)) ok = false;
+    }
+    for (const auto& script : emitted.scriptFiles) {
+        if (!luaEngine_.executeFile(dir + "/" + script)) {
+            LOG_ERROR("AddonManager: ", path, " referenced ", script, " which failed");
+            ok = false;
+        }
+    }
+    if (!emitted.lua.empty()) {
+        if (!luaEngine_.executeString(emitted.lua)) {
+            LOG_ERROR("AddonManager: frames from ", path, " failed to build");
+            ok = false;
+        } else {
+            LOG_INFO("AddonManager: built frames from ", path);
+        }
+    }
+    return ok;
+}
+
 bool AddonManager::loadAddon(const TocFile& addon) {
     // Load SavedVariables before addon code (so globals are available at load time)
     auto savedVars = addon.getSavedVariables();
@@ -206,11 +264,7 @@ bool AddonManager::loadAddon(const TocFile& addon) {
                 LOG_INFO("AddonManager: ran ", addon.addonName, "/", filename);
             }
         } else if (lower.size() >= 4 && lower.substr(lower.size() - 4) == ".xml") {
-            // Says so at INFO rather than DEBUG: an addon whose frames are all
-            // in XML will load, report success and put nothing on the screen,
-            // and there is no way to tell that from a broken addon otherwise.
-            LOG_WARNING("AddonManager: '", addon.addonName, "' has XML (", filename,
-                        ") which is not loaded yet — anything defined there will be missing");
+            if (!loadXmlFile(addon.basePath + "/" + filename, 0)) success = false;
         }
     }
 

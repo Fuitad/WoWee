@@ -761,6 +761,12 @@ void LuaEngine::registerCoreAPI() {
     lua_pushcfunction(L_, lua_wow_print);
     lua_setglobal(L_, "print");
 
+    lua_pushcfunction(L_, [](lua_State* L) -> int {
+        LOG_WARNING("[FrameXML] ", luaL_optstring(L, 1, ""));
+        return 0;
+    });
+    lua_setglobal(L_, "__WoweeLogWarning");
+
     // WoW API stubs
     lua_pushcfunction(L_, lua_wow_message);
     lua_setglobal(L_, "message");
@@ -932,6 +938,21 @@ void LuaEngine::registerCoreAPI() {
     // widget id -> frame table, so a hit test can find the scripts to run.
     lua_newtable(L_);
     lua_setglobal(L_, "__WoweeFramesByWid");
+
+    // Where XML templates land. A virtual frame compiles to a function that
+    // replays itself onto a real frame, and inherits= calls it; both halves are
+    // emitted by the FrameXML loader and meet here.
+    luaL_dostring(L_,
+        "__WoweeTemplates = {}\n"
+        "local reported = {}\n"
+        "function __WoweeMissingTemplate(name)\n"
+        "  if reported[name] then return end\n"
+        "  reported[name] = true\n"
+        "  -- Said once per template. A frame inheriting one that never loaded\n"
+        "  -- still gets built, just without whatever the template gave it,\n"
+        "  -- which is a much better outcome than refusing the whole file.\n"
+        "  __WoweeLogWarning('missing XML template: ' .. tostring(name))\n"
+        "end\n");
 
     // C_Timer implementation via Lua (uses OnUpdate internally)
     luaL_dostring(L_,

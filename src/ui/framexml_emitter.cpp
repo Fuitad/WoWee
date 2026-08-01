@@ -59,8 +59,30 @@ bool readDimension(const XmlNode& node, float& x, float& y) {
 struct Emitter {
     EmitResult result;
     int temp = 0;
+    /// True while emitting a template body. Inside one the owning frame is not
+    /// known until the template is replayed, so $parent has to be resolved then
+    /// rather than now.
+    bool runtimeParentName = false;
 
     std::string nextVar() { return "__x" + std::to_string(temp++); }
+
+    /// The Lua expression for a region or frame's name. A literal where the
+    /// owning frame is known, and a concatenation against the real frame's name
+    /// where it is not — which is what makes $parentBackdrop inside a template
+    /// become FooFrameBackdrop on the frame that inherits it, rather than
+    /// naming itself after the template.
+    std::string nameArg(const std::string& rawName, const std::string& parentName,
+                        const std::string& selfVar) {
+        if (rawName.empty()) return "nil";
+        const std::string token = "$parent";
+        const bool isParented = rawName.compare(0, token.size(), token) == 0;
+        if (!isParented) return quote(rawName);
+        const std::string suffix = rawName.substr(token.size());
+        if (runtimeParentName) {
+            return "((" + selfVar + ":GetName() or \"\") .. " + quote(suffix) + ")";
+        }
+        return quote(parentName + suffix);
+    }
 
     void line(const std::string& s) { result.lua += s; result.lua += "\n"; }
 
@@ -90,7 +112,7 @@ struct Emitter {
 
         line("local " + var + " = " + parentVar +
              (isTexture ? ":CreateTexture(" : ":CreateFontString(") +
-             (name.empty() ? "nil" : quote(name)) + ", " + quote(layerName) + ")");
+             nameArg(rawName, parentName, parentVar) + ", " + quote(layerName) + ")");
 
         if (const std::string* file = node.attr("file")) {
             line(var + ":SetTexture(" + quote(*file) + ")");
@@ -166,6 +188,7 @@ struct Emitter {
             }
             Emitter inner;
             inner.temp = 0;
+            inner.runtimeParentName = true;
             inner.emitFrameBody(node, "self", name);
             line("__WoweeTemplates[" + quote(name) + "] = function(self)");
             result.lua += inner.result.lua;
