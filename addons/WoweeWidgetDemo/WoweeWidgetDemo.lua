@@ -85,4 +85,14 @@ end)
 SLASH_WOWEEWIDGETDEMO1 = "/widgetdemo"
 SlashCmdList["WOWEEWIDGETDEMO"] = function()
     if f:IsShown() then f:Hide() else f:Show() end
+    -- Reports what the widget system thinks, so "it did not disappear" can be
+    -- told apart from "it thinks it is hidden and is drawing anyway".
+    local state = "shown=" .. tostring(f:IsShown())
+        .. " alpha=" .. tostring(f:GetAlpha())
+        .. " size=" .. tostring(f:GetWidth()) .. "x" .. tostring(f:GetHeight())
+    if DEFAULT_CHAT_FRAME then
+        DEFAULT_CHAT_FRAME:AddMessage("WidgetDemo: " .. state)
+    else
+        print("WidgetDemo: " .. state)
+    end
 end

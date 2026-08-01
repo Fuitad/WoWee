@@ -62,6 +62,18 @@ endif()
 add_test(NAME hill_climbing COMMAND test_hill_climbing)
 register_test_target(test_hill_climbing)
 
+# ── test_framexml ───────────────────────────────────────────
+add_executable(test_framexml
+    test_framexml.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/xml_parser.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/framexml_emitter.cpp
+)
+target_include_directories(test_framexml PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_framexml SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_framexml PRIVATE catch2_main)
+add_test(NAME framexml COMMAND test_framexml)
+register_test_target(test_framexml)
+
 # ── test_widget_tree ────────────────────────────────────────
 add_executable(test_widget_tree
     test_widget_tree.cpp
