@@ -2,6 +2,7 @@
 #include "core/logger.hpp"
 #include "core/config_paths.hpp"
 #include <algorithm>
+#include <set>
 #include <filesystem>
 #include <fstream>
 
@@ -53,6 +54,15 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
     // Sort alphabetically for deterministic load order
     std::sort(dirs.begin(), dirs.end());
 
+    // One addon per name, however many roots supply it. Searching more than one
+    // place means the same addon can be found twice — a copy staged beside the
+    // executable and the original it was staged from, say — and loading both
+    // runs its Lua twice, which builds two of every frame. They sit exactly on
+    // top of each other, so it reads as one frame that will not hide: the
+    // toggle hides the copy it has a handle to and the other stays.
+    std::set<std::string> seen;
+    int duplicates = 0;
+
     for (const auto& dir : dirs) {
         ++scannedDirs;
         std::string dirName = dir.filename().string();
@@ -62,6 +72,13 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
 
         if (toc->isLoadOnDemand()) {
             ++loadOnDemand;
+            continue;
+        }
+
+        if (!seen.insert(toc->addonName).second) {
+            ++duplicates;
+            LOG_INFO("AddonManager: '", toc->addonName, "' already found elsewhere; "
+                     "ignoring the copy at ", dir.string());
             continue;
         }
 
@@ -76,7 +93,7 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
     // them, and print one line that reads like an empty directory.
     LOG_INFO("AddonManager: scanned ", scannedDirs, " directories, registered ",
              addons_.size(), " addons (", loadOnDemand, " load-on-demand, ",
-             noToc, " without a .toc)");
+             noToc, " without a .toc, ", duplicates, " duplicate)");
     // Load persisted enable/disable choices now that we know which addons exist.
     loadEnabledState();
 }
