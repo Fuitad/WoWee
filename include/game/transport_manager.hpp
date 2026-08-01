@@ -97,21 +97,12 @@ public:
                (transport.pathId >= 176080u && transport.pathId <= 176085u);
     }
 
-    // Single source of truth for a transport hull's fixed orientation offset.
+    // Single source of truth for a transport hull's fixed orientation offset:
+    // its rendered facing is (direction of travel) + this constant. Every
+    // orientation path funnels through here rather than re-listing ships.
+    // Server-position-driven transports (trams, zeppelins) never reach it — they
+    // measure the same offset live from heading-vs-velocity in updateYawAlignment().
     //
-    // A transport's rendered facing is (its direction of travel) + (a constant per-MODEL
-    // bow offset baked into how the art was authored): 0 means the model's bow already
-    // points along route-forward, PI means the bow is modelled pointing aft. This is a
-    // property of the displayId, not of the per-realm GameObject entry, so keying it by
-    // model makes the same correction apply to that hull on every expansion and realm.
-    //
-    // Every orientation path funnels through this one function instead of re-listing
-    // ships: the client-animated TaxiPath ships add it to their spline-tangent yaw, and
-    // it also decides whether a docked ship restores its spawn yaw or holds its heading.
-    // Server-position-driven transports (trams, zeppelins) need no table entry — they
-    // measure the same offset live from heading-vs-velocity in updateYawAlignment(). This
-    // table is only the seed for hulls the client animates itself and can never observe
-    // move under server control, so there is nothing to learn the offset from.
     // Measured from the art rather than guessed: every transport hull in the WoW
     // data is authored with its bow at model-space -X, so the offset is PI for
     // all of them and there are no exceptions to list.
@@ -185,6 +176,11 @@ public:
     glm::vec3 serverToTransportLocal(uint64_t transportGuid,
                                      const glm::vec3& serverOffset) const;
     glm::mat4 getTransportInvTransform(uint64_t transportGuid);
+    /// Whether this transport's hull collision has finished loading. Distinguishes
+    /// "the deck query found nothing because there is no deck here" from "because
+    /// the model is still uploading".
+    bool isTransportCollisionReady(uint64_t transportGuid) const;
+
     bool isPointOnTransportDeck(uint64_t transportGuid,
                                 const glm::vec3& canonicalPosition,
                                 float maxFloorDelta = 1.25f) const;

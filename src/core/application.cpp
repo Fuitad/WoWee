@@ -1990,13 +1990,28 @@ void Application::update(float deltaTime) {
                                 intendedRender.z = *deckFloor + 0.10f;
                                 cameraController->suppressVerticalPhysics();
                                 deckFloorPending_ = false;
-                            } else if (deckFloorPending_) {
+                            } else if (deckFloorPending_ &&
+                                       !tm->isTransportCollisionReady(transportGuid)) {
                                 // A continent transfer registers the transport GO
                                 // before its WMO collision necessarily finishes loading.
                                 // Preserve the local offset until this exact instance's
                                 // deck exists instead of releasing gravity after a timer.
                                 intendedRender = expectedRender;
                                 cameraController->suppressVerticalPhysics();
+                            } else if (deckFloorPending_) {
+                                // Collision is loaded and still found no deck underfoot,
+                                // which is a real answer, not a not-ready one. The hold
+                                // above waits for geometry to arrive; it must not
+                                // outlive its own premise.
+                                //
+                                // It did, and there was no way out of it: the flag is set
+                                // on boarding and cleared only by a successful deck query,
+                                // so boarding somewhere the query never succeeds — a
+                                // gangway that belongs to the pier rather than the hull —
+                                // reapplied the boarding offset every frame forever. That
+                                // is a rider running on the spot, unable to walk far
+                                // enough to trigger disembark and so unable to get off.
+                                deckFloorPending_ = false;
                             }
                         }
 

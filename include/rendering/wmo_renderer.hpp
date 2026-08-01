@@ -84,6 +84,11 @@ public:
      * @param id WMO model identifier
      */
     bool isModelLoaded(uint32_t id) const;
+    /// Whether this instance's model has finished uploading its groups, and so
+    /// whether a failed floor query means "nothing under you" rather than "not
+    /// loaded yet". The two need telling apart: a rider held in place waiting
+    /// for collision that is already there waits forever.
+    bool instanceHasCollisionGeometry(uint32_t instanceId) const;
 
     /**
      * Check if a WMO instance is still live in the renderer. Owners that cache

@@ -975,6 +975,15 @@ bool WMORenderer::isModelLoaded(uint32_t id) const {
     return loadedModels.find(id) != loadedModels.end();
 }
 
+bool WMORenderer::instanceHasCollisionGeometry(uint32_t instanceId) const {
+    auto it = std::find_if(instances.begin(), instances.end(),
+                           [instanceId](const WMOInstance& inst) { return inst.id == instanceId; });
+    if (it == instances.end()) return false;
+    auto model = loadedModels.find(it->modelId);
+    return model != loadedModels.end() && model->second.setupDone &&
+           !model->second.groups.empty();
+}
+
 void WMORenderer::unloadModel(uint32_t id) {
     auto it = loadedModels.find(id);
     if (it == loadedModels.end()) {
@@ -1143,11 +1152,25 @@ void WMORenderer::setInstanceTransform(uint32_t instanceId, const glm::mat4& tra
 void WMORenderer::addDoodadToInstance(uint32_t instanceId, uint32_t m2InstanceId, const glm::mat4& localTransform) {
     auto it = std::find_if(instances.begin(), instances.end(),
                           [instanceId](const WMOInstance& inst) { return inst.id == instanceId; });
-    if (it != instances.end()) {
-        WMOInstance::DoodadInfo doodad;
-        doodad.m2InstanceId = m2InstanceId;
-        doodad.localTransform = localTransform;
-        it->doodads.push_back(doodad);
+    if (it == instances.end()) {
+        // Nothing to parent to. The M2 was already created, so silently dropping
+        // it here leaves it stranded at the origin, drawn nowhere and owned by
+        // no one — invisible in a way that looks exactly like a load failure.
+        core::Logger::getInstance().warning(
+            "WMO doodad has no parent instance ", instanceId,
+            " — M2 instance ", m2InstanceId, " left at the origin");
+        return;
+    }
+    WMOInstance::DoodadInfo doodad;
+    doodad.m2InstanceId = m2InstanceId;
+    doodad.localTransform = localTransform;
+    it->doodads.push_back(doodad);
+
+    // Place it immediately rather than waiting for the parent's next transform
+    // push, so it is never drawn at the origin for a frame and never sits there
+    // indefinitely if the parent is static.
+    if (m2Renderer_) {
+        m2Renderer_->setInstanceTransform(m2InstanceId, it->modelMatrix * localTransform);
     }
 }
 

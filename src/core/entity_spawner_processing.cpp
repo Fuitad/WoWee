@@ -1356,14 +1356,28 @@ void EntitySpawner::processPendingTransportDoodads() {
             std::string doodadPathLower = doodadTemplate.m2Path;
             std::transform(doodadPathLower.begin(), doodadPathLower.end(), doodadPathLower.begin(),
                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            bool logMachinery = false;
             if (doodadPathLower.find("transportship_sails") != std::string::npos ||
                 doodadPathLower.find("icebreaker_paddlewheel") != std::string::npos) {
-                LOG_WARNING("Transport machinery spawned: ", doodadTemplate.m2Path,
-                            " instance=", m2InstanceId,
-                            " hasShipMoving=", m2Renderer->hasAnimation(m2InstanceId, 163u));
+                logMachinery = true;
             }
 
             wmoRenderer->addDoodadToInstance(it->instanceId, m2InstanceId, doodadTemplate.localTransform);
+            if (logMachinery) {
+                // Report where it actually ended up. "Spawned" only ever meant the
+                // model parsed; it said nothing about whether the thing landed on
+                // the ship or at the world origin.
+                glm::vec3 where(0.0f);
+                float radius = 0.0f;
+                const bool haveBounds = m2Renderer->getInstanceBounds(m2InstanceId, where, radius);
+                LOG_WARNING("Transport machinery spawned: ", doodadTemplate.m2Path,
+                            " instance=", m2InstanceId,
+                            " wmoInstance=", it->instanceId,
+                            " hasShipMoving=", m2Renderer->hasAnimation(m2InstanceId, 163u),
+                            " bounds=", haveBounds,
+                            " worldPos=(", where.x, ",", where.y, ",", where.z, ")",
+                            " radius=", radius);
+            }
             it->spawnedDoodads++;
         }
 

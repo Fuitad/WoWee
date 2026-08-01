@@ -406,6 +406,15 @@ bool TransportManager::isPointOnTransportDeck(uint64_t transportGuid,
     return floorDelta >= -0.35f && floorDelta <= maxFloorDelta;
 }
 
+bool TransportManager::isTransportCollisionReady(uint64_t transportGuid) const {
+    if (!wmoRenderer_) return false;
+    const auto it = transports_.find(transportGuid);
+    if (it == transports_.end() || it->second.isM2 || it->second.wmoInstanceId == 0) {
+        return false;
+    }
+    return wmoRenderer_->instanceHasCollisionGeometry(it->second.wmoInstanceId);
+}
+
 std::optional<float> TransportManager::getTransportDeckFloorHeight(
     uint64_t transportGuid,
     const glm::vec3& canonicalPosition) const {
