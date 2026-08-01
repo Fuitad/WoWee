@@ -490,6 +490,19 @@ int lua_FontString_SetFont(lua_State* L) {
     return 0;
 }
 
+/// GetFont() → path, height, flags.
+///
+/// The height is the part anything does arithmetic on: WatchFrame measures a
+/// test line with local _, fontHeight = line.text:GetFont() and divides by it
+/// two lines later, so answering nothing loses the file.
+int lua_FontString_GetFont(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushstring(L, "Fonts\\FRIZQT__.TTF");
+    lua_pushnumber(L, w && w->fontHeight > 0.0f ? w->fontHeight : 12.0);
+    lua_pushstring(L, "");
+    return 3;
+}
+
 /// SetFontObject(obj) where obj is one of the shared font objects, which carry
 /// a height and a colour. FrameXML reaches for these more than three thousand
 /// times, so a FontString that ignores them is the wrong size and colour nearly
@@ -554,6 +567,7 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
         set("SetJustifyH", lua_FontString_SetJustifyH);
         set("SetTextColor", lua_FontString_SetTextColor);
         set("SetFont", lua_FontString_SetFont);
+        set("GetFont", lua_FontString_GetFont);
         set("SetFontObject", lua_FontString_SetFontObject);
     }
     // Anything still unimplemented stays a no-op rather than an error, which is
@@ -1353,6 +1367,13 @@ void LuaEngine::registerCoreAPI() {
         "    return self.__attributes[key]\n"
         "end\n"
         // A scroll frame's content frame.
+        // Nothing to scroll until the tree has been laid out, and zero is the
+        // honest answer then. ScrollFrame_OnScrollRangeChanged compares the
+        // bar value against this the moment a scroll frame is built.
+        "function mt:GetVerticalScrollRange() return 0 end\n"
+        "function mt:GetHorizontalScrollRange() return 0 end\n"
+        "function mt:GetVerticalScroll() return 0 end\n"
+        "function mt:GetHorizontalScroll() return 0 end\n"
         "function mt:SetScrollChild(child) self.__scrollChild = child end\n"
         "function mt:GetScrollChild() return self.__scrollChild end\n"
         "function mt:SetFontString(fs) self.__fontString = fs end\n"
