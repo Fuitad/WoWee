@@ -1,5 +1,64 @@
 # Changelog
 
+## [v2.0.32-preview] — 2026-07-31
+
+### Water
+- **The water's edge has a shoreline.** A wet-sand band that darkens what is under it, sediment that moves with the surf, a swash line that runs up the beach and back, foam that rides the water instead of sitting still in world space, and spray thrown off the advancing front. The foam is broken up by cellular octaves at rotated, non-multiple scales with a jittered threshold, because thresholding Worley cells near their centres puts a dot in every cell and makes the lattice itself the pattern — which is the grid that was visible before
+- **The ocean fades into the horizon haze** rather than ending on a hard line, and the wave fronts are phase-warped by noise so the generator's pattern stops reading as bright parallel lines at distance
+- **Water churns where you move through it.** Wading lays down froth underfoot; swimming leaves a V wake off the shoulders whose arms open with distance behind. Points age out and spread as they go, and carry a bounding circle so every water pixel outside the trail rejects them in one test
+- **Spray is drawn on top of the water instead of underneath it.** Water moved into a pass of its own so the refraction copy could be taken before it, which left the swim effects recording into the scene pass that now runs first — shallow water hid the droplets partly, the deeper water you swim in hid them completely. The wading spray also never spawned at all: it shared an accumulator that the swimming branch zeroes on every frame it is not swimming, so a 30/s rate could only ever reach 0.5 in a frame
+- **Crossing the surface sweeps a waterline across the view** instead of the whole scene flipping at once. The line is anchored to the projected horizon rather than the middle of the screen, and the tint no longer gives out past 15 units down — the depth query's default vertical reach was rejecting the surface once you were deeper than that, so the scene snapped bright at a fixed depth
+- **Refraction no longer feeds itself.** The scene copy the water samples was being taken from the finished frame, so a moving object left one sharp copy per frame — a train of ghosts — and the brightness compounded through the loop. The copy is now taken before the water draws and at half resolution
+
+### Movement & Swimming
+- **You no longer sink through hills.** Floor selection rejects any surface more than 0.60 yards above the feet as unreachable, which at the steepest walkable slope covers a mounted player for about 1/40th of a second — a 20 fps frame rises 0.83 yards and the terrain being climbed stops counting as ground. From there it compounds, because falling puts the feet further below the surface. Outdoors the heightfield has one surface per column, so feet below it are pushed back out, guarded against everything legitimately built underneath: WMO and M2 floors probed from the player, and hole-cut chunks, which is how a cave mouth is opened
+- **Swimming holds its depth** instead of being pulled to the surface, and holding space keeps ascending rather than rising for a moment and stopping
+- Walking out of water no longer stutters: both swim checks decided from a single depth, so a character at the boundary flipped state every frame, restarting the locomotion animation and sending a START/STOP pair each time
+
+### Character & Equipment
+- **Helmets go on the head.** All three paths — your character, other players, NPCs — attached head gear at M2 attachment 0, which is the shield mount, falling back to 11 (the helm) only if that failed. It never failed. Detaching 0 on an equipment refresh was also dropping shields
+- **Your own character wears a helm at all.** The local appearance path had no head slot: six attachment calls, all weapons. Head-model resolution — race and gender suffix, base fallback, suffixed texture — now lives in one place that all three paths call
+- **A circlet leaves your hair showing.** Hair was hidden for any head item, so a tiara left the character bald with nothing visible. ItemDisplayInfo points at a HelmetGeosetVisData row per gender, and the row crowns and circlets use is all zeroes where a plate helm's is not. The columns holding those references move between the 23-field and 25-field builds, so they are found by asking which columns reference the visibility table
+- **Show Helm works.** It flipped a bool, sent the packet and printed a message; nothing read the flag
+- **Facial features exist.** CharacterFacialHairStyles' geoset columns were read at 3, 4 and 5, which hold a constant per race in every copy of that DBC here — Draenei rows read 2010429269 on every variation. Truncated and offset they name geosets no model has, so no character had a beard, tendrils or earrings. The variants are at columns 6 to 8. The clamp that forced each channel to at least 1 goes with them, since zero means the channel has no feature
+- **A face overlay authored at a different resolution than the body is fitted to its region.** The only resizing was a whole-factor upscale, so an overlay larger than its region was pasted at its own size across the regions next to it. Mismatched art sets are now reported
+- A character whose appearance the data cannot draw takes the nearest face rather than none, and says so — character creation offers an unverified 0..9 range whenever its DBC scan comes up empty, and those numbers are backed by no CharSections row
+
+### Targeting & Interaction
+- **A corpse no longer outranks the living player standing on it.** A dead creature is still a UNIT and still answers isHostile(), and hostiles are selected ahead of everything; failing that, a body at ground level is nearer the camera than a player's hit sphere a metre up. The living now rank first, and a corpse stays selectable only when nothing alive is under the cursor
+- **Fishing schools cannot be right-clicked empty.** They are fished, not opened. Clicking one sent CMSG_GAMEOBJ_USE and, while the object's metadata was outstanding, a CMSG_LOOT — which the server answers with the hole's loot
+- Left-click targeting, the right-click world picker and the hover cursor shared one ray picker instead of three copies. The hover copy had already drifted: it had no critter case, so the hand cursor appeared over a sphere three times the size a click would test
+- Warrior Charge rejects game objects and corpses, and quests marked complete can be abandoned
+
+### Combat & Spells
+- **Casting at a target actually faces it.** The renderer holds the character's yaw and the game side holds canonical yaw, and the frame loop converts render to game every frame — so a facing set only in the packet is undone before anything with a cast time completes, and the server re-checks the arc against the restored heading. Smite reported the target as not in front while the character plainly faced it
+- **The conversion between those two was a mirror where it should be a rotation.** Render yaw is canonical plus 90 degrees, which falls out of the swap in canonicalToRender and the atan2(-dy, dx) canonical convention; it was written as 180 minus, which agrees at exactly one heading. Every user of the pair was wrong together, so nothing looked amiss until a value crossed to the server
+- **Heals and buffs fall back to you when nothing friendly is targeted.** A heal and a nuke share an effect id and can share a school; EffectImplicitTargetA is what tells them apart. Spells that take either target, like Dispel Magic, are left alone
+- Pressing the mount you are riding dismounts you instead of dismounting and immediately remounting
+
+### Items, Mail & Bank
+- **A priest robe read as a cloak.** The item query layout is guessed from the bytes, and it decided on InventoryType alone. On a server without BuyCount that read lands on AllowableClass, and Priest-only is 16 — INVTYPE_CLOAK. Both readings are now scored across several fields, with BuyCount itself breaking the tie: it is how many the vendor sells at once, and a layout read one field short puts a price there
+- Mail attachment slots match what the realm's packet can carry — Vanilla writes a single item GUID, and the compose window offered twelve regardless, sending the first and leaving the rest in your bags without a word. Attached stacks show their size
+- Each bank bag can be sorted on its own; sorting the whole bank pools everything into the main slots, which empties a bag being kept as a category
+
+### Rendering
+- **Rigid props stopped swaying like trees.** Foliage tokens are matched as substrings because model names run words together, so "thorn" inside Stranglethorn made every troll ruin sway — along with "corn" in Corner, "hops" in ShopSign, "tree" in StreetSign, "crop" in Outcrop and "herb" in Herbalism. Names are head-final compounds, so the match ending furthest right decides: StranglethornRuins is a ruin while DustwallowTree is still a tree. 73 models stop swaying and no plant loses its wind
+- **Forges are solid, and so is Ironforge.** isForge matched the city, so all 64 of its doodads had every batch forced to additive — benches, statues, cliffs, elevators. A forge is now a forge only when the name ends on it, and the additive override applies to the flame cards rather than the whole model, which is mostly masonry
+- **Vertex explosions on creatures.** Bone indices were declared signed and read as such in the shader, so a bone index above 127 became negative and flung vertices across the world
+- The UI draws in its own single-sampled pass rather than being multisampled and refracted through water
+- NPC speech bubbles resolve $-tokens the way the chat log does
+
+### Performance
+- **Terrain streaming no longer stalls.** A single WMO took 158 ms against an 8 ms budget, 81% of it in group upload. Groups and textures now upload incrementally across frames, and one model per step
+- M2 instance creation is bounded by time, its instance storage reserved so growth cannot stall a frame, and the bone seed found by lookup rather than scanning every instance
+- Transport WMO uploads spread across frames; the login background decodes off the main thread
+
+### Stability
+- **Quitting no longer crashes.** The deferred-destruction drain added to WMO shutdown landed inside the `if (!vkCtx_)` early return, calling through the pointer exactly when it was null
+- Renderers drain their deferred destruction while their own descriptor pools are alive, which closes a 426 MB shutdown leak across roughly 63,000 allocations
+- **Incremental WMO loading dropped a group at every budget break.** It marked the current group done before deciding whether to stop, so Stormwind — 286 groups against a 6 ms budget — lost around 22 of them, interior floors past a doorway among them. Every non-empty group is now checked for before a model is published
+- Water footsteps point at sounds that exist: the WATER surface was built from a naming convention that is real for Stone, Dirt, Grass, Wood and Snow but has no Water variant in any archive, and the movement sounds pointed at a folder that does not exist
+
 ## [v2.0.31-preview] — 2026-07-24
 
 ### UI
