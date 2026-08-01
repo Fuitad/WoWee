@@ -85,9 +85,16 @@ std::string scriptParameters(const std::string& script) {
         script == "OnHyperlinkLeave") return "self, link, text, button";
     if (script == "OnTooltipSetItem" ||
         script == "OnTooltipSetUnit") return "self";
-    // OnLoad, OnShow, OnHide and the rest take only self; the varargs keep an
-    // unexpected handler from erroring on arity.
-    return "self, ...";
+    // OnLoad, OnShow, OnHide and the rest take only self.
+    return "self";
+}
+
+/// Named parameters, and then varargs regardless. A body is free to use `...`
+/// whatever handler it belongs to, and a parameter list without it does not
+/// merely leave the values behind — it fails to compile, taking the whole
+/// template with it.
+std::string scriptSignature(const std::string& script) {
+    return scriptParameters(script) + ", ...";
 }
 
 struct Emitter {
@@ -98,7 +105,11 @@ struct Emitter {
     /// rather than now.
     bool runtimeParentName = false;
 
-    std::string nextVar() { return "__x" + std::to_string(temp++); }
+    /// Temporaries live in a table rather than in locals. Lua allows 200 locals
+    /// per function and a large file declares far more widgets than that —
+    /// FriendsFrame and InterfaceOptionsPanels both went over, and the failure
+    /// is the whole chunk refusing to compile rather than anything degrading.
+    std::string nextVar() { return "__w[" + std::to_string(++temp) + "]"; }
 
     /// The Lua expression for a region or frame's name. A literal where the
     /// owning frame is known, and a concatenation against the real frame's name
@@ -124,7 +135,10 @@ struct Emitter {
         for (const XmlNode& s : scripts.children) {
             // <OnClick function="Foo"/> names an existing global; an inline body
             // is a function literal. Both end up as the same SetScript call.
-            if (const std::string* fn = s.attr("function")) {
+            // Present but empty is not a name. Emitted as one it produces
+            // SetScript("X", ) — a syntax error that loses the whole file, not
+            // just the handler.
+            if (const std::string* fn = s.attr("function"); fn && !fn->empty()) {
                 line(var + ":SetScript(" + quote(s.name) + ", " + *fn + ")");
                 continue;
             }
@@ -137,7 +151,7 @@ struct Emitter {
             // moment it touched its own argument — arithmetic on a nil elapsed
             // being the loudest of them.
             line(var + ":SetScript(" + quote(s.name) +
-                 ", function(" + scriptParameters(s.name) + ") " + body + " end)");
+                 ", function(" + scriptSignature(s.name) + ") " + body + " end)");
         }
     }
 
@@ -148,7 +162,7 @@ struct Emitter {
         const std::string rawName = node.attrOr("name", "");
         const std::string name = substituteParent(rawName, parentName);
 
-        line("local " + var + " = " + parentVar +
+        line(var + " = " + parentVar +
              (isTexture ? ":CreateTexture(" : ":CreateFontString(") +
              nameArg(rawName, parentName, parentVar) + ", " + quote(layerName) + ")");
 
@@ -191,18 +205,27 @@ struct Emitter {
                 std::to_string(col->attrFloat("a", 1.0f));
             line(var + (isTexture ? ":SetVertexColor(" : ":SetTextColor(") + args + ")");
         }
-        if (const XmlNode* anchors = node.child("Anchors")) emitAnchors(*anchors, var, parentVar);
+        if (const XmlNode* anchors = node.child("Anchors"))
+            emitAnchors(*anchors, var, parentVar, parentName);
     }
 
     void emitAnchors(const XmlNode& anchors, const std::string& var,
-                     const std::string& parentVar) {
+                     const std::string& parentVar,
+                     const std::string& parentNameForAnchors = std::string()) {
         for (const XmlNode& a : anchors.children) {
             if (a.name != "Anchor") continue;
             const std::string point = a.attrOr("point", "CENTER");
-            // relativeTo names a frame; without one the anchor is to the parent,
-            // which is what leaving it out means.
+            // relativeTo names a frame. Emitted as a string rather than a bare
+            // identifier, because SetPoint resolves a name for us and because
+            // the name is often $parentSomething — which is not an identifier
+            // at all, and pasting it into Lua is a syntax error that loses the
+            // whole file. Without one, the anchor is to the parent, which is
+            // what leaving it out means.
             std::string relative = parentVar;
-            if (const std::string* rt = a.attr("relativeTo")) relative = *rt;
+            if (const std::string* rt = a.attr("relativeTo")) {
+                relative = nameArg(*rt, parentNameForAnchors, "self");
+                if (relative == "nil") relative = parentVar;
+            }
             const std::string relPoint = a.attrOr("relativePoint", point);
 
             float ox = 0, oy = 0;
@@ -238,6 +261,7 @@ struct Emitter {
             // for at replay time.
             inner.emitFrameBody(node, "self", name, "self:GetParent()");
             line("__WoweeTemplates[" + quote(name) + "] = function(self)");
+            line("local __w = {}");
             result.lua += inner.result.lua;
             for (auto& w : inner.result.warnings) result.warnings.push_back(w);
             line("end");
@@ -248,7 +272,7 @@ struct Emitter {
         const std::string parentArg = node.attr("parent")
             ? *node.attr("parent")
             : (parentVar.empty() ? "UIParent" : parentVar);
-        line("local " + var + " = CreateFrame(" + quote(node.name) + ", " +
+        line(var + " = CreateFrame(" + quote(node.name) + ", " +
              (name.empty() ? "nil" : quote(name)) + ", " + parentArg + ")");
 
         // Templates apply before the frame's own settings, so anything stated
@@ -287,7 +311,7 @@ struct Emitter {
             // frame was positioned against the screen rather than its parent —
             // which for anything inside a panel puts it somewhere else
             // entirely, and FrameXML nests constantly.
-            emitAnchors(*anchors, var, parentVar);
+            emitAnchors(*anchors, var, parentVar, name);
         }
         if (const XmlNode* layers = node.child("Layers")) {
             for (const XmlNode& layer : layers->children) {
@@ -327,6 +351,7 @@ std::string substituteParent(const std::string& name, const std::string& parentN
 
 EmitResult emitFrameXml(const XmlNode& root) {
     Emitter e;
+    e.line("local __w = {}");
     if (root.name != "Ui") {
         e.result.warnings.push_back("root element is <" + root.name + ">, expected <Ui>");
     }

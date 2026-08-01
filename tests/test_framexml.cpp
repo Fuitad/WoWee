@@ -175,7 +175,7 @@ TEST_CASE("Nested frames are parented to the frame containing them",
         "<Button name=\"$parentBtn\"/>"
         "</Frames></Frame></Ui>");
     const EmitResult r = emitFrameXml(root);
-    REQUIRE(has(r.lua, "CreateFrame(\"Button\", \"OuterBtn\", __x0)"));
+    REQUIRE(has(r.lua, "CreateFrame(\"Button\", \"OuterBtn\", __w[1])"));
 }
 
 TEST_CASE("Strings that reach Lua are escaped", "[framexml][emit]") {
@@ -233,8 +233,8 @@ TEST_CASE("A nested frame anchors to its container, not the screen",
         "</Anchors></StatusBar>"
         "</Frames></Frame></Ui>");
     const EmitResult r = emitFrameXml(root);
-    REQUIRE(has(r.lua, "CreateFrame(\"StatusBar\", \"OuterBar\", __x0)"));
-    REQUIRE(has(r.lua, ":SetPoint(\"BOTTOMLEFT\", __x0,"));
+    REQUIRE(has(r.lua, "CreateFrame(\"StatusBar\", \"OuterBar\", __w[1])"));
+    REQUIRE(has(r.lua, ":SetPoint(\"BOTTOMLEFT\", __w[1],"));
     REQUIRE_FALSE(has(r.lua, ":SetPoint(\"BOTTOMLEFT\", UIParent,"));
 }
 
@@ -288,10 +288,10 @@ TEST_CASE("Handler bodies get their arguments by name", "[framexml][emit]") {
         "</Scripts></Frame></Ui>");
     const EmitResult r = emitFrameXml(root);
 
-    REQUIRE(has(r.lua, "function(self, elapsed)"));
-    REQUIRE(has(r.lua, "function(self, button, down)"));
+    REQUIRE(has(r.lua, "function(self, elapsed, ...)"));
+    REQUIRE(has(r.lua, "function(self, button, down, ...)"));
     REQUIRE(has(r.lua, "function(self, event,"));
-    REQUIRE(has(r.lua, "function(self, value)"));
+    REQUIRE(has(r.lua, "function(self, value, ...)"));
     REQUIRE_FALSE(has(r.lua, "local arg1, arg2, arg3, arg4 = ..."));
 }
 
@@ -303,4 +303,73 @@ TEST_CASE("A handler with no named arguments still takes self",
         "</Scripts></Frame></Ui>");
     const EmitResult r = emitFrameXml(root);
     REQUIRE(has(r.lua, "function(self, ...)"));
+}
+
+TEST_CASE("Every handler is vararg whatever its named arguments",
+          "[framexml][emit]") {
+    // A body is free to use `...` whatever handler it belongs to, and a
+    // parameter list without it does not merely lose the values — it fails to
+    // compile, taking the whole template with it.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"F\"><Scripts>"
+        "<OnEvent><![CDATA[ local a, b = ...; self:SetAlpha(1) ]]></OnEvent>"
+        "<OnUpdate><![CDATA[ local x = select(1, ...) ]]></OnUpdate>"
+        "</Scripts></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "function(self, elapsed, ...)"));
+    REQUIRE(has(r.lua, "function(self, event,"));
+    // Both signatures end in varargs.
+    size_t at = 0, sigs = 0;
+    while ((at = r.lua.find(", ...)", at)) != std::string::npos) { ++sigs; at += 5; }
+    REQUIRE(sigs >= 2);
+}
+
+TEST_CASE("A $parent relativeTo becomes a name, not a bare symbol",
+          "[framexml][emit]") {
+    // $parentBg is not a Lua identifier. Pasted in as one it is a syntax error,
+    // which does not lose the anchor — it loses the whole file.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"FooFrame\"><Layers><Layer>"
+        "<Texture name=\"$parentBg\"/>"
+        "<Texture name=\"$parentIcon\"><Anchors>"
+        "<Anchor point=\"LEFT\" relativeTo=\"$parentBg\" relativePoint=\"RIGHT\"/>"
+        "</Anchors></Texture>"
+        "</Layer></Layers></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(has(r.lua, "$parent"));
+    REQUIRE(has(r.lua, "\"FooFrameBg\""));
+}
+
+TEST_CASE("Temporaries do not run into Lua's local-variable limit",
+          "[framexml][emit]") {
+    // Lua allows 200 locals per function. A large file declares far more
+    // widgets than that, and going over does not degrade — the whole chunk
+    // refuses to compile. FriendsFrame and InterfaceOptionsPanels both did.
+    std::string xml = "<Ui><Frame name=\"Big\"><Layers><Layer>";
+    for (int i = 0; i < 300; ++i) {
+        xml += "<Texture name=\"$parentT" + std::to_string(i) + "\"/>";
+    }
+    xml += "</Layer></Layers></Frame></Ui>";
+    XmlNode root = parseOrFail(xml);
+    const EmitResult r = emitFrameXml(root);
+
+    // One table, not three hundred locals.
+    REQUIRE(has(r.lua, "local __w = {}"));
+    size_t locals = 0, at = 0;
+    while ((at = r.lua.find("local ", at)) != std::string::npos) { ++locals; at += 6; }
+    REQUIRE(locals == 1);
+}
+
+TEST_CASE("An empty function attribute is not emitted as a handler name",
+          "[framexml][emit]") {
+    // SetScript("X", ) is a syntax error, so this loses the whole file rather
+    // than the one handler.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"F\"><Scripts>"
+        "<OnMouseWheel function=\"\"/>"
+        "<OnShow function=\"RealHandler\"/>"
+        "</Scripts></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(has(r.lua, "SetScript(\"OnMouseWheel\", )"));
+    REQUIRE(has(r.lua, "SetScript(\"OnShow\", RealHandler)"));
 }
