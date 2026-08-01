@@ -105,7 +105,6 @@ argument names, and `$parent` through unnamed frames.
   while a frame is being built.
 - `EditBox`, `Slider`, `ScrollFrame` and `Cooldown` are created as plain frames.
   They exist and lay out; they do not yet behave.
-- Only the left mouse button reaches frames.
 - The texture cache never evicts. `Interface\` art is small and reused, but a
   long session with many addons would grow it without bound.
 - The widget method set in `lua_engine.cpp` is enumerated rather than derived.

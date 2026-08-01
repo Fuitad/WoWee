@@ -427,6 +427,21 @@ struct Emitter {
         if (const std::string* strata = node.attr("frameStrata")) {
             line(var + ":SetFrameStrata(" + quote(*strata) + ")");
         }
+        // A button only receives the clicks it asks for, and one file asks in
+        // the XML rather than from a script.
+        if (const std::string* clicks = node.attr("registerForClicks");
+            clicks && !clicks->empty()) {
+            std::stringstream ss(*clicks);
+            std::string one, args;
+            while (std::getline(ss, one, ',')) {
+                one.erase(0, one.find_first_not_of(" \t"));
+                one.erase(one.find_last_not_of(" \t") + 1);
+                if (one.empty()) continue;
+                if (!args.empty()) args += ", ";
+                args += quote(one);
+            }
+            if (!args.empty()) line(var + ":RegisterForClicks(" + args + ")");
+        }
         if (node.attr("enableMouse")) {
             line(var + ":EnableMouse(" + (node.attrBool("enableMouse") ? "true" : "false") + ")");
         }

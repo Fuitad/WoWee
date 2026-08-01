@@ -1345,7 +1345,16 @@ void LuaEngine::registerCoreAPI() {
         "function mt:GetNumPoints() return 0 end\n"
         "function mt:GetPoint(n) return 'CENTER', nil, 'CENTER', 0, 0 end\n"
         "function mt:SetHitRectInsets(...) end\n"
-        "function mt:RegisterForClicks(...) end\n"
+        // Recorded, because a frame only receives the clicks it asks for.
+        // FrameXML calls RegisterForClicks("LeftButtonUp", "RightButtonUp") on
+        // the frames that want a context menu, and without this every frame
+        // would answer a right-click whether it wanted one or not.
+        "function mt:RegisterForClicks(...)\n"
+        "    local set = {}\n"
+        "    for i = 1, select('#', ...) do set[select(i, ...)] = true end\n"
+        "    self.__clicks = set\n"
+        "end\n"
+
         "function mt:SetAttribute(name, value) self['attr_'..name] = value end\n"
         "function mt:GetAttribute(name) return self['attr_'..name] end\n"
         "function mt:HookScript(scriptType, fn)\n"
@@ -2665,7 +2674,42 @@ void LuaEngine::reportMissingApi() const {
     if (!line.empty()) LOG_INFO("  missing: ", line);
 }
 
-void LuaEngine::dispatchMouse(float x, float y, bool leftDown) {
+/// Whether a frame asked for this button's clicks.
+///
+/// WoW gives a button LeftButtonUp and nothing else unless it says otherwise,
+/// and FrameXML says otherwise exactly where a context menu is wanted. Without
+/// the check every frame would answer a right-click, which is a menu opening
+/// under a cursor that never asked for one.
+bool LuaEngine::frameAcceptsClick(uint32_t wid, const char* button) {
+    lua_getglobal(L_, "__WoweeFramesByWid");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return false; }
+    lua_pushinteger(L_, static_cast<lua_Integer>(wid));
+    lua_rawget(L_, -2);
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 2); return false; }
+
+    lua_getfield(L_, -1, "__clicks");
+    bool accepts;
+    if (lua_istable(L_, -1)) {
+        // Registered explicitly: either edge counts, since this only models
+        // the release.
+        const std::string up = std::string(button) + "Up";
+        const std::string down = std::string(button) + "Down";
+        lua_getfield(L_, -1, up.c_str());
+        accepts = lua_toboolean(L_, -1) != 0;
+        lua_pop(L_, 1);
+        if (!accepts) {
+            lua_getfield(L_, -1, down.c_str());
+            accepts = lua_toboolean(L_, -1) != 0;
+            lua_pop(L_, 1);
+        }
+    } else {
+        accepts = (std::strcmp(button, "LeftButton") == 0);
+    }
+    lua_pop(L_, 3);
+    return accepts;
+}
+
+void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
     if (!L_) return;
     const uint32_t hit = widgets_.hitTest(x, y);
 
@@ -2709,19 +2753,33 @@ void LuaEngine::dispatchMouse(float x, float y, bool leftDown) {
         if (hoverWid_ != 0) callFrameScript(hoverWid_, "OnEnter");
     }
 
-    if (leftDown && !leftDown_) {
-        leftDown_ = true;
-        pressedWid_ = hit;
-        if (pressedWid_ != 0) callFrameScript(pressedWid_, "OnMouseDown", "LeftButton");
-    } else if (!leftDown && leftDown_) {
-        leftDown_ = false;
-        if (pressedWid_ != 0) {
-            callFrameScript(pressedWid_, "OnMouseUp", "LeftButton");
-            // A click is press and release on the same frame, which is what lets
-            // a player slide off a button to change their mind.
-            if (pressedWid_ == hit) callFrameScript(pressedWid_, "OnClick", "LeftButton");
+    // The names WoW uses, in the order the state arrays are indexed.
+    struct Button { const char* name; bool down; };
+    const Button pressed[kMouseButtons] = {
+        {"LeftButton",   buttons.left},
+        {"RightButton",  buttons.right},
+        {"MiddleButton", buttons.middle},
+    };
+
+    for (int i = 0; i < kMouseButtons; ++i) {
+        const Button& b = pressed[i];
+        if (b.down && !buttonDown_[i]) {
+            buttonDown_[i] = true;
+            pressedWid_[i] = hit;
+            if (pressedWid_[i] != 0)
+                callFrameScript(pressedWid_[i], "OnMouseDown", b.name);
+        } else if (!b.down && buttonDown_[i]) {
+            buttonDown_[i] = false;
+            if (pressedWid_[i] != 0) {
+                callFrameScript(pressedWid_[i], "OnMouseUp", b.name);
+                // A click is press and release on the same frame, which is what
+                // lets a player slide off a button to change their mind.
+                if (pressedWid_[i] == hit &&
+                    frameAcceptsClick(pressedWid_[i], b.name))
+                    callFrameScript(pressedWid_[i], "OnClick", b.name);
+            }
+            pressedWid_[i] = 0;
         }
-        pressedWid_ = 0;
     }
 }
 

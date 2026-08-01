@@ -49,7 +49,17 @@ public:
     /// Feed the mouse to the widget tree: hover changes fire OnEnter/OnLeave,
     /// and a press and release on the same frame is a click. Coordinates are
     /// WoW's, origin bottom-left.
-    void dispatchMouse(float x, float y, bool leftDown);
+    /// Feeds the widget tree the cursor and which buttons are held.
+    ///
+    /// Right-click is not a nicety here: it is how WoW opens nearly every
+    /// context menu, so a tree that only sees the left button can be looked at
+    /// but not used.
+    struct MouseButtons {
+        bool left = false;
+        bool right = false;
+        bool middle = false;
+    };
+    void dispatchMouse(float x, float y, MouseButtons buttons);
 
     // SavedVariables: load globals from file, save globals to file
     bool loadSavedVariables(const std::string& path);
@@ -95,10 +105,15 @@ private:
     void bootstrap(const char* code);
 
     void callFrameScript(uint32_t wid, const char* script, const char* arg = nullptr);
+    bool frameAcceptsClick(uint32_t wid, const char* button);
 
     uint32_t hoverWid_ = 0;
-    uint32_t pressedWid_ = 0;
-    bool leftDown_ = false;
+    /// Per button, because a press and its release belong together: sliding off
+    /// a button between them is how a player changes their mind, and holding
+    /// one button while clicking another must not confuse the first.
+    static constexpr int kMouseButtons = 3;
+    uint32_t pressedWid_[kMouseButtons] = {0, 0, 0};
+    bool buttonDown_[kMouseButtons] = {false, false, false};
 
     /// Make unknown globals answer with a no-op instead of erroring, so a large
     /// body of Lua can be brought up and the names it actually needs collected

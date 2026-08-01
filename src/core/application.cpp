@@ -2842,9 +2842,13 @@ void Application::render() {
             // is the question that was meant.
             const bool overClientUi = ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow);
             if (!overClientUi) {
+                addons::LuaEngine::MouseButtons buttons;
+                buttons.left   = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+                buttons.right  = ImGui::IsMouseDown(ImGuiMouseButton_Right);
+                buttons.middle = ImGui::IsMouseDown(ImGuiMouseButton_Middle);
                 engine->dispatchMouse(io.MousePos.x,
                                       io.DisplaySize.y - io.MousePos.y,
-                                      ImGui::IsMouseDown(ImGuiMouseButton_Left));
+                                      buttons);
             }
         });
     }
