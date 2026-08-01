@@ -881,6 +881,50 @@ static int lua_CreateFrame(lua_State* L) {
     lua_getglobal(L, "__WoweeFrameMT");
     lua_setmetatable(L, -2);
 
+    // The fourth argument names a template, which FrameXML uses constantly:
+    // CreateFrame("BUTTON", name, self, "OptionsListButtonTemplate"). Ignoring
+    // it was not merely a missing feature. OptionsList_OnLoad makes one button,
+    // divides the list's height by that button's height to decide how many fit,
+    // and loops to that number — so a template that never arrives means no
+    // size, a height of zero, a count of (h-8)/0, and Lua divides by zero
+    // happily. The loop then creates frames under fresh names until memory runs
+    // out, which is exactly what froze the client on VideoOptionsFrame.
+    //
+    // Applied after the metatable, so the template's body can call methods on
+    // what it is given.
+    if (const char* templates = lua_isstring(L, 4) ? lua_tostring(L, 4) : nullptr) {
+        const std::string list(templates);
+        size_t start = 0;
+        while (start <= list.size()) {
+            const size_t comma = list.find(',', start);
+            std::string one = list.substr(
+                start, comma == std::string::npos ? std::string::npos : comma - start);
+            const size_t b = one.find_first_not_of(" \t");
+            const size_t e = one.find_last_not_of(" \t");
+            one = (b == std::string::npos) ? std::string() : one.substr(b, e - b + 1);
+
+            if (!one.empty()) {
+                lua_getglobal(L, "__WoweeTemplates");
+                if (lua_istable(L, -1)) {
+                    lua_getfield(L, -1, one.c_str());
+                    if (lua_isfunction(L, -1)) {
+                        lua_pushvalue(L, -3);            // the frame
+                        if (lua_pcall(L, 1, 0, 0) != 0) {
+                            LOG_WARNING("CreateFrame: template '", one, "' failed: ",
+                                        lua_tostring(L, -1) ? lua_tostring(L, -1) : "?");
+                            lua_pop(L, 1);               // error
+                        }
+                    } else {
+                        lua_pop(L, 1);                   // not a function
+                    }
+                }
+                lua_pop(L, 1);                           // __WoweeTemplates
+            }
+            if (comma == std::string::npos) break;
+            start = comma + 1;
+        }
+    }
+
     return 1;
 }
 
@@ -2589,9 +2633,13 @@ struct BudgetGuard {
         if (L && ms > 0) {
             gChunkDeadline = std::chrono::steady_clock::now() +
                              std::chrono::milliseconds(ms);
-            // Checked often enough to be responsive, rarely enough that the
-            // check itself costs nothing measurable.
-            lua_sethook(L, runawayHook, LUA_MASKCOUNT, 10000);
+            // Every few hundred instructions. A deadline is only as sharp as
+            // how often it is looked at, and a loop whose every iteration sits
+            // in a slow C call executes very few per second: at 10,000
+            // this overran 5s by 43s and then by 99s before the check came
+            // round. The check is a clock read, which costs nothing beside the
+            // work it is bounding.
+            lua_sethook(L, runawayHook, LUA_MASKCOUNT, 500);
         }
     }
     ~BudgetGuard() { if (L) lua_sethook(L, nullptr, 0, 0); }
