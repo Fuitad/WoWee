@@ -170,9 +170,6 @@ uint32_t TransportPathRepository::pickFallbackMovingPath(uint32_t entry, uint32_
     const bool looksLikeShip =
         (displayId == 3015u || displayId == 2454u || displayId == 7446u ||
          displayId == 7087u);
-    const bool looksLikeZeppelin =
-        (displayId == 3031u || displayId == 7546u || displayId == 1587u || displayId == 807u || displayId == 808u);
-
     if (looksLikeShip) {
         // Continent-crossing ships are server-driven MO_TRANSPORT objects: their
         // route comes from their taxi path (TaxiPathNode.dbc via GO template data[0]),
@@ -183,20 +180,19 @@ uint32_t TransportPathRepository::pickFallbackMovingPath(uint32_t entry, uint32_
         return 0;
     }
 
-    if (looksLikeZeppelin) {
-        static constexpr uint32_t kZeppelinCandidates[] = {193182u, 193183u, 188360u, 190587u};
-        for (uint32_t id : kZeppelinCandidates) {
-            if (isUsableMovingPath(id)) return id;
-        }
-    }
-
-    // Last-resort: pick any moving DBC path so transport does not remain stationary.
-    for (const auto& [pathId, e] : paths_) {
-        if (e.fromDBC && !e.zOnly && e.spline.durationMs() > 0 && e.spline.keyCount() > 1) {
-            return pathId;
-        }
-    }
-
+    // Zeppelins used to fall back to the first usable id in a candidate list,
+    // which is one route — so every zeppelin flew it. Three of them are already
+    // remapped to 193182 above, and the display families cover five more ids, so
+    // in practice the whole fleet traced the same line regardless of where it
+    // spawned or where it was meant to go.
+    //
+    // The reasoning already written down for ships applies just as well here: a
+    // transport whose route is not known stays docked. It is the same object the
+    // server carries the player on, so an invented route does not merely look
+    // wrong, it disagrees with where the server says the player is.
+    // No last-resort "any moving path" either. Handing a transport an unrelated
+    // route is what sailed the continent ships underwater, and picking the first
+    // entry of an unordered map made it arbitrary as well as wrong.
     return 0;
 }
 
