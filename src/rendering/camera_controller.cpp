@@ -1510,9 +1510,27 @@ void CameraController::update(float deltaTime) {
             // Only where there is nothing else the player could be standing in or
             // under: a cave, a tunnel or Ironforge is legitimately beneath the
             // heightfield, and must never be yanked up onto the mountain above it.
+            // Standing on something settles it before any of the probing below.
+            // Grounding has already resolved a floor for this exact position; if
+            // that floor sits under the heightfield and is right at the feet, the
+            // player is on a structure beneath the terrain, not buried inside it.
+            // That is better evidence than the probe further down, which asks
+            // from a fixed height above the feet and can miss what grounding
+            // already found.
+            //
+            // Stairs descending below ground are the case that needs it: a
+            // stairwell cut into a keep passes under the heightfield within a step
+            // or two, and being hauled back to the surface each time reads as not
+            // being able to walk down them at all.
+            const bool standingOnStructure =
+                groundH && centerTerrainH &&
+                *groundH < *centerTerrainH - 0.5f &&
+                *groundH >= targetPos.z - 2.0f &&
+                *groundH <= targetPos.z + 0.6f;
+
             if (!swimming && !flyingActive_ && !hoverActive_ && !externalFollow_ &&
-                !cachedInsideWMO && !nearStructureSpace && centerTerrainH &&
-                verticalVelocity <= 0.0f) {
+                !cachedInsideWMO && !nearStructureSpace && !standingOnStructure &&
+                centerTerrainH && verticalVelocity <= 0.0f) {
                 const float penetration = *centerTerrainH - targetPos.z;
                 // Below the shallow bound is ordinary contact and sampling jitter;
                 // above the deep bound is somewhere this heuristic cannot vouch for,
