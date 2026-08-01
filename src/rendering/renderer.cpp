@@ -1,4 +1,5 @@
 #include "rendering/renderer.hpp"
+#include "core/coordinates.hpp"
 #include "rendering/camera.hpp"
 #include "rendering/camera_controller.hpp"
 #include "rendering/terrain_renderer.hpp"
@@ -1423,7 +1424,16 @@ void Renderer::update(float deltaTime) {
                    animationController_->getTargetPosition() && !animationController_->isEmoteActive() && !(animationController_ && animationController_->isMounted())) {
             glm::vec3 toTarget = *animationController_->getTargetPosition() - characterPosition;
             if (toTarget.x * toTarget.x + toTarget.y * toTarget.y > 0.01f) {
-                float targetYaw = glm::degrees(std::atan2(toTarget.y, toTarget.x));
+                // Go through canonical, the way spawning and the camera do.
+                // Taking atan2 of the render delta directly yields a heading in
+                // a different convention — a mirror about 135 degrees — so the
+                // spin looked roughly right but the frame loop then converted it
+                // back to a canonical yaw that pointed somewhere else, and the
+                // server rejected the cast for not facing the target.
+                const glm::vec3 toTargetCanonical = ::wowee::core::coords::renderToCanonical(toTarget);
+                const float canonYawToTarget =
+                    std::atan2(-toTargetCanonical.y, toTargetCanonical.x);
+                float targetYaw = ::wowee::core::coords::canonicalToCharacterYawDeg(canonYawToTarget);
                 float diff = targetYaw - characterYaw;
                 while (diff > 180.0f) diff -= 360.0f;
                 while (diff < -180.0f) diff += 360.0f;
