@@ -50,6 +50,10 @@ public:
     // --- Public API (delegated from GameHandler) ---
     void castSpell(uint32_t spellId, uint64_t targetGuid = 0);
 
+    /// Spell.dbc EffectImplicitTargetA, or 0 when the spell is unknown. 21 means
+    /// the spell has to be aimed at a friendly unit.
+    uint32_t getSpellImplicitTargetA(uint32_t spellId) const;
+
     /// The last spell the player cast while on foot. When mounting is detected,
     /// this identifies which of the player's indefinite self-cast auras is the
     /// mount — scanning for one blindly can land on a racial or a tracking buff.

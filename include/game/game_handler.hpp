@@ -2765,6 +2765,10 @@ public:
         float maxRange = -1.0f;
         int32_t effectBasePoints[3] = {0, 0, 0};
         uint32_t effectIds[3] = {0, 0, 0};
+        // Spell.dbc EffectImplicitTargetA — what the spell expects to be aimed
+        // at. 21 means a friendly unit, which is how heals and buffs are told
+        // apart from damage that shares the same effect and school.
+        uint32_t implicitTargetA = 0;
         float durationSec = 0.0f;
         uint32_t spellVisualId = 0;
         uint32_t recoveryMs = 0;

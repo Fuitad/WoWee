@@ -690,6 +690,28 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     const bool selfCast = (spellId == 8690) || isSelfCastSpell(spellId);
     if (selfCast || fishingCast) target = 0;
 
+    // Auto self-cast: a spell that has to be aimed at a friendly unit falls back
+    // to the caster when nothing friendly is selected — no target at all, or an
+    // enemy, which is the usual state mid-fight. Without it, healing yourself
+    // while fighting means dropping the target, casting, and picking it back up.
+    if (!selfCast && !fishingCast && getSpellImplicitTargetA(spellId) != 0 &&
+        spellclass::requiresFriendlyTarget(getSpellImplicitTargetA(spellId))) {
+        bool haveFriendlyTarget = false;
+        if (target != 0 && target != owner_.getPlayerGuid()) {
+            if (auto entity = owner_.getEntityManager().getEntity(target)) {
+                // Players and their pets are friendly unless flagged otherwise;
+                // hostility is the faction check the nameplate colour uses.
+                if (entity->isUnit()) {
+                    haveFriendlyTarget =
+                        !static_cast<Unit*>(entity.get())->isHostile();
+                }
+            }
+        }
+        if (!haveFriendlyTarget) {
+            target = owner_.getPlayerGuid();
+        }
+    }
+
     // Track whether a spell-specific block already handled facing so the generic
     // facing block below doesn't send redundant SET_FACING packets.
     bool facingHandled = false;
@@ -2662,6 +2684,8 @@ void SpellHandler::loadSpellNameCache() const {
     const uint32_t effect0Field = spellL ? spellL->field("Effect0") : 0xFFFFFFFF;
     const uint32_t effect1Field = spellL ? spellL->field("Effect1") : 0xFFFFFFFF;
     const uint32_t effect2Field = spellL ? spellL->field("Effect2") : 0xFFFFFFFF;
+    const uint32_t implicitTargetAField =
+        spellL ? spellL->field("EffectImplicitTargetA") : 0xFFFFFFFF;
     const uint32_t durIdxField = spellL ? spellL->field("DurationIndex") : 0xFFFFFFFF;
     const uint32_t rangeIdxField = spellL ? spellL->field("RangeIndex") : 0xFFFFFFFF;
     const uint32_t targetAuraStateField = spellL ? spellL->field("TargetAuraState") : 0xFFFFFFFF;
@@ -2708,6 +2732,9 @@ void SpellHandler::loadSpellNameCache() const {
             if (ebp0Field != 0xFFFFFFFF) entry.effectBasePoints[0] = static_cast<int32_t>(dbc->getUInt32(i, ebp0Field));
             if (ebp1Field != 0xFFFFFFFF) entry.effectBasePoints[1] = static_cast<int32_t>(dbc->getUInt32(i, ebp1Field));
             if (ebp2Field != 0xFFFFFFFF) entry.effectBasePoints[2] = static_cast<int32_t>(dbc->getUInt32(i, ebp2Field));
+            if (implicitTargetAField != 0xFFFFFFFF && implicitTargetAField < fieldCount) {
+                entry.implicitTargetA = dbc->getUInt32(i, implicitTargetAField);
+            }
             const uint32_t effectFields[3] = {effect0Field, effect1Field, effect2Field};
             for (size_t effect = 0; effect < 3; ++effect) {
                 if (effectFields[effect] != 0xFFFFFFFF && effectFields[effect] < fieldCount) {
@@ -3082,6 +3109,13 @@ float SpellHandler::getSpellMaxRange(uint32_t spellId) const {
     loadSpellNameCache();
     auto it = owner_.spellNameCacheRef().find(spellId);
     return (it != owner_.spellNameCacheRef().end()) ? it->second.maxRange : -1.0f;
+}
+
+uint32_t SpellHandler::getSpellImplicitTargetA(uint32_t spellId) const {
+    if (spellId == 0) return 0;
+    loadSpellNameCache();
+    auto it = owner_.spellNameCacheRef().find(spellId);
+    return (it != owner_.spellNameCacheRef().end()) ? it->second.implicitTargetA : 0;
 }
 
 bool SpellHandler::isSelfCastSpell(uint32_t spellId) const {

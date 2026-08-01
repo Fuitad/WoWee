@@ -35,6 +35,31 @@ inline bool isMeleeRange(float maxRange) {
     return maxRange > 0.0f && maxRange <= kCombatRangeYards;
 }
 
+/// Spell.dbc EffectImplicitTargetA values the client reasons about.
+///
+/// The column says what a spell expects to be aimed at, which is the only
+/// honest way to tell a heal or a buff from a nuke: both are APPLY_AURA, and
+/// both can share a school. Verified against the shipped data — Flash Heal,
+/// Rejuvenation, Mark of the Wild, Arcane Intellect and Blessing of Might all
+/// read 21, while Smite, Fireball, Shadow Bolt and Shadow Word: Pain read 6.
+enum ImplicitTarget : uint32_t {
+    kImplicitTargetCaster = 1,   ///< Lands on the caster whatever is selected.
+    kImplicitTargetEnemy  = 6,   ///< Needs a hostile unit.
+    kImplicitTargetAlly   = 21,  ///< Needs a friendly unit — heals and buffs.
+    kImplicitTargetAny    = 25,  ///< Either, e.g. Dispel Magic.
+};
+
+/// Whether a spell has to be aimed at a friendly unit, which is what makes it a
+/// candidate for falling back to the caster when nothing friendly is selected.
+///
+/// Deliberately only the "ally" case. A spell that takes any target (Dispel
+/// Magic) is left alone: retail does not self-cast it either, because choosing
+/// for the player between cleansing themselves and purging an enemy would be
+/// guessing at the intent behind the keypress.
+inline bool requiresFriendlyTarget(uint32_t implicitTargetA) {
+    return implicitTargetA == kImplicitTargetAlly;
+}
+
 /// Legacy client IDs for the three repeating ranged weapon attacks.
 ///
 /// Their Spell.dbc rows carry a dummy one-point rage cost even for classes that do

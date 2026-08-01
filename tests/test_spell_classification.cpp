@@ -227,3 +227,37 @@ TEST_CASE("Rank resolution copes with missing data", "[spell][rank]") {
     // Nothing known at all: pass through rather than resolving to 0.
     REQUIRE(resolveHighestKnownRank(6673, {}, dbc.lookup()) == 6673);
 }
+
+// A heal and a nuke can share an effect id and a school, so neither tells them
+// apart. EffectImplicitTargetA does: it is what the spell expects to be aimed
+// at. These values are read from the shipped Spell.dbc.
+TEST_CASE("friendly-target spells are the ones that may fall back to the caster",
+          "[spell][classification]") {
+    using namespace wowee::game::spellclass;
+
+    SECTION("heals and buffs need a friendly unit") {
+        CHECK(requiresFriendlyTarget(kImplicitTargetAlly));   // Flash Heal, Renew,
+        CHECK(requiresFriendlyTarget(21));                    // Mark of the Wild...
+    }
+
+    SECTION("damage does not") {
+        CHECK_FALSE(requiresFriendlyTarget(kImplicitTargetEnemy));  // Smite, Fireball
+        CHECK_FALSE(requiresFriendlyTarget(6));
+    }
+
+    SECTION("self-only spells are handled by range, not by this") {
+        // Inner Fire and Blink read 1; they never carry a target either way, so
+        // they must not be dragged through the friendly-target path.
+        CHECK_FALSE(requiresFriendlyTarget(kImplicitTargetCaster));
+    }
+
+    SECTION("spells that take either target are left to the player") {
+        // Dispel Magic reads 25. Retail does not self-cast it, because picking
+        // between cleansing yourself and purging an enemy is guessing.
+        CHECK_FALSE(requiresFriendlyTarget(kImplicitTargetAny));
+    }
+
+    SECTION("an unknown spell reads 0 and never self-casts") {
+        CHECK_FALSE(requiresFriendlyTarget(0));
+    }
+}
