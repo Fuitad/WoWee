@@ -693,7 +693,13 @@ void GameHandler::registerOpcodeHandlers() {
                 (playerEntity && mountField != 0xFFFF && playerEntity->hasField(mountField))
                     ? playerEntity->getField(mountField)
                     : 0;
-            if (serverMountDisplay != 0) {
+            // ...unless the player asked to dismount, in which case a still-set
+            // field is exactly the staleness this packet is arriving to correct.
+            // Discarding it there threw away the one authoritative confirmation
+            // the dismount had.
+            const bool awaitingOurOwnDismount =
+                movementHandler_ && movementHandler_->isDismountPending();
+            if (serverMountDisplay != 0 && !awaitingOurOwnDismount) {
                 LOG_WARNING("Ignoring transient SMSG_DISMOUNT while authoritative mount field is ",
                             serverMountDisplay,
                             " casting=", isCasting(),
@@ -701,6 +707,7 @@ void GameHandler::registerOpcodeHandlers() {
                             " spell=", getCurrentCastSpellId());
                 return;
             }
+            if (movementHandler_) movementHandler_->clearDismountPending();
         }
         currentMountDisplayId_ = 0;
         if (mountCallback_) mountCallback_(0);

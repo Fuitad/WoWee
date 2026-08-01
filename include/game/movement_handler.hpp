@@ -109,6 +109,12 @@ public:
     void closeTaxi();
     void activateTaxi(uint32_t destNodeId);
     bool isOnTaxiFlight() const { return onTaxiFlight_; }
+
+    /// True while a locally-initiated dismount is waiting on the server to
+    /// agree. The player's mount field keeps its old value for a few frames
+    /// after the request, and taking that at face value re-mounts them.
+    bool isDismountPending() const { return dismountGraceRemaining_ > 0.0f; }
+    void clearDismountPending() { dismountGraceRemaining_ = 0.0f; }
     bool isTaxiMountActive() const { return taxiMountActive_; }
     bool isTaxiActivationPending() const { return taxiActivatePending_; }
     void forceClearTaxiAndMovementState();
@@ -281,6 +287,10 @@ private:
     glm::vec3 worldTransferFallbackCanonicalPos_{0.0f};
     float worldTransferFallbackCanonicalO_ = 0.0f;
     float timeSinceLastMoveHeartbeat_ = 0.0f;
+    // Seconds left in which a stale non-zero mount field is not to be believed.
+    // Bounded so a dismount the server refuses recovers on its own rather than
+    // leaving the player permanently unable to look mounted.
+    float dismountGraceRemaining_ = 0.0f;
     float moveHeartbeatInterval_ = 0.5f;
     uint32_t lastHeartbeatSendTimeMs_ = 0;
     float lastHeartbeatX_ = 0.0f;

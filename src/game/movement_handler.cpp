@@ -870,6 +870,14 @@ void MovementHandler::setOrientation(float orientation) {
 
 void MovementHandler::dismount() {
     if (!owner_.getSocket()) return;
+    // The player's mount field goes on reading its old value for a few frames
+    // after the request goes out. Believing it re-mounts the player behind their
+    // back, and that stale value then makes the server's own SMSG_DISMOUNT look
+    // transient and get thrown away — the mount blinked off, back on, and off
+    // again over about two hundred milliseconds, with the character caught
+    // holding the seated rider pose in between.
+    constexpr float kDismountGraceSeconds = 1.5f;
+    dismountGraceRemaining_ = kDismountGraceSeconds;
     uint32_t savedMountAura = owner_.mountAuraSpellIdRef();
     if (owner_.currentMountDisplayIdRef() != 0 || taxiMountActive_) {
         if (owner_.mountCallbackRef()) {
@@ -2602,6 +2610,10 @@ bool MovementHandler::isNearTaxiDestination(float maxDistance) const {
 }
 
 void MovementHandler::updateClientTaxi(float deltaTime) {
+    if (dismountGraceRemaining_ > 0.0f) {
+        dismountGraceRemaining_ -= deltaTime;
+    }
+
     // Live-confirmed: a CMSG_ACTIVATETAXI the server can't make sense of (e.g.
     // a stale start node vs. the player's actual position) can go completely
     // unanswered - no SMSG_ACTIVATETAXIREPLY at all, success or failure. Before

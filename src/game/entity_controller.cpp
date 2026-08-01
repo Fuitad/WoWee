@@ -540,6 +540,20 @@ void EntityController::detectPlayerMountChange(uint32_t newMountDisplayId,
         return;
     }
     uint32_t old = owner_.currentMountDisplayIdRef();
+
+    // A dismount the player just asked for has not reached this field yet: it
+    // keeps its old value for a few frames. Taking that at face value put them
+    // straight back on the mount, and the restored value then made the server's
+    // own SMSG_DISMOUNT read as transient and get discarded — so the mount
+    // blinked off, back on, and off again, with the character left holding the
+    // seated rider pose in between.
+    auto* mh = owner_.getMovementHandler();
+    if (newMountDisplayId != 0 && mh && mh->isDismountPending()) {
+        return;
+    }
+    // The server agrees: nothing left to wait for.
+    if (newMountDisplayId == 0 && mh) mh->clearDismountPending();
+
     if (old != 0 && newMountDisplayId == 0) {
         LOG_WARNING("Authoritative mount field cleared: oldDisplay=", old,
                     " casting=", owner_.isCasting(),
