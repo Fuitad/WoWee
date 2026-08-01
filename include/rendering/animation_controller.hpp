@@ -238,6 +238,10 @@ private:
     int mountSeatAttachmentId_ = -1;
     glm::vec3 smoothedMountSeatPos_ = glm::vec3(0.0f);
     bool mountSeatSmoothingInit_ = false;
+    // Last frame's seat target, so the smoothing can tell a rider standing still
+    // from one being carried. Pressing no movement keys is not the same as not
+    // moving through the world, and on a boat the difference is the whole bug.
+    glm::vec3 lastMountSeatTarget_ = glm::vec3(0.0f);
     bool taxiFlight_ = false;
     bool m2TransportRiding_ = false;
     bool sprintAuraActive_ = false;

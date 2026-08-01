@@ -897,6 +897,11 @@ void AnimationController::updateMeleeTimers(float deltaTime) {
 
 // ── Mount positioning helper ─────────────────────────────────────────────────
 
+// A seat that shifts more than this between frames is being carried, not
+// jittering: standing still on solid ground moves it by a fraction of this,
+// while a ferry at speed moves it by several times as much in a single frame.
+static constexpr float kSeatCarriedStepSq = 0.05f * 0.05f;
+
 void AnimationController::applyMountPositioning(float mountBob, float mountRoll, float characterYaw) {
     auto* characterRenderer = renderer_->getCharacterRenderer();
     uint32_t characterInstanceId = renderer_->getCharacterInstanceId();
@@ -972,7 +977,24 @@ void AnimationController::applyMountPositioning(float mountBob, float mountRoll,
         glm::vec3 mountSeatPos = glm::vec3(mountSeatTransform[3]);
         glm::vec3 seatOffset = glm::vec3(0.0f, 0.0f, taxiFlight_ ? 0.04f : 0.08f);
         glm::vec3 targetRiderPos = mountSeatPos + seatOffset;
-        if (moving) {
+
+        // The smoothing below is for a rider sitting still, where it damps the
+        // jitter of a bone-driven seat. `moving` only reports movement *input*,
+        // though, and a player standing on a boat presses nothing while the world
+        // carries them at the ship's speed. The filter then trailed the rider
+        // behind the seat by its own time constant — about two yards at ferry
+        // speed, swinging out to one side as the hull turned. Reported as the
+        // character riding behind the direction of travel, alongside its mount.
+        //
+        // So ask whether the seat is actually moving in the world rather than
+        // whether the player asked for it to. This covers anything that carries a
+        // rider — ships, elevators, a moving platform — without naming any of them.
+        const glm::vec3 seatStep = targetRiderPos - lastMountSeatTarget_;
+        const bool seatCarried = mountSeatSmoothingInit_ &&
+                                 glm::dot(seatStep, seatStep) > kSeatCarriedStepSq;
+        lastMountSeatTarget_ = targetRiderPos;
+
+        if (moving || seatCarried) {
             mountSeatSmoothingInit_ = false;
             smoothedMountSeatPos_ = targetRiderPos;
         } else if (!mountSeatSmoothingInit_) {
