@@ -676,6 +676,10 @@ public:
     void clearUnitCaches();      // clear per-unit cast states and aura caches
 
     void queryPlayerName(uint64_t guid);
+
+    /// Who a piece of mail is from, resolved from its GUID or entry depending on
+    /// the mail type. Resolved on demand so a late name query still shows.
+    std::string getMailSenderName(const MailMessage& mail) const;
     void queryCreatureInfo(uint32_t entry, uint64_t guid);
     void queryGameObjectInfo(uint32_t entry, uint64_t guid);
     const GameObjectQueryResponseData* getCachedGameObjectInfo(uint32_t entry) const {

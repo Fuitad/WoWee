@@ -1735,6 +1735,44 @@ const std::vector<std::string>& GameHandler::getJoinedChannels() const {
 // Name Queries (delegated to EntityController)
 // ============================================================
 
+// Who a piece of mail is from. The wire gives a player GUID for player mail and
+// an entry for everything else, and nothing resolved either — the inbox showed
+// an empty From line for every message.
+//
+// Resolved on demand rather than stored, so a name that arrives after the inbox
+// was parsed shows up on the next frame instead of staying blank.
+std::string GameHandler::getMailSenderName(const MailMessage& mail) const {
+    switch (mail.messageType) {
+        case 0: {  // from another player
+            // The name-query response backfills senderName, and Reply uses that
+            // field, so prefer it and fall back to the cache for the window
+            // between the inbox arriving and the query returning.
+            if (!mail.senderName.empty()) return mail.senderName;
+            if (mail.senderGuid == 0) break;
+            const std::string& name = lookupName(mail.senderGuid);
+            if (!name.empty()) return name;
+            return "Unknown";
+        }
+        case 2:    // the auction house, which has no creature behind it
+            return "Auction House";
+        case 3: {  // a creature
+            std::string name = getCachedCreatureName(mail.senderEntry);
+            if (!name.empty()) return name;
+            break;
+        }
+        case 4: {  // a game object
+            if (const auto* info = getCachedGameObjectInfo(mail.senderEntry);
+                info && !info->name.empty()) {
+                return info->name;
+            }
+            break;
+        }
+        default:
+            break;
+    }
+    return "Unknown";
+}
+
 void GameHandler::queryPlayerName(uint64_t guid) {
     if (entityController_) entityController_->queryPlayerName(guid);
 }

@@ -2791,7 +2791,8 @@ void WindowManager::renderMailWindow(game::GameHandler& gameHandler,
                 }
 
                 // Sub-info line
-                ImGui::TextColored(kColorGray, "  From: %s", mail.senderName.c_str());
+                ImGui::TextColored(kColorGray, "  From: %s",
+                                   gameHandler.getMailSenderName(mail).c_str());
                 if (mail.money > 0) {
                     ImGui::SameLine();
                     ImGui::TextColored(colors::kWarmGold, " [G]");
@@ -2828,7 +2829,7 @@ void WindowManager::renderMailWindow(game::GameHandler& gameHandler,
 
                 ImGui::TextColored(colors::kWarmGold, "%s",
                     displaySubject.empty() ? "(No Subject)" : displaySubject.c_str());
-                ImGui::Text("From: %s", mail.senderName.c_str());
+                ImGui::Text("From: %s", gameHandler.getMailSenderName(mail).c_str());
 
                 if (mail.messageType == 2) {
                     ImGui::TextColored(ImVec4(0.8f, 0.6f, 0.2f, 1.0f), "[Auction House]");

@@ -2059,6 +2059,13 @@ void InventoryHandler::handleMailListResult(network::Packet& packet) {
     if (!owner_.getPacketParsers()->parseMailList(packet, mailInbox_)) return;
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("MAIL_INBOX_UPDATE", {});
     for (const auto& mail : mailInbox_) {
+        // Player mail carries a GUID, not a name. Ask for it once here; the UI
+        // reads the name through GameHandler::getMailSenderName, so it appears
+        // as soon as the query comes back.
+        if (mail.messageType == 0 && mail.senderGuid != 0 &&
+            owner_.lookupName(mail.senderGuid).empty()) {
+            owner_.queryPlayerName(mail.senderGuid);
+        }
         if (mail.messageType == 2) {
             AuctionMailSubject auction;
             if (parseAuctionMailSubject(mail.subject, auction)) {
