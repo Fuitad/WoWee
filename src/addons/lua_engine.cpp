@@ -2528,6 +2528,12 @@ void LuaEngine::fireEvent(const std::string& eventName,
     lua_pop(L_, 1); // pop __WoweeFrameEvents
 }
 
+namespace {
+/// Defined with the other pcall helpers further down; declared here because
+/// callFrameScript needs it and comes first.
+int luaTracebackHandler(lua_State* L);
+}  // namespace
+
 void LuaEngine::callFrameScript(uint32_t wid, const char* script,
                                 const char* arg) {
     if (!L_ || wid == 0) return;
@@ -2539,19 +2545,25 @@ void LuaEngine::callFrameScript(uint32_t wid, const char* script,
 
     lua_getfield(L_, -1, "__scripts");
     if (!lua_istable(L_, -1)) { lua_pop(L_, 3); return; }
-    lua_getfield(L_, -1, script);
-    if (!lua_isfunction(L_, -1)) { lua_pop(L_, 4); return; }
+    // The traceback handler has to sit below the function it is handling for,
+    // so it goes on before the script is fetched. A handler that fails now says
+    // where it was called from, the same as one that fails during the load.
+    lua_pushcfunction(L_, luaTracebackHandler);
+    const int handlerIdx = lua_gettop(L_);
+    lua_getfield(L_, handlerIdx - 1, script);
+    if (!lua_isfunction(L_, -1)) { lua_pop(L_, 5); return; }
 
-    lua_pushvalue(L_, -3);              // self
+    lua_pushvalue(L_, handlerIdx - 2);  // self
     int nargs = 1;
     if (arg) { lua_pushstring(L_, arg); ++nargs; }
-    if (lua_pcall(L_, nargs, 0, 0) != 0) {
+    if (lua_pcall(L_, nargs, 0, handlerIdx) != 0) {
         const char* err = lua_tostring(L_, -1);
         LOG_ERROR("LuaEngine: ", script, " error: ", err ? err : "?");
         if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
         lua_pop(L_, 1);
     }
-    lua_pop(L_, 3);
+    // Four, not three: the traceback handler is still below.
+    lua_pop(L_, 4);
 }
 
 
@@ -2733,11 +2745,15 @@ void LuaEngine::dispatchOnUpdate(float elapsed) {
         // Get OnUpdate script
         lua_getfield(L_, -1, "__scripts");
         if (lua_istable(L_, -1)) {
-            lua_getfield(L_, -1, "OnUpdate");
+            // Below the function, so a handler that fails every frame says
+            // where it was reached from rather than only which line broke.
+            lua_pushcfunction(L_, luaTracebackHandler);
+            const int hIdx = lua_gettop(L_);
+            lua_getfield(L_, hIdx - 1, "OnUpdate");
             if (lua_isfunction(L_, -1)) {
-                lua_pushvalue(L_, -3);  // self (frame)
+                lua_pushvalue(L_, hIdx - 2);  // self (frame)
                 lua_pushnumber(L_, static_cast<double>(elapsed));
-                if (lua_pcall(L_, 2, 0, 0) != 0) {
+                if (lua_pcall(L_, 2, 0, hIdx) != 0) {
                     const char* uerr = lua_tostring(L_, -1);
                     std::string uerrStr = uerr ? uerr : "(unknown)";
                     lua_pop(L_, 1);
@@ -2750,16 +2766,21 @@ void LuaEngine::dispatchOnUpdate(float elapsed) {
                     // After a few tries the handler is unhooked and said so
                     // once. The frame keeps working — it simply stops being
                     // asked to do the thing it cannot do.
+                    // Indexed from the handler rather than the top: hIdx - 1
+                    // is __scripts, and the traceback handler now sits above
+                    // it, so the old relative offsets pointed at the wrong
+                    // table.
                     constexpr int kMaxConsecutiveFailures = 5;
-                    lua_getfield(L_, -1, "__onUpdateFailures");
+                    const int scriptsIdx = hIdx - 1;
+                    lua_getfield(L_, scriptsIdx, "__onUpdateFailures");
                     const int failures = static_cast<int>(lua_tointeger(L_, -1)) + 1;
                     lua_pop(L_, 1);
                     lua_pushinteger(L_, failures);
-                    lua_setfield(L_, -2, "__onUpdateFailures");
+                    lua_setfield(L_, scriptsIdx, "__onUpdateFailures");
 
                     if (failures >= kMaxConsecutiveFailures) {
                         lua_pushnil(L_);
-                        lua_setfield(L_, -2, "OnUpdate");
+                        lua_setfield(L_, scriptsIdx, "OnUpdate");
                         LOG_ERROR("LuaEngine: OnUpdate disabled after ", failures,
                                   " failures: ", uerrStr);
                         if (luaErrorCallback_) luaErrorCallback_(uerrStr);
@@ -2771,11 +2792,12 @@ void LuaEngine::dispatchOnUpdate(float elapsed) {
                     // Consecutive, so a handler that recovers is not punished
                     // for an early stumble.
                     lua_pushinteger(L_, 0);
-                    lua_setfield(L_, -2, "__onUpdateFailures");
+                    lua_setfield(L_, hIdx - 1, "__onUpdateFailures");
                 }
             } else {
-                lua_pop(L_, 1);
+                lua_pop(L_, 1);   // the OnUpdate field, which was not a function
             }
+            lua_pop(L_, 1);       // the traceback handler
         }
         lua_pop(L_, 2); // pop __scripts + frame
     }

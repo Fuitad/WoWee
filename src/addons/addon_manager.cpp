@@ -344,6 +344,20 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
             LOG_WARNING("FrameXML: ", filename, " took ", ms, "ms");
         }
     }
+    // Screen insets the panel manager reads straight off UIParent. The real
+    // client supplies these; FrameXML only ever reads them, and
+    // UIParentManageFramePositions adds them to a coordinate on the next line,
+    // so absent they are arithmetic on nil the first time a panel opens.
+    luaEngine_.executeString(
+        "if UIParent and UIParent.SetAttribute then\n"
+        "  if UIParent:GetAttribute('TOP_OFFSET') == nil then\n"
+        "    UIParent:SetAttribute('TOP_OFFSET', 0)\n"
+        "  end\n"
+        "  if UIParent:GetAttribute('LEFT_OFFSET') == nil then\n"
+        "    UIParent:SetAttribute('LEFT_OFFSET', 0)\n"
+        "  end\n"
+        "end\n");
+
     LOG_WARNING("FrameXML: ", lua, " Lua files and ", xml, " XML files loaded, ",
                 failed, " failed in ", sinceMs(loadStart), "ms");
     for (const auto& [file, why] : failures) {

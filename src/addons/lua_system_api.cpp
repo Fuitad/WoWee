@@ -519,6 +519,17 @@ static int lua_GetCurrentResolution(lua_State* L) {
     return 1;
 }
 
+/// A position on the battlefield map for someone who is not there: origin and
+/// no name. Three values, because WorldMapFrame_Update multiplies the first
+/// two by the map's dimensions on the line after reading them, and its loop is
+/// bounded by MAX_RAID_MEMBERS rather than by how many are actually present.
+static int lua_GetBattlefieldPosition(lua_State* L) {
+    lua_pushnumber(L, 0.0);
+    lua_pushnumber(L, 0.0);
+    lua_pushstring(L, "");
+    return 3;
+}
+
 static int lua_ReturnNoCooldown(lua_State* L) {
     lua_pushnumber(L, 0.0);
     lua_pushnumber(L, 0.0);
@@ -552,6 +563,12 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetNumDisplayChannels",    lua_ReturnZero},
                 {"GetNumMapOverlays",        lua_ReturnZero},
                 {"GetNumMapDebugObjects",    lua_ReturnZero},
+                {"GetNumBattlefieldPositions", lua_ReturnZero},
+                {"GetBattlefieldPosition",   lua_GetBattlefieldPosition},
+                {"GuildControlGetNumRanks",  lua_ReturnZero},
+                // Time left on a loot roll that is not running, which
+                // GroupLootFrame compares against a bar range at once.
+                {"GetLootRollTimeLeft",      lua_ReturnZero},
                 {"GetNumDungeonMapLevels",   lua_ReturnZero},
                 // Bar offsets, added to a page number the line they
                 // are read on. No bonus or multi-cast bar is showing,
