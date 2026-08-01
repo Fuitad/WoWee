@@ -6,6 +6,7 @@
 #include "game/transport_manager.hpp"
 #include "game/transport_path_repository.hpp"
 #include "math/spline.hpp"
+#include "core/coordinates.hpp"
 #include <glm/gtc/constants.hpp>
 #include <cmath>
 
@@ -656,4 +657,47 @@ TEST_CASE("ClockSync: a zero period is ignored rather than dividing by it",
     uint32_t out = 0;
     REQUIRE(sync.computePathTime(t, path.spline, 0.0, 1.0f, out));
     REQUIRE(out == 1000u);             // fell through to the local clock
+}
+
+TEST_CASE("Animator: a docked hull lies on the chord through its berth, not the arrival leg",
+          "[transport_animator][transport]") {
+    // A route generally turns as it passes through its dock. Taking only the leg
+    // the boat arrived on parks the hull half that turn out of true, which walks
+    // the gangway off the plank — reported live on the Maiden's Fancy at
+    // Menethil, whose route turns 26 degrees at the berth.
+    //
+    // Approach runs along canonical +X, departure along canonical +Y, so the
+    // chord through the berth is the 45-degree diagonal between them.
+    TransportAnimator animator;
+    CatmullRomSpline spline({
+        {0,     glm::vec3(-100.0f, 0.0f, 0.0f)},   // before the berth
+        {10000, glm::vec3(0.0f, 0.0f, 0.0f)},      // berth
+        {70000, glm::vec3(0.0f, 0.0f, 0.0f)},      // ...held
+        {80000, glm::vec3(0.0f, 100.0f, 0.0f)},    // after the berth
+    });
+    PathEntry path(std::move(spline), 176231u, false, true, true);
+
+    auto t = makeTransport(1, 176231u);
+    t.entry = 176231u;
+    t.displayId = 3015u;
+    t.basePosition = glm::vec3(0.0f);
+    t.isM2 = false;
+
+    animator.evaluateAndApply(t, path, 40000);
+    REQUIRE(t.atDockDwell);
+
+    const float actual = glm::eulerAngles(t.rotation).z;
+    auto yawFor = [](const glm::vec3& dir) {
+        return glm::angleAxis(std::atan2(dir.x, dir.y) + glm::pi<float>(),
+                              glm::vec3(0.0f, 0.0f, 1.0f));
+    };
+    const glm::quat chord   = yawFor(glm::vec3(1.0f, 1.0f, 0.0f));   // through the berth
+    const glm::quat arrival = yawFor(glm::vec3(1.0f, 0.0f, 0.0f));   // the old answer
+
+    const float chordYaw   = glm::eulerAngles(chord).z;
+    const float arrivalYaw = glm::eulerAngles(arrival).z;
+    INFO("actual=" << actual << " chord=" << chordYaw << " arrival=" << arrivalYaw);
+
+    REQUIRE(std::abs(wowee::core::coords::normalizeAngleRad(actual - chordYaw)) < 0.02f);
+    REQUIRE(std::abs(wowee::core::coords::normalizeAngleRad(actual - arrivalYaw)) > 0.2f);
 }

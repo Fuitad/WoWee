@@ -127,9 +127,26 @@ void TransportAnimator::evaluateAndApply(
                 continue;
             }
 
-            shipApproach = keys[i].position - keys[i - 1].position;
+            // A berth heading is the direction the hull lies while alongside, and
+            // a route generally turns as it passes through its dock: the Maiden's
+            // Fancy comes into Menethil on a bearing 26 degrees off the one it
+            // leaves on. Taking the arrival leg alone therefore parked the hull
+            // half that turn out — 13 degrees, which over a hundred-unit hull is
+            // enough to walk the gangway off the plank. Use the chord through the
+            // berth, from the node before the stop to the node after it, which is
+            // the line the boat is lying on rather than either end of the turn.
+            const glm::vec3 berthFrom = keys[i - 1].position;
+            const glm::vec3 berthTo =
+                (i + 2 < keys.size()) ? keys[i + 2].position : keys[i].position;
+            shipApproach = berthTo - berthFrom;
             shipApproach.z = 0.0f;
-            const float approachLen = glm::length(shipApproach);
+            float approachLen = glm::length(shipApproach);
+            if (approachLen <= 0.001f) {
+                // Nothing after the stop (route ends here): fall back to arrival.
+                shipApproach = keys[i].position - keys[i - 1].position;
+                shipApproach.z = 0.0f;
+                approachLen = glm::length(shipApproach);
+            }
             if (approachLen <= 0.001f) break;
             shipApproach /= approachLen;
 
