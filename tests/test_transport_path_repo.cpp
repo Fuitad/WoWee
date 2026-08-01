@@ -439,3 +439,48 @@ TEST_CASE("buildTaxiSegmentSpline closed loop returns to first node",
     const glm::vec3 atEnd = spline.evaluatePosition(spline.durationMs());
     requireVec3Near(atEnd, atStart.x, atStart.y, atStart.z, 0.5f);
 }
+
+TEST_CASE("buildTaxiSegmentSpline waits at the pier for the rest of the route",
+          "[transport_path_repo]") {
+    // A cross-continent route is split into a slice per map, each animated on its
+    // own. Sized from its own nodes alone, a slice's cycle is far shorter than the
+    // server's, so the boat laps its shore several times before the transfer comes
+    // due — the Kraken doing circuits instead of leaving Borean Tundra.
+    //
+    // The surplus is spent at the pier: visibly stopped, still boardable, and
+    // never adrift offshore.
+    std::vector<glm::vec3> pts = {
+        glm::vec3(0.0f, 0.0f, 0.0f),        // offshore in
+        glm::vec3(500.0f, 0.0f, 0.0f),      // the pier
+        glm::vec3(1000.0f, 0.0f, 0.0f),     // offshore out
+    };
+    std::vector<uint32_t> delays = {0u, 20000u, 0u};
+
+    const auto bare = game::TransportPathRepository::buildTaxiSegmentSpline(pts, delays);
+    const uint32_t bareMs = bare.durationMs();
+
+    // Whole route costs half again as much as this slice.
+    const uint32_t fullCycleMs = bareMs + 90000u;
+    const auto stretched =
+        game::TransportPathRepository::buildTaxiSegmentSpline(pts, delays, 28.0f, fullCycleMs);
+
+    REQUIRE(stretched.durationMs() == bareMs + 90000u);
+
+    // The extra time is spent held at the pier, not adrift: the hull sits at the
+    // dock node across the whole surplus rather than moving through it.
+    const auto& keys = stretched.keys();
+    uint32_t longestHold = 0;
+    glm::vec3 holdAt(0.0f);
+    for (size_t i = 1; i < keys.size(); ++i) {
+        if (glm::distance(keys[i].position, keys[i - 1].position) > 0.01f) continue;
+        const uint32_t held = keys[i].timeMs - keys[i - 1].timeMs;
+        if (held > longestHold) { longestHold = held; holdAt = keys[i].position; }
+    }
+    REQUIRE(longestHold >= 90000u);
+    REQUIRE(holdAt.x == Catch::Approx(500.0f));
+
+    // A single-map route has no other slice to wait for and is left alone.
+    const auto unchanged =
+        game::TransportPathRepository::buildTaxiSegmentSpline(pts, delays, 28.0f, bareMs);
+    REQUIRE(unchanged.durationMs() == bareMs);
+}

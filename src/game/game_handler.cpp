@@ -1700,12 +1700,32 @@ void GameHandler::updateM2TransportBoarding(const glm::vec3& playerCanonical) {
             local.z < kShipDisembarkMinZ || local.z > kShipDisembarkMaxZ;
         const bool hasDeckSupport =
             tm->isPointOnTransportDeck(getPlayerTransportGuid(), playerCanonical, 3.0f);
-        if (outsideBounds) {
+
+        // The footprint above is deliberately generous — larger than any hull —
+        // so it only catches someone clearly away from the ship. Stepping off
+        // onto the pier alongside leaves the rider well inside it, which is why
+        // they stayed attached while standing on the dock. Losing the deck is
+        // what actually tells the two apart, and it was already being measured
+        // here and used for nothing but the log line.
+        //
+        // Counted over several frames rather than acted on at once, because a
+        // jump also leaves the deck for a moment and must not put the rider
+        // ashore in mid-air.
+        constexpr int kFramesAshore = 20;
+        if (hasDeckSupport) {
+            shipNoDeckSupportFrames_ = 0;
+        } else if (shipNoDeckSupportFrames_ < kFramesAshore) {
+            ++shipNoDeckSupportFrames_;
+        }
+        const bool ashore = shipNoDeckSupportFrames_ >= kFramesAshore;
+
+        if (outsideBounds || ashore) {
             LOG_WARNING("Client ship disembark: guid=0x", std::hex,
                         getPlayerTransportGuid(), std::dec,
                         " outsideBounds=", outsideBounds,
-                        " hasDeckSupport=", hasDeckSupport,
+                        " ashore=", ashore,
                         " local=(", local.x, ",", local.y, ",", local.z, ")");
+            shipNoDeckSupportFrames_ = 0;
             clearPlayerTransport();
         }
         return;

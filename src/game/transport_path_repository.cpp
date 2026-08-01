@@ -492,7 +492,8 @@ bool TransportPathRepository::loadTransportAnimationDBC(pipeline::AssetManager* 
 math::CatmullRomSpline TransportPathRepository::buildTaxiSegmentSpline(
     const std::vector<glm::vec3>& pts,
     const std::vector<uint32_t>& nodeDelaysMs,
-    float transportSpeed)
+    float transportSpeed,
+    uint32_t fullRouteCycleMs)
 {
     auto legMs = [transportSpeed](float dist) {
         return std::max<uint32_t>(100u, static_cast<uint32_t>(dist / transportSpeed * 1000.0f));
@@ -507,13 +508,44 @@ math::CatmullRomSpline TransportPathRepository::buildTaxiSegmentSpline(
     const float endGap = glm::distance(pts.front(), pts.back());
     const bool closedLoop = endGap < 60.0f;
 
+    // What this slice costs on its own, in the same terms the caller measured the
+    // whole route in: legs travelled twice for the there-and-back, dwells once.
+    uint32_t sliceLegMs = 0, sliceDelayMs = 0;
+    for (size_t i = 0; i < pts.size(); ++i) {
+        sliceDelayMs += (i < nodeDelaysMs.size()) ? nodeDelaysMs[i] : 0u;
+        if (i + 1 < pts.size()) sliceLegMs += legMs(glm::distance(pts[i], pts[i + 1]));
+    }
+    const uint32_t sliceCycleMs = sliceLegMs * 2u + sliceDelayMs;
+
+    // The rest of the route belongs to the other map, and the boat has to account
+    // for that time somewhere or it simply laps this shore while the server's
+    // schedule catches up. It waits at the pier: visibly stopped, still boardable,
+    // and never adrift offshore. The pier is the node with the longest authored
+    // dwell, which is what a dwell in TaxiPathNode means.
+    uint32_t pierSurplusMs = 0;
+    size_t pierIndex = 0;
+    if (fullRouteCycleMs > sliceCycleMs) {
+        pierSurplusMs = fullRouteCycleMs - sliceCycleMs;
+        uint32_t longestDwell = 0;
+        for (size_t i = 0; i < pts.size() && i < nodeDelaysMs.size(); ++i) {
+            if (nodeDelaysMs[i] > longestDwell) {
+                longestDwell = nodeDelaysMs[i];
+                pierIndex = i;
+            }
+        }
+        // No authored dwell anywhere: hold at the node furthest from either end,
+        // which for an offshore-in/dock/offshore-out slice is the dock.
+        if (longestDwell == 0) pierIndex = pts.size() / 2;
+    }
+
     // Forward pass through the authored nodes, holding each node's dock dwell as a
     // repeated-position key (CatmullRomSpline evaluates those as exact stops).
     keys.reserve(pts.size() * 2 + 1);
     uint32_t cumulativeMs = 0;
     for (size_t i = 0; i < pts.size(); ++i) {
         keys.push_back({cumulativeMs, pts[i]});
-        const uint32_t delayMs = (i < nodeDelaysMs.size()) ? nodeDelaysMs[i] : 0u;
+        uint32_t delayMs = (i < nodeDelaysMs.size()) ? nodeDelaysMs[i] : 0u;
+        if (i == pierIndex) delayMs += pierSurplusMs;
         if (delayMs != 0) {
             cumulativeMs += delayMs;
             keys.push_back({cumulativeMs, pts[i]});
@@ -603,6 +635,35 @@ bool TransportPathRepository::loadTaxiPathNodeDBC(pipeline::AssetManager* assetM
 
     constexpr float transportSpeed = 28.0f;  // units per second
 
+    auto legMsFor = [](float dist) {
+        return std::max<uint32_t>(100u, static_cast<uint32_t>(dist / transportSpeed * 1000.0f));
+    };
+
+    // A cross-continent route is split into one slice per map, and each slice is
+    // animated on its own. Sized from its own nodes alone, a slice's cycle is far
+    // shorter than the server's, so the boat completed several round trips of the
+    // Borean shore before the server's transfer came due — reported live as the
+    // Kraken doing a couple of circuits instead of leaving.
+    //
+    // Measure the whole route first, across every map it touches, so a slice can
+    // stretch its cycle to match. Same units as buildTaxiSegmentSpline's own
+    // accounting: the legs are travelled twice per there-and-back, the authored
+    // dwells once.
+    std::unordered_map<uint32_t, uint32_t> routeCycleMs;
+    for (const auto& [key, nodes] : nodesByPathMap) {
+        if (nodes.size() < 2) continue;
+        uint32_t legs = 0, delays = 0;
+        for (size_t i = 0; i < nodes.size(); ++i) {
+            delays += nodes[i].delaySeconds * 1000u;
+            if (i + 1 < nodes.size()) {
+                legs += legMsFor(glm::distance(
+                    glm::vec3(nodes[i].x, nodes[i].y, nodes[i].z),
+                    glm::vec3(nodes[i + 1].x, nodes[i + 1].y, nodes[i + 1].z)));
+            }
+        }
+        routeCycleMs[key.first] += legs * 2u + delays;
+    }
+
     // Build world-coordinate transport paths, one segment per (pathId, mapId).
     int pathsLoaded = 0;
     for (auto& [key, nodes] : nodesByPathMap) {
@@ -624,9 +685,12 @@ bool TransportPathRepository::loadTaxiPathNodeDBC(pipeline::AssetManager* assetM
         // ferry (see buildTaxiSegmentSpline). The cross-continent handoff is the server's
         // SMSG_NEW_WORLD teleport at the offshore node, not this client animation, so a
         // slice must never park offshore waiting on the other map — that reads as the boat
-        // sitting dead at sea to anyone aboard.
+        // sitting dead at sea to anyone aboard. The surplus is spent at the pier instead,
+        // where the boat is both plainly waiting and still boardable.
+        const auto cycleIt = routeCycleMs.find(pathId);
+        const uint32_t fullCycleMs = (cycleIt != routeCycleMs.end()) ? cycleIt->second : 0u;
         math::CatmullRomSpline spline = buildTaxiSegmentSpline(
-            pts, nodeDelaysMs, transportSpeed);
+            pts, nodeDelaysMs, transportSpeed, fullCycleMs);
         // TaxiPathNode is a separate, per-map route source. Do not label it as
         // TransportAnimation DBC data: copied taxi segments live temporarily in
         // paths_ for the active transport, and fromDBC=true made later inference

@@ -78,10 +78,16 @@ public:
     // NodeIndex order; nodeDelaysMs is the authored per-node dock dwell in milliseconds
     // (0 where none), matched by index to pts. Static and dependency-free so the wrap
     // behaviour can be unit-tested without a DBC.
+    // fullRouteCycleMs is the whole route's period across every map it touches,
+    // in the same terms this function accounts in (legs twice, dwells once).
+    // Anything left over after this slice's own cost is spent waiting at the
+    // pier, so the boat makes one departure per server cycle rather than lapping
+    // its shore until the transfer comes due. 0 disables the stretch.
     static math::CatmullRomSpline buildTaxiSegmentSpline(
         const std::vector<glm::vec3>& pts,
         const std::vector<uint32_t>& nodeDelaysMs,
-        float transportSpeed = 28.0f);
+        float transportSpeed = 28.0f,
+        uint32_t fullRouteCycleMs = 0);
 
 private:
     std::unordered_map<uint32_t, PathEntry> paths_;

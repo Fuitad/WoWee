@@ -3215,6 +3215,11 @@ private:
     glm::vec3 playerTransportOffset_ = glm::vec3(0.0f); // Player offset on transport
     uint64_t playerTransportStickyGuid_ = 0;       // Last transport player was on (temporary retention)
     float playerTransportStickyTimer_ = 0.0f;      // Seconds to keep sticky transport alive after transient clears
+    // Consecutive frames a ship rider has had no deck beneath them. Walking off
+    // onto the pier leaves the rider well inside the ship's boarding footprint,
+    // so losing the deck is what actually distinguishes "ashore" from "aboard".
+    // Counted rather than tested instantly so a jump is not a disembark.
+    int shipNoDeckSupportFrames_ = 0;
     bool pendingPlayerTransportTransfer_ = false;
     uint64_t pendingPlayerTransportGuid_ = 0;
     uint32_t pendingPlayerTransportEntry_ = 0;
