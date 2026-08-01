@@ -348,6 +348,10 @@ bool Application::initialize() {
         luaSvc.window            = window.get();
         luaSvc.audioCoordinator  = audioCoordinator_.get();
         luaSvc.expansionRegistry = expansionRegistry_.get();
+        // The widget renderer needs the asset manager for Interface\ art and the
+        // device to upload it; both exist by now.
+        widgetRenderer_.initialize(assetManager.get(),
+                                   window ? window->getVkContext() : nullptr);
         if (addonManager_->initialize(gameHandler.get(), luaSvc)) {
             std::string addonsDir = assetPath + "/interface/AddOns";
             addonManager_->scanAddons(addonsDir);
@@ -2811,6 +2815,18 @@ void Application::render() {
     // Render performance HUD (within ImGui frame, before UI ends the frame)
     if (renderer) {
         runRenderStage("renderHUD", [&] { renderer->renderHUD(); });
+    }
+
+    // Addon-built frames, drawn under the client's own interface while the two
+    // coexist. This is the whole point of the widget tree: an addon that calls
+    // CreateTexture now puts something on the screen instead of talking to a
+    // table of no-ops.
+    if (addonManager_ && addonManager_->getLuaEngine() && renderer) {
+        runRenderStage("addonWidgets", [&] {
+            const ImGuiIO& io = ImGui::GetIO();
+            widgetRenderer_.render(addonManager_->getLuaEngine()->widgets(),
+                                   io.DisplaySize.x, io.DisplaySize.y);
+        });
     }
 
     // Render UI on top (ends ImGui frame with ImGui::Render())

@@ -1,4 +1,5 @@
 #include "addons/lua_engine.hpp"
+#include "ui/widget_tree.hpp"
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_api_registrations.hpp"
 #include "addons/toc_parser.hpp"
@@ -180,75 +181,306 @@ static int lua_Frame_IsShown(lua_State* L) {
     return 1;
 }
 
-// Frame method: frame:CreateTexture(name, layer) → texture stub
-static int lua_Frame_CreateTexture(lua_State* L) {
-    lua_newtable(L);
-    // Add noop methods for common texture operations
-    luaL_dostring(L,
-        "return function(t) "
-        "function t:SetTexture() end "
-        "function t:SetTexCoord() end "
-        "function t:SetVertexColor() end "
-        "function t:SetAllPoints() end "
-        "function t:SetPoint() end "
-        "function t:SetSize() end "
-        "function t:SetWidth() end "
-        "function t:SetHeight() end "
-        "function t:Show() end "
-        "function t:Hide() end "
-        "function t:SetAlpha() end "
-        "function t:GetTexture() return '' end "
-        "function t:SetDesaturated() end "
-        "function t:SetBlendMode() end "
-        "function t:SetDrawLayer() end "
-        // Unimplemented texture methods (SetRotation, SetGradient, ...) → no-op.
-        "setmetatable(t, { __index = function(_, k) "
-        "  if type(k)=='string' and string.find(k,'^%u') then return function() end end "
-        "end }) "
-        "end");
-    lua_pushvalue(L, -2); // push the table
-    lua_call(L, 1, 0);    // call the function with the table
+
+// ── Widget-backed regions ───────────────────────────────────────────────────
+//
+// Frames and regions are Lua tables, as they were, but each now carries a
+// __wid handle into the C++ widget tree that holds its geometry and its art.
+// Without that the methods below were a table of no-ops: an addon could call
+// SetTexture all day and nothing existed to draw.
+
+namespace {
+
+uint32_t widgetIdOf(lua_State* L, int index) {
+    if (!lua_istable(L, index)) return 0;
+    lua_getfield(L, index, "__wid");
+    const uint32_t id = static_cast<uint32_t>(lua_tointeger(L, -1));
+    lua_pop(L, 1);
+    return id;
+}
+
+wowee::ui::Widget* widgetOf(lua_State* L, int index) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    if (!tree) return nullptr;
+    return tree->get(widgetIdOf(L, index));
+}
+
+// SetPoint(point [, relativeTo] [, relativePoint] [, x, y]) — every argument
+// after the first is optional and the shapes overlap, so decide by type rather
+// than by count.
+int lua_Region_SetPoint(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (!tree || id == 0) return 0;
+
+    wowee::ui::Anchor a;
+    a.point = luaL_optstring(L, 2, "CENTER");
+    int argi = 3;
+    if (lua_istable(L, argi)) {
+        a.relativeTo = widgetIdOf(L, argi);
+        ++argi;
+    } else if (lua_isstring(L, argi) && !lua_isnumber(L, argi)) {
+        // A name rather than the frame itself; resolve through the global it
+        // was published under, which is how FrameXML refers to most things.
+        lua_getglobal(L, lua_tostring(L, argi));
+        if (lua_istable(L, -1)) a.relativeTo = widgetIdOf(L, lua_gettop(L));
+        lua_pop(L, 1);
+        ++argi;
+    }
+    if (lua_isstring(L, argi) && !lua_isnumber(L, argi)) {
+        a.relativePoint = lua_tostring(L, argi);
+        ++argi;
+    } else {
+        a.relativePoint = a.point;   // Blizzard's default is the same point
+    }
+    if (lua_isnumber(L, argi))     a.x = static_cast<float>(lua_tonumber(L, argi));
+    if (lua_isnumber(L, argi + 1)) a.y = static_cast<float>(lua_tonumber(L, argi + 1));
+
+    tree->addPoint(id, a);
+    return 0;
+}
+
+int lua_Region_ClearAllPoints(lua_State* L) {
+    if (auto* tree = wowee::addons::getWidgetTree(L)) tree->clearPoints(widgetIdOf(L, 1));
+    return 0;
+}
+
+int lua_Region_SetAllPoints(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (!tree || id == 0) return 0;
+    uint32_t target = 0;
+    if (lua_istable(L, 2)) target = widgetIdOf(L, 2);
+    else if (lua_isstring(L, 2)) {
+        lua_getglobal(L, lua_tostring(L, 2));
+        if (lua_istable(L, -1)) target = widgetIdOf(L, lua_gettop(L));
+        lua_pop(L, 1);
+    }
+    if (target == 0) {
+        const auto* w = tree->get(id);
+        target = w ? w->parent : 0;
+    }
+    tree->setAllPoints(id, target);
+    return 0;
+}
+
+int lua_Region_SetSize(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->width  = static_cast<float>(luaL_optnumber(L, 2, 0));
+        w->height = static_cast<float>(luaL_optnumber(L, 3, 0));
+    }
+    return 0;
+}
+int lua_Region_SetWidth(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->width = static_cast<float>(luaL_optnumber(L, 2, 0));
+    return 0;
+}
+int lua_Region_SetHeight(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->height = static_cast<float>(luaL_optnumber(L, 2, 0));
+    return 0;
+}
+int lua_Region_GetWidth(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? (w->rectW > 0.0f ? w->rectW : w->width) : 0.0);
+    return 1;
+}
+int lua_Region_GetHeight(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? (w->rectH > 0.0f ? w->rectH : w->height) : 0.0);
+    return 1;
+}
+int lua_Region_Show(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->shown = true;
+    lua_pushboolean(L, 1); lua_setfield(L, 1, "__visible");
+    return 0;
+}
+int lua_Region_Hide(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->shown = false;
+    lua_pushboolean(L, 0); lua_setfield(L, 1, "__visible");
+    return 0;
+}
+int lua_Region_IsShown(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushboolean(L, w ? (w->shown ? 1 : 0) : 0);
+    return 1;
+}
+int lua_Region_SetAlpha(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->alpha = static_cast<float>(luaL_optnumber(L, 2, 1.0));
+    return 0;
+}
+int lua_Region_GetAlpha(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->alpha : 1.0);
     return 1;
 }
 
-// Frame method: frame:CreateFontString(name, layer, template) → fontstring stub
-static int lua_Frame_CreateFontString(lua_State* L) {
-    lua_newtable(L);
+// SetTexture takes either a path or a colour, and addons use both freely.
+int lua_Texture_SetTexture(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    if (lua_isnumber(L, 2)) {
+        w->solidColor = true;
+        w->texturePath.clear();
+        w->color[0] = static_cast<float>(lua_tonumber(L, 2));
+        w->color[1] = static_cast<float>(luaL_optnumber(L, 3, 0.0));
+        w->color[2] = static_cast<float>(luaL_optnumber(L, 4, 0.0));
+        w->color[3] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
+    } else {
+        w->solidColor = false;
+        w->texturePath = luaL_optstring(L, 2, "");
+    }
+    return 0;
+}
+int lua_Texture_GetTexture(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushstring(L, w ? w->texturePath.c_str() : "");
+    return 1;
+}
+int lua_Texture_SetTexCoord(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->texCoord[0] = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+        w->texCoord[1] = static_cast<float>(luaL_optnumber(L, 3, 1.0));
+        w->texCoord[2] = static_cast<float>(luaL_optnumber(L, 4, 0.0));
+        w->texCoord[3] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
+    }
+    return 0;
+}
+int lua_Region_SetVertexColor(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->color[0] = static_cast<float>(luaL_optnumber(L, 2, 1.0));
+        w->color[1] = static_cast<float>(luaL_optnumber(L, 3, 1.0));
+        w->color[2] = static_cast<float>(luaL_optnumber(L, 4, 1.0));
+        w->color[3] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
+    }
+    return 0;
+}
+int lua_Region_SetDrawLayer(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->layer = wowee::ui::parseDrawLayer(luaL_optstring(L, 2, "ARTWORK"));
+        w->subLevel = static_cast<int>(luaL_optnumber(L, 3, 0));
+    }
+    return 0;
+}
+int lua_Frame_SetFrameStrata(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->strata = wowee::ui::parseStrata(luaL_optstring(L, 2, "MEDIUM"));
+        w->strataExplicit = true;
+    }
+    return 0;
+}
+int lua_Frame_SetFrameLevel(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->level = static_cast<int>(luaL_optnumber(L, 2, 0));
+        w->levelExplicit = true;
+    }
+    return 0;
+}
+int lua_FontString_SetText(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->text = luaL_optstring(L, 2, "");
+    lua_pushstring(L, luaL_optstring(L, 2, ""));
+    lua_setfield(L, 1, "_text");
+    return 0;
+}
+int lua_FontString_GetText(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushstring(L, w ? w->text.c_str() : "");
+    return 1;
+}
+int lua_FontString_SetJustifyH(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->justifyH = luaL_optstring(L, 2, "CENTER");
+    return 0;
+}
+
+/// Attach the shared region methods to the table on top of the stack.
+void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
+    auto set = [&](const char* name, lua_CFunction fn) {
+        lua_pushcfunction(L, fn);
+        lua_setfield(L, -2, name);
+    };
+    set("SetPoint", lua_Region_SetPoint);
+    set("ClearAllPoints", lua_Region_ClearAllPoints);
+    set("SetAllPoints", lua_Region_SetAllPoints);
+    set("SetSize", lua_Region_SetSize);
+    set("SetWidth", lua_Region_SetWidth);
+    set("SetHeight", lua_Region_SetHeight);
+    set("GetWidth", lua_Region_GetWidth);
+    set("GetHeight", lua_Region_GetHeight);
+    set("Show", lua_Region_Show);
+    set("Hide", lua_Region_Hide);
+    set("IsShown", lua_Region_IsShown);
+    set("IsVisible", lua_Region_IsShown);
+    set("SetAlpha", lua_Region_SetAlpha);
+    set("GetAlpha", lua_Region_GetAlpha);
+    set("SetVertexColor", lua_Region_SetVertexColor);
+    set("SetDrawLayer", lua_Region_SetDrawLayer);
+    if (isTexture) {
+        set("SetTexture", lua_Texture_SetTexture);
+        set("GetTexture", lua_Texture_GetTexture);
+        set("SetTexCoord", lua_Texture_SetTexCoord);
+    }
+    if (isFontString) {
+        set("SetText", lua_FontString_SetText);
+        set("GetText", lua_FontString_GetText);
+        set("SetJustifyH", lua_FontString_SetJustifyH);
+    }
+    // Anything still unimplemented stays a no-op rather than an error, which is
+    // what keeps a large addon running while the surface is filled in.
     luaL_dostring(L,
-        "return function(fs) "
-        "fs._text = '' "
-        "function fs:SetText(t) self._text = t or '' end "
-        "function fs:GetText() return self._text end "
-        "function fs:SetFont() end "
-        "function fs:SetFontObject() end "
-        "function fs:SetTextColor() end "
-        "function fs:SetJustifyH() end "
-        "function fs:SetJustifyV() end "
-        "function fs:SetPoint() end "
-        "function fs:SetAllPoints() end "
-        "function fs:Show() end "
-        "function fs:Hide() end "
-        "function fs:SetAlpha() end "
-        "function fs:GetStringWidth() return 0 end "
-        "function fs:GetStringHeight() return 0 end "
-        "function fs:SetWordWrap() end "
-        "function fs:SetNonSpaceWrap() end "
-        "function fs:SetMaxLines() end "
-        "function fs:SetShadowOffset() end "
-        "function fs:SetShadowColor() end "
-        "function fs:SetWidth() end "
-        "function fs:SetHeight() end "
-        // Unimplemented font-string methods → no-op.
-        "setmetatable(fs, { __index = function(_, k) "
+        "return function(t) setmetatable(t, { __index = function(_, k) "
         "  if type(k)=='string' and string.find(k,'^%u') then return function() end end "
-        "end }) "
-        "end");
+        "end }) end");
     lua_pushvalue(L, -2);
     lua_call(L, 1, 0);
+}
+
+} // namespace
+
+// Frame method: frame:CreateTexture(name, layer) → a real region
+static int lua_Frame_CreateTexture(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t parent = widgetIdOf(L, 1);
+    const char* name = luaL_optstring(L, 2, "");
+    const char* layer = luaL_optstring(L, 3, "ARTWORK");
+
+    lua_newtable(L);
+    if (tree) {
+        const uint32_t id = tree->create(wowee::ui::WidgetKind::Texture, parent, name ? name : "");
+        if (auto* w = tree->get(id)) w->layer = wowee::ui::parseDrawLayer(layer);
+        lua_pushinteger(L, static_cast<lua_Integer>(id));
+        lua_setfield(L, -2, "__wid");
+    }
+    installRegionMethods(L, /*isTexture=*/true, /*isFontString=*/false);
+    if (name && *name) {
+        lua_pushvalue(L, -1);
+        lua_setglobal(L, name);
+    }
     return 1;
 }
 
-// GetFramerate() → fps
+// Frame method: frame:CreateFontString(name, layer, template) → a real region
+static int lua_Frame_CreateFontString(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t parent = widgetIdOf(L, 1);
+    const char* name = luaL_optstring(L, 2, "");
+    const char* layer = luaL_optstring(L, 3, "ARTWORK");
+
+    lua_newtable(L);
+    if (tree) {
+        const uint32_t id = tree->create(wowee::ui::WidgetKind::FontString, parent, name ? name : "");
+        if (auto* w = tree->get(id)) w->layer = wowee::ui::parseDrawLayer(layer);
+        lua_pushinteger(L, static_cast<lua_Integer>(id));
+        lua_setfield(L, -2, "__wid");
+    }
+    lua_pushstring(L, "");
+    lua_setfield(L, -2, "_text");
+    installRegionMethods(L, /*isTexture=*/false, /*isFontString=*/true);
+    if (name && *name) {
+        lua_pushvalue(L, -1);
+        lua_setglobal(L, name);
+    }
+    return 1;
+}
+
 static int lua_GetFramerate(lua_State* L) {
     lua_pushnumber(L, static_cast<double>(ImGui::GetIO().Framerate));
     return 1;
@@ -387,6 +619,24 @@ static int lua_CreateFrame(lua_State* L) {
     // Create the frame table
     lua_newtable(L);
 
+    // Back it with a real widget so its geometry is somewhere the renderer can
+    // reach. Parent is the third argument when given, and UIParent otherwise,
+    // which is what an addon means by leaving it out.
+    if (auto* tree = wowee::addons::getWidgetTree(L)) {
+        uint32_t parent = 0;
+        if (lua_istable(L, 3)) {
+            parent = widgetIdOf(L, 3);
+        } else if (lua_isstring(L, 3)) {
+            lua_getglobal(L, lua_tostring(L, 3));
+            if (lua_istable(L, -1)) parent = widgetIdOf(L, lua_gettop(L));
+            lua_pop(L, 1);
+        }
+        const uint32_t id = tree->create(wowee::ui::WidgetKind::Frame, parent,
+                                         name ? name : "");
+        lua_pushinteger(L, static_cast<lua_Integer>(id));
+        lua_setfield(L, -2, "__wid");
+    }
+
     // Set frame name
     if (name && *name) {
         lua_pushstring(L, name);
@@ -440,6 +690,11 @@ bool LuaEngine::initialize() {
         lua_pushnil(L_);
         lua_setglobal(L_, *g);
     }
+
+    // Publish the widget tree before any API is registered, so a script that
+    // runs during registration still finds it.
+    lua_pushlightuserdata(L_, &widgets_);
+    lua_setfield(L_, LUA_REGISTRYINDEX, "wowee_widget_tree");
 
     registerCoreAPI();
     registerEventAPI();
@@ -520,19 +775,26 @@ void LuaEngine::registerCoreAPI() {
         {"SetScript",       lua_Frame_SetScript},
         {"GetScript",       lua_Frame_GetScript},
         {"GetName",         lua_Frame_GetName},
-        {"Show",            lua_Frame_Show},
-        {"Hide",            lua_Frame_Hide},
-        {"IsShown",         lua_Frame_IsShown},
-        {"IsVisible",       lua_Frame_IsShown}, // alias
-        {"SetPoint",        lua_Frame_SetPoint},
-        {"SetSize",         lua_Frame_SetSize},
-        {"SetWidth",        lua_Frame_SetWidth},
-        {"SetHeight",       lua_Frame_SetHeight},
-        {"GetWidth",        lua_Frame_GetWidth},
-        {"GetHeight",       lua_Frame_GetHeight},
+        {"Show",            lua_Region_Show},
+        {"Hide",            lua_Region_Hide},
+        {"IsShown",         lua_Region_IsShown},
+        {"IsVisible",       lua_Region_IsShown}, // alias
+        // Geometry goes through the widget tree. The older table-field
+        // versions kept the numbers where only Lua could see them, which is
+        // why a frame could be sized and positioned and still never appear.
+        {"SetPoint",        lua_Region_SetPoint},
+        {"ClearAllPoints",  lua_Region_ClearAllPoints},
+        {"SetAllPoints",    lua_Region_SetAllPoints},
+        {"SetSize",         lua_Region_SetSize},
+        {"SetWidth",        lua_Region_SetWidth},
+        {"SetHeight",       lua_Region_SetHeight},
+        {"GetWidth",        lua_Region_GetWidth},
+        {"GetHeight",       lua_Region_GetHeight},
         {"GetCenter",       lua_Frame_GetCenter},
-        {"SetAlpha",        lua_Frame_SetAlpha},
-        {"GetAlpha",        lua_Frame_GetAlpha},
+        {"SetAlpha",        lua_Region_SetAlpha},
+        {"GetAlpha",        lua_Region_GetAlpha},
+        {"SetFrameStrata",  lua_Frame_SetFrameStrata},
+        {"SetFrameLevel",   lua_Frame_SetFrameLevel},
         {"SetParent",       lua_Frame_SetParent},
         {"GetParent",       lua_Frame_GetParent},
         {"CreateTexture",   lua_Frame_CreateTexture},
@@ -548,9 +810,8 @@ void LuaEngine::registerCoreAPI() {
     // Add commonly called no-op frame methods to prevent addon errors
     luaL_dostring(L_,
         "local mt = __WoweeFrameMT\n"
-        "function mt:SetFrameLevel(level) self.__frameLevel = level end\n"
+
         "function mt:GetFrameLevel() return self.__frameLevel or 1 end\n"
-        "function mt:SetFrameStrata(strata) self.__strata = strata end\n"
         "function mt:GetFrameStrata() return self.__strata or 'MEDIUM' end\n"
         "function mt:EnableMouse(enable) end\n"
         "function mt:EnableMouseWheel(enable) end\n"

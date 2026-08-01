@@ -836,6 +836,8 @@ set(WOWEE_SOURCES
 
     # UI
     src/ui/ui_manager.cpp
+    src/ui/widget_tree.cpp
+    src/ui/widget_renderer.cpp
     src/ui/ui_raid_icons.cpp
     src/ui/auth_screen.cpp
     src/ui/realm_screen.cpp

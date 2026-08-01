@@ -62,6 +62,17 @@ endif()
 add_test(NAME hill_climbing COMMAND test_hill_climbing)
 register_test_target(test_hill_climbing)
 
+# ── test_widget_tree ────────────────────────────────────────
+add_executable(test_widget_tree
+    test_widget_tree.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/widget_tree.cpp
+)
+target_include_directories(test_widget_tree PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_widget_tree SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_widget_tree PRIVATE catch2_main)
+add_test(NAME widget_tree COMMAND test_widget_tree)
+register_test_target(test_widget_tree)
+
 # ── test_packet ──────────────────────────────────────────────
 add_executable(test_packet
     test_packet.cpp

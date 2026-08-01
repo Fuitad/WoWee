@@ -1,6 +1,7 @@
 #pragma once
 
 #include "addons/lua_services.hpp"
+#include "ui/widget_tree.hpp"
 #include <functional>
 #include <string>
 #include <vector>
@@ -47,6 +48,10 @@ public:
     // Store addon info in registry for GetAddOnInfo/GetNumAddOns
     void setAddonList(const std::vector<TocFile>& addons);
 
+    /// The widget tree CreateFrame and CreateTexture build into. Owned here so
+    /// its lifetime matches the Lua state that holds handles into it.
+    ui::WidgetTree& widgets() { return widgets_; }
+
     lua_State* getState() { return L_; }
     bool isInitialized() const { return L_ != nullptr; }
 
@@ -56,6 +61,7 @@ public:
 
 private:
     lua_State* L_ = nullptr;
+    ui::WidgetTree widgets_;
     game::GameHandler* gameHandler_ = nullptr;
     LuaServices luaServices_;
     LuaErrorCallback luaErrorCallback_;

@@ -13,6 +13,7 @@
 #include "game/entity.hpp"
 #include "game/update_field_table.hpp"
 #include "core/logger.hpp"
+#include "ui/widget_tree.hpp"
 
 extern "C" {
 #include <lua.h>
@@ -73,6 +74,16 @@ inline game::GameHandler* getGameHandler(lua_State* L) {
     auto* gh = static_cast<game::GameHandler*>(lua_touserdata(L, -1));
     lua_pop(L, 1);
     return gh;
+}
+
+// ---- Retrieve the widget tree that backs CreateFrame/CreateTexture ----
+// Null before the UI is up, which the bindings treat as "record nothing and
+// carry on" so an addon loaded early cannot crash on a missing tree.
+inline wowee::ui::WidgetTree* getWidgetTree(lua_State* L) {
+    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_widget_tree");
+    auto* t = static_cast<wowee::ui::WidgetTree*>(lua_touserdata(L, -1));
+    lua_pop(L, 1);
+    return t;
 }
 
 // ---- Retrieve LuaServices pointer stored in Lua registry ----

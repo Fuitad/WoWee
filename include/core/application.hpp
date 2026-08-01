@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/window.hpp"
+#include "ui/widget_renderer.hpp"
 #include "core/input.hpp"
 #include "core/entity_spawner.hpp"
 #include "core/appearance_composer.hpp"
@@ -147,6 +148,9 @@ private:
     std::unique_ptr<game::World> world;
     std::unique_ptr<pipeline::AssetManager> assetManager;
     std::unique_ptr<addons::AddonManager> addonManager_;
+    /// Draws the widget tree addons build through CreateFrame/CreateTexture.
+    /// Holds the texture cache for Interface\ art, so it lives as long as the app.
+    ui::WidgetRenderer widgetRenderer_;
     bool addonsLoaded_ = false;
     std::unique_ptr<game::ExpansionRegistry> expansionRegistry_;
     // Empty means assets follow the active protocol profile. "legacy" selects
