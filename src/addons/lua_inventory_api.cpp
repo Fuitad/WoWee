@@ -1,6 +1,7 @@
 // lua_inventory_api.cpp — Items, containers, merchant, loot, equipment, trading, auction, and mail Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
+#include "core/logger.hpp"
 
 namespace wowee::addons {
 
@@ -480,6 +481,14 @@ static int lua_GetInventorySlotInfo(lua_State* L) {
         {"SECONDARYHAND",17,  "Interface\\PaperDoll\\UI-PaperDoll-Slot-SecondaryHand"},
         {"RANGED",       18,  "Interface\\PaperDoll\\UI-PaperDoll-Slot-Ranged"},
         {"TABARD",       19,  "Interface\\PaperDoll\\UI-PaperDoll-Slot-Tabard"},
+        // The bag buttons along the main bar ask for these by name at load, and
+        // paperdollframe.lua does it in an OnLoad — so a gap here does not just
+        // lose the bags, it loses the file.
+        {"BAG0",         20,  "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag"},
+        {"BAG1",         21,  "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag"},
+        {"BAG2",         22,  "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag"},
+        {"BAG3",         23,  "Interface\\PaperDoll\\UI-PaperDoll-Slot-Bag"},
+        {"AMMO",          0,  "Interface\\PaperDoll\\UI-PaperDoll-Slot-Ammo"},
     };
     for (const auto& m : mapping) {
         if (slot == m.name) {
@@ -489,8 +498,12 @@ static int lua_GetInventorySlotInfo(lua_State* L) {
             return 3;
         }
     }
-    luaL_error(L, "Unknown inventory slot: %s", name);
-    return 0;
+    // nil rather than an error, which is what the real client returns. Raising
+    // here takes down the whole file that asked, and a name we do not know is
+    // a gap in the table above rather than a reason to lose an interface.
+    LOG_WARNING("GetInventorySlotInfo: unknown slot ", name);
+    lua_pushnil(L);
+    return 1;
 }
 
 static int lua_GetInventoryItemLink(lua_State* L) {
