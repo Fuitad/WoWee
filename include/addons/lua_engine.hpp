@@ -41,6 +41,11 @@ public:
     // Call OnUpdate scripts on all frames that have one.
     void dispatchOnUpdate(float elapsed);
 
+    /// Feed the mouse to the widget tree: hover changes fire OnEnter/OnLeave,
+    /// and a press and release on the same frame is a click. Coordinates are
+    /// WoW's, origin bottom-left.
+    void dispatchMouse(float x, float y, bool leftDown);
+
     // SavedVariables: load globals from file, save globals to file
     bool loadSavedVariables(const std::string& path);
     bool saveSavedVariables(const std::string& path, const std::vector<std::string>& varNames);
@@ -65,6 +70,12 @@ private:
     game::GameHandler* gameHandler_ = nullptr;
     LuaServices luaServices_;
     LuaErrorCallback luaErrorCallback_;
+
+    void callFrameScript(uint32_t wid, const char* script, const char* arg = nullptr);
+
+    uint32_t hoverWid_ = 0;
+    uint32_t pressedWid_ = 0;
+    bool leftDown_ = false;
 
     void registerCoreAPI();
     void registerEventAPI();

@@ -2824,8 +2824,21 @@ void Application::render() {
     if (addonManager_ && addonManager_->getLuaEngine() && renderer) {
         runRenderStage("addonWidgets", [&] {
             const ImGuiIO& io = ImGui::GetIO();
-            widgetRenderer_.render(addonManager_->getLuaEngine()->widgets(),
-                                   io.DisplaySize.x, io.DisplaySize.y);
+            auto* engine = addonManager_->getLuaEngine();
+            // Lay out first: hit testing reads the rects this produces, so
+            // clicking a frame that moved this frame would otherwise use where
+            // it used to be.
+            widgetRenderer_.render(engine->widgets(), io.DisplaySize.x, io.DisplaySize.y);
+
+            // The client's own interface has first claim on the mouse. Only when
+            // ImGui does not want it does a click belong to an addon frame,
+            // which keeps addon frames from swallowing clicks meant for a window
+            // sitting over them.
+            if (!io.WantCaptureMouse) {
+                engine->dispatchMouse(io.MousePos.x,
+                                      io.DisplaySize.y - io.MousePos.y,
+                                      ImGui::IsMouseDown(ImGuiMouseButton_Left));
+            }
         });
     }
 

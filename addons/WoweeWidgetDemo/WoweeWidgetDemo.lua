@@ -53,6 +53,35 @@ footer:SetSize(160, 20)
 footer:SetJustifyH("LEFT")
 footer:SetText("/widgetdemo to toggle")
 
+-- Interaction. The frame takes the mouse, and the highlight follows the cursor
+-- rather than sitting there at a fixed alpha: OnEnter and OnLeave fire from a
+-- hit test that resolves the same way the draw order does, so whatever is
+-- visibly on top is what gets the click.
+f:EnableMouse(true)
+shine:SetAlpha(0)
+
+f:SetScript("OnEnter", function(self)
+    shine:SetAlpha(0.45)
+end)
+
+f:SetScript("OnLeave", function(self)
+    shine:SetAlpha(0)
+end)
+
+local clicks = 0
+f:SetScript("OnMouseDown", function(self, button)
+    shine:SetAlpha(0.8)
+end)
+
+f:SetScript("OnMouseUp", function(self, button)
+    shine:SetAlpha(0.45)
+end)
+
+f:SetScript("OnClick", function(self, button)
+    clicks = clicks + 1
+    footer:SetText("clicked " .. clicks .. "x (" .. tostring(button) .. ")")
+end)
+
 SLASH_WOWEEWIDGETDEMO1 = "/widgetdemo"
 SlashCmdList["WOWEEWIDGETDEMO"] = function()
     if f:IsShown() then f:Hide() else f:Show() end

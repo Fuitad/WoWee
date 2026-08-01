@@ -71,6 +71,10 @@ struct Widget {
     float height = 0.0f;
     bool shown = true;
     float alpha = 1.0f;
+    /// Whether this frame takes the mouse. False by default, as in WoW, where a
+    /// plain Frame is transparent to clicks until EnableMouse is called; Buttons
+    /// switch it on for themselves.
+    bool mouseEnabled = false;
 
     FrameStrata strata = FrameStrata::Medium;
     bool strataExplicit = false;
@@ -119,6 +123,12 @@ public:
 
     /// Resolve every widget's rect and visibility for a screen of this size.
     void layout(float screenW, float screenH);
+
+    /// The frame under a point, or 0. Topmost wins, by the same ordering that
+    /// decides what draws over what — so whatever the player can see on top is
+    /// what they click. Regions are never hit: in WoW a texture is not a mouse
+    /// target, its frame is.
+    uint32_t hitTest(float x, float y) const;
 
     /// Widgets to draw, in the order to draw them. Only those that resolved to a
     /// visible, non-empty rect. Valid until the next layout().

@@ -361,6 +361,19 @@ int lua_Region_SetDrawLayer(lua_State* L) {
     }
     return 0;
 }
+int lua_Frame_EnableMouse(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        // Absent argument means true, which is how addons usually write it.
+        w->mouseEnabled = lua_isnone(L, 2) ? true : (lua_toboolean(L, 2) != 0);
+    }
+    return 0;
+}
+int lua_Frame_IsMouseEnabled(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushboolean(L, w && w->mouseEnabled ? 1 : 0);
+    return 1;
+}
+
 int lua_Frame_SetFrameStrata(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
         w->strata = wowee::ui::parseStrata(luaL_optstring(L, 2, "MEDIUM"));
@@ -614,7 +627,6 @@ static int lua_Frame_GetParent(lua_State* L) {
 static int lua_CreateFrame(lua_State* L) {
     const char* frameType = luaL_optstring(L, 1, "Frame");
     const char* name = luaL_optstring(L, 2, nullptr);
-    (void)frameType; // All frame types use the same table structure for now
 
     // Create the frame table
     lua_newtable(L);
@@ -633,8 +645,24 @@ static int lua_CreateFrame(lua_State* L) {
         }
         const uint32_t id = tree->create(wowee::ui::WidgetKind::Frame, parent,
                                          name ? name : "");
+        // A Button takes the mouse without being asked; a plain Frame does not,
+        // which is what EnableMouse is for.
+        if (auto* w = tree->get(id)) {
+            const std::string ft = frameType ? frameType : "Frame";
+            w->mouseEnabled = (ft == "Button" || ft == "CheckButton");
+        }
         lua_pushinteger(L, static_cast<lua_Integer>(id));
         lua_setfield(L, -2, "__wid");
+
+        // Remember the table against its widget id so input dispatch can get
+        // back from a hit to the frame whose scripts must run.
+        lua_getglobal(L, "__WoweeFramesByWid");
+        if (lua_istable(L, -1)) {
+            lua_pushinteger(L, static_cast<lua_Integer>(id));
+            lua_pushvalue(L, -3);
+            lua_rawset(L, -3);
+        }
+        lua_pop(L, 1);
     }
 
     // Set frame name
@@ -793,6 +821,8 @@ void LuaEngine::registerCoreAPI() {
         {"GetCenter",       lua_Frame_GetCenter},
         {"SetAlpha",        lua_Region_SetAlpha},
         {"GetAlpha",        lua_Region_GetAlpha},
+        {"EnableMouse",     lua_Frame_EnableMouse},
+        {"IsMouseEnabled",  lua_Frame_IsMouseEnabled},
         {"SetFrameStrata",  lua_Frame_SetFrameStrata},
         {"SetFrameLevel",   lua_Frame_SetFrameLevel},
         {"SetParent",       lua_Frame_SetParent},
@@ -898,6 +928,10 @@ void LuaEngine::registerCoreAPI() {
     // OnUpdate frame tracking table
     lua_newtable(L_);
     lua_setglobal(L_, "__WoweeOnUpdateFrames");
+
+    // widget id -> frame table, so a hit test can find the scripts to run.
+    lua_newtable(L_);
+    lua_setglobal(L_, "__WoweeFramesByWid");
 
     // C_Timer implementation via Lua (uses OnUpdate internally)
     luaL_dostring(L_,
@@ -1755,6 +1789,60 @@ void LuaEngine::fireEvent(const std::string& eventName,
         lua_pop(L_, 1); // pop event frame list
     }
     lua_pop(L_, 1); // pop __WoweeFrameEvents
+}
+
+void LuaEngine::callFrameScript(uint32_t wid, const char* script,
+                                const char* arg) {
+    if (!L_ || wid == 0) return;
+    lua_getglobal(L_, "__WoweeFramesByWid");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
+    lua_pushinteger(L_, static_cast<lua_Integer>(wid));
+    lua_rawget(L_, -2);
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 2); return; }
+
+    lua_getfield(L_, -1, "__scripts");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 3); return; }
+    lua_getfield(L_, -1, script);
+    if (!lua_isfunction(L_, -1)) { lua_pop(L_, 4); return; }
+
+    lua_pushvalue(L_, -3);              // self
+    int nargs = 1;
+    if (arg) { lua_pushstring(L_, arg); ++nargs; }
+    if (lua_pcall(L_, nargs, 0, 0) != 0) {
+        const char* err = lua_tostring(L_, -1);
+        LOG_ERROR("LuaEngine: ", script, " error: ", err ? err : "?");
+        if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
+        lua_pop(L_, 1);
+    }
+    lua_pop(L_, 3);
+}
+
+void LuaEngine::dispatchMouse(float x, float y, bool leftDown) {
+    if (!L_) return;
+    const uint32_t hit = widgets_.hitTest(x, y);
+
+    // Hover first, so a frame that appears under a stationary cursor still gets
+    // its OnEnter rather than waiting for the mouse to move.
+    if (hit != hoverWid_) {
+        if (hoverWid_ != 0) callFrameScript(hoverWid_, "OnLeave");
+        hoverWid_ = hit;
+        if (hoverWid_ != 0) callFrameScript(hoverWid_, "OnEnter");
+    }
+
+    if (leftDown && !leftDown_) {
+        leftDown_ = true;
+        pressedWid_ = hit;
+        if (pressedWid_ != 0) callFrameScript(pressedWid_, "OnMouseDown", "LeftButton");
+    } else if (!leftDown && leftDown_) {
+        leftDown_ = false;
+        if (pressedWid_ != 0) {
+            callFrameScript(pressedWid_, "OnMouseUp", "LeftButton");
+            // A click is press and release on the same frame, which is what lets
+            // a player slide off a button to change their mind.
+            if (pressedWid_ == hit) callFrameScript(pressedWid_, "OnClick", "LeftButton");
+        }
+        pressedWid_ = 0;
+    }
 }
 
 void LuaEngine::dispatchOnUpdate(float elapsed) {

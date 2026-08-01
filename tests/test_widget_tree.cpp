@@ -298,3 +298,96 @@ TEST_CASE("Two anchors at the same point do not blow the rect apart",
     REQUIRE(tree.get(f)->rectH == Catch::Approx(40.0f));
     REQUIRE(std::abs(tree.get(f)->left) < kScreenW);
 }
+
+// ── Hit testing ─────────────────────────────────────────────────────────────
+
+namespace {
+uint32_t makeButton(WidgetTree& tree, float x, float y, float w, float h,
+                    FrameStrata strata = FrameStrata::Medium) {
+    const uint32_t id = tree.create(WidgetKind::Frame, 0, "");
+    Widget* f = tree.get(id);
+    f->width = w;
+    f->height = h;
+    f->mouseEnabled = true;
+    f->strata = strata;
+    f->strataExplicit = true;
+    Anchor a; a.point = "BOTTOMLEFT"; a.relativePoint = "BOTTOMLEFT"; a.x = x; a.y = y;
+    tree.addPoint(id, a);
+    return id;
+}
+}
+
+TEST_CASE("A frame is only hit inside its rect", "[widget][hittest]") {
+    WidgetTree tree;
+    const uint32_t b = makeButton(tree, 100.0f, 100.0f, 50.0f, 40.0f);
+    tree.layout(kScreenW, kScreenH);
+
+    REQUIRE(tree.hitTest(125.0f, 120.0f) == b);   // middle
+    REQUIRE(tree.hitTest(100.0f, 100.0f) == b);   // corner counts
+    REQUIRE(tree.hitTest(99.0f, 120.0f) == 0);    // just left
+    REQUIRE(tree.hitTest(125.0f, 141.0f) == 0);   // just above
+}
+
+TEST_CASE("A frame without the mouse enabled is transparent to clicks",
+          "[widget][hittest]") {
+    // WoW's default, and the reason a plain Frame used as a container does not
+    // steal clicks from whatever is underneath it.
+    WidgetTree tree;
+    const uint32_t f = makeButton(tree, 0.0f, 0.0f, 100.0f, 100.0f);
+    tree.get(f)->mouseEnabled = false;
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.hitTest(50.0f, 50.0f) == 0);
+}
+
+TEST_CASE("A hidden frame cannot be clicked", "[widget][hittest]") {
+    WidgetTree tree;
+    const uint32_t f = makeButton(tree, 0.0f, 0.0f, 100.0f, 100.0f);
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.hitTest(50.0f, 50.0f) == f);
+
+    tree.get(f)->shown = false;
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.hitTest(50.0f, 50.0f) == 0);
+}
+
+TEST_CASE("The frame drawn on top is the frame that gets the click",
+          "[widget][hittest]") {
+    // The whole point: what the player can see is what they hit. Overlapping
+    // frames must resolve the same way the draw order does, or a click lands on
+    // something buried.
+    WidgetTree tree;
+    const uint32_t low  = makeButton(tree, 0.0f, 0.0f, 100.0f, 100.0f, FrameStrata::Low);
+    const uint32_t high = makeButton(tree, 0.0f, 0.0f, 100.0f, 100.0f, FrameStrata::High);
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.hitTest(50.0f, 50.0f) == high);
+
+    // With strata equal, the later frame is on top and takes it.
+    tree.get(high)->strata = FrameStrata::Low;
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.hitTest(50.0f, 50.0f) == high);
+    REQUIRE(low != high);
+}
+
+TEST_CASE("A child frame takes the click from its parent", "[widget][hittest]") {
+    WidgetTree tree;
+    const uint32_t parent = makeButton(tree, 0.0f, 0.0f, 200.0f, 200.0f);
+    const uint32_t child = tree.create(WidgetKind::Frame, parent, "");
+    tree.get(child)->width = 50.0f;
+    tree.get(child)->height = 50.0f;
+    tree.get(child)->mouseEnabled = true;
+    Anchor a; a.point = "BOTTOMLEFT"; a.relativePoint = "BOTTOMLEFT"; a.x = 10.0f; a.y = 10.0f;
+    tree.addPoint(child, a);
+
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.hitTest(30.0f, 30.0f) == child);    // over the child
+    REQUIRE(tree.hitTest(150.0f, 150.0f) == parent); // parent elsewhere
+}
+
+TEST_CASE("A zero-sized frame is never hit", "[widget][hittest]") {
+    WidgetTree tree;
+    const uint32_t f = tree.create(WidgetKind::Frame, 0, "");
+    tree.get(f)->mouseEnabled = true;
+    tree.addPoint(f, Anchor{});   // anchored but never sized
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.hitTest(kScreenW * 0.5f, kScreenH * 0.5f) == 0);
+}

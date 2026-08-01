@@ -201,6 +201,25 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
     for (uint32_t child : w->children) layoutWidget(child, screenW, screenH);
 }
 
+uint32_t WidgetTree::hitTest(float x, float y) const {
+    const Widget* best = nullptr;
+    for (const Widget& w : widgets_) {
+        if (w.id == 0 || w.kind != WidgetKind::Frame) continue;
+        if (!w.visible || !w.mouseEnabled) continue;
+        if (w.rectW <= 0.0f || w.rectH <= 0.0f) continue;
+        if (x < w.left || x > w.left + w.rectW) continue;
+        if (y < w.bottom || y > w.bottom + w.rectH) continue;
+        if (!best) { best = &w; continue; }
+        // Same comparison the draw order uses, read the other way round: the
+        // last thing painted is the first thing clicked.
+        const int sa = strataRank(w.effStrata), sb = strataRank(best->effStrata);
+        if (sa != sb) { if (sa > sb) best = &w; continue; }
+        if (w.effLevel != best->effLevel) { if (w.effLevel > best->effLevel) best = &w; continue; }
+        if (w.creationOrder > best->creationOrder) best = &w;
+    }
+    return best ? best->id : 0;
+}
+
 void WidgetTree::collectDrawOrder() {
     drawOrder_.clear();
     for (const Widget& w : widgets_) {
