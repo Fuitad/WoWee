@@ -348,13 +348,22 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // client supplies these; FrameXML only ever reads them, and
     // UIParentManageFramePositions adds them to a coordinate on the next line,
     // so absent they are arithmetic on nil the first time a panel opens.
+    //
+    // All six of them, because setting one wakes the panel manager and it then
+    // reads the rest: seeding only the two offsets moved the failure from
+    // LEFT_OFFSET to DEFAULT_FRAME_WIDTH one call deeper. The widths are
+    // Blizzard's own defaults for a standard panel.
     luaEngine_.executeString(
         "if UIParent and UIParent.SetAttribute then\n"
-        "  if UIParent:GetAttribute('TOP_OFFSET') == nil then\n"
-        "    UIParent:SetAttribute('TOP_OFFSET', 0)\n"
-        "  end\n"
-        "  if UIParent:GetAttribute('LEFT_OFFSET') == nil then\n"
-        "    UIParent:SetAttribute('LEFT_OFFSET', 0)\n"
+        "  local defaults = {\n"
+        "    TOP_OFFSET = 0, LEFT_OFFSET = 0, CENTER_OFFSET = 0,\n"
+        "    RIGHT_OFFSET = 0, RIGHT_OFFSET_BUFFER = 0,\n"
+        "    DEFAULT_FRAME_WIDTH = 338,\n"
+        "  }\n"
+        "  for name, value in pairs(defaults) do\n"
+        "    if UIParent:GetAttribute(name) == nil then\n"
+        "      UIParent:SetAttribute(name, value)\n"
+        "    end\n"
         "  end\n"
         "end\n");
 
