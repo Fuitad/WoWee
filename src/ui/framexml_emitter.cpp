@@ -85,6 +85,20 @@ std::string scriptParameters(const std::string& script) {
         script == "OnHyperlinkLeave") return "self, link, text, button";
     if (script == "OnTooltipSetItem" ||
         script == "OnTooltipSetUnit") return "self";
+    // Scrolling. UIPanelScrollFrameTemplate's own OnVerticalScroll body opens
+    // with scrollbar:SetValue(offset), and without the name that was nil on
+    // every scroll frame in the interface.
+    if (script == "OnVerticalScroll" ||
+        script == "OnHorizontalScroll") return "self, offset";
+    if (script == "OnScrollRangeChanged") return "self, xrange, yrange";
+    if (script == "OnCursorChanged")   return "self, x, y, width, height";
+    if (script == "OnColorSelect")     return "self, r, g, b";
+    if (script == "OnMinMaxChanged")   return "self, min, max";
+    if (script == "OnTooltipAddMoney") return "self, cost, maxcost";
+    if (script == "OnTooltipSetDefaultAnchor") return "self, parent";
+    if (script == "OnMovieShowSubtitle")       return "self, text";
+    if (script == "OnInputLanguageChanged")    return "self, language";
+    if (script == "OnFinished")        return "self, requested";
     // OnLoad, OnShow, OnHide and the rest take only self.
     return "self";
 }

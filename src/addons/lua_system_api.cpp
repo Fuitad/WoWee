@@ -493,6 +493,16 @@ static int lua_ReturnNil(lua_State* L)   { lua_pushnil(L); return 1; }
 static int lua_ReturnZero(lua_State* L)  { lua_pushnumber(L, 0.0); return 1; }
 static int lua_ReturnNothing(lua_State*) { return 0; }
 
+/// A cooldown that is not running: start and duration both zero. Two values,
+/// because the caller adds them together on the next line —
+/// local start, duration = GetSummonFriendCooldown(); start + duration — and
+/// one of them missing is arithmetic on nil.
+static int lua_ReturnNoCooldown(lua_State* L) {
+    lua_pushnumber(L, 0.0);
+    lua_pushnumber(L, 0.0);
+    return 2;
+}
+
 /// Alliance or Horde for the player, and the same for anyone else until this
 /// client tracks other units' factions. Returns the English tag and the
 /// localised name, which is the pair FrameXML expects.
@@ -511,6 +521,7 @@ static int lua_UnitFactionGroup(lua_State* L) {
 
 void registerSystemLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
+                {"GetSummonFriendCooldown",  lua_ReturnNoCooldown},
                 {"IsThreatWarningEnabled",   lua_ReturnFalse},
                 {"IsAutoRepeatAction",       lua_ReturnFalse},
                 {"IsPetAttackAction",        lua_ReturnFalse},

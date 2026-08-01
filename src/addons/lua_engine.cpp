@@ -1307,11 +1307,29 @@ void LuaEngine::registerCoreAPI() {
     // unusable action — fails somewhere far from the cause.
     bootstrap(
         "local mt = __WoweeFrameMT\n"
+        // A path is as valid an argument as a texture, and FrameXML uses both:
+        // LoadMicroButtonTextures does
+        // self:SetDisabledTexture("Interface\\Buttons\\...-Disabled"), then the
+        // next line asks for it back and calls SetDesaturated on it. Storing
+        // the string verbatim handed a string back, and a string has no widget
+        // methods at all. A path makes or updates the slot's own texture.
         "for _, slot in ipairs({'NormalTexture', 'PushedTexture', 'HighlightTexture',\n"
         "                       'DisabledTexture', 'CheckedTexture',\n"
         "                       'DisabledCheckedTexture'}) do\n"
         "    local key = '__' .. slot\n"
-        "    mt['Set' .. slot] = function(self, tex) self[key] = tex end\n"
+        "    local layer = (slot == 'HighlightTexture') and 'HIGHLIGHT' or 'ARTWORK'\n"
+        "    mt['Set' .. slot] = function(self, tex)\n"
+        "        if type(tex) == 'string' then\n"
+        "            local existing = self[key]\n"
+        "            if type(existing) == 'table' then existing:SetTexture(tex) return end\n"
+        "            local made = self:CreateTexture(nil, layer)\n"
+        "            made:SetTexture(tex)\n"
+        "            made:SetAllPoints(self)\n"
+        "            self[key] = made\n"
+        "            return\n"
+        "        end\n"
+        "        self[key] = tex\n"
+        "    end\n"
         "    mt['Get' .. slot] = function(self) return self[key] end\n"
         "end\n"
         // Attributes, and the OnAttributeChanged they fire.
