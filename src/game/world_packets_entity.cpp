@@ -377,30 +377,95 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
     data.displayInfoId = packet.readUInt32();
     data.quality = packet.readUInt32();
 
-    // WotLK 3.3.5a (TrinityCore/AzerothCore): Flags, Flags2, BuyCount, BuyPrice, SellPrice
-    // Some server variants omit BuyCount (4 fields instead of 5).
-    // Read 5 fields and validate InventoryType; if it looks implausible, rewind and try 4.
+    // WotLK 3.3.5a (TrinityCore/AzerothCore): Flags, Flags2, BuyCount, BuyPrice,
+    // SellPrice. Some server variants omit BuyCount, which shifts everything
+    // after it by one field.
+    //
+    // Telling them apart from InventoryType alone does not work. On a server
+    // without BuyCount, reading five fields lands on AllowableClass — and a
+    // class-restricted item's mask is a small number, so it passes any range
+    // check InventoryType would. Priest-only is 16, which is a plausible enough
+    // "Back" that Friar's Robes of the Light claimed to be a cloak while the
+    // server equipped it to the chest.
+    //
+    // Score both readings across several fields instead. A wrong guess shifts
+    // all of them at once, so the right one is the one where every field is
+    // credible, not just the first.
     const size_t postQualityPos = packet.getReadPos();
     if (!packet.hasRemaining(24)) {
         LOG_ERROR("SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated before flags (entry=", data.entry, ")");
         return false;
     }
+
+    struct PriceLayout {
+        uint32_t flags = 0;
+        uint32_t sellPrice = 0;
+        uint32_t inventoryType = 0;
+        int32_t score = -1;
+    };
+
+    auto scoreLayout = [&](bool withBuyCount) -> PriceLayout {
+        PriceLayout out;
+        packet.setReadPos(postQualityPos);
+        const size_t need = withBuyCount ? 36u : 32u;
+        if (!packet.hasRemaining(need)) return out;
+
+        out.flags = packet.readUInt32();          // Flags
+        packet.readUInt32();                      // Flags2
+        const uint32_t buyCount = withBuyCount ? packet.readUInt32() : 1u;
+        const uint32_t buyPrice = packet.readUInt32();
+        out.sellPrice = packet.readUInt32();      // SellPrice
+        out.inventoryType = packet.readUInt32();
+
+        const uint32_t allowableClass = packet.readUInt32();
+        const uint32_t allowableRace  = packet.readUInt32();
+        const uint32_t itemLevel      = packet.readUInt32();
+        const uint32_t requiredLevel  = packet.readUInt32();
+
+        // Every field is bounded by the game's own rules, so an off-by-one-field
+        // read shows up as at least one of them being nonsense.
+        constexpr uint32_t kMaxInventoryType = 28;   // INVTYPE_RELIC
+        constexpr uint32_t kAllClasses = 0xFFFFFFFFu;
+        constexpr uint32_t kClassMask  = 0x7FFu;     // 11 classes
+        constexpr uint32_t kRaceMask   = 0x7FFu;     // and 11 playable races
+        constexpr uint32_t kMaxItemLevel = 1000;
+        constexpr uint32_t kMaxRequiredLevel = 255;
+
+        out.score = 0;
+        if (out.inventoryType <= kMaxInventoryType) out.score++;
+        if (allowableClass == kAllClasses || (allowableClass & ~kClassMask) == 0) out.score++;
+        if (allowableRace == kAllClasses || (allowableRace & ~kRaceMask) == 0) out.score++;
+        if (itemLevel <= kMaxItemLevel) out.score++;
+        if (requiredLevel <= kMaxRequiredLevel) out.score++;
+        // A vendor never sells an item for more than it buys it back for.
+        if (out.sellPrice <= buyPrice) out.score++;
+        // The decisive one when everything else looks plausible either way:
+        // BuyCount is how many the vendor sells at once — 1 for almost
+        // everything, a stack at most. Reading a layout that has no BuyCount as
+        // though it did lands a price there, and prices are not small.
+        constexpr uint32_t kMaxBuyCount = 100;
+        if (withBuyCount && buyCount > kMaxBuyCount) out.score -= 2;
+        return out;
+    };
+
+    const PriceLayout withCount = scoreLayout(true);
+    const PriceLayout noCount   = scoreLayout(false);
+    const bool useBuyCount = withCount.score >= noCount.score;
+    const PriceLayout& chosen = useBuyCount ? withCount : noCount;
+
+    if (chosen.score < 0) {
+        LOG_ERROR("SMSG_ITEM_QUERY_SINGLE_RESPONSE: truncated before flags (entry=", data.entry, ")");
+        return false;
+    }
+
+    // Re-read the chosen layout so the stream is positioned for the fields below.
+    packet.setReadPos(postQualityPos);
     data.itemFlags = packet.readUInt32(); // Flags
-    packet.readUInt32(); // Flags2
-    packet.readUInt32(); // BuyCount
-    packet.readUInt32(); // BuyPrice
+    packet.readUInt32();                  // Flags2
+    if (useBuyCount) packet.readUInt32(); // BuyCount
+    packet.readUInt32();                  // BuyPrice
     data.sellPrice = packet.readUInt32(); // SellPrice
     data.inventoryType = packet.readUInt32();
-
-    if (data.inventoryType > 28) {
-        // inventoryType out of range — BuyCount probably not present; rewind and try 4 fields
-        packet.setReadPos(postQualityPos);
-        data.itemFlags = packet.readUInt32(); // Flags
-        packet.readUInt32(); // Flags2
-        packet.readUInt32(); // BuyPrice
-        data.sellPrice = packet.readUInt32(); // SellPrice
-        data.inventoryType = packet.readUInt32();
-    }
 
     // Validate minimum size for remaining fixed fields before inventoryType through containerSlots: 13×4 = 52 bytes
     if (!packet.hasRemaining(52)) {

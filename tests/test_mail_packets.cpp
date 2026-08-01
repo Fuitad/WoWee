@@ -330,3 +330,100 @@ TEST_CASE("Vanilla auction list parses id-only enchant, no flags, no delay", "[a
     CHECK(result.searchDelay == 0);
     CHECK(packet.getRemainingSize() == 0);
 }
+
+// SMSG_ITEM_QUERY_SINGLE_RESPONSE comes in two shapes: some servers send
+// BuyCount between Flags2 and BuyPrice, some do not, and the client has to work
+// out which from the bytes. Guessing from InventoryType alone does not work — on
+// a server without BuyCount that read lands on AllowableClass, and a
+// class-restricted item's mask is a small, plausible-looking number. Priest-only
+// is 16, which is INVTYPE_CLOAK, so a priest robe claimed to be a cloak.
+namespace {
+
+// Everything up to and including Quality; identical in both layouts.
+void writeItemHeader(wowee::network::Packet& p, uint32_t entry) {
+    p.writeUInt32(entry);
+    p.writeUInt32(4);     // Class: Armor
+    p.writeUInt32(1);     // SubClass: Cloth
+    p.writeUInt32(0xFFFFFFFF);  // SoundOverrideSubclass
+    p.writeString("Friar's Robes of the Light");
+    p.writeString("");
+    p.writeString("");
+    p.writeString("");
+    p.writeUInt32(12345); // DisplayInfoID
+    p.writeUInt32(2);     // Quality: Uncommon
+}
+
+// The fields after InventoryType, which is what makes a wrong guess detectable.
+void writeItemTail(wowee::network::Packet& p, uint32_t allowableClass) {
+    p.writeUInt32(allowableClass);
+    p.writeUInt32(0xFFFFFFFF);  // AllowableRace: all
+    p.writeUInt32(29);          // ItemLevel
+    p.writeUInt32(24);          // RequiredLevel
+    for (int i = 0; i < 10; ++i) p.writeUInt32(0);  // skill..containerSlots
+    p.writeUInt32(0);           // statsCount
+}
+
+} // namespace
+
+TEST_CASE("item query detects the BuyCount layout from more than one field",
+          "[packet][item]") {
+    using namespace wowee::game;
+
+    constexpr uint32_t kPriestOnly = 16;   // the mask that reads as INVTYPE_CLOAK
+    constexpr uint32_t kRobe = 20;
+
+    SECTION("server without BuyCount, class-restricted item") {
+        wowee::network::Packet p;
+        writeItemHeader(p, 7048);
+        p.writeUInt32(0);        // Flags
+        p.writeUInt32(0);        // Flags2
+        p.writeUInt32(1000);     // BuyPrice   (no BuyCount on this server)
+        p.writeUInt32(250);      // SellPrice
+        p.writeUInt32(kRobe);    // InventoryType
+        writeItemTail(p, kPriestOnly);
+
+        ItemQueryResponseData data;
+        REQUIRE(ItemQueryResponseParser::parse(p, data));
+        CHECK(data.inventoryType == kRobe);          // not 16
+        CHECK(data.allowableClass == kPriestOnly);
+        CHECK(data.itemLevel == 29);
+        CHECK(data.requiredLevel == 24);
+    }
+
+    SECTION("server with BuyCount, same item") {
+        wowee::network::Packet p;
+        writeItemHeader(p, 7048);
+        p.writeUInt32(0);        // Flags
+        p.writeUInt32(0);        // Flags2
+        p.writeUInt32(1);        // BuyCount
+        p.writeUInt32(1000);     // BuyPrice
+        p.writeUInt32(250);      // SellPrice
+        p.writeUInt32(kRobe);    // InventoryType
+        writeItemTail(p, kPriestOnly);
+
+        ItemQueryResponseData data;
+        REQUIRE(ItemQueryResponseParser::parse(p, data));
+        CHECK(data.inventoryType == kRobe);
+        CHECK(data.allowableClass == kPriestOnly);
+        CHECK(data.itemLevel == 29);
+    }
+
+    SECTION("an item usable by every class still resolves either way") {
+        for (bool withBuyCount : {false, true}) {
+            wowee::network::Packet p;
+            writeItemHeader(p, 7049);
+            p.writeUInt32(0);
+            p.writeUInt32(0);
+            if (withBuyCount) p.writeUInt32(1);
+            p.writeUInt32(1000);
+            p.writeUInt32(250);
+            p.writeUInt32(5);            // InventoryType: Chest
+            writeItemTail(p, 0xFFFFFFFF);  // all classes
+
+            ItemQueryResponseData data;
+            INFO("withBuyCount: " << withBuyCount);
+            REQUIRE(ItemQueryResponseParser::parse(p, data));
+            CHECK(data.inventoryType == 5);
+        }
+    }
+}
