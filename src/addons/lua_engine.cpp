@@ -588,12 +588,24 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     }
     // Anything still unimplemented stays a no-op rather than an error, which is
     // what keeps a large addon running while the surface is filled in.
-    luaL_dostring(L,
-        "return function(t) setmetatable(t, { __index = function(_, k) "
-        "  if type(k)=='string' and string.find(k,'^%u') then return function() end end "
-        "end }) end");
-    lua_pushvalue(L, -2);
-    lua_call(L, 1, 0);
+    // The same enumerated set the frame metatable uses, and for the same
+    // reason: a region carries data fields beside its methods, and answering
+    // both with a no-op makes a field that was never set look present.
+    // Built once and shared. This used to compile a fresh chunk for every
+    // region created, which over a FrameXML load is thousands of compiles of
+    // the same three lines.
+    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_region_mt");
+    if (!lua_istable(L, -1)) {
+        lua_pop(L, 1);
+        luaL_dostring(L,
+            "local known = __WoweeWidgetMethods or {} "
+            "return { __index = function(_, k) "
+            "  if type(k)=='string' and known[k] then return function() end end "
+            "end }");
+        lua_pushvalue(L, -1);
+        lua_setfield(L, LUA_REGISTRYINDEX, "wowee_region_mt");
+    }
+    lua_setmetatable(L, -2);
 }
 
 } // namespace
@@ -1451,14 +1463,115 @@ void LuaEngine::registerCoreAPI() {
     // WoW widget methods are PascalCase, so an unknown key starting with an uppercase
     // letter is treated as an unimplemented method (harmless no-op); anything else
     // falls through to nil so ordinary addon fields keep their normal (falsy) meaning.
+    // The widget methods this stands in for, named rather than guessed at.
+    //
+    // Answering every PascalCase key with a no-op was wrong for data. A field
+    // is PascalCase as readily as a method — textStatusBar.TextString is the
+    // one that surfaced it — and a function is truthy, so FrameXML's own
+    // "if (x.Field) then use it" ran the branch against something that was
+    // never there. Methods and data cannot be told apart by shape: of the 307
+    // method names FrameXML calls, eighteen read as nouns (AppendText,
+    // NumLines, PageUp, AtBottom), and of the PascalCase fields it assigns,
+    // several are method names held in a table.
+    //
+    // So the set is enumerated: every method FrameXML calls on a widget, plus
+    // the standard widget API for addons. A name in it answers with a no-op;
+    // anything else is data and answers nil, which is what it would be.
+    bootstrap(
+        "__WoweeWidgetMethods = {\n"
+        "AddDoubleLine=1,AddHistoryLine=1,AddLine=1,AddMessage=1,AddTexture=1,\n"
+        "AddToAutoHide=1,AllowAttributeChanges=1,Animate=1,AppendText=1,AtBottom=1,\n"
+        "CallMethod=1,CanSaveTabardNow=1,ChildUpdate=1,Clear=1,ClearAllPoints=1,\n"
+        "ClearBinding=1,ClearBindings=1,ClearFocus=1,ClearHistory=1,ClearLines=1,\n"
+        "ClearModel=1,Click=1,CreateFontString=1,CreatePlayerArrowFrame=1,\n"
+        "CreateTexture=1,CreateTitleRegion=1,CycleVariation=1,Disable=1,DrawQuestBlob=1,\n"
+        "Dress=1,Enable=1,EnableKeyboard=1,EnableMouse=1,EnableMouseWheel=1,\n"
+        "EnableSubtitles=1,FadeOut=1,Free=1,GetAlpha=1,GetAnchorType=1,GetAttribute=1,\n"
+        "GetBackdrop=1,GetBottom=1,GetButtonState=1,GetCenter=1,GetChecked=1,\n"
+        "GetCheckedTexture=1,GetChildList=1,GetChildren=1,GetColorRGB=1,\n"
+        "GetCurrentValue=1,GetCursorPosition=1,GetDisabledCheckedTexture=1,\n"
+        "GetDisabledTexture=1,GetDrawLayer=1,GetEffectiveAttribute=1,\n"
+        "GetEffectiveScale=1,GetFieldSize=1,GetFileHeight=1,GetFileWidth=1,GetFont=1,\n"
+        "GetFontObject=1,GetFontString=1,GetFrame=1,GetFrameLevel=1,GetFrameRef=1,\n"
+        "GetFrameStrata=1,GetHeight=1,GetHighlightTexture=1,GetHorizontalScroll=1,\n"
+        "GetHorizontalScrollRange=1,GetID=1,GetInputLanguage=1,GetInventorySlot=1,\n"
+        "GetItem=1,GetLeft=1,GetLowerEmblemTexture=1,GetMessageInfo=1,GetMinimumWidth=1,\n"
+        "GetMinMaxValues=1,GetMousePosition=1,GetName=1,GetNormalTexture=1,GetNumber=1,\n"
+        "GetNumChildren=1,GetNumMessages=1,GetNumPoints=1,GetNumTooltips=1,\n"
+        "GetObjectType=1,GetOwner=1,GetParent=1,GetPoint=1,GetPushedTexture=1,GetRect=1,\n"
+        "GetRegionParent=1,GetRegions=1,GetRight=1,GetScale=1,GetScript=1,\n"
+        "GetScrollChild=1,GetSize=1,GetSpacing=1,GetStatusBarTexture=1,\n"
+        "GetStringHeight=1,GetStringWidth=1,GetTexCoord=1,GetText=1,GetTextColor=1,\n"
+        "GetTextHeight=1,GetTexture=1,GetTextWidth=1,GetTooltipIndex=1,GetTop=1,\n"
+        "GetUIPanel=1,GetUpperEmblemTexture=1,GetUTF8CursorPosition=1,GetValue=1,\n"
+        "GetVertexColor=1,GetVerticalScroll=1,GetVerticalScrollRange=1,GetWidth=1,\n"
+        "GetZoom=1,GetZoomLevels=1,HasFocus=1,HasScript=1,Hide=1,HideUIPanel=1,\n"
+        "HighlightText=1,HookScript=1,IgnoreDepth=1,InitializeTabardColors=1,Insert=1,\n"
+        "IsEnabled=1,IsEquippedItem=1,IsEventRegistered=1,IsMouseEnabled=1,\n"
+        "IsMouseOver=1,IsObjectType=1,IsOwned=1,IsProtected=1,IsShown=1,IsUnderMouse=1,\n"
+        "IsUnit=1,IsUserPlaced=1,IsVisible=1,LockHighlight=1,Lower=1,MoveUIPanel=1,\n"
+        "New=1,NumLines=1,OnFinished=1,OnUpdate=1,PageDown=1,PageUp=1,PingLocation=1,\n"
+        "Play=1,Raise=1,RefreshUnit=1,RefreshValue=1,RegisterAutoHide=1,RegisterEvent=1,\n"
+        "RegisterForClicks=1,RegisterForDrag=1,ReleaseFrame=1,\n"
+        "RemoveMessagesByAccessID=1,ReplaceIconTexture=1,Reset=1,Reuse=1,Run=1,\n"
+        "RunAttribute=1,RunFor=1,Save=1,ScrollDown=1,ScrollToBottom=1,ScrollUp=1,\n"
+        "SelectWindow=1,SetAction=1,SetAllPoints=1,SetAlpha=1,SetAlphaGradient=1,\n"
+        "SetAnchorType=1,SetAttribute=1,SetAutoFocus=1,SetBackdrop=1,\n"
+        "SetBackdropBorderColor=1,SetBackdropColor=1,SetBagItem=1,SetBinding=1,\n"
+        "SetBindingClick=1,SetBindingItem=1,SetBindingMacro=1,SetBindingSpell=1,\n"
+        "SetBlendMode=1,SetBorderAlpha=1,SetBorderScalar=1,SetBorderTexture=1,\n"
+        "SetButtonState=1,SetBuybackItem=1,SetCamera=1,SetChecked=1,SetCheckedTexture=1,\n"
+        "SetClampedToScreen=1,SetClampRectInsets=1,SetColorRGB=1,SetCooldown=1,\n"
+        "SetCreature=1,SetCursorPosition=1,SetDesaturated=1,SetDisabledCheckedTexture=1,\n"
+        "SetDisabledFontObject=1,SetDisabledTexture=1,SetDisplayValue=1,SetDrawLayer=1,\n"
+        "SetEquipmentSet=1,SetFacing=1,SetFillAlpha=1,SetFillTexture=1,SetFocus=1,\n"
+        "SetFont=1,SetFontObject=1,SetFontString=1,SetFormattedText=1,SetFrameLevel=1,\n"
+        "SetFrameRate=1,SetFrameStrata=1,SetHeight=1,SetHighlightFontObject=1,\n"
+        "SetHighlightTexture=1,SetHitRectInsets=1,SetHorizontalScroll=1,SetHyperlink=1,\n"
+        "SetHyperlinkCompareItem=1,SetHyperlinksEnabled=1,SetID=1,SetInboxItem=1,\n"
+        "SetInventoryItem=1,SetJustifyH=1,SetJustifyV=1,SetLFGCompletionReward=1,\n"
+        "SetLFGDungeonReward=1,SetLight=1,SetLootItem=1,SetLootRollItem=1,SetMaxBytes=1,\n"
+        "SetMaxLetters=1,SetMaxResize=1,SetMerchantCostItem=1,SetMerchantItem=1,\n"
+        "SetMinimumWidth=1,SetMinMaxValues=1,SetMinResize=1,SetModel=1,SetModelScale=1,\n"
+        "SetMovable=1,SetMultiLine=1,SetNormalFontObject=1,SetNormalTexture=1,\n"
+        "SetNumber=1,SetNumeric=1,SetOwner=1,SetPadding=1,SetParent=1,SetPetAction=1,\n"
+        "SetPlayerTextureHeight=1,SetPlayerTextureWidth=1,SetPoint=1,SetPosition=1,\n"
+        "SetPossession=1,SetPropagateKeyboardInput=1,SetPushedTexture=1,SetQuestItem=1,\n"
+        "SetQuestLogItem=1,SetQuestLogRewardSpell=1,SetQuestLogSpecialItem=1,\n"
+        "SetQuestRewardSpell=1,SetResizable=1,SetRotation=1,SetScale=1,SetScript=1,\n"
+        "SetScrollChild=1,SetSelection=1,SetSendMailItem=1,SetSequence=1,\n"
+        "SetSequenceTime=1,SetShadowOffset=1,SetShapeshift=1,SetShown=1,SetSize=1,\n"
+        "SetSpacing=1,SetSpell=1,SetSpellByID=1,SetStartDelay=1,SetStatusBarColor=1,\n"
+        "SetStatusBarTexture=1,SetTexCoord=1,SetText=1,SetTextColor=1,SetTextHeight=1,\n"
+        "SetTextInsets=1,SetTexture=1,SetToplevel=1,SetTotem=1,SetTracking=1,\n"
+        "SetTradePlayerItem=1,SetTradeTargetItem=1,SetUIPanel=1,SetUnit=1,SetUnitAura=1,\n"
+        "SetUnitBuff=1,SetUnitDebuff=1,SetUserPlaced=1,SetValue=1,SetValueStep=1,\n"
+        "SetVertexColor=1,SetVerticalScroll=1,SetWidth=1,SetZoom=1,Show=1,ShowUIPanel=1,\n"
+        "ShowUIPanelFailed=1,StartMovie=1,StartMoving=1,StartSizing=1,Stop=1,\n"
+        "StopMovie=1,StopMovingOrSizing=1,ToggleInputLanguage=1,TryOn=1,\n"
+        "UIParentManageFramePositions=1,UnlockHighlight=1,UnregisterAllEvents=1,\n"
+        "UnregisterAutoHide=1,UnregisterEvent=1,UpdateColorByID=1,\n"
+        "UpdateMouseOverTooltip=1,UpdateScrollChildRect=1,UpdateTooltip=1,\n"
+        "UpdateUIPanelPositions=1,\n"
+        "}\n"
+    );
     bootstrap(
         "local mt = __WoweeFrameMT\n"
         "local methods = mt\n"
+        "local known = __WoweeWidgetMethods\n"
         "local noop = function() end\n"
+        "local seen = {}\n"
         "mt.__index = function(tbl, key)\n"
         "    local v = rawget(methods, key)\n"
         "    if v ~= nil then return v end\n"
-        "    if type(key) == 'string' and string.find(key, '^%u') then return noop end\n"
+        "    if type(key) ~= 'string' then return nil end\n"
+        "    if known[key] then return noop end\n"
+        // Recorded once so a method missing from the set is visible rather
+        // than silently answering nil, which is the failure this trades for.
+        "    if string.find(key, '^%u') and not seen[key] then\n"
+        "        seen[key] = true\n"
+        "        if __WoweeRecordMissingApi then __WoweeRecordMissingApi('widget:' .. key) end\n"
+        "    end\n"
         "    return nil\n"
         "end\n"
     );
