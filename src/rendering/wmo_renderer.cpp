@@ -1558,8 +1558,7 @@ void WMORenderer::prepareRender() {
     }
 }
 
-void WMORenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const Camera& camera,
-                         const glm::vec3* viewerPos) {
+void WMORenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const Camera& camera) {
     if (!opaquePipeline_ || instances.empty()) {
         lastDrawCalls = 0;
         return;
@@ -1587,11 +1586,6 @@ void WMORenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const
     }
 
     glm::vec3 camPos = camera.getPosition();
-    // For portal culling, use the character/player position when available.
-    // The 3rd-person camera can orbit outside a WMO while the character is inside,
-    // causing the portal traversal to start from outside and cull interior groups.
-    // Passing the actual character position as the viewer fixes this.
-    glm::vec3 portalViewerPos = viewerPos ? *viewerPos : camPos;
     bool doPortalCull = portalCulling;
     bool doDistanceCull = distanceCulling;
 
@@ -1610,13 +1604,13 @@ void WMORenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const
 
         // Portal-based visibility — reuse member scratch buffer (avoid per-frame alloc)
         bool usePortalCulling = doPortalCull && !model.portals.empty() && !model.portalRefs.empty();
+        const glm::vec3 localRealCam =
+            glm::vec3(instance.invModelMatrix * glm::vec4(camPos, 1.0f));
         if (usePortalCulling) {
-            // If the actual camera is outside all groups, skip portal culling.
-            // The character position (portalViewerPos) may fall inside a group's
-            // loose AABB while visually outside the WMO, causing the BFS to start
-            // from an interior group whose portals aren't in the frustum — hiding
-            // the entire WMO.
-            glm::vec3 localRealCam = glm::vec3(instance.invModelMatrix * glm::vec4(camPos, 1.0f));
+            // If the camera is outside all groups, skip portal culling entirely.
+            // This is what makes it safe for the traversal below to start from
+            // the camera: an orbiting third-person camera that has left the
+            // building never reaches the walk at all.
             int camGroup = findContainingGroup(model, localRealCam);
             if (camGroup < 0) {
                 usePortalCulling = false;
@@ -1653,8 +1647,26 @@ void WMORenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const
         }
         if (usePortalCulling) {
             portalVisibleGroupSet_.clear();
-            glm::vec4 localCamPos = instance.invModelMatrix * glm::vec4(portalViewerPos, 1.0f);
-            getVisibleGroupsViaPortals(model, glm::vec3(localCamPos), frustum,
+            // Walk the portal graph from the camera's group, because the frustum
+            // the walk tests against is the camera's. Starting somewhere else
+            // asks which rooms are reachable from one place while judging the
+            // doors by what is visible from another.
+            //
+            // It used to start from the character. That was to stop a
+            // third-person camera orbiting outside a building from culling its
+            // interior — a real problem, but one the gate above now handles by
+            // declining to portal-cull at all when the camera is not in an
+            // interior group, so the workaround has outlived its cause.
+            //
+            // What it left behind was a case neither position covers: camera in
+            // one interior group and character in another. That is not an edge
+            // case, it is every doorway and every hallway, which is exactly
+            // where this was reported. Ironforge shows it worst because the
+            // exterior groups that are seeded unconditionally below — the streets
+            // and facades that keep a city WMO mostly drawn no matter what the
+            // traversal decides — barely exist there, so the whole result rests
+            // on the walk.
+            getVisibleGroupsViaPortals(model, localRealCam, frustum,
                                        instance.modelMatrix, portalVisibleGroupSet_);
             // Use the unordered_set directly — was copying into portalVisibleGroups_,
             // sorting it, and binary-searching per group. The set lookup is O(1)

@@ -1827,7 +1827,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
                 auto t0 = std::chrono::steady_clock::now();
                 VkCommandBuffer cmd = beginSecondary(SEC_WMO);
                 setSecondaryViewportScissor(cmd);
-                wmoRenderer->render(cmd, perFrameSet, *camera, &characterPosition);
+                wmoRenderer->render(cmd, perFrameSet, *camera);
                 vkEndCommandBuffer(cmd);
                 return std::chrono::duration<double, std::milli>(
                     std::chrono::steady_clock::now() - t0).count();
@@ -2132,7 +2132,7 @@ void Renderer::renderWorld(game::World* world, game::GameHandler* gameHandler) {
         if (wmoRenderer && camera && !skipWMO) {
             wmoRenderer->prepareRender();
             auto wmoStart = std::chrono::steady_clock::now();
-            wmoRenderer->render(currentCmd, perFrameSet, *camera, &characterPosition);
+            wmoRenderer->render(currentCmd, perFrameSet, *camera);
             lastWMORenderMs = std::chrono::duration<double, std::milli>(
                 std::chrono::steady_clock::now() - wmoStart).count();
         }

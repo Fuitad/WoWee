@@ -184,8 +184,12 @@ public:
      */
     /** Pre-update mutable state (frame ID, material UBOs) on main thread before parallel render. */
     void prepareRender();
-    void render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const Camera& camera,
-                const glm::vec3* viewerPos = nullptr);
+    /// Portal culling walks from the camera's own group, so no separate viewer
+    /// position is taken. A character position used to be passed here to keep an
+    /// orbiting third-person camera from culling a building's interior; the
+    /// camera-outside-all-groups check now covers that, and the two positions
+    /// disagreeing is what emptied doorways and hallways.
+    void render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const Camera& camera);
 
     /**
      * Initialize shadow pipeline (Phase 7)
