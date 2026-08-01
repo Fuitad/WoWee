@@ -1053,6 +1053,9 @@ bool LuaEngine::initialize() {
     registerCoreAPI();
     registerEventAPI();
 
+    // Last, so every bootstrap block above reads a _G that answers honestly.
+    installMissingApiFallback();
+
     LOG_INFO("LuaEngine: initialized (Lua 5.1)");
     return true;
 }
@@ -1344,7 +1347,11 @@ void LuaEngine::registerCoreAPI() {
         "end\n"
     );
 
-    installMissingApiFallback();
+    // The fallback is installed at the very end of initialize(), not here.
+    // Everything below is still bootstrap Lua, and much of it opens with the
+    // "LibStub = LibStub or {}" idiom — which reads nil only while _G answers
+    // honestly. With the fallback already in place those never see nil, and
+    // hang their tables off the fallback object instead of a fresh one.
 
     // Put the C bindings back over anything the Lua above defined with the same
     // name. That block exists to give unimplemented methods a harmless no-op,
@@ -1475,7 +1482,12 @@ void LuaEngine::registerCoreAPI() {
     // LibStub — universal library version management used by Ace3 and virtually all addon libs.
     // This is the standard WoW LibStub implementation that addons embed/expect globally.
     luaL_dostring(L_,
-        "local LibStub = LibStub or {}\n"
+        // rawget, so the missing-API fallback cannot answer this. Read through
+        // the metatable, "LibStub or {}" is never nil — it is the fallback
+        // object — and the shim then hangs its tables off that instead of a
+        // fresh one, so every library registering against it dies indexing a
+        // field that was never really there.
+        "local LibStub = rawget(_G, 'LibStub') or {}\n"
         "LibStub.libs = LibStub.libs or {}\n"
         "LibStub.minors = LibStub.minors or {}\n"
         "function LibStub:NewLibrary(major, minor)\n"
