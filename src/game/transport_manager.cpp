@@ -406,6 +406,28 @@ bool TransportManager::isPointOnTransportDeck(uint64_t transportGuid,
     return floorDelta >= -0.35f && floorDelta <= maxFloorDelta;
 }
 
+void TransportManager::applyServerRouteClock(uint64_t transportGuid, float phase,
+                                             uint32_t periodMs) {
+    auto* transport = getTransport(transportGuid);
+    if (!transport || periodMs == 0) return;
+    if (!(phase >= 0.0f) || phase >= 1.0f) return;   // also rejects NaN
+
+    const bool firstSample = !transport->hasServerRouteClock;
+    transport->hasServerRouteClock = true;
+    transport->routePhase = phase;
+    transport->routePeriodMs = periodMs;
+    transport->routePhaseAtTime = elapsedTime_;
+
+    if (firstSample) {
+        LOG_INFO("Transport 0x", std::hex, transportGuid, std::dec,
+                 " adopted server route clock: period=", periodMs, "ms phase=", phase,
+                 " (client period was ", [&]() -> uint32_t {
+                     const auto* p = pathRepo_.findPath(transport->pathId);
+                     return p ? p->spline.durationMs() : 0u;
+                 }(), "ms)");
+    }
+}
+
 void TransportManager::applyDoodadMotionState(ActiveTransport& transport, bool moving) {
     if (transport.isM2 || !wmoRenderer_ || transport.wmoInstanceId == 0) return;
 

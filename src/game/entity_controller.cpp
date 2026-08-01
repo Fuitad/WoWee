@@ -1932,6 +1932,42 @@ void EntityController::onValuesUpdateGameObject(const UpdateBlock& block, std::s
                 owner_.gameObjectStateCallbackRef()(block.guid, goState);
         }
     }
+
+    applyTransportRouteClock(block);
+}
+
+void EntityController::applyTransportRouteClock(const UpdateBlock& block) {
+    // A moving transport publishes where it is on its route: LEVEL is the route's
+    // period in milliseconds, and the high int16 of DYNAMIC is how far through
+    // that period it currently is, as a fraction of 65535.
+    //
+    // Without this the client animated on a clock it invented from distance over
+    // speed, which is why a ferry could lap its shore several times while the
+    // server's schedule caught up, and why a rider's world position — which the
+    // client composes from its own idea of where the hull is — could disagree
+    // with the server's.
+    //
+    // Both fields are WotLK-only. Nothing earlier published a transport's phase,
+    // so on those expansions fieldIndex returns 0xFFFF and this does nothing.
+    auto* tm = owner_.getTransportManager();
+    if (!tm || !tm->getTransport(block.guid)) return;
+
+    const uint16_t ufLevel = fieldIndex(UF::GAMEOBJECT_LEVEL);
+    const uint16_t ufDynamic = fieldIndex(UF::GAMEOBJECT_DYNAMIC);
+    if (ufLevel == 0xFFFF || ufDynamic == 0xFFFF) return;
+
+    auto itPeriod = block.fields.find(ufLevel);
+    auto itDynamic = block.fields.find(ufDynamic);
+    if (itPeriod == block.fields.end() || itDynamic == block.fields.end()) return;
+
+    const uint32_t periodMs = itPeriod->second;
+    // Signed on the wire: -1 means "this object has no path progress to report",
+    // which every non-transport GameObject sends.
+    const int16_t rawProgress = static_cast<int16_t>((itDynamic->second >> 16) & 0xFFFF);
+    if (periodMs == 0 || rawProgress < 0) return;
+
+    const float phase = static_cast<float>(rawProgress) / 65535.0f;
+    tm->applyServerRouteClock(block.guid, phase, periodMs);
 }
 
 // ============================================================

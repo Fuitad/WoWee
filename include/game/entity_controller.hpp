@@ -153,6 +153,9 @@ private:
     void handleCreateObject(const UpdateBlock& block, bool& newItemCreated);
     void handleValuesUpdate(const UpdateBlock& block);
     void handleMovementUpdate(const UpdateBlock& block);
+    /// Seed a transport's route phase from the server's own path clock, so the
+    /// client stops animating on a period it invented for itself.
+    void applyTransportRouteClock(const UpdateBlock& block);
 
     // Update transport-relative child attachment (non-player entities).
     //     Consolidates identical logic from CREATE/VALUES/MOVEMENT handlers.

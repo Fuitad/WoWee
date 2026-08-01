@@ -7,6 +7,7 @@
 #include "core/coordinates.hpp"
 #include "math/spline.hpp"
 #include "core/logger.hpp"
+#include <algorithm>
 #include <glm/gtc/constants.hpp>
 #include <cmath>
 
@@ -21,6 +22,28 @@ bool TransportClockSync::computePathTime(
 {
     uint32_t nowMs = static_cast<uint32_t>(elapsedTime * 1000.0);
     uint32_t durationMs = spline.durationMs();
+
+    // The server's own route clock wins over anything the client worked out for
+    // itself. It publishes the phase as a fraction of the route period, so it
+    // maps onto whatever timeline this spline happens to have without needing the
+    // two periods to agree — and it keeps agreeing as the ride goes on, because
+    // the phase advances at the server's rate rather than one derived from
+    // distance over speed.
+    //
+    // Without it the client picked its own period, and a ferry whose period came
+    // out shorter than the server's simply lapped its shore until the server's
+    // schedule caught up.
+    if (transport.hasServerRouteClock && transport.routePeriodMs > 0 && durationMs > 0) {
+        const double sinceSampleMs =
+            std::max(0.0, (elapsedTime - transport.routePhaseAtTime) * 1000.0);
+        const double serverMs =
+            static_cast<double>(transport.routePhase) * transport.routePeriodMs + sinceSampleMs;
+        double wrapped = std::fmod(serverMs, static_cast<double>(transport.routePeriodMs));
+        if (wrapped < 0.0) wrapped += transport.routePeriodMs;
+        const double fraction = wrapped / static_cast<double>(transport.routePeriodMs);
+        outPathTimeMs = static_cast<uint32_t>(fraction * durationMs) % durationMs;
+        return true;
+    }
 
     if (transport.hasServerClock) {
         // Predict server time using clock offset (works for both client and server-driven modes)

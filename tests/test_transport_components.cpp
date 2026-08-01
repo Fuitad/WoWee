@@ -569,3 +569,91 @@ TEST_CASE("Animator: Z clamping on non-world-coord client anim", "[transport_ani
     // Z should be clamped to >= -2.0 (kMinFallbackZOffset)
     REQUIRE(t.position.z >= (t.basePosition.z - 2.0f));
 }
+
+// ══════════════════════════════════════════════════════════════════
+// Server route clock
+// ══════════════════════════════════════════════════════════════════
+
+TEST_CASE("ClockSync: the server's route phase drives the path time", "[transport_clock_sync]") {
+    // The server publishes phase as a fraction of its own route period, so it maps
+    // onto whatever timeline the client's spline has without the two periods
+    // needing to agree. That is the point: the client's period was invented from
+    // distance over speed, and when it came out short the ferry lapped its shore.
+    TransportClockSync sync;
+    auto path = makeCirclePath();          // 4000ms client-side
+    const uint32_t clientMs = path.spline.durationMs();
+
+    auto t = makeTransport();
+    t.useClientAnimation = true;
+    t.hasServerRouteClock = true;
+    t.routePeriodMs = 200000;              // server route is far longer
+    t.routePhaseAtTime = 100.0;
+
+    uint32_t out = 0;
+
+    t.routePhase = 0.0f;
+    REQUIRE(sync.computePathTime(t, path.spline, 100.0, 0.0f, out));
+    REQUIRE(out == 0u);
+
+    t.routePhase = 0.5f;
+    REQUIRE(sync.computePathTime(t, path.spline, 100.0, 0.0f, out));
+    REQUIRE(out == clientMs / 2u);
+
+    // A quarter of the server's period later, a quarter further along the spline.
+    t.routePhase = 0.0f;
+    REQUIRE(sync.computePathTime(t, path.spline, 100.0 + 50.0, 0.0f, out));
+    REQUIRE(out == Catch::Approx(clientMs / 4u).margin(2));
+}
+
+TEST_CASE("ClockSync: the server route phase wraps rather than running off the end",
+          "[transport_clock_sync]") {
+    TransportClockSync sync;
+    auto path = makeCirclePath();
+    const uint32_t clientMs = path.spline.durationMs();
+
+    auto t = makeTransport();
+    t.useClientAnimation = true;
+    t.hasServerRouteClock = true;
+    t.routePeriodMs = 10000;
+    t.routePhase = 0.9f;
+    t.routePhaseAtTime = 0.0;
+
+    uint32_t out = 0;
+    // 2.5 server periods on from a 0.9 phase — must land inside the spline, not
+    // beyond it, and not at zero by accident.
+    REQUIRE(sync.computePathTime(t, path.spline, 25.0, 0.0f, out));
+    REQUIRE(out < clientMs);
+    REQUIRE(out == Catch::Approx(static_cast<uint32_t>(0.4f * clientMs)).margin(2));
+}
+
+TEST_CASE("ClockSync: without a server route clock the client keeps its own",
+          "[transport_clock_sync]") {
+    // Pre-WotLK publishes no transport phase, so those expansions must keep
+    // animating locally rather than freezing at zero.
+    TransportClockSync sync;
+    auto path = makeCirclePath();
+    auto t = makeTransport();
+    t.useClientAnimation = true;
+    t.hasServerRouteClock = false;
+    t.localClockMs = 0;
+
+    uint32_t out = 0;
+    REQUIRE(sync.computePathTime(t, path.spline, 0.0, 1.0f, out));
+    REQUIRE(out == 1000u);
+}
+
+TEST_CASE("ClockSync: a zero period is ignored rather than dividing by it",
+          "[transport_clock_sync]") {
+    TransportClockSync sync;
+    auto path = makeCirclePath();
+    auto t = makeTransport();
+    t.useClientAnimation = true;
+    t.hasServerRouteClock = true;
+    t.routePeriodMs = 0;               // a GameObject with nothing to report
+    t.routePhase = 0.5f;
+    t.localClockMs = 0;
+
+    uint32_t out = 0;
+    REQUIRE(sync.computePathTime(t, path.spline, 0.0, 1.0f, out));
+    REQUIRE(out == 1000u);             // fell through to the local clock
+}

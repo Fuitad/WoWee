@@ -78,6 +78,16 @@ struct ActiveTransport {
     bool atDockDwell = false;
     int appliedDoodadAnim = -1;
     size_t appliedDoodadCount = 0;
+
+    // The server's own route clock, when it publishes one (WotLK MO_TRANSPORT).
+    // routePhase is the fraction of the route period the hull was at as of
+    // routePhaseAtTime; routePeriodMs is that period. Preferred over the client's
+    // invented period, which is what let a ferry lap its shore while the server's
+    // schedule caught up.
+    bool hasServerRouteClock = false;
+    float routePhase = 0.0f;
+    uint32_t routePeriodMs = 0;
+    double routePhaseAtTime = 0.0;
 };
 
 class TransportManager {
@@ -186,6 +196,11 @@ public:
     glm::vec3 serverToTransportLocal(uint64_t transportGuid,
                                      const glm::vec3& serverOffset) const;
     glm::mat4 getTransportInvTransform(uint64_t transportGuid);
+    // Adopt the server's published route phase for a transport. phase is a
+    // fraction in [0,1) of periodMs. Cheap and idempotent — safe to call on every
+    // object update that carries the fields.
+    void applyServerRouteClock(uint64_t transportGuid, float phase, uint32_t periodMs);
+
     // Ship machinery follows the hull: ShipMoving while under way, ShipStop when
     // holding at a dock. Cheap to call every frame — it only reaches the
     // renderer when the state or the doodad count actually changes.
