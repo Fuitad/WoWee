@@ -214,11 +214,10 @@ void TransportAnimator::evaluateAndApply(
                 // the same yaw the server would send from the canonical tangent.
                 // The generic spline helper uses a different local-forward convention
                 // and mirrored ship yaw, producing sideways/backwards sailing.
-                // Transport WMO hulls are authored with their bow opposite the
-                // model-space +X axis used by the raw route yaw.
-                // Facing = direction of travel + the hull's fixed bow offset. The offset
-                // is the single per-model constant (0 for a bow-forward hull, PI for one
-                // authored bow-aft); see TransportManager::transportModelBowOffset.
+                // Facing = direction of travel + the hull's bow offset. Every
+                // transport hull in the data is authored bow-at--X, so that
+                // offset is PI for all of them; see
+                // TransportManager::transportModelBowOffset for the measurements.
                 float routeYaw = std::atan2(tangent.x, tangent.y) +
                                  TransportManager::transportModelBowOffset(transport.displayId);
                 // A GO query reports the transport's orientation at the instant it is
@@ -248,18 +247,18 @@ void TransportAnimator::evaluateAndApply(
             } else {
                 transport.rotation = math::CatmullRomSpline::orientationFromTangent(tangent);
             }
-        } else if (pathEntry.worldCoords && !transport.isM2 && transport.hasDockYaw &&
-                   TransportManager::transportModelBowOffset(transport.displayId) == 0.0f) {
-            // TaxiPathNode route builders encode a dock wait with repeated
-            // positions. With no movement tangent, restore the GO's authored
-            // spawn orientation so the ship lies alongside the dock rather
-            // than retaining its bow-first approach yaw throughout the dwell.
-            // A hull with a nonzero bow offset (e.g. the icebreaker) is excluded: its
-            // spawn yaw is uncorrected, so restoring it made the ship spin around for the
-            // stop and back on departure — it keeps its (corrected) arrival rotation.
-            transport.rotation = glm::angleAxis(
-                transport.dockYaw, glm::vec3(0.0f, 0.0f, 1.0f));
         }
+        // A TaxiPathNode route encodes a dock wait as repeated positions, so the
+        // tangent vanishes and there is no heading to derive. The ship keeps its
+        // corrected arrival rotation through the dwell.
+        //
+        // This used to restore the GO's authored spawn orientation instead, for
+        // hulls whose bow offset was zero. That spawn yaw is a snapshot from
+        // whenever the GO query happened to answer rather than a heading for the
+        // berth, and restoring it made a ship swing round for the stop and back
+        // again on departure. Now that the offset is PI for every hull the
+        // condition could not fire at all, so the branch is gone rather than
+        // left sitting there looking live.
     }
 }
 

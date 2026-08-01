@@ -112,15 +112,26 @@ public:
     // measure the same offset live from heading-vs-velocity in updateYawAlignment(). This
     // table is only the seed for hulls the client animates itself and can never observe
     // move under server control, so there is nothing to learn the offset from.
-    static float transportModelBowOffset(uint32_t displayId) {
+    // Measured from the art rather than guessed: every transport hull in the WoW
+    // data is authored with its bow at model-space -X, so the offset is PI for
+    // all of them and there are no exceptions to list.
+    //
+    // Two independent measurements over every .wmo under World\wmo\transports:
+    // the hull tapers to a point at -X and stays blunt at +X (transportship
+    // 1.0 vs 10.1 half-width at the ends, icebreaker 4.1 vs 14.8, the NE ferry,
+    // the UD and pirate ships, both zeppelins and the battleships all the same
+    // way); and the icebreaker is a paddle steamer whose ICEBREAKER_PADDLEWHEEL
+    // doodad sits at x=+36.3 on a hull spanning -60.7..+50.1, which puts the
+    // stern at +X and so the bow at -X.
+    //
+    // The table this replaces claimed the opposite default and then listed the
+    // icebreaker and the NE ferry as the reversed ones — exactly inverted. It
+    // could never have been right for everything at once, because it was fitted
+    // against a facing that came from a frozen server yaw rather than from the
+    // route, so what it was correcting was not the hull.
+    static float transportModelBowOffset(uint32_t /*displayId*/) {
         constexpr float kBowReversed = 3.14159265358979323846f;  // PI
-        switch (displayId) {
-            case 7087u:  // Auberdine night-elf ferry (The Moonspray, Elune's Blessing)
-            case 7446u:  // Icebreaker (Kraken-class)
-                return kBowReversed;
-            default:     // Bravery-class (3015) and every other hull: bow already forward
-                return 0.0f;
-        }
+        return kBowReversed;
     }
 
     // Round a path duration to the nearest 500ms for seed-modulo purposes only. Deeprun

@@ -137,6 +137,12 @@ TEST_CASE("ClockSync: processServerUpdate sets yaw and rotation", "[transport_cl
 // at s = +pi/2, and facing exactly backwards at s = -pi/2.
 static constexpr float kServerYawAlongCanonicalX = glm::half_pi<float>();
 
+// Every transport hull is authored with its bow at model-space -X, so a hull
+// travelling along canonical +X renders at that heading plus PI. Measured from
+// the art, not chosen — see TransportManager::transportModelBowOffset.
+static constexpr float kHullYawAlongCanonicalX =
+    kServerYawAlongCanonicalX + glm::pi<float>();
+
 TEST_CASE("ClockSync: yaw flip detection after repeated misaligned updates", "[transport_clock_sync]") {
     TransportClockSync sync;
     auto path = makeCirclePath();
@@ -250,7 +256,7 @@ TEST_CASE("Animator: a client-animated transport follows its route, not a stale 
     animator.evaluateAndApply(t, path, 500);
 
     const glm::quat berth = glm::angleAxis(2.5f, glm::vec3(0.0f, 0.0f, 1.0f));
-    const glm::quat route = glm::angleAxis(kServerYawAlongCanonicalX, glm::vec3(0.0f, 0.0f, 1.0f));
+    const glm::quat route = glm::angleAxis(kHullYawAlongCanonicalX, glm::vec3(0.0f, 0.0f, 1.0f));
     REQUIRE(t.rotation.z != Catch::Approx(berth.z).margin(0.01f));
     REQUIRE(t.rotation.w == Catch::Approx(route.w).margin(0.01f));
     REQUIRE(t.rotation.z == Catch::Approx(route.z).margin(0.01f));
@@ -270,14 +276,23 @@ TEST_CASE("Animator: world-coordinate WMO faces along the server-space route", "
 
     animator.evaluateAndApply(t, path, 500);
 
-    // canonical +X is server +Y; model-local +X is the ship's forward axis.
+    // canonical +X is server +Y, and the hull's bow is model-space -X, so the
+    // rendered heading is the route heading plus the hull's PI bow offset.
     const glm::quat expected = glm::angleAxis(
-        glm::half_pi<float>(), glm::vec3(0.0f, 0.0f, 1.0f));
+        kHullYawAlongCanonicalX, glm::vec3(0.0f, 0.0f, 1.0f));
     REQUIRE(t.rotation.w == Catch::Approx(expected.w).margin(0.01f));
     REQUIRE(t.rotation.z == Catch::Approx(expected.z).margin(0.01f));
 }
 
-TEST_CASE("Animator: exact ship dwell restores authored dock facing", "[transport_animator][transport]") {
+TEST_CASE("Animator: a docked ship holds its arrival heading, not its spawn yaw",
+          "[transport_animator][transport]") {
+    // A dock wait is encoded as repeated positions, so the tangent vanishes and
+    // there is no heading to derive. The ship keeps the rotation it arrived with.
+    //
+    // It used to restore the GO's authored spawn orientation here. That value is
+    // a snapshot from whenever the GO query happened to answer rather than a
+    // heading for the berth, and restoring it swung the ship round for the stop
+    // and back again on departure.
     TransportAnimator animator;
     CatmullRomSpline spline({
         {0,    glm::vec3(-10.0f, 0.0f, 0.0f)},
@@ -288,17 +303,16 @@ TEST_CASE("Animator: exact ship dwell restores authored dock facing", "[transpor
     PathEntry path(std::move(spline), 301, false, true, true);
     auto t = makeTransport();
     t.basePosition = glm::vec3(0.0f);
-    t.rotation = glm::angleAxis(0.75f, glm::vec3(0.0f, 0.0f, 1.0f));
+    const glm::quat arrival = glm::angleAxis(0.75f, glm::vec3(0.0f, 0.0f, 1.0f));
+    t.rotation = arrival;
     t.dockYaw = -0.4f;
     t.hasDockYaw = true;
 
     animator.evaluateAndApply(t, path, 30000);
 
     REQUIRE(t.position == glm::vec3(0.0f));
-    const glm::quat expected = glm::angleAxis(
-        t.dockYaw, glm::vec3(0.0f, 0.0f, 1.0f));
-    REQUIRE(t.rotation.w == Catch::Approx(expected.w));
-    REQUIRE(t.rotation.z == Catch::Approx(expected.z));
+    REQUIRE(t.rotation.w == Catch::Approx(arrival.w));
+    REQUIRE(t.rotation.z == Catch::Approx(arrival.z));
 }
 
 TEST_CASE("Animator: Bravery holds side-on at its dock dwell", "[transport_animator][transport]") {
@@ -312,7 +326,7 @@ TEST_CASE("Animator: Bravery holds side-on at its dock dwell", "[transport_anima
     PathEntry path(std::move(spline), 176310u, false, true, true);
     auto t = makeTransport(1, 176310u);
     t.entry = 176310u;
-    t.displayId = 3015u;     // Bravery-class hull: authored bow-forward, no +PI correction
+    t.displayId = 3015u;     // Bravery-class hull (bow at model -X, like every hull)
     t.basePosition = glm::vec3(0.0f);
     t.isM2 = false;
     // Deliberately unrelated live server yaw. Docking must not depend on the
@@ -325,10 +339,10 @@ TEST_CASE("Animator: Bravery holds side-on at its dock dwell", "[transport_anima
     // Keep the authored pier node so the gangway reaches the dock.
     REQUIRE(t.position.x == Catch::Approx(100.0f));
     REQUIRE(t.position.y == Catch::Approx(0.0f));
-    // Model 3015 is bow-forward, so route yaw is PI/2 (no hull correction). Bravery's
-    // TaxiPath runs parallel to the pier, so retaining that heading stops it broadside.
+    // Bravery's TaxiPath runs parallel to the pier, so retaining the corrected
+    // route heading is what leaves it broadside rather than nosed into the dock.
     const glm::quat expectedDock = glm::angleAxis(
-        glm::half_pi<float>(),
+        kHullYawAlongCanonicalX,
         glm::vec3(0.0f, 0.0f, 1.0f));
     REQUIRE(t.rotation.w == Catch::Approx(expectedDock.w).margin(0.001f));
     REQUIRE(t.rotation.z == Catch::Approx(expectedDock.z).margin(0.001f));
@@ -340,16 +354,25 @@ TEST_CASE("Animator: Bravery holds side-on at its dock dwell", "[transport_anima
     REQUIRE(t.rotation.z == Catch::Approx(expectedDock.z).margin(0.001f));
 }
 
-TEST_CASE("Animator: affected ship hulls face their direction of travel",
+TEST_CASE("Animator: every ship hull faces its direction of travel",
           "[transport_animator][transport]") {
-    // The hull bow correction is keyed by MODEL (displayId), not entry. Models 7087 and
-    // 7446 are bow-reversed (+PI); model 3015 (Bravery) is bow-forward (no correction).
-    struct ShipCase { uint32_t entry; uint32_t displayId; bool bowReversed; };
+    // Every transport hull in the data is authored with its bow at model -X, so
+    // they all take the same PI correction and none of them is a special case.
+    //
+    // This used to assert the opposite: that 7087 and 7446 were bow-reversed
+    // while 3015 was not. Measuring the art says otherwise — the hulls taper to
+    // a point at -X (transportship 1.0 vs 10.1 half-width at the two ends,
+    // icebreaker 4.1 vs 14.8), and the icebreaker's paddlewheel doodad, which
+    // belongs at the stern of a paddle steamer, sits at x=+36.3 on a hull
+    // spanning -60.7..+50.1. The old table had it exactly inverted because it
+    // was fitted against a facing that came from a frozen server yaw rather than
+    // from the route, so what it was correcting was never the hull.
+    struct ShipCase { uint32_t entry; uint32_t displayId; };
     for (const ShipCase& sc : {
-             ShipCase{176310u, 3015u, false},  // The Bravery
-             ShipCase{176244u, 7087u, true},   // The Moonspray
-             ShipCase{181646u, 7087u, true},   // Elune's Blessing
-             ShipCase{190536u, 7446u, true},   // Kraken-class icebreaker
+             ShipCase{176310u, 3015u},  // The Bravery
+             ShipCase{176244u, 7087u},  // The Moonspray
+             ShipCase{181646u, 7087u},  // Elune's Blessing
+             ShipCase{190536u, 7446u},  // Kraken-class icebreaker
          }) {
         TransportAnimator animator;
         CatmullRomSpline spline({
@@ -366,10 +389,8 @@ TEST_CASE("Animator: affected ship hulls face their direction of travel",
 
         animator.evaluateAndApply(t, path, 500);
 
-        const float expectedYaw = glm::half_pi<float>() +
-                                  (sc.bowReversed ? glm::pi<float>() : 0.0f);
         const glm::quat expected = glm::angleAxis(
-            expectedYaw, glm::vec3(0.0f, 0.0f, 1.0f));
+            kHullYawAlongCanonicalX, glm::vec3(0.0f, 0.0f, 1.0f));
         INFO("entry=" << sc.entry << " displayId=" << sc.displayId);
         REQUIRE(t.rotation.w == Catch::Approx(expected.w).margin(0.001f));
         REQUIRE(t.rotation.z == Catch::Approx(expected.z).margin(0.001f));
