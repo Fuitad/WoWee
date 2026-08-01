@@ -384,6 +384,14 @@ struct Emitter {
         line(var + " = CreateFrame(" + quote(node.name) + ", " +
              nameArg(rawName, parentName, parentArg) + ", " + parentArg + ")");
 
+        // Identity before anything is built on top of it. FrameXML makes names
+        // out of the id — a party member's pet frame opens its OnLoad with
+        // self:GetParent():GetID() — and a template's children load while the
+        // template is being applied, which is before the frame's own body runs.
+        // Set there, the parent was still answering zero.
+        if (const std::string* id = node.attr("id"); id && !id->empty()) {
+            line(var + ":SetID(" + *id + ")");
+        }
         // Before the template applies, so a template body that reaches back
         // through its parent for a sibling finds it already bound.
         emitParentKey(node, var, parentArg);
@@ -407,14 +415,6 @@ struct Emitter {
         }
         if (const std::string* strata = node.attr("frameStrata")) {
             line(var + ":SetFrameStrata(" + quote(*strata) + ")");
-        }
-        // How a frame in a numbered set knows which one it is, and FrameXML
-        // builds names out of it: PartyMemberFrame_RefreshPetDebuffs reaches
-        // for _G["PartyMemberFrame" .. self:GetID() .. "PetFrame"]. Ignoring
-        // the attribute left every one of the 848 declared across 57 files
-        // answering zero.
-        if (const std::string* id = node.attr("id"); id && !id->empty()) {
-            line(var + ":SetID(" + *id + ")");
         }
         if (node.attr("enableMouse")) {
             line(var + ":EnableMouse(" + (node.attrBool("enableMouse") ? "true" : "false") + ")");
