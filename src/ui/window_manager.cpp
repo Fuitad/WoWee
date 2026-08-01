@@ -3345,8 +3345,10 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
     if (sorting) ImGui::BeginDisabled();
     if (ImGui::SmallButton(sorting ? "Sorting..." : "Sort All")) {
         // Compute swaps before mutating local state, apply the local preview, then queue packets.
+        auto merges = inv.mergeBankPartialStacks(bankSlotCount);
         auto swaps = inv.computeBankSortSwaps(bankSlotCount);
         inv.sortBank(bankSlotCount);
+        for (auto& m : merges) bankSortQueue.push_back(m);
         for (auto& s : swaps) bankSortQueue.push_back(s);
     }
     if (sorting) ImGui::EndDisabled();

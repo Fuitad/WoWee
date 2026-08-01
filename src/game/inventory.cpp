@@ -1,6 +1,7 @@
 #include "game/inventory.hpp"
 #include "core/logger.hpp"
 #include <algorithm>
+#include <unordered_map>
 
 namespace wowee {
 namespace game {
@@ -194,6 +195,94 @@ bool Inventory::addItem(const ItemDef& item) {
     if (slot < 0) return false;
     backpack[slot].item = item;
     return true;
+}
+
+namespace {
+
+/// One candidate slot for merging, addressed the way CMSG_SWAP_ITEM wants it.
+struct MergeEntry {
+    uint8_t bag;
+    uint8_t slot;
+    ItemSlot* ref;
+};
+
+/// Pour later partial stacks into earlier ones until each item has at most one
+/// partial left. Emits a swap per pour, which is what the server acts on.
+std::vector<Inventory::SwapOp> mergeEntries(std::vector<MergeEntry>& entries) {
+    std::unordered_map<uint32_t, std::vector<size_t>> byItem;
+    for (size_t i = 0; i < entries.size(); ++i) {
+        const ItemDef& item = entries[i].ref->item;
+        if (entries[i].ref->empty()) continue;
+        // A stack of one is not a stack, and a full one has nowhere to go.
+        if (item.maxStack <= 1 || item.stackCount >= item.maxStack) continue;
+        byItem[item.itemId].push_back(i);
+    }
+
+    std::vector<Inventory::SwapOp> ops;
+    for (auto& [itemId, indices] : byItem) {
+        (void)itemId;
+        if (indices.size() < 2) continue;
+        size_t lo = 0;
+        size_t hi = indices.size() - 1;
+        while (lo < hi) {
+            ItemSlot& dst = *entries[indices[lo]].ref;
+            ItemSlot& src = *entries[indices[hi]].ref;
+
+            const uint32_t space = dst.item.maxStack > dst.item.stackCount
+                                       ? dst.item.maxStack - dst.item.stackCount : 0;
+            if (space == 0) { ++lo; continue; }
+            if (src.empty() || src.item.stackCount == 0) { --hi; continue; }
+
+            const uint32_t moved = std::min(space, src.item.stackCount);
+            dst.item.stackCount += moved;
+            src.item.stackCount -= moved;
+            ops.push_back({entries[indices[hi]].bag, entries[indices[hi]].slot,
+                           entries[indices[lo]].bag, entries[indices[lo]].slot});
+
+            if (src.item.stackCount == 0) { src.item = ItemDef{}; --hi; }
+            if (dst.item.stackCount >= dst.item.maxStack) ++lo;
+        }
+    }
+    return ops;
+}
+
+} // namespace
+
+std::vector<Inventory::SwapOp> Inventory::mergePartialStacks() {
+    std::vector<MergeEntry> entries;
+    entries.reserve(BACKPACK_SLOTS + NUM_BAG_SLOTS * MAX_BAG_SIZE);
+
+    for (int i = 0; i < BACKPACK_SLOTS; ++i) {
+        entries.push_back({0xFF, static_cast<uint8_t>(NUM_EQUIP_SLOTS + i), &backpack[i]});
+    }
+    for (int b = 0; b < NUM_BAG_SLOTS; ++b) {
+        if (bags[b].special) continue;  // must match sortBags(): quivers stay as they are
+        for (int s = 0; s < bags[b].size; ++s) {
+            entries.push_back({static_cast<uint8_t>(FIRST_BAG_EQUIP_SLOT + b),
+                               static_cast<uint8_t>(s), &bags[b].slots[s]});
+        }
+    }
+    return mergeEntries(entries);
+}
+
+std::vector<Inventory::SwapOp> Inventory::mergeBankPartialStacks(int mainSlotCount) {
+    if (mainSlotCount < 0) mainSlotCount = 0;
+    if (mainSlotCount > BANK_SLOTS) mainSlotCount = BANK_SLOTS;
+
+    std::vector<MergeEntry> entries;
+    entries.reserve(BANK_SLOTS + BANK_BAG_SLOTS * MAX_BAG_SIZE);
+
+    for (int i = 0; i < mainSlotCount; ++i) {
+        entries.push_back({0xFF, static_cast<uint8_t>(BANK_SLOT_START + i), &bankSlots_[i]});
+    }
+    for (int b = 0; b < BANK_BAG_SLOTS; ++b) {
+        if (bankBags_[b].special) continue;
+        for (int s = 0; s < bankBags_[b].size; ++s) {
+            entries.push_back({static_cast<uint8_t>(BANK_BAG_CONTAINER_START + b),
+                               static_cast<uint8_t>(s), &bankBags_[b].slots[s]});
+        }
+    }
+    return mergeEntries(entries);
 }
 
 void Inventory::sortBags() {

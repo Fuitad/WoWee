@@ -1605,17 +1605,23 @@ void InventoryScreen::renderBagsFooter(game::Inventory& inventory, uint64_t mone
     bool sorting = !sortSwapQueue_.empty();
     if (sorting) ImGui::BeginDisabled();
     if (ImGui::SmallButton(sorting ? "Sorting..." : "Sort Bags")) {
+        // Pour partial stacks together first, so the sort places one stack of
+        // twenty rather than two of ten. Merging both plans and applies, so the
+        // swaps below are computed from the merged layout.
+        auto merges = inventory.mergePartialStacks();
         // Compute the swap operations before modifying local state
         auto swaps = inventory.computeSortSwaps();
         // Apply local preview immediately
         inventory.sortBags();
-        // Queue server-side swaps (one per frame)
+        // Queue server-side swaps (one per frame), merges first.
+        for (auto& m : merges)
+            sortSwapQueue_.push_back(m);
         for (auto& s : swaps)
             sortSwapQueue_.push_back(s);
     }
     if (sorting) ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("Sort all bag slots by quality (highest first),\nthen by item ID, then by stack size.");
+        ImGui::SetTooltip("Merge partial stacks, then sort every bag slot by quality\n(highest first), then by item ID, then by stack size.");
     }
 
     // Process one queued swap per frame
