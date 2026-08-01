@@ -1312,6 +1312,26 @@ void LuaEngine::registerCoreAPI() {
         "    mt['Set' .. slot] = function(self, tex) self[key] = tex end\n"
         "    mt['Get' .. slot] = function(self) return self[key] end\n"
         "end\n"
+        // Attributes, and the OnAttributeChanged they fire.
+        //
+        // This is how FrameXML passes state to a handler without a global:
+        // UIDropDownMenu_Initialize does
+        // UIDropDownMenuDelegate:SetAttribute("initmenu", frame), and the
+        // delegate's OnAttributeChanged is what actually sets
+        // UIDROPDOWNMENU_INIT_MENU. No-opping SetAttribute left that nil, so
+        // every menu built afterwards indexed nothing.
+        "function mt:SetAttribute(name, value)\n"
+        "    self.__attributes = self.__attributes or {}\n"
+        "    self.__attributes[name] = value\n"
+        "    local handler = self.__scripts and self.__scripts.OnAttributeChanged\n"
+        "    if handler then handler(self, name, value) end\n"
+        "end\n"
+        "function mt:GetAttribute(a, b, c)\n"
+        "    if not self.__attributes then return nil end\n"
+        // The three-argument form names one attribute in pieces.
+        "    local key = (b ~= nil) and ((a or '') .. b .. (c or '')) or a\n"
+        "    return self.__attributes[key]\n"
+        "end\n"
         "function mt:SetFontString(fs) self.__fontString = fs end\n"
         "function mt:GetFontString() return self.__fontString end\n"
         // A button's text is its font string's text; keeping them apart means
