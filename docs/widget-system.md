@@ -59,18 +59,29 @@ number turns a missing value into a confusing type error further away.
 ### `WOWEE_LOAD_FRAMEXML=1`
 
 Loads the original interface from `Interface/FrameXML/FrameXML.toc`, in the
-order that manifest states, before any addon.
+order that manifest states, before any addon. It turns the fallback above on by
+itself, because FrameXML cannot get through its own load without one.
 
-Expect it to fail for now. It wants the fallback above on beside it to get
-anywhere, and what it needs is measured rather than guessed:
+Every file that fails is listed together at the end of the load, with the reason
+carried up from whichever include or referenced script actually broke. Expect
+failures for now; what remains is measured rather than guessed:
 
     tools/framexml_api_gap.py <path to Interface/FrameXML>
 
-At the time of writing that reports 1,218 missing functions across 2,537 call
-sites — out of 4,316 globals FrameXML calls, of which it defines 2,796 itself as
+At the time of writing that reports 1,191 missing functions across 2,442 call
+sites — out of 4,217 globals FrameXML calls, of which it defines 2,724 itself as
 it loads. The tail is very flat: the most-used missing name has 47 uses and the
 rest drop to about two each, so this is a long list of functions that mostly
 need to exist and return something sane, not a wall of hard work.
+
+That ranking counts every call site, but only calls at file scope can stop a
+file loading — a missing name inside a handler costs nothing until the handler
+runs. The per-file reasons above are what identify those, and are the list worth
+working from.
+
+Neither the XML reader nor the emitter is the constraint. All 140 XML files
+parse and every one's generated Lua compiles (`tools/framexml_compile_check.cpp`),
+so what fails, fails at run time.
 
 ## Known gaps
 
