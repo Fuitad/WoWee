@@ -408,6 +408,14 @@ struct Emitter {
         if (const std::string* strata = node.attr("frameStrata")) {
             line(var + ":SetFrameStrata(" + quote(*strata) + ")");
         }
+        // How a frame in a numbered set knows which one it is, and FrameXML
+        // builds names out of it: PartyMemberFrame_RefreshPetDebuffs reaches
+        // for _G["PartyMemberFrame" .. self:GetID() .. "PetFrame"]. Ignoring
+        // the attribute left every one of the 848 declared across 57 files
+        // answering zero.
+        if (const std::string* id = node.attr("id"); id && !id->empty()) {
+            line(var + ":SetID(" + *id + ")");
+        }
         if (node.attr("enableMouse")) {
             line(var + ":EnableMouse(" + (node.attrBool("enableMouse") ? "true" : "false") + ")");
         }

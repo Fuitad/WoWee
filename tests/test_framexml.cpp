@@ -229,6 +229,15 @@ TEST_CASE("A template installs OnLoad but does not run it", "[framexml][emit]") 
     REQUIRE(has(r.lua, "SetScript(\"OnLoad\""));
 }
 
+TEST_CASE("A frame's id becomes SetID", "[framexml][emit]") {
+    // How a frame in a numbered set knows which one it is. FrameXML builds
+    // names out of it — PartyMemberFrame_RefreshPetDebuffs reaches for
+    // _G["PartyMemberFrame" .. self:GetID() .. "PetFrame"] — and 848 of these
+    // are declared across 57 files.
+    XmlNode root = parseOrFail("<Ui><Frame name=\"F\" id=\"3\"/></Ui>");
+    REQUIRE(has(emitFrameXml(root).lua, ":SetID(3)"));
+}
+
 TEST_CASE("parentKey binds a region to a field on its owner", "[framexml][emit]") {
     // How FrameXML's handlers reach their own pieces: QuestHonorFrameTemplate's
     // OnLoad opens with self.icon:SetTexture(...), and the icon is bound only

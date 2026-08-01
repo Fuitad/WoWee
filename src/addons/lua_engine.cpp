@@ -1397,6 +1397,10 @@ void LuaEngine::registerCoreAPI() {
         "function mt:GetHorizontalScrollRange() return 0 end\n"
         "function mt:GetVerticalScroll() return 0 end\n"
         "function mt:GetHorizontalScroll() return 0 end\n"
+        // Zero when unset, which is what the real client answers and what
+        // FrameXML concatenates into a name without checking.
+        "function mt:SetID(id) self.__id = id end\n"
+        "function mt:GetID() return self.__id or 0 end\n"
         "function mt:SetScrollChild(child) self.__scrollChild = child end\n"
         "function mt:GetScrollChild() return self.__scrollChild end\n"
         "function mt:SetFontString(fs) self.__fontString = fs end\n"
