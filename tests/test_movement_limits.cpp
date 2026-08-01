@@ -62,7 +62,22 @@ TEST_CASE("character yaw and canonical yaw convert back to each other") {
         CHECK(canonical <= PI + 0.001f);
     }
 
-    // The headings the game actually names: canonical north is 0.
-    CHECK(characterYawDegToCanonical(180.0f) == Catch::Approx(0.0f).margin(1e-5));
-    CHECK(canonicalToCharacterYawDeg(0.0f) == Catch::Approx(180.0f).margin(1e-5));
+    // Render yaw is canonical + 90: canonicalToRender swaps x and y, and
+    // canonical yaw is atan2(-dy, dx), so a heading of canonical 0 (north) has
+    // render components (0, 1) and a render yaw of 90.
+    CHECK(canonicalToCharacterYawDeg(0.0f) == Catch::Approx(90.0f).margin(1e-4));
+    CHECK(characterYawDegToCanonical(90.0f) == Catch::Approx(0.0f).margin(1e-5));
+
+    // And it must agree with taking the angle of the render direction directly,
+    // which is how the combat auto-turn and the camera both produce it.
+    for (float canon = -3.0f; canon <= 3.0f; canon += 0.25f) {
+        const glm::vec3 dirCanonical(std::cos(canon), -std::sin(canon), 0.0f);
+        const glm::vec3 dirRender = canonicalToRender(dirCanonical);
+        const float renderYawDeg =
+            std::atan2(dirRender.y, dirRender.x) * (180.0f / PI);
+        float diff = std::fmod(std::fabs(renderYawDeg - canonicalToCharacterYawDeg(canon)), 360.0f);
+        if (diff > 180.0f) diff = 360.0f - diff;
+        INFO("canonical: " << canon);
+        CHECK(diff < 0.01f);
+    }
 }
