@@ -288,6 +288,14 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     };
     for (const auto& filename : toc->files) {
         const auto fileStart = std::chrono::steady_clock::now();
+        // Named before it is loaded, not after. Timing it afterwards says
+        // nothing about the one case that matters — a file that never returns
+        // prints nothing at all, and the load simply stops with the last
+        // successful file as the only clue.
+        // At warning level because release builds drop INFO, and this is the
+        // one line that identifies a file which never returns. Noisy for 139
+        // files, and worth it only while this path is still experimental.
+        LOG_WARNING("FrameXML: loading ", filename);
         std::string lower = filename;
         for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         const std::filesystem::path resolved = resolvePath(dir, filename);
