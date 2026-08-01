@@ -34,6 +34,12 @@ void WidgetRenderer::initialize(pipeline::AssetManager* assets,
     vkCtx_ = vkCtx;
 }
 
+VkDescriptorSet WidgetRenderer::resident(const std::string& path) const {
+    if (path.empty()) return kMissing;
+    auto it = textures_.find(path);
+    return (it == textures_.end()) ? kMissing : it->second;
+}
+
 VkDescriptorSet WidgetRenderer::texture(const std::string& path) {
     auto it = textures_.find(path);
     if (it != textures_.end()) return it->second;
@@ -65,6 +71,83 @@ VkDescriptorSet WidgetRenderer::texture(const std::string& path) {
     return set;
 }
 
+
+void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w,
+                                  float x0, float y0, float x1, float y1) {
+    // Background sits inside the insets, which is what keeps it from showing
+    // through the border drawn over it.
+    const float bx0 = x0 + w.insetLeft;
+    const float by0 = y0 + w.insetTop;
+    const float bx1 = x1 - w.insetRight;
+    const float by1 = y1 - w.insetBottom;
+    if (bx1 > bx0 && by1 > by0) {
+        VkDescriptorSet bg = resident(w.bgFile);
+        const uint32_t col = packColor(w.backdropColor, w.alpha);
+        if (bg != kMissing) {
+            // Tiling repeats the art at its own size instead of stretching it,
+            // which is the difference between a stone wall and a smear.
+            float u1 = 1.0f, v1 = 1.0f;
+            if (w.tileBackground && w.edgeSize > 0.0f) {
+                u1 = (bx1 - bx0) / w.edgeSize;
+                v1 = (by1 - by0) / w.edgeSize;
+            }
+            dl->AddImage(reinterpret_cast<ImTextureID>(bg), ImVec2(bx0, by0), ImVec2(bx1, by1),
+                         ImVec2(0.0f, 0.0f), ImVec2(u1, v1), col);
+        } else if (!w.bgFile.empty()) {
+            // Not resident yet; nothing to draw this frame.
+        } else {
+            dl->AddRectFilled(ImVec2(bx0, by0), ImVec2(bx1, by1), col);
+        }
+    }
+
+    VkDescriptorSet edge = resident(w.edgeFile);
+    if (edge == kMissing || w.edgeSize <= 0.0f) return;
+
+    // The edge file is eight square tiles in a row. Measured against the art
+    // rather than assumed: UI-Tooltip-Border is 128x16 and UI-DialogBox-Border
+    // 256x32, both exactly eight tiles wide.
+    const float e = w.edgeSize;
+    const uint32_t col = packColor(w.borderColor, w.alpha);
+    auto piece = [&](int index, float px0, float py0, float px1, float py1) {
+        const float u0 = index / 8.0f, u1 = (index + 1) / 8.0f;
+        dl->AddImage(reinterpret_cast<ImTextureID>(edge), ImVec2(px0, py0), ImVec2(px1, py1),
+                     ImVec2(u0, 0.0f), ImVec2(u1, 1.0f), col);
+    };
+    // Edges first, then corners over them, so a corner is never clipped by the
+    // run it meets.
+    piece(0, x0,     y0 + e, x0 + e, y1 - e);   // left
+    piece(1, x1 - e, y0 + e, x1,     y1 - e);   // right
+    piece(2, x0 + e, y0,     x1 - e, y0 + e);   // top
+    piece(3, x0 + e, y1 - e, x1 - e, y1);       // bottom
+    piece(4, x0,     y0,     x0 + e, y0 + e);   // top-left
+    piece(5, x1 - e, y0,     x1,     y0 + e);   // top-right
+    piece(6, x0,     y1 - e, x0 + e, y1);       // bottom-left
+    piece(7, x1 - e, y1 - e, x1,     y1);       // bottom-right
+}
+
+void WidgetRenderer::drawStatusBar(ImDrawList* dl, const Widget& w,
+                                   float x0, float y0, float x1, float y1) {
+    const float f = w.barFraction();
+    if (f <= 0.0f) return;
+    // Horizontal bars fill from the left; vertical ones from the bottom, which
+    // in screen terms means growing upward from y1.
+    const float fx1 = w.barVertical ? x1 : x0 + (x1 - x0) * f;
+    const float fy0 = w.barVertical ? y1 - (y1 - y0) * f : y0;
+    const uint32_t col = packColor(w.barColor, w.alpha);
+
+    VkDescriptorSet tex = resident(w.barTexture);
+    if (tex != kMissing) {
+        // The texture is cropped to the filled part rather than squashed into
+        // it, so a bar at half value shows half its art at its own scale.
+        const float u1 = w.barVertical ? 1.0f : f;
+        const float v0 = w.barVertical ? (1.0f - f) : 0.0f;
+        dl->AddImage(reinterpret_cast<ImTextureID>(tex), ImVec2(x0, fy0), ImVec2(fx1, y1),
+                     ImVec2(0.0f, v0), ImVec2(u1, 1.0f), col);
+    } else if (w.barTexture.empty()) {
+        dl->AddRectFilled(ImVec2(x0, fy0), ImVec2(fx1, y1), col);
+    }
+}
+
 void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     tree.layout(screenW, screenH);
     const auto& order = tree.drawOrder();
@@ -81,12 +164,19 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     // of new art costs several quiet frames rather than one very long one.
     constexpr int kUploadsPerFrame = 4;
     int budget = kUploadsPerFrame;
+    auto want = [&](const std::string& path) {
+        if (budget <= 0 || path.empty()) return;
+        if (textures_.find(path) != textures_.end()) return;
+        texture(path);
+        --budget;
+    };
     for (const Widget* w : order) {
         if (budget <= 0) break;
-        if (w->kind != WidgetKind::Texture || w->solidColor || w->texturePath.empty()) continue;
-        if (textures_.find(w->texturePath) != textures_.end()) continue;
-        texture(w->texturePath);
-        --budget;
+        if (w->kind == WidgetKind::Texture && !w->solidColor) want(w->texturePath);
+        if (w->kind == WidgetKind::Frame) {
+            if (w->hasBackdrop) { want(w->bgFile); want(w->edgeFile); }
+            if (w->isStatusBar) want(w->barTexture);
+        }
     }
 
     // Behind ImGui's own windows, so the existing interface stays on top while
@@ -102,6 +192,12 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         const float y0 = screenH - (w->bottom + w->rectH);
         const float x1 = w->left + w->rectW;
         const float y1 = screenH - w->bottom;
+
+        if (w->kind == WidgetKind::Frame) {
+            if (w->hasBackdrop) drawBackdrop(dl, *w, x0, y0, x1, y1);
+            if (w->isStatusBar) drawStatusBar(dl, *w, x0, y0, x1, y1);
+            continue;
+        }
 
         if (w->kind == WidgetKind::Texture) {
             if (w->solidColor || w->texturePath.empty()) {

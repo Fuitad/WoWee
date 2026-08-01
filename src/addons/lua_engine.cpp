@@ -449,6 +449,123 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
 
 } // namespace
 
+
+// ── Backdrop and StatusBar ──────────────────────────────────────────────────
+
+int lua_Frame_SetBackdrop(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    if (!lua_istable(L, 2)) {          // SetBackdrop(nil) clears it
+        w->hasBackdrop = false;
+        return 0;
+    }
+    w->hasBackdrop = true;
+    auto str = [&](const char* key, std::string& out) {
+        lua_getfield(L, 2, key);
+        if (lua_isstring(L, -1)) out = lua_tostring(L, -1);
+        lua_pop(L, 1);
+    };
+    auto num = [&](const char* key, float& out) {
+        lua_getfield(L, 2, key);
+        if (lua_isnumber(L, -1)) out = static_cast<float>(lua_tonumber(L, -1));
+        lua_pop(L, 1);
+    };
+    str("bgFile", w->bgFile);
+    str("edgeFile", w->edgeFile);
+    num("edgeSize", w->edgeSize);
+    // tileSize describes the background's repeat, and edgeSize the border tile.
+    // Where only one is given the other is the sensible stand-in.
+    num("tileSize", w->edgeSize);
+    num("edgeSize", w->edgeSize);
+    lua_getfield(L, 2, "tile");
+    w->tileBackground = lua_toboolean(L, -1) != 0;
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "insets");
+    if (lua_istable(L, -1)) {
+        auto inset = [&](const char* key, float& out) {
+            lua_getfield(L, -1, key);
+            if (lua_isnumber(L, -1)) out = static_cast<float>(lua_tonumber(L, -1));
+            lua_pop(L, 1);
+        };
+        inset("left", w->insetLeft);
+        inset("right", w->insetRight);
+        inset("top", w->insetTop);
+        inset("bottom", w->insetBottom);
+    }
+    lua_pop(L, 1);
+    return 0;
+}
+
+int lua_Frame_SetBackdropColor(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->backdropColor[0] = static_cast<float>(luaL_optnumber(L, 2, 1.0));
+        w->backdropColor[1] = static_cast<float>(luaL_optnumber(L, 3, 1.0));
+        w->backdropColor[2] = static_cast<float>(luaL_optnumber(L, 4, 1.0));
+        w->backdropColor[3] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
+    }
+    return 0;
+}
+
+int lua_Frame_SetBackdropBorderColor(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->borderColor[0] = static_cast<float>(luaL_optnumber(L, 2, 1.0));
+        w->borderColor[1] = static_cast<float>(luaL_optnumber(L, 3, 1.0));
+        w->borderColor[2] = static_cast<float>(luaL_optnumber(L, 4, 1.0));
+        w->borderColor[3] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
+    }
+    return 0;
+}
+
+int lua_StatusBar_SetMinMaxValues(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->barMin = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+        w->barMax = static_cast<float>(luaL_optnumber(L, 3, 1.0));
+    }
+    return 0;
+}
+int lua_StatusBar_GetMinMaxValues(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->barMin : 0.0);
+    lua_pushnumber(L, w ? w->barMax : 1.0);
+    return 2;
+}
+int lua_StatusBar_SetValue(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->barValue = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+    return 0;
+}
+int lua_StatusBar_GetValue(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->barValue : 0.0);
+    return 1;
+}
+int lua_StatusBar_SetStatusBarTexture(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        // Takes a path or an existing texture object, and addons use both.
+        if (lua_isstring(L, 2)) w->barTexture = lua_tostring(L, 2);
+        else if (lua_istable(L, 2)) {
+            if (auto* tex = widgetOf(L, 2)) w->barTexture = tex->texturePath;
+        }
+    }
+    return 0;
+}
+int lua_StatusBar_SetStatusBarColor(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->barColor[0] = static_cast<float>(luaL_optnumber(L, 2, 1.0));
+        w->barColor[1] = static_cast<float>(luaL_optnumber(L, 3, 1.0));
+        w->barColor[2] = static_cast<float>(luaL_optnumber(L, 4, 1.0));
+        w->barColor[3] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
+    }
+    return 0;
+}
+int lua_StatusBar_SetOrientation(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        const std::string o = luaL_optstring(L, 2, "HORIZONTAL");
+        w->barVertical = (o == "VERTICAL");
+    }
+    return 0;
+}
+
 // Frame method: frame:CreateTexture(name, layer) → a real region
 static int lua_Frame_CreateTexture(lua_State* L) {
     auto* tree = wowee::addons::getWidgetTree(L);
@@ -651,6 +768,7 @@ static int lua_CreateFrame(lua_State* L) {
         if (auto* w = tree->get(id)) {
             const std::string ft = frameType ? frameType : "Frame";
             w->mouseEnabled = (ft == "Button" || ft == "CheckButton");
+            w->isStatusBar = (ft == "StatusBar");
         }
         lua_pushinteger(L, static_cast<lua_Integer>(id));
         lua_setfield(L, -2, "__wid");
@@ -830,6 +948,16 @@ void LuaEngine::registerCoreAPI() {
         {"GetAlpha",        lua_Region_GetAlpha},
         {"EnableMouse",     lua_Frame_EnableMouse},
         {"IsMouseEnabled",  lua_Frame_IsMouseEnabled},
+        {"SetBackdrop",           lua_Frame_SetBackdrop},
+        {"SetBackdropColor",      lua_Frame_SetBackdropColor},
+        {"SetBackdropBorderColor",lua_Frame_SetBackdropBorderColor},
+        {"SetMinMaxValues",       lua_StatusBar_SetMinMaxValues},
+        {"GetMinMaxValues",       lua_StatusBar_GetMinMaxValues},
+        {"SetValue",              lua_StatusBar_SetValue},
+        {"GetValue",              lua_StatusBar_GetValue},
+        {"SetStatusBarTexture",   lua_StatusBar_SetStatusBarTexture},
+        {"SetStatusBarColor",     lua_StatusBar_SetStatusBarColor},
+        {"SetOrientation",        lua_StatusBar_SetOrientation},
         {"SetFrameStrata",  lua_Frame_SetFrameStrata},
         {"SetFrameLevel",   lua_Frame_SetFrameLevel},
         {"SetParent",       lua_Frame_SetParent},
@@ -838,6 +966,15 @@ void LuaEngine::registerCoreAPI() {
         {"CreateFontString", lua_Frame_CreateFontString},
         {nullptr, nullptr}
     };
+    auto applyFrameMethods = [&]() {
+        lua_getglobal(L_, "__WoweeFrameMT");
+        for (const luaL_Reg* r = frameMethods; r->name; r++) {
+            lua_pushcfunction(L_, r->func);
+            lua_setfield(L_, -2, r->name);
+        }
+        lua_pop(L_, 1);
+    };
+
     for (const luaL_Reg* r = frameMethods; r->name; r++) {
         lua_pushcfunction(L_, r->func);
         lua_setfield(L_, -2, r->name);
@@ -917,6 +1054,16 @@ void LuaEngine::registerCoreAPI() {
         "    return nil\n"
         "end\n"
     );
+
+    // Put the C bindings back over anything the Lua above defined with the same
+    // name. That block exists to give unimplemented methods a harmless no-op,
+    // and it runs later, so any name it shares with a real binding silently
+    // replaces it — a method that answers and does nothing, which is far harder
+    // to spot than one that errors. EnableMouse was lost this way and no frame
+    // took the mouse at all; SetBackdrop and its two colour setters were about
+    // to go the same way. Ordering the two makes the class of mistake
+    // impossible rather than something to keep noticing.
+    applyFrameMethods();
 
     // CreateFrame function
     lua_pushcfunction(L_, lua_CreateFrame);

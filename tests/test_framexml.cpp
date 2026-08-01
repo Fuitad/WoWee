@@ -219,3 +219,32 @@ TEST_CASE("Outside a template $parent is resolved when emitted",
     REQUIRE(has(r.lua, "\"FooFrameBg\""));
     REQUIRE_FALSE(has(r.lua, "GetName()"));
 }
+
+TEST_CASE("A nested frame anchors to its container, not the screen",
+          "[framexml][emit]") {
+    // FrameXML nests constantly, and an unqualified anchor means "my parent".
+    // Reading it as UIParent puts anything inside a panel somewhere else on the
+    // screen entirely.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Outer\"><Frames>"
+        "<StatusBar name=\"$parentBar\"><Anchors>"
+        "<Anchor point=\"BOTTOMLEFT\" relativePoint=\"BOTTOMLEFT\">"
+        "<Offset><AbsDimension x=\"5\" y=\"5\"/></Offset></Anchor>"
+        "</Anchors></StatusBar>"
+        "</Frames></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "CreateFrame(\"StatusBar\", \"OuterBar\", __x0)"));
+    REQUIRE(has(r.lua, ":SetPoint(\"BOTTOMLEFT\", __x0,"));
+    REQUIRE_FALSE(has(r.lua, ":SetPoint(\"BOTTOMLEFT\", UIParent,"));
+}
+
+TEST_CASE("An anchor inside a template resolves its parent at replay time",
+          "[framexml][emit]") {
+    // The containing frame is not known while emitting a template — it is
+    // whichever frame inherits it — so the parent has to be asked for then.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"T\" virtual=\"true\"><Anchors>"
+        "<Anchor point=\"CENTER\"/></Anchors></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "self:GetParent()"));
+}

@@ -16,6 +16,8 @@
 
 #include <vulkan/vulkan.h>
 
+struct ImDrawList;   // global, as ImGui declares it
+
 namespace wowee {
 namespace pipeline { class AssetManager; }
 namespace rendering { class VkContext; }
@@ -23,6 +25,7 @@ namespace rendering { class VkContext; }
 namespace ui {
 
 class WidgetTree;
+struct Widget;
 
 class WidgetRenderer {
 public:
@@ -42,6 +45,13 @@ private:
     /// VK_NULL_HANDLE for anything missing, and remembers the failure so a
     /// mistyped path is not re-read every frame.
     VkDescriptorSet texture(const std::string& path);
+    /// Already-uploaded texture for a path, without triggering an upload.
+    VkDescriptorSet resident(const std::string& path) const;
+
+    void drawBackdrop(ImDrawList* dl, const Widget& w,
+                      float x0, float y0, float x1, float y1);
+    void drawStatusBar(ImDrawList* dl, const Widget& w,
+                       float x0, float y0, float x1, float y1);
 
     pipeline::AssetManager* assets_ = nullptr;
     rendering::VkContext* vkCtx_ = nullptr;

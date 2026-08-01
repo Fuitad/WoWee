@@ -391,3 +391,91 @@ TEST_CASE("A zero-sized frame is never hit", "[widget][hittest]") {
     tree.layout(kScreenW, kScreenH);
     REQUIRE(tree.hitTest(kScreenW * 0.5f, kScreenH * 0.5f) == 0);
 }
+
+// ── Backdrop and status bar geometry ────────────────────────────────────────
+
+TEST_CASE("A frame with a backdrop draws; a bare frame does not",
+          "[widget][backdrop]") {
+    WidgetTree tree;
+    const uint32_t f = tree.create(WidgetKind::Frame, 0, "F");
+    tree.get(f)->width = 100.0f;
+    tree.get(f)->height = 60.0f;
+    tree.addPoint(f, Anchor{});
+
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.drawOrder().empty());          // a container paints nothing
+
+    tree.get(f)->hasBackdrop = true;
+    tree.get(f)->bgFile = "Interface\\Tooltips\\UI-Tooltip-Background";
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.drawOrder().size() == 1);
+    REQUIRE(tree.drawOrder()[0]->id == f);
+}
+
+TEST_CASE("A frame's backdrop draws beneath its own regions",
+          "[widget][backdrop][draworder]") {
+    // The backdrop is the panel; anything the frame owns belongs on top of it.
+    WidgetTree tree;
+    const uint32_t f = tree.create(WidgetKind::Frame, 0, "F");
+    tree.get(f)->width = 100.0f;
+    tree.get(f)->height = 60.0f;
+    tree.get(f)->hasBackdrop = true;
+    tree.addPoint(f, Anchor{});
+
+    const uint32_t art = tree.create(WidgetKind::Texture, f, "");
+    tree.get(art)->texturePath = "x.blp";
+    tree.setAllPoints(art, f);
+
+    tree.layout(kScreenW, kScreenH);
+    const auto& order = tree.drawOrder();
+    REQUIRE(order.size() == 2);
+    REQUIRE(order[0]->id == f);
+    REQUIRE(order[1]->id == art);
+}
+
+TEST_CASE("Status bar fill is clamped and survives a degenerate range",
+          "[widget][statusbar]") {
+    WidgetTree tree;
+    const uint32_t b = tree.create(WidgetKind::Frame, 0, "B");
+    Widget* w = tree.get(b);
+    w->isStatusBar = true;
+    w->barMin = 0.0f;
+    w->barMax = 100.0f;
+
+    w->barValue = 50.0f;
+    REQUIRE(w->barFraction() == Catch::Approx(0.5f));
+    w->barValue = 0.0f;
+    REQUIRE(w->barFraction() == Catch::Approx(0.0f));
+    w->barValue = 100.0f;
+    REQUIRE(w->barFraction() == Catch::Approx(1.0f));
+
+    // Out of range clamps rather than overflowing the bar.
+    w->barValue = 250.0f;
+    REQUIRE(w->barFraction() == Catch::Approx(1.0f));
+    w->barValue = -10.0f;
+    REQUIRE(w->barFraction() == Catch::Approx(0.0f));
+
+    // A bar whose range was never set, or set backwards, reads empty instead of
+    // dividing by nothing — health frames are created before their values are
+    // known and would otherwise flash full or NaN on the first frame.
+    w->barMin = 0.0f; w->barMax = 0.0f; w->barValue = 5.0f;
+    REQUIRE(w->barFraction() == Catch::Approx(0.0f));
+    w->barMin = 100.0f; w->barMax = 0.0f;
+    REQUIRE(w->barFraction() == Catch::Approx(0.0f));
+}
+
+TEST_CASE("A status bar with no texture and no backdrop is not drawn",
+          "[widget][statusbar]") {
+    WidgetTree tree;
+    const uint32_t b = tree.create(WidgetKind::Frame, 0, "B");
+    tree.get(b)->isStatusBar = true;
+    tree.get(b)->width = 80.0f;
+    tree.get(b)->height = 10.0f;
+    tree.addPoint(b, Anchor{});
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.drawOrder().empty());
+
+    tree.get(b)->barTexture = "bar.blp";
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.drawOrder().size() == 1);
+}

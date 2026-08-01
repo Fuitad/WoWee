@@ -89,6 +89,35 @@ struct Widget {
     float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
     bool solidColor = false;    ///< SetTexture(r,g,b[,a]) rather than a file.
 
+    // Backdrop, the bordered panel look most of the original interface is
+    // built from. The edge file is a strip of eight square tiles — verified
+    // against the art: UI-Tooltip-Border is 128x16 and UI-DialogBox-Border
+    // 256x32, both exactly eight tiles wide.
+    bool hasBackdrop = false;
+    std::string bgFile;
+    std::string edgeFile;
+    bool  tileBackground = false;
+    float edgeSize = 16.0f;
+    float insetLeft = 0.0f, insetRight = 0.0f, insetTop = 0.0f, insetBottom = 0.0f;
+    float backdropColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float borderColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+
+    // StatusBar. Health, mana, cast bars and experience are all this one type.
+    bool  isStatusBar = false;
+    float barMin = 0.0f, barMax = 1.0f, barValue = 0.0f;
+    std::string barTexture;
+    float barColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    bool  barVertical = false;
+
+    /// Fraction filled, clamped. A zero or inverted range reads as empty rather
+    /// than dividing by nothing.
+    float barFraction() const {
+        const float span = barMax - barMin;
+        if (span <= 0.0f) return 0.0f;
+        const float f = (barValue - barMin) / span;
+        return f < 0.0f ? 0.0f : (f > 1.0f ? 1.0f : f);
+    }
+
     // FontString regions.
     std::string text;
     float fontHeight = 12.0f;

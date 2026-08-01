@@ -226,10 +226,14 @@ void WidgetTree::collectDrawOrder() {
         if (w.id == 0) continue;
         if (!w.visible) continue;
         if (w.alpha <= 0.001f) continue;
-        // Frames are containers; only regions put anything on the screen.
-        if (w.kind == WidgetKind::Frame) continue;
+        // Frames are containers, except when they carry a backdrop or are a
+        // status bar — then the frame itself has something to paint, and it
+        // paints underneath its own regions because they sit a level above it.
+        if (w.kind == WidgetKind::Frame && !w.hasBackdrop && !w.isStatusBar) continue;
         if (w.rectW <= 0.0f || w.rectH <= 0.0f) continue;
         if (w.kind == WidgetKind::Texture && w.texturePath.empty() && !w.solidColor) continue;
+        if (w.kind == WidgetKind::Frame && w.isStatusBar && w.barTexture.empty() &&
+            !w.hasBackdrop) continue;
         if (w.kind == WidgetKind::FontString && w.text.empty()) continue;
         drawOrder_.push_back(&w);
     }

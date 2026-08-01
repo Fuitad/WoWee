@@ -189,7 +189,10 @@ struct Emitter {
             Emitter inner;
             inner.temp = 0;
             inner.runtimeParentName = true;
-            inner.emitFrameBody(node, "self", name);
+            // Inside a template the containing frame is whatever inherits it,
+            // so an unqualified anchor means "my parent" and has to be asked
+            // for at replay time.
+            inner.emitFrameBody(node, "self", name, "self:GetParent()");
             line("__WoweeTemplates[" + quote(name) + "] = function(self)");
             result.lua += inner.result.lua;
             for (auto& w : inner.result.warnings) result.warnings.push_back(w);
@@ -218,11 +221,11 @@ struct Emitter {
                      quote(one) + ") end");
             }
         }
-        emitFrameBody(node, var, name.empty() ? parentName : name);
+        emitFrameBody(node, var, name.empty() ? parentName : name, parentArg);
     }
 
     void emitFrameBody(const XmlNode& node, const std::string& var,
-                       const std::string& name) {
+                       const std::string& name, const std::string& parentVar) {
         if (const XmlNode* size = node.child("Size")) {
             float w = 0, h = 0;
             if (readDimension(*size, w, h))
@@ -235,7 +238,12 @@ struct Emitter {
             line(var + ":EnableMouse(" + (node.attrBool("enableMouse") ? "true" : "false") + ")");
         }
         if (const XmlNode* anchors = node.child("Anchors")) {
-            emitAnchors(*anchors, var, node.attr("parent") ? *node.attr("parent") : "UIParent");
+            // Anchored to the frame that contains it when no relativeTo is
+            // given. This used to say UIParent for everything, so a nested
+            // frame was positioned against the screen rather than its parent —
+            // which for anything inside a panel puts it somewhere else
+            // entirely, and FrameXML nests constantly.
+            emitAnchors(*anchors, var, parentVar);
         }
         if (const XmlNode* layers = node.child("Layers")) {
             for (const XmlNode& layer : layers->children) {
