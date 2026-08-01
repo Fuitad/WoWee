@@ -829,6 +829,24 @@ static int lua_CreateFrame(lua_State* L) {
     // Create the frame table
     lua_newtable(L);
 
+    // Record the parent table, not only the widget id. GetParent() is
+    // everywhere in FrameXML — a nested button's OnLoad opens with
+    // self:GetParent().toggle = self — and it answered nil for every frame
+    // ever created, because only an explicit SetParent recorded one. That
+    // failed the template declaring the button, so the button's owner never
+    // got its size, and the loop sizing a list by its first button's height
+    // divided by zero.
+    if (lua_istable(L, 3)) {
+        lua_pushvalue(L, 3);
+        lua_setfield(L, -2, "__parent");
+    } else {
+        // A name, or nothing at all, which means UIParent.
+        if (lua_isstring(L, 3)) lua_getglobal(L, lua_tostring(L, 3));
+        else lua_getglobal(L, "UIParent");
+        if (lua_istable(L, -1)) lua_setfield(L, -2, "__parent");
+        else lua_pop(L, 1);
+    }
+
     // Back it with a real widget so its geometry is somewhere the renderer can
     // reach. Parent is the third argument when given, and UIParent otherwise,
     // which is what an addon means by leaving it out.
@@ -910,8 +928,16 @@ static int lua_CreateFrame(lua_State* L) {
                     if (lua_isfunction(L, -1)) {
                         lua_pushvalue(L, -3);            // the frame
                         if (lua_pcall(L, 1, 0, 0) != 0) {
-                            LOG_WARNING("CreateFrame: template '", one, "' failed: ",
-                                        lua_tostring(L, -1) ? lua_tostring(L, -1) : "?");
+                            // Once per template. A template that fails fails
+                            // for every frame using it, and the loop this very
+                            // failure causes then repeats it: one run wrote the
+                            // same line 675,000 times, which cost more than the
+                            // fault it was reporting.
+                            static std::set<std::string> reported;
+                            if (reported.insert(one).second) {
+                                LOG_WARNING("CreateFrame: template '", one, "' failed: ",
+                                            lua_tostring(L, -1) ? lua_tostring(L, -1) : "?");
+                            }
                             lua_pop(L, 1);               // error
                         }
                     } else {
