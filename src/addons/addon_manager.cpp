@@ -6,6 +6,7 @@
 #include "ui/framexml_emitter.hpp"
 #include <algorithm>
 #include <set>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 
@@ -102,6 +103,20 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
 }
 
 void AddonManager::loadAllAddons() {
+    // The original interface, when asked for. Before any addon, because addons
+    // are written against a world where FrameXML has already defined its frames
+    // and its several thousand functions.
+    //
+    // Off by default and deliberately so: this is an experiment for now, it
+    // wants the missing-API fallback on beside it to get anywhere, and a
+    // half-loaded FrameXML on top of the client's own interface is not a state
+    // anyone wants to be in by accident.
+    const char* wantFrameXml = std::getenv("WOWEE_LOAD_FRAMEXML");
+    if (wantFrameXml && *wantFrameXml && std::string(wantFrameXml) != "0" &&
+        !frameXmlDir_.empty()) {
+        loadFrameXml(frameXmlDir_);
+    }
+
     // Only hand the Lua VM the addons that are actually enabled, so disabled ones
     // don't appear via GetNumAddOns/IsAddOnLoaded either.
     std::vector<TocFile> enabled;
@@ -175,6 +190,39 @@ std::string AddonManager::getSavedVariablesPath(const TocFile& addon) const {
 std::string AddonManager::getSavedVariablesPerCharacterPath(const TocFile& addon) const {
     if (characterName_.empty()) return "";
     return addon.basePath + "/" + addon.addonName + "." + characterName_ + ".lua.saved";
+}
+
+bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
+    const std::string tocPath = frameXmlDir + "/FrameXML.toc";
+    auto toc = parseTocFile(tocPath);
+    if (!toc) {
+        LOG_WARNING("FrameXML: no manifest at ", tocPath);
+        return false;
+    }
+
+    LOG_WARNING("FrameXML: attempting to load the original interface — ",
+                toc->files.size(), " files from ", frameXmlDir);
+
+    int lua = 0, xml = 0, failed = 0;
+    for (const auto& filename : toc->files) {
+        std::string lower = filename;
+        for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        const std::string full = frameXmlDir + "/" + filename;
+
+        // The manifest's order is the load order and matters: GlobalStrings and
+        // Constants before anything reads them, Fonts before the frames that
+        // inherit from them. Following it is most of what makes this possible
+        // at all.
+        if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, ".lua") == 0) {
+            if (luaEngine_.executeFile(full)) ++lua; else { ++failed;
+                LOG_ERROR("FrameXML: ", filename, " failed"); }
+        } else if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, ".xml") == 0) {
+            if (loadXmlFile(full, 0)) ++xml; else ++failed;
+        }
+    }
+    LOG_WARNING("FrameXML: ", lua, " Lua files and ", xml, " XML files loaded, ",
+                failed, " failed");
+    return failed == 0;
 }
 
 bool AddonManager::loadXmlFile(const std::string& path, int depth) {

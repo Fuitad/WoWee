@@ -354,6 +354,7 @@ bool Application::initialize() {
                                    window ? window->getVkContext() : nullptr);
         if (addonManager_->initialize(gameHandler.get(), luaSvc)) {
             std::string addonsDir = assetPath + "/interface/AddOns";
+            addonManager_->setFrameXmlDir(assetPath + "/interface/FrameXML");
             addonManager_->scanAddons(addonsDir);
             // Wire Lua errors to UI error display
             addonManager_->getLuaEngine()->setLuaErrorCallback([gh = gameHandler.get()](const std::string& err) {
