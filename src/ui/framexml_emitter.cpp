@@ -123,6 +123,12 @@ struct Emitter {
         if (const std::string* j = node.attr("justifyH")) {
             line(var + ":SetJustifyH(" + quote(*j) + ")");
         }
+        // A FontString inherits a shared font object rather than a template,
+        // and that is where its size and colour come from. FrameXML does this
+        // on nearly every label it declares.
+        if (const std::string* inh = node.attr("inherits")) {
+            if (!isTexture) line(var + ":SetFontObject(" + quote(*inh) + ")");
+        }
         if (node.attrBool("setAllPoints")) {
             line(var + ":SetAllPoints(" + parentVar + ")");
         }

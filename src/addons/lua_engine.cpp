@@ -405,6 +405,55 @@ int lua_FontString_SetJustifyH(lua_State* L) {
     return 0;
 }
 
+// ── Fonts ───────────────────────────────────────────────────────────────────
+
+int lua_FontString_SetTextColor(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->color[0] = static_cast<float>(luaL_optnumber(L, 2, 1.0));
+        w->color[1] = static_cast<float>(luaL_optnumber(L, 3, 1.0));
+        w->color[2] = static_cast<float>(luaL_optnumber(L, 4, 1.0));
+        w->color[3] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
+    }
+    return 0;
+}
+
+int lua_FontString_SetFont(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        // (path, height, flags). Only the height is honoured for now; the path
+        // needs a font atlas rebuild, which cannot happen mid-frame.
+        const double h = luaL_optnumber(L, 3, 0.0);
+        if (h > 0.0) w->fontHeight = static_cast<float>(h);
+    }
+    return 0;
+}
+
+/// SetFontObject(obj) where obj is one of the shared font objects, which carry
+/// a height and a colour. FrameXML reaches for these more than three thousand
+/// times, so a FontString that ignores them is the wrong size and colour nearly
+/// everywhere.
+int lua_FontString_SetFontObject(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    if (lua_isstring(L, 2)) {              // by name
+        lua_getglobal(L, lua_tostring(L, 2));
+    } else {
+        lua_pushvalue(L, 2);
+    }
+    if (lua_istable(L, -1)) {
+        lua_getfield(L, -1, "height");
+        if (lua_isnumber(L, -1)) w->fontHeight = static_cast<float>(lua_tonumber(L, -1));
+        lua_pop(L, 1);
+        const char* keys[4] = {"r", "g", "b", "a"};
+        for (int i = 0; i < 4; ++i) {
+            lua_getfield(L, -1, keys[i]);
+            if (lua_isnumber(L, -1)) w->color[i] = static_cast<float>(lua_tonumber(L, -1));
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+    return 0;
+}
+
 /// Attach the shared region methods to the table on top of the stack.
 void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     auto set = [&](const char* name, lua_CFunction fn) {
@@ -436,6 +485,9 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
         set("SetText", lua_FontString_SetText);
         set("GetText", lua_FontString_GetText);
         set("SetJustifyH", lua_FontString_SetJustifyH);
+        set("SetTextColor", lua_FontString_SetTextColor);
+        set("SetFont", lua_FontString_SetFont);
+        set("SetFontObject", lua_FontString_SetFontObject);
     }
     // Anything still unimplemented stays a no-op rather than an error, which is
     // what keeps a large addon running while the surface is filled in.
@@ -448,6 +500,7 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
 }
 
 } // namespace
+
 
 
 // ── Backdrop and StatusBar ──────────────────────────────────────────────────
@@ -1652,21 +1705,38 @@ void LuaEngine::registerCoreAPI() {
     // UISpecialFrames: frames in this list close on Escape key
     luaL_dostring(L_,
         "UISpecialFrames = {}\n"
-        // Font object stubs — addons reference these for CreateFontString templates
-        "GameFontNormal = {}\n"
-        "GameFontNormalSmall = {}\n"
-        "GameFontNormalLarge = {}\n"
-        "GameFontHighlight = {}\n"
-        "GameFontHighlightSmall = {}\n"
-        "GameFontHighlightLarge = {}\n"
-        "GameFontDisable = {}\n"
-        "GameFontDisableSmall = {}\n"
-        "GameFontWhite = {}\n"
-        "GameFontRed = {}\n"
-        "GameFontGreen = {}\n"
-        "NumberFontNormal = {}\n"
-        "ChatFontNormal = {}\n"
-        "SystemFont = {}\n"
+        // Shared font objects, carrying the height and colour a FontString takes
+        // from them. They were empty tables, so inheriting one changed nothing
+        // and every label came out the same size in the same colour — and
+        // FrameXML inherits one more than three thousand times.
+        //
+        // The colours are Blizzard's: normal is the familiar gold, highlight is
+        // white, disabled grey, and the quest fonts near-black on parchment.
+        "local function font(h, r, g, b) return { height = h, r = r, g = g, b = b, a = 1 } end\n"
+        "GameFontNormal            = font(12, 1.00, 0.82, 0.00)\n"
+        "GameFontNormalSmall       = font(10, 1.00, 0.82, 0.00)\n"
+        "GameFontNormalLarge       = font(16, 1.00, 0.82, 0.00)\n"
+        "GameFontNormalHuge        = font(20, 1.00, 0.82, 0.00)\n"
+        "GameFontHighlight         = font(12, 1.00, 1.00, 1.00)\n"
+        "GameFontHighlightSmall    = font(10, 1.00, 1.00, 1.00)\n"
+        "GameFontHighlightLarge    = font(16, 1.00, 1.00, 1.00)\n"
+        "GameFontDisable           = font(12, 0.50, 0.50, 0.50)\n"
+        "GameFontDisableSmall      = font(10, 0.50, 0.50, 0.50)\n"
+        "GameFontDisableLarge      = font(16, 0.50, 0.50, 0.50)\n"
+        "GameFontWhite             = font(12, 1.00, 1.00, 1.00)\n"
+        "GameFontRed               = font(12, 1.00, 0.13, 0.13)\n"
+        "GameFontGreen             = font(12, 0.13, 1.00, 0.13)\n"
+        "NumberFontNormal          = font(12, 1.00, 1.00, 1.00)\n"
+        "NumberFontNormalSmall     = font(10, 1.00, 1.00, 1.00)\n"
+        "NumberFontNormalLarge     = font(16, 1.00, 1.00, 1.00)\n"
+        "ChatFontNormal            = font(12, 1.00, 1.00, 1.00)\n"
+        "SystemFont                = font(12, 1.00, 0.82, 0.00)\n"
+        "SystemFontSmall           = font(10, 1.00, 0.82, 0.00)\n"
+        "QuestFont                 = font(13, 0.18, 0.12, 0.06)\n"
+        "QuestFontNormalSmall      = font(11, 0.18, 0.12, 0.06)\n"
+        "QuestTitleFont            = font(15, 0.00, 0.00, 0.00)\n"
+        "Tooltip_Med               = font(12, 1.00, 1.00, 1.00)\n"
+        "Tooltip_Small             = font(10, 1.00, 1.00, 1.00)\n"
         // InterfaceOptionsFrame: addons register settings panels here
         "InterfaceOptionsFrame = CreateFrame('Frame', 'InterfaceOptionsFrame')\n"
         "InterfaceOptionsFramePanelContainer = CreateFrame('Frame', 'InterfaceOptionsFramePanelContainer')\n"

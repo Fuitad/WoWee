@@ -248,3 +248,28 @@ TEST_CASE("An anchor inside a template resolves its parent at replay time",
     const EmitResult r = emitFrameXml(root);
     REQUIRE(has(r.lua, "self:GetParent()"));
 }
+
+TEST_CASE("A FontString's inherits names a font object, not a template",
+          "[framexml][emit]") {
+    // Frames inherit templates; FontStrings inherit shared font objects, and
+    // that is where their size and colour come from. FrameXML does it more than
+    // three thousand times, so treating it as a template would leave every
+    // label the same size in the same colour.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"F\"><Layers><Layer>"
+        "<FontString name=\"$parentT\" inherits=\"GameFontNormalLarge\" text=\"Hi\"/>"
+        "</Layer></Layers></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, ":SetFontObject(\"GameFontNormalLarge\")"));
+    REQUIRE_FALSE(has(r.lua, "__WoweeTemplates[\"GameFontNormalLarge\"]"));
+}
+
+TEST_CASE("A Texture's inherits is not treated as a font object",
+          "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"F\"><Layers><Layer>"
+        "<Texture name=\"$parentTex\" inherits=\"SomeTextureTemplate\"/>"
+        "</Layer></Layers></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(has(r.lua, "SetFontObject"));
+}

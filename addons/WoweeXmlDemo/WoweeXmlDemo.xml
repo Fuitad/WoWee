@@ -34,7 +34,7 @@
                 </Texture>
             </Layer>
             <Layer level="OVERLAY">
-                <FontString name="$parentTitle" text="Built from XML" justifyH="LEFT">
+                <FontString name="$parentTitle" inherits="GameFontNormalLarge" text="Built from XML" justifyH="LEFT">
                     <Size><AbsDimension x="160" y="18"/></Size>
                     <Anchors>
                         <Anchor point="TOPLEFT" relativePoint="TOPLEFT">
@@ -42,7 +42,7 @@
                         </Anchor>
                     </Anchors>
                 </FontString>
-                <FontString name="$parentCount" text="clicks: 0" justifyH="LEFT">
+                <FontString name="$parentCount" inherits="GameFontHighlightSmall" text="clicks: 0" justifyH="LEFT">
                     <Size><AbsDimension x="160" y="18"/></Size>
                     <Anchors>
                         <Anchor point="TOPLEFT" relativeTo="WoweeXmlDemoFrameTitle"

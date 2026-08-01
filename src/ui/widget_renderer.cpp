@@ -9,6 +9,7 @@
 #include "imgui.h"
 
 #include <algorithm>
+#include <cfloat>
 
 namespace wowee {
 namespace ui {
@@ -218,12 +219,24 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                          ImVec2(w->texCoord[1], w->texCoord[3]),
                          packColor(w->color, w->alpha));
         } else if (w->kind == WidgetKind::FontString) {
-            const ImVec2 extent = ImGui::CalcTextSize(w->text.c_str());
+            // Font objects carry a height, and honouring it is most of what
+            // makes a label look right — a heading and a footnote are the same
+            // words at different sizes. The atlas holds one face, so this scales
+            // it rather than swapping fonts; loading FRIZQT__ properly needs an
+            // atlas rebuild, which cannot happen while a frame is being built.
+            ImFont* font = ImGui::GetFont();
+            const float base = ImGui::GetFontSize();
+            const float size = (w->fontHeight > 0.0f) ? w->fontHeight : base;
+            (void)base;
+            const ImVec2 extent =
+                font ? font->CalcTextSizeA(size, FLT_MAX, 0.0f, w->text.c_str())
+                     : ImGui::CalcTextSize(w->text.c_str());
             float tx = x0;
             if (w->justifyH == "CENTER")     tx = x0 + (w->rectW - extent.x) * 0.5f;
             else if (w->justifyH == "RIGHT") tx = x1 - extent.x;
             const float ty = y0 + (w->rectH - extent.y) * 0.5f;
-            dl->AddText(ImVec2(tx, ty), packColor(w->color, w->alpha), w->text.c_str());
+            dl->AddText(font, size, ImVec2(tx, ty),
+                        packColor(w->color, w->alpha), w->text.c_str());
         }
     }
 }
