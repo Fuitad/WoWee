@@ -1,4 +1,5 @@
 #include "core/appearance_composer.hpp"
+#include "core/helm_visual.hpp"
 #include "core/entity_spawner.hpp"
 #include "core/logger.hpp"
 #include "rendering/renderer.hpp"
@@ -457,6 +458,60 @@ bool AppearanceComposer::loadWeaponM2(const std::string& m2Path, pipeline::M2Mod
     return outModel.isValid();
 }
 
+// Head gear, which only other players used to get. The local character's
+// appearance is assembled here while everyone else's goes through
+// EntitySpawner, and the head slot was simply missing from this side: no
+// helmet model, and hair left showing through where one should be.
+void AppearanceComposer::loadEquippedHelm(game::Inventory& inventory) {
+    auto* charRenderer = renderer_ ? renderer_->getCharacterRenderer() : nullptr;
+    const uint32_t charInstanceId = renderer_ ? renderer_->getCharacterInstanceId() : 0;
+    if (!charRenderer || charInstanceId == 0 || !assetManager_ || !gameHandler_) return;
+
+    // Both attachment points, so a previous helm never lingers behind a new one.
+    charRenderer->detachWeapon(charInstanceId, 0);
+    charRenderer->detachWeapon(charInstanceId, 11);
+
+    const auto& headSlot = inventory.getEquipSlot(game::EquipSlot::HEAD);
+    if (headSlot.empty()) return;
+    const auto* info = gameHandler_->getItemInfo(headSlot.item.itemId);
+    const uint32_t displayId = info && info->valid ? info->displayInfoId
+                                                   : headSlot.item.displayInfoId;
+    if (displayId == 0) return;
+
+    uint8_t raceId = 0;
+    uint8_t genderId = 0;
+    if (const auto* ch = gameHandler_->getActiveCharacter()) {
+        raceId = static_cast<uint8_t>(ch->race);
+        genderId = static_cast<uint8_t>(ch->gender);
+    }
+
+    const core::HelmVisual helm =
+        core::resolveHelmVisual(*assetManager_, displayId, raceId, genderId);
+    if (!helm.valid()) return;
+
+    pipeline::M2Model helmModel;
+    std::string helmPath;
+    if (!helm.racialModelPath.empty()) {
+        helmPath = helm.racialModelPath;
+        if (!loadWeaponM2(helmPath, helmModel)) helmModel = {};
+    }
+    if (!helmModel.isValid()) {
+        helmPath = helm.baseModelPath;
+        if (!loadWeaponM2(helmPath, helmModel)) return;
+    }
+
+    const uint32_t helmModelId = entitySpawner_ ? entitySpawner_->allocateWeaponModelId() : 0;
+    bool attached = charRenderer->attachWeapon(charInstanceId, 0, helmModel,
+                                               helmModelId, helm.texturePath);
+    if (!attached) {
+        attached = charRenderer->attachWeapon(charInstanceId, 11, helmModel,
+                                              helmModelId, helm.texturePath);
+    }
+    if (attached) {
+        LOG_INFO("Equipped helm: ", helmPath, " tex: ", helm.texturePath);
+    }
+}
+
 void AppearanceComposer::loadEquippedWeapons() {
     // Equipment refreshes can arrive during a gather cast. Keep the temporary
     // tool authoritative until the cast-end callback restores real equipment.
@@ -478,6 +533,8 @@ void AppearanceComposer::loadEquippedWeapons() {
     if (charInstanceId == 0) return;
 
     auto& inventory = gameHandler_->getInventory();
+
+    loadEquippedHelm(inventory);
 
     // Load ItemDisplayInfo.dbc
     auto displayInfoDbc = assetManager_->loadDBC("ItemDisplayInfo.dbc");

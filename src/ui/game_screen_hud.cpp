@@ -266,6 +266,18 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
         geosets.insert(1201);
     }
 
+    // Hide hair under a helm: drop the style scalp and put the bald cap on.
+    // Group 0 holds the body plus one scalp; 0 itself is the body and stays.
+    // The other-player path has always done this, so a helm covered their hair
+    // and not yours.
+    if (hasEquippedType({1})) {
+        for (auto it = geosets.begin(); it != geosets.end();) {
+            if (*it != 0 && (*it / 100) == 0) it = geosets.erase(it);
+            else ++it;
+        }
+        geosets.insert(1);
+    }
+
     // Groups 17 and 18 are the Death Knight / Night Elf eye glow. Nothing here
     // should ever select one, and the renderer only auto-skips them when no
     // geoset filter is applied — with a filter, whatever is in this set is what

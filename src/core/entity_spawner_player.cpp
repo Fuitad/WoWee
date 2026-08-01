@@ -1,4 +1,5 @@
 #include "core/entity_spawner.hpp"
+#include "core/helm_visual.hpp"
 #include "core/coordinates.hpp"
 #include "core/logger.hpp"
 #include "rendering/renderer.hpp"
@@ -629,62 +630,31 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
         charRenderer->detachWeapon(st.instanceId, 0);
         charRenderer->detachWeapon(st.instanceId, 11);
 
-        int32_t helmIdx = displayInfoDbc->findRecordById(displayInfoIds[0]);
-        if (helmIdx >= 0) {
-            const uint32_t leftModelField = idiL ? (*idiL)["LeftModel"] : 1u;
-            std::string helmModelName = displayInfoDbc->getString(static_cast<uint32_t>(helmIdx), leftModelField);
-            if (!helmModelName.empty()) {
-                // Strip .mdx/.m2 extension
-                size_t dotPos = helmModelName.rfind('.');
-                if (dotPos != std::string::npos) helmModelName = helmModelName.substr(0, dotPos);
+        const core::HelmVisual helm = core::resolveHelmVisual(
+            *assetManager_, displayInfoIds[0], st.raceId, st.genderId);
+        if (helm.valid()) {
+            pipeline::M2Model helmModel;
+            std::string helmPath;
+            if (!helm.racialModelPath.empty()) {
+                helmPath = helm.racialModelPath;
+                if (!loadWeaponM2(helmPath, helmModel)) helmModel = {};
+            }
+            if (!helmModel.isValid()) {
+                helmPath = helm.baseModelPath;
+                loadWeaponM2(helmPath, helmModel);
+            }
 
-                // Race/gender suffix for helmet variants
-                static const std::unordered_map<uint8_t, std::string> racePrefix = {
-                    {1, "Hu"}, {2, "Or"}, {3, "Dw"}, {4, "Ni"}, {5, "Sc"},
-                    {6, "Ta"}, {7, "Gn"}, {8, "Tr"}, {10, "Be"}, {11, "Dr"}
-                };
-                std::string genderSuffix = (st.genderId == 0) ? "M" : "F";
-                std::string raceSuffix;
-                auto itRace = racePrefix.find(st.raceId);
-                if (itRace != racePrefix.end()) {
-                    raceSuffix = "_" + itRace->second + genderSuffix;
+            if (helmModel.isValid()) {
+                const uint32_t helmModelId = nextWeaponModelId_++;
+                // Attachment point 0 (head bone), fallback to 11 (explicit head).
+                bool attached = charRenderer->attachWeapon(st.instanceId, 0, helmModel,
+                                                           helmModelId, helm.texturePath);
+                if (!attached) {
+                    attached = charRenderer->attachWeapon(st.instanceId, 11, helmModel,
+                                                          helmModelId, helm.texturePath);
                 }
-
-                // Try race/gender-specific variant first, then base name
-                std::string helmPath;
-                pipeline::M2Model helmModel;
-                if (!raceSuffix.empty()) {
-                    helmPath = "Item\\ObjectComponents\\Head\\" + helmModelName + raceSuffix + ".m2";
-                    if (!loadWeaponM2(helmPath, helmModel)) helmModel = {};
-                }
-                if (!helmModel.isValid()) {
-                    helmPath = "Item\\ObjectComponents\\Head\\" + helmModelName + ".m2";
-                    loadWeaponM2(helmPath, helmModel);
-                }
-
-                if (helmModel.isValid()) {
-                    uint32_t helmModelId = nextWeaponModelId_++;
-                    // Get texture from ItemDisplayInfo (LeftModelTexture)
-                    const uint32_t leftTexField = idiL ? (*idiL)["LeftModelTexture"] : 3u;
-                    std::string helmTexName = displayInfoDbc->getString(static_cast<uint32_t>(helmIdx), leftTexField);
-                    std::string helmTexPath;
-                    if (!helmTexName.empty()) {
-                        if (!raceSuffix.empty()) {
-                            std::string suffixedTex = "Item\\ObjectComponents\\Head\\" + helmTexName + raceSuffix + ".blp";
-                            if (assetManager_->fileExists(suffixedTex)) helmTexPath = suffixedTex;
-                        }
-                        if (helmTexPath.empty()) {
-                            helmTexPath = "Item\\ObjectComponents\\Head\\" + helmTexName + ".blp";
-                        }
-                    }
-                    // Attachment point 0 (head bone), fallback to 11 (explicit head attachment)
-                    bool attached = charRenderer->attachWeapon(st.instanceId, 0, helmModel, helmModelId, helmTexPath);
-                    if (!attached) {
-                        attached = charRenderer->attachWeapon(st.instanceId, 11, helmModel, helmModelId, helmTexPath);
-                    }
-                    if (attached) {
-                        LOG_DEBUG("Attached player helmet: ", helmPath, " tex: ", helmTexPath);
-                    }
+                if (attached) {
+                    LOG_DEBUG("Attached player helmet: ", helmPath, " tex: ", helm.texturePath);
                 }
             }
         }

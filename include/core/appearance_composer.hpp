@@ -10,7 +10,7 @@ namespace wowee {
 
 namespace rendering { class Renderer; }
 namespace pipeline { class AssetManager; class DBCLayout; struct M2Model; }
-namespace game { class GameHandler; }
+namespace game { class GameHandler; class Inventory; }
 
 namespace core {
 
@@ -93,6 +93,10 @@ public:
 
 private:
     bool loadWeaponM2(const std::string& m2Path, pipeline::M2Model& outModel);
+
+    /// Attach the equipped head item's model. Other players resolve this through
+    /// EntitySpawner; the local character had no equivalent at all.
+    void loadEquippedHelm(game::Inventory& inventory);
 
     // Attach the enchant visual (sharpening-stone glint, weapon glow) of the item in
     // the given equipment slot to the weapon already attached at attachmentId.
