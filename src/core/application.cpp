@@ -1796,13 +1796,40 @@ void Application::update(float deltaTime) {
                         if (renderer->getTerrainManager()) {
                             terrainFloor = renderer->getTerrainManager()->getHeightAt(p.x, p.y);
                         }
+                        // Ground truth for this landing: where the flight itself left
+                        // the player, captured once when the clamp armed. Both the probe
+                        // height and the candidate selection below key off it.
+                        const float referenceZ = worldEntryCallbacks_
+                            ? worldEntryCallbacks_->getTaxiLandingReferenceZ() : p.z;
+
+                        // Probe from a height that does not move, because this clamp
+                        // rewrites p.z every frame and the structure query only looks
+                        // for candidates within roughly ten yards of where it is asked.
+                        //
+                        // Probing p.z + 40 therefore only found a floor while the
+                        // player was still far below it. Snapping them onto it lifted
+                        // the probe out of range, the floor stopped being reported, the
+                        // clamp fell back to terrain and dropped them again — landing
+                        // at Booty Bay flip-flopped between the WMO deck at 36.5 and
+                        // the terrain at 4.5 twelve times over, and whichever the last
+                        // frame chose is where the player was abandoned as the timer
+                        // ran out, which is how they ended up thrown up and then under
+                        // the structure.
+                        //
+                        // referenceZ is captured once when the clamp arms, from where
+                        // the flight itself left the player, and is already the value
+                        // the selection below measures candidates against. Anchoring
+                        // the probe to it keeps the candidate set the same every frame,
+                        // so the choice is stable and the streaming re-query it exists
+                        // for still works.
+                        constexpr float kLandingProbeAbove = 2.0f;
+                        const float probeZ = referenceZ + kLandingProbeAbove;
                         if (renderer->getWMORenderer()) {
-                            // Probe from above so we can recover when current Z is already below floor.
-                            wmoFloor = renderer->getWMORenderer()->getFloorHeight(p.x, p.y, p.z + 40.0f);
+                            wmoFloor = renderer->getWMORenderer()->getFloorHeight(p.x, p.y, probeZ);
                         }
                         if (renderer->getM2Renderer()) {
                             // Include M2 floors (bridges/platforms) in landing recovery.
-                            m2Floor = renderer->getM2Renderer()->getFloorHeight(p.x, p.y, p.z + 40.0f);
+                            m2Floor = renderer->getM2Renderer()->getFloorHeight(p.x, p.y, probeZ);
                         }
 
                         // Pick whichever floor candidate is closest to where the taxi flight
@@ -1816,8 +1843,6 @@ void Application::update(float deltaTime) {
                         // sitting underneath it. referenceZ - captured once when the clamp
                         // armed, from wherever the flight simulation actually left the player -
                         // is ground truth for which candidate is plausible.
-                        const float referenceZ = worldEntryCallbacks_
-                            ? worldEntryCallbacks_->getTaxiLandingReferenceZ() : p.z;
                         std::optional<float> targetFloor;
                         const char* pickedFrom = "none";
                         float bestDist = std::numeric_limits<float>::max();
@@ -1834,7 +1859,7 @@ void Application::update(float deltaTime) {
                         }
 
                         LOG_INFO("Taxi landing clamp: pos=(", p.x, ", ", p.y, ", ", p.z, ") ",
-                                 "referenceZ=", referenceZ, " ",
+                                 "referenceZ=", referenceZ, " probeZ=", probeZ, " ",
                                  "terrainFloor=", terrainFloor ? std::to_string(*terrainFloor) : "none", " ",
                                  "wmoFloor=", wmoFloor ? std::to_string(*wmoFloor) : "none", " ",
                                  "m2Floor=", m2Floor ? std::to_string(*m2Floor) : "none", " ",
