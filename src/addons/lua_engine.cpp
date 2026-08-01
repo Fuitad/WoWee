@@ -844,13 +844,18 @@ void LuaEngine::registerCoreAPI() {
     }
     lua_setglobal(L_, "__WoweeFrameMT");
 
-    // Add commonly called no-op frame methods to prevent addon errors
+    // Commonly called frame methods that are no-ops for now, so an addon
+    // calling one gets silence rather than an error.
+    //
+    // Anything bound in C above must not appear here. These run afterwards and
+    // simply overwrite it, turning a working method into a no-op that still
+    // answers — EnableMouse was defined here and so no frame ever took the
+    // mouse, however plainly the call read in the addon.
     luaL_dostring(L_,
         "local mt = __WoweeFrameMT\n"
 
         "function mt:GetFrameLevel() return self.__frameLevel or 1 end\n"
         "function mt:GetFrameStrata() return self.__strata or 'MEDIUM' end\n"
-        "function mt:EnableMouse(enable) end\n"
         "function mt:EnableMouseWheel(enable) end\n"
         "function mt:SetMovable(movable) end\n"
         "function mt:SetResizable(resizable) end\n"
@@ -859,7 +864,6 @@ void LuaEngine::registerCoreAPI() {
         "function mt:SetBackdrop(backdrop) end\n"
         "function mt:SetBackdropColor(...) end\n"
         "function mt:SetBackdropBorderColor(...) end\n"
-        "function mt:ClearAllPoints() end\n"
         "function mt:SetID(id) self.__id = id end\n"
         "function mt:GetID() return self.__id or 0 end\n"
         "function mt:SetScale(scale) self.__scale = scale end\n"
@@ -1856,10 +1860,22 @@ void LuaEngine::dispatchMouse(float x, float y, bool leftDown) {
             const auto* w = widgets_.get(id);
             if (w && w->mouseEnabled && w->visible) ++mouseFrames;
         }
-        if (mouseFrames > 0) {
+        // Reported whenever anything is on screen at all, not only when
+        // something is mouse-enabled. Gating on that hid the one case that was
+        // actually happening: no frame took the mouse, so the count was zero,
+        // so nothing was logged, so the silence looked like the dispatch never
+        // running. A diagnostic must not go quiet in the state it exists to
+        // report.
+        size_t visibleFrames = 0;
+        for (uint32_t id = 1; id < widgets_.size(); ++id) {
+            const auto* w = widgets_.get(id);
+            if (w && w->visible) ++visibleFrames;
+        }
+        if (visibleFrames > 0) {
             lastReport = now;
             LOG_INFO("WidgetInput: mouse=(", x, ",", y, ") hit=", hit,
-                     " hover=", hoverWid_, " mouseEnabledVisibleFrames=", mouseFrames);
+                     " hover=", hoverWid_, " mouseEnabled=", mouseFrames,
+                     " visible=", visibleFrames);
         }
     }
 
