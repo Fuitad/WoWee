@@ -1,6 +1,7 @@
 #include "addons/lua_engine.hpp"
 #include "ui/widget_tree.hpp"
 #include <chrono>
+#include <cfloat>
 #include <algorithm>
 #include <climits>
 #include <set>
@@ -294,6 +295,52 @@ int lua_Region_SetHeight(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->height = static_cast<float>(luaL_optnumber(L, 2, 0));
     return 0;
 }
+/// Width of a string as it would be drawn.
+///
+/// Through the real font where there is one, so a button sized to its label
+/// gets the size the label actually takes. During the FrameXML load there may
+/// not be a frame in flight to ask, and an estimate is far better than nothing:
+/// the alternative was answering nil, and MoneyFrame does
+/// SetWidth(GetTextWidth() + iconWidth) — arithmetic that loses the file.
+float measureTextWidth(const std::string& text, float fontHeight) {
+    if (text.empty()) return 0.0f;
+    const float size = fontHeight > 0.0f ? fontHeight : 12.0f;
+    if (ImGui::GetCurrentContext() != nullptr) {
+        if (ImFont* font = ImGui::GetFont()) {
+            return font->CalcTextSizeA(size, FLT_MAX, 0.0f, text.c_str()).x;
+        }
+    }
+    // Roughly half the height per character, which is about right for the
+    // proportional faces the interface uses.
+    return static_cast<float>(text.size()) * size * 0.5f;
+}
+
+/// The font string a widget measures: itself if it is one, and otherwise the
+/// one a button was given, which is where its text actually lives.
+const wowee::ui::Widget* textWidgetOf(lua_State* L, int index) {
+    const wowee::ui::Widget* w = widgetOf(L, index);
+    if (!w || w->kind == wowee::ui::WidgetKind::FontString) return w;
+    auto* tree = wowee::addons::getWidgetTree(L);
+    if (!tree) return w;
+    lua_getfield(L, index, "__fontString");
+    const wowee::ui::Widget* fs =
+        lua_istable(L, -1) ? tree->get(widgetIdOf(L, lua_gettop(L))) : nullptr;
+    lua_pop(L, 1);
+    return fs ? fs : w;
+}
+
+int lua_Region_GetTextWidth(lua_State* L) {
+    const auto* w = textWidgetOf(L, 1);
+    lua_pushnumber(L, w ? measureTextWidth(w->text, w->fontHeight) : 0.0);
+    return 1;
+}
+
+int lua_Region_GetTextHeight(lua_State* L) {
+    const auto* w = textWidgetOf(L, 1);
+    lua_pushnumber(L, w ? (w->fontHeight > 0.0f ? w->fontHeight : 12.0f) : 0.0);
+    return 1;
+}
+
 int lua_Region_GetWidth(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     lua_pushnumber(L, w ? (w->rectW > 0.0f ? w->rectW : w->width) : 0.0);
@@ -481,6 +528,10 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     set("SetWidth", lua_Region_SetWidth);
     set("SetHeight", lua_Region_SetHeight);
     set("GetWidth", lua_Region_GetWidth);
+    set("GetTextWidth", lua_Region_GetTextWidth);
+    set("GetStringWidth", lua_Region_GetTextWidth);
+    set("GetTextHeight", lua_Region_GetTextHeight);
+    set("GetStringHeight", lua_Region_GetTextHeight);
     set("GetHeight", lua_Region_GetHeight);
     set("Show", lua_Region_Show);
     set("Hide", lua_Region_Hide);
@@ -1146,6 +1197,10 @@ void LuaEngine::registerCoreAPI() {
         {"SetWidth",        lua_Region_SetWidth},
         {"SetHeight",       lua_Region_SetHeight},
         {"GetWidth",        lua_Region_GetWidth},
+        {"GetTextWidth",    lua_Region_GetTextWidth},
+        {"GetStringWidth",  lua_Region_GetTextWidth},
+        {"GetTextHeight",   lua_Region_GetTextHeight},
+        {"GetStringHeight", lua_Region_GetTextHeight},
         {"GetHeight",       lua_Region_GetHeight},
         {"GetCenter",       lua_Frame_GetCenter},
         {"SetAlpha",        lua_Region_SetAlpha},
