@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <chrono>
 #include <utility>
 #include <vector>
 
@@ -276,7 +277,17 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // broken script takes down every file that references it, so what matters
     // is seeing them side by side and spotting the cause they share.
     std::vector<std::pair<std::string, std::string>> failures;
+    // Timed per file. This load runs on the main thread during world entry, so
+    // whatever it costs the client is frozen for — long enough and the server
+    // drops the connection for want of a heartbeat. Knowing it is slow is not
+    // useful; knowing which file is.
+    const auto loadStart = std::chrono::steady_clock::now();
+    auto sinceMs = [](std::chrono::steady_clock::time_point from) {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+                   std::chrono::steady_clock::now() - from).count();
+    };
     for (const auto& filename : toc->files) {
+        const auto fileStart = std::chrono::steady_clock::now();
         std::string lower = filename;
         for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
         const std::filesystem::path resolved = resolvePath(dir, filename);
@@ -310,9 +321,15 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
                                                     : lastXmlError_);
             }
         }
+        // Reported as it happens rather than only in the summary, because a
+        // load that never reaches the summary is exactly the case worth
+        // diagnosing.
+        if (const auto ms = sinceMs(fileStart); ms >= 250) {
+            LOG_WARNING("FrameXML: ", filename, " took ", ms, "ms");
+        }
     }
     LOG_WARNING("FrameXML: ", lua, " Lua files and ", xml, " XML files loaded, ",
-                failed, " failed");
+                failed, " failed in ", sinceMs(loadStart), "ms");
     for (const auto& [file, why] : failures) {
         LOG_WARNING("FrameXML:   ", file, " — ", why);
     }
