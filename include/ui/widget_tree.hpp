@@ -121,6 +121,8 @@ struct Widget {
     // FontString regions.
     std::string text;
     float fontHeight = 12.0f;
+    /// Extra space between wrapped lines, which FrameXML reads back.
+    float lineSpacing = 0.0f;
     std::string justifyH = "CENTER";
 
     // Filled in by layout(). Screen rect in WoW coordinates: origin bottom-left.

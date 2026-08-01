@@ -238,8 +238,18 @@ static int lua_GetIgnoreName(lua_State* L) {
 
 // GetNumTalentTabs() → count (usually 3)
 
+/// Battle.net friends: none, and none online. Two values, because FriendsFrame
+/// reads them together and does arithmetic on the second the line it is read —
+/// numBNetTotal - numBNetOnline.
+static int lua_BNGetNumFriends(lua_State* L) {
+    lua_pushnumber(L, 0.0);
+    lua_pushnumber(L, 0.0);
+    return 2;
+}
+
 void registerSocialLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
+                {"BNGetNumFriends",     lua_BNGetNumFriends},
                 {"SendChatMessage",   lua_SendChatMessage},
                 {"SendAddonMessage",  lua_SendAddonMessage},
                 {"RegisterAddonMessagePrefix", lua_RegisterAddonMessagePrefix},

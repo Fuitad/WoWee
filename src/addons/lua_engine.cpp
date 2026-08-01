@@ -503,6 +503,20 @@ int lua_FontString_GetFont(lua_State* L) {
     return 3;
 }
 
+/// Extra space between wrapped lines. Zero unless set, and a number either
+/// way: WorldMapFrame adds it to a font height on the line after asking.
+int lua_FontString_GetSpacing(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->lineSpacing : 0.0);
+    return 1;
+}
+
+int lua_FontString_SetSpacing(lua_State* L) {
+    if (auto* w = widgetOf(L, 1))
+        w->lineSpacing = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+    return 0;
+}
+
 /// SetFontObject(obj) where obj is one of the shared font objects, which carry
 /// a height and a colour. FrameXML reaches for these more than three thousand
 /// times, so a FontString that ignores them is the wrong size and colour nearly
@@ -568,6 +582,8 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
         set("SetTextColor", lua_FontString_SetTextColor);
         set("SetFont", lua_FontString_SetFont);
         set("GetFont", lua_FontString_GetFont);
+        set("GetSpacing", lua_FontString_GetSpacing);
+        set("SetSpacing", lua_FontString_SetSpacing);
         set("SetFontObject", lua_FontString_SetFontObject);
     }
     // Anything still unimplemented stays a no-op rather than an error, which is
