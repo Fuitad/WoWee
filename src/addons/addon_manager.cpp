@@ -282,6 +282,14 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // drops the connection for want of a heartbeat. Knowing it is slow is not
     // useful; knowing which file is.
     const auto loadStart = std::chrono::steady_clock::now();
+    // Generous: all 139 files together used to run in 216ms, so a single one
+    // reaching this has stopped making progress. Aborting it costs that file
+    // and keeps the client answering, which beats freezing until it is killed.
+    luaEngine_.setInstructionBudget(100000000ull);
+    struct BudgetReset {
+        LuaEngine& e;
+        ~BudgetReset() { e.setInstructionBudget(0); }
+    } budgetReset{luaEngine_};
     auto sinceMs = [](std::chrono::steady_clock::time_point from) {
         return std::chrono::duration_cast<std::chrono::milliseconds>(
                    std::chrono::steady_clock::now() - from).count();

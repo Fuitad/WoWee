@@ -65,6 +65,15 @@ public:
     lua_State* getState() { return L_; }
     bool isInitialized() const { return L_ != nullptr; }
 
+    /// Abort a chunk that runs longer than this many VM instructions, naming
+    /// the Lua source and line it was on. Zero disables it.
+    ///
+    /// A runaway script otherwise freezes the client outright — the load runs
+    /// on the main thread, so the window stops responding and the server drops
+    /// the connection for want of a heartbeat. A C++ backtrace only says which
+    /// binding it was inside; this says which line of Lua kept calling it.
+    void setInstructionBudget(unsigned long long budget) { instructionBudget_ = budget; }
+
     // Optional callback for Lua errors (displayed as UI errors to the player)
     using LuaErrorCallback = std::function<void(const std::string&)>;
     void setLuaErrorCallback(LuaErrorCallback cb) { luaErrorCallback_ = std::move(cb); }
@@ -76,6 +85,7 @@ private:
     LuaServices luaServices_;
     LuaErrorCallback luaErrorCallback_;
     std::string lastError_;
+    unsigned long long instructionBudget_ = 0;
 
     void callFrameScript(uint32_t wid, const char* script, const char* arg = nullptr);
 

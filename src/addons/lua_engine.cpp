@@ -1,6 +1,8 @@
 #include "addons/lua_engine.hpp"
 #include "ui/widget_tree.hpp"
 #include <chrono>
+#include <algorithm>
+#include <climits>
 #include <set>
 #include <cstdlib>
 #include "addons/lua_api_helpers.hpp"
@@ -2543,9 +2545,44 @@ bool LuaEngine::saveSavedVariables(const std::string& path, const std::vector<st
     return true;
 }
 
+namespace {
+
+/// Fires once a chunk has run past its budget. Reports where the VM actually
+/// is — the Lua source and line — which a C++ backtrace cannot tell you: that
+/// only names the binding being called, not the loop calling it.
+void runawayHook(lua_State* L, lua_Debug*) {
+    std::string where = "unknown";
+    lua_Debug info;
+    if (lua_getstack(L, 0, &info) && lua_getinfo(L, "Sl", &info)) {
+        where = std::string(info.short_src[0] ? info.short_src : "?") + ":" +
+                std::to_string(info.currentline);
+    }
+    // Off before unwinding, or it fires again inside the error path.
+    lua_sethook(L, nullptr, 0, 0);
+    LOG_ERROR("LuaEngine: runaway script aborted at ", where);
+    luaL_error(L, "runaway script aborted at %s", where.c_str());
+}
+
+/// Installs the budget for one chunk and takes it off again however that chunk
+/// leaves — including by error, which is the case that matters.
+struct BudgetGuard {
+    lua_State* L;
+    explicit BudgetGuard(lua_State* state, unsigned long long budget) : L(state) {
+        if (L && budget > 0) {
+            lua_sethook(L, runawayHook, LUA_MASKCOUNT,
+                        static_cast<int>(std::min<unsigned long long>(
+                            budget, static_cast<unsigned long long>(INT_MAX))));
+        }
+    }
+    ~BudgetGuard() { if (L) lua_sethook(L, nullptr, 0, 0); }
+};
+
+} // namespace
+
 bool LuaEngine::executeFile(const std::string& path) {
     if (!L_) return false;
 
+    BudgetGuard guard(L_, instructionBudget_);
     int err = luaL_dofile(L_, path.c_str());
     if (err != 0) {
         const char* errMsg = lua_tostring(L_, -1);
@@ -2569,6 +2606,7 @@ bool LuaEngine::executeFile(const std::string& path) {
 bool LuaEngine::executeString(const std::string& code) {
     if (!L_) return false;
 
+    BudgetGuard guard(L_, instructionBudget_);
     int err = luaL_dostring(L_, code.c_str());
     if (err != 0) {
         const char* errMsg = lua_tostring(L_, -1);
