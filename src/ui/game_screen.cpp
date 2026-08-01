@@ -1361,6 +1361,11 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 // object sphere behind it.
                 float bestUnitCenterT = 1e30f;
                 uint64_t bestUnitGuid = 0;
+                // Split by liveness so a body cannot outrank someone standing on it.
+                float bestLivingUnitCenterT = 1e30f;
+                uint64_t bestLivingUnitGuid = 0;
+                float bestDeadUnitCenterT = 1e30f;
+                uint64_t bestDeadUnitGuid = 0;
                 float bestGoCenterT = 1e30f;
                 uint64_t bestGoGuid = 0;
 
@@ -1405,13 +1410,36 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                     if (raySphereIntersect(ray, hitCenter, hitRadius, hitT)) {
                         const float centerT = glm::dot(hitCenter - ray.origin, ray.direction);
                         if (t == game::ObjectType::UNIT || t == game::ObjectType::PLAYER) {
+                            // Rank the living ahead of the dead rather than by
+                            // distance alone. A corpse lies at ground level, so
+                            // looking down at a player standing on one puts the
+                            // body nearer the camera and it took the click.
+                            bool aliveUnit = true;
+                            if (auto asUnit = std::dynamic_pointer_cast<game::Unit>(entity)) {
+                                aliveUnit = !(asUnit->getHealth() == 0 && asUnit->getMaxHealth() > 0);
+                            }
+                            if (aliveUnit) {
+                                if (centerT < bestLivingUnitCenterT) {
+                                    bestLivingUnitCenterT = centerT;
+                                    bestLivingUnitGuid = guid;
+                                }
+                            } else if (centerT < bestDeadUnitCenterT) {
+                                bestDeadUnitCenterT = centerT;
+                                bestDeadUnitGuid = guid;
+                            }
                             if (centerT < bestUnitCenterT) {
                                 bestUnitCenterT = centerT;
                                 bestUnitGuid = guid;
                             }
                             if (t == game::ObjectType::UNIT) {
                                 auto unit = std::static_pointer_cast<game::Unit>(entity);
-                                bool hostileUnit = unit->isHostile() || gameHandler.isAggressiveTowardPlayer(guid);
+                                // A corpse still answers isHostile(), and hostile
+                                // units are picked ahead of everything else — so a
+                                // body on the ground beat the living player standing
+                                // over it every time.
+                                const bool dead = unit->getHealth() == 0 && unit->getMaxHealth() > 0;
+                                bool hostileUnit = !dead &&
+                                    (unit->isHostile() || gameHandler.isAggressiveTowardPlayer(guid));
                                 if (hostileUnit && hitT < closestHostileUnitT) {
                                     closestHostileUnitT = hitT;
                                     closestHostileUnitGuid = guid;
@@ -1441,6 +1469,17 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 // A unit wins over a game object unless the object's center is clearly in
                 // front of the unit's, so a creature is never lost to a decorative or
                 // backing object behind it. Hostile units keep their targeting priority.
+                // Someone alive wins; a corpse stays selectable, but only when nothing
+                // living was under the cursor. That is how retail behaves, and it is what
+                // makes a player standing on a body clickable at all.
+                if (bestLivingUnitGuid != 0) {
+                    bestUnitGuid = bestLivingUnitGuid;
+                    bestUnitCenterT = bestLivingUnitCenterT;
+                } else if (bestDeadUnitGuid != 0) {
+                    bestUnitGuid = bestDeadUnitGuid;
+                    bestUnitCenterT = bestDeadUnitCenterT;
+                }
+
                 constexpr float kUnitOverGoBias = 2.0f;
                 if (bestUnitGuid != 0 &&
                     (bestGoGuid == 0 || bestUnitCenterT <= bestGoCenterT + kUnitOverGoBias)) {
@@ -1574,6 +1613,11 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 // entity CENTER, so a unit in front beats a big object sphere behind it.
                 float bestUnitCenterT = 1e30f;
                 uint64_t bestUnitGuid = 0;
+                // Split by liveness so a body cannot outrank someone standing on it.
+                float bestLivingUnitCenterT = 1e30f;
+                uint64_t bestLivingUnitGuid = 0;
+                float bestDeadUnitCenterT = 1e30f;
+                uint64_t bestDeadUnitGuid = 0;
                 float bestGoCenterT = 1e30f;
                 uint64_t bestGoGuid = 0;
                 const uint64_t myGuid = gameHandler.getPlayerGuid();
@@ -1634,13 +1678,36 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                     if (raySphereIntersect(ray, hitCenter, hitRadius, hitT)) {
                         const float centerT = glm::dot(hitCenter - ray.origin, ray.direction);
                         if (t == game::ObjectType::UNIT || t == game::ObjectType::PLAYER) {
+                            // Rank the living ahead of the dead rather than by
+                            // distance alone. A corpse lies at ground level, so
+                            // looking down at a player standing on one puts the
+                            // body nearer the camera and it took the click.
+                            bool aliveUnit = true;
+                            if (auto asUnit = std::dynamic_pointer_cast<game::Unit>(entity)) {
+                                aliveUnit = !(asUnit->getHealth() == 0 && asUnit->getMaxHealth() > 0);
+                            }
+                            if (aliveUnit) {
+                                if (centerT < bestLivingUnitCenterT) {
+                                    bestLivingUnitCenterT = centerT;
+                                    bestLivingUnitGuid = guid;
+                                }
+                            } else if (centerT < bestDeadUnitCenterT) {
+                                bestDeadUnitCenterT = centerT;
+                                bestDeadUnitGuid = guid;
+                            }
                             if (centerT < bestUnitCenterT) {
                                 bestUnitCenterT = centerT;
                                 bestUnitGuid = guid;
                             }
                             if (t == game::ObjectType::UNIT) {
                                 auto unit = std::static_pointer_cast<game::Unit>(entity);
-                                bool hostileUnit = unit->isHostile() || gameHandler.isAggressiveTowardPlayer(guid);
+                                // A corpse still answers isHostile(), and hostile
+                                // units are picked ahead of everything else — so a
+                                // body on the ground beat the living player standing
+                                // over it every time.
+                                const bool dead = unit->getHealth() == 0 && unit->getMaxHealth() > 0;
+                                bool hostileUnit = !dead &&
+                                    (unit->isHostile() || gameHandler.isAggressiveTowardPlayer(guid));
                                 if (hostileUnit && hitT < closestHostileUnitT) {
                                     closestHostileUnitT = hitT;
                                     closestHostileUnitGuid = guid;
@@ -1692,6 +1759,17 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                     // A unit wins over a game object unless the object's center is clearly
                     // in front of the unit's, so a creature is never lost to a decorative
                     // or backing object behind it. Hostile units keep attack priority.
+                    // Someone alive wins; a corpse stays selectable, but only when nothing
+                    // living was under the cursor. That is how retail behaves, and it is what
+                    // makes a player standing on a body clickable at all.
+                    if (bestLivingUnitGuid != 0) {
+                        bestUnitGuid = bestLivingUnitGuid;
+                        bestUnitCenterT = bestLivingUnitCenterT;
+                    } else if (bestDeadUnitGuid != 0) {
+                        bestUnitGuid = bestDeadUnitGuid;
+                        bestUnitCenterT = bestDeadUnitCenterT;
+                    }
+
                     constexpr float kUnitOverGoBias = 2.0f;
                     if (bestUnitGuid != 0 &&
                         (bestGoGuid == 0 || bestUnitCenterT <= bestGoCenterT + kUnitOverGoBias)) {
