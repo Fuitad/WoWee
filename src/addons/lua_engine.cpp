@@ -1,5 +1,6 @@
 #include "addons/lua_engine.hpp"
 #include "ui/widget_tree.hpp"
+#include <chrono>
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_api_registrations.hpp"
 #include "addons/toc_parser.hpp"
@@ -1841,6 +1842,26 @@ void LuaEngine::callFrameScript(uint32_t wid, const char* script,
 void LuaEngine::dispatchMouse(float x, float y, bool leftDown) {
     if (!L_) return;
     const uint32_t hit = widgets_.hitTest(x, y);
+
+    // Throttled, and only while there is something to hit. Whether the mouse
+    // reaches the widget tree at all is otherwise invisible: a frame that never
+    // lights up looks the same whether the dispatch is not running, the
+    // coordinates are wrong, or the frame is not taking the mouse.
+    static double lastReport = 0.0;
+    const double now = static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count()) / 1000.0;
+    if (now - lastReport >= 1.0) {
+        size_t mouseFrames = 0;
+        for (uint32_t id = 1; id < widgets_.size(); ++id) {
+            const auto* w = widgets_.get(id);
+            if (w && w->mouseEnabled && w->visible) ++mouseFrames;
+        }
+        if (mouseFrames > 0) {
+            lastReport = now;
+            LOG_INFO("WidgetInput: mouse=(", x, ",", y, ") hit=", hit,
+                     " hover=", hoverWid_, " mouseEnabledVisibleFrames=", mouseFrames);
+        }
+    }
 
     // Hover first, so a frame that appears under a stationary cursor still gets
     // its OnEnter rather than waiting for the mouse to move.
