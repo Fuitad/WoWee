@@ -2223,9 +2223,38 @@ void LuaEngine::dispatchOnUpdate(float elapsed) {
                 if (lua_pcall(L_, 2, 0, 0) != 0) {
                     const char* uerr = lua_tostring(L_, -1);
                     std::string uerrStr = uerr ? uerr : "(unknown)";
-                    LOG_ERROR("LuaEngine: OnUpdate error: ", uerrStr);
-                    if (luaErrorCallback_) luaErrorCallback_(uerrStr);
                     lua_pop(L_, 1);
+
+                    // A handler that fails once will fail every frame, and this
+                    // runs every frame: five broken OnUpdates produced five and
+                    // a half thousand identical errors in one session, which
+                    // costs time and buries everything else in the log.
+                    //
+                    // After a few tries the handler is unhooked and said so
+                    // once. The frame keeps working — it simply stops being
+                    // asked to do the thing it cannot do.
+                    constexpr int kMaxConsecutiveFailures = 5;
+                    lua_getfield(L_, -1, "__onUpdateFailures");
+                    const int failures = static_cast<int>(lua_tointeger(L_, -1)) + 1;
+                    lua_pop(L_, 1);
+                    lua_pushinteger(L_, failures);
+                    lua_setfield(L_, -2, "__onUpdateFailures");
+
+                    if (failures >= kMaxConsecutiveFailures) {
+                        lua_pushnil(L_);
+                        lua_setfield(L_, -2, "OnUpdate");
+                        LOG_ERROR("LuaEngine: OnUpdate disabled after ", failures,
+                                  " failures: ", uerrStr);
+                        if (luaErrorCallback_) luaErrorCallback_(uerrStr);
+                    } else if (failures == 1) {
+                        LOG_ERROR("LuaEngine: OnUpdate error: ", uerrStr);
+                        if (luaErrorCallback_) luaErrorCallback_(uerrStr);
+                    }
+                } else {
+                    // Consecutive, so a handler that recovers is not punished
+                    // for an early stumble.
+                    lua_pushinteger(L_, 0);
+                    lua_setfield(L_, -2, "__onUpdateFailures");
                 }
             } else {
                 lua_pop(L_, 1);
