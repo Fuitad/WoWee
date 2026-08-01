@@ -2547,15 +2547,33 @@ bool LuaEngine::saveSavedVariables(const std::string& path, const std::vector<st
 
 namespace {
 
-/// Fires once a chunk has run past its budget. Reports where the VM actually
-/// is — the Lua source and line — which a C++ backtrace cannot tell you: that
-/// only names the binding being called, not the loop calling it.
+/// When the running chunk must give up. Wall clock rather than a count of VM
+/// instructions: the runaway this was written for spends nearly all its time
+/// inside one C binding — a table rehash that grows with every call — so it
+/// executes very few Lua instructions per second and a generous instruction
+/// budget never came due while the client sat frozen.
+std::chrono::steady_clock::time_point gChunkDeadline{};
+
+/// Reports where the VM actually is — the Lua source and line — which a C++
+/// backtrace cannot tell you: that only names the binding being called, not
+/// the loop calling it.
 void runawayHook(lua_State* L, lua_Debug*) {
+    if (std::chrono::steady_clock::now() < gChunkDeadline) return;
+
     std::string where = "unknown";
     lua_Debug info;
     if (lua_getstack(L, 0, &info) && lua_getinfo(L, "Sl", &info)) {
         where = std::string(info.short_src[0] ? info.short_src : "?") + ":" +
                 std::to_string(info.currentline);
+    }
+    // Several levels of it, because the innermost line is often a helper and
+    // the loop that will not end is the caller.
+    for (int level = 1; level < 6; ++level) {
+        lua_Debug up;
+        if (!lua_getstack(L, level, &up) || !lua_getinfo(L, "Sln", &up)) break;
+        LOG_ERROR("LuaEngine:   called from ",
+                  up.short_src[0] ? up.short_src : "?", ":", up.currentline,
+                  up.name ? " in " : "", up.name ? up.name : "");
     }
     // Off before unwinding, or it fires again inside the error path.
     lua_sethook(L, nullptr, 0, 0);
@@ -2563,15 +2581,17 @@ void runawayHook(lua_State* L, lua_Debug*) {
     luaL_error(L, "runaway script aborted at %s", where.c_str());
 }
 
-/// Installs the budget for one chunk and takes it off again however that chunk
-/// leaves — including by error, which is the case that matters.
+/// Installs the deadline for one chunk and takes it off again however that
+/// chunk leaves — including by error, which is the case that matters.
 struct BudgetGuard {
     lua_State* L;
-    explicit BudgetGuard(lua_State* state, unsigned long long budget) : L(state) {
-        if (L && budget > 0) {
-            lua_sethook(L, runawayHook, LUA_MASKCOUNT,
-                        static_cast<int>(std::min<unsigned long long>(
-                            budget, static_cast<unsigned long long>(INT_MAX))));
+    explicit BudgetGuard(lua_State* state, unsigned long long ms) : L(state) {
+        if (L && ms > 0) {
+            gChunkDeadline = std::chrono::steady_clock::now() +
+                             std::chrono::milliseconds(ms);
+            // Checked often enough to be responsive, rarely enough that the
+            // check itself costs nothing measurable.
+            lua_sethook(L, runawayHook, LUA_MASKCOUNT, 10000);
         }
     }
     ~BudgetGuard() { if (L) lua_sethook(L, nullptr, 0, 0); }
@@ -2582,7 +2602,7 @@ struct BudgetGuard {
 bool LuaEngine::executeFile(const std::string& path) {
     if (!L_) return false;
 
-    BudgetGuard guard(L_, instructionBudget_);
+    BudgetGuard guard(L_, chunkTimeoutMs_);
     int err = luaL_dofile(L_, path.c_str());
     if (err != 0) {
         const char* errMsg = lua_tostring(L_, -1);
@@ -2606,7 +2626,7 @@ bool LuaEngine::executeFile(const std::string& path) {
 bool LuaEngine::executeString(const std::string& code) {
     if (!L_) return false;
 
-    BudgetGuard guard(L_, instructionBudget_);
+    BudgetGuard guard(L_, chunkTimeoutMs_);
     int err = luaL_dostring(L_, code.c_str());
     if (err != 0) {
         const char* errMsg = lua_tostring(L_, -1);
