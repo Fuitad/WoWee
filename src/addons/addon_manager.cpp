@@ -6,6 +6,7 @@
 #include "ui/framexml_emitter.hpp"
 #include <algorithm>
 #include <set>
+#include <optional>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -26,6 +27,47 @@ bool AddonManager::initialize(game::GameHandler* gameHandler, const LuaServices&
     return true;
 }
 
+namespace {
+
+/// Find a child of `base` whose name matches `name` ignoring case, or empty.
+///
+/// Extracted game data does not agree with itself about case: this install has
+/// interface/framexml in lower case beside interface/AddOns in mixed. The asset
+/// manager copes because it goes through a manifest of normalised paths, but
+/// anything reaching the filesystem directly has to look, and on a
+/// case-sensitive filesystem a hardcoded spelling simply misses.
+std::filesystem::path resolveChild(const std::filesystem::path& base,
+                                   const std::string& name) {
+    std::error_code ec;
+    const std::filesystem::path exact = base / name;
+    if (std::filesystem::exists(exact, ec)) return exact;
+
+    auto lower = [](std::string v) {
+        for (char& c : v) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        return v;
+    };
+    const std::string wanted = lower(name);
+    for (const auto& entry : std::filesystem::directory_iterator(base, ec)) {
+        if (lower(entry.path().filename().string()) == wanted) return entry.path();
+    }
+    return {};
+}
+
+/// Walk a relative path one component at a time, matching each without regard
+/// to case.
+std::filesystem::path resolvePath(const std::filesystem::path& base,
+                                  const std::string& relative) {
+    std::filesystem::path at = base;
+    for (const auto& part : std::filesystem::path(relative)) {
+        if (part.empty() || part == ".") continue;
+        at = resolveChild(at, part.string());
+        if (at.empty()) return {};
+    }
+    return at;
+}
+
+} // namespace
+
 void AddonManager::scanAddons(const std::string& addonsPath) {
     addonsPath_ = addonsPath;
     addons_.clear();
@@ -35,7 +77,18 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
     // the executable is where this client's own ship without anyone having to
     // copy files into an extracted game install to try them.
     std::vector<fs::path> roots;
-    roots.emplace_back(addonsPath);
+    {
+        // Same case problem as FrameXML: this install has interface/addons in
+        // lower case, and a hardcoded AddOns misses it on a case-sensitive
+        // filesystem.
+        std::error_code ec;
+        fs::path p(addonsPath);
+        if (!fs::is_directory(p, ec)) {
+            p = resolvePath(fs::path(addonsPath).parent_path().parent_path(),
+                            "interface/AddOns");
+        }
+        if (!p.empty()) roots.emplace_back(p);
+    }
     std::error_code rec;
     for (const char* local : {"addons", "../addons", "../../addons"}) {
         fs::path p = fs::absolute(local, rec);
@@ -193,21 +246,39 @@ std::string AddonManager::getSavedVariablesPerCharacterPath(const TocFile& addon
 }
 
 bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
-    const std::string tocPath = frameXmlDir + "/FrameXML.toc";
-    auto toc = parseTocFile(tocPath);
-    if (!toc) {
-        LOG_WARNING("FrameXML: no manifest at ", tocPath);
+    std::error_code ec;
+    std::filesystem::path dir(frameXmlDir);
+    if (!std::filesystem::is_directory(dir, ec)) {
+        // The directory itself may be spelled differently on disk.
+        dir = resolvePath(std::filesystem::path(frameXmlDir).parent_path(),
+                          std::filesystem::path(frameXmlDir).filename().string());
+    }
+    if (dir.empty() || !std::filesystem::is_directory(dir, ec)) {
+        LOG_WARNING("FrameXML: no directory at ", frameXmlDir);
         return false;
     }
+    const std::filesystem::path tocPath = resolveChild(dir, "FrameXML.toc");
+    auto toc = tocPath.empty() ? std::nullopt : parseTocFile(tocPath.string());
+    if (!toc) {
+        LOG_WARNING("FrameXML: no manifest in ", dir.string());
+        return false;
+    }
+    const std::string resolvedDir = dir.string();
 
     LOG_WARNING("FrameXML: attempting to load the original interface — ",
-                toc->files.size(), " files from ", frameXmlDir);
+                toc->files.size(), " files from ", resolvedDir);
 
     int lua = 0, xml = 0, failed = 0;
     for (const auto& filename : toc->files) {
         std::string lower = filename;
         for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-        const std::string full = frameXmlDir + "/" + filename;
+        const std::filesystem::path resolved = resolvePath(dir, filename);
+        if (resolved.empty()) {
+            LOG_WARNING("FrameXML: ", filename, " is listed but not on disk");
+            ++failed;
+            continue;
+        }
+        const std::string full = resolved.string();
 
         // The manifest's order is the load order and matters: GlobalStrings and
         // Constants before anything reads them, Fonts before the frames that
