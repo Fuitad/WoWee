@@ -257,16 +257,26 @@ static int lua_GetSkillLineInfo(lua_State* L) {
     // calls SkillDetailFrame_SetStatusBar with no selection during its own
     // load, which is exactly that question.
     const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
-    if (!gh || index < 1) {
-        lua_pushnil(L);
-        return 1;
-    }
-    const auto& skills = gh->getPlayerSkills();
-    if (index > static_cast<int>(skills.size())) {
-        lua_pushnil(L);
-        return 1;
+    // An index with no skill behind it answers as an empty skill rather than a
+    // single nil. SkillFrame_UpdateSkills passes GetSelectedSkill() straight in
+    // and adds two of the results together on the next line, and before the
+    // server has sent any skills there is nothing selected — so a bare nil
+    // there is arithmetic on nothing and the file is lost. An empty row is the
+    // truthful answer and it costs no more than a blank line in the list.
+    // Short-circuit rather than a ternary: binding a reference across both arms
+    // would copy the whole skill map on every call.
+    if (!gh || index < 1 ||
+        index > static_cast<int>(gh->getPlayerSkills().size())) {
+        lua_pushstring(L, "");                          // 1: skillName
+        lua_pushboolean(L, 0);                          // 2: isHeader
+        lua_pushboolean(L, 1);                          // 3: isExpanded
+        for (int i = 4; i <= 7; ++i) lua_pushnumber(L, 0);   // rank, temp, mod, max
+        lua_pushboolean(L, 0);                          // 8: isAbandonable
+        for (int i = 9; i <= 12; ++i) lua_pushnumber(L, 0); // costs, minLevel, type
+        return 12;
     }
     // Skills are in a map — iterate to the Nth entry
+    const auto& skills = gh->getPlayerSkills();
     auto it = skills.begin();
     std::advance(it, index - 1);
     const auto& skill = it->second;
