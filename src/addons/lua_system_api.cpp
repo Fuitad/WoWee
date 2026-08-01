@@ -1,5 +1,6 @@
 // lua_system_api.cpp — System, time, sound, locale, map, addons, instances, and utilities Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include <set>
 #include "addons/lua_api_helpers.hpp"
 #include "audio/audio_coordinator.hpp"
 #include "audio/ui_sound_manager.hpp"
@@ -477,8 +478,56 @@ static int lua_wow_gettime(lua_State* L) {
     return 1;
 }
 
+// Names FrameXML reaches for that this client has no state behind yet.
+//
+// Found by running the load with the missing-API fallback off, which is the
+// only way to see them: with it on they answer and the gap is invisible.
+// IsThreatWarningEnabled alone was asked 58 times in one load.
+//
+// Answering falsely is the point. Each returns what the feature being absent
+// looks like — no threat warnings, no runes, nobody to pass loot to — so the
+// caller takes the branch it would take on a client where that feature is off,
+// rather than dividing by a nil.
+static int lua_ReturnFalse(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+static int lua_ReturnNil(lua_State* L)   { lua_pushnil(L); return 1; }
+static int lua_ReturnZero(lua_State* L)  { lua_pushnumber(L, 0.0); return 1; }
+static int lua_ReturnNothing(lua_State*) { return 0; }
+
+/// Alliance or Horde for the player, and the same for anyone else until this
+/// client tracks other units' factions. Returns the English tag and the
+/// localised name, which is the pair FrameXML expects.
+static int lua_UnitFactionGroup(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    bool horde = false;
+    if (gh) {
+        // Orc, Undead, Tauren, Troll, Blood Elf.
+        static const std::set<uint8_t> kHordeRaces = {2, 5, 6, 8, 10};
+        horde = kHordeRaces.count(gh->getPlayerRace()) > 0;
+    }
+    lua_pushstring(L, horde ? "Horde" : "Alliance");
+    lua_pushstring(L, horde ? "Horde" : "Alliance");
+    return 2;
+}
+
 void registerSystemLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
+                {"IsThreatWarningEnabled",   lua_ReturnFalse},
+                {"IsAutoRepeatAction",       lua_ReturnFalse},
+                {"IsPetAttackAction",        lua_ReturnFalse},
+                {"IsMacClient",              lua_ReturnFalse},
+                {"IsPartyLeader",            lua_ReturnFalse},
+                {"UnitFactionGroup",         lua_UnitFactionGroup},
+                {"HasPetSpells",             lua_ReturnNil},
+                {"GetRuneType",              lua_ReturnNil},
+                {"GetMasterLootCandidate",   lua_ReturnNil},
+                {"GetSelectedDisplayChannel", lua_ReturnNil},
+                {"GetWintergraspWaitTime",   lua_ReturnNil},
+                {"GetNumWorldStateUI",       lua_ReturnZero},
+                {"GetNumVoiceSessions",      lua_ReturnZero},
+                {"RequestBattlefieldPositions", lua_ReturnNothing},
+                {"UpdateWorldMapArrowFrames",   lua_ReturnNothing},
+                {"SetSelectedSkill",         lua_ReturnNothing},
+                {"Sound_GameSystem_GetOutputDriverNameByIndex", lua_ReturnNil},
                 {"PlaySound",           lua_PlaySound},
                 {"PlaySoundFile",       lua_PlaySoundFile},
                 {"GetPlayerMapPosition", lua_GetPlayerMapPosition},
