@@ -4,6 +4,7 @@
 #include "game/transport_clock_sync.hpp"
 #include "game/transport_manager.hpp"
 #include "game/transport_path_repository.hpp"
+#include "core/coordinates.hpp"
 #include "math/spline.hpp"
 #include "core/logger.hpp"
 #include <glm/gtc/constants.hpp>
@@ -199,7 +200,18 @@ void TransportClockSync::updateYawAlignment(
     float hLenSq = glm::dot(horizontalV, horizontalV);
     if (hLenSq > 0.04f) {
         horizontalV *= glm::inversesqrt(hLenSq);
-        glm::vec2 heading(std::cos(transport.serverYaw), std::sin(transport.serverYaw));
+        // The velocity is canonical, so the heading has to be too. A server yaw s
+        // is canonical yaw s - PI/2, and canonical yaw is atan2(-dy, dx), which
+        // puts the direction at (sin s, cos s) — see core/coordinates.hpp.
+        //
+        // This read it as (cos s, sin s), the two components swapped. That is a
+        // reflection, not a rotation, so the dot product it produced was not the
+        // alignment of anything: a transport facing exactly along its travel
+        // measured as sin(2s), which is +1 near a heading of 45 degrees and -1
+        // near 135. The check then flipped correctly-oriented transports through
+        // 180 degrees purely on which way their route happened to run.
+        const float canonicalYaw = core::coords::serverToCanonicalYaw(transport.serverYaw);
+        glm::vec2 heading(std::cos(canonicalYaw), -std::sin(canonicalYaw));
         float alignDot = glm::dot(heading, horizontalV);
 
         if (alignDot < -0.35f) {

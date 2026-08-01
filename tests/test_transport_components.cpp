@@ -132,25 +132,60 @@ TEST_CASE("ClockSync: processServerUpdate sets yaw and rotation", "[transport_cl
     REQUIRE(t.position == pos);
 }
 
+// Server yaw s points along canonical (sin s, cos s) — see core/coordinates.hpp.
+// So a transport travelling along canonical +X is facing its direction of travel
+// at s = +pi/2, and facing exactly backwards at s = -pi/2.
+static constexpr float kServerYawAlongCanonicalX = glm::half_pi<float>();
+
 TEST_CASE("ClockSync: yaw flip detection after repeated misaligned updates", "[transport_clock_sync]") {
     TransportClockSync sync;
     auto path = makeCirclePath();
     auto t = makeTransport();
     t.useClientAnimation = false;
 
-    // Simulate transport moving east (+X) but reporting yaw pointing west (pi)
-    float westYaw = glm::pi<float>();
+    // Travelling along canonical +X while reporting the yaw for -X.
+    const float reversedYaw = kServerYawAlongCanonicalX - glm::pi<float>();
     glm::vec3 pos(100.0f, 200.0f, 0.0f);
-    sync.processServerUpdate(t, &path, pos, westYaw, 1.0);
+    sync.processServerUpdate(t, &path, pos, reversedYaw, 1.0);
 
-    // Send several updates moving east with west-facing yaw
     for (int i = 1; i <= 8; i++) {
         pos.x += 5.0f;
-        sync.processServerUpdate(t, &path, pos, westYaw, 1.0 + i * 0.5);
+        sync.processServerUpdate(t, &path, pos, reversedYaw, 1.0 + i * 0.5);
     }
 
-    // After enough misaligned updates, should have flipped
     REQUIRE(t.serverYawFlipped180);
+}
+
+TEST_CASE("ClockSync: a transport facing its direction of travel is never flipped",
+          "[transport_clock_sync]") {
+    TransportClockSync sync;
+    auto path = makeCirclePath();
+    auto t = makeTransport();
+    t.useClientAnimation = false;
+
+    // The check used to compare the velocity against (cos s, sin s), the two
+    // components of the heading swapped. That is a reflection, so a transport
+    // facing exactly along its travel scored sin(2s) instead of 1 — negative for
+    // half of all headings, which flipped correct transports through 180 degrees
+    // purely on which way their route ran. Sweep the headings to pin that down.
+    for (int step = 0; step < 16; ++step) {
+        const float canonicalHeading = static_cast<float>(step) * glm::pi<float>() / 8.0f;
+        const glm::vec3 dir(std::cos(canonicalHeading), -std::sin(canonicalHeading), 0.0f);
+        const float serverYaw = canonicalHeading + glm::half_pi<float>();
+
+        auto moving = makeTransport();
+        moving.useClientAnimation = false;
+        glm::vec3 p(100.0f, 200.0f, 0.0f);
+        sync.processServerUpdate(moving, &path, p, serverYaw, 1.0);
+        for (int i = 1; i <= 10; i++) {
+            p += dir * 5.0f;
+            sync.processServerUpdate(moving, &path, p, serverYaw, 1.0 + i * 0.5);
+        }
+
+        INFO("canonical heading step " << step);
+        REQUIRE_FALSE(moving.serverYawFlipped180);
+        REQUIRE(moving.serverYawAlignmentScore > 0);
+    }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -173,10 +208,11 @@ TEST_CASE("Animator: evaluateAndApply updates position from spline", "[transport
     REQUIRE(t.position.x == Catch::Approx(110.0f));
 }
 
-TEST_CASE("Animator: uses server yaw when available", "[transport_animator]") {
+TEST_CASE("Animator: uses server yaw when the server drives position", "[transport_animator]") {
     TransportAnimator animator;
     auto path = makeCirclePath();
     auto t = makeTransport();
+    t.useClientAnimation = false;   // server-driven: its yaw is current
     t.hasServerYaw = true;
     t.serverYaw = 1.0f;
     t.serverYawFlipped180 = false;
@@ -187,6 +223,37 @@ TEST_CASE("Animator: uses server yaw when available", "[transport_animator]") {
     glm::quat expected = glm::angleAxis(expectedYaw, glm::vec3(0.0f, 0.0f, 1.0f));
     REQUIRE(t.rotation.w == Catch::Approx(expected.w).margin(0.01f));
     REQUIRE(t.rotation.z == Catch::Approx(expected.z).margin(0.01f));
+}
+
+TEST_CASE("Animator: a client-animated transport follows its route, not a stale server yaw",
+          "[transport_animator][transport]") {
+    // hasServerYaw is set by every server update, including those for a ship the
+    // client animates itself. Taking it unconditionally pinned the ship's facing
+    // to its berth heading for the whole voyage while the position ran along the
+    // route underneath — sailing sideways or stern-first, and lying across the
+    // pier on arrival.
+    TransportAnimator animator;
+    CatmullRomSpline spline({
+        {0,    glm::vec3(0.0f, 0.0f, 0.0f)},
+        {1000, glm::vec3(10.0f, 0.0f, 0.0f)},
+        {2000, glm::vec3(20.0f, 0.0f, 0.0f)},
+    });
+    PathEntry path(std::move(spline), 302, false, true, true);
+
+    auto t = makeTransport();
+    t.basePosition = glm::vec3(0.0f);
+    t.isM2 = false;
+    t.useClientAnimation = true;
+    t.hasServerYaw = true;
+    t.serverYaw = 2.5f;             // a berth heading unrelated to the route
+
+    animator.evaluateAndApply(t, path, 500);
+
+    const glm::quat berth = glm::angleAxis(2.5f, glm::vec3(0.0f, 0.0f, 1.0f));
+    const glm::quat route = glm::angleAxis(kServerYawAlongCanonicalX, glm::vec3(0.0f, 0.0f, 1.0f));
+    REQUIRE(t.rotation.z != Catch::Approx(berth.z).margin(0.01f));
+    REQUIRE(t.rotation.w == Catch::Approx(route.w).margin(0.01f));
+    REQUIRE(t.rotation.z == Catch::Approx(route.z).margin(0.01f));
 }
 
 TEST_CASE("Animator: world-coordinate WMO faces along the server-space route", "[transport_animator][transport]") {

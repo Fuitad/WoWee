@@ -148,8 +148,21 @@ void TransportAnimator::evaluateAndApply(
         transport.position = transport.basePosition + shipDockPosition;
     }
 
-    // Use server yaw if available (authoritative), otherwise compute from spline tangent
-    if (transport.hasServerYaw) {
+    // Server yaw is authoritative only while the server is also driving position.
+    //
+    // hasServerYaw is set by every server update, including the ones that arrive
+    // for a ship the client animates itself. Taking it here pinned such a ship's
+    // facing to whichever orientation the server last reported — its berth
+    // heading — and held it there for the whole voyage while the position ran
+    // along the route underneath. That is a ship sailing sideways or stern-first
+    // and lying across its pier on arrival, and it also made everything below
+    // (route yaw, the bow offset, the broadside dock hold) unreachable for any
+    // transport the server had ever mentioned.
+    //
+    // When the client owns the animation the route tangent is what facing has to
+    // follow, because the client owns the phase the server's snapshot knows
+    // nothing about.
+    if (transport.hasServerYaw && !transport.useClientAnimation) {
         float effectiveYaw = transport.serverYaw +
             (transport.serverYawFlipped180 ? glm::pi<float>() : 0.0f);
         transport.rotation = glm::angleAxis(effectiveYaw, glm::vec3(0.0f, 0.0f, 1.0f));
