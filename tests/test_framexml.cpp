@@ -208,6 +208,30 @@ TEST_CASE("$parent inside a template resolves to the frame that inherits it",
     REQUIRE_FALSE(has(r.lua, "\"MyTemplateBg\""));
 }
 
+TEST_CASE("A frame's own $parent anchor means its parent, not itself",
+          "[framexml][emit]") {
+    // A sibling reference. VideoOptionsFrameCancel anchors to $parentApply,
+    // meaning the Apply button beside it on the frame holding both — not a
+    // child of the Cancel button. Resolving it against the button's own name
+    // produced VideoOptionsFrameCancelApply, which nothing is called, so the
+    // anchor silently fell back to the parent and the button sat in the wrong
+    // place. Regions are the other way round and must keep working.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Panel\"><Frames>"
+        "<Button name=\"$parentCancel\"><Anchors>"
+        "<Anchor point=\"BOTTOMRIGHT\" relativeTo=\"$parentApply\"/>"
+        "</Anchors></Button>"
+        "</Frames><Layers><Layer>"
+        "<Texture name=\"$parentBg\"/>"
+        "</Layer></Layers></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+
+    REQUIRE(has(r.lua, "\"PanelApply\""));
+    REQUIRE_FALSE(has(r.lua, "\"PanelCancelApply\""));
+    // The region still names itself after the frame that owns it.
+    REQUIRE(has(r.lua, "\"PanelBg\""));
+}
+
 TEST_CASE("Button art declared outside a Layer is still created",
           "[framexml][emit]") {
     // <NormalTexture> and <ButtonText> are regions like any other, just

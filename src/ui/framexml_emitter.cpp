@@ -261,7 +261,11 @@ struct Emitter {
             // what leaving it out means.
             std::string relative = parentVar;
             if (const std::string* rt = a.attr("relativeTo")) {
-                relative = nameArg(*rt, parentNameForAnchors, "self");
+                // Resolved against whatever owns this anchor, which is parentVar
+                // — the containing frame for a region, and the parent frame for
+                // a frame's own anchors. It used to say "self" regardless, which
+                // inside a template asked the wrong frame for its name.
+                relative = nameArg(*rt, parentNameForAnchors, parentVar);
                 if (relative == "nil") relative = parentVar;
             }
             const std::string relPoint = a.attrOr("relativePoint", point);
@@ -333,11 +337,16 @@ struct Emitter {
                      quote(one) + ") end");
             }
         }
-        emitFrameBody(node, var, name.empty() ? parentName : name, parentArg);
+        emitFrameBody(node, var, name.empty() ? parentName : name, parentArg,
+                      parentName);
     }
 
+    /// ownerName is the name of the frame containing this one. A frame's own
+    /// anchors say $parent meaning the frame they hang off, not themselves, so
+    /// they need a different name from the one its regions use.
     void emitFrameBody(const XmlNode& node, const std::string& var,
-                       const std::string& name, const std::string& parentVar) {
+                       const std::string& name, const std::string& parentVar,
+                       const std::string& ownerName = std::string()) {
         if (const XmlNode* size = node.child("Size")) {
             float w = 0, h = 0;
             if (readDimension(*size, w, h))
@@ -355,7 +364,12 @@ struct Emitter {
             // frame was positioned against the screen rather than its parent —
             // which for anything inside a panel puts it somewhere else
             // entirely, and FrameXML nests constantly.
-            emitAnchors(*anchors, var, parentVar, name);
+            // ownerName, not name: a $parentApply here means the Apply button
+            // beside this one on the frame that holds both, not a child of this
+            // frame. Using its own name built VideoOptionsFrameCancelApply for
+            // what should have been VideoOptionsFrameApply — a name nothing has,
+            // so the anchor silently fell back to the parent.
+            emitAnchors(*anchors, var, parentVar, ownerName);
         }
         if (const XmlNode* layers = node.child("Layers")) {
             for (const XmlNode& layer : layers->children) {
