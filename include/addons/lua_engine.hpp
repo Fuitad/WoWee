@@ -28,6 +28,11 @@ public:
     bool executeFile(const std::string& path);
     bool executeString(const std::string& code);
 
+    /// Error from the last executeFile/executeString that returned false.
+    /// Lets a caller loading many files report them together rather than
+    /// leaving the reasons scattered through the log.
+    const std::string& lastError() const { return lastError_; }
+
     void setGameHandler(game::GameHandler* handler);
     void setLuaServices(const LuaServices& services);
 
@@ -70,6 +75,7 @@ private:
     game::GameHandler* gameHandler_ = nullptr;
     LuaServices luaServices_;
     LuaErrorCallback luaErrorCallback_;
+    std::string lastError_;
 
     void callFrameScript(uint32_t wid, const char* script, const char* arg = nullptr);
 

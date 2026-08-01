@@ -25,12 +25,20 @@ extern "C" {
 #include <sstream>
 int main(int argc, char** argv) {
     lua_State* L = luaL_newstate();
-    int ok = 0, bad = 0, shown = 0;
+    int ok = 0, bad = 0, shown = 0, unparsed = 0;
     for (auto& e : std::filesystem::directory_iterator(argv[1])) {
         if (e.path().extension() != ".xml") continue;
         std::ifstream f(e.path()); std::stringstream ss; ss << f.rdbuf();
         wowee::ui::XmlNode root; std::string err;
-        if (!wowee::ui::parseXml(ss.str(), root, err)) continue;
+        // Counted, not skipped. A file the reader cannot get through never
+        // reaches the compiler at all, so passing over it quietly reports a
+        // clean run on files that in fact never loaded.
+        if (!wowee::ui::parseXml(ss.str(), root, err)) {
+            ++unparsed;
+            printf("  UNPARSED %-30s %s\n", e.path().filename().string().c_str(),
+                   err.c_str());
+            continue;
+        }
         auto r = wowee::ui::emitFrameXml(root);
         if (r.lua.empty()) { ++ok; continue; }
         std::string chunk = "local __WoweeTemplates={} "
@@ -44,6 +52,7 @@ int main(int argc, char** argv) {
         }
         lua_settop(L, 0);
     }
-    printf("emitted Lua compiles: %d   fails: %d\n", ok, bad);
+    printf("emitted Lua compiles: %d   fails: %d   unparsed XML: %d\n",
+           ok, bad, unparsed);
     return 0;
 }

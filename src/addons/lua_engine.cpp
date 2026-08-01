@@ -2096,8 +2096,16 @@ void LuaEngine::installMissingApiFallback() {
     // newer client. That is the right trade for bringing FrameXML up, where the
     // point is to get past a missing name and find out what actually matters,
     // and the wrong one for everyday addon loading.
-    const char* env = std::getenv("WOWEE_LUA_API_FALLBACK");
-    const bool enabled = env && *env && std::string(env) != "0";
+    auto isSet = [](const char* name) {
+        const char* v = std::getenv(name);
+        return v && *v && std::string(v) != "0";
+    };
+    // Loading FrameXML implies it. FrameXML cannot get through its own load
+    // without the fallback, so two separate switches where one is useless
+    // without the other is only a way to be handed a wall of failures for
+    // setting the obvious one.
+    const bool enabled = isSet("WOWEE_LUA_API_FALLBACK") ||
+                         isSet("WOWEE_LOAD_FRAMEXML");
     if (!enabled) return;
 
     lua_pushcfunction(L_, lua_RecordMissingApi);
@@ -2459,6 +2467,7 @@ bool LuaEngine::executeFile(const std::string& path) {
     if (err != 0) {
         const char* errMsg = lua_tostring(L_, -1);
         std::string msg = errMsg ? errMsg : "(unknown error)";
+        lastError_ = msg;
         LOG_ERROR("LuaEngine: error loading '", path, "': ", msg);
         if (luaErrorCallback_) luaErrorCallback_(msg);
         if (gameHandler_) {
@@ -2481,6 +2490,7 @@ bool LuaEngine::executeString(const std::string& code) {
     if (err != 0) {
         const char* errMsg = lua_tostring(L_, -1);
         std::string msg = errMsg ? errMsg : "(unknown error)";
+        lastError_ = msg;
         LOG_ERROR("LuaEngine: script error: ", msg);
         if (luaErrorCallback_) luaErrorCallback_(msg);
         if (gameHandler_) {

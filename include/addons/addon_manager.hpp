@@ -63,6 +63,9 @@ private:
     // addonName -> enabled. Absent means enabled (default on).
     std::unordered_map<std::string, bool> addonEnabled_;
     std::string frameXmlDir_;
+    /// Why the last loadXmlFile returned false, so a caller loading many files
+    /// can report the reasons together instead of leaving them scattered.
+    std::string lastXmlError_;
     bool addonsLoaded_ = false;
     static std::string enabledStatePath();
     void loadEnabledState();

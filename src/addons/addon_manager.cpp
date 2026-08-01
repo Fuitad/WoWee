@@ -10,6 +10,8 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <utility>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -269,6 +271,11 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
                 toc->files.size(), " files from ", resolvedDir);
 
     int lua = 0, xml = 0, failed = 0;
+    // Kept and printed together at the end. Spread through the log these are
+    // unreadable: the reasons land among thousands of other lines, and one
+    // broken script takes down every file that references it, so what matters
+    // is seeing them side by side and spotting the cause they share.
+    std::vector<std::pair<std::string, std::string>> failures;
     for (const auto& filename : toc->files) {
         std::string lower = filename;
         for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -276,6 +283,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         if (resolved.empty()) {
             LOG_WARNING("FrameXML: ", filename, " is listed but not on disk");
             ++failed;
+            failures.emplace_back(filename, "listed in the manifest but not on disk");
             continue;
         }
         const std::string full = resolved.string();
@@ -285,14 +293,29 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         // inherit from them. Following it is most of what makes this possible
         // at all.
         if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, ".lua") == 0) {
-            if (luaEngine_.executeFile(full)) ++lua; else { ++failed;
-                LOG_ERROR("FrameXML: ", filename, " failed"); }
+            if (luaEngine_.executeFile(full)) {
+                ++lua;
+            } else {
+                ++failed;
+                failures.emplace_back(filename, luaEngine_.lastError());
+            }
         } else if (lower.size() >= 4 && lower.compare(lower.size() - 4, 4, ".xml") == 0) {
-            if (loadXmlFile(full, 0)) ++xml; else ++failed;
+            lastXmlError_.clear();
+            if (loadXmlFile(full, 0)) {
+                ++xml;
+            } else {
+                ++failed;
+                failures.emplace_back(filename, lastXmlError_.empty()
+                                                    ? "(no reason recorded)"
+                                                    : lastXmlError_);
+            }
         }
     }
     LOG_WARNING("FrameXML: ", lua, " Lua files and ", xml, " XML files loaded, ",
                 failed, " failed");
+    for (const auto& [file, why] : failures) {
+        LOG_WARNING("FrameXML:   ", file, " — ", why);
+    }
     return failed == 0;
 }
 
@@ -301,12 +324,14 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
     // until the stack gives out.
     constexpr int kMaxDepth = 16;
     if (depth > kMaxDepth) {
+        lastXmlError_ = "include nesting too deep";
         LOG_ERROR("AddonManager: include nesting too deep at ", path);
         return false;
     }
 
     std::ifstream in(path, std::ios::binary);
     if (!in) {
+        lastXmlError_ = "not on disk";
         LOG_WARNING("AddonManager: XML not found: ", path);
         return false;
     }
@@ -316,6 +341,7 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
     ui::XmlNode root;
     std::string error;
     if (!ui::parseXml(buffer.str(), root, error)) {
+        lastXmlError_ = "XML parse: " + error;
         LOG_ERROR("AddonManager: ", path, ": ", error);
         return false;
     }
@@ -340,17 +366,25 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
     // Order matters and is not the order the emitter reports things in. Includes
     // carry the templates a file inherits from, and scripts define the functions
     // its handlers name, so both have to be in place before any frame is built.
+    // A file is only as loadable as what it pulls in, so the reason kept here is
+    // the first real one — the include or script that actually broke — rather
+    // than the name of whichever file happened to reference it.
     for (const auto& inc : emitted.includeFiles) {
-        if (!loadXmlFile(sibling(inc).string(), depth + 1)) ok = false;
+        if (!loadXmlFile(sibling(inc).string(), depth + 1)) {
+            if (ok) lastXmlError_ = "include " + inc + ": " + lastXmlError_;
+            ok = false;
+        }
     }
     for (const auto& script : emitted.scriptFiles) {
         if (!luaEngine_.executeFile(sibling(script).string())) {
+            if (ok) lastXmlError_ = "script " + script + ": " + luaEngine_.lastError();
             LOG_ERROR("AddonManager: ", path, " referenced ", script, " which failed");
             ok = false;
         }
     }
     if (!emitted.lua.empty()) {
         if (!luaEngine_.executeString(emitted.lua)) {
+            if (ok) lastXmlError_ = "frames: " + luaEngine_.lastError();
             LOG_ERROR("AddonManager: frames from ", path, " failed to build");
             ok = false;
         } else {
