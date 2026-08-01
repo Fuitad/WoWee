@@ -5,6 +5,18 @@
 
 namespace wowee::addons {
 
+/// Money held on the cursor and staked in a trade. Both are genuinely zero
+/// here — this client has neither a money cursor nor an open trade at load —
+/// but they have to answer with a number rather than not exist. MoneyFrame's
+/// very first update reads GetMoney() - GetCursorMoney() - GetPlayerTradeMoney(),
+/// and a missing name comes back from the API fallback as a function whose
+/// call yields nothing, so the subtraction hits nil and takes the whole file
+/// down. Eleven of them, on this one line.
+static int lua_GetZeroMoney(lua_State* L) {
+    lua_pushnumber(L, 0.0);
+    return 1;
+}
+
 static int lua_GetMoney(lua_State* L) {
     auto* gh = getGameHandler(L);
     lua_pushnumber(L, gh ? static_cast<double>(gh->getMoneyCopper()) : 0.0);
@@ -683,6 +695,9 @@ static int lua_GetItemLink(lua_State* L) {
 void registerInventoryLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"GetMoney",      lua_GetMoney},
+                {"GetCursorMoney",      lua_GetZeroMoney},
+                {"GetPlayerTradeMoney", lua_GetZeroMoney},
+                {"GetTargetTradeMoney", lua_GetZeroMoney},
                 {"GetMerchantNumItems",  lua_GetMerchantNumItems},
                 {"GetMerchantItemInfo",  lua_GetMerchantItemInfo},
                 {"GetMerchantItemLink",  lua_GetMerchantItemLink},
