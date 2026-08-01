@@ -5,6 +5,7 @@
 #include "game/packet_parsers.hpp"
 #include "game/entity.hpp"
 #include "rendering/renderer.hpp"
+#include "rendering/camera_controller.hpp"
 #include "rendering/character_renderer.hpp"
 #include "rendering/spell_visual_system.hpp"
 #include "audio/audio_coordinator.hpp"
@@ -584,6 +585,30 @@ bool SpellHandler::isTargetCastInterruptible() const {
     return s ? s->interruptible : true;
 }
 
+// Turn the character to a canonical yaw and tell the server about it.
+//
+// Sending MSG_MOVE_SET_FACING on its own is not enough for anything with a cast
+// time. The frame loop resyncs orientation from the character's visual facing
+// every frame and re-sends it whenever it has moved more than 3 degrees, so a
+// facing that exists only in the packet is undone before the cast finishes —
+// the server accepts the cast, re-checks the arc 1.5 seconds later and answers
+// "unit not in front". Turning the character makes the two agree and stay
+// agreeing, which is also what retail does: casting at something faces it.
+void SpellHandler::faceCanonicalYaw(float canonYaw) {
+    owner_.movementInfoRef().orientation = canonYaw;
+
+    if (auto* renderer = owner_.services().renderer) {
+        // Inverse of the frame loop's canonicalYaw = radians(180 - characterYaw).
+        const float facingDeg = 180.0f - glm::degrees(canonYaw);
+        renderer->setCharacterYaw(facingDeg);
+        if (auto* cc = renderer->getCameraController()) {
+            cc->setFacingYaw(facingDeg);
+        }
+    }
+
+    owner_.sendMovement(Opcode::MSG_MOVE_SET_FACING);
+}
+
 void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     LOG_DEBUG("castSpell: spellId=", spellId, " target=0x", std::hex, targetGuid, std::dec);
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
@@ -787,9 +812,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
                     owner_.addSystemChatMessage("Out of range.");
                     return;
                 }
-                float yaw = std::atan2(-dy, dx);
-                owner_.movementInfoRef().orientation = yaw;
-                owner_.sendMovement(Opcode::MSG_MOVE_SET_FACING);
+                faceCanonicalYaw(std::atan2(-dy, dx));
                 facingHandled = true;
             }
         }
@@ -805,9 +828,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
             float dy = entity->getY() - owner_.movementInfoRef().y;
             float lenSq = dx * dx + dy * dy;
             if (lenSq > 0.01f) {
-                float canonYaw = std::atan2(-dy, dx);
-                owner_.movementInfoRef().orientation = canonYaw;
-                owner_.sendMovement(Opcode::MSG_MOVE_SET_FACING);
+                faceCanonicalYaw(std::atan2(-dy, dx));
             }
         }
     }
