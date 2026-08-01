@@ -1323,11 +1323,22 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
             const bool needsResample =
                 (overlay.width != expectedW || overlay.height != expectedH);
 
-            core::Logger::getInstance().info("Composite: placing '", layerPaths[layer],
-                "' (", overlay.width, "x", overlay.height,
-                ") at (", dstX, ",", dstY, ") on ", width, "x", height,
-                " expected=", expectedW, "x", expectedH,
-                needsResample ? " [RESAMPLED]" : "");
+            if (needsResample) {
+                // Resampling here means this overlay was authored for a different
+                // atlas size than the body it is going onto — the two came from
+                // different art sets. It will be placed correctly, but a quarter
+                // resolution face stretched over an HD head is soft and muddy
+                // next to a crisp body, and that reads as the face not fitting.
+                core::Logger::getInstance().warning(
+                    "Composite: '", layerPaths[layer], "' is ", overlay.width, "x",
+                    overlay.height, " but its region on this ", width, "x", height,
+                    " body is ", expectedW, "x", expectedH,
+                    " — mismatched art sets; resampling to fit");
+            } else {
+                core::Logger::getInstance().info("Composite: placing '", layerPaths[layer],
+                    "' (", overlay.width, "x", overlay.height,
+                    ") at (", dstX, ",", dstY, ") on ", width, "x", height);
+            }
 
             if (needsResample) {
                 blitOverlayResampled(composite, width, height, overlay,
