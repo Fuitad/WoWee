@@ -25,36 +25,58 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
     addonsPath_ = addonsPath;
     addons_.clear();
 
-    std::error_code ec;
-    if (!fs::is_directory(addonsPath, ec)) {
-        LOG_INFO("AddonManager: no AddOns directory at ", addonsPath);
-        return;
+    // Two places are searched. The game data's own Interface\AddOns is where a
+    // player's existing addons already live, and an "addons" directory beside
+    // the executable is where this client's own ship without anyone having to
+    // copy files into an extracted game install to try them.
+    std::vector<fs::path> roots;
+    roots.emplace_back(addonsPath);
+    std::error_code rec;
+    for (const char* local : {"addons", "../addons", "../../addons"}) {
+        fs::path p = fs::absolute(local, rec);
+        if (fs::is_directory(p, rec)) roots.push_back(fs::weakly_canonical(p, rec));
     }
 
+    int scannedDirs = 0, loadOnDemand = 0, noToc = 0;
     std::vector<fs::path> dirs;
-    for (const auto& entry : fs::directory_iterator(addonsPath, ec)) {
-        if (entry.is_directory()) dirs.push_back(entry.path());
+    for (const auto& root : roots) {
+        std::error_code ec;
+        if (!fs::is_directory(root, ec)) {
+            LOG_INFO("AddonManager: no AddOns directory at ", root.string());
+            continue;
+        }
+        LOG_INFO("AddonManager: searching ", root.string());
+        for (const auto& entry : fs::directory_iterator(root, ec)) {
+            if (entry.is_directory()) dirs.push_back(entry.path());
+        }
     }
     // Sort alphabetically for deterministic load order
     std::sort(dirs.begin(), dirs.end());
 
     for (const auto& dir : dirs) {
+        ++scannedDirs;
         std::string dirName = dir.filename().string();
         std::string tocPath = (dir / (dirName + ".toc")).string();
         auto toc = parseTocFile(tocPath);
-        if (!toc) continue;
+        if (!toc) { ++noToc; continue; }
 
         if (toc->isLoadOnDemand()) {
-            LOG_DEBUG("AddonManager: skipping LoadOnDemand addon: ", dirName);
+            ++loadOnDemand;
             continue;
         }
 
         LOG_INFO("AddonManager: registered addon '", toc->getTitle(),
-                 "' (", toc->files.size(), " files)");
+                 "' (", toc->files.size(), " files) from ", dir.string());
         addons_.push_back(std::move(*toc));
     }
 
-    LOG_INFO("AddonManager: scanned ", addons_.size(), " addons");
+    // Say what happened even when nothing loads, which is the case that used to
+    // be silent: every Blizzard addon in a stock Interface directory is
+    // LoadOnDemand, so a scan can look at dozens of folders, register none of
+    // them, and print one line that reads like an empty directory.
+    LOG_INFO("AddonManager: scanned ", scannedDirs, " directories, registered ",
+             addons_.size(), " addons (", loadOnDemand, " load-on-demand, ",
+             noToc, " without a .toc)");
     // Load persisted enable/disable choices now that we know which addons exist.
     loadEnabledState();
 }
@@ -161,11 +183,17 @@ bool AddonManager::loadAddon(const TocFile& addon) {
         if (lower.size() >= 4 && lower.substr(lower.size() - 4) == ".lua") {
             std::string fullPath = addon.basePath + "/" + filename;
             if (!luaEngine_.executeFile(fullPath)) {
+                LOG_ERROR("AddonManager: '", addon.addonName, "' failed on ", filename);
                 success = false;
+            } else {
+                LOG_INFO("AddonManager: ran ", addon.addonName, "/", filename);
             }
         } else if (lower.size() >= 4 && lower.substr(lower.size() - 4) == ".xml") {
-            LOG_DEBUG("AddonManager: skipping XML file '", filename,
-                      "' in addon '", addon.addonName, "' (XML frames not yet implemented)");
+            // Says so at INFO rather than DEBUG: an addon whose frames are all
+            // in XML will load, report success and put nothing on the screen,
+            // and there is no way to tell that from a broken addon otherwise.
+            LOG_WARNING("AddonManager: '", addon.addonName, "' has XML (", filename,
+                        ") which is not loaded yet — anything defined there will be missing");
         }
     }
 
