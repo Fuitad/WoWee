@@ -68,6 +68,16 @@ struct ActiveTransport {
     bool allowBootstrapVelocity;   // Disable DBC bootstrap when spawn/path mismatch is clearly invalid
     bool isM2 = false;             // True if rendered as M2 (not WMO), uses M2Renderer for transforms
     bool worldCoords = false;       // TaxiPathNode absolute-world route (client-owned WMO ship)
+
+    // Whether the hull is currently holding at an authored dock stop, and what
+    // was last pushed to its child doodads because of it. A paddlewheel that
+    // keeps turning while its ship sits at the pier is the visible symptom of
+    // never revisiting this: the animation was set once when the doodad spawned.
+    // The count is kept because doodads stream in over several frames, so a
+    // doodad attached after the last push would otherwise keep its spawn state.
+    bool atDockDwell = false;
+    int appliedDoodadAnim = -1;
+    size_t appliedDoodadCount = 0;
 };
 
 class TransportManager {
@@ -176,6 +186,11 @@ public:
     glm::vec3 serverToTransportLocal(uint64_t transportGuid,
                                      const glm::vec3& serverOffset) const;
     glm::mat4 getTransportInvTransform(uint64_t transportGuid);
+    // Ship machinery follows the hull: ShipMoving while under way, ShipStop when
+    // holding at a dock. Cheap to call every frame — it only reaches the
+    // renderer when the state or the doodad count actually changes.
+    void applyDoodadMotionState(ActiveTransport& transport, bool moving);
+
     /// Whether this transport's hull collision has finished loading. Distinguishes
     /// "the deck query found nothing because there is no deck here" from "because
     /// the model is still uploading".

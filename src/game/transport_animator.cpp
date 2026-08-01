@@ -150,6 +150,9 @@ void TransportAnimator::evaluateAndApply(
             break;
         }
     }
+    // Record the stop so the hull's machinery can follow it. A paddlewheel
+    // turning while the ship sits at the pier is what happens otherwise.
+    transport.atDockDwell = shipAtDockDwell;
     if (shipAtDockDwell) {
         // Catmull-Rom evaluation can sit slightly off a repeated-position key
         // even during its authored hold. Pin the actual dwell to the TaxiPath

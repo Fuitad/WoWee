@@ -352,7 +352,38 @@ TEST_CASE("Animator: a ship holds its dock instead of overshooting through the w
         INFO("dwell time " << atMs);
         REQUIRE(t.position.x == Catch::Approx(100.0f));
         REQUIRE(t.position.y == Catch::Approx(0.0f));
+        REQUIRE(t.atDockDwell);
     }
+}
+
+TEST_CASE("Animator: the dwell flag is only set while the ship is actually stopped",
+          "[transport_animator][transport]") {
+    // The flag drives the hull's machinery: ShipMoving under way, ShipStop at
+    // the pier. It has to go false again on departure, or the paddlewheel that
+    // used to spin through the stop simply stays still for the rest of the trip.
+    TransportAnimator animator;
+    CatmullRomSpline spline({
+        {0,     glm::vec3(0.0f, 0.0f, 0.0f)},
+        {10000, glm::vec3(100.0f, 0.0f, 0.0f)},
+        {70000, glm::vec3(100.0f, 0.0f, 0.0f)},
+        {80000, glm::vec3(200.0f, 0.0f, 0.0f)},
+    });
+    PathEntry path(std::move(spline), 190536u, false, true, true);
+
+    auto t = makeTransport(1, 190536u);
+    t.entry = 190536u;
+    t.displayId = 7446u;
+    t.basePosition = glm::vec3(0.0f);
+    t.isM2 = false;
+
+    animator.evaluateAndApply(t, path, 5000);    // under way, approaching
+    REQUIRE_FALSE(t.atDockDwell);
+
+    animator.evaluateAndApply(t, path, 40000);   // holding at the dock
+    REQUIRE(t.atDockDwell);
+
+    animator.evaluateAndApply(t, path, 75000);   // under way again
+    REQUIRE_FALSE(t.atDockDwell);
 }
 
 TEST_CASE("Animator: Bravery holds side-on at its dock dwell", "[transport_animator][transport]") {

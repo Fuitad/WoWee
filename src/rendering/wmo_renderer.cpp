@@ -1174,6 +1174,20 @@ void WMORenderer::addDoodadToInstance(uint32_t instanceId, uint32_t m2InstanceId
     }
 }
 
+size_t WMORenderer::setInstanceDoodadAnimation(uint32_t instanceId, uint32_t animationId,
+                                               bool loop) {
+    if (!m2Renderer_) return 0;
+    auto it = std::find_if(instances.begin(), instances.end(),
+                           [instanceId](const WMOInstance& inst) { return inst.id == instanceId; });
+    if (it == instances.end()) return 0;
+    for (const auto& doodad : it->doodads) {
+        // A no-op for a doodad without that sequence, so the barrels and
+        // lanterns sharing the deck are left alone.
+        m2Renderer_->setInstanceAnimation(doodad.m2InstanceId, animationId, loop);
+    }
+    return it->doodads.size();
+}
+
 const std::vector<WMORenderer::DoodadTemplate>* WMORenderer::getDoodadTemplates(uint32_t modelId) const {
     auto it = loadedModels.find(modelId);
     if (it != loadedModels.end() && !it->second.doodadTemplates.empty()) {

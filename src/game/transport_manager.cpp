@@ -406,6 +406,24 @@ bool TransportManager::isPointOnTransportDeck(uint64_t transportGuid,
     return floorDelta >= -0.35f && floorDelta <= maxFloorDelta;
 }
 
+void TransportManager::applyDoodadMotionState(ActiveTransport& transport, bool moving) {
+    if (transport.isM2 || !wmoRenderer_ || transport.wmoInstanceId == 0) return;
+
+    // 163 = ShipMoving, 164 = ShipStop. Stopping is a one-shot that settles into
+    // the model's idle pose; running is a loop.
+    constexpr uint32_t kShipMoving = 163u;
+    constexpr uint32_t kShipStop = 164u;
+    const uint32_t want = moving ? kShipMoving : kShipStop;
+
+    const bool sameState = (transport.appliedDoodadAnim == static_cast<int>(want));
+    if (sameState && transport.appliedDoodadCount != 0) return;
+
+    const size_t touched =
+        wmoRenderer_->setInstanceDoodadAnimation(transport.wmoInstanceId, want, moving);
+    transport.appliedDoodadAnim = static_cast<int>(want);
+    transport.appliedDoodadCount = touched;
+}
+
 bool TransportManager::isTransportCollisionReady(uint64_t transportGuid) const {
     if (!wmoRenderer_) return false;
     const auto it = transports_.find(transportGuid);
@@ -474,6 +492,7 @@ void TransportManager::updateTransportMovement(ActiveTransport& transport, float
         // Just update transform (position already set)
         updateTransformMatrices(transport);
         pushTransform(transport);
+        applyDoodadMotionState(transport, /*moving=*/false);
         return;
     }
 
@@ -492,6 +511,7 @@ void TransportManager::updateTransportMovement(ActiveTransport& transport, float
     // Update transform matrices
     updateTransformMatrices(transport);
     pushTransform(transport);
+    applyDoodadMotionState(transport, /*moving=*/!transport.atDockDwell);
 
     // Debug logging every 600 frames (~10 seconds at 60fps)
     static int debugFrameCount = 0;

@@ -149,6 +149,11 @@ public:
      * @param modelId WMO model ID
      * @return Vector of doodad templates (empty if no doodads or model not found)
      */
+    /// Set an animation on every child doodad of an instance. Returns how many
+    /// doodads were addressed, so a caller streaming them in over several frames
+    /// can tell when the set has grown and re-apply. A doodad lacking the
+    /// sequence is left as it is.
+    size_t setInstanceDoodadAnimation(uint32_t instanceId, uint32_t animationId, bool loop);
     const std::vector<DoodadTemplate>* getDoodadTemplates(uint32_t modelId) const;
 
     /**
