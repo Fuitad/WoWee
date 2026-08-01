@@ -175,14 +175,15 @@ struct Emitter {
     /// <NormalTexture> is a texture and <ButtonText> a font string.
     std::string emitRegion(const XmlNode& node, const std::string& parentVar,
                            const std::string& parentName, const std::string& layerName,
-                           bool isTexture) {
+                           bool isTexture, const std::string& nameVar = std::string()) {
         const std::string var = nextVar();
         const std::string rawName = node.attrOr("name", "");
         const std::string name = substituteParent(rawName, parentName);
 
         line(var + " = " + parentVar +
              (isTexture ? ":CreateTexture(" : ":CreateFontString(") +
-             nameArg(rawName, parentName, parentVar) + ", " + quote(layerName) + ")");
+             nameArg(rawName, parentName, nameVar.empty() ? parentVar : nameVar) +
+             ", " + quote(layerName) + ")");
 
         emitParentKey(node, var, parentVar);
 
@@ -336,7 +337,8 @@ struct Emitter {
     /// one, so a caller that must hand it on — a scroll frame to its child —
     /// can name it.
     std::string emitFrame(const XmlNode& node, const std::string& parentVar,
-                          const std::string& parentName) {
+                          const std::string& parentName,
+                          const std::string& nameVar = std::string()) {
         const std::string rawName = node.attrOr("name", "");
         const std::string name = substituteParent(rawName, parentName);
         const bool isVirtual = node.attrBool("virtual");
@@ -397,7 +399,8 @@ struct Emitter {
         emitParentKey(node, var, parentArg);
         emitInherits(node, var);
         emitFrameBody(node, var, name.empty() ? parentName : name, parentArg,
-                      parentName);
+                      parentName, /*fireOnLoad=*/true,
+                      rawName.empty() ? nameVar : std::string());
         return var;
     }
 
@@ -407,7 +410,15 @@ struct Emitter {
     void emitFrameBody(const XmlNode& node, const std::string& var,
                        const std::string& name, const std::string& parentVar,
                        const std::string& ownerName = std::string(),
-                       bool fireOnLoad = true) {
+                       bool fireOnLoad = true,
+                       const std::string& nameVar = std::string()) {
+        // What $parent resolves to for anything declared inside this frame. An
+        // unnamed frame is not the answer — WoW walks up to the nearest named
+        // ancestor, and PartyMemberPetFrameTemplate buries its $parentName two
+        // unnamed frames deep, expecting PartyMemberFrame1PetFrameName. Asking
+        // the unnamed frame for its name gave nil, so the region was called
+        // "Name" and the lookup that wanted it found nothing.
+        const std::string anchor = nameVar.empty() ? var : nameVar;
         if (const XmlNode* size = node.child("Size")) {
             float w = 0, h = 0;
             if (readDimension(*size, w, h))
@@ -439,7 +450,7 @@ struct Emitter {
                 for (const XmlNode& region : layer.children) {
                     if (region.name == "Texture" || region.name == "FontString")
                         emitRegion(region, var, name, level,
-                                   region.name == "Texture");
+                                   region.name == "Texture", anchor);
                 }
             }
         }
@@ -455,14 +466,14 @@ struct Emitter {
         if (const XmlNode* scrollChild = node.child("ScrollChild")) {
             for (const XmlNode& child : scrollChild->children) {
                 if (!isFrameElement(child.name)) continue;
-                const std::string childVar = emitFrame(child, var, name);
+                const std::string childVar = emitFrame(child, var, name, anchor);
                 if (!childVar.empty())
                     line(var + ":SetScrollChild(" + childVar + ")");
             }
         }
         if (const XmlNode* frames = node.child("Frames")) {
             for (const XmlNode& child : frames->children) {
-                if (isFrameElement(child.name)) emitFrame(child, var, name);
+                if (isFrameElement(child.name)) emitFrame(child, var, name, anchor);
             }
         }
         // Scripts last: OnLoad runs against a frame that is already built, which

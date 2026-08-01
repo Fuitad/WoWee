@@ -229,6 +229,25 @@ TEST_CASE("A template installs OnLoad but does not run it", "[framexml][emit]") 
     REQUIRE(has(r.lua, "SetScript(\"OnLoad\""));
 }
 
+TEST_CASE("$parent skips unnamed frames to the nearest named one",
+          "[framexml][emit]") {
+    // An unnamed frame has no name to lend, so $parent means the nearest
+    // ancestor that has one. PartyMemberPetFrameTemplate buries its
+    // $parentName two unnamed frames deep and expects
+    // PartyMemberFrame1PetFrameName; asking the unnamed frame gave nil and
+    // named the region "Name", which nothing was looking for.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"T\" virtual=\"true\"><Frames>"
+        "<Frame><Frames><Frame>"
+        "<Layers><Layer><FontString name=\"$parentName\"/></Layer></Layers>"
+        "</Frame></Frames></Frame>"
+        "</Frames></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+
+    // Named from the template root, which is the only thing with a name.
+    REQUIRE(has(r.lua, "((self:GetName() or \"\") .. \"Name\")"));
+}
+
 TEST_CASE("A frame's id becomes SetID", "[framexml][emit]") {
     // How a frame in a numbered set knows which one it is. FrameXML builds
     // names out of it — PartyMemberFrame_RefreshPetDebuffs reaches for
