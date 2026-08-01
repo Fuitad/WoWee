@@ -45,11 +45,20 @@ add_executable(test_hill_climbing
     test_movement_limits.cpp
 )
 target_include_directories(test_hill_climbing PRIVATE ${TEST_INCLUDE_DIRS})
-# extern/ holds the vendored glm. This was the one target of forty-eight without
-# it, which went unnoticed while nothing it compiled reached for glm — Linux
-# finds a system copy regardless, so only macOS ever said so.
 target_include_directories(test_hill_climbing SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_hill_climbing PRIVATE catch2_main)
+# glm is not vendored — it comes from find_package(glm), and its include path
+# arrives with the imported target rather than through any directory this file
+# lists. Adding TEST_SYSTEM_INCLUDE_DIRS above does not supply it, which is why
+# the first attempt at this failed CI unchanged: Linux has a system copy under
+# /usr/include and compiles either way, so only macOS ever reports it.
+# Same two-branch check as the top level, where GLM 1.0 may build glm::glm as a
+# real library and expose the headers as glm::glm-header-only.
+if(TARGET glm::glm-header-only)
+    target_link_libraries(test_hill_climbing PRIVATE glm::glm-header-only)
+elseif(TARGET glm::glm)
+    target_link_libraries(test_hill_climbing PRIVATE glm::glm)
+endif()
 add_test(NAME hill_climbing COMMAND test_hill_climbing)
 register_test_target(test_hill_climbing)
 
