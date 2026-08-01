@@ -113,5 +113,3 @@ argument names, and `$parent` through unnamed frames.
   is an error rather than a shrug. Every such name is recorded once as
   `widget:Name`, so the gap shows up in the shutdown report rather than as a
   mystery; adding it to the set is a one-line fix.
-- `WidgetTree::get` hands out a pointer into a vector that `create` grows.
-  Nothing holds one across a create today, but nothing stops it either.

@@ -19,6 +19,7 @@
 // readable against Blizzard's own documentation, rather than mirrored.
 
 #include <cstdint>
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -169,7 +170,12 @@ private:
     void layoutWidget(uint32_t id, float screenW, float screenH);
     void collectDrawOrder();
 
-    std::vector<Widget> widgets_;   ///< Index 0 is a placeholder; id == index.
+    /// A deque, not a vector, because get() hands out a pointer into this and
+    /// create() grows it. A vector reallocates, and any pointer taken before a
+    /// create would dangle after one — a use-after-free waiting on the first
+    /// caller that holds a Widget* across creating a child. A deque keeps
+    /// references valid when it grows, which is the guarantee this needs.
+    std::deque<Widget> widgets_;   ///< Index 0 is a placeholder; id == index.
     uint32_t rootId_ = 0;
     uint32_t nextOrder_ = 1;
     std::vector<const Widget*> drawOrder_;
