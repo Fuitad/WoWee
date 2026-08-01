@@ -481,7 +481,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
     float spawnYawDeg = 0.0f;
     if (gameHandler_) {
         float canonicalYaw = gameHandler_->getMovementInfo().orientation;
-        spawnYawDeg = 180.0f - glm::degrees(canonicalYaw);
+        spawnYawDeg = core::coords::canonicalToCharacterYawDeg(canonicalYaw);
     }
     if (renderer_->getCameraController()) {
         renderer_->getCameraController()->setOnlineMode(true);

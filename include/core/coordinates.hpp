@@ -69,6 +69,20 @@ inline float canonicalToServerYaw(float canonicalYaw) {
     return normalizeAngleRad(canonicalYaw + (PI * 0.5f));
 }
 
+// Character yaw is the renderer's facing in degrees; canonical yaw is the game
+// side's in radians. The frame loop pushes render → game every frame, so the
+// renderer is the source of truth and anything wanting to change facing has to
+// change it there — see GameHandler::faceCanonicalYaw. Both directions live
+// here so the pair cannot drift: they were hand-written at four call sites, two
+// of them inverting the other two from memory.
+inline float characterYawDegToCanonical(float yawDeg) {
+    return normalizeAngleRad((180.0f - yawDeg) * (PI / 180.0f));
+}
+
+inline float canonicalToCharacterYawDeg(float canonicalYaw) {
+    return 180.0f - canonicalYaw * (180.0f / PI);
+}
+
 // Convert between canonical WoW and engine rendering coordinates (just swap X/Y).
 inline glm::vec3 canonicalToRender(const glm::vec3& wow) {
     return glm::vec3(wow.y, wow.x, wow.z);

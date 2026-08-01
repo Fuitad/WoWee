@@ -2144,7 +2144,7 @@ void Application::update(float deltaTime) {
                     // We historically sent serverYaw = radians(yawDeg - 90). With the new
                     // canonical<->server mapping (serverYaw = PI/2 - canonicalYaw), the
                     // equivalent canonical yaw is radians(180 - yawDeg).
-                    float canonicalYaw = core::coords::normalizeAngleRad(glm::radians(180.0f - yawDeg));
+                    float canonicalYaw = core::coords::characterYawDegToCanonical(yawDeg);
                     gameHandler->setOrientation(canonicalYaw);
 
                     // Send MSG_MOVE_SET_FACING when the player changes facing direction

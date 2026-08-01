@@ -507,6 +507,16 @@ public:
     // Logout commands. exitAfterLogout: /quit and /exit leave the game; /logout and
     // /camp drop back to character select.
     void requestLogout(bool exitAfterLogout = false);
+
+    /// Turn the character to face a canonical yaw, and tell the server.
+    ///
+    /// Setting movementInfo.orientation and sending MSG_MOVE_SET_FACING is not
+    /// enough on its own: the frame loop resyncs orientation from the renderer's
+    /// character facing every frame and re-sends it once it differs by more than
+    /// three degrees, so a facing that exists only in the packet is undone
+    /// before anything with a cast time completes. Turning the character makes
+    /// the two agree, and keeps them agreeing.
+    void faceCanonicalYaw(float canonicalYaw);
     void cancelLogout();
 
     // Instance difficulty

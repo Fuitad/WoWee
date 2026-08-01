@@ -74,8 +74,10 @@ void CombatHandler::registerOpcodes(DispatchTable& table) {
                 float toTargetX = targetEntity->getX() - owner_.movementInfoRef().x;
                 float toTargetY = targetEntity->getY() - owner_.movementInfoRef().y;
                 if (std::abs(toTargetX) > 0.01f || std::abs(toTargetY) > 0.01f) {
-                    owner_.movementInfoRef().orientation = std::atan2(-toTargetY, toTargetX);
-                    owner_.sendMovement(Opcode::MSG_MOVE_SET_FACING);
+                    // The server just told us we are not facing the target, so
+                    // correcting only the packet would be undone by the next
+                    // frame and it would tell us again.
+                    owner_.faceCanonicalYaw(std::atan2(-toTargetY, toTargetX));
                 }
             }
         }

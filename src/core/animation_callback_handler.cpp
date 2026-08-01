@@ -149,7 +149,7 @@ void AnimationCallbackHandler::setupCallbacks() {
         float yawDeg = glm::degrees(yawRad);
         renderer_.setCharacterYaw(yawDeg);
         // Sync canonical orientation to server so it knows we turned
-        float canonicalYaw = core::coords::normalizeAngleRad(glm::radians(180.0f - yawDeg));
+        float canonicalYaw = core::coords::characterYawDegToCanonical(yawDeg);
         gameHandler_.setOrientation(canonicalYaw);
         gameHandler_.sendMovement(game::Opcode::MSG_MOVE_SET_FACING);
 

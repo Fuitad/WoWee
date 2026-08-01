@@ -1481,6 +1481,21 @@ void GameHandler::removeIgnore(const std::string& playerName) {
     if (socialHandler_) socialHandler_->removeIgnore(playerName);
 }
 
+void GameHandler::faceCanonicalYaw(float canonicalYaw) {
+    movementInfo.orientation = canonicalYaw;
+
+    // The renderer owns facing; the game side is downstream of it every frame.
+    if (auto* renderer = services_.renderer) {
+        const float facingDeg = core::coords::canonicalToCharacterYawDeg(canonicalYaw);
+        renderer->setCharacterYaw(facingDeg);
+        if (auto* cc = renderer->getCameraController()) {
+            cc->setFacingYaw(facingDeg);
+        }
+    }
+
+    sendMovement(Opcode::MSG_MOVE_SET_FACING);
+}
+
 void GameHandler::requestLogout(bool exitAfterLogout) {
     if (socialHandler_) socialHandler_->requestLogout(exitAfterLogout);
 }
@@ -2375,8 +2390,7 @@ void GameHandler::performGameObjectInteractionNow(uint64_t guid) {
             sendMovement(Opcode::MSG_MOVE_STOP);
         }
         if (std::abs(dx) > 0.01f || std::abs(dy) > 0.01f) {
-            movementInfo.orientation = std::atan2(-dy, dx);
-            sendMovement(Opcode::MSG_MOVE_SET_FACING);
+            faceCanonicalYaw(std::atan2(-dy, dx));
         }
         sendMovement(Opcode::MSG_MOVE_HEARTBEAT);
     }
