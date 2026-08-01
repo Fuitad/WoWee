@@ -208,6 +208,25 @@ TEST_CASE("$parent inside a template resolves to the frame that inherits it",
     REQUIRE_FALSE(has(r.lua, "\"MyTemplateBg\""));
 }
 
+TEST_CASE("A nested frame in a template also resolves $parent at replay time",
+          "[framexml][emit]") {
+    // The same rule as the region above, and it was the region that had it. A
+    // child frame named $parentScrollBar was emitted with the template's own
+    // name baked in, so every scroll frame in FrameXML created a global called
+    // UIPanelScrollFrameTemplateScrollBar and overwrote the last one, while the
+    // _G[self:GetName().."ScrollBar"] its handlers look up never existed. That
+    // one line accounted for most of the files that would not load.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"MyTemplate\" virtual=\"true\"><Frames>"
+        "<Frame name=\"$parentScrollBar\"/>"
+        "</Frames></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+
+    REQUIRE(has(r.lua, "GetName()"));
+    REQUIRE(has(r.lua, "\"ScrollBar\""));
+    REQUIRE_FALSE(has(r.lua, "\"MyTemplateScrollBar\""));
+}
+
 TEST_CASE("Outside a template $parent is resolved when emitted",
           "[framexml][emit]") {
     // No reason to defer it where the owning frame is already known; a literal

@@ -907,9 +907,15 @@ bool LuaEngine::initialize() {
     luaopen_string(L_);
     luaopen_math(L_);
 
-    // Remove unsafe globals from base library
+    // Remove unsafe globals from base library.
+    //
+    // newproxy is not among them, despite the name. It returns a userdata with
+    // a fresh metatable and reaches nothing else; what it buys is __index and
+    // __newindex on a value that cannot be tampered with, which is exactly how
+    // Blizzard's own RestrictedFrames builds secure frame handles. Removing it
+    // cost us SecureHandlerTemplates and everything inheriting from it.
     const char* unsafeGlobals[] = {
-        "dofile", "loadfile", "load", "collectgarbage", "newproxy", nullptr
+        "dofile", "loadfile", "load", "collectgarbage", nullptr
     };
     for (const char** g = unsafeGlobals; *g; ++g) {
         lua_pushnil(L_);
@@ -991,6 +997,53 @@ void LuaEngine::registerCoreAPI() {
     lua_getfield(L_, -1, "remove");
     lua_setglobal(L_, "tremove");
     lua_pop(L_, 1);  // pop table
+
+    // WoW's Lua predates the 5.1 module tables and exposes most of math, string
+    // and table as bare globals as well. FrameXML calls min, ceil and PI
+    // directly at file scope, and one nil there loses the whole file: mainmenubar
+    // and spellbookframe each died on a single arithmetic name.
+    //
+    // Skipped rather than assumed where the vendored Lua lacks one — getn is
+    // compiled out here, and setting a global to nil would be no better than
+    // leaving it absent.
+    struct Alias { const char* lib; const char* field; const char* global; };
+    static constexpr Alias kAliases[] = {
+        {"math", "abs", "abs"},        {"math", "ceil", "ceil"},
+        {"math", "floor", "floor"},    {"math", "max", "max"},
+        {"math", "min", "min"},        {"math", "fmod", "mod"},
+        {"math", "sqrt", "sqrt"},      {"math", "random", "random"},
+        {"string", "gsub", "gsub"},    {"string", "sub", "strsub"},
+        {"string", "len", "strlen"},   {"string", "upper", "strupper"},
+        {"string", "lower", "strlower"}, {"string", "find", "strfind"},
+        {"string", "rep", "strrep"},   {"string", "byte", "strbyte"},
+        {"string", "char", "strchar"}, {"string", "match", "strmatch"},
+        {"string", "gmatch", "gmatch"}, {"table", "sort", "sort"},
+        {"table", "getn", "getn"},     {"table", "concat", "tconcat"},
+    };
+    for (const auto& a : kAliases) {
+        lua_getglobal(L_, a.lib);
+        if (lua_istable(L_, -1)) {
+            lua_getfield(L_, -1, a.field);
+            if (lua_isnil(L_, -1)) lua_pop(L_, 1);
+            else lua_setglobal(L_, a.global);
+        }
+        lua_pop(L_, 1);
+    }
+    // A constant, not a function, so the fallback's rule for SCREAMING_SNAKE
+    // names leaves it nil and gametime.lua does arithmetic on nothing.
+    lua_getglobal(L_, "math");
+    lua_getfield(L_, -1, "pi");
+    lua_setglobal(L_, "PI");
+    lua_pop(L_, 1);
+
+    // WoW-specific and not derivable from a standard library.
+    luaL_dostring(L_,
+        "function wipe(t) for k in pairs(t) do t[k] = nil end return t end\n"
+        "function strtrim(s, chars)\n"
+        "  chars = chars or ' \\t\\r\\n'\n"
+        "  local p = '[' .. chars:gsub('(%W)', '%%%1') .. ']'\n"
+        "  return (s:gsub('^' .. p .. '*', ''):gsub(p .. '*$', ''))\n"
+        "end\n");
 
     // SlashCmdList table — addons register slash commands here
     lua_newtable(L_);

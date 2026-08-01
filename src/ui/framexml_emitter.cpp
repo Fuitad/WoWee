@@ -272,8 +272,14 @@ struct Emitter {
         const std::string parentArg = node.attr("parent")
             ? *node.attr("parent")
             : (parentVar.empty() ? "UIParent" : parentVar);
+        // Through nameArg, the same as regions: inside a template a child named
+        // $parentScrollBar has to work out its name when the template is
+        // replayed, because the frame it belongs to is not known until then.
+        // Baking the literal instead named every scroll bar after the template,
+        // so the _G[self:GetName().."ScrollBar"] its own handlers look up never
+        // existed — which is what took down most of FrameXML.
         line(var + " = CreateFrame(" + quote(node.name) + ", " +
-             (name.empty() ? "nil" : quote(name)) + ", " + parentArg + ")");
+             nameArg(rawName, parentName, parentArg) + ", " + parentArg + ")");
 
         // Templates apply before the frame's own settings, so anything stated
         // here overrides what it inherited — the order FrameXML relies on.
