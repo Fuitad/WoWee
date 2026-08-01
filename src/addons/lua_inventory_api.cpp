@@ -17,6 +17,28 @@ static int lua_GetZeroMoney(lua_State* L) {
     return 1;
 }
 
+/// Prices FrameXML reads straight into a money frame at load, before any
+/// server has told us anything. Nil is not an option there: TabardFrame does
+/// MoneyFrame_Update(frame, GetTabardCreationCost()) in its OnLoad, and the
+/// update divides that by the copper-per-gold constants immediately.
+static int lua_GetTabardCreationCost(lua_State* L) {
+    lua_pushnumber(L, 100000.0);   // ten gold
+    return 1;
+}
+
+static int lua_GetSendMailPrice(lua_State* L) {
+    lua_pushnumber(L, 30.0);
+    return 1;
+}
+
+/// Uncommon, which is the default a fresh group starts on. Concatenated
+/// straight into a global name — "ITEM_QUALITY" .. threshold .. "_DESC" — so
+/// it has to be a number rather than nothing.
+static int lua_GetLootThreshold(lua_State* L) {
+    lua_pushnumber(L, 2.0);
+    return 1;
+}
+
 static int lua_GetMoney(lua_State* L) {
     auto* gh = getGameHandler(L);
     lua_pushnumber(L, gh ? static_cast<double>(gh->getMoneyCopper()) : 0.0);
@@ -722,6 +744,9 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"LootSlot",            lua_LootSlot},
                 {"CloseLoot",           lua_CloseLoot},
                 {"GetLootMethod",       lua_GetLootMethod},
+                {"GetLootThreshold",    lua_GetLootThreshold},
+                {"GetTabardCreationCost", lua_GetTabardCreationCost},
+                {"GetSendMailPrice",    lua_GetSendMailPrice},
                 {"BuyMerchantItem", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             int index = static_cast<int>(luaL_checknumber(L, 1));
