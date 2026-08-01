@@ -615,7 +615,8 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
 
     // Hide hair under helmets: replace style-specific scalp with bald scalp
     // HEAD slot is index 0 in the 19-element equipment array
-    if (displayInfoIds[0] != 0 && hairStyleId > 0) {
+    if (displayInfoIds[0] != 0 && hairStyleId > 0 &&
+        core::helmHidesHair(*assetManager_, displayInfoIds[0], st.genderId)) {
         geosets.erase(selectedHairScalp);                              // Remove style scalp
         geosets.insert(1);    // Bald scalp cap (group 0)
     }

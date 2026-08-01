@@ -18,6 +18,9 @@ namespace core {
 namespace {
 
 constexpr uint32_t kAttachShield = 0;
+// M2 attachment 11 is the helm; 0 is the shield mount, which is where head
+// gear was going — attached successfully, on the forearm, invisible on the head.
+constexpr uint32_t kAttachHelm = 11;
 constexpr uint32_t kAttachRightHand = 1;
 constexpr uint32_t kAttachLeftHand = 2;
 constexpr uint32_t kAttachRightHip = 9;
@@ -467,9 +470,12 @@ void AppearanceComposer::loadEquippedHelm(game::Inventory& inventory) {
     const uint32_t charInstanceId = renderer_ ? renderer_->getCharacterInstanceId() : 0;
     if (!charRenderer || charInstanceId == 0 || !assetManager_ || !gameHandler_) return;
 
-    // Both attachment points, so a previous helm never lingers behind a new one.
-    charRenderer->detachWeapon(charInstanceId, 0);
-    charRenderer->detachWeapon(charInstanceId, 11);
+    // Only the helm point. Detaching 0 as well would drop the shield.
+    charRenderer->detachWeapon(charInstanceId, kAttachHelm);
+
+    // Hiding the helm is a display choice, not an unequip: the item stays on,
+    // the model comes off, and the hair comes back.
+    if (!gameHandler_->isHelmVisible()) return;
 
     const auto& headSlot = inventory.getEquipSlot(game::EquipSlot::HEAD);
     if (headSlot.empty()) return;
@@ -501,12 +507,8 @@ void AppearanceComposer::loadEquippedHelm(game::Inventory& inventory) {
     }
 
     const uint32_t helmModelId = entitySpawner_ ? entitySpawner_->allocateWeaponModelId() : 0;
-    bool attached = charRenderer->attachWeapon(charInstanceId, 0, helmModel,
-                                               helmModelId, helm.texturePath);
-    if (!attached) {
-        attached = charRenderer->attachWeapon(charInstanceId, 11, helmModel,
-                                              helmModelId, helm.texturePath);
-    }
+    const bool attached = charRenderer->attachWeapon(charInstanceId, kAttachHelm, helmModel,
+                                                     helmModelId, helm.texturePath);
     if (attached) {
         LOG_INFO("Equipped helm: ", helmPath, " tex: ", helm.texturePath);
     }

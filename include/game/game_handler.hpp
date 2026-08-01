@@ -416,6 +416,9 @@ public:
     Inventory& getInventory() { return inventory; }
     const Inventory& getInventory() const { return inventory; }
     bool consumeOnlineEquipmentDirty() { bool d = onlineEquipDirty_; onlineEquipDirty_ = false; return d; }
+    /// Ask for the equipment visuals to be rebuilt — the helm toggle changes what
+    /// is drawn without any item moving.
+    void markOnlineEquipmentDirty() { onlineEquipDirty_ = true; }
     void resetEquipmentDirtyTracking() { lastEquipDisplayIds_ = {}; onlineEquipDirty_ = true; }
     void unequipToBackpack(EquipSlot equipSlot);
 

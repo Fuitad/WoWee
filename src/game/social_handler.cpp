@@ -3272,6 +3272,10 @@ void SocialHandler::toggleHelm() {
     auto packet = ShowingHelmPacket::build(owner_.helmVisibleRef());
     owner_.getSocket()->send(packet);
     owner_.addSystemChatMessage(owner_.helmVisibleRef() ? "Helm is now visible." : "Helm is now hidden.");
+    // The flag alone changed nothing on screen: it was set, sent to the server
+    // and never read. Mark equipment dirty so the helm model and the hair under
+    // it are both rebuilt from it.
+    owner_.markOnlineEquipmentDirty();
     LOG_INFO("Helm visibility toggled: ", owner_.helmVisibleRef());
 }
 

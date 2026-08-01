@@ -37,5 +37,16 @@ HelmVisual resolveHelmVisual(pipeline::AssetManager& assets,
                              uint8_t raceId,
                              uint8_t genderId);
 
+/// Whether this head item covers the hair.
+///
+/// Not every head slot item does: a circlet, tiara or crown sits over the hair
+/// and leaves it showing, and the data says which is which. ItemDisplayInfo
+/// points at a HelmetGeosetVisData row per gender, and that row carries the
+/// masks of what to hide — the row circlets and crowns use is all zeroes, while
+/// a plate helm's is not. An id of 0 likewise hides nothing.
+bool helmHidesHair(pipeline::AssetManager& assets,
+                   uint32_t itemDisplayInfoId,
+                   uint8_t genderId);
+
 } // namespace core
 } // namespace wowee

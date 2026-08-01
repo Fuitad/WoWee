@@ -1,4 +1,5 @@
 #include "ui/game_screen.hpp"
+#include "core/helm_visual.hpp"
 #include "ui/ui_raid_icons.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/ui_helpers.hpp"
@@ -271,11 +272,23 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
     // The other-player path has always done this, so a helm covered their hair
     // and not yours.
     if (hasEquippedType({1})) {
-        for (auto it = geosets.begin(); it != geosets.end();) {
-            if (*it != 0 && (*it / 100) == 0) it = geosets.erase(it);
-            else ++it;
+        const uint32_t headDisplayId = findEquippedDisplayId({1});
+        uint8_t genderId = 0;
+        if (auto* gh = app.getGameHandler()) {
+            if (const auto* ch = gh->getActiveCharacter()) {
+                genderId = static_cast<uint8_t>(ch->gender);
+            }
         }
-        geosets.insert(1);
+        // A circlet, tiara or crown sits over the hair rather than covering it,
+        // and the data says which does what — see core::helmHidesHair.
+        if (auto* assets = app.getAssetManager();
+            assets && core::helmHidesHair(*assets, headDisplayId, genderId)) {
+            for (auto it = geosets.begin(); it != geosets.end();) {
+                if (*it != 0 && (*it / 100) == 0) it = geosets.erase(it);
+                else ++it;
+            }
+            geosets.insert(1);
+        }
     }
 
     // Groups 17 and 18 are the Death Knight / Night Elf eye glow. Nothing here
