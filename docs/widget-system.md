@@ -63,25 +63,40 @@ order that manifest states, before any addon. It turns the fallback above on by
 itself, because FrameXML cannot get through its own load without one.
 
 Every file that fails is listed together at the end of the load, with the reason
-carried up from whichever include or referenced script actually broke. Expect
-failures for now; what remains is measured rather than guessed:
+carried up from whichever include or referenced script actually broke, and each
+error carries the Lua call stack that reached it.
+
+All 139 files in the manifest now load, in around 380ms.
+
+    FrameXML: 13 Lua files and 126 XML files loaded, 0 failed in 377ms
+
+That is the whole original interface built against this client's widget tree.
+What remains is behaviour rather than loading: frames exist, are laid out and
+are named the way FrameXML expects, but the API behind them mostly answers with
+what the absence of a feature looks like.
+
+### Working out what is still missing
 
     tools/framexml_api_gap.py <path to Interface/FrameXML>
 
-At the time of writing that reports 1,191 missing functions across 2,442 call
-sites — out of 4,217 globals FrameXML calls, of which it defines 2,724 itself as
-it loads. The tail is very flat: the most-used missing name has 47 uses and the
-rest drop to about two each, so this is a long list of functions that mostly
-need to exist and return something sane, not a wall of hard work.
+reports 1,142 names FrameXML calls that this client does not define, out of
+4,217 it calls in total and 2,724 it defines itself as it loads. That ranking
+counts static call sites, though, and most are never reached.
 
-That ranking counts every call site, but only calls at file scope can stop a
-file loading — a missing name inside a handler costs nothing until the handler
-runs. The per-file reasons above are what identify those, and are the list worth
-working from.
+The measurement that matters is a run with the fallback off:
 
-Neither the XML reader nor the emitter is the constraint. All 140 XML files
-parse and every one's generated Lua compiles (`tools/framexml_compile_check.cpp`),
-so what fails, fails at run time.
+    WOWEE_LUA_API_FALLBACK=0 WOWEE_LOAD_FRAMEXML=1 ./wowee
+
+With the fallback on, a missing name answers and the gap is invisible. With it
+off, the log names every one FrameXML actually reached — which is how the list
+that mattered was found, rather than by guessing from the ranking.
+
+Two tools check the front half of the pipeline, and neither has been the
+constraint for some time: `tools/framexml_compile_check.cpp` asks Lua whether
+every generated file compiles (140/140), and the emitter has unit tests in
+`tests/test_framexml.cpp` covering the XML features that were silently absent —
+template inheritance, `parentKey`, `id`, `<ScrollChild>`, button art, handler
+argument names, and `$parent` through unnamed frames.
 
 ## Known gaps
 
@@ -93,3 +108,10 @@ so what fails, fails at run time.
 - Only the left mouse button reaches frames.
 - The texture cache never evicts. `Interface\` art is small and reused, but a
   long session with many addons would grow it without bound.
+- The widget method set in `lua_engine.cpp` is enumerated rather than derived.
+  A method outside it answers nil instead of doing nothing, which for an addon
+  is an error rather than a shrug. Every such name is recorded once as
+  `widget:Name`, so the gap shows up in the shutdown report rather than as a
+  mystery; adding it to the set is a one-line fix.
+- `WidgetTree::get` hands out a pointer into a vector that `create` grows.
+  Nothing holds one across a create today, but nothing stops it either.
