@@ -1167,6 +1167,36 @@ void LuaEngine::registerCoreAPI() {
         "function mt:GetObjectType() return 'Frame' end\n"
     );
 
+    // Button art, which XML declares as <NormalTexture>, <HighlightTexture>,
+    // <ButtonText> and so on. The catch-all below would answer these with a
+    // no-op, which is worse than it sounds: the setter would appear to work and
+    // the matching getter would hand back nil, so button:GetNormalTexture()
+    // :SetVertexColor(...) — which FrameXML does constantly to grey out an
+    // unusable action — fails somewhere far from the cause.
+    luaL_dostring(L_,
+        "local mt = __WoweeFrameMT\n"
+        "for _, slot in ipairs({'NormalTexture', 'PushedTexture', 'HighlightTexture',\n"
+        "                       'DisabledTexture', 'CheckedTexture',\n"
+        "                       'DisabledCheckedTexture'}) do\n"
+        "    local key = '__' .. slot\n"
+        "    mt['Set' .. slot] = function(self, tex) self[key] = tex end\n"
+        "    mt['Get' .. slot] = function(self) return self[key] end\n"
+        "end\n"
+        "function mt:SetFontString(fs) self.__fontString = fs end\n"
+        "function mt:GetFontString() return self.__fontString end\n"
+        // A button's text is its font string's text; keeping them apart means
+        // SetText on the button quietly does nothing, which is how a bar full
+        // of blank buttons happens.
+        "function mt:SetText(text)\n"
+        "    self.__text = text\n"
+        "    if self.__fontString then self.__fontString:SetText(text) end\n"
+        "end\n"
+        "function mt:GetText()\n"
+        "    if self.__fontString then return self.__fontString:GetText() end\n"
+        "    return self.__text\n"
+        "end\n"
+    );
+
     // Catch-all for unimplemented widget methods. Frames are logic-only stubs (not
     // natively rendered), so UI-heavy addons call many widget methods we don't model
     // (sliders: SetMinMaxValues/SetValue; check buttons: SetChecked; buttons:

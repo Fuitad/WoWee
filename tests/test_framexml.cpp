@@ -208,6 +208,32 @@ TEST_CASE("$parent inside a template resolves to the frame that inherits it",
     REQUIRE_FALSE(has(r.lua, "\"MyTemplateBg\""));
 }
 
+TEST_CASE("Button art declared outside a Layer is still created",
+          "[framexml][emit]") {
+    // <NormalTexture> and <ButtonText> are regions like any other, just
+    // declared as their own element with an implied layer and a setter. The
+    // emitter ignored all of them, so the names they declare never existed —
+    // _G["DropDownList1Button1NormalText"] among them, which is what stopped
+    // UIDropDownMenu loading. The highlight belongs on its own layer, and the
+    // label above the art rather than under it.
+    XmlNode root = parseOrFail(
+        "<Ui><Button name=\"MyButton\">"
+        "<NormalTexture name=\"$parentNormalTexture\" file=\"Art\\\\Face\"/>"
+        "<HighlightTexture name=\"$parentHighlight\"/>"
+        "<ButtonText name=\"$parentNormalText\"/>"
+        "</Button></Ui>");
+    const EmitResult r = emitFrameXml(root);
+
+    REQUIRE(has(r.lua, "\"MyButtonNormalTexture\""));
+    REQUIRE(has(r.lua, "\"MyButtonNormalText\""));
+    REQUIRE(has(r.lua, ":SetNormalTexture("));
+    REQUIRE(has(r.lua, ":SetFontString("));
+    REQUIRE(has(r.lua, "\"HIGHLIGHT\""));
+    REQUIRE(has(r.lua, "\"OVERLAY\""));
+    // A font string, not a texture — the element name does not say so.
+    REQUIRE(has(r.lua, "CreateFontString(\"MyButtonNormalText\""));
+}
+
 TEST_CASE("A nested frame in a template also resolves $parent at replay time",
           "[framexml][emit]") {
     // The same rule as the region above, and it was the region that had it. A

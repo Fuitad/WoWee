@@ -155,9 +155,13 @@ struct Emitter {
         }
     }
 
-    void emitRegion(const XmlNode& node, const std::string& parentVar,
-                    const std::string& parentName, const std::string& layerName) {
-        const bool isTexture = (node.name == "Texture");
+    /// Returns the variable holding the region, so a caller that has to hand it
+    /// to a setter afterwards — button art does — can name it. isTexture is
+    /// explicit because button art does not carry it in the element name:
+    /// <NormalTexture> is a texture and <ButtonText> a font string.
+    std::string emitRegion(const XmlNode& node, const std::string& parentVar,
+                           const std::string& parentName, const std::string& layerName,
+                           bool isTexture) {
         const std::string var = nextVar();
         const std::string rawName = node.attrOr("name", "");
         const std::string name = substituteParent(rawName, parentName);
@@ -207,6 +211,40 @@ struct Emitter {
         }
         if (const XmlNode* anchors = node.child("Anchors"))
             emitAnchors(*anchors, var, parentVar, parentName);
+        return var;
+    }
+
+    /// Button art declared as its own element rather than inside a Layer.
+    ///
+    /// These are ordinary regions with an implied draw layer and a setter to
+    /// call afterwards, and the emitter used to ignore all of them. That lost
+    /// the names they declare: a button whose <ButtonText name="$parentNormalText">
+    /// was dropped leaves _G["DropDownList1Button1NormalText"] undefined, and
+    /// with the API fallback on the lookup answers with a function instead of
+    /// failing outright. HighlightTexture alone appears in 62 FrameXML files.
+    void emitButtonRegions(const XmlNode& node, const std::string& var,
+                           const std::string& name) {
+        struct Slot { const char* element; const char* setter;
+                      const char* layer; bool isTexture; };
+        static constexpr Slot kSlots[] = {
+            {"NormalTexture",          "SetNormalTexture",          "ARTWORK",   true},
+            {"PushedTexture",          "SetPushedTexture",          "ARTWORK",   true},
+            {"DisabledTexture",        "SetDisabledTexture",        "ARTWORK",   true},
+            {"CheckedTexture",         "SetCheckedTexture",         "ARTWORK",   true},
+            {"DisabledCheckedTexture", "SetDisabledCheckedTexture", "ARTWORK",   true},
+            // Drawn above the button's own art rather than beside it, which is
+            // the whole point of the highlight layer.
+            {"HighlightTexture",       "SetHighlightTexture",       "HIGHLIGHT", true},
+            // Over the art, so a label is never hidden by the face beneath it.
+            {"ButtonText",             "SetFontString",             "OVERLAY",   false},
+        };
+        for (const Slot& slot : kSlots) {
+            const XmlNode* child = node.child(slot.element);
+            if (!child) continue;
+            const std::string regionVar =
+                emitRegion(*child, var, name, slot.layer, slot.isTexture);
+            line(var + ":" + slot.setter + "(" + regionVar + ")");
+        }
     }
 
     void emitAnchors(const XmlNode& anchors, const std::string& var,
@@ -325,10 +363,14 @@ struct Emitter {
                 const std::string level = layer.attrOr("level", "ARTWORK");
                 for (const XmlNode& region : layer.children) {
                     if (region.name == "Texture" || region.name == "FontString")
-                        emitRegion(region, var, name, level);
+                        emitRegion(region, var, name, level,
+                                   region.name == "Texture");
                 }
             }
         }
+        // Before Frames and Scripts, so a child anchoring to $parentNormalTexture
+        // and an OnLoad reading its own label both find something there.
+        emitButtonRegions(node, var, name);
         if (const XmlNode* frames = node.child("Frames")) {
             for (const XmlNode& child : frames->children) {
                 if (isFrameElement(child.name)) emitFrame(child, var, name);
