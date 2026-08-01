@@ -1,4 +1,5 @@
 #include "ui/game_screen.hpp"
+#include "ui/scene_pick.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/ui_helpers.hpp"
 #include "rendering/vk_context.hpp"
@@ -66,7 +67,6 @@ namespace {
     // GO pick radius keeps large objects clickable near their center without stealing the
     // click from a neighbor. Units are never clamped — this is a GO-only correction, the
     // same reasoning that already makes WMO GOs fall back to a conservative fixed sphere.
-    constexpr float kMaxGameObjectPickRadius = 3.0f;
 
     bool raySphereIntersect(const wowee::rendering::Ray& ray, const glm::vec3& center, float radius, float& tOut) {
         glm::vec3 oc = ray.origin - center;
@@ -1268,38 +1268,12 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             float screenW = static_cast<float>(window->getWidth());
             float screenH = static_cast<float>(window->getHeight());
             rendering::Ray ray = camera->screenToWorldRay(mousePos.x, mousePos.y, screenW, screenH);
-            float closestT = 1e30f;
-            bool hoverInteractable = false;
-            for (const auto& [guid, entity] : gameHandler.getEntityManager().getEntities()) {
-                bool isGo   = (entity->getType() == game::ObjectType::GAMEOBJECT);
-                bool isUnit = (entity->getType() == game::ObjectType::UNIT);
-                bool isPlayer = (entity->getType() == game::ObjectType::PLAYER);
-                if (!isGo && !isUnit && !isPlayer) continue;
-                if (guid == gameHandler.getPlayerGuid()) continue; // skip self
-
-                glm::vec3 hitCenter;
-                float hitRadius = 0.0f;
-                bool hasBounds = core::Application::getInstance().getRenderBoundsForGuid(guid, hitCenter, hitRadius);
-                if (!hasBounds) {
-                    hitRadius = isGo ? 2.5f : 1.8f;
-                    hitCenter = core::coords::canonicalToRender(glm::vec3(entity->getX(), entity->getY(), entity->getZ()));
-                    hitCenter.z += isGo ? 1.2f : 1.0f;
-                } else {
-                    // Resource nodes can have very tight render bounds; keep
-                    // their click target close to the no-bounds fallback. Cap GO
-                    // spheres so a wide forge/anvil doesn't swallow nearby NPCs.
-                    hitRadius = isGo
-                        ? std::clamp(hitRadius * 1.25f, 2.5f, kMaxGameObjectPickRadius)
-                        : std::max(hitRadius * 1.25f, 1.0f);
-                }
-
-                float hitT;
-                if (raySphereIntersect(ray, hitCenter, hitRadius, hitT) && hitT < closestT) {
-                    closestT = hitT;
-                    hoverInteractable = true;
-                }
-            }
-            if (hoverInteractable) {
+            // The same picker the click uses, so the cursor affordance cannot
+            // disagree with what clicking would actually select — including the
+            // tighter sphere critters get, which this copy did not have.
+            const ui::ScenePick hoverPick =
+                ui::pickScene(gameHandler, ray, ui::ScenePickParams{});
+            if (hoverPick.closestGuid != 0) {
                 ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
             }
         }
@@ -1352,143 +1326,9 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                     }
                 }
 
-                float closestT = 1e30f;
-                uint64_t closestGuid = 0;
-                float closestHostileUnitT = 1e30f;
-                uint64_t closestHostileUnitGuid = 0;
-                // Rank unit-vs-object by distance to the entity CENTER along the ray (not
-                // the inflated hit-sphere entry) so a unit in front is never lost to a big
-                // object sphere behind it.
-                float bestUnitCenterT = 1e30f;
-                uint64_t bestUnitGuid = 0;
-                // Split by liveness so a body cannot outrank someone standing on it.
-                float bestLivingUnitCenterT = 1e30f;
-                uint64_t bestLivingUnitGuid = 0;
-                float bestDeadUnitCenterT = 1e30f;
-                uint64_t bestDeadUnitGuid = 0;
-                float bestGoCenterT = 1e30f;
-                uint64_t bestGoGuid = 0;
-
-                const uint64_t myGuid = gameHandler.getPlayerGuid();
-                for (const auto& [guid, entity] : gameHandler.getEntityManager().getEntities()) {
-                    auto t = entity->getType();
-                    if (t != game::ObjectType::UNIT &&
-                        t != game::ObjectType::PLAYER &&
-                        t != game::ObjectType::GAMEOBJECT) continue;
-                    if (guid == myGuid) continue;  // Don't target self
-
-                    glm::vec3 hitCenter;
-                    float hitRadius = 0.0f;
-                    bool hasBounds = core::Application::getInstance().getRenderBoundsForGuid(guid, hitCenter, hitRadius);
-                    if (!hasBounds) {
-                        // Fallback hitbox based on entity type. Match the hover-cursor sizes
-                        // (game_screen.cpp ~line 1100) so the targeting reticle agrees with
-                        // the cursor affordance — otherwise NPCs feel "hard to click".
-                        float heightOffset = 1.0f;
-                        hitRadius = 1.8f;
-                        if (t == game::ObjectType::UNIT) {
-                            auto unit = std::static_pointer_cast<game::Unit>(entity);
-                            // Critters have very low max health (< 100)
-                            if (unit->getMaxHealth() > 0 && unit->getMaxHealth() < 100) {
-                                hitRadius = 0.5f;
-                                heightOffset = 0.3f;
-                            }
-                        } else if (t == game::ObjectType::GAMEOBJECT) {
-                            hitRadius = 2.5f;
-                            heightOffset = 1.2f;
-                        }
-                        hitCenter = core::coords::canonicalToRender(glm::vec3(entity->getX(), entity->getY(), entity->getZ()));
-                        hitCenter.z += heightOffset;
-                    } else if (t == game::ObjectType::GAMEOBJECT) {
-                        // Cap the sphere so a wide forge/anvil doesn't swallow nearby NPCs.
-                        hitRadius = std::clamp(hitRadius * 1.25f, 2.5f, kMaxGameObjectPickRadius);
-                    } else {
-                        hitRadius = std::max(hitRadius * 1.25f, 1.0f);
-                    }
-
-                    float hitT;
-                    if (raySphereIntersect(ray, hitCenter, hitRadius, hitT)) {
-                        const float centerT = glm::dot(hitCenter - ray.origin, ray.direction);
-                        if (t == game::ObjectType::UNIT || t == game::ObjectType::PLAYER) {
-                            // Rank the living ahead of the dead rather than by
-                            // distance alone. A corpse lies at ground level, so
-                            // looking down at a player standing on one puts the
-                            // body nearer the camera and it took the click.
-                            bool aliveUnit = true;
-                            if (auto asUnit = std::dynamic_pointer_cast<game::Unit>(entity)) {
-                                aliveUnit = !(asUnit->getHealth() == 0 && asUnit->getMaxHealth() > 0);
-                            }
-                            if (aliveUnit) {
-                                if (centerT < bestLivingUnitCenterT) {
-                                    bestLivingUnitCenterT = centerT;
-                                    bestLivingUnitGuid = guid;
-                                }
-                            } else if (centerT < bestDeadUnitCenterT) {
-                                bestDeadUnitCenterT = centerT;
-                                bestDeadUnitGuid = guid;
-                            }
-                            if (centerT < bestUnitCenterT) {
-                                bestUnitCenterT = centerT;
-                                bestUnitGuid = guid;
-                            }
-                            if (t == game::ObjectType::UNIT) {
-                                auto unit = std::static_pointer_cast<game::Unit>(entity);
-                                // A corpse still answers isHostile(), and hostile
-                                // units are picked ahead of everything else — so a
-                                // body on the ground beat the living player standing
-                                // over it every time.
-                                const bool dead = unit->getHealth() == 0 && unit->getMaxHealth() > 0;
-                                bool hostileUnit = !dead &&
-                                    (unit->isHostile() || gameHandler.isAggressiveTowardPlayer(guid));
-                                if (hostileUnit && hitT < closestHostileUnitT) {
-                                    closestHostileUnitT = hitT;
-                                    closestHostileUnitGuid = guid;
-                                }
-                            }
-                        } else if (t == game::ObjectType::GAMEOBJECT) {
-                            // Purely-decorative objects (GENERIC, type 5) have no interaction
-                            // and must never steal a click from a unit. Neither do
-                            // fishing schools (FISHINGHOLE, type 25) — retail gives them
-                            // no interact cursor, because the only way to take from one
-                            // is to fish in it.
-                            auto go = std::static_pointer_cast<game::GameObject>(entity);
-                            auto* goInfo = gameHandler.getCachedGameObjectInfo(go->getEntry());
-                            if ((!goInfo || (goInfo->type != 5 && goInfo->type != 25)) &&
-                                centerT < bestGoCenterT) {
-                                bestGoCenterT = centerT;
-                                bestGoGuid = guid;
-                            }
-                        }
-                        if (hitT < closestT) {
-                            closestT = hitT;
-                            closestGuid = guid;
-                        }
-                    }
-                }
-
-                // A unit wins over a game object unless the object's center is clearly in
-                // front of the unit's, so a creature is never lost to a decorative or
-                // backing object behind it. Hostile units keep their targeting priority.
-                // Someone alive wins; a corpse stays selectable, but only when nothing
-                // living was under the cursor. That is how retail behaves, and it is what
-                // makes a player standing on a body clickable at all.
-                if (bestLivingUnitGuid != 0) {
-                    bestUnitGuid = bestLivingUnitGuid;
-                    bestUnitCenterT = bestLivingUnitCenterT;
-                } else if (bestDeadUnitGuid != 0) {
-                    bestUnitGuid = bestDeadUnitGuid;
-                    bestUnitCenterT = bestDeadUnitCenterT;
-                }
-
-                constexpr float kUnitOverGoBias = 2.0f;
-                if (bestUnitGuid != 0 &&
-                    (bestGoGuid == 0 || bestUnitCenterT <= bestGoCenterT + kUnitOverGoBias)) {
-                    closestGuid = (closestHostileUnitGuid != 0) ? closestHostileUnitGuid : bestUnitGuid;
-                } else if (bestGoGuid != 0) {
-                    closestGuid = bestGoGuid;
-                } else {
-                    closestGuid = 0;
-                }
+                const ui::ScenePick pick = ui::pickScene(
+                    gameHandler, ray, ui::ScenePickParams{});
+                uint64_t closestGuid = pick.resolve();
 
                 if (closestGuid != 0) {
                     if (closestGuid == gameHandler.getHookedFishingBobberGuid()) {
@@ -1600,151 +1440,40 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 float screenW = static_cast<float>(window->getWidth());
                 float screenH = static_cast<float>(window->getHeight());
                 rendering::Ray ray = camera->screenToWorldRay(mousePos.x, mousePos.y, screenW, screenH);
-                float closestT = 1e30f;
-                uint64_t closestGuid = 0;
-                game::ObjectType closestType = game::ObjectType::OBJECT;
-                float closestHostileUnitT = 1e30f;
-                uint64_t closestHostileUnitGuid = 0;
+                // The right-click picker wants a slightly taller, tighter fallback
+                // sphere than the target picker, and must ignore chairs: their wide
+                // sphere is easy to catch while right-drag-rotating the camera, which
+                // sits the player down.
+                ui::ScenePickParams params;
+                params.unitHitRadius = 1.5f;
+                params.unitHeightOffset = 1.5f;
+                params.skipChairs = true;
+
                 float closestQuestGoT = 1e30f;
                 uint64_t closestQuestGoGuid = 0;
                 float hookedBobberT = 1e30f;
                 uint64_t hookedBobberGuid = 0;
-                // Nearest unit and nearest (non-decorative) object by distance to the
-                // entity CENTER, so a unit in front beats a big object sphere behind it.
-                float bestUnitCenterT = 1e30f;
-                uint64_t bestUnitGuid = 0;
-                // Split by liveness so a body cannot outrank someone standing on it.
-                float bestLivingUnitCenterT = 1e30f;
-                uint64_t bestLivingUnitGuid = 0;
-                float bestDeadUnitCenterT = 1e30f;
-                uint64_t bestDeadUnitGuid = 0;
-                float bestGoCenterT = 1e30f;
-                uint64_t bestGoGuid = 0;
-                const uint64_t myGuid = gameHandler.getPlayerGuid();
-                for (const auto& [guid, entity] : gameHandler.getEntityManager().getEntities()) {
-                    auto t = entity->getType();
-                    if (t != game::ObjectType::UNIT &&
-                        t != game::ObjectType::PLAYER &&
-                        t != game::ObjectType::GAMEOBJECT)
-                        continue;
-                    if (guid == myGuid) continue;
+                const ui::ScenePick pick = ui::pickScene(
+                    gameHandler, ray, params,
+                    [&](uint64_t guid, const std::shared_ptr<game::Entity>& entity,
+                        float hitT, float /*centerT*/) {
+                        if (entity->getType() != game::ObjectType::GAMEOBJECT) return;
+                        if (guid == gameHandler.getHookedFishingBobberGuid() &&
+                            hitT < hookedBobberT) {
+                            hookedBobberT = hitT;
+                            hookedBobberGuid = guid;
+                        }
+                        if (questObjectiveGoEntries.empty()) return;
+                        auto go = std::static_pointer_cast<game::GameObject>(entity);
+                        if (questObjectiveGoEntries.count(go->getEntry()) &&
+                            hitT < closestQuestGoT) {
+                            closestQuestGoT = hitT;
+                            closestQuestGoGuid = guid;
+                        }
+                    });
 
-                    glm::vec3 hitCenter;
-                    float hitRadius = 0.0f;
-                    bool hasBounds = core::Application::getInstance().getRenderBoundsForGuid(guid, hitCenter, hitRadius);
-                    if (!hasBounds) {
-                        float heightOffset = 1.5f;
-                        hitRadius = 1.5f;
-                        if (t == game::ObjectType::UNIT) {
-                            auto unit = std::static_pointer_cast<game::Unit>(entity);
-                            if (unit->getMaxHealth() > 0 && unit->getMaxHealth() < 100) {
-                                hitRadius = 0.5f;
-                                heightOffset = 0.3f;
-                            }
-                        } else if (t == game::ObjectType::GAMEOBJECT) {
-                            // Skip chair-type GOs (type 7) from the right-click world picker.
-                            // Their 2.5m fallback sphere gets hit when right-click-rotating
-                            // the camera near a chair, causing the player to auto-sit. Users
-                            // can still left-click a chair to target it, then right-click to sit.
-                            auto go = std::static_pointer_cast<game::GameObject>(entity);
-                            auto* goInfo = gameHandler.getCachedGameObjectInfo(go->getEntry());
-                            if (goInfo && goInfo->type == 7) continue;
-                            hitRadius = 2.5f;
-                            heightOffset = 1.2f;
-                        }
-                        hitCenter = core::coords::canonicalToRender(
-                            glm::vec3(entity->getX(), entity->getY(), entity->getZ()));
-                        hitCenter.z += heightOffset;
-                        // Log each unique GO's raypick position once
-                        if (t == game::ObjectType::GAMEOBJECT) {
-                            static std::unordered_set<uint64_t> goPickLog;
-                            if (goPickLog.insert(guid).second) {
-                                auto go = std::static_pointer_cast<game::GameObject>(entity);
-                                LOG_DEBUG("[GO-DIAG] Raypick GO: guid=0x", std::hex, guid, std::dec,
-                                            " entry=", go->getEntry(), " name='", go->getName(),
-                                            "' pos=(", entity->getX(), ",", entity->getY(), ",", entity->getZ(),
-                                            ") center=(", hitCenter.x, ",", hitCenter.y, ",", hitCenter.z,
-                                            ") r=", hitRadius);
-                            }
-                        }
-                    } else if (t == game::ObjectType::GAMEOBJECT) {
-                        // Cap the sphere so a wide forge/anvil doesn't swallow nearby NPCs.
-                        hitRadius = std::clamp(hitRadius * 1.25f, 2.5f, kMaxGameObjectPickRadius);
-                    } else {
-                        hitRadius = std::max(hitRadius * 1.25f, 1.0f);
-                    }
-
-                    float hitT;
-                    if (raySphereIntersect(ray, hitCenter, hitRadius, hitT)) {
-                        const float centerT = glm::dot(hitCenter - ray.origin, ray.direction);
-                        if (t == game::ObjectType::UNIT || t == game::ObjectType::PLAYER) {
-                            // Rank the living ahead of the dead rather than by
-                            // distance alone. A corpse lies at ground level, so
-                            // looking down at a player standing on one puts the
-                            // body nearer the camera and it took the click.
-                            bool aliveUnit = true;
-                            if (auto asUnit = std::dynamic_pointer_cast<game::Unit>(entity)) {
-                                aliveUnit = !(asUnit->getHealth() == 0 && asUnit->getMaxHealth() > 0);
-                            }
-                            if (aliveUnit) {
-                                if (centerT < bestLivingUnitCenterT) {
-                                    bestLivingUnitCenterT = centerT;
-                                    bestLivingUnitGuid = guid;
-                                }
-                            } else if (centerT < bestDeadUnitCenterT) {
-                                bestDeadUnitCenterT = centerT;
-                                bestDeadUnitGuid = guid;
-                            }
-                            if (centerT < bestUnitCenterT) {
-                                bestUnitCenterT = centerT;
-                                bestUnitGuid = guid;
-                            }
-                            if (t == game::ObjectType::UNIT) {
-                                auto unit = std::static_pointer_cast<game::Unit>(entity);
-                                // A corpse still answers isHostile(), and hostile
-                                // units are picked ahead of everything else — so a
-                                // body on the ground beat the living player standing
-                                // over it every time.
-                                const bool dead = unit->getHealth() == 0 && unit->getMaxHealth() > 0;
-                                bool hostileUnit = !dead &&
-                                    (unit->isHostile() || gameHandler.isAggressiveTowardPlayer(guid));
-                                if (hostileUnit && hitT < closestHostileUnitT) {
-                                    closestHostileUnitT = hitT;
-                                    closestHostileUnitGuid = guid;
-                                }
-                            }
-                        }
-                        if (t == game::ObjectType::GAMEOBJECT) {
-                            auto go = std::static_pointer_cast<game::GameObject>(entity);
-                            if (guid == gameHandler.getHookedFishingBobberGuid() && hitT < hookedBobberT) {
-                                hookedBobberT = hitT;
-                                hookedBobberGuid = guid;
-                            }
-                            // Skip purely-decorative objects (GENERIC, type 5) and
-                            // fishing schools (FISHINGHOLE, type 25), which are fished
-                            // rather than clicked.
-                            auto* goInfo = gameHandler.getCachedGameObjectInfo(go->getEntry());
-                            if ((!goInfo || (goInfo->type != 5 && goInfo->type != 25)) &&
-                                centerT < bestGoCenterT) {
-                                bestGoCenterT = centerT;
-                                bestGoGuid = guid;
-                            }
-                            if (!questObjectiveGoEntries.empty()) {
-                                if (questObjectiveGoEntries.count(go->getEntry())) {
-                                    if (hitT < closestQuestGoT) {
-                                        closestQuestGoT = hitT;
-                                        closestQuestGoGuid = guid;
-                                    }
-                                }
-                            }
-                        }
-                        if (hitT < closestT) {
-                            closestT = hitT;
-                            closestGuid = guid;
-                            closestType = t;
-                        }
-                    }
-                }
+                uint64_t closestGuid = 0;
+                game::ObjectType closestType = game::ObjectType::OBJECT;
 
                 // A hooked fishing bobber is time-sensitive and intentionally small:
                 // if its click sphere was hit, reel it rather than selecting an
@@ -1756,31 +1485,10 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                     closestGuid = closestQuestGoGuid;
                     closestType = game::ObjectType::GAMEOBJECT;
                 } else {
-                    // A unit wins over a game object unless the object's center is clearly
-                    // in front of the unit's, so a creature is never lost to a decorative
-                    // or backing object behind it. Hostile units keep attack priority.
-                    // Someone alive wins; a corpse stays selectable, but only when nothing
-                    // living was under the cursor. That is how retail behaves, and it is what
-                    // makes a player standing on a body clickable at all.
-                    if (bestLivingUnitGuid != 0) {
-                        bestUnitGuid = bestLivingUnitGuid;
-                        bestUnitCenterT = bestLivingUnitCenterT;
-                    } else if (bestDeadUnitGuid != 0) {
-                        bestUnitGuid = bestDeadUnitGuid;
-                        bestUnitCenterT = bestDeadUnitCenterT;
-                    }
-
-                    constexpr float kUnitOverGoBias = 2.0f;
-                    if (bestUnitGuid != 0 &&
-                        (bestGoGuid == 0 || bestUnitCenterT <= bestGoCenterT + kUnitOverGoBias)) {
-                        closestGuid = (closestHostileUnitGuid != 0) ? closestHostileUnitGuid : bestUnitGuid;
-                        closestType = game::ObjectType::UNIT;
-                    } else if (bestGoGuid != 0) {
-                        closestGuid = bestGoGuid;
-                        closestType = game::ObjectType::GAMEOBJECT;
-                    } else {
-                        closestGuid = 0;
-                    }
+                    closestGuid = pick.resolve();
+                    closestType = (closestGuid != 0 && closestGuid == pick.objectGuid)
+                                      ? game::ObjectType::GAMEOBJECT
+                                      : game::ObjectType::UNIT;
                 }
 
                 if (closestGuid != 0) {

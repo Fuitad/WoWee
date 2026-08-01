@@ -841,6 +841,7 @@ set(WOWEE_SOURCES
     src/ui/character_create_screen.cpp
     src/ui/character_screen.cpp
     src/ui/game_screen.cpp
+    src/ui/scene_pick.cpp
     src/ui/game_screen_frames.cpp
     src/ui/game_screen_hud.cpp
     src/ui/game_screen_minimap.cpp
