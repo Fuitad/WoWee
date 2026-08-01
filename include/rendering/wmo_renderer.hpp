@@ -184,12 +184,11 @@ public:
      */
     /** Pre-update mutable state (frame ID, material UBOs) on main thread before parallel render. */
     void prepareRender();
-    /// Portal culling walks from the camera's own group, so no separate viewer
-    /// position is taken. A character position used to be passed here to keep an
-    /// orbiting third-person camera from culling a building's interior; the
-    /// camera-outside-all-groups check now covers that, and the two positions
-    /// disagreeing is what emptied doorways and hallways.
-    void render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const Camera& camera);
+    /// viewerPos is the character; portal culling seeds from it as well as from
+    /// the camera, because at a doorway the two stand in different groups and
+    /// neither alone is reliably the right place to start.
+    void render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, const Camera& camera,
+                const glm::vec3* viewerPos = nullptr);
 
     /**
      * Initialize shadow pipeline (Phase 7)
@@ -637,8 +636,12 @@ private:
     /**
      * Get visible groups via portal traversal
      */
+    /// Seeds from both the camera's group and the character's: at a doorway the
+    /// two are in different rooms, and walking from only one while judging every
+    /// door against the camera's frustum empties the interior.
     void getVisibleGroupsViaPortals(const ModelData& model,
                                      const glm::vec3& cameraLocalPos,
+                                     const glm::vec3& viewerLocalPos,
                                      const Frustum& frustum,
                                      const glm::mat4& modelMatrix,
                                      std::unordered_set<uint32_t>& outVisibleGroups) const;
