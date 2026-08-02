@@ -1579,7 +1579,12 @@ void LuaEngine::registerCoreAPI() {
         "    if known[key] then return noop end\n"
         // Recorded once so a method missing from the set is visible rather
         // than silently answering nil, which is the failure this trades for.
-        "    if string.find(key, '^%u') and not seen[key] then\n"
+        // Not On*: those are script handler names, and reading one as a field
+        // is how FrameXML asks whether a handler is set. Nil is the right
+        // answer there, so recording it would be reporting correct behaviour
+        // as a gap.
+        "    if string.find(key, '^%u') and not string.find(key, '^On%u')\n"
+        "       and not seen[key] then\n"
         "        seen[key] = true\n"
         "        if __WoweeRecordMissingApi then __WoweeRecordMissingApi('widget:' .. key) end\n"
         "    end\n"

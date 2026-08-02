@@ -5,6 +5,8 @@
 #include "audio/audio_coordinator.hpp"
 #include "audio/ui_sound_manager.hpp"
 #include "core/window.hpp"
+
+#include <SDL2/SDL.h>
 #include "game/expansion_profile.hpp"
 
 namespace wowee::addons {
@@ -489,6 +491,7 @@ static int lua_wow_gettime(lua_State* L) {
 // caller takes the branch it would take on a client where that feature is off,
 // rather than dividing by a nil.
 static int lua_ReturnFalse(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+static int lua_ReturnTrue(lua_State* L)  { lua_pushboolean(L, 1); return 1; }
 static int lua_ReturnNil(lua_State* L)   { lua_pushnil(L); return 1; }
 static int lua_ReturnZero(lua_State* L)  { lua_pushnumber(L, 0.0); return 1; }
 static int lua_ReturnNothing(lua_State*) { return 0; }
@@ -561,6 +564,73 @@ static int lua_GetChatWindowInfo(lua_State* L) {
     return 10;
 }
 
+/// Names FrameXML reached for and did not find, harvested from a run rather
+/// than guessed at: the fallback records each once and reports the list at
+/// shutdown. Each answers with what the feature being absent looks like, so
+/// the caller takes the branch it would take on a client where that feature is
+/// switched off.
+static int lua_GetMapInfo(lua_State* L) {
+    // mapFileName, textureHeight, textureWidth. WorldMapFrame builds a texture
+    // path out of the first and divides by the other two.
+    lua_pushstring(L, "");
+    lua_pushnumber(L, 0.0);
+    lua_pushnumber(L, 0.0);
+    return 3;
+}
+
+/// The expansion this client speaks. Two is Wrath, which is what the wire
+/// format and the DBC layouts here assume.
+static int lua_GetExpansionLevel(lua_State* L) {
+    lua_pushnumber(L, 2.0);
+    return 1;
+}
+
+/// Normal, which is the difficulty a fresh group is on.
+static int lua_ReturnOne(lua_State* L) {
+    lua_pushnumber(L, 1.0);
+    return 1;
+}
+
+static int lua_GetDefaultLanguage(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    static const std::set<uint8_t> kHordeRaces = {2, 5, 6, 8, 10};
+    const bool horde = gh && kHordeRaces.count(gh->getPlayerRace()) > 0;
+    lua_pushstring(L, horde ? "Orcish" : "Common");
+    return 1;
+}
+
+/// No enchant on either hand: four values per hand, and MainMenuBar reads the
+/// expiry as a number.
+static int lua_GetWeaponEnchantInfo(lua_State* L) {
+    for (int i = 0; i < 2; ++i) {
+        lua_pushboolean(L, 0);   // hasEnchant
+        lua_pushnumber(L, 0.0);  // expiration
+        lua_pushnumber(L, 0.0);  // charges
+    }
+    return 6;
+}
+
+/// Which modifier keys are held. Answered from the real keyboard rather than
+/// falsely, because a shift-click means something different from a click and
+/// FrameXML asks these on every button press.
+static int lua_IsShiftKeyDown(lua_State* L) {
+    lua_pushboolean(L, (SDL_GetModState() & KMOD_SHIFT) != 0);
+    return 1;
+}
+static int lua_IsControlKeyDown(lua_State* L) {
+    lua_pushboolean(L, (SDL_GetModState() & KMOD_CTRL) != 0);
+    return 1;
+}
+static int lua_IsAltKeyDown(lua_State* L) {
+    lua_pushboolean(L, (SDL_GetModState() & KMOD_ALT) != 0);
+    return 1;
+}
+static int lua_IsModifierKeyDown(lua_State* L) {
+    const SDL_Keymod m = SDL_GetModState();
+    lua_pushboolean(L, (m & (KMOD_SHIFT | KMOD_CTRL | KMOD_ALT)) != 0);
+    return 1;
+}
+
 static int lua_ReturnNoCooldown(lua_State* L) {
     lua_pushnumber(L, 0.0);
     lua_pushnumber(L, 0.0);
@@ -585,6 +655,83 @@ static int lua_UnitFactionGroup(lua_State* L) {
 
 void registerSystemLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
+                {"GetCVarDefault",           lua_GetCVar},
+                {"GetMapInfo",               lua_GetMapInfo},
+                {"GetExpansionLevel",        lua_GetExpansionLevel},
+                {"GetDungeonDifficulty",     lua_ReturnOne},
+                {"GetRaidDifficulty",        lua_ReturnOne},
+                {"GetChatTypeIndex",         lua_ReturnOne},
+                {"GetDefaultLanguage",       lua_GetDefaultLanguage},
+                {"GetWeaponEnchantInfo",     lua_GetWeaponEnchantInfo},
+                {"GetCorpseRecoveryDelay",   lua_ReturnZero},
+                {"GetAdjustedSkillPoints",   lua_ReturnZero},
+                {"GetPartyLeaderIndex",      lua_ReturnZero},
+                {"GetNumArenaOpponents",     lua_ReturnZero},
+                {"GetCurrentMultisampleFormat", lua_ReturnOne},
+                {"GetMultisampleFormats",    lua_ReturnOne},
+                {"GetRefreshRates",          lua_ReturnZero},
+                {"GetCompanionInfo",         lua_ReturnNil},
+                {"GetMultiCastTotemSpells",  lua_ReturnNil},
+                {"GetPossessInfo",           lua_ReturnNil},
+                {"GetVoiceStatus",           lua_ReturnFalse},
+                {"GetMuteStatus",            lua_ReturnFalse},
+                {"GetActiveVoiceChannel",    lua_ReturnNil},
+                {"GetVoiceCurrentSessionID", lua_ReturnNil},
+                {"GetOptOutOfLoot",          lua_ReturnFalse},
+                {"GetPartyMember",           lua_ReturnFalse},
+                {"GetZonePVPInfo",           lua_ReturnNil},
+                {"GetMouseButtonClicked",    lua_ReturnNil},
+                {"GetChatWindowSavedPosition",   lua_ReturnNil},
+                {"GetChatWindowSavedDimensions", lua_ReturnNil},
+                {"GetExistingLocales",       lua_ReturnNil},
+                {"GetGuildRosterSelection",  lua_ReturnZero},
+                // Read from the real keyboard: a shift-click means something
+                // different from a click, and FrameXML asks on every press.
+                {"IsShiftKeyDown",           lua_IsShiftKeyDown},
+                {"IsLeftShiftKeyDown",       lua_IsShiftKeyDown},
+                {"IsRightShiftKeyDown",      lua_IsShiftKeyDown},
+                {"IsControlKeyDown",         lua_IsControlKeyDown},
+                {"IsLeftControlKeyDown",     lua_IsControlKeyDown},
+                {"IsRightControlKeyDown",    lua_IsControlKeyDown},
+                {"IsAltKeyDown",             lua_IsAltKeyDown},
+                {"IsLeftAltKeyDown",         lua_IsAltKeyDown},
+                {"IsRightAltKeyDown",        lua_IsAltKeyDown},
+                {"IsModifierKeyDown",        lua_IsModifierKeyDown},
+                {"IsAttackAction",           lua_ReturnFalse},
+                {"IsConsumableAction",       lua_ReturnFalse},
+                {"IsEquippedAction",         lua_ReturnFalse},
+                {"IsStackableAction",        lua_ReturnFalse},
+                {"IsFlyableArea",            lua_ReturnFalse},
+                {"IsIndoors",                lua_ReturnFalse},
+                {"IsOutdoors",               lua_ReturnTrue},
+                {"IsHarmfulItem",            lua_ReturnFalse},
+                {"IsHelpfulItem",            lua_ReturnFalse},
+                {"IsHarmfulSpell",           lua_ReturnFalse},
+                {"IsHelpfulSpell",           lua_ReturnFalse},
+                {"IsPossessBarVisible",      lua_ReturnFalse},
+                {"IsRaidOfficer",            lua_ReturnFalse},
+                {"IsReferAFriendLinked",     lua_ReturnFalse},
+                {"IsStereoVideoAvailable",   lua_ReturnFalse},
+                {"IsVoiceChatEnabled",       lua_ReturnFalse},
+                {"IsZoomOutAvailable",       lua_ReturnFalse},
+                {"HasDebugZoneMap",          lua_ReturnFalse},
+                {"CanQueueForWintergrasp",   lua_ReturnFalse},
+                {"CancelSkillUps",           lua_ReturnNothing},
+                {"ConvertToRaid",            lua_ReturnNothing},
+                {"FillLocalizedClassList",   lua_ReturnNothing},
+                {"QueryGuildEventLog",       lua_ReturnNothing},
+                {"RegisterForSave",          lua_ReturnNothing},
+                {"RegisterStaticConstants",  lua_ReturnNothing},
+                {"SetAbandonQuest",          lua_ReturnNothing},
+                {"SetChatWindowDocked",      lua_ReturnNothing},
+                {"SetChatWindowLocked",      lua_ReturnNothing},
+                {"SetChatWindowName",        lua_ReturnNothing},
+                {"SetGuildRosterSelection",  lua_ReturnNothing},
+                {"SetupFullscreenScale",     lua_ReturnNothing},
+                {"DropCursorMoney",          lua_ReturnNothing},
+                {"BNFeaturesEnabled",        lua_ReturnFalse},
+                {"BNFeaturesEnabledAndConnected", lua_ReturnFalse},
+                {"BNGetMaxPlayersInConversation", lua_ReturnZero},
                 {"GetSummonFriendCooldown",  lua_ReturnNoCooldown},
                 {"GetScreenResolutions",     lua_GetScreenResolutions},
                 {"GetCurrentResolution",     lua_GetCurrentResolution},
