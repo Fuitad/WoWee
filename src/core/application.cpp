@@ -3034,11 +3034,16 @@ void Application::render() {
                 using K = ui::KeybindingManager;
                 struct Route { UiElement element; K::Action action; const char* call; };
                 static const Route kRoutes[] = {
-                    {UiElement::Bags,           K::Action::TOGGLE_BAGS,             "ToggleAllBags()"},
+                    // Names checked against this FrameXML rather than assumed:
+                    // ToggleAllBags, ToggleQuestLog and ToggleWorldMap are all
+                    // later additions and do not exist in 3.3.5, so calling
+                    // them did nothing at all — the fallback answers an
+                    // unknown name and calling it yields nothing.
+                    {UiElement::Bags,           K::Action::TOGGLE_BAGS,             "ToggleBackpack()"},
                     {UiElement::Spellbook,      K::Action::TOGGLE_SPELLBOOK,        "ToggleSpellBook(BOOKTYPE_SPELL)"},
-                    {UiElement::QuestLog,       K::Action::TOGGLE_QUESTS,           "ToggleQuestLog()"},
+                    {UiElement::QuestLog,       K::Action::TOGGLE_QUESTS,           "ToggleFrame(QuestLogFrame)"},
                     {UiElement::CharacterFrame, K::Action::TOGGLE_CHARACTER_SCREEN, "ToggleCharacter(\"PaperDollFrame\")"},
-                    {UiElement::WorldMap,       K::Action::TOGGLE_WORLD_MAP,        "ToggleWorldMap()"},
+                    {UiElement::WorldMap,       K::Action::TOGGLE_WORLD_MAP,        "ToggleFrame(WorldMapFrame)"},
                 };
                 for (const Route& r : kRoutes) {
                     if (!ui::frameXmlOwns(r.element)) continue;
