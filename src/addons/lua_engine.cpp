@@ -2852,13 +2852,16 @@ void LuaEngine::registerCoreAPI() {
         "WorldFrame = CreateFrame('Frame', 'WorldFrame')\n"
         "WorldFrame:SetAllPoints()\n"
         // GameTooltip: global tooltip frame used by virtually all addons
-        "GameTooltip = CreateFrame('Frame', 'GameTooltip')\n"
+        // Created as a GameTooltip, not a Frame, so it is one as far as the
+        // widget tree is concerned and its lines are drawn.
+        //
+        // The lines used to be kept in a table here, with SetOwner, AddLine,
+        // AddDoubleLine, SetText and ClearLines defined directly on this
+        // table — and a field on the table beats the metatable, so those five
+        // shadowed the real implementations for the one tooltip that matters
+        // most. They stored text nothing draws.
+        "GameTooltip = CreateFrame('GameTooltip', 'GameTooltip')\n"
         "GameTooltip.__lines = {}\n"
-        "function GameTooltip:SetOwner(owner, anchor) self.__owner = owner; self.__anchor = anchor end\n"
-        "function GameTooltip:ClearLines() self.__lines = {} end\n"
-        "function GameTooltip:AddLine(text, r, g, b, wrap) table.insert(self.__lines, {text=text or '',r=r,g=g,b=b}) end\n"
-        "function GameTooltip:AddDoubleLine(l, r, lr, lg, lb, rr, rg, rb) table.insert(self.__lines, {text=(l or '')..'  '..(r or '')}) end\n"
-        "function GameTooltip:SetText(text, r, g, b) self.__lines = {{text=text or '',r=r,g=g,b=b}} end\n"
         "function GameTooltip:GetItem()\n"
         "    if self.__itemId and self.__itemId > 0 then\n"
         "        local name = GetItemInfo(self.__itemId)\n"
@@ -2875,8 +2878,8 @@ void LuaEngine::registerCoreAPI() {
         "    return nil\n"
         "end\n"
         "function GameTooltip:GetUnit() return nil end\n"
-        "function GameTooltip:NumLines() return #self.__lines end\n"
-        "function GameTooltip:GetText() return self.__lines[1] and self.__lines[1].text or '' end\n"
+        // NumLines and GetText come from the widget itself, which is where
+        // the lines now live.
         "function GameTooltip:SetUnitBuff(unit, index, filter)\n"
         "    self:ClearLines()\n"
         "    local name, rank, icon, count, debuffType, duration, expTime, caster, steal, consolidate, spellId = UnitBuff(unit, index, filter)\n"
