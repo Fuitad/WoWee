@@ -4128,6 +4128,9 @@ void LuaEngine::reportEventListenersOnce() {
     static const char* kWatched[] = {
         "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_MANA", "UNIT_MAXMANA",
         "UNIT_RAGE", "UNIT_ENERGY", "UNIT_DISPLAYPOWER", "PLAYER_ENTERING_WORLD",
+        // The frames that have gone wrong most recently, so that "nothing is
+        // listening" is ruled in or out before anything else is looked at.
+        "PLAYER_TARGET_CHANGED", "UNIT_AURA", "PLAYER_XP_UPDATE", "BAG_UPDATE",
     };
     std::string line;
     for (const char* name : kWatched) {
