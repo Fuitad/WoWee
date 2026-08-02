@@ -15,6 +15,7 @@
 #include <cfloat>
 #include <cstdlib>
 #include <cmath>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -474,6 +475,27 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             // is what a stray panel in the middle of the screen actually is —
             // and the shape is unmistakable once looked for, where hunting it
             // by name means guessing what it is from a screenshot.
+            // Names carried by more than one visible widget.
+            //
+            // Only the last one to take a name can be found by it, so a
+            // duplicate is invisible to every lookup while both are still
+            // drawn — which reads as one label rendered twice in two places.
+            {
+                std::map<std::string, int> seen;
+                for (size_t id = 1; id < tree.size(); ++id) {
+                    const Widget* w = tree.get(static_cast<uint32_t>(id));
+                    if (!w || !w->visible || w->name.empty()) continue;
+                    ++seen[w->name];
+                }
+                int dupes = 0;
+                for (const auto& [name, count] : seen) {
+                    if (count < 2) continue;
+                    if (++dupes > 10) break;
+                    LOG_WARNING("  DUPLICATE ", name, " — ", count,
+                                " visible widgets share this name");
+                }
+            }
+
             int orphans = 0;
             for (size_t id = 1; id < tree.size(); ++id) {
                 const Widget* w = tree.get(static_cast<uint32_t>(id));

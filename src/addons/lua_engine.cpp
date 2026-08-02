@@ -3058,9 +3058,11 @@ void LuaEngine::registerCoreAPI() {
         "    if coords then\n"
         "        texture:SetTexture('Interface\\\\TargetingFrame\\\\UI-Classes-Circles')\n"
         "        texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])\n"
-        "    else\n"
-        "        texture:SetTexture('Interface\\\\CharacterFrame\\\\TempPortrait')\n"
-        "        texture:SetTexCoord(0, 1, 0, 1)\n"
+        // Nothing at all when the class is not known yet, rather than the
+        // placeholder. This runs at world entry now that events reach frames,
+        // which is before the player's entity resolves — so it answered
+        // "Unknown", stamped the placeholder shield over the portrait, and
+        // never ran again to correct it.
         "    end\n"
         "end\n"
         "function StopSound() end\n"
