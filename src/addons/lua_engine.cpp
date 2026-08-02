@@ -893,6 +893,65 @@ int lua_Tooltip_SetUnit(lua_State* L) {
     return 1;
 }
 
+/// Shared by every setter that ends up naming an item: title in the quality
+/// colour, then whatever else is worth saying. One place, because the four
+/// item setters differ only in how they find the item.
+static void fillItemTooltip(wowee::ui::Widget* w, const game::ItemDef& item) {
+    w->isTooltip = true;
+    w->tooltipLines.clear();
+    wowee::ui::Widget::TooltipLine title;
+    title.left = item.name;
+    // WoW's quality colours, which are most of what an item tooltip says at a
+    // glance — an epic reads as purple before anyone reads the words.
+    static const float kQuality[8][3] = {
+        {0.62f, 0.62f, 0.62f}, {1.00f, 1.00f, 1.00f}, {0.12f, 1.00f, 0.00f},
+        {0.00f, 0.44f, 0.87f}, {0.64f, 0.21f, 0.93f}, {1.00f, 0.50f, 0.00f},
+        {0.90f, 0.80f, 0.50f}, {0.00f, 0.80f, 1.00f},
+    };
+    const int q = static_cast<int>(item.quality);
+    const float* c = kQuality[(q >= 0 && q < 8) ? q : 1];
+    title.lc[0] = c[0]; title.lc[1] = c[1]; title.lc[2] = c[2]; title.lc[3] = 1.0f;
+    title.rc[0] = title.rc[1] = title.rc[2] = title.rc[3] = 1.0f;
+    w->tooltipLines.push_back(std::move(title));
+
+    if (!item.subclassName.empty()) {
+        wowee::ui::Widget::TooltipLine sub;
+        sub.left = item.subclassName;
+        sub.lc[0] = sub.lc[1] = sub.lc[2] = 1.0f; sub.lc[3] = 1.0f;
+        sub.rc[0] = sub.rc[1] = sub.rc[2] = sub.rc[3] = 1.0f;
+        w->tooltipLines.push_back(std::move(sub));
+    }
+}
+
+/// SetInventoryItem(unit, slot) — the gear on the paperdoll.
+int lua_Tooltip_SetInventoryItem(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    const int slot = static_cast<int>(luaL_optnumber(L, 3, 0));
+    if (!w || !gh || slot < 1 || slot > 19) { lua_pushboolean(L, 0); return 1; }
+    const auto& s = gh->getInventory().getEquipSlot(static_cast<game::EquipSlot>(slot - 1));
+    if (s.empty()) { lua_pushboolean(L, 0); return 1; }
+    fillItemTooltip(w, s.item);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/// SetBagItem(bag, slot) — the same for something in the bags.
+int lua_Tooltip_SetBagItem(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    const int bag = static_cast<int>(luaL_optnumber(L, 2, 0));
+    const int slot = static_cast<int>(luaL_optnumber(L, 3, 0));
+    if (!w || !gh || slot < 1) { lua_pushboolean(L, 0); return 1; }
+    const auto& inv = gh->getInventory();
+    const auto& s = (bag == 0) ? inv.getBackpackSlot(slot - 1)
+                               : inv.getBagSlot(bag - 1, slot - 1);
+    if (s.empty()) { lua_pushboolean(L, 0); return 1; }
+    fillItemTooltip(w, s.item);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 int lua_Tooltip_ClearLines(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->tooltipLines.clear();
     return 0;
@@ -2159,6 +2218,8 @@ void LuaEngine::registerCoreAPI() {
         {"AddLine",         lua_Tooltip_AddLine},
         {"SetOwner",        lua_Tooltip_SetOwner},
         {"SetAction",       lua_Tooltip_SetAction},
+        {"SetInventoryItem", lua_Tooltip_SetInventoryItem},
+        {"SetBagItem",      lua_Tooltip_SetBagItem},
         {"SetSpellByID",    lua_Tooltip_SetSpellByID},
         {"SetUnit",         lua_Tooltip_SetUnit},
         {"AddDoubleLine",   lua_Tooltip_AddDoubleLine},
