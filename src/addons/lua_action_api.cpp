@@ -390,11 +390,61 @@ static int lua_PickupSpellBookItem(lua_State* L) {
 }
 
 // PickupContainerItem(bag, slot) — picks up an item from a bag
+
+/// Where the item on the cursor lives, in the numbering the server uses.
+///
+/// The server addresses one flat space: equipment is slots 0 to 22, the
+/// backpack follows at 23, and a bag's contents are addressed by that bag's own
+/// equipment slot together with an index inside it. FrameXML counts bags 0 to 4
+/// with 1-based slots instead, so the two have to be translated — the same
+/// translation this client's own bag window does before sending a swap.
+static bool cursorWireSlot(uint8_t& bag, uint8_t& slot) {
+    if (s_cursorType != CursorType::ITEM) return false;
+    if (s_cursorBag < 0) {                    // an equipped item
+        bag = 0xFF;
+        slot = static_cast<uint8_t>(s_cursorSlot - 1);
+    } else if (s_cursorBag == 0) {            // the backpack
+        bag = 0xFF;
+        slot = static_cast<uint8_t>(23 + s_cursorSlot - 1);
+    } else {                                   // one of the four worn bags
+        bag = static_cast<uint8_t>(19 + s_cursorBag - 1);
+        slot = static_cast<uint8_t>(s_cursorSlot - 1);
+    }
+    return true;
+}
+
+/// Put the cursor down.
+static void clearCursorItem() {
+    s_cursorType = CursorType::NONE;
+    s_cursorId = 0;
+    s_cursorSlot = 0;
+    s_cursorBag = -1;
+}
+
 static int lua_PickupContainerItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
     int bag = static_cast<int>(luaL_checknumber(L, 1));
     int slot = static_cast<int>(luaL_checknumber(L, 2));
+
+    // Already carrying something, so this is the drop rather than the pickup.
+    // One function does both halves of a drag in WoW, and without this half a
+    // dragged item was picked up and never put down anywhere.
+    uint8_t srcBag = 0, srcSlot = 0;
+    if (cursorWireSlot(srcBag, srcSlot)) {
+        uint8_t dstBag, dstSlot;
+        if (bag == 0) {
+            dstBag = 0xFF;
+            dstSlot = static_cast<uint8_t>(23 + slot - 1);
+        } else {
+            dstBag = static_cast<uint8_t>(19 + bag - 1);
+            dstSlot = static_cast<uint8_t>(slot - 1);
+        }
+        gh->swapContainerItems(srcBag, srcSlot, dstBag, dstSlot);
+        clearCursorItem();
+        return 0;
+    }
+
     const auto& inv = gh->getInventory();
     const game::ItemSlot* itemSlot = nullptr;
     if (bag == 0 && slot >= 1 && slot <= inv.getBackpackSize()) {
@@ -419,7 +469,17 @@ static int lua_PickupInventoryItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
     int slot = static_cast<int>(luaL_checknumber(L, 1));
-    if (slot < 1 || slot > 19) return 0;
+    if (slot < 1 || slot > 23) return 0;
+
+    // Carrying something: equip it here, which is the other half of the drag.
+    uint8_t srcBag = 0, srcSlot = 0;
+    if (cursorWireSlot(srcBag, srcSlot)) {
+        gh->swapContainerItems(srcBag, srcSlot, 0xFF,
+                               static_cast<uint8_t>(slot - 1));
+        clearCursorItem();
+        return 0;
+    }
+
     const auto& inv = gh->getInventory();
     const auto& eq = inv.getEquipSlot(static_cast<game::EquipSlot>(slot - 1));
     if (!eq.empty()) {
