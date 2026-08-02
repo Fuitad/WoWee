@@ -103,13 +103,16 @@ argument names, and `$parent` through unnamed frames.
 - Type is drawn from the game's own faces — FRIZQT, MORPHEUS, SKURRI, ARIALN
   and FRIENDS — at the size and colour FrameXML's 42 font objects specify. Each
   face is built into the atlas at one size and scaled, so a heading is the right
-  face rather than the right rasterisation, and `outline` is recorded but not
-  drawn.
+  face rather than the right rasterisation. Outlines are drawn by offsetting
+  copies of the glyphs, which is what the effect amounts to at these sizes.
 - `EditBox` takes text, keeps a caret and fires OnTextChanged, OnEnterPressed
   and the focus handlers. It has no selection, no clipboard and no scrolling
   past its own width. `Slider` drags and reports its value; `Cooldown` sweeps.
-- The texture cache never evicts. `Interface\` art is small and reused, but a
-  long session with many addons would grow it without bound.
+- The texture cache never evicts, and cannot yet: `uploadImGuiTexture` has no
+  counterpart, so releasing one would mean tracking its image and memory and
+  destroying them only once the GPU is done. `Interface\` art is small, bounded
+  and reused, so this grows to a few hundred entries and stops; a session that
+  loaded art from many addons would keep growing.
 - The widget method set in `lua_engine.cpp` is enumerated rather than derived.
   A method outside it answers nil instead of doing nothing, which for an addon
   is an error rather than a shrug. Every such name is recorded once as

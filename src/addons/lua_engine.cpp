@@ -485,6 +485,13 @@ int lua_FontString_SetTextColor(lua_State* L) {
 int lua_FontString_SetFont(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
         if (lua_isstring(L, 2)) w->fontFace = lua_tostring(L, 2);
+        // The flags argument, where "OUTLINE" and "THICKOUTLINE" arrive.
+        if (const char* flags = lua_isstring(L, 4) ? lua_tostring(L, 4) : nullptr) {
+            const std::string f(flags);
+            if (f.find("THICK") != std::string::npos)        w->fontOutline = "THICK";
+            else if (f.find("OUTLINE") != std::string::npos) w->fontOutline = "NORMAL";
+            else                                             w->fontOutline.clear();
+        }
         // (path, height, flags). Only the height is honoured for now; the path
         // needs a font atlas rebuild, which cannot happen mid-frame.
         const double h = luaL_optnumber(L, 3, 0.0);
@@ -541,6 +548,9 @@ int lua_FontString_SetFontObject(lua_State* L) {
         // where it says so.
         lua_getfield(L, -1, "font");
         if (lua_isstring(L, -1)) w->fontFace = lua_tostring(L, -1);
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "outline");
+        if (lua_isstring(L, -1)) w->fontOutline = lua_tostring(L, -1);
         lua_pop(L, 1);
         const char* keys[4] = {"r", "g", "b", "a"};
         for (int i = 0; i < 4; ++i) {

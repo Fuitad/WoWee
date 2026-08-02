@@ -147,6 +147,8 @@ struct Widget {
     /// The typeface a font object named, as it wrote it. Empty means
     /// whatever the renderer is already using.
     std::string fontFace;
+    /// NORMAL or THICK, as a font object writes it. Empty is no outline.
+    std::string fontOutline;
     /// Extra space between wrapped lines, which FrameXML reads back.
     float lineSpacing = 0.0f;
     std::string justifyH = "CENTER";

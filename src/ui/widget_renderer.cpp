@@ -348,6 +348,23 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             if (w->justifyH == "CENTER")     tx = x0 + (w->rectW - extent.x) * 0.5f;
             else if (w->justifyH == "RIGHT") tx = x1 - extent.x;
             const float ty = y0 + (w->rectH - extent.y) * 0.5f;
+            // An outline is drawn as the same glyphs in black around the text.
+            // ImGui has no outlined draw, and offsetting a few copies is what
+            // the effect amounts to at these sizes — it is what keeps a
+            // nameplate legible against whatever is behind it.
+            if (!w->fontOutline.empty()) {
+                const float d = (w->fontOutline == "THICK") ? 2.0f : 1.0f;
+                const uint32_t shadow = IM_COL32(0, 0, 0,
+                    static_cast<int>(std::clamp(w->alpha, 0.0f, 1.0f) * 255.0f));
+                const ImVec2 around[8] = {
+                    {-d, 0}, {d, 0}, {0, -d}, {0, d},
+                    {-d, -d}, {d, -d}, {-d, d}, {d, d},
+                };
+                for (const ImVec2& o : around) {
+                    dl->AddText(font, size, ImVec2(tx + o.x, ty + o.y), shadow,
+                                w->text.c_str());
+                }
+            }
             dl->AddText(font, size, ImVec2(tx, ty),
                         packColor(w->color, w->alpha), w->text.c_str());
         }
