@@ -573,6 +573,29 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 }
             }
 
+            // Every label inside the character sheet while it is open.
+            //
+            // Something is drawn over its rotate arrows and it is not a second
+            // copy of the name — the same-text and overlap scans both rule that
+            // out — so the way to find it is to list what is in there.
+            if (const Widget* sheet = tree.findByName("CharacterFrame");
+                sheet && sheet->visible) {
+                int listed = 0;
+                for (size_t id = 1; id < tree.size() && listed < 24; ++id) {
+                    const Widget* w = tree.get(static_cast<uint32_t>(id));
+                    if (!w || !w->visible || w->kind != WidgetKind::FontString) continue;
+                    if (w->text.empty()) continue;
+                    if (w->left < sheet->left || w->bottom < sheet->bottom) continue;
+                    if (w->left > sheet->left + sheet->rectW) continue;
+                    if (w->bottom > sheet->bottom + sheet->rectH) continue;
+                    ++listed;
+                    LOG_WARNING("  SHEET LABEL ",
+                                w->name.empty() ? "(unnamed)" : w->name.c_str(),
+                                " \"", w->text, "\" rect=(", w->left, ",", w->bottom,
+                                " ", w->rectW, "x", w->rectH, ")");
+                }
+            }
+
             int orphans = 0;
             for (size_t id = 1; id < tree.size(); ++id) {
                 const Widget* w = tree.get(static_cast<uint32_t>(id));
