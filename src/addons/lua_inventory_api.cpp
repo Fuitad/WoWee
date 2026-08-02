@@ -47,6 +47,148 @@ static int lua_GetMoney(lua_State* L) {
 
 // --- Merchant/Vendor API ---
 
+
+// ── Bags ───────────────────────────────────────────────────────────────────
+
+/// GetContainerItemCooldown(bag, slot) → start, duration, enabled. Item
+/// cooldowns are not tracked, and all zero is "nothing running" — which is
+/// what ContainerFrame checks before doing arithmetic with the first two.
+static int lua_GetContainerItemCooldown(lua_State* L) {
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 1);
+    return 3;
+}
+
+/// GetContainerItemQuestInfo(bag, slot) → isQuestItem, questId, isActive.
+/// The border a quest item draws in the bags comes from this; false is the
+/// answer for an ordinary item and is what nearly every slot holds.
+static int lua_GetContainerItemQuestInfo(lua_State* L) {
+    lua_pushboolean(L, 0);
+    lua_pushnil(L);
+    lua_pushboolean(L, 0);
+    return 3;
+}
+
+/// KeyRingButtonIDToInvSlotID(id) → the inventory slot a keyring button maps
+/// to. The keyring holds nothing here, and the identity is the least
+/// surprising mapping for code that indexes with the result.
+static int lua_KeyRingButtonIDToInvSlotID(lua_State* L) {
+    lua_pushnumber(L, luaL_optnumber(L, 1, 0));
+    return 1;
+}
+
+/// SetPortraitToTexture(texture, path) — the rounded icon a bag or panel puts
+/// in its corner. Drawn square here, since the mask that rounds it is not
+/// modelled, but drawn: leaving it to the fallback left the region showing
+/// whatever it last held.
+static int lua_SetPortraitToTexture(lua_State* L) {
+    if (!lua_istable(L, 1)) return 0;
+    lua_getfield(L, 1, "SetTexture");
+    if (!lua_isfunction(L, -1)) { lua_pop(L, 1); return 0; }
+    lua_pushvalue(L, 1);
+    lua_pushvalue(L, 2);
+    lua_call(L, 2, 0);
+    return 0;
+}
+
+/// Things the bags ask for that this client has no notion of. Answered
+/// rather than left to the fallback, which would answer with an object —
+/// and an object is true, so SpellCanTargetItem deciding yes would arm an
+/// item cursor for every spell cast with the bags open.
+static int lua_ContainerNoOp(lua_State* L) { (void)L; return 0; }
+static int lua_ContainerFalse(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+
+// ── Merchant: buyback and repair ───────────────────────────────────────────
+//
+// MerchantFrame reads all of these and this client already tracks what they
+// want — items sold back, the cost to repair everything — so answering them
+// with real numbers costs nothing beyond saying so.
+
+/// GetBuybackItemInfo(index) → name, texture, price, quantity, numAvailable,
+/// isUsable. The buyback list is most-recent-first, as WoW numbers it.
+static int lua_GetBuybackItemInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_checknumber(L, 1));
+    if (!gh || index < 1) { return luaReturnNil(L); }
+    const auto& items = gh->getBuybackItems();
+    if (index > static_cast<int>(items.size())) { return luaReturnNil(L); }
+    const auto& bi = items[index - 1];
+
+    lua_pushstring(L, bi.item.name.c_str());
+    std::string iconPath;
+    if (bi.item.displayInfoId != 0) iconPath = gh->getItemIconPath(bi.item.displayInfoId);
+    if (!iconPath.empty()) lua_pushstring(L, iconPath.c_str());
+    else lua_pushnil(L);
+    // What it costs to take back is what it sold for, times the stack.
+    lua_pushnumber(L, static_cast<double>(bi.item.sellPrice) * bi.count);
+    lua_pushnumber(L, bi.count);
+    lua_pushnumber(L, 1);
+    lua_pushboolean(L, 1);
+    return 6;
+}
+
+static int lua_GetBuybackItemLink(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_checknumber(L, 1));
+    if (!gh || index < 1) { return luaReturnNil(L); }
+    const auto& items = gh->getBuybackItems();
+    if (index > static_cast<int>(items.size())) { return luaReturnNil(L); }
+    const auto& bi = items[index - 1];
+    const int q = static_cast<int>(bi.item.quality);
+    const char* ch = (q >= 0 && q < 8) ? kQualHexAlpha[q] : "ffffffff";
+    char link[256];
+    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+             ch, bi.item.itemId, bi.item.name.c_str());
+    lua_pushstring(L, link);
+    return 1;
+}
+
+static int lua_BuybackItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_checknumber(L, 1));
+    if (gh && index >= 1) gh->buyBackItem(static_cast<uint32_t>(index - 1));
+    return 0;
+}
+
+/// GetRepairAllCost() → cost, whether it can be afforded. Both are wanted
+/// together: the button greys itself out on the second.
+static int lua_GetRepairAllCost(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const uint32_t cost = gh ? gh->estimateRepairAllCost() : 0;
+    lua_pushnumber(L, cost);
+    lua_pushboolean(L, gh && gh->getMoneyCopper() >= cost);
+    return 2;
+}
+
+static int lua_CloseMerchant(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->closeVendor();
+    return 0;
+}
+
+/// GetMerchantItemMaxStack(index) → the largest stack that can be bought at
+/// once. The item's own stack limit, which is what it means.
+static int lua_GetMerchantItemMaxStack(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_checknumber(L, 1));
+    if (!gh || index < 1) { lua_pushnumber(L, 1); return 1; }
+    const auto& items = gh->getVendorItems().items;
+    if (index > static_cast<int>(items.size())) { lua_pushnumber(L, 1); return 1; }
+    const auto* info = gh->getItemInfo(items[index - 1].itemId);
+    lua_pushnumber(L, (info && info->maxStack > 0) ? info->maxStack : 1);
+    return 1;
+}
+
+/// Extended cost — the badges, marks and honour some vendors charge instead of
+/// money. Not tracked, and zero is "this one costs money", which is true of
+/// every vendor this client has met.
+static int lua_GetMerchantItemCostInfo(lua_State* L) {
+    lua_pushnumber(L, 0);
+    return 1;
+}
+
+
+
 static int lua_GetMerchantNumItems(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnZero(L); }
@@ -761,6 +903,24 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetMerchantItemInfo",  lua_GetMerchantItemInfo},
                 {"GetMerchantItemLink",  lua_GetMerchantItemLink},
                 {"CanMerchantRepair",    lua_CanMerchantRepair},
+                {"GetContainerItemCooldown",  lua_GetContainerItemCooldown},
+                {"GetContainerItemQuestInfo", lua_GetContainerItemQuestInfo},
+                {"KeyRingButtonIDToInvSlotID", lua_KeyRingButtonIDToInvSlotID},
+                {"SetPortraitToTexture",  lua_SetPortraitToTexture},
+                {"NotWhileDeadError",     lua_ContainerNoOp},
+                {"ShowContainerSellCursor", lua_ContainerNoOp},
+                {"ShowBuybackSellCursor", lua_ContainerNoOp},
+                {"PickupMerchantItem",    lua_ContainerNoOp},
+                {"SocketContainerItem",   lua_ContainerFalse},
+                {"SpellCanTargetItem",    lua_ContainerFalse},
+                {"CanGuildBankRepair",    lua_ContainerFalse},
+                {"GetBuybackItemInfo",      lua_GetBuybackItemInfo},
+                {"GetBuybackItemLink",      lua_GetBuybackItemLink},
+                {"BuybackItem",             lua_BuybackItem},
+                {"GetRepairAllCost",        lua_GetRepairAllCost},
+                {"CloseMerchant",           lua_CloseMerchant},
+                {"GetMerchantItemMaxStack", lua_GetMerchantItemMaxStack},
+                {"GetMerchantItemCostInfo", lua_GetMerchantItemCostInfo},
                 {"GetItemInfo",       lua_GetItemInfo},
                 {"GetItemQualityColor", lua_GetItemQualityColor},
                 {"_GetItemTooltipData", lua_GetItemTooltipData},
