@@ -232,7 +232,12 @@ std::vector<std::string> frameXmlCheckFrames() {
     static const Check kChecks[] = {
         {UiElement::PlayerFrame,  "PlayerFrame PlayerFrameTexture PlayerPortrait "
                                   "PlayerFrameHealthBar PlayerFrameManaBar PlayerName "
-                                  "PlayerLevelText"},
+                                  "PlayerLevelText "
+                                  // The numbers on the bars. Built and empty,
+                                  // built and sized to nothing, and never built
+                                  // are three different faults that look the
+                                  // same on screen.
+                                  "PlayerFrameHealthBarText PlayerFrameManaBarText"},
         {UiElement::TargetFrame,  "TargetFrame TargetFrameTextureFrame TargetFramePortrait "
                                   "TargetFrameHealthBar TargetFrameManaBar "
                                   "TargetFrameTextureFrameName TargetFrameNameBackground"},
