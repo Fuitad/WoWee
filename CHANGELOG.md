@@ -1,5 +1,13 @@
 # Changelog
 
+## [v2.0.36-preview] — 2026-08-01
+
+### Changed
+- **The client's interface is drawn in the game's own typeface.** FRIZQT is loaded at fifteen points and added first, so it is the face ImGui uses for everything that does not ask for another — close enough to the metrics the panels were built against for their layouts to survive. The five faces stay registered at eighteen points for the widget renderer, which asks for them by name. This reverses the previous release's fix, which kept the built-in face as the default
+
+### Fixed
+- **Loading the original interface no longer covers this one.** `WOWEE_LOAD_FRAMEXML=1` builds a hundred of Blizzard's frames, most of them still half-supported, and every one of them was drawn on top of the client's own. They now appear only for the elements named in `WOWEE_FRAMEXML_UI`, so loading it to exercise the parser leaves the interface you were using on screen
+
 ## [v2.0.35-preview] — 2026-08-01
 
 ### Fixed
