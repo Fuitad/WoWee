@@ -352,6 +352,85 @@ static int lua_GetSpellBookItemName(lua_State* L) {
     return 1;
 }
 
+
+// ── The spellbook's older API ──────────────────────────────────────────────
+//
+// SpellBookFrame in WotLK uses both generations at once: the newer
+// GetSpellBookItem* alongside GetSpellName and CastSpell, which take the same
+// slot and book. The newer half was implemented and the older was not, so the
+// panel could name a spell and not cast it.
+
+/// The spell in a book slot, or zero. One place, because four functions below
+/// all begin by asking the same question of the same two arguments.
+static uint32_t spellIdForBookSlot(game::GameHandler* gh, int slot) {
+    if (!gh || slot < 1) return 0;
+    int idx = slot;
+    for (const auto& tab : gh->getSpellBookTabs()) {
+        if (idx <= static_cast<int>(tab.spellIds.size())) return tab.spellIds[idx - 1];
+        idx -= static_cast<int>(tab.spellIds.size());
+    }
+    return 0;
+}
+
+/// GetSpellName(slot, bookType) → name, rank.
+static int lua_GetSpellName(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const uint32_t id = spellIdForBookSlot(gh, static_cast<int>(luaL_checknumber(L, 1)));
+    if (id == 0) { return luaReturnNil(L); }
+    const std::string& name = gh->getSpellName(id);
+    lua_pushstring(L, name.empty() ? "Unknown" : name.c_str());
+    lua_pushstring(L, "");
+    return 2;
+}
+
+/// CastSpell(slot, bookType) — cast what is in that slot at the current
+/// target, which is what clicking a spellbook entry does.
+static int lua_CastSpell(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const uint32_t id = spellIdForBookSlot(gh, static_cast<int>(luaL_checknumber(L, 1)));
+    if (id != 0) gh->castSpell(id, gh->getTargetGuid());
+    return 0;
+}
+
+/// IsPassiveSpell(slot, bookType) → whether the spell is passive, which is how
+/// the book decides not to draw a cast button for it. Spell attributes are not
+/// read from the DBC yet, so this answers no — which draws a button for a
+/// passive rather than hiding a real one, the less wrong way round.
+static int lua_IsPassiveSpell(lua_State* L) {
+    lua_pushboolean(L, 0);
+    return 1;
+}
+
+/// IsSelectedSpell(slot, bookType) → whether the book is highlighting it.
+/// Nothing selects a spell here; the highlight follows the cursor.
+static int lua_IsSelectedSpell(lua_State* L) {
+    lua_pushboolean(L, 0);
+    return 1;
+}
+
+/// GetSpellAutocast(slot, bookType) → autocastable, currently autocasting.
+/// Pet spells only, and pet action bars are not modelled: false says the
+/// little rotating border is not drawn, which is right for every spell a
+/// player has.
+static int lua_GetSpellAutocast(lua_State* L) {
+    lua_pushboolean(L, 0);
+    lua_pushboolean(L, 0);
+    return 2;
+}
+static int lua_ToggleSpellAutocast(lua_State* L) { (void)L; return 0; }
+
+/// GetKnownSlotFromHighestRankSlot(slot) → the slot actually known. The book
+/// shows the highest rank and this maps back; with one entry per spell here
+/// the two are the same slot.
+static int lua_GetKnownSlotFromHighestRankSlot(lua_State* L) {
+    lua_pushnumber(L, luaL_optnumber(L, 1, 0));
+    return 1;
+}
+
+/// UpdateSpells() — asks the client to re-read its own spell list. Nothing to
+/// do: the list is rebuilt when the server sends one.
+static int lua_UpdateSpells(lua_State* L) { (void)L; return 0; }
+
 // GetSpellDescription(spellId) → description string
 // Clean spell description template variables for display
 static std::string cleanSpellDescription(const std::string& raw, const int32_t effectBase[3] = nullptr, float durationSec = 0.0f) {
@@ -856,6 +935,14 @@ void registerSpellLuaAPI(lua_State* L) {
                 {"GetSpellTabInfo",   lua_GetSpellTabInfo},
                 {"GetSpellBookItemInfo", lua_GetSpellBookItemInfo},
                 {"GetSpellBookItemName", lua_GetSpellBookItemName},
+                {"GetSpellName",      lua_GetSpellName},
+                {"CastSpell",         lua_CastSpell},
+                {"IsPassiveSpell",    lua_IsPassiveSpell},
+                {"IsSelectedSpell",   lua_IsSelectedSpell},
+                {"GetSpellAutocast",  lua_GetSpellAutocast},
+                {"ToggleSpellAutocast", lua_ToggleSpellAutocast},
+                {"GetKnownSlotFromHighestRankSlot", lua_GetKnownSlotFromHighestRankSlot},
+                {"UpdateSpells",      lua_UpdateSpells},
                 {"GetSpellCooldown",  lua_GetSpellCooldown},
                 {"GetSpellPowerCost", lua_GetSpellPowerCost},
                 {"GetSpellDescription", lua_GetSpellDescription},
