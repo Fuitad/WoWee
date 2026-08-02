@@ -105,6 +105,11 @@ static int lua_GetCVar(lua_State* L) {
     else if (n == "Sound_EnableMusic") lua_pushstring(L, "1");
     else if (n == "chatBubbles") lua_pushstring(L, "1");
     else if (n == "autoLootDefault") lua_pushstring(L, "1");
+    // On, as it is for a fresh account. The XP bar and the unit frames put
+    // their whole tooltip behind this one: GameTooltip_AddNewbieTip is called
+    // with noNormalText set, so with tips off it does nothing at all and
+    // hovering the experience bar says nothing.
+    else if (n == "showNewbieTips") lua_pushstring(L, "1");
     else lua_pushstring(L, "0");
     return 1;
 }

@@ -1368,11 +1368,6 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     set("ClearAllPoints", lua_Region_ClearAllPoints);
     set("SetAllPoints", lua_Region_SetAllPoints);
     set("SetSize", lua_Region_SetSize);
-    set("SetMovable", lua_Frame_SetMovable);
-    set("IsMovable", lua_Frame_IsMovable);
-    set("RegisterForDrag", lua_Frame_RegisterForDrag);
-    set("StartMoving", lua_Frame_StartMoving);
-    set("StopMovingOrSizing", lua_Frame_StopMovingOrSizing);
     set("SetWidth", lua_Region_SetWidth);
     set("SetHeight", lua_Region_SetHeight);
     set("GetWidth", lua_Region_GetWidth);
@@ -2271,6 +2266,15 @@ void LuaEngine::registerCoreAPI() {
         {"SetSize",         lua_Region_SetSize},
         {"SetWidth",        lua_Region_SetWidth},
         {"SetHeight",       lua_Region_SetHeight},
+        // Frames, not regions: only a frame is dragged or moved. These live in
+        // this table rather than the shared region one because that one is
+        // installed on textures and font strings alone — putting them there
+        // gave the methods to everything except the things that use them.
+        {"SetMovable",      lua_Frame_SetMovable},
+        {"IsMovable",       lua_Frame_IsMovable},
+        {"RegisterForDrag", lua_Frame_RegisterForDrag},
+        {"StartMoving",     lua_Frame_StartMoving},
+        {"StopMovingOrSizing", lua_Frame_StopMovingOrSizing},
         {"GetWidth",        lua_Region_GetWidth},
         {"GetTextWidth",    lua_Region_GetTextWidth},
         {"GetStringWidth",  lua_Region_GetTextWidth},
