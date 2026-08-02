@@ -2982,15 +2982,6 @@ void LuaEngine::registerCoreAPI() {
         // is later. GetPetActionInfo, GetNumShapeshiftForms and the rest had
         // working implementations that never ran once.
         //
-        // GetBindingKey and GetBindingAction stay stubbed, though, and that is
-        // deliberate. This client has no keybinding table, and the invented
-        // defaults the binding returns send GetBindingText looking up
-        // KEY_<name> — a global that does not exist, which the missing-API
-        // fallback answers with an object, which uiparent.lua then
-        // concatenates. Two files stopped loading the moment those two were
-        // unshadowed. Real bindings would fix it; a plausible answer will not.
-        "function GetBindingKey(action) return nil end\n"
-        "function GetBindingAction(key) return nil end\n"
         // Binding functions
         "function GetCurrentBindingSet() return 1 end\n"
         // Macro functions
@@ -3476,6 +3467,12 @@ void LuaEngine::installMissingApiFallback() {
         // defines itself. Being wrong here costs a no-op for one API name,
         // which is where this started.
         "  if string.find(k, '%d') then return nil end\n"
+        // Punctuation means this is not an API name at all. A Lua identifier
+        // cannot contain a hyphen, so _G["KEY_-"] is a table lookup built by
+        // concatenation — GetBindingText does exactly that for the key bound
+        // to action button eleven — and the answer is nil, not an object that
+        // the caller then tries to concatenate. Two files died on that one.
+        "  if string.find(k, '[^%w_]') then return nil end\n"
         "  if not seen[k] then seen[k] = true; __WoweeRecordMissingApi(k) end\n"
         "  return missing\n"
         "end })\n");
