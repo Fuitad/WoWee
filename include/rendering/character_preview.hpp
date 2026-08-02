@@ -43,6 +43,15 @@ public:
     void zoom(float wheelDelta);
     void resetView();
 
+    /// Frames the head straight on, for a portrait.
+    ///
+    /// The viewing direction otherwise comes from whichever racial backdrop
+    /// scene was loaded, and the model is turned to match only in that same
+    /// call — so without a scene the camera sits along one axis while the model
+    /// still faces another, and the portrait shows a profile. This sets both
+    /// together and zooms to the face.
+    void setPortraitFraming();
+
     // Off-screen composite pass — call from Renderer::beginFrame() before main render pass
     void compositePass(VkCommandBuffer cmd, uint32_t frameIndex);
 

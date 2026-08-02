@@ -75,11 +75,12 @@ void UnitPortrait::update(game::GameHandler& gameHandler,
                                     hairStyle, hairColor, self->facialFeatures,
                                     self->useFemaleModel)) {
             preview_->applyEquipment(self->equipment);
-            // All the way in, which is where the shared view frames the face
-            // rather than the whole body. Clamped at one, so any large step
-            // lands there.
-            preview_->zoom(100.0f);
+            preview_->setPortraitFraming();
         }
+        // Logged because a portrait that rebuilds every frame looks like one
+        // that flickers, and the two are indistinguishable from outside.
+        LOG_INFO("UnitPortrait: rebuilt for guid ", self->guid,
+                 " appearance ", self->appearanceBytes);
         loadedGuid_ = self->guid;
         loadedAppearance_ = self->appearanceBytes;
         loadedFacialFeatures_ = self->facialFeatures;

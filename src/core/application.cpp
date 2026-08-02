@@ -2862,10 +2862,13 @@ void Application::render() {
             if (gameHandler && assetManager) {
                 unitPortrait_.update(*gameHandler, assetManager.get(), renderer.get(),
                                      io.DeltaTime);
-                if (const uint64_t tex = unitPortrait_.textureId()) {
-                    if (auto* w = engine->widgets().findByName("PlayerPortrait")) {
-                        w->externalTexture = tex;
-                    }
+                // Assigned every frame including when it is zero. Keeping the
+                // last good handle instead would leave the widget pointing at a
+                // descriptor set that has been destroyed — the render target is
+                // torn down whenever the model is rebuilt — and drawing from
+                // that is a use-after-free rather than a stale picture.
+                if (auto* w = engine->widgets().findByName("PlayerPortrait")) {
+                    w->externalTexture = unitPortrait_.textureId();
                 }
             }
 

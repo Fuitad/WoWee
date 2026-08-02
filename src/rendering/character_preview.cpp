@@ -1372,6 +1372,17 @@ void CharacterPreview::zoom(float wheelDelta) {
     applyPreviewView();
 }
 
+void CharacterPreview::setPortraitFraming() {
+    zoomLevel_ = 1.0f;
+    // Straight at the character. The model is turned to face the camera in the
+    // same breath, which is the part loadRacialBackdrop would otherwise be the
+    // only place to do.
+    previewViewDirection_ = glm::vec3(0.0f, 1.0f, 0.0f);
+    modelYaw_ = glm::degrees(std::atan2(previewViewDirection_.y,
+                                        previewViewDirection_.x));
+    applyPreviewView();
+}
+
 void CharacterPreview::resetView() {
     zoomLevel_ = 0.0f;
     applyPreviewView();
