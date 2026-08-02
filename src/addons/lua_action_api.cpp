@@ -796,6 +796,34 @@ void registerActionLuaAPI(lua_State* L) {
                 // for everyone else and the one PetFrame_SetHappiness guards
                 // for — the fallback answering with an object instead made
                 // that guard pass and the branch index nothing.
+                // GetMirrorTimerInfo(index) → timer, value, maxvalue, scale,
+                // paused, label.
+                //
+                // "UNKNOWN" for a timer that is not running, which is exactly
+                // what mirrortimer.lua tests for before using the rest. Absent,
+                // the fallback answered with an object, that test passed, and
+                // the next line divided a nil by a thousand.
+                {"GetMirrorTimerInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 1)) - 1;
+            static const char* kNames[3]  = {"FATIGUE", "BREATH", "FEIGNDEATH"};
+            static const char* kLabels[3] = {"Fatigue", "Breath", "Feign Death"};
+            if (!gh || index < 0 || index > 2 || !gh->getMirrorTimer(index).active) {
+                lua_pushstring(L, "UNKNOWN");
+                lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 0);
+                lua_pushboolean(L, 0);
+                lua_pushstring(L, "");
+                return 6;
+            }
+            const auto& t = gh->getMirrorTimer(index);
+            lua_pushstring(L, kNames[index]);
+            lua_pushnumber(L, t.value);
+            lua_pushnumber(L, t.maxValue);
+            lua_pushnumber(L, t.scale);
+            lua_pushboolean(L, t.paused ? 1 : 0);
+            lua_pushstring(L, kLabels[index]);
+            return 6;
+        }},
                 {"GetPetHappiness", [](lua_State* L) -> int {
             lua_pushnil(L);
             return 1;
