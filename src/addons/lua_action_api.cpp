@@ -615,12 +615,11 @@ void registerActionLuaAPI(lua_State* L) {
                 {"SaveBindings",        lua_SaveBindings},
                 {"SetOverrideBindingClick", lua_SetOverrideBindingClick},
                 {"ClearOverrideBindings", lua_ClearOverrideBindings},
-                {"GetActionBarPage", [](lua_State* L) -> int {
-            // Return current action bar page (1-6)
-            lua_getglobal(L, "__WoweeActionBarPage");
-            if (lua_isnil(L, -1)) { lua_pop(L, 1); lua_pushnumber(L, 1); }
-            return 1;
-        }},
+                // GetActionBarPage lives in the bootstrap beside
+                // ChangeActionBarPage, which is the only thing that moves it.
+                // A second copy here read a different global that nothing ever
+                // set, so whichever of the two won, paging changed a number
+                // the reader could not see.
                 {"ChangeActionBarPage", [](lua_State* L) -> int {
             int page = static_cast<int>(luaL_checknumber(L, 1));
             if (page < 1) page = 1;
