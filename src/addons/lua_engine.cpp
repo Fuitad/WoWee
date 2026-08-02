@@ -1025,6 +1025,15 @@ int lua_Tooltip_SetSpellByID(lua_State* L) {
 /// A unit's name and level, which is what hovering a unit frame shows.
 int lua_Tooltip_SetUnit(lua_State* L) {
     auto* w = widgetOf(L, 1);
+    // A model frame has a SetUnit of its own — it is how the paperdoll loads
+    // the player — and that name collides with the tooltip's. Answering as the
+    // tooltip made CharacterModelFrame a tooltip carrying the player's name,
+    // which then drew across the rotate arrows and sized the frame to fit one
+    // line of text instead of the figure.
+    if (w && w->objectType != "GameTooltip") {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
     auto* gh = wowee::addons::getGameHandler(L);
     const char* uid = luaL_optstring(L, 2, "player");
     if (!w || !gh) { lua_pushboolean(L, 0); return 1; }

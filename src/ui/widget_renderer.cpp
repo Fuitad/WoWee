@@ -865,7 +865,8 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             if (w->isCooldown) drawCooldown(dl, *w, x0, y0, x1, y1);
             // A tooltip reads downward from the top, which is the other way
             // round from chat.
-            if (w->isTooltip && !w->tooltipLines.empty()) {
+            if (w->isTooltip && w->objectType == "GameTooltip" &&
+            !w->tooltipLines.empty()) {
                 ImFont* font = interfaceFace(w->fontFace);
                 if (!font) font = interfaceFace("frizqt__");
                 if (!font) font = ImGui::GetFont();
