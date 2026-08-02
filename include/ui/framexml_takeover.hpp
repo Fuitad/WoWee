@@ -11,7 +11,13 @@
 // Set through the environment:
 //
 //     WOWEE_FRAMEXML_UI=playerframe,targetframe
+//     WOWEE_FRAMEXML_UI=mainmenubar
 //     WOWEE_FRAMEXML_UI=all
+//
+// "mainmenubar" is one name for the whole bottom of the screen — the action
+// bar, the stance bar, the bags, the micro menu and the two thin bars above
+// them — because FrameXML draws all of them as a single frame and handing over
+// any one of them on its own leaves the rest sitting on top of it.
 //
 // Names are matched exactly and unknown ones are reported at startup rather
 // than ignored, because a misspelling would otherwise look like a replacement

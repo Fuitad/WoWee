@@ -55,7 +55,7 @@ const std::set<std::string>& requested() {
 
         if (out.count("all") == 0) {
             for (const std::string& name : out) {
-                bool known = false;
+                bool known = (name == "mainmenubar");
                 for (const Entry& e : kElements) known |= (e.name == name);
                 if (!known) LOG_WARNING("WOWEE_FRAMEXML_UI: no element called '", name, "'");
             }
@@ -72,11 +72,43 @@ const std::set<std::string>& requested() {
 
 } // namespace
 
+namespace {
+
+/// Whether a name covers this element as part of something larger.
+///
+/// The client draws its action bar, bag bar, micro menu and the two thin bars
+/// above them as separate pieces, because it built them separately. FrameXML
+/// draws all of them as MainMenuBar: one frame, one strip of art, the griffins
+/// at either end. Handing over "actionbar" alone therefore leaves the client's
+/// bag bar and micro menu sitting on top of FrameXML's, in the same place, and
+/// the result reads as one bar drawn twice rather than a replacement that half
+/// worked.
+bool coveredByGroup(const std::string& name, UiElement element) {
+    if (name != "mainmenubar") return false;
+    switch (element) {
+        case UiElement::ActionBar:
+        case UiElement::StanceBar:
+        case UiElement::BagBar:
+        case UiElement::MicroMenu:
+        case UiElement::XpBar:
+        case UiElement::RepBar:
+            return true;
+        default:
+            return false;
+    }
+}
+
+} // namespace
+
 bool frameXmlOwns(UiElement element) {
     const auto& names = requested();
     if (names.empty()) return false;
     if (names.count("all")) return true;
-    return names.count(std::string(uiElementName(element))) > 0;
+    if (names.count(std::string(uiElementName(element)))) return true;
+    for (const std::string& n : names) {
+        if (coveredByGroup(n, element)) return true;
+    }
+    return false;
 }
 
 std::string_view uiElementName(UiElement element) {

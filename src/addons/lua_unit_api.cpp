@@ -989,6 +989,62 @@ static int lua_GetXPExhaustion(lua_State* L) {
     return 1;
 }
 
+/// GetWatchedFactionInfo() → name, standingID, barMin, barMax, barValue.
+///
+/// The reputation bar under the experience bar, which draws nothing at all
+/// without this. Returns nothing when no faction is being watched, which is
+/// what MainMenuBar_UpdateExperienceBars checks for before showing the bar.
+///
+/// The bounds are the rank's own, not the whole scale: WoW's bar fills from
+/// the bottom of the current rank to the top of it, so a character halfway
+/// through Honored shows a half-full bar rather than one two-thirds along.
+static int lua_GetWatchedFactionInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+    const uint32_t factionId = gh->getWatchedFactionId();
+    if (factionId == 0) return 0;
+    const auto& standings = gh->getFactionStandings();
+    auto it = standings.find(factionId);
+    if (it == standings.end()) return 0;
+    const int32_t standing = it->second;
+
+    // Blizzard's own thresholds, and the standing id that goes with each. Hated
+    // is 1 and Exalted is 8, which is what the interface indexes FACTION_BAR_
+    // COLORS and the standing names by.
+    static const struct { int32_t min, max; } kRanks[8] = {
+        {-42000, -6000}, {-6000, -3000}, {-3000, 0}, {0, 3000},
+        {3000, 9000}, {9000, 21000}, {21000, 42000}, {42000, 43000},
+    };
+    int rank = 7;
+    for (int i = 0; i < 8; ++i) {
+        if (standing < kRanks[i].max) { rank = i; break; }
+    }
+
+    lua_pushstring(L, gh->getFactionNamePublic(factionId).c_str());
+    lua_pushnumber(L, rank + 1);
+    lua_pushnumber(L, kRanks[rank].min);
+    lua_pushnumber(L, kRanks[rank].max);
+    lua_pushnumber(L, standing);
+    lua_pushnumber(L, factionId);
+    return 6;
+}
+
+/// GetNumBagSlots() → the four bags beside the backpack. A constant in every
+/// expansion this client speaks, but the interface reads it rather than
+/// assuming, and arithmetic on nil is what it gets otherwise.
+static int lua_GetNumBagSlots(lua_State* L) {
+    lua_pushnumber(L, 4);
+    return 1;
+}
+
+/// GetMirrorTimerProgress(timer) → milliseconds left on breath, fatigue or
+/// feign death. None of the three is tracked yet, and the honest answer is
+/// zero rather than a stub that reads as a timer running.
+static int lua_GetMirrorTimerProgress(lua_State* L) {
+    lua_pushnumber(L, 0);
+    return 1;
+}
+
 // GetRestState() → 1 = normal, 2 = rested
 /// GetRestState() → stateID, stateName, xpMultiplier.
 ///
@@ -1591,6 +1647,9 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"UnitXP",                  lua_UnitXP},
                 {"UnitXPMax",               lua_UnitXPMax},
                 {"GetXPExhaustion",         lua_GetXPExhaustion},
+                {"GetWatchedFactionInfo",   lua_GetWatchedFactionInfo},
+                {"GetNumBagSlots",          lua_GetNumBagSlots},
+                {"GetMirrorTimerProgress",  lua_GetMirrorTimerProgress},
                 {"GetRestState",            lua_GetRestState},
                 {"HasFocus", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
