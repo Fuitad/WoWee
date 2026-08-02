@@ -692,16 +692,26 @@ TEST_CASE("A drag handler also asks for the mouse", "[framexml][emit]") {
     REQUIRE(has(r.lua, "EnableMouse(true)"));
 }
 
-TEST_CASE("The wheel is not the mouse: OnMouseWheel alone does not enable it",
-          "[framexml][emit]") {
-    // EnableMouseWheel is a separate switch, and turning the mouse on for a
-    // scrolling frame would make it swallow clicks meant for what is under it.
+TEST_CASE("The wheel is its own switch, not the mouse", "[framexml][emit]") {
+    // A scrolling frame takes the wheel without taking clicks: enabling the
+    // mouse as well would have it swallow clicks meant for what is under it.
     XmlNode root = parseOrFail(
         "<Ui><Frame name=\"Scroller\">"
         "<Scripts><OnMouseWheel>Scroll(self)</OnMouseWheel></Scripts>"
         "</Frame></Ui>");
     const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "EnableMouseWheel(true)"));
     REQUIRE_FALSE(has(r.lua, "EnableMouse(true)"));
+}
+
+TEST_CASE("An explicit enableMouseWheel is honoured", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"NoScroll\" enableMouseWheel=\"false\">"
+        "<Scripts><OnMouseWheel>Scroll(self)</OnMouseWheel></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "EnableMouseWheel(false)"));
+    REQUIRE_FALSE(has(r.lua, "EnableMouseWheel(true)"));
 }
 
 TEST_CASE("A frame with no hover handlers is left alone", "[framexml][emit]") {

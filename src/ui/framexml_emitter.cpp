@@ -595,6 +595,25 @@ struct Emitter {
             }
             if (wantsMouse) line(var + ":EnableMouse(true)");
         }
+        // The wheel, on the same principle and its own switch. No FrameXML file
+        // sets the attribute — Blizzard leaves the handler to imply it — so the
+        // quest log, the reputation list and the friends list all declared
+        // OnMouseWheel and none of them could be scrolled with it. The
+        // attribute is read too, for anything that does set it.
+        if (node.attr("enableMouseWheel")) {
+            line(var + ":EnableMouseWheel(" +
+                 (node.attrBool("enableMouseWheel") ? "true" : "false") + ")");
+        } else {
+            bool wantsWheel = false;
+            for (const XmlNode& child : node.children) {
+                if (child.name != "Scripts") continue;
+                for (const XmlNode& script : child.children) {
+                    if (script.name == "OnMouseWheel") { wantsWheel = true; break; }
+                }
+                if (wantsWheel) break;
+            }
+            if (wantsWheel) line(var + ":EnableMouseWheel(true)");
+        }
         // Whether the frame can be dragged around the screen. Declared in the
         // XML rather than set from Lua for most of what moves — the bag
         // windows, the character sheet — so leaving it unread meant StartMoving
