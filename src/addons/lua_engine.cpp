@@ -2781,11 +2781,9 @@ void LuaEngine::registerCoreAPI() {
         "function issecurevariable(...) return false end\n"
         "function issecure() return false end\n"
         // GetCVarBool wraps C-side GetCVar (registered in table) for boolean queries
-        "function GetCVarBool(name) return GetCVar(name) == '1' end\n"
         // Misc compatibility stubs
         // GetScreenWidth, GetScreenHeight, GetNumLootItems are now C functions
         // GetFramerate is now a C function
-        "function GetNetStats() return 0, 0, 0, 0 end\n"
         "function IsLoggedIn() return true end\n"
         "function StaticPopup_Show() end\n"
         "function StaticPopup_Hide() end\n"
@@ -2979,15 +2977,11 @@ void LuaEngine::registerCoreAPI() {
         // GetActionBarPage and ChangeActionBarPage are bindings, and they
         // share their storage there. A second pair here against a local of its
         // own meant the two could disagree about what page the bar was on.
-        "function GetBonusBarOffset() return 0 end\n"
-        // Action type query
-        "function GetActionText(slot) return nil end\n"
-        "function GetActionCount(slot) return 0 end\n"
+        // These names have real bindings, registered before this runs. A stub
+        // here does not sit beside one — it replaces it, because the bootstrap
+        // is later. GetPetActionInfo, GetNumShapeshiftForms and the binding
+        // functions all had working implementations that never ran once.
         // Binding functions
-        "function GetBindingKey(action) return nil end\n"
-        "function GetBindingAction(key) return nil end\n"
-        "function SetBinding(key, action) end\n"
-        "function SaveBindings(which) end\n"
         "function GetCurrentBindingSet() return 1 end\n"
         // Macro functions
         "function GetNumMacros() return 0, 0 end\n"
@@ -2995,8 +2989,6 @@ void LuaEngine::registerCoreAPI() {
         "function GetMacroBody(id) return nil end\n"
         "function GetMacroIndexByName(name) return 0 end\n"
         // Stance bar
-        "function GetNumShapeshiftForms() return 0 end\n"
-        "function GetShapeshiftFormInfo(index) return nil, nil, nil, nil end\n"
         // Pet action bar
         "NUM_PET_ACTION_SLOTS = 10\n"
         // Common WoW constants used by many addons
@@ -3014,7 +3006,6 @@ void LuaEngine::registerCoreAPI() {
         "CONTAINER_BAG_OFFSET = 0\n"
         "MAX_SKILLLINE_TABS = 8\n"
         "TRADE_ENCHANT_SLOT = 7\n"
-        "function GetPetActionInfo(slot) return nil end\n"
         "function GetPetActionsUsable() return false end\n"
     );
 
