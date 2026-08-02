@@ -4630,7 +4630,7 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
 /// from the tree alone those are the same line.
 void LuaEngine::runInterfaceProbe() {
     if (!L_) return;
-    executeString(
+    const bool ok = executeString(
         "local function yn(v) return v and 'yes' or 'no' end\n"
         "local auras = 0\n"
         "for i = 1, 40 do if not UnitAura('player', i) then break end auras = i end\n"
@@ -4641,6 +4641,7 @@ void LuaEngine::runInterfaceProbe() {
         "      ' | player auras=' .. auras ..\n"
         "      ' | XP=' .. tostring(UnitXP('player')) .. '/' .. tostring(UnitXPMax('player')) ..\n"
         "      ' | bag0 slots=' .. tostring(GetContainerNumSlots(0)))\n");
+    if (!ok) LOG_WARNING("interface probe did not run: ", lastError());
 }
 
 void LuaEngine::dispatchOnUpdate(float elapsed) {
