@@ -814,14 +814,38 @@ static int lua_GetBagName(lua_State* L) {
 }
 
 /// SetBagPortraitTexture(texture, bagID) — the bag's own icon on the frame
-/// that opens it. Nothing here knows a bag's icon yet, so it draws the
-/// generic one rather than leaving the region showing whatever it had.
+/// that opens it.
+///
+/// The backpack has no item behind it and keeps the pack icon. Bags 1 to 4 are
+/// worn in equipment slots 20 to 23, so the icon is the equipped bag's own —
+/// which is why every open bag used to wear the same generic pack.
 static int lua_SetBagPortraitTexture(lua_State* L) {
     if (!lua_istable(L, 1)) return 0;
+    const int bag = static_cast<int>(luaL_optnumber(L, 2, 0));
+
+    std::string icon = "Interface\\Buttons\\Button-Backpack-Up";
+    if (bag >= 1 && bag <= 4) {
+        if (auto* gh = getGameHandler(L)) {
+            const auto& slot = gh->getInventory().getEquipSlot(
+                static_cast<game::EquipSlot>(static_cast<int>(game::EquipSlot::BAG1) + bag - 1));
+            if (!slot.empty()) {
+                uint32_t displayId = slot.item.displayInfoId;
+                if (displayId == 0) {
+                    if (const auto* info = gh->getItemInfo(slot.item.itemId)) {
+                        displayId = info->displayInfoId;
+                    }
+                }
+                const std::string resolved =
+                    displayId ? gh->getItemIconPath(displayId) : std::string();
+                if (!resolved.empty()) icon = resolved;
+            }
+        }
+    }
+
     lua_getfield(L, 1, "SetTexture");
     if (!lua_isfunction(L, -1)) { lua_pop(L, 1); return 0; }
     lua_pushvalue(L, 1);
-    lua_pushstring(L, "Interface\\Buttons\\Button-Backpack-Up");
+    lua_pushstring(L, icon.c_str());
     lua_call(L, 2, 0);
     return 0;
 }

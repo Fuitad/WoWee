@@ -212,6 +212,15 @@ std::vector<std::string> frameXmlCheckFrames() {
                                     "MagicResFrame1 CharacterMainHandSlot"},
         {UiElement::Bags,         "ContainerFrame1 ContainerFrame1Item1 "
                                   "ContainerFrame1Name"},
+        // A bag's background is assembled from a top, up to two middles and a
+        // bottom, each a slice of one atlas positioned against the one above
+        // it. When the stack is wrong the art shows a seam in the wrong place
+        // and stops short of the frame, and only the individual rects and
+        // slices say which piece is at fault.
+        {UiElement::Bags,         "ContainerFrame2 ContainerFrame2Portrait "
+                                  "ContainerFrame2BackgroundTop "
+                                  "ContainerFrame2BackgroundMiddle1 "
+                                  "ContainerFrame2BackgroundBottom"},
         {UiElement::Spellbook,    "SpellBookFrame SpellButton1 SpellBookSkillLineTab1"},
         {UiElement::QuestLog,     "QuestLogFrame QuestLogListScrollFrame "
                                   "QuestLogDetailScrollFrame"},

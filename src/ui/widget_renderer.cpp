@@ -465,6 +465,18 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 // shown and empty looks identical from every other field here,
                 // and empty is the interesting case — a level with no number
                 // in it is a frame that was never told the number.
+                // Which slice of its atlas a texture is showing. A stack of
+                // pieces cut from one file is only debuggable with these: the
+                // rects can all look plausible while the slices are wrong.
+                std::string slice;
+                if (w->kind == WidgetKind::Texture &&
+                    (w->texCoord[0] != 0.0f || w->texCoord[1] != 1.0f ||
+                     w->texCoord[2] != 0.0f || w->texCoord[3] != 1.0f)) {
+                    slice = " texcoord=[" + std::to_string(w->texCoord[0]) + "," +
+                            std::to_string(w->texCoord[1]) + "," +
+                            std::to_string(w->texCoord[2]) + "," +
+                            std::to_string(w->texCoord[3]) + "]";
+                }
                 const std::string label =
                     (w->kind == WidgetKind::FontString)
                         ? (w->text.empty() ? std::string(" text=(empty)")
@@ -476,7 +488,7 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                     " strata=" + std::to_string(static_cast<int>(w->effStrata)) +
                     " level=" + std::to_string(w->effLevel);
                 LOG_WARNING("  ", name,
-                            (w->visible ? " shown" : " HIDDEN"), mouse, stack, bar, label,
+                            (w->visible ? " shown" : " HIDDEN"), mouse, stack, bar, label, slice,
                             (w->rectW <= 0.0f || w->rectH <= 0.0f ? " NOSIZE" : ""),
                             (offscreen ? " OFFSCREEN" : ""),
                             " rect=(", w->left, ",", w->bottom, " ",
