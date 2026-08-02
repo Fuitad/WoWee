@@ -50,6 +50,23 @@ inline constexpr const char* kLuaClasses[] = {
     "","Warrior","Paladin","Hunter","Rogue","Priest",
     "Death Knight","Shaman","Mage","Warlock","","Druid"
 };
+/// What the cursor is carrying, if anything.
+///
+/// Shared because two sides need it: the bindings that pick an item up and put
+/// it down, and the ones that describe a slot to the interface. A slot whose
+/// item is on the cursor is "locked", which is what makes it draw greyed while
+/// it is being dragged — and without somewhere common to ask, the binding that
+/// answers that question had no way to know.
+struct CursorItemSlot {
+    int bag = -1;    ///< 0 for the backpack, 1-4 for a worn bag, -1 for none
+    int slot = 0;    ///< 1-based within the bag, or the equipment slot
+    bool equipped = false;
+};
+inline CursorItemSlot& cursorItemSlot() {
+    static CursorItemSlot held;
+    return held;
+}
+
 /// The uppercase tokens WoW returns second from UnitClass, and the key every
 /// class-indexed table in FrameXML uses — CLASS_ICON_TCOORDS for the class
 /// portrait, RAID_CLASS_COLORS for a name's colour. Written out rather than

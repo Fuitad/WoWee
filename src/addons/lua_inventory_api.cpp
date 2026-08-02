@@ -580,7 +580,11 @@ static int lua_GetContainerItemInfo(lua_State* L) {
     lua_pushstring(L, icon.empty() ? "Interface\\Icons\\INV_Misc_QuestionMark"
                                    : icon.c_str());
     lua_pushnumber(L, itemSlot->item.stackCount);  // count
-    lua_pushboolean(L, 0);  // locked
+    // Locked while its item is on the cursor: ContainerFrame_UpdateLockedItem
+    // greys the slot from this, which is what shows the item has been picked up
+    // out of it rather than still sitting there.
+    const auto& held = cursorItemSlot();
+    lua_pushboolean(L, (!held.equipped && held.bag == container && held.slot == slot) ? 1 : 0);
     lua_pushnumber(L, info ? info->quality : 0);  // quality
     lua_pushboolean(L, 0);  // readable
     lua_pushboolean(L, 0);  // lootable

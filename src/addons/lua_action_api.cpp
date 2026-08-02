@@ -421,6 +421,7 @@ static void clearCursorItem() {
     s_cursorSlot = 0;
     s_cursorBag = -1;
     wowee::ui::frameXmlSetCursorItem(std::string());
+    cursorItemSlot() = {};
 }
 
 static int lua_PickupContainerItem(lua_State* L) {
@@ -448,8 +449,13 @@ static int lua_PickupContainerItem(lua_State* L) {
         LOG_WARNING("FrameXML drop: bag ", s_cursorBag, " slot ", s_cursorSlot,
                     " (wire ", (int)srcBag, "/", (int)srcSlot, ") -> bag ", bag,
                     " slot ", slot, " (wire ", (int)dstBag, "/", (int)dstSlot, ")");
+        const int wasBag = s_cursorBag, wasSlot = s_cursorSlot;
         gh->swapContainerItems(srcBag, srcSlot, dstBag, dstSlot);
         clearCursorItem();
+        gh->fireAddonEvent("ITEM_LOCK_CHANGED",
+                           {std::to_string(wasBag), std::to_string(wasSlot)});
+        gh->fireAddonEvent("ITEM_LOCK_CHANGED",
+                           {std::to_string(bag), std::to_string(slot)});
         return 0;
     }
 
@@ -476,6 +482,11 @@ static int lua_PickupContainerItem(lua_State* L) {
         }
         wowee::ui::frameXmlSetCursorItem(
             displayId ? gh->getItemIconPath(displayId) : std::string());
+        cursorItemSlot() = {bag, slot, false};
+        // The slot draws greyed while its item is on the cursor, which is how a
+        // bag shows that something has been picked up out of it.
+        gh->fireAddonEvent("ITEM_LOCK_CHANGED",
+                           {std::to_string(bag), std::to_string(slot)});
         LOG_WARNING("FrameXML pickup: bag ", bag, " slot ", slot,
                     " item ", itemSlot->item.itemId);
     } else {
