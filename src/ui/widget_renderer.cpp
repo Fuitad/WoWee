@@ -392,6 +392,29 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             }
             if (offscreen > 12) LOG_WARNING("  ... and more");
 
+            // Visible, named, and anchored to nothing.
+            //
+            // An unanchored frame falls to the centre of its parent, so this
+            // is what a stray panel in the middle of the screen actually is —
+            // and the shape is unmistakable once looked for, where hunting it
+            // by name means guessing what it is from a screenshot.
+            int orphans = 0;
+            for (size_t id = 1; id < tree.size(); ++id) {
+                const Widget* w = tree.get(static_cast<uint32_t>(id));
+                if (!w || !w->visible || w->name.empty()) continue;
+                if (w->kind != WidgetKind::Frame) continue;
+                if (!w->anchors.empty()) continue;
+                if (w->rectW <= 0.0f || w->rectH <= 0.0f) continue;
+                if (w->parent == tree.rootId()) {
+                    // The root's own children legitimately fill it.
+                    if (w->rectW >= screenW / s - 1.0f) continue;
+                }
+                if (++orphans > 10) break;
+                LOG_WARNING("  UNANCHORED ", w->name, " rect=(", w->left, ",",
+                            w->bottom, " ", w->rectW, "x", w->rectH, ")");
+            }
+            if (orphans > 10) LOG_WARNING("  ... and more");
+
             for (const std::string& name : wanted) {
                 const Widget* w = tree.findByName(name);
                 if (!w) {

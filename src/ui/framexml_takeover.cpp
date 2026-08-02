@@ -159,7 +159,8 @@ std::vector<std::string> frameXmlCheckFrames() {
         {UiElement::PlayerFrame,  "PlayerFrame PlayerFrameTexture PlayerPortrait "
                                   "PlayerFrameHealthBar PlayerFrameManaBar PlayerName"},
         {UiElement::TargetFrame,  "TargetFrame TargetFrameTextureFrame TargetFramePortrait "
-                                  "TargetFrameHealthBar TargetFrameManaBar TargetFrameTextureFrameName"},
+                                  "TargetFrameHealthBar TargetFrameManaBar "
+                                  "TargetFrameTextureFrameName TargetFrameNameBackground"},
         {UiElement::PetFrame,     "PetFrame PetFrameHealthBar PetFrameManaBar"},
         {UiElement::Minimap,      "Minimap MinimapBorder MinimapZoomIn MinimapZoneText"},
         {UiElement::ActionBar,    "MainMenuBar MainMenuBarArtFrame MainMenuBarLeftEndCap "
@@ -171,6 +172,10 @@ std::vector<std::string> frameXmlCheckFrames() {
         // guessed — a name invented here reports NOT BUILT forever and reads
         // as a fault in the interface rather than in this list.
         {UiElement::XpBar,        "MainMenuExpBar ExhaustionTick"},
+        // Both hang off the minimap cluster, so if either is in the wrong
+        // place the cluster's own rect is the first thing to look at.
+        {UiElement::Minimap,      "MinimapCluster BuffFrame BuffButton1 "
+                                  "DurabilityFrame"},
         {UiElement::RepBar,       "ReputationWatchBar ReputationWatchStatusBar"},
         {UiElement::StanceBar,    "ShapeshiftBarFrame ShapeshiftButton1"},
         {UiElement::CastBar,      "CastingBarFrame CastingBarFrameBorder CastingBarFrameText"},
