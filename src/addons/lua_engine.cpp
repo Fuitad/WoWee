@@ -727,6 +727,56 @@ int lua_Tooltip_AddDoubleLine(lua_State* L) {
     w->tooltipLines.push_back(std::move(line));
     return 0;
 }
+/// SetOwner(frame, anchor) — where the tooltip goes, relative to what it is
+/// describing. Every tooltip in the interface calls this before filling
+/// itself, and it did nothing, so a tooltip with lines in it would still have
+/// appeared wherever its XML left it rather than beside the button.
+///
+/// WoW's anchor names say which side of the owner the tooltip sits on; the
+/// pair of points that produces is the whole of the mapping.
+int lua_Tooltip_SetOwner(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (!tree || id == 0) return 0;
+    auto* w = tree->get(id);
+    if (!w) return 0;
+    w->isTooltip = true;
+    // Cleared here, because SetOwner is what precedes a fresh set of lines.
+    w->tooltipLines.clear();
+
+    const uint32_t owner = lua_istable(L, 2) ? widgetIdOf(L, 2) : 0;
+    const std::string anchor = luaL_optstring(L, 3, "ANCHOR_RIGHT");
+    if (owner == 0 || anchor == "ANCHOR_NONE" || anchor == "ANCHOR_PRESERVE") return 0;
+
+    struct Pair { const char* name; const char* point; const char* rel; };
+    static const Pair kAnchors[] = {
+        {"ANCHOR_TOPLEFT",     "BOTTOMLEFT",  "TOPLEFT"},
+        {"ANCHOR_TOPRIGHT",    "BOTTOMRIGHT", "TOPRIGHT"},
+        {"ANCHOR_BOTTOMLEFT",  "TOPLEFT",     "BOTTOMLEFT"},
+        {"ANCHOR_BOTTOMRIGHT", "TOPRIGHT",    "BOTTOMRIGHT"},
+        {"ANCHOR_LEFT",        "RIGHT",       "LEFT"},
+        {"ANCHOR_RIGHT",       "LEFT",        "RIGHT"},
+        {"ANCHOR_TOP",         "BOTTOM",      "TOP"},
+        {"ANCHOR_BOTTOM",      "TOP",         "BOTTOM"},
+        // The cursor is not a frame, so this lands beside the owner instead —
+        // which is where the cursor is, near enough, and better than nowhere.
+        {"ANCHOR_CURSOR",      "TOPLEFT",     "BOTTOMRIGHT"},
+    };
+    const char* point = "LEFT";
+    const char* rel = "RIGHT";
+    for (const Pair& p : kAnchors) {
+        if (anchor == p.name) { point = p.point; rel = p.rel; break; }
+    }
+
+    wowee::ui::Anchor a;
+    a.point = point;
+    a.relativeTo = owner;
+    a.relativePoint = rel;
+    tree->clearPoints(id);
+    tree->addPoint(id, a);
+    return 0;
+}
+
 int lua_Tooltip_ClearLines(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->tooltipLines.clear();
     return 0;
@@ -1991,6 +2041,7 @@ void LuaEngine::registerCoreAPI() {
         {"GetNumPoints",    lua_Region_GetNumPoints},
         {"AddMessage",      lua_MessageFrame_AddMessage},
         {"AddLine",         lua_Tooltip_AddLine},
+        {"SetOwner",        lua_Tooltip_SetOwner},
         {"AddDoubleLine",   lua_Tooltip_AddDoubleLine},
         {"ClearLines",      lua_Tooltip_ClearLines},
         {"NumLines",        lua_Tooltip_NumLines},

@@ -992,3 +992,28 @@ TEST_CASE("A tooltip with lines paints; an empty one does not",
     for (const Widget* d : tree.drawOrder()) if (d->id == tip) drawn = true;
     REQUIRE(drawn);
 }
+
+TEST_CASE("A tooltip anchored to its owner sits beside it", "[widget][tooltip]") {
+    // SetOwner is what every tooltip in the interface calls before filling
+    // itself, and it decided nothing — so a tooltip with lines would still
+    // have appeared wherever its XML left it rather than beside the button it
+    // describes. ANCHOR_RIGHT means the tooltip's left edge meets the owner's
+    // right, which is the whole of the mapping.
+    WidgetTree tree;
+    const uint32_t button = tree.create(WidgetKind::Frame, tree.root(), "B");
+    tree.get(button)->width = 40.0f;
+    tree.get(button)->height = 40.0f;
+    tree.addPoint(button, Anchor{"BOTTOMLEFT", 0, "BOTTOMLEFT", 100.0f, 100.0f});
+
+    const uint32_t tip = tree.create(WidgetKind::Frame, tree.root(), "Tip");
+    Widget* w = tree.get(tip);
+    w->isTooltip = true;
+    w->width = 120.0f;
+    w->height = 40.0f;
+    w->tooltipLines.push_back({"Fireball", "", {1,1,1,1}, {1,1,1,1}});
+    tree.addPoint(tip, Anchor{"LEFT", button, "RIGHT", 0.0f, 0.0f});
+
+    tree.layout(1024.0f, 768.0f);
+    // The owner spans x 100..140; the tooltip starts where it ends.
+    REQUIRE(tree.get(tip)->left == Catch::Approx(140.0f));
+}
