@@ -127,6 +127,14 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot) {
     constexpr float kAtlasSize = 18.0f;
     ImGuiIO& io = ImGui::GetIO();
 
+    // ImGui draws with whichever face was added first, and this client's own
+    // interface was built against the built-in one. Adding the game's faces
+    // without this would restyle every panel the client draws — larger text,
+    // different metrics, layouts sized for something else — which nobody asked
+    // for. The built-in stays the default; the faces below are asked for by
+    // name, by the widget renderer, for the interface that wants them.
+    io.Fonts->AddFontDefault();
+
     // FRIZQT first, because the first face added is the one anything without an
     // opinion gets. The rest are the faces FrameXML's font objects name:
     // headings in MORPHEUS, damage in SKURRI, condensed numbers in ARIALN.

@@ -378,6 +378,7 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 // Its own text, drawn where a label would be, with a caret
                 // while it has focus so it is clear which box is listening.
                 ImFont* font = interfaceFace(w->fontFace);
+                if (!font) font = interfaceFace("frizqt__");
                 if (!font) font = ImGui::GetFont();
                 const float size = ((w->fontHeight > 0.0f) ? w->fontHeight
                                                            : ImGui::GetFontSize()) * s;
@@ -449,6 +450,10 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             // it rather than swapping fonts; loading FRIZQT__ properly needs an
             // atlas rebuild, which cannot happen while a frame is being built.
             ImFont* font = interfaceFace(w->fontFace);
+            // The interface's own default, not the client's: ImGui draws with
+            // whatever was added first, and that is deliberately the built-in
+            // face so this client's panels are left alone.
+            if (!font) font = interfaceFace("frizqt__");
             if (!font) font = ImGui::GetFont();
             const float base = ImGui::GetFontSize();
             const float size = ((w->fontHeight > 0.0f) ? w->fontHeight : base) * s;
