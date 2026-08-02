@@ -1041,15 +1041,35 @@ void registerSpellLuaAPI(lua_State* L) {
             // Priest: Shadowform(1)
             // Paladin: varies by level/talents
             // DK: Blood Presence, Frost, Unholy (3)
-            switch (classId) {
-                case 1: lua_pushnumber(L, 3); break;  // Warrior
-                case 2: lua_pushnumber(L, 3); break;  // Paladin (auras)
-                case 4: lua_pushnumber(L, 1); break;  // Rogue
-                case 5: lua_pushnumber(L, 1); break;  // Priest
-                case 6: lua_pushnumber(L, 3); break;  // Death Knight
-                case 11: lua_pushnumber(L, 6); break; // Druid
-                default: lua_pushnumber(L, 0); break;
+            // Only the forms this character has actually learned.
+            //
+            // A count fixed per class puts a stance button on the bar for
+            // something the player cannot use: a level 14 priest was offered
+            // Shadowform, which is learned at 40, and a new warrior all three
+            // stances when they have one.
+            struct Forms { uint8_t classId; const uint32_t* spells; size_t count; };
+            static const uint32_t kWarrior[] = {2457, 71, 2458};
+            static const uint32_t kPaladin[] = {465, 7294, 19746, 19876, 19888, 19891, 32223};
+            static const uint32_t kRogue[]   = {1784};
+            static const uint32_t kPriest[]  = {15473};
+            static const uint32_t kDeathKnight[] = {48266, 48263, 48265};
+            static const uint32_t kDruid[]   = {5487, 1066, 768, 783, 24858, 33891, 33943, 40120};
+            static const Forms kByClass[] = {
+                {1,  kWarrior,     3}, {2,  kPaladin,     7},
+                {4,  kRogue,       1}, {5,  kPriest,      1},
+                {6,  kDeathKnight, 3}, {11, kDruid,       8},
+            };
+
+            const auto& known = gh->getKnownSpells();
+            int count = 0;
+            for (const Forms& f : kByClass) {
+                if (f.classId != classId) continue;
+                for (size_t i = 0; i < f.count; ++i) {
+                    if (known.count(f.spells[i])) ++count;
+                }
+                break;
             }
+            lua_pushnumber(L, count);
             return 1;
         }},
     };
