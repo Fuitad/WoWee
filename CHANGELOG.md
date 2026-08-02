@@ -1,8 +1,14 @@
 # Changelog
 
-## [Unreleased]
+## [v2.0.34-preview] — 2026-08-01
 
 ### Original interface (FrameXML)
+- **The interface draws its own art.** Batching the widget renderer's texture uploads left a batch holding only ImGui textures looking empty to both ends of endUploadBatch, so the command buffer carrying every copy was freed unsubmitted and every image stayed blank while rectangles and text drew normally. Staging allocated with plain Vulkan calls is now handed to the batch and freed once its copies have run
+- **The interface is laid out in its own units.** FrameXML is authored against a virtual screen 768 units tall, so a frame is the same apparent size on every display; treating those numbers as pixels drew it at half size on a 1528-tall window. The tree lays out in units and the renderer converts once, with the cursor making the same trip in reverse
+- **UIParent fills the screen.** It was created with no anchors, and an unanchored frame falls to the centre-on-parent default with no size — so everything hanging off it, including FrameXML's own UIParent, inherited a zero-size box in the middle of the screen
+- **Type is drawn in the game's own faces** — FRIZQT, MORPHEUS, SKURRI, ARIALN and FRIENDS — at the size, colour and outline FrameXML's 42 font objects specify, rather than one built-in face at a guessed size
+- **Sliders drag, cooldowns sweep and edit boxes take text.** GetTime, which all three need and nothing had implemented, answers from one clock shared with the renderer
+- **All three mouse buttons reach the interface**, gated on what each frame registered for, which is how a context menu opens on a unit frame and not on a plain button
 - **The whole original interface loads.** All 139 files of Blizzard's own FrameXML — 13 Lua and 126 XML — build against this client's widget tree in around 380ms, behind `WOWEE_LOAD_FRAMEXML=1`. It was 67 files failing and a client frozen hard enough to need killing
 - **CreateFrame applies the template it is given.** The fourth argument was ignored outright, and that is not a missing feature so much as a trap: OptionsList_OnLoad makes one button, divides the list's height by that button's height to decide how many fit, and loops to the result. No template means no size, a height of zero, and a count of (h-8)/0 — which Lua computes happily as infinity. The loop then created frames under fresh names until memory ran out
 - **A template that inherits another applies it.** The emitter returned before `inherits` was ever read for a virtual frame, so 217 of FrameXML's 296 templates arrived without the base they are built on
