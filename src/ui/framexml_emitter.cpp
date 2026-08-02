@@ -143,7 +143,14 @@ struct Emitter {
         if (!isParented) return quote(rawName);
         const std::string suffix = rawName.substr(token.size());
         if (runtimeParentName) {
-            return "((" + selfVar + ":GetName() or \"\") .. " + quote(suffix) + ")";
+            // No name on the owner means no name on the region, which is what
+            // $parent means in WoW: a name is built from one, and there is
+            // nothing to build from. Falling back to an empty string instead
+            // published the bare suffix as a global — ContainerFrameTemplate
+            // replayed onto an unnamed frame created a texture called
+            // "Portrait", and every later frame doing the same overwrote it.
+            return "(" + selfVar + ":GetName() and (" + selfVar +
+                   ":GetName() .. " + quote(suffix) + ") or nil)";
         }
         return quote(parentName + suffix);
     }

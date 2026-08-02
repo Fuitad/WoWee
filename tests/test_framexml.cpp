@@ -639,3 +639,21 @@ TEST_CASE("$parent follows the parent attribute, not the file structure",
     REQUIRE(has(r.lua, ":SetPoint(\"TOPLEFT\", \"PanelEdge\""));
     REQUIRE_FALSE(has(r.lua, "\"Edge\""));
 }
+
+TEST_CASE("A $parent name on an unnamed owner is no name at all",
+          "[framexml][emit]") {
+    // Inside a template the owner is not known until replay, so the name is
+    // built then. If the frame inheriting the template has no name there is
+    // nothing to build from, and WoW gives the region no name — where falling
+    // back to an empty string publishes the bare suffix as a global.
+    // ContainerFrameTemplate replayed onto an unnamed frame created a texture
+    // called "Portrait", and the next frame to do the same overwrote it.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"T\" virtual=\"true\"><Layers><Layer>"
+        "<Texture name=\"$parentPortrait\"/>"
+        "</Layer></Layers></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "self:GetName() and"));
+    REQUIRE(has(r.lua, "or nil)"));
+    REQUIRE_FALSE(has(r.lua, "or \"\") .. \"Portrait\""));
+}
