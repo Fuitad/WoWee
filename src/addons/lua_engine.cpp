@@ -910,7 +910,9 @@ static int lua_Frame_GetParent(lua_State* L) {
 static int lua_RecordMissingApi(lua_State* L) {
     const char* name = luaL_optstring(L, 1, "");
     if (name && *name) {
-        LOG_INFO("[Lua] missing API called: ", name);
+        // Once per name, so a warning here is a bounded list rather than
+        // a stream, and it is the only trace of a gap as it happens.
+        LOG_WARNING("[Lua] missing API called: ", name);
         missingApiNames().insert(name);
     }
     return 0;
@@ -2663,15 +2665,18 @@ void LuaEngine::installMissingApiFallback() {
 void LuaEngine::reportMissingApi() const {
     const auto& names = missingApiNames();
     if (names.empty()) return;
-    LOG_INFO("LuaEngine: ", names.size(), " distinct API functions were called "
-             "and not found this session");
+    // At warning level, because release builds drop INFO and this is the whole
+    // point of recording them: the list is the measured gap, once per session,
+    // and it was being written where nobody could read it.
+    LOG_WARNING("LuaEngine: ", names.size(), " distinct API names were called "
+                "and not found this session");
     std::string line;
     for (const auto& n : names) {
         line += n;
         line += ' ';
-        if (line.size() > 900) { LOG_INFO("  missing: ", line); line.clear(); }
+        if (line.size() > 900) { LOG_WARNING("  missing: ", line); line.clear(); }
     }
-    if (!line.empty()) LOG_INFO("  missing: ", line);
+    if (!line.empty()) LOG_WARNING("  missing: ", line);
 }
 
 /// Whether a frame asked for this button's clicks.
