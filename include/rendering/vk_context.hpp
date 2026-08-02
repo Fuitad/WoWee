@@ -53,6 +53,10 @@ public:
     void endUploadBatch();       // Async: submits but does NOT wait for fence
     void endUploadBatchSync();   // Sync: submits and waits (for load screens)
     bool isInUploadBatch() const { return inUploadBatch_; }
+    /// Hands a plainly-allocated staging buffer to the current batch, which
+    /// frees it once its copies have actually run.
+    void deferRawStagingCleanup(VkBuffer buffer, VkDeviceMemory memory);
+    void freeRawStaging();
     void deferStagingCleanup(AllocatedBuffer staging);
     void pollUploadBatches();    // Check completed async uploads, free staging buffers
     void waitAllUploads();       // Block until all in-flight uploads complete
@@ -231,12 +235,20 @@ private:
     bool inUploadBatch_ = false;
     VkCommandBuffer batchCmd_ = VK_NULL_HANDLE;
     std::vector<AllocatedBuffer> batchStagingBuffers_;
+    /// Staging allocated with plain Vulkan calls rather than the allocator.
+    /// A batch only records the copy, so anything it reads from has to outlive
+    /// the recording and be freed once the submit has completed.
+    struct RawStaging { VkBuffer buffer; VkDeviceMemory memory; };
+    std::vector<RawStaging> batchRawStaging_;
 
     // Async upload: in-flight batches awaiting GPU completion
     struct InFlightBatch {
         VkFence fence = VK_NULL_HANDLE;
         VkCommandBuffer cmd = VK_NULL_HANDLE;
         std::vector<AllocatedBuffer> stagingBuffers;
+        /// Plainly-allocated staging, which has to outlive the submit just as
+        /// the allocator's does.
+        std::vector<RawStaging> rawStaging;
     };
     std::vector<InFlightBatch> inFlightBatches_;
 

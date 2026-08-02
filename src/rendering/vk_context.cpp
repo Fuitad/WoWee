@@ -1667,9 +1667,16 @@ VkDescriptorSet VkContext::uploadImGuiTexture(const uint8_t* rgba, int width, in
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
     });
 
-    // Cleanup staging
-    vkDestroyBuffer(device, stagingBuffer, nullptr);
-    vkFreeMemory(device, stagingMemory, nullptr);
+    // Freed now only if the copy has already run. Inside a batch immediateSubmit
+    // records and returns without submitting, so destroying the staging here
+    // pulls the source out from under a copy that has not happened — the image
+    // then contains whatever was left behind, which draws as nothing at all.
+    if (inUploadBatch_) {
+        deferRawStagingCleanup(stagingBuffer, stagingMemory);
+    } else {
+        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vkFreeMemory(device, stagingMemory, nullptr);
+    }
 
     // Create image view
     VkImageView imageView;
@@ -2245,7 +2252,11 @@ void VkContext::endUploadBatch() {
 
     VkCommandPool pool = hasDedicatedTransfer_ ? transferCommandPool_ : immCommandPool;
 
-    if (batchStagingBuffers_.empty()) {
+    // Raw staging counts too. Checking only the allocator's list meant a batch
+    // holding nothing but ImGui texture uploads looked empty, so the command
+    // buffer holding every one of those copies was thrown away unsubmitted and
+    // the images stayed blank.
+    if (batchStagingBuffers_.empty() && batchRawStaging_.empty()) {
         // No GPU copies were recorded — skip the submit entirely.
         vkEndCommandBuffer(batchCmd_);
         vkFreeCommandBuffers(device, pool, 1, &batchCmd_);
@@ -2275,10 +2286,12 @@ void VkContext::endUploadBatch() {
     batch.fence = fence;
     batch.cmd = batchCmd_;
     batch.stagingBuffers = std::move(batchStagingBuffers_);
+    batch.rawStaging = std::move(batchRawStaging_);
     inFlightBatches_.push_back(std::move(batch));
 
     batchCmd_ = VK_NULL_HANDLE;
     batchStagingBuffers_.clear();
+    batchRawStaging_.clear();
 }
 
 void VkContext::endUploadBatchSync() {
@@ -2290,7 +2303,7 @@ void VkContext::endUploadBatchSync() {
 
     VkCommandPool pool = hasDedicatedTransfer_ ? transferCommandPool_ : immCommandPool;
 
-    if (batchStagingBuffers_.empty()) {
+    if (batchStagingBuffers_.empty() && batchRawStaging_.empty()) {
         vkEndCommandBuffer(batchCmd_);
         vkFreeCommandBuffers(device, pool, 1, &batchCmd_);
         batchCmd_ = VK_NULL_HANDLE;
@@ -2318,6 +2331,8 @@ void VkContext::endUploadBatchSync() {
         destroyBuffer(allocator, staging);
     }
     batchStagingBuffers_.clear();
+    // The copies have completed by here, so the sources can go.
+    freeRawStaging();
 }
 
 void VkContext::pollUploadBatches() {
@@ -2329,6 +2344,10 @@ void VkContext::pollUploadBatches() {
         VkResult result = vkGetFenceStatus(device, it->fence);
         if (result == VK_SUCCESS) {
             // GPU finished — free resources
+            for (auto& raw : it->rawStaging) {
+                vkDestroyBuffer(device, raw.buffer, nullptr);
+                vkFreeMemory(device, raw.memory, nullptr);
+            }
             for (auto& staging : it->stagingBuffers) {
                 destroyBuffer(allocator, staging);
             }
@@ -2346,6 +2365,10 @@ void VkContext::waitAllUploads() {
 
     for (auto& batch : inFlightBatches_) {
         vkWaitForFences(device, 1, &batch.fence, VK_TRUE, UINT64_MAX);
+        for (auto& raw : batch.rawStaging) {
+            vkDestroyBuffer(device, raw.buffer, nullptr);
+            vkFreeMemory(device, raw.memory, nullptr);
+        }
         for (auto& staging : batch.stagingBuffers) {
             destroyBuffer(allocator, staging);
         }
@@ -2357,6 +2380,18 @@ void VkContext::waitAllUploads() {
 
 void VkContext::deferStagingCleanup(AllocatedBuffer staging) {
     batchStagingBuffers_.push_back(staging);
+}
+
+void VkContext::deferRawStagingCleanup(VkBuffer buffer, VkDeviceMemory memory) {
+    batchRawStaging_.push_back({buffer, memory});
+}
+
+void VkContext::freeRawStaging() {
+    for (const RawStaging& s : batchRawStaging_) {
+        vkDestroyBuffer(device, s.buffer, nullptr);
+        vkFreeMemory(device, s.memory, nullptr);
+    }
+    batchRawStaging_.clear();
 }
 
 } // namespace rendering
