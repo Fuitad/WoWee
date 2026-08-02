@@ -668,8 +668,13 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetPartyLeaderIndex",      lua_ReturnZero},
                 {"GetNumArenaOpponents",     lua_ReturnZero},
                 {"GetCurrentMultisampleFormat", lua_ReturnOne},
-                {"GetMultisampleFormats",    lua_ReturnOne},
-                {"GetRefreshRates",          lua_ReturnZero},
+                // These hand back a list, not a value: the caller walks it with
+                // select("#", ...) and reads it in groups. One number makes the
+                // loop run once against nils, which is worse than an empty
+                // list — for anything returning a list, nothing is the right
+                // way to say there is none.
+                {"GetMultisampleFormats",    lua_ReturnNothing},
+                {"GetRefreshRates",          lua_ReturnNothing},
                 {"GetCompanionInfo",         lua_ReturnNil},
                 {"GetMultiCastTotemSpells",  lua_ReturnNil},
                 {"GetPossessInfo",           lua_ReturnNil},
