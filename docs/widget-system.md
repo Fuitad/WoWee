@@ -130,3 +130,31 @@ argument names, and `$parent` through unnamed frames.
   is an error rather than a shrug. Every such name is recorded once as
   `widget:Name`, so the gap shows up in the shutdown report rather than as a
   mystery; adding it to the set is a one-line fix.
+- Blend modes are honoured only far enough to tell "added" apart from "drawn
+  over". `alphaMode="ADD"` art carries no alpha channel of its own — it is a
+  glow on black — so it is uploaded as a second copy of the image with its
+  alpha taken from brightness, which over a dark scene lands close to where
+  adding would. `MOD` and `ALPHAKEY` are still drawn as ordinary blending. One
+  ImGui draw list has one blend state, so anything better means a second
+  pipeline.
+
+## Diagnostics
+
+Every switch below is read once, from the environment, and costs nothing when
+unset.
+
+- `WOWEE_LOAD_FRAMEXML=1` loads Blizzard's interface. Its frames are only drawn
+  for the elements named in `WOWEE_FRAMEXML_UI`, so this on its own exercises
+  the parser and leaves the client's own interface on screen.
+- `WOWEE_FRAMEXML_UI=playerframe,targetframe` hands those elements over: the
+  client stops drawing its own and FrameXML's are shown instead. `all` takes
+  everything. An unknown name is reported at startup rather than ignored.
+- `WOWEE_FRAMEXML_EMIT_DIR=/tmp/emit` writes the Lua each XML file became, one
+  file per source file. A nil global or a frame in the wrong place is nearly
+  always answered by one grep through this.
+- `WOWEE_WIDGET_DUMP=1..5` reports what the renderer believes: 1 lists what was
+  drawn, 2 every named widget whether drawn or not, 3 outlines them on screen,
+  4 fills them solid, 5 also draws ImGui's own font atlas through the same call
+  — which separates "AddImage does not work here" from "these textures are bad".
+- `WOWEE_LUA_API_FALLBACK=0` turns off the stub that answers unknown globals,
+  so the log names every API FrameXML actually reached.

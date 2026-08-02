@@ -412,6 +412,24 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
         LOG_WARNING("AddonManager: ", path, ": ", w);
     }
 
+    // The Lua the XML became, on disk, when asked for.
+    //
+    // Everything downstream of here reads as a Lua problem — a global that is
+    // nil, a frame with no size — and the answer is nearly always in what the
+    // emitter wrote rather than in what the script did with it. Reading it is
+    // the difference between finding a mis-substituted $parent in one grep and
+    // inferring it from a frame that ended up in the wrong place.
+    if (const char* dumpDir = std::getenv("WOWEE_FRAMEXML_EMIT_DIR")) {
+        if (*dumpDir) {
+            std::error_code ec;
+            fs::create_directories(dumpDir, ec);
+            const fs::path out =
+                fs::path(dumpDir) / (fs::path(path).filename().string() + ".lua");
+            std::ofstream f(out);
+            if (f) f << emitted.lua;
+        }
+    }
+
     const fs::path dir = fs::path(path).parent_path();
     bool ok = true;
 
