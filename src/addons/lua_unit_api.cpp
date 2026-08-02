@@ -1803,11 +1803,25 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushnumber(L, 0); lua_pushnumber(L, 0);
             return 2;
         }},
+                // Seven returns, as the battleground panel reads them:
+                // status, map, instance, level range, team size, registered.
+                // Stopping at three left teamSize nil and the panel formatted
+                // a number from nothing.
                 {"GetBattlefieldStatus", [](lua_State* L) -> int {
-            lua_pushstring(L, "none");
+            lua_pushstring(L, "none");   // status
+            lua_pushstring(L, "");       // map name
+            lua_pushnumber(L, 0);        // instance id
+            lua_pushnumber(L, 0);        // level range min
+            lua_pushnumber(L, 0);        // level range max
+            lua_pushnumber(L, 0);        // team size
+            lua_pushnumber(L, 0);        // registered match
+            return 7;
+        }},
+                // The money a quest asks for, which the tracker compares
+                // against the player's before calling an objective complete.
+                {"GetQuestLogRequiredMoney", [](lua_State* L) -> int {
             lua_pushnumber(L, 0);
-            lua_pushnumber(L, 0);
-            return 3;
+            return 1;
         }},
                 {"GetNumBattlefieldScores", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
