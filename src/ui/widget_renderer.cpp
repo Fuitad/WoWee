@@ -311,6 +311,20 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                         (w->kind == WidgetKind::Texture && !w->solidColor
                              ? (resident(w->texturePath) == kMissing ? " NOTRESIDENT" : "")
                              : ""),
+                        // The vertex colour multiplies the image, so a zero
+                        // alpha here draws nothing while the widget's own alpha
+                        // still reads one. And the UVs, because a collapsed
+                        // pair samples a single pixel.
+                        (w->kind == WidgetKind::Texture ? " rgba=" : ""),
+                        (w->kind == WidgetKind::Texture ? w->color[0] : 0.0f), ",",
+                        (w->kind == WidgetKind::Texture ? w->color[1] : 0.0f), ",",
+                        (w->kind == WidgetKind::Texture ? w->color[2] : 0.0f), ",",
+                        (w->kind == WidgetKind::Texture ? w->color[3] : 0.0f),
+                        (w->kind == WidgetKind::Texture ? " uv=" : ""),
+                        (w->kind == WidgetKind::Texture ? w->texCoord[0] : 0.0f), ",",
+                        (w->kind == WidgetKind::Texture ? w->texCoord[1] : 0.0f), ",",
+                        (w->kind == WidgetKind::Texture ? w->texCoord[2] : 0.0f), ",",
+                        (w->kind == WidgetKind::Texture ? w->texCoord[3] : 0.0f),
                         (w->texturePath.empty() ? "" : " tex="), w->texturePath,
                         (w->text.empty() ? "" : " text='"), w->text,
                         (w->text.empty() ? "" : "'"));
