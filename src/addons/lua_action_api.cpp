@@ -542,7 +542,11 @@ static int lua_PickupInventoryItem(lua_State* L) {
         }
         wowee::ui::frameXmlSetCursorItem(
             displayId ? gh->getItemIconPath(displayId) : std::string());
-        gh->fireAddonEvent("ITEM_LOCK_CHANGED", {"-1", std::to_string(slot)});
+        // One argument, not two: the paperdoll's handler is
+        // `if ( not arg2 and arg1 == self:GetID() )`, so an equipment lock is
+        // the slot alone. A second argument makes that test fail and the square
+        // never greys.
+        gh->fireAddonEvent("ITEM_LOCK_CHANGED", {std::to_string(slot)});
         LOG_WARNING("FrameXML pickup: equipment slot ", slot,
                     " item ", eq.item.itemId);
     } else {
