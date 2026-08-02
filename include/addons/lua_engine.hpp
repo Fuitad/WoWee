@@ -178,8 +178,12 @@ private:
     /// one-pixel drag and nothing would ever reach OnClick.
     float pressX_[kMouseButtons] = {0.0f, 0.0f, 0.0f};
     float pressY_[kMouseButtons] = {0.0f, 0.0f, 0.0f};
-    /// The frame whose OnDragStart has run and not yet been stopped.
+    /// The frame whose OnDragStart has run and not yet been stopped, and the
+    /// button that started it. The frame is not always the one the press landed
+    /// on — a drag belongs to the nearest ancestor registered for it — so the
+    /// release is matched by button rather than by frame.
     uint32_t draggingWid_ = 0;
+    int draggingButton_ = -1;
     /// Last cursor position, which is what a moving frame is moved by.
     float cursorX_ = 0.0f, cursorY_ = 0.0f;
     bool haveCursor_ = false;

@@ -113,7 +113,14 @@ static int lua_GetCVar(lua_State* L) {
     // The numbers on a unit frame's bars. A stock 3.3.5 client keeps these off
     // and shows them on mouseover; on this one they are wanted permanently,
     // which is what the Status Text interface option turns on.
-    else if (n == "statusText") lua_pushstring(L, "1");
+    // The unit frames each ask about their own, not about "statusText" — the
+    // player frame's bars carry cvar = "playerStatusText". Defaulting only the
+    // general one left every bar's numbers hidden, correct text and all.
+    else if (n == "statusText" || n == "playerStatusText" ||
+             n == "targetStatusText" || n == "petStatusText" ||
+             n == "partyStatusText") {
+        lua_pushstring(L, "1");
+    }
     else if (n == "statusTextPercentage") lua_pushstring(L, "0");
     else lua_pushstring(L, "0");
     return 1;

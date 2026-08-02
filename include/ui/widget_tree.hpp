@@ -96,6 +96,13 @@ struct Widget {
     bool movable = false;
     bool dragLeft = false;
     bool dragRight = false;
+    /// Whether a drag put this frame where it is. The single anchor a move
+    /// leaves behind has to give way the next time the interface positions the
+    /// frame itself: a bag is re-anchored every time it opens, with a bare
+    /// SetPoint and no ClearAllPoints, and a leftover anchor on a different
+    /// point turns that into two constraints on one axis — which sizes the
+    /// frame from them and opens a bag with no width.
+    bool userMoved = false;
 
     FrameStrata strata = FrameStrata::Medium;
     bool strataExplicit = false;

@@ -4509,15 +4509,27 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
         constexpr float kDragThreshold = 4.0f;   // interface units
         for (int i = 0; i < kMouseButtons; ++i) {
             if (!buttonDown_[i] || pressedWid_[i] == 0) continue;
-            const auto* w = widgets_.get(pressedWid_[i]);
-            if (!w) continue;
-            const bool registered = (i == 0) ? w->dragLeft
-                                  : (i == 1) ? w->dragRight
-                                             : false;
-            if (!registered) continue;
+            // Up through the parents until something is registered for this
+            // button, because a drag belongs to the nearest frame that asked
+            // for one rather than to whatever the press happened to land on.
+            // PaperDollFrame covers the whole character sheet and takes the
+            // mouse without taking drags, so every press on the sheet stopped
+            // there and it could not be moved.
+            uint32_t owner = 0;
+            for (uint32_t id = pressedWid_[i]; id != 0;) {
+                const auto* cand = widgets_.get(id);
+                if (!cand) break;
+                const bool takes = (i == 0) ? cand->dragLeft
+                                 : (i == 1) ? cand->dragRight
+                                            : false;
+                if (takes) { owner = id; break; }
+                id = cand->parent;
+            }
+            if (owner == 0) continue;
             const float mx = x - pressX_[i], my = y - pressY_[i];
             if (mx * mx + my * my < kDragThreshold * kDragThreshold) continue;
-            draggingWid_ = pressedWid_[i];
+            draggingWid_ = owner;
+            draggingButton_ = i;
             callFrameScript(draggingWid_, "OnDragStart",
                             i == 0 ? "LeftButton" : "RightButton");
             const auto* dw = widgets_.get(draggingWid_);
@@ -4602,7 +4614,7 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
                 // dragged is told to stop, and whatever the cursor was let go
                 // over is offered what is being carried — which is how an item
                 // moves from one bag slot to another.
-                const bool wasDragged = (draggingWid_ != 0 && draggingWid_ == pressedWid_[i]);
+                const bool wasDragged = (draggingWid_ != 0 && draggingButton_ == i);
                 if (wasDragged) {
                     callFrameScript(draggingWid_, "OnDragStop", b.name);
                     widgets_.setMovingWidget(0);
@@ -4614,6 +4626,7 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
                                 target && !target->name.empty() ? target->name.c_str()
                                                                 : "nothing");
                     draggingWid_ = 0;
+                    draggingButton_ = -1;
                 }
 
                 const bool takesIt = frameAcceptsClick(pressedWid_[i], b.name);

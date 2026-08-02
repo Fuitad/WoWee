@@ -166,6 +166,7 @@ void WidgetTree::pinToCurrentPosition(uint32_t id) {
     a.y = w->bottom - py;
     w->anchors.clear();
     w->anchors.push_back(a);
+    w->userMoved = true;
 }
 
 void WidgetTree::nudge(uint32_t id, float dx, float dy) {
@@ -186,6 +187,13 @@ void WidgetTree::addPoint(uint32_t id, const Anchor& anchor) {
     // not a solvable system; the first won, and every frame Blizzard
     // repositions this way stayed where its XML put it. The durability frame
     // sat forty units past the right edge of the screen.
+    // The interface positioning a frame that a drag had moved starts from
+    // scratch, because the anchor the move left is on whichever point it was
+    // picked up by and would otherwise fight the one being set.
+    if (w->userMoved) {
+        w->userMoved = false;
+        w->anchors.clear();
+    }
     for (Anchor& existing : w->anchors) {
         if (existing.point == anchor.point) {
             existing = anchor;
