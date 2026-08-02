@@ -378,8 +378,13 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                                : (resident(w->barTexture) == kMissing
                                       ? " BARTEXNOTRESIDENT" : ""));
                 }
+                // Whether it can be clicked at all, which is a different
+                // question from whether it is in the right place — a button
+                // that takes no mouse looks identical to one whose handler
+                // does nothing.
+                const char* mouse = w->mouseEnabled ? " takesMouse" : "";
                 LOG_WARNING("  ", name,
-                            (w->visible ? " shown" : " HIDDEN"), bar,
+                            (w->visible ? " shown" : " HIDDEN"), mouse, bar,
                             (w->rectW <= 0.0f || w->rectH <= 0.0f ? " NOSIZE" : ""),
                             (offscreen ? " OFFSCREEN" : ""),
                             " rect=(", w->left, ",", w->bottom, " ",

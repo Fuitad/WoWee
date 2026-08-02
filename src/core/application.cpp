@@ -3064,6 +3064,20 @@ void Application::render() {
             engine->updateVisibility();
             engine->updateScrollRanges();
 
+            // A click that never reaches the interface and a click whose
+            // handler does nothing look the same from the chair. Said once a
+            // second while a button is actually held, so it costs nothing and
+            // appears exactly when someone is wondering why nothing happened.
+            if (overClientUi && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                static double lastSaid = 0.0;
+                const double now = ImGui::GetTime();
+                if (now - lastSaid > 1.0) {
+                    lastSaid = now;
+                    LOG_WARNING("WidgetInput: click held over this client's own "
+                                "window, so it was not passed to the interface");
+                }
+            }
+
             if (!overClientUi) {
                 addons::LuaEngine::MouseButtons buttons;
                 buttons.left   = ImGui::IsMouseDown(ImGuiMouseButton_Left);

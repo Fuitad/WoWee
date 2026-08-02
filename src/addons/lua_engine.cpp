@@ -16,6 +16,7 @@
 #include "core/window.hpp"
 #include <imgui.h>
 #include <fstream>
+#include "core/app_clock.hpp"
 #include "core/config_paths.hpp"
 #include <filesystem>
 
@@ -3715,7 +3716,12 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
 
 void LuaEngine::reportEventListenersOnce() {
     if (!L_ || eventListenersReported_) return;
-    if (++eventReportFrames_ < 150) return;
+    // Counted from when there is an interface to count, not from startup:
+    // FrameXML loads on entering the world, and a report timed from the
+    // client's first frame ran before any of it existed and said zero for
+    // everything — including events that demonstrably work.
+    if (widgets_.size() < 200) return;
+    if (++eventReportFrames_ < 120) return;
     eventListenersReported_ = true;
 
     lua_getglobal(L_, "__WoweeFrameEvents");
@@ -3856,6 +3862,20 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
             LOG_INFO("WidgetInput: mouse=(", x, ",", y, ") hit=", hit,
                      " hover=", hoverWid_, " mouseEnabled=", mouseFrames,
                      " visible=", visibleFrames);
+        }
+    }
+
+    // What a press landed on, once a second while one is held. The question
+    // "did my click reach anything" has no other answer from outside.
+    if (buttons.left) {
+        static double lastPress = 0.0;
+        const double now = core::appTimeSeconds();
+        if (now - lastPress > 1.0) {
+            lastPress = now;
+            const auto* w = widgets_.get(hit);
+            LOG_WARNING("WidgetInput: press at (", x, ",", y, ") hit ",
+                        hit == 0 ? "nothing"
+                                 : (w && !w->name.empty() ? w->name.c_str() : "(unnamed)"));
         }
     }
 
