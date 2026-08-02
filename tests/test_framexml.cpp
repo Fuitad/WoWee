@@ -770,3 +770,13 @@ TEST_CASE("A declared alpha reaches SetAlpha", "[framexml][emit]") {
     REQUIRE(has(r.lua, "SetAlpha(0.5)"));
     REQUIRE(has(r.lua, "SetAlpha(0.25)"));
 }
+
+TEST_CASE("justifyV reaches the font string", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"F\"><Layers><Layer>"
+        "<FontString name=\"$parentTop\" justifyV=\"TOP\" justifyH=\"LEFT\"/>"
+        "</Layer></Layers></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetJustifyV(\"TOP\")"));
+    REQUIRE(has(r.lua, "SetJustifyH(\"LEFT\")"));
+}

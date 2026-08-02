@@ -242,6 +242,9 @@ struct Emitter {
         if (const std::string* text = node.attr("text")) {
             line(var + ":SetText(" + quote(*text) + ")");
         }
+        if (const std::string* jv = node.attr("justifyV")) {
+            line(var + ":SetJustifyV(" + quote(*jv) + ")");
+        }
         if (const std::string* j = node.attr("justifyH")) {
             line(var + ":SetJustifyH(" + quote(*j) + ")");
         }

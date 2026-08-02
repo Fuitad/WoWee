@@ -1416,6 +1416,16 @@ int lua_FontString_SetJustifyH(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->justifyH = luaL_optstring(L, 2, "CENTER");
     return 0;
 }
+int lua_FontString_SetJustifyV(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->justifyV = luaL_optstring(L, 2, "MIDDLE");
+    return 0;
+}
+int lua_FontString_GetJustifyV(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushstring(L, w ? w->justifyV.c_str() : "MIDDLE");
+    return 1;
+    return 0;
+}
 
 // ── Fonts ───────────────────────────────────────────────────────────────────
 
@@ -1560,6 +1570,8 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
         set("SetFormattedText", lua_FontString_SetFormattedText);
         set("GetText", lua_FontString_GetText);
         set("SetJustifyH", lua_FontString_SetJustifyH);
+        set("SetJustifyV", lua_FontString_SetJustifyV);
+        set("GetJustifyV", lua_FontString_GetJustifyV);
         set("SetTextColor", lua_FontString_SetTextColor);
         set("SetFont", lua_FontString_SetFont);
         set("GetFont", lua_FontString_GetFont);

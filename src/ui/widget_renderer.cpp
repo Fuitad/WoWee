@@ -1026,10 +1026,18 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             const ImVec2 extent =
                 font ? font->CalcTextSizeA(size, FLT_MAX, 0.0f, w->text.c_str())
                      : ImGui::CalcTextSize(w->text.c_str());
+            // Against the box in pixels, not in interface units. rectW and
+            // rectH are the widget's own units and extent comes back from a
+            // font already scaled by s, so centring on the raw rect placed a
+            // label off by half the difference between the two — around half
+            // the box's width at this scale, which is most of the way out of it.
+            const float boxW = x1 - x0, boxH = y1 - y0;
             float tx = x0;
-            if (w->justifyH == "CENTER")     tx = x0 + (w->rectW - extent.x) * 0.5f;
+            if (w->justifyH == "CENTER")     tx = x0 + (boxW - extent.x) * 0.5f;
             else if (w->justifyH == "RIGHT") tx = x1 - extent.x;
-            const float ty = y0 + (w->rectH - extent.y) * 0.5f;
+            float ty = y0 + (boxH - extent.y) * 0.5f;
+            if (w->justifyV == "TOP")         ty = y0;
+            else if (w->justifyV == "BOTTOM") ty = y1 - extent.y;
             // An outline is drawn as the same glyphs in black around the text.
             // ImGui has no outlined draw, and offsetting a few copies is what
             // the effect amounts to at these sizes — it is what keeps a

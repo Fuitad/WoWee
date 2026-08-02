@@ -249,6 +249,9 @@ struct Widget {
     /// Extra space between wrapped lines, which FrameXML reads back.
     float lineSpacing = 0.0f;
     std::string justifyH = "CENTER";
+    /// TOP, MIDDLE or BOTTOM. FrameXML declares it on 93 font strings — a
+    /// multi-line label in a fixed box sits differently for each.
+    std::string justifyV = "MIDDLE";
 
     /// Minimap zoom step, 0 to 4. Kept here rather than in Lua because the
     /// interface sets it through one button and reads it back through another.
