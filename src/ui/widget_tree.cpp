@@ -198,6 +198,36 @@ void WidgetTree::nudge(uint32_t id, float dx, float dy) {
     for (Anchor& a : w->anchors) { a.x += dx; a.y += dy; }
 }
 
+void WidgetTree::raise(uint32_t id) {
+    Widget* w = get(id);
+    if (!w) return;
+    int highest = w->effLevel;
+    for (const Widget& other : widgets_) {
+        if (other.id == 0 || other.id == id) continue;
+        if (other.effStrata != w->effStrata) continue;
+        if (other.effLevel > highest) highest = other.effLevel;
+    }
+    // Explicit from here on, or the next layout would recompute it from the
+    // parent and undo the raise immediately.
+    w->level = highest + 1;
+    w->levelExplicit = true;
+}
+
+void WidgetTree::lower(uint32_t id) {
+    Widget* w = get(id);
+    if (!w) return;
+    int lowest = w->effLevel;
+    for (const Widget& other : widgets_) {
+        if (other.id == 0 || other.id == id) continue;
+        if (other.effStrata != w->effStrata) continue;
+        if (other.effLevel < lowest) lowest = other.effLevel;
+    }
+    // Never below zero: a negative level sorts under the root and the frame
+    // stops being drawn at all.
+    w->level = (lowest > 0) ? lowest - 1 : 0;
+    w->levelExplicit = true;
+}
+
 void WidgetTree::addPoint(uint32_t id, const Anchor& anchor) {
     Widget* w = get(id);
     if (!w) return;

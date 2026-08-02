@@ -99,6 +99,10 @@ struct Widget {
     /// move; without it a window dragged past the edge is gone for good, since
     /// the only way back is a drag on a title bar that is no longer reachable.
     bool clampedToScreen = false;
+    /// Whether clicking this frame brings it to the front of its strata. WoW
+    /// calls it toplevel, and it is what stops one window staying buried under
+    /// another once two overlap. FrameXML declares it on 102 frames.
+    bool topLevel = false;
     bool dragLeft = false;
     bool dragRight = false;
     /// Whether a drag put this frame where it is. The single anchor a move
@@ -316,6 +320,15 @@ public:
 
     /// Shift every anchor by the same amount, which moves the frame.
     void nudge(uint32_t id, float dx, float dy);
+
+    /// Put a frame in front of everything else in its strata.
+    ///
+    /// Strata come first in the draw order, so this only moves the frame within
+    /// its own — a DIALOG frame raised above its peers still sits under a
+    /// TOOLTIP one, which is what the strata are for.
+    void raise(uint32_t id);
+    /// The reverse, for Lower().
+    void lower(uint32_t id);
 
     /// The frame currently following the cursor, if any.
     ///

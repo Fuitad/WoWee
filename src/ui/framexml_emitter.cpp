@@ -607,6 +607,10 @@ struct Emitter {
         if (const std::string* a = node.attr("alpha")) {
             line(var + ":SetAlpha(" + *a + ")");
         }
+        if (node.attr("toplevel")) {
+            line(var + ":SetToplevel(" +
+                 (node.attrBool("toplevel") ? "true" : "false") + ")");
+        }
         if (node.attr("clampedToScreen")) {
             line(var + ":SetClampedToScreen(" +
                  (node.attrBool("clampedToScreen") ? "true" : "false") + ")");

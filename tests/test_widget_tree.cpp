@@ -1278,3 +1278,59 @@ TEST_CASE("A frame wider than the screen is not snapped to a nonsense edge",
     tree.layout(kScreenW, kScreenH);
     REQUIRE(tree.get(f)->left == Catch::Approx(-150.0f));  // moved, not pinned
 }
+
+TEST_CASE("Raise puts a frame in front of its strata", "[widget][layout]") {
+    WidgetTree tree;
+    const uint32_t a = tree.create(WidgetKind::Frame, tree.root(), "A");
+    const uint32_t b = tree.create(WidgetKind::Frame, tree.root(), "B");
+    Anchor p; p.point = "CENTER"; p.relativePoint = "CENTER";
+    tree.addPoint(a, p);
+    tree.addPoint(b, p);
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(a)->effLevel == tree.get(b)->effLevel);
+
+    tree.raise(a);
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(a)->effLevel > tree.get(b)->effLevel);
+
+    // And it survives the next layout, which would otherwise recompute the
+    // level from the parent and undo it.
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(a)->effLevel > tree.get(b)->effLevel);
+
+    tree.raise(b);
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(b)->effLevel > tree.get(a)->effLevel);
+}
+
+TEST_CASE("Raising does not cross a strata boundary", "[widget][layout]") {
+    // Strata outrank levels: a raised DIALOG frame still sits under a TOOLTIP
+    // one, which is the whole point of having strata.
+    WidgetTree tree;
+    const uint32_t low  = tree.create(WidgetKind::Frame, tree.root(), "Low");
+    const uint32_t high = tree.create(WidgetKind::Frame, tree.root(), "High");
+    Anchor p; p.point = "CENTER"; p.relativePoint = "CENTER";
+    tree.addPoint(low, p);
+    tree.addPoint(high, p);
+    tree.get(low)->strata  = FrameStrata::Dialog;
+    tree.get(low)->strataExplicit  = true;
+    tree.get(high)->strata = FrameStrata::Tooltip;
+    tree.get(high)->strataExplicit = true;
+    tree.layout(kScreenW, kScreenH);
+
+    tree.raise(low);
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(low)->effStrata == FrameStrata::Dialog);
+    REQUIRE(tree.get(high)->effStrata == FrameStrata::Tooltip);
+}
+
+TEST_CASE("Lower never sends a frame below zero", "[widget][layout]") {
+    // A negative level sorts under the root and the frame stops being drawn.
+    WidgetTree tree;
+    const uint32_t f = tree.create(WidgetKind::Frame, tree.root(), "Sunk");
+    Anchor p; p.point = "CENTER"; p.relativePoint = "CENTER";
+    tree.addPoint(f, p);
+    tree.layout(kScreenW, kScreenH);
+    for (int i = 0; i < 5; ++i) { tree.lower(f); tree.layout(kScreenW, kScreenH); }
+    REQUIRE(tree.get(f)->effLevel >= 0);
+}

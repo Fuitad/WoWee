@@ -1607,6 +1607,28 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
 
 // ── Backdrop and StatusBar ──────────────────────────────────────────────────
 
+int lua_Frame_SetToplevel(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->topLevel = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+int lua_Frame_IsToplevel(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushboolean(L, w && w->topLevel);
+    return 1;
+}
+int lua_Frame_Raise(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (tree && id) tree->raise(id);
+    return 0;
+}
+int lua_Frame_Lower(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (tree && id) tree->lower(id);
+    return 0;
+}
+
 int lua_Frame_SetClampedToScreen(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->clampedToScreen = lua_toboolean(L, 2) != 0;
     return 0;
@@ -2514,6 +2536,10 @@ void LuaEngine::registerCoreAPI() {
         {"GetAlpha",        lua_Region_GetAlpha},
         {"EnableMouse",     lua_Frame_EnableMouse},
         {"IsMouseEnabled",  lua_Frame_IsMouseEnabled},
+        {"SetToplevel",           lua_Frame_SetToplevel},
+        {"IsToplevel",            lua_Frame_IsToplevel},
+        {"Raise",                 lua_Frame_Raise},
+        {"Lower",                 lua_Frame_Lower},
         {"SetClampedToScreen",    lua_Frame_SetClampedToScreen},
         {"IsClampedToScreen",     lua_Frame_IsClampedToScreen},
         {"SetBackdrop",           lua_Frame_SetBackdrop},
@@ -2584,9 +2610,6 @@ void LuaEngine::registerCoreAPI() {
         "function mt:SetScale(scale) self.__scale = scale end\n"
         "function mt:GetScale() return self.__scale or 1.0 end\n"
         "function mt:GetEffectiveScale() return self.__scale or 1.0 end\n"
-        "function mt:SetToplevel(top) end\n"
-        "function mt:Raise() end\n"
-        "function mt:Lower() end\n"
         // The four edges are real bindings now, applied after this block.
         // Left here they would only be a silent fallback if that order ever
         // changed, and every frame reporting itself at the origin is worse
@@ -4747,6 +4770,18 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
         if (b.down && !buttonDown_[i]) {
             buttonDown_[i] = true;
             pressedWid_[i] = clickOwnerOf(hit, b.name);
+            // Bring the window to the front, the way clicking one does in WoW.
+            // The nearest frame at or above what was hit that asked to be
+            // toplevel — a click lands on a button inside the window, not on
+            // the window itself, so raising only what was hit would raise
+            // nothing. Done on the press so the frame is already in front
+            // while the click is still being held.
+            for (uint32_t id = hit; id != 0;) {
+                const auto* cand = widgets_.get(id);
+                if (!cand) break;
+                if (cand->topLevel) { widgets_.raise(id); break; }
+                id = cand->parent;
+            }
             pressX_[i] = x;
             pressY_[i] = y;
             // Clicking into an edit box takes focus; clicking anywhere else
