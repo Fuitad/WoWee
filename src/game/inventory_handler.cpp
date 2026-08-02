@@ -1614,6 +1614,14 @@ void InventoryHandler::fireBagUpdates() {
     // The character sheet redraws from this one rather than from BAG_UPDATE, so
     // both go out together — equipping something changes a bag and a slot.
     fire("UNIT_INVENTORY_CHANGED", {"player"});
+    // The first few only: enough to tell "the event never goes out" from "it
+    // goes out and the interface ignores it", without a line every time the
+    // inventory is rebuilt.
+    static int said = 0;
+    if (said < 3) {
+        ++said;
+        LOG_WARNING("BAG_UPDATE + UNIT_INVENTORY_CHANGED fired (", said, " of 3 reported)");
+    }
 }
 
 void InventoryHandler::swapContainerItems(uint8_t srcBag, uint8_t srcSlot, uint8_t dstBag, uint8_t dstSlot) {
