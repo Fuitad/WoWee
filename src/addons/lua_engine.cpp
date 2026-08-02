@@ -1972,9 +1972,20 @@ void LuaEngine::registerCoreAPI() {
         "function SetPortraitTexture() end\n"
         "function StopSound() end\n"
         "function UIParent_OnEvent() end\n"
+        // Filling the screen, not sitting at a point on it. The widget tree's
+        // root is already the screen, and a frame created with no anchors falls
+        // to the centre-on-parent default with no size — so every frame
+        // FrameXML hangs off UIParent inherited a zero-size box in the middle,
+        // including its own UIParent, which fills this one. That is why the
+        // player frame's name was drawn in the centre of the world.
+        //
+        // SetAllPoints with no argument fills the parent, which for these is
+        // the root.
         "UIParent = CreateFrame('Frame', 'UIParent')\n"
+        "UIParent:SetAllPoints()\n"
         "UIPanelWindows = {}\n"
         "WorldFrame = CreateFrame('Frame', 'WorldFrame')\n"
+        "WorldFrame:SetAllPoints()\n"
         // GameTooltip: global tooltip frame used by virtually all addons
         "GameTooltip = CreateFrame('Frame', 'GameTooltip')\n"
         "GameTooltip.__lines = {}\n"
