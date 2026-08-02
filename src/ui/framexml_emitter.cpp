@@ -595,6 +595,50 @@ struct Emitter {
             }
             if (wantsMouse) line(var + ":EnableMouse(true)");
         }
+        // <Backdrop> — the bordered panel look. The pieces are already there:
+        // SetBackdrop parses the table, the widget carries the fields and the
+        // renderer draws the nine slices. Only this step was missing, so every
+        // backdrop declared in XML went undrawn — 77 of them, among which are
+        // the tooltip background and the dialog panels, which is why tooltip
+        // text sat straight on top of whatever was behind it.
+        //
+        // Addons reach the same code through SetBackdrop directly, and that
+        // path was a no-op on the frame metatable until it was removed; a panel
+        // an addon draws this way is the common case, not the rare one.
+        for (const XmlNode& child : node.children) {
+            if (child.name != "Backdrop") continue;
+            std::string t = "{";
+            if (const std::string* bg = child.attr("bgFile"))
+                t += "bgFile=" + quote(*bg) + ", ";
+            if (const std::string* edge = child.attr("edgeFile"))
+                t += "edgeFile=" + quote(*edge) + ", ";
+            t += std::string("tile=") + (child.attrBool("tile") ? "true" : "false");
+            // TileSize and EdgeSize each wrap a single <AbsValue val="n"/>.
+            for (const XmlNode& sub : child.children) {
+                const char* key = sub.name == "TileSize" ? "tileSize"
+                                : sub.name == "EdgeSize" ? "edgeSize"
+                                                         : nullptr;
+                if (!key) continue;
+                for (const XmlNode& v : sub.children) {
+                    if (const std::string* val = v.attr("val")) {
+                        t += std::string(", ") + key + "=" + *val;
+                    }
+                }
+            }
+            for (const XmlNode& sub : child.children) {
+                if (sub.name != "BackgroundInsets") continue;
+                for (const XmlNode& ins : sub.children) {
+                    if (ins.name != "AbsInset") continue;
+                    t += ", insets={left=" + ins.attrOr("left", "0") +
+                         ", right="  + ins.attrOr("right", "0") +
+                         ", top="    + ins.attrOr("top", "0") +
+                         ", bottom=" + ins.attrOr("bottom", "0") + "}";
+                }
+            }
+            t += "}";
+            line(var + ":SetBackdrop(" + t + ")");
+            break;  // one backdrop to a frame
+        }
         // The wheel, on the same principle and its own switch. No FrameXML file
         // sets the attribute — Blizzard leaves the handler to imply it — so the
         // quest log, the reputation list and the friends list all declared

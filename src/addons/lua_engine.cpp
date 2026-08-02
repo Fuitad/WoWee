@@ -2550,16 +2550,12 @@ void LuaEngine::registerCoreAPI() {
     bootstrap(
         "local mt = __WoweeFrameMT\n"
 
-        "function mt:GetFrameLevel() return self.__frameLevel or 1 end\n"
         "function mt:GetFrameStrata() return self.__strata or 'MEDIUM' end\n"
         "function mt:EnableMouseWheel(enable)\n"
         "    __WoweeSetWheelEnabled(self, enable ~= false)\n"
         "end\n"
         "function mt:SetResizable(resizable) end\n"
         "function mt:SetClampedToScreen(clamped) end\n"
-        "function mt:SetBackdrop(backdrop) end\n"
-        "function mt:SetBackdropColor(...) end\n"
-        "function mt:SetBackdropBorderColor(...) end\n"
         "function mt:SetID(id) self.__id = id end\n"
         "function mt:GetID() return self.__id or 0 end\n"
         "function mt:SetScale(scale) self.__scale = scale end\n"

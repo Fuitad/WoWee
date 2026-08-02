@@ -97,6 +97,28 @@ def main():
         for o in sorted(field_hits):
             print(f"    {o}: {' '.join(field_hits[o])}")
 
+    # The one hit here that is never ambiguous: a name bound in C into
+    # frameMethods and then redefined as Lua on the same metatable. The
+    # bootstrap runs afterwards, so the Lua one always wins — and these are
+    # written as no-ops, which turns a working method into silence. It has
+    # happened twice: EnableMouse, so no frame took the mouse, and SetBackdrop
+    # with its two colour setters, so no panel drew a background.
+    eng = (ADDONS / "lua_engine.cpp").read_text(errors="ignore")
+    m = re.search(r"static const struct luaL_Reg frameMethods\[\] = \{(.*?)\n    \};",
+                  eng, re.S)
+    if m:
+        c_bound = set(re.findall(r'\{"(\w+)"', m.group(1)))
+        after = eng[eng.index('"local mt = __WoweeFrameMT'):] \
+            if '"local mt = __WoweeFrameMT' in eng else ""
+        lua_defined = set(re.findall(r'"function mt:(\w+)', after))
+        both = sorted(c_bound & lua_defined)
+        if both:
+            problems += len(both)
+            print("\nbound in C and then redefined as Lua on the frame metatable"
+                  "\n(the Lua one runs later and wins — this is always a fault):")
+            for n in both:
+                print(f"    {n}")
+
     print("\nA caveat this cannot see past: frame methods and globals are"
           "\nregistered the same way here, so HasFocus the edit-box method and"
           "\nHasFocus the focus-target query look like one name in two places."

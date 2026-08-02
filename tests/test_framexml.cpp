@@ -722,3 +722,41 @@ TEST_CASE("A frame with no hover handlers is left alone", "[framexml][emit]") {
     const EmitResult r = emitFrameXml(root);
     REQUIRE_FALSE(has(r.lua, "EnableMouse"));
 }
+
+TEST_CASE("A Backdrop element becomes a SetBackdrop call", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Panel\">"
+        "<Backdrop bgFile=\"bg.blp\" edgeFile=\"edge.blp\" tile=\"true\">"
+        "<BackgroundInsets><AbsInset left=\"11\" right=\"12\" top=\"13\" bottom=\"14\"/></BackgroundInsets>"
+        "<TileSize><AbsValue val=\"32\"/></TileSize>"
+        "<EdgeSize><AbsValue val=\"16\"/></EdgeSize>"
+        "</Backdrop></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetBackdrop("));
+    REQUIRE(has(r.lua, "bgFile=\"bg.blp\""));
+    REQUIRE(has(r.lua, "edgeFile=\"edge.blp\""));
+    REQUIRE(has(r.lua, "tile=true"));
+    REQUIRE(has(r.lua, "tileSize=32"));
+    REQUIRE(has(r.lua, "edgeSize=16"));
+    REQUIRE(has(r.lua, "insets={left=11, right=12, top=13, bottom=14}"));
+}
+
+TEST_CASE("A Backdrop with only an edge file still emits", "[framexml][emit]") {
+    // 17 of the 77 in FrameXML have no bgFile: a border and nothing behind it.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Edged\">"
+        "<Backdrop edgeFile=\"edge.blp\" tile=\"false\">"
+        "<EdgeSize><AbsValue val=\"8\"/></EdgeSize>"
+        "</Backdrop></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetBackdrop("));
+    REQUIRE(has(r.lua, "edgeSize=8"));
+    REQUIRE(has(r.lua, "tile=false"));
+    REQUIRE_FALSE(has(r.lua, "bgFile="));
+}
+
+TEST_CASE("A frame with no Backdrop emits no SetBackdrop", "[framexml][emit]") {
+    XmlNode root = parseOrFail("<Ui><Frame name=\"Bare\"/></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(has(r.lua, "SetBackdrop"));
+}
