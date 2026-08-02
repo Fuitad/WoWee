@@ -459,6 +459,33 @@ int lua_Region_GetPoint(lua_State* L) {
     return 5;
 }
 
+/// The types a widget answers to, most specific first.
+///
+/// WoW's IsObjectType is true for the type itself and everything it derives
+/// from — a Button is a Frame is a Region — and FrameXML relies on that: it
+/// asks whether something is a Region to decide it can be positioned at all.
+static bool objectTypeMatches(const std::string& actual, const std::string& asked) {
+    if (actual == asked) return true;
+    const bool isRegion = (actual == "Texture" || actual == "FontString");
+    if (isRegion) {
+        return asked == "LayeredRegion" || asked == "Region";
+    }
+    // Everything else this creates is a Frame or derives from one.
+    return asked == "Frame" || asked == "Region";
+}
+
+int lua_Region_GetObjectType(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushstring(L, w ? w->objectType.c_str() : "Frame");
+    return 1;
+}
+int lua_Region_IsObjectType(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    const char* asked = luaL_optstring(L, 2, "");
+    lua_pushboolean(L, w && objectTypeMatches(w->objectType, asked));
+    return 1;
+}
+
 int lua_Region_GetNumPoints(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     lua_pushnumber(L, w ? static_cast<lua_Number>(w->anchors.size()) : 0.0);
@@ -734,6 +761,8 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     set("GetTop", lua_Region_GetTop);
     set("GetRect", lua_Region_GetRect);
     set("GetPoint", lua_Region_GetPoint);
+    set("GetObjectType", lua_Region_GetObjectType);
+    set("IsObjectType", lua_Region_IsObjectType);
     set("GetNumPoints", lua_Region_GetNumPoints);
     set("GetScale", lua_Region_GetScale);
     set("GetEffectiveScale", lua_Region_GetScale);
@@ -1017,7 +1046,10 @@ static int lua_Frame_CreateTexture(lua_State* L) {
     lua_newtable(L);
     if (tree) {
         const uint32_t id = tree->create(wowee::ui::WidgetKind::Texture, parent, name ? name : "");
-        if (auto* w = tree->get(id)) w->layer = wowee::ui::parseDrawLayer(layer);
+        if (auto* w = tree->get(id)) {
+            w->layer = wowee::ui::parseDrawLayer(layer);
+            w->objectType = "Texture";
+        }
         lua_pushinteger(L, static_cast<lua_Integer>(id));
         lua_setfield(L, -2, "__wid");
     }
@@ -1039,7 +1071,10 @@ static int lua_Frame_CreateFontString(lua_State* L) {
     lua_newtable(L);
     if (tree) {
         const uint32_t id = tree->create(wowee::ui::WidgetKind::FontString, parent, name ? name : "");
-        if (auto* w = tree->get(id)) w->layer = wowee::ui::parseDrawLayer(layer);
+        if (auto* w = tree->get(id)) {
+            w->layer = wowee::ui::parseDrawLayer(layer);
+            w->objectType = "FontString";
+        }
         lua_pushinteger(L, static_cast<lua_Integer>(id));
         lua_setfield(L, -2, "__wid");
     }
@@ -1250,6 +1285,9 @@ static int lua_CreateFrame(lua_State* L) {
         // which is what EnableMouse is for.
         if (auto* w = tree->get(id)) {
             const std::string ft = frameType ? frameType : "Frame";
+            // Kept as it was asked for, so GetObjectType and IsObjectType
+            // can answer with it rather than with "Frame" for everything.
+            w->objectType = ft;
             w->mouseEnabled = (ft == "Button" || ft == "CheckButton");
             w->isStatusBar = (ft == "StatusBar");
             // A slider takes the mouse by nature: it exists to be dragged.
@@ -1592,6 +1630,8 @@ void LuaEngine::registerCoreAPI() {
         {"GetRect",         lua_Region_GetRect},
         {"GetFrameLevel",   lua_Frame_GetFrameLevel},
         {"GetNumPoints",    lua_Region_GetNumPoints},
+        {"GetObjectType",   lua_Region_GetObjectType},
+        {"IsObjectType",    lua_Region_IsObjectType},
         {"GetPoint",        lua_Region_GetPoint},
         {"SetZoom",         lua_Minimap_SetZoom},
         {"GetZoom",         lua_Minimap_GetZoom},
@@ -1677,10 +1717,10 @@ void LuaEngine::registerCoreAPI() {
         "function mt:SetToplevel(top) end\n"
         "function mt:Raise() end\n"
         "function mt:Lower() end\n"
-        "function mt:GetLeft() return 0 end\n"
-        "function mt:GetRight() return 0 end\n"
-        "function mt:GetTop() return 0 end\n"
-        "function mt:GetBottom() return 0 end\n"
+        // The four edges are real bindings now, applied after this block.
+        // Left here they would only be a silent fallback if that order ever
+        // changed, and every frame reporting itself at the origin is worse
+        // than none of them answering.
         // GetPoint and GetNumPoints are real bindings now, applied after this
         // block. Leaving the flat versions here would only be a silent
         // fallback if that order ever changed, and a constant point is worse
@@ -1711,7 +1751,6 @@ void LuaEngine::registerCoreAPI() {
         "function mt:StartMoving() end\n"
         "function mt:StopMovingOrSizing() end\n"
         "function mt:IsMouseOver() return false end\n"
-        "function mt:GetObjectType() return 'Frame' end\n"
     );
 
     // Button art, which XML declares as <NormalTexture>, <HighlightTexture>,

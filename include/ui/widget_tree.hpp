@@ -66,6 +66,10 @@ struct Widget {
     uint32_t parent = 0;
     std::vector<uint32_t> children;
     std::string name;
+    /// What CreateFrame was asked for — "Button", "StatusBar", "Texture".
+    /// FrameXML branches on this constantly, and answering "Frame" for
+    /// everything makes every one of those branches take the wrong side.
+    std::string objectType = "Frame";
     uint32_t creationOrder = 0;
 
     std::vector<Anchor> anchors;

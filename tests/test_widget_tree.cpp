@@ -579,3 +579,21 @@ TEST_CASE("A frame's anchors can be read back as they were set",
     REQUIRE(tree.get(b)->left == Catch::Approx(left));
     REQUIRE(tree.get(b)->bottom == Catch::Approx(bottom));
 }
+
+TEST_CASE("A widget knows what type it is", "[widget]") {
+    // FrameXML branches on this: whether to treat something as a region it can
+    // position, whether a frame is a Button worth clicking. Answering "Frame"
+    // for everything makes each of those branches take the wrong side, and
+    // silently, because the answer is a plausible string rather than nothing.
+    WidgetTree tree;
+    const uint32_t button = tree.create(WidgetKind::Frame, tree.root(), "B");
+    tree.get(button)->objectType = "Button";
+    const uint32_t tex = tree.create(WidgetKind::Texture, button, "T");
+    tree.get(tex)->objectType = "Texture";
+
+    REQUIRE(tree.get(button)->objectType == "Button");
+    REQUIRE(tree.get(tex)->objectType == "Texture");
+    // A widget created without being told keeps the type a plain frame has,
+    // which is what CreateFrame's own default argument means.
+    REQUIRE(tree.get(tree.root())->objectType == "Frame");
+}
