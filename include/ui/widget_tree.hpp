@@ -130,6 +130,10 @@ struct Widget {
     bool  isScrollFrame = false;
     uint32_t scrollChild = 0;
     float scrollX = 0.0f, scrollY = 0.0f;
+    /// The range last reported to the interface. A scroll bar sizes and
+    /// enables itself from OnScrollRangeChanged, so the change has to be
+    /// noticed and announced rather than merely being true.
+    float reportedRangeX = -1.0f, reportedRangeY = -1.0f;
 
     bool  isEditBox = false;
     std::string editText;
@@ -233,6 +237,12 @@ public:
     /// The screen-filling frame everything else hangs off.
     uint32_t rootId() const { return rootId_; }
 
+    /// Records a frame as a scroll frame, and keeps the list of them. Walking
+    /// every widget each frame to find a handful is the kind of cost that does
+    /// not show up until the interface is large, which it now is.
+    void markScrollFrame(uint32_t id);
+    const std::vector<uint32_t>& scrollFrames() const { return scrollFrames_; }
+
     /// The widget published under this name, or null. Names are unique in
     /// FrameXML by convention, and the last one to claim a name wins, which is
     /// what a lookup by name means there too.
@@ -261,6 +271,7 @@ private:
     /// caller that holds a Widget* across creating a child. A deque keeps
     /// references valid when it grows, which is the guarantee this needs.
     float uiScale_ = 1.0f;
+    std::vector<uint32_t> scrollFrames_;
     std::deque<Widget> widgets_;   ///< Index 0 is a placeholder; id == index.
     uint32_t rootId_ = 0;
     uint32_t nextOrder_ = 1;

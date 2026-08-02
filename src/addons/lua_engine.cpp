@@ -486,6 +486,31 @@ int lua_Region_IsObjectType(lua_State* L) {
     return 1;
 }
 
+/// Runs a frame's own handler, given its table already on the stack.
+///
+/// Separate from callFrameScript, which starts from a widget id and looks the
+/// table up: inside a binding the table is the first argument already, and
+/// going back through the registry to find what is in hand is both slower and
+/// wrong for a frame that was never registered.
+static void callScriptOnTable(lua_State* L, int tableIdx, const char* script,
+                              double arg) {
+    // Positive indices only, which is all any caller here has: lua_absindex
+    // is 5.2 and this is 5.1.
+    const int abs = tableIdx;
+    lua_getfield(L, abs, "__scripts");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); return; }
+    lua_getfield(L, -1, script);
+    if (!lua_isfunction(L, -1)) { lua_pop(L, 2); return; }
+    lua_pushvalue(L, abs);
+    lua_pushnumber(L, arg);
+    if (lua_pcall(L, 2, 0, 0) != 0) {
+        const char* err = lua_tostring(L, -1);
+        LOG_ERROR("LuaEngine: ", script, " error: ", err ? err : "?");
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+}
+
 // Scroll frames. A window onto a taller child: the child is laid out at its
 // full size and moved by the offset, and what falls outside the frame is
 // clipped. Until now SetVerticalScroll was a no-op and every getter answered
@@ -494,8 +519,8 @@ int lua_ScrollFrame_SetScrollChild(lua_State* L) {
     auto* tree = wowee::addons::getWidgetTree(L);
     const uint32_t id = widgetIdOf(L, 1);
     if (!tree || id == 0) return 0;
+    tree->markScrollFrame(id);
     if (auto* w = tree->get(id)) {
-        w->isScrollFrame = true;
         w->scrollChild = lua_istable(L, 2) ? widgetIdOf(L, 2) : 0;
     }
     // Kept on the table too, because GetScrollChild hands the frame itself
@@ -523,7 +548,14 @@ int lua_ScrollFrame_SetVerticalScroll(lua_State* L) {
     if (auto* w = tree->get(id)) {
         const float v = static_cast<float>(luaL_optnumber(L, 2, 0.0));
         const float max = scrollRange(*tree, id, true);
-        w->scrollY = (v < 0.0f) ? 0.0f : (v > max ? max : v);
+        const float clamped = (v < 0.0f) ? 0.0f : (v > max ? max : v);
+        const bool moved = (clamped != w->scrollY);
+        w->scrollY = clamped;
+        // OnVerticalScroll is how the scroll bar beside the frame learns where
+        // the frame now is; UIPanelScrollFrameTemplate's body sets the bar's
+        // value from it. Announced only on a change, because the interface
+        // sets the scroll it already has on every update.
+        if (moved) callScriptOnTable(L, 1, "OnVerticalScroll", clamped);
     }
     return 0;
 }
@@ -534,7 +566,10 @@ int lua_ScrollFrame_SetHorizontalScroll(lua_State* L) {
     if (auto* w = tree->get(id)) {
         const float v = static_cast<float>(luaL_optnumber(L, 2, 0.0));
         const float max = scrollRange(*tree, id, false);
-        w->scrollX = (v < 0.0f) ? 0.0f : (v > max ? max : v);
+        const float clamped = (v < 0.0f) ? 0.0f : (v > max ? max : v);
+        const bool moved = (clamped != w->scrollX);
+        w->scrollX = clamped;
+        if (moved) callScriptOnTable(L, 1, "OnHorizontalScroll", clamped);
     }
     return 0;
 }
@@ -1403,7 +1438,7 @@ static int lua_CreateFrame(lua_State* L) {
             w->isCooldown = (ft == "Cooldown");
             // Marked at creation rather than only when a child is set, so a
             // scroll frame clips what is under it even while it is empty.
-            w->isScrollFrame = (ft == "ScrollFrame");
+            if (ft == "ScrollFrame") tree->markScrollFrame(id);
             // An edit box is clicked into, so it takes the mouse as well.
             w->isEditBox = (ft == "EditBox");
             if (w->isEditBox) {
@@ -3461,6 +3496,51 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
             setEditFocus(0);
             break;
         default: break;
+    }
+}
+
+void LuaEngine::updateScrollRanges() {
+    if (!L_) return;
+    for (uint32_t id : widgets_.scrollFrames()) {
+        auto* w = widgets_.get(id);
+        if (!w) continue;
+        float rangeX = 0.0f, rangeY = 0.0f;
+        if (const auto* child = widgets_.get(w->scrollChild)) {
+            rangeX = child->rectW - w->rectW;
+            rangeY = child->rectH - w->rectH;
+            if (rangeX < 0.0f) rangeX = 0.0f;
+            if (rangeY < 0.0f) rangeY = 0.0f;
+        }
+        if (rangeX == w->reportedRangeX && rangeY == w->reportedRangeY) continue;
+        w->reportedRangeX = rangeX;
+        w->reportedRangeY = rangeY;
+
+        // Both ranges, in WoW's order. ScrollFrame_OnScrollRangeChanged reads
+        // the second and hides the bar when it is zero, which is how a list
+        // that fits shows no scroll bar at all.
+        lua_getglobal(L_, "__WoweeFramesByWid");
+        if (!lua_istable(L_, -1)) { lua_pop(L_, 1); continue; }
+        lua_pushinteger(L_, static_cast<lua_Integer>(id));
+        lua_rawget(L_, -2);
+        if (!lua_istable(L_, -1)) { lua_pop(L_, 2); continue; }
+        lua_getfield(L_, -1, "__scripts");
+        if (lua_istable(L_, -1)) {
+            lua_getfield(L_, -1, "OnScrollRangeChanged");
+            if (lua_isfunction(L_, -1)) {
+                lua_pushvalue(L_, -3);          // self
+                lua_pushnumber(L_, rangeX);
+                lua_pushnumber(L_, rangeY);
+                if (lua_pcall(L_, 3, 0, 0) != 0) {
+                    const char* err = lua_tostring(L_, -1);
+                    LOG_ERROR("LuaEngine: OnScrollRangeChanged error: ",
+                              err ? err : "?");
+                    lua_pop(L_, 1);
+                }
+            } else {
+                lua_pop(L_, 1);
+            }
+        }
+        lua_pop(L_, 3);
     }
 }
 

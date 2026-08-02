@@ -707,3 +707,23 @@ TEST_CASE("Scrolled out of sight is out of reach", "[widget][scroll][hittest]") 
     const Widget* moved = tree.get(entry);
     REQUIRE(tree.hitTest(50.0f, moved->bottom + 10.0f) == entry);
 }
+
+TEST_CASE("Scroll frames are tracked as they are marked", "[widget][scroll]") {
+    // The range has to be re-checked every frame, and walking every widget to
+    // find a handful of scroll frames is the kind of cost that does not show
+    // up until the interface is large — which, with FrameXML loaded, it is.
+    WidgetTree tree;
+    const uint32_t a = tree.create(WidgetKind::Frame, tree.root(), "A");
+    const uint32_t b = tree.create(WidgetKind::Frame, tree.root(), "B");
+    tree.create(WidgetKind::Frame, tree.root(), "C");
+
+    tree.markScrollFrame(a);
+    tree.markScrollFrame(b);
+    // Marking twice must not list it twice: SetScrollChild and CreateFrame
+    // both mark, and the same frame goes through both.
+    tree.markScrollFrame(a);
+
+    REQUIRE(tree.scrollFrames().size() == 2);
+    REQUIRE(tree.get(a)->isScrollFrame);
+    REQUIRE(tree.get(b)->isScrollFrame);
+}

@@ -82,6 +82,13 @@ uint32_t WidgetTree::create(WidgetKind kind, uint32_t parent, const std::string&
     return id;
 }
 
+void WidgetTree::markScrollFrame(uint32_t id) {
+    Widget* w = get(id);
+    if (!w || w->isScrollFrame) return;
+    w->isScrollFrame = true;
+    scrollFrames_.push_back(id);
+}
+
 Widget* WidgetTree::findByName(std::string_view name) {
     if (name.empty()) return nullptr;
     // Backwards, so the last frame to take the name is the one found — the

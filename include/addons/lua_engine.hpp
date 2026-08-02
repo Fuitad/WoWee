@@ -68,6 +68,15 @@ public:
     /// time is what happens otherwise. delta is WoW's: positive is up.
     bool dispatchMouseWheel(float x, float y, float delta);
 
+    /// Tells a scroll frame when the room its child has to move changed.
+    ///
+    /// A scroll bar sizes and enables itself from OnScrollRangeChanged, so a
+    /// range that becomes true without being announced leaves the bar disabled
+    /// beside a frame that can scroll perfectly well. The change is noticed
+    /// here, once a frame, because it follows from layout rather than from
+    /// anything the interface called.
+    void updateScrollRanges();
+
     /// Typed text, one UTF-8 chunk as the platform reports it.
     void dispatchText(const char* utf8);
     /// A key that is not text: backspace, the arrows, enter, escape.

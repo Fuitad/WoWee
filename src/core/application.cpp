@@ -2962,6 +2962,12 @@ void Application::render() {
             // where the cursor was. Asking whether a window is under the cursor
             // is the question that was meant.
             const bool overClientUi = ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow);
+
+            // After layout, because the range follows from the rects it just
+            // resolved, and before the mouse, so a scroll bar enabled by this
+            // frame's range can be clicked in it.
+            engine->updateScrollRanges();
+
             if (!overClientUi) {
                 addons::LuaEngine::MouseButtons buttons;
                 buttons.left   = ImGui::IsMouseDown(ImGuiMouseButton_Left);
