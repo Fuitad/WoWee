@@ -126,6 +126,9 @@ struct Widget {
     /// where a frame ignores it until EnableMouseWheel is called — which is
     /// what keeps the wheel zooming the camera everywhere else.
     bool  wheelEnabled = false;
+    /// A disabled button is greyed and takes no clicks. True by default, as a
+    /// button is until something disables it.
+    bool  enabled = true;
 
     bool  isScrollFrame = false;
     uint32_t scrollChild = 0;

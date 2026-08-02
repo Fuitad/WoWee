@@ -632,6 +632,52 @@ int lua_Minimap_GetZoomLevels(lua_State* L) {
     return 1;
 }
 
+/// Enable and Disable, with the handlers that go with them.
+///
+/// A disabled button is greyed and takes no clicks, and FrameXML both sets
+/// this and listens for it — a scroll bar's arrows disable themselves at the
+/// end of their range. Fired only on a real change, since the interface
+/// disables what is already disabled on every update.
+int lua_Button_Enable(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w || w->enabled) return 0;
+    w->enabled = true;
+    lua_getfield(L, 1, "__scripts");
+    if (lua_istable(L, -1)) {
+        lua_getfield(L, -1, "OnEnable");
+        if (lua_isfunction(L, -1)) {
+            lua_pushvalue(L, 1);
+            if (lua_pcall(L, 1, 0, 0) != 0) lua_pop(L, 1);
+        } else {
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+    return 0;
+}
+int lua_Button_Disable(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w || !w->enabled) return 0;
+    w->enabled = false;
+    lua_getfield(L, 1, "__scripts");
+    if (lua_istable(L, -1)) {
+        lua_getfield(L, -1, "OnDisable");
+        if (lua_isfunction(L, -1)) {
+            lua_pushvalue(L, 1);
+            if (lua_pcall(L, 1, 0, 0) != 0) lua_pop(L, 1);
+        } else {
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+    return 0;
+}
+int lua_Button_IsEnabled(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushboolean(L, w ? (w->enabled ? 1 : 0) : 0);
+    return 1;
+}
+
 int lua_Region_Show(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->shown = true;
     lua_pushboolean(L, 1); lua_setfield(L, 1, "__visible");
@@ -1776,6 +1822,9 @@ void LuaEngine::registerCoreAPI() {
         {"GetRect",         lua_Region_GetRect},
         {"GetFrameLevel",   lua_Frame_GetFrameLevel},
         {"GetNumPoints",    lua_Region_GetNumPoints},
+        {"Enable",          lua_Button_Enable},
+        {"Disable",         lua_Button_Disable},
+        {"IsEnabled",       lua_Button_IsEnabled},
         {"SetScrollChild",  lua_ScrollFrame_SetScrollChild},
         {"SetVerticalScroll",   lua_ScrollFrame_SetVerticalScroll},
         {"SetHorizontalScroll", lua_ScrollFrame_SetHorizontalScroll},
@@ -3466,6 +3515,7 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
     constexpr int kRight     = 0x4000004F;
     constexpr int kHome      = 0x4000004A;
     constexpr int kEnd       = 0x4000004D;
+    constexpr int kTab       = '\t';
 
     const size_t len = w->editText.size();
     switch (sdlKeycode) {
@@ -3494,6 +3544,13 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
         case kEscape:
             callFrameScript(focusedWid_, "OnEscapePressed");
             setEditFocus(0);
+            break;
+        case kTab:
+            // Focus stays where it is unless the handler moves it. Twelve
+            // boxes in the interface declare this, and every one of them
+            // reaches for the next field by name — which is the frame's own
+            // business, not something to guess at from here.
+            callFrameScript(focusedWid_, "OnTabPressed");
             break;
         default: break;
     }
@@ -3690,7 +3747,13 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
                 callFrameScript(pressedWid_[i], "OnMouseUp", b.name);
                 // A click is press and release on the same frame, which is what
                 // lets a player slide off a button to change their mind.
-                if (pressedWid_[i] == hit &&
+                const auto* pressed = widgets_.get(pressedWid_[i]);
+                // A disabled button is greyed and takes no clicks. Setting
+                // enabled without honouring it here would be the same shape of
+                // half-feature as drawing a scroll frame's clip without
+                // clipping its hit test: a scroll arrow at the end of its
+                // range would still scroll.
+                if (pressedWid_[i] == hit && (!pressed || pressed->enabled) &&
                     frameAcceptsClick(pressedWid_[i], b.name))
                     callFrameScript(pressedWid_[i], "OnClick", b.name);
             }
