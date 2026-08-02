@@ -86,6 +86,16 @@ std::vector<std::string> frameXmlCandidateFrames();
 /// the interface shows them again on its own schedule.
 std::vector<std::string> frameXmlSuppressedFrames();
 
+/// Whether a frame in the check list is one the interface builds only when it
+/// has something to put in it.
+///
+/// A buff button does not exist until there is a buff: FrameXML creates them on
+/// demand from AuraButton_Update. Reporting that as NOT BUILT alongside genuine
+/// failures teaches the reader to skip the line, which costs the report the one
+/// thing it is for. Named here rather than guessed from the name so that a real
+/// BuffButton1 failure still reads as one.
+bool frameXmlBuiltOnDemand(std::string_view frameName);
+
 /// Note that the player has entered the world, and whether that has happened.
 ///
 /// FrameXML does most of its arranging from PLAYER_ENTERING_WORLD: frames are
