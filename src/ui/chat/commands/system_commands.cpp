@@ -91,6 +91,29 @@ class FrameXmlCheckCommand : public IChatCommand {
 public:
     ChatCommandResult execute(ChatCommandContext& ctx) override {
         frameXmlRequestCheck();
+
+        // What the interface itself can see, asked through the same bindings
+        // FrameXML uses. The widget report says whether a frame is shown; it
+        // cannot say whether it *should* be, and those are the two readings
+        // that have to be told apart. A hidden target frame is correct with no
+        // target and a fault with one, and from the tree alone they are the
+        // same line. print() reaches the log, so the answer lands beside the
+        // report it belongs to.
+        if (auto* am = ctx.services.addonManager) {
+            am->runScript(
+                "local function yn(v) return v and 'yes' or 'no' end\n"
+                "local auras = 0\n"
+                "for i = 1, 40 do if not UnitAura('player', i) then break end auras = i end\n"
+                "print('[fxcheck] target=' .. yn(UnitExists('target')) ..\n"
+                "      ' name=' .. tostring(UnitExists('target') and UnitName('target')) ..\n"
+                "      ' | TargetFrame shown=' .. yn(TargetFrame and TargetFrame:IsShown()) ..\n"
+                "      ' unit=' .. tostring(TargetFrame and TargetFrame.unit) ..\n"
+                "      ' | player auras=' .. auras ..\n"
+                "      ' BuffButton1=' .. tostring(BuffButton1 ~= nil) ..\n"
+                "      ' | XP=' .. tostring(UnitXP('player')) .. '/' .. tostring(UnitXPMax('player')) ..\n"
+                "      ' | bag0 slots=' .. tostring(GetContainerNumSlots(0)))\n");
+        }
+
         game::MessageChatData msg;
         msg.type = game::ChatType::SYSTEM;
         msg.language = game::ChatLanguage::UNIVERSAL;
