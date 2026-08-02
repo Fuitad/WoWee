@@ -144,6 +144,12 @@ struct WorldMapFacade::Impl {
     // Flight-map (taxi selection) mode — locks the view to the continent and
     // renders only the map, player marker, and interactive flight nodes.
     bool taxiMode = false;
+
+    // Where a host frame wants the map drawn, in pixels from the top-left.
+    // Lives here rather than on the facade because the drawing does.
+    bool  hasFrameRect = false;
+    float frameRectX = 0.0f, frameRectY = 0.0f;
+    float frameRectW = 0.0f, frameRectH = 0.0f;
     std::function<void()> taxiCloseHandler;
 
     float lastFrameTime = 0.0f;
@@ -663,6 +669,14 @@ void WorldMapFacade::setQuestPois(std::vector<QuestPOI> pois) {
     impl_->questPois = std::move(pois);
 }
 
+void WorldMapFacade::setFrameRect(float x, float y, float w, float h) {
+    impl_->frameRectX = x; impl_->frameRectY = y;
+    impl_->frameRectW = w; impl_->frameRectH = h;
+    impl_->hasFrameRect = true;
+}
+
+void WorldMapFacade::clearFrameRect() { impl_->hasFrameRect = false; }
+
 void WorldMapFacade::setCorpsePos(bool hasCorpse, glm::vec3 renderPos) {
     if (impl_->corpseMarkerLayer)
         impl_->corpseMarkerLayer->setCorpse(hasCorpse, renderPos);
@@ -736,14 +750,27 @@ void WorldMapFacade::Impl::renderImGuiOverlay(const glm::vec3& playerRenderPos,
     float mapX = std::floor((sw - windowW) / 2.0f);
     float mapY = std::floor((sh - windowH) / 2.0f);
 
-    // Map window — styled like the character selection window
-    ImGui::SetNextWindowPos(ImVec2(mapX, mapY), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(windowW, windowH), ImGuiCond_Always);
-
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
                              ImGuiWindowFlags_NoScrollbar |
                              ImGuiWindowFlags_NoScrollWithMouse |
                              ImGuiWindowFlags_NoFocusOnAppearing;
+
+    // Hosted inside a frame someone else drew: fill exactly that rect, keep no
+    // title bar of its own, and follow the frame rather than staying where it
+    // was first put — the frame is what moves now.
+    if (hasFrameRect) {
+        mapX = frameRectX;
+        mapY = frameRectY;
+        windowW = frameRectW;
+        windowH = frameRectH;
+        flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+                 ImGuiWindowFlags_NoBackground;
+        ImGui::SetNextWindowPos(ImVec2(mapX, mapY), ImGuiCond_Always);
+    } else {
+        // Map window — styled like the character selection window
+        ImGui::SetNextWindowPos(ImVec2(mapX, mapY), ImGuiCond_Once);
+    }
+    ImGui::SetNextWindowSize(ImVec2(windowW, windowH), ImGuiCond_Always);
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));

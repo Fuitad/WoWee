@@ -48,6 +48,16 @@ public:
     void setTaxiNodes(std::vector<TaxiNode> nodes);
     void setQuestPois(std::vector<QuestPOI> pois);
     void setCorpsePos(bool hasCorpse, glm::vec3 renderPos);
+
+    /// Draw the map into this rect instead of a window of its own.
+    ///
+    /// In pixels from the top-left. The map is an ImGui window that centres
+    /// and sizes itself, which is right when this client's interface owns it
+    /// and wrong when FrameXML does: there the map belongs inside the frame
+    /// FrameXML drew for it, and the title bar belongs to that frame rather
+    /// than to a window underneath it. Unset, nothing changes.
+    void setFrameRect(float x, float y, float w, float h);
+    void clearFrameRect();
     /// Nearby rare/rare-elite creatures currently spawned near the player.
     void setRares(std::vector<RareMark> rares);
     /// Nearby chest-type game objects currently spawned near the player.

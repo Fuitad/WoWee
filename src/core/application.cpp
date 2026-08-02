@@ -39,6 +39,7 @@
 #include "rendering/wmo_renderer.hpp"
 #include "rendering/m2_renderer.hpp"
 #include "rendering/minimap.hpp"
+#include "rendering/world_map.hpp"
 #include "rendering/quest_marker_renderer.hpp"
 #include "rendering/footprint_renderer.hpp"
 #include "rendering/loading_screen.hpp"
@@ -2917,6 +2918,27 @@ void Application::render() {
                 // the frame being handed a picture. One frame behind, because
                 // that pass has already run by the time this lays out — which
                 // for a frame that does not move is not visible.
+                // The world map is an ImGui window that centres itself, so
+                // like the minimap it is told where to be rather than handed
+                // a picture. The detail frame, not the outer one: that is the
+                // map area inside the panel FrameXML drew.
+                if (auto* wmap = renderer->getWorldMap()) {
+                    ui::Widget* wm = worldMapWidgetId_
+                        ? widgets.get(worldMapWidgetId_) : nullptr;
+                    if (!wm || wm->name != "WorldMapDetailFrame") {
+                        wm = widgets.findByName("WorldMapDetailFrame");
+                        worldMapWidgetId_ = wm ? wm->id : 0;
+                    }
+                    if (wm && wm->visible && wm->rectW > 0.0f && wm->rectH > 0.0f) {
+                        const float sc = widgets.uiScale();
+                        wmap->setFrameRect(wm->left * sc,
+                                           io.DisplaySize.y - (wm->bottom + wm->rectH) * sc,
+                                           wm->rectW * sc, wm->rectH * sc);
+                    } else {
+                        wmap->clearFrameRect();
+                    }
+                }
+
                 if (auto* map = renderer->getMinimap()) {
                     ui::Widget* mm = minimapWidgetId_
                         ? widgets.get(minimapWidgetId_) : nullptr;

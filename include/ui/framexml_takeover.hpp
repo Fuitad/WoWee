@@ -45,6 +45,7 @@ enum class UiElement {
     Minimap,
     Chat,
     QuestTracker,
+    WorldMap,
 };
 
 /// True when FrameXML is drawing this instead, so the client should not.

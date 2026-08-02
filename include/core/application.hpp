@@ -163,6 +163,10 @@ private:
     /// interface owns it. Looked up by name and remembered, the same as the
     /// portrait.
     uint32_t minimapWidgetId_ = 0;
+    /// The FrameXML frame the world map is drawn into, when the original
+    /// interface owns it. WorldMapDetailFrame rather than WorldMapFrame: the
+    /// first is the map area, the second is the panel around it.
+    uint32_t worldMapWidgetId_ = 0;
     bool addonsLoaded_ = false;
     std::unique_ptr<game::ExpansionRegistry> expansionRegistry_;
     // Empty means assets follow the active protocol profile. "legacy" selects
