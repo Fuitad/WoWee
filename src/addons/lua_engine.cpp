@@ -211,6 +211,15 @@ static int lua_Frame_Hide(lua_State* L) {
 }
 static int lua_Frame_IsShown(lua_State* L) {
     luaL_checktype(L, 1, LUA_TTABLE);
+    // From the widget, which is what the layout and the renderer go by. The
+    // Lua field beside it is written by Show and Hide but is not the only way
+    // a frame's visibility changes, so the two drift — and the bag buttons ask
+    // this to decide whether to draw themselves pressed, which is why one
+    // stayed lit over a bag that had been closed.
+    if (const auto* w = widgetOf(L, 1)) {
+        lua_pushboolean(L, w->shown);
+        return 1;
+    }
     lua_getfield(L, 1, "__visible");
     lua_pushboolean(L, lua_toboolean(L, -1));
     return 1;
