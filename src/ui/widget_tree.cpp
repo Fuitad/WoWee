@@ -290,13 +290,23 @@ bool WidgetTree::buttonArtVisible(const Widget& w) const {
         at = a->parent;
     }
 
+    // A state asked for outright wins over what the cursor is doing.
+    switch (owner->forcedState) {
+        case Widget::Forced::Pushed:   pressed = true;  break;
+        case Widget::Forced::Normal:   pressed = false; break;
+        case Widget::Forced::Disabled: break;
+        case Widget::Forced::None:     break;
+    }
+    const bool usable = owner->enabled &&
+                        owner->forcedState != Widget::Forced::Disabled;
+
     switch (w.buttonArt) {
-        case ButtonArt::Highlight:       return hovered && owner->enabled;
-        case ButtonArt::Disabled:        return !owner->enabled;
-        case ButtonArt::Pushed:          return owner->enabled && pressed;
-        case ButtonArt::Normal:          return owner->enabled && !pressed;
-        case ButtonArt::Checked:         return owner->checked && owner->enabled;
-        case ButtonArt::DisabledChecked: return owner->checked && !owner->enabled;
+        case ButtonArt::Highlight:       return (hovered || owner->highlightLocked) && usable;
+        case ButtonArt::Disabled:        return !usable;
+        case ButtonArt::Pushed:          return usable && pressed;
+        case ButtonArt::Normal:          return usable && !pressed;
+        case ButtonArt::Checked:         return owner->checked && usable;
+        case ButtonArt::DisabledChecked: return owner->checked && !usable;
         default:                         return true;
     }
 }

@@ -141,6 +141,14 @@ struct Widget {
     /// Whether a check button is checked, which decides between its checked
     /// art and none.
     bool  checked = false;
+    /// A state the interface asked for outright, overriding what the mouse is
+    /// doing. ActionButton_UpdateState holds a toggled ability's button down
+    /// this way, and nothing about the cursor should undo that.
+    enum class Forced : uint8_t { None, Normal, Pushed, Disabled };
+    Forced forcedState = Forced::None;
+    /// Highlight held on regardless of the cursor, which is how a selected tab
+    /// stays lit once it has been clicked.
+    bool  highlightLocked = false;
 
     bool  isScrollFrame = false;
     uint32_t scrollChild = 0;

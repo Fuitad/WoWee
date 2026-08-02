@@ -820,3 +820,53 @@ TEST_CASE("A button shows one state texture, not all of them",
     REQUIRE_FALSE(drawn(normal));
     REQUIRE_FALSE(drawn(highlight));
 }
+
+TEST_CASE("A state the interface asked for outlasts the cursor",
+          "[widget][draworder]") {
+    // ActionButton_UpdateState holds down the button for an ability that is
+    // toggled on, and moving the mouse must not let it back up. A selected tab
+    // locks its highlight the same way.
+    WidgetTree tree;
+    const uint32_t button = tree.create(WidgetKind::Frame, tree.root(), "B");
+    tree.get(button)->width = 40.0f;
+    tree.get(button)->height = 40.0f;
+    tree.addPoint(button, Anchor{"CENTER", 0, "CENTER", 0.0f, 0.0f});
+
+    auto art = [&](const char* name, ButtonArt kind) {
+        const uint32_t t = tree.create(WidgetKind::Texture, button, name);
+        tree.get(t)->texturePath = "Interface\\Art";
+        tree.get(t)->buttonArt = kind;
+        tree.setAllPoints(t, button);
+        return t;
+    };
+    const uint32_t normal    = art("BN", ButtonArt::Normal);
+    const uint32_t pushed    = art("BP", ButtonArt::Pushed);
+    const uint32_t highlight = art("BH", ButtonArt::Highlight);
+
+    auto drawn = [&](uint32_t id) {
+        for (const Widget* w : tree.drawOrder()) if (w->id == id) return true;
+        return false;
+    };
+
+    // Held down by the interface, with the cursor nowhere near it.
+    tree.get(button)->forcedState = Widget::Forced::Pushed;
+    tree.setInteraction(0, 0);
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(drawn(pushed));
+    REQUIRE_FALSE(drawn(normal));
+
+    // Released again, and the cursor still elsewhere.
+    tree.get(button)->forcedState = Widget::Forced::Normal;
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(drawn(normal));
+    REQUIRE_FALSE(drawn(pushed));
+
+    // A locked highlight stays lit without the cursor; a forced-disabled
+    // button puts it out again, since disabled art replaces the lot.
+    tree.get(button)->highlightLocked = true;
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(drawn(highlight));
+    tree.get(button)->forcedState = Widget::Forced::Disabled;
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE_FALSE(drawn(highlight));
+}

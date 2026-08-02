@@ -612,6 +612,37 @@ int lua_CheckButton_GetChecked(lua_State* L) {
     return 1;
 }
 
+/// SetButtonState(state, lock) / GetButtonState. The interface holding a
+/// button down itself: ActionButton_UpdateState pushes the button for an
+/// ability that is toggled on, and no amount of moving the cursor should let
+/// it back up.
+int lua_Button_SetButtonState(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    const std::string state = luaL_optstring(L, 2, "NORMAL");
+    using F = wowee::ui::Widget::Forced;
+    if      (state == "PUSHED")   w->forcedState = F::Pushed;
+    else if (state == "DISABLED") w->forcedState = F::Disabled;
+    else                          w->forcedState = F::Normal;
+    return 0;
+}
+int lua_Button_GetButtonState(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    using F = wowee::ui::Widget::Forced;
+    const F f = w ? w->forcedState : F::None;
+    lua_pushstring(L, f == F::Pushed ? "PUSHED"
+                    : f == F::Disabled ? "DISABLED" : "NORMAL");
+    return 1;
+}
+int lua_Button_LockHighlight(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->highlightLocked = true;
+    return 0;
+}
+int lua_Button_UnlockHighlight(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->highlightLocked = false;
+    return 0;
+}
+
 int lua_Texture_SetButtonArt(lua_State* L) {
     auto* w = widgetOf(L, 1);
     if (!w) return 0;
@@ -1854,6 +1885,10 @@ void LuaEngine::registerCoreAPI() {
         {"GetNumPoints",    lua_Region_GetNumPoints},
         {"Enable",          lua_Button_Enable},
         {"SetChecked",      lua_CheckButton_SetChecked},
+        {"SetButtonState",  lua_Button_SetButtonState},
+        {"GetButtonState",  lua_Button_GetButtonState},
+        {"LockHighlight",   lua_Button_LockHighlight},
+        {"UnlockHighlight", lua_Button_UnlockHighlight},
         {"GetChecked",      lua_CheckButton_GetChecked},
         {"Disable",         lua_Button_Disable},
         {"IsEnabled",       lua_Button_IsEnabled},
