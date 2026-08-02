@@ -1055,6 +1055,164 @@ static int lua_GetTimeToWellRested(lua_State* L) {
     return luaReturnNil(L);
 }
 
+
+// ── Character sheet ────────────────────────────────────────────────────────
+//
+// PaperDollFrame reads about forty functions and does arithmetic with nearly
+// all of them, so a missing one is not a blank field — it is "attempt to
+// perform arithmetic on a nil value" and the rest of the panel never draws.
+// The server sends most of what these want; where it does not, the honest
+// answer is a zero of the right shape rather than nothing.
+
+/// UnitAttackPower(unit) → base, positive buff, negative buff.
+///
+/// The server sends one effective number, not the three parts, so it is
+/// reported as all base and no buffs. The sheet adds them together, which
+/// gives the right total either way.
+static int lua_UnitAttackPower(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int32_t ap = gh ? gh->getMeleeAttackPower() : -1;
+    lua_pushnumber(L, ap > 0 ? ap : 0);
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 0);
+    return 3;
+}
+static int lua_UnitRangedAttackPower(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int32_t ap = gh ? gh->getRangedAttackPower() : -1;
+    lua_pushnumber(L, ap > 0 ? ap : 0);
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 0);
+    return 3;
+}
+
+/// UnitDefense(unit) → base, modifier. Defense skill is five per level for a
+/// character with none trained beyond the cap, which is what it is for
+/// everyone in practice; the server does not send the skill itself.
+static int lua_UnitDefense(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int level = gh ? static_cast<int>(gh->getPlayerLevel()) : 1;
+    lua_pushnumber(L, level * 5);
+    lua_pushnumber(L, 0);
+    return 2;
+}
+
+/// UnitAttackSpeed(unit) → main hand, off hand, in seconds. Nothing here
+/// tracks weapon speed yet; two seconds is a one-handed weapon and keeps the
+/// damage-per-second division that follows from dividing by zero.
+static int lua_UnitAttackSpeed(lua_State* L) {
+    lua_pushnumber(L, 2.0);
+    lua_pushnumber(L, 2.0);
+    return 2;
+}
+
+/// UnitDamage(unit) → min, max, off-hand min, off-hand max, positive bonus,
+/// negative bonus, percent. Weapon damage is not tracked, so this reports the
+/// attack power contribution alone, which is the part the server does send.
+static int lua_UnitDamage(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int32_t ap = gh ? gh->getMeleeAttackPower() : -1;
+    const double dps = (ap > 0) ? (ap / 14.0) : 0.0;   // WoW's attack-power divisor
+    const double swing = dps * 2.0;                     // the two-second swing above
+    lua_pushnumber(L, swing);
+    lua_pushnumber(L, swing);
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 1.0);
+    return 7;
+}
+
+/// UnitRangedDamage(unit) → speed, min, max, positive, negative, percent.
+static int lua_UnitRangedDamage(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int32_t ap = gh ? gh->getRangedAttackPower() : -1;
+    const double swing = (ap > 0) ? (ap / 14.0) * 2.8 : 0.0;
+    lua_pushnumber(L, 2.8);
+    lua_pushnumber(L, swing);
+    lua_pushnumber(L, swing);
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 1.0);
+    return 6;
+}
+
+/// UnitRangedAttack(unit) → skill, modifier. As with defense, five per level.
+static int lua_UnitRangedAttack(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int level = gh ? static_cast<int>(gh->getPlayerLevel()) : 1;
+    lua_pushnumber(L, level * 5);
+    lua_pushnumber(L, 0);
+    return 2;
+}
+
+/// UnitAttackBothHands(unit) → main skill, main modifier, off skill, off
+/// modifier.
+static int lua_UnitAttackBothHands(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int level = gh ? static_cast<int>(gh->getPlayerLevel()) : 1;
+    lua_pushnumber(L, level * 5);
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, level * 5);
+    lua_pushnumber(L, 0);
+    return 4;
+}
+
+/// GetManaRegen() → while not casting, while casting. Both per second.
+static int lua_GetManaRegen(lua_State* L) {
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 0);
+    return 2;
+}
+
+/// The several figures the sheet works out from a rating or a stat. None of
+/// the conversion formulae are modelled — they are level-dependent tables the
+/// server does not send — and the percentages that matter are reported
+/// directly by GetCritChance, GetDodgeChance and their kind, which do come
+/// from the server. Zero here loses a tooltip breakdown, not a number anyone
+/// plays by.
+static int lua_ZeroPercent(lua_State* L) {
+    lua_pushnumber(L, 0);
+    return 1;
+}
+
+/// GetUnitMaxHealthModifier(unit) → the multiplier on maximum health. One,
+/// because nothing here modifies it — and one rather than zero because the
+/// sheet multiplies by it.
+static int lua_GetUnitMaxHealthModifier(lua_State* L) {
+    lua_pushnumber(L, 1.0);
+    return 1;
+}
+
+/// GetInventoryItemCooldown(unit, slot) → start, duration, enabled. All zero
+/// is "nothing on cooldown", which is what the sheet checks for before doing
+/// arithmetic with the first two.
+static int lua_GetInventoryItemCooldown(lua_State* L) {
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 1);
+    return 3;
+}
+
+/// Things this client does not model, answered false rather than left to the
+/// fallback — which would answer with an object, and an object is true.
+/// InRepairMode deciding yes would put a repair cursor on every item in the
+/// bags; HasWandEquipped deciding yes would show a wand's damage on the sheet
+/// for a character holding none.
+static int lua_ReturnFalse(lua_State* L) {
+    lua_pushboolean(L, 0);
+    return 1;
+}
+
+/// GetMaxCombatRatingBonus(rating) → the cap on what a rating can give. Zero
+/// would read as "capped at nothing", so this answers with a hundred percent,
+/// which is no cap in any practical sense.
+static int lua_GetMaxCombatRatingBonus(lua_State* L) {
+    lua_pushnumber(L, 100);
+    return 1;
+}
+
 // GetRestState() → 1 = normal, 2 = rested
 /// GetRestState() → stateID, stateName, xpMultiplier.
 ///
@@ -1658,6 +1816,35 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"UnitXPMax",               lua_UnitXPMax},
                 {"GetXPExhaustion",         lua_GetXPExhaustion},
                 {"GetTimeToWellRested",     lua_GetTimeToWellRested},
+                {"UnitAttackPower",         lua_UnitAttackPower},
+                {"UnitRangedAttackPower",   lua_UnitRangedAttackPower},
+                {"UnitDefense",             lua_UnitDefense},
+                {"UnitAttackSpeed",         lua_UnitAttackSpeed},
+                {"UnitDamage",              lua_UnitDamage},
+                {"UnitRangedDamage",        lua_UnitRangedDamage},
+                {"UnitRangedAttack",        lua_UnitRangedAttack},
+                {"UnitAttackBothHands",     lua_UnitAttackBothHands},
+                {"GetManaRegen",            lua_GetManaRegen},
+                {"GetMaxCombatRatingBonus", lua_GetMaxCombatRatingBonus},
+                {"GetUnitMaxHealthModifier", lua_GetUnitMaxHealthModifier},
+                {"GetInventoryItemCooldown", lua_GetInventoryItemCooldown},
+                {"HasWandEquipped",         lua_ReturnFalse},
+                {"UnitHasRelicSlot",        lua_ReturnFalse},
+                {"InRepairMode",            lua_ReturnFalse},
+                {"IsInventoryItemLocked",   lua_ReturnFalse},
+                {"GetInventoryItemBroken",  lua_ReturnFalse},
+                {"CursorCanGoInSlot",       lua_ReturnFalse},
+                {"IsTitleKnown",            lua_ReturnFalse},
+                {"GetCombatRatingBonus",    lua_ZeroPercent},
+                {"GetCritChanceFromAgility", lua_ZeroPercent},
+                {"GetSpellCritChanceFromIntellect", lua_ZeroPercent},
+                {"GetExpertise",            lua_ZeroPercent},
+                {"GetExpertisePercent",     lua_ZeroPercent},
+                {"GetArmorPenetration",     lua_ZeroPercent},
+                {"GetSpellPenetration",     lua_ZeroPercent},
+                {"GetShieldBlock",          lua_ZeroPercent},
+                {"GetUnitHealthRegenRateFromSpirit", lua_ZeroPercent},
+                {"GetUnitManaRegenRateFromSpirit",   lua_ZeroPercent},
                 {"GetWatchedFactionInfo",   lua_GetWatchedFactionInfo},
                 {"GetNumBagSlots",          lua_GetNumBagSlots},
                 {"GetMirrorTimerProgress",  lua_GetMirrorTimerProgress},

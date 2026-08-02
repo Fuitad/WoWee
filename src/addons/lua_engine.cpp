@@ -16,6 +16,7 @@
 #include "core/window.hpp"
 #include <imgui.h>
 #include <fstream>
+#include "core/config_paths.hpp"
 #include <filesystem>
 
 extern "C" {
@@ -3470,6 +3471,19 @@ void LuaEngine::reportMissingApi() const {
         if (line.size() > 900) { LOG_WARNING("  missing: ", line); line.clear(); }
     }
     if (!line.empty()) LOG_WARNING("  missing: ", line);
+
+    // And to a file of its own, one name per line.
+    //
+    // This is the most useful measurement a session produces and the log is
+    // the worst place to keep it: the next run truncates it, and a list of two
+    // hundred names is what gets lost. A file beside the log survives, sorts,
+    // and diffs against the last run — which is the question worth asking of
+    // it anyway, since what matters is what changed.
+    const std::string path = core::getConfigRoot() + "/missing_api.txt";
+    if (std::ofstream out(path); out) {
+        for (const auto& n : absent) out << n << "\n";
+        LOG_WARNING("LuaEngine: the full list is in ", path);
+    }
 }
 
 /// Whether a frame asked for this button's clicks.
