@@ -2982,6 +2982,16 @@ void LuaEngine::registerCoreAPI() {
 
     // Noop stubs for commonly called functions that don't need implementation
     bootstrap(
+        // Empty a table in place, keeping the table itself. WoW's, not Lua's —
+        // it exists as both a global and table.wipe, and FrameXML calls it 21
+        // times. Missing, BuffFrame_Update errored on its first line and no
+        // buff button was ever created.
+        "function wipe(t)\n"
+        "    if type(t) ~= 'table' then return t end\n"
+        "    for k in pairs(t) do t[k] = nil end\n"
+        "    return t\n"
+        "end\n"
+        "table.wipe = wipe\n"
         "function SetDesaturation() end\n"
         // A class circle rather than the 3D portrait the real client renders,
         // which needs a model rendered to a texture. The coordinates come from
