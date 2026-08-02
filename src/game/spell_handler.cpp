@@ -3480,6 +3480,12 @@ void SpellHandler::handleSpellDelayed(network::Packet& packet) {
             it->second.timeTotal     += delaySec;
         }
     }
+    // The cast bar redraws itself from this: it is already on screen and its
+    // end moved, so without the event it counts down to the wrong moment.
+    const std::string delayedUnit = owner_.guidToUnitId(caster);
+    if (!delayedUnit.empty()) {
+        owner_.fireAddonEvent("UNIT_SPELLCAST_DELAYED", {delayedUnit});
+    }
 }
 
 // ============================================================
@@ -4571,6 +4577,11 @@ void SpellHandler::handleChannelUpdate(network::Packet& packet) {
     }
     LOG_DEBUG("MSG_CHANNEL_UPDATE: caster=0x", std::hex, chanCaster2, std::dec,
               " remaining=", chanRemainMs, "ms");
+    // Every update, not only the last: a channel that reticks or is pushed
+    // back moves its bar, and the bar is already on screen.
+    if (const std::string chanUnit = owner_.guidToUnitId(chanCaster2); !chanUnit.empty()) {
+        owner_.fireAddonEvent("UNIT_SPELLCAST_CHANNEL_UPDATE", {chanUnit});
+    }
     // Fire UNIT_SPELLCAST_CHANNEL_STOP when channel ends
     if (chanRemainMs == 0) {
         // Stop channeling animation — return to idle
