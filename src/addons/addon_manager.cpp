@@ -1,4 +1,5 @@
 #include "addons/addon_manager.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "core/logger.hpp"
 #include "core/config_paths.hpp"
 #include <sstream>
@@ -371,6 +372,21 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         "    if store[name] == nil then store[name] = value end\n"
         "  end\n"
         "end\n");
+
+    // Every FrameXML file is loaded, so every frame it declares exists and
+    // draws — the takeover list only decides whether this client's own version
+    // is suppressed alongside it. For a panel that is not being handed over yet
+    // that means two of them on screen, so the one not in use is hidden here.
+    if (!ui::frameXmlOwns(ui::UiElement::Chat)) {
+        luaEngine_.executeString(
+            "for i = 1, NUM_CHAT_WINDOWS or 7 do\n"
+            "  local f = _G['ChatFrame' .. i]\n"
+            "  if f then f:Hide() end\n"
+            "end\n"
+            "if GeneralDockManager then GeneralDockManager:Hide() end\n"
+            "if ChatFrameMenuButton then ChatFrameMenuButton:Hide() end\n"
+            "if FriendsMicroButton then FriendsMicroButton:Hide() end\n");
+    }
 
     LOG_WARNING("FrameXML: ", lua, " Lua files and ", xml, " XML files loaded, ",
                 failed, " failed in ", sinceMs(loadStart), "ms");

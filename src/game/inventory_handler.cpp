@@ -1611,7 +1611,9 @@ void InventoryHandler::fireBagUpdates() {
     // without always knowing which bag it was, and an interface that redraws a
     // bag it did not need to is cheaper than one that never redraws at all.
     for (int bag = 0; bag <= 4; ++bag) fire("BAG_UPDATE", {std::to_string(bag)});
-    LOG_WARNING("BAG_UPDATE fired for bags 0-4");
+    // The character sheet redraws from this one rather than from BAG_UPDATE, so
+    // both go out together — equipping something changes a bag and a slot.
+    fire("UNIT_INVENTORY_CHANGED", {"player"});
 }
 
 void InventoryHandler::swapContainerItems(uint8_t srcBag, uint8_t srcSlot, uint8_t dstBag, uint8_t dstSlot) {
@@ -3322,6 +3324,17 @@ ItemDef InventoryHandler::buildItemDef(uint32_t entry, uint32_t stackCount,
 }
 
 void InventoryHandler::rebuildOnlineInventory() {
+    // Announced from here rather than from the callers, because this is the one
+    // place the inventory picture is rebuilt and only one of its six callers
+    // was saying so. Moving an item between two slots changes which item sits
+    // in which of the player's slot fields — not any item's own fields — so it
+    // never reached the path that announced a change, and the bags and the
+    // character sheet went on drawing what they were last told.
+    struct Announce {
+        InventoryHandler& self;
+        ~Announce() { self.fireBagUpdates(); }
+    } announce{*this};
+
 
     uint8_t savedBankBagSlots = owner_.inventoryRef().getPurchasedBankBagSlots();
     owner_.inventoryRef() = Inventory();
