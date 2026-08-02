@@ -88,6 +88,14 @@ struct Widget {
     /// plain Frame is transparent to clicks until EnableMouse is called; Buttons
     /// switch it on for themselves.
     bool mouseEnabled = false;
+    /// Whether the frame may be dragged around the screen, and which mouse
+    /// buttons begin a drag on it. WoW keeps these separate: a bag window is
+    /// movable and registers the left button for drag, while an item button
+    /// registers for drag without being movable — dragging it picks the item up
+    /// instead of moving the button.
+    bool movable = false;
+    bool dragLeft = false;
+    bool dragRight = false;
 
     FrameStrata strata = FrameStrata::Medium;
     bool strataExplicit = false;
@@ -273,6 +281,25 @@ public:
     /// describing two different frames.
     void setWidth(uint32_t id, float width);
     void setHeight(uint32_t id, float height);
+
+    /// Pin a frame where it currently sits, on one anchor to its parent.
+    ///
+    /// What StartMoving does before the cursor takes over: a frame anchored to
+    /// something else cannot be dragged without the drag fighting the anchor,
+    /// so the anchors are replaced by a single one describing where it is now.
+    void pinToCurrentPosition(uint32_t id);
+
+    /// Shift every anchor by the same amount, which moves the frame.
+    void nudge(uint32_t id, float dx, float dy);
+
+    /// The frame currently following the cursor, if any.
+    ///
+    /// StartMoving and StopMovingOrSizing are called from Lua, and the cursor
+    /// is read by the input loop, so the two need somewhere to meet. It lives
+    /// here beside the pressed and hovered frames rather than in the input
+    /// loop, because that is what the bindings can already reach.
+    uint32_t movingWidget() const { return movingWid_; }
+    void setMovingWidget(uint32_t id) { movingWid_ = id; }
     void addPoint(uint32_t id, const Anchor& anchor);
     void setAllPoints(uint32_t id, uint32_t relativeTo);
 
@@ -345,6 +372,7 @@ private:
     bool buttonArtVisible(const Widget& w) const;
     std::deque<Widget> widgets_;   ///< Index 0 is a placeholder; id == index.
     uint32_t rootId_ = 0;
+    uint32_t movingWid_ = 0;
     uint32_t nextOrder_ = 1;
     std::vector<const Widget*> drawOrder_;
 };

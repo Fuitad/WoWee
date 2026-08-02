@@ -1122,3 +1122,44 @@ TEST_CASE("A size just set reads back before the next layout", "[widget][layout]
     tree.layout(1024.0f, 768.0f);
     REQUIRE(tree.get(stretched)->rectH == Catch::Approx(768.0f));
 }
+
+TEST_CASE("A moved frame keeps its size and lands where it was dropped",
+          "[widget][layout]") {
+    // StartMoving has to detach a frame from whatever it was anchored to,
+    // otherwise the drag and the anchor fight and the frame springs back. A bag
+    // window is anchored to the one beside it, so this is every bag but the
+    // first.
+    WidgetTree tree;
+    const uint32_t anchorFrame = tree.create(WidgetKind::Frame, tree.root(), "Neighbour");
+    tree.get(anchorFrame)->width = 100.0f;
+    tree.get(anchorFrame)->height = 50.0f;
+    tree.addPoint(anchorFrame, Anchor{"BOTTOMLEFT", 0, "BOTTOMLEFT", 0.0f, 0.0f});
+
+    const uint32_t bag = tree.create(WidgetKind::Frame, tree.root(), "Bag");
+    tree.get(bag)->width = 200.0f;
+    tree.get(bag)->height = 300.0f;
+    tree.addPoint(bag, Anchor{"BOTTOMRIGHT", anchorFrame, "BOTTOMLEFT", 0.0f, 0.0f});
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(bag)->left == Catch::Approx(-200.0f));
+
+    // Picked up: pinned where it stands, with its size intact.
+    tree.pinToCurrentPosition(bag);
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(bag)->anchors.size() == 1u);
+    REQUIRE(tree.get(bag)->left == Catch::Approx(-200.0f));
+    REQUIRE(tree.get(bag)->rectW == Catch::Approx(200.0f));
+    REQUIRE(tree.get(bag)->rectH == Catch::Approx(300.0f));
+
+    // Dragged, and it stays dragged rather than springing back to the
+    // neighbour it used to hang off.
+    tree.nudge(bag, 250.0f, 60.0f);
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(bag)->left == Catch::Approx(50.0f));
+    REQUIRE(tree.get(bag)->bottom == Catch::Approx(60.0f));
+    REQUIRE(tree.get(bag)->rectW == Catch::Approx(200.0f));
+
+    // Moving the neighbour no longer drags it along.
+    tree.nudge(anchorFrame, 500.0f, 0.0f);
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(bag)->left == Catch::Approx(50.0f));
+}

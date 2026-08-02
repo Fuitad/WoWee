@@ -145,6 +145,35 @@ void WidgetTree::setHeight(uint32_t id, float height) {
     w->rectH = height;
 }
 
+void WidgetTree::pinToCurrentPosition(uint32_t id) {
+    Widget* w = get(id);
+    if (!w) return;
+    const Widget* parent = get(w->parent);
+    const float px = parent ? parent->left : 0.0f;
+    const float py = parent ? parent->bottom : 0.0f;
+
+    // One anchor leaves the size to be stated rather than solved, so a frame
+    // that was sized by two opposing corners keeps the size it had rather than
+    // collapsing the moment it is picked up.
+    if (w->width <= 0.0f)  w->width  = w->rectW;
+    if (w->height <= 0.0f) w->height = w->rectH;
+
+    Anchor a;
+    a.point = "BOTTOMLEFT";
+    a.relativePoint = "BOTTOMLEFT";
+    a.relativeTo = 0;   // the parent
+    a.x = w->left - px;
+    a.y = w->bottom - py;
+    w->anchors.clear();
+    w->anchors.push_back(a);
+}
+
+void WidgetTree::nudge(uint32_t id, float dx, float dy) {
+    Widget* w = get(id);
+    if (!w) return;
+    for (Anchor& a : w->anchors) { a.x += dx; a.y += dy; }
+}
+
 void WidgetTree::addPoint(uint32_t id, const Anchor& anchor) {
     Widget* w = get(id);
     if (!w) return;

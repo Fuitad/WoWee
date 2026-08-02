@@ -569,6 +569,14 @@ struct Emitter {
         if (node.attr("enableMouse")) {
             line(var + ":EnableMouse(" + (node.attrBool("enableMouse") ? "true" : "false") + ")");
         }
+        // Whether the frame can be dragged around the screen. Declared in the
+        // XML rather than set from Lua for most of what moves — the bag
+        // windows, the character sheet — so leaving it unread meant StartMoving
+        // was asked of a frame that had never been told it was movable, and
+        // every one of those windows was nailed down.
+        if (node.attr("movable")) {
+            line(var + ":SetMovable(" + (node.attrBool("movable") ? "true" : "false") + ")");
+        }
         // Attributes declared in the XML, which is where FrameXML puts a
         // frame's initial state — UIParent's panel offsets among them. Set
         // before anything else runs, because SetAttribute fires

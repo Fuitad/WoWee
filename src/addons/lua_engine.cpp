@@ -304,6 +304,54 @@ int lua_Region_SetSize(lua_State* L) {
     }
     return 0;
 }
+// Moving a frame, and picking things up out of one.
+//
+// All five of these were no-ops, which is why a bag window could not be
+// dragged anywhere and an item could not be dragged out of it: the interface
+// asked to be moved and nothing was listening.
+int lua_Frame_SetMovable(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->movable = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+int lua_Frame_IsMovable(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushboolean(L, w && w->movable);
+    return 1;
+}
+/// RegisterForDrag("LeftButton", ...) — naming none of them turns dragging off,
+/// which is how a frame stops being draggable again.
+int lua_Frame_RegisterForDrag(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    w->dragLeft = false;
+    w->dragRight = false;
+    const int n = lua_gettop(L);
+    for (int i = 2; i <= n; ++i) {
+        const char* b = lua_tostring(L, i);
+        if (!b) continue;
+        const std::string name(b);
+        if (name == "LeftButton")       w->dragLeft = true;
+        else if (name == "RightButton") w->dragRight = true;
+    }
+    return 0;
+}
+int lua_Frame_StartMoving(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (!tree || id == 0) return 0;
+    const auto* w = tree->get(id);
+    // WoW raises on a frame that is not movable. Ignoring it loses nothing and
+    // keeps a mistake in one frame from taking down the file that asked.
+    if (!w || !w->movable) return 0;
+    tree->pinToCurrentPosition(id);
+    tree->setMovingWidget(id);
+    return 0;
+}
+int lua_Frame_StopMovingOrSizing(lua_State* L) {
+    if (auto* tree = wowee::addons::getWidgetTree(L)) tree->setMovingWidget(0);
+    return 0;
+}
+
 int lua_Region_SetWidth(lua_State* L) {
     auto* tree = wowee::addons::getWidgetTree(L);
     const uint32_t id = widgetIdOf(L, 1);
@@ -1309,6 +1357,11 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     set("ClearAllPoints", lua_Region_ClearAllPoints);
     set("SetAllPoints", lua_Region_SetAllPoints);
     set("SetSize", lua_Region_SetSize);
+    set("SetMovable", lua_Frame_SetMovable);
+    set("IsMovable", lua_Frame_IsMovable);
+    set("RegisterForDrag", lua_Frame_RegisterForDrag);
+    set("StartMoving", lua_Frame_StartMoving);
+    set("StopMovingOrSizing", lua_Frame_StopMovingOrSizing);
     set("SetWidth", lua_Region_SetWidth);
     set("SetHeight", lua_Region_SetHeight);
     set("GetWidth", lua_Region_GetWidth);
@@ -2327,9 +2380,7 @@ void LuaEngine::registerCoreAPI() {
         "function mt:EnableMouseWheel(enable)\n"
         "    __WoweeSetWheelEnabled(self, enable ~= false)\n"
         "end\n"
-        "function mt:SetMovable(movable) end\n"
         "function mt:SetResizable(resizable) end\n"
-        "function mt:RegisterForDrag(...) end\n"
         "function mt:SetClampedToScreen(clamped) end\n"
         "function mt:SetBackdrop(backdrop) end\n"
         "function mt:SetBackdropColor(...) end\n"
@@ -2373,8 +2424,6 @@ void LuaEngine::registerCoreAPI() {
         "end\n"
         "function mt:SetMinResize(...) end\n"
         "function mt:SetMaxResize(...) end\n"
-        "function mt:StartMoving() end\n"
-        "function mt:StopMovingOrSizing() end\n"
         "function mt:IsMouseOver() return false end\n"
     );
 
@@ -4301,6 +4350,45 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
         if (hoverWid_ != 0) callFrameScript(hoverWid_, "OnEnter");
     }
 
+    // How far the cursor has travelled since last frame, which is what carries
+    // a frame that is being moved and what tells a drag from a click.
+    const float dx = haveCursor_ ? (x - cursorX_) : 0.0f;
+    const float dy = haveCursor_ ? (y - cursorY_) : 0.0f;
+    cursorX_ = x;
+    cursorY_ = y;
+    haveCursor_ = true;
+
+    // A frame that StartMoving picked up follows the cursor until something
+    // puts it down.
+    if (const uint32_t moving = widgets_.movingWidget()) {
+        if (dx != 0.0f || dy != 0.0f) widgets_.nudge(moving, dx, dy);
+    }
+
+    // Begin a drag once the cursor has left the button it went down on. WoW
+    // draws the same line: below the threshold it is a click, above it the
+    // frame's OnDragStart runs and the click is abandoned.
+    if (draggingWid_ == 0) {
+        constexpr float kDragThreshold = 4.0f;   // interface units
+        for (int i = 0; i < kMouseButtons; ++i) {
+            if (!buttonDown_[i] || pressedWid_[i] == 0) continue;
+            const auto* w = widgets_.get(pressedWid_[i]);
+            if (!w) continue;
+            const bool registered = (i == 0) ? w->dragLeft
+                                  : (i == 1) ? w->dragRight
+                                             : false;
+            if (!registered) continue;
+            const float mx = x - pressX_[i], my = y - pressY_[i];
+            if (mx * mx + my * my < kDragThreshold * kDragThreshold) continue;
+            draggingWid_ = pressedWid_[i];
+            callFrameScript(draggingWid_, "OnDragStart",
+                            i == 0 ? "LeftButton" : "RightButton");
+            const auto* dw = widgets_.get(draggingWid_);
+            LOG_WARNING("WidgetInput: drag started on ",
+                        dw && !dw->name.empty() ? dw->name.c_str() : "(unnamed)");
+            break;
+        }
+    }
+
     // A slider follows the cursor for as long as it is held, which is the only
     // widget where what happens between press and release is the point. The
     // frame keeps the grab even when the cursor leaves it, because letting go
@@ -4350,6 +4438,8 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
         if (b.down && !buttonDown_[i]) {
             buttonDown_[i] = true;
             pressedWid_[i] = hit;
+            pressX_[i] = x;
+            pressY_[i] = y;
             // Clicking into an edit box takes focus; clicking anywhere else
             // gives it up, which is what makes a chat box stop eating keys.
             if (i == 0) {
@@ -4370,8 +4460,27 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
                 // half-feature as drawing a scroll frame's clip without
                 // clipping its hit test: a scroll arrow at the end of its
                 // range would still scroll.
+                // A drag that ends is not also a click. The frame that was
+                // dragged is told to stop, and whatever the cursor was let go
+                // over is offered what is being carried — which is how an item
+                // moves from one bag slot to another.
+                const bool wasDragged = (draggingWid_ != 0 && draggingWid_ == pressedWid_[i]);
+                if (wasDragged) {
+                    callFrameScript(draggingWid_, "OnDragStop", b.name);
+                    widgets_.setMovingWidget(0);
+                    if (hit != 0 && hit != draggingWid_) {
+                        callFrameScript(hit, "OnReceiveDrag", b.name);
+                    }
+                    const auto* target = hit ? widgets_.get(hit) : nullptr;
+                    LOG_WARNING("WidgetInput: drag dropped on ",
+                                target && !target->name.empty() ? target->name.c_str()
+                                                                : "nothing");
+                    draggingWid_ = 0;
+                }
+
                 const bool takesIt = frameAcceptsClick(pressedWid_[i], b.name);
-                if (pressedWid_[i] == hit && (!pressed || pressed->enabled) && takesIt) {
+                if (!wasDragged && pressedWid_[i] == hit &&
+                    (!pressed || pressed->enabled) && takesIt) {
                     callFrameScript(pressedWid_[i], "OnClick", b.name);
                 }
                 // The other half of the press report: a click that lands and a

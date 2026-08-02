@@ -170,6 +170,16 @@ private:
     static constexpr int kMouseButtons = 3;
     uint32_t pressedWid_[kMouseButtons] = {0, 0, 0};
     bool buttonDown_[kMouseButtons] = {false, false, false};
+    /// Where each button went down, so a drag can be told from a click by how
+    /// far the cursor has travelled since. Without a threshold every click is a
+    /// one-pixel drag and nothing would ever reach OnClick.
+    float pressX_[kMouseButtons] = {0.0f, 0.0f, 0.0f};
+    float pressY_[kMouseButtons] = {0.0f, 0.0f, 0.0f};
+    /// The frame whose OnDragStart has run and not yet been stopped.
+    uint32_t draggingWid_ = 0;
+    /// Last cursor position, which is what a moving frame is moved by.
+    float cursorX_ = 0.0f, cursorY_ = 0.0f;
+    bool haveCursor_ = false;
 
     /// Make unknown globals answer with a no-op instead of erroring, so a large
     /// body of Lua can be brought up and the names it actually needs collected
