@@ -78,4 +78,16 @@ std::vector<std::string> frameXmlCheckFrames();
 void frameXmlNoteWorldEntry();
 bool frameXmlWorldEntered();
 
+/// Ask for the takeover check to be reported again on the next frame.
+///
+/// The automatic reports happen at fixed moments, and most of what goes wrong
+/// is only visible in a state nobody can schedule: a target frame is only
+/// wrong once something is targeted, a bag only once it is opened. Asking for
+/// the report at the moment the interface looks wrong is the difference
+/// between reading the state in question and guessing from an earlier one.
+void frameXmlRequestCheck();
+
+/// Consume a pending request, if there is one.
+bool frameXmlTakeCheckRequest();
+
 } // namespace wowee::ui

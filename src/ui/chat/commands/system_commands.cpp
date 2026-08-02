@@ -7,6 +7,7 @@
 #include "game/game_handler.hpp"
 #include "addons/addon_manager.hpp"
 #include "core/application.hpp"
+#include "ui/framexml_takeover.hpp"
 #include <algorithm>
 #include <cctype>
 
@@ -83,6 +84,24 @@ public:
     }
     std::vector<std::string> aliases() const override { return {"reload", "reloadui", "rl"}; }
     std::string helpText() const override { return "Reload all addons"; }
+};
+
+// --- /fxcheck ---
+class FrameXmlCheckCommand : public IChatCommand {
+public:
+    ChatCommandResult execute(ChatCommandContext& ctx) override {
+        frameXmlRequestCheck();
+        game::MessageChatData msg;
+        msg.type = game::ChatType::SYSTEM;
+        msg.language = game::ChatLanguage::UNIVERSAL;
+        msg.message = "FrameXML takeover check written to the log.";
+        ctx.gameHandler.addLocalChatMessage(msg);
+        return {};
+    }
+    std::vector<std::string> aliases() const override { return {"fxcheck"}; }
+    std::string helpText() const override {
+        return "Report the FrameXML takeover check for the interface as it is now";
+    }
 };
 
 // --- /stopmacro [conditions] ---
@@ -170,6 +189,7 @@ void registerSystemCommands(ChatCommandRegistry& reg) {
     reg.registerCommand(std::make_unique<RunCommand>());
     reg.registerCommand(std::make_unique<DumpCommand>());
     reg.registerCommand(std::make_unique<ReloadCommand>());
+    reg.registerCommand(std::make_unique<FrameXmlCheckCommand>());
     reg.registerCommand(std::make_unique<StopMacroCommand>());
     reg.registerCommand(std::make_unique<ClearCommand>());
     reg.registerCommand(std::make_unique<DifficultyCommand>());

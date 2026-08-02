@@ -376,11 +376,15 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     static int worldFrame = 0;
     if (worldFrame == 0 && frameXmlWorldEntered()) worldFrame = framesSeen;
     const bool loadPass  = (passesDone == 0 && framesSeen > 120);
+    // Well after world entry, not just after it: FrameXML is loaded at world
+    // entry rather than at startup, so a second pass a hundred frames later
+    // lands in the same moment as the first and reports the same picture.
     const bool worldPass = (passesDone == 1 && worldFrame != 0 &&
-                            framesSeen > worldFrame + 120);
-    if (loadPass || worldPass) {
-        ++passesDone;
-        const char* when = loadPass ? "at load" : "in world";
+                            framesSeen > worldFrame + 600);
+    const bool askedFor = frameXmlTakeCheckRequest();
+    if (loadPass || worldPass || askedFor) {
+        if (!askedFor) ++passesDone;
+        const char* when = askedFor ? "on request" : (loadPass ? "at load" : "in world");
         const std::vector<std::string> wanted = frameXmlCheckFrames();
         if (!wanted.empty()) {
             LOG_WARNING("FrameXML takeover check ", when, ", on ", screenW, "x", screenH,

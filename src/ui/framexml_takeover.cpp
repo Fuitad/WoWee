@@ -153,10 +153,16 @@ bool frameXmlOwns(UiElement element) {
 namespace {
 /// Written from the packet thread and read from the render thread.
 std::atomic<bool> gWorldEntered{false};
+std::atomic<bool> gCheckRequested{false};
 } // namespace
 
 void frameXmlNoteWorldEntry() { gWorldEntered.store(true, std::memory_order_relaxed); }
 bool frameXmlWorldEntered() { return gWorldEntered.load(std::memory_order_relaxed); }
+
+void frameXmlRequestCheck() { gCheckRequested.store(true, std::memory_order_relaxed); }
+bool frameXmlTakeCheckRequest() {
+    return gCheckRequested.exchange(false, std::memory_order_relaxed);
+}
 
 std::vector<std::string> frameXmlCheckFrames() {
     // One row per element: what has to exist for it to have arrived. Chosen as
