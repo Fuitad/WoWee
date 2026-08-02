@@ -2508,6 +2508,20 @@ void LuaEngine::registerCoreAPI() {
         // delegate's OnAttributeChanged is what actually sets
         // UIDROPDOWNMENU_INIT_MENU. No-opping SetAttribute left that nil, so
         // every menu built afterwards indexed nothing.
+        // Formats and sets in one call, which is how FrameXML writes most of
+        // its labels — 114 places, the character sheet's "Level 14 Human Mage"
+        // among them. Unimplemented, every one of those kept whatever
+        // placeholder its XML carried: that line read "Level level race class"
+        // because that is literally what paperdollframe.xml says.
+        //
+        // Guarded, because a format string and its arguments disagreeing is a
+        // Lua error, and taking down the file that asked for a label is worse
+        // than showing the unformatted string.
+        "function mt:SetFormattedText(fmt, ...)\n"
+        "    if type(fmt) ~= 'string' then return end\n"
+        "    local ok, out = pcall(string.format, fmt, ...)\n"
+        "    self:SetText(ok and out or fmt)\n"
+        "end\n"
         "function mt:SetAttribute(name, value)\n"
         "    self.__attributes = self.__attributes or {}\n"
         "    self.__attributes[name] = value\n"
@@ -2679,7 +2693,18 @@ void LuaEngine::registerCoreAPI() {
         "    local v = rawget(methods, key)\n"
         "    if v ~= nil then return v end\n"
         "    if type(key) ~= 'string' then return nil end\n"
-        "    if known[key] then return noop end\n"
+        // A name in the set answers with a no-op — and is recorded, because a
+        // method that quietly does nothing is indistinguishable from one that
+        // works. SetFormattedText sat in this set unimplemented while 114
+        // labels across FrameXML kept their XML placeholder text, and nothing
+        // anywhere said so.
+        "    if known[key] then\n"
+        "        if not seen[key] then\n"
+        "            seen[key] = true\n"
+        "            if __WoweeRecordMissingApi then __WoweeRecordMissingApi('noop:' .. key) end\n"
+        "        end\n"
+        "        return noop\n"
+        "    end\n"
         // Recorded once so a method missing from the set is visible rather
         // than silently answering nil, which is the failure this trades for.
         // Not On*: those are script handler names, and reading one as a field
@@ -3979,9 +4004,20 @@ void LuaEngine::reportMissingApi() const {
     // OnLoad, a font object is defined as `X = X or {}` — and every one of
     // those was landing in a list whose only value is that everything in it is
     // real. Ask again now, at the end, and keep what is still absent.
-    std::vector<std::string> absent;
-    absent.reserve(names.size());
+    // Widget methods that answered with a no-op. Not globals, so the test
+    // below does not apply to them, and worth their own list: each is a call
+    // FrameXML makes that does nothing, which is the surface of unimplemented
+    // behaviour and reads as working from every other angle.
+    std::vector<std::string> noops;
+    std::vector<std::string> globals;
     for (const auto& n : names) {
+        if (n.rfind("noop:", 0) == 0) noops.push_back(n.substr(5));
+        else globals.push_back(n);
+    }
+
+    std::vector<std::string> absent;
+    absent.reserve(globals.size());
+    for (const auto& n : globals) {
         lua_pushstring(L_, n.c_str());
         lua_rawget(L_, LUA_GLOBALSINDEX);
         const bool defined = !lua_isnil(L_, -1);
@@ -4015,8 +4051,16 @@ void LuaEngine::reportMissingApi() const {
         (isPart ? partsOfFrames : realGaps).push_back(n);
     }
 
+    if (!noops.empty()) {
+        std::sort(noops.begin(), noops.end());
+        std::string all;
+        for (const auto& n : noops) { all += n; all += ' '; }
+        LOG_WARNING("LuaEngine: ", noops.size(), " widget methods answered with a "
+                    "no-op: ", all);
+    }
+
     LOG_WARNING("LuaEngine: ", realGaps.size(), " distinct API names were called "
-                "and are still not defined (", names.size() - absent.size(),
+                "and are still not defined (", globals.size() - absent.size(),
                 " more were read before whatever defines them had loaded, and ",
                 partsOfFrames.size(), " were optional parts of frames that do "
                 "exist)");
@@ -4040,6 +4084,8 @@ void LuaEngine::reportMissingApi() const {
         for (const auto& n : realGaps) out << n << "\n";
         out << "\n-- optional parts of frames that exist, correctly absent --\n";
         for (const auto& n : partsOfFrames) out << n << "\n";
+        out << "\n-- widget methods that answered with a no-op --\n";
+        for (const auto& n : noops) out << n << "\n";
         LOG_WARNING("LuaEngine: the full list is in ", path);
     }
 }
