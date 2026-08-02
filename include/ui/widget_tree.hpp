@@ -185,6 +185,16 @@ struct Widget {
         return f < 0.0f ? 0.0f : (f > 1.0f ? 1.0f : f);
     }
 
+    /// A scrolling message frame keeps its own lines rather than a single
+    /// string: chat is a list that grows at one end and falls off the other,
+    /// and the frame draws as many as fit from the bottom up.
+    bool  isMessageFrame = false;
+    struct Message { std::string text; float color[4]; };
+    std::deque<Message> messages;
+    size_t maxMessages = 128;
+    /// How far back through the history the frame has been scrolled, in lines.
+    int   messageScroll = 0;
+
     // FontString regions.
     std::string text;
     float fontHeight = 12.0f;

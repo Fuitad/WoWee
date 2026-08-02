@@ -354,7 +354,8 @@ void WidgetTree::collectDrawOrder() {
         // a backdrop. The paperdoll's model frame is a frame, not a texture,
         // so without this the character would be rendered and never drawn.
         if (w.kind == WidgetKind::Frame && !w.hasBackdrop && !w.isStatusBar &&
-            w.externalTexture == 0) continue;
+            w.externalTexture == 0 &&
+            !(w.isMessageFrame && !w.messages.empty())) continue;
         if (w.rectW <= 0.0f || w.rectH <= 0.0f) continue;
         if (w.kind == WidgetKind::Texture && w.texturePath.empty() &&
             !w.solidColor && w.externalTexture == 0) continue;

@@ -930,3 +930,40 @@ TEST_CASE("A frame knows its level before it is ever laid out",
     tree.layout(1024.0f, 768.0f);
     REQUIRE(tree.get(art)->effLevel > tree.get(bar)->effLevel);
 }
+
+TEST_CASE("A message frame keeps its lines and drops the oldest",
+          "[widget][chat]") {
+    // Chat is a list that grows at one end and falls off the other, not a
+    // single string. AddMessage was a name in the method list and nothing
+    // else, so every line the interface handed it went nowhere: the frame
+    // received the events, formatted the text, and dropped it.
+    WidgetTree tree;
+    const uint32_t chat = tree.create(WidgetKind::Frame, tree.root(), "Chat");
+    Widget* w = tree.get(chat);
+    w->isMessageFrame = true;
+    w->maxMessages = 3;
+    w->width = 200.0f;
+    w->height = 60.0f;
+    tree.addPoint(chat, Anchor{"BOTTOMLEFT", 0, "BOTTOMLEFT", 0.0f, 0.0f});
+
+    for (const char* line : {"one", "two", "three", "four"}) {
+        w->messages.push_back({line, {1.0f, 1.0f, 1.0f, 1.0f}});
+        while (w->messages.size() > w->maxMessages) w->messages.pop_front();
+    }
+    REQUIRE(w->messages.size() == 3);
+    REQUIRE(w->messages.front().text == "two");
+    REQUIRE(w->messages.back().text == "four");
+
+    // A frame with lines paints, even though a bare frame does not.
+    tree.layout(1024.0f, 768.0f);
+    bool drawn = false;
+    for (const Widget* d : tree.drawOrder()) if (d->id == chat) drawn = true;
+    REQUIRE(drawn);
+
+    // Emptied, it goes back to painting nothing.
+    w->messages.clear();
+    tree.layout(1024.0f, 768.0f);
+    drawn = false;
+    for (const Widget* d : tree.drawOrder()) if (d->id == chat) drawn = true;
+    REQUIRE_FALSE(drawn);
+}

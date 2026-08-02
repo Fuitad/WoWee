@@ -667,6 +667,63 @@ int lua_Frame_SetWheelEnabled(lua_State* L) {
     return 0;
 }
 
+// ── Scrolling message frames ───────────────────────────────────────────────
+//
+// Chat. AddMessage was a name in the method list and nothing else, so every
+// line the interface was handed went nowhere: the frame received the events,
+// formatted the text, and dropped it.
+int lua_MessageFrame_AddMessage(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    wowee::ui::Widget::Message m;
+    m.text = luaL_optstring(L, 2, "");
+    // WoW's colours are optional and default to the frame's own.
+    m.color[0] = static_cast<float>(luaL_optnumber(L, 3, w->color[0]));
+    m.color[1] = static_cast<float>(luaL_optnumber(L, 4, w->color[1]));
+    m.color[2] = static_cast<float>(luaL_optnumber(L, 5, w->color[2]));
+    m.color[3] = 1.0f;
+    w->isMessageFrame = true;
+    w->messages.push_back(std::move(m));
+    while (w->messages.size() > w->maxMessages) w->messages.pop_front();
+    // A new line at the bottom means the view follows it, which is what a
+    // chat frame does unless someone has scrolled up.
+    if (w->messageScroll > 0) ++w->messageScroll;
+    return 0;
+}
+int lua_MessageFrame_Clear(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) { w->messages.clear(); w->messageScroll = 0; }
+    return 0;
+}
+int lua_MessageFrame_GetNumMessages(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? static_cast<lua_Number>(w->messages.size()) : 0.0);
+    return 1;
+}
+int lua_MessageFrame_SetMaxLines(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        const int n = static_cast<int>(luaL_optnumber(L, 2, 128));
+        w->maxMessages = (n > 0) ? static_cast<size_t>(n) : 1;
+    }
+    return 0;
+}
+int lua_MessageFrame_ScrollUp(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        if (static_cast<size_t>(w->messageScroll) + 1 < w->messages.size())
+            ++w->messageScroll;
+    }
+    return 0;
+}
+int lua_MessageFrame_ScrollDown(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        if (w->messageScroll > 0) --w->messageScroll;
+    }
+    return 0;
+}
+int lua_MessageFrame_ScrollToBottom(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->messageScroll = 0;
+    return 0;
+}
+
 int lua_Region_GetNumPoints(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     lua_pushnumber(L, w ? static_cast<lua_Number>(w->anchors.size()) : 0.0);
@@ -1885,6 +1942,13 @@ void LuaEngine::registerCoreAPI() {
         {"GetRect",         lua_Region_GetRect},
         {"GetFrameLevel",   lua_Frame_GetFrameLevel},
         {"GetNumPoints",    lua_Region_GetNumPoints},
+        {"AddMessage",      lua_MessageFrame_AddMessage},
+        {"Clear",           lua_MessageFrame_Clear},
+        {"GetNumMessages",  lua_MessageFrame_GetNumMessages},
+        {"SetMaxLines",     lua_MessageFrame_SetMaxLines},
+        {"ScrollUp",        lua_MessageFrame_ScrollUp},
+        {"ScrollDown",      lua_MessageFrame_ScrollDown},
+        {"ScrollToBottom",  lua_MessageFrame_ScrollToBottom},
         {"Enable",          lua_Button_Enable},
         {"SetChecked",      lua_CheckButton_SetChecked},
         {"SetButtonState",  lua_Button_SetButtonState},

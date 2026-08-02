@@ -521,6 +521,29 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             if (w->isStatusBar) drawStatusBar(dl, *w, x0, y0, x1, y1);
             if (w->isSlider) drawSlider(dl, *w, x0, y0, x1, y1);
             if (w->isCooldown) drawCooldown(dl, *w, x0, y0, x1, y1);
+            // Chat and its kind: the newest line sits at the bottom and the
+            // older ones stack upward, as many as the frame is tall enough to
+            // hold. Scrolling moves the window back through the history
+            // rather than moving the lines.
+            if (w->isMessageFrame && !w->messages.empty()) {
+                ImFont* font = interfaceFace(w->fontFace);
+                if (!font) font = interfaceFace("frizqt__");
+                if (!font) font = ImGui::GetFont();
+                const float size = ((w->fontHeight > 0.0f) ? w->fontHeight
+                                                           : ImGui::GetFontSize()) * s;
+                const float lineH = size * 1.15f;
+                float y = y1 - lineH;
+                const int scroll = w->messageScroll;
+                for (int i = static_cast<int>(w->messages.size()) - 1 - scroll;
+                     i >= 0 && y >= y0 - lineH; --i) {
+                    const auto& m = w->messages[static_cast<size_t>(i)];
+                    float rgba[4] = {m.color[0], m.color[1], m.color[2], m.color[3]};
+                    dl->AddText(font, size, ImVec2(x0, y), packColor(rgba, w->alpha),
+                                m.text.c_str());
+                    y -= lineH;
+                }
+            }
+
             if (w->isEditBox) {
                 // Its own text, drawn where a label would be, with a caret
                 // while it has focus so it is clear which box is listening.
