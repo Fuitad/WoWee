@@ -597,6 +597,43 @@ static int lua_GetInventoryItemTexture(lua_State* L) {
     return 1;
 }
 
+/// GetBagName(bagID) → the name of the bag in that slot, or nil for an empty
+/// one. The backpack is bag 0 and has a fixed name; the interface uses this to
+/// label the bag buttons and their tooltips.
+static int lua_GetBagName(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int bag = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (bag == 0) { lua_pushstring(L, "Backpack"); return 1; }
+    if (!gh || bag < 1 || bag > 4) { return luaReturnNil(L); }
+    // An empty bag slot has no size, which is how the interface knows not to
+    // draw a bag there at all.
+    if (gh->getInventory().getBagSize(bag - 1) == 0) { return luaReturnNil(L); }
+    lua_pushstring(L, "Bag");
+    return 1;
+}
+
+/// SetBagPortraitTexture(texture, bagID) — the bag's own icon on the frame
+/// that opens it. Nothing here knows a bag's icon yet, so it draws the
+/// generic one rather than leaving the region showing whatever it had.
+static int lua_SetBagPortraitTexture(lua_State* L) {
+    if (!lua_istable(L, 1)) return 0;
+    lua_getfield(L, 1, "SetTexture");
+    if (!lua_isfunction(L, -1)) { lua_pop(L, 1); return 0; }
+    lua_pushvalue(L, 1);
+    lua_pushstring(L, "Interface\\Buttons\\Button-Backpack-Up");
+    lua_call(L, 2, 0);
+    return 0;
+}
+
+/// PutItemInBag(inventoryID) — drop what the cursor is holding into a bag
+/// slot. The cursor does not carry items yet, so this has nothing to place.
+static int lua_PutItemInBag(lua_State* L) { (void)L; return 0; }
+
+/// ResetCursor() — put the pointer back to the ordinary arrow. This client
+/// does not change the cursor for interface state, so there is nothing to
+/// undo; it exists because the interface calls it on every mouse-leave.
+static int lua_ResetCursor(lua_State* L) { (void)L; return 0; }
+
 static int lua_GetNumLootItems(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh || !gh->isLootWindowOpen()) { return luaReturnZero(L); }
@@ -730,6 +767,10 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetItemCount",      lua_GetItemCount},
                 {"UseContainerItem",  lua_UseContainerItem},
                 {"GetContainerNumSlots",    lua_GetContainerNumSlots},
+                {"GetBagName",              lua_GetBagName},
+                {"SetBagPortraitTexture",   lua_SetBagPortraitTexture},
+                {"PutItemInBag",            lua_PutItemInBag},
+                {"ResetCursor",             lua_ResetCursor},
                 {"GetContainerItemInfo",    lua_GetContainerItemInfo},
                 {"GetContainerItemLink",    lua_GetContainerItemLink},
                 {"GetContainerNumFreeSlots", lua_GetContainerNumFreeSlots},
