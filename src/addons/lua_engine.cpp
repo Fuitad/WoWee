@@ -2976,9 +2976,9 @@ void LuaEngine::registerCoreAPI() {
         "ACTION_BUTTON_SHOW_GRID_REASON_CVAR = 1\n"
         "ACTION_BUTTON_SHOW_GRID_REASON_EVENT = 2\n"
         // Action bar page tracking
-        "local _actionBarPage = 1\n"
-        "function GetActionBarPage() return _actionBarPage end\n"
-        "function ChangeActionBarPage(page) _actionBarPage = page end\n"
+        // GetActionBarPage and ChangeActionBarPage are bindings, and they
+        // share their storage there. A second pair here against a local of its
+        // own meant the two could disagree about what page the bar was on.
         "function GetBonusBarOffset() return 0 end\n"
         // Action type query
         "function GetActionText(slot) return nil end\n"
