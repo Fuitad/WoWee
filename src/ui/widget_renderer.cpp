@@ -375,6 +375,15 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             continue;
         }
 
+        // Level 3 outlines every widget where it believes it is. If the
+        // outlines appear and the art does not, the images are the problem; if
+        // neither appears, the whole layer is being covered or discarded. That
+        // is two possibilities told apart by looking, rather than inferred from
+        // a screenshot.
+        if (dumpWidgets >= 3) {
+            dl->AddRect(ImVec2(x0, y0), ImVec2(x1, y1), IM_COL32(255, 0, 255, 200));
+        }
+
         if (w->kind == WidgetKind::Texture) {
             // A colour set with SetTexture(r,g,b) fills; a texture with no
             // file at all draws nothing. Treating the second as the first
