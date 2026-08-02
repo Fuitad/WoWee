@@ -5,6 +5,7 @@
 #include "addons/lua_api_helpers.hpp"
 #include "audio/audio_coordinator.hpp"
 #include "audio/ui_sound_manager.hpp"
+#include "core/app_clock.hpp"
 #include "core/window.hpp"
 
 #include <SDL2/SDL.h>
@@ -659,6 +660,17 @@ static int lua_IsAddOnLoaded(lua_State* L) {
     return 1;
 }
 
+/// GetTime() → seconds since the client started, as a float.
+///
+/// The interface's shared reference for anything timed: a cooldown records
+/// GetTime() + duration and something else compares against it later. It was
+/// never implemented, so every one of those comparisons was against nil —
+/// including the ones in this client's own bootstrap.
+static int lua_GetTime(lua_State* L) {
+    lua_pushnumber(L, wowee::core::appTimeSeconds());
+    return 1;
+}
+
 static int lua_ReturnNoCooldown(lua_State* L) {
     lua_pushnumber(L, 0.0);
     lua_pushnumber(L, 0.0);
@@ -683,6 +695,7 @@ static int lua_UnitFactionGroup(lua_State* L) {
 
 void registerSystemLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
+                {"GetTime",                  lua_GetTime},
                 {"GetCVarDefault",           lua_GetCVar},
                 {"IsAddOnLoaded",            lua_IsAddOnLoaded},
                 {"HasCompletedAnyAchievement", lua_ReturnFalse},

@@ -108,6 +108,12 @@ struct Widget {
     /// A slider shares the bar's range and value but is dragged rather than
     /// filled, and draws a thumb at the value instead of a fill to it.
     bool  isSlider = false;
+    /// A cooldown darkens what it covers and wipes clear as the time runs out.
+    /// Start is on the same clock GetTime answers with; zero duration means
+    /// nothing is running.
+    bool  isCooldown = false;
+    double cooldownStart = 0.0;
+    double cooldownDuration = 0.0;
     float sliderStep = 0.0f;
     std::string thumbTexture;
     float barMin = 0.0f, barMax = 1.0f, barValue = 0.0f;

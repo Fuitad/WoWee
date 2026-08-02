@@ -105,9 +105,9 @@ argument names, and `$parent` through unnamed frames.
   footnote are the same face at different sizes. The interface's other faces
   (`MORPHEUS`, `SKURRI`) would each need their own atlas entry, and the atlas
   is built once before the first frame.
-- `EditBox` and `Cooldown` are created as plain frames. They exist and lay out;
-  they do not yet behave — no text entry, no sweep. `Slider` drags and reports
-  its value, which is what a scroll bar needs.
+- `EditBox` is created as a plain frame. It exists and lays out; it does not
+  take text. `Slider` drags and reports its value, which is what a scroll bar
+  needs, and `Cooldown` sweeps.
 - The texture cache never evicts. `Interface\` art is small and reused, but a
   long session with many addons would grow it without bound.
 - The widget method set in `lua_engine.cpp` is enumerated rather than derived.

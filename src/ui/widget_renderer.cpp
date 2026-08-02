@@ -4,12 +4,14 @@
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/blp_loader.hpp"
 #include "rendering/vk_context.hpp"
+#include "core/app_clock.hpp"
 #include "core/logger.hpp"
 
 #include "imgui.h"
 
 #include <algorithm>
 #include <cfloat>
+#include <cmath>
 #include <vector>
 
 namespace wowee {
@@ -177,6 +179,39 @@ void WidgetRenderer::drawSlider(ImDrawList* dl, const Widget& w,
     }
 }
 
+void WidgetRenderer::drawCooldown(ImDrawList* dl, const Widget& w,
+                                  float x0, float y0, float x1, float y1) {
+    if (w.cooldownDuration <= 0.0) return;
+    const double elapsed = core::appTimeSeconds() - w.cooldownStart;
+    if (elapsed < 0.0 || elapsed >= w.cooldownDuration) return;
+    const float remaining =
+        1.0f - static_cast<float>(elapsed / w.cooldownDuration);
+
+    // A wedge from twelve o'clock, shrinking clockwise as the time runs out.
+    // Drawn to the corners rather than to an inscribed circle — the thing being
+    // covered is a square icon, and a circle would leave its corners lit — and
+    // clipped to the frame so the overrun does not spill onto its neighbours.
+    const ImVec2 centre((x0 + x1) * 0.5f, (y0 + y1) * 0.5f);
+    const float radius = std::sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
+    constexpr float kTwoPi = 6.2831853f;
+    constexpr int kSegments = 48;
+    const int used = std::max(1, static_cast<int>(kSegments * remaining));
+
+    dl->PushClipRect(ImVec2(x0, y0), ImVec2(x1, y1), true);
+    dl->PathClear();
+    dl->PathLineTo(centre);
+    for (int i = 0; i <= used; ++i) {
+        // -pi/2 starts at the top; positive sweep runs clockwise on a screen
+        // whose y grows downward.
+        const float a = -kTwoPi * 0.25f +
+                        kTwoPi * remaining * (static_cast<float>(i) / used);
+        dl->PathLineTo(ImVec2(centre.x + std::cos(a) * radius,
+                              centre.y + std::sin(a) * radius));
+    }
+    dl->PathFillConvex(IM_COL32(0, 0, 0, 160));
+    dl->PopClipRect();
+}
+
 void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     tree.layout(screenW, screenH);
     const auto& order = tree.drawOrder();
@@ -244,6 +279,7 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             if (w->hasBackdrop) drawBackdrop(dl, *w, x0, y0, x1, y1);
             if (w->isStatusBar) drawStatusBar(dl, *w, x0, y0, x1, y1);
             if (w->isSlider) drawSlider(dl, *w, x0, y0, x1, y1);
+            if (w->isCooldown) drawCooldown(dl, *w, x0, y0, x1, y1);
             continue;
         }
 

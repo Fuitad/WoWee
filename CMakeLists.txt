@@ -509,6 +509,7 @@ set(WOWEE_SOURCES
     src/core/input.cpp
     src/core/logger.cpp
     src/core/memory_monitor.cpp
+    src/core/app_clock.cpp
     src/core/config_paths.cpp
 
     # Math

@@ -697,6 +697,28 @@ int lua_StatusBar_SetValue(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->barValue = static_cast<float>(luaL_optnumber(L, 2, 0.0));
     return 0;
 }
+/// SetCooldown(start, duration) — both on GetTime's clock. A zero duration is
+/// how FrameXML clears one, and it must read as nothing running rather than as
+/// a sweep that never finishes.
+int lua_Cooldown_SetCooldown(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->cooldownStart = luaL_optnumber(L, 2, 0.0);
+        w->cooldownDuration = luaL_optnumber(L, 3, 0.0);
+    }
+    return 0;
+}
+int lua_Cooldown_GetCooldownTimes(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    // Milliseconds, which is what this one answers in.
+    lua_pushnumber(L, w ? w->cooldownStart * 1000.0 : 0.0);
+    lua_pushnumber(L, w ? w->cooldownDuration * 1000.0 : 0.0);
+    return 2;
+}
+int lua_Cooldown_Clear(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) { w->cooldownStart = 0.0; w->cooldownDuration = 0.0; }
+    return 0;
+}
+
 int lua_Slider_SetValueStep(lua_State* L) {
     if (auto* w = widgetOf(L, 1))
         w->sliderStep = static_cast<float>(luaL_optnumber(L, 2, 0.0));
@@ -992,6 +1014,7 @@ static int lua_CreateFrame(lua_State* L) {
             w->isStatusBar = (ft == "StatusBar");
             // A slider takes the mouse by nature: it exists to be dragged.
             w->isSlider = (ft == "Slider");
+            w->isCooldown = (ft == "Cooldown");
             if (w->isSlider) w->mouseEnabled = true;
         }
         lua_pushinteger(L, static_cast<lua_Integer>(id));
@@ -1321,6 +1344,8 @@ void LuaEngine::registerCoreAPI() {
         {"SetValueStep",          lua_Slider_SetValueStep},
         {"GetValueStep",          lua_Slider_GetValueStep},
         {"SetThumbTexture",       lua_Slider_SetThumbTexture},
+        {"SetCooldown",           lua_Cooldown_SetCooldown},
+        {"GetCooldownTimes",      lua_Cooldown_GetCooldownTimes},
         {"SetFrameStrata",  lua_Frame_SetFrameStrata},
         {"SetFrameLevel",   lua_Frame_SetFrameLevel},
         {"SetParent",       lua_Frame_SetParent},
