@@ -579,6 +579,33 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 }
             }
 
+            // Anything at all sitting over the paperdoll's rotate arrows.
+            //
+            // Text is drawn there and the label scan below does not see it, so
+            // it is not a FontString — an edit box draws its own text and a
+            // tooltip draws its lines, and neither is one.
+            if (const Widget* arrow = tree.findByName("CharacterModelFrameRotateLeftButton");
+                arrow && arrow->visible) {
+                for (size_t id = 1; id < tree.size(); ++id) {
+                    const Widget* w = tree.get(static_cast<uint32_t>(id));
+                    if (!w || !w->visible || w->id == arrow->id) continue;
+                    if (w->left > arrow->left + arrow->rectW + 60.0f) continue;
+                    if (w->left + w->rectW < arrow->left - 20.0f) continue;
+                    if (w->bottom > arrow->bottom + arrow->rectH) continue;
+                    if (w->bottom + w->rectH < arrow->bottom) continue;
+                    const bool hasWords = !w->text.empty() || !w->editText.empty() ||
+                                          !w->tooltipLines.empty();
+                    if (!hasWords) continue;
+                    LOG_WARNING("  OVER THE ARROWS ",
+                                w->name.empty() ? "(unnamed)" : w->name.c_str(),
+                                " kind=", static_cast<int>(w->kind),
+                                " text=\"", w->text, "\" edit=\"", w->editText,
+                                "\" lines=", w->tooltipLines.size(),
+                                " rect=(", w->left, ",", w->bottom, " ",
+                                w->rectW, "x", w->rectH, ")");
+                }
+            }
+
             // Every label inside the character sheet while it is open.
             //
             // Something is drawn over its rotate arrows and it is not a second
