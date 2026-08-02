@@ -98,14 +98,17 @@ VkDescriptorSet WidgetRenderer::texture(const std::string& path, bool add) {
 }
 
 
-void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w,
+void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
                                   float x0, float y0, float x1, float y1) {
     // Background sits inside the insets, which is what keeps it from showing
-    // through the border drawn over it.
-    const float bx0 = x0 + w.insetLeft;
-    const float by0 = y0 + w.insetTop;
-    const float bx1 = x1 - w.insetRight;
-    const float by1 = y1 - w.insetBottom;
+    // through the border drawn over it. The insets are interface units and the
+    // rect is pixels, so they are scaled here — without it a tooltip's border
+    // was half its proper thickness on a 1528-tall display and would be twice
+    // it on a short one.
+    const float bx0 = x0 + w.insetLeft * scale;
+    const float by0 = y0 + w.insetTop * scale;
+    const float bx1 = x1 - w.insetRight * scale;
+    const float by1 = y1 - w.insetBottom * scale;
     if (bx1 > bx0 && by1 > by0) {
         VkDescriptorSet bg = resident(w.bgFile);
         const uint32_t col = packColor(w.backdropColor, w.alpha);
@@ -114,8 +117,11 @@ void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w,
             // which is the difference between a stone wall and a smear.
             float u1 = 1.0f, v1 = 1.0f;
             if (w.tileBackground && w.edgeSize > 0.0f) {
-                u1 = (bx1 - bx0) / w.edgeSize;
-                v1 = (by1 - by0) / w.edgeSize;
+                // In units on both sides of the division, so the art repeats
+                // at its authored size rather than at a rate that changes with
+                // the window.
+                u1 = (bx1 - bx0) / (w.edgeSize * scale);
+                v1 = (by1 - by0) / (w.edgeSize * scale);
             }
             dl->AddImage(reinterpret_cast<ImTextureID>(bg), ImVec2(bx0, by0), ImVec2(bx1, by1),
                          ImVec2(0.0f, 0.0f), ImVec2(u1, v1), col);
@@ -133,7 +139,7 @@ void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w,
     // The edge file is eight square tiles in a row. Measured against the art
     // rather than assumed: UI-Tooltip-Border is 128x16 and UI-DialogBox-Border
     // 256x32, both exactly eight tiles wide.
-    const float e = w.edgeSize;
+    const float e = w.edgeSize * scale;
     const uint32_t col = packColor(w.borderColor, w.alpha);
     auto piece = [&](int index, float px0, float py0, float px1, float py1) {
         const float u0 = index / 8.0f, u1 = (index + 1) / 8.0f;
@@ -392,7 +398,7 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         const float y1 = screenH - w->bottom * s;
 
         if (w->kind == WidgetKind::Frame) {
-            if (w->hasBackdrop) drawBackdrop(dl, *w, x0, y0, x1, y1);
+            if (w->hasBackdrop) drawBackdrop(dl, *w, s, x0, y0, x1, y1);
             if (w->isStatusBar) drawStatusBar(dl, *w, x0, y0, x1, y1);
             if (w->isSlider) drawSlider(dl, *w, x0, y0, x1, y1);
             if (w->isCooldown) drawCooldown(dl, *w, x0, y0, x1, y1);
@@ -406,8 +412,10 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                                                            : ImGui::GetFontSize()) * s;
                 const uint32_t col = packColor(w->color, w->alpha);
                 const float ty = y0 + ((y1 - y0) - size) * 0.5f;
+                // Four units of padding, in pixels.
+                const float pad = 4.0f * s;
                 if (!w->editText.empty()) {
-                    dl->AddText(font, size, ImVec2(x0 + 4.0f, ty), col,
+                    dl->AddText(font, size, ImVec2(x0 + pad, ty), col,
                                 w->editText.c_str());
                 }
                 if (w->editFocused) {
@@ -416,7 +424,7 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                     const float caret = font
                         ? font->CalcTextSizeA(size, FLT_MAX, 0.0f, upTo.c_str()).x
                         : 0.0f;
-                    const float cx = x0 + 4.0f + caret;
+                    const float cx = x0 + pad + caret;
                     dl->AddLine(ImVec2(cx, ty), ImVec2(cx, ty + size), col);
                 }
             }

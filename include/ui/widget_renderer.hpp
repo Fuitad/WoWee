@@ -48,7 +48,11 @@ private:
     /// Already-uploaded texture for a path, without triggering an upload.
     VkDescriptorSet resident(const std::string& path, bool add = false) const;
 
-    void drawBackdrop(ImDrawList* dl, const Widget& w,
+    /// scale is pixels per interface unit. The rect arrives in pixels, but a
+    /// backdrop's insets and edge size are authored in units like everything
+    /// else, so they have to make the same trip or a border comes out the
+    /// wrong thickness on any display that is not 768 pixels tall.
+    void drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
                       float x0, float y0, float x1, float y1);
     void drawStatusBar(ImDrawList* dl, const Widget& w,
                        float x0, float y0, float x1, float y1);

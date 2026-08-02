@@ -479,3 +479,58 @@ TEST_CASE("A status bar with no texture and no backdrop is not drawn",
     tree.layout(kScreenW, kScreenH);
     REQUIRE(tree.drawOrder().size() == 1);
 }
+
+TEST_CASE("The interface is laid out in units, whatever the display is",
+          "[widget][layout]") {
+    // FrameXML is authored against a virtual screen 768 units tall, so a frame
+    // of a given size looks the same on every display. The tree works in those
+    // units and the renderer multiplies once. Getting this wrong is not a
+    // rounding error: treating units as pixels drew the whole interface at
+    // half size on a 1528-tall window.
+    //
+    // Only the height sets the scale. The width follows from it, which is why
+    // a wide display shows more of the world beside the same-sized frames
+    // rather than larger ones — and why a portrait display, where the height
+    // is the long side, draws the interface bigger. That is what the original
+    // client does too.
+    WidgetTree tree;
+
+    SECTION("a 768-tall display is one unit per pixel") {
+        tree.layout(1024.0f, 768.0f);
+        REQUIRE(tree.uiScale() == Catch::Approx(1.0f));
+        REQUIRE(tree.get(tree.root())->rectW == Catch::Approx(1024.0f));
+        REQUIRE(tree.get(tree.root())->rectH == Catch::Approx(768.0f));
+    }
+
+    SECTION("a 1440p ultrawide is wider in units, not taller") {
+        tree.layout(3440.0f, 1440.0f);
+        REQUIRE(tree.uiScale() == Catch::Approx(1440.0f / 768.0f));
+        REQUIRE(tree.get(tree.root())->rectH == Catch::Approx(768.0f));
+        REQUIRE(tree.get(tree.root())->rectW == Catch::Approx(3440.0f * 768.0f / 1440.0f));
+    }
+
+    SECTION("a portrait display is narrow in units and scaled up") {
+        // 1080x1920 rotated. The virtual screen is 432 units across, so the
+        // interface is drawn at two and a half times size against very little
+        // width — which is the original client's behaviour on the same
+        // monitor, not a fault to correct here.
+        tree.layout(1080.0f, 1920.0f);
+        REQUIRE(tree.uiScale() == Catch::Approx(2.5f));
+        REQUIRE(tree.get(tree.root())->rectW == Catch::Approx(432.0f));
+        REQUIRE(tree.get(tree.root())->rectH == Catch::Approx(768.0f));
+    }
+
+    SECTION("a frame keeps its authored size in units on every display") {
+        const uint32_t f = tree.create(WidgetKind::Frame, tree.root(), "F");
+        tree.get(f)->width = 232.0f;
+        tree.get(f)->height = 100.0f;
+        tree.addPoint(f, Anchor{"BOTTOMLEFT", 0, "BOTTOMLEFT", 0.0f, 0.0f});
+        for (auto wh : {std::pair<float, float>{1024.0f, 768.0f},
+                        {2560.0f, 1440.0f},
+                        {1080.0f, 1920.0f}}) {
+            tree.layout(wh.first, wh.second);
+            REQUIRE(tree.get(f)->rectW == Catch::Approx(232.0f));
+            REQUIRE(tree.get(f)->rectH == Catch::Approx(100.0f));
+        }
+    }
+}
