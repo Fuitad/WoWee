@@ -438,7 +438,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         renderEntityList(gameHandler);
     }
 
-    if (showChatWindow) {
+    if (showChatWindow && !frameXmlOwns(UiElement::Chat)) {
         chatPanel_.getSpellIcon = [this](uint32_t id, pipeline::AssetManager* am) {
             return getSpellIcon(id, am);
         };
@@ -475,10 +475,12 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     if (!frameXmlOwns(UiElement::RepBar))
         actionBarPanel_.renderRepBar(gameHandler, settingsPanel_);
     auto spellIconFn = [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); };
-    combatUI_.renderCastBar(gameHandler, spellIconFn);
+    if (!frameXmlOwns(UiElement::CastBar))
+        combatUI_.renderCastBar(gameHandler, spellIconFn);
     renderMirrorTimers(gameHandler);
     combatUI_.renderCooldownTracker(gameHandler, settingsPanel_, spellIconFn);
-    renderQuestObjectiveTracker(gameHandler);
+    if (!frameXmlOwns(UiElement::QuestTracker))
+        renderQuestObjectiveTracker(gameHandler);
     renderNameplates(gameHandler);  // player names always shown; NPC plates gated by showNameplates_
     combatUI_.renderBattlegroundScore(gameHandler);
     combatUI_.renderRaidWarningOverlay(gameHandler);
@@ -538,7 +540,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     windowManager_.renderBookWindow(gameHandler);
     combatUI_.renderThreatWindow(gameHandler);
     combatUI_.renderBgScoreboard(gameHandler);
-    if (showMinimap_) {
+    if (showMinimap_ && !frameXmlOwns(UiElement::Minimap)) {
         renderMinimapMarkers(gameHandler);
     }
     windowManager_.renderLogoutCountdown(gameHandler);
