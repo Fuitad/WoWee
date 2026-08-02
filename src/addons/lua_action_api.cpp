@@ -563,6 +563,19 @@ static int lua_ClearOverrideBindings(lua_State* L) { (void)L; return 0; }
 void registerActionLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"HasAction",           lua_HasAction},
+                // A macro's name, which only a macro has; ActionButton_Update
+                // shows it under the icon and expects nothing for a spell.
+                {"GetActionText",       [](lua_State* L) -> int {
+                    lua_pushnil(L);
+                    return 1;
+                }},
+                // Whether the action has a range to be in or out of. Nothing
+                // here tracks that yet, and false is what "no range check"
+                // looks like — the button simply never dims for distance.
+                {"ActionHasRange",      [](lua_State* L) -> int {
+                    lua_pushboolean(L, 0);
+                    return 1;
+                }},
                 {"GetActionTexture",    lua_GetActionTexture},
                 {"IsCurrentAction",     lua_IsCurrentAction},
                 {"IsUsableAction",      lua_IsUsableAction},

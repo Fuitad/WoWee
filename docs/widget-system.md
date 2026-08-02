@@ -75,6 +75,18 @@ What remains is behaviour rather than loading: frames exist, are laid out and
 are named the way FrameXML expects, but the API behind them mostly answers with
 what the absence of a feature looks like.
 
+### Whether an event actually arrives
+
+    tools/addon_events.sh              every event this client fires
+    tools/addon_events.sh ACTIONBAR    only those matching
+
+FrameXML's frames update on events, so replacing one of the client's own
+elements means knowing which of them arrive. Four different call styles
+dispatch them — fireEvent, fireAddonEvent, an emit on a pending queue, and the
+callback invoked directly — and grepping for one under-reports the rest badly:
+the same question answered 6, 52, 73 and 147 depending on which was searched.
+Ask the script.
+
 ### Working out what is still missing
 
     tools/framexml_api_gap.py <path to Interface/FrameXML>
