@@ -484,6 +484,7 @@ int lua_FontString_SetTextColor(lua_State* L) {
 
 int lua_FontString_SetFont(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
+        if (lua_isstring(L, 2)) w->fontFace = lua_tostring(L, 2);
         // (path, height, flags). Only the height is honoured for now; the path
         // needs a font atlas rebuild, which cannot happen mid-frame.
         const double h = luaL_optnumber(L, 3, 0.0);
@@ -534,6 +535,12 @@ int lua_FontString_SetFontObject(lua_State* L) {
     if (lua_istable(L, -1)) {
         lua_getfield(L, -1, "height");
         if (lua_isnumber(L, -1)) w->fontHeight = static_cast<float>(lua_tonumber(L, -1));
+        lua_pop(L, 1);
+        // Which typeface, not only how big. FrameXML sets its headings in
+        // MORPHEUS and its damage numbers in SKURRI, and a font object is
+        // where it says so.
+        lua_getfield(L, -1, "font");
+        if (lua_isstring(L, -1)) w->fontFace = lua_tostring(L, -1);
         lua_pop(L, 1);
         const char* keys[4] = {"r", "g", "b", "a"};
         for (int i = 0; i < 4; ++i) {

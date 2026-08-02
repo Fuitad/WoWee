@@ -144,6 +144,9 @@ struct Widget {
     // FontString regions.
     std::string text;
     float fontHeight = 12.0f;
+    /// The typeface a font object named, as it wrote it. Empty means
+    /// whatever the renderer is already using.
+    std::string fontFace;
     /// Extra space between wrapped lines, which FrameXML reads back.
     float lineSpacing = 0.0f;
     std::string justifyH = "CENTER";

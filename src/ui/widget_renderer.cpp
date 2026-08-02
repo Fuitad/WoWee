@@ -5,6 +5,7 @@
 #include "pipeline/blp_loader.hpp"
 #include "rendering/vk_context.hpp"
 #include "core/app_clock.hpp"
+#include "ui/interface_fonts.hpp"
 #include "core/logger.hpp"
 
 #include "imgui.h"
@@ -283,7 +284,8 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             if (w->isEditBox) {
                 // Its own text, drawn where a label would be, with a caret
                 // while it has focus so it is clear which box is listening.
-                ImFont* font = ImGui::GetFont();
+                ImFont* font = interfaceFace(w->fontFace);
+                if (!font) font = ImGui::GetFont();
                 const float size = (w->fontHeight > 0.0f) ? w->fontHeight
                                                           : ImGui::GetFontSize();
                 const uint32_t col = packColor(w->color, w->alpha);
@@ -334,7 +336,8 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             // words at different sizes. The atlas holds one face, so this scales
             // it rather than swapping fonts; loading FRIZQT__ properly needs an
             // atlas rebuild, which cannot happen while a frame is being built.
-            ImFont* font = ImGui::GetFont();
+            ImFont* font = interfaceFace(w->fontFace);
+            if (!font) font = ImGui::GetFont();
             const float base = ImGui::GetFontSize();
             const float size = (w->fontHeight > 0.0f) ? w->fontHeight : base;
             (void)base;

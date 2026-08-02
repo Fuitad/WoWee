@@ -100,12 +100,11 @@ argument names, and `$parent` through unnamed frames.
 
 ## Known gaps
 
-- One face for everything. `FRIZQT__.TTF` is loaded from the game data at
-  startup and every font string is drawn scaled from it, so a heading and a
-  footnote are the same face at different sizes. Sizes and colours are real —
-  FrameXML's 42 font objects are read from `Fonts.xml` and `FontStyles.xml` —
-  but the interface's other faces (`MORPHEUS`, `SKURRI`) would each need their
-  own atlas entry, and the atlas is built once before the first frame.
+- Type is drawn from the game's own faces — FRIZQT, MORPHEUS, SKURRI, ARIALN
+  and FRIENDS — at the size and colour FrameXML's 42 font objects specify. Each
+  face is built into the atlas at one size and scaled, so a heading is the right
+  face rather than the right rasterisation, and `outline` is recorded but not
+  drawn.
 - `EditBox` takes text, keeps a caret and fires OnTextChanged, OnEnterPressed
   and the focus handlers. It has no selection, no clipboard and no scrolling
   past its own width. `Slider` drags and reports its value; `Cooldown` sweeps.
