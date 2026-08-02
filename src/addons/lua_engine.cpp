@@ -2075,11 +2075,19 @@ void LuaEngine::registerCoreAPI() {
         "    local handler = self.__scripts and self.__scripts.OnAttributeChanged\n"
         "    if handler then handler(self, name, value) end\n"
         "end\n"
+        // The three-argument form names one attribute in pieces, and falls
+        // back to the bare name when no piece-specific value was set — which
+        // is how every action button works. ActionButton_OnLoad sets "type",
+        // and the secure code asks for it as prefix "", name "type", suffix
+        // "1", because the suffix for LeftButton is "1". Without the fallback
+        // the lookup was for "type1", found nothing, and the click ran no
+        // handler at all: the button was hit, and no spell was cast.
         "function mt:GetAttribute(a, b, c)\n"
         "    if not self.__attributes then return nil end\n"
-        // The three-argument form names one attribute in pieces.
-        "    local key = (b ~= nil) and ((a or '') .. b .. (c or '')) or a\n"
-        "    return self.__attributes[key]\n"
+        "    if b == nil then return self.__attributes[a] end\n"
+        "    local v = self.__attributes[(a or '') .. b .. (c or '')]\n"
+        "    if v == nil then v = self.__attributes[b] end\n"
+        "    return v\n"
         "end\n"
         // A scroll frame's content frame.
         // Nothing to scroll until the tree has been laid out, and zero is the
