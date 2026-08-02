@@ -339,7 +339,11 @@ void WidgetTree::collectDrawOrder() {
         // Frames are containers, except when they carry a backdrop or are a
         // status bar — then the frame itself has something to paint, and it
         // paints underneath its own regions because they sit a level above it.
-        if (w.kind == WidgetKind::Frame && !w.hasBackdrop && !w.isStatusBar) continue;
+        // A frame the client renders into paints itself, the same as one with
+        // a backdrop. The paperdoll's model frame is a frame, not a texture,
+        // so without this the character would be rendered and never drawn.
+        if (w.kind == WidgetKind::Frame && !w.hasBackdrop && !w.isStatusBar &&
+            w.externalTexture == 0) continue;
         if (w.rectW <= 0.0f || w.rectH <= 0.0f) continue;
         if (w.kind == WidgetKind::Texture && w.texturePath.empty() &&
             !w.solidColor && w.externalTexture == 0) continue;

@@ -46,6 +46,7 @@ enum class UiElement {
     Chat,
     QuestTracker,
     WorldMap,
+    CharacterFrame,
 };
 
 /// True when FrameXML is drawing this instead, so the client should not.

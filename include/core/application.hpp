@@ -167,6 +167,11 @@ private:
     /// interface owns it. WorldMapDetailFrame rather than WorldMapFrame: the
     /// first is the map area, the second is the panel around it.
     uint32_t worldMapWidgetId_ = 0;
+    /// The paperdoll's model view, and the frame it is drawn into. A second
+    /// offscreen pass rather than a shared one: the portrait shows the face
+    /// and this shows the whole figure, and they are on screen together.
+    ui::UnitPortrait paperdollModel_;
+    uint32_t paperdollWidgetId_ = 0;
     bool addonsLoaded_ = false;
     std::unique_ptr<game::ExpansionRegistry> expansionRegistry_;
     // Empty means assets follow the active protocol profile. "legacy" selects

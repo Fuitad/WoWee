@@ -78,9 +78,15 @@ void UnitPortrait::update(game::GameHandler& gameHandler,
                                     hairStyle, hairColor, self->facialFeatures,
                                     self->useFemaleModel)) {
             preview_->applyEquipment(self->equipment);
-            // After the model, because its bounds are what the face is framed
-            // against.
-            preview_->setPortraitFraming();
+            // After the model, because its bounds are what the framing is
+            // measured against.
+            if (framing_ == Framing::Face) {
+                preview_->setPortraitFraming();
+            } else {
+                // The whole figure, facing the viewer. resetView is the
+                // character-select framing, which is what a paperdoll wants.
+                preview_->resetView();
+            }
         }
         // Logged because a portrait that rebuilds every frame looks like one
         // that flickers, and the two are indistinguishable from outside.

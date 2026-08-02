@@ -22,6 +22,12 @@ namespace ui {
 
 class UnitPortrait {
 public:
+    /// How much of the character to show. A portrait is the face in a circle;
+    /// the paperdoll wants the whole figure in a tall rectangle. The offscreen
+    /// pass is the same either way — only the framing differs, which is why
+    /// this is one class and not two.
+    enum class Framing { Face, FullBody };
+
     UnitPortrait();
     ~UnitPortrait();
 
@@ -30,6 +36,10 @@ public:
     /// it reloads the model only when something about it actually changed.
     void update(game::GameHandler& gameHandler, pipeline::AssetManager* assets,
                 rendering::Renderer* renderer, float deltaTime);
+
+    /// Set before the first update, since framing is applied when the model
+    /// loads and the model loads once.
+    void setFraming(Framing framing) { framing_ = framing; }
 
     /// The rendered portrait, or zero until the first composite has run. The
     /// value is a VkDescriptorSet, carried as an integer so this header does
@@ -41,6 +51,7 @@ public:
 private:
     std::unique_ptr<rendering::CharacterPreview> preview_;
     bool initialized_ = false;
+    Framing framing_ = Framing::Face;
     bool registered_ = false;
 
     // What the loaded model was built from, so a reload happens only on a real

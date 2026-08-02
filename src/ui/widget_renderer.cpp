@@ -463,6 +463,16 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         const float y1 = screenH - w->bottom * s;
 
         if (w->kind == WidgetKind::Frame) {
+            // Whatever the client rendered for it, under its own regions —
+            // a model frame is a window onto a scene and the art around it
+            // belongs on top.
+            if (w->externalTexture != 0) {
+                dl->AddImage(reinterpret_cast<ImTextureID>(
+                                 reinterpret_cast<VkDescriptorSet>(w->externalTexture)),
+                             ImVec2(x0, y0), ImVec2(x1, y1),
+                             ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f),
+                             packColor(w->color, w->alpha));
+            }
             if (w->hasBackdrop) drawBackdrop(dl, *w, s, x0, y0, x1, y1);
             if (w->isStatusBar) drawStatusBar(dl, *w, x0, y0, x1, y1);
             if (w->isSlider) drawSlider(dl, *w, x0, y0, x1, y1);

@@ -1077,6 +1077,7 @@ void Application::shutdown() {
     // member destruction order it would free images against a device that has
     // already gone.
     unitPortrait_.shutdown(renderer.get());
+    paperdollModel_.shutdown(renderer.get());
 
     // Explicitly shut down the renderer before destroying it — this ensures
     // all sub-renderers free their VMA allocations in the correct order,
@@ -2954,6 +2955,25 @@ void Application::render() {
                     } else {
                         map->clearScreenRect();
                     }
+                }
+
+                // The paperdoll's figure, on the same terms as the portrait:
+                // rendered only while a frame is there to show it, and told to
+                // the widget every frame because the render target is rebuilt
+                // whenever the model is.
+                ui::Widget* doll = paperdollWidgetId_
+                    ? widgets.get(paperdollWidgetId_) : nullptr;
+                if (!doll || doll->name != "CharacterModelFrame") {
+                    doll = widgets.findByName("CharacterModelFrame");
+                    paperdollWidgetId_ = doll ? doll->id : 0;
+                }
+                if (doll && doll->visible) {
+                    paperdollModel_.setFraming(ui::UnitPortrait::Framing::FullBody);
+                    paperdollModel_.update(*gameHandler, assetManager.get(),
+                                           renderer.get(), io.DeltaTime);
+                    doll->externalTexture = paperdollModel_.textureId();
+                } else if (doll) {
+                    doll->externalTexture = 0;
                 }
 
                 if (portrait) {

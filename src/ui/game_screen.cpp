@@ -628,7 +628,9 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     inventoryScreen.render(gameHandler.getInventory(), gameHandler.getMoneyCopper());
 
     // Character screen (C key toggle handled inside render())
-    inventoryScreen.renderCharacterScreen(gameHandler);
+    if (!frameXmlOwns(UiElement::CharacterFrame)) {
+        inventoryScreen.renderCharacterScreen(gameHandler);
+    }
 
     // Item-target cursor (sharpening stone / oil awaiting the item it applies to)
     inventoryScreen.renderItemTargetCursor();

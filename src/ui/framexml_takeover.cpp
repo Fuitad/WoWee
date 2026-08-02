@@ -14,7 +14,7 @@ namespace {
 struct Entry { UiElement element; std::string_view name; };
 
 // One row per element, and the only place a name is written down.
-constexpr std::array<Entry, 15> kElements{{
+constexpr std::array<Entry, 16> kElements{{
     {UiElement::PlayerFrame,  "playerframe"},
     {UiElement::TargetFrame,  "targetframe"},
     {UiElement::PetFrame,     "petframe"},
@@ -30,6 +30,7 @@ constexpr std::array<Entry, 15> kElements{{
     {UiElement::Chat,         "chat"},
     {UiElement::QuestTracker, "questtracker"},
     {UiElement::WorldMap,     "worldmap"},
+    {UiElement::CharacterFrame, "characterframe"},
 }};
 
 /// Parsed once. An unknown name is reported rather than dropped: a typo would
@@ -138,6 +139,8 @@ std::vector<std::string> frameXmlCheckFrames() {
         {UiElement::FocusFrame,   "FocusFrame FocusFrameHealthBar"},
         {UiElement::WorldMap,     "WorldMapFrame WorldMapDetailFrame WorldMapButton "
                                   "WorldMapZoneMinimapDropDown"},
+        {UiElement::CharacterFrame, "CharacterFrame PaperDollFrame CharacterModelFrame "
+                                    "CharacterNameText CharacterHeadSlot"},
     };
 
     std::vector<std::string> out;
