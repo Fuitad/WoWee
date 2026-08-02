@@ -154,6 +154,11 @@ private:
     ui::WidgetRenderer widgetRenderer_;
     /// The live head-and-shoulders view the interface's portrait draws.
     ui::UnitPortrait unitPortrait_;
+    /// Where the portrait's widget was found last time. Ids are stable, so
+    /// this saves a scan of every widget by name on every frame; the name is
+    /// still checked, because reloading the interface rebuilds the tree and
+    /// the id could then belong to something else.
+    uint32_t portraitWidgetId_ = 0;
     bool addonsLoaded_ = false;
     std::unique_ptr<game::ExpansionRegistry> expansionRegistry_;
     // Empty means assets follow the active protocol profile. "legacy" selects

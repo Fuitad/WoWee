@@ -2873,9 +2873,14 @@ void Application::render() {
                 // descriptor set that has been destroyed — the render target is
                 // torn down whenever the model is rebuilt — and drawing from
                 // that is a use-after-free rather than a stale picture.
-                if (auto* w = engine->widgets().findByName("PlayerPortrait")) {
-                    w->externalTexture = unitPortrait_.textureId();
+                auto& widgets = engine->widgets();
+                ui::Widget* portrait = portraitWidgetId_
+                    ? widgets.get(portraitWidgetId_) : nullptr;
+                if (!portrait || portrait->name != "PlayerPortrait") {
+                    portrait = widgets.findByName("PlayerPortrait");
+                    portraitWidgetId_ = portrait ? portrait->id : 0;
                 }
+                if (portrait) portrait->externalTexture = unitPortrait_.textureId();
             }
 
             // Lay out first: hit testing reads the rects this produces, so
