@@ -1487,20 +1487,11 @@ void GameHandler::registerOpcodeHandlers() {
         packet.skipAll();
     };
     dispatchTable_[Opcode::SMSG_SET_REST_START] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(4)) {
-            uint32_t restTrigger = packet.readUInt32();
-            const bool nowResting = (restTrigger > 0);
-            // The server pushes SMSG_SET_REST_START periodically while in
-            // a rest area, so only emit chat / fire the addon event on
-            // actual transitions — otherwise "You are now resting." spams
-            // the chat log every tick.
-            if (nowResting != isResting_) {
-                isResting_ = nowResting;
-                addSystemChatMessage(isResting_ ? "You are now resting."
-                                                : "You are no longer resting.");
-                fireAddonEvent("PLAYER_UPDATE_RESTING", {});
-            }
-        }
+        // The rest-XP accumulation start time, not a statement about where the
+        // player is standing: the server sends it on login wherever that is.
+        // Resting itself comes from PLAYER_FLAGS_RESTING, which entity_controller
+        // watches, because that is the one that clears again on leaving an inn.
+        packet.skipAll();
     };
     dispatchTable_[Opcode::SMSG_UPDATE_AURA_DURATION] = [this](network::Packet& packet) {
         if (packet.hasRemaining(5)) {

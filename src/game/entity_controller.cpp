@@ -1253,7 +1253,18 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
             if (owner_.playerModelRebuildCallbackRef())
                 owner_.playerModelRebuildCallbackRef()();
         }
-        else if (!isCreate && key == pfi.playerFlags) {
+        else if (key == pfi.playerFlags) {
+          // Resting is read on create as well as on change, because a player
+          // who logs in inside an inn is already resting and there is no later
+          // transition to notice. The ghost handling below stays on updates
+          // only: it drives release and resurrection, which are transitions.
+          constexpr uint32_t PLAYER_FLAGS_RESTING = 0x00000020;
+          const bool nowResting = (val & PLAYER_FLAGS_RESTING) != 0;
+          if (nowResting != owner_.isRestingRef()) {
+              owner_.isRestingRef() = nowResting;
+              pendingEvents_.emit("PLAYER_UPDATE_RESTING", {});
+          }
+          if (!isCreate) {
             constexpr uint32_t PLAYER_FLAGS_GHOST = 0x00000010;
             bool wasGhost = owner_.releasedSpiritRef();
             bool nowGhost = (val & PLAYER_FLAGS_GHOST) != 0;
@@ -1276,6 +1287,7 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
                 if (owner_.ghostStateCallbackRef()) owner_.ghostStateCallbackRef()(false);
             }
             pendingEvents_.emit("PLAYER_FLAGS_CHANGED", {});
+          }
         }
         else if (pfi.meleeAP  != 0xFFFF && key == pfi.meleeAP)  { owner_.playerMeleeAPRef()  = static_cast<int32_t>(val); }
         else if (pfi.rangedAP != 0xFFFF && key == pfi.rangedAP) { owner_.playerRangedAPRef() = static_cast<int32_t>(val); }

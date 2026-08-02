@@ -4843,7 +4843,14 @@ void LuaEngine::runInterfaceProbe() {
         "      ' ffa=' .. yn(UnitIsPVPFreeForAll('player')) ..\n"
         "      ' faction=' .. tostring(UnitFactionGroup('player')) ..\n"
         "      ' | PlayerPVPIcon shown=' ..\n"
-        "      yn(PlayerPVPIcon and PlayerPVPIcon:IsShown()))\n");
+        "      yn(PlayerPVPIcon and PlayerPVPIcon:IsShown()))\n"
+        // The state icons share one sheet and one corner with the PvP icon, so
+        // "a badge at the top left" does not say which of them it is.
+        "__WoweeWarn('[fxcheck] resting=' .. yn(IsResting()) ..\n"
+        "      ' combat=' .. yn(PlayerFrame.inCombat) ..\n"
+        "      ' | rest icon=' .. yn(PlayerRestIcon and PlayerRestIcon:IsShown()) ..\n"
+        "      ' attack icon=' .. yn(PlayerAttackIcon and PlayerAttackIcon:IsShown()) ..\n"
+        "      ' status=' .. yn(PlayerStatusTexture and PlayerStatusTexture:IsShown()))\n");
     if (!ok) LOG_WARNING("interface probe did not run: ", lastError());
 }
 
