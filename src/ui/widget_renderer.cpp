@@ -276,7 +276,11 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     static bool dumped = false;
     if (dumpWidgets && !dumped) {
         dumped = true;
-        LOG_WARNING("WidgetDump: ", order.size(), " widgets drawn");
+        // The screen it was laid out against, because a coordinate means
+        // nothing without it: 1920 is the middle of one display and off
+        // the edge of another.
+        LOG_WARNING("WidgetDump: ", order.size(), " widgets drawn on ",
+                    screenW, "x", screenH);
         for (const Widget* w : order) {
             LOG_WARNING("  ", (w->name.empty() ? "(unnamed)" : w->name),
                         " kind=", static_cast<int>(w->kind),
