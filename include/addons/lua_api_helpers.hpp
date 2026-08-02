@@ -50,6 +50,15 @@ inline constexpr const char* kLuaClasses[] = {
     "","Warrior","Paladin","Hunter","Rogue","Priest",
     "Death Knight","Shaman","Mage","Warlock","","Druid"
 };
+/// The uppercase tokens WoW returns second from UnitClass, and the key every
+/// class-indexed table in FrameXML uses — CLASS_ICON_TCOORDS for the class
+/// portrait, RAID_CLASS_COLORS for a name's colour. Written out rather than
+/// derived from the display names above, because the token for Death Knight
+/// has no space in it.
+inline constexpr const char* kLuaClassTokens[] = {
+    "","WARRIOR","PALADIN","HUNTER","ROGUE","PRIEST",
+    "DEATHKNIGHT","SHAMAN","MAGE","WARLOCK","","DRUID"
+};
 inline constexpr const char* kLuaRaces[] = {
     "","Human","Orc","Dwarf","Night Elf","Undead",
     "Tauren","Gnome","Troll","","Blood Elf","Draenei"

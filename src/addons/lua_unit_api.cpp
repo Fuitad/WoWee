@@ -171,14 +171,21 @@ static int lua_UnitClass(lua_State* L) {
                 classId = gh->lookupPlayerClass(guid);
             }
         }
-        const char* name = (classId > 0 && classId < 12) ? kLuaClasses[classId] : "Unknown";
+        const bool known = (classId > 0 && classId < 12);
+        const char* name = known ? kLuaClasses[classId] : "Unknown";
+        // Second is the uppercase token, not the display name again. Every
+        // class-indexed table in FrameXML is keyed by it, so answering "Mage"
+        // where "MAGE" was meant looked up nothing: SetPortraitTexture found no
+        // CLASS_ICON_TCOORDS entry and fell back to the placeholder portrait,
+        // which is the blue question mark on the character sheet.
+        const char* token = known ? kLuaClassTokens[classId] : "UNKNOWN";
         lua_pushstring(L, name);
-        lua_pushstring(L, name);  // WoW returns localized + English
+        lua_pushstring(L, token);
         lua_pushnumber(L, classId);
         return 3;
     }
     lua_pushstring(L, "Unknown");
-    lua_pushstring(L, "Unknown");
+    lua_pushstring(L, "UNKNOWN");
     lua_pushnumber(L, 0);
     return 3;
 }
