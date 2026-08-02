@@ -360,10 +360,15 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         "    RIGHT_OFFSET = 0, RIGHT_OFFSET_BUFFER = 0,\n"
         "    DEFAULT_FRAME_WIDTH = 338,\n"
         "  }\n"
+        // Written straight into the attribute table rather than through
+        // SetAttribute, which fires OnAttributeChanged: the panel manager runs
+        // on the first one and reads the rest before the loop has set them, so
+        // seeding through the setter failed on whichever name pairs() happened
+        // to leave for last. These are initial values, not changes.
+        "  local store = rawget(UIParent, '__attributes')\n"
+        "  if not store then store = {}; rawset(UIParent, '__attributes', store) end\n"
         "  for name, value in pairs(defaults) do\n"
-        "    if UIParent:GetAttribute(name) == nil then\n"
-        "      UIParent:SetAttribute(name, value)\n"
-        "    end\n"
+        "    if store[name] == nil then store[name] = value end\n"
         "  end\n"
         "end\n");
 

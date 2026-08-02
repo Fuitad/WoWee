@@ -565,6 +565,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetNumMapDebugObjects",    lua_ReturnZero},
                 {"GetNumBattlefieldPositions", lua_ReturnZero},
                 {"GetBattlefieldPosition",   lua_GetBattlefieldPosition},
+                {"GetCorpseMapPosition",     lua_GetBattlefieldPosition},
                 {"GetNumBattlefieldFlagPositions", lua_ReturnZero},
                 {"GetBattlefieldFlagPosition",     lua_GetBattlefieldPosition},
                 {"GuildControlGetNumRanks",  lua_ReturnZero},

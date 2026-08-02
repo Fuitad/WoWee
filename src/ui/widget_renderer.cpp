@@ -201,11 +201,16 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         }
 
         if (w->kind == WidgetKind::Texture) {
-            if (w->solidColor || w->texturePath.empty()) {
+            // A colour set with SetTexture(r,g,b) fills; a texture with no
+            // file at all draws nothing. Treating the second as the first
+            // painted every undecided region in the default white, which for a
+            // full-width backdrop is a white slab across the screen.
+            if (w->solidColor) {
                 dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1),
                                   packColor(w->color, w->alpha));
                 continue;
             }
+            if (w->texturePath.empty()) continue;
             // Only what is already resident. Anything still queued draws on a
             // later frame rather than forcing an upload here.
             auto it = textures_.find(w->texturePath);
