@@ -78,6 +78,16 @@ std::vector<std::string> frameXmlCheckFrames();
 void frameXmlNoteWorldEntry();
 bool frameXmlWorldEntered();
 
+/// Whether the interface has the cursor: a frame that takes the mouse is under
+/// it, or one is holding a press.
+///
+/// The camera asks ImGui whether the interface wants the mouse, and FrameXML
+/// draws into ImGui's background draw list — so ImGui has never heard of these
+/// frames and answers no. Pressing a bag item therefore turned the camera as
+/// well as pressing the item, and dragging one swung the view around.
+void frameXmlNoteMouseOwned(bool owned);
+bool frameXmlOwnsMouse();
+
 /// Ask for the takeover check to be reported again on the next frame.
 ///
 /// The automatic reports happen at fixed moments, and most of what goes wrong

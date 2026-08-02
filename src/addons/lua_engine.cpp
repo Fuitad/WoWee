@@ -1,5 +1,6 @@
 #include "addons/lua_engine.hpp"
 #include "ui/widget_tree.hpp"
+#include "ui/framexml_takeover.hpp"
 #include <chrono>
 #include <cfloat>
 #include <cctype>
@@ -846,6 +847,7 @@ int lua_Tooltip_SetText(lua_State* L) {
     line.lc[3] = 1.0f;
     line.rc[0] = line.rc[1] = line.rc[2] = line.rc[3] = 1.0f;
     w->tooltipLines.push_back(std::move(line));
+    w->shown = true;
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -890,6 +892,7 @@ int lua_Tooltip_SetAction(lua_State* L) {
         desc.rc[0] = desc.rc[1] = desc.rc[2] = desc.rc[3] = 1.0f;
         w->tooltipLines.push_back(std::move(desc));
     }
+    w->shown = true;
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -919,6 +922,7 @@ int lua_Tooltip_SetSpellByID(lua_State* L) {
         desc.rc[0] = desc.rc[1] = desc.rc[2] = desc.rc[3] = 1.0f;
         w->tooltipLines.push_back(std::move(desc));
     }
+    w->shown = true;
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -943,6 +947,7 @@ int lua_Tooltip_SetUnit(lua_State* L) {
     title.lc[0] = title.lc[1] = title.lc[2] = title.lc[3] = 1.0f;
     title.rc[0] = title.rc[1] = title.rc[2] = title.rc[3] = 1.0f;
     w->tooltipLines.push_back(std::move(title));
+    w->shown = true;
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -952,6 +957,12 @@ int lua_Tooltip_SetUnit(lua_State* L) {
 /// item setters differ only in how they find the item.
 static void fillItemTooltip(wowee::ui::Widget* w, const game::ItemDef& item) {
     w->isTooltip = true;
+    // A setter that finds something to say also shows the tooltip. That is
+    // WoW's behaviour and FrameXML leans on it: ContainerFrameItemButton_OnEnter
+    // sets an owner, calls SetBagItem and stops — there is no Show anywhere in
+    // it, so a tooltip that only filled itself in stayed hidden and hovering a
+    // bag said nothing.
+    w->shown = true;
     w->tooltipLines.clear();
     wowee::ui::Widget::TooltipLine title;
     title.left = item.name;
@@ -4341,6 +4352,14 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
     // already happened by the time this runs — so this frame's press shows on
     // the next, which at sixty frames a second is not a wait anyone sees.
     widgets_.setInteraction(hit, buttonDown_[0] ? pressedWid_[0] : 0);
+
+    // Tell the rest of the client the interface has the cursor, so the camera
+    // does not turn while a bag item is being clicked or dragged. A press keeps
+    // it owned even once the cursor has left the frame, because letting go of
+    // the interface halfway through a drag would hand the rest of the drag to
+    // the camera.
+    ui::frameXmlNoteMouseOwned(hit != 0 || pressedWid_[0] != 0 ||
+                               pressedWid_[1] != 0 || pressedWid_[2] != 0);
 
     // Hover first, so a frame that appears under a stationary cursor still gets
     // its OnEnter rather than waiting for the mouse to move.

@@ -1,4 +1,5 @@
 #include "rendering/camera_controller.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "rendering/movement_limits.hpp"
 #include <algorithm>
 #include <future>
@@ -2304,8 +2305,12 @@ void CameraController::processMouseButton(const SDL_MouseButtonEvent& event) {
         return;
     }
 
-    // Don't capture mouse when ImGui wants it (hovering UI windows)
-    bool uiWantsMouse = ImGui::GetIO().WantCaptureMouse;
+    // Don't capture mouse when ImGui wants it (hovering UI windows), or when
+    // FrameXML does. FrameXML draws into ImGui's background draw list, so
+    // WantCaptureMouse is false over every frame it owns — pressing a bag item
+    // turned the camera as well as pressing the item, and dragging one swung
+    // the view around.
+    bool uiWantsMouse = ImGui::GetIO().WantCaptureMouse || ui::frameXmlOwnsMouse();
 
     if (event.button == SDL_BUTTON_LEFT) {
         leftMouseDown = (event.state == SDL_PRESSED) && !uiWantsMouse;

@@ -1295,7 +1295,9 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
     }
 
     // Cursor affordance: show hand cursor over interactable entities.
-    if (!io.WantCaptureMouse) {
+    // Not while the cursor is over a frame FrameXML owns: ImGui has never heard
+    // of those, so its own answer is no wherever they are.
+    if (!io.WantCaptureMouse && !frameXmlOwnsMouse()) {
         auto* renderer = services_.renderer;
         auto* camera = renderer ? renderer->getCamera() : nullptr;
         auto* window = services_.window;
@@ -1317,7 +1319,8 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
 
     // Left-click targeting: only on mouse-up if the mouse didn't drag (camera rotate)
     // Record press position on mouse-down
-    if (!io.WantCaptureMouse && input.isMouseButtonJustPressed(SDL_BUTTON_LEFT) && !input.isMouseButtonPressed(SDL_BUTTON_RIGHT)) {
+    if (!io.WantCaptureMouse && !frameXmlOwnsMouse() &&
+        input.isMouseButtonJustPressed(SDL_BUTTON_LEFT) && !input.isMouseButtonPressed(SDL_BUTTON_RIGHT)) {
         leftClickPressPos_ = input.getMousePosition();
         leftClickWasPress_ = true;
     }
@@ -1384,7 +1387,8 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
     // Record the press position; the action only fires on release for a tap (below),
     // never for a right-drag camera rotate — otherwise turning the view toward a nearby
     // mob would auto-attack it without the player intending to engage.
-    if (!io.WantCaptureMouse && input.isMouseButtonJustPressed(SDL_BUTTON_RIGHT) && !input.isMouseButtonPressed(SDL_BUTTON_LEFT)) {
+    if (!io.WantCaptureMouse && !frameXmlOwnsMouse() &&
+        input.isMouseButtonJustPressed(SDL_BUTTON_RIGHT) && !input.isMouseButtonPressed(SDL_BUTTON_LEFT)) {
         rightClickPressPos_ = input.getMousePosition();
         rightClickWasPress_ = true;
     }

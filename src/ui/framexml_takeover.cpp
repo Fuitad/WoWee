@@ -154,7 +154,13 @@ namespace {
 /// Written from the packet thread and read from the render thread.
 std::atomic<bool> gWorldEntered{false};
 std::atomic<bool> gCheckRequested{false};
+std::atomic<bool> gMouseOwned{false};
 } // namespace
+
+void frameXmlNoteMouseOwned(bool owned) {
+    gMouseOwned.store(owned, std::memory_order_relaxed);
+}
+bool frameXmlOwnsMouse() { return gMouseOwned.load(std::memory_order_relaxed); }
 
 void frameXmlNoteWorldEntry() { gWorldEntered.store(true, std::memory_order_relaxed); }
 bool frameXmlWorldEntered() { return gWorldEntered.load(std::memory_order_relaxed); }
