@@ -2841,6 +2841,55 @@ void LuaEngine::installMissingApiFallback() {
     lua_pushcfunction(L_, lua_RecordMissingApi);
     lua_setglobal(L_, "__WoweeRecordMissingApi");
 
+    // Counting functions answer zero rather than nothing.
+    //
+    // A missing name is usually survivable — the guard around it fails and the
+    // branch behind it does not run. A missing count is not: FrameXML writes
+    // `for id = 1, GetNumTrackingTypes() do`, and nil as a loop limit is not a
+    // loop that runs no times, it is "'for' limit must be a number" and the
+    // whole file is lost. That is exactly what took minimap.xml down the moment
+    // the minimap started being built at all.
+    //
+    // Thirty-seven of these are called across FrameXML with nothing behind
+    // them. Zero is the honest answer for a feature this client does not model
+    // — no titles, no companions, no arena teams — and where it does model one,
+    // a real implementation replaces the stub by simply existing: the loop
+    // below skips any name already defined.
+    //
+    // Recorded under a "count:" prefix so they stay in the missing-API report.
+    // Defining them would otherwise hide them from it, which is the one thing
+    // that report is for.
+    bootstrap(
+        "local counting = {\n"
+        "  'GetCurrencyListSize','GetFieldSize','GetInventoryItemCount',\n"
+        "  'GetLFDLockPlayerCount','GetNumActiveQuests','GetNumArenaTeamMembers',\n"
+        "  'GetNumAvailableQuests','GetNumBankSlots','GetNumBattlefieldStats',\n"
+        "  'GetNumBattlefields','GetNumBuybackItems','GetNumChannelMembers',\n"
+        "  'GetNumCompanions','GetNumEquipmentSets','GetNumFactions',\n"
+        "  'GetNumGuildBankTabs','GetNumGuildEvents','GetNumLanguages',\n"
+        "  'GetNumMacroIcons','GetNumMessages','GetNumMutes','GetNumPetitionNames',\n"
+        "  'GetNumPoints','GetNumQuestItemDrops','GetNumQuestItems',\n"
+        "  'GetNumQuestLogChoices','GetNumQuestLogRewardFactions',\n"
+        "  'GetNumQuestLogRewards','GetNumRandomDungeons','GetNumRoutes',\n"
+        "  'GetNumStablePets','GetNumStableSlots','GetNumStationeries',\n"
+        "  'GetNumTitles','GetNumTooltips','GetNumTrackingTypes',\n"
+        "  'GetNumVoiceSessionMembersBySessionID','GetNumBattlegroundTypes',\n"
+        "  'GetNumDungeonMapLevels','GetNumMapOverlays','GetNumVoiceSessions',\n"
+        "  'GuildControlGetNumRanks','BNGetNumConversationMembers','GetKeyRingSize',\n"
+        "}\n"
+        "local told = {}\n"
+        "for _, name in ipairs(counting) do\n"
+        "  if rawget(_G, name) == nil then\n"
+        "    _G[name] = function()\n"
+        "      if not told[name] then\n"
+        "        told[name] = true\n"
+        "        __WoweeRecordMissingApi('count:' .. name)\n"
+        "      end\n"
+        "      return 0\n"
+        "    end\n"
+        "  end\n"
+        "end\n");
+
     // A name in SCREAMING_SNAKE_CASE is a constant, and handing back a function
     // where a number or a string was wanted turns a missing value into a
     // confusing type error further away. Those stay nil. UpperCamelCase is a
