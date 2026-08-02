@@ -383,8 +383,13 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 // that takes no mouse looks identical to one whose handler
                 // does nothing.
                 const char* mouse = w->mouseEnabled ? " takesMouse" : "";
+                // Where it sits in the stack, which is what decides a click
+                // between a frame and the frame on top of it.
+                const std::string stack =
+                    " strata=" + std::to_string(static_cast<int>(w->effStrata)) +
+                    " level=" + std::to_string(w->effLevel);
                 LOG_WARNING("  ", name,
-                            (w->visible ? " shown" : " HIDDEN"), mouse, bar,
+                            (w->visible ? " shown" : " HIDDEN"), mouse, stack, bar,
                             (w->rectW <= 0.0f || w->rectH <= 0.0f ? " NOSIZE" : ""),
                             (offscreen ? " OFFSCREEN" : ""),
                             " rect=(", w->left, ",", w->bottom, " ",

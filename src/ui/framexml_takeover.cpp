@@ -166,7 +166,11 @@ std::vector<std::string> frameXmlCheckFrames() {
                                   "MainMenuBarRightEndCap ActionButton1 ActionButton12"},
         {UiElement::BagBar,       "MainMenuBarBackpackButton CharacterBag0Slot"},
         {UiElement::MicroMenu,    "CharacterMicroButton MainMenuBarPerformanceBar"},
-        {UiElement::XpBar,        "MainMenuExpBar MainMenuXPBarTextureLeftCap"},
+        // MainMenuExpBar is the bar itself; ExhaustionTick is the rested
+        // marker that rides on it. Checked against the XML rather than
+        // guessed — a name invented here reports NOT BUILT forever and reads
+        // as a fault in the interface rather than in this list.
+        {UiElement::XpBar,        "MainMenuExpBar ExhaustionTick"},
         {UiElement::RepBar,       "ReputationWatchBar ReputationWatchStatusBar"},
         {UiElement::StanceBar,    "ShapeshiftBarFrame ShapeshiftButton1"},
         {UiElement::CastBar,      "CastingBarFrame CastingBarFrameBorder CastingBarFrameText"},
