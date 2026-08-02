@@ -236,6 +236,17 @@ uint32_t WidgetTree::hitTest(float x, float y) const {
         if (w.rectW <= 0.0f || w.rectH <= 0.0f) continue;
         if (x < w.left || x > w.left + w.rectW) continue;
         if (y < w.bottom || y > w.bottom + w.rectH) continue;
+        // Scrolled out of sight is out of reach. A scroll frame shows a window
+        // onto a taller child, and the part of that child above or below the
+        // window is not drawn — so it must not be clickable either, or a quest
+        // log answers clicks on entries nobody can see.
+        if (w.clipTo != 0) {
+            const Widget* clip = get(w.clipTo);
+            if (clip && (x < clip->left || x > clip->left + clip->rectW ||
+                         y < clip->bottom || y > clip->bottom + clip->rectH)) {
+                continue;
+            }
+        }
         if (!best) { best = &w; continue; }
         // Same comparison the draw order uses, read the other way round: the
         // last thing painted is the first thing clicked.

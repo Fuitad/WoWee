@@ -668,3 +668,42 @@ TEST_CASE("Only a frame that asked for the wheel takes it", "[widget][scroll]") 
     REQUIRE_FALSE(tree.get(child)->wheelEnabled);
     REQUIRE(tree.get(tree.get(child)->parent)->wheelEnabled);
 }
+
+TEST_CASE("Scrolled out of sight is out of reach", "[widget][scroll][hittest]") {
+    // Clipping without this is only half the feature: the part of a scroll
+    // child above or below the window is not drawn, so it must not answer
+    // clicks either — a quest log that reacts to entries nobody can see is
+    // worse than one that does not scroll at all.
+    WidgetTree tree;
+    const uint32_t scroll = tree.create(WidgetKind::Frame, tree.root(), "S");
+    tree.get(scroll)->isScrollFrame = true;
+    tree.get(scroll)->width = 100.0f;
+    tree.get(scroll)->height = 100.0f;
+    tree.addPoint(scroll, Anchor{"BOTTOMLEFT", 0, "BOTTOMLEFT", 0.0f, 200.0f});
+
+    // An entry inside the child, positioned below the window rather than in it.
+    const uint32_t child = tree.create(WidgetKind::Frame, scroll, "SChild");
+    tree.get(child)->width = 100.0f;
+    tree.get(child)->height = 300.0f;
+    tree.addPoint(child, Anchor{"TOPLEFT", scroll, "TOPLEFT", 0.0f, 0.0f});
+    tree.get(scroll)->scrollChild = child;
+
+    const uint32_t entry = tree.create(WidgetKind::Frame, child, "SEntry");
+    tree.get(entry)->mouseEnabled = true;
+    tree.get(entry)->width = 100.0f;
+    tree.get(entry)->height = 20.0f;
+    tree.addPoint(entry, Anchor{"BOTTOMLEFT", child, "BOTTOMLEFT", 0.0f, 0.0f});
+
+    tree.layout(1024.0f, 768.0f);
+    // The entry sits at the bottom of a 300-tall child hanging below a 100-tall
+    // window, so it is well outside it.
+    const Widget* e = tree.get(entry);
+    REQUIRE(e->clipTo == scroll);
+    REQUIRE(tree.hitTest(50.0f, e->bottom + 10.0f) == 0);
+
+    // Scrolled far enough, the same entry comes into the window and answers.
+    tree.get(scroll)->scrollY = 200.0f;
+    tree.layout(1024.0f, 768.0f);
+    const Widget* moved = tree.get(entry);
+    REQUIRE(tree.hitTest(50.0f, moved->bottom + 10.0f) == entry);
+}
