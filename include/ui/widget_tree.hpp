@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <deque>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace wowee {
@@ -201,6 +202,11 @@ public:
 
     /// The screen-filling frame everything else hangs off.
     uint32_t rootId() const { return rootId_; }
+
+    /// The widget published under this name, or null. Names are unique in
+    /// FrameXML by convention, and the last one to claim a name wins, which is
+    /// what a lookup by name means there too.
+    Widget* findByName(std::string_view name);
 
     /// The height the interface is authored against. Blizzard's own number.
     static constexpr float kInterfaceHeight = 768.0f;

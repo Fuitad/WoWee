@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/window.hpp"
+#include "ui/unit_portrait.hpp"
 #include "ui/widget_renderer.hpp"
 #include "core/input.hpp"
 #include "core/entity_spawner.hpp"
@@ -151,6 +152,8 @@ private:
     /// Draws the widget tree addons build through CreateFrame/CreateTexture.
     /// Holds the texture cache for Interface\ art, so it lives as long as the app.
     ui::WidgetRenderer widgetRenderer_;
+    /// The live head-and-shoulders view the interface's portrait draws.
+    ui::UnitPortrait unitPortrait_;
     bool addonsLoaded_ = false;
     std::unique_ptr<game::ExpansionRegistry> expansionRegistry_;
     // Empty means assets follow the active protocol profile. "legacy" selects

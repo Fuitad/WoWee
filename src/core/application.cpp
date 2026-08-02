@@ -2853,6 +2853,22 @@ void Application::render() {
         runRenderStage("addonWidgets", [&] {
             const ImGuiIO& io = ImGui::GetIO();
             auto* engine = addonManager_->getLuaEngine();
+
+            // The portrait is the character itself rendered small, so it is
+            // produced here rather than read from a file, and handed to the
+            // widget by name each frame. Told every frame rather than once,
+            // because the render target is rebuilt when the window resizes and
+            // a handle kept across that would be stale.
+            if (gameHandler && assetManager) {
+                unitPortrait_.update(*gameHandler, assetManager.get(), renderer.get(),
+                                     io.DeltaTime);
+                if (const uint64_t tex = unitPortrait_.textureId()) {
+                    if (auto* w = engine->widgets().findByName("PlayerPortrait")) {
+                        w->externalTexture = tex;
+                    }
+                }
+            }
+
             // Lay out first: hit testing reads the rects this produces, so
             // clicking a frame that moved this frame would otherwise use where
             // it used to be.

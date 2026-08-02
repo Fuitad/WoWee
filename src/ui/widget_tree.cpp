@@ -82,6 +82,16 @@ uint32_t WidgetTree::create(WidgetKind kind, uint32_t parent, const std::string&
     return id;
 }
 
+Widget* WidgetTree::findByName(std::string_view name) {
+    if (name.empty()) return nullptr;
+    // Backwards, so the last frame to take the name is the one found — the
+    // same rule as the global it was published under.
+    for (auto it = widgets_.rbegin(); it != widgets_.rend(); ++it) {
+        if (it->id != 0 && it->name == name) return &*it;
+    }
+    return nullptr;
+}
+
 Widget* WidgetTree::get(uint32_t id) {
     if (id == 0 || id >= widgets_.size()) return nullptr;
     return &widgets_[id];
