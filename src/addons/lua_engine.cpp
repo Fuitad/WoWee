@@ -4498,6 +4498,18 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
 
     // A frame that StartMoving picked up follows the cursor until something
     // puts it down.
+    //
+    // With nothing held it is put down here, whatever else went wrong. A frame
+    // stuck to the cursor follows it forever and there is no way back from it
+    // in the running client, so this does not rely on the release path having
+    // matched the drag correctly.
+    const bool anyHeld = buttonDown_[0] || buttonDown_[1] || buttonDown_[2];
+    if (!anyHeld && (widgets_.movingWidget() != 0 || draggingWid_ != 0)) {
+        if (draggingWid_ != 0) callFrameScript(draggingWid_, "OnDragStop", "LeftButton");
+        widgets_.setMovingWidget(0);
+        draggingWid_ = 0;
+        draggingButton_ = -1;
+    }
     if (const uint32_t moving = widgets_.movingWidget()) {
         if (dx != 0.0f || dy != 0.0f) widgets_.nudge(moving, dx, dy);
     }
