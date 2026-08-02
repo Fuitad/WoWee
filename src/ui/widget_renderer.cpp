@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <vector>
 
 namespace wowee {
 namespace ui {
@@ -164,21 +165,38 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     // fails, and the device is lost. Hoisting them out means the wait happens
     // between frames instead of during one, and the budget means a screen full
     // of new art costs several quiet frames rather than one very long one.
-    constexpr int kUploadsPerFrame = 4;
-    int budget = kUploadsPerFrame;
+    constexpr int kUploadsPerFrame = 8;
+    std::vector<const std::string*> wanted;
+    wanted.reserve(kUploadsPerFrame);
     auto want = [&](const std::string& path) {
-        if (budget <= 0 || path.empty()) return;
+        if (static_cast<int>(wanted.size()) >= kUploadsPerFrame || path.empty()) return;
         if (textures_.find(path) != textures_.end()) return;
-        texture(path);
-        --budget;
+        for (const std::string* p : wanted) if (*p == path) return;
+        wanted.push_back(&path);
     };
     for (const Widget* w : order) {
-        if (budget <= 0) break;
+        if (static_cast<int>(wanted.size()) >= kUploadsPerFrame) break;
         if (w->kind == WidgetKind::Texture && !w->solidColor) want(w->texturePath);
         if (w->kind == WidgetKind::Frame) {
             if (w->hasBackdrop) { want(w->bgFile); want(w->edgeFile); }
             if (w->isStatusBar) want(w->barTexture);
         }
+    }
+
+    // One submit and one wait for the whole batch rather than one of each per
+    // texture. Every upload used to be its own immediate submit, and with
+    // FrameXML asking for hundreds of distinct files the seconds after a load
+    // cost 70-140ms a frame. Batched, how many go in a frame stops mattering
+    // much, which is why the budget can be larger and the burst shorter.
+    //
+    // Synchronous, because the draw below uses whatever was just uploaded; the
+    // asynchronous form would let this frame sample an image whose copy has not
+    // landed. Nothing to upload means no batch at all, so an idle frame does
+    // not allocate a command buffer to record nothing into.
+    if (!wanted.empty() && vkCtx_) {
+        vkCtx_->beginUploadBatch();
+        for (const std::string* path : wanted) texture(*path);
+        vkCtx_->endUploadBatchSync();
     }
 
     // Behind ImGui's own windows, so the existing interface stays on top while
