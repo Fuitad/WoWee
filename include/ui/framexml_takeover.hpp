@@ -68,6 +68,14 @@ std::string_view uiElementName(UiElement element);
 /// can be one block of log rather than an inspection.
 std::vector<std::string> frameXmlCheckFrames();
 
+/// The frames worth looking at for elements not yet handed over.
+///
+/// Deciding whether the next element is ready means seeing whether FrameXML's
+/// version of it is built, positioned and carrying data — and the check only
+/// reports what is already owned, so readiness is exactly what cannot be seen.
+/// These are reported alongside, marked as candidates.
+std::vector<std::string> frameXmlCandidateFrames();
+
 /// The frames to keep hidden because FrameXML draws them and this client has
 /// not handed that element over.
 ///

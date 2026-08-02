@@ -187,6 +187,34 @@ bool frameXmlTakeProbeRequest() {
     return gProbeRequested.exchange(false, std::memory_order_relaxed);
 }
 
+std::vector<std::string> frameXmlCandidateFrames() {
+    // The elements this branch has not taken over yet, in the order they are
+    // likely to go next. Named individually rather than derived from the check
+    // list so that adding a candidate is a deliberate act.
+    struct Candidate { UiElement element; const char* frames; };
+    static const Candidate kCandidates[] = {
+        {UiElement::CastBar,  "CastingBarFrame CastingBarFrameBorder CastingBarFrameText"},
+        {UiElement::PetFrame, "PetFrame PetFrameHealthBar PetFrameManaBar"},
+        {UiElement::Spellbook, "SpellBookFrame SpellButton1 SpellBookSkillLineTab1"},
+    };
+
+    std::vector<std::string> out;
+    for (const Candidate& c : kCandidates) {
+        if (frameXmlOwns(c.element)) continue;   // already in use, checked above
+        std::string all(c.frames);
+        size_t at = 0;
+        while (at < all.size()) {
+            const size_t sp = all.find(' ', at);
+            std::string one = all.substr(
+                at, sp == std::string::npos ? std::string::npos : sp - at);
+            if (!one.empty()) out.push_back(std::move(one));
+            if (sp == std::string::npos) break;
+            at = sp + 1;
+        }
+    }
+    return out;
+}
+
 std::vector<std::string> frameXmlSuppressedFrames() {
     struct Suppress { UiElement element; const char* frames; };
     static const Suppress kSuppress[] = {

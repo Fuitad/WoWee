@@ -619,7 +619,20 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             }
             if (orphans > 10) LOG_WARNING("  ... and more");
 
-            for (const std::string& name : wanted) {
+            // The next elements, so readiness can be judged before the
+            // client's own version is hidden and there is no way back within
+            // the run.
+            std::vector<std::string> all = wanted;
+            const std::vector<std::string> candidates = frameXmlCandidateFrames();
+            const size_t firstCandidate = all.size();
+            all.insert(all.end(), candidates.begin(), candidates.end());
+
+            size_t index = 0;
+            for (const std::string& name : all) {
+                const bool candidate = (index++ >= firstCandidate);
+                if (candidate && index == firstCandidate + 1) {
+                    LOG_WARNING("  -- not handed over yet, for readiness --");
+                }
                 const Widget* w = tree.findByName(name);
                 if (!w) {
                     LOG_WARNING("  ", name, " — NOT BUILT");
