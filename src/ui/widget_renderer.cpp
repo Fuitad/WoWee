@@ -269,9 +269,14 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     // what it says, and nothing says which frame put it there. This lists every
     // drawn widget with its name, its rect and its text, which turns "what is
     // that in the middle of the screen" into one line of log.
-    static const bool dumpWidgets = [] {
+    // 1 lists what is drawn; 2 lists every named widget whether drawn or not,
+    // which is what shows a container's own rect — a frame paints nothing
+    // itself, so the thing that mispositioned everything under it never
+    // appears in a list of what was painted.
+    static const int dumpWidgets = [] {
         const char* v = std::getenv("WOWEE_WIDGET_DUMP");
-        return v && *v && std::string(v) != "0";
+        if (!v || !*v) return 0;
+        return std::atoi(v);
     }();
     static bool dumped = false;
     if (dumpWidgets && !dumped) {
@@ -288,6 +293,19 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                         " alpha=", w->alpha,
                         (w->text.empty() ? "" : " text='"), w->text,
                         (w->text.empty() ? "" : "'"));
+        }
+        if (dumpWidgets >= 2) {
+            LOG_WARNING("WidgetDump: every named widget, drawn or not");
+            for (size_t id = 1; id < tree.size(); ++id) {
+                const Widget* w = tree.get(static_cast<uint32_t>(id));
+                if (!w || w->name.empty()) continue;
+                LOG_WARNING("  ", w->name, " kind=", static_cast<int>(w->kind),
+                            " rect=(", w->left, ",", w->bottom, " ",
+                            w->rectW, "x", w->rectH, ")",
+                            " anchors=", w->anchors.size(),
+                            " shown=", w->shown ? 1 : 0,
+                            " visible=", w->visible ? 1 : 0);
+            }
         }
     }
 
