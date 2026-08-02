@@ -440,6 +440,18 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     // lands in the same moment as the first and reports the same picture.
     const bool worldPass = (passesDone == 1 && worldFrame != 0 &&
                             framesSeen > worldFrame + 600);
+    // The first time the character sheet is open, ask for a report of its own
+    // accord. Its labels only exist to be looked at while it is up, and no
+    // automatic checkpoint ever coincides with that.
+    static bool sawCharacterSheet = false;
+    if (!sawCharacterSheet) {
+        if (const Widget* sheet = tree.findByName("CharacterFrame");
+            sheet && sheet->visible) {
+            sawCharacterSheet = true;
+            frameXmlRequestCheck();
+        }
+    }
+
     const bool askedFor = frameXmlTakeCheckRequest();
     if (loadPass || worldPass || askedFor) {
         if (!askedFor) ++passesDone;
