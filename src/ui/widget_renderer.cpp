@@ -130,6 +130,13 @@ void WidgetRenderer::sizeTooltips(WidgetTree& tree) {
         Widget* w = tree.get(static_cast<uint32_t>(id));
         if (!w || !w->isTooltip) continue;
         if (w->tooltipLines.empty()) continue;
+        // Only something that really is a tooltip. The flag is set by whichever
+        // widget a tooltip setter was called on, and a stray call sets it on a
+        // frame that is not one — which then gets resized to fit lines it never
+        // meant to show. The character sheet's model frame was 85x34 for that
+        // reason: one line of text plus a tooltip's padding, in place of the
+        // 233x215 its XML asks for.
+        if (w->objectType != "GameTooltip") continue;
 
         const float size = (w->fontHeight > 0.0f) ? w->fontHeight : 12.0f;
         const float lineH = size * 1.2f;
