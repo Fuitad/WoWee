@@ -52,6 +52,10 @@ private:
     /// backdrop's insets and edge size are authored in units like everything
     /// else, so they have to make the same trip or a border comes out the
     /// wrong thickness on any display that is not 768 pixels tall.
+    /// Sizes every tooltip to the lines it holds, before layout runs. A
+    /// tooltip has no size until it has something to say.
+    void sizeTooltips(WidgetTree& tree);
+
     void drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
                       float x0, float y0, float x1, float y1);
     void drawStatusBar(ImDrawList* dl, const Widget& w,

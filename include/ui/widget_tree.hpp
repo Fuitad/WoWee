@@ -195,6 +195,13 @@ struct Widget {
     /// How far back through the history the frame has been scrolled, in lines.
     int   messageScroll = 0;
 
+    /// A tooltip holds lines the same way, but draws them from the top and
+    /// sizes itself to fit them — which is the part a chat frame does not do,
+    /// because a tooltip has no size of its own until it has something to say.
+    bool  isTooltip = false;
+    struct TooltipLine { std::string left, right; float lc[4]; float rc[4]; };
+    std::vector<TooltipLine> tooltipLines;
+
     // FontString regions.
     std::string text;
     float fontHeight = 12.0f;

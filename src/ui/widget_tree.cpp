@@ -244,7 +244,7 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
     // them at no size instead meant they were laid out to nothing, never
     // reached the draw order, and so were never even uploaded.
     if (w->kind != WidgetKind::Frame && w->anchors.empty() &&
-        w->width <= 0.0f && w->height <= 0.0f && parent) {
+        w->width <= 0.0f && w->height <= 0.0f && parent && !w->isTooltip) {
         w->left   = parent->left;
         w->bottom = parent->bottom;
         w->rectW  = parent->rectW;
@@ -355,7 +355,8 @@ void WidgetTree::collectDrawOrder() {
         // so without this the character would be rendered and never drawn.
         if (w.kind == WidgetKind::Frame && !w.hasBackdrop && !w.isStatusBar &&
             w.externalTexture == 0 &&
-            !(w.isMessageFrame && !w.messages.empty())) continue;
+            !(w.isMessageFrame && !w.messages.empty()) &&
+            !(w.isTooltip && !w.tooltipLines.empty())) continue;
         if (w.rectW <= 0.0f || w.rectH <= 0.0f) continue;
         if (w.kind == WidgetKind::Texture && w.texturePath.empty() &&
             !w.solidColor && w.externalTexture == 0) continue;

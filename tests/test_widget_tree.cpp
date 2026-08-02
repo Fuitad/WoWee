@@ -967,3 +967,28 @@ TEST_CASE("A message frame keeps its lines and drops the oldest",
     for (const Widget* d : tree.drawOrder()) if (d->id == chat) drawn = true;
     REQUIRE_FALSE(drawn);
 }
+
+TEST_CASE("A tooltip with lines paints; an empty one does not",
+          "[widget][tooltip]") {
+    // AddLine was a name in the method list and nothing else, so every tooltip
+    // in the interface was shown, positioned, sized — and empty. A tooltip is
+    // also a frame, and a frame paints nothing on its own, so having lines has
+    // to be what makes it draw.
+    WidgetTree tree;
+    const uint32_t tip = tree.create(WidgetKind::Frame, tree.root(), "Tip");
+    Widget* w = tree.get(tip);
+    w->isTooltip = true;
+    w->width = 120.0f;
+    w->height = 40.0f;
+    tree.addPoint(tip, Anchor{"CENTER", 0, "CENTER", 0.0f, 0.0f});
+
+    tree.layout(1024.0f, 768.0f);
+    bool drawn = false;
+    for (const Widget* d : tree.drawOrder()) if (d->id == tip) drawn = true;
+    REQUIRE_FALSE(drawn);
+
+    w->tooltipLines.push_back({"Thunderfury", "", {1,1,1,1}, {1,1,1,1}});
+    tree.layout(1024.0f, 768.0f);
+    for (const Widget* d : tree.drawOrder()) if (d->id == tip) drawn = true;
+    REQUIRE(drawn);
+}

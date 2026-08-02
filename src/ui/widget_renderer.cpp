@@ -100,6 +100,36 @@ VkDescriptorSet WidgetRenderer::texture(const std::string& path, bool add) {
 }
 
 
+void WidgetRenderer::sizeTooltips(WidgetTree& tree) {
+    ImFont* font = interfaceFace("frizqt__");
+    if (!font) font = ImGui::GetFont();
+    if (!font) return;
+
+    for (size_t id = 1; id < tree.size(); ++id) {
+        Widget* w = tree.get(static_cast<uint32_t>(id));
+        if (!w || !w->isTooltip) continue;
+        if (w->tooltipLines.empty()) continue;
+
+        const float size = (w->fontHeight > 0.0f) ? w->fontHeight : 12.0f;
+        const float lineH = size * 1.2f;
+        // Ten units of padding a side, which is what the tooltip backdrop's
+        // own insets come to.
+        constexpr float kPad = 10.0f;
+        float widest = 0.0f;
+        for (const auto& line : w->tooltipLines) {
+            float wide = font->CalcTextSizeA(size, FLT_MAX, 0.0f, line.left.c_str()).x;
+            if (!line.right.empty()) {
+                // Left and right text share a line with a gap between them.
+                wide += 20.0f +
+                        font->CalcTextSizeA(size, FLT_MAX, 0.0f, line.right.c_str()).x;
+            }
+            if (wide > widest) widest = wide;
+        }
+        w->width  = widest + kPad * 2.0f;
+        w->height = lineH * static_cast<float>(w->tooltipLines.size()) + kPad * 2.0f;
+    }
+}
+
 void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
                                   float x0, float y0, float x1, float y1) {
     // Background sits inside the insets, which is what keeps it from showing
@@ -243,6 +273,13 @@ void WidgetRenderer::drawCooldown(ImDrawList* dl, const Widget& w,
 }
 
 void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
+    // A tooltip has no size of its own until it has something to say, and WoW
+    // sizes it to its lines. Done before layout, because everything anchored
+    // to the tooltip is placed from the rect this produces — and with the real
+    // font, since guessing at a character width puts the border in the wrong
+    // place on every line.
+    sizeTooltips(tree);
+
     tree.layout(screenW, screenH);
     const auto& order = tree.drawOrder();
     if (order.empty()) return;
@@ -521,6 +558,31 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             if (w->isStatusBar) drawStatusBar(dl, *w, x0, y0, x1, y1);
             if (w->isSlider) drawSlider(dl, *w, x0, y0, x1, y1);
             if (w->isCooldown) drawCooldown(dl, *w, x0, y0, x1, y1);
+            // A tooltip reads downward from the top, which is the other way
+            // round from chat.
+            if (w->isTooltip && !w->tooltipLines.empty()) {
+                ImFont* font = interfaceFace(w->fontFace);
+                if (!font) font = interfaceFace("frizqt__");
+                if (!font) font = ImGui::GetFont();
+                const float size = ((w->fontHeight > 0.0f) ? w->fontHeight : 12.0f) * s;
+                const float lineH = size * 1.2f;
+                const float pad = 10.0f * s;
+                float y = y0 + pad;
+                for (const auto& line : w->tooltipLines) {
+                    float lc[4] = {line.lc[0], line.lc[1], line.lc[2], line.lc[3]};
+                    dl->AddText(font, size, ImVec2(x0 + pad, y),
+                                packColor(lc, w->alpha), line.left.c_str());
+                    if (!line.right.empty()) {
+                        float rc[4] = {line.rc[0], line.rc[1], line.rc[2], line.rc[3]};
+                        const float rw = font->CalcTextSizeA(size, FLT_MAX, 0.0f,
+                                                             line.right.c_str()).x;
+                        dl->AddText(font, size, ImVec2(x1 - pad - rw, y),
+                                    packColor(rc, w->alpha), line.right.c_str());
+                    }
+                    y += lineH;
+                }
+            }
+
             // Chat and its kind: the newest line sits at the bottom and the
             // older ones stack upward, as many as the frame is tall enough to
             // hold. Scrolling moves the window back through the history

@@ -690,6 +690,53 @@ int lua_MessageFrame_AddMessage(lua_State* L) {
     if (w->messageScroll > 0) ++w->messageScroll;
     return 0;
 }
+// ── Tooltips ───────────────────────────────────────────────────────────────
+//
+// AddLine was a name in the method list and nothing else, so every tooltip in
+// the interface was empty: the frame was shown, positioned and sized, and had
+// nothing in it.
+int lua_Tooltip_AddLine(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    wowee::ui::Widget::TooltipLine line;
+    line.left = luaL_optstring(L, 2, "");
+    line.lc[0] = static_cast<float>(luaL_optnumber(L, 3, 1.0));
+    line.lc[1] = static_cast<float>(luaL_optnumber(L, 4, 1.0));
+    line.lc[2] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
+    line.lc[3] = 1.0f;
+    line.rc[0] = line.rc[1] = line.rc[2] = line.rc[3] = 1.0f;
+    w->isTooltip = true;
+    w->tooltipLines.push_back(std::move(line));
+    return 0;
+}
+int lua_Tooltip_AddDoubleLine(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    wowee::ui::Widget::TooltipLine line;
+    line.left  = luaL_optstring(L, 2, "");
+    line.right = luaL_optstring(L, 3, "");
+    line.lc[0] = static_cast<float>(luaL_optnumber(L, 4, 1.0));
+    line.lc[1] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
+    line.lc[2] = static_cast<float>(luaL_optnumber(L, 6, 1.0));
+    line.lc[3] = 1.0f;
+    line.rc[0] = static_cast<float>(luaL_optnumber(L, 7, 1.0));
+    line.rc[1] = static_cast<float>(luaL_optnumber(L, 8, 1.0));
+    line.rc[2] = static_cast<float>(luaL_optnumber(L, 9, 1.0));
+    line.rc[3] = 1.0f;
+    w->isTooltip = true;
+    w->tooltipLines.push_back(std::move(line));
+    return 0;
+}
+int lua_Tooltip_ClearLines(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->tooltipLines.clear();
+    return 0;
+}
+int lua_Tooltip_NumLines(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? static_cast<lua_Number>(w->tooltipLines.size()) : 0.0);
+    return 1;
+}
+
 int lua_MessageFrame_Clear(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) { w->messages.clear(); w->messageScroll = 0; }
     return 0;
@@ -1943,6 +1990,10 @@ void LuaEngine::registerCoreAPI() {
         {"GetFrameLevel",   lua_Frame_GetFrameLevel},
         {"GetNumPoints",    lua_Region_GetNumPoints},
         {"AddMessage",      lua_MessageFrame_AddMessage},
+        {"AddLine",         lua_Tooltip_AddLine},
+        {"AddDoubleLine",   lua_Tooltip_AddDoubleLine},
+        {"ClearLines",      lua_Tooltip_ClearLines},
+        {"NumLines",        lua_Tooltip_NumLines},
         {"Clear",           lua_MessageFrame_Clear},
         {"GetNumMessages",  lua_MessageFrame_GetNumMessages},
         {"SetMaxLines",     lua_MessageFrame_SetMaxLines},
