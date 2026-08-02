@@ -364,12 +364,26 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     // reading a screenshot for whether a frame is present, hidden, or laid out
     // to nothing — three failures that look identical from outside and quite
     // different here. Late enough that textures have had time to upload.
-    static bool reported = false;
-    if (!reported && framesSeen > 120) {
-        reported = true;
+    //
+    // Twice: once when the interface has finished loading, and again once the
+    // player is in the world. Those are two different pictures, because
+    // FrameXML repositions and hides frames from PLAYER_ENTERING_WORLD — at
+    // load every frame is still where its XML put it. Reading a load-time
+    // report as though it described the running game cost several rounds of
+    // chasing a durability frame that had already been moved by the time
+    // anyone could see it.
+    static int passesDone = 0;
+    static int worldFrame = 0;
+    if (worldFrame == 0 && frameXmlWorldEntered()) worldFrame = framesSeen;
+    const bool loadPass  = (passesDone == 0 && framesSeen > 120);
+    const bool worldPass = (passesDone == 1 && worldFrame != 0 &&
+                            framesSeen > worldFrame + 120);
+    if (loadPass || worldPass) {
+        ++passesDone;
+        const char* when = loadPass ? "at load" : "in world";
         const std::vector<std::string> wanted = frameXmlCheckFrames();
         if (!wanted.empty()) {
-            LOG_WARNING("FrameXML takeover check, on ", screenW, "x", screenH,
+            LOG_WARNING("FrameXML takeover check ", when, ", on ", screenW, "x", screenH,
                         " px (scale ", s, "):");
             // Anything that landed off the screen, whoever it belongs to.
             //

@@ -68,4 +68,14 @@ std::string_view uiElementName(UiElement element);
 /// can be one block of log rather than an inspection.
 std::vector<std::string> frameXmlCheckFrames();
 
+/// Note that the player has entered the world, and whether that has happened.
+///
+/// FrameXML does most of its arranging from PLAYER_ENTERING_WORLD: frames are
+/// hidden, repositioned and filled with data that does not exist before then.
+/// A diagnostic taken at load therefore describes a layout nobody ever sees,
+/// which is worse than none — it looks like an answer. This is how the
+/// diagnostics know to wait for the state being asked about.
+void frameXmlNoteWorldEntry();
+bool frameXmlWorldEntered();
+
 } // namespace wowee::ui

@@ -3,6 +3,7 @@
 #include "core/logger.hpp"
 
 #include <array>
+#include <atomic>
 #include <cstdlib>
 #include <set>
 #include <string>
@@ -148,6 +149,14 @@ bool frameXmlOwns(UiElement element) {
     }
     return false;
 }
+
+namespace {
+/// Written from the packet thread and read from the render thread.
+std::atomic<bool> gWorldEntered{false};
+} // namespace
+
+void frameXmlNoteWorldEntry() { gWorldEntered.store(true, std::memory_order_relaxed); }
+bool frameXmlWorldEntered() { return gWorldEntered.load(std::memory_order_relaxed); }
 
 std::vector<std::string> frameXmlCheckFrames() {
     // One row per element: what has to exist for it to have arrived. Chosen as

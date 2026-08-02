@@ -16,6 +16,7 @@
 #include "game/opcodes.hpp"
 #include "game/update_field_table.hpp"
 #include "game/expansion_profile.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "rendering/renderer.hpp"
 #include "rendering/camera_controller.hpp"
 #include "rendering/post_process_pipeline.hpp"
@@ -919,6 +920,9 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
     // Fires on initial login, teleports, instance transitions, and zone changes.
     if (addonEventCallback_) {
         fireAddonEvent("PLAYER_ENTERING_WORLD", {initialWorldEntry ? "1" : "0"});
+        // FrameXML arranges itself from this event, so the interface diagnostics
+        // wait for it rather than describing a layout nobody ever sees.
+        ui::frameXmlNoteWorldEntry();
         // Also fire ZONE_CHANGED_NEW_AREA and UPDATE_WORLD_STATES so map/BG addons refresh
         fireAddonEvent("ZONE_CHANGED_NEW_AREA", {});
         fireAddonEvent("UPDATE_WORLD_STATES", {});
