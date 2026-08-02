@@ -534,6 +534,36 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 }
             }
 
+            // Two visible labels sitting on top of each other.
+            //
+            // Catches a pair the text scan cannot: one still showing its XML
+            // placeholder while the other has the real value reads as two
+            // different strings, and by name they may share nothing at all.
+            {
+                std::vector<const Widget*> labels;
+                for (size_t id = 1; id < tree.size(); ++id) {
+                    const Widget* w = tree.get(static_cast<uint32_t>(id));
+                    if (!w || !w->visible || w->kind != WidgetKind::FontString) continue;
+                    if (w->text.empty() || w->rectW <= 0.0f || w->rectH <= 0.0f) continue;
+                    labels.push_back(w);
+                }
+                int overlaps = 0;
+                for (size_t i = 0; i < labels.size() && overlaps < 8; ++i) {
+                    for (size_t j = i + 1; j < labels.size() && overlaps < 8; ++j) {
+                        const Widget* a = labels[i];
+                        const Widget* b = labels[j];
+                        if (a->left + a->rectW <= b->left || b->left + b->rectW <= a->left) continue;
+                        if (a->bottom + a->rectH <= b->bottom || b->bottom + b->rectH <= a->bottom) continue;
+                        ++overlaps;
+                        LOG_WARNING("  OVERLAPPING LABELS ",
+                                    a->name.empty() ? "(unnamed)" : a->name.c_str(),
+                                    " \"", a->text, "\" over ",
+                                    b->name.empty() ? "(unnamed)" : b->name.c_str(),
+                                    " \"", b->text, "\" at (", a->left, ",", a->bottom, ")");
+                    }
+                }
+            }
+
             int orphans = 0;
             for (size_t id = 1; id < tree.size(); ++id) {
                 const Widget* w = tree.get(static_cast<uint32_t>(id));
