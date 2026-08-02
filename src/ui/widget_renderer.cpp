@@ -453,7 +453,7 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                           std::to_string(w->barMax) + "]" +
                           (w->barTexture.empty()
                                ? std::string(" NOBARTEXTURE")
-                               : (resident(w->barTexture) == kMissing
+                               : (w->visible && resident(w->barTexture) == kMissing
                                       ? " BARTEXNOTRESIDENT" : ""));
                 }
                 // Whether it can be clicked at all, which is a different
@@ -477,8 +477,14 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                             // interface set — so the report has to say which
                             // of the two is on screen.
                             (w->externalTexture != 0 ? " LIVE" : ""),
-                            (w->kind == WidgetKind::Texture && w->externalTexture == 0 &&
-                             !w->texturePath.empty() &&
+                            // Only worth saying of something being drawn.
+                            // Textures upload when first drawn, so anything
+                            // hidden reports missing art whether or not the
+                            // file exists — which reads as a fault and is not
+                            // one. Twice now that has sent someone looking for
+                            // a .blp that was on disk all along.
+                            (w->visible && w->kind == WidgetKind::Texture &&
+                             w->externalTexture == 0 && !w->texturePath.empty() &&
                              resident(w->texturePath, w->blendAdd) == kMissing
                                  ? " NOTRESIDENT" : ""),
                             (w->texturePath.empty() ? "" : " tex="), w->texturePath);
