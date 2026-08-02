@@ -3182,8 +3182,14 @@ void Renderer::renderShadowPass() {
     ZoneScopedN("Renderer::renderShadowPass");
     static const bool skipShadows = (std::getenv("WOWEE_SKIP_SHADOWS") != nullptr);
     if (skipShadows) return;
-    if (!shadowsEnabled || shadowDepthImage[0] == VK_NULL_HANDLE) return;
+    if (shadowDepthImage[0] == VK_NULL_HANDLE) return;
     if (currentCmd == VK_NULL_HANDLE) return;
+    // Shadows off still runs the pass, and the pass still clears the map and
+    // leaves it in the layout its readers expect — it simply draws nothing
+    // into it. Returning here instead left the image untransitioned while it
+    // stayed bound for sampling, which is the shape of fault that takes the
+    // device down rather than drawing something wrong.
+    const bool drawCasters = shadowsEnabled;
 
     // Shadows render every frame — throttling causes visible flicker on player/NPCs
 
@@ -3232,6 +3238,9 @@ void Renderer::renderShadowPass() {
 
     // Phase 7/8: render shadow casters
     const float shadowCullRadius = shadowDistance_ * 1.35f;
+    // With shadows off the pass still begins and ends, so the map is cleared
+    // and left where its readers expect it; only the casters are skipped.
+    if (drawCasters) {
     if (terrainRenderer) {
         terrainRenderer->renderShadow(currentCmd, lightSpaceMatrix, shadowCenter, shadowCullRadius);
     }
@@ -3244,6 +3253,7 @@ void Renderer::renderShadowPass() {
     if (characterRenderer) {
         characterRenderer->renderShadow(currentCmd, lightSpaceMatrix, shadowCenter, shadowCullRadius);
     }
+    }  // drawCasters
 
     vkCmdEndRenderPass(currentCmd);
 
@@ -3309,7 +3319,15 @@ void Renderer::buildFrameGraph(game::GameHandler* gameHandler) {
             if (shadowsEnabled && shadowDepthImage[0] != VK_NULL_HANDLE)
                 renderShadowPass();
         });
-    renderGraph_->setPassEnabled("shadow_pass", shadowsEnabled && shadowDepthImage[0] != VK_NULL_HANDLE);
+    // Left enabled even with shadows off, as long as the image exists.
+    //
+    // A disabled pass is skipped whole, and that includes the image barriers
+    // declared on it — so turning shadows off stopped the shadow map ever
+    // being transitioned, while the passes that read it kept it bound and
+    // sampled it in whatever layout it was last left in. The lambda above
+    // already declines to draw anything; what has to keep happening is the
+    // transition.
+    renderGraph_->setPassEnabled("shadow_pass", shadowDepthImage[0] != VK_NULL_HANDLE);
 
     // Reflection pre-pass → outputs reflection_texture (reads scene, so after shadow)
     renderGraph_->addPass("reflection_pass", {shadowDepth}, {reflTex},
