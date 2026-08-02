@@ -94,6 +94,11 @@ struct Widget {
     /// registers for drag without being movable — dragging it picks the item up
     /// instead of moving the button.
     bool movable = false;
+    /// Whether dragging is stopped at the screen edge. FrameXML declares it on
+    /// 33 frames and addons set it on nearly every window they let the player
+    /// move; without it a window dragged past the edge is gone for good, since
+    /// the only way back is a drag on a title bar that is no longer reachable.
+    bool clampedToScreen = false;
     bool dragLeft = false;
     bool dragRight = false;
     /// Whether a drag put this frame where it is. The single anchor a move

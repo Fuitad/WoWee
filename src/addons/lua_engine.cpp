@@ -1607,6 +1607,16 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
 
 // ── Backdrop and StatusBar ──────────────────────────────────────────────────
 
+int lua_Frame_SetClampedToScreen(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->clampedToScreen = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+int lua_Frame_IsClampedToScreen(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushboolean(L, w && w->clampedToScreen);
+    return 1;
+}
+
 int lua_Frame_SetBackdrop(lua_State* L) {
     auto* w = widgetOf(L, 1);
     if (!w) return 0;
@@ -2504,6 +2514,8 @@ void LuaEngine::registerCoreAPI() {
         {"GetAlpha",        lua_Region_GetAlpha},
         {"EnableMouse",     lua_Frame_EnableMouse},
         {"IsMouseEnabled",  lua_Frame_IsMouseEnabled},
+        {"SetClampedToScreen",    lua_Frame_SetClampedToScreen},
+        {"IsClampedToScreen",     lua_Frame_IsClampedToScreen},
         {"SetBackdrop",           lua_Frame_SetBackdrop},
         {"SetBackdropColor",      lua_Frame_SetBackdropColor},
         {"SetBackdropBorderColor",lua_Frame_SetBackdropBorderColor},
@@ -2567,7 +2579,6 @@ void LuaEngine::registerCoreAPI() {
         "    __WoweeSetWheelEnabled(self, enable ~= false)\n"
         "end\n"
         "function mt:SetResizable(resizable) end\n"
-        "function mt:SetClampedToScreen(clamped) end\n"
         "function mt:SetID(id) self.__id = id end\n"
         "function mt:GetID() return self.__id or 0 end\n"
         "function mt:SetScale(scale) self.__scale = scale end\n"

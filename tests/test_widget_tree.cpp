@@ -1200,3 +1200,81 @@ TEST_CASE("A moved frame gives way when the interface positions it again",
     tree.addPoint(bag, Anchor{"TOPLEFT", 0, "TOPLEFT", 5.0f, -5.0f});
     REQUIRE(tree.get(bag)->anchors.size() == 2u);
 }
+
+TEST_CASE("A clamped frame stops at the screen edge", "[widget][layout]") {
+    WidgetTree tree;
+    const uint32_t f = tree.create(WidgetKind::Frame, tree.root(), "Clamped");
+    tree.setWidth(f, 200.0f);
+    tree.setHeight(f, 100.0f);
+    Anchor a; a.point = "BOTTOMLEFT"; a.relativePoint = "BOTTOMLEFT";
+    a.x = 10.0f; a.y = 10.0f;
+    tree.addPoint(f, a);
+    tree.get(f)->clampedToScreen = true;
+    tree.layout(kScreenW, kScreenH);
+
+    // Dragged hard toward the bottom-left: it stops at the corner rather than
+    // leaving the screen.
+    tree.nudge(f, -500.0f, -500.0f);
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(f)->left == Catch::Approx(0.0f));
+    REQUIRE(tree.get(f)->bottom == Catch::Approx(0.0f));
+
+    // And toward the top-right, where the limit is the far edge less its size.
+    tree.nudge(f, 5000.0f, 5000.0f);
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(f)->left == Catch::Approx(kScreenW - 200.0f));
+    REQUIRE(tree.get(f)->bottom == Catch::Approx(kScreenH - 100.0f));
+}
+
+TEST_CASE("An unclamped frame is free to leave the screen", "[widget][layout]") {
+    WidgetTree tree;
+    const uint32_t f = tree.create(WidgetKind::Frame, tree.root(), "Free");
+    tree.setWidth(f, 200.0f);
+    tree.setHeight(f, 100.0f);
+    Anchor a; a.point = "BOTTOMLEFT"; a.relativePoint = "BOTTOMLEFT";
+    a.x = 10.0f; a.y = 10.0f;
+    tree.addPoint(f, a);
+    tree.layout(kScreenW, kScreenH);
+
+    tree.nudge(f, -500.0f, 0.0f);
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(f)->left == Catch::Approx(-490.0f));
+}
+
+TEST_CASE("A clamped frame already off-screen can be brought back",
+          "[widget][layout]") {
+    // Saved positions from a larger resolution land frames outside; pinning
+    // them where they are would make them unrecoverable, which is the very
+    // thing clamping exists to prevent.
+    WidgetTree tree;
+    const uint32_t f = tree.create(WidgetKind::Frame, tree.root(), "Stranded");
+    tree.setWidth(f, 200.0f);
+    tree.setHeight(f, 100.0f);
+    Anchor a; a.point = "BOTTOMLEFT"; a.relativePoint = "BOTTOMLEFT";
+    a.x = -300.0f; a.y = 10.0f;
+    tree.addPoint(f, a);
+    tree.get(f)->clampedToScreen = true;
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(f)->left == Catch::Approx(-300.0f));
+
+    tree.nudge(f, 50.0f, 0.0f);
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(f)->left == Catch::Approx(0.0f));
+}
+
+TEST_CASE("A frame wider than the screen is not snapped to a nonsense edge",
+          "[widget][layout]") {
+    WidgetTree tree;
+    const uint32_t f = tree.create(WidgetKind::Frame, tree.root(), "Huge");
+    tree.setWidth(f, kScreenW + 400.0f);
+    tree.setHeight(f, 100.0f);
+    Anchor a; a.point = "BOTTOMLEFT"; a.relativePoint = "BOTTOMLEFT";
+    a.x = -100.0f; a.y = 10.0f;
+    tree.addPoint(f, a);
+    tree.get(f)->clampedToScreen = true;
+    tree.layout(kScreenW, kScreenH);
+
+    tree.nudge(f, -50.0f, 0.0f);
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(f)->left == Catch::Approx(-150.0f));  // moved, not pinned
+}

@@ -607,6 +607,10 @@ struct Emitter {
         if (const std::string* a = node.attr("alpha")) {
             line(var + ":SetAlpha(" + *a + ")");
         }
+        if (node.attr("clampedToScreen")) {
+            line(var + ":SetClampedToScreen(" +
+                 (node.attrBool("clampedToScreen") ? "true" : "false") + ")");
+        }
         // <Backdrop> — the bordered panel look. The pieces are already there:
         // SetBackdrop parses the table, the widget carries the fields and the
         // renderer draws the nine slices. Only this step was missing, so every

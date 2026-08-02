@@ -172,6 +172,29 @@ void WidgetTree::pinToCurrentPosition(uint32_t id) {
 void WidgetTree::nudge(uint32_t id, float dx, float dy) {
     Widget* w = get(id);
     if (!w) return;
+    // A clamped frame stops at the screen edge. The rect used is the one the
+    // last layout produced, which is a frame behind the cursor and close
+    // enough — the alternative is re-solving the whole tree per mouse move.
+    //
+    // A frame already outside is pulled back rather than pinned where it is:
+    // that is what lets one recover, and it is what WoW does when a clamped
+    // frame is restored from saved variables at a smaller resolution.
+    if (w->clampedToScreen && w->rectW > 0.0f && w->rectH > 0.0f) {
+        if (const Widget* screen = get(rootId_)) {
+            const float loX = screen->left;
+            const float hiX = screen->left + screen->rectW - w->rectW;
+            const float loY = screen->bottom;
+            const float hiY = screen->bottom + screen->rectH - w->rectH;
+            // A frame larger than the screen has no valid range; leave that
+            // axis alone rather than snapping it to a nonsense edge.
+            if (hiX >= loX) {
+                dx = std::clamp(w->left + dx, loX, hiX) - w->left;
+            }
+            if (hiY >= loY) {
+                dy = std::clamp(w->bottom + dy, loY, hiY) - w->bottom;
+            }
+        }
+    }
     for (Anchor& a : w->anchors) { a.x += dx; a.y += dy; }
 }
 
