@@ -71,11 +71,15 @@ void UnitPortrait::update(game::GameHandler& gameHandler,
         const uint8_t hairStyle = (self->appearanceBytes >> 16) & 0xFF;
         const uint8_t hairColor = (self->appearanceBytes >> 24) & 0xFF;
 
+        // Declared before the model loads, so the racial backdrop is never
+        // built in the first place.
+        preview_->setTransparentBackground(true);
         if (preview_->loadCharacter(self->race, self->gender, skin, face,
                                     hairStyle, hairColor, self->facialFeatures,
                                     self->useFemaleModel)) {
             preview_->applyEquipment(self->equipment);
-            preview_->setTransparentBackground(true);
+            // After the model, because its bounds are what the face is framed
+            // against.
             preview_->setPortraitFraming();
         }
         // Logged because a portrait that rebuilds every frame looks like one

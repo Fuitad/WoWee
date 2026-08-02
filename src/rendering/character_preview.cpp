@@ -1207,6 +1207,11 @@ void CharacterPreview::attachWeaponEnchantVisual(uint32_t attachmentId, uint32_t
 }
 
 void CharacterPreview::loadRacialBackdrop(game::Race race) {
+    // Nothing to stand in front of when the background is meant to show
+    // through. Skipped here rather than removed afterwards, so a portrait does
+    // not read and build a scene on every rebuild only to discard it.
+    if (transparentBackground_) return;
+
     if (!charRenderer_ || !assetManager_) return;
     if (backdropRace_ == static_cast<int>(race) && backdropInstanceId_ != 0) {
         // Appearance changes recreate the character instance but keep the racial

@@ -1051,6 +1051,12 @@ void Application::shutdown() {
         }
     }
 
+    // The portrait's offscreen view holds Vulkan resources and is registered
+    // with the renderer, so it has to let go before the renderer does. Left to
+    // member destruction order it would free images against a device that has
+    // already gone.
+    unitPortrait_.shutdown(renderer.get());
+
     // Explicitly shut down the renderer before destroying it — this ensures
     // all sub-renderers free their VMA allocations in the correct order,
     // before VkContext::shutdown() calls vmaDestroyAllocator().
