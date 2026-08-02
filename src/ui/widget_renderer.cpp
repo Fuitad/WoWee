@@ -430,11 +430,21 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 continue;
             }
             if (w->texturePath.empty()) continue;
-            // Only what is already resident. Anything still queued draws on a
-            // later frame rather than forcing an upload here.
-            auto it = textures_.find(w->texturePath);
-            if (it == textures_.end() || it->second == kMissing) continue;
-            VkDescriptorSet tex = it->second;
+            VkDescriptorSet tex = VK_NULL_HANDLE;
+            if (w->externalTexture != 0) {
+                // Supplied by the client, and only valid for as long as it says
+                // so — a portrait's render target is recreated when the window
+                // resizes, and the widget is told each frame rather than
+                // holding a handle of its own.
+                tex = reinterpret_cast<VkDescriptorSet>(w->externalTexture);
+            } else {
+                // Only what is already resident. Anything still queued draws on
+                // a later frame rather than forcing an upload here.
+                auto it = textures_.find(w->texturePath);
+                if (it == textures_.end() || it->second == kMissing) continue;
+                tex = it->second;
+            }
+            if (tex == VK_NULL_HANDLE) continue;
             // SetTexCoord is left/right/top/bottom in WoW's own order, and its
             // vertical sense already matches the image, so it passes through.
             dl->AddImage(reinterpret_cast<ImTextureID>(tex),

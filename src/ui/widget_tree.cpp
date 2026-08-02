@@ -237,7 +237,8 @@ void WidgetTree::collectDrawOrder() {
         // paints underneath its own regions because they sit a level above it.
         if (w.kind == WidgetKind::Frame && !w.hasBackdrop && !w.isStatusBar) continue;
         if (w.rectW <= 0.0f || w.rectH <= 0.0f) continue;
-        if (w.kind == WidgetKind::Texture && w.texturePath.empty() && !w.solidColor) continue;
+        if (w.kind == WidgetKind::Texture && w.texturePath.empty() &&
+            !w.solidColor && w.externalTexture == 0) continue;
         if (w.kind == WidgetKind::Frame && w.isStatusBar && w.barTexture.empty() &&
             !w.hasBackdrop) continue;
         if (w.kind == WidgetKind::FontString && w.text.empty()) continue;

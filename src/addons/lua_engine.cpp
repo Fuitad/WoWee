@@ -1978,7 +1978,22 @@ void LuaEngine::registerCoreAPI() {
     // Noop stubs for commonly called functions that don't need implementation
     bootstrap(
         "function SetDesaturation() end\n"
-        "function SetPortraitTexture() end\n"
+        // A class circle rather than the 3D portrait the real client renders,
+        // which needs a model rendered to a texture. The coordinates come from
+        // FrameXML's own CLASS_ICON_TCOORDS, read when called so it does not
+        // matter that this is defined before that table exists.
+        "function SetPortraitTexture(texture, unit)\n"
+        "    if type(texture) ~= 'table' then return end\n"
+        "    local _, class = UnitClass(unit or 'player')\n"
+        "    local coords = class and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[class]\n"
+        "    if coords then\n"
+        "        texture:SetTexture('Interface\\\\TargetingFrame\\\\UI-Classes-Circles')\n"
+        "        texture:SetTexCoord(coords[1], coords[2], coords[3], coords[4])\n"
+        "    else\n"
+        "        texture:SetTexture('Interface\\\\CharacterFrame\\\\TempPortrait')\n"
+        "        texture:SetTexCoord(0, 1, 0, 1)\n"
+        "    end\n"
+        "end\n"
         "function StopSound() end\n"
         "function UIParent_OnEvent() end\n"
         // Filling the screen, not sitting at a point on it. The widget tree's

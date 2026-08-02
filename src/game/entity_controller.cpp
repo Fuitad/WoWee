@@ -765,8 +765,18 @@ bool EntityController::applyUnitFieldsOnCreate(const UpdateBlock& block,
         // and maxPower indices (29-33) are adjacent to level (34) and faction (35).
         // A range check like "key >= powerBase && key < powerBase+7" would
         // incorrectly capture maxHealth/level/faction in Classic's tight layout.
+        // The events FrameXML's unit frames update on. Each carries the unit id
+        // as its first argument, which is how a frame knows whether the change
+        // was to the unit it is showing.
+        auto emitForUnit = [&](const char* event) {
+            if (!owner_.addonEventCallbackRef()) return;
+            const auto uid = owner_.guidToUnitId(block.guid);
+            if (!uid.empty()) pendingEvents_.emit(event, {uid});
+        };
+
         if (key == ufi.health) {
             unit->setHealth(val);
+            emitForUnit("UNIT_HEALTH");
             if ((block.objectType == ObjectType::UNIT ||
                  block.objectType == ObjectType::PLAYER) && val == 0) {
                 unitInitiallyDead = true;
@@ -775,9 +785,13 @@ bool EntityController::applyUnitFieldsOnCreate(const UpdateBlock& block,
                 owner_.playerDeadRef() = true;
                 LOG_INFO("Player logged in dead");
             }
-        } else if (key == ufi.maxHealth) { unit->setMaxHealth(val); }
+        } else if (key == ufi.maxHealth) {
+            unit->setMaxHealth(val);
+            emitForUnit("UNIT_MAXHEALTH");
+        }
         else if (key == ufi.level) {
             unit->setLevel(val);
+            emitForUnit("UNIT_LEVEL");
         } else if (key == ufi.faction) {
             unit->setFactionTemplate(val);
             if (owner_.addonEventCallbackRef()) {
@@ -799,6 +813,8 @@ bool EntityController::applyUnitFieldsOnCreate(const UpdateBlock& block,
         }
         else if (key == ufi.bytes0) {
             unit->setPowerType(static_cast<uint8_t>((val >> 24) & 0xFF));
+            // Which bar to show at all — a druid shifting form changes it.
+            emitForUnit("UNIT_DISPLAYPOWER");
         } else if (key == ufi.displayId) {
             unit->setDisplayId(val);
             if (owner_.addonEventCallbackRef()) {
@@ -819,9 +835,25 @@ bool EntityController::applyUnitFieldsOnCreate(const UpdateBlock& block,
         }
         // Power/maxpower range checks AFTER all specific fields
         else if (key >= ufi.powerBase && key < ufi.powerBase + 7) {
-            unit->setPowerByType(static_cast<uint8_t>(key - ufi.powerBase), val);
+            const auto powerType = static_cast<uint8_t>(key - ufi.powerBase);
+            unit->setPowerByType(powerType, val);
+            // Named per power rather than one event: FrameXML registers only
+            // the one its bar shows, so a rogue's frame is not woken by every
+            // mana tick in the party.
+            static const char* kPowerEvents[7] = {
+                "UNIT_MANA", "UNIT_RAGE", "UNIT_FOCUS", "UNIT_ENERGY",
+                "UNIT_HAPPINESS", "UNIT_RUNIC_POWER", "UNIT_RUNIC_POWER"
+            };
+            if (powerType < 7) emitForUnit(kPowerEvents[powerType]);
         } else if (key >= ufi.maxPowerBase && key < ufi.maxPowerBase + 7) {
             unit->setMaxPowerByType(static_cast<uint8_t>(key - ufi.maxPowerBase), val);
+            // The maximum a bar is scaled against, which FrameXML redraws on.
+            static const char* kMaxPowerEvents[7] = {
+                "UNIT_MAXMANA", "UNIT_MAXRAGE", "UNIT_MAXFOCUS", "UNIT_MAXENERGY",
+                "UNIT_MAXHAPPINESS", "UNIT_MAXRUNIC_POWER", "UNIT_MAXRUNIC_POWER"
+            };
+            if (const auto t = static_cast<uint8_t>(key - ufi.maxPowerBase); t < 7)
+                emitForUnit(kMaxPowerEvents[t]);
         }
         else if (key == ufi.mountDisplayId) {
             if (block.guid == owner_.getPlayerGuid()) {

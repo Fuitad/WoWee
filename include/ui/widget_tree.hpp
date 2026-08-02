@@ -144,6 +144,11 @@ struct Widget {
     // FontString regions.
     std::string text;
     float fontHeight = 12.0f;
+    /// A texture the client renders rather than one read from a file — a unit
+    /// portrait is a live view of the character, not an image on disk. Zero
+    /// means the path above is used instead.
+    uint64_t externalTexture = 0;
+
     /// The typeface a font object named, as it wrote it. Empty means
     /// whatever the renderer is already using.
     std::string fontFace;
