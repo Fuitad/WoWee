@@ -270,10 +270,19 @@ void GameHandler::registerOpcodeHandlers() {
             mirrorTimers_[type].paused    = (paused != 0);
             mirrorTimers_[type].active    = true;
             mirrorTimers_[type].pendingMs = 0.0f;  // server re-sync; drop the local carry
-                            fireAddonEvent("MIRROR_TIMER_START", {
-                    std::to_string(type), std::to_string(value),
+            // The interface names its timers rather than numbering them, and
+            // wants a label to draw beside the bar: MirrorTimer_Show(timer,
+            // value, maxvalue, scale, paused, label). Sending the type as a
+            // number and omitting the label left it matching no timer and
+            // dividing a nil.
+            static const char* kMirrorTimers[3] = {"FATIGUE", "BREATH", "FEIGNDEATH"};
+            static const char* kMirrorLabels[3] = {"Fatigue", "Breath", "Feign Death"};
+            const char* timerName = (type < 3) ? kMirrorTimers[type] : "BREATH";
+            const char* timerLabel = (type < 3) ? kMirrorLabels[type] : "Breath";
+            fireAddonEvent("MIRROR_TIMER_START", {
+                    timerName, std::to_string(value),
                     std::to_string(maxV), std::to_string(scale),
-                    paused ? "1" : "0"});
+                    paused ? "1" : "0", timerLabel});
         }
     };
     dispatchTable_[Opcode::SMSG_STOP_MIRROR_TIMER] = [this](network::Packet& packet) {
@@ -282,7 +291,11 @@ void GameHandler::registerOpcodeHandlers() {
         if (type < 3) {
             mirrorTimers_[type].active = false;
             mirrorTimers_[type].value  = 0;
-            fireAddonEvent("MIRROR_TIMER_STOP", {std::to_string(type)});
+            // Named, like the start above: MirrorTimer_Hide matches on the
+            // timer's name, so a number hides nothing.
+            static const char* kStopNames[3] = {"FATIGUE", "BREATH", "FEIGNDEATH"};
+            fireAddonEvent("MIRROR_TIMER_STOP",
+                           {type < 3 ? kStopNames[type] : "BREATH"});
         }
     };
     dispatchTable_[Opcode::SMSG_PAUSE_MIRROR_TIMER] = [this](network::Packet& packet) {
