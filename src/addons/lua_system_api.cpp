@@ -109,6 +109,24 @@ static int lua_GetCVar(lua_State* L) {
     return 1;
 }
 
+/// GetCVarBool(name) → the setting as a boolean.
+///
+/// FrameXML branches on this, and one of those branches decides how a unit
+/// frame's health bar keeps itself current: predictedHealth sends it down an
+/// OnUpdate poll instead of registering UNIT_HEALTH. Unimplemented, the call
+/// answered nil through the fallback and took the event branch by luck — which
+/// is the branch that works here, but only until the fallback is off, when the
+/// same call errors instead.
+static int lua_GetCVarBool(lua_State* L) {
+    lua_pushvalue(L, 1);
+    lua_GetCVar(L);
+    const char* v = lua_tostring(L, -1);
+    const bool on = v && *v && std::string(v) != "0";
+    lua_pop(L, 1);
+    lua_pushboolean(L, on);
+    return 1;
+}
+
 // SetCVar(name, value) — no-op stub
 static int lua_SetCVar(lua_State* L) {
     (void)L;
@@ -891,6 +909,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetPlayerMapPosition", lua_GetPlayerMapPosition},
                 {"GetPlayerFacing",     lua_GetPlayerFacing},
                 {"GetCVar",             lua_GetCVar},
+                {"GetCVarBool",         lua_GetCVarBool},
                 {"SetCVar",             lua_SetCVar},
                 {"GetLocale",         lua_GetLocale},
                 {"GetBuildInfo",      lua_GetBuildInfo},
