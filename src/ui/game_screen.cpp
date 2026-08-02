@@ -555,9 +555,13 @@ void GameScreen::render(game::GameHandler& gameHandler) {
 
     renderWorldMap(gameHandler);
 
-    questLogScreen.render(gameHandler, inventoryScreen);
+    if (!frameXmlOwns(UiElement::QuestLog)) {
+        questLogScreen.render(gameHandler, inventoryScreen);
+    }
 
-    spellbookScreen.render(gameHandler, services_.assetManager);
+    if (!frameXmlOwns(UiElement::Spellbook)) {
+        spellbookScreen.render(gameHandler, services_.assetManager);
+    }
 
     // Insert spell link into chat if player shift-clicked a spellbook entry
     {
@@ -625,7 +629,9 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     }
 
     inventoryScreen.setGameHandler(&gameHandler);
-    inventoryScreen.render(gameHandler.getInventory(), gameHandler.getMoneyCopper());
+    if (!frameXmlOwns(UiElement::Bags)) {
+        inventoryScreen.render(gameHandler.getInventory(), gameHandler.getMoneyCopper());
+    }
 
     // Character screen (C key toggle handled inside render())
     if (!frameXmlOwns(UiElement::CharacterFrame)) {

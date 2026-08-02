@@ -40,6 +40,8 @@
 #include "rendering/m2_renderer.hpp"
 #include "rendering/minimap.hpp"
 #include "rendering/world_map.hpp"
+#include "ui/framexml_takeover.hpp"
+#include "ui/keybinding_manager.hpp"
 #include "rendering/quest_marker_renderer.hpp"
 #include "rendering/footprint_renderer.hpp"
 #include "rendering/loading_screen.hpp"
@@ -3004,6 +3006,31 @@ void Application::render() {
             // where the cursor was. Asking whether a window is under the cursor
             // is the question that was meant.
             const bool overClientUi = ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow);
+
+            // The keys that open what FrameXML now owns.
+            //
+            // Each of this client's panels polls its own keybinding from
+            // inside its own draw, so a panel that is no longer drawn never
+            // sees the key — handing one over made it unopenable. The key has
+            // to reach the replacement instead, which is FrameXML's own toggle
+            // for that panel.
+            {
+                using ui::UiElement;
+                using K = ui::KeybindingManager;
+                struct Route { UiElement element; K::Action action; const char* call; };
+                static const Route kRoutes[] = {
+                    {UiElement::Bags,           K::Action::TOGGLE_BAGS,             "ToggleAllBags()"},
+                    {UiElement::Spellbook,      K::Action::TOGGLE_SPELLBOOK,        "ToggleSpellBook(BOOKTYPE_SPELL)"},
+                    {UiElement::QuestLog,       K::Action::TOGGLE_QUESTS,           "ToggleQuestLog()"},
+                    {UiElement::CharacterFrame, K::Action::TOGGLE_CHARACTER_SCREEN, "ToggleCharacter(\"PaperDollFrame\")"},
+                    {UiElement::WorldMap,       K::Action::TOGGLE_WORLD_MAP,        "ToggleWorldMap()"},
+                };
+                for (const Route& r : kRoutes) {
+                    if (!ui::frameXmlOwns(r.element)) continue;
+                    if (!K::getInstance().isActionPressed(r.action)) continue;
+                    engine->executeString(r.call);
+                }
+            }
 
             // After layout, because the range follows from the rects it just
             // resolved, and before the mouse, so a scroll bar enabled by this
