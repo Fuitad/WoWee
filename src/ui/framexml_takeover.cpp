@@ -56,7 +56,8 @@ const std::set<std::string>& requested() {
         // looked at on its own.
         if (!raw || !*raw) {
             out = {"playerframe", "targetframe", "minimap",
-                   "mainmenubar", "characterframe", "bags", "castbar"};
+                   "mainmenubar", "characterframe", "bags", "castbar",
+                   "spellbook"};
             LOG_WARNING("FrameXML is drawing the branch defaults; "
                         "set WOWEE_FRAMEXML_UI to choose, or 'none' for this "
                         "client's own interface");
@@ -194,7 +195,6 @@ std::vector<std::string> frameXmlCandidateFrames() {
     struct Candidate { UiElement element; const char* frames; };
     static const Candidate kCandidates[] = {
         {UiElement::PetFrame, "PetFrame PetFrameHealthBar PetFrameManaBar"},
-        {UiElement::Spellbook, "SpellBookFrame SpellButton1 SpellBookSkillLineTab1"},
     };
 
     std::vector<std::string> out;
