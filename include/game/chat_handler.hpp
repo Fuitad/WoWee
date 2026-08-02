@@ -38,6 +38,11 @@ public:
     void autoJoinDefaultChannels();
     void addLocalChatMessage(const MessageChatData& msg);
     void addSystemChatMessage(const std::string& message);
+
+    /// Announces a message as CHAT_MSG_<TYPE> with WoW's argument order. Both
+    /// the server path and the local one go through here, because an interface
+    /// cannot tell the difference and should not have to.
+    void fireChatEvent(const MessageChatData& msg);
     void toggleAfk(const std::string& message);
     void toggleDnd(const std::string& message);
     void replyToLastWhisper(const std::string& message);

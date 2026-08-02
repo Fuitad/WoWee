@@ -573,6 +573,11 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
         chatHistory_.erase(chatHistory_.begin());
     }
     logChatMessage(data, "server");
+    // The same event a locally generated message fires. Only that path had it,
+    // so an interface listening for chat heard this client talking to itself
+    // and nothing anyone else said — every whisper, channel, guild and say
+    // from the server arrived in the history and was never announced.
+    fireChatEvent(data);
 
     // Track whisper sender for /r command
     if (data.type == ChatType::WHISPER) {
@@ -883,21 +888,24 @@ void ChatHandler::addLocalChatMessage(const MessageChatData& msg) {
     logChatMessage(msg, "local");
     if (owner_.addonChatCallbackRef()) owner_.addonChatCallbackRef()(msg);
 
-    if (owner_.addonEventCallbackRef()) {
-        std::string eventName = "CHAT_MSG_";
-        eventName += getChatTypeString(msg.type);
-        const Character* ac = owner_.getActiveCharacter();
-        std::string senderName = msg.senderName.empty()
-            ? (ac ? ac->name : std::string{}) : msg.senderName;
-        char guidBuf[32];
-        snprintf(guidBuf, sizeof(guidBuf), "0x%016llX",
-                 (unsigned long long)(msg.senderGuid != 0 ? msg.senderGuid : owner_.getPlayerGuid()));
-        owner_.addonEventCallbackRef()(eventName, {
-            msg.message, senderName,
-            std::to_string(static_cast<int>(msg.language)),
-            msg.channelName, senderName, "", "0", "0", "", "0", "0", guidBuf
-        });
-    }
+    fireChatEvent(msg);
+}
+
+void ChatHandler::fireChatEvent(const MessageChatData& msg) {
+    if (!owner_.addonEventCallbackRef()) return;
+    std::string eventName = "CHAT_MSG_";
+    eventName += getChatTypeString(msg.type);
+    const Character* ac = owner_.getActiveCharacter();
+    std::string senderName = msg.senderName.empty()
+        ? (ac ? ac->name : std::string{}) : msg.senderName;
+    char guidBuf[32];
+    snprintf(guidBuf, sizeof(guidBuf), "0x%016llX",
+             (unsigned long long)(msg.senderGuid != 0 ? msg.senderGuid : owner_.getPlayerGuid()));
+    owner_.addonEventCallbackRef()(eventName, {
+        msg.message, senderName,
+        std::to_string(static_cast<int>(msg.language)),
+        msg.channelName, senderName, "", "0", "0", "", "0", "0", guidBuf
+    });
 }
 
 void ChatHandler::addSystemChatMessage(const std::string& message) {
