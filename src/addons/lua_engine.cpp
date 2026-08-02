@@ -39,6 +39,18 @@ std::set<std::string>& missingApiNames() {
 }
 
 
+/// Log at warning from Lua.
+///
+/// print() goes to chat and to the log at info, and the log carries nothing
+/// below warning — so anything printed for diagnosis is invisible in the one
+/// place it would be read. This is for the interface probe, which had been
+/// producing no output at all for that reason.
+static int lua_wowee_warn(lua_State* L) {
+    const char* msg = lua_tostring(L, 1);
+    LOG_WARNING(msg ? msg : "(nil)");
+    return 0;
+}
+
 static int lua_wow_print(lua_State* L) {
     int nargs = lua_gettop(L);
     std::string result;
@@ -2205,6 +2217,9 @@ void LuaEngine::registerCoreAPI() {
     // Override print() to go to chat
     lua_pushcfunction(L_, lua_wow_print);
     lua_setglobal(L_, "print");
+
+    lua_pushcfunction(L_, lua_wowee_warn);
+    lua_setglobal(L_, "__WoweeWarn");
 
     lua_pushcfunction(L_, [](lua_State* L) -> int {
         LOG_WARNING("[FrameXML] ", luaL_optstring(L, 1, ""));
@@ -4634,7 +4649,7 @@ void LuaEngine::runInterfaceProbe() {
         "local function yn(v) return v and 'yes' or 'no' end\n"
         "local auras = 0\n"
         "for i = 1, 40 do if not UnitAura('player', i) then break end auras = i end\n"
-        "print('[fxcheck] target=' .. yn(UnitExists('target')) ..\n"
+        "__WoweeWarn('[fxcheck] target=' .. yn(UnitExists('target')) ..\n"
         "      ' name=' .. tostring(UnitExists('target') and UnitName('target')) ..\n"
         "      ' | TargetFrame shown=' .. yn(TargetFrame and TargetFrame:IsShown()) ..\n"
         "      ' unit=' .. tostring(TargetFrame and TargetFrame.unit) ..\n"

@@ -1,4 +1,5 @@
 #include "game/inventory_handler.hpp"
+#include "core/app_clock.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
 #include "game/entity.hpp"
@@ -1617,10 +1618,14 @@ void InventoryHandler::fireBagUpdates() {
     // The first few only: enough to tell "the event never goes out" from "it
     // goes out and the interface ignores it", without a line every time the
     // inventory is rebuilt.
-    static int said = 0;
-    if (said < 3) {
-        ++said;
-        LOG_WARNING("BAG_UPDATE + UNIT_INVENTORY_CHANGED fired (", said, " of 3 reported)");
+    // Rate-limited rather than counted: the first few are the inventory being
+    // loaded at startup, and capping the count spent them all there — leaving
+    // nothing to say for the drag that prompted the question.
+    static double lastSaid = 0.0;
+    const double now = core::appTimeSeconds();
+    if (now - lastSaid > 2.0) {
+        lastSaid = now;
+        LOG_WARNING("BAG_UPDATE + UNIT_INVENTORY_CHANGED fired");
     }
 }
 
