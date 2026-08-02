@@ -248,6 +248,20 @@ TEST_CASE("$parent skips unnamed frames to the nearest named one",
     REQUIRE(has(r.lua, "((self:GetName() or \"\") .. \"Name\")"));
 }
 
+TEST_CASE("A frame can fill its parent instead of anchoring", "[framexml][emit]") {
+    // Honoured for regions and ignored for frames, which is 139 declarations
+    // across 53 files. An unanchored frame falls to the centre-on-parent
+    // default with no size, so its centre is the screen's — PlayerFrame's name
+    // sat in the middle of the world because two frames above it said
+    // setAllPoints and nothing acted on it.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Outer\"><Frames>"
+        "<Frame name=\"$parentInner\" setAllPoints=\"true\"/>"
+        "</Frames></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, ":SetAllPoints(__w[1])"));
+}
+
 TEST_CASE("A Font element becomes a font object", "[framexml][emit]") {
     // Not a widget: a named set of type settings that font strings inherit by
     // name, and SetFontObject reads height and colour off it. FrameXML defines

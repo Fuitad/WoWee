@@ -509,6 +509,15 @@ struct Emitter {
         if (node.attr("enableMouse")) {
             line(var + ":EnableMouse(" + (node.attrBool("enableMouse") ? "true" : "false") + ")");
         }
+        // A frame can fill its parent instead of stating anchors, and this was
+        // honoured for regions and ignored for frames — all 139 of them across
+        // 53 files. An unanchored frame falls to the centre-on-parent default
+        // with no size, so its centre is the screen's: PlayerFrame's name sat
+        // in the middle of the world because two frames above it said
+        // setAllPoints and were heard by nobody.
+        if (node.attrBool("setAllPoints")) {
+            line(var + ":SetAllPoints(" + parentVar + ")");
+        }
         if (const XmlNode* anchors = node.child("Anchors")) {
             // Anchored to the frame that contains it when no relativeTo is
             // given. This used to say UIParent for everything, so a nested
