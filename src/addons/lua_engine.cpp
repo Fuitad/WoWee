@@ -796,6 +796,103 @@ int lua_Tooltip_SetText(lua_State* L) {
     return 1;
 }
 
+/// Fills a tooltip from an action bar slot: the spell's or item's name and
+/// what it does. ActionButton_SetTooltip asks for this and checks the answer —
+/// `if (GameTooltip:SetAction(self.action))` — so returning nothing meant
+/// every action button fell to its "no tooltip" branch.
+int lua_Tooltip_SetAction(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    const int slot = static_cast<int>(luaL_optnumber(L, 2, 0)) - 1;
+    if (!w || !gh || slot < 0) { lua_pushboolean(L, 0); return 1; }
+    const auto& bar = gh->getActionBar();
+    if (slot >= static_cast<int>(bar.size()) || bar[slot].isEmpty()) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+
+    const auto& action = bar[slot];
+    std::string name, body;
+    if (action.type == game::ActionBarSlot::SPELL) {
+        name = gh->getSpellName(action.id);
+        body = gh->getSpellDescription(action.id);
+    } else if (action.type == game::ActionBarSlot::ITEM) {
+        if (const auto* info = gh->getItemInfo(action.id)) name = info->name;
+    }
+    if (name.empty()) { lua_pushboolean(L, 0); return 1; }
+
+    w->isTooltip = true;
+    w->tooltipLines.clear();
+    wowee::ui::Widget::TooltipLine title;
+    title.left = name;
+    // Gold, as WoW titles its tooltips.
+    title.lc[0] = 1.0f; title.lc[1] = 0.82f; title.lc[2] = 0.0f; title.lc[3] = 1.0f;
+    title.rc[0] = title.rc[1] = title.rc[2] = title.rc[3] = 1.0f;
+    w->tooltipLines.push_back(std::move(title));
+    if (!body.empty()) {
+        wowee::ui::Widget::TooltipLine desc;
+        desc.left = body;
+        desc.lc[0] = desc.lc[1] = desc.lc[2] = 1.0f; desc.lc[3] = 1.0f;
+        desc.rc[0] = desc.rc[1] = desc.rc[2] = desc.rc[3] = 1.0f;
+        w->tooltipLines.push_back(std::move(desc));
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/// The same for a spell asked for by id, which is how the spellbook and the
+/// stance bar fill theirs.
+int lua_Tooltip_SetSpellByID(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    const uint32_t id = static_cast<uint32_t>(luaL_optnumber(L, 2, 0));
+    if (!w || !gh || id == 0) { lua_pushboolean(L, 0); return 1; }
+    const std::string& name = gh->getSpellName(id);
+    if (name.empty()) { lua_pushboolean(L, 0); return 1; }
+
+    w->isTooltip = true;
+    w->tooltipLines.clear();
+    wowee::ui::Widget::TooltipLine title;
+    title.left = name;
+    title.lc[0] = 1.0f; title.lc[1] = 0.82f; title.lc[2] = 0.0f; title.lc[3] = 1.0f;
+    title.rc[0] = title.rc[1] = title.rc[2] = title.rc[3] = 1.0f;
+    w->tooltipLines.push_back(std::move(title));
+    const std::string& body = gh->getSpellDescription(id);
+    if (!body.empty()) {
+        wowee::ui::Widget::TooltipLine desc;
+        desc.left = body;
+        desc.lc[0] = desc.lc[1] = desc.lc[2] = 1.0f; desc.lc[3] = 1.0f;
+        desc.rc[0] = desc.rc[1] = desc.rc[2] = desc.rc[3] = 1.0f;
+        w->tooltipLines.push_back(std::move(desc));
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/// A unit's name and level, which is what hovering a unit frame shows.
+int lua_Tooltip_SetUnit(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    const char* uid = luaL_optstring(L, 2, "player");
+    if (!w || !gh) { lua_pushboolean(L, 0); return 1; }
+    std::string uidStr(uid);
+    for (char& c : uidStr) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    const uint64_t guid = wowee::addons::resolveUnitGuid(gh, uidStr);
+    if (guid == 0) { lua_pushboolean(L, 0); return 1; }
+    const std::string name = gh->lookupName(guid);
+    if (name.empty()) { lua_pushboolean(L, 0); return 1; }
+
+    w->isTooltip = true;
+    w->tooltipLines.clear();
+    wowee::ui::Widget::TooltipLine title;
+    title.left = name;
+    title.lc[0] = title.lc[1] = title.lc[2] = title.lc[3] = 1.0f;
+    title.rc[0] = title.rc[1] = title.rc[2] = title.rc[3] = 1.0f;
+    w->tooltipLines.push_back(std::move(title));
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 int lua_Tooltip_ClearLines(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->tooltipLines.clear();
     return 0;
@@ -2061,6 +2158,9 @@ void LuaEngine::registerCoreAPI() {
         {"AddMessage",      lua_MessageFrame_AddMessage},
         {"AddLine",         lua_Tooltip_AddLine},
         {"SetOwner",        lua_Tooltip_SetOwner},
+        {"SetAction",       lua_Tooltip_SetAction},
+        {"SetSpellByID",    lua_Tooltip_SetSpellByID},
+        {"SetUnit",         lua_Tooltip_SetUnit},
         {"AddDoubleLine",   lua_Tooltip_AddDoubleLine},
         {"ClearLines",      lua_Tooltip_ClearLines},
         {"NumLines",        lua_Tooltip_NumLines},
