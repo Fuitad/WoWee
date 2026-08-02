@@ -777,6 +777,25 @@ int lua_Tooltip_SetOwner(lua_State* L) {
     return 0;
 }
 
+/// The one-line form. GameTooltip:SetText replaces what the tooltip says
+/// rather than setting a font string, and returns whether it did — so the
+/// shared SetText can hand off and stop.
+int lua_Tooltip_SetText(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w || !w->isTooltip) { lua_pushboolean(L, 0); return 1; }
+    w->tooltipLines.clear();
+    wowee::ui::Widget::TooltipLine line;
+    line.left = luaL_optstring(L, 2, "");
+    line.lc[0] = static_cast<float>(luaL_optnumber(L, 3, 1.0));
+    line.lc[1] = static_cast<float>(luaL_optnumber(L, 4, 1.0));
+    line.lc[2] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
+    line.lc[3] = 1.0f;
+    line.rc[0] = line.rc[1] = line.rc[2] = line.rc[3] = 1.0f;
+    w->tooltipLines.push_back(std::move(line));
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 int lua_Tooltip_ClearLines(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->tooltipLines.clear();
     return 0;
@@ -2281,8 +2300,11 @@ void LuaEngine::registerCoreAPI() {
         // of blank buttons happens.
         // An edit box keeps its own text; a button shows its font string's.
         // FrameXML calls SetText on both and the widget decides which it means.
-        "function mt:SetText(text)\n"
+        "function mt:SetText(text, r, g, b)\n"
         "    if self.__isEditBox then return __WoweeEditSetText(self, text) end\n"
+        // A tooltip's SetText is its first line, not a font string's text.
+        // It answers whether it took the call, so this can stop there.
+        "    if __WoweeTooltipSetText(self, text, r, g, b) then return end\n"
         "    self.__text = text\n"
         "    if self.__fontString then self.__fontString:SetText(text) end\n"
         "end\n"
@@ -2438,6 +2460,8 @@ void LuaEngine::registerCoreAPI() {
     // CreateFrame function
     lua_pushcfunction(L_, lua_EditBox_SetText);
     lua_setglobal(L_, "__WoweeEditSetText");
+    lua_pushcfunction(L_, lua_Tooltip_SetText);
+    lua_setglobal(L_, "__WoweeTooltipSetText");
     lua_pushcfunction(L_, lua_EditBox_GetText);
     lua_setglobal(L_, "__WoweeEditGetText");
 
