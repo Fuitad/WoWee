@@ -477,13 +477,35 @@ TEST_CASE("A FontString's inherits names a font object, not a template",
     // that is where their size and colour come from. FrameXML does it more than
     // three thousand times, so treating it as a template would leave every
     // label the same size in the same colour.
+    //
+    // It is not either/or, though: FrameXML declares virtual FontStrings too,
+    // and the name alone does not say which kind it is. So the emitted line
+    // asks — but a font object must still reach SetFontObject, which is what
+    // this checks.
     XmlNode root = parseOrFail(
         "<Ui><Frame name=\"F\"><Layers><Layer>"
         "<FontString name=\"$parentT\" inherits=\"GameFontNormalLarge\" text=\"Hi\"/>"
         "</Layer></Layers></Frame></Ui>");
     const EmitResult r = emitFrameXml(root);
     REQUIRE(has(r.lua, ":SetFontObject(\"GameFontNormalLarge\")"));
-    REQUIRE_FALSE(has(r.lua, "__WoweeTemplates[\"GameFontNormalLarge\"]"));
+    REQUIRE(has(r.lua, "else "));
+}
+
+TEST_CASE("A virtual Texture becomes a template a region can inherit",
+          "[framexml][emit]") {
+    // Twenty-two of these sit at the top level of FrameXML — the dialog
+    // button's normal, pushed and highlight art among them. None was emitted,
+    // so every button inheriting its art had none.
+    XmlNode root = parseOrFail(
+        "<Ui>"
+        "<Texture name=\"DialogButtonNormalTexture\" file=\"Interface\\Up\" virtual=\"true\"/>"
+        "<Frame name=\"F\"><Layers><Layer>"
+        "<Texture name=\"$parentArt\" inherits=\"DialogButtonNormalTexture\"/>"
+        "</Layer></Layers></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "__WoweeTemplates[\"DialogButtonNormalTexture\"] = function(self)"));
+    REQUIRE(has(r.lua, "self:SetTexture(\"Interface\\\\Up\")"));
+    REQUIRE(has(r.lua, "__WoweeTemplates[\"DialogButtonNormalTexture\"](__w[2])"));
 }
 
 TEST_CASE("A Texture's inherits is not treated as a font object",

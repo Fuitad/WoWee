@@ -191,6 +191,34 @@ struct Emitter {
              ", " + quote(layerName) + ")");
 
         emitParentKey(node, var, parentVar);
+        emitRegionProperties(node, var, parentVar, parentName, isTexture);
+        return var;
+    }
+
+    /// Everything a region declares about itself, applied to a region that
+    /// already exists. Separate from creating one because a virtual Texture or
+    /// FontString is exactly this and nothing else: a set of properties waiting
+    /// for something to inherit them.
+    void emitRegionProperties(const XmlNode& node, const std::string& var,
+                              const std::string& parentVar,
+                              const std::string& parentName, bool isTexture) {
+        // The template first, so anything the region states itself wins over
+        // what it inherited — the order a frame's template follows.
+        //
+        // A FontString's inherits is ambiguous by design: nearly always a font
+        // object, which is where its size and colour come from, but FrameXML
+        // also declares virtual FontStrings. Asking which it is at runtime is
+        // the only way to tell, and cheaper than deciding here.
+        if (const std::string* inh = node.attr("inherits"); inh && !inh->empty()) {
+            if (isTexture) {
+                line("if __WoweeTemplates[" + quote(*inh) + "] then __WoweeTemplates[" +
+                     quote(*inh) + "](" + var + ") end");
+            } else {
+                line("if __WoweeTemplates[" + quote(*inh) + "] then __WoweeTemplates[" +
+                     quote(*inh) + "](" + var + ") else " + var +
+                     ":SetFontObject(" + quote(*inh) + ") end");
+            }
+        }
 
         if (const std::string* file = node.attr("file")) {
             line(var + ":SetTexture(" + quote(*file) + ")");
@@ -203,12 +231,6 @@ struct Emitter {
         }
         if (const std::string* j = node.attr("justifyH")) {
             line(var + ":SetJustifyH(" + quote(*j) + ")");
-        }
-        // A FontString inherits a shared font object rather than a template,
-        // and that is where its size and colour come from. FrameXML does this
-        // on nearly every label it declares.
-        if (const std::string* inh = node.attr("inherits")) {
-            if (!isTexture) line(var + ":SetFontObject(" + quote(*inh) + ")");
         }
         if (node.attrBool("setAllPoints")) {
             line(var + ":SetAllPoints(" + parentVar + ")");
@@ -236,7 +258,25 @@ struct Emitter {
         }
         if (const XmlNode* anchors = node.child("Anchors"))
             emitAnchors(*anchors, var, parentVar, parentName);
-        return var;
+    }
+
+    /// A virtual Texture or FontString: recorded, not built, and replayed onto
+    /// whatever inherits it. Twenty-two of these are declared at the top level
+    /// of FrameXML — DialogButtonNormalTexture and its kind — and none of them
+    /// was emitted at all, so every button that inherits its art had none.
+    void emitRegionTemplate(const XmlNode& node, bool isTexture) {
+        const std::string name = node.attrOr("name", "");
+        if (name.empty()) {
+            result.warnings.push_back("virtual region with no name was skipped");
+            return;
+        }
+        Emitter inner;
+        inner.runtimeParentName = true;
+        inner.emitRegionProperties(node, "self", "self:GetParent()", name, isTexture);
+        line("__WoweeTemplates[" + quote(name) + "] = function(self)");
+        result.lua += inner.result.lua;
+        for (auto& w : inner.result.warnings) result.warnings.push_back(w);
+        line("end");
     }
 
     /// Button art declared as its own element rather than inside a Layer.
@@ -644,6 +684,27 @@ EmitResult emitFrameXml(const XmlNode& root) {
             e.emitFont(node);
         } else if (isFrameElement(node.name)) {
             e.emitFrame(node, "", "");
+        } else if (node.name == "Texture" || node.name == "FontString") {
+            if (node.attrBool("virtual")) {
+                e.emitRegionTemplate(node, node.name == "Texture");
+            } else {
+                e.result.warnings.push_back("<" + node.name + "> outside a frame "
+                                            "has nothing to belong to");
+            }
+        } else if (node.name == "Bindings" || node.name == "Binding" ||
+                   node.name == "ModifiedClick") {
+            // Key bindings, not frames. Nothing is drawn for them and nothing
+            // is meant to be, so they are not a gap to report.
+        } else {
+            // Said out loud, because the failure is silence. An element type
+            // this does not know is not a frame that comes out wrong — it is a
+            // frame, and everything inside it, that is never created at all,
+            // and the file still loads and still compiles. Minimap.xml produced
+            // nothing whatever for exactly this reason, and the only trace was
+            // a handful of globals reading as missing somewhere else entirely.
+            e.result.warnings.push_back("<" + node.name +
+                                        "> is not a known frame type; "
+                                        "nothing inside it was built");
         }
     }
     return std::move(e.result);

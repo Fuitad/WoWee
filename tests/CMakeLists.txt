@@ -74,6 +74,24 @@ target_link_libraries(test_framexml PRIVATE catch2_main)
 add_test(NAME framexml COMMAND test_framexml)
 register_test_target(test_framexml)
 
+# ── framexml_compiles ───────────────────────────────────────
+# Not a unit test: it emits every real FrameXML file and asks Lua itself
+# whether the result compiles. The unit tests above check cases someone
+# thought of; this checks all 126, and a file that will not compile is lost
+# whole rather than degraded. Skipped when the game data is not present.
+add_executable(framexml_compile_check
+    ${CMAKE_SOURCE_DIR}/tools/framexml_compile_check.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/xml_parser.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/framexml_emitter.cpp
+)
+target_include_directories(framexml_compile_check PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(framexml_compile_check SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/extern/lua-5.1.5/src)
+target_link_libraries(framexml_compile_check PRIVATE lua51)
+add_test(NAME framexml_compiles COMMAND framexml_compile_check
+         ${CMAKE_SOURCE_DIR}/Data/interface/framexml)
+set_tests_properties(framexml_compiles PROPERTIES SKIP_RETURN_CODE 77)
+
 # ── test_widget_tree ────────────────────────────────────────
 add_executable(test_widget_tree
     test_widget_tree.cpp
