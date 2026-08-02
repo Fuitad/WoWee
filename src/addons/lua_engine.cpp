@@ -249,6 +249,14 @@ int lua_Region_SetPoint(lua_State* L) {
         if (lua_istable(L, -1)) a.relativeTo = widgetIdOf(L, lua_gettop(L));
         lua_pop(L, 1);
         ++argi;
+    } else if (lua_isnil(L, argi)) {
+        // Explicitly nil, which means the parent — and which still occupies its
+        // place in the argument list. Skipping over it read the relative point
+        // as the relative frame and everything after it moved up one, so
+        // SetPoint(point, nil, "BOTTOM") silently became point-to-point on the
+        // parent. FrameXML passes nil here constantly, and a name that failed
+        // to resolve arrives the same way.
+        ++argi;
     }
     // Anchoring to itself is not a position, and a name can resolve to the
     // frame that was just published under it.
@@ -351,6 +359,20 @@ int lua_Frame_StartMoving(lua_State* L) {
 int lua_Frame_StopMovingOrSizing(lua_State* L) {
     if (auto* tree = wowee::addons::getWidgetTree(L)) tree->setMovingWidget(0);
     return 0;
+}
+
+/// A region's name, taken from the tree rather than a Lua field so it is the
+/// same name everything else knows it by.
+///
+/// Regions never had this: GetName fell to the no-op fallback and answered nil,
+/// and FrameXML passes the answer straight into SetPoint —
+/// bgTextureBottom:SetPoint("TOP", bgTextureMiddle:GetName(), "BOTTOM") anchored
+/// a bag's bottom edge to nothing, which put it across the top of the bag.
+int lua_Region_GetName(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    if (w && !w->name.empty()) lua_pushstring(L, w->name.c_str());
+    else lua_pushnil(L);
+    return 1;
 }
 
 int lua_Region_SetWidth(lua_State* L) {
@@ -1364,6 +1386,7 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
         lua_pushcfunction(L, fn);
         lua_setfield(L, -2, name);
     };
+    set("GetName", lua_Region_GetName);
     set("SetPoint", lua_Region_SetPoint);
     set("ClearAllPoints", lua_Region_ClearAllPoints);
     set("SetAllPoints", lua_Region_SetAllPoints);
