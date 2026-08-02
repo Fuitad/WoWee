@@ -122,6 +122,10 @@ static int lua_GetCVar(lua_State* L) {
         lua_pushstring(L, "1");
     }
     else if (n == "statusTextPercentage") lua_pushstring(L, "0");
+    // The social options panel branches on this and raises on anything it does
+    // not recognise, so "0" — what an unknown CVar answers — took its whole
+    // update down. "classic" is the stock setting.
+    else if (n == "chatStyle") lua_pushstring(L, "classic");
     else lua_pushstring(L, "0");
     return 1;
 }
