@@ -1725,6 +1725,31 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushboolean(L, (pf & 0x00000080) ? 1 : 0);
             return 1;
         }},
+                // The honour panel prints "(Rank N)" from the second return
+                // and concatenates it unguarded, so a missing one takes the
+                // panel's whole update with it. Rank zero is what an
+                // unranked character has.
+                {"GetPVPRankInfo", [](lua_State* L) -> int {
+            const int rank = static_cast<int>(luaL_optnumber(L, 1, 0));
+            lua_pushstring(L, "");          // rank name
+            lua_pushnumber(L, rank > 0 ? rank : 0);
+            return 2;
+        }},
+                // Honour and arena totals, in the shapes their panels expect.
+                // Zeroes rather than nothing: every one of these is read
+                // straight into arithmetic or a format string.
+                {"GetPVPLifetimeStats", [](lua_State* L) -> int {
+            lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 0);
+            return 3;
+        }},
+                {"GetPVPSessionStats", [](lua_State* L) -> int {
+            lua_pushnumber(L, 0); lua_pushnumber(L, 0);
+            return 2;
+        }},
+                {"GetPVPYesterdayStats", [](lua_State* L) -> int {
+            lua_pushnumber(L, 0); lua_pushnumber(L, 0);
+            return 2;
+        }},
                 {"GetBattlefieldStatus", [](lua_State* L) -> int {
             lua_pushstring(L, "none");
             lua_pushnumber(L, 0);
