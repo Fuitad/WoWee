@@ -88,6 +88,16 @@ bool frameXmlWorldEntered();
 void frameXmlNoteMouseOwned(bool owned);
 bool frameXmlOwnsMouse();
 
+/// The icon of the item the cursor is carrying, or empty for nothing.
+///
+/// Picking an item up in WoW takes it out of its slot and puts it on the
+/// pointer, and that half is the client's job — FrameXML never draws it. Without
+/// it a drag looked like nothing was happening at all, whether or not the move
+/// went out. Set from the Lua bindings and read by the widget renderer, both on
+/// the main thread.
+void frameXmlSetCursorItem(const std::string& iconPath);
+const std::string& frameXmlCursorItem();
+
 /// Ask for the takeover check to be reported again on the next frame.
 ///
 /// The automatic reports happen at fixed moments, and most of what goes wrong

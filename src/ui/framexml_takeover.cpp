@@ -157,6 +157,15 @@ std::atomic<bool> gCheckRequested{false};
 std::atomic<bool> gMouseOwned{false};
 } // namespace
 
+namespace {
+/// Main thread only: the Lua bindings that set it and the renderer that reads
+/// it both run there.
+std::string gCursorItem;
+} // namespace
+
+void frameXmlSetCursorItem(const std::string& iconPath) { gCursorItem = iconPath; }
+const std::string& frameXmlCursorItem() { return gCursorItem; }
+
 void frameXmlNoteMouseOwned(bool owned) {
     gMouseOwned.store(owned, std::memory_order_relaxed);
 }

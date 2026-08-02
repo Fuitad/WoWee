@@ -368,6 +368,36 @@ int lua_Frame_StopMovingOrSizing(lua_State* L) {
 /// and FrameXML passes the answer straight into SetPoint —
 /// bgTextureBottom:SetPoint("TOP", bgTextureMiddle:GetName(), "BOTTOM") anchored
 /// a bag's bottom edge to nothing, which put it across the top of the bag.
+int lua_FontString_SetText(lua_State* L);
+
+/// SetFormattedText(fmt, ...) on a region.
+///
+/// It was defined on the frame metatable only, and a label is not a frame — so
+/// every FontString in FrameXML still answered with the no-op and kept whatever
+/// placeholder its XML carried. The character sheet went on reading "Level level
+/// race class" for exactly that reason.
+int lua_FontString_SetFormattedText(lua_State* L) {
+    const int n = lua_gettop(L);
+    if (n < 2 || !lua_isstring(L, 2)) return 0;
+
+    // Through Lua's own string.format, so the format specifiers behave the way
+    // the interface expects them to.
+    lua_getglobal(L, "string");
+    lua_getfield(L, -1, "format");
+    lua_remove(L, -2);
+    for (int i = 2; i <= n; ++i) lua_pushvalue(L, i);
+    if (lua_pcall(L, n - 1, 1, 0) != 0) {
+        // A format string and its arguments disagreeing is an error in Lua, and
+        // losing the file that asked for a label is worse than an unformatted
+        // one.
+        lua_pop(L, 1);
+        lua_pushvalue(L, 2);
+    }
+    lua_replace(L, 2);
+    lua_settop(L, 2);
+    return lua_FontString_SetText(L);
+}
+
 int lua_Region_GetName(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     if (w && !w->name.empty()) lua_pushstring(L, w->name.c_str());
@@ -1427,6 +1457,7 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     }
     if (isFontString) {
         set("SetText", lua_FontString_SetText);
+        set("SetFormattedText", lua_FontString_SetFormattedText);
         set("GetText", lua_FontString_GetText);
         set("SetJustifyH", lua_FontString_SetJustifyH);
         set("SetTextColor", lua_FontString_SetTextColor);

@@ -305,6 +305,21 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     sizeFontStrings(tree);
 
     tree.layout(screenW, screenH);
+
+    // The item on the cursor, drawn over everything. FrameXML never draws this
+    // — in WoW the client does — so without it picking something up looked
+    // exactly like nothing happening.
+    if (const std::string& carried = frameXmlCursorItem(); !carried.empty()) {
+        if (VkDescriptorSet icon = texture(carried); icon != kMissing) {
+            const ImVec2 at = ImGui::GetIO().MousePos;
+            const float side = 32.0f * tree.uiScale();
+            ImDrawList* fg = ImGui::GetForegroundDrawList();
+            fg->AddImage(reinterpret_cast<ImTextureID>(icon),
+                         ImVec2(at.x, at.y),
+                         ImVec2(at.x + side, at.y + side));
+        }
+    }
+
     const auto& order = tree.drawOrder();
     if (order.empty()) return;
 
@@ -774,10 +789,19 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             if (tex == VK_NULL_HANDLE) continue;
             // SetTexCoord is left/right/top/bottom in WoW's own order, and its
             // vertical sense already matches the image, so it passes through.
+            //
+            // Except for a texture the client supplied: those coordinates were
+            // chosen for the file the interface believes is there, and this is
+            // a whole image rendered in its place. Applying them cropped the
+            // player's portrait to whichever quarter of the class-circle atlas
+            // SetPortraitTexture had picked out.
+            const bool live = (w->externalTexture != 0);
+            const ImVec2 uv0 = live ? ImVec2(0.0f, 0.0f)
+                                    : ImVec2(w->texCoord[0], w->texCoord[2]);
+            const ImVec2 uv1 = live ? ImVec2(1.0f, 1.0f)
+                                    : ImVec2(w->texCoord[1], w->texCoord[3]);
             dl->AddImage(reinterpret_cast<ImTextureID>(tex),
-                         ImVec2(x0, y0), ImVec2(x1, y1),
-                         ImVec2(w->texCoord[0], w->texCoord[2]),
-                         ImVec2(w->texCoord[1], w->texCoord[3]),
+                         ImVec2(x0, y0), ImVec2(x1, y1), uv0, uv1,
                          packColor(w->color, w->alpha));
         } else if (w->kind == WidgetKind::FontString) {
             // Font objects carry a height, and honouring it is most of what

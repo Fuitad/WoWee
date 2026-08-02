@@ -1,6 +1,7 @@
 // lua_action_api.cpp — Action bar, cursor/pickup, keyboard input, key bindings, and pet actions Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "game/pet_action.hpp"
 #include "imgui.h"
 
@@ -419,6 +420,7 @@ static void clearCursorItem() {
     s_cursorId = 0;
     s_cursorSlot = 0;
     s_cursorBag = -1;
+    wowee::ui::frameXmlSetCursorItem(std::string());
 }
 
 static int lua_PickupContainerItem(lua_State* L) {
@@ -466,6 +468,14 @@ static int lua_PickupContainerItem(lua_State* L) {
         s_cursorId = itemSlot->item.itemId;
         s_cursorBag = bag;
         s_cursorSlot = slot;
+        uint32_t displayId = itemSlot->item.displayInfoId;
+        if (displayId == 0) {
+            if (const auto* info = gh->getItemInfo(itemSlot->item.itemId)) {
+                displayId = info->displayInfoId;
+            }
+        }
+        wowee::ui::frameXmlSetCursorItem(
+            displayId ? gh->getItemIconPath(displayId) : std::string());
         LOG_WARNING("FrameXML pickup: bag ", bag, " slot ", slot,
                     " item ", itemSlot->item.itemId);
     } else {
