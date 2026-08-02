@@ -16,7 +16,10 @@ static int lua_GetNumQuestLogEntries(lua_State* L) {
 // GetQuestLogTitle(index) → title, level, suggestedGroup, isHeader, isCollapsed, isComplete, frequency, questID
 static int lua_GetQuestLogTitle(lua_State* L) {
     auto* gh = getGameHandler(L);
-    int index = static_cast<int>(luaL_checknumber(L, 1));
+    // optnumber, not checknumber: FrameXML walks the quest log with an index
+    // that can be nil before anything has been selected, and raising there
+    // loses whatever asked rather than answering that there is no such quest.
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
     if (!gh || index < 1) { return luaReturnNil(L); }
     const auto& ql = gh->getQuestLog();
     if (index > static_cast<int>(ql.size())) { return luaReturnNil(L); }

@@ -671,6 +671,19 @@ static int lua_GetTime(lua_State* L) {
     return 1;
 }
 
+/// LoadAddOn(name) → loaded, reason.
+///
+/// The reason is not optional when loaded is false: UIParentLoadAddOn builds
+/// an error message out of _G["ADDON_" .. reason], so nil there is a
+/// concatenation against nothing. These are Blizzard's own load-on-demand
+/// panels — the talent frame and its like — which this client does not ship,
+/// and MISSING is the reason string for exactly that.
+static int lua_LoadAddOn(lua_State* L) {
+    lua_pushboolean(L, 0);
+    lua_pushstring(L, "MISSING");
+    return 2;
+}
+
 static int lua_ReturnNoCooldown(lua_State* L) {
     lua_pushnumber(L, 0.0);
     lua_pushnumber(L, 0.0);
@@ -698,6 +711,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetTime",                  lua_GetTime},
                 {"GetCVarDefault",           lua_GetCVar},
                 {"IsAddOnLoaded",            lua_IsAddOnLoaded},
+                {"LoadAddOn",                lua_LoadAddOn},
+                {"UIParentLoadAddOn",        lua_LoadAddOn},
                 {"HasCompletedAnyAchievement", lua_ReturnFalse},
                 {"TurnInGuildCharter",       lua_ReturnNothing},
                 // Nothing is being driven, so aiming it does nothing
