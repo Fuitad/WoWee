@@ -181,6 +181,96 @@ static int lua_GetNumQuestLeaderBoards(lua_State* L) {
 
 // GetQuestLogLeaderBoard(objIndex, questLogIndex) → text, type, finished
 // objIndex is 1-based within the quest's objectives
+
+static int lua_GetQuestLogLeaderBoard(lua_State* L);
+
+// ── Quest points of interest ───────────────────────────────────────────────
+//
+// The map's quest markers. The server sends these as SMSG_QUEST_POI and this
+// client already keeps them — it draws its own markers from the same list — so
+// FrameXML's world map can read the real thing rather than an empty one.
+//
+// WoW numbers them by "visible index", which is a position in the list of
+// quests that have a POI on the map now, not a quest log index. The two differ
+// as soon as one quest in the log has no marker.
+
+/// The quest ids that have a marker, in the order the server sent them, each
+/// appearing once. Built on demand: the list is short and changes whenever the
+/// server sends a new one.
+static std::vector<uint32_t> questsWithPois(game::GameHandler* gh) {
+    std::vector<uint32_t> out;
+    if (!gh) return out;
+    for (const auto& poi : gh->getGossipPois()) {
+        // -2 is an ordinary gossip marker rather than a quest one.
+        if (poi.questObjectiveIndex == -2 || poi.data == 0) continue;
+        if (std::find(out.begin(), out.end(), poi.data) == out.end()) out.push_back(poi.data);
+    }
+    return out;
+}
+
+static int lua_QuestPOIGetQuestIDByVisibleIndex(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_checknumber(L, 1));
+    const auto ids = questsWithPois(gh);
+    if (index < 1 || index > static_cast<int>(ids.size())) { lua_pushnumber(L, 0); return 1; }
+    lua_pushnumber(L, ids[index - 1]);
+    return 1;
+}
+
+/// QuestPOIGetIconInfo(questId) → completed, x, y.
+///
+/// The endpoint marker is the one the map draws for a quest, so that is the
+/// one reported: objective index -1 identifies it. Completion comes from the
+/// quest log rather than the marker, which does not carry it.
+static int lua_QuestPOIGetIconInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const uint32_t questId = static_cast<uint32_t>(luaL_checknumber(L, 1));
+    if (!gh || questId == 0) { return luaReturnNil(L); }
+
+    const game::GossipPoi* best = nullptr;
+    for (const auto& poi : gh->getGossipPois()) {
+        if (poi.data != questId || poi.questObjectiveIndex == -2) continue;
+        if (!best || poi.questObjectiveIndex == -1) best = &poi;
+        if (poi.questObjectiveIndex == -1) break;
+    }
+    if (!best) { return luaReturnNil(L); }
+
+    bool complete = false;
+    for (const auto& q : gh->getQuestLog()) {
+        if (q.questId == questId) { complete = q.complete; break; }
+    }
+    lua_pushboolean(L, complete);
+    lua_pushnumber(L, best->x);
+    lua_pushnumber(L, best->y);
+    return 3;
+}
+
+/// The markers arrive with the server's own updates, so there is nothing to
+/// refresh on demand — but the map asks before drawing and expects the call to
+/// exist.
+static int lua_QuestPOIUpdateIcons(lua_State* L) { (void)L; return 0; }
+
+/// GetQuestPOILeaderBoard(objectiveIndex, questId) → the objective's text and
+/// counts, the same as the quest log's version — except that this one is given
+/// a quest id where that one takes a log index. Aliasing the two would look
+/// right and read the wrong quest, so the id is turned into an index here.
+static int lua_GetQuestPOILeaderBoard(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const uint32_t questId = static_cast<uint32_t>(luaL_optnumber(L, 2, 0));
+    if (!gh || questId == 0) { return luaReturnNil(L); }
+    const auto& ql = gh->getQuestLog();
+    int index = 0;
+    for (size_t i = 0; i < ql.size(); ++i) {
+        if (ql[i].questId == questId) { index = static_cast<int>(i) + 1; break; }
+    }
+    if (index == 0) { return luaReturnNil(L); }
+    lua_pushvalue(L, 1);            // objective index, unchanged
+    lua_pushnumber(L, index);       // the log index the other one wants
+    lua_replace(L, 2);
+    lua_replace(L, 1);
+    return lua_GetQuestLogLeaderBoard(L);
+}
+
 static int lua_GetQuestLogLeaderBoard(lua_State* L) {
     auto* gh = getGameHandler(L);
     int objIdx = static_cast<int>(luaL_checknumber(L, 1));
@@ -451,6 +541,10 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetQuestLink",            lua_GetQuestLink},
                 {"GetNumQuestLeaderBoards", lua_GetNumQuestLeaderBoards},
                 {"GetQuestLogLeaderBoard",  lua_GetQuestLogLeaderBoard},
+                {"QuestPOIGetQuestIDByVisibleIndex", lua_QuestPOIGetQuestIDByVisibleIndex},
+                {"QuestPOIGetIconInfo",     lua_QuestPOIGetIconInfo},
+                {"QuestPOIUpdateIcons",     lua_QuestPOIUpdateIcons},
+                {"GetQuestPOILeaderBoard",  lua_GetQuestPOILeaderBoard},
                 {"ExpandQuestHeader",       lua_ExpandQuestHeader},
                 {"CollapseQuestHeader",     lua_CollapseQuestHeader},
                 {"GetQuestLogSpecialItemInfo", lua_GetQuestLogSpecialItemInfo},
