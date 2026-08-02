@@ -263,6 +263,11 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         vkCtx_->endUploadBatchSync();
     }
 
+    // Interface units to pixels. The tree is laid out against a virtual screen
+    // 768 units tall so a frame is the same apparent size on every display;
+    // this is the one place that becomes pixels.
+    const float s = tree.uiScale();
+
     // What is actually on screen, named, once, when asked for.
     //
     // A stray label is very hard to identify from a screenshot: the text says
@@ -314,11 +319,6 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     // the two coexist, but still over the 3D scene.
     ImDrawList* dl = ImGui::GetBackgroundDrawList();
     if (!dl) return;
-
-    // Interface units to pixels. The tree is laid out against a virtual screen
-    // 768 units tall so a frame is the same apparent size on every display;
-    // this is the one place that becomes pixels.
-    const float s = tree.uiScale();
 
     for (const Widget* w : order) {
         // WoW measures from the bottom-left and upward; the screen measures from
