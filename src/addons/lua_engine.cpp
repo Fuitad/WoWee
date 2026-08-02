@@ -4148,6 +4148,12 @@ void LuaEngine::installMissingApiFallback() {
         // defines itself. Being wrong here costs a no-op for one API name,
         // which is where this started.
         "  if string.find(k, '%d') then return nil end\n"
+        // An addon's namespace table, which is absent because the addon is not
+        // loaded — and FrameXML feature-detects exactly these:
+        // `if ( not Blizzard_CombatLog_Filters )`. Answering makes the guard
+        // pass and the branch behind it indexes a table that has no fields, so
+        // the panel's whole update dies on a nil length.
+        "  if string.find(k, '^Blizzard_') then return nil end\n"
         // Punctuation means this is not an API name at all. A Lua identifier
         // cannot contain a hyphen, so _G["KEY_-"] is a table lookup built by
         // concatenation — GetBindingText does exactly that for the key bound
