@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <cstdlib>
 #include <cmath>
 #include <vector>
 
@@ -260,6 +261,30 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         vkCtx_->beginUploadBatch();
         for (const std::string* path : wanted) texture(*path);
         vkCtx_->endUploadBatchSync();
+    }
+
+    // What is actually on screen, named, once, when asked for.
+    //
+    // A stray label is very hard to identify from a screenshot: the text says
+    // what it says, and nothing says which frame put it there. This lists every
+    // drawn widget with its name, its rect and its text, which turns "what is
+    // that in the middle of the screen" into one line of log.
+    static const bool dumpWidgets = [] {
+        const char* v = std::getenv("WOWEE_WIDGET_DUMP");
+        return v && *v && std::string(v) != "0";
+    }();
+    static bool dumped = false;
+    if (dumpWidgets && !dumped) {
+        dumped = true;
+        LOG_WARNING("WidgetDump: ", order.size(), " widgets drawn");
+        for (const Widget* w : order) {
+            LOG_WARNING("  ", (w->name.empty() ? "(unnamed)" : w->name),
+                        " kind=", static_cast<int>(w->kind),
+                        " rect=(", w->left, ",", w->bottom, " ", w->rectW, "x", w->rectH, ")",
+                        " alpha=", w->alpha,
+                        (w->text.empty() ? "" : " text='"), w->text,
+                        (w->text.empty() ? "" : "'"));
+        }
     }
 
     // Behind ImGui's own windows, so the existing interface stays on top while
