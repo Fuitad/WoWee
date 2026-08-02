@@ -3200,11 +3200,40 @@ void LuaEngine::fireEvent(const std::string& eventName,
     lua_pop(L_, 2);  // pop handler list + WoweeEvents
 
     // Also dispatch to frames that registered for this event via frame:RegisterEvent()
+    //
+    // WOWEE_EVENT_TRACE names events to report, comma separated. An event that
+    // does not arrive and an event nobody listens for look identical from
+    // outside — the frame simply does not change — and they need opposite
+    // fixes, so the count of frames that received it is the thing worth
+    // knowing. Reported every time, because these are rare enough to read and
+    // the ones worth tracing are the ones that are not arriving.
+    static const std::set<std::string> traced = [] {
+        std::set<std::string> out;
+        const char* raw = std::getenv("WOWEE_EVENT_TRACE");
+        if (!raw || !*raw) return out;
+        std::string v(raw);
+        size_t at = 0;
+        while (at <= v.size()) {
+            const size_t comma = v.find(',', at);
+            std::string one = v.substr(at, comma == std::string::npos
+                                               ? std::string::npos : comma - at);
+            if (!one.empty()) out.insert(one);
+            if (comma == std::string::npos) break;
+            at = comma + 1;
+        }
+        return out;
+    }();
+
     lua_getglobal(L_, "__WoweeFrameEvents");
     if (lua_istable(L_, -1)) {
         lua_getfield(L_, -1, eventName.c_str());
         if (lua_istable(L_, -1)) {
             int frameCount = static_cast<int>(lua_objlen(L_, -1));
+            if (traced.count(eventName)) {
+                LOG_WARNING("EventTrace: ", eventName, " (",
+                            args.empty() ? "" : args[0], ") reached ",
+                            frameCount, " frames");
+            }
             for (int i = 1; i <= frameCount; i++) {
                 lua_rawgeti(L_, -1, i);
                 if (!lua_istable(L_, -1)) { lua_pop(L_, 1); continue; }
@@ -3231,6 +3260,10 @@ void LuaEngine::fireEvent(const std::string& eventName,
                 }
                 lua_pop(L_, 2); // pop __scripts + frame
             }
+        } else if (traced.count(eventName)) {
+            LOG_WARNING("EventTrace: ", eventName, " (",
+                        args.empty() ? "" : args[0],
+                        ") — no frame has registered for it");
         }
         lua_pop(L_, 1); // pop event frame list
     }
