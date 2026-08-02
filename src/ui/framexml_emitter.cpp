@@ -614,6 +614,24 @@ struct Emitter {
                 (declaredParent && !declaredParent->empty()) ? *declaredParent : ownerName;
             emitAnchors(*anchors, var, parentVar, anchorOwner);
         }
+        // A status bar's own art and colour. Thirty-three bars across FrameXML
+        // declare a BarTexture and none of it was emitted, so every one of them
+        // fell back to a flat fill in the default white — which for a health
+        // bar is not a bar with the wrong texture, it is a white block where
+        // the health should be.
+        if (const XmlNode* bar = node.child("BarTexture")) {
+            if (const std::string* file = bar->attr("file")) {
+                line(var + ":SetStatusBarTexture(" + quote(*file) + ")");
+            }
+        }
+        if (const XmlNode* col = node.child("BarColor")) {
+            line(var + ":SetStatusBarColor(" +
+                 std::to_string(col->attrFloat("r", 1.0f)) + ", " +
+                 std::to_string(col->attrFloat("g", 1.0f)) + ", " +
+                 std::to_string(col->attrFloat("b", 1.0f)) + ", " +
+                 std::to_string(col->attrFloat("a", 1.0f)) + ")");
+        }
+
         if (const XmlNode* layers = node.child("Layers")) {
             for (const XmlNode& layer : layers->children) {
                 if (layer.name != "Layer") continue;

@@ -365,8 +365,21 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                                        (w->bottom * s > screenH) ||
                                        ((w->left + w->rectW) * s < 0.0f) ||
                                        ((w->bottom + w->rectH) * s < 0.0f);
+                // A status bar's numbers, because an empty bar and a bar
+                // that was never given a value look identical, and the second
+                // is the one that has been happening.
+                std::string bar;
+                if (w->isStatusBar) {
+                    bar = " value=" + std::to_string(w->barValue) +
+                          " of [" + std::to_string(w->barMin) + "," +
+                          std::to_string(w->barMax) + "]" +
+                          (w->barTexture.empty()
+                               ? std::string(" NOBARTEXTURE")
+                               : (resident(w->barTexture) == kMissing
+                                      ? " BARTEXNOTRESIDENT" : ""));
+                }
                 LOG_WARNING("  ", name,
-                            (w->visible ? " shown" : " HIDDEN"),
+                            (w->visible ? " shown" : " HIDDEN"), bar,
                             (w->rectW <= 0.0f || w->rectH <= 0.0f ? " NOSIZE" : ""),
                             (offscreen ? " OFFSCREEN" : ""),
                             " rect=(", w->left, ",", w->bottom, " ",
