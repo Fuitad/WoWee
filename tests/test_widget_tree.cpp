@@ -1163,3 +1163,40 @@ TEST_CASE("A moved frame keeps its size and lands where it was dropped",
     tree.layout(1024.0f, 768.0f);
     REQUIRE(tree.get(bag)->left == Catch::Approx(50.0f));
 }
+
+TEST_CASE("A moved frame gives way when the interface positions it again",
+          "[widget][layout]") {
+    // The anchor a move leaves behind is on whichever point the frame was
+    // picked up by, and the interface re-anchors on its own points without
+    // clearing first — updateContainerFrameAnchors sets BOTTOMRIGHT on every
+    // bag each time one opens. Keeping both left two constraints on one axis,
+    // and the bag opened with no width.
+    WidgetTree tree;
+    const uint32_t bag = tree.create(WidgetKind::Frame, tree.root(), "Bag");
+    tree.get(bag)->width = 192.0f;
+    tree.get(bag)->height = 240.0f;
+    tree.addPoint(bag, Anchor{"BOTTOMRIGHT", 0, "BOTTOMRIGHT", -10.0f, 20.0f});
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(bag)->rectW == Catch::Approx(192.0f));
+
+    // Dragged somewhere else.
+    tree.pinToCurrentPosition(bag);
+    tree.nudge(bag, -300.0f, 100.0f);
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(bag)->anchors.size() == 1u);
+    REQUIRE(tree.get(bag)->left == Catch::Approx(522.0f));
+    REQUIRE(tree.get(bag)->rectW == Catch::Approx(192.0f));
+
+    // The interface positions it again, on a different point and without
+    // clearing: the move's anchor gives way rather than fighting it.
+    tree.addPoint(bag, Anchor{"BOTTOMRIGHT", 0, "BOTTOMRIGHT", -10.0f, 20.0f});
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(bag)->anchors.size() == 1u);
+    REQUIRE(tree.get(bag)->rectW == Catch::Approx(192.0f));
+    REQUIRE(tree.get(bag)->left == Catch::Approx(1024.0f - 10.0f - 192.0f));
+
+    // And an ordinary re-anchor after that still replaces by point, not by
+    // clearing everything.
+    tree.addPoint(bag, Anchor{"TOPLEFT", 0, "TOPLEFT", 5.0f, -5.0f});
+    REQUIRE(tree.get(bag)->anchors.size() == 2u);
+}
