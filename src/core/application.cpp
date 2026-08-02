@@ -2880,13 +2880,6 @@ void Application::render() {
             // because the render target is rebuilt when the window resizes and
             // a handle kept across that would be stale.
             if (gameHandler && assetManager) {
-                unitPortrait_.update(*gameHandler, assetManager.get(), renderer.get(),
-                                     io.DeltaTime);
-                // Assigned every frame including when it is zero. Keeping the
-                // last good handle instead would leave the widget pointing at a
-                // descriptor set that has been destroyed — the render target is
-                // torn down whenever the model is rebuilt — and drawing from
-                // that is a use-after-free rather than a stale picture.
                 auto& widgets = engine->widgets();
                 ui::Widget* portrait = portraitWidgetId_
                     ? widgets.get(portraitWidgetId_) : nullptr;
@@ -2894,7 +2887,21 @@ void Application::render() {
                     portrait = widgets.findByName("PlayerPortrait");
                     portraitWidgetId_ = portrait ? portrait->id : 0;
                 }
-                if (portrait) portrait->externalTexture = unitPortrait_.textureId();
+                // Only while something is going to show it. This is a whole
+                // offscreen character pass, and running it for a frame that
+                // FrameXML has not been given costs a model render and a
+                // composite every frame to produce a picture nothing draws.
+                if (portrait) {
+                    unitPortrait_.update(*gameHandler, assetManager.get(),
+                                         renderer.get(), io.DeltaTime);
+                    // Assigned every frame including when it is zero. Keeping
+                    // the last good handle instead would leave the widget
+                    // pointing at a descriptor set that has been destroyed —
+                    // the render target is torn down whenever the model is
+                    // rebuilt — and drawing from that is a use-after-free
+                    // rather than a stale picture.
+                    portrait->externalTexture = unitPortrait_.textureId();
+                }
             }
 
             // Lay out first: hit testing reads the rects this produces, so
