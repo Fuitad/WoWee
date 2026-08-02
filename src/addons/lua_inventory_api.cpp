@@ -787,6 +787,17 @@ static int lua_GetInventoryItemTexture(lua_State* L) {
     return 1;
 }
 
+/// ContainerIDToInventoryID(bagID) → the equipment slot that bag is worn in.
+///
+/// Bags 1 through 4 are inventory slots 20 through 23. The bag portrait button
+/// asks for this to put the bag's own tooltip on itself, and left undefined the
+/// call answered nil, which asked for the tooltip of no slot at all.
+static int lua_ContainerIDToInventoryID(lua_State* L) {
+    const int bag = static_cast<int>(luaL_checknumber(L, 1));
+    lua_pushnumber(L, bag + 19);
+    return 1;
+}
+
 /// GetBagName(bagID) → the name of the bag in that slot, or nil for an empty
 /// one. The backpack is bag 0 and has a fixed name; the interface uses this to
 /// label the bag buttons and their tooltips.
@@ -976,6 +987,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetItemCount",      lua_GetItemCount},
                 {"UseContainerItem",  lua_UseContainerItem},
                 {"GetContainerNumSlots",    lua_GetContainerNumSlots},
+                {"ContainerIDToInventoryID", lua_ContainerIDToInventoryID},
                 {"GetBagName",              lua_GetBagName},
                 {"SetBagPortraitTexture",   lua_SetBagPortraitTexture},
                 {"PutItemInBag",            lua_PutItemInBag},
