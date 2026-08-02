@@ -334,6 +334,27 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         if (!wanted.empty()) {
             LOG_WARNING("FrameXML takeover check, on ", screenW, "x", screenH,
                         " px (scale ", s, "):");
+            // Anything that landed off the screen, whoever it belongs to.
+            //
+            // A frame in the wrong place is only findable by name if you can
+            // guess the name, and the thing that looks wrong on screen is
+            // rarely the thing you would have thought to check. Position is
+            // the question actually being asked, so ask it of everything.
+            int offscreen = 0;
+            for (size_t id = 1; id < tree.size(); ++id) {
+                const Widget* w = tree.get(static_cast<uint32_t>(id));
+                if (!w || !w->visible || w->name.empty()) continue;
+                if (w->rectW <= 0.0f || w->rectH <= 0.0f) continue;
+                const float l = w->left * s, b = w->bottom * s;
+                const float r = (w->left + w->rectW) * s;
+                const float t = (w->bottom + w->rectH) * s;
+                if (l < screenW && r > 0.0f && b < screenH && t > 0.0f) continue;
+                if (++offscreen > 12) break;
+                LOG_WARNING("  OFF SCREEN ", w->name, " rect=(", w->left, ",",
+                            w->bottom, " ", w->rectW, "x", w->rectH, ")");
+            }
+            if (offscreen > 12) LOG_WARNING("  ... and more");
+
             for (const std::string& name : wanted) {
                 const Widget* w = tree.findByName(name);
                 if (!w) {

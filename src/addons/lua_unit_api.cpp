@@ -794,6 +794,14 @@ static int lua_UnitGUID(lua_State* L) {
     return 1;
 }
 
+/// UnitPVPName(unit) → the name with the player's title around it, or just
+/// the name. Titles are not tracked, so it is the name — which is what WoW
+/// answers for a character wearing no title, and what the paperdoll puts at
+/// the top of the character sheet.
+static int lua_UnitPVPName(lua_State* L) {
+    return lua_UnitName(L);
+}
+
 static int lua_UnitIsPlayer(lua_State* L) {
     const char* uid = luaL_optstring(L, 1, "player");
     auto* gh = getGameHandler(L);
@@ -1771,6 +1779,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetNumGroupMembers", lua_GetNumGroupMembers},
                 {"UnitGUID",          lua_UnitGUID},
                 {"UnitIsPlayer",      lua_UnitIsPlayer},
+                {"UnitPVPName",       lua_UnitPVPName},
                 {"InCombatLockdown",  lua_InCombatLockdown},
                 {"UnitDistanceSquared", lua_UnitDistanceSquared},
                 {"CheckInteractDistance", lua_CheckInteractDistance},
