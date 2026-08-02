@@ -2902,10 +2902,28 @@ void LuaEngine::reportMissingApi() const {
     // At warning level, because release builds drop INFO and this is the whole
     // point of recording them: the list is the measured gap, once per session,
     // and it was being written where nobody could read it.
-    LOG_WARNING("LuaEngine: ", names.size(), " distinct API names were called "
-                "and not found this session");
-    std::string line;
+    // A name recorded here was missing when it was read, which is not the same
+    // as missing. FrameXML reads a global before the file that defines it has
+    // loaded all the time — a frame asks for another panel's frame in its
+    // OnLoad, a font object is defined as `X = X or {}` — and every one of
+    // those was landing in a list whose only value is that everything in it is
+    // real. Ask again now, at the end, and keep what is still absent.
+    std::vector<std::string> absent;
+    absent.reserve(names.size());
     for (const auto& n : names) {
+        lua_pushstring(L_, n.c_str());
+        lua_rawget(L_, LUA_GLOBALSINDEX);
+        const bool defined = !lua_isnil(L_, -1);
+        lua_pop(L_, 1);
+        if (!defined) absent.push_back(n);
+    }
+    if (absent.empty()) return;
+
+    LOG_WARNING("LuaEngine: ", absent.size(), " distinct API names were called "
+                "and are still not defined (", names.size() - absent.size(),
+                " more were read before whatever defines them had loaded)");
+    std::string line;
+    for (const auto& n : absent) {
         line += n;
         line += ' ';
         if (line.size() > 900) { LOG_WARNING("  missing: ", line); line.clear(); }

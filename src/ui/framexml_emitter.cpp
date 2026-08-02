@@ -18,7 +18,12 @@ bool isFrameElement(const std::string& n) {
         "Frame", "Button", "CheckButton", "StatusBar", "Slider", "EditBox",
         "ScrollFrame", "ScrollingMessageFrame", "MessageFrame", "SimpleHTML",
         "ColorSelect", "Model", "PlayerModel", "DressUpModel", "TabardModel",
-        "Cooldown", "GameTooltip", "MovieFrame", "ArchaeologyDigSiteFrame"
+        "Cooldown", "GameTooltip", "MovieFrame", "ArchaeologyDigSiteFrame",
+        // Both are ordinary frames as far as this goes — the client draws what
+        // is inside them. Leaving Minimap out skipped the whole minimap
+        // subtree, which is why every MinimapNorthTag and MiniMapLFGFrame in
+        // the interface read as a missing global.
+        "Minimap", "WorldFrame"
     };
     for (const char* f : kFrames) if (n == f) return true;
     return false;
@@ -341,13 +346,18 @@ struct Emitter {
         // the same order a frame's template follows.
         if (const std::string* inh = node.attr("inherits"); inh && !inh->empty()) {
             line(name + " = {}");
-            line("do local base = _G[" + quote(*inh) + "]");
+            line("do local base = rawget(_G, " + quote(*inh) + ")");
             line("  if type(base) == 'table' then");
             line("    for k, v in pairs(base) do " + name + "[k] = v end");
             line("  end");
             line("end");
         } else {
-            line(name + " = " + name + " or {}");
+            // rawget, because reading the name to see whether it is already
+            // there is exactly what the missing-API fallback is watching for.
+            // Through a plain read every font object in Fonts.xml reported
+            // itself missing at the moment it was defined — thirty entries in
+            // a list whose whole value is that everything in it is real.
+            line(name + " = rawget(_G, " + quote(name) + ") or {}");
         }
         if (height > 0.0f) line(name + ".height = " + std::to_string(height));
         if (const std::string* f = node.attr("font"))
