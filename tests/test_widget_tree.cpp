@@ -1087,3 +1087,38 @@ TEST_CASE("Setting a point that is already set replaces it", "[widget][layout]")
     tree.addPoint(dur, Anchor{"BOTTOMLEFT", cluster, "BOTTOMLEFT", 0.0f, 0.0f});
     REQUIRE(tree.get(dur)->anchors.size() == 2u);
 }
+
+TEST_CASE("A size just set reads back before the next layout", "[widget][layout]") {
+    // FrameXML sizes things and measures them in the same breath. The container
+    // frames set the height of each piece of their background art and then add
+    // those heights up to size the frame itself:
+    //
+    //     frame:SetHeight(bgTop:GetHeight() + bgBottom:GetHeight() + middle)
+    //
+    // Answering GetHeight from the last laid-out rect makes that sum the
+    // previous frame's numbers, and the art and the buttons anchored inside it
+    // then describe two different frames — which is what put the item slots of
+    // an opened bag below the art drawn for it.
+    WidgetTree tree;
+    const uint32_t art = tree.create(WidgetKind::Texture, tree.root(), "Art");
+    tree.addPoint(art, Anchor{"TOPLEFT", 0, "TOPLEFT", 0.0f, 0.0f});
+    tree.setHeight(art, 40.0f);
+    tree.setWidth(art, 100.0f);
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(art)->rectH == Catch::Approx(40.0f));
+
+    // Resized, and read back at once — no layout in between, exactly as
+    // ContainerFrame_GenerateFrame does it.
+    tree.setHeight(art, 94.0f);
+    REQUIRE(tree.get(art)->rectH == Catch::Approx(94.0f));
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(art)->rectH == Catch::Approx(94.0f));
+
+    // Where anchors decide the size, the layout still has the last word.
+    const uint32_t stretched = tree.create(WidgetKind::Frame, tree.root(), "Stretched");
+    tree.setHeight(stretched, 10.0f);
+    tree.addPoint(stretched, Anchor{"TOPLEFT", 0, "TOPLEFT", 0.0f, 0.0f});
+    tree.addPoint(stretched, Anchor{"BOTTOMRIGHT", 0, "BOTTOMRIGHT", 0.0f, 0.0f});
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(stretched)->rectH == Catch::Approx(768.0f));
+}

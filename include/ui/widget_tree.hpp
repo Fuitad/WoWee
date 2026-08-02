@@ -262,6 +262,17 @@ public:
     /// re-anchored from scratch, and what SetAllPoints does before pinning both
     /// corners.
     void clearPoints(uint32_t id);
+
+    /// Set a size, and have it read back before the next layout.
+    ///
+    /// FrameXML sizes things and measures them in the same breath: a container
+    /// frame sets the height of each piece of its background art and then adds
+    /// those heights up to size itself. Storing only the requested size and
+    /// answering GetHeight from the last laid-out rect makes that sum the
+    /// *previous* frame's numbers, so the art and the buttons inside it end up
+    /// describing two different frames.
+    void setWidth(uint32_t id, float width);
+    void setHeight(uint32_t id, float height);
     void addPoint(uint32_t id, const Anchor& anchor);
     void setAllPoints(uint32_t id, uint32_t relativeTo);
 

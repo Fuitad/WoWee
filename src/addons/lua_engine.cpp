@@ -296,18 +296,24 @@ int lua_Region_SetAllPoints(lua_State* L) {
 }
 
 int lua_Region_SetSize(lua_State* L) {
-    if (auto* w = widgetOf(L, 1)) {
-        w->width  = static_cast<float>(luaL_optnumber(L, 2, 0));
-        w->height = static_cast<float>(luaL_optnumber(L, 3, 0));
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (tree && id != 0) {
+        tree->setWidth(id, static_cast<float>(luaL_optnumber(L, 2, 0)));
+        tree->setHeight(id, static_cast<float>(luaL_optnumber(L, 3, 0)));
     }
     return 0;
 }
 int lua_Region_SetWidth(lua_State* L) {
-    if (auto* w = widgetOf(L, 1)) w->width = static_cast<float>(luaL_optnumber(L, 2, 0));
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (tree && id != 0) tree->setWidth(id, static_cast<float>(luaL_optnumber(L, 2, 0)));
     return 0;
 }
 int lua_Region_SetHeight(lua_State* L) {
-    if (auto* w = widgetOf(L, 1)) w->height = static_cast<float>(luaL_optnumber(L, 2, 0));
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (tree && id != 0) tree->setHeight(id, static_cast<float>(luaL_optnumber(L, 2, 0)));
     return 0;
 }
 /// Width of a string as it would be drawn.

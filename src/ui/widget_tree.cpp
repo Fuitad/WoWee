@@ -128,6 +128,23 @@ void WidgetTree::clearPoints(uint32_t id) {
     if (Widget* w = get(id)) w->anchors.clear();
 }
 
+void WidgetTree::setWidth(uint32_t id, float width) {
+    Widget* w = get(id);
+    if (!w) return;
+    w->width = width;
+    // Provisional, so a read before the next layout sees what was just set.
+    // The layout overwrites it from the anchors, which is the final answer
+    // where anchors decide the size.
+    w->rectW = width;
+}
+
+void WidgetTree::setHeight(uint32_t id, float height) {
+    Widget* w = get(id);
+    if (!w) return;
+    w->height = height;
+    w->rectH = height;
+}
+
 void WidgetTree::addPoint(uint32_t id, const Anchor& anchor) {
     Widget* w = get(id);
     if (!w) return;
