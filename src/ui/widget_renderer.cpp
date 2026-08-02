@@ -94,11 +94,12 @@ void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w,
             }
             dl->AddImage(reinterpret_cast<ImTextureID>(bg), ImVec2(bx0, by0), ImVec2(bx1, by1),
                          ImVec2(0.0f, 0.0f), ImVec2(u1, v1), col);
-        } else if (!w.bgFile.empty()) {
-            // Not resident yet; nothing to draw this frame.
-        } else {
-            dl->AddRectFilled(ImVec2(bx0, by0), ImVec2(bx1, by1), col);
         }
+        // A backdrop with no background file has no background — only its edge.
+        // Filling the rect instead painted every such frame in the backdrop
+        // colour, which defaults to opaque white, and a wide one is a white
+        // slab across the screen. Nothing is drawn here either while the art is
+        // still being read.
     }
 
     VkDescriptorSet edge = resident(w.edgeFile);

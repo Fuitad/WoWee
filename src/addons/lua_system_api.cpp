@@ -530,6 +530,24 @@ static int lua_GetBattlefieldPosition(lua_State* L) {
     return 3;
 }
 
+/// A chat window's saved settings. FCF_SetWindowAlpha takes the alpha from
+/// here and remembers it as oldAlpha, which the fade handlers then hand to
+/// max() on every mouse-over — so a missing alpha is not a cosmetic gap, it is
+/// an error every time the cursor crosses the frame.
+static int lua_GetChatWindowInfo(lua_State* L) {
+    lua_pushstring(L, "");      // name
+    lua_pushnumber(L, 14.0);    // fontSize
+    lua_pushnumber(L, 1.0);     // r
+    lua_pushnumber(L, 1.0);     // g
+    lua_pushnumber(L, 1.0);     // b
+    lua_pushnumber(L, 1.0);     // alpha
+    lua_pushboolean(L, 1);      // shown
+    lua_pushboolean(L, 0);      // locked
+    lua_pushboolean(L, 1);      // docked
+    lua_pushboolean(L, 0);      // uninteractable
+    return 10;
+}
+
 static int lua_ReturnNoCooldown(lua_State* L) {
     lua_pushnumber(L, 0.0);
     lua_pushnumber(L, 0.0);
@@ -566,6 +584,9 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetNumBattlefieldPositions", lua_ReturnZero},
                 {"GetBattlefieldPosition",   lua_GetBattlefieldPosition},
                 {"GetCorpseMapPosition",     lua_GetBattlefieldPosition},
+                {"GetDeathReleasePosition",  lua_GetBattlefieldPosition},
+                {"GetChatWindowInfo",        lua_GetChatWindowInfo},
+                {"SetChatWindowAlpha",       lua_ReturnNothing},
                 {"GetNumBattlefieldFlagPositions", lua_ReturnZero},
                 {"GetBattlefieldFlagPosition",     lua_GetBattlefieldPosition},
                 {"GuildControlGetNumRanks",  lua_ReturnZero},
