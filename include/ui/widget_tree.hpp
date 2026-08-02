@@ -107,6 +107,12 @@ struct Widget {
     /// a paperdoll by keeping its own running total and calling SetRotation
     /// with it, so this is absolute rather than a delta.
     float modelFacing = 0.0f;
+    /// A label whose size came from measuring its own text, and the text that
+    /// was measured. Without the second, a label sized once keeps that size
+    /// forever — the character sheet's level line stayed the width of the
+    /// placeholder its XML shipped with, long after it read something else.
+    bool autoSized = false;
+    std::string measuredText;
 
     FrameStrata strata = FrameStrata::Medium;
     bool strataExplicit = false;

@@ -113,12 +113,18 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
         // Two anchors on an axis give the size, and an explicit size was asked
         // for outright. Either way the string does not get a say.
         if (w->anchors.size() >= 2) continue;
-        if (w->width > 0.0f && w->height > 0.0f) continue;
+        // Already the right size for this text. A label that was measured
+        // before and has since changed what it says is measured again; one
+        // sized by its XML is left alone.
+        if (w->autoSized && w->measuredText == w->text) continue;
+        if (!w->autoSized && w->width > 0.0f && w->height > 0.0f) continue;
 
         const float size = (w->fontHeight > 0.0f) ? w->fontHeight : 12.0f;
         const ImVec2 measured = font->CalcTextSizeA(size, FLT_MAX, 0.0f, w->text.c_str());
-        if (w->width <= 0.0f)  w->width  = measured.x;
-        if (w->height <= 0.0f) w->height = size * 1.2f;
+        w->width = measured.x;
+        if (w->height <= 0.0f || w->autoSized) w->height = size * 1.2f;
+        w->autoSized = true;
+        w->measuredText = w->text;
     }
 }
 
