@@ -52,6 +52,12 @@ public:
     /// together and zooms to the face.
     void setPortraitFraming();
 
+    /// Draws the character against nothing rather than a lit backdrop, so what
+    /// surrounds it is transparent. A portrait is masked by the frame art
+    /// around it, and anything opaque behind the head shows as a block of
+    /// colour inside that frame.
+    void setTransparentBackground(bool transparent);
+
     // Off-screen composite pass — call from Renderer::beginFrame() before main render pass
     void compositePass(VkCommandBuffer cmd, uint32_t frameIndex);
 
@@ -150,6 +156,7 @@ private:
     float modelBoundMaxZ_ = 2.0f;
     glm::vec3 previewStandPosition_{0.0f};
     glm::vec3 previewViewDirection_{0.0f, 1.0f, 0.0f};
+    bool transparentBackground_ = false;
 
     // Cached info from loadCharacter() for later recompositing.
     game::Race race_ = game::Race::HUMAN;

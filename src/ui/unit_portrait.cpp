@@ -75,6 +75,7 @@ void UnitPortrait::update(game::GameHandler& gameHandler,
                                     hairStyle, hairColor, self->facialFeatures,
                                     self->useFemaleModel)) {
             preview_->applyEquipment(self->equipment);
+            preview_->setTransparentBackground(true);
             preview_->setPortraitFraming();
         }
         // Logged because a portrait that rebuilds every frame looks like one

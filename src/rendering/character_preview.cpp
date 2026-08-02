@@ -1342,7 +1342,11 @@ void CharacterPreview::compositePass(VkCommandBuffer cmd, uint32_t frameIndex) {
     std::memcpy(previewUBOMapped_[fi], &ubo, sizeof(GPUPerFrameData));
 
     // Begin off-screen render pass
-    VkClearColorValue clearColor = {{0.05f, 0.05f, 0.1f, 1.0f}};
+    // Nothing at all behind a portrait, so the frame art around it shows
+    // through; the studio backdrop everywhere else.
+    VkClearColorValue clearColor = transparentBackground_
+        ? VkClearColorValue{{0.0f, 0.0f, 0.0f, 0.0f}}
+        : VkClearColorValue{{0.05f, 0.05f, 0.1f, 1.0f}};
     renderTarget_->beginPass(cmd, clearColor);
 
     // Preview rendering bypasses Renderer::renderWorld(), so it must run the
@@ -1370,6 +1374,17 @@ void CharacterPreview::zoom(float wheelDelta) {
     if (!std::isfinite(wheelDelta) || wheelDelta == 0.0f) return;
     zoomLevel_ = std::clamp(zoomLevel_ + wheelDelta * 0.12f, 0.0f, 1.0f);
     applyPreviewView();
+}
+
+void CharacterPreview::setTransparentBackground(bool transparent) {
+    transparentBackground_ = transparent;
+    // The scene model behind the character is as opaque as the clear colour,
+    // so it goes as well.
+    if (transparent && backdropInstanceId_ != 0 && charRenderer_) {
+        charRenderer_->removeInstance(backdropInstanceId_);
+        backdropInstanceId_ = 0;
+        backdropRace_ = -1;
+    }
 }
 
 void CharacterPreview::setPortraitFraming() {
