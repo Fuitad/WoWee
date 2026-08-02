@@ -56,7 +56,7 @@ const std::set<std::string>& requested() {
         // looked at on its own.
         if (!raw || !*raw) {
             out = {"playerframe", "targetframe", "minimap",
-                   "mainmenubar", "characterframe"};
+                   "mainmenubar", "characterframe", "bags"};
             LOG_WARNING("FrameXML is drawing the branch defaults; "
                         "set WOWEE_FRAMEXML_UI to choose, or 'none' for this "
                         "client's own interface");
@@ -174,9 +174,17 @@ bool frameXmlOwnsMouse() { return gMouseOwned.load(std::memory_order_relaxed); }
 void frameXmlNoteWorldEntry() { gWorldEntered.store(true, std::memory_order_relaxed); }
 bool frameXmlWorldEntered() { return gWorldEntered.load(std::memory_order_relaxed); }
 
-void frameXmlRequestCheck() { gCheckRequested.store(true, std::memory_order_relaxed); }
+namespace { std::atomic<bool> gProbeRequested{false}; }
+
+void frameXmlRequestCheck() {
+    gCheckRequested.store(true, std::memory_order_relaxed);
+    gProbeRequested.store(true, std::memory_order_relaxed);
+}
 bool frameXmlTakeCheckRequest() {
     return gCheckRequested.exchange(false, std::memory_order_relaxed);
+}
+bool frameXmlTakeProbeRequest() {
+    return gProbeRequested.exchange(false, std::memory_order_relaxed);
 }
 
 std::vector<std::string> frameXmlCheckFrames() {

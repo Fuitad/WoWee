@@ -4623,7 +4623,31 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
     }
 }
 
+/// Ask the interface what it can see, in its own words.
+///
+/// The widget report says whether a frame is shown; this says whether it should
+/// be. A hidden target frame is correct with no target and a fault with one, and
+/// from the tree alone those are the same line.
+void LuaEngine::runInterfaceProbe() {
+    if (!L_) return;
+    executeString(
+        "local function yn(v) return v and 'yes' or 'no' end\n"
+        "local auras = 0\n"
+        "for i = 1, 40 do if not UnitAura('player', i) then break end auras = i end\n"
+        "print('[fxcheck] target=' .. yn(UnitExists('target')) ..\n"
+        "      ' name=' .. tostring(UnitExists('target') and UnitName('target')) ..\n"
+        "      ' | TargetFrame shown=' .. yn(TargetFrame and TargetFrame:IsShown()) ..\n"
+        "      ' unit=' .. tostring(TargetFrame and TargetFrame.unit) ..\n"
+        "      ' | player auras=' .. auras ..\n"
+        "      ' | XP=' .. tostring(UnitXP('player')) .. '/' .. tostring(UnitXPMax('player')) ..\n"
+        "      ' | bag0 slots=' .. tostring(GetContainerNumSlots(0)))\n");
+}
+
 void LuaEngine::dispatchOnUpdate(float elapsed) {
+    // Asked for by the check, and answered here because only this side can ask
+    // the interface anything.
+    if (ui::frameXmlTakeProbeRequest()) runInterfaceProbe();
+
     if (!L_) return;
 
     lua_getglobal(L_, "__WoweeOnUpdateFrames");

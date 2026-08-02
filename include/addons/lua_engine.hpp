@@ -97,6 +97,9 @@ public:
     /// the question comes up every time and the answer is one number.
     void reportEventListenersOnce();
 
+    /// Log what the interface itself can see, for the takeover check.
+    void runInterfaceProbe();
+
 private:
     bool eventListenersReported_ = false;
     int  eventReportFrames_ = 0;

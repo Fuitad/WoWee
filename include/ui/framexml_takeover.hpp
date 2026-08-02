@@ -110,4 +110,11 @@ void frameXmlRequestCheck();
 /// Consume a pending request, if there is one.
 bool frameXmlTakeCheckRequest();
 
+/// The same request, seen by the Lua side.
+///
+/// The widget report says whether a frame is shown; only the interface's own
+/// API can say whether it should be. Two flags rather than one because the
+/// renderer and the script engine each consume their own.
+bool frameXmlTakeProbeRequest();
+
 } // namespace wowee::ui
