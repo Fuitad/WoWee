@@ -566,7 +566,19 @@ static int lua_GetContainerItemInfo(lua_State* L) {
     // Get item info for quality/icon
     const auto* info = gh->getItemInfo(itemSlot->item.itemId);
 
-    lua_pushnil(L);  // texture (icon path — would need ItemDisplayInfo icon resolver)
+    // Texture. Returning nil here is what made FrameXML's bag look empty while
+    // it held items: ContainerFrame_Update passes this straight to
+    // SetItemButtonTexture, so every occupied slot drew no icon and read as a
+    // free one. The resolver has been on GameHandler all along — it is what
+    // this client's own bag draws from.
+    // The slot carries a display id from the update fields; where it does not,
+    // the item's own record has one, which is the source the vendor and loot
+    // bindings beside this one use.
+    uint32_t displayId = itemSlot->item.displayInfoId;
+    if (displayId == 0 && info) displayId = info->displayInfoId;
+    const std::string icon = displayId ? gh->getItemIconPath(displayId) : std::string();
+    lua_pushstring(L, icon.empty() ? "Interface\\Icons\\INV_Misc_QuestionMark"
+                                   : icon.c_str());
     lua_pushnumber(L, itemSlot->item.stackCount);  // count
     lua_pushboolean(L, 0);  // locked
     lua_pushnumber(L, info ? info->quality : 0);  // quality
