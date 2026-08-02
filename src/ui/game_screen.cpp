@@ -1,4 +1,5 @@
 #include "ui/game_screen.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "ui/scene_pick.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/ui_helpers.hpp"
@@ -400,10 +401,10 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     // Process targeting input before UI windows
     processTargetInput(gameHandler);
 
-    renderPlayerFrame(gameHandler);
+    if (!frameXmlOwns(UiElement::PlayerFrame)) renderPlayerFrame(gameHandler);
 
     // Pet frame (below player frame, only when player has an active pet)
-    if (gameHandler.hasPet()) {
+    if (gameHandler.hasPet() && !frameXmlOwns(UiElement::PetFrame)) {
         renderPetFrame(gameHandler);
     }
 
@@ -419,12 +420,12 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     }
 
     // Target frame (only when we have a target)
-    if (gameHandler.hasTarget()) {
+    if (gameHandler.hasTarget() && !frameXmlOwns(UiElement::TargetFrame)) {
         renderTargetFrame(gameHandler);
     }
 
     // Focus target frame (only when we have a focus)
-    if (gameHandler.hasFocus()) {
+    if (gameHandler.hasFocus() && !frameXmlOwns(UiElement::FocusFrame)) {
         renderFocusFrame(gameHandler);
     }
 
@@ -456,16 +457,23 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     }
 
     // ---- New UI elements ----
-    actionBarPanel_.renderActionBar(gameHandler, settingsPanel_, chatPanel_,
-        inventoryScreen, spellbookScreen, questLogScreen,
-        [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); });
-    actionBarPanel_.renderStanceBar(gameHandler, settingsPanel_, spellbookScreen,
-        [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); });
-    if (actionBarPanel_.renderBagBar(gameHandler, settingsPanel_, inventoryScreen))
+    if (!frameXmlOwns(UiElement::ActionBar)) {
+        actionBarPanel_.renderActionBar(gameHandler, settingsPanel_, chatPanel_,
+            inventoryScreen, spellbookScreen, questLogScreen,
+            [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); });
+    }
+    if (!frameXmlOwns(UiElement::StanceBar)) {
+        actionBarPanel_.renderStanceBar(gameHandler, settingsPanel_, spellbookScreen,
+            [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); });
+    }
+    if (!frameXmlOwns(UiElement::BagBar) &&
+        actionBarPanel_.renderBagBar(gameHandler, settingsPanel_, inventoryScreen))
         saveSettings();
-    renderMicroMenu(gameHandler);
-    actionBarPanel_.renderXpBar(gameHandler, settingsPanel_);
-    actionBarPanel_.renderRepBar(gameHandler, settingsPanel_);
+    if (!frameXmlOwns(UiElement::MicroMenu)) renderMicroMenu(gameHandler);
+    if (!frameXmlOwns(UiElement::XpBar))
+        actionBarPanel_.renderXpBar(gameHandler, settingsPanel_);
+    if (!frameXmlOwns(UiElement::RepBar))
+        actionBarPanel_.renderRepBar(gameHandler, settingsPanel_);
     auto spellIconFn = [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); };
     combatUI_.renderCastBar(gameHandler, spellIconFn);
     renderMirrorTimers(gameHandler);
