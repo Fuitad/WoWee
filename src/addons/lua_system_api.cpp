@@ -541,10 +541,15 @@ static int lua_GetChatWindowInfo(lua_State* L) {
     lua_pushnumber(L, 1.0);     // g
     lua_pushnumber(L, 1.0);     // b
     lua_pushnumber(L, 1.0);     // alpha
-    lua_pushboolean(L, 1);      // shown
-    lua_pushboolean(L, 0);      // locked
-    lua_pushboolean(L, 1);      // docked
-    lua_pushboolean(L, 0);      // uninteractable
+    // Numbers and nil, not booleans. docked is a dock position, not a flag —
+    // FCF_LoadChatSettings hands it straight to FCF_DockFrame as the index to
+    // insert at, and that compares it against a count. A boolean there is a
+    // comparison between a boolean and a number, which is an error rather than
+    // a wrong answer.
+    lua_pushnumber(L, 1.0);     // shown
+    lua_pushnil(L);             // locked
+    lua_pushnumber(L, 1.0);     // docked — first position on the dock
+    lua_pushnil(L);             // uninteractable
     return 10;
 }
 
@@ -585,6 +590,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetBattlefieldPosition",   lua_GetBattlefieldPosition},
                 {"GetCorpseMapPosition",     lua_GetBattlefieldPosition},
                 {"GetDeathReleasePosition",  lua_GetBattlefieldPosition},
+                {"GetNumBattlefieldVehicles", lua_ReturnZero},
+                {"GetBattlefieldVehicleInfo", lua_ReturnNil},
                 {"GetChatWindowInfo",        lua_GetChatWindowInfo},
                 {"SetChatWindowAlpha",       lua_ReturnNothing},
                 {"GetNumBattlefieldFlagPositions", lua_ReturnZero},
