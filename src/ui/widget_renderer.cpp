@@ -552,8 +552,17 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                     for (size_t j = i + 1; j < labels.size() && overlaps < 8; ++j) {
                         const Widget* a = labels[i];
                         const Widget* b = labels[j];
-                        if (a->left + a->rectW <= b->left || b->left + b->rectW <= a->left) continue;
-                        if (a->bottom + a->rectH <= b->bottom || b->bottom + b->rectH <= a->bottom) continue;
+                        const float ox = std::min(a->left + a->rectW, b->left + b->rectW) -
+                                         std::max(a->left, b->left);
+                        const float oy = std::min(a->bottom + a->rectH, b->bottom + b->rectH) -
+                                         std::max(a->bottom, b->bottom);
+                        if (ox <= 0.0f || oy <= 0.0f) continue;
+                        // Meaningfully on top of each other, not merely touching:
+                        // stacked bar labels share an edge by a unit or two and
+                        // are not what this is looking for.
+                        const float smaller = std::min(a->rectW * a->rectH,
+                                                       b->rectW * b->rectH);
+                        if (smaller <= 0.0f || (ox * oy) < smaller * 0.5f) continue;
                         ++overlaps;
                         LOG_WARNING("  OVERLAPPING LABELS ",
                                     a->name.empty() ? "(unnamed)" : a->name.c_str(),
