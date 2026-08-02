@@ -57,7 +57,7 @@ const std::set<std::string>& requested() {
         if (!raw || !*raw) {
             out = {"playerframe", "targetframe", "minimap",
                    "mainmenubar", "characterframe", "bags", "castbar",
-                   "spellbook", "petframe"};
+                   "spellbook", "petframe", "focusframe"};
             LOG_WARNING("FrameXML is drawing the branch defaults; "
                         "set WOWEE_FRAMEXML_UI to choose, or 'none' for this "
                         "client's own interface");
@@ -193,9 +193,11 @@ std::vector<std::string> frameXmlCandidateFrames() {
     // likely to go next. Named individually rather than derived from the check
     // list so that adding a candidate is a deliberate act.
     struct Candidate { UiElement element; const char* frames; };
-    static const Candidate kCandidates[] = {
-        {UiElement::FocusFrame, "FocusFrame FocusFrameHealthBar FocusFrameManaBar"},
-    };
+    // Empty for now: every element with a FrameXML equivalent worth the swap has
+    // been handed over. What is left is drawn by this client on purpose — chat,
+    // the quest log, the quest tracker — so there is nothing to report as ready.
+    // Adding the next one back is a matter of listing it here.
+    static const std::vector<Candidate> kCandidates = {};
 
     std::vector<std::string> out;
     for (const Candidate& c : kCandidates) {
