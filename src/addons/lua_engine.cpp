@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstring>
+#include <ctime>
 #include <sstream>
 #include <algorithm>
 #include <climits>
@@ -45,6 +46,50 @@ std::set<std::string>& missingApiNames() {
 /// below warning — so anything printed for diagnosis is invisible in the one
 /// place it would be read. This is for the interface probe, which had been
 /// producing no output at all for that reason.
+/// date(format, time) — the clock, as WoW exposes it.
+///
+/// A global rather than os.date, and FrameXML uses both shapes: "*t" for a
+/// table of parts, and a strftime string otherwise. Missing, BetterDate
+/// indexed nothing and took down whatever was mid-update, and the clock on the
+/// minimap had no hour to read.
+static int lua_wow_date(lua_State* L) {
+    const char* fmt = luaL_optstring(L, 1, "%c");
+    const std::time_t when = lua_isnumber(L, 2)
+        ? static_cast<std::time_t>(lua_tonumber(L, 2))
+        : std::time(nullptr);
+
+    std::tm parts{};
+#ifdef _WIN32
+    localtime_s(&parts, &when);
+#else
+    localtime_r(&when, &parts);
+#endif
+
+    if (std::strcmp(fmt, "*t") == 0 || std::strcmp(fmt, "!*t") == 0) {
+        lua_newtable(L);
+        auto set = [&](const char* key, int value) {
+            lua_pushinteger(L, value);
+            lua_setfield(L, -2, key);
+        };
+        set("year", parts.tm_year + 1900);
+        set("month", parts.tm_mon + 1);
+        set("day", parts.tm_mday);
+        set("hour", parts.tm_hour);
+        set("min", parts.tm_min);
+        set("sec", parts.tm_sec);
+        set("wday", parts.tm_wday + 1);
+        set("yday", parts.tm_yday + 1);
+        lua_pushboolean(L, parts.tm_isdst > 0);
+        lua_setfield(L, -2, "isdst");
+        return 1;
+    }
+
+    char out[256];
+    const size_t n = std::strftime(out, sizeof(out), fmt, &parts);
+    lua_pushlstring(L, out, n);
+    return 1;
+}
+
 static int lua_wowee_warn(lua_State* L) {
     const char* msg = lua_tostring(L, 1);
     LOG_WARNING(msg ? msg : "(nil)");
@@ -2259,6 +2304,9 @@ void LuaEngine::registerCoreAPI() {
 
     lua_pushcfunction(L_, lua_wowee_warn);
     lua_setglobal(L_, "__WoweeWarn");
+
+    lua_pushcfunction(L_, lua_wow_date);
+    lua_setglobal(L_, "date");
 
     lua_pushcfunction(L_, [](lua_State* L) -> int {
         LOG_WARNING("[FrameXML] ", luaL_optstring(L, 1, ""));
