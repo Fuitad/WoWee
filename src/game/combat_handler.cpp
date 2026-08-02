@@ -1,4 +1,5 @@
 #include "game/combat_handler.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
 #include "game/packet_parsers.hpp"
@@ -1148,6 +1149,17 @@ void CombatHandler::setTarget(uint64_t guid) {
         LOG_INFO("Target set: 0x", std::hex, guid, std::dec);
     }
     owner_.fireAddonEvent("PLAYER_TARGET_CHANGED", {});
+
+    // Report the interface once, the first time there is a target to report it
+    // against. A target frame is only right or wrong with something targeted,
+    // and that is not a moment anything can be scheduled for — which is why
+    // this one has been diagnosed from readings taken when nothing was
+    // selected, where correct and broken look identical.
+    static bool reportedOnce = false;
+    if (!reportedOnce && guid != 0) {
+        reportedOnce = true;
+        ui::frameXmlRequestCheck();
+    }
 }
 
 void CombatHandler::clearTarget() {
