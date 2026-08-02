@@ -317,6 +317,48 @@ struct Emitter {
         line(parentVar + "[" + quote(*key) + "] = " + var);
     }
 
+    /// A <Font> is not a widget — it is a named set of type settings that font
+    /// strings inherit by name, and SetFontObject reads height and colour off
+    /// it. Ignoring the element left all 42 of FrameXML's font objects
+    /// undefined, so every label that inherits one fell back to a default size
+    /// and colour it was never meant to have.
+    void emitFont(const XmlNode& node) {
+        const std::string name = node.attrOr("name", "");
+        if (name.empty()) return;
+
+        float height = 0.0f;
+        if (const XmlNode* fh = node.child("FontHeight")) {
+            if (const XmlNode* abs = fh->child("AbsValue"))
+                height = abs->attrFloat("val", 0.0f);
+            else
+                height = fh->attrFloat("val", 0.0f);
+        }
+
+        // Inheriting copies the settings first, so anything stated here wins —
+        // the same order a frame's template follows.
+        if (const std::string* inh = node.attr("inherits"); inh && !inh->empty()) {
+            line(name + " = {}");
+            line("do local base = _G[" + quote(*inh) + "]");
+            line("  if type(base) == 'table' then");
+            line("    for k, v in pairs(base) do " + name + "[k] = v end");
+            line("  end");
+            line("end");
+        } else {
+            line(name + " = " + name + " or {}");
+        }
+        if (height > 0.0f) line(name + ".height = " + std::to_string(height));
+        if (const std::string* f = node.attr("font"))
+            line(name + ".font = " + quote(*f));
+        if (const std::string* o = node.attr("outline"))
+            line(name + ".outline = " + quote(*o));
+        if (const XmlNode* col = node.child("Color")) {
+            line(name + ".r = " + std::to_string(col->attrFloat("r", 1.0f)));
+            line(name + ".g = " + std::to_string(col->attrFloat("g", 1.0f)));
+            line(name + ".b = " + std::to_string(col->attrFloat("b", 1.0f)));
+            line(name + ".a = " + std::to_string(col->attrFloat("a", 1.0f)));
+        }
+    }
+
     /// Applies whatever this node inherits onto `var`. Templates apply before
     /// the frame's own settings, so anything stated on the frame overrides what
     /// it inherited — the order FrameXML relies on.
@@ -556,6 +598,8 @@ EmitResult emitFrameXml(const XmlNode& root) {
             else if (!node.text.empty()) e.result.lua += node.text + "\n";
         } else if (node.name == "Include") {
             if (const std::string* file = node.attr("file")) e.result.includeFiles.push_back(*file);
+        } else if (node.name == "Font") {
+            e.emitFont(node);
         } else if (isFrameElement(node.name)) {
             e.emitFrame(node, "", "");
         }

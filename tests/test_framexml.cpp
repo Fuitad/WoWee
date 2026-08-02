@@ -248,6 +248,31 @@ TEST_CASE("$parent skips unnamed frames to the nearest named one",
     REQUIRE(has(r.lua, "((self:GetName() or \"\") .. \"Name\")"));
 }
 
+TEST_CASE("A Font element becomes a font object", "[framexml][emit]") {
+    // Not a widget: a named set of type settings that font strings inherit by
+    // name, and SetFontObject reads height and colour off it. FrameXML defines
+    // 42 of them and every label inherits one.
+    XmlNode root = parseOrFail(
+        "<Ui>"
+        "<Font name=\"Base\" font=\"Fonts\\\\FRIZQT__.TTF\" virtual=\"true\">"
+        "<FontHeight><AbsValue val=\"10\"/></FontHeight>"
+        "<Color r=\"1\" g=\"0.8\" b=\"0\"/>"
+        "</Font>"
+        "<Font name=\"Derived\" inherits=\"Base\" virtual=\"true\">"
+        "<FontHeight><AbsValue val=\"16\"/></FontHeight>"
+        "</Font>"
+        "</Ui>");
+    const EmitResult r = emitFrameXml(root);
+
+    REQUIRE(has(r.lua, "Base.height = 10"));
+    REQUIRE(has(r.lua, "Base.r = 1"));
+    // Copied first, so the height stated here wins over the inherited one.
+    REQUIRE(has(r.lua, "for k, v in pairs(base) do Derived[k] = v end"));
+    REQUIRE(r.lua.find("pairs(base) do Derived") < r.lua.find("Derived.height = 16"));
+    // A font object is not a frame.
+    REQUIRE_FALSE(has(r.lua, "CreateFrame(\"Font\""));
+}
+
 TEST_CASE("A slider carries its range, step and grip", "[framexml][emit]") {
     // The range is set before the value, or the value is clamped against a
     // default range it was never meant to sit in. The thumb is a region like
