@@ -617,3 +617,25 @@ TEST_CASE("An empty function attribute is not emitted as a handler name",
     REQUIRE_FALSE(has(r.lua, "SetScript(\"OnMouseWheel\", )"));
     REQUIRE(has(r.lua, "SetScript(\"OnShow\", RealHandler)"));
 }
+
+TEST_CASE("$parent follows the parent attribute, not the file structure",
+          "[framexml][emit]") {
+    // A frame written at the top level with parent="Something" belongs to that
+    // frame, and its $parent means it. WorldMapTitleButton is declared this way
+    // and anchors to $parentMiniBorderLeft — the world map's own border. Taken
+    // from where it sits in the file instead, there is no containing frame to
+    // name, so $parent collapsed to the bare suffix and SetPoint looked up a
+    // global that nothing has.
+    XmlNode root = parseOrFail(
+        "<Ui>"
+        "<Frame name=\"Panel\"><Layers><Layer>"
+        "<Texture name=\"$parentEdge\" file=\"Interface\\Edge\"/>"
+        "</Layer></Layers></Frame>"
+        "<Button name=\"PanelTitle\" parent=\"Panel\">"
+        "<Anchors><Anchor point=\"TOPLEFT\" relativeTo=\"$parentEdge\"/></Anchors>"
+        "</Button></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "CreateTexture(\"PanelEdge\""));
+    REQUIRE(has(r.lua, ":SetPoint(\"TOPLEFT\", \"PanelEdge\""));
+    REQUIRE_FALSE(has(r.lua, "\"Edge\""));
+}

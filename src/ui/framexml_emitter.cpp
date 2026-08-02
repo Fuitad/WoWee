@@ -602,7 +602,17 @@ struct Emitter {
             // frame. Using its own name built VideoOptionsFrameCancelApply for
             // what should have been VideoOptionsFrameApply — a name nothing has,
             // so the anchor silently fell back to the parent.
-            emitAnchors(*anchors, var, parentVar, ownerName);
+            // A parent= attribute overrides where the frame sits in the file.
+            // WorldMapTitleButton is written at the top level with
+            // parent="WorldMapFrame", so its $parentMiniBorderLeft is the world
+            // map's border and not a child of nothing — and with no containing
+            // frame to take a name from, $parent collapsed to the bare suffix.
+            // SetPoint then looked up a global called MiniBorderLeft, found
+            // nothing, and put the title bar wherever the fallback landed.
+            const std::string* declaredParent = node.attr("parent");
+            const std::string anchorOwner =
+                (declaredParent && !declaredParent->empty()) ? *declaredParent : ownerName;
+            emitAnchors(*anchors, var, parentVar, anchorOwner);
         }
         if (const XmlNode* layers = node.child("Layers")) {
             for (const XmlNode& layer : layers->children) {
