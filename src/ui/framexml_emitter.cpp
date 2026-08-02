@@ -190,6 +190,9 @@ struct Emitter {
         if (const std::string* file = node.attr("file")) {
             line(var + ":SetTexture(" + quote(*file) + ")");
         }
+        if (const std::string* mode = node.attr("alphaMode")) {
+            if (isTexture) line(var + ":SetBlendMode(" + quote(*mode) + ")");
+        }
         if (const std::string* text = node.attr("text")) {
             line(var + ":SetText(" + quote(*text) + ")");
         }

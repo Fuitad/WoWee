@@ -116,6 +116,18 @@ TEST_CASE("$parent expands against the frame that owns the region",
     REQUIRE(has(r.lua, ":SetAllPoints("));
 }
 
+TEST_CASE("alphaMode reaches the texture as a blend mode", "[framexml][emit]") {
+    // Art declared this way is a glow on black with no alpha channel of its
+    // own. Dropping the attribute draws it as an opaque black shape over
+    // whatever it was meant to light up.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"FooFrame\"><Layers><Layer level=\"OVERLAY\">"
+        "<Texture name=\"$parentGlow\" file=\"Interface\\Glow\" alphaMode=\"ADD\"/>"
+        "</Layer></Layers></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, ":SetBlendMode(\"ADD\")"));
+}
+
 TEST_CASE("A virtual frame becomes a template rather than a frame",
           "[framexml][emit]") {
     XmlNode root = parseOrFail(

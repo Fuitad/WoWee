@@ -145,6 +145,12 @@ struct Widget {
     // FontString regions.
     std::string text;
     float fontHeight = 12.0f;
+    /// Drawn added to what is under it rather than over it. Art authored for
+    /// this has no alpha channel at all — it is a glow on black, and black is
+    /// what adds nothing. Drawn the ordinary way it is a black slab instead,
+    /// which is what covered the player frame while it pulsed.
+    bool blendAdd = false;
+
     /// A texture the client renders rather than one read from a file — a unit
     /// portrait is a live view of the character, not an image on disk. Zero
     /// means the path above is used instead.

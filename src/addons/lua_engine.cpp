@@ -420,6 +420,21 @@ int lua_Texture_SetTexCoord(lua_State* L) {
     }
     return 0;
 }
+int lua_Texture_SetBlendMode(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        const char* mode = luaL_optstring(L, 2, "BLEND");
+        // "ADD" and "ALPHAKEY" are the two that add rather than cover; the rest
+        // — BLEND, MOD, DISABLE — are close enough to ordinary blending that
+        // telling them apart would not change a pixel here yet.
+        w->blendAdd = (std::strcmp(mode, "ADD") == 0);
+    }
+    return 0;
+}
+int lua_Texture_GetBlendMode(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    lua_pushstring(L, (w && w->blendAdd) ? "ADD" : "BLEND");
+    return 1;
+}
 int lua_Region_SetVertexColor(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
         w->color[0] = static_cast<float>(luaL_optnumber(L, 2, 1.0));
@@ -602,6 +617,8 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
         set("SetTexture", lua_Texture_SetTexture);
         set("GetTexture", lua_Texture_GetTexture);
         set("SetTexCoord", lua_Texture_SetTexCoord);
+        set("SetBlendMode", lua_Texture_SetBlendMode);
+        set("GetBlendMode", lua_Texture_GetBlendMode);
     }
     if (isFontString) {
         set("SetText", lua_FontString_SetText);

@@ -40,14 +40,21 @@ void WidgetRenderer::initialize(pipeline::AssetManager* assets,
     vkCtx_ = vkCtx;
 }
 
-VkDescriptorSet WidgetRenderer::resident(const std::string& path) const {
+// Additive art is uploaded as its own image, because the same file can be
+// asked for both ways and the two differ in their alpha channel.
+static std::string cacheKey(const std::string& path, bool add) {
+    return add ? path + "|add" : path;
+}
+
+VkDescriptorSet WidgetRenderer::resident(const std::string& path, bool add) const {
     if (path.empty()) return kMissing;
-    auto it = textures_.find(path);
+    auto it = textures_.find(cacheKey(path, add));
     return (it == textures_.end()) ? kMissing : it->second;
 }
 
-VkDescriptorSet WidgetRenderer::texture(const std::string& path) {
-    auto it = textures_.find(path);
+VkDescriptorSet WidgetRenderer::texture(const std::string& path, bool add) {
+    const std::string key = cacheKey(path, add);
+    auto it = textures_.find(key);
     if (it != textures_.end()) return it->second;
     if (!assets_ || !vkCtx_ || path.empty()) return kMissing;
 
@@ -62,18 +69,31 @@ VkDescriptorSet WidgetRenderer::texture(const std::string& path) {
     auto data = assets_->readFile(resolved);
     if (data.empty()) {
         LOG_WARNING("Widget texture not found: ", path);
-        textures_[path] = kMissing;
+        textures_[key] = kMissing;
         return kMissing;
     }
     auto image = pipeline::BLPLoader::load(data);
     if (!image.isValid()) {
         LOG_WARNING("Widget texture unreadable: ", resolved);
-        textures_[path] = kMissing;
+        textures_[key] = kMissing;
         return kMissing;
+    }
+    if (add) {
+        // Additive blending is not something a single ImGui draw list can be
+        // asked for — it has one pipeline and one blend state. But the art it
+        // is used for is a glow on black, with no alpha channel of its own, and
+        // over a dark scene "add" and "blend with alpha taken from brightness"
+        // put nearly the same pixels on the screen. Black stays invisible,
+        // which is the whole difference between a glow and a slab.
+        for (size_t i = 0; i + 3 < image.data.size(); i += 4) {
+            const uint8_t lum = std::max({image.data[i], image.data[i + 1],
+                                          image.data[i + 2]});
+            image.data[i + 3] = static_cast<uint8_t>((image.data[i + 3] * lum) / 255);
+        }
     }
     VkDescriptorSet set = vkCtx_->uploadImGuiTexture(image.data.data(),
                                                      image.width, image.height);
-    textures_[path] = set;
+    textures_[key] = set;
     return set;
 }
 
@@ -229,17 +249,18 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     // between frames instead of during one, and the budget means a screen full
     // of new art costs several quiet frames rather than one very long one.
     constexpr int kUploadsPerFrame = 8;
-    std::vector<const std::string*> wanted;
+    std::vector<std::pair<const std::string*, bool>> wanted;
     wanted.reserve(kUploadsPerFrame);
-    auto want = [&](const std::string& path) {
+    auto want = [&](const std::string& path, bool add = false) {
         if (static_cast<int>(wanted.size()) >= kUploadsPerFrame || path.empty()) return;
-        if (textures_.find(path) != textures_.end()) return;
-        for (const std::string* p : wanted) if (*p == path) return;
-        wanted.push_back(&path);
+        if (textures_.find(cacheKey(path, add)) != textures_.end()) return;
+        for (const auto& p : wanted) if (*p.first == path && p.second == add) return;
+        wanted.emplace_back(&path, add);
     };
     for (const Widget* w : order) {
         if (static_cast<int>(wanted.size()) >= kUploadsPerFrame) break;
-        if (w->kind == WidgetKind::Texture && !w->solidColor) want(w->texturePath);
+        if (w->kind == WidgetKind::Texture && !w->solidColor)
+            want(w->texturePath, w->blendAdd);
         if (w->kind == WidgetKind::Frame) {
             if (w->hasBackdrop) { want(w->bgFile); want(w->edgeFile); }
             if (w->isStatusBar) want(w->barTexture);
@@ -259,7 +280,7 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     // not allocate a command buffer to record nothing into.
     if (!wanted.empty() && vkCtx_) {
         vkCtx_->beginUploadBatch();
-        for (const std::string* path : wanted) texture(*path);
+        for (const auto& p : wanted) texture(*p.first, p.second);
         vkCtx_->endUploadBatchSync();
     }
 
@@ -309,7 +330,8 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                         // draws nothing at all, and looks identical in a list
                         // of what was "drawn" to one that worked.
                         (w->kind == WidgetKind::Texture && !w->solidColor
-                             ? (resident(w->texturePath) == kMissing ? " NOTRESIDENT" : "")
+                             ? (resident(w->texturePath, w->blendAdd) == kMissing
+                                    ? " NOTRESIDENT" : "")
                              : ""),
                         // The vertex colour multiplies the image, so a zero
                         // alpha here draws nothing while the widget's own alpha
@@ -441,7 +463,7 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             } else {
                 // Only what is already resident. Anything still queued draws on
                 // a later frame rather than forcing an upload here.
-                auto it = textures_.find(w->texturePath);
+                auto it = textures_.find(cacheKey(w->texturePath, w->blendAdd));
                 if (it == textures_.end() || it->second == kMissing) continue;
                 tex = it->second;
             }

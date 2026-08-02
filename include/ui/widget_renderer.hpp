@@ -44,9 +44,9 @@ private:
     /// Descriptor set for an Interface\ path, loading it on first use. Returns
     /// VK_NULL_HANDLE for anything missing, and remembers the failure so a
     /// mistyped path is not re-read every frame.
-    VkDescriptorSet texture(const std::string& path);
+    VkDescriptorSet texture(const std::string& path, bool add = false);
     /// Already-uploaded texture for a path, without triggering an upload.
-    VkDescriptorSet resident(const std::string& path) const;
+    VkDescriptorSet resident(const std::string& path, bool add = false) const;
 
     void drawBackdrop(ImDrawList* dl, const Widget& w,
                       float x0, float y0, float x1, float y1);
