@@ -210,7 +210,6 @@ static int lua_Frame_Hide(lua_State* L) {
     lua_setfield(L, 1, "__visible");
     return 0;
 }
-static int lua_Frame_IsShown(lua_State* L);
 
 
 // ── Widget-backed regions ───────────────────────────────────────────────────
@@ -243,16 +242,6 @@ wowee::ui::Widget* widgetOf(lua_State* L, int index) {
 /// whether to draw themselves pressed — which is why one stayed lit over a bag
 /// that had been closed. Defined here rather than with the other frame methods
 /// because it needs widgetOf, which is declared just above.
-static int lua_Frame_IsShown(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    if (const auto* w = widgetOf(L, 1)) {
-        lua_pushboolean(L, w->shown);
-        return 1;
-    }
-    lua_getfield(L, 1, "__visible");
-    lua_pushboolean(L, lua_toboolean(L, -1));
-    return 1;
-}
 
 // SetPoint(point [, relativeTo] [, relativePoint] [, x, y]) — every argument
 // after the first is optional and the shapes overlap, so decide by type rather
