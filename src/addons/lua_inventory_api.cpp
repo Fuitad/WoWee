@@ -760,7 +760,11 @@ static int lua_GetInventoryItemTexture(lua_State* L) {
     auto* gh = getGameHandler(L);
     const char* uid = luaL_optstring(L, 1, "player");
     int slotId = static_cast<int>(luaL_checknumber(L, 2));
-    if (!gh || slotId < 1 || slotId > 19) { return luaReturnNil(L); }
+    // 1..19 is head through tabard; 20..23 are the four bag slots. The bag bar
+    // buttons ask about those four, and stopping at 19 answered "no bag" for
+    // every one of them.
+    constexpr int kNumSlots = static_cast<int>(game::EquipSlot::NUM_SLOTS);
+    if (!gh || slotId < 1 || slotId > kNumSlots) { return luaReturnNil(L); }
     std::string uidStr(uid);
     toLowerInPlace(uidStr);
     if (uidStr != "player") { return luaReturnNil(L); }
@@ -768,7 +772,18 @@ static int lua_GetInventoryItemTexture(lua_State* L) {
     const auto& inv = gh->getInventory();
     const auto& slot = inv.getEquipSlot(static_cast<game::EquipSlot>(slotId - 1));
     if (slot.empty()) { return luaReturnNil(L); }
-    lua_pushnil(L);
+
+    // Nil here means "empty slot" to the interface: PaperDollItemSlotButton_Update
+    // draws the slot's background art instead of an item. Returning it for a
+    // slot that holds something is why every equipped item — the bags on the
+    // bag bar, and every square of the character sheet — looked unequipped.
+    uint32_t displayId = slot.item.displayInfoId;
+    if (displayId == 0) {
+        if (const auto* info = gh->getItemInfo(slot.item.itemId)) displayId = info->displayInfoId;
+    }
+    const std::string icon = displayId ? gh->getItemIconPath(displayId) : std::string();
+    lua_pushstring(L, icon.empty() ? "Interface\\Icons\\INV_Misc_QuestionMark"
+                                   : icon.c_str());
     return 1;
 }
 
