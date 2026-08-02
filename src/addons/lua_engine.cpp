@@ -3962,9 +3962,21 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
                 // half-feature as drawing a scroll frame's clip without
                 // clipping its hit test: a scroll arrow at the end of its
                 // range would still scroll.
-                if (pressedWid_[i] == hit && (!pressed || pressed->enabled) &&
-                    frameAcceptsClick(pressedWid_[i], b.name))
+                const bool takesIt = frameAcceptsClick(pressedWid_[i], b.name);
+                if (pressedWid_[i] == hit && (!pressed || pressed->enabled) && takesIt) {
                     callFrameScript(pressedWid_[i], "OnClick", b.name);
+                }
+                // The other half of the press report: a click that lands and a
+                // click that is handled are different things, and the gap
+                // between them is where a button that looks right does
+                // nothing. Says which of the three conditions refused it.
+                if (pressedWid_[i] != 0 && pressed && !pressed->name.empty()) {
+                    LOG_WARNING("WidgetInput: release on ", pressed->name,
+                                pressedWid_[i] != hit ? " — cursor had moved off it"
+                                : !pressed->enabled  ? " — the frame is disabled"
+                                : !takesIt           ? " — it did not register for this button"
+                                                     : " — OnClick ran");
+                }
             }
             pressedWid_[i] = 0;
         }
