@@ -2,6 +2,7 @@
 #include "ui/widget_tree.hpp"
 #include <chrono>
 #include <cfloat>
+#include <cctype>
 #include <cmath>
 #include <cstring>
 #include <sstream>
@@ -700,6 +701,61 @@ int lua_StatusBar_SetValue(lua_State* L) {
 /// SetCooldown(start, duration) — both on GetTime's clock. A zero duration is
 /// how FrameXML clears one, and it must read as nothing running rather than as
 /// a sweep that never finishes.
+/// An edit box keeps its own text, so SetText on one is not the font string's.
+/// FrameXML uses the same name for both and the widget decides which it means.
+int lua_EditBox_SetText(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    w->editText = luaL_optstring(L, 2, "");
+    w->cursorPos = w->editText.size();
+    return 0;
+}
+int lua_EditBox_GetText(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushstring(L, w ? w->editText.c_str() : "");
+    return 1;
+}
+int lua_EditBox_GetNumber(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? std::atof(w->editText.c_str()) : 0.0);
+    return 1;
+}
+int lua_EditBox_Insert(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    const std::string add = luaL_optstring(L, 2, "");
+    const size_t at = std::min(w->cursorPos, w->editText.size());
+    w->editText.insert(at, add);
+    w->cursorPos = at + add.size();
+    return 0;
+}
+int lua_EditBox_SetMaxLetters(lua_State* L) {
+    if (auto* w = widgetOf(L, 1))
+        w->editMaxLetters = static_cast<int>(luaL_optnumber(L, 2, 0));
+    return 0;
+}
+int lua_EditBox_SetNumeric(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->editNumeric = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+int lua_EditBox_SetMultiLine(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->editMultiLine = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+int lua_EditBox_SetCursorPosition(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    const double at = luaL_optnumber(L, 2, 0.0);
+    w->cursorPos = static_cast<size_t>(std::clamp(
+        at, 0.0, static_cast<double>(w->editText.size())));
+    return 0;
+}
+int lua_EditBox_GetCursorPosition(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? static_cast<double>(w->cursorPos) : 0.0);
+    return 1;
+}
+
 int lua_Cooldown_SetCooldown(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
         w->cooldownStart = luaL_optnumber(L, 2, 0.0);
@@ -1015,6 +1071,13 @@ static int lua_CreateFrame(lua_State* L) {
             // A slider takes the mouse by nature: it exists to be dragged.
             w->isSlider = (ft == "Slider");
             w->isCooldown = (ft == "Cooldown");
+            // An edit box is clicked into, so it takes the mouse as well.
+            w->isEditBox = (ft == "EditBox");
+            if (w->isEditBox) {
+                w->mouseEnabled = true;
+                lua_pushboolean(L, 1);
+                lua_setfield(L, -2, "__isEditBox");
+            }
             if (w->isSlider) w->mouseEnabled = true;
         }
         lua_pushinteger(L, static_cast<lua_Integer>(id));
@@ -1171,6 +1234,12 @@ bool LuaEngine::initialize() {
     lua_pushlightuserdata(L_, &widgets_);
     lua_setfield(L_, LUA_REGISTRYINDEX, "wowee_widget_tree");
 
+    // The engine itself, for the few bindings that need to do more than touch a
+    // widget — taking focus fires handlers on the frame losing it as well as
+    // the one gaining it, and only the engine knows which that was.
+    lua_pushlightuserdata(L_, this);
+    lua_setfield(L_, LUA_REGISTRYINDEX, "wowee_lua_engine");
+
     registerCoreAPI();
     registerEventAPI();
 
@@ -1301,6 +1370,12 @@ void LuaEngine::registerCoreAPI() {
     lua_pushvalue(L_, -1);
     lua_setfield(L_, -2, "__index"); // metatable.__index = metatable
 
+    // Defined with the other edit-box bindings further down; declared here
+    // because the table below refers to them first.
+    int lua_EditBox_SetFocus(lua_State* L);
+    int lua_EditBox_ClearFocus(lua_State* L);
+    int lua_EditBox_HasFocus(lua_State* L);
+
     static const struct luaL_Reg frameMethods[] = {
         {"RegisterEvent",   lua_Frame_RegisterEvent},
         {"UnregisterEvent", lua_Frame_UnregisterEvent},
@@ -1345,6 +1420,16 @@ void LuaEngine::registerCoreAPI() {
         {"GetValueStep",          lua_Slider_GetValueStep},
         {"SetThumbTexture",       lua_Slider_SetThumbTexture},
         {"SetCooldown",           lua_Cooldown_SetCooldown},
+        {"GetNumber",             lua_EditBox_GetNumber},
+        {"Insert",                lua_EditBox_Insert},
+        {"SetMaxLetters",         lua_EditBox_SetMaxLetters},
+        {"SetNumeric",            lua_EditBox_SetNumeric},
+        {"SetMultiLine",          lua_EditBox_SetMultiLine},
+        {"SetCursorPosition",     lua_EditBox_SetCursorPosition},
+        {"GetCursorPosition",     lua_EditBox_GetCursorPosition},
+        {"SetFocus",              lua_EditBox_SetFocus},
+        {"ClearFocus",            lua_EditBox_ClearFocus},
+        {"HasFocus",              lua_EditBox_HasFocus},
         {"GetCooldownTimes",      lua_Cooldown_GetCooldownTimes},
         {"SetFrameStrata",  lua_Frame_SetFrameStrata},
         {"SetFrameLevel",   lua_Frame_SetFrameLevel},
@@ -1513,11 +1598,15 @@ void LuaEngine::registerCoreAPI() {
         // A button's text is its font string's text; keeping them apart means
         // SetText on the button quietly does nothing, which is how a bar full
         // of blank buttons happens.
+        // An edit box keeps its own text; a button shows its font string's.
+        // FrameXML calls SetText on both and the widget decides which it means.
         "function mt:SetText(text)\n"
+        "    if self.__isEditBox then return __WoweeEditSetText(self, text) end\n"
         "    self.__text = text\n"
         "    if self.__fontString then self.__fontString:SetText(text) end\n"
         "end\n"
         "function mt:GetText()\n"
+        "    if self.__isEditBox then return __WoweeEditGetText(self) end\n"
         "    if self.__fontString then return self.__fontString:GetText() end\n"
         "    return self.__text\n"
         "end\n"
@@ -1666,6 +1755,11 @@ void LuaEngine::registerCoreAPI() {
     applyFrameMethods();
 
     // CreateFrame function
+    lua_pushcfunction(L_, lua_EditBox_SetText);
+    lua_setglobal(L_, "__WoweeEditSetText");
+    lua_pushcfunction(L_, lua_EditBox_GetText);
+    lua_setglobal(L_, "__WoweeEditGetText");
+
     lua_pushcfunction(L_, lua_CreateFrame);
     lua_setglobal(L_, "CreateFrame");
 
@@ -2776,6 +2870,121 @@ bool LuaEngine::frameAcceptsClick(uint32_t wid, const char* button) {
     return accepts;
 }
 
+namespace {
+LuaEngine* engineFrom(lua_State* L) {
+    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_lua_engine");
+    auto* e = static_cast<LuaEngine*>(lua_touserdata(L, -1));
+    lua_pop(L, 1);
+    return e;
+}
+}  // namespace
+
+int lua_EditBox_SetFocus(lua_State* L) {
+    if (auto* e = engineFrom(L)) e->setEditFocus(widgetIdOf(L, 1));
+    return 0;
+}
+int lua_EditBox_ClearFocus(lua_State* L) {
+    if (auto* e = engineFrom(L)) e->setEditFocus(0);
+    return 0;
+}
+int lua_EditBox_HasFocus(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushboolean(L, w && w->editFocused ? 1 : 0);
+    return 1;
+}
+
+void LuaEngine::setEditFocus(uint32_t wid) {
+    if (focusedWid_ == wid) return;
+    if (focusedWid_ != 0) {
+        if (auto* old = widgets_.get(focusedWid_)) old->editFocused = false;
+        callFrameScript(focusedWid_, "OnEditFocusLost");
+    }
+    focusedWid_ = wid;
+    if (focusedWid_ != 0) {
+        if (auto* w = widgets_.get(focusedWid_)) w->editFocused = true;
+        callFrameScript(focusedWid_, "OnEditFocusGained");
+    }
+}
+
+void LuaEngine::dispatchText(const char* utf8) {
+    if (!L_ || focusedWid_ == 0 || !utf8) return;
+    auto* w = widgets_.get(focusedWid_);
+    if (!w || !w->isEditBox) return;
+
+    std::string add(utf8);
+    if (add.empty()) return;
+    // A numeric box takes digits and nothing else, which is what stops a
+    // quantity field filling with letters.
+    if (w->editNumeric) {
+        add.erase(std::remove_if(add.begin(), add.end(),
+                                 [](unsigned char c) { return std::isdigit(c) == 0; }),
+                  add.end());
+        if (add.empty()) return;
+    }
+    if (w->editMaxLetters > 0 &&
+        static_cast<int>(w->editText.size() + add.size()) > w->editMaxLetters) {
+        const int room = w->editMaxLetters - static_cast<int>(w->editText.size());
+        if (room <= 0) return;
+        add.resize(static_cast<size_t>(room));
+    }
+
+    const size_t at = std::min(w->cursorPos, w->editText.size());
+    w->editText.insert(at, add);
+    w->cursorPos = at + add.size();
+    // The handler that tells a search field to filter, and a chat box to look
+    // for a channel prefix.
+    callFrameScript(focusedWid_, "OnTextChanged");
+}
+
+void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
+    if (!L_ || focusedWid_ == 0) return;
+    auto* w = widgets_.get(focusedWid_);
+    if (!w || !w->isEditBox) return;
+    (void)ctrlHeld;
+
+    // Keycodes are SDL's, which is what the window reports; the caller does not
+    // translate them so this stays the only place that knows.
+    constexpr int kBackspace = '\b';
+    constexpr int kReturn    = '\r';
+    constexpr int kEscape    = 27;
+    constexpr int kDelete    = 0x4000004C;  // SDLK_DELETE
+    constexpr int kLeft      = 0x40000050;
+    constexpr int kRight     = 0x4000004F;
+    constexpr int kHome      = 0x4000004A;
+    constexpr int kEnd       = 0x4000004D;
+
+    const size_t len = w->editText.size();
+    switch (sdlKeycode) {
+        case kBackspace:
+            if (w->cursorPos > 0 && len > 0) {
+                w->editText.erase(w->cursorPos - 1, 1);
+                --w->cursorPos;
+                callFrameScript(focusedWid_, "OnTextChanged");
+            }
+            break;
+        case kDelete:
+            if (w->cursorPos < len) {
+                w->editText.erase(w->cursorPos, 1);
+                callFrameScript(focusedWid_, "OnTextChanged");
+            }
+            break;
+        case kLeft:  if (w->cursorPos > 0) --w->cursorPos; break;
+        case kRight: if (w->cursorPos < len) ++w->cursorPos; break;
+        case kHome:  w->cursorPos = 0; break;
+        case kEnd:   w->cursorPos = len; break;
+        case kReturn:
+            // The handler decides what to do with it, including whether to let
+            // go of focus — a chat box does, a search field does not.
+            callFrameScript(focusedWid_, "OnEnterPressed");
+            break;
+        case kEscape:
+            callFrameScript(focusedWid_, "OnEscapePressed");
+            setEditFocus(0);
+            break;
+        default: break;
+    }
+}
+
 void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
     if (!L_) return;
     const uint32_t hit = widgets_.hitTest(x, y);
@@ -2866,6 +3075,12 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
         if (b.down && !buttonDown_[i]) {
             buttonDown_[i] = true;
             pressedWid_[i] = hit;
+            // Clicking into an edit box takes focus; clicking anywhere else
+            // gives it up, which is what makes a chat box stop eating keys.
+            if (i == 0) {
+                const auto* hw = hit ? widgets_.get(hit) : nullptr;
+                setEditFocus(hw && hw->isEditBox ? hit : 0);
+            }
             if (pressedWid_[i] != 0)
                 callFrameScript(pressedWid_[i], "OnMouseDown", b.name);
         } else if (!b.down && buttonDown_[i]) {

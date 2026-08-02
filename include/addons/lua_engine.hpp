@@ -61,6 +61,15 @@ public:
     };
     void dispatchMouse(float x, float y, MouseButtons buttons);
 
+    /// Typed text, one UTF-8 chunk as the platform reports it.
+    void dispatchText(const char* utf8);
+    /// A key that is not text: backspace, the arrows, enter, escape.
+    void dispatchKey(int sdlKeycode, bool ctrlHeld);
+    /// Whether an edit box currently has focus, so the client knows not to
+    /// treat the same keystrokes as movement.
+    bool editBoxHasFocus() const { return focusedWid_ != 0; }
+    void setEditFocus(uint32_t wid);
+
     // SavedVariables: load globals from file, save globals to file
     bool loadSavedVariables(const std::string& path);
     bool saveSavedVariables(const std::string& path, const std::vector<std::string>& varNames);
@@ -108,6 +117,9 @@ private:
     bool frameAcceptsClick(uint32_t wid, const char* button);
 
     uint32_t hoverWid_ = 0;
+    /// The edit box taking keystrokes, or zero. One at a time, which is
+    /// what focus means.
+    uint32_t focusedWid_ = 0;
     /// Per button, because a press and its release belong together: sliding off
     /// a button between them is how a player changes their mind, and holding
     /// one button while clicking another must not confuse the first.

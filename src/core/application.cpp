@@ -887,8 +887,29 @@ void Application::run() {
                             addonManager_->fireEvent("DISPLAY_SIZE_CHANGED");
                     }
                 }
+                // Typed text, when an addon's edit box is listening for it.
+                else if (event.type == SDL_TEXTINPUT) {
+                    if (addonManager_ && addonsLoaded_) {
+                        if (auto* engine = addonManager_->getLuaEngine();
+                            engine && engine->editBoxHasFocus()) {
+                            engine->dispatchText(event.text.text);
+                        }
+                    }
+                }
                 // Debug controls
                 else if (event.type == SDL_KEYDOWN) {
+                    // An addon's edit box takes the keystroke before anything
+                    // else looks at it. Otherwise typing into one would also
+                    // walk the character, and backspace would trip a keybind.
+                    if (addonManager_ && addonsLoaded_) {
+                        if (auto* engine = addonManager_->getLuaEngine();
+                            engine && engine->editBoxHasFocus()) {
+                            const bool ctrl =
+                                (event.key.keysym.mod & KMOD_CTRL) != 0;
+                            engine->dispatchKey(event.key.keysym.sym, ctrl);
+                            continue;
+                        }
+                    }
                     // Skip non-function-key input when UI (chat) has keyboard focus
                     bool uiHasKeyboard = ImGui::GetIO().WantCaptureKeyboard;
                     auto sc = event.key.keysym.scancode;

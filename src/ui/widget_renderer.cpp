@@ -280,6 +280,28 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             if (w->isStatusBar) drawStatusBar(dl, *w, x0, y0, x1, y1);
             if (w->isSlider) drawSlider(dl, *w, x0, y0, x1, y1);
             if (w->isCooldown) drawCooldown(dl, *w, x0, y0, x1, y1);
+            if (w->isEditBox) {
+                // Its own text, drawn where a label would be, with a caret
+                // while it has focus so it is clear which box is listening.
+                ImFont* font = ImGui::GetFont();
+                const float size = (w->fontHeight > 0.0f) ? w->fontHeight
+                                                          : ImGui::GetFontSize();
+                const uint32_t col = packColor(w->color, w->alpha);
+                const float ty = y0 + ((y1 - y0) - size) * 0.5f;
+                if (!w->editText.empty()) {
+                    dl->AddText(font, size, ImVec2(x0 + 4.0f, ty), col,
+                                w->editText.c_str());
+                }
+                if (w->editFocused) {
+                    const std::string upTo = w->editText.substr(
+                        0, std::min(w->cursorPos, w->editText.size()));
+                    const float caret = font
+                        ? font->CalcTextSizeA(size, FLT_MAX, 0.0f, upTo.c_str()).x
+                        : 0.0f;
+                    const float cx = x0 + 4.0f + caret;
+                    dl->AddLine(ImVec2(cx, ty), ImVec2(cx, ty + size), col);
+                }
+            }
             continue;
         }
 

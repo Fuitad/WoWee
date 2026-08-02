@@ -111,6 +111,17 @@ struct Widget {
     /// A cooldown darkens what it covers and wipes clear as the time runs out.
     /// Start is on the same clock GetTime answers with; zero duration means
     /// nothing is running.
+    /// An edit box holds its own text and a cursor into it, rather than the
+    /// font string a label uses: what is typed has to survive between frames
+    /// and the caret has to know where it sits.
+    bool  isEditBox = false;
+    std::string editText;
+    size_t cursorPos = 0;
+    bool  editFocused = false;
+    bool  editNumeric = false;
+    bool  editMultiLine = false;
+    int   editMaxLetters = 0;   ///< Zero is no limit, which is WoW's default.
+
     bool  isCooldown = false;
     double cooldownStart = 0.0;
     double cooldownDuration = 0.0;
