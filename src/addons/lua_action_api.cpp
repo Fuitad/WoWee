@@ -449,6 +449,16 @@ static int lua_PickupContainerItem(lua_State* L) {
         LOG_WARNING("FrameXML drop: bag ", s_cursorBag, " slot ", s_cursorSlot,
                     " (wire ", (int)srcBag, "/", (int)srcSlot, ") -> bag ", bag,
                     " slot ", slot, " (wire ", (int)dstBag, "/", (int)dstSlot, ")");
+        // Back where it came from: put it down rather than asking the server to
+        // swap a slot with itself.
+        if (s_cursorBag == bag && s_cursorSlot == slot) {
+            const int sameBag = bag, sameSlot = slot;
+            clearCursorItem();
+            gh->fireAddonEvent("ITEM_LOCK_CHANGED",
+                               {std::to_string(sameBag), std::to_string(sameSlot)});
+            return 0;
+        }
+
         const int wasBag = s_cursorBag, wasSlot = s_cursorSlot;
         gh->swapContainerItems(srcBag, srcSlot, dstBag, dstSlot);
         clearCursorItem();

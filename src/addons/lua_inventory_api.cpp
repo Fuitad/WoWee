@@ -1,6 +1,7 @@
 // lua_inventory_api.cpp — Items, containers, merchant, loot, equipment, trading, auction, and mail Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "core/logger.hpp"
 
 namespace wowee::addons {
@@ -854,9 +855,76 @@ static int lua_SetBagPortraitTexture(lua_State* L) {
     return 0;
 }
 
-/// PutItemInBag(inventoryID) — drop what the cursor is holding into a bag
-/// slot. The cursor does not carry items yet, so this has nothing to place.
-static int lua_PutItemInBag(lua_State* L) { (void)L; return 0; }
+/// Where the cursor's item sits, in the numbering the server uses. The same
+/// translation the pickup bindings do; here so the two "put it in a container"
+/// calls below can reach it.
+static bool heldWireSlot(uint8_t& bag, uint8_t& slot) {
+    const auto& held = cursorItemSlot();
+    if (held.bag < 0 && !held.equipped) return false;
+    if (held.equipped) {
+        bag = 0xFF;
+        slot = static_cast<uint8_t>(held.slot - 1);
+    } else if (held.bag == 0) {
+        bag = 0xFF;
+        slot = static_cast<uint8_t>(23 + held.slot - 1);
+    } else {
+        bag = static_cast<uint8_t>(19 + held.bag - 1);
+        slot = static_cast<uint8_t>(held.slot - 1);
+    }
+    return true;
+}
+
+/// PutItemInBag(inventoryID) — put what the cursor is holding into that bag.
+///
+/// The bag buttons along the bottom bar call this before deciding what a click
+/// meant: an empty cursor answers false and the button opens the bag instead,
+/// which is why a no-op behaved correctly for a plain click and did nothing at
+/// all for a click that was carrying something.
+static int lua_PutItemInBag(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int inventoryId = static_cast<int>(luaL_optnumber(L, 1, 0));
+    uint8_t srcBag = 0, srcSlot = 0;
+    if (!gh || inventoryId < 20 || inventoryId > 23 || !heldWireSlot(srcBag, srcSlot)) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    const int bagIndex = inventoryId - 20;          // 0-3
+    const auto& inv = gh->getInventory();
+    const int size = inv.getBagSize(bagIndex);
+    for (int i = 0; i < size; ++i) {
+        if (!inv.getBagSlot(bagIndex, i).empty()) continue;
+        gh->swapContainerItems(srcBag, srcSlot,
+                               static_cast<uint8_t>(19 + bagIndex),
+                               static_cast<uint8_t>(i));
+        cursorItemSlot() = {};
+        wowee::ui::frameXmlSetCursorItem(std::string());
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    // Held, but nowhere to put it — still "had an item", so the button does not
+    // fall through to opening the bag.
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/// PutItemInBackpack() — the same, for the backpack.
+static int lua_PutItemInBackpack(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    uint8_t srcBag = 0, srcSlot = 0;
+    if (!gh || !heldWireSlot(srcBag, srcSlot)) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    const int free = gh->getInventory().findFreeBackpackSlot();
+    if (free >= 0) {
+        gh->swapContainerItems(srcBag, srcSlot, 0xFF,
+                               static_cast<uint8_t>(23 + free));
+        cursorItemSlot() = {};
+        wowee::ui::frameXmlSetCursorItem(std::string());
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
 
 /// ResetCursor() — put the pointer back to the ordinary arrow. This client
 /// does not change the cursor for interface state, so there is nothing to
@@ -1016,6 +1084,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"UseContainerItem",  lua_UseContainerItem},
                 {"GetContainerNumSlots",    lua_GetContainerNumSlots},
                 {"ContainerIDToInventoryID", lua_ContainerIDToInventoryID},
+                {"PutItemInBackpack",       lua_PutItemInBackpack},
                 {"GetBagName",              lua_GetBagName},
                 {"SetBagPortraitTexture",   lua_SetBagPortraitTexture},
                 {"PutItemInBag",            lua_PutItemInBag},
