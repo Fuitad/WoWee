@@ -575,18 +575,25 @@ struct Emitter {
             // handlers and no enableMouse, and hovering them in a real client
             // shows the breakdown tooltip. Without this the hit test skipped
             // them and the whole left column of the character sheet was inert.
-            bool wantsHover = false;
+            // Every script here is one the frame cannot receive without the
+            // mouse. OnMouseWheel is deliberately absent: that needs
+            // EnableMouseWheel, which is a separate switch.
+            static const char* kMouseScripts[] = {
+                "OnEnter", "OnLeave", "OnMouseDown", "OnMouseUp",
+                "OnDragStart", "OnReceiveDrag",
+            };
+            bool wantsMouse = false;
             for (const XmlNode& child : node.children) {
                 if (child.name != "Scripts") continue;
                 for (const XmlNode& script : child.children) {
-                    if (script.name == "OnEnter" || script.name == "OnLeave") {
-                        wantsHover = true;
-                        break;
+                    for (const char* want : kMouseScripts) {
+                        if (script.name == want) { wantsMouse = true; break; }
                     }
+                    if (wantsMouse) break;
                 }
-                if (wantsHover) break;
+                if (wantsMouse) break;
             }
-            if (wantsHover) line(var + ":EnableMouse(true)");
+            if (wantsMouse) line(var + ":EnableMouse(true)");
         }
         // Whether the frame can be dragged around the screen. Declared in the
         // XML rather than set from Lua for most of what moves — the bag
