@@ -221,8 +221,23 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
     const float pW      = parent ? parent->rectW  : screenW;
     const float pH      = parent ? parent->rectH  : screenH;
 
-    solveAxis(cx, w->width,  pLeft,   pW, w->left,   w->rectW);
-    solveAxis(cy, w->height, pBottom, pH, w->bottom, w->rectH);
+    // A region that says nothing about where it is or how big fills its
+    // parent. That is WoW's default for a Texture or FontString declared in a
+    // Layer with neither <Size> nor <Anchors>, and it is not a rare shorthand:
+    // PlayerFrameTexture is the entire player frame's art and MinimapBorder is
+    // the ring around the minimap, and both are written this way. Centring
+    // them at no size instead meant they were laid out to nothing, never
+    // reached the draw order, and so were never even uploaded.
+    if (w->kind != WidgetKind::Frame && w->anchors.empty() &&
+        w->width <= 0.0f && w->height <= 0.0f && parent) {
+        w->left   = parent->left;
+        w->bottom = parent->bottom;
+        w->rectW  = parent->rectW;
+        w->rectH  = parent->rectH;
+    } else {
+        solveAxis(cx, w->width,  pLeft,   pW, w->left,   w->rectW);
+        solveAxis(cy, w->height, pBottom, pH, w->bottom, w->rectH);
+    }
 
     // The scroll offset, applied to the child a scroll frame holds. Scrolling
     // down means seeing content further down a taller child, which is the

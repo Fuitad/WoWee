@@ -870,3 +870,37 @@ TEST_CASE("A state the interface asked for outlasts the cursor",
     tree.layout(1024.0f, 768.0f);
     REQUIRE_FALSE(drawn(highlight));
 }
+
+TEST_CASE("A region with neither size nor anchors fills its parent",
+          "[widget][layout]") {
+    // WoW's default, and not a rare shorthand: PlayerFrameTexture is the whole
+    // of the player frame's art and MinimapBorder is the ring around the
+    // minimap, and both are declared with nothing but a file. Laid out to
+    // nothing they never reach the draw order, so they are never uploaded
+    // either — which reads as missing art rather than as a layout fault.
+    WidgetTree tree;
+    const uint32_t frame = tree.create(WidgetKind::Frame, tree.root(), "F");
+    tree.get(frame)->width = 232.0f;
+    tree.get(frame)->height = 100.0f;
+    tree.addPoint(frame, Anchor{"BOTTOMLEFT", 0, "BOTTOMLEFT", 10.0f, 20.0f});
+
+    const uint32_t art = tree.create(WidgetKind::Texture, frame, "FArt");
+    tree.get(art)->texturePath = "Interface\\Art";
+
+    tree.layout(1024.0f, 768.0f);
+    const Widget* a = tree.get(art);
+    REQUIRE(a->rectW == Catch::Approx(232.0f));
+    REQUIRE(a->rectH == Catch::Approx(100.0f));
+    REQUIRE(a->left == Catch::Approx(10.0f));
+    REQUIRE(a->bottom == Catch::Approx(20.0f));
+
+    // A stated size still wins: only a region that says nothing gets the
+    // parent's rect, or every deliberately small unanchored region would
+    // suddenly cover its frame.
+    const uint32_t sized = tree.create(WidgetKind::Texture, frame, "FSized");
+    tree.get(sized)->texturePath = "Interface\\Art";
+    tree.get(sized)->width = 16.0f;
+    tree.get(sized)->height = 16.0f;
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(sized)->rectW == Catch::Approx(16.0f));
+}
