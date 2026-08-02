@@ -496,6 +496,32 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 }
             }
 
+            // Two labels showing the same words.
+            //
+            // A duplicate that shares no name is invisible to the scan above,
+            // and the interface draws plenty of labels without one — so the
+            // text itself is what identifies the pair.
+            {
+                std::map<std::string, int> texts;
+                for (size_t id = 1; id < tree.size(); ++id) {
+                    const Widget* w = tree.get(static_cast<uint32_t>(id));
+                    if (!w || !w->visible || w->kind != WidgetKind::FontString) continue;
+                    if (w->text.size() < 3) continue;   // too short to mean anything
+                    ++texts[w->text];
+                }
+                int pairs = 0;
+                for (size_t id = 1; id < tree.size() && pairs < 8; ++id) {
+                    const Widget* w = tree.get(static_cast<uint32_t>(id));
+                    if (!w || !w->visible || w->kind != WidgetKind::FontString) continue;
+                    if (w->text.size() < 3 || texts[w->text] < 2) continue;
+                    ++pairs;
+                    LOG_WARNING("  SAME TEXT \"", w->text, "\" on ",
+                                w->name.empty() ? "(unnamed)" : w->name.c_str(),
+                                " rect=(", w->left, ",", w->bottom, " ",
+                                w->rectW, "x", w->rectH, ")");
+                }
+            }
+
             int orphans = 0;
             for (size_t id = 1; id < tree.size(); ++id) {
                 const Widget* w = tree.get(static_cast<uint32_t>(id));
