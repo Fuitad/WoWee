@@ -397,6 +397,16 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         if (dumpWidgets >= 3) {
             dl->AddRect(ImVec2(x0, y0), ImVec2(x1, y1), IM_COL32(255, 0, 255, 200));
         }
+        // Level 4 paints every widget solid instead of drawing its art. An
+        // outline can be missed against a busy scene and dark art can be
+        // mistaken for nothing at all; a solid block either covers the bottom
+        // of the screen or it does not, and that answers whether these pixels
+        // are reached without anyone having to squint at a screenshot.
+        if (dumpWidgets >= 4) {
+            dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1),
+                              IM_COL32(255, 0, 255, 255));
+            continue;
+        }
 
         if (w->kind == WidgetKind::Texture) {
             // A colour set with SetTexture(r,g,b) fills; a texture with no
