@@ -3729,33 +3729,43 @@ void LuaEngine::fireEvent(const std::string& eventName,
                            const std::vector<std::string>& args) {
     if (!L_) return;
 
+    // Addon-side handlers, where there are any.
+    //
+    // Their absence is not a reason to stop. FrameXML registers through
+    // frame:RegisterEvent, which fills __WoweeFrameEvents — a different table
+    // entirely — and returning here meant every event no addon happened to
+    // want was never delivered to the interface at all. PLAYER_TARGET_CHANGED
+    // is one: fifty-four frames were registered for it, the client fired it,
+    // and not one of them ever heard it, which is why the target frame stayed
+    // hidden with a target that existed and resolved.
     lua_getglobal(L_, "__WoweeEvents");
-    if (lua_isnil(L_, -1)) { lua_pop(L_, 1); return; }
+    if (lua_istable(L_, -1)) {
+        lua_getfield(L_, -1, eventName.c_str());
+        if (lua_istable(L_, -1)) {
+            int handlerCount = static_cast<int>(lua_objlen(L_, -1));
+            for (int i = 1; i <= handlerCount; i++) {
+                lua_rawgeti(L_, -1, i);
+                if (!lua_isfunction(L_, -1)) { lua_pop(L_, 1); continue; }
 
-    lua_getfield(L_, -1, eventName.c_str());
-    if (lua_isnil(L_, -1)) { lua_pop(L_, 2); return; }
+                // Push arguments: event name first, then extra args
+                lua_pushstring(L_, eventName.c_str());
+                for (const auto& arg : args) {
+                    pushEventArg(L_, arg);
+                }
 
-    int handlerCount = static_cast<int>(lua_objlen(L_, -1));
-    for (int i = 1; i <= handlerCount; i++) {
-        lua_rawgeti(L_, -1, i);
-        if (!lua_isfunction(L_, -1)) { lua_pop(L_, 1); continue; }
-
-        // Push arguments: event name first, then extra args
-        lua_pushstring(L_, eventName.c_str());
-        for (const auto& arg : args) {
-            pushEventArg(L_, arg);
+                int nargs = 1 + static_cast<int>(args.size());
+                if (lua_pcall(L_, nargs, 0, 0) != 0) {
+                    const char* err = lua_tostring(L_, -1);
+                    std::string errStr = err ? err : "(unknown)";
+                    LOG_ERROR("LuaEngine: event '", eventName, "' handler error: ", errStr);
+                    if (luaErrorCallback_) luaErrorCallback_(errStr);
+                    lua_pop(L_, 1);
+                }
+            }
         }
-
-        int nargs = 1 + static_cast<int>(args.size());
-        if (lua_pcall(L_, nargs, 0, 0) != 0) {
-            const char* err = lua_tostring(L_, -1);
-            std::string errStr = err ? err : "(unknown)";
-            LOG_ERROR("LuaEngine: event '", eventName, "' handler error: ", errStr);
-            if (luaErrorCallback_) luaErrorCallback_(errStr);
-            lua_pop(L_, 1);
-        }
+        lua_pop(L_, 1);   // handler list, or whatever was there instead
     }
-    lua_pop(L_, 2);  // pop handler list + WoweeEvents
+    lua_pop(L_, 1);       // __WoweeEvents, or whatever was there instead
 
     // Also dispatch to frames that registered for this event via frame:RegisterEvent()
     //
