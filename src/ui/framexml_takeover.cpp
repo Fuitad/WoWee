@@ -178,7 +178,8 @@ std::vector<std::string> frameXmlCheckFrames() {
     struct Check { UiElement element; const char* frames; };
     static const Check kChecks[] = {
         {UiElement::PlayerFrame,  "PlayerFrame PlayerFrameTexture PlayerPortrait "
-                                  "PlayerFrameHealthBar PlayerFrameManaBar PlayerName"},
+                                  "PlayerFrameHealthBar PlayerFrameManaBar PlayerName "
+                                  "PlayerLevelText"},
         {UiElement::TargetFrame,  "TargetFrame TargetFrameTextureFrame TargetFramePortrait "
                                   "TargetFrameHealthBar TargetFrameManaBar "
                                   "TargetFrameTextureFrameName TargetFrameNameBackground"},

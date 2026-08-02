@@ -461,13 +461,22 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 // that takes no mouse looks identical to one whose handler
                 // does nothing.
                 const char* mouse = w->mouseEnabled ? " takesMouse" : "";
+                // What a label actually says. A font string that is built,
+                // shown and empty looks identical from every other field here,
+                // and empty is the interesting case — a level with no number
+                // in it is a frame that was never told the number.
+                const std::string label =
+                    (w->kind == WidgetKind::FontString)
+                        ? (w->text.empty() ? std::string(" text=(empty)")
+                                           : " text=\"" + w->text + "\"")
+                        : std::string();
                 // Where it sits in the stack, which is what decides a click
                 // between a frame and the frame on top of it.
                 const std::string stack =
                     " strata=" + std::to_string(static_cast<int>(w->effStrata)) +
                     " level=" + std::to_string(w->effLevel);
                 LOG_WARNING("  ", name,
-                            (w->visible ? " shown" : " HIDDEN"), mouse, stack, bar,
+                            (w->visible ? " shown" : " HIDDEN"), mouse, stack, bar, label,
                             (w->rectW <= 0.0f || w->rectH <= 0.0f ? " NOSIZE" : ""),
                             (offscreen ? " OFFSCREEN" : ""),
                             " rect=(", w->left, ",", w->bottom, " ",
