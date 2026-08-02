@@ -181,7 +181,24 @@ public:
     void setAllPoints(uint32_t id, uint32_t relativeTo);
 
     /// Resolve every widget's rect and visibility for a screen of this size.
-    void layout(float screenW, float screenH);
+    /// Lays the tree out for a window of this many pixels.
+    ///
+    /// FrameXML's coordinates are not pixels. The interface is authored against
+    /// a virtual screen 768 units tall — a 232x100 unit frame is meant to look
+    /// the same size on every display — so the tree is laid out in those units
+    /// and the renderer multiplies by the scale on the way to the screen.
+    /// Treating them as pixels drew the whole interface at half size on a
+    /// 1528-tall window and at double on a 384-tall one.
+    void layout(float pixelW, float pixelH);
+
+    /// Pixels per interface unit, from the last layout.
+    float uiScale() const { return uiScale_; }
+
+    /// The screen-filling frame everything else hangs off.
+    uint32_t rootId() const { return rootId_; }
+
+    /// The height the interface is authored against. Blizzard's own number.
+    static constexpr float kInterfaceHeight = 768.0f;
 
     /// The frame under a point, or 0. Topmost wins, by the same ordering that
     /// decides what draws over what — so whatever the player can see on top is
@@ -202,6 +219,7 @@ private:
     /// create would dangle after one — a use-after-free waiting on the first
     /// caller that holds a Widget* across creating a child. A deque keeps
     /// references valid when it grows, which is the guarantee this needs.
+    float uiScale_ = 1.0f;
     std::deque<Widget> widgets_;   ///< Index 0 is a placeholder; id == index.
     uint32_t rootId_ = 0;
     uint32_t nextOrder_ = 1;

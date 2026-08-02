@@ -112,7 +112,13 @@ void WidgetTree::setAllPoints(uint32_t id, uint32_t relativeTo) {
     w->anchors.push_back(br);
 }
 
-void WidgetTree::layout(float screenW, float screenH) {
+void WidgetTree::layout(float pixelW, float pixelH) {
+    // How many pixels one interface unit is worth. Everything below works in
+    // units; only the renderer and hit testing convert.
+    uiScale_ = (pixelH > 0.0f) ? (pixelH / kInterfaceHeight) : 1.0f;
+    const float screenW = (uiScale_ > 0.0f) ? (pixelW / uiScale_) : pixelW;
+    const float screenH = kInterfaceHeight;
+
     Widget& rootW = widgets_[rootId_];
     rootW.left = 0.0f;
     rootW.bottom = 0.0f;

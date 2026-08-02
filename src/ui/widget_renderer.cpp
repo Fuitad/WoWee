@@ -285,7 +285,8 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         // nothing without it: 1920 is the middle of one display and off
         // the edge of another.
         LOG_WARNING("WidgetDump: ", order.size(), " widgets drawn on ",
-                    screenW, "x", screenH);
+                    screenW, "x", screenH, " px, ", screenW / s, "x",
+                    screenH / s, " units (scale ", s, ")");
         for (const Widget* w : order) {
             LOG_WARNING("  ", (w->name.empty() ? "(unnamed)" : w->name),
                         " kind=", static_cast<int>(w->kind),
@@ -314,14 +315,19 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     ImDrawList* dl = ImGui::GetBackgroundDrawList();
     if (!dl) return;
 
+    // Interface units to pixels. The tree is laid out against a virtual screen
+    // 768 units tall so a frame is the same apparent size on every display;
+    // this is the one place that becomes pixels.
+    const float s = tree.uiScale();
+
     for (const Widget* w : order) {
         // WoW measures from the bottom-left and upward; the screen measures from
         // the top-left and downward. Flip here, at the one place it matters, so
         // every anchor rule upstream reads the way Blizzard documents it.
-        const float x0 = w->left;
-        const float y0 = screenH - (w->bottom + w->rectH);
-        const float x1 = w->left + w->rectW;
-        const float y1 = screenH - w->bottom;
+        const float x0 = w->left * s;
+        const float y0 = screenH - (w->bottom + w->rectH) * s;
+        const float x1 = (w->left + w->rectW) * s;
+        const float y1 = screenH - w->bottom * s;
 
         if (w->kind == WidgetKind::Frame) {
             if (w->hasBackdrop) drawBackdrop(dl, *w, x0, y0, x1, y1);
@@ -333,8 +339,8 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 // while it has focus so it is clear which box is listening.
                 ImFont* font = interfaceFace(w->fontFace);
                 if (!font) font = ImGui::GetFont();
-                const float size = (w->fontHeight > 0.0f) ? w->fontHeight
-                                                          : ImGui::GetFontSize();
+                const float size = ((w->fontHeight > 0.0f) ? w->fontHeight
+                                                           : ImGui::GetFontSize()) * s;
                 const uint32_t col = packColor(w->color, w->alpha);
                 const float ty = y0 + ((y1 - y0) - size) * 0.5f;
                 if (!w->editText.empty()) {
@@ -386,7 +392,7 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             ImFont* font = interfaceFace(w->fontFace);
             if (!font) font = ImGui::GetFont();
             const float base = ImGui::GetFontSize();
-            const float size = (w->fontHeight > 0.0f) ? w->fontHeight : base;
+            const float size = ((w->fontHeight > 0.0f) ? w->fontHeight : base) * s;
             (void)base;
             const ImVec2 extent =
                 font ? font->CalcTextSizeA(size, FLT_MAX, 0.0f, w->text.c_str())

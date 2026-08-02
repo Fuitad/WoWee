@@ -918,7 +918,13 @@ static int lua_GetCursorPosition(lua_State* L) {
 }
 
 // GetScreenWidth() → width
+/// The screen in interface units, not pixels — which is what FrameXML means
+/// by it. On a 1528-tall window GetScreenHeight() is 768, the same as it would
+/// be on any other, and a frame sized against it comes out the same size.
 static int lua_GetScreenWidth(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const auto* root = tree ? tree->get(tree->rootId()) : nullptr;
+    if (root && root->rectW > 0.0f) { lua_pushnumber(L, root->rectW); return 1; }
     auto* svc = getLuaServices(L);
     auto* window = svc ? svc->window : nullptr;
     lua_pushnumber(L, window ? window->getWidth() : 1920);
@@ -927,6 +933,9 @@ static int lua_GetScreenWidth(lua_State* L) {
 
 // GetScreenHeight() → height
 static int lua_GetScreenHeight(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const auto* root = tree ? tree->get(tree->rootId()) : nullptr;
+    if (root && root->rectH > 0.0f) { lua_pushnumber(L, root->rectH); return 1; }
     auto* svc = getLuaServices(L);
     auto* window = svc ? svc->window : nullptr;
     lua_pushnumber(L, window ? window->getHeight() : 1080);
@@ -3024,6 +3033,11 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
 
 void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
     if (!L_) return;
+    // The cursor arrives in pixels and the tree is in interface units, so this
+    // is where the two meet. Hit testing against unconverted pixels would miss
+    // every frame by the scale factor.
+    const float s = widgets_.uiScale();
+    if (s > 0.0f) { x /= s; y /= s; }
     const uint32_t hit = widgets_.hitTest(x, y);
 
     // Throttled, and only while there is something to hit. Whether the mouse
