@@ -1159,6 +1159,16 @@ void CombatHandler::setTarget(uint64_t guid) {
     if (!reportedOnce && guid != 0) {
         reportedOnce = true;
         ui::frameXmlRequestCheck();
+        // What UnitExists("target") resolves through, said plainly. The Lua
+        // probe was meant to answer this and has not run; this is the same
+        // question asked where it can actually be answered — the interface
+        // reports "target" as existing exactly when this guid resolves to a
+        // unit.
+        auto entity = owner_.getEntityManager().getEntity(guid);
+        LOG_WARNING("first target: guid=0x", std::hex, guid, std::dec,
+                    " entity=", (entity ? "found" : "MISSING"),
+                    " unit=", (entity && dynamic_cast<Unit*>(entity.get())
+                                   ? "yes" : "NO"));
     }
 }
 

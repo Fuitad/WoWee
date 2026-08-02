@@ -190,10 +190,20 @@ bool frameXmlTakeProbeRequest() {
 std::vector<std::string> frameXmlSuppressedFrames() {
     struct Suppress { UiElement element; const char* frames; };
     static const Suppress kSuppress[] = {
+        // The tabs are parented to UIParent rather than to the frame they
+        // belong to, so hiding the chat windows leaves a row of tabs behind.
+        // The combat log is ChatFrame2 with its own strip of buttons.
         {UiElement::Chat,     "ChatFrame1 ChatFrame2 ChatFrame3 ChatFrame4 ChatFrame5 "
-                              "ChatFrame6 ChatFrame7 GeneralDockManager "
-                              "ChatFrameMenuButton FriendsMicroButton"},
+                              "ChatFrame6 ChatFrame7 "
+                              "ChatFrame1Tab ChatFrame2Tab ChatFrame3Tab ChatFrame4Tab "
+                              "ChatFrame5Tab ChatFrame6Tab ChatFrame7Tab "
+                              "GeneralDockManager GeneralDockManagerOverflowButton "
+                              "ChatFrameMenuButton FriendsMicroButton "
+                              "CombatLogQuickButtonFrame_Custom"},
         {UiElement::QuestLog, "QuestLogFrame"},
+        // WatchFrameTitle is the "Objectives" label, and the buttons beside it
+        // ride on the same frame.
+        {UiElement::QuestTracker, "WatchFrame"},
     };
 
     std::vector<std::string> out;

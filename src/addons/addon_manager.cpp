@@ -373,6 +373,25 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         "  end\n"
         "end\n");
 
+    // Let the bag windows and the character sheet be dragged around.
+    //
+    // A deliberate departure from 3.3.5, where neither can be moved: the bags
+    // arrange themselves up the right-hand side and the character sheet is a
+    // fixed panel. Asked for, and harmless — the item buttons inside them are
+    // what a drag starting on a slot picks up, because a drag belongs to the
+    // frame the press landed on.
+    luaEngine_.executeString(
+        "local function draggable(f)\n"
+        "  if not f then return end\n"
+        "  f:SetMovable(true)\n"
+        "  f:EnableMouse(true)\n"
+        "  f:RegisterForDrag('LeftButton')\n"
+        "  f:SetScript('OnDragStart', function(self) self:StartMoving() end)\n"
+        "  f:SetScript('OnDragStop', function(self) self:StopMovingOrSizing() end)\n"
+        "end\n"
+        "for i = 1, 13 do draggable(_G['ContainerFrame' .. i]) end\n"
+        "draggable(CharacterFrame)\n");
+
     LOG_WARNING("FrameXML: ", lua, " Lua files and ", xml, " XML files loaded, ",
                 failed, " failed in ", sinceMs(loadStart), "ms");
     for (const auto& [file, why] : failures) {
