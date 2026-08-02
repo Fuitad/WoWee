@@ -982,7 +982,32 @@ int lua_StatusBar_GetMinMaxValues(lua_State* L) {
     return 2;
 }
 int lua_StatusBar_SetValue(lua_State* L) {
-    if (auto* w = widgetOf(L, 1)) w->barValue = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    const float value = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+    const bool changed = (value != w->barValue);
+    w->barValue = value;
+
+    // A slider set from code fires OnValueChanged, as in WoW — a status bar
+    // does not. It is how a scroll bar moved by the wheel or by a button
+    // scrolls the frame beside it rather than only redrawing its own thumb.
+    // Called through the table so the handler runs with self, and only on a
+    // real change, because several of these set the value they already have on
+    // every update.
+    if (w->isSlider && changed) {
+        lua_getfield(L, 1, "__scripts");
+        if (lua_istable(L, -1)) {
+            lua_getfield(L, -1, "OnValueChanged");
+            if (lua_isfunction(L, -1)) {
+                lua_pushvalue(L, 1);
+                lua_pushnumber(L, value);
+                if (lua_pcall(L, 2, 0, 0) != 0) lua_pop(L, 1);
+            } else {
+                lua_pop(L, 1);
+            }
+        }
+        lua_pop(L, 1);
+    }
     return 0;
 }
 /// SetCooldown(start, duration) — both on GetTime's clock. A zero duration is
@@ -3534,9 +3559,12 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
                 }
                 if (value != w->barValue) {
                     w->barValue = value;
-                    // OnValueChanged is what a scroll frame listens to; without
-                    // it the thumb would move and nothing would scroll.
-                    callFrameScript(pressedWid_[0], "OnValueChanged");
+                    // With the value, because that is the argument the handler
+                    // names and uses: UIPanelScrollBarTemplate's body is
+                    // self:GetParent():SetVerticalScroll(value), and a nil
+                    // there scrolls to zero — so dragging a scroll bar snapped
+                    // the view back to the top instead of moving it.
+                    callFrameScriptNumber(pressedWid_[0], "OnValueChanged", value);
                 }
             }
         }
