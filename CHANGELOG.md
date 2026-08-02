@@ -1,5 +1,10 @@
 # Changelog
 
+## [v2.0.35-preview] — 2026-08-01
+
+### Fixed
+- **The client's own interface keeps its own font.** ImGui draws with whichever face is added first, so loading the game's typefaces made FRIZQT the default for every panel this client draws, at eighteen points — larger text and different metrics than the layouts were built against, on startup, whether or not the original interface was being loaded
+
 ## [v2.0.34-preview] — 2026-08-01
 
 ### Original interface (FrameXML)
