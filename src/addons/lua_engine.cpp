@@ -2,6 +2,7 @@
 #include "ui/widget_tree.hpp"
 #include <chrono>
 #include <cfloat>
+#include <cmath>
 #include <cstring>
 #include <sstream>
 #include <algorithm>
@@ -696,6 +697,31 @@ int lua_StatusBar_SetValue(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->barValue = static_cast<float>(luaL_optnumber(L, 2, 0.0));
     return 0;
 }
+int lua_Slider_SetValueStep(lua_State* L) {
+    if (auto* w = widgetOf(L, 1))
+        w->sliderStep = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+    return 0;
+}
+int lua_Slider_GetValueStep(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->sliderStep : 0.0);
+    return 1;
+}
+/// The draggable part. Given a path rather than a texture here, the same way
+/// the button art setters take one.
+int lua_Slider_SetThumbTexture(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    if (lua_isstring(L, 2)) {
+        w->thumbTexture = lua_tostring(L, 2);
+    } else if (lua_istable(L, 2)) {
+        auto* tree = wowee::addons::getWidgetTree(L);
+        const auto* t = tree ? tree->get(widgetIdOf(L, 2)) : nullptr;
+        if (t) w->thumbTexture = t->texturePath;
+    }
+    return 0;
+}
+
 int lua_StatusBar_GetValue(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     lua_pushnumber(L, w ? w->barValue : 0.0);
@@ -964,6 +990,9 @@ static int lua_CreateFrame(lua_State* L) {
             const std::string ft = frameType ? frameType : "Frame";
             w->mouseEnabled = (ft == "Button" || ft == "CheckButton");
             w->isStatusBar = (ft == "StatusBar");
+            // A slider takes the mouse by nature: it exists to be dragged.
+            w->isSlider = (ft == "Slider");
+            if (w->isSlider) w->mouseEnabled = true;
         }
         lua_pushinteger(L, static_cast<lua_Integer>(id));
         lua_setfield(L, -2, "__wid");
@@ -1289,6 +1318,9 @@ void LuaEngine::registerCoreAPI() {
         {"SetStatusBarTexture",   lua_StatusBar_SetStatusBarTexture},
         {"SetStatusBarColor",     lua_StatusBar_SetStatusBarColor},
         {"SetOrientation",        lua_StatusBar_SetOrientation},
+        {"SetValueStep",          lua_Slider_SetValueStep},
+        {"GetValueStep",          lua_Slider_GetValueStep},
+        {"SetThumbTexture",       lua_Slider_SetThumbTexture},
         {"SetFrameStrata",  lua_Frame_SetFrameStrata},
         {"SetFrameLevel",   lua_Frame_SetFrameLevel},
         {"SetParent",       lua_Frame_SetParent},
@@ -2761,6 +2793,39 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
         if (hoverWid_ != 0) callFrameScript(hoverWid_, "OnLeave");
         hoverWid_ = hit;
         if (hoverWid_ != 0) callFrameScript(hoverWid_, "OnEnter");
+    }
+
+    // A slider follows the cursor for as long as it is held, which is the only
+    // widget where what happens between press and release is the point. The
+    // frame keeps the grab even when the cursor leaves it, because letting go
+    // of a scroll bar by sliding sideways is not what anyone means.
+    if (buttonDown_[0] && pressedWid_[0] != 0) {
+        if (auto* w = widgets_.get(pressedWid_[0]); w && w->isSlider) {
+            const float span = w->barMax - w->barMin;
+            if (span > 0.0f) {
+                // Vertical sliders run top to bottom, and the tree's y grows
+                // upward, so the fraction is measured from the far edge.
+                const float extent = w->barVertical ? w->rectH : w->rectW;
+                float f = 0.0f;
+                if (extent > 0.0f) {
+                    f = w->barVertical ? (w->bottom + w->rectH - y) / extent
+                                       : (x - w->left) / extent;
+                }
+                f = std::clamp(f, 0.0f, 1.0f);
+                float value = w->barMin + f * span;
+                if (w->sliderStep > 0.0f) {
+                    value = w->barMin +
+                            std::round((value - w->barMin) / w->sliderStep) * w->sliderStep;
+                    value = std::clamp(value, w->barMin, w->barMax);
+                }
+                if (value != w->barValue) {
+                    w->barValue = value;
+                    // OnValueChanged is what a scroll frame listens to; without
+                    // it the thumb would move and nothing would scroll.
+                    callFrameScript(pressedWid_[0], "OnValueChanged");
+                }
+            }
+        }
     }
 
     // The names WoW uses, in the order the state arrays are indexed.

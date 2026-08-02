@@ -105,6 +105,11 @@ struct Widget {
 
     // StatusBar. Health, mana, cast bars and experience are all this one type.
     bool  isStatusBar = false;
+    /// A slider shares the bar's range and value but is dragged rather than
+    /// filled, and draws a thumb at the value instead of a fill to it.
+    bool  isSlider = false;
+    float sliderStep = 0.0f;
+    std::string thumbTexture;
     float barMin = 0.0f, barMax = 1.0f, barValue = 0.0f;
     std::string barTexture;
     float barColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};

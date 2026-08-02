@@ -248,6 +248,24 @@ TEST_CASE("$parent skips unnamed frames to the nearest named one",
     REQUIRE(has(r.lua, "((self:GetName() or \"\") .. \"Name\")"));
 }
 
+TEST_CASE("A slider carries its range, step and grip", "[framexml][emit]") {
+    // The range is set before the value, or the value is clamped against a
+    // default range it was never meant to sit in. The thumb is a region like
+    // button art, handed to the setter afterwards.
+    XmlNode root = parseOrFail(
+        "<Ui><Slider name=\"S\" minValue=\"0\" maxValue=\"100\" valueStep=\"5\""
+        " defaultValue=\"20\" orientation=\"VERTICAL\">"
+        "<ThumbTexture name=\"$parentThumb\" file=\"Art\\\\Grip\"/>"
+        "</Slider></Ui>");
+    const EmitResult r = emitFrameXml(root);
+
+    REQUIRE(has(r.lua, ":SetMinMaxValues("));
+    REQUIRE(has(r.lua, ":SetValueStep("));
+    REQUIRE(has(r.lua, ":SetOrientation(\"VERTICAL\")"));
+    REQUIRE(has(r.lua, ":SetThumbTexture("));
+    REQUIRE(r.lua.find(":SetMinMaxValues(") < r.lua.find(":SetValue("));
+}
+
 TEST_CASE("A frame's id becomes SetID", "[framexml][emit]") {
     // How a frame in a numbered set knows which one it is. FrameXML builds
     // names out of it — PartyMemberFrame_RefreshPetDebuffs reaches for

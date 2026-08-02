@@ -52,6 +52,8 @@ private:
                       float x0, float y0, float x1, float y1);
     void drawStatusBar(ImDrawList* dl, const Widget& w,
                        float x0, float y0, float x1, float y1);
+    void drawSlider(ImDrawList* dl, const Widget& w,
+                    float x0, float y0, float x1, float y1);
 
     pipeline::AssetManager* assets_ = nullptr;
     rendering::VkContext* vkCtx_ = nullptr;

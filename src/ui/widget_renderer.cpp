@@ -151,6 +151,32 @@ void WidgetRenderer::drawStatusBar(ImDrawList* dl, const Widget& w,
     }
 }
 
+void WidgetRenderer::drawSlider(ImDrawList* dl, const Widget& w,
+                                float x0, float y0, float x1, float y1) {
+    VkDescriptorSet thumb = resident(w.thumbTexture);
+    if (thumb == kMissing) return;
+
+    // The thumb sits at the value along the track, and is as wide as the track
+    // is narrow — a scroll bar's grip is square to its channel.
+    const float f = w.barFraction();
+    const uint32_t col = packColor(w.barColor, w.alpha);
+    if (w.barVertical) {
+        const float size = x1 - x0;
+        // Screen y grows downward while a slider's value grows upward, so the
+        // full value belongs at the top of the track.
+        const float span = (y1 - y0) - size;
+        const float top = y1 - size - f * span;
+        dl->AddImage(reinterpret_cast<ImTextureID>(thumb), ImVec2(x0, top),
+                     ImVec2(x1, top + size), ImVec2(0, 0), ImVec2(1, 1), col);
+    } else {
+        const float size = y1 - y0;
+        const float span = (x1 - x0) - size;
+        const float left = x0 + f * span;
+        dl->AddImage(reinterpret_cast<ImTextureID>(thumb), ImVec2(left, y0),
+                     ImVec2(left + size, y1), ImVec2(0, 0), ImVec2(1, 1), col);
+    }
+}
+
 void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     tree.layout(screenW, screenH);
     const auto& order = tree.drawOrder();
@@ -180,6 +206,7 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         if (w->kind == WidgetKind::Frame) {
             if (w->hasBackdrop) { want(w->bgFile); want(w->edgeFile); }
             if (w->isStatusBar) want(w->barTexture);
+            if (w->isSlider) want(w->thumbTexture);
         }
     }
 
@@ -216,6 +243,7 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         if (w->kind == WidgetKind::Frame) {
             if (w->hasBackdrop) drawBackdrop(dl, *w, x0, y0, x1, y1);
             if (w->isStatusBar) drawStatusBar(dl, *w, x0, y0, x1, y1);
+            if (w->isSlider) drawSlider(dl, *w, x0, y0, x1, y1);
             continue;
         }
 

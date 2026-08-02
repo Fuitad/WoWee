@@ -254,6 +254,8 @@ struct Emitter {
             {"HighlightTexture",       "SetHighlightTexture",       "HIGHLIGHT", true},
             // Over the art, so a label is never hidden by the face beneath it.
             {"ButtonText",             "SetFontString",             "OVERLAY",   false},
+            // A slider's grip, which draws over the channel it runs in.
+            {"ThumbTexture",           "SetThumbTexture",           "OVERLAY",   true},
         };
         for (const Slot& slot : kSlots) {
             const XmlNode* child = node.child(slot.element);
@@ -427,6 +429,26 @@ struct Emitter {
         if (const std::string* strata = node.attr("frameStrata")) {
             line(var + ":SetFrameStrata(" + quote(*strata) + ")");
         }
+        // A slider's range, step and orientation, declared as attributes. The
+        // range has to be set before the value, or the value is clamped to a
+        // default range it was never meant to sit in.
+        if (node.attr("minValue") || node.attr("maxValue")) {
+            line(var + ":SetMinMaxValues(" +
+                 std::to_string(node.attrFloat("minValue", 0.0f)) + ", " +
+                 std::to_string(node.attrFloat("maxValue", 1.0f)) + ")");
+        }
+        if (node.attr("valueStep")) {
+            line(var + ":SetValueStep(" +
+                 std::to_string(node.attrFloat("valueStep", 0.0f)) + ")");
+        }
+        if (const std::string* o = node.attr("orientation")) {
+            line(var + ":SetOrientation(" + quote(*o) + ")");
+        }
+        if (node.attr("defaultValue")) {
+            line(var + ":SetValue(" +
+                 std::to_string(node.attrFloat("defaultValue", 0.0f)) + ")");
+        }
+
         // A button only receives the clicks it asks for, and one file asks in
         // the XML rather than from a script.
         if (const std::string* clicks = node.attr("registerForClicks");
