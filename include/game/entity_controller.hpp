@@ -199,6 +199,11 @@ private:
     struct UnitFieldUpdateResult {
         bool healthChanged = false;
         bool powerChanged = false;
+        /// Which power moved, as an index into the power tables, or -1. The
+        /// event a WotLK interface listens for is named after the power, so
+        /// knowing that something changed is not enough to tell it.
+        int  powerTypeChanged = -1;
+        int  maxPowerTypeChanged = -1;
         bool displayIdChanged = false;
         bool npcDeathNotified = false;
         bool npcRespawnNotified = false;

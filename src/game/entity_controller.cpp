@@ -1088,9 +1088,11 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
         else if (key >= ufi.powerBase && key < ufi.powerBase + 7) {
             unit->setPowerByType(static_cast<uint8_t>(key - ufi.powerBase), val);
             result.powerChanged = true;
+            result.powerTypeChanged = static_cast<int>(key - ufi.powerBase);
         } else if (key >= ufi.maxPowerBase && key < ufi.maxPowerBase + 7) {
             unit->setMaxPowerByType(static_cast<uint8_t>(key - ufi.maxPowerBase), val);
             result.powerChanged = true;
+            result.maxPowerTypeChanged = static_cast<int>(key - ufi.maxPowerBase);
         }
     }
 
@@ -1100,6 +1102,27 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
         if (!unitId.empty()) {
             if (result.healthChanged) pendingEvents_.emit("UNIT_HEALTH", {unitId});
             if (result.powerChanged) {
+                // The event a WotLK interface is listening for is named after
+                // the power itself. UNIT_POWER is the later, generic one — it
+                // arrived in Cataclysm, and every unit frame this client
+                // targets registers UNIT_MANA, UNIT_RAGE, UNIT_ENERGY or
+                // UNIT_FOCUS instead. Sending only the generic name meant the
+                // mana bar was told nothing it understood and never moved,
+                // even though the number behind it was current.
+                //
+                // The create path already names them; this is the same table.
+                static const char* kPowerEvents[7] = {
+                    "UNIT_MANA", "UNIT_RAGE", "UNIT_FOCUS", "UNIT_ENERGY",
+                    "UNIT_HAPPINESS", "UNIT_RUNIC_POWER", "UNIT_RUNIC_POWER"
+                };
+                static const char* kMaxPowerEvents[7] = {
+                    "UNIT_MAXMANA", "UNIT_MAXRAGE", "UNIT_MAXFOCUS", "UNIT_MAXENERGY",
+                    "UNIT_MAXHAPPINESS", "UNIT_MAXRUNIC_POWER", "UNIT_MAXRUNIC_POWER"
+                };
+                if (result.powerTypeChanged >= 0 && result.powerTypeChanged < 7)
+                    pendingEvents_.emit(kPowerEvents[result.powerTypeChanged], {unitId});
+                if (result.maxPowerTypeChanged >= 0 && result.maxPowerTypeChanged < 7)
+                    pendingEvents_.emit(kMaxPowerEvents[result.maxPowerTypeChanged], {unitId});
                 pendingEvents_.emit("UNIT_POWER", {unitId});
                 // When player power changes, action bar usability may change
                 if (block.guid == owner_.getPlayerGuid()) {
