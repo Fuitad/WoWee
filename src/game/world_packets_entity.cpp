@@ -680,7 +680,9 @@ bool MonsterMoveParser::parse(network::Packet& packet, MonsterMoveData& data) {
     {
         SplineBlockData spline;
         if (!parseMonsterMoveSplineBody(packet, spline, data.splineFlags,
-                                        glm::vec3(data.x, data.y, data.z))) {
+                                        glm::vec3(data.x, data.y, data.z),
+                                        /*useTbcUncompressedMask=*/false,
+                                        SplineFlagSet::Wotlk)) {
             return false;
         }
         data.duration = spline.duration;
