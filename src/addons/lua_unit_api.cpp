@@ -1729,6 +1729,59 @@ void registerUnitLuaAPI(lua_State* L) {
                 // and concatenates it unguarded, so a missing one takes the
                 // panel's whole update with it. Rank zero is what an
                 // unranked character has.
+                // Whether the off hand holds a weapon rather than a shield or
+                // a held item. DurabilityFrame_SetAlerts branches on it to
+                // decide which of its two off-hand icons to show.
+                {"OffhandHasWeapon", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) { lua_pushboolean(L, 0); return 1; }
+            const auto& slot = gh->getInventory().getEquipSlot(game::EquipSlot::OFF_HAND);
+            if (slot.empty()) { lua_pushboolean(L, 0); return 1; }
+            const auto* info = gh->getItemInfo(slot.item.itemId);
+            const uint8_t t = info ? info->inventoryType : 0;
+            // A weapon, not a shield or a held book: OFF_HAND in this table
+            // is the held-in-off-hand class, which is not one.
+            lua_pushboolean(L, (t == game::InvType::ONE_HAND ||
+                                t == game::InvType::TWO_HAND) ? 1 : 0);
+            return 1;
+        }},
+                // The colour a unit's name is drawn in: red for hostile, green
+                // for friendly, yellow for neutral. Unit frames read all four
+                // components straight into SetTextColor.
+                {"UnitSelectionColor", [](lua_State* L) -> int {
+            const char* uid = luaL_optstring(L, 1, "player");
+            auto* unit = resolveUnit(L, uid);
+            float r = 0.0f, g = 1.0f, b = 0.0f;
+            if (unit && unit->isHostile()) { r = 1.0f; g = 0.0f; b = 0.0f; }
+            lua_pushnumber(L, r);
+            lua_pushnumber(L, g);
+            lua_pushnumber(L, b);
+            lua_pushnumber(L, 1.0);
+            return 4;
+        }},
+                {"UnitIsPartyLeader", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* uid = luaL_optstring(L, 1, "player");
+            std::string uidStr(uid);
+            toLowerInPlace(uidStr);
+            const uint64_t guid = gh ? resolveUnitGuid(gh, uidStr) : 0;
+            lua_pushboolean(L, (gh && guid != 0 &&
+                                gh->getPartyData().leaderGuid == guid) ? 1 : 0);
+            return 1;
+        }},
+                {"UnitIsCorpse", [](lua_State* L) -> int {
+            const char* uid = luaL_optstring(L, 1, "player");
+            auto* unit = resolveUnit(L, uid);
+            lua_pushboolean(L, (unit && unit->getHealth() == 0) ? 1 : 0);
+            return 1;
+        }},
+                // Whether the first unit may help the second — true between
+                // anything not hostile to each other.
+                {"UnitCanAssist", [](lua_State* L) -> int {
+            auto* other = resolveUnit(L, luaL_optstring(L, 2, "target"));
+            lua_pushboolean(L, (other && !other->isHostile()) ? 1 : 0);
+            return 1;
+        }},
                 {"GetPVPRankInfo", [](lua_State* L) -> int {
             const int rank = static_cast<int>(luaL_optnumber(L, 1, 0));
             lua_pushstring(L, "");          // rank name
