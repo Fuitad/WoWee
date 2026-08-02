@@ -918,10 +918,19 @@ static int lua_GetXPExhaustion(lua_State* L) {
 }
 
 // GetRestState() → 1 = normal, 2 = rested
+/// GetRestState() → stateID, stateName, xpMultiplier.
+///
+/// One is rested and two is normal, which is the way round WoW numbers them —
+/// this answered the opposite. MainMenuBar multiplies by the third return the
+/// line after reading it, so returning only the id was arithmetic on nil every
+/// time the cursor crossed the experience bar.
 static int lua_GetRestState(lua_State* L) {
     auto* gh = getGameHandler(L);
-    lua_pushnumber(L, (gh && gh->isPlayerResting()) ? 2 : 1);
-    return 1;
+    const bool rested = gh && gh->isPlayerResting();
+    lua_pushnumber(L, rested ? 1 : 2);
+    lua_pushstring(L, rested ? "Rested" : "Normal");
+    lua_pushnumber(L, rested ? 1.5 : 1.0);
+    return 3;
 }
 
 // --- Quest Log API ---

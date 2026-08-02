@@ -535,6 +535,14 @@ static int lua_GetBattlefieldPosition(lua_State* L) {
 /// max() on every mouse-over — so a missing alpha is not a cosmetic gap, it is
 /// an error every time the cursor crosses the frame.
 static int lua_GetChatWindowInfo(lua_State* L) {
+    // Which window is being asked about matters: docked is that window's place
+    // on the dock, and FCF_DockFrame asserts that whatever claims position one
+    // is the dock's primary. Answering one for every window claimed each was
+    // first. WoW's default layout docks General and the combat log and leaves
+    // the rest neither shown nor docked.
+    const int id = static_cast<int>(luaL_optnumber(L, 1, 1));
+    const bool inDefaultLayout = (id >= 1 && id <= 2);
+
     lua_pushstring(L, "");      // name
     lua_pushnumber(L, 14.0);    // fontSize
     lua_pushnumber(L, 1.0);     // r
@@ -546,10 +554,10 @@ static int lua_GetChatWindowInfo(lua_State* L) {
     // insert at, and that compares it against a count. A boolean there is a
     // comparison between a boolean and a number, which is an error rather than
     // a wrong answer.
-    lua_pushnumber(L, 1.0);     // shown
-    lua_pushnil(L);             // locked
-    lua_pushnumber(L, 1.0);     // docked — first position on the dock
-    lua_pushnil(L);             // uninteractable
+    if (inDefaultLayout) lua_pushnumber(L, 1.0); else lua_pushnil(L);  // shown
+    lua_pushnil(L);                                                     // locked
+    if (inDefaultLayout) lua_pushnumber(L, id); else lua_pushnil(L);    // docked
+    lua_pushnil(L);                                                     // uninteractable
     return 10;
 }
 
