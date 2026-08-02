@@ -256,8 +256,10 @@ TEST_CASE("$parent skips unnamed frames to the nearest named one",
         "</Frames></Frame></Ui>");
     const EmitResult r = emitFrameXml(root);
 
-    // Named from the template root, which is the only thing with a name.
-    REQUIRE(has(r.lua, "((self:GetName() or \"\") .. \"Name\")"));
+    // Named from the template root, which is the only thing with a name —
+    // and only if it has one, since an owner with no name lends none.
+    REQUIRE(has(r.lua, "self:GetName() .. \"Name\""));
+    REQUIRE(has(r.lua, "self:GetName() and"));
 }
 
 TEST_CASE("A frame can fill its parent instead of anchoring", "[framexml][emit]") {
