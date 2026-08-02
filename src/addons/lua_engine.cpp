@@ -364,6 +364,86 @@ int lua_Region_GetHeight(lua_State* L) {
     lua_pushnumber(L, w ? (w->rectH > 0.0f ? w->rectH : w->height) : 0.0);
     return 1;
 }
+// The four edges, in the same coordinates the tree lays out in: origin at the
+// bottom-left, y growing upward, interface units rather than pixels.
+//
+// These are read constantly and almost always into arithmetic — the chat frame
+// works out where its dock sits, the container frames decide which side to
+// open a tooltip on. A no-op behind them is not a getter that answers badly,
+// it is nil in a subtraction, which takes the whole file down.
+int lua_Region_GetLeft(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->left : 0.0);
+    return 1;
+}
+int lua_Region_GetRight(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? (w->left + w->rectW) : 0.0);
+    return 1;
+}
+int lua_Region_GetBottom(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->bottom : 0.0);
+    return 1;
+}
+int lua_Region_GetTop(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? (w->bottom + w->rectH) : 0.0);
+    return 1;
+}
+/// GetRect() → left, bottom, width, height. All four at once, which is what
+/// the newer code in FrameXML reaches for.
+int lua_Region_GetRect(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    lua_pushnumber(L, w->left);
+    lua_pushnumber(L, w->bottom);
+    lua_pushnumber(L, w->rectW);
+    lua_pushnumber(L, w->rectH);
+    return 4;
+}
+/// Per-frame scale is not modelled — the tree scales the whole interface at
+/// once, which is what UIParent's scale means and where the number FrameXML
+/// wants comes from. One is therefore the true answer for every frame, and it
+/// is a number, which is the part that matters where it is divided by.
+int lua_Region_GetScale(lua_State* L) {
+    (void)L;
+    lua_pushnumber(L, 1.0);
+    return 1;
+}
+int lua_Frame_GetFrameLevel(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->effLevel : 0);
+    return 1;
+}
+int lua_Region_GetNumPoints(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? static_cast<lua_Number>(w->anchors.size()) : 0.0);
+    return 1;
+}
+
+// Minimap zoom. Five levels, as in WoW, and the level is kept on the widget so
+// the buttons that step it can read back what they set — Minimap_Update
+// compares GetZoom() against GetZoomLevels() - 1 to decide whether to grey the
+// zoom-in button out, and nil there is arithmetic on nothing.
+int lua_Minimap_SetZoom(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        int z = static_cast<int>(luaL_optnumber(L, 2, 0));
+        w->zoomLevel = (z < 0) ? 0 : (z > 4 ? 4 : z);
+    }
+    return 0;
+}
+int lua_Minimap_GetZoom(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->zoomLevel : 0);
+    return 1;
+}
+int lua_Minimap_GetZoomLevels(lua_State* L) {
+    (void)L;
+    lua_pushnumber(L, 5);
+    return 1;
+}
+
 int lua_Region_Show(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->shown = true;
     lua_pushboolean(L, 1); lua_setfield(L, 1, "__visible");
@@ -605,6 +685,13 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     set("GetTextHeight", lua_Region_GetTextHeight);
     set("GetStringHeight", lua_Region_GetTextHeight);
     set("GetHeight", lua_Region_GetHeight);
+    set("GetLeft", lua_Region_GetLeft);
+    set("GetRight", lua_Region_GetRight);
+    set("GetBottom", lua_Region_GetBottom);
+    set("GetTop", lua_Region_GetTop);
+    set("GetRect", lua_Region_GetRect);
+    set("GetScale", lua_Region_GetScale);
+    set("GetEffectiveScale", lua_Region_GetScale);
     set("Show", lua_Region_Show);
     set("Hide", lua_Region_Hide);
     set("IsShown", lua_Region_IsShown);
@@ -1453,6 +1540,16 @@ void LuaEngine::registerCoreAPI() {
         {"GetTextHeight",   lua_Region_GetTextHeight},
         {"GetStringHeight", lua_Region_GetTextHeight},
         {"GetHeight",       lua_Region_GetHeight},
+        {"GetLeft",         lua_Region_GetLeft},
+        {"GetRight",        lua_Region_GetRight},
+        {"GetBottom",       lua_Region_GetBottom},
+        {"GetTop",          lua_Region_GetTop},
+        {"GetRect",         lua_Region_GetRect},
+        {"GetFrameLevel",   lua_Frame_GetFrameLevel},
+        {"GetNumPoints",    lua_Region_GetNumPoints},
+        {"SetZoom",         lua_Minimap_SetZoom},
+        {"GetZoom",         lua_Minimap_GetZoom},
+        {"GetZoomLevels",   lua_Minimap_GetZoomLevels},
         {"GetCenter",       lua_Frame_GetCenter},
         {"SetAlpha",        lua_Region_SetAlpha},
         {"GetAlpha",        lua_Region_GetAlpha},

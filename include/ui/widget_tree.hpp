@@ -165,6 +165,10 @@ struct Widget {
     float lineSpacing = 0.0f;
     std::string justifyH = "CENTER";
 
+    /// Minimap zoom step, 0 to 4. Kept here rather than in Lua because the
+    /// interface sets it through one button and reads it back through another.
+    int zoomLevel = 0;
+
     // Filled in by layout(). Screen rect in WoW coordinates: origin bottom-left.
     float left = 0.0f, bottom = 0.0f, rectW = 0.0f, rectH = 0.0f;
     bool  visible = false;      ///< shown, and every ancestor shown too
