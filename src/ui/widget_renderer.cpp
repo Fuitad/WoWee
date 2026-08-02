@@ -1,6 +1,7 @@
 #include "ui/widget_renderer.hpp"
 
 #include "ui/widget_tree.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/blp_loader.hpp"
 #include "rendering/vk_context.hpp"
@@ -14,6 +15,7 @@
 #include <cfloat>
 #include <cstdlib>
 #include <cmath>
+#include <string>
 #include <vector>
 
 namespace wowee {
@@ -317,6 +319,45 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     static int framesSeen = 0;
     static bool dumped = false;
     ++framesSeen;
+
+    // Did the elements handed over actually arrive?
+    //
+    // Reported without being asked for, because it only happens when someone
+    // has already said WOWEE_FRAMEXML_UI, and because the alternative is
+    // reading a screenshot for whether a frame is present, hidden, or laid out
+    // to nothing — three failures that look identical from outside and quite
+    // different here. Late enough that textures have had time to upload.
+    static bool reported = false;
+    if (!reported && framesSeen > 120) {
+        reported = true;
+        const std::vector<std::string> wanted = frameXmlCheckFrames();
+        if (!wanted.empty()) {
+            LOG_WARNING("FrameXML takeover check, on ", screenW, "x", screenH,
+                        " px (scale ", s, "):");
+            for (const std::string& name : wanted) {
+                const Widget* w = tree.findByName(name);
+                if (!w) {
+                    LOG_WARNING("  ", name, " — NOT BUILT");
+                    continue;
+                }
+                const bool offscreen = (w->left * s > screenW) ||
+                                       (w->bottom * s > screenH) ||
+                                       ((w->left + w->rectW) * s < 0.0f) ||
+                                       ((w->bottom + w->rectH) * s < 0.0f);
+                LOG_WARNING("  ", name,
+                            (w->visible ? " shown" : " HIDDEN"),
+                            (w->rectW <= 0.0f || w->rectH <= 0.0f ? " NOSIZE" : ""),
+                            (offscreen ? " OFFSCREEN" : ""),
+                            " rect=(", w->left, ",", w->bottom, " ",
+                            w->rectW, "x", w->rectH, ")",
+                            (w->kind == WidgetKind::Texture && !w->texturePath.empty() &&
+                             resident(w->texturePath, w->blendAdd) == kMissing
+                                 ? " NOTRESIDENT" : ""),
+                            (w->texturePath.empty() ? "" : " tex="), w->texturePath);
+            }
+        }
+    }
+
     if (dumpWidgets && !dumped && framesSeen > 180) {
         dumped = true;
         // The screen it was laid out against, because a coordinate means

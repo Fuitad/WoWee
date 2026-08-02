@@ -111,6 +111,49 @@ bool frameXmlOwns(UiElement element) {
     return false;
 }
 
+std::vector<std::string> frameXmlCheckFrames() {
+    // One row per element: what has to exist for it to have arrived. Chosen as
+    // the frame itself, the art that frames it, and the parts that carry live
+    // data — which between them separate "never built" from "built and empty"
+    // from "built and misplaced".
+    struct Check { UiElement element; const char* frames; };
+    static const Check kChecks[] = {
+        {UiElement::PlayerFrame,  "PlayerFrame PlayerFrameTexture PlayerPortrait "
+                                  "PlayerFrameHealthBar PlayerFrameManaBar PlayerName"},
+        {UiElement::TargetFrame,  "TargetFrame TargetFrameTextureFrame TargetFramePortrait "
+                                  "TargetFrameHealthBar TargetFrameManaBar TargetFrameTextureFrameName"},
+        {UiElement::PetFrame,     "PetFrame PetFrameHealthBar PetFrameManaBar"},
+        {UiElement::Minimap,      "Minimap MinimapBorder MinimapZoomIn MinimapZoneText"},
+        {UiElement::ActionBar,    "MainMenuBar MainMenuBarArtFrame MainMenuBarLeftEndCap "
+                                  "MainMenuBarRightEndCap ActionButton1 ActionButton12"},
+        {UiElement::BagBar,       "MainMenuBarBackpackButton CharacterBag0Slot"},
+        {UiElement::MicroMenu,    "CharacterMicroButton MainMenuBarPerformanceBar"},
+        {UiElement::XpBar,        "MainMenuExpBar MainMenuXPBarTextureLeftCap"},
+        {UiElement::RepBar,       "ReputationWatchBar ReputationWatchStatusBar"},
+        {UiElement::StanceBar,    "ShapeshiftBarFrame ShapeshiftButton1"},
+        {UiElement::CastBar,      "CastingBarFrame CastingBarFrameBorder CastingBarFrameText"},
+        {UiElement::Chat,         "ChatFrame1 ChatFrame1EditBox GeneralDockManager"},
+        {UiElement::QuestTracker, "WatchFrame WatchFrameTitle"},
+        {UiElement::FocusFrame,   "FocusFrame FocusFrameHealthBar"},
+    };
+
+    std::vector<std::string> out;
+    for (const Check& c : kChecks) {
+        if (!frameXmlOwns(c.element)) continue;
+        std::string all(c.frames);
+        size_t at = 0;
+        while (at < all.size()) {
+            const size_t sp = all.find(' ', at);
+            const std::string one = all.substr(
+                at, sp == std::string::npos ? std::string::npos : sp - at);
+            if (!one.empty()) out.push_back(one);
+            if (sp == std::string::npos) break;
+            at = sp + 1;
+        }
+    }
+    return out;
+}
+
 std::string_view uiElementName(UiElement element) {
     for (const Entry& e : kElements) {
         if (e.element == element) return e.name;

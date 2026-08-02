@@ -23,7 +23,9 @@
 // than ignored, because a misspelling would otherwise look like a replacement
 // that silently did not happen.
 
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace wowee::ui {
 
@@ -50,5 +52,15 @@ bool frameXmlOwns(UiElement element);
 
 /// The name an element is switched on by, for diagnostics.
 std::string_view uiElementName(UiElement element);
+
+/// The frames worth checking for every element currently handed over.
+///
+/// Replacing one part of the interface at a time only works if there is an
+/// answer to "did it arrive". A screenshot is the honest test but not always
+/// available, and the failures so far have all been legible from the tree
+/// alone: a frame that was never created, one that is hidden, one laid out to
+/// nothing. These are the frames each element stands or falls on, so the check
+/// can be one block of log rather than an inspection.
+std::vector<std::string> frameXmlCheckFrames();
 
 } // namespace wowee::ui
