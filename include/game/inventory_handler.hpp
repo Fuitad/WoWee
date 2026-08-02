@@ -28,6 +28,14 @@ public:
 
     explicit InventoryHandler(GameHandler& owner);
 
+    /// Announce that the bags changed, one event per bag.
+    ///
+    /// WoW passes the bag that changed as the event's first argument, and the
+    /// interface redraws only the bag whose id matches it — so an event with no
+    /// id redraws nothing at all. That is why an item dragged to a new slot
+    /// stayed drawn in its old one until the bag was closed and reopened.
+    void fireBagUpdates();
+
     void registerOpcodes(DispatchTable& table);
 
     // ---- Item text (books / readable items) ----

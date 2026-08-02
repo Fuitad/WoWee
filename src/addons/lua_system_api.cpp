@@ -110,6 +110,11 @@ static int lua_GetCVar(lua_State* L) {
     // with noNormalText set, so with tips off it does nothing at all and
     // hovering the experience bar says nothing.
     else if (n == "showNewbieTips") lua_pushstring(L, "1");
+    // The numbers on a unit frame's bars. A stock 3.3.5 client keeps these off
+    // and shows them on mouseover; on this one they are wanted permanently,
+    // which is what the Status Text interface option turns on.
+    else if (n == "statusText") lua_pushstring(L, "1");
+    else if (n == "statusTextPercentage") lua_pushstring(L, "0");
     else lua_pushstring(L, "0");
     return 1;
 }

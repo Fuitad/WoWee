@@ -332,7 +332,7 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
                 sfx->playLootItem();
         }
         if (owner_.addonEventCallbackRef()) {
-            owner_.addonEventCallbackRef()("BAG_UPDATE", {});
+            fireBagUpdates();
             owner_.addonEventCallbackRef()("ITEM_PUSH", {std::to_string(itemId), std::to_string(count)});
         }
         if (owner_.itemLootCallbackRef())
@@ -370,7 +370,7 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
                         sfx->playDropOnGround();
                 }
                 if (owner_.addonEventCallbackRef()) {
-                    owner_.addonEventCallbackRef()("BAG_UPDATE", {});
+                    fireBagUpdates();
                     owner_.addonEventCallbackRef()("PLAYER_MONEY", {});
                 }
             } else {
@@ -613,7 +613,7 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
                 }
                 if (owner_.addonEventCallbackRef()) {
                     owner_.addonEventCallbackRef()("MERCHANT_UPDATE", {});
-                    owner_.addonEventCallbackRef()("BAG_UPDATE", {});
+                    fireBagUpdates();
                 }
                 return;
             }
@@ -637,7 +637,7 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
             pendingBuyItemSlot_ = 0;
             if (owner_.addonEventCallbackRef()) {
                 owner_.addonEventCallbackRef()("MERCHANT_UPDATE", {});
-                owner_.addonEventCallbackRef()("BAG_UPDATE", {});
+                fireBagUpdates();
             }
         }
     };
@@ -1604,6 +1604,15 @@ void InventoryHandler::splitItem(uint8_t srcBag, uint8_t srcSlot, uint8_t count)
     owner_.addSystemChatMessage("Cannot split: no free inventory slots.");
 }
 
+void InventoryHandler::fireBagUpdates() {
+    auto& fire = owner_.addonEventCallbackRef();
+    if (!fire) return;
+    // Every bag, because the callers that reach here know the inventory changed
+    // without always knowing which bag it was, and an interface that redraws a
+    // bag it did not need to is cheaper than one that never redraws at all.
+    for (int bag = 0; bag <= 4; ++bag) fire("BAG_UPDATE", {std::to_string(bag)});
+}
+
 void InventoryHandler::swapContainerItems(uint8_t srcBag, uint8_t srcSlot, uint8_t dstBag, uint8_t dstSlot) {
     if (!owner_.getSocket() || !owner_.getSocket()->isConnected()) return;
     LOG_INFO("swapContainerItems: src(bag=", (int)srcBag, " slot=", (int)srcSlot,
@@ -2105,7 +2114,7 @@ void InventoryHandler::handleSendMailResult(network::Packet& packet) {
     } else if (action == MAIL_ITEM_TAKEN) {
         if (error == 0) {
             owner_.addSystemChatMessage("Item taken from mail.");
-            if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("BAG_UPDATE", {});
+            if (owner_.addonEventCallbackRef()) fireBagUpdates();
         } else {
             owner_.addSystemChatMessage("Failed to take item (error " + std::to_string(error) + ").");
         }
@@ -2521,7 +2530,7 @@ void InventoryHandler::handleAuctionCommandResult(network::Packet& packet) {
         owner_.addSystemChatMessage(msg);
         if (owner_.addonEventCallbackRef()) {
             owner_.addonEventCallbackRef()("PLAYER_MONEY", {});
-            owner_.addonEventCallbackRef()("BAG_UPDATE", {});
+            fireBagUpdates();
         }
         // Re-query after successful buy/bid so the list reflects the change.
         // Previously gated on name.length()>0 which skipped browse-all (empty name).
@@ -2678,7 +2687,7 @@ void InventoryHandler::handleTradeStatus(network::Packet& packet) {
             owner_.addSystemChatMessage("Trade complete.");
             if (owner_.addonEventCallbackRef()) {
                 owner_.addonEventCallbackRef()("TRADE_CLOSED", {});
-                owner_.addonEventCallbackRef()("BAG_UPDATE", {});
+                fireBagUpdates();
                 owner_.addonEventCallbackRef()("PLAYER_MONEY", {});
             }
             break;

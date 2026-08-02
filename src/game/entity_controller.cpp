@@ -1552,7 +1552,11 @@ void EntityController::updateItemOnValuesUpdate(const UpdateBlock& block,
     }
     if (inventoryChanged) {
         owner_.rebuildOnlineInventory();
-        pendingEvents_.emit("BAG_UPDATE", {});
+        // One per bag: the interface redraws only the bag whose id matches
+        // the event's argument.
+        for (int bag = 0; bag <= 4; ++bag) {
+            pendingEvents_.emit("BAG_UPDATE", {std::to_string(bag)});
+        }
         pendingEvents_.emit("UNIT_INVENTORY_CHANGED", {"player"});
     }
 }
