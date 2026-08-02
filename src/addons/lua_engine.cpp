@@ -416,6 +416,49 @@ int lua_Frame_GetFrameLevel(lua_State* L) {
     lua_pushnumber(L, w ? w->effLevel : 0);
     return 1;
 }
+/// GetPoint(n) → point, relativeTo, relativePoint, x, y.
+///
+/// The stub this replaces answered "CENTER", nil, "CENTER", 0, 0 for every
+/// frame, which is not a getter answering roughly — FrameXML reads a point and
+/// puts it back to move something (a dragged chat window, a frame the panel
+/// manager shifts aside), and a constant means every one of those teleports to
+/// the middle of its parent.
+///
+/// relativeTo comes back as the frame itself, not its name, because that is
+/// what SetPoint is handed straight back in.
+int lua_Region_GetPoint(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    if (!w || w->anchors.empty()) return 0;
+    // One-based, and no argument means the first — which is what FrameXML
+    // relies on where a frame has only one.
+    size_t index = static_cast<size_t>(luaL_optnumber(L, 2, 1));
+    if (index < 1) index = 1;
+    if (index > w->anchors.size()) return 0;
+    const wowee::ui::Anchor& a = w->anchors[index - 1];
+
+    lua_pushstring(L, a.point.c_str());
+    // Zero means "my parent", which SetPoint also treats as the default, so it
+    // comes back as nil rather than as a frame that was never named.
+    if (a.relativeTo == 0) {
+        lua_pushnil(L);
+    } else {
+        lua_getglobal(L, "__WoweeFramesByWid");
+        if (lua_istable(L, -1)) {
+            lua_pushinteger(L, static_cast<lua_Integer>(a.relativeTo));
+            lua_rawget(L, -2);
+            lua_remove(L, -2);          // drop the registry, keep the frame
+            if (!lua_istable(L, -1)) { lua_pop(L, 1); lua_pushnil(L); }
+        } else {
+            lua_pop(L, 1);
+            lua_pushnil(L);
+        }
+    }
+    lua_pushstring(L, a.relativePoint.c_str());
+    lua_pushnumber(L, a.x);
+    lua_pushnumber(L, a.y);
+    return 5;
+}
+
 int lua_Region_GetNumPoints(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     lua_pushnumber(L, w ? static_cast<lua_Number>(w->anchors.size()) : 0.0);
@@ -690,6 +733,8 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     set("GetBottom", lua_Region_GetBottom);
     set("GetTop", lua_Region_GetTop);
     set("GetRect", lua_Region_GetRect);
+    set("GetPoint", lua_Region_GetPoint);
+    set("GetNumPoints", lua_Region_GetNumPoints);
     set("GetScale", lua_Region_GetScale);
     set("GetEffectiveScale", lua_Region_GetScale);
     set("Show", lua_Region_Show);
@@ -1547,6 +1592,7 @@ void LuaEngine::registerCoreAPI() {
         {"GetRect",         lua_Region_GetRect},
         {"GetFrameLevel",   lua_Frame_GetFrameLevel},
         {"GetNumPoints",    lua_Region_GetNumPoints},
+        {"GetPoint",        lua_Region_GetPoint},
         {"SetZoom",         lua_Minimap_SetZoom},
         {"GetZoom",         lua_Minimap_GetZoom},
         {"GetZoomLevels",   lua_Minimap_GetZoomLevels},
@@ -1635,8 +1681,10 @@ void LuaEngine::registerCoreAPI() {
         "function mt:GetRight() return 0 end\n"
         "function mt:GetTop() return 0 end\n"
         "function mt:GetBottom() return 0 end\n"
-        "function mt:GetNumPoints() return 0 end\n"
-        "function mt:GetPoint(n) return 'CENTER', nil, 'CENTER', 0, 0 end\n"
+        // GetPoint and GetNumPoints are real bindings now, applied after this
+        // block. Leaving the flat versions here would only be a silent
+        // fallback if that order ever changed, and a constant point is worse
+        // than none: it is where every frame goes.
         "function mt:SetHitRectInsets(...) end\n"
         // Recorded, because a frame only receives the clicks it asks for.
         // FrameXML calls RegisterForClicks("LeftButtonUp", "RightButtonUp") on

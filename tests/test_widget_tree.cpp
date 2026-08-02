@@ -534,3 +534,48 @@ TEST_CASE("The interface is laid out in units, whatever the display is",
         }
     }
 }
+
+TEST_CASE("A frame's anchors can be read back as they were set",
+          "[widget][anchor]") {
+    // FrameXML reads a point and puts it straight back to move something — a
+    // dragged chat window, a frame the panel manager shifts aside. Anything
+    // less than the anchor it was given means that round trip moves the frame,
+    // and a constant means it moves to the same place every time.
+    WidgetTree tree;
+    const uint32_t a = tree.create(WidgetKind::Frame, tree.root(), "A");
+    const uint32_t b = tree.create(WidgetKind::Frame, tree.root(), "B");
+
+    tree.addPoint(b, Anchor{"TOPLEFT", a, "BOTTOMRIGHT", 7.0f, -3.0f});
+    tree.addPoint(b, Anchor{"BOTTOMRIGHT", 0, "BOTTOMRIGHT", -4.0f, 5.0f});
+
+    const Widget* w = tree.get(b);
+    REQUIRE(w->anchors.size() == 2);
+    REQUIRE(w->anchors[0].point == "TOPLEFT");
+    REQUIRE(w->anchors[0].relativeTo == a);
+    REQUIRE(w->anchors[0].relativePoint == "BOTTOMRIGHT");
+    REQUIRE(w->anchors[0].x == Catch::Approx(7.0f));
+    REQUIRE(w->anchors[0].y == Catch::Approx(-3.0f));
+    // Zero means "my parent" rather than a frame that was never named, which
+    // is what SetPoint's own default means too.
+    REQUIRE(w->anchors[1].relativeTo == 0);
+
+    // Clearing and re-applying the first anchor must land the frame where it
+    // already was, which is the round trip the interface actually performs.
+    tree.get(a)->width = 40.0f;
+    tree.get(a)->height = 20.0f;
+    tree.addPoint(a, Anchor{"BOTTOMLEFT", 0, "BOTTOMLEFT", 0.0f, 0.0f});
+    tree.get(b)->width = 10.0f;
+    tree.get(b)->height = 10.0f;
+    tree.clearPoints(b);
+    tree.addPoint(b, Anchor{"TOPLEFT", a, "BOTTOMRIGHT", 7.0f, -3.0f});
+    tree.layout(1024.0f, 768.0f);
+    const float left = tree.get(b)->left;
+    const float bottom = tree.get(b)->bottom;
+
+    const Anchor readBack = tree.get(b)->anchors[0];
+    tree.clearPoints(b);
+    tree.addPoint(b, readBack);
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(b)->left == Catch::Approx(left));
+    REQUIRE(tree.get(b)->bottom == Catch::Approx(bottom));
+}
