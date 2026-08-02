@@ -77,6 +77,17 @@ public:
     /// anything the interface called.
     void updateScrollRanges();
 
+    /// Fires OnShow and OnHide for anything that appeared or went away.
+    ///
+    /// FrameXML declares 295 OnShow handlers and 189 OnHide, and they are
+    /// where a panel fills itself in: QuestLog_OnShow is what puts quests in
+    /// the quest log. None of them had ever run, so every panel opened with
+    /// whatever it was built with and nothing since.
+    ///
+    /// Noticed after layout rather than fired from Show, because hiding a
+    /// frame hides everything under it and none of those were told.
+    void updateVisibility();
+
     /// Typed text, one UTF-8 chunk as the platform reports it.
     void dispatchText(const char* utf8);
     /// A key that is not text: backspace, the arrows, enter, escape.

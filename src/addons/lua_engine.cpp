@@ -3499,6 +3499,19 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
     }
 }
 
+void LuaEngine::updateVisibility() {
+    if (!L_) return;
+    // By index and re-fetched each time: a handler is free to create frames,
+    // and OnShow very often does.
+    for (uint32_t id = 1; id < widgets_.size(); ++id) {
+        auto* w = widgets_.get(id);
+        if (!w || w->id == 0) continue;
+        if (w->visible == w->reportedVisible) continue;
+        w->reportedVisible = w->visible;
+        callFrameScript(id, w->visible ? "OnShow" : "OnHide");
+    }
+}
+
 void LuaEngine::updateScrollRanges() {
     if (!L_) return;
     for (uint32_t id : widgets_.scrollFrames()) {

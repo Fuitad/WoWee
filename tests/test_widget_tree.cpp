@@ -727,3 +727,36 @@ TEST_CASE("Scroll frames are tracked as they are marked", "[widget][scroll]") {
     REQUIRE(tree.get(a)->isScrollFrame);
     REQUIRE(tree.get(b)->isScrollFrame);
 }
+
+TEST_CASE("Visibility is a state to be noticed, not an event to be sent",
+          "[widget][layout]") {
+    // Hiding a frame hides everything under it, and none of those had Hide
+    // called on them — so anything watching for a frame to go away has to
+    // compare what layout resolved rather than listen at the point something
+    // was hidden three levels up. This is the property that makes it possible.
+    WidgetTree tree;
+    const uint32_t panel = tree.create(WidgetKind::Frame, tree.root(), "P");
+    tree.get(panel)->width = 100.0f;
+    tree.get(panel)->height = 100.0f;
+    tree.addPoint(panel, Anchor{"CENTER", 0, "CENTER", 0.0f, 0.0f});
+
+    const uint32_t inner = tree.create(WidgetKind::Frame, panel, "PInner");
+    tree.get(inner)->width = 50.0f;
+    tree.get(inner)->height = 50.0f;
+    tree.addPoint(inner, Anchor{"CENTER", panel, "CENTER", 0.0f, 0.0f});
+
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(panel)->visible);
+    REQUIRE(tree.get(inner)->visible);
+
+    // Only the panel is hidden; the child is still shown in its own right.
+    tree.get(panel)->shown = false;
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE_FALSE(tree.get(panel)->visible);
+    REQUIRE_FALSE(tree.get(inner)->visible);
+    REQUIRE(tree.get(inner)->shown);
+
+    tree.get(panel)->shown = true;
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(inner)->visible);
+}

@@ -192,6 +192,11 @@ struct Widget {
     // Filled in by layout(). Screen rect in WoW coordinates: origin bottom-left.
     float left = 0.0f, bottom = 0.0f, rectW = 0.0f, rectH = 0.0f;
     bool  visible = false;      ///< shown, and every ancestor shown too
+    /// Whether the interface has been told this is on screen. Visibility is
+    /// not a property a frame sets — it is shown, and every ancestor shown too
+    /// — so becoming visible has to be noticed rather than announced at the
+    /// point something was hidden three levels up.
+    bool  reportedVisible = false;
     /// The nearest scroll frame above this one, or zero. Everything under a
     /// scroll frame is drawn clipped to it, which is what makes a window onto
     /// a taller child a window rather than a spill.

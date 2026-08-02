@@ -2966,6 +2966,12 @@ void Application::render() {
             // After layout, because the range follows from the rects it just
             // resolved, and before the mouse, so a scroll bar enabled by this
             // frame's range can be clicked in it.
+            // Both after layout: what is on screen and how far a frame can
+            // scroll are answers layout produces, not things the interface
+            // announced. Visibility first, because a panel's OnShow is what
+            // fills it in and the size of what it filled is what the range is
+            // then measured from.
+            engine->updateVisibility();
             engine->updateScrollRanges();
 
             if (!overClientUi) {
