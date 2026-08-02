@@ -119,6 +119,13 @@ struct Widget {
     /// An edit box holds its own text and a cursor into it, rather than the
     /// font string a label uses: what is typed has to survive between frames
     /// and the caret has to know where it sits.
+    /// A scroll frame shows a window onto a taller child. The child is laid
+    /// out at its full size and moved by the scroll offset; what falls outside
+    /// the frame is clipped rather than drawn.
+    bool  isScrollFrame = false;
+    uint32_t scrollChild = 0;
+    float scrollX = 0.0f, scrollY = 0.0f;
+
     bool  isEditBox = false;
     std::string editText;
     size_t cursorPos = 0;
@@ -176,6 +183,10 @@ struct Widget {
     // Filled in by layout(). Screen rect in WoW coordinates: origin bottom-left.
     float left = 0.0f, bottom = 0.0f, rectW = 0.0f, rectH = 0.0f;
     bool  visible = false;      ///< shown, and every ancestor shown too
+    /// The nearest scroll frame above this one, or zero. Everything under a
+    /// scroll frame is drawn clipped to it, which is what makes a window onto
+    /// a taller child a window rather than a spill.
+    uint32_t clipTo = 0;
     FrameStrata effStrata = FrameStrata::Medium;
     int   effLevel = 0;
 };

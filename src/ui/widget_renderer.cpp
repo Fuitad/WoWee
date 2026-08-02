@@ -430,6 +430,24 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     }
 
     for (const Widget* w : order) {
+        // Anything inside a scroll frame is bounded by it. Without this a
+        // scroll child taller than its window draws over everything above and
+        // below, which is not a window onto it at all.
+        bool clipped = false;
+        if (w->clipTo != 0) {
+            if (const Widget* clip = tree.get(w->clipTo)) {
+                dl->PushClipRect(ImVec2(clip->left * s,
+                                        screenH - (clip->bottom + clip->rectH) * s),
+                                 ImVec2((clip->left + clip->rectW) * s,
+                                        screenH - clip->bottom * s), true);
+                clipped = true;
+            }
+        }
+        struct ClipGuard {
+            ImDrawList* dl; bool on;
+            ~ClipGuard() { if (on) dl->PopClipRect(); }
+        } clipGuard{dl, clipped};
+
         // WoW measures from the bottom-left and upward; the screen measures from
         // the top-left and downward. Flip here, at the one place it matters, so
         // every anchor rule upstream reads the way Blizzard documents it.

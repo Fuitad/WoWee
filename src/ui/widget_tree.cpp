@@ -148,6 +148,9 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
     const Widget* parent = get(w->parent);
 
     w->visible = w->shown && (!parent || parent->visible);
+    // Clipping is inherited: anything under a scroll frame is bounded by it,
+    // however deep, because a scroll child holds frames of its own.
+    w->clipTo = parent ? (parent->isScrollFrame ? parent->id : parent->clipTo) : 0;
     // Strata and level are inherited unless the widget set its own. A child
     // frame sits one level above its parent so it draws over it, which is what
     // makes a button's own regions land on top of the frame holding it.
@@ -213,6 +216,14 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
 
     solveAxis(cx, w->width,  pLeft,   pW, w->left,   w->rectW);
     solveAxis(cy, w->height, pBottom, pH, w->bottom, w->rectH);
+
+    // The scroll offset, applied to the child a scroll frame holds. Scrolling
+    // down means seeing content further down a taller child, which is the
+    // child moving up — and up is a larger bottom in these coordinates.
+    if (parent && parent->isScrollFrame && parent->scrollChild == id) {
+        w->left   -= parent->scrollX;
+        w->bottom += parent->scrollY;
+    }
 
     for (uint32_t child : w->children) layoutWidget(child, screenW, screenH);
 }

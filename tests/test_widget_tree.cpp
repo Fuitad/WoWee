@@ -597,3 +597,41 @@ TEST_CASE("A widget knows what type it is", "[widget]") {
     // which is what CreateFrame's own default argument means.
     REQUIRE(tree.get(tree.root())->objectType == "Frame");
 }
+
+TEST_CASE("A scroll frame is a window onto a taller child", "[widget][scroll]") {
+    // Scrolling down means seeing content further down the child, which is the
+    // child moving up — and up is a larger bottom in these coordinates. The
+    // whole feature was absent: SetVerticalScroll did nothing and every getter
+    // answered zero, so a scroll bar had nothing to report and nothing to move.
+    WidgetTree tree;
+    const uint32_t frame = tree.create(WidgetKind::Frame, tree.root(), "S");
+    tree.get(frame)->isScrollFrame = true;
+    tree.get(frame)->width = 200.0f;
+    tree.get(frame)->height = 100.0f;
+    tree.addPoint(frame, Anchor{"BOTTOMLEFT", 0, "BOTTOMLEFT", 0.0f, 0.0f});
+
+    const uint32_t child = tree.create(WidgetKind::Frame, frame, "SChild");
+    tree.get(child)->width = 200.0f;
+    tree.get(child)->height = 300.0f;
+    // Anchored so its top sits at the frame's top, as a scroll child is.
+    tree.addPoint(child, Anchor{"TOPLEFT", frame, "TOPLEFT", 0.0f, 0.0f});
+    tree.get(frame)->scrollChild = child;
+
+    tree.layout(1024.0f, 768.0f);
+    const float unscrolled = tree.get(child)->bottom;
+
+    tree.get(frame)->scrollY = 50.0f;
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(child)->bottom == Catch::Approx(unscrolled + 50.0f));
+
+    // Everything under the frame is clipped to it, however deep — a scroll
+    // child holds frames of its own.
+    const uint32_t grandchild = tree.create(WidgetKind::Frame, child, "SGrand");
+    tree.get(grandchild)->width = 10.0f;
+    tree.get(grandchild)->height = 10.0f;
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(child)->clipTo == frame);
+    REQUIRE(tree.get(grandchild)->clipTo == frame);
+    // The frame itself is not clipped by itself.
+    REQUIRE(tree.get(frame)->clipTo == 0);
+}

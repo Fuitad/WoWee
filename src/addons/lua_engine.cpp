@@ -486,6 +486,81 @@ int lua_Region_IsObjectType(lua_State* L) {
     return 1;
 }
 
+// Scroll frames. A window onto a taller child: the child is laid out at its
+// full size and moved by the offset, and what falls outside the frame is
+// clipped. Until now SetVerticalScroll was a no-op and every getter answered
+// zero, so a scroll bar had nothing to report and nothing to move.
+int lua_ScrollFrame_SetScrollChild(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (!tree || id == 0) return 0;
+    if (auto* w = tree->get(id)) {
+        w->isScrollFrame = true;
+        w->scrollChild = lua_istable(L, 2) ? widgetIdOf(L, 2) : 0;
+    }
+    // Kept on the table too, because GetScrollChild hands the frame itself
+    // back and that is what the caller passed in.
+    lua_pushvalue(L, 2);
+    lua_setfield(L, 1, "__scrollChild");
+    return 0;
+}
+
+/// How far the child can move before its far edge reaches the frame's. Zero
+/// when the child fits, which is how a scroll bar knows to disable itself.
+static float scrollRange(const wowee::ui::WidgetTree& tree, uint32_t id, bool vertical) {
+    const auto* w = tree.get(id);
+    if (!w || w->scrollChild == 0) return 0.0f;
+    const auto* child = tree.get(w->scrollChild);
+    if (!child) return 0.0f;
+    const float over = vertical ? (child->rectH - w->rectH) : (child->rectW - w->rectW);
+    return over > 0.0f ? over : 0.0f;
+}
+
+int lua_ScrollFrame_SetVerticalScroll(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (!tree || id == 0) return 0;
+    if (auto* w = tree->get(id)) {
+        const float v = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+        const float max = scrollRange(*tree, id, true);
+        w->scrollY = (v < 0.0f) ? 0.0f : (v > max ? max : v);
+    }
+    return 0;
+}
+int lua_ScrollFrame_SetHorizontalScroll(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (!tree || id == 0) return 0;
+    if (auto* w = tree->get(id)) {
+        const float v = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+        const float max = scrollRange(*tree, id, false);
+        w->scrollX = (v < 0.0f) ? 0.0f : (v > max ? max : v);
+    }
+    return 0;
+}
+int lua_ScrollFrame_GetVerticalScroll(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->scrollY : 0.0f);
+    return 1;
+}
+int lua_ScrollFrame_GetHorizontalScroll(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->scrollX : 0.0f);
+    return 1;
+}
+int lua_ScrollFrame_GetVerticalScrollRange(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    lua_pushnumber(L, (tree && id) ? scrollRange(*tree, id, true) : 0.0f);
+    return 1;
+}
+int lua_ScrollFrame_GetHorizontalScrollRange(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    lua_pushnumber(L, (tree && id) ? scrollRange(*tree, id, false) : 0.0f);
+    return 1;
+}
+
 int lua_Region_GetNumPoints(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     lua_pushnumber(L, w ? static_cast<lua_Number>(w->anchors.size()) : 0.0);
@@ -1293,6 +1368,9 @@ static int lua_CreateFrame(lua_State* L) {
             // A slider takes the mouse by nature: it exists to be dragged.
             w->isSlider = (ft == "Slider");
             w->isCooldown = (ft == "Cooldown");
+            // Marked at creation rather than only when a child is set, so a
+            // scroll frame clips what is under it even while it is empty.
+            w->isScrollFrame = (ft == "ScrollFrame");
             // An edit box is clicked into, so it takes the mouse as well.
             w->isEditBox = (ft == "EditBox");
             if (w->isEditBox) {
@@ -1630,6 +1708,13 @@ void LuaEngine::registerCoreAPI() {
         {"GetRect",         lua_Region_GetRect},
         {"GetFrameLevel",   lua_Frame_GetFrameLevel},
         {"GetNumPoints",    lua_Region_GetNumPoints},
+        {"SetScrollChild",  lua_ScrollFrame_SetScrollChild},
+        {"SetVerticalScroll",   lua_ScrollFrame_SetVerticalScroll},
+        {"SetHorizontalScroll", lua_ScrollFrame_SetHorizontalScroll},
+        {"GetVerticalScroll",   lua_ScrollFrame_GetVerticalScroll},
+        {"GetHorizontalScroll", lua_ScrollFrame_GetHorizontalScroll},
+        {"GetVerticalScrollRange",   lua_ScrollFrame_GetVerticalScrollRange},
+        {"GetHorizontalScrollRange", lua_ScrollFrame_GetHorizontalScrollRange},
         {"GetObjectType",   lua_Region_GetObjectType},
         {"IsObjectType",    lua_Region_IsObjectType},
         {"GetPoint",        lua_Region_GetPoint},
@@ -1810,15 +1895,11 @@ void LuaEngine::registerCoreAPI() {
         // Nothing to scroll until the tree has been laid out, and zero is the
         // honest answer then. ScrollFrame_OnScrollRangeChanged compares the
         // bar value against this the moment a scroll frame is built.
-        "function mt:GetVerticalScrollRange() return 0 end\n"
-        "function mt:GetHorizontalScrollRange() return 0 end\n"
-        "function mt:GetVerticalScroll() return 0 end\n"
-        "function mt:GetHorizontalScroll() return 0 end\n"
+        // The scroll getters are real bindings now, applied after this block.
         // Zero when unset, which is what the real client answers and what
         // FrameXML concatenates into a name without checking.
         "function mt:SetID(id) self.__id = id end\n"
         "function mt:GetID() return self.__id or 0 end\n"
-        "function mt:SetScrollChild(child) self.__scrollChild = child end\n"
         "function mt:GetScrollChild() return self.__scrollChild end\n"
         "function mt:SetFontString(fs) self.__fontString = fs end\n"
         // Made on demand when a button is asked for one it has not been
