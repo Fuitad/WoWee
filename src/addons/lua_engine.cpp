@@ -561,6 +561,14 @@ int lua_ScrollFrame_GetHorizontalScrollRange(lua_State* L) {
     return 1;
 }
 
+int lua_Frame_SetWheelEnabled(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (!tree || id == 0) return 0;
+    if (auto* w = tree->get(id)) w->wheelEnabled = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+
 int lua_Region_GetNumPoints(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     lua_pushnumber(L, w ? static_cast<lua_Number>(w->anchors.size()) : 0.0);
@@ -1786,7 +1794,9 @@ void LuaEngine::registerCoreAPI() {
 
         "function mt:GetFrameLevel() return self.__frameLevel or 1 end\n"
         "function mt:GetFrameStrata() return self.__strata or 'MEDIUM' end\n"
-        "function mt:EnableMouseWheel(enable) end\n"
+        "function mt:EnableMouseWheel(enable)\n"
+        "    __WoweeSetWheelEnabled(self, enable ~= false)\n"
+        "end\n"
         "function mt:SetMovable(movable) end\n"
         "function mt:SetResizable(resizable) end\n"
         "function mt:RegisterForDrag(...) end\n"
@@ -2101,6 +2111,11 @@ void LuaEngine::registerCoreAPI() {
     // widget id -> frame table, so a hit test can find the scripts to run.
     lua_newtable(L_);
     lua_setglobal(L_, "__WoweeFramesByWid");
+
+    // Reached from EnableMouseWheel, which is written in Lua on the metatable
+    // so it applies to every frame without another entry in the method list.
+    lua_pushcfunction(L_, lua_Frame_SetWheelEnabled);
+    lua_setglobal(L_, "__WoweeSetWheelEnabled");
 
     // Where XML templates land. A virtual frame compiles to a function that
     // replays itself onto a real frame, and inherits= calls it; both halves are
@@ -3077,6 +3092,35 @@ void LuaEngine::callFrameScript(uint32_t wid, const char* script,
 }
 
 
+void LuaEngine::callFrameScriptNumber(uint32_t wid, const char* script, double arg) {
+    if (!L_ || wid == 0) return;
+    lua_getglobal(L_, "__WoweeFramesByWid");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
+    lua_pushinteger(L_, static_cast<lua_Integer>(wid));
+    lua_rawget(L_, -2);
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 2); return; }
+
+    lua_getfield(L_, -1, "__scripts");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 3); return; }
+    lua_pushcfunction(L_, luaTracebackHandler);
+    const int handlerIdx = lua_gettop(L_);
+    lua_getfield(L_, handlerIdx - 1, script);
+    if (!lua_isfunction(L_, -1)) { lua_pop(L_, 5); return; }
+
+    lua_pushvalue(L_, handlerIdx - 2);  // self
+    // A number, not a numeric string: OnMouseWheel bodies compare the delta
+    // against zero, and Lua raises on comparing a string with a number even
+    // where it would happily add them.
+    lua_pushnumber(L_, arg);
+    if (lua_pcall(L_, 2, 0, handlerIdx) != 0) {
+        const char* err = lua_tostring(L_, -1);
+        LOG_ERROR("LuaEngine: ", script, " error: ", err ? err : "?");
+        if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
+        lua_pop(L_, 1);
+    }
+    lua_pop(L_, 4);
+}
+
 void LuaEngine::installMissingApiFallback() {
     // Off unless asked for. With it on, every unknown global answers, so code
     // that checks whether a function exists before using it — which addons do
@@ -3393,6 +3437,27 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
             break;
         default: break;
     }
+}
+
+bool LuaEngine::dispatchMouseWheel(float x, float y, float delta) {
+    if (!L_) return false;
+    const float s = widgets_.uiScale();
+    if (s > 0.0f) { x /= s; y /= s; }
+
+    // Up from whatever is under the cursor to the first frame that asked for
+    // the wheel. WoW works the same way: a scroll frame's child fills it and
+    // takes the hit, and the scroll frame above is what handles the wheel.
+    uint32_t wid = widgets_.hitTest(x, y);
+    while (wid != 0) {
+        const auto* w = widgets_.get(wid);
+        if (!w) break;
+        if (w->wheelEnabled) {
+            callFrameScriptNumber(wid, "OnMouseWheel", delta);
+            return true;
+        }
+        wid = w->parent;
+    }
+    return false;
 }
 
 void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {

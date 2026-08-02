@@ -122,6 +122,11 @@ struct Widget {
     /// A scroll frame shows a window onto a taller child. The child is laid
     /// out at its full size and moved by the scroll offset; what falls outside
     /// the frame is clipped rather than drawn.
+    /// Whether the frame asked for the wheel. False by default, as in WoW,
+    /// where a frame ignores it until EnableMouseWheel is called — which is
+    /// what keeps the wheel zooming the camera everywhere else.
+    bool  wheelEnabled = false;
+
     bool  isScrollFrame = false;
     uint32_t scrollChild = 0;
     float scrollX = 0.0f, scrollY = 0.0f;

@@ -635,3 +635,36 @@ TEST_CASE("A scroll frame is a window onto a taller child", "[widget][scroll]") 
     // The frame itself is not clipped by itself.
     REQUIRE(tree.get(frame)->clipTo == 0);
 }
+
+TEST_CASE("Only a frame that asked for the wheel takes it", "[widget][scroll]") {
+    // As in WoW, where a frame ignores the wheel until EnableMouseWheel is
+    // called. It matters in both directions: a frame that did not ask must not
+    // swallow the wheel, or the camera stops zooming wherever the interface
+    // happens to be; and the frame that did ask is usually not the one under
+    // the cursor, since a scroll child fills its parent and takes the hit.
+    WidgetTree tree;
+    const uint32_t scroll = tree.create(WidgetKind::Frame, tree.root(), "S");
+    tree.get(scroll)->isScrollFrame = true;
+    tree.get(scroll)->wheelEnabled = true;
+    tree.get(scroll)->mouseEnabled = true;
+    tree.get(scroll)->width = 100.0f;
+    tree.get(scroll)->height = 100.0f;
+    tree.addPoint(scroll, Anchor{"BOTTOMLEFT", 0, "BOTTOMLEFT", 0.0f, 0.0f});
+
+    const uint32_t child = tree.create(WidgetKind::Frame, scroll, "SChild");
+    tree.get(child)->mouseEnabled = true;
+    tree.get(child)->width = 100.0f;
+    tree.get(child)->height = 300.0f;
+    tree.addPoint(child, Anchor{"TOPLEFT", scroll, "TOPLEFT", 0.0f, 0.0f});
+
+    tree.layout(1024.0f, 768.0f);
+
+    // The child is what the cursor lands on; the scroll frame above it is what
+    // should handle the wheel, which is the walk up the dispatch performs.
+    // hitTest measures upward from the bottom, as the tree does; the caller
+    // is what flips the cursor into it.
+    const uint32_t hit = tree.hitTest(50.0f, 50.0f);
+    REQUIRE(hit == child);
+    REQUIRE_FALSE(tree.get(child)->wheelEnabled);
+    REQUIRE(tree.get(tree.get(child)->parent)->wheelEnabled);
+}

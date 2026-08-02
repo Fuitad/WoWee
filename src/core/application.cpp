@@ -861,7 +861,27 @@ void Application::run() {
                         renderer->getCameraController()->processMouseButton(event.button);
                     }
                     else if (event.type == SDL_MOUSEWHEEL) {
-                        renderer->getCameraController()->processMouseWheel(static_cast<float>(event.wheel.y));
+                        // The interface gets first refusal, and only where a
+                        // frame under the cursor asked for the wheel. Zooming
+                        // the camera while scrolling a quest log is what
+                        // happens without the check, and a frame that did not
+                        // ask must not swallow it either.
+                        bool takenByUi = false;
+                        if (addonManager_ && addonManager_->getLuaEngine()) {
+                            // ImGui's cursor, not SDL's, because that is what
+                            // the rest of the widget dispatch is fed and the
+                            // two need not agree on a scaled display. Flipped
+                            // to bottom-origin for the same reason the button
+                            // dispatch is: the tree measures upward.
+                            const ImGuiIO& mio = ImGui::GetIO();
+                            takenByUi = addonManager_->getLuaEngine()->dispatchMouseWheel(
+                                mio.MousePos.x, mio.DisplaySize.y - mio.MousePos.y,
+                                static_cast<float>(event.wheel.y));
+                        }
+                        if (!takenByUi) {
+                            renderer->getCameraController()->processMouseWheel(
+                                static_cast<float>(event.wheel.y));
+                        }
                     }
                 }
 

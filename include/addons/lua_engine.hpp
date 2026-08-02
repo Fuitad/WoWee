@@ -61,6 +61,13 @@ public:
     };
     void dispatchMouse(float x, float y, MouseButtons buttons);
 
+    /// The wheel, to the frame under the cursor that asked for it.
+    ///
+    /// Returns true when a frame took it, so the caller knows not to also zoom
+    /// the camera — scrolling a quest log and pulling the camera in at the same
+    /// time is what happens otherwise. delta is WoW's: positive is up.
+    bool dispatchMouseWheel(float x, float y, float delta);
+
     /// Typed text, one UTF-8 chunk as the platform reports it.
     void dispatchText(const char* utf8);
     /// A key that is not text: backspace, the arrows, enter, escape.
@@ -114,6 +121,9 @@ private:
     void bootstrap(const char* code);
 
     void callFrameScript(uint32_t wid, const char* script, const char* arg = nullptr);
+    /// The same, with a number. A handler that compares its argument against
+    /// zero cannot be handed a numeric string.
+    void callFrameScriptNumber(uint32_t wid, const char* script, double arg);
     bool frameAcceptsClick(uint32_t wid, const char* button);
 
     uint32_t hoverWid_ = 0;
