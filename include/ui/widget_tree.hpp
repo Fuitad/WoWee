@@ -40,6 +40,13 @@ AnchorPoint resolveAnchorPoint(const std::string& name);
 
 enum class WidgetKind : uint8_t { Frame, Texture, FontString };
 
+/// Which of a button's several textures a region is, if any. A button carries
+/// art for each state and shows one of them; without knowing which is which,
+/// all of them draw at once and the button wears its disabled art over its
+/// normal art with the highlight permanently on top.
+enum class ButtonArt : uint8_t { None, Normal, Pushed, Highlight, Disabled,
+                                 Checked, DisabledChecked };
+
 /// Blizzard's five layers within a frame, drawn in this order.
 enum class DrawLayer : uint8_t { Background, Border, Artwork, Overlay, Highlight };
 DrawLayer parseDrawLayer(const std::string& name);
@@ -129,6 +136,11 @@ struct Widget {
     /// A disabled button is greyed and takes no clicks. True by default, as a
     /// button is until something disables it.
     bool  enabled = true;
+    /// Whether this region is one of its owner's state textures, and which.
+    ButtonArt buttonArt = ButtonArt::None;
+    /// Whether a check button is checked, which decides between its checked
+    /// art and none.
+    bool  checked = false;
 
     bool  isScrollFrame = false;
     uint32_t scrollChild = 0;
@@ -249,6 +261,15 @@ public:
     /// every widget each frame to find a handful is the kind of cost that does
     /// not show up until the interface is large, which it now is.
     void markScrollFrame(uint32_t id);
+
+    /// What the mouse is doing, so state art can be chosen. The engine owns
+    /// this — it is the only thing that knows what is under the cursor and
+    /// what is being held — and the tree needs it to decide which of a
+    /// button's textures to draw.
+    void setInteraction(uint32_t hovered, uint32_t pressed) {
+        hoveredId_ = hovered;
+        pressedId_ = pressed;
+    }
     const std::vector<uint32_t>& scrollFrames() const { return scrollFrames_; }
 
     /// The widget published under this name, or null. Names are unique in
@@ -280,6 +301,11 @@ private:
     /// references valid when it grows, which is the guarantee this needs.
     float uiScale_ = 1.0f;
     std::vector<uint32_t> scrollFrames_;
+    uint32_t hoveredId_ = 0;
+    uint32_t pressedId_ = 0;
+
+    /// Whether a state texture should be drawn given what the mouse is doing.
+    bool buttonArtVisible(const Widget& w) const;
     std::deque<Widget> widgets_;   ///< Index 0 is a placeholder; id == index.
     uint32_t rootId_ = 0;
     uint32_t nextOrder_ = 1;

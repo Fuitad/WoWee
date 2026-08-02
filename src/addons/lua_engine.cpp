@@ -596,6 +596,36 @@ int lua_ScrollFrame_GetHorizontalScrollRange(lua_State* L) {
     return 1;
 }
 
+/// SetChecked / GetChecked. A check button shows its checked art or none, and
+/// the interface both sets this and reads it back to decide what a click meant.
+int lua_CheckButton_SetChecked(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        // No argument means checked, as in WoW, where SetChecked() with
+        // nothing is how a box is ticked.
+        w->checked = lua_isnone(L, 2) ? true : (lua_toboolean(L, 2) != 0);
+    }
+    return 0;
+}
+int lua_CheckButton_GetChecked(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushboolean(L, w && w->checked);
+    return 1;
+}
+
+int lua_Texture_SetButtonArt(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    const std::string slot = luaL_optstring(L, 2, "");
+    using wowee::ui::ButtonArt;
+    if      (slot == "NormalTexture")          w->buttonArt = ButtonArt::Normal;
+    else if (slot == "PushedTexture")          w->buttonArt = ButtonArt::Pushed;
+    else if (slot == "HighlightTexture")       w->buttonArt = ButtonArt::Highlight;
+    else if (slot == "DisabledTexture")        w->buttonArt = ButtonArt::Disabled;
+    else if (slot == "CheckedTexture")         w->buttonArt = ButtonArt::Checked;
+    else if (slot == "DisabledCheckedTexture") w->buttonArt = ButtonArt::DisabledChecked;
+    return 0;
+}
+
 int lua_Frame_SetWheelEnabled(lua_State* L) {
     auto* tree = wowee::addons::getWidgetTree(L);
     const uint32_t id = widgetIdOf(L, 1);
@@ -1823,6 +1853,8 @@ void LuaEngine::registerCoreAPI() {
         {"GetFrameLevel",   lua_Frame_GetFrameLevel},
         {"GetNumPoints",    lua_Region_GetNumPoints},
         {"Enable",          lua_Button_Enable},
+        {"SetChecked",      lua_CheckButton_SetChecked},
+        {"GetChecked",      lua_CheckButton_GetChecked},
         {"Disable",         lua_Button_Disable},
         {"IsEnabled",       lua_Button_IsEnabled},
         {"SetScrollChild",  lua_ScrollFrame_SetScrollChild},
@@ -1983,9 +2015,11 @@ void LuaEngine::registerCoreAPI() {
         "            local made = self:CreateTexture(nil, layer)\n"
         "            made:SetTexture(tex)\n"
         "            made:SetAllPoints(self)\n"
+        "            __WoweeSetButtonArt(made, slot)\n"
         "            self[key] = made\n"
         "            return\n"
         "        end\n"
+        "        if type(tex) == 'table' then __WoweeSetButtonArt(tex, slot) end\n"
         "        self[key] = tex\n"
         "    end\n"
         "    mt['Get' .. slot] = function(self) return self[key] end\n"
@@ -2225,6 +2259,11 @@ void LuaEngine::registerCoreAPI() {
     // so it applies to every frame without another entry in the method list.
     lua_pushcfunction(L_, lua_Frame_SetWheelEnabled);
     lua_setglobal(L_, "__WoweeSetWheelEnabled");
+
+    // Reached from the button-art setters, which are written in Lua so they
+    // cover every slot from one loop.
+    lua_pushcfunction(L_, lua_Texture_SetButtonArt);
+    lua_setglobal(L_, "__WoweeSetButtonArt");
 
     // Where XML templates land. A virtual frame compiles to a function that
     // replays itself onto a real frame, and inherits= calls it; both halves are
@@ -3675,6 +3714,12 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
                      " visible=", visibleFrames);
         }
     }
+
+    // Told before anything else reads it: which of a button's textures to draw
+    // depends on both, and the draw order is collected during layout, which has
+    // already happened by the time this runs — so this frame's press shows on
+    // the next, which at sixty frames a second is not a wait anyone sees.
+    widgets_.setInteraction(hit, buttonDown_[0] ? pressedWid_[0] : 0);
 
     // Hover first, so a frame that appears under a stationary cursor still gets
     // its OnEnter rather than waiting for the mouse to move.

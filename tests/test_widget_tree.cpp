@@ -760,3 +760,63 @@ TEST_CASE("Visibility is a state to be noticed, not an event to be sent",
     tree.layout(1024.0f, 768.0f);
     REQUIRE(tree.get(inner)->visible);
 }
+
+TEST_CASE("A button shows one state texture, not all of them",
+          "[widget][draworder]") {
+    // A button carries art for each state and shows one. Drawing all of them
+    // puts the disabled art over the normal art with the highlight permanently
+    // on top, which is not a subtle fault — every button in the interface
+    // looks hovered and wrong at once.
+    WidgetTree tree;
+    const uint32_t button = tree.create(WidgetKind::Frame, tree.root(), "B");
+    tree.get(button)->objectType = "Button";
+    tree.get(button)->width = 100.0f;
+    tree.get(button)->height = 20.0f;
+    tree.addPoint(button, Anchor{"CENTER", 0, "CENTER", 0.0f, 0.0f});
+
+    auto art = [&](const char* name, ButtonArt kind) {
+        const uint32_t t = tree.create(WidgetKind::Texture, button, name);
+        tree.get(t)->texturePath = "Interface\\Art";
+        tree.get(t)->buttonArt = kind;
+        tree.setAllPoints(t, button);
+        return t;
+    };
+    const uint32_t normal    = art("BN", ButtonArt::Normal);
+    const uint32_t pushed    = art("BP", ButtonArt::Pushed);
+    const uint32_t highlight = art("BH", ButtonArt::Highlight);
+    const uint32_t disabled  = art("BD", ButtonArt::Disabled);
+
+    auto drawn = [&](uint32_t id) {
+        for (const Widget* w : tree.drawOrder()) if (w->id == id) return true;
+        return false;
+    };
+
+    // Idle: normal only.
+    tree.setInteraction(0, 0);
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(drawn(normal));
+    REQUIRE_FALSE(drawn(pushed));
+    REQUIRE_FALSE(drawn(highlight));
+    REQUIRE_FALSE(drawn(disabled));
+
+    // Hovered: the highlight joins it. The cursor lands on the button's own
+    // art rather than the button, so hovering a child must count.
+    tree.setInteraction(normal, 0);
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(drawn(highlight));
+    REQUIRE(drawn(normal));
+
+    // Held: pushed replaces normal.
+    tree.setInteraction(button, button);
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(drawn(pushed));
+    REQUIRE_FALSE(drawn(normal));
+
+    // Disabled: only the disabled art, and no highlight however hovered.
+    tree.get(button)->enabled = false;
+    tree.setInteraction(button, 0);
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(drawn(disabled));
+    REQUIRE_FALSE(drawn(normal));
+    REQUIRE_FALSE(drawn(highlight));
+}

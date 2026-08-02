@@ -265,6 +265,42 @@ uint32_t WidgetTree::hitTest(float x, float y) const {
     return best ? best->id : 0;
 }
 
+bool WidgetTree::buttonArtVisible(const Widget& w) const {
+    if (w.buttonArt == ButtonArt::None) return true;
+
+    // The art belongs to the frame holding it, not to itself: it is the button
+    // that is hovered, pressed or disabled.
+    const Widget* owner = get(w.parent);
+    if (!owner) return true;
+
+    // Hovered counts for anything under the button too, since its own regions
+    // sit on top of it and are what the cursor actually lands on.
+    bool hovered = false;
+    for (uint32_t at = hoveredId_; at != 0; ) {
+        if (at == owner->id) { hovered = true; break; }
+        const Widget* a = get(at);
+        if (!a) break;
+        at = a->parent;
+    }
+    bool pressed = false;
+    for (uint32_t at = pressedId_; at != 0; ) {
+        if (at == owner->id) { pressed = true; break; }
+        const Widget* a = get(at);
+        if (!a) break;
+        at = a->parent;
+    }
+
+    switch (w.buttonArt) {
+        case ButtonArt::Highlight:       return hovered && owner->enabled;
+        case ButtonArt::Disabled:        return !owner->enabled;
+        case ButtonArt::Pushed:          return owner->enabled && pressed;
+        case ButtonArt::Normal:          return owner->enabled && !pressed;
+        case ButtonArt::Checked:         return owner->checked && owner->enabled;
+        case ButtonArt::DisabledChecked: return owner->checked && !owner->enabled;
+        default:                         return true;
+    }
+}
+
 void WidgetTree::collectDrawOrder() {
     drawOrder_.clear();
     for (const Widget& w : widgets_) {
@@ -281,6 +317,8 @@ void WidgetTree::collectDrawOrder() {
         if (w.kind == WidgetKind::Frame && w.isStatusBar && w.barTexture.empty() &&
             !w.hasBackdrop) continue;
         if (w.kind == WidgetKind::FontString && w.text.empty()) continue;
+        // A button shows one of its state textures, not all of them.
+        if (!buttonArtVisible(w)) continue;
         drawOrder_.push_back(&w);
     }
 
