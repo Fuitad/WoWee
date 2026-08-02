@@ -741,7 +741,20 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
 
     // Track whether a spell-specific block already handled facing so the generic
     // facing block below doesn't send redundant SET_FACING packets.
-    bool facingHandled = false;
+    //
+    // A spell that lands on you never turns you. Facing is worked out from the
+    // vector between you and your target, and when the target is you that
+    // vector is the gap between the position this client has moved you to and
+    // the one the server last confirmed — which, while running, points
+    // backwards along your own path. An instant self-cast on auto-run
+    // therefore spun the character a half-turn and sent them back the way they
+    // came. The gap clears the length check whenever you are moving at all,
+    // which is why it only happened in motion.
+    //
+    // selfCast above catches the spells that are self-targeted by nature;
+    // this catches aiming a friendly spell at yourself, where the target guid
+    // is your own and every facing block below would otherwise use it.
+    bool facingHandled = (target != 0 && target == owner_.getPlayerGuid());
 
     // Warrior Charge (ranks 1-3): client-side range check + charge callback
     if (spellId == 100 || spellId == 6178 || spellId == 11578) {
