@@ -904,3 +904,29 @@ TEST_CASE("A region with neither size nor anchors fills its parent",
     tree.layout(1024.0f, 768.0f);
     REQUIRE(tree.get(sized)->rectW == Catch::Approx(16.0f));
 }
+
+TEST_CASE("A frame knows its level before it is ever laid out",
+          "[widget][layout]") {
+    // GetFrameLevel answers with this, and FrameXML asks during OnLoad:
+    // RaiseFrameLevel is frame:SetFrameLevel(frame:GetFrameLevel() + 1). A
+    // frame that had never been laid out answered zero, so the adjustment was
+    // computed against nothing and the frame ended up below its own parent —
+    // which for the action bar meant the bar took every click aimed at a
+    // button sitting on it.
+    WidgetTree tree;
+    const uint32_t bar = tree.create(WidgetKind::Frame, tree.root(), "Bar");
+    const uint32_t art = tree.create(WidgetKind::Frame, bar, "BarArt");
+    const uint32_t button = tree.create(WidgetKind::Frame, art, "BarButton");
+
+    // Before any layout at all.
+    REQUIRE(tree.get(art)->effLevel == tree.get(bar)->effLevel + 1);
+    REQUIRE(tree.get(button)->effLevel == tree.get(art)->effLevel + 1);
+
+    // And the relative adjustment FrameXML performs now lands above the
+    // parent rather than at one.
+    const int raised = tree.get(art)->effLevel + 1;
+    tree.get(art)->level = raised;
+    tree.get(art)->levelExplicit = true;
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(art)->effLevel > tree.get(bar)->effLevel);
+}

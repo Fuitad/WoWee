@@ -78,6 +78,17 @@ uint32_t WidgetTree::create(WidgetKind kind, uint32_t parent, const std::string&
     w.parent = parent;
     if (parent != 0 && parent < widgets_.size()) {
         widgets_[parent].children.push_back(id);
+        // Its place in the stack, known now rather than at the first layout.
+        //
+        // GetFrameLevel answers with this, and FrameXML asks during OnLoad —
+        // RaiseFrameLevel is frame:SetFrameLevel(frame:GetFrameLevel() + 1),
+        // and a frame that has never been laid out answered zero. So the
+        // adjustment was computed against nothing: MainMenuBarArtFrame set
+        // itself to 1 rather than to one above its parent, its buttons
+        // followed, and the bar they sit on stayed above all of them and took
+        // every click. Elsewhere the same sum went negative.
+        w.effLevel = widgets_[parent].effLevel + 1;
+        w.effStrata = widgets_[parent].effStrata;
     }
     return id;
 }
