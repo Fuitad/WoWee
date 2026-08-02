@@ -3232,6 +3232,36 @@ void LuaEngine::registerEventAPI() {
     lua_setglobal(L_, "__WoweeEvents");
 }
 
+namespace {
+/// Pushes an event argument with the type WoW gives it.
+///
+/// Every argument crosses this boundary as a string, and some of them are
+/// numbers on the other side: ChatFrame_MessageEventHandler does
+/// `if (arg8 > 0)`, and comparing a string with a number is not false in Lua,
+/// it is an error that takes the handler down — which for chat is every
+/// message. Only a plain integer converts, so a name, a unit id and a hex guid
+/// all stay strings.
+void pushEventArg(lua_State* L, const std::string& arg) {
+    if (!arg.empty() && arg.size() < 12) {
+        size_t at = (arg[0] == '-') ? 1 : 0;
+        if (at < arg.size()) {
+            bool digits = true;
+            for (size_t i = at; i < arg.size(); ++i) {
+                if (arg[i] < '0' || arg[i] > '9') { digits = false; break; }
+            }
+            // "007" is not a number anyone meant; a leading zero is a string.
+            const bool canonical = digits &&
+                (arg.size() - at == 1 || arg[at] != '0');
+            if (canonical) {
+                lua_pushnumber(L, std::stod(arg));
+                return;
+            }
+        }
+    }
+    lua_pushstring(L, arg.c_str());
+}
+}  // namespace
+
 void LuaEngine::fireEvent(const std::string& eventName,
                            const std::vector<std::string>& args) {
     if (!L_) return;
@@ -3250,7 +3280,7 @@ void LuaEngine::fireEvent(const std::string& eventName,
         // Push arguments: event name first, then extra args
         lua_pushstring(L_, eventName.c_str());
         for (const auto& arg : args) {
-            lua_pushstring(L_, arg.c_str());
+            pushEventArg(L_, arg);
         }
 
         int nargs = 1 + static_cast<int>(args.size());
@@ -3310,7 +3340,7 @@ void LuaEngine::fireEvent(const std::string& eventName,
                     if (lua_isfunction(L_, -1)) {
                         lua_pushvalue(L_, -3);  // self (frame)
                         lua_pushstring(L_, eventName.c_str());
-                        for (const auto& arg : args) lua_pushstring(L_, arg.c_str());
+                        for (const auto& arg : args) pushEventArg(L_, arg);
                         int nargs = 2 + static_cast<int>(args.size());
                         if (lua_pcall(L_, nargs, 0, 0) != 0) {
                             const char* ferr = lua_tostring(L_, -1);
