@@ -3461,11 +3461,38 @@ void LuaEngine::reportMissingApi() const {
     }
     if (absent.empty()) return;
 
-    LOG_WARNING("LuaEngine: ", absent.size(), " distinct API names were called "
-                "and are still not defined (", names.size() - absent.size(),
-                " more were read before whatever defines them had loaded)");
-    std::string line;
+    // A name built from an existing frame's is a part that frame may or may
+    // not have, not an API that is missing.
+    //
+    // FrameXML asks for these constantly — uipaneltemplates.lua does
+    // _G[self:GetName() .. "Top"] and guards the result with if(top and
+    // bottom) — because a scroll frame only has border art if its own XML
+    // declared it. On one session 125 of 222 names were exactly this, all of
+    // them correctly absent, which is a report whose number means the opposite
+    // of what it says. They are counted apart rather than dropped: a genuinely
+    // missing sub-frame would hide here too, and the count is where it shows.
+    std::vector<std::string> partsOfFrames;
+    std::vector<std::string> realGaps;
     for (const auto& n : absent) {
+        bool isPart = false;
+        // The suffixes in play are short — Top, Middle, Bottom, Count, Text —
+        // and the frame they hang off is never tiny.
+        for (size_t suffix = 1; suffix <= 16 && n.size() > suffix + 5; ++suffix) {
+            if (widgets_.findByName(std::string_view(n).substr(0, n.size() - suffix))) {
+                isPart = true;
+                break;
+            }
+        }
+        (isPart ? partsOfFrames : realGaps).push_back(n);
+    }
+
+    LOG_WARNING("LuaEngine: ", realGaps.size(), " distinct API names were called "
+                "and are still not defined (", names.size() - absent.size(),
+                " more were read before whatever defines them had loaded, and ",
+                partsOfFrames.size(), " were optional parts of frames that do "
+                "exist)");
+    std::string line;
+    for (const auto& n : realGaps) {
         line += n;
         line += ' ';
         if (line.size() > 900) { LOG_WARNING("  missing: ", line); line.clear(); }
@@ -3481,7 +3508,9 @@ void LuaEngine::reportMissingApi() const {
     // it anyway, since what matters is what changed.
     const std::string path = core::getConfigRoot() + "/missing_api.txt";
     if (std::ofstream out(path); out) {
-        for (const auto& n : absent) out << n << "\n";
+        for (const auto& n : realGaps) out << n << "\n";
+        out << "\n-- optional parts of frames that exist, correctly absent --\n";
+        for (const auto& n : partsOfFrames) out << n << "\n";
         LOG_WARNING("LuaEngine: the full list is in ", path);
     }
 }

@@ -284,6 +284,7 @@ public:
     /// FrameXML by convention, and the last one to claim a name wins, which is
     /// what a lookup by name means there too.
     Widget* findByName(std::string_view name);
+    const Widget* findByName(std::string_view name) const;
 
     /// The height the interface is authored against. Blizzard's own number.
     static constexpr float kInterfaceHeight = 768.0f;

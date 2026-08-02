@@ -99,6 +99,10 @@ Widget* WidgetTree::findByName(std::string_view name) {
     return nullptr;
 }
 
+const Widget* WidgetTree::findByName(std::string_view name) const {
+    return const_cast<WidgetTree*>(this)->findByName(name);
+}
+
 Widget* WidgetTree::get(uint32_t id) {
     if (id == 0 || id >= widgets_.size()) return nullptr;
     return &widgets_[id];
