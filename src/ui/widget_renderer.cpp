@@ -535,11 +535,22 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                         : std::string();
                 // Where it sits in the stack, which is what decides a click
                 // between a frame and the frame on top of it.
+                // What kind of thing answered to the name, and how many anchors
+                // it has. A frame reported at the size of a piece of text is
+                // either a mislabelled region or a frame something resized, and
+                // those need opposite fixes.
+                const char* kindName =
+                    (w->kind == WidgetKind::Texture)    ? " kind=texture"
+                  : (w->kind == WidgetKind::FontString) ? " kind=label"
+                                                        : "";
+                const std::string anchors =
+                    " anchors=" + std::to_string(w->anchors.size());
                 const std::string stack =
                     " strata=" + std::to_string(static_cast<int>(w->effStrata)) +
                     " level=" + std::to_string(w->effLevel);
                 LOG_WARNING("  ", name,
-                            (w->visible ? " shown" : " HIDDEN"), mouse, stack, bar, label, slice,
+                            (w->visible ? " shown" : " HIDDEN"), mouse, kindName, anchors,
+                            stack, bar, label, slice,
                             (w->rectW <= 0.0f || w->rectH <= 0.0f ? " NOSIZE" : ""),
                             (offscreen ? " OFFSCREEN" : ""),
                             " rect=(", w->left, ",", w->bottom, " ",

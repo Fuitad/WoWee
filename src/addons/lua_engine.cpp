@@ -1314,8 +1314,17 @@ int lua_Frame_SetFrameLevel(lua_State* L) {
     return 0;
 }
 int lua_FontString_SetText(lua_State* L) {
-    if (auto* w = widgetOf(L, 1)) w->text = luaL_optstring(L, 2, "");
-    lua_pushstring(L, luaL_optstring(L, 2, ""));
+    // Anything but a string is taken as no text rather than as an error.
+    //
+    // WoW raises here, and so would this — except that the missing-API
+    // fallback hands back a callable for a name nothing defines, so a label
+    // fed a global that does not exist is given a function where WoW would
+    // have given it a string. Raising kills the handler that was mid-update,
+    // which costs far more than the empty label does: one such call took out
+    // chatconfigframe's whole OnEvent.
+    const char* text = lua_isstring(L, 2) ? lua_tostring(L, 2) : "";
+    if (auto* w = widgetOf(L, 1)) w->text = text;
+    lua_pushstring(L, text);
     lua_setfield(L, 1, "_text");
     return 0;
 }
