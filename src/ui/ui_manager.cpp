@@ -125,37 +125,50 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot) {
     // carries its own height and is drawn scaled from its face, and scaling
     // down from a larger atlas reads better than up from a smaller.
     constexpr float kAtlasSize = 18.0f;
+
+    // What the client's own panels are drawn at. They were laid out against
+    // ImGui's built-in face, which is 13 pixels tall, and FRIZQT at the atlas
+    // size above would push text out of buttons sized for it. Close enough to
+    // the old metrics to keep those layouts intact, in the game's typeface,
+    // which is the point.
+    constexpr float kClientSize = 15.0f;
+
     ImGuiIO& io = ImGui::GetIO();
 
-    // ImGui draws with whichever face was added first, and this client's own
-    // interface was built against the built-in one. Adding the game's faces
-    // without this would restyle every panel the client draws — larger text,
-    // different metrics, layouts sized for something else — which nobody asked
-    // for. The built-in stays the default; the faces below are asked for by
-    // name, by the widget renderer, for the interface that wants them.
-    io.Fonts->AddFontDefault();
+    // Case is not agreed on here either, so look for the file rather than
+    // assuming the spelling the manifest happens to use.
+    auto resolve = [&](const char* name) {
+        fs::path file = fontDir / name;
+        if (fs::exists(file, ec)) return file;
+        for (const auto& entry : fs::directory_iterator(fontDir, ec)) {
+            std::string have = entry.path().filename().string();
+            std::transform(have.begin(), have.end(), have.begin(),
+                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            if (have == name) return entry.path();
+        }
+        return fs::path();
+    };
 
-    // FRIZQT first, because the first face added is the one anything without an
-    // opinion gets. The rest are the faces FrameXML's font objects name:
-    // headings in MORPHEUS, damage in SKURRI, condensed numbers in ARIALN.
+    // FRIZQT at the client's size, first, because ImGui draws with whichever
+    // face was added first and that is what everything without an opinion gets
+    // — this client's own windows included. The same face is added again below
+    // at the atlas size for the interface, which asks for it by name.
+    const fs::path frizqt = resolve("frizqt__.ttf");
+    if (!frizqt.empty()) {
+        io.Fonts->AddFontFromFileTTF(frizqt.string().c_str(), kClientSize);
+    } else {
+        io.Fonts->AddFontDefault();
+    }
+
+    // The faces FrameXML's font objects name: body text in FRIZQT, headings in
+    // MORPHEUS, damage in SKURRI, condensed numbers in ARIALN.
     const char* faces[] = {
         "frizqt__.ttf", "morpheus.ttf", "skurri.ttf", "arialn.ttf", "friends.ttf"
     };
     int loaded = 0;
     for (const char* name : faces) {
-        fs::path file = fontDir / name;
-        if (!fs::exists(file, ec)) {
-            // The directory may be cased the other way even where its name was
-            // not; look for the file rather than assuming.
-            for (const auto& entry : fs::directory_iterator(fontDir, ec)) {
-                std::string have = entry.path().filename().string();
-                std::string want = name;
-                std::transform(have.begin(), have.end(), have.begin(),
-                               [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                if (have == want) { file = entry.path(); break; }
-            }
-        }
-        if (!fs::exists(file, ec)) continue;
+        const fs::path file = resolve(name);
+        if (file.empty()) continue;
         if (ImFont* f = io.Fonts->AddFontFromFileTTF(file.string().c_str(), kAtlasSize)) {
             registerInterfaceFace(name, f);
             ++loaded;
