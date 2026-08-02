@@ -1,4 +1,6 @@
 #include "ui/ui_manager.hpp"
+
+#include <filesystem>
 #include <chrono>
 #include "core/window.hpp"
 #include "core/application.hpp"
@@ -96,6 +98,39 @@ bool UIManager::initialize(core::Window* win) {
 
     LOG_INFO("UI manager initialized successfully (Vulkan)");
     return true;
+}
+
+void UIManager::loadInterfaceFont(const std::string& dataRoot) {
+    if (!imguiInitialized || dataRoot.empty()) return;
+
+    // Extracted data does not agree with itself about case, and this path is
+    // reached directly rather than through the asset manager's manifest.
+    namespace fs = std::filesystem;
+    const char* candidates[] = {
+        "misc/fonts/frizqt__.ttf", "Misc/Fonts/FRIZQT__.TTF",
+        "fonts/frizqt__.ttf",      "Fonts/FRIZQT__.TTF",
+    };
+    std::error_code ec;
+    fs::path found;
+    for (const char* rel : candidates) {
+        const fs::path p = fs::path(dataRoot) / rel;
+        if (fs::exists(p, ec)) { found = p; break; }
+    }
+    if (found.empty()) {
+        LOG_INFO("Interface font not found under ", dataRoot, "; keeping the built-in");
+        return;
+    }
+
+    // Built at a size above what the interface mostly asks for. A font string
+    // carries its own height and is drawn scaled from this one face, and
+    // scaling down from a larger atlas reads better than up from a smaller.
+    constexpr float kAtlasSize = 18.0f;
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.Fonts->AddFontFromFileTTF(found.string().c_str(), kAtlasSize) == nullptr) {
+        LOG_WARNING("Interface font at ", found.string(), " could not be read");
+        return;
+    }
+    LOG_INFO("Interface font loaded: ", found.string());
 }
 
 void UIManager::shutdown() {

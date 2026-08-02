@@ -7,6 +7,7 @@
 #include "ui/game_screen.hpp"
 #include "ui/ui_services.hpp"
 #include <memory>
+#include <string>
 
 // Forward declare SDL_Event
 union SDL_Event;
@@ -35,6 +36,15 @@ public:
      * @param window Window instance for ImGui initialization
      */
     bool initialize(core::Window* window);
+
+    /// Loads the game's own interface font, if it is in the data.
+    ///
+    /// Separate from initialize because the asset path is not settled until
+    /// after the expansion profile is chosen, and separate from drawing because
+    /// the glyph atlas is built once, before the first frame — adding a face
+    /// afterwards means tearing the font texture down and rebuilding it, which
+    /// cannot happen while a frame is in flight.
+    void loadInterfaceFont(const std::string& dataRoot);
 
     /**
      * Shutdown ImGui and cleanup

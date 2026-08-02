@@ -289,6 +289,12 @@ bool Application::initialize() {
         }
     }
 
+    // Now the data root is settled and before any frame is drawn, which is the
+    // only moment the glyph atlas can take another face without being rebuilt.
+    // The base Data path, not the expansion overlay: overlays carry DBCs and
+    // art, not fonts.
+    if (uiManager) uiManager->loadInterfaceFont(dataPath);
+
     LOG_INFO("Attempting to load WoW assets from: ", assetPath);
     if (assetManager->initialize(assetPath)) {
         LOG_INFO("Asset manager initialized successfully");

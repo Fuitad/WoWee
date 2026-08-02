@@ -100,9 +100,11 @@ argument names, and `$parent` through unnamed frames.
 
 ## Known gaps
 
-- Fonts are sized but not loaded. `FRIZQT__.TTF` and its siblings are in the
-  game data, but using them needs a font atlas rebuild, which cannot happen
-  while a frame is being built.
+- One face for everything. `FRIZQT__.TTF` is loaded from the game data at
+  startup and every font string is drawn scaled from it, so a heading and a
+  footnote are the same face at different sizes. The interface's other faces
+  (`MORPHEUS`, `SKURRI`) would each need their own atlas entry, and the atlas
+  is built once before the first frame.
 - `EditBox`, `Slider`, `ScrollFrame` and `Cooldown` are created as plain frames.
   They exist and lay out; they do not yet behave.
 - The texture cache never evicts. `Interface\` art is small and reused, but a
