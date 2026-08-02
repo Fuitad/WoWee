@@ -108,6 +108,10 @@ uint64_t UnitPortrait::textureId() const {
     return reinterpret_cast<uint64_t>(preview_->getTextureId());
 }
 
+void UnitPortrait::rotate(float yawDelta) {
+    if (preview_ && yawDelta != 0.0f) preview_->rotate(yawDelta);
+}
+
 void UnitPortrait::shutdown(rendering::Renderer* renderer) {
     if (preview_ && registered_ && renderer) renderer->unregisterPreview(preview_.get());
     registered_ = false;

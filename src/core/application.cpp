@@ -2986,6 +2986,13 @@ void Application::render() {
                 }
                 if (doll && doll->visible) {
                     paperdollModel_.setFraming(ui::UnitPortrait::Framing::FullBody);
+                    // The rotate buttons keep their own running total and set
+                    // it as an absolute facing, so the turn to apply is the
+                    // change since last frame.
+                    if (doll->modelFacing != paperdollFacing_) {
+                        paperdollModel_.rotate(doll->modelFacing - paperdollFacing_);
+                        paperdollFacing_ = doll->modelFacing;
+                    }
                     paperdollModel_.update(*gameHandler, assetManager.get(),
                                            renderer.get(), io.DeltaTime);
                     doll->externalTexture = paperdollModel_.textureId();

@@ -103,6 +103,10 @@ struct Widget {
     /// point turns that into two constraints on one axis — which sizes the
     /// frame from them and opens a bag with no width.
     bool userMoved = false;
+    /// The facing a model frame was told to show, in radians. FrameXML rotates
+    /// a paperdoll by keeping its own running total and calling SetRotation
+    /// with it, so this is absolute rather than a delta.
+    float modelFacing = 0.0f;
 
     FrameStrata strata = FrameStrata::Medium;
     bool strataExplicit = false;

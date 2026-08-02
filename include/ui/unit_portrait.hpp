@@ -41,6 +41,10 @@ public:
     /// loads and the model loads once.
     void setFraming(Framing framing) { framing_ = framing; }
 
+    /// Turn the figure by this much, in radians. What the paperdoll's rotate
+    /// buttons drive.
+    void rotate(float yawDelta);
+
     /// The rendered portrait, or zero until the first composite has run. The
     /// value is a VkDescriptorSet, carried as an integer so this header does
     /// not drag Vulkan into the widget tree.

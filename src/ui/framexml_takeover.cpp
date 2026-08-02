@@ -267,7 +267,13 @@ std::vector<std::string> frameXmlCheckFrames() {
         {UiElement::CharacterFrame, "CharacterFrame PaperDollFrame CharacterModelFrame "
                                     "CharacterNameText CharacterHeadSlot "
                                     "CharacterResistanceFrame CharacterAttributesFrame "
-                                    "MagicResFrame1 CharacterMainHandSlot"},
+                                    "MagicResFrame1 CharacterMainHandSlot "
+                                    // The rotate arrows sit on the model
+                                    // frame's top-left corner, which is also
+                                    // where the name sits — so where each one
+                                    // actually lands is the question.
+                                    "CharacterModelFrameRotateLeftButton "
+                                    "CharacterModelFrameRotateRightButton"},
         {UiElement::Bags,         "ContainerFrame1 ContainerFrame1Item1 "
                                   "ContainerFrame1Name"},
         // A bag's background is assembled from a top, up to two middles and a

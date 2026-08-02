@@ -171,6 +171,9 @@ private:
     /// offscreen pass rather than a shared one: the portrait shows the face
     /// and this shows the whole figure, and they are on screen together.
     ui::UnitPortrait paperdollModel_;
+    /// The facing already applied to the paperdoll, so only the change since
+    /// last frame is turned.
+    float paperdollFacing_ = 0.0f;
     uint32_t paperdollWidgetId_ = 0;
     bool addonsLoaded_ = false;
     std::unique_ptr<game::ExpansionRegistry> expansionRegistry_;

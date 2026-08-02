@@ -330,6 +330,23 @@ int lua_Region_SetSize(lua_State* L) {
 // All five of these were no-ops, which is why a bag window could not be
 // dragged anywhere and an item could not be dragged out of it: the interface
 // asked to be moved and nothing was listening.
+/// SetRotation(radians) / SetFacing(radians) on a model frame.
+///
+/// The paperdoll's rotate buttons keep a running total and call this with it,
+/// so it is an absolute facing. Unimplemented, the buttons ran their handler
+/// and the figure never moved.
+int lua_Model_SetFacing(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->modelFacing = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+    }
+    return 0;
+}
+int lua_Model_GetFacing(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->modelFacing : 0.0);
+    return 1;
+}
+
 int lua_Frame_SetMovable(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->movable = lua_toboolean(L, 2) != 0;
     return 0;
@@ -2349,6 +2366,9 @@ void LuaEngine::registerCoreAPI() {
         // installed on textures and font strings alone — putting them there
         // gave the methods to everything except the things that use them.
         {"SetMovable",      lua_Frame_SetMovable},
+        {"SetRotation",     lua_Model_SetFacing},
+        {"SetFacing",       lua_Model_SetFacing},
+        {"GetFacing",       lua_Model_GetFacing},
         {"IsMovable",       lua_Frame_IsMovable},
         {"RegisterForDrag", lua_Frame_RegisterForDrag},
         {"StartMoving",     lua_Frame_StartMoving},
