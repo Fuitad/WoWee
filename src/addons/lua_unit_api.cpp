@@ -1045,6 +1045,16 @@ static int lua_GetMirrorTimerProgress(lua_State* L) {
     return 1;
 }
 
+/// GetTimeToWellRested() → seconds until fully rested, or nil.
+///
+/// Confirmed called rather than guessed at: it turned up in the missing-API
+/// report from a real session, read by the experience bar's tooltip. Rest
+/// accrual is not modelled, and nil is what WoW itself answers when there is
+/// no timer to report — which is the branch the tooltip already handles.
+static int lua_GetTimeToWellRested(lua_State* L) {
+    return luaReturnNil(L);
+}
+
 // GetRestState() → 1 = normal, 2 = rested
 /// GetRestState() → stateID, stateName, xpMultiplier.
 ///
@@ -1647,6 +1657,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"UnitXP",                  lua_UnitXP},
                 {"UnitXPMax",               lua_UnitXPMax},
                 {"GetXPExhaustion",         lua_GetXPExhaustion},
+                {"GetTimeToWellRested",     lua_GetTimeToWellRested},
                 {"GetWatchedFactionInfo",   lua_GetWatchedFactionInfo},
                 {"GetNumBagSlots",          lua_GetNumBagSlots},
                 {"GetMirrorTimerProgress",  lua_GetMirrorTimerProgress},

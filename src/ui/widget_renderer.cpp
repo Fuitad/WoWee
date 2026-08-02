@@ -350,7 +350,13 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                             (offscreen ? " OFFSCREEN" : ""),
                             " rect=(", w->left, ",", w->bottom, " ",
                             w->rectW, "x", w->rectH, ")",
-                            (w->kind == WidgetKind::Texture && !w->texturePath.empty() &&
+                            // An external texture is what is actually drawn,
+                            // and the path beside it is only the fallback the
+                            // interface set — so the report has to say which
+                            // of the two is on screen.
+                            (w->externalTexture != 0 ? " LIVE" : ""),
+                            (w->kind == WidgetKind::Texture && w->externalTexture == 0 &&
+                             !w->texturePath.empty() &&
                              resident(w->texturePath, w->blendAdd) == kMissing
                                  ? " NOTRESIDENT" : ""),
                             (w->texturePath.empty() ? "" : " tex="), w->texturePath);
