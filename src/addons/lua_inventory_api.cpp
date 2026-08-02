@@ -488,7 +488,12 @@ static int lua_GetItemTooltipData(lua_State* L) {
             const std::string& sName = gh->getSpellName(info->spells[i].spellId);
             if (!sName.empty()) { lua_pushstring(L, sName.c_str()); lua_setfield(L, -2, "name"); }
             // Get description
-            const std::string& sDesc = gh->getSpellDescription(info->spells[i].spellId);
+            // Formatted, not raw: an item's spell carries the same $-token
+            // template a spell does, and handing it over untouched put
+            // "$s1 damage" on the tooltip.
+            const std::string sDesc = gh->formatSpellDescription(
+                info->spells[i].spellId,
+                gh->getSpellDescription(info->spells[i].spellId));
             if (!sDesc.empty()) { lua_pushstring(L, sDesc.c_str()); lua_setfield(L, -2, "description"); }
             lua_rawseti(L, -2, spellCount);
         }

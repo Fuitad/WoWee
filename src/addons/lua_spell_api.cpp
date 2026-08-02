@@ -431,105 +431,17 @@ static int lua_GetKnownSlotFromHighestRankSlot(lua_State* L) {
 /// do: the list is rebuilt when the server sends one.
 static int lua_UpdateSpells(lua_State* L) { (void)L; return 0; }
 
-// GetSpellDescription(spellId) → description string
-// Clean spell description template variables for display
-static std::string cleanSpellDescription(const std::string& raw, const int32_t effectBase[3] = nullptr, float durationSec = 0.0f) {
-    if (raw.empty() || raw.find('$') == std::string::npos) return raw;
-    std::string result;
-    result.reserve(raw.size());
-    for (size_t i = 0; i < raw.size(); ++i) {
-        if (raw[i] == '$' && i + 1 < raw.size()) {
-            char next = raw[i + 1];
-            if (next == 's' || next == 'S') {
-                // $s1, $s2, $s3 — substitute with effect base points + 1
-                i += 1; // skip 's'
-                int idx = 0;
-                if (i + 1 < raw.size() && raw[i + 1] >= '1' && raw[i + 1] <= '3') {
-                    idx = raw[i + 1] - '1';
-                    ++i;
-                }
-                if (effectBase && effectBase[idx] != 0) {
-                    int32_t val = std::abs(effectBase[idx]) + 1;
-                    result += std::to_string(val);
-                } else {
-                    result += 'X';
-                }
-                while (i + 1 < raw.size() && raw[i + 1] >= '0' && raw[i + 1] <= '9') ++i;
-            } else if (next == 'o' || next == 'O') {
-                // $o1 = periodic total (base * ticks). Ticks = duration / 3sec for most spells
-                i += 1;
-                int idx = 0;
-                if (i + 1 < raw.size() && raw[i + 1] >= '1' && raw[i + 1] <= '3') {
-                    idx = raw[i + 1] - '1';
-                    ++i;
-                }
-                if (effectBase && effectBase[idx] != 0 && durationSec > 0.0f) {
-                    int32_t perTick = std::abs(effectBase[idx]) + 1;
-                    int ticks = static_cast<int>(durationSec / 3.0f);
-                    if (ticks < 1) ticks = 1;
-                    result += std::to_string(perTick * ticks);
-                } else {
-                    result += 'X';
-                }
-                while (i + 1 < raw.size() && raw[i + 1] >= '0' && raw[i + 1] <= '9') ++i;
-            } else if (next == 'e' || next == 'E' || next == 't' || next == 'T' ||
-                next == 'h' || next == 'H' || next == 'u' || next == 'U') {
-                // Other variables — insert "X" placeholder
-                result += 'X';
-                i += 1;
-                while (i + 1 < raw.size() && raw[i + 1] >= '0' && raw[i + 1] <= '9') ++i;
-            } else if (next == 'd' || next == 'D') {
-                // $d = duration
-                if (durationSec > 0.0f) {
-                    if (durationSec >= 60.0f)
-                        result += std::to_string(static_cast<int>(durationSec / 60.0f)) + " min";
-                    else
-                        result += std::to_string(static_cast<int>(durationSec)) + " sec";
-                } else {
-                    result += "X sec";
-                }
-                ++i;
-                while (i + 1 < raw.size() && raw[i + 1] >= '0' && raw[i + 1] <= '9') ++i;
-            } else if (next == 'a' || next == 'A') {
-                // $a1 = radius
-                result += "X";
-                ++i;
-                while (i + 1 < raw.size() && raw[i + 1] >= '0' && raw[i + 1] <= '9') ++i;
-            } else if (next == 'b' || next == 'B' || next == 'n' || next == 'N' ||
-                       next == 'i' || next == 'I' || next == 'x' || next == 'X') {
-                // misc variables
-                result += "X";
-                ++i;
-                while (i + 1 < raw.size() && raw[i + 1] >= '0' && raw[i + 1] <= '9') ++i;
-            } else if (next == '$') {
-                // $$ = literal $
-                result += '$';
-                ++i;
-            } else if (next == '{' || next == '<') {
-                // ${...} or $<...> — skip entire block
-                char close = (next == '{') ? '}' : '>';
-                size_t end = raw.find(close, i + 2);
-                if (end != std::string::npos) i = end;
-                else result += raw[i]; // no closing — keep $
-            } else {
-                result += raw[i]; // unknown $ pattern — keep
-            }
-        } else {
-            result += raw[i];
-        }
-    }
-    return result;
-}
 
 static int lua_GetSpellDescription(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { lua_pushstring(L, ""); return 1; }
     uint32_t spellId = static_cast<uint32_t>(luaL_checknumber(L, 1));
-    const std::string& desc = gh->getSpellDescription(spellId);
-    const int32_t* ebp = gh->getSpellEffectBasePoints(spellId);
-    float dur = gh->getSpellDuration(spellId);
-    std::string cleaned = cleanSpellDescription(desc, ebp, dur);
-    lua_pushstring(L, cleaned.c_str());
+    // The shared formatter, which is what every other description path uses.
+    // The local one this replaced knew $s and $o and wrote a literal "X" for
+    // $d and the rest, so a duration read as "lasts X sec".
+    const std::string desc =
+        gh->formatSpellDescription(spellId, gh->getSpellDescription(spellId));
+    lua_pushstring(L, desc.c_str());
     return 1;
 }
 
