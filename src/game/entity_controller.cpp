@@ -940,7 +940,11 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
             }
         // Specific fields checked BEFORE power/maxpower range checks
         // (Classic packs maxHealth/level/faction adjacent to power indices)
-        } else if (key == ufi.maxHealth) { unit->setMaxHealth(val); result.healthChanged = true; }
+        } else if (key == ufi.maxHealth) {
+            unit->setMaxHealth(val);
+            result.healthChanged = true;
+            result.maxHealthChanged = true;
+        }
         else if (key == ufi.bytes0) {
             uint8_t oldPT = unit->getPowerType();
             unit->setPowerType(static_cast<uint8_t>((val >> 24) & 0xFF));
@@ -1101,6 +1105,7 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
         auto unitId = owner_.guidToUnitId(block.guid);
         if (!unitId.empty()) {
             if (result.healthChanged) pendingEvents_.emit("UNIT_HEALTH", {unitId});
+            if (result.maxHealthChanged) pendingEvents_.emit("UNIT_MAXHEALTH", {unitId});
             if (result.powerChanged) {
                 // The event a WotLK interface is listening for is named after
                 // the power itself. UNIT_POWER is the later, generic one — it
