@@ -509,6 +509,26 @@ struct Emitter {
         if (node.attr("enableMouse")) {
             line(var + ":EnableMouse(" + (node.attrBool("enableMouse") ? "true" : "false") + ")");
         }
+        // Attributes declared in the XML, which is where FrameXML puts a
+        // frame's initial state — UIParent's panel offsets among them. Set
+        // before anything else runs, because SetAttribute fires
+        // OnAttributeChanged and a handler reading a sibling attribute must
+        // find it already there.
+        if (const XmlNode* attrs = node.child("Attributes")) {
+            for (const XmlNode& a : attrs->children) {
+                if (a.name != "Attribute") continue;
+                const std::string* an = a.attr("name");
+                if (!an || an->empty()) continue;
+                const std::string type = a.attrOr("type", "string");
+                const std::string val = a.attrOr("value", "");
+                std::string literal;
+                if (type == "number")       literal = std::to_string(a.attrFloat("value", 0.0f));
+                else if (type == "boolean") literal = a.attrBool("value") ? "true" : "false";
+                else                        literal = quote(val);
+                line(var + ":SetAttribute(" + quote(*an) + ", " + literal + ")");
+            }
+        }
+
         // A frame can fill its parent instead of stating anchors, and this was
         // honoured for regions and ignored for frames — all 139 of them across
         // 53 files. An unanchored frame falls to the centre-on-parent default

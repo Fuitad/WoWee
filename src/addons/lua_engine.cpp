@@ -247,6 +247,12 @@ int lua_Region_SetPoint(lua_State* L) {
         lua_pop(L, 1);
         ++argi;
     }
+    // Anchoring to itself is not a position, and a name can resolve to the
+    // frame that was just published under it.
+    if (a.relativeTo == id) {
+        const auto* self = tree->get(id);
+        a.relativeTo = self ? self->parent : 0;
+    }
     if (lua_isstring(L, argi) && !lua_isnumber(L, argi)) {
         a.relativePoint = lua_tostring(L, argi);
         ++argi;
@@ -276,10 +282,13 @@ int lua_Region_SetAllPoints(lua_State* L) {
         if (lua_istable(L, -1)) target = widgetIdOf(L, lua_gettop(L));
         lua_pop(L, 1);
     }
-    if (target == 0) {
-        const auto* w = tree->get(id);
-        target = w ? w->parent : 0;
-    }
+    // A frame cannot fill itself. FrameXML's own UIParent is declared
+    // setAllPoints and its parent is named UIParent — but CreateFrame publishes
+    // the new frame under that name first, so by the time this runs the name
+    // means the frame itself. Two identical constraints collapse to no size at
+    // the origin, and everything anchored to it lands there too.
+    const auto* w = tree->get(id);
+    if (target == 0 || target == id) target = w ? w->parent : 0;
     tree->setAllPoints(id, target);
     return 0;
 }
