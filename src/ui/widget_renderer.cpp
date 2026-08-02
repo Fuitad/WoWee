@@ -299,6 +299,18 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     // to the tooltip is placed from the rect this produces — and with the real
     // font, since guessing at a character width puts the border in the wrong
     // place on every line.
+    // Frames FrameXML declares but this client has not handed over yet.
+    //
+    // Every FrameXML file is loaded, so every frame it declares exists and
+    // draws — the takeover list only decides whether this client's own version
+    // is suppressed alongside it. Hiding them once after loading is not enough:
+    // the interface shows its chat windows again on its own schedule, so this
+    // is done each frame, where nothing can undo it.
+    static const std::vector<std::string> kSuppressed = frameXmlSuppressedFrames();
+    for (const std::string& name : kSuppressed) {
+        if (Widget* w = tree.findByName(name)) w->shown = false;
+    }
+
     sizeTooltips(tree);
     // Same reason, for every label that never stated a size: it takes the size
     // of its own text, and anything anchored to it is placed from that.

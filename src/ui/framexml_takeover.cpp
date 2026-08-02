@@ -187,6 +187,32 @@ bool frameXmlTakeProbeRequest() {
     return gProbeRequested.exchange(false, std::memory_order_relaxed);
 }
 
+std::vector<std::string> frameXmlSuppressedFrames() {
+    struct Suppress { UiElement element; const char* frames; };
+    static const Suppress kSuppress[] = {
+        {UiElement::Chat,     "ChatFrame1 ChatFrame2 ChatFrame3 ChatFrame4 ChatFrame5 "
+                              "ChatFrame6 ChatFrame7 GeneralDockManager "
+                              "ChatFrameMenuButton FriendsMicroButton"},
+        {UiElement::QuestLog, "QuestLogFrame"},
+    };
+
+    std::vector<std::string> out;
+    for (const Suppress& s : kSuppress) {
+        if (frameXmlOwns(s.element)) continue;   // it is the one in use
+        std::string all(s.frames);
+        size_t at = 0;
+        while (at < all.size()) {
+            const size_t sp = all.find(' ', at);
+            std::string one = all.substr(
+                at, sp == std::string::npos ? std::string::npos : sp - at);
+            if (!one.empty()) out.push_back(std::move(one));
+            if (sp == std::string::npos) break;
+            at = sp + 1;
+        }
+    }
+    return out;
+}
+
 std::vector<std::string> frameXmlCheckFrames() {
     // One row per element: what has to exist for it to have arrived. Chosen as
     // the frame itself, the art that frames it, and the parts that carry live

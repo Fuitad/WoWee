@@ -68,6 +68,16 @@ std::string_view uiElementName(UiElement element);
 /// can be one block of log rather than an inspection.
 std::vector<std::string> frameXmlCheckFrames();
 
+/// The frames to keep hidden because FrameXML draws them and this client has
+/// not handed that element over.
+///
+/// Every FrameXML file is loaded, so every frame it declares exists and draws.
+/// The takeover list only decides whether this client's own version is
+/// suppressed alongside it — which for anything not yet handed over means two
+/// of them on screen at once. Hiding them once after loading is not enough:
+/// the interface shows them again on its own schedule.
+std::vector<std::string> frameXmlSuppressedFrames();
+
 /// Note that the player has entered the world, and whether that has happened.
 ///
 /// FrameXML does most of its arranging from PLAYER_ENTERING_WORLD: frames are
