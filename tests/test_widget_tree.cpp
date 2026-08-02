@@ -1017,3 +1017,39 @@ TEST_CASE("A tooltip anchored to its owner sits beside it", "[widget][tooltip]")
     // The owner spans x 100..140; the tooltip starts where it ends.
     REQUIRE(tree.get(tip)->left == Catch::Approx(140.0f));
 }
+
+TEST_CASE("A frame with no anchor points is not displayed", "[widget][layout]") {
+    // WoW's rule, and the reason for it is visible the moment it is missing:
+    // FrameXML declares plenty of frames with no anchors — a money frame, a
+    // dropdown, a quest reward panel — and every one of them fell to the
+    // centre-on-parent default and sat in the middle of the screen looking
+    // like a fault in something else.
+    WidgetTree tree;
+    const uint32_t stray = tree.create(WidgetKind::Frame, tree.root(), "Stray");
+    tree.get(stray)->width = 285.0f;
+    tree.get(stray)->height = 28.0f;
+
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE_FALSE(tree.get(stray)->visible);
+
+    // Anchored, it appears — and so does everything under it.
+    const uint32_t child = tree.create(WidgetKind::Frame, stray, "StrayChild");
+    tree.get(child)->width = 10.0f;
+    tree.get(child)->height = 10.0f;
+    tree.addPoint(child, Anchor{"CENTER", stray, "CENTER", 0.0f, 0.0f});
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE_FALSE(tree.get(child)->visible);
+
+    tree.addPoint(stray, Anchor{"CENTER", 0, "CENTER", 0.0f, 0.0f});
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(stray)->visible);
+    REQUIRE(tree.get(child)->visible);
+
+    // A region is different: with no anchors it fills its parent rather than
+    // vanishing, which is what the art declared that way relies on.
+    const uint32_t art = tree.create(WidgetKind::Texture, stray, "StrayArt");
+    tree.get(art)->texturePath = "Interface\\Art";
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(art)->visible);
+    REQUIRE(tree.get(art)->rectW == Catch::Approx(285.0f));
+}

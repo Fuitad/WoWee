@@ -169,7 +169,18 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
     if (!w) return;
     const Widget* parent = get(w->parent);
 
-    w->visible = w->shown && (!parent || parent->visible);
+    // A frame with no anchor points is not displayed. That is WoW's rule, and
+    // without it every frame FrameXML declares without anchors — a money
+    // frame, a dropdown, a quest reward panel — falls to the centre-on-parent
+    // default and sits in the middle of the screen looking like a bug in
+    // something else. Regions differ: an unanchored one fills its parent, and
+    // that is handled below.
+    //
+    // The root is the exception: it is the screen, and has nothing to anchor
+    // to.
+    const bool unanchoredFrame = (w->kind == WidgetKind::Frame) &&
+                                 w->anchors.empty() && id != rootId_;
+    w->visible = w->shown && (!parent || parent->visible) && !unanchoredFrame;
     // Clipping is inherited: anything under a scroll frame is bounded by it,
     // however deep, because a scroll child holds frames of its own.
     w->clipTo = parent ? (parent->isScrollFrame ? parent->id : parent->clipTo) : 0;
