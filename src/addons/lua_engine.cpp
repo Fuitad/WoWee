@@ -2744,7 +2744,15 @@ void LuaEngine::registerCoreAPI() {
         "local known = __WoweeWidgetMethods\n"
         "local noop = function() end\n"
         "local seen = {}\n"
-        "mt.__index = function(tbl, key)\n"
+        // __index is the method table itself, with the fallback moved to a
+        // metatable on that table.
+        //
+        // FrameXML reaches through it to call the original of an overridden
+        // method — BlizzardOptionsPanel_Slider_Enable is
+        // getmetatable(slider).__index.Enable(slider) — which needs a table
+        // there. A function answered every lookup correctly and broke every one
+        // of those.
+        "setmetatable(mt, { __index = function(tbl, key)\n"
         "    local v = rawget(methods, key)\n"
         "    if v ~= nil then return v end\n"
         "    if type(key) ~= 'string' then return nil end\n"
@@ -2772,7 +2780,11 @@ void LuaEngine::registerCoreAPI() {
         "        if __WoweeRecordMissingApi then __WoweeRecordMissingApi('widget:' .. key) end\n"
         "    end\n"
         "    return nil\n"
-        "end\n"
+        "end })\n"
+        // The lookup itself goes through the method table, so a frame finds its
+        // methods by rawget and anything unknown falls through to the function
+        // above.
+        "mt.__index = mt\n"
     );
 
     // The fallback is installed at the very end of initialize(), not here.
