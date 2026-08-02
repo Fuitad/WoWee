@@ -54,6 +54,14 @@ private:
     /// wrong thickness on any display that is not 768 pixels tall.
     /// Sizes every tooltip to the lines it holds, before layout runs. A
     /// tooltip has no size until it has something to say.
+    /// Give every unsized label the size of the text in it.
+    ///
+    /// A FontString with no <Size> takes the size of its string, as it does in
+    /// WoW. Leaving it at zero lays it out to nothing and draws nothing, so the
+    /// text is set, correct, and invisible — the player frame's level number
+    /// read text="14" in a rect of 0x0.
+    void sizeFontStrings(WidgetTree& tree);
+
     void sizeTooltips(WidgetTree& tree);
 
     void drawBackdrop(ImDrawList* dl, const Widget& w, float scale,

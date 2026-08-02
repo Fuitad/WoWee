@@ -100,6 +100,27 @@ VkDescriptorSet WidgetRenderer::texture(const std::string& path, bool add) {
 }
 
 
+void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
+    ImFont* font = interfaceFace("frizqt__");
+    if (!font) font = ImGui::GetFont();
+    if (!font) return;
+
+    for (size_t id = 1; id < tree.size(); ++id) {
+        Widget* w = tree.get(static_cast<uint32_t>(id));
+        if (!w || w->kind != WidgetKind::FontString) continue;
+        if (w->text.empty()) continue;
+        // Two anchors on an axis give the size, and an explicit size was asked
+        // for outright. Either way the string does not get a say.
+        if (w->anchors.size() >= 2) continue;
+        if (w->width > 0.0f && w->height > 0.0f) continue;
+
+        const float size = (w->fontHeight > 0.0f) ? w->fontHeight : 12.0f;
+        const ImVec2 measured = font->CalcTextSizeA(size, FLT_MAX, 0.0f, w->text.c_str());
+        if (w->width <= 0.0f)  w->width  = measured.x;
+        if (w->height <= 0.0f) w->height = size * 1.2f;
+    }
+}
+
 void WidgetRenderer::sizeTooltips(WidgetTree& tree) {
     ImFont* font = interfaceFace("frizqt__");
     if (!font) font = ImGui::GetFont();
@@ -279,6 +300,9 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     // font, since guessing at a character width puts the border in the wrong
     // place on every line.
     sizeTooltips(tree);
+    // Same reason, for every label that never stated a size: it takes the size
+    // of its own text, and anything anchored to it is placed from that.
+    sizeFontStrings(tree);
 
     tree.layout(screenW, screenH);
     const auto& order = tree.drawOrder();

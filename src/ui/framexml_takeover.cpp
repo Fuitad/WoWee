@@ -217,7 +217,11 @@ std::vector<std::string> frameXmlCheckFrames() {
         // it. When the stack is wrong the art shows a seam in the wrong place
         // and stops short of the frame, and only the individual rects and
         // slices say which piece is at fault.
-        {UiElement::Bags,         "ContainerFrame2 ContainerFrame2Portrait "
+        // Filed under the bag bar rather than the bags: FrameXML's containers
+        // are opened from the bag bar, which this branch hands over, while the
+        // "bags" element only decides whether this client's own bag window is
+        // suppressed. Filed there they would never be looked at.
+        {UiElement::BagBar,       "ContainerFrame2 ContainerFrame2Portrait "
                                   "ContainerFrame2BackgroundTop "
                                   "ContainerFrame2BackgroundMiddle1 "
                                   "ContainerFrame2BackgroundBottom"},
