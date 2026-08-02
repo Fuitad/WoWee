@@ -5,6 +5,7 @@
 #include "game/spline_packet.hpp"
 #include "core/logger.hpp"
 #include <cmath>
+#include <string>
 
 namespace wowee::game {
 
@@ -259,11 +260,24 @@ bool parseWotlkMoveUpdateSpline(
 
     // ── Helper: try to parse spline points + splineMode + endPoint ──
     // WotLK uses compressed points by default (first=12 bytes, rest=4 bytes packed).
+    // Why the best-aligned attempt gave up. Every layout below can fail for a
+    // different reason and the log only ever said that all of them did, which
+    // is the one thing already known. The first attempt is the authoritative
+    // AzerothCore layout, so its reason is the one worth keeping.
+    std::string firstReason;
+    auto note = [&](const std::string& why) {
+        if (firstReason.empty()) firstReason = why;
+    };
+
     auto tryParseSplinePoints = [&](bool compressed, const char* tag) -> bool {
-        if (!bytesAvailable(4)) return false;
+        if (!bytesAvailable(4)) { note("no room for the node count"); return false; }
         size_t prePointCount = packet.getReadPos();
         uint32_t pc = packet.readUInt32();
-        if (pc > 256) return false;
+        if (pc > 256) {
+            note("node count " + std::to_string(pc) + " is beyond any real path");
+            packet.setReadPos(prePointCount);
+            return false;
+        }
         // AzerothCore's WriteCreate always appends splineMode and endPoint,
         // even when the path contains no nodes.  Leaving those 13 bytes in
         // the packet desynchronizes the next UPDATE_OBJECT block.
@@ -277,12 +291,18 @@ bool parseWotlkMoveUpdateSpline(
         }
         size_t needed = pointsBytes + 13ull; // + splineMode(1) + endPoint(12)
         if (!bytesAvailable(needed)) {
+            note("needs " + std::to_string(needed) + " bytes for " +
+                 std::to_string(pc) + " nodes, has " +
+                 std::to_string(packet.getRemainingSize()));
             packet.setReadPos(prePointCount);
             return false;
         }
         packet.setReadPos(packet.getReadPos() + pointsBytes);
         uint8_t mode = packet.readUInt8();
         if (mode > 3) {
+            note("nodes=" + std::to_string(pc) + " then mode byte " +
+                 std::to_string(static_cast<int>(mode)) + ", which is not an "
+                 "interpolation mode");
             packet.setReadPos(prePointCount);
             return false;
         }
@@ -293,6 +313,9 @@ bool parseWotlkMoveUpdateSpline(
         if (!std::isfinite(epX) || !std::isfinite(epY) || !std::isfinite(epZ) ||
             std::fabs(epX) > 65000.0f || std::fabs(epY) > 65000.0f ||
             std::fabs(epZ) > 65000.0f) {
+            note("nodes=" + std::to_string(pc) + " then an end point of (" +
+                 std::to_string(epX) + "," + std::to_string(epY) + "," +
+                 std::to_string(epZ) + "), which is not a world coordinate");
             packet.setReadPos(prePointCount);
             return false;
         }
@@ -304,7 +327,16 @@ bool parseWotlkMoveUpdateSpline(
             float dy = epY - entityPos.y;
             float dz = epZ - entityPos.z;
             float distSq = dx * dx + dy * dy + dz * dz;
-            if (distSq > 5000.0f * 5000.0f) {
+            // Generous, because the longest legitimate spline is a flight
+            // path and those cross a continent: the limit is here to reject
+            // bytes that happen to decode as finite numbers, not to have an
+            // opinion about how far a unit may travel. At five thousand it had
+            // one, and a taxi is further than that.
+            constexpr float kFarthestPlausible = 20000.0f;
+            if (distSq > kFarthestPlausible * kFarthestPlausible) {
+                note("nodes=" + std::to_string(pc) + " then an end point " +
+                     std::to_string(static_cast<int>(std::sqrt(distSq))) +
+                     " away, which is further than any spline runs");
                 packet.setReadPos(prePointCount);
                 return false;
             }
@@ -461,7 +493,8 @@ bool parseWotlkMoveUpdateSpline(
                     " splineFlags=0x", std::hex, out.splineFlags, std::dec,
                     " remaining=", packet.getRemainingSize(),
                     " header=[0x", std::hex, d[0], " 0x", d[1], " 0x", d[2],
-                    " 0x", d[3], " 0x", d[4], "]", std::dec);
+                    " 0x", d[3], " 0x", d[4], "]", std::dec,
+                    " firstReason=", firstReason.empty() ? "(none recorded)" : firstReason);
         return false;
     }
 
