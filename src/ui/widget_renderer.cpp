@@ -349,6 +349,17 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     ImDrawList* dl = ImGui::GetBackgroundDrawList();
     if (!dl) return;
 
+    // Level 5 draws ImGui's own font atlas through this same call, at a fixed
+    // place. It is the one texture ImGui is certain to have uploaded, so it
+    // separates two things that look identical from outside: whether AddImage
+    // works on this draw list at all, and whether the descriptor sets this
+    // renderer uploads are good. If the glyph sheet appears, the call is fine
+    // and the textures are not.
+    if (dumpWidgets >= 5) {
+        dl->AddImage(ImGui::GetIO().Fonts->TexRef, ImVec2(40.0f, 40.0f),
+                     ImVec2(440.0f, 440.0f));
+    }
+
     for (const Widget* w : order) {
         // WoW measures from the bottom-left and upward; the screen measures from
         // the top-left and downward. Flip here, at the one place it matters, so
