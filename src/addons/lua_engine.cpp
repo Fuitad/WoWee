@@ -4727,7 +4727,7 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
         const Button& b = pressed[i];
         if (b.down && !buttonDown_[i]) {
             buttonDown_[i] = true;
-            pressedWid_[i] = hit;
+            pressedWid_[i] = clickOwnerOf(hit, b.name);
             pressX_[i] = x;
             pressY_[i] = y;
             // Clicking into an edit box takes focus; clicking anywhere else
@@ -4770,7 +4770,11 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
                 }
 
                 const bool takesIt = frameAcceptsClick(pressedWid_[i], b.name);
-                if (!wasDragged && pressedWid_[i] == hit &&
+                // Resolved the same way the press was, or a press on a bar and
+                // a release on the same bar would compare an ancestor against a
+                // child and never match.
+                const uint32_t releasedOn = clickOwnerOf(hit, b.name);
+                if (!wasDragged && pressedWid_[i] == releasedOn &&
                     (!pressed || pressed->enabled) && takesIt) {
                     callFrameScript(pressedWid_[i], "OnClick", b.name);
                 }
@@ -4780,7 +4784,7 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
                 // nothing. Says which of the three conditions refused it.
                 if (pressedWid_[i] != 0 && pressed && !pressed->name.empty()) {
                     LOG_WARNING("WidgetInput: release on ", pressed->name,
-                                pressedWid_[i] != hit ? " — cursor had moved off it"
+                                pressedWid_[i] != releasedOn ? " — cursor had moved off it"
                                 : !pressed->enabled  ? " — the frame is disabled"
                                 : !takesIt           ? " — it did not register for this button"
                                                      : " — OnClick ran");
@@ -4789,6 +4793,28 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
             pressedWid_[i] = 0;
         }
     }
+}
+
+/// The frame a click on `wid` belongs to: the nearest one, itself or above it,
+/// that registered for this button.
+///
+/// A click lands on the topmost frame taking the mouse, which is not always the
+/// one meant to answer it. A unit frame's health bar takes the mouse so it can
+/// show its numbers on hover, and it sits over the button that does the
+/// targeting — so without this, clicking a target frame anywhere but its border
+/// did nothing at all. Drags already resolve their owner this way.
+///
+/// Falls back to the frame that was hit when nothing above it wants the button,
+/// so the refusal is still reported against the frame the player actually
+/// clicked rather than against UIParent.
+uint32_t LuaEngine::clickOwnerOf(uint32_t wid, const char* button) {
+    for (uint32_t id = wid; id != 0;) {
+        const auto* cand = widgets_.get(id);
+        if (!cand) break;
+        if (frameAcceptsClick(id, button)) return id;
+        id = cand->parent;
+    }
+    return wid;
 }
 
 /// Ask the interface what it can see, in its own words.

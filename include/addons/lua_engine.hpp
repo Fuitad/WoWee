@@ -162,6 +162,10 @@ private:
     /// zero cannot be handed a numeric string.
     void callFrameScriptNumber(uint32_t wid, const char* script, double arg);
     bool frameAcceptsClick(uint32_t wid, const char* button);
+    /// The nearest frame at or above `wid` registered for this button, or `wid`
+    /// itself when none is. A click lands on the topmost frame taking the
+    /// mouse, which is not always the one meant to answer it.
+    uint32_t clickOwnerOf(uint32_t wid, const char* button);
 
     uint32_t hoverWid_ = 0;
     /// The edit box taking keystrokes, or zero. One at a time, which is
