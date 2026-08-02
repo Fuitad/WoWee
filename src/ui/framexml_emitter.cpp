@@ -568,6 +568,25 @@ struct Emitter {
         }
         if (node.attr("enableMouse")) {
             line(var + ":EnableMouse(" + (node.attrBool("enableMouse") ? "true" : "false") + ")");
+        } else {
+            // A frame that declares OnEnter or OnLeave wants the mouse, whether
+            // or not it says so. Blizzard's own StatFrameTemplate is the case
+            // that proves it: the character sheet's stat rows carry both
+            // handlers and no enableMouse, and hovering them in a real client
+            // shows the breakdown tooltip. Without this the hit test skipped
+            // them and the whole left column of the character sheet was inert.
+            bool wantsHover = false;
+            for (const XmlNode& child : node.children) {
+                if (child.name != "Scripts") continue;
+                for (const XmlNode& script : child.children) {
+                    if (script.name == "OnEnter" || script.name == "OnLeave") {
+                        wantsHover = true;
+                        break;
+                    }
+                }
+                if (wantsHover) break;
+            }
+            if (wantsHover) line(var + ":EnableMouse(true)");
         }
         // Whether the frame can be dragged around the screen. Declared in the
         // XML rather than set from Lua for most of what moves — the bag

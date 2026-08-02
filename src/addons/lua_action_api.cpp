@@ -4,6 +4,7 @@
 #include "ui/framexml_takeover.hpp"
 #include "game/pet_action.hpp"
 #include "imgui.h"
+#include <SDL2/SDL_keyboard.h>
 
 namespace wowee::addons {
 
@@ -581,18 +582,15 @@ static int lua_AutoEquipCursorItem(lua_State* L) {
 
 // Frame method: frame:RegisterEvent("EVENT")
 
-static int lua_IsShiftKeyDown(lua_State* L) {
-    lua_pushboolean(L, ImGui::GetIO().KeyShift ? 1 : 0);
-    return 1;
-}
-static int lua_IsControlKeyDown(lua_State* L) {
-    lua_pushboolean(L, ImGui::GetIO().KeyCtrl ? 1 : 0);
-    return 1;
-}
-static int lua_IsAltKeyDown(lua_State* L) {
-    lua_pushboolean(L, ImGui::GetIO().KeyAlt ? 1 : 0);
-    return 1;
-}
+// The modifier state comes from the keyboard rather than from ImGui, which
+// learns it from events this client does not always route there once FrameXML
+// owns the mouse. lua_system_api registers the same three names against
+// SDL_GetModState; these agree with it now instead of racing it, and the
+// duplicate Is*KeyDown bindings that used to live here are gone with them.
+static bool shiftHeld() { return (SDL_GetModState() & KMOD_SHIFT) != 0; }
+static bool ctrlHeld()  { return (SDL_GetModState() & KMOD_CTRL)  != 0; }
+static bool altHeld()   { return (SDL_GetModState() & KMOD_ALT)   != 0; }
+
 
 // IsModifiedClick(action) → boolean
 // Checks if a modifier key combo matches a named click action.
@@ -602,18 +600,25 @@ static int lua_IsModifiedClick(lua_State* L) {
     const char* action = luaL_optstring(L, 1, "");
     std::string act(action);
     for (char& c : act) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-    const auto& io = ImGui::GetIO();
     bool result = false;
-    if (act == "CHATLINK" || act == "SPLITSTACK")
-        result = io.KeyShift;
+    if (act.empty()) {
+        // No action named means "is this click modified at all", which is how
+        // the paperdoll and the bags branch: IsModifiedClick() picks between
+        // OnModifiedClick and the plain OnClick. Answering with shift alone
+        // sent every ctrl-click down the plain path, so ctrl-clicking a worn
+        // item picked it up instead of putting it in the dressing room.
+        result = shiftHeld() || ctrlHeld() || altHeld();
+    }
+    else if (act == "CHATLINK" || act == "SPLITSTACK")
+        result = shiftHeld();
     else if (act == "DRESSUP" || act == "COMPAREITEMS")
-        result = io.KeyCtrl;
+        result = ctrlHeld();
     else if (act == "SELFCAST" || act == "FOCUSCAST")
-        result = io.KeyAlt;
+        result = altHeld();
     else if (act == "STICKYCAMERA")
-        result = io.KeyCtrl;
+        result = ctrlHeld();
     else
-        result = io.KeyShift; // Default: shift for unknown actions
+        result = shiftHeld(); // Default: shift for unknown actions
     lua_pushboolean(L, result ? 1 : 0);
     return 1;
 }
@@ -726,9 +731,6 @@ void registerActionLuaAPI(lua_State* L) {
                 {"CursorHasSpell",      lua_CursorHasSpell},
                 {"DeleteCursorItem",    lua_DeleteCursorItem},
                 {"AutoEquipCursorItem", lua_AutoEquipCursorItem},
-                {"IsShiftKeyDown",      lua_IsShiftKeyDown},
-                {"IsControlKeyDown",    lua_IsControlKeyDown},
-                {"IsAltKeyDown",        lua_IsAltKeyDown},
                 {"IsModifiedClick",     lua_IsModifiedClick},
                 {"GetModifiedClick",    lua_GetModifiedClick},
                 {"SetModifiedClick",    lua_SetModifiedClick},

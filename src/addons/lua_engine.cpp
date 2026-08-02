@@ -143,6 +143,38 @@ static int lua_Frame_UnregisterEvent(lua_State* L) {
         lua_setfield(L, -2, eventName);
     }
     lua_pop(L, 1);
+
+    // And from the global list dispatch actually reads. Clearing only the
+    // frame's own table left the registration in __WoweeFrameEvents, so a
+    // frame went on being handed events it had asked to stop receiving —
+    // which is not a missed refresh but an error, because the handler runs in
+    // a state its own OnHide has already torn down. The paperdoll's equipment
+    // flyout unregisters and nils self.button together, then indexed that nil
+    // on the next inventory change.
+    lua_getglobal(L, "__WoweeFrameEvents");
+    if (lua_istable(L, -1)) {
+        lua_getfield(L, -1, eventName);
+        if (lua_istable(L, -1)) {
+            const int listeners = lua_objlen(L, -1);
+            // Walk backwards so a removal cannot skip the next entry.
+            for (int i = listeners; i >= 1; --i) {
+                lua_rawgeti(L, -1, i);
+                const bool isSelf = lua_rawequal(L, -1, 1);
+                lua_pop(L, 1);
+                if (!isSelf) continue;
+                // table.remove semantics: shift the tail down one.
+                for (int j = i; j < listeners; ++j) {
+                    lua_rawgeti(L, -1, j + 1);
+                    lua_rawseti(L, -2, j);
+                }
+                lua_pushnil(L);
+                lua_rawseti(L, -2, listeners);
+                break;
+            }
+        }
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
     return 0;
 }
 
@@ -4776,7 +4808,16 @@ void LuaEngine::runInterfaceProbe() {
         "      ' unit=' .. tostring(TargetFrame and TargetFrame.unit) ..\n"
         "      ' | player auras=' .. auras ..\n"
         "      ' | XP=' .. tostring(UnitXP('player')) .. '/' .. tostring(UnitXPMax('player')) ..\n"
-        "      ' | bag0 slots=' .. tostring(GetContainerNumSlots(0)))\n");
+        "      ' | bag0 slots=' .. tostring(GetContainerNumSlots(0)))\n"
+        // The player frame's top-left icon comes from these three, and which
+        // one is answering wrongly is not visible from the widget tree: the
+        // texture is set from Lua, so an icon that should not be there looks
+        // exactly like one that should.
+        "__WoweeWarn('[fxcheck] pvp=' .. yn(UnitIsPVP('player')) ..\n"
+        "      ' ffa=' .. yn(UnitIsPVPFreeForAll('player')) ..\n"
+        "      ' faction=' .. tostring(UnitFactionGroup('player')) ..\n"
+        "      ' | PlayerPVPIcon shown=' ..\n"
+        "      yn(PlayerPVPIcon and PlayerPVPIcon:IsShown()))\n");
     if (!ok) LOG_WARNING("interface probe did not run: ", lastError());
 }
 

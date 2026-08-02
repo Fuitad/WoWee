@@ -659,3 +659,35 @@ TEST_CASE("A $parent name on an unnamed owner is no name at all",
     REQUIRE(has(r.lua, "or nil)"));
     REQUIRE_FALSE(has(r.lua, "or \"\") .. \"Portrait\""));
 }
+
+TEST_CASE("A frame with hover handlers takes the mouse without saying so",
+          "[framexml][emit]") {
+    // Blizzard's StatFrameTemplate carries OnEnter and OnLeave and no
+    // enableMouse, and the character sheet's stat tooltips depend on it.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Stat\">"
+        "<Scripts><OnEnter>Tip(self)</OnEnter><OnLeave>Hide()</OnLeave></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "EnableMouse(true)"));
+}
+
+TEST_CASE("An explicit enableMouse=false is not overridden by a hover handler",
+          "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Quiet\" enableMouse=\"false\">"
+        "<Scripts><OnEnter>Tip(self)</OnEnter></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "EnableMouse(false)"));
+    REQUIRE_FALSE(has(r.lua, "EnableMouse(true)"));
+}
+
+TEST_CASE("A frame with no hover handlers is left alone", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Plain\">"
+        "<Scripts><OnShow>Nothing()</OnShow></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(has(r.lua, "EnableMouse"));
+}
