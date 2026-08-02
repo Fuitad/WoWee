@@ -1557,6 +1557,7 @@ void EntityController::updateItemOnValuesUpdate(const UpdateBlock& block,
         for (int bag = 0; bag <= 4; ++bag) {
             pendingEvents_.emit("BAG_UPDATE", {std::to_string(bag)});
         }
+        LOG_WARNING("BAG_UPDATE fired for bags 0-4 (inventory fields changed)");
         pendingEvents_.emit("UNIT_INVENTORY_CHANGED", {"player"});
     }
 }

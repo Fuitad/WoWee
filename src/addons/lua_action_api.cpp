@@ -529,6 +529,25 @@ static int lua_PickupInventoryItem(lua_State* L) {
         s_cursorId = eq.item.itemId;
         s_cursorSlot = slot;
         s_cursorBag = -1;
+        // The same three things a container pickup does, which this had none
+        // of: remember where it came from, put its icon on the pointer, and say
+        // the slot is locked. Without them dragging off the character sheet
+        // carried nothing visible and left the slot looking untouched.
+        cursorItemSlot() = {-1, slot, true};
+        uint32_t displayId = eq.item.displayInfoId;
+        if (displayId == 0) {
+            if (const auto* info = gh->getItemInfo(eq.item.itemId)) {
+                displayId = info->displayInfoId;
+            }
+        }
+        wowee::ui::frameXmlSetCursorItem(
+            displayId ? gh->getItemIconPath(displayId) : std::string());
+        gh->fireAddonEvent("ITEM_LOCK_CHANGED", {"-1", std::to_string(slot)});
+        LOG_WARNING("FrameXML pickup: equipment slot ", slot,
+                    " item ", eq.item.itemId);
+    } else {
+        LOG_WARNING("FrameXML pickup: equipment slot ", slot,
+                    " — nothing equipped there");
     }
     return 0;
 }

@@ -1611,6 +1611,7 @@ void InventoryHandler::fireBagUpdates() {
     // without always knowing which bag it was, and an interface that redraws a
     // bag it did not need to is cheaper than one that never redraws at all.
     for (int bag = 0; bag <= 4; ++bag) fire("BAG_UPDATE", {std::to_string(bag)});
+    LOG_WARNING("BAG_UPDATE fired for bags 0-4");
 }
 
 void InventoryHandler::swapContainerItems(uint8_t srcBag, uint8_t srcSlot, uint8_t dstBag, uint8_t dstSlot) {
