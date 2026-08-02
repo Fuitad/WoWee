@@ -896,7 +896,19 @@ int lua_Tooltip_SetOwner(lua_State* L) {
 
     const uint32_t owner = lua_istable(L, 2) ? widgetIdOf(L, 2) : 0;
     const std::string anchor = luaL_optstring(L, 3, "ANCHOR_RIGHT");
-    if (owner == 0 || anchor == "ANCHOR_NONE" || anchor == "ANCHOR_PRESERVE") return 0;
+    // ANCHOR_PRESERVE is the one that means what it says: keep the anchors.
+    if (anchor == "ANCHOR_PRESERVE") return 0;
+    if (owner == 0 || anchor == "ANCHOR_NONE") {
+        // ANCHOR_NONE means the caller places the tooltip itself, and the call
+        // that follows is a SetPoint — which is how GameTooltip_SetDefaultAnchor
+        // pins an action button's tooltip to the bottom-right of the screen.
+        // Returning without clearing left the anchor from the previous owner in
+        // place, and SetPoint only replaces an anchor on the same point: a LEFT
+        // anchor to the last button and a BOTTOMRIGHT anchor to UIParent both
+        // applied, pulling the tooltip down onto the action bar it came from.
+        tree->clearPoints(id);
+        return 0;
+    }
 
     struct Pair { const char* name; const char* point; const char* rel; };
     static const Pair kAnchors[] = {
@@ -966,7 +978,8 @@ int lua_Tooltip_SetAction(lua_State* L) {
     std::string name, body;
     if (action.type == game::ActionBarSlot::SPELL) {
         name = gh->getSpellName(action.id);
-        body = gh->getSpellDescription(action.id);
+        body = gh->formatSpellDescription(action.id,
+                                          gh->getSpellDescription(action.id));
     } else if (action.type == game::ActionBarSlot::ITEM) {
         if (const auto* info = gh->getItemInfo(action.id)) name = info->name;
     }
@@ -1009,7 +1022,12 @@ int lua_Tooltip_SetSpellByID(lua_State* L) {
     title.lc[0] = 1.0f; title.lc[1] = 0.82f; title.lc[2] = 0.0f; title.lc[3] = 1.0f;
     title.rc[0] = title.rc[1] = title.rc[2] = title.rc[3] = 1.0f;
     w->tooltipLines.push_back(std::move(title));
-    const std::string& body = gh->getSpellDescription(id);
+    // Through the formatter, not raw: a description arrives as a template full
+    // of $-tokens — "$o1 Shadow damage over $d" — and the spellbook, the talent
+    // tree and item tooltips have always resolved them here. These two tooltip
+    // paths did not, so an action button showed the template itself.
+    const std::string body =
+        gh->formatSpellDescription(id, gh->getSpellDescription(id));
     if (!body.empty()) {
         wowee::ui::Widget::TooltipLine desc;
         desc.left = body;

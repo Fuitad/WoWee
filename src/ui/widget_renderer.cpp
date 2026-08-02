@@ -662,7 +662,13 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 }
                 const Widget* w = tree.findByName(name);
                 if (!w) {
-                    LOG_WARNING("  ", name, " — NOT BUILT");
+                    // Distinguished so the line does not read as a failure: an
+                    // aura button that does not exist yet is the normal state
+                    // for a character carrying no auras.
+                    LOG_WARNING("  ", name,
+                                frameXmlBuiltOnDemand(name)
+                                    ? " — not built yet (created when needed)"
+                                    : " — NOT BUILT");
                     continue;
                 }
                 const bool offscreen = (w->left * s > screenW) ||

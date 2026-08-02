@@ -188,6 +188,14 @@ bool frameXmlTakeProbeRequest() {
     return gProbeRequested.exchange(false, std::memory_order_relaxed);
 }
 
+bool frameXmlBuiltOnDemand(std::string_view frameName) {
+    // Aura buttons, and nothing else so far. The buff frame holds up to 32 of
+    // them and creates each the first time an aura needs it, so on a character
+    // with no buffs none of them exist and that is the correct state.
+    return frameName.rfind("BuffButton", 0) == 0 ||
+           frameName.rfind("DebuffButton", 0) == 0;
+}
+
 std::vector<std::string> frameXmlCandidateFrames() {
     // The elements this branch has not taken over yet, in the order they are
     // likely to go next. Named individually rather than derived from the check

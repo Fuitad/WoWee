@@ -122,6 +122,12 @@ static int lua_GetCVar(lua_State* L) {
         lua_pushstring(L, "1");
     }
     else if (n == "statusTextPercentage") lua_pushstring(L, "0");
+    // On, as a stock client has it. ActionButton_SetTooltip branches on this:
+    // with it off the tooltip is anchored to the right of the button itself, so
+    // an action bar tooltip appeared at the bottom of the screen across the
+    // icons. On, it goes through GameTooltip_SetDefaultAnchor to the
+    // bottom-right corner, clear of the bar, which is where WoW puts it.
+    else if (n == "UberTooltips") lua_pushstring(L, "1");
     // The social options panel branches on this and raises on anything it does
     // not recognise, so "0" — what an unknown CVar answers — took its whole
     // update down. "classic" is the stock setting.
