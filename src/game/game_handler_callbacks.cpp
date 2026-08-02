@@ -945,6 +945,11 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
             fireAddonEvent(what, {"player"});
         }
         fireAddonEvent("PLAYER_XP_UPDATE", {"player"});
+        // The durability warnings hide themselves when nothing is damaged, and
+        // this is the event that asks them to look. Without it the frame keeps
+        // the state its XML was written with, which is shown.
+        fireAddonEvent("UPDATE_INVENTORY_ALERTS", {});
+        fireAddonEvent("UPDATE_INVENTORY_DURABILITY", {});
     }
 }
 

@@ -50,6 +50,17 @@ static int lua_GetMoney(lua_State* L) {
 
 // ── Bags ───────────────────────────────────────────────────────────────────
 
+/// GetInventoryAlertStatus(index) → 0 for undamaged, 1 low, 2 broken.
+///
+/// Durability is not tracked, and zero is what an undamaged character has —
+/// which is what makes DurabilityFrame hide itself. Left to the fallback it
+/// returned nothing at all, and the frame stayed on screen showing damage
+/// warnings for gear that has none.
+static int lua_GetInventoryAlertStatus(lua_State* L) {
+    lua_pushnumber(L, 0);
+    return 1;
+}
+
 /// GetContainerItemCooldown(bag, slot) → start, duration, enabled. Item
 /// cooldowns are not tracked, and all zero is "nothing running" — which is
 /// what ContainerFrame checks before doing arithmetic with the first two.
@@ -914,6 +925,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetMerchantItemLink",  lua_GetMerchantItemLink},
                 {"CanMerchantRepair",    lua_CanMerchantRepair},
                 {"GetContainerItemCooldown",  lua_GetContainerItemCooldown},
+                {"GetInventoryAlertStatus",   lua_GetInventoryAlertStatus},
                 {"GetContainerItemQuestInfo", lua_GetContainerItemQuestInfo},
                 {"KeyRingButtonIDToInvSlotID", lua_KeyRingButtonIDToInvSlotID},
                 {"SetPortraitToTexture",  lua_SetPortraitToTexture},
