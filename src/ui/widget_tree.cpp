@@ -129,7 +129,24 @@ void WidgetTree::clearPoints(uint32_t id) {
 }
 
 void WidgetTree::addPoint(uint32_t id, const Anchor& anchor) {
-    if (Widget* w = get(id)) w->anchors.push_back(anchor);
+    Widget* w = get(id);
+    if (!w) return;
+    // One anchor per point: setting a point that is already set replaces it
+    // rather than adding a second. FrameXML depends on this, because it
+    // repositions frames with a bare SetPoint and no ClearAllPoints —
+    // UIParentManageFramePositions moves the durability frame with
+    // SetPoint("TOPRIGHT", ...), expecting it to displace the TOPRIGHT the XML
+    // declared. Keeping both left two constraints on the same edge, which is
+    // not a solvable system; the first won, and every frame Blizzard
+    // repositions this way stayed where its XML put it. The durability frame
+    // sat forty units past the right edge of the screen.
+    for (Anchor& existing : w->anchors) {
+        if (existing.point == anchor.point) {
+            existing = anchor;
+            return;
+        }
+    }
+    w->anchors.push_back(anchor);
 }
 
 void WidgetTree::setAllPoints(uint32_t id, uint32_t relativeTo) {

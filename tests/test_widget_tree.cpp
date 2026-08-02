@@ -1053,3 +1053,37 @@ TEST_CASE("A frame with no anchor points is not displayed", "[widget][layout]") 
     REQUIRE(tree.get(art)->visible);
     REQUIRE(tree.get(art)->rectW == Catch::Approx(285.0f));
 }
+
+TEST_CASE("Setting a point that is already set replaces it", "[widget][layout]") {
+    // FrameXML repositions frames with a bare SetPoint and no ClearAllPoints,
+    // and relies on the second call displacing the first. The durability frame
+    // is the case that showed it: the XML anchors it forty units right of the
+    // minimap's bottom-right corner, and UIParentManageFramePositions then
+    // anchors the same TOPRIGHT point back inside the screen. Keeping both left
+    // two constraints on one edge, the first won, and the frame stayed forty
+    // units past the right edge of the screen.
+    WidgetTree tree;
+    const uint32_t cluster = tree.create(WidgetKind::Frame, tree.root(), "Cluster");
+    tree.get(cluster)->width = 192.0f;
+    tree.get(cluster)->height = 192.0f;
+    tree.addPoint(cluster, Anchor{"TOPRIGHT", 0, "TOPRIGHT", 0.0f, 0.0f});
+
+    const uint32_t dur = tree.create(WidgetKind::Frame, tree.root(), "Durability");
+    tree.get(dur)->width = 60.0f;
+    tree.get(dur)->height = 65.0f;
+    tree.addPoint(dur, Anchor{"TOPRIGHT", cluster, "BOTTOMRIGHT", 40.0f, 15.0f});
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(dur)->anchors.size() == 1u);
+    REQUIRE(tree.get(dur)->left + tree.get(dur)->rectW == Catch::Approx(1064.0f));
+
+    // The reposition, with the same point named again.
+    tree.addPoint(dur, Anchor{"TOPRIGHT", cluster, "BOTTOMRIGHT", -20.0f, 15.0f});
+    tree.layout(1024.0f, 768.0f);
+    REQUIRE(tree.get(dur)->anchors.size() == 1u);
+    REQUIRE(tree.get(dur)->left + tree.get(dur)->rectW == Catch::Approx(1004.0f));
+
+    // A different point still adds, because that is how a frame gets sized from
+    // two opposing corners.
+    tree.addPoint(dur, Anchor{"BOTTOMLEFT", cluster, "BOTTOMLEFT", 0.0f, 0.0f});
+    REQUIRE(tree.get(dur)->anchors.size() == 2u);
+}

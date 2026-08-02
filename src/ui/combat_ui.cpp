@@ -6,6 +6,7 @@
 // ============================================================
 #include "ui/combat_ui.hpp"
 #include "ui/buff_bar_layout.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "ui/settings_panel.hpp"
 #include "ui/spellbook_screen.hpp"
 #include "ui/inventory_screen.hpp"
@@ -914,8 +915,13 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
     ImVec2 displaySize = ImGui::GetIO().DisplaySize;
     const float screenW = displaySize.x > 0.0f ? displaySize.x : 1280.0f;
     const float screenH = displaySize.y > 0.0f ? displaySize.y : 720.0f;
+    // Which minimap the row has to stop short of: this client's, or the larger
+    // one FrameXML draws in the same corner.
+    const float minimapWidth = minimapReservedWidth(
+        screenH, frameXmlOwns(UiElement::Minimap));
     const BuffBarLayout layout = computeBuffBarLayout(
-        screenW, screenH, settings.pendingBuffBarScale, activeCount, enchantCount);
+        screenW, screenH, settings.pendingBuffBarScale, activeCount, enchantCount,
+        minimapWidth);
 
     const float uiScale = buffBarScale(screenH, settings.pendingBuffBarScale);
     const float ICON_SIZE = layout.iconSize;
