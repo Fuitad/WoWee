@@ -521,13 +521,46 @@ static int lua_wipe(lua_State* L) {
 }
 
 // date(format) — safe date function (os.date was removed)
+/// date(format, time) — the clock, as WoW exposes it.
+///
+/// Both shapes FrameXML uses: "*t" for a table of parts, a strftime string
+/// otherwise, and an optional timestamp. Formatting "*t" as a strftime string
+/// yields the literal "*t", which is what BetterDate then indexed for an hour.
 static int lua_wow_date(lua_State* L) {
     const char* fmt = luaL_optstring(L, 1, "%c");
-    time_t now = time(nullptr);
-    struct tm* tm = localtime(&now);
-    char buf[256];
-    strftime(buf, sizeof(buf), fmt, tm);
-    lua_pushstring(L, buf);
+    const std::time_t when = lua_isnumber(L, 2)
+        ? static_cast<std::time_t>(lua_tonumber(L, 2))
+        : std::time(nullptr);
+
+    std::tm parts{};
+#ifdef _WIN32
+    localtime_s(&parts, &when);
+#else
+    localtime_r(&when, &parts);
+#endif
+
+    if (std::strcmp(fmt, "*t") == 0 || std::strcmp(fmt, "!*t") == 0) {
+        lua_newtable(L);
+        auto set = [&](const char* key, int value) {
+            lua_pushinteger(L, value);
+            lua_setfield(L, -2, key);
+        };
+        set("year", parts.tm_year + 1900);
+        set("month", parts.tm_mon + 1);
+        set("day", parts.tm_mday);
+        set("hour", parts.tm_hour);
+        set("min", parts.tm_min);
+        set("sec", parts.tm_sec);
+        set("wday", parts.tm_wday + 1);
+        set("yday", parts.tm_yday + 1);
+        lua_pushboolean(L, parts.tm_isdst > 0);
+        lua_setfield(L, -2, "isdst");
+        return 1;
+    }
+
+    char out[256];
+    const size_t n = std::strftime(out, sizeof(out), fmt, &parts);
+    lua_pushlstring(L, out, n);
     return 1;
 }
 
