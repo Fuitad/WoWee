@@ -2849,7 +2849,21 @@ void Application::render() {
     // coexist. This is the whole point of the widget tree: an addon that calls
     // CreateTexture now puts something on the screen instead of talking to a
     // table of no-ops.
-    if (addonManager_ && addonManager_->getLuaEngine() && renderer) {
+    //
+    // FrameXML is a different matter. Loading it builds a hundred of Blizzard's
+    // own frames at once, most of them half-supported, and putting all of them
+    // on screen buries the interface this client actually draws. So when it has
+    // been loaded, its frames are shown only for the elements someone named in
+    // WOWEE_FRAMEXML_UI; a run that loads it to exercise the parser gets the
+    // client's own interface, in the game's typefaces, and nothing else.
+    static const bool drawWidgets = [] {
+        const auto set = [](const char* n) {
+            const char* v = std::getenv(n);
+            return v && *v && std::string(v) != "0";
+        };
+        return !set("WOWEE_LOAD_FRAMEXML") || set("WOWEE_FRAMEXML_UI");
+    }();
+    if (drawWidgets && addonManager_ && addonManager_->getLuaEngine() && renderer) {
         runRenderStage("addonWidgets", [&] {
             const ImGuiIO& io = ImGui::GetIO();
             auto* engine = addonManager_->getLuaEngine();
