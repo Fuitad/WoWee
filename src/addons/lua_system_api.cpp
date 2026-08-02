@@ -350,6 +350,28 @@ static int lua_GetNumMapLandmarks(lua_State* L) {
     return 1;
 }
 
+/// GetTrackingTexture() → the icon for what the minimap is tracking, or nil.
+///
+/// Nothing is tracked here: tracking is a spell effect this client does not
+/// model, and GetNumTrackingTypes already answers none. Said explicitly
+/// because the missing-API fallback answers with an object, and an object is
+/// not nil — MiniMapTrackingIcon:SetTexture(GetTrackingTexture()) would then
+/// be handed a table where a path belongs and the button would show the
+/// tracking icon for a tracking type that does not exist.
+static int lua_GetTrackingTexture(lua_State* L) {
+    lua_pushnil(L);
+    return 1;
+}
+
+/// GetTrackingInfo(index) → name, texture, active, category. There are no
+/// tracking types, so there is no index that answers — but the dropdown asks
+/// before it counts on some paths.
+static int lua_GetTrackingInfo(lua_State* L) {
+    (void)L;
+    return 0;
+}
+static int lua_SetTracking(lua_State* L) { (void)L; return 0; }
+
 
 static int lua_GetGameTime(lua_State* L) {
     // Returns server game time as hours, minutes
@@ -880,6 +902,9 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetMapContinents",    lua_GetMapContinents},
                 {"GetMapZones",         lua_GetMapZones},
                 {"GetNumMapLandmarks",  lua_GetNumMapLandmarks},
+                {"GetTrackingTexture",  lua_GetTrackingTexture},
+                {"GetTrackingInfo",     lua_GetTrackingInfo},
+                {"SetTracking",         lua_SetTracking},
                 {"GetZoneText",          lua_GetZoneText},
                 {"GetRealZoneText",      lua_GetZoneText},
                 {"GetSubZoneText",       lua_GetSubZoneText},
