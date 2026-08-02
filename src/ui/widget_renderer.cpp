@@ -283,20 +283,35 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         if (!v || !*v) return 0;
         return std::atoi(v);
     }();
+    // Not on the first frame. Textures upload a few per frame, so a dump taken
+    // immediately reports nothing resident and says only that the load had not
+    // finished — which is true and useless. A couple of seconds in, what is
+    // missing is missing for a reason.
+    static int framesSeen = 0;
     static bool dumped = false;
-    if (dumpWidgets && !dumped) {
+    ++framesSeen;
+    if (dumpWidgets && !dumped && framesSeen > 180) {
         dumped = true;
         // The screen it was laid out against, because a coordinate means
         // nothing without it: 1920 is the middle of one display and off
         // the edge of another.
         LOG_WARNING("WidgetDump: ", order.size(), " widgets drawn on ",
                     screenW, "x", screenH, " px, ", screenW / s, "x",
-                    screenH / s, " units (scale ", s, ")");
+                    screenH / s, " units (scale ", s, "), ",
+                    textures_.size(), " textures resident");
         for (const Widget* w : order) {
             LOG_WARNING("  ", (w->name.empty() ? "(unnamed)" : w->name),
                         " kind=", static_cast<int>(w->kind),
                         " rect=(", w->left, ",", w->bottom, " ", w->rectW, "x", w->rectH, ")",
                         " alpha=", w->alpha,
+                        // Whether its art has actually reached the GPU. A
+                        // texture with a correct rect and nothing uploaded
+                        // draws nothing at all, and looks identical in a list
+                        // of what was "drawn" to one that worked.
+                        (w->kind == WidgetKind::Texture && !w->solidColor
+                             ? (resident(w->texturePath) == kMissing ? " NOTRESIDENT" : "")
+                             : ""),
+                        (w->texturePath.empty() ? "" : " tex="), w->texturePath,
                         (w->text.empty() ? "" : " text='"), w->text,
                         (w->text.empty() ? "" : "'"));
         }
