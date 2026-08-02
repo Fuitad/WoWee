@@ -68,6 +68,37 @@ namespace SplineFlag {
     constexpr uint32_t UNCOMPRESSED_MASK_TBC = CATMULLROM | 0x00002000;
 } // namespace SplineFlag
 
+// WotLK moved every one of these down a bit.
+//
+// The values above are the pre-WotLK SplineFlags the vanilla and TBC clients
+// use, and they were being applied to 3.3.5 as well — where the enum is
+// MoveSplineFlag and Final_Point is 0x8000, not 0x10000. Every value from
+// Final_Point up is therefore off by one position, which is not a cosmetic
+// naming problem: the facing that follows the flags is a float for an angle,
+// eight bytes for a target guid and twelve for a point, so reading the wrong
+// one leaves the rest of the movement block shifted and the whole object
+// update is dropped. Reading 0x10000 as Final_Point took twelve bytes where
+// the server had written eight.
+namespace SplineFlagWotlk {
+    constexpr uint32_t DONE            = 0x00000100;
+    constexpr uint32_t FALLING         = 0x00000200;
+    constexpr uint32_t NO_SPLINE       = 0x00000400;
+    constexpr uint32_t PARABOLIC       = 0x00000800;
+    constexpr uint32_t WALKMODE        = 0x00001000;
+    constexpr uint32_t FLYING          = 0x00002000;
+    constexpr uint32_t ORIENT_FIXED    = 0x00004000;
+    constexpr uint32_t FINAL_POINT     = 0x00008000;
+    constexpr uint32_t FINAL_TARGET    = 0x00010000;
+    constexpr uint32_t FINAL_ANGLE     = 0x00020000;
+    constexpr uint32_t CATMULLROM      = 0x00040000;
+    constexpr uint32_t CYCLIC          = 0x00080000;
+    constexpr uint32_t ENTER_CYCLE     = 0x00100000;
+    constexpr uint32_t ANIMATION       = 0x00200000;
+    constexpr uint32_t FROZEN          = 0x00400000;
+
+    constexpr uint32_t UNCOMPRESSED_MASK = CATMULLROM | CYCLIC | ENTER_CYCLE;
+} // namespace SplineFlagWotlk
+
 [[nodiscard]] constexpr bool isPreWotlkSplineWalking(uint32_t splineFlags) {
     return (splineFlags & SplineFlag::PRE_WOTLK_RUNMODE) == 0;
 }
@@ -82,12 +113,20 @@ namespace SplineFlag {
 /// `startPos` is the creature's current position (needed for packed-delta midpoint calculation).
 /// `splineFlags` is the already-read spline flags value.
 /// `useTbcUncompressedMask`: if true, use 0x00080000|0x00002000 for uncompressed check (TBC format).
+/// Which generation of spline flags the bytes were written with. WotLK moved
+/// every value from Final_Point up by one bit position, and two of the
+/// decisions this parser makes read those bits: whether an animation block
+/// follows, and whether waypoints are twelve bytes each or four. Getting it
+/// wrong is not a misreported flag, it is a misread packet.
+enum class SplineFlagSet { PreWotlk, Wotlk };
+
 [[nodiscard]] bool parseMonsterMoveSplineBody(
     network::Packet& packet,
     SplineBlockData& out,
     uint32_t splineFlags,
     const glm::vec3& startPos,
-    bool useTbcUncompressedMask = false);
+    bool useTbcUncompressedMask = false,
+    SplineFlagSet flagSet = SplineFlagSet::PreWotlk);
 
 /// Parse a MonsterMove spline body where waypoints are always compressed (Vanilla format).
 /// `startPos` is the creature's current position.

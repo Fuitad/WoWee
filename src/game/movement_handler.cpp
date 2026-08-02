@@ -1717,7 +1717,10 @@ void MovementHandler::handleMonsterMoveTransport(network::Packet& packet) {
     // Consolidated spline body parser
     SplineBlockData spline;
     if (!parseMonsterMoveSplineBody(packet, spline, splineFlags,
-                                    glm::vec3(localX, localY, localZ))) {
+                                    glm::vec3(localX, localY, localZ),
+                                    /*useTbcUncompressedMask=*/false,
+                                    isPreWotlk() ? SplineFlagSet::PreWotlk
+                                                 : SplineFlagSet::Wotlk)) {
         return;
     }
     uint32_t duration = spline.duration;

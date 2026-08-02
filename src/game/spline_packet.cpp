@@ -37,12 +37,16 @@ bool parseMonsterMoveSplineBody(
     SplineBlockData& out,
     uint32_t splineFlags,
     const glm::vec3& startPos,
-    bool useTbcUncompressedMask)
+    bool useTbcUncompressedMask,
+    SplineFlagSet flagSet)
 {
     out.splineFlags = splineFlags;
+    const bool wotlk = (flagSet == SplineFlagSet::Wotlk);
+    const uint32_t animationBit = wotlk ? SplineFlagWotlk::ANIMATION
+                                        : SplineFlag::ANIMATION;
 
-    // Animation (0x00400000): uint8 animType + uint32 animStartTime
-    if (splineFlags & SplineFlag::ANIMATION) {
+    // Animation: uint8 animType + uint32 animStartTime
+    if (splineFlags & animationBit) {
         if (!packet.hasRemaining(5)) return false;
         out.hasAnimation = true;
         out.animationType = packet.readUInt8();
@@ -70,7 +74,8 @@ bool parseMonsterMoveSplineBody(
     // Determine compressed vs uncompressed
     uint32_t uncompMask = useTbcUncompressedMask
         ? SplineFlag::UNCOMPRESSED_MASK_TBC
-        : SplineFlag::UNCOMPRESSED_MASK;
+        : (wotlk ? SplineFlagWotlk::UNCOMPRESSED_MASK
+                 : SplineFlag::UNCOMPRESSED_MASK);
     bool uncompressed = (splineFlags & uncompMask) != 0;
 
     if (uncompressed) {
@@ -236,17 +241,17 @@ bool parseWotlkMoveUpdateSpline(
     LOG_DEBUG("  Spline: flags=0x", std::hex, out.splineFlags, std::dec);
 
     // FINAL_POINT / FINAL_TARGET / FINAL_ANGLE
-    if (out.splineFlags & SplineFlag::FINAL_POINT) {
+    if (out.splineFlags & SplineFlagWotlk::FINAL_POINT) {
         if (!bytesAvailable(12)) return false;
         out.hasFinalPoint = true;
         out.finalPoint.x = packet.readFloat();
         out.finalPoint.y = packet.readFloat();
         out.finalPoint.z = packet.readFloat();
-    } else if (out.splineFlags & SplineFlag::FINAL_TARGET) {
+    } else if (out.splineFlags & SplineFlagWotlk::FINAL_TARGET) {
         if (!bytesAvailable(8)) return false;
         out.hasFinalTarget = true;
         out.finalTarget = packet.readUInt64();
-    } else if (out.splineFlags & SplineFlag::FINAL_ANGLE) {
+    } else if (out.splineFlags & SplineFlagWotlk::FINAL_ANGLE) {
         if (!bytesAvailable(4)) return false;
         out.hasFinalAngle = true;
         out.finalAngle = packet.readFloat();
@@ -359,7 +364,7 @@ bool parseWotlkMoveUpdateSpline(
         /*float durationMod =*/ packet.readFloat();
         /*float durationModNext =*/ packet.readFloat();
         bool wotlkOk = true;
-        if (out.splineFlags & SplineFlag::ANIMATION) {
+        if (out.splineFlags & SplineFlagWotlk::ANIMATION) {
             if (!bytesAvailable(5)) { wotlkOk = false; }
             else {
                 out.hasAnimation = true;
@@ -382,7 +387,7 @@ bool parseWotlkMoveUpdateSpline(
             // leaving unread node bytes before the next object block.
             splineParsed = tryParseSplinePoints(false, "wotlk-uncompressed");
             if (!splineParsed) {
-                bool useCompressed = (out.splineFlags & SplineFlag::UNCOMPRESSED_MASK) == 0;
+                bool useCompressed = (out.splineFlags & SplineFlagWotlk::UNCOMPRESSED_MASK) == 0;
                 splineParsed = tryParseSplinePoints(useCompressed, "wotlk-compressed-fallback");
             }
         }
@@ -392,7 +397,7 @@ bool parseWotlkMoveUpdateSpline(
     // but omit effectStartTime unless the spline is actually parabolic. Taxi
     // splines commonly use that layout. Treating the following pointCount as
     // effectStartTime shifts the path and rejects the whole player update.
-    if (!splineParsed && !(out.splineFlags & SplineFlag::PARABOLIC_MU)) {
+    if (!splineParsed && !(out.splineFlags & SplineFlagWotlk::PARABOLIC)) {
         packet.setReadPos(beforeSplineHeader);
         if (bytesAvailable(12)) {
             packet.readFloat(); // durationMod
@@ -400,7 +405,7 @@ bool parseWotlkMoveUpdateSpline(
             packet.readFloat(); // verticalAcceleration
             splineParsed = tryParseSplinePoints(false, "wotlk-vertical-no-effect-start");
             if (!splineParsed) {
-                bool useCompressed = (out.splineFlags & SplineFlag::UNCOMPRESSED_MASK) == 0;
+                bool useCompressed = (out.splineFlags & SplineFlagWotlk::UNCOMPRESSED_MASK) == 0;
                 splineParsed = tryParseSplinePoints(useCompressed,
                                                     "wotlk-vertical-no-effect-start-compressed");
             }
@@ -408,7 +413,7 @@ bool parseWotlkMoveUpdateSpline(
     }
 
     // Try 2: ANIMATION present but vertAccel+effectStart gated by PARABOLIC
-    if (!splineParsed && (out.splineFlags & SplineFlag::ANIMATION)) {
+    if (!splineParsed && (out.splineFlags & SplineFlagWotlk::ANIMATION)) {
         packet.setReadPos(beforeSplineHeader);
         out.hasAnimation = false; // Reset from failed try
         if (bytesAvailable(8)) {
@@ -421,12 +426,12 @@ bool parseWotlkMoveUpdateSpline(
                 out.animationType = packet.readUInt8();
                 out.animationStartTime = packet.readUInt32();
             }
-            if (ok && (out.splineFlags & SplineFlag::PARABOLIC_MU)) {
+            if (ok && (out.splineFlags & SplineFlagWotlk::PARABOLIC)) {
                 if (!bytesAvailable(8)) { ok = false; }
                 else { packet.readFloat(); packet.readUInt32(); }
             }
             if (ok) {
-                bool useCompressed = (out.splineFlags & SplineFlag::UNCOMPRESSED_MASK) == 0;
+                bool useCompressed = (out.splineFlags & SplineFlagWotlk::UNCOMPRESSED_MASK) == 0;
                 splineParsed = tryParseSplinePoints(useCompressed, "wotlk-anim-conditional");
                 if (!splineParsed) {
                     splineParsed = tryParseSplinePoints(false, "wotlk-anim-conditional-uncomp");
@@ -443,12 +448,12 @@ bool parseWotlkMoveUpdateSpline(
             packet.readFloat(); // durationMod
             packet.readFloat(); // durationModNext
             bool ok = true;
-            if (out.splineFlags & SplineFlag::PARABOLIC_MU) {
+            if (out.splineFlags & SplineFlagWotlk::PARABOLIC) {
                 if (!bytesAvailable(8)) { ok = false; }
                 else { packet.readFloat(); packet.readUInt32(); }
             }
             if (ok) {
-                bool useCompressed = (out.splineFlags & SplineFlag::UNCOMPRESSED_MASK) == 0;
+                bool useCompressed = (out.splineFlags & SplineFlagWotlk::UNCOMPRESSED_MASK) == 0;
                 splineParsed = tryParseSplinePoints(useCompressed, "wotlk-parabolic-gated");
                 if (!splineParsed) {
                     splineParsed = tryParseSplinePoints(false, "wotlk-parabolic-gated-uncomp");
@@ -465,7 +470,7 @@ bool parseWotlkMoveUpdateSpline(
             packet.readFloat(); // durationModNext
             splineParsed = tryParseSplinePoints(false, "wotlk-no-parabolic");
             if (!splineParsed) {
-                bool useComp = (out.splineFlags & SplineFlag::UNCOMPRESSED_MASK) == 0;
+                bool useComp = (out.splineFlags & SplineFlagWotlk::UNCOMPRESSED_MASK) == 0;
                 splineParsed = tryParseSplinePoints(useComp, "wotlk-no-parabolic-compressed");
             }
         }
@@ -477,7 +482,7 @@ bool parseWotlkMoveUpdateSpline(
         splineParsed = tryParseSplinePoints(false, "bare-uncompressed");
         if (!splineParsed) {
             packet.setReadPos(beforeSplineHeader);
-            bool useComp = (out.splineFlags & SplineFlag::UNCOMPRESSED_MASK) == 0;
+            bool useComp = (out.splineFlags & SplineFlagWotlk::UNCOMPRESSED_MASK) == 0;
             splineParsed = tryParseSplinePoints(useComp, "bare-compressed");
         }
     }
