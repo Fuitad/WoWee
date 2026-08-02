@@ -1,5 +1,6 @@
 // lua_system_api.cpp — System, time, sound, locale, map, addons, instances, and utilities Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include <cstring>
 #include <set>
 #include "addons/lua_api_helpers.hpp"
 #include "audio/audio_coordinator.hpp"
@@ -631,6 +632,33 @@ static int lua_IsModifierKeyDown(lua_State* L) {
     return 1;
 }
 
+/// Whether an addon is loaded. Real rather than false: the registry holds the
+/// addons that were enabled and loaded this session, and FrameXML asks before
+/// deciding whether a feature exists — answering no where the answer is yes
+/// hides an addon from the interface that is meant to work with it.
+static int lua_IsAddOnLoaded(lua_State* L) {
+    const char* wanted = lua_isstring(L, 1) ? lua_tostring(L, 1) : nullptr;
+    if (!wanted) { lua_pushboolean(L, 0); return 1; }
+
+    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_addon_info");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); lua_pushboolean(L, 0); return 1; }
+    const int count = static_cast<int>(lua_objlen(L, -1));
+    bool found = false;
+    for (int i = 1; i <= count && !found; ++i) {
+        lua_rawgeti(L, -1, i);
+        if (lua_istable(L, -1)) {
+            lua_getfield(L, -1, "name");
+            const char* name = lua_tostring(L, -1);
+            found = name && std::strcmp(name, wanted) == 0;
+            lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+    lua_pushboolean(L, found ? 1 : 0);
+    return 1;
+}
+
 static int lua_ReturnNoCooldown(lua_State* L) {
     lua_pushnumber(L, 0.0);
     lua_pushnumber(L, 0.0);
@@ -656,6 +684,18 @@ static int lua_UnitFactionGroup(lua_State* L) {
 void registerSystemLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"GetCVarDefault",           lua_GetCVar},
+                {"IsAddOnLoaded",            lua_IsAddOnLoaded},
+                {"HasCompletedAnyAchievement", lua_ReturnFalse},
+                {"TurnInGuildCharter",       lua_ReturnNothing},
+                // Nothing is being driven, so aiming it does nothing
+                // and there is nothing to climb out of.
+                {"VehicleAimUpStart",        lua_ReturnNothing},
+                {"VehicleAimUpStop",         lua_ReturnNothing},
+                {"VehicleAimDownStart",      lua_ReturnNothing},
+                {"VehicleAimDownStop",       lua_ReturnNothing},
+                {"VehicleExit",              lua_ReturnNothing},
+                {"VehicleAimGetNormAngle",   lua_ReturnZero},
+                {"VehicleAimGetNormPower",   lua_ReturnZero},
                 {"GetMapInfo",               lua_GetMapInfo},
                 {"GetExpansionLevel",        lua_GetExpansionLevel},
                 {"GetDungeonDifficulty",     lua_ReturnOne},
