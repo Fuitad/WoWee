@@ -88,6 +88,20 @@ public:
     /// frame hides everything under it and none of those were told.
     void updateVisibility();
 
+    /// Says once, a little after loading, how many frames are listening for
+    /// the events a unit frame lives on.
+    ///
+    /// A bar that never moves has two possible causes and they need opposite
+    /// fixes: the event is not arriving, or nothing registered for it. This
+    /// separates them without anyone having to ask for a trace first, because
+    /// the question comes up every time and the answer is one number.
+    void reportEventListenersOnce();
+
+private:
+    bool eventListenersReported_ = false;
+    int  eventReportFrames_ = 0;
+public:
+
     /// Typed text, one UTF-8 chunk as the platform reports it.
     void dispatchText(const char* utf8);
     /// A key that is not text: backspace, the arrows, enter, escape.

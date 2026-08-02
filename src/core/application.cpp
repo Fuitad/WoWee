@@ -3060,6 +3060,7 @@ void Application::render() {
             // announced. Visibility first, because a panel's OnShow is what
             // fills it in and the size of what it filled is what the range is
             // then measured from.
+            engine->reportEventListenersOnce();
             engine->updateVisibility();
             engine->updateScrollRanges();
 

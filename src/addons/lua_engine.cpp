@@ -3706,6 +3706,32 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
     }
 }
 
+void LuaEngine::reportEventListenersOnce() {
+    if (!L_ || eventListenersReported_) return;
+    if (++eventReportFrames_ < 150) return;
+    eventListenersReported_ = true;
+
+    lua_getglobal(L_, "__WoweeFrameEvents");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
+    static const char* kWatched[] = {
+        "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_MANA", "UNIT_MAXMANA",
+        "UNIT_RAGE", "UNIT_ENERGY", "UNIT_DISPLAYPOWER", "PLAYER_ENTERING_WORLD",
+    };
+    std::string line;
+    for (const char* name : kWatched) {
+        lua_getfield(L_, -1, name);
+        const int n = lua_istable(L_, -1)
+            ? static_cast<int>(lua_objlen(L_, -1)) : 0;
+        lua_pop(L_, 1);
+        line += name;
+        line += '=';
+        line += std::to_string(n);
+        line += ' ';
+    }
+    lua_pop(L_, 1);
+    LOG_WARNING("Event listeners: ", line);
+}
+
 void LuaEngine::updateVisibility() {
     if (!L_) return;
     // By index and re-fetched each time: a handler is free to create frames,
