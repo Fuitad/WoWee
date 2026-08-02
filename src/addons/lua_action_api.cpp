@@ -440,6 +440,12 @@ static int lua_PickupContainerItem(lua_State* L) {
             dstBag = static_cast<uint8_t>(19 + bag - 1);
             dstSlot = static_cast<uint8_t>(slot - 1);
         }
+        // At warning level because it is the outcome of a drag and happens
+        // once per drop, and because the log carries nothing below warning —
+        // which is why "did the move go out" could not be answered at all.
+        LOG_WARNING("FrameXML drop: bag ", s_cursorBag, " slot ", s_cursorSlot,
+                    " (wire ", (int)srcBag, "/", (int)srcSlot, ") -> bag ", bag,
+                    " slot ", slot, " (wire ", (int)dstBag, "/", (int)dstSlot, ")");
         gh->swapContainerItems(srcBag, srcSlot, dstBag, dstSlot);
         clearCursorItem();
         return 0;
@@ -460,6 +466,11 @@ static int lua_PickupContainerItem(lua_State* L) {
         s_cursorId = itemSlot->item.itemId;
         s_cursorBag = bag;
         s_cursorSlot = slot;
+        LOG_WARNING("FrameXML pickup: bag ", bag, " slot ", slot,
+                    " item ", itemSlot->item.itemId);
+    } else {
+        LOG_WARNING("FrameXML pickup: bag ", bag, " slot ", slot,
+                    " — nothing there to pick up");
     }
     return 0;
 }
