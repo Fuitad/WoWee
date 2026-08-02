@@ -3359,9 +3359,12 @@ void LuaEngine::installMissingApiFallback() {
     // real gaps are closing it is worth being able to ask what it is still
     // buying, which needs a way to turn it off with FrameXML on.
     const char* explicitSetting = std::getenv("WOWEE_LUA_API_FALLBACK");
+    const char* loadSetting = std::getenv("WOWEE_LOAD_FRAMEXML");
+    const bool frameXmlOn = loadSetting ? (std::string(loadSetting) != "0") : true;
     const bool enabled = (explicitSetting && *explicitSetting)
                              ? std::string(explicitSetting) != "0"
-                             : isSet("WOWEE_LOAD_FRAMEXML");
+                             : frameXmlOn;
+    (void)isSet;
     if (!enabled) return;
 
     lua_pushcfunction(L_, lua_RecordMissingApi);

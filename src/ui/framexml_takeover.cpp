@@ -42,7 +42,25 @@ const std::set<std::string>& requested() {
     static const std::set<std::string> names = [] {
         std::set<std::string> out;
         const char* raw = std::getenv("WOWEE_FRAMEXML_UI");
-        if (!raw || !*raw) return out;
+
+        // What this branch is working on, handed over without being asked.
+        //
+        // Every one of these has been seen drawing correctly: the player frame
+        // with its art, portrait and bars; the minimap with the real map
+        // inside its ring; the character sheet with the model in it; the
+        // bottom bar. Requiring a flag to see them means every test run begins
+        // by remembering the flag, and a run without it silently tests the old
+        // interface instead. Naming any element in the environment replaces
+        // this list rather than adding to it, so a single element can still be
+        // looked at on its own.
+        if (!raw || !*raw) {
+            out = {"playerframe", "targetframe", "minimap",
+                   "mainmenubar", "characterframe"};
+            LOG_WARNING("FrameXML is drawing the branch defaults; "
+                        "set WOWEE_FRAMEXML_UI to choose, or 'none' for this "
+                        "client's own interface");
+            return out;
+        }
 
         std::string value(raw);
         size_t start = 0;
@@ -110,20 +128,19 @@ bool coveredByGroup(const std::string& name, UiElement element) {
 static bool frameXmlLoaded() {
     static const bool on = [] {
         const char* v = std::getenv("WOWEE_LOAD_FRAMEXML");
-        return v && *v && std::string(v) != "0";
+        return v ? (std::string(v) != "0") : true;
     }();
     return on;
 }
 
 bool frameXmlOwns(UiElement element) {
-    // The bottom of the screen is FrameXML's on this branch whenever FrameXML
-    // is loaded, without being asked for. It draws correctly, and keeping this
-    // client's own bar beside it only puts two of everything on screen while
-    // the replacement is being finished.
-    if (frameXmlLoaded() && coveredByGroup("mainmenubar", element)) return true;
+    // Nothing is owned if FrameXML was not loaded: hiding this client's own
+    // version of something and putting nothing in its place is worse than
+    // either interface on its own.
+    if (!frameXmlLoaded()) return false;
 
     const auto& names = requested();
-    if (names.empty()) return false;
+    if (names.empty() || names.count("none")) return false;
     if (names.count("all")) return true;
     if (names.count(std::string(uiElementName(element)))) return true;
     for (const std::string& n : names) {

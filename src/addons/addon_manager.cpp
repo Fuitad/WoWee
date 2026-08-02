@@ -163,13 +163,13 @@ void AddonManager::loadAllAddons() {
     // are written against a world where FrameXML has already defined its frames
     // and its several thousand functions.
     //
-    // Off by default and deliberately so: this is an experiment for now, it
-    // wants the missing-API fallback on beside it to get anywhere, and a
-    // half-loaded FrameXML on top of the client's own interface is not a state
-    // anyone wants to be in by accident.
+    // On by default on this branch, which exists to bring it up: the elements
+    // it has taken over are the ones being worked on, and needing a flag to
+    // see them means every test run starts by remembering the flag.
+    // WOWEE_LOAD_FRAMEXML=0 turns it off; master leaves it off unless asked.
     const char* wantFrameXml = std::getenv("WOWEE_LOAD_FRAMEXML");
-    if (wantFrameXml && *wantFrameXml && std::string(wantFrameXml) != "0" &&
-        !frameXmlDir_.empty()) {
+    const bool loadIt = wantFrameXml ? (std::string(wantFrameXml) != "0") : true;
+    if (loadIt && !frameXmlDir_.empty()) {
         loadFrameXml(frameXmlDir_);
     }
 
