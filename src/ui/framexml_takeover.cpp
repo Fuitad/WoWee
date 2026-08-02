@@ -143,7 +143,9 @@ std::vector<std::string> frameXmlCheckFrames() {
         {UiElement::WorldMap,     "WorldMapFrame WorldMapDetailFrame WorldMapButton "
                                   "WorldMapZoneMinimapDropDown"},
         {UiElement::CharacterFrame, "CharacterFrame PaperDollFrame CharacterModelFrame "
-                                    "CharacterNameText CharacterHeadSlot"},
+                                    "CharacterNameText CharacterHeadSlot "
+                                    "CharacterResistanceFrame CharacterAttributesFrame "
+                                    "MagicResFrame1 CharacterMainHandSlot"},
         {UiElement::Bags,         "ContainerFrame1 ContainerFrame1Item1 "
                                   "ContainerFrame1Name"},
         {UiElement::Spellbook,    "SpellBookFrame SpellButton1 SpellBookSkillLineTab1"},

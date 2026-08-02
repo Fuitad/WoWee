@@ -926,6 +926,25 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
         if (initialWorldEntry) {
             fireAddonEvent("PLAYER_LOGIN", {});
         }
+
+        // The player's own values, said again now.
+        //
+        // Every UNIT_ event this client sends is a change notice: it fires when
+        // an update block carries a different number. That is right for keeping
+        // a frame current and useless for filling one in, because a frame built
+        // before the player existed has missed every one of them and nothing
+        // will change health or level just because someone is looking. The
+        // original interface fills its unit frames on PLAYER_ENTERING_WORLD for
+        // exactly this reason, and it reads the current values rather than the
+        // event's — so the event alone is enough, and this is where it belongs.
+        for (const char* what : {"UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_LEVEL",
+                                 "UNIT_DISPLAYPOWER", "UNIT_MANA", "UNIT_MAXMANA",
+                                 "UNIT_RAGE", "UNIT_MAXRAGE", "UNIT_ENERGY",
+                                 "UNIT_MAXENERGY", "UNIT_FOCUS", "UNIT_MAXFOCUS",
+                                 "UNIT_NAME_UPDATE", "UNIT_FACTION"}) {
+            fireAddonEvent(what, {"player"});
+        }
+        fireAddonEvent("PLAYER_XP_UPDATE", {"player"});
     }
 }
 
