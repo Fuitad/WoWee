@@ -216,6 +216,12 @@ struct Emitter {
         // object, which is where its size and colour come from, but FrameXML
         // also declares virtual FontStrings. Asking which it is at runtime is
         // the only way to tell, and cheaper than deciding here.
+        // Declared opacity. SetAlpha is bound and the renderer multiplies every
+        // colour by it; only the XML attribute went unread, so a texture meant
+        // to sit at half strength drew solid.
+        if (const std::string* a = node.attr("alpha")) {
+            line(var + ":SetAlpha(" + *a + ")");
+        }
         if (const std::string* inh = node.attr("inherits"); inh && !inh->empty()) {
             if (isTexture) {
                 line("if __WoweeTemplates[" + quote(*inh) + "] then __WoweeTemplates[" +
@@ -594,6 +600,9 @@ struct Emitter {
                 if (wantsMouse) break;
             }
             if (wantsMouse) line(var + ":EnableMouse(true)");
+        }
+        if (const std::string* a = node.attr("alpha")) {
+            line(var + ":SetAlpha(" + *a + ")");
         }
         // <Backdrop> — the bordered panel look. The pieces are already there:
         // SetBackdrop parses the table, the widget carries the fields and the

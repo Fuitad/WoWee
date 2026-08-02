@@ -760,3 +760,13 @@ TEST_CASE("A frame with no Backdrop emits no SetBackdrop", "[framexml][emit]") {
     const EmitResult r = emitFrameXml(root);
     REQUIRE_FALSE(has(r.lua, "SetBackdrop"));
 }
+
+TEST_CASE("A declared alpha reaches SetAlpha", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Dim\" alpha=\"0.5\">"
+        "<Layers><Layer><Texture name=\"$parentTex\" alpha=\"0.25\"/></Layer></Layers>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetAlpha(0.5)"));
+    REQUIRE(has(r.lua, "SetAlpha(0.25)"));
+}
