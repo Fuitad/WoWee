@@ -3094,18 +3094,27 @@ void LuaEngine::registerCoreAPI() {
         "        self.__spellId = spellId\n"
         "    end\n"
         "end\n"
+        // Answers whether it filled anything, because the caller asks:
+        // ActionButton_SetTooltip is `if (GameTooltip:SetAction(self.action))`,
+        // and returning nothing sent every action button down its no-tooltip
+        // branch however much the tooltip itself could do.
         "function GameTooltip:SetAction(slot)\n"
         "    self:ClearLines()\n"
-        "    if not slot then return end\n"
+        "    if not slot then return false end\n"
         "    local actionType, id = GetActionInfo(slot)\n"
         "    if actionType == 'spell' and id and id > 0 then\n"
         "        self:SetSpellByID(id)\n"
+        "        return self:NumLines() > 0\n"
         "    elseif actionType == 'item' and id and id > 0 then\n"
         "        _WoweePopulateItemTooltip(self, id)\n"
+        "        return self:NumLines() > 0\n"
         "    end\n"
+        "    return false\n"
         "end\n"
         "function GameTooltip:FadeOut() end\n"
-        "function GameTooltip:SetFrameStrata(...) end\n"
+        // SetFrameStrata is a real binding; a no-op here would shadow it and
+        // leave the tooltip in whatever stratum it inherited, under the frames
+        // it is meant to sit above.
         "function GameTooltip:SetClampedToScreen(...) end\n"
         "function GameTooltip:IsOwned(f) return self.__owner == f end\n"
         // ShoppingTooltip: used by comparison tooltips
