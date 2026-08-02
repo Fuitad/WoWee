@@ -806,6 +806,78 @@ static int lua_UnitIsPlayer(lua_State* L) {
     return 1;
 }
 
+// Vehicles are not modelled at all, and the honest answer to every question
+// about one is no. It matters that these are real rather than left to the
+// fallback: PlayerFrame_UpdateStatus asks first thing, and a wrong yes swaps
+// the whole frame to vehicle art and hides the rest of it.
+static int lua_UnitHasVehicleUI(lua_State* L) {
+    (void)L;
+    return luaReturnFalse(L);
+}
+static int lua_UnitInVehicle(lua_State* L) { return luaReturnFalse(L); }
+static int lua_UnitControllingVehicle(lua_State* L) { return luaReturnFalse(L); }
+static int lua_UnitIsPossessed(lua_State* L) { return luaReturnFalse(L); }
+static int lua_UnitIsTalking(lua_State* L) { return luaReturnFalse(L); }
+static int lua_UnitInBattleground(lua_State* L) { return luaReturnNil(L); }
+
+/// True for a unit in the player's own group, and for its pet. The party
+/// frames use this to decide whether a unit is one of ours at all.
+static int lua_UnitPlayerOrPetInParty(lua_State* L) {
+    const char* uid = luaL_optstring(L, 1, "player");
+    auto* gh = getGameHandler(L);
+    if (!gh) { return luaReturnFalse(L); }
+    std::string uidStr(uid);
+    toLowerInPlace(uidStr);
+    // "partypet2" asks about party member 2's pet, and the answer is whatever
+    // holds for the member.
+    const size_t petPos = uidStr.find("pet");
+    if (petPos != std::string::npos) uidStr.erase(petPos, 3);
+    if (uidStr.empty() || uidStr == "player") {
+        lua_pushboolean(L, gh->isInGroup());
+        return 1;
+    }
+    uint64_t guid = resolveUnitGuid(gh, uidStr);
+    if (guid == 0) { return luaReturnFalse(L); }
+    const auto& pd = gh->getPartyData();
+    bool found = false;
+    for (const auto& m : pd.members) {
+        if (m.guid == guid) { found = true; break; }
+    }
+    lua_pushboolean(L, found);
+    return 1;
+}
+
+static int lua_UnitPlayerOrPetInRaid(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh || gh->getPartyData().groupType != 1) { return luaReturnFalse(L); }
+    return lua_UnitPlayerOrPetInParty(L);
+}
+
+/// Talent points, and the two the interface actually reads: unspent points and
+/// the total spent. The micro button flashes on the first.
+static int lua_UnitCharacterPoints(lua_State* L) {
+    const char* uid = luaL_optstring(L, 1, "player");
+    auto* gh = getGameHandler(L);
+    std::string uidStr(uid);
+    toLowerInPlace(uidStr);
+    if (!gh || uidStr != "player") { lua_pushinteger(L, 0); return 1; }
+    lua_pushinteger(L, static_cast<lua_Integer>(gh->getUnspentTalentPoints()));
+    return 1;
+}
+
+static int lua_PetHasActionBar(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushboolean(L, gh && gh->hasPet());
+    return 1;
+}
+static int lua_PetCanBeDismissed(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushboolean(L, gh && gh->hasPet());
+    return 1;
+}
+// Abandoning is a hunter's pet, and nothing here knows which kind it has yet.
+static int lua_PetCanBeAbandoned(lua_State* L) { return luaReturnFalse(L); }
+
 static int lua_InCombatLockdown(lua_State* L) {
     auto* gh = getGameHandler(L);
     lua_pushboolean(L, gh && gh->isInCombat());
@@ -1490,6 +1562,18 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetNumPartyMembers",  lua_GetNumPartyMembers},
                 {"UnitInParty",         lua_UnitInParty},
                 {"UnitInRaid",          lua_UnitInRaid},
+                {"UnitHasVehicleUI",    lua_UnitHasVehicleUI},
+                {"UnitInVehicle",       lua_UnitInVehicle},
+                {"UnitControllingVehicle", lua_UnitControllingVehicle},
+                {"UnitIsPossessed",     lua_UnitIsPossessed},
+                {"UnitIsTalking",       lua_UnitIsTalking},
+                {"UnitInBattleground",  lua_UnitInBattleground},
+                {"UnitPlayerOrPetInParty", lua_UnitPlayerOrPetInParty},
+                {"UnitPlayerOrPetInRaid",  lua_UnitPlayerOrPetInRaid},
+                {"UnitCharacterPoints", lua_UnitCharacterPoints},
+                {"PetHasActionBar",     lua_PetHasActionBar},
+                {"PetCanBeDismissed",   lua_PetCanBeDismissed},
+                {"PetCanBeAbandoned",   lua_PetCanBeAbandoned},
                 {"GetRaidRosterInfo",   lua_GetRaidRosterInfo},
                 {"GetThreatStatusColor", lua_GetThreatStatusColor},
                 {"GetReadyCheckStatus", lua_GetReadyCheckStatus},
