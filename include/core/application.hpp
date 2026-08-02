@@ -159,6 +159,10 @@ private:
     /// still checked, because reloading the interface rebuilds the tree and
     /// the id could then belong to something else.
     uint32_t portraitWidgetId_ = 0;
+    /// The FrameXML frame the real minimap is drawn into, when the original
+    /// interface owns it. Looked up by name and remembered, the same as the
+    /// portrait.
+    uint32_t minimapWidgetId_ = 0;
     bool addonsLoaded_ = false;
     std::unique_ptr<game::ExpansionRegistry> expansionRegistry_;
     // Empty means assets follow the active protocol profile. "legacy" selects

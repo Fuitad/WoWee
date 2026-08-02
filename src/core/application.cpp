@@ -2891,6 +2891,29 @@ void Application::render() {
                 // offscreen character pass, and running it for a frame that
                 // FrameXML has not been given costs a model render and a
                 // composite every frame to produce a picture nothing draws.
+                // The minimap is a Vulkan pass of its own drawn inside the
+                // main render pass, not an image this renderer could place, so
+                // the map is told where FrameXML's frame ended up rather than
+                // the frame being handed a picture. One frame behind, because
+                // that pass has already run by the time this lays out — which
+                // for a frame that does not move is not visible.
+                if (auto* map = renderer->getMinimap()) {
+                    ui::Widget* mm = minimapWidgetId_
+                        ? widgets.get(minimapWidgetId_) : nullptr;
+                    if (!mm || mm->name != "Minimap") {
+                        mm = widgets.findByName("Minimap");
+                        minimapWidgetId_ = mm ? mm->id : 0;
+                    }
+                    if (mm && mm->visible && mm->rectW > 0.0f && mm->rectH > 0.0f) {
+                        const float sc = widgets.uiScale();
+                        map->setScreenRect(mm->left * sc,
+                                           io.DisplaySize.y - (mm->bottom + mm->rectH) * sc,
+                                           mm->rectW * sc, mm->rectH * sc);
+                    } else {
+                        map->clearScreenRect();
+                    }
+                }
+
                 if (portrait) {
                     unitPortrait_.update(*gameHandler, assetManager.get(),
                                          renderer.get(), io.DeltaTime);

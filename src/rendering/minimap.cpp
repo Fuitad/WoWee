@@ -507,12 +507,22 @@ void Minimap::render(VkCommandBuffer cmd, const Camera& playerCamera,
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(cmd, 0, 1, &quadVB, &offset);
 
-    // Position minimap in top-right corner
+    // Top-right corner, unless something asked for a particular rect — which
+    // is what happens when FrameXML owns the minimap and the map has to sit
+    // inside the frame it drew.
     float margin = 10.0f;
-    float pixelW = static_cast<float>(mapSize) / screenWidth;
-    float pixelH = static_cast<float>(mapSize) / screenHeight;
-    float x = 1.0f - pixelW - margin / screenWidth;
-    float y = margin / screenHeight;  // top edge in Vulkan (y=0 is top)
+    float pixelW, pixelH, x, y;
+    if (haveRect_ && rectW_ > 0.0f && rectH_ > 0.0f) {
+        pixelW = rectW_ / screenWidth;
+        pixelH = rectH_ / screenHeight;
+        x = rectX_ / screenWidth;
+        y = rectY_ / screenHeight;   // y=0 is the top edge in Vulkan
+    } else {
+        pixelW = static_cast<float>(mapSize) / screenWidth;
+        pixelH = static_cast<float>(mapSize) / screenHeight;
+        x = 1.0f - pixelW - margin / screenWidth;
+        y = margin / screenHeight;
+    }
 
     // Compute player's UV in the composite texture
     constexpr float TILE_SIZE = core::coords::TILE_SIZE;

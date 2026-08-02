@@ -56,6 +56,19 @@ public:
 
     void setOpacity(float opacity) { opacity_ = opacity; }
 
+    /// Where the map is drawn, in pixels from the top-left of the window.
+    ///
+    /// Unset, it goes in the top-right corner at its own size, which is where
+    /// this client's own interface puts it. FrameXML puts it inside a frame it
+    /// owns, so when the original interface is drawing the minimap the rect of
+    /// that frame is handed here instead — this is a Vulkan pass of its own
+    /// rather than an image the widget renderer could draw, so the map moves to
+    /// the frame rather than the frame receiving the map.
+    void setScreenRect(float x, float y, float w, float h) {
+        rectX_ = x; rectY_ = y; rectW_ = w; rectH_ = h; haveRect_ = true;
+    }
+    void clearScreenRect() { haveRect_ = false; }
+
     float getArrowRotation() const { return arrowRotation_; }
     VkDescriptorSet getArrowDS() const { return arrowDS_; }
 
@@ -113,6 +126,8 @@ private:
     bool rotateWithCamera = false;
     bool squareShape = false;
     float opacity_ = 1.0f;
+    bool  haveRect_ = false;
+    float rectX_ = 0.0f, rectY_ = 0.0f, rectW_ = 0.0f, rectH_ = 0.0f;
 
     // Throttling
     float updateIntervalSec = 0.25f;
