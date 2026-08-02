@@ -781,9 +781,29 @@ void registerActionLuaAPI(lua_State* L) {
             lua_pop(L, 1);
             return 0;
         }},
+                // Two returns: whether there is a pet interface at all, and
+                // whether it is a hunter's. PetFrame_SetHappiness reads the
+                // second to decide whether to draw the happiness icon, and one
+                // return left it nil.
                 {"HasPetUI", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            lua_pushboolean(L, gh && gh->hasPet() ? 1 : 0);
+            const bool has = gh && gh->hasPet();
+            lua_pushboolean(L, has ? 1 : 0);
+            lua_pushboolean(L, 0);   // hunter pet: not distinguished yet
+            return 2;
+        }},
+                // Happiness, for a hunter's pet only. Nil is the honest answer
+                // for everyone else and the one PetFrame_SetHappiness guards
+                // for — the fallback answering with an object instead made
+                // that guard pass and the branch index nothing.
+                {"GetPetHappiness", [](lua_State* L) -> int {
+            lua_pushnil(L);
+            return 1;
+        }},
+                // Only referenced from commented-out code in 3.3.5, but a
+                // temporary pet's timer is nil when there is no timer.
+                {"GetPetTimeRemaining", [](lua_State* L) -> int {
+            lua_pushnil(L);
             return 1;
         }},
                 {"GetPetActionInfo", [](lua_State* L) -> int {

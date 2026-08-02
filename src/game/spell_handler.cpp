@@ -2417,6 +2417,10 @@ void SpellHandler::handlePetSpells(network::Packet& packet) {
         memset(owner_.petActionSlotsRef(), 0, sizeof(owner_.petActionSlotsRef()));
         LOG_INFO("SMSG_PET_SPELLS: pet cleared");
         owner_.fireAddonEvent("UNIT_PET", {"player"});
+        // The pet frame and the pet action bar both rebuild from this one;
+        // UNIT_PET alone tells them the pet changed but not that its interface
+        // should be redrawn.
+        owner_.fireAddonEvent("PET_UI_UPDATE", {});
         return;
     }
 
@@ -2427,6 +2431,10 @@ void SpellHandler::handlePetSpells(network::Packet& packet) {
         memset(owner_.petActionSlotsRef(), 0, sizeof(owner_.petActionSlotsRef()));
         LOG_INFO("SMSG_PET_SPELLS: pet cleared (guid=0)");
         owner_.fireAddonEvent("UNIT_PET", {"player"});
+        // The pet frame and the pet action bar both rebuild from this one;
+        // UNIT_PET alone tells them the pet changed but not that its interface
+        // should be redrawn.
+        owner_.fireAddonEvent("PET_UI_UPDATE", {});
         return;
     }
 
@@ -2464,6 +2472,10 @@ void SpellHandler::handlePetSpells(network::Packet& packet) {
              " react=", static_cast<int>(owner_.petReactRef()), " command=", static_cast<int>(owner_.petCommandRef()),
              " spells=", owner_.petSpellListRef().size());
     owner_.fireAddonEvent("UNIT_PET", {"player"});
+        // The pet frame and the pet action bar both rebuild from this one;
+        // UNIT_PET alone tells them the pet changed but not that its interface
+        // should be redrawn.
+        owner_.fireAddonEvent("PET_UI_UPDATE", {});
     owner_.fireAddonEvent("PET_BAR_UPDATE", {});
 }
 
