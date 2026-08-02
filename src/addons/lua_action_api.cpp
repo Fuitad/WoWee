@@ -265,6 +265,11 @@ static int lua_UseAction(lua_State* L) {
     const auto& bar = gh->getActionBar();
     if (slot < 0 || slot >= static_cast<int>(bar.size()) || bar[slot].isEmpty()) return 0;
     const auto& action = bar[slot];
+    // The end of the chain a click travels, and the last place it can stop
+    // without saying so: an empty slot, a cooldown, or a type nothing acts on
+    // all look the same from the button.
+    LOG_WARNING("UseAction: slot ", slot + 1, " type=", static_cast<int>(action.type),
+                " id=", action.id, " ready=", action.isReady() ? 1 : 0);
     if (action.type == game::ActionBarSlot::SPELL && action.isReady()) {
         uint64_t target = gh->hasTarget() ? gh->getTargetGuid() : 0;
         gh->castSpell(action.id, target);
