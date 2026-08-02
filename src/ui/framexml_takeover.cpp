@@ -105,7 +105,23 @@ bool coveredByGroup(const std::string& name, UiElement element) {
 
 } // namespace
 
+/// Whether FrameXML was loaded at all. Owning an element it did not build
+/// would hide this client's version and put nothing in its place.
+static bool frameXmlLoaded() {
+    static const bool on = [] {
+        const char* v = std::getenv("WOWEE_LOAD_FRAMEXML");
+        return v && *v && std::string(v) != "0";
+    }();
+    return on;
+}
+
 bool frameXmlOwns(UiElement element) {
+    // The bottom of the screen is FrameXML's on this branch whenever FrameXML
+    // is loaded, without being asked for. It draws correctly, and keeping this
+    // client's own bar beside it only puts two of everything on screen while
+    // the replacement is being finished.
+    if (frameXmlLoaded() && coveredByGroup("mainmenubar", element)) return true;
+
     const auto& names = requested();
     if (names.empty()) return false;
     if (names.count("all")) return true;

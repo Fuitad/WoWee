@@ -3565,16 +3565,20 @@ bool LuaEngine::frameAcceptsClick(uint32_t wid, const char* button) {
     bool accepts;
     if (lua_istable(L_, -1)) {
         // Registered explicitly: either edge counts, since this only models
-        // the release.
-        const std::string up = std::string(button) + "Up";
-        const std::string down = std::string(button) + "Down";
-        lua_getfield(L_, -1, up.c_str());
-        accepts = lua_toboolean(L_, -1) != 0;
-        lua_pop(L_, 1);
-        if (!accepts) {
-            lua_getfield(L_, -1, down.c_str());
+        // the release. "Any" means any button, which is what every action
+        // button in the interface registers — ActionButton_OnLoad calls
+        // RegisterForClicks("AnyUp"), and matching only LeftButtonUp meant no
+        // action button on the bar ever received a click.
+        const std::string names[] = {
+            std::string(button) + "Up", std::string(button) + "Down",
+            "AnyUp", "AnyDown"
+        };
+        accepts = false;
+        for (const std::string& n : names) {
+            lua_getfield(L_, -1, n.c_str());
             accepts = lua_toboolean(L_, -1) != 0;
             lua_pop(L_, 1);
+            if (accepts) break;
         }
     } else {
         accepts = (std::strcmp(button, "LeftButton") == 0);
