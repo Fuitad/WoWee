@@ -209,21 +209,7 @@ static int lua_Frame_Hide(lua_State* L) {
     lua_setfield(L, 1, "__visible");
     return 0;
 }
-static int lua_Frame_IsShown(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    // From the widget, which is what the layout and the renderer go by. The
-    // Lua field beside it is written by Show and Hide but is not the only way
-    // a frame's visibility changes, so the two drift — and the bag buttons ask
-    // this to decide whether to draw themselves pressed, which is why one
-    // stayed lit over a bag that had been closed.
-    if (const auto* w = widgetOf(L, 1)) {
-        lua_pushboolean(L, w->shown);
-        return 1;
-    }
-    lua_getfield(L, 1, "__visible");
-    lua_pushboolean(L, lua_toboolean(L, -1));
-    return 1;
-}
+static int lua_Frame_IsShown(lua_State* L);
 
 
 // ── Widget-backed regions ───────────────────────────────────────────────────
@@ -247,6 +233,24 @@ wowee::ui::Widget* widgetOf(lua_State* L, int index) {
     auto* tree = wowee::addons::getWidgetTree(L);
     if (!tree) return nullptr;
     return tree->get(widgetIdOf(L, index));
+}
+
+/// Whether the frame is shown, from the widget rather than a field beside it.
+///
+/// Show and Hide write both, but they are not the only way a frame's
+/// visibility changes, so the two drift. The bag buttons ask this to decide
+/// whether to draw themselves pressed — which is why one stayed lit over a bag
+/// that had been closed. Defined here rather than with the other frame methods
+/// because it needs widgetOf, which is declared just above.
+static int lua_Frame_IsShown(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    if (const auto* w = widgetOf(L, 1)) {
+        lua_pushboolean(L, w->shown);
+        return 1;
+    }
+    lua_getfield(L, 1, "__visible");
+    lua_pushboolean(L, lua_toboolean(L, -1));
+    return 1;
 }
 
 // SetPoint(point [, relativeTo] [, relativePoint] [, x, y]) — every argument
