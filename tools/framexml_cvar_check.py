@@ -43,7 +43,9 @@ if not fx.is_dir():
 
 # CVars the client answers deliberately, however that answer is spelled.
 sysapi = pathlib.Path("src/addons/lua_system_api.cpp").read_text()
-known = set(re.findall(r'n == "(\w+)"', sysapi))
+# Folded, because lua_GetCVar folds: the client's CVar names are not
+# case-sensitive and the interface spells "uiscale" and "uiScale" both ways.
+known = {m.lower() for m in re.findall(r'n == "(\w+)"', sysapi)}
 
 compared = collections.defaultdict(set)
 files = list(fx.glob("*.lua")) + list(fx.glob("addons/*/*.lua"))
@@ -66,7 +68,7 @@ for f in files:
                 compared[pending[var]].add(val)
 
 faults = {cv: vals for cv, vals in compared.items()
-          if cv not in known and "0" not in vals and "1" not in vals}
+          if cv.lower() not in known and "0" not in vals and "1" not in vals}
 
 print(f"scanned {len(files)} files, {len(compared)} CVars compared against a literal")
 if not faults:

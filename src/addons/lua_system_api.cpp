@@ -105,45 +105,52 @@ static std::unordered_map<std::string, std::string>& cvarStore() {
 
 static int lua_GetCVar(lua_State* L) {
     const char* name = luaL_checkstring(L, 1);
+    // Folded to lower case, because the client's CVar names are not
+    // case-sensitive and the interface does not spell them consistently.
+    // uidropdownmenu.lua asks for "uiscale" where everything else says
+    // "uiScale"; an exact match answered "0" for it, tonumber("0") is 0, and
+    // every dropdown menu in the interface opened at SetScale(0) — laid out,
+    // drawn, and invisible.
     std::string n(name);
+    toLowerInPlace(n);
     if (auto it = cvarStore().find(n); it != cvarStore().end()) {
         lua_pushstring(L, it->second.c_str());
         return 1;
     }
     // Return sensible defaults for commonly queried CVars
-    if (n == "uiScale") lua_pushstring(L, "1");
-    else if (n == "useUIScale") lua_pushstring(L, "1");
-    else if (n == "screenWidth" || n == "gxResolution") {
+    if (n == "uiscale") lua_pushstring(L, "1");
+    else if (n == "useuiscale") lua_pushstring(L, "1");
+    else if (n == "screenwidth" || n == "gxresolution") {
         auto* svc = getLuaServices(L);
         auto* win = svc ? svc->window : nullptr;
         lua_pushstring(L, std::to_string(win ? win->getWidth() : 1920).c_str());
-    } else if (n == "screenHeight" || n == "gxFullscreenResolution") {
+    } else if (n == "screenheight" || n == "gxfullscreenresolution") {
         auto* svc = getLuaServices(L);
         auto* win = svc ? svc->window : nullptr;
         lua_pushstring(L, std::to_string(win ? win->getHeight() : 1080).c_str());
-    } else if (n == "nameplateShowFriends") lua_pushstring(L, "1");
-    else if (n == "nameplateShowEnemies") lua_pushstring(L, "1");
-    else if (n == "Sound_EnableSFX") lua_pushstring(L, "1");
-    else if (n == "Sound_EnableMusic") lua_pushstring(L, "1");
-    else if (n == "chatBubbles") lua_pushstring(L, "1");
-    else if (n == "autoLootDefault") lua_pushstring(L, "1");
+    } else if (n == "nameplateshowfriends") lua_pushstring(L, "1");
+    else if (n == "nameplateshowenemies") lua_pushstring(L, "1");
+    else if (n == "sound_enablesfx") lua_pushstring(L, "1");
+    else if (n == "sound_enablemusic") lua_pushstring(L, "1");
+    else if (n == "chatbubbles") lua_pushstring(L, "1");
+    else if (n == "autolootdefault") lua_pushstring(L, "1");
     // On, as it is for a fresh account. The XP bar and the unit frames put
     // their whole tooltip behind this one: GameTooltip_AddNewbieTip is called
     // with noNormalText set, so with tips off it does nothing at all and
     // hovering the experience bar says nothing.
-    else if (n == "showNewbieTips") lua_pushstring(L, "1");
+    else if (n == "shownewbietips") lua_pushstring(L, "1");
     // The numbers on a unit frame's bars. A stock 3.3.5 client keeps these off
     // and shows them on mouseover; on this one they are wanted permanently,
     // which is what the Status Text interface option turns on.
     // The unit frames each ask about their own, not about "statusText" — the
     // player frame's bars carry cvar = "playerStatusText". Defaulting only the
     // general one left every bar's numbers hidden, correct text and all.
-    else if (n == "statusText" || n == "playerStatusText" ||
-             n == "targetStatusText" || n == "petStatusText" ||
-             n == "partyStatusText") {
+    else if (n == "statustext" || n == "playerstatustext" ||
+             n == "targetstatustext" || n == "petstatustext" ||
+             n == "partystatustext") {
         lua_pushstring(L, "1");
     }
-    else if (n == "statusTextPercentage") lua_pushstring(L, "0");
+    else if (n == "statustextpercentage") lua_pushstring(L, "0");
     // Which stat category each column of the character sheet shows. These are
     // not preferences with a sensible fallback — UpdatePaperdollStats compares
     // the value against five names and fills the column from whichever matches,
@@ -153,14 +160,14 @@ static int lua_GetCVar(lua_State* L) {
     // completion and simply had nothing to write.
     //
     // The two names below are what a fresh 3.3.5 account has.
-    else if (n == "playerStatLeftDropdown")  lua_pushstring(L, "PLAYERSTAT_BASE_STATS");
-    else if (n == "playerStatRightDropdown") lua_pushstring(L, "PLAYERSTAT_MELEE_COMBAT");
+    else if (n == "playerstatleftdropdown")  lua_pushstring(L, "PLAYERSTAT_BASE_STATS");
+    else if (n == "playerstatrightdropdown") lua_pushstring(L, "PLAYERSTAT_MELEE_COMBAT");
     // Whether a conversation opens in its own window or in the chat frame.
     // "0" already behaved as "inline" — the only test is against "popout" —
     // so this changes nothing today. It is written out because the value is a
     // name rather than a number, which is the case where falling through to
     // "0" is luck rather than a default.
-    else if (n == "conversationMode") lua_pushstring(L, "inline");
+    else if (n == "conversationmode") lua_pushstring(L, "inline");
     // Who last spoke to you as a GM, and empty means nobody has.
     //
     // uiparent.lua does `if ( lastTalkedToGM ~= "" )` at login and, when that
@@ -170,17 +177,17 @@ static int lua_GetCVar(lua_State* L) {
     //
     // The empty string is not a placeholder here — it is the value the client
     // stores until a GM actually writes.
-    else if (n == "lastTalkedToGM") lua_pushstring(L, "");
+    else if (n == "lasttalkedtogm") lua_pushstring(L, "");
     // On, as a stock client has it. ActionButton_SetTooltip branches on this:
     // with it off the tooltip is anchored to the right of the button itself, so
     // an action bar tooltip appeared at the bottom of the screen across the
     // icons. On, it goes through GameTooltip_SetDefaultAnchor to the
     // bottom-right corner, clear of the bar, which is where WoW puts it.
-    else if (n == "UberTooltips") lua_pushstring(L, "1");
+    else if (n == "ubertooltips") lua_pushstring(L, "1");
     // The social options panel branches on this and raises on anything it does
     // not recognise, so "0" — what an unknown CVar answers — took its whole
     // update down. "classic" is the stock setting.
-    else if (n == "chatStyle") lua_pushstring(L, "classic");
+    else if (n == "chatstyle") lua_pushstring(L, "classic");
     else lua_pushstring(L, "0");
     return 1;
 }
@@ -214,7 +221,11 @@ static int lua_SetCVar(lua_State* L) {
     } else if (lua_isboolean(L, 2)) {
         value = lua_toboolean(L, 2) ? "1" : "0";
     }
-    cvarStore()[name] = value;
+    // The same folding as the read side, or a value written as "uiScale"
+    // would be invisible to a read of "uiscale".
+    std::string key(name);
+    toLowerInPlace(key);
+    cvarStore()[key] = value;
     // Announced, because nine frames listen for it — the options panels redraw
     // themselves from this rather than from the click that caused it.
     // Through the engine in the registry, which is where it puts itself; the
