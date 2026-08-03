@@ -5238,6 +5238,13 @@ void LuaEngine::installMissingApiFallback() {
         "    return nil\n"
         "  end,\n"
         "})\n"
+        "__WoweeLoadOnDemandFrames = {\n"
+        "  AchievementFrame = true, ArenaEnemyFrames = true,\n"
+        "  BattlefieldMinimap = true, BattlefieldMinimapTab = true,\n"
+        "  KeyBindingFrame = true, MacroFrame = true, PlayerTalentFrame = true,\n"
+        "  StopwatchTicker = true, TimeManagerClockButton = true,\n"
+        "  TimeManagerFrame = true,\n"
+        "}\n"
         "local seen = {}\n"
         "setmetatable(_G, { __index = function(_, k)\n"
         "  if type(k) ~= 'string' then return nil end\n"
@@ -5260,6 +5267,21 @@ void LuaEngine::installMissingApiFallback() {
         // pass and the branch behind it indexes a table that has no fields, so
         // the panel's whole update dies on a nil length.
         "  if string.find(k, '^Blizzard_') then return nil end\n"
+        // The panels that load on demand, which FrameXML asks for by name
+        // before deciding to load them: `if ( not AchievementFrame ) then
+        // AchievementFrame_LoadUI() end`. Answering with the no-op made every
+        // one of those guards read as "already loaded", so the panel was never
+        // asked for and the branch behind the guard ran against a stand-in —
+        // watchframe goes straight on to `AchievementFrame:IsShown()`, which
+        // answered a no-op too, so tracking an achievement did nothing at all.
+        //
+        // A list rather than a rule about the shape of the name, because the
+        // shape does not separate them: PlayerArrowEffectFrame and
+        // WorldMapBlobFrame are addressed with no guard at all, and answering
+        // nil for those would take the world map's OnLoad down. These ten are
+        // the ones FrameXML feature-detects, and every use of them sits behind
+        // that test.
+        "  if __WoweeLoadOnDemandFrames[k] then return nil end\n"
         // Punctuation means this is not an API name at all. A Lua identifier
         // cannot contain a hyphen, so _G["KEY_-"] is a table lookup built by
         // concatenation — GetBindingText does exactly that for the key bound
