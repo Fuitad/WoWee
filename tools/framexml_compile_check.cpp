@@ -24,6 +24,7 @@ extern "C" {
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <cstdlib>
 int main(int argc, char** argv) {
     // Run from the build with no argument and it looks where the game data
     // normally sits, so this can be a test rather than something remembered.
@@ -31,6 +32,13 @@ int main(int argc, char** argv) {
     if (!std::filesystem::is_directory(dir)) {
         printf("no FrameXML at %s; nothing to check\n", dir);
         return 77;  // ctest reads this as skipped, not passed.
+    }
+    // Somewhere to read the result, because "it compiles" and "it says what it
+    // should" are different questions and only the first was ever asked.
+    const char* dumpDir = std::getenv("WOWEE_FRAMEXML_EMIT_DIR");
+    if (dumpDir && *dumpDir) {
+        std::error_code ec;
+        std::filesystem::create_directories(dumpDir, ec);
     }
     lua_State* L = luaL_newstate();
     int ok = 0, bad = 0, shown = 0, unparsed = 0, unbuilt = 0;
@@ -50,6 +58,11 @@ int main(int argc, char** argv) {
             continue;
         }
         auto r = wowee::ui::emitFrameXml(root);
+        if (dumpDir && *dumpDir) {
+            std::ofstream out(std::filesystem::path(dumpDir) /
+                              (e.path().filename().string() + ".lua"));
+            if (out) out << r.lua;
+        }
         for (const auto& w : r.warnings) {
             if (w.find("not a known frame type") != std::string::npos) {
                 printf("  UNBUILT  %-30s %s\n",
