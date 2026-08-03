@@ -131,7 +131,18 @@ def checkReturns():
         t = stripComments(p.read_text(errors="ignore"))
         for m in re.finditer(r"local\s+([A-Za-z_][\w\s,]*?)\s*=\s*([A-Z]\w{2,})\s*\(", t):
             names = [x for x in m.group(1).split(",") if x.strip()]
-            if len(names) > 1 and len(names) > want.get(m.group(2), (0, ""))[0]:
+            if len(names) <= 1:
+                continue
+            # More than one call on the right-hand side means the names are
+            # shared between them, and counting them all against the first is
+            # nonsense. Two of these were reported as faults:
+            #     local screenWidth, screenHeight = GetScreenWidth(), GetScreenHeight()
+            #     local a, b = GetCVarBool("x"), GetCVarBool("y")
+            rhs = t[m.end(2):]
+            rhs = rhs[:rhs.find("\n") if "\n" in rhs else len(rhs)]
+            if re.search(r"\)\s*,\s*[A-Za-z_]\w*\s*\(", rhs):
+                continue
+            if len(names) > want.get(m.group(2), (0, ""))[0]:
                 want[m.group(2)] = (len(names), p.name)
 
     give = {}
