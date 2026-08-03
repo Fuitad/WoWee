@@ -480,7 +480,9 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     auto spellIconFn = [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); };
     if (!frameXmlOwns(UiElement::CastBar))
         combatUI_.renderCastBar(gameHandler, spellIconFn);
-    renderMirrorTimers(gameHandler);
+    if (!frameXmlOwns(UiElement::PlayerFrame)) {
+        renderMirrorTimers(gameHandler);
+    }
     combatUI_.renderCooldownTracker(gameHandler, settingsPanel_, spellIconFn);
     if (!frameXmlOwns(UiElement::QuestTracker))
         renderQuestObjectiveTracker(gameHandler);
@@ -499,7 +501,9 @@ void GameScreen::render(game::GameHandler& gameHandler) {
             socialPanel_.renderPartyFrames(gameHandler, chatPanel_, spellIconFn);
         }
     }
-    socialPanel_.renderBossFrames(gameHandler, spellbookScreen, spellIconFn);
+    if (!frameXmlOwns(UiElement::TargetFrame)) {
+        socialPanel_.renderBossFrames(gameHandler, spellbookScreen, spellIconFn);
+    }
     dialogManager_.renderDialogs(gameHandler, inventoryScreen, chatPanel_);
     socialPanel_.renderGuildRoster(gameHandler, chatPanel_);
     if (!frameXmlOwns(UiElement::Social)) {

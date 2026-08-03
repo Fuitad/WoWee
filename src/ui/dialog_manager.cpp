@@ -1,4 +1,5 @@
 #include "ui/dialog_manager.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "ui/inventory_screen.hpp"
 #include "ui/chat_panel.hpp"
 #include "ui/chat/chat_utils.hpp"
@@ -40,7 +41,12 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
     renderGroupInvitePopup(gameHandler);
     renderDuelRequestPopup(gameHandler);
     renderDuelCountdown(gameHandler);
-    renderLootRollPopup(gameHandler, inventoryScreen, chatPanel);
+    // The roll dialog belongs to the loot window, and FrameXML has four of its
+    // own that open on the same roll. Whichever side draws the loot window
+    // draws the roll that comes out of it.
+    if (!frameXmlOwns(UiElement::Loot)) {
+        renderLootRollPopup(gameHandler, inventoryScreen, chatPanel);
+    }
     renderTradeRequestPopup(gameHandler);
     renderTradeWindow(gameHandler, inventoryScreen, chatPanel);
     renderSummonRequestPopup(gameHandler);

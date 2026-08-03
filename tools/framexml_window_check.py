@@ -35,7 +35,8 @@ TAKEOVER = ROOT / "src" / "ui" / "framexml_takeover.cpp"
 
 # A named, non-virtual frame hung directly off UIParent.
 FRAME = re.compile(
-    r'<(?:Frame|Button|MessageFrame|ScrollFrame|GameTooltip|StatusBar)\b([^>]*)>')
+    r'<(?:Frame|Button|MessageFrame|ScrollingMessageFrame|ScrollFrame'
+    r'|GameTooltip|StatusBar|Slider|EditBox|CheckButton)\b([^>]*)>')
 NAME = re.compile(r'name="([^"$]+)"')
 
 # Windows that need no decision, and why. Kept explicit rather than pattern
@@ -55,6 +56,7 @@ IGNORED = {
     ),
     "systems this client has none of": (
         "LFDDungeonReadyPopup", "LFDParentFrame", "LFDRoleCheckPopup",
+        "DungeonCompletionAlertFrame1",
         "LFRParentFrame", "PVPParentFrame", "PVPBannerFrame", "ArenaFrame",
         "ArenaRegistrarFrame", "BattlefieldFrame", "VehicleMenuBar",
         "VehicleSeatIndicator", "VoiceChatTalkers", "BNToastFrame",
@@ -75,15 +77,58 @@ IGNORED = {
 IGNORED_NAMES = {n for group in IGNORED.values() for n in group}
 
 
+INHERITS = re.compile(r'inherits="([^"]+)"')
+
+
+def uiParentTemplates():
+    """Virtual templates that put whatever inherits them on UIParent.
+
+    A frame does not have to say parent="UIParent" itself. GroupLootFrame1
+    through 4 say only inherits="GroupLootFrameTemplate", and it is the
+    template that names the parent — so looking for the literal attribute
+    walked straight past four top-level windows, which then drew beside this
+    client's own roll dialog with nothing reporting it.
+    """
+    templates = {}          # name -> (onUIParent, inheritedNames)
+    for path in sorted(FRAMEXML.glob("*.xml")):
+        text = path.read_text(errors="ignore")
+        for attrs in FRAME.findall(text):
+            if 'virtual="true"' not in attrs:
+                continue
+            name = NAME.search(attrs)
+            if not name:
+                continue
+            inherited = INHERITS.search(attrs)
+            templates[name.group(1)] = (
+                'parent="UIParent"' in attrs,
+                [n.strip() for n in inherited.group(1).split(",")] if inherited else [],
+            )
+
+    # A template may inherit the parent from another template; settle it.
+    def resolve(name, seen=()):
+        if name not in templates or name in seen:
+            return False
+        onParent, parents = templates[name]
+        return onParent or any(resolve(p, seen + (name,)) for p in parents)
+
+    return {n for n in templates if resolve(n)}
+
+
 def topLevelWindows():
+    onUIParent = uiParentTemplates()
     found = {}
     for path in sorted(FRAMEXML.glob("*.xml")):
         text = path.read_text(errors="ignore")
         for attrs in FRAME.findall(text):
-            if 'parent="UIParent"' not in attrs:
-                continue
             if 'virtual="true"' in attrs:
                 continue
+            if 'parent="UIParent"' not in attrs:
+                inherited = INHERITS.search(attrs)
+                if not inherited:
+                    continue
+                if not any(n.strip() in onUIParent
+                           for n in inherited.group(1).split(",")):
+                    continue
             name = NAME.search(attrs)
             if name:
                 found.setdefault(name.group(1), path.name)

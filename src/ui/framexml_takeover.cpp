@@ -271,9 +271,10 @@ const Suppress kSuppress[] = {
         // belong to, so hiding the chat windows leaves a row of tabs behind.
         // The combat log is ChatFrame2 with its own strip of buttons.
         {UiElement::Chat,     "ChatFrame1 ChatFrame2 ChatFrame3 ChatFrame4 ChatFrame5 "
-                              "ChatFrame6 ChatFrame7 "
+                              "ChatFrame6 ChatFrame7 ChatFrame8 ChatFrame9 ChatFrame10 "
                               "ChatFrame1Tab ChatFrame2Tab ChatFrame3Tab ChatFrame4Tab "
                               "ChatFrame5Tab ChatFrame6Tab ChatFrame7Tab "
+                              "ChatFrame8Tab ChatFrame9Tab ChatFrame10Tab "
                               "GeneralDockManager GeneralDockManagerOverflowButton "
                               "ChatFrameMenuButton FriendsMicroButton "
                               "CombatLogQuickButtonFrame_Custom", true},
@@ -291,7 +292,12 @@ const Suppress kSuppress[] = {
         // MERCHANT_SHOW, LOOT_OPENED, BANKFRAME_OPENED, PARTY_MEMBERS_CHANGED
         // and FRIENDLIST_UPDATE, so all of them were appearing in pairs.
         {UiElement::Vendor,      "MerchantFrame"},
-        {UiElement::Loot,        "LootFrame"},
+        // The four roll windows go with the loot window. They are opened by
+        // LootFrame's own START_LOOT_ROLL handler, which runs whether or not
+        // that frame is drawn, and they are top-level frames of their own — so
+        // hiding LootFrame left them showing beside this client's roll dialog.
+        {UiElement::Loot,        "LootFrame GroupLootFrame1 GroupLootFrame2 "
+                                 "GroupLootFrame3 GroupLootFrame4"},
         {UiElement::Bank,        "BankFrame"},
         {UiElement::PartyFrames, "PartyMemberFrame1 PartyMemberFrame2 "
                                  "PartyMemberFrame3 PartyMemberFrame4"},
@@ -345,6 +351,17 @@ const Suppress kSuppress[] = {
         // This client draws combo points on both the player and the target
         // frame, so FrameXML's separate display is a third set of them.
         {UiElement::TargetFrame, "ComboFrame"},
+        // The boss frames are target frames in all but name — same file, same
+        // template — so they go with the target frame. This client draws its
+        // own set in renderBossFrames.
+        {UiElement::TargetFrame, "Boss1TargetFrame Boss2TargetFrame "
+                                 "Boss3TargetFrame Boss4TargetFrame"},
+        // Breath, fatigue and feign death. This client draws all three itself
+        // and fires MIRROR_TIMER_START, so FrameXML raises its own beside them:
+        // two breath bars, both counting down, on the way to drowning. Filed
+        // under the player frame because that is the player's own state and the
+        // two would sensibly be handed over together.
+        {UiElement::PlayerFrame, "MirrorTimer1 MirrorTimer2 MirrorTimer3"},
         // Found by the unaccounted-element check on its first run. The world
         // map is neither handed over nor hidden, so FrameXML's draws over this
         // client's own. It appears in the check list, which is what made it
