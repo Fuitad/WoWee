@@ -102,6 +102,19 @@ set_tests_properties(addon_xml_compiles PROPERTIES SKIP_RETURN_CODE 77)
 # ── test_reputation_standing ────────────────────────────────
 # Header-only and constexpr, so this needs nothing linked: the point is that the
 # thresholds have one home now and stay put.
+# ── test_taxi_map_projection ────────────────────────────────
+# The order of the coordinate conversions behind a flight map marker. Silent
+# when wrong — every marker still lands somewhere, just not where it belongs.
+add_executable(test_taxi_map_projection
+    test_taxi_map_projection.cpp
+    ${CMAKE_SOURCE_DIR}/src/rendering/world_map/coordinate_projection.cpp
+)
+target_include_directories(test_taxi_map_projection PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_taxi_map_projection SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_taxi_map_projection PRIVATE catch2_main)
+add_test(NAME taxi_map_projection COMMAND test_taxi_map_projection)
+register_test_target(test_taxi_map_projection)
+
 add_executable(test_reputation_standing test_reputation_standing.cpp)
 target_include_directories(test_reputation_standing PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_reputation_standing SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})

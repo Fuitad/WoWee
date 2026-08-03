@@ -2284,6 +2284,10 @@ void MovementHandler::handleShowTaxiNodes(network::Packet& packet) {
                  " H=", it->second.mountDisplayIdHorde);
     }
     LOG_INFO("Taxi window opened, nearest node=", data.nearestNode);
+    // The flight map opens on this and closes on its pair. Neither was fired,
+    // so the original interface's map could not appear however complete the
+    // functions behind it were.
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("TAXIMAP_OPENED", {});
 }
 
 void MovementHandler::applyTaxiMountForCurrentNode() {
@@ -2821,7 +2825,13 @@ void MovementHandler::handleActivateTaxiReply(network::Packet& packet) {
 }
 
 void MovementHandler::closeTaxi() {
+    const bool wasOpen = taxiWindowOpen_;
     taxiWindowOpen_ = false;
+    // Only when it was actually open: closeTaxi is also reached on paths that
+    // never opened a window, and the flight map hides itself on this.
+    if (wasOpen && owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("TAXIMAP_CLOSED", {});
+    }
 
     if (taxiActivatePending_ || onTaxiFlight_ || taxiClientActive_) {
         return;

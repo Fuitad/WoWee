@@ -2887,6 +2887,44 @@ const std::vector<GameHandler::ReputationEntry>& GameHandler::getReputationList(
     return reputationList_;
 }
 
+const GameHandler::ContinentBounds&
+GameHandler::getContinentBounds(uint32_t mapId) const {
+    auto cached = continentBoundsCache_.find(mapId);
+    if (cached != continentBoundsCache_.end()) return cached->second;
+
+    ContinentBounds bounds;
+    auto* am = services_.assetManager;
+    if (am && am->isInitialized()) {
+        if (auto dbc = am->loadDBC("WorldMapArea.dbc"); dbc && dbc->isLoaded()) {
+            const auto* layout = pipeline::getActiveDBCLayout()
+                ? pipeline::getActiveDBCLayout()->getLayout("WorldMapArea") : nullptr;
+            const auto field = [&](const char* name, uint32_t fallback) {
+                return layout ? (*layout)[name] : fallback;
+            };
+            for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+                if (dbc->getUInt32(i, field("MapID", 1)) != mapId) continue;
+                // The continent's own row, not one of its zones.
+                if (dbc->getUInt32(i, field("AreaID", 2)) != 0) continue;
+                bounds.left   = dbc->getFloat(i, field("LocLeft", 4));
+                bounds.right  = dbc->getFloat(i, field("LocRight", 5));
+                bounds.top    = dbc->getFloat(i, field("LocTop", 6));
+                bounds.bottom = dbc->getFloat(i, field("LocBottom", 7));
+                // A degenerate rectangle projects everything to one point, so
+                // it is no more usable than a missing row.
+                bounds.valid = std::abs(bounds.left - bounds.right) > 0.001f &&
+                               std::abs(bounds.top - bounds.bottom) > 0.001f;
+                break;
+            }
+        }
+    }
+    if (!bounds.valid) {
+        LOG_WARNING("No continent-wide WorldMapArea row for map ", mapId,
+                    " — anything projecting onto its map will have nothing to "
+                    "project against");
+    }
+    return continentBoundsCache_.emplace(mapId, bounds).first->second;
+}
+
 const GameHandler::ExtendedCostEntry*
 GameHandler::getExtendedCost(uint32_t extendedCostId) const {
     if (!extendedCostCacheLoaded_) {

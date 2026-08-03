@@ -14,6 +14,8 @@
 
 #include <SDL2/SDL.h>
 #include "game/expansion_profile.hpp"
+#include "core/coordinates.hpp"
+#include "rendering/world_map/coordinate_projection.hpp"
 
 namespace wowee::addons {
 
@@ -997,6 +999,77 @@ static uint32_t taxiNodeAt(game::GameHandler* gh, int index) {
     return ids[static_cast<size_t>(index - 1)];
 }
 
+/// Where a taxi node sits on the flight map, as a fraction of its width and
+/// height.
+///
+/// The flight map is the continent's map, so this is the same projection the
+/// world map does — the one place it lives, in rendering/world_map, reached
+/// through the continent rectangle the game handler now reads.
+///
+/// The order of the two conversions is the whole difficulty. TaxiNodes.dbc
+/// holds positions in server order, and feeding those straight to
+/// canonicalToRender transposes every marker, which is exactly how the flight
+/// map's node markers came out mirrored once before. Server to canonical
+/// first, then canonical to render, then project.
+static bool taxiNodeMapPos(game::GameHandler* gh, uint32_t nodeId,
+                           float& outU, float& outV) {
+    if (!gh) return false;
+    const auto& nodes = gh->getTaxiNodes();
+    const auto it = nodes.find(nodeId);
+    if (it == nodes.end()) return false;
+
+    const auto& bounds = gh->getContinentBounds(it->second.mapId);
+    if (!bounds.valid) return false;
+
+    const glm::vec3 canonical = core::coords::serverToCanonical(
+        glm::vec3(it->second.x, it->second.y, it->second.z));
+    const glm::vec3 render = core::coords::canonicalToRender(canonical);
+
+    rendering::world_map::ZoneBounds zb;
+    zb.locLeft = bounds.left;   zb.locRight  = bounds.right;
+    zb.locTop  = bounds.top;    zb.locBottom = bounds.bottom;
+    const glm::vec2 uv =
+        rendering::world_map::renderPosToMapUV(render, zb, /*isContinent=*/true);
+    outU = uv.x;
+    outV = uv.y;
+    return true;
+}
+
+/// One end of one leg of a flight, as a fraction of the map.
+///
+/// `End` is 0 for the leg's start and 1 for its finish; `Horizontal` picks x
+/// over y. Four names, one body — they differ only in which number they read.
+template <int End, bool Horizontal>
+static int lua_TaxiLegCoord(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const uint32_t dest = taxiNodeAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    const int hop = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (dest == 0 || hop < 1 || !gh) { lua_pushnumber(L, 0); return 1; }
+
+    const auto route = gh->getTaxiRouteTo(dest);
+    // Hop N runs from route[N-1] to route[N], so the last hop is size-1.
+    if (hop >= static_cast<int>(route.size())) { lua_pushnumber(L, 0); return 1; }
+
+    float u = 0, v = 0;
+    if (!taxiNodeMapPos(gh, route[static_cast<size_t>(hop - 1 + End)], u, v)) {
+        lua_pushnumber(L, 0);
+        return 1;
+    }
+    lua_pushnumber(L, Horizontal ? u : v);
+    return 1;
+}
+
+/// The hops of the route the flight map is drawing lines for.
+///
+/// TaxiNodeSetCurrent names the node the player is hovering, and the frame then
+/// asks for each leg of the journey to it in turn. Kept here rather than asked
+/// for again per leg because getTaxiRouteTo searches, and the frame asks for the
+/// same route once per hop and again for every line it draws.
+static std::vector<uint32_t>& taxiRouteShown() {
+    static std::vector<uint32_t> route;
+    return route;
+}
+
 void registerSystemLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"Screenshot",               lua_Screenshot},
@@ -1289,6 +1362,64 @@ void registerSystemLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const uint32_t id = taxiNodeAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
             if (id != 0) gh->activateTaxi(id);
+            return 0;
+        }},
+                // TaxiNodePosition(index) → x, y as fractions of the map.
+                {"TaxiNodePosition", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t id = taxiNodeAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            float u = 0, v = 0;
+            if (id == 0 || !taxiNodeMapPos(gh, id, u, v)) { return luaReturnNil(L); }
+            lua_pushnumber(L, u);
+            lua_pushnumber(L, v);
+            return 2;
+        }},
+                // TaxiNodeSetCurrent(index) — the node the map is drawing a
+                // route to. Works out the journey once; the frame then asks
+                // about each leg of it.
+                {"TaxiNodeSetCurrent", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t id = taxiNodeAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            taxiRouteShown() = (id != 0 && gh) ? gh->getTaxiRouteTo(id)
+                                               : std::vector<uint32_t>{};
+            return 0;
+        }},
+                // GetNumRoutes(index) → how many hops the flight takes.
+                //
+                // The map draws one line per hop, and reads this to decide how
+                // many. It also asks about every node in the list to find the
+                // ones a single hop away, so this answers for the node asked
+                // about rather than for whatever was last set current.
+                {"GetNumRoutes", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t id = taxiNodeAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            if (id == 0 || !gh) { lua_pushnumber(L, 0); return 1; }
+            const auto route = gh->getTaxiRouteTo(id);
+            // A route of N nodes is N-1 hops; one of fewer than two is no
+            // journey at all.
+            lua_pushnumber(L, route.size() >= 2
+                                  ? static_cast<double>(route.size() - 1) : 0.0);
+            return 1;
+        }},
+                // TaxiGetSrcX/Y(index, hop) and TaxiGetDestX/Y(index, hop) —
+                // the ends of one leg, on the same scale as TaxiNodePosition.
+                //
+                // The index names the destination and the hop names the leg, so
+                // these route afresh rather than trusting whatever was last set
+                // current: DrawOneHopLines walks every node without ever
+                // calling TaxiNodeSetCurrent.
+                {"TaxiGetSrcX",  lua_TaxiLegCoord<0, true>},
+                {"TaxiGetSrcY",  lua_TaxiLegCoord<0, false>},
+                {"TaxiGetDestX", lua_TaxiLegCoord<1, true>},
+                {"TaxiGetDestY", lua_TaxiLegCoord<1, false>},
+                // SetTaxiMap(texture) — the flight map's own picture.
+                //
+                // Nothing here has continent map artwork to give it, and the
+                // texture it is handed keeps whatever its XML set. Named rather
+                // than left out so it does not read as a gap that was missed.
+                {"SetTaxiMap", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"CloseTaxiMap", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->closeTaxi();
             return 0;
         }},
                 // TaxiNodeCost(index) → the fare in copper, for the tooltip.
