@@ -357,6 +357,35 @@ bool Application::initialize() {
         luaSvc.window            = window.get();
         luaSvc.audioCoordinator  = audioCoordinator_.get();
         luaSvc.expansionRegistry = expansionRegistry_.get();
+        // Gathered once, on the first ask rather than at startup: it is a walk
+        // of the whole manifest, and most sessions never open an icon picker.
+        luaSvc.listIconTextures = [am = assetManager.get()]() -> const std::vector<std::string>& {
+            static std::vector<std::string> icons;
+            static bool built = false;
+            if (built) return icons;
+            built = true;
+            if (!am) return icons;
+            // Manifest keys are normalised: lower case, backslashes.
+            static const std::string kPrefix = "interface\\icons\\";
+            for (const auto& [path, entry] : am->getManifest().getEntries()) {
+                (void)entry;
+                if (path.compare(0, kPrefix.size(), kPrefix) != 0) continue;
+                // SetTexture wants the path without the extension, which is
+                // also how every icon is named everywhere else in the
+                // interface.
+                const size_t dot = path.rfind('.');
+                const std::string name = path.substr(
+                    kPrefix.size(),
+                    dot == std::string::npos ? std::string::npos : dot - kPrefix.size());
+                if (!name.empty()) icons.push_back("Interface\\Icons\\" + name);
+            }
+            // A grid the player scrolls through, so the order has to be stable
+            // between one frame and the next — the manifest is a hash map and
+            // is not.
+            std::sort(icons.begin(), icons.end());
+            LOG_INFO("Icon picker: ", icons.size(), " icons from the manifest");
+            return icons;
+        };
         // The widget renderer needs the asset manager for Interface\ art and the
         // device to upload it; both exist by now.
         widgetRenderer_.initialize(assetManager.get(),

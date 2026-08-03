@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace wowee::core  { class Window; }
 namespace wowee::audio { class AudioCoordinator; }
@@ -28,6 +29,14 @@ struct LuaServices {
     std::function<bool(const std::string& name, std::string& reason)> loadAddOn;
     /// Whether a named addon has been loaded, for IsAddOnLoaded.
     std::function<bool(const std::string& name)> isAddOnLoaded;
+
+    /// Every icon this install carries, as paths SetTexture accepts.
+    ///
+    /// The macro and guild bank pickers are grids over this list: they ask how
+    /// many there are and then for one at a time by index. Built from the asset
+    /// manifest rather than a fixed list, so an install carrying different art
+    /// offers what it actually has.
+    std::function<const std::vector<std::string>&()> listIconTextures;
 };
 
 } // namespace wowee::addons

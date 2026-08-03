@@ -283,10 +283,46 @@ static int lua_DeleteGMTicket(lua_State* L) {
     return 0;
 }
 
+// --- Icon pickers ---
+//
+// The macro frame and the guild bank tab dialog are both grids over the same
+// list of icons: how many, then one at a time by index. WoW numbers them from
+// one, and the first is the question mark every unset macro shows.
+
+static const std::vector<std::string>* iconList(lua_State* L) {
+    auto* services = getLuaServices(L);
+    if (!services || !services->listIconTextures) return nullptr;
+    return &services->listIconTextures();
+}
+
+static int lua_GetNumMacroIcons(lua_State* L) {
+    const auto* icons = iconList(L);
+    lua_pushnumber(L, icons ? static_cast<double>(icons->size()) : 0.0);
+    return 1;
+}
+
+// GetMacroIconInfo(index) → a texture path, or nil past the end
+static int lua_GetMacroIconInfo(lua_State* L) {
+    const auto* icons = iconList(L);
+    const int index = static_cast<int>(luaL_checknumber(L, 1));
+    if (!icons || index < 1 || index > static_cast<int>(icons->size())) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushstring(L, (*icons)[static_cast<size_t>(index - 1)].c_str());
+    return 1;
+}
+
 void registerSocialLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"BNGetNumFriends",     lua_BNGetNumFriends},
                 {"GetGMTicket",         lua_GetGMTicket},
+                {"GetNumMacroIcons",    lua_GetNumMacroIcons},
+                {"GetMacroIconInfo",    lua_GetMacroIconInfo},
+                // The guild bank tab dialog picks from the same icons under a
+                // name of its own.
+                {"GetNumMacroItemIcons", lua_GetNumMacroIcons},
+                {"GetMacroItemIconInfo", lua_GetMacroIconInfo},
                 {"NewGMTicket",         lua_NewGMTicket},
                 {"DeleteGMTicket",      lua_DeleteGMTicket},
                 {"SendChatMessage",   lua_SendChatMessage},
