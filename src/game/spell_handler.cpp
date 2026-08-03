@@ -3797,6 +3797,13 @@ void SpellHandler::handleTotemCreated(network::Packet& packet) {
         owner_.activeTotemSlotsRef()[slot].spellId    = spellId;
         owner_.activeTotemSlotsRef()[slot].durationMs = duration;
         owner_.activeTotemSlotsRef()[slot].placedAt   = std::chrono::steady_clock::now();
+        // The totem bar draws each slot from its start and duration, and
+        // refreshes on this alone — without it a totem is placed and the bar
+        // goes on showing whatever was there before.
+        if (owner_.addonEventCallbackRef()) {
+            owner_.addonEventCallbackRef()("PLAYER_TOTEM_UPDATE",
+                                           {std::to_string(slot + 1)});
+        }
     }
 }
 

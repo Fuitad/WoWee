@@ -2939,6 +2939,12 @@ void InventoryHandler::handleEquipmentSetList(network::Packet& packet) {
         equipmentSetInfo_.push_back(std::move(info));
     }
     LOG_INFO("SMSG_EQUIPMENT_SET_LIST: ", equipmentSets_.size(), " equipment sets received");
+    // The manager redraws on this, and the list arriving is the only time it
+    // has anything new to draw — including straight after a set is saved or
+    // deleted, which is when the server sends it again.
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("EQUIPMENT_SETS_CHANGED", {});
+    }
 }
 
 // ============================================================
