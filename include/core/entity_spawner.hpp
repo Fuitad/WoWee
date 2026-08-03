@@ -194,6 +194,26 @@ public:
 
     // Display data accessors (needed by Application for gryphon/wyvern display IDs)
     const auto& getDisplayDataMap() const { return displayDataMap_; }
+
+    /// Everything needed to draw a creature somewhere other than the world:
+    /// the model it uses and the skins that go on it.
+    ///
+    /// Both halves already live here — CreatureDisplayInfo.dbc gives the model
+    /// id and the skin names, CreatureModelData.dbc turns the model id into a
+    /// path — and they were reachable only from inside the spawner. A preview
+    /// frame wants the same answer and reading the two files again would put a
+    /// second copy of the layout somewhere else, which is how a display id ends
+    /// up meaning two different creatures.
+    struct CreatureModel {
+        std::string m2Path;
+        std::string skin1, skin2, skin3;
+        uint32_t    modelId = 0;
+        /// A model with no skin draws as a white shape, which is worse than an
+        /// empty frame — so a caller with nowhere to get textures should treat
+        /// this as nothing to draw.
+        bool valid() const { return !m2Path.empty() && !skin1.empty(); }
+    };
+    CreatureModel creatureModelFor(uint32_t displayId) const;
     uint32_t getGryphonDisplayId() const { return gryphonDisplayId_; }
     uint32_t getWyvernDisplayId() const { return wyvernDisplayId_; }
 

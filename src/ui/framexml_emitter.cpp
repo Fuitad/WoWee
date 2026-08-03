@@ -203,6 +203,34 @@ struct Emitter {
         return var;
     }
 
+    /// text="CHARACTER" names a global, not a caption.
+    ///
+    /// WoW looks the name up and falls back to the literal when there is no
+    /// such global, which is how every tab and button in FrameXML gets a
+    /// localised label out of one word of markup — 703 of them.
+    ///
+    /// It has to be applied to frames as well as regions. A <Button text="X">
+    /// is a frame, and this only ran for textures and font strings, so no
+    /// button in the interface was ever given its label. The character sheet's
+    /// tabs show what that costs twice over: unlabelled, and — because a tab is
+    /// sized from the width of its own text — collapsed to slivers as well.
+    void emitTextAttr(const XmlNode& node, const std::string& var) {
+        const std::string* text = node.attr("text");
+        if (!text) return;
+        bool looksLikeKey = !text->empty();
+        for (char c : *text) {
+            if (!(c == '_' || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) {
+                looksLikeKey = false;
+                break;
+            }
+        }
+        if (looksLikeKey) {
+            line(var + ":SetText(_G[" + quote(*text) + "] or " + quote(*text) + ")");
+        } else {
+            line(var + ":SetText(" + quote(*text) + ")");
+        }
+    }
+
     /// Everything a region declares about itself, applied to a region that
     /// already exists. Separate from creating one because a virtual Texture or
     /// FontString is exactly this and nothing else: a set of properties waiting
@@ -240,9 +268,7 @@ struct Emitter {
         if (const std::string* mode = node.attr("alphaMode")) {
             if (isTexture) line(var + ":SetBlendMode(" + quote(*mode) + ")");
         }
-        if (const std::string* text = node.attr("text")) {
-            line(var + ":SetText(" + quote(*text) + ")");
-        }
+        emitTextAttr(node, var);
         if (const std::string* jv = node.attr("justifyV")) {
             line(var + ":SetJustifyV(" + quote(*jv) + ")");
         }
@@ -853,6 +879,7 @@ struct Emitter {
         // windows, the character sheet — so leaving it unread meant StartMoving
         // was asked of a frame that had never been told it was movable, and
         // every one of those windows was nailed down.
+        emitTextAttr(node, var);
         if (node.attr("movable")) {
             line(var + ":SetMovable(" + (node.attrBool("movable") ? "true" : "false") + ")");
         }

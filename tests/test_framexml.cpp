@@ -1026,3 +1026,25 @@ TEST_CASE("autoFocus false is carried, because it is why it is written",
     REQUIRE(has(lua, ":SetAutoFocus(false)"));
     REQUIRE(has(lua, ":SetNumeric(true)"));
 }
+
+TEST_CASE("text= names a global, not a caption", "[framexml][emit]") {
+    // CharacterFrameTab1 says text="CHARACTER", and CHARACTER is a global
+    // holding the word "Character". Emitting the literal put the key on screen
+    // and — because the tab is sized from the width of its own label — made
+    // every tab on the character sheet a sliver with the text clipped inside.
+    XmlNode root = parseOrFail(
+        "<Ui><Button name=\"B\" text=\"CHARACTER\"/></Ui>");
+    REQUIRE(has(emitFrameXml(root).lua, ":SetText(_G[\"CHARACTER\"] or \"CHARACTER\")"));
+}
+
+TEST_CASE("A caption that is not a name is used as written",
+          "[framexml][emit]") {
+    // Only a bare key is looked up. Anything with a space or a lower-case
+    // letter is the text itself, and _G would answer nil for it.
+    XmlNode root = parseOrFail(
+        "<Ui><Button name=\"B\" text=\"Click me\"/></Ui>");
+    const std::string lua = emitFrameXml(root).lua;
+    REQUIRE(has(lua, ":SetText(\"Click me\")"));
+    REQUIRE_FALSE(has(lua, "_G["));
+}
+

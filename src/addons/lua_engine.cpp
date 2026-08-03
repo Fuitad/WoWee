@@ -533,6 +533,17 @@ int lua_Region_GetWidth(lua_State* L) {
     // has the effective scale in it and handing that back would have a script
     // that reads a width and sets it again shrink the frame every time.
     const float es = (w && w->effScale > 0.0f) ? w->effScale : 1.0f;
+    if (w && w->rectW <= 0.0f && w->width <= 0.0f &&
+        w->kind == wowee::ui::WidgetKind::FontString && !w->text.empty()) {
+        // A font string that was never given a width is as wide as its text.
+        // That is what WoW answers, and the interface sizes things from it:
+        // PanelTemplates_TabResize builds a tab's width out of
+        // _G[name.."Text"]:GetWidth(), so answering zero made every tab on the
+        // character sheet collapse to the width of its two end textures, with
+        // the label clipped out of sight inside it.
+        lua_pushnumber(L, measureTextWidth(w->text, w->fontHeight));
+        return 1;
+    }
     lua_pushnumber(L, w ? (w->rectW > 0.0f ? w->rectW / es : w->width) : 0.0);
     return 1;
 }
