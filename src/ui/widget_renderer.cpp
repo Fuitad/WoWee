@@ -376,6 +376,19 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     // client fires, and can still raise from one. Eighteen of them are live
     // this way. When judging whether a fault in some window can be reached, the
     // question is whether its events are fired, never whether it is on screen.
+    //
+    // What they do *not* run is OnShow and OnHide, and that is worth keeping
+    // that way. LuaEngine::updateVisibility reports a change by comparing
+    // `visible` against what it last reported, and the application calls it
+    // after this render — so a frame that a handler showed earlier in the same
+    // iteration is already false again by the time it looks, and never counts
+    // as having appeared.
+    //
+    // That ordering is load-bearing rather than incidental. LootFrame_OnHide
+    // calls CloseLoot(), which releases the loot on the server. Report
+    // visibility before this runs and every suppressed loot window would show
+    // for an instant, hide, and take the player's loot with it — through the
+    // client's own loot window, which is the one actually on screen.
 
     if (!reportedUnresolved && (now - firstSeen) > 20.0) {
         reportedUnresolved = true;

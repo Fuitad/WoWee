@@ -3139,6 +3139,14 @@ void Application::render() {
             // fills it in and the size of what it filled is what the range is
             // then measured from.
             engine->reportEventListenersOnce();
+            // Keep this after the widget render, which is where suppressed
+            // windows are forced hidden. A suppressed frame that some handler
+            // showed earlier this iteration is already hidden again by the time
+            // this looks, so it never counts as having appeared and its
+            // OnShow/OnHide never run. Several of those handlers do real work:
+            // LootFrame_OnHide calls CloseLoot, which releases the loot on the
+            // server — through the client's own loot window, the one actually
+            // on screen. Moving this earlier would take the player's loot.
             engine->updateVisibility();
             // After visibility, because a frame shown this frame is measured
             // this frame and its size is new rather than changed.
