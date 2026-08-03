@@ -4449,7 +4449,14 @@ void LuaEngine::registerCoreAPI() {
         // SetFrameStrata is a real binding; a no-op here would shadow it and
         // leave the tooltip in whatever stratum it inherited, under the frames
         // it is meant to sit above.
-        "function __WoweeFrameMT:SetClampedToScreen(...) end\n"
+        // Not a no-op here, for the reason given directly above: SetClampedToScreen
+        // is a real binding, and the empty one that used to sit on this line
+        // shadowed it. Nothing then ever set the flag — so the clamp in
+        // layoutWidget, which exists precisely to keep a tooltip anchored near
+        // an edge from running off it, could not fire, because its condition
+        // was never true. GameTooltipTemplate declares clampedToScreen="true"
+        // and the emitter turns that into the very call that was being
+        // swallowed.
         // On the frame metatable rather than on GameTooltip, because a tooltip
         // is not always that one — item comparison uses ShoppingTooltip1 and 2
         // — and a copy on the table itself would shadow this for no gain.

@@ -34,7 +34,10 @@ ordered by what FrameXML actually leans on rather than by guesswork.
 import sys
 
 
-fx = sys.argv[1] if len(sys.argv) > 1 else "Data/interface/FrameXML"
+# Lower case: the tree on disk is Data/interface/framexml, and the mixed-case
+# spelling this defaulted to only ever resolved on a case-insensitive
+# filesystem. Everywhere else it raised FileNotFoundError before reading a line.
+fx = sys.argv[1] if len(sys.argv) > 1 else "Data/interface/framexml"
 addons = os.path.join(os.path.dirname(__file__), "..", "src", "addons")
 
 eng = ""
