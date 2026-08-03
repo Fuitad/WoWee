@@ -519,6 +519,168 @@ static int lua_GetTalentInfo(lua_State* L) {
     return 8;
 }
 
+/// (tabIndex, talentIndex) → talent id, or 0.
+///
+/// The same ordering GetTalentInfo reports by — tabs in orderIndex, talents by
+/// row then column — because the interface identifies a talent by its position
+/// in that listing and nothing else.
+static uint32_t resolveTalentId(game::GameHandler* gh, int tabIndex, int talentIndex) {
+    if (!gh || tabIndex < 1 || talentIndex < 1) return 0;
+    const uint8_t classId = gh->getPlayerClass();
+    const uint32_t classMask = (classId > 0) ? (1u << (classId - 1)) : 0;
+    std::vector<const game::GameHandler::TalentTabEntry*> classTabs;
+    for (const auto& [tabId, tab] : gh->getAllTalentTabs()) {
+        if (tab.classMask & classMask) classTabs.push_back(&tab);
+    }
+    std::sort(classTabs.begin(), classTabs.end(),
+              [](const auto* a, const auto* b) { return a->orderIndex < b->orderIndex; });
+    if (tabIndex > static_cast<int>(classTabs.size())) return 0;
+
+    std::vector<const game::GameHandler::TalentEntry*> tabTalents;
+    for (const auto& [talentId, entry] : gh->getAllTalents()) {
+        if (entry.tabId == classTabs[tabIndex - 1]->tabId) tabTalents.push_back(&entry);
+    }
+    std::sort(tabTalents.begin(), tabTalents.end(),
+              [](const auto* a, const auto* b) {
+                  return (a->row != b->row) ? a->row < b->row : a->column < b->column;
+              });
+    if (talentIndex > static_cast<int>(tabTalents.size())) return 0;
+    return tabTalents[talentIndex - 1]->talentId;
+}
+
+/// The points staged but not yet sent, per talent.
+///
+/// WotLK's talent frame does not spend a point when one is clicked: it adds to
+/// a preview, redraws from the preview, and sends the lot when Learn is
+/// pressed. Without somewhere to hold that, clicking a talent did nothing at
+/// all. Keyed by talent id so it survives a tab change, and cleared whenever
+/// the server confirms what was learned.
+static std::unordered_map<uint32_t, int>& previewPoints() {
+    static std::unordered_map<uint32_t, int> points;
+    return points;
+}
+
+// AddPreviewTalentPoints(tabIndex, talentIndex, delta, pet, group)
+static int lua_AddPreviewTalentPoints(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int tab   = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+    const int delta = static_cast<int>(luaL_optnumber(L, 3, 1));
+    const uint32_t id = resolveTalentId(gh, tab, index);
+    if (!gh || id == 0) return 0;
+
+    const uint8_t have = gh->getTalentRank(id);
+    uint8_t maxRank = 0;
+    for (const auto& [talentId, entry] : gh->getAllTalents()) {
+        if (talentId == id) { maxRank = entry.maxRank; break; }
+    }
+    int& staged = previewPoints()[id];
+    // Bounded by what is already learned and the talent's own cap: a preview
+    // that goes past either is one the server will refuse, and the frame draws
+    // straight from these numbers.
+    const int wanted = std::clamp(staged + delta, 0, static_cast<int>(maxRank) - have);
+    staged = wanted;
+    if (staged == 0) previewPoints().erase(id);
+    return 0;
+}
+
+// GetGroupPreviewTalentPointsSpent(pet, group) → points staged
+static int lua_GetGroupPreviewTalentPointsSpent(lua_State* L) {
+    int total = 0;
+    for (const auto& [id, n] : previewPoints()) { (void)id; total += n; }
+    lua_pushnumber(L, total);
+    return 1;
+}
+
+// ResetGroupPreviewTalentPoints(pet, group)
+static int lua_ResetGroupPreviewTalentPoints(lua_State* L) {
+    (void)L;
+    previewPoints().clear();
+    return 0;
+}
+
+// LearnPreviewTalents(pet) — commit the staged points
+static int lua_LearnPreviewTalents(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+    // A copy, because learnTalent goes to the server and what comes back
+    // clears this map — iterating it while that happens is not safe.
+    const auto staged = previewPoints();
+    for (const auto& [id, n] : staged) {
+        const uint8_t have = gh->getTalentRank(id);
+        // One request per rank: the server counts them, and asking for the
+        // final rank in one call is not how the protocol reads it.
+        for (int r = 1; r <= n; ++r) gh->learnTalent(id, have + r);
+    }
+    previewPoints().clear();
+    return 0;
+}
+
+// LearnTalent(tabIndex, talentIndex, pet, group) — spend one point directly
+static int lua_LearnTalent(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const uint32_t id = resolveTalentId(gh, static_cast<int>(luaL_optnumber(L, 1, 0)),
+                                            static_cast<int>(luaL_optnumber(L, 2, 0)));
+    if (gh && id != 0) gh->learnTalent(id, gh->getTalentRank(id) + 1);
+    return 0;
+}
+
+// GetUnspentTalentPoints(inspect, pet, group) → points
+static int lua_GetUnspentTalentPoints(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) { lua_pushnumber(L, 0); return 1; }
+    const int group = static_cast<int>(luaL_optnumber(L, 3, 0));
+    const uint8_t spec = (group >= 1 && group <= 2) ? static_cast<uint8_t>(group - 1)
+                                                   : gh->getActiveTalentSpec();
+    int points = gh->getUnspentTalentPoints(spec);
+    // Less whatever is staged, or the frame shows points that are already
+    // committed in the preview and lets them be spent twice.
+    for (const auto& [id, n] : previewPoints()) { (void)id; points -= n; }
+    lua_pushnumber(L, points > 0 ? points : 0);
+    return 1;
+}
+
+// GetNumTalentGroups(inspect, pet) → how many specs the player has
+static int lua_GetNumTalentGroups(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    // Two only once the second is actually bought: the frame draws a spec tab
+    // per group, and reporting two unconditionally offers one that is not there.
+    int groups = 1;
+    if (gh && gh->getUnspentTalentPoints(1) > 0) groups = 2;
+    if (gh && !gh->getLearnedTalents(1).empty()) groups = 2;
+    lua_pushnumber(L, groups);
+    return 1;
+}
+
+// SetActiveTalentGroup(group)
+static int lua_SetActiveTalentGroup(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int group = static_cast<int>(luaL_optnumber(L, 1, 1));
+    if (gh && group >= 1 && group <= 2) {
+        gh->switchTalentSpec(static_cast<uint8_t>(group - 1));
+    }
+    return 0;
+}
+
+// GetTalentLink(tabIndex, talentIndex, inspect, group) → hyperlink
+static int lua_GetTalentLink(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const uint32_t id = resolveTalentId(gh, static_cast<int>(luaL_optnumber(L, 1, 0)),
+                                            static_cast<int>(luaL_optnumber(L, 2, 0)));
+    if (!gh || id == 0) { lua_pushnil(L); return 1; }
+    uint32_t rank1 = 0;
+    for (const auto& [talentId, entry] : gh->getAllTalents()) {
+        if (talentId == id) { rank1 = entry.rankSpells[0]; break; }
+    }
+    std::string name = gh->getSpellName(rank1);
+    if (name.empty()) name = "Talent";
+    const std::string link = "|cff4e96f7|Htalent:" + std::to_string(id) + ":" +
+                             std::to_string(gh->getTalentRank(id)) + "|h[" + name +
+                             "]|h|r";
+    lua_pushstring(L, link.c_str());
+    return 1;
+}
+
 static int lua_GetActiveTalentGroup(lua_State* L) {
     auto* gh = getGameHandler(L);
     lua_pushnumber(L, gh ? (gh->getActiveTalentSpec() + 1) : 1);
@@ -554,6 +716,15 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetTalentTabInfo",        lua_GetTalentTabInfo},
                 {"GetNumTalents",           lua_GetNumTalents},
                 {"GetTalentInfo",           lua_GetTalentInfo},
+                {"AddPreviewTalentPoints",  lua_AddPreviewTalentPoints},
+                {"GetGroupPreviewTalentPointsSpent", lua_GetGroupPreviewTalentPointsSpent},
+                {"ResetGroupPreviewTalentPoints",    lua_ResetGroupPreviewTalentPoints},
+                {"LearnPreviewTalents",     lua_LearnPreviewTalents},
+                {"LearnTalent",             lua_LearnTalent},
+                {"GetUnspentTalentPoints",  lua_GetUnspentTalentPoints},
+                {"GetNumTalentGroups",      lua_GetNumTalentGroups},
+                {"SetActiveTalentGroup",    lua_SetActiveTalentGroup},
+                {"GetTalentLink",           lua_GetTalentLink},
                 {"GetActiveTalentGroup",    lua_GetActiveTalentGroup},
                 {"AcceptQuest", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
