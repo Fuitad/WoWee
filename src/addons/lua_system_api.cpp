@@ -1314,6 +1314,28 @@ static int lua_LeaveBattlefield(lua_State* L) {
     return 0;
 }
 
+// ---- World map player arrow and ping ----
+//
+// In the real client these manage a rotating 3D arrow model showing where the
+// player is standing and which way they face, plus the ping that plays when a
+// party member signals a spot on the map.
+//
+// This client already draws its own player marker, party dots and quest POIs
+// over the map, so the arrow would be a second marker on top of the first.
+// They are defined anyway because two of them are called from
+// WorldMapFrame_OnLoad: without them that function raised on its fifth line,
+// so the black separator never got its colour, the ping never initialised, and
+// the WorldMapFrame_Update() call that ends OnLoad never ran at all.
+//
+// UpdateWorldMapArrowFrames is here for the same reason even though nothing
+// reported it missing — it is the first of the group inside
+// WorldMapFrame_Update, which could not be reached while OnLoad was failing.
+static int lua_CreateWorldMapArrowFrame(lua_State* L) { (void)L; return 0; }
+static int lua_UpdateWorldMapArrowFrames(lua_State* L) { (void)L; return 0; }
+static int lua_ShowWorldMapArrowFrame(lua_State* L) { (void)L; return 0; }
+static int lua_PositionWorldMapArrowFrame(lua_State* L) { (void)L; return 0; }
+static int lua_InitWorldMapPing(lua_State* L) { (void)L; return 0; }
+
 // GetCVarMin(name) / GetCVarMax(name) → the range a CVar is allowed, if it
 // declares one.
 //
@@ -1515,6 +1537,11 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"CanHearthAndResurrectFromArea", lua_CanHearthAndResurrectFromArea},
                 {"GetWorldPVPQueueStatus",   lua_GetWorldPVPQueueStatus},
                 {"LeaveBattlefield",         lua_LeaveBattlefield},
+                {"CreateWorldMapArrowFrame",   lua_CreateWorldMapArrowFrame},
+                {"UpdateWorldMapArrowFrames",  lua_UpdateWorldMapArrowFrames},
+                {"ShowWorldMapArrowFrame",     lua_ShowWorldMapArrowFrame},
+                {"PositionWorldMapArrowFrame", lua_PositionWorldMapArrowFrame},
+                {"InitWorldMapPing",           lua_InitWorldMapPing},
                 {"GetCVarMin",               lua_GetCVarMin},
                 {"GetCVarMax",               lua_GetCVarMax},
                 {"IsVoiceChatAllowedByServer", lua_IsVoiceChatAllowedByServer},
