@@ -3186,6 +3186,33 @@ void LuaEngine::registerCoreAPI() {
         "function animMeta:SetScale(x, y) self.scaleX, self.scaleY = x, y end\n"
         "function animMeta:SetDegrees(d) self.degrees = d end\n"
         "function animMeta:GetProgress() return self.progress or 0 end\n"
+        // The same progress with the animation's own easing applied, which is
+        // what anything driving a value off an animation actually wants.
+        // The calendar reads it directly —
+        // flashTexture:SetAlpha(CalendarViewEventFlashTimer:GetSmoothProgress())
+        // on an <Animation smoothing="OUT"> — and a missing *method* is not a
+        // nil to be checked but a hard error, so the whole event view went
+        // down on the line that makes a highlight pulse.
+        "function animMeta:GetSmoothProgress()\n"
+        "    local t = self.progress or 0\n"
+        "    if t < 0 then t = 0 elseif t > 1 then t = 1 end\n"
+        "    local s = self.smoothing\n"
+        "    if s == 'IN' then return t * t end\n"
+        "    if s == 'OUT' then return t * (2 - t) end\n"
+        "    if s == 'IN_OUT' then\n"
+        "        if t < 0.5 then return 2 * t * t end\n"
+        "        local u = 1 - t\n"
+        "        return 1 - 2 * u * u\n"
+        "    end\n"
+        "    if s == 'OUT_IN' then\n"
+        "        if t < 0.5 then local u = t * 2 return u * (2 - u) * 0.5 end\n"
+        "        local u = (t - 0.5) * 2\n"
+        "        return 0.5 + u * u * 0.5\n"
+        "    end\n"
+        // No smoothing named, or one this does not model: the linear progress
+        // is the honest answer and reads as a steady fade rather than nothing.
+        "    return t\n"
+        "end\n"
         "function animMeta:GetElapsed() return self.elapsed or 0 end\n"
         "function animMeta:SetParent(p) self.parent = p end\n"
         "function animMeta:GetRegionParent() return self.group and self.group.parent end\n"

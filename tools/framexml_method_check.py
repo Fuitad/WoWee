@@ -24,7 +24,11 @@ if it is any of:
     `self.Desaturate = AchievementIcon_Desaturate`, which names an existing
     function rather than an inline one
 
-Run it after any batch of widget work. A hit that survives all four is a real
+  - guarded by the caller: `if (context.Result) then return context:Result()`
+    reads the method as a field first, so a missing one is a false branch and
+    not an error. dump.lua does exactly this and was reported twice for it.
+
+Run it after any batch of widget work. A hit that survives all five is a real
 call on nil.
 """
 import re, pathlib, collections
@@ -73,15 +77,29 @@ files = list(interface.glob("framexml/*.lua")) + list(interface.glob("addons/*/*
 # obj:Method( — a real method call. Not obj.Method, which is a field read.
 CALL = re.compile(r'(?<![\w."\'])([A-Za-z_]\w*)\s*:\s*([A-Z]\w*)\s*\(')
 
+# obj.Method read as a field — the caller checking whether it exists.
+GUARD = re.compile(r'\b([A-Za-z_]\w*)\.([A-Z]\w*)\b')
+
 hits = collections.defaultdict(list)
 for f in files:
-    for i, line in enumerate(f.read_text(errors="ignore").splitlines(), 1):
+    lines = f.read_text(errors="ignore").splitlines()
+    guarded = {}          # (obj, meth) -> line it was tested on
+    for i, line in enumerate(lines, 1):
+        if "if" in line or "and" in line or "or" in line:
+            for obj, meth in GUARD.findall(line):
+                guarded[(obj, meth)] = i
         if line.lstrip().startswith("--") or line.lstrip().startswith("function"):
             continue
         for obj, meth in CALL.findall(line):
             if meth in answered:
                 continue
             if meth.startswith("On"):        # script-handler names, read as fields
+                continue
+            # Tested a few lines above is the author handling its absence. The
+            # window is small on purpose: a check far away is not protecting
+            # this call.
+            at = guarded.get((obj, meth))
+            if at is not None and 0 <= i - at <= 3:
                 continue
             hits[meth].append(f"{f.name}:{i}: {line.strip()[:80]}")
 
