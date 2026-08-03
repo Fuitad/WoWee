@@ -2932,42 +2932,23 @@ void MovementHandler::activateTaxi(uint32_t destNodeId) {
         }
     }
 
-    // BFS to find path from startNode to destNodeId
-    std::unordered_map<uint32_t, std::vector<uint32_t>> adj;
-    for (const auto& edge : taxiPathEdges_) {
-        adj[edge.fromNode].push_back(edge.toNode);
-    }
+    // The route the cost map already worked out, rather than a second search of
+    // the same graph.
+    //
+    // The one here searched every edge, including those reaching nodes the
+    // player has never been to. The server refuses a flight the moment one
+    // appears in the list — ERR_TAXINOTVISITED, checked node by node — so a
+    // route through an undiscovered stop is turned down outright rather than
+    // flown badly. buildTaxiCostMap already skips those, which is why the price
+    // quoted came from a route this then declined to use.
+    std::vector<uint32_t> path = getTaxiRouteTo(destNodeId);
 
-    std::unordered_map<uint32_t, uint32_t> parent;
-    std::deque<uint32_t> queue;
-    queue.push_back(startNode);
-    parent[startNode] = startNode;
-
-    bool found = false;
-    while (!queue.empty()) {
-        uint32_t cur = queue.front();
-        queue.pop_front();
-        if (cur == destNodeId) { found = true; break; }
-        for (uint32_t next : adj[cur]) {
-            if (parent.find(next) == parent.end()) {
-                parent[next] = cur;
-                queue.push_back(next);
-            }
-        }
-    }
-
-    if (!found) {
-        LOG_WARNING("No taxi path found from node ", startNode, " to ", destNodeId);
+    if (path.size() < 2) {
+        LOG_WARNING("No taxi route through discovered nodes from ", startNode,
+                    " to ", destNodeId);
         owner_.addSystemChatMessage("No flight path available to that destination.");
         return;
     }
-
-    std::vector<uint32_t> path;
-    for (uint32_t n = destNodeId; n != startNode; n = parent[n]) {
-        path.push_back(n);
-    }
-    path.push_back(startNode);
-    std::reverse(path.begin(), path.end());
 
     LOG_INFO("Taxi path: ", path.size(), " nodes, from ", startNode, " to ", destNodeId);
 

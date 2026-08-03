@@ -103,21 +103,53 @@ bool UIManager::initialize(core::Window* win) {
 }
 
 void UIManager::loadInterfaceFont(const std::string& dataRoot) {
-    if (!imguiInitialized || dataRoot.empty()) return;
+    if (!imguiInitialized) return;
+    if (dataRoot.empty()) {
+        // Nothing to search is not the same as searching and finding nothing,
+        // and both end up in the built-in face.
+        LOG_WARNING("No data directory to load interface fonts from — keeping "
+                    "the built-in face");
+        return;
+    }
 
     namespace fs = std::filesystem;
     std::error_code ec;
 
     // Extracted data does not agree with itself about case, and this path is
     // reached directly rather than through the asset manager's manifest.
-    const char* dirs[] = { "misc/fonts", "Misc/Fonts", "fonts", "Fonts" };
+    //
+    // Matched a component at a time rather than against a list of spellings.
+    // The list only held four, so an install writing Misc/fonts or MISC/FONTS
+    // matched none of them, the built-in face was kept, and the only trace was
+    // an info line the log does not carry.
+    auto childIgnoringCase = [&](const fs::path& base, const std::string& name) {
+        const fs::path exact = base / name;
+        if (fs::exists(exact, ec)) return exact;
+        auto lower = [](std::string v) {
+            for (char& c : v) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            return v;
+        };
+        const std::string wanted = lower(name);
+        for (const auto& entry : fs::directory_iterator(base, ec)) {
+            if (lower(entry.path().filename().string()) == wanted) return entry.path();
+        }
+        return fs::path();
+    };
+
     fs::path fontDir;
-    for (const char* rel : dirs) {
-        const fs::path p = fs::path(dataRoot) / rel;
-        if (fs::is_directory(p, ec)) { fontDir = p; break; }
+    for (const char* rel : { "misc/fonts", "fonts" }) {
+        fs::path at(dataRoot);
+        for (const auto& part : fs::path(rel)) {
+            at = childIgnoringCase(at, part.string());
+            if (at.empty()) break;
+        }
+        if (!at.empty() && fs::is_directory(at, ec)) { fontDir = at; break; }
     }
     if (fontDir.empty()) {
-        LOG_INFO("No interface fonts under ", dataRoot, "; keeping the built-in");
+        // Said out loud: the client still runs, in a face that is not the
+        // game's, and nothing else reports why.
+        LOG_WARNING("No interface fonts under ", dataRoot,
+                    " — keeping the built-in face, so text will not look right");
         return;
     }
 
@@ -155,8 +187,16 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot) {
     // at the atlas size for the interface, which asks for it by name.
     const fs::path frizqt = resolve("frizqt__.ttf");
     if (!frizqt.empty()) {
-        io.Fonts->AddFontFromFileTTF(frizqt.string().c_str(), kClientSize);
+        if (!io.Fonts->AddFontFromFileTTF(frizqt.string().c_str(), kClientSize)) {
+            // Found and refused is a different problem from not found, and
+            // reads identically on screen.
+            LOG_WARNING("Could not read the interface font at ", frizqt.string(),
+                        " — keeping the built-in face");
+            io.Fonts->AddFontDefault();
+        }
     } else {
+        LOG_WARNING("No frizqt__.ttf in ", fontDir.string(),
+                    " — keeping the built-in face");
         io.Fonts->AddFontDefault();
     }
 
@@ -174,7 +214,7 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot) {
             ++loaded;
         }
     }
-    LOG_INFO("Interface fonts loaded: ", loaded, " from ", fontDir.string());
+    LOG_WARNING("Interface fonts loaded: ", loaded, " of 5 from ", fontDir.string());
 }
 
 void UIManager::shutdown() {
