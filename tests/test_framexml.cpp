@@ -871,3 +871,25 @@ TEST_CASE("PushedTextOffset reaches the button", "[framexml][emit]") {
     const EmitResult r = emitFrameXml(root);
     REQUIRE(has(r.lua, "SetPushedTextOffset(1, -1)"));
 }
+
+TEST_CASE("Element names are matched without regard to case",
+          "[framexml][emit]") {
+    // Blizzard's own floatingchatframe.xml declares <Fontstring>, and WoW's
+    // parser does not care. Addons are written less carefully still.
+    XmlNode root = parseOrFail(
+        "<Ui><frame name=\"Mixed\"><layers><Layer>"
+        "<Fontstring name=\"$parentLabel\" text=\"hi\"/>"
+        "</Layer></layers></frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "CreateFrame(\"Frame\", \"Mixed\""));
+    REQUIRE(has(r.lua, "CreateFontString"));
+    REQUIRE(r.warnings.empty());
+}
+
+TEST_CASE("An element nobody knows is still reported", "[framexml][emit]") {
+    // Canonicalising must not quietly accept anything: an unknown element is
+    // a frame, and everything inside it, that never gets built.
+    XmlNode root = parseOrFail("<Ui><Wibble name=\"X\"/></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(r.warnings.empty());
+}

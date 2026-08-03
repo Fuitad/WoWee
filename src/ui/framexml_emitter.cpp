@@ -1,4 +1,5 @@
 #include "ui/framexml_emitter.hpp"
+#include <cctype>
 
 #include "ui/xml_parser.hpp"
 
@@ -950,7 +951,64 @@ std::string substituteParent(const std::string& name, const std::string& parentN
     return parentName + name.substr(token.size());
 }
 
-EmitResult emitFrameXml(const XmlNode& root) {
+namespace {
+/// Element names as the schema spells them, for matching a document's spelling
+/// against.
+///
+/// WoW's parser does not care about case and this one did, which is a
+/// difference nobody notices until it costs them an element. FrameXML itself
+/// contains one: floatingchatframe.xml declares <Fontstring>, and that region
+/// was never built — no error, no warning that meant anything, just a font
+/// string missing from a frame. Addons are written far less carefully than
+/// Blizzard's own files, so this is the more useful half of the fix.
+const char* const kElementNames[] = {
+    "AbsDimension", "AbsInset", "AbsValue", "Alpha", "Anchor", "Anchors",
+    "Animation", "AnimationGroup", "Animations", "Attribute", "Attributes",
+    "Backdrop", "BackgroundInsets", "BarColor", "BarTexture", "Binding",
+    "Bindings", "BorderColor", "Button", "ButtonText", "CheckButton",
+    "CheckedTexture", "Color", "ColorSelect", "ColorValueTexture",
+    "ColorValueThumbTexture", "ColorWheelTexture", "ColorWheelThumbTexture",
+    "Cooldown", "DisabledCheckedTexture", "DisabledFont", "DisabledTexture",
+    "DressUpModel", "EdgeSize", "EditBox", "Font", "FontHeight", "FontString",
+    "Frame", "Frames", "GameTooltip", "HighlightFont", "HighlightTexture",
+    "HitRectInsets", "Include", "Layer", "Layers", "MessageFrame", "Minimap",
+    "Model", "ModifiedClick", "NormalFont", "NormalTexture", "Offset",
+    "PlayerModel", "PushedTextOffset", "PushedTexture", "QuestPOIFrame",
+    "ResizeBounds", "Script", "Scripts", "ScrollChild", "ScrollFrame",
+    "ScrollingMessageFrame", "Shadow", "SimpleHTML", "Size", "Slider",
+    "StatusBar", "TabardModel", "TexCoords", "Texture", "ThumbTexture",
+    "TileSize", "TitleRegion", "Translation", "Ui", "WorldFrame",
+    "maxResize", "minResize",
+};
+
+bool sameNameIgnoringCase(std::string_view a, std::string_view b) {
+    if (a.size() != b.size()) return false;
+    for (size_t i = 0; i < a.size(); ++i) {
+        if (std::tolower(static_cast<unsigned char>(a[i])) !=
+            std::tolower(static_cast<unsigned char>(b[i]))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/// Rewrite every element name to the schema's spelling, in place, before any
+/// of the emitter's comparisons run. Anything unrecognised is left exactly as
+/// written so it still reports itself as an unknown element type.
+void canonicaliseNames(XmlNode& node) {
+    for (const char* known : kElementNames) {
+        if (node.name != known && sameNameIgnoringCase(node.name, known)) {
+            node.name = known;
+            break;
+        }
+    }
+    for (XmlNode& child : node.children) canonicaliseNames(child);
+}
+}  // namespace
+
+EmitResult emitFrameXml(const XmlNode& rootIn) {
+    XmlNode root = rootIn;
+    canonicaliseNames(root);
     Emitter e;
     e.line("local __w = {}");
     if (root.name != "Ui") {
