@@ -4,6 +4,13 @@
 
 Work on the `framexml-ui-transition` branch. None of this is in a tagged build yet.
 
+### Corrected — work in this branch that was built against the wrong model
+Four things were written down here that the client already owned. A copy does not fail; it answers plausibly and slightly wrong, which is why none of the checks in this branch caught any of them.
+- **Equipment sets are the server's.** They were kept in a file beside this client, so the character's real sets were invisible and anything saved through the manager would not have existed for anyone else — this client's own paperdoll included
+- **A key the client acts on is read from the client**, every time it is asked. It was copied once at startup, and the settings panel can rebind it
+- **The reputation thresholds have one home**, shared by both interfaces. They agreed except at the top of the last band, which nothing else constrained: a faction at exalted drew an almost empty bar
+- **The reputation list reuses the faction mapping that already existed** rather than reading the same file again to rediscover it
+
 ### Added — things that could be seen but not done
 - **A party invitation could not be accepted.** Nor a guild invitation, a resurrect, or a duel: all four popups already appeared, and none of their eight buttons was connected to anything
 - **The death popup announced the death and offered no way out of it** — releasing the spirit and resurrecting at the corpse both do something now
@@ -28,6 +35,11 @@ These are the ones that stopped something working rather than leaving it empty. 
 - **Confirming a profession** at a trainer
 - **The talent frame the moment a point was staged**, which is how talents are spent at all
 - **Hovering the performance bar**, which adds up what every loaded addon uses
+
+### Fixed — a window that worked but was never told anything
+A panel needs three things: functions that answer, an event that opens it, and an event that says it is done. Only the first was being checked.
+- **The quest frame opened on three of its four steps and closed on none.** The panel shown when a quest is handed back unfinished had its text ready and no event to draw it on, and nothing hid the frame afterwards, so it stayed open over whatever came next
+- **A deleted letter stayed open showing nothing**, and applying an equipment set never told the manager it had finished, so the manager did not refresh or release the slots it was told to ignore
 
 ### Fixed — drawn wrongly rather than not at all
 - **Every pet ability was greyed out**, because the frame asks whether a slot is usable and nothing answered
