@@ -187,6 +187,22 @@ static int lua_GetCVar(lua_State* L) {
     //   showKeyring      MainMenuBar_UpdateKeyRing only ever calls
     //                    KeyRingButton:Show() inside it, so the keyring was
     //                    unreachable despite the slots being tracked
+    // On, as WotLK has it — and everything behind it is built.
+    //
+    // This was left off last time for being untested, on the grounds that
+    // turning it on changes what clicking a talent does. Checking rather than
+    // assuming: all four preview functions are implemented, not stubbed —
+    // AddPreviewTalentPoints stages against the real max rank,
+    // GetGroupPreviewTalentPointsSpent totals the staging map,
+    // LearnPreviewTalents sends one request per rank, and
+    // ResetGroupPreviewTalentPoints clears it and fires the event the frame
+    // redraws on. GetTalentInfo already answers previewRank and the
+    // preview-aware availability flag.
+    //
+    // So the staging flow was written deliberately and then reached by
+    // nothing, because the CVar that gates every one of those eight call
+    // sites answered false.
+    else if (n == "previewtalents") lua_pushstring(L, "1");
     else if (n == "chatmousescroll") lua_pushstring(L, "1");
     else if (n == "showkeyring")     lua_pushstring(L, "1");
     // Full volume and sound on, which is what a fresh client has. These are
