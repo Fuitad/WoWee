@@ -625,8 +625,25 @@ static int lua_GetSkillLineInfo(lua_State* L) {
     lua_pushnumber(L, skill.bonusPerm);                  // 6: skillModifier
     lua_pushnumber(L, skill.maxValue);                   // 7: skillMaxRank
     lua_pushboolean(L, 0);                              // 8: isAbandonable
-    lua_pushnumber(L, 0);                               // 9: stepCost
-    lua_pushnumber(L, 0);                               // 10: rankCost
+    // Nil, not zero, and this is the whole of the "Learn Mounts" mystery.
+    //
+    // SkillFrame_SetStatusBar branches on these three in order:
+    //
+    //     if ( stepCost ) then          -- a skill that must be bought
+    //         statusBarName:SetFormattedText(LEARN_SKILL_TEMPLATE, skillName)
+    //     elseif ( rankCost or numTempPoints > 0 ) then   -- trainable
+    //     else                                            -- an ordinary skill
+    //
+    // Zero is *true* in Lua, so the first branch always won and every row in
+    // the skills window was titled "Learn <skill>" — First Aid, Axes, Cooking,
+    // everything — as though none of them were known.
+    //
+    // No purchase cost is tracked here, and nil is how the client says a skill
+    // has none. With both nil and no temporary points, the third branch runs
+    // and the row is simply the skill's name, which is what it should have
+    // been reading all along.
+    lua_pushnil(L);                                     // 9: stepCost
+    lua_pushnil(L);                                     // 10: rankCost
     lua_pushnumber(L, 0);                               // 11: minLevel
     lua_pushnumber(L, 0);                               // 12: skillCostType
     // The sentence the detail panel prints under the selected skill.
