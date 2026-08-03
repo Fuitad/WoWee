@@ -81,6 +81,19 @@ ELEMENTS = {
 SCRIPT_BODY = re.compile(r"<(On[A-Za-z]+)>(.*?)</\1>", re.S)
 CALL = re.compile(r"(?<![\w.:])([A-Z][A-Za-z0-9_]*)\s*\(")
 
+# A Lua pattern in a string looks exactly like a call. gsub(point, "TOP(.*)",
+# "BOTTOM%1") reads as a call to TOP, and did — it was three of the loot
+# frame's five remaining names. Comments do the same for anything written as
+# Name() in prose.
+_STRINGS = re.compile(r'"(?:[^"\\\n]|\\.)*"' r"|'(?:[^'\\\n]|\\.)*'")
+_COMMENT = re.compile(r"--\[\[.*?\]\]|--[^\n]*", re.S)
+
+
+def code_only(src):
+    """The source with string literals and comments blanked out."""
+    src = _COMMENT.sub(" ", src)
+    return _STRINGS.sub('""', src)
+
 
 def registered():
     """Every global name the C++ bindings answer."""
@@ -104,7 +117,7 @@ def scan_interface():
         for name in filenames:
             path = os.path.join(dirpath, name)
             if name.endswith(".lua"):
-                src = open(path, encoding="utf-8", errors="ignore").read()
+                src = code_only(open(path, encoding="utf-8", errors="ignore").read())
                 for fn in re.findall(
                         r"^\s*(?:local\s+)?function\s+([A-Za-z_][\w]*)\s*\(", src, re.M):
                     defined_by.setdefault(fn, name)
@@ -114,7 +127,7 @@ def scan_interface():
             elif name.endswith(".xml"):
                 src = open(path, encoding="utf-8", errors="ignore").read()
                 for body in SCRIPT_BODY.finditer(src):
-                    calls[name] |= set(CALL.findall(body.group(2)))
+                    calls[name] |= set(CALL.findall(code_only(body.group(2))))
     return defined_by, calls
 
 

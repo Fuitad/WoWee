@@ -1450,6 +1450,35 @@ static int lua_JoinBattlefield(lua_State* L) {
     return 0;
 }
 
+// GetLFGCompletionReward() →
+//   name, typeID, textureFilename, moneyBase, moneyVar, experienceBase,
+//   experienceVar, numStrangers, numRewards
+//
+// What a finished dungeon finder run paid out. Nothing here tracks it, so there
+// is none — but the six counts answer zero rather than nil, which is the
+// opposite of the usual choice and for the opposite reason. The alert frame
+// does not test them, it does arithmetic with them:
+//
+//     local moneyAmount = moneyBase + moneyVar * numStrangers
+//
+// so a nil raises there rather than reading as absent. The three describing the
+// dungeon stay nil, because those are shown rather than added.
+static int lua_GetLFGCompletionReward(lua_State* L) {
+    lua_pushnil(L);          // 1: name
+    lua_pushnil(L);          // 2: typeID
+    lua_pushnil(L);          // 3: textureFilename
+    for (int i = 0; i < 6; ++i) lua_pushnumber(L, 0);
+    return 9;
+}
+
+// GetLFGCompletionRewardItem(index) → texturePath, quantity
+// Only reached once the call above reports rewards, which it never does.
+static int lua_GetLFGCompletionRewardItem(lua_State* L) {
+    lua_pushnil(L);
+    lua_pushnumber(L, 0);
+    return 2;
+}
+
 // ReloadUI() — rebuild the interface, as /reload does.
 //
 // Only asks. The reload shuts this Lua state down and builds a new one, and
@@ -1717,6 +1746,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetBattlefieldInfo",       lua_GetBattlefieldInfo},
                 {"GetSelectedBattlefield",   lua_GetSelectedBattlefield},
                 {"JoinBattlefield",          lua_JoinBattlefield},
+                {"GetLFGCompletionReward",     lua_GetLFGCompletionReward},
+                {"GetLFGCompletionRewardItem", lua_GetLFGCompletionRewardItem},
                 {"ReloadUI",                 lua_ReloadUI},
                 {"GetGamma",                 lua_GetGamma},
                 {"SetGamma",                 lua_SetGamma},
