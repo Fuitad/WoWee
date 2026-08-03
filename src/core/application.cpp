@@ -396,7 +396,9 @@ bool Application::initialize() {
             addonManager_->scanAddons(addonsDir);
             // Wire Lua errors to UI error display
             addonManager_->getLuaEngine()->setLuaErrorCallback([gh = gameHandler.get()](const std::string& err) {
-                if (gh) gh->addUIError(err);
+                // Not addUIError: that reports by firing an event, which runs
+                // script, which is how a script error came to report itself.
+                if (gh) gh->addScriptError(err);
             });
             // Wire chat messages to addon event dispatch
             gameHandler->setAddonChatCallback([this](const game::MessageChatData& msg) {

@@ -4432,6 +4432,26 @@ void LuaEngine::fireEvent(const std::string& eventName,
                            const std::vector<std::string>& args) {
     if (!L_) return;
 
+    // An event handler may cause another event, which is ordinary and has to
+    // keep working — but a cycle between two of them recurses through both this
+    // stack and Lua's, inside one frame, until the process dies. Reporting a
+    // script error used to be such a cycle: the report fired an event, the
+    // handler for it errored, and the error was reported the same way.
+    //
+    // Deep enough that no legitimate chain reaches it, and it says which event
+    // it stopped, because the name is the only clue to which cycle it was.
+    constexpr int kMaxEventDepth = 8;
+    struct DepthGuard {
+        int& d;
+        explicit DepthGuard(int& v) : d(v) { ++d; }
+        ~DepthGuard() { --d; }
+    } depthGuard{eventDepth_};
+    if (eventDepth_ > kMaxEventDepth) {
+        LOG_WARNING("Event '", eventName, "' is ", eventDepth_,
+                    " deep and was dropped — handlers are triggering each other");
+        return;
+    }
+
     // Addon-side handlers, where there are any.
     //
     // Their absence is not a reason to stop. FrameXML registers through

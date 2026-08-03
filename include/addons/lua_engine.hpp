@@ -157,6 +157,9 @@ private:
     game::GameHandler* gameHandler_ = nullptr;
     LuaServices luaServices_;
     LuaErrorCallback luaErrorCallback_;
+    /// How many events are being dispatched inside one another right now.
+    /// Guards against two handlers triggering each other without end.
+    int eventDepth_ = 0;
     std::string lastError_;
     unsigned long long chunkTimeoutMs_ = 0;
 
