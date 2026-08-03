@@ -756,6 +756,12 @@ static int lua_IsAddOnLoaded(lua_State* L) {
         lua_pop(L, 1);
     }
     lua_pop(L, 1);
+    // A load-on-demand addon is not in the list handed to the VM at startup —
+    // it is not loaded then — so its loaded state is asked of the manager.
+    if (!found) {
+        auto* svc = getLuaServices(L);
+        if (svc && svc->isAddOnLoaded) found = svc->isAddOnLoaded(wanted);
+    }
     lua_pushboolean(L, found ? 1 : 0);
     return 1;
 }
@@ -778,9 +784,26 @@ static int lua_GetTime(lua_State* L) {
 /// concatenation against nothing. These are Blizzard's own load-on-demand
 /// panels — the talent frame and its like — which this client does not ship,
 /// and MISSING is the reason string for exactly that.
+/// LoadAddOn(name) → loaded, reason
+///
+/// How the interface reaches half its own panels: the talent tree, the
+/// achievement window, the macro editor, the key bindings, the trade skill and
+/// glyph frames are all load-on-demand addons that FrameXML asks for the first
+/// time one is opened. This answered "MISSING" unconditionally, so none of them
+/// ever appeared — and an addon that ships an optional module got the same.
 static int lua_LoadAddOn(lua_State* L) {
-    lua_pushboolean(L, 0);
-    lua_pushstring(L, "MISSING");
+    const char* name = lua_isstring(L, 1) ? lua_tostring(L, 1) : nullptr;
+    auto* svc = getLuaServices(L);
+    if (!name || !svc || !svc->loadAddOn) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "MISSING");
+        return 2;
+    }
+    std::string reason;
+    const bool ok = svc->loadAddOn(name, reason);
+    lua_pushboolean(L, ok ? 1 : 0);
+    if (ok) lua_pushnil(L);
+    else    lua_pushstring(L, reason.empty() ? "MISSING" : reason.c_str());
     return 2;
 }
 

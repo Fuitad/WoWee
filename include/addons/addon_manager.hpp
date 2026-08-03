@@ -3,6 +3,7 @@
 #include "addons/lua_engine.hpp"
 #include "addons/toc_parser.hpp"
 #include <memory>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -31,6 +32,12 @@ public:
     void shutdown();
 
     const std::vector<TocFile>& getAddons() const { return addons_; }
+
+    /// Load a load-on-demand addon by name. Names are matched without regard to
+    /// case, because the interface asks for "Blizzard_TalentUI" and the
+    /// directory on a case-sensitive filesystem is blizzard_talentui.
+    bool loadAddOnByName(const std::string& name, std::string& reason);
+    bool isAddOnLoadedByName(const std::string& name) const;
     LuaEngine* getLuaEngine() { return &luaEngine_; }
     bool isInitialized() const { return luaEngine_.isInitialized(); }
 
@@ -51,6 +58,9 @@ public:
 private:
     LuaEngine luaEngine_;
     std::vector<TocFile> addons_;
+    /// Declared LoadOnDemand: known, listed, and not run until asked for.
+    std::vector<TocFile> lodAddons_;
+    std::set<std::string> lodLoaded_;
     game::GameHandler* gameHandler_ = nullptr;
     LuaServices luaServices_;
     std::string addonsPath_;

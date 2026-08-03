@@ -25,6 +25,15 @@ AddonManager::~AddonManager() { shutdown(); }
 bool AddonManager::initialize(game::GameHandler* gameHandler, const LuaServices& services) {
     gameHandler_ = gameHandler;
     luaServices_ = services;
+    // Supplied here rather than by the caller: the manager is what owns the
+    // list of load-on-demand addons and the Lua state that asks for them, and
+    // wiring it anywhere else would mean handing one to the other.
+    luaServices_.loadAddOn = [this](const std::string& name, std::string& reason) {
+        return loadAddOnByName(name, reason);
+    };
+    luaServices_.isAddOnLoaded = [this](const std::string& name) {
+        return isAddOnLoadedByName(name);
+    };
     if (!luaEngine_.initialize()) return false;
     luaEngine_.setGameHandler(gameHandler);
     luaEngine_.setLuaServices(luaServices_);
@@ -75,6 +84,8 @@ std::filesystem::path resolvePath(const std::filesystem::path& base,
 void AddonManager::scanAddons(const std::string& addonsPath) {
     addonsPath_ = addonsPath;
     addons_.clear();
+    lodAddons_.clear();
+    lodLoaded_.clear();
 
     // Two places are searched. The game data's own Interface\AddOns is where a
     // player's existing addons already live, and an "addons" directory beside
@@ -122,6 +133,7 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
     // top of each other, so it reads as one frame that will not hide: the
     // toggle hides the copy it has a handle to and the other stays.
     std::set<std::string> seen;
+    std::set<std::string> lodSeen;
     int duplicates = 0;
 
     for (const auto& dir : dirs) {
@@ -133,6 +145,12 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
 
         if (toc->isLoadOnDemand()) {
             ++loadOnDemand;
+            // Kept rather than dropped: LoadAddOn has to be able to find these,
+            // and GetAddOnInfo lists them alongside the rest. They are simply
+            // not run until something asks.
+            if (lodSeen.insert(toc->addonName).second) {
+                lodAddons_.push_back(*toc);
+            }
             continue;
         }
 
@@ -516,8 +534,15 @@ bool AddonManager::loadAddon(const TocFile& addon) {
         std::string lower = filename;
         for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
+        // Through resolvePath, because a .toc names its files the way Blizzard
+        // wrote them — Blizzard_TalentUI.xml — and this install has them in
+        // lower case. Concatenating the two finds nothing on a case-sensitive
+        // filesystem, which is every one of the Blizzard load-on-demand addons.
+        const fs::path resolved = resolvePath(fs::path(addon.basePath), filename);
+        const std::string fullPath =
+            resolved.empty() ? (addon.basePath + "/" + filename) : resolved.string();
+
         if (lower.size() >= 4 && lower.substr(lower.size() - 4) == ".lua") {
-            std::string fullPath = addon.basePath + "/" + filename;
             if (!luaEngine_.executeFile(fullPath)) {
                 LOG_ERROR("AddonManager: '", addon.addonName, "' failed on ", filename);
                 success = false;
@@ -525,7 +550,7 @@ bool AddonManager::loadAddon(const TocFile& addon) {
                 LOG_INFO("AddonManager: ran ", addon.addonName, "/", filename);
             }
         } else if (lower.size() >= 4 && lower.substr(lower.size() - 4) == ".xml") {
-            if (!loadXmlFile(addon.basePath + "/" + filename, 0)) success = false;
+            if (!loadXmlFile(fullPath, 0)) success = false;
         }
     }
 
@@ -535,6 +560,47 @@ bool AddonManager::loadAddon(const TocFile& addon) {
         luaEngine_.fireEvent("ADDON_LOADED", {addon.addonName});
     }
     return success;
+}
+
+namespace {
+std::string lowered(std::string v) {
+    for (char& c : v) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return v;
+}
+}  // namespace
+
+bool AddonManager::isAddOnLoadedByName(const std::string& name) const {
+    return lodLoaded_.count(lowered(name)) != 0;
+}
+
+bool AddonManager::loadAddOnByName(const std::string& name, std::string& reason) {
+    const std::string key = lowered(name);
+    // Already loaded is success, not an error: FrameXML calls LoadAddOn every
+    // time a panel is opened and only checks the first return.
+    if (lodLoaded_.count(key)) { reason.clear(); return true; }
+
+    const TocFile* found = nullptr;
+    for (const TocFile& a : lodAddons_) {
+        if (lowered(a.addonName) == key) { found = &a; break; }
+    }
+    if (!found) { reason = "MISSING"; return false; }
+    if (!isAddonEnabled(found->addonName)) { reason = "DISABLED"; return false; }
+
+    // Recorded before loading, not after: the addon's own files run during
+    // this call and one of them may call LoadAddOn on the same name, which
+    // would otherwise recurse until the stack gave out.
+    lodLoaded_.insert(key);
+    LOG_INFO("AddonManager: loading on demand: ", found->addonName);
+    if (!loadAddon(*found)) {
+        reason = "LOAD_ON_DEMAND_ERROR";
+        LOG_WARNING("AddonManager: '", found->addonName, "' failed to load on demand");
+        // Left in the loaded set deliberately. A half-run addon has already
+        // built frames and set globals, and running its files a second time
+        // would build them again — the duplicate-frame problem the scan goes
+        // out of its way to avoid.
+        return false;
+    }
+    return true;
 }
 
 bool AddonManager::runScript(const std::string& code) {
