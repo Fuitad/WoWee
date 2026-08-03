@@ -858,6 +858,10 @@ static int lua_SetBinding(lua_State* L) {
         if (keys[0].empty()) keys[0] = key; else keys[1] = key;
         pushBindingToClient(command, keys[0]);
     }
+    // Six frames wait on this, the action buttons among them: it is what
+    // redraws the little key printed in the corner. Without it a rebind takes
+    // effect while every button goes on showing the old key.
+    if (auto* gh = getGameHandler(L)) gh->fireAddonEvent("UPDATE_BINDINGS", {});
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -904,6 +908,7 @@ static int lua_LoadBindings(lua_State* L) {
         // else, and only until the next save overwrites it.
         pushBindingToClient(command, bindingKeys()[command][0]);
     }
+    if (auto* gh = getGameHandler(L)) gh->fireAddonEvent("UPDATE_BINDINGS", {});
     return 0;
 }
 
