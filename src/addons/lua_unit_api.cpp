@@ -507,31 +507,50 @@ static int lua_UnitIsVisible(lua_State* L) {
     return 1;
 }
 
-// UnitGroupRolesAssigned(unit) → "TANK", "HEALER", "DAMAGER", or "NONE"
+/// UnitGroupRolesAssigned(unit) → isTank, isHealer, isDamage.
+///
+/// Three booleans, not a role name. Both callers in this interface are written
+/// the same way:
+///
+///     local isTank, isHealer, isDamage = UnitGroupRolesAssigned(unit)
+///     if ( isTank ) then ... elseif ( isHealer ) then ...
+///
+/// A single string filled the first of those and left the other two nil — and
+/// every string is truthy in Lua, "NONE" included, so the first branch always
+/// won. The player frame and every party member frame showed the tank icon
+/// regardless of role, including for a player with no role and no party.
+///
+/// Nothing here reads the returned name, so there is no caller to keep happy:
+/// playerframe.lua and partymemberframe.lua are the only two.
 static int lua_UnitGroupRolesAssigned(lua_State* L) {
+    auto pushRoles = [L](bool tank, bool healer, bool damage) {
+        lua_pushboolean(L, tank   ? 1 : 0);
+        lua_pushboolean(L, healer ? 1 : 0);
+        lua_pushboolean(L, damage ? 1 : 0);
+        return 3;
+    };
     auto* gh = getGameHandler(L);
-    if (!gh) { lua_pushstring(L, "NONE"); return 1; }
+    if (!gh) return pushRoles(false, false, false);
     const char* uid = luaL_optstring(L, 1, "player");
     std::string uidStr(uid);
     toLowerInPlace(uidStr);
     uint64_t guid = resolveUnitGuid(gh, uidStr);
-    if (guid == 0) { lua_pushstring(L, "NONE"); return 1; }
+    if (guid == 0) return pushRoles(false, false, false);
     const auto& pd = gh->getPartyData();
     for (const auto& m : pd.members) {
-        if (m.guid == guid) {
-            // WotLK LFG roles bitmask (from SMSG_GROUP_LIST / SMSG_LFG_ROLE_CHECK_UPDATE).
-            // Bit 0x01 = Leader (not a combat role), 0x02 = Tank, 0x04 = Healer, 0x08 = DPS.
-            constexpr uint8_t kRoleTank    = 0x02;
-            constexpr uint8_t kRoleHealer  = 0x04;
-            constexpr uint8_t kRoleDamager = 0x08;
-            if (m.roles & kRoleTank)    { lua_pushstring(L, "TANK"); return 1; }
-            if (m.roles & kRoleHealer)  { lua_pushstring(L, "HEALER"); return 1; }
-            if (m.roles & kRoleDamager) { lua_pushstring(L, "DAMAGER"); return 1; }
-            break;
-        }
+        if (m.guid != guid) continue;
+        // WotLK LFG roles bitmask (from SMSG_GROUP_LIST / SMSG_LFG_ROLE_CHECK_UPDATE).
+        // Bit 0x01 = Leader (not a combat role), 0x02 = Tank, 0x04 = Healer, 0x08 = DPS.
+        constexpr uint8_t kRoleTank    = 0x02;
+        constexpr uint8_t kRoleHealer  = 0x04;
+        constexpr uint8_t kRoleDamager = 0x08;
+        return pushRoles((m.roles & kRoleTank)   != 0,
+                         (m.roles & kRoleHealer) != 0,
+                         (m.roles & kRoleDamager) != 0);
     }
-    lua_pushstring(L, "NONE");
-    return 1;
+    // Not in the party, or in no party at all: no role, and the icon is hidden
+    // rather than guessed at.
+    return pushRoles(false, false, false);
 }
 
 // UnitCanAttack(unit, otherUnit) → boolean
