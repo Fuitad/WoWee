@@ -1377,16 +1377,24 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushboolean(L, 1);   // expanded: the list here is flat
             return 4;
         }},
+                // Three costs: coin, talent points, and a profession slot.
+                // The trainer reads the third bare — `if ( cpCost2 > 0 )` — so
+                // one value made selecting anything a trainer offers an error.
+                //
+                // Only the coin is known here. Nothing in the trainer list says
+                // which service is a profession, so the other two are zero,
+                // which is right for the spells and recipes that make up nearly
+                // all of it; the consequence is that learning a profession asks
+                // for money without the extra confirmation about slots.
                 {"GetTrainerServiceCost", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             const auto* list = gh ? &gh->getTrainerSpells().spells : nullptr;
-            if (!list || i < 1 || i > static_cast<int>(list->size())) {
-                lua_pushnumber(L, 0);
-                return 1;
-            }
-            lua_pushnumber(L, (*list)[i - 1].spellCost);
-            return 1;
+            const bool have = list && i >= 1 && i <= static_cast<int>(list->size());
+            lua_pushnumber(L, have ? (*list)[i - 1].spellCost : 0);
+            lua_pushnumber(L, 0);
+            lua_pushnumber(L, 0);
+            return 3;
         }},
                 {"GetTrainerServiceLevelReq", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
