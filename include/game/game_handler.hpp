@@ -602,6 +602,7 @@ public:
     void queryGuildInfo(uint32_t guildId);
     void createGuild(const std::string& guildName);
     void addGuildRank(const std::string& rankName);
+    void delGuildRank();
     void deleteGuildRank();
     void requestPetitionShowlist(uint64_t npcGuid);
     void buyPetition(uint64_t npcGuid, const std::string& guildName);

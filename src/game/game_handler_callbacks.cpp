@@ -2009,6 +2009,10 @@ bool GameHandler::hasPendingBgInvite() const {
     return socialHandler_ && socialHandler_->hasPendingBgInvite();
 }
 
+void GameHandler::delGuildRank() {
+    if (socialHandler_) socialHandler_->delGuildRank();
+}
+
 void GameHandler::setLootMethod(uint8_t method, uint64_t masterGuid, uint8_t threshold) {
     if (socialHandler_) socialHandler_->setLootMethod(method, masterGuid, threshold);
 }

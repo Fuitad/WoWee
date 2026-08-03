@@ -1642,6 +1642,15 @@ void SocialHandler::uninvitePlayer(const std::string& playerName) {
 // CMSG_LOOT_METHOD carries all three settings together, so changing one means
 // resending the other two as they stand. The master looter is only meaningful
 // for method 2 and is sent as an empty guid otherwise.
+// Removes the lowest rank, which is what the server does with this — it takes
+// no index, so there is nothing to get wrong about which one goes.
+void SocialHandler::delGuildRank() {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    auto packet = GuildDelRankPacket::build();
+    owner_.getSocket()->send(packet);
+    requestGuildRoster();
+}
+
 void SocialHandler::setLootMethod(uint8_t method, uint64_t masterGuid, uint8_t threshold) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     network::Packet packet(wireOpcode(Opcode::CMSG_LOOT_METHOD));

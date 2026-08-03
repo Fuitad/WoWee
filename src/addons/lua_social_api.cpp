@@ -634,6 +634,53 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetMacroItemIconInfo", lua_GetMacroIconInfo},
                 {"NewGMTicket",         lua_NewGMTicket},
                 {"DeleteGMTicket",      lua_DeleteGMTicket},
+                // ---- Guild rank editing ----
+                {"GuildControlGetRankName", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh || idx < 1) return luaReturnNil(L);
+            const auto& ranks = gh->getGuildRankNames();
+            if (idx > static_cast<int>(ranks.size())) return luaReturnNil(L);
+            lua_pushstring(L, ranks[static_cast<size_t>(idx) - 1].c_str());
+            return 1;
+        }},
+                // GuildControlSetRank(index) — which rank the panel is editing.
+                // Purely a selection; the panel reads it back through its own
+                // dropdown, and nothing is sent until something is saved.
+                {"GuildControlSetRank", [](lua_State* L) -> int { (void)L; return 0; }},
+                // GuildControlGetRankFlags() → one boolean per permission.
+                //
+                // Nothing is returned because no permission is parsed here. The
+                // consumer loops over select("#", ...) to tick its checkboxes,
+                // so an empty answer leaves them all clear — whereas guessing
+                // would show a rank as holding rights it may not have.
+                {"GuildControlGetRankFlags", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GuildControlAddRank", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* name = luaL_optstring(L, 1, "");
+            if (gh && name && *name) gh->addGuildRank(name);
+            return 0;
+        }},
+                {"GuildControlDelRank", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (gh) gh->delGuildRank();
+            return 0;
+        }},
+                // GuildControlSaveRank(name) — deliberately does nothing.
+                //
+                // CMSG_GUILD_RANK carries the rank's whole permission bitmask
+                // and its gold-per-day allowance alongside the name, and none
+                // of that is parsed here — GuildControlGetRankFlags above has
+                // nothing to answer with. Sending the packet would write back
+                // the zeroes we hold rather than the rights the rank actually
+                // has, stripping them from every member of it. Renaming a rank
+                // is not worth that, so it waits for the permissions to be
+                // read first.
+                {"GuildControlSaveRank", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (gh) gh->addSystemChatMessage("Guild rank permissions are not editable yet.");
+            return 0;
+        }},
                 // JoinPermanentChannel(name, password, frameId, permanent)
                 //   → zoneChannel, channelName
                 //
