@@ -3452,11 +3452,26 @@ void LuaEngine::registerCoreAPI() {
         // "1", because the suffix for LeftButton is "1". Without the fallback
         // the lookup was for "type1", found nothing, and the click ran no
         // handler at all: the button was hit, and no spell was cast.
+        // A '*' stands in for either piece, and both have to be tried.
+        //
+        // SecureUnitButton_OnLoad sets "*type1" and "*type2" — the asterisk
+        // meaning "whatever modifier is held". Asking for prefix "", name
+        // "type", suffix "1" looked for "type1", then for "type", and found
+        // neither, so clicking a unit frame ran no handler at all: the player
+        // frame did not target and right-clicking it opened no menu. Both
+        // symptoms, one missing lookup.
+        //
+        // The order is the client's: most specific first, the bare name last.
         "function mt:GetAttribute(a, b, c)\n"
         "    if not self.__attributes then return nil end\n"
         "    if b == nil then return self.__attributes[a] end\n"
-        "    local v = self.__attributes[(a or '') .. b .. (c or '')]\n"
-        "    if v == nil then v = self.__attributes[b] end\n"
+        "    local at = self.__attributes\n"
+        "    local p, s = a or '', c or ''\n"
+        "    local v = at[p .. b .. s]\n"
+        "    if v == nil then v = at['*' .. b .. s] end\n"
+        "    if v == nil then v = at[p .. b .. '*'] end\n"
+        "    if v == nil then v = at['*' .. b .. '*'] end\n"
+        "    if v == nil then v = at[b] end\n"
         "    return v\n"
         "end\n"
         // A scroll frame's content frame.
