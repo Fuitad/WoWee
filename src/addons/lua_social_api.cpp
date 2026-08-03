@@ -634,6 +634,22 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetMacroItemIconInfo", lua_GetMacroIconInfo},
                 {"NewGMTicket",         lua_NewGMTicket},
                 {"DeleteGMTicket",      lua_DeleteGMTicket},
+                // UnitIsRaidOfficer(unit) → whether that unit is an assistant.
+                // The bit rides along with the group list, same as the main
+                // tank and main assist flags read above.
+                {"UnitIsRaidOfficer", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* unit = luaL_optstring(L, 1, "");
+            if (!gh || !unit || !*unit) return luaReturnFalse(L);
+            std::string uid(unit);
+            toLowerInPlace(uid);
+            const uint64_t guid = resolveUnitGuid(gh, uid);
+            if (guid == 0) return luaReturnFalse(L);
+            for (const auto& mem : gh->getPartyData().members) {
+                if (mem.guid == guid) { lua_pushboolean(L, (mem.flags & 0x01) ? 1 : 0); return 1; }
+            }
+            return luaReturnFalse(L);
+        }},
                 // ---- Loot rules and party assignments ----
                 //
                 // SetLootMethod(method, masterPlayer) and SetLootThreshold(q)

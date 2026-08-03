@@ -53,8 +53,12 @@ defined, calls = set(), collections.Counter()
 for fn in sorted(os.listdir(fx)):
     if not fn.endswith(".lua"): continue
     src = open(os.path.join(fx,fn), errors="ignore").read()
-    defined |= set(re.findall(r'^\s*function\s+([A-Za-z_][\w]*)\s*\(', src, re.M))
-    defined |= set(re.findall(r'^\s*([A-Za-z_][\w]*)\s*=\s*function', src, re.M))
+    # `local function` too. Anchoring on `function` alone missed every
+    # file-local helper, and FrameXML declares plenty of them — GetHandleFrame
+    # and GetUIPanelWindowInfo between them accounted for the two most-called
+    # "gaps" in the report, neither of which was missing at all.
+    defined |= set(re.findall(r'^\s*(?:local\s+)?function\s+([A-Za-z_][\w]*)\s*\(', src, re.M))
+    defined |= set(re.findall(r'^\s*(?:local\s+)?([A-Za-z_][\w]*)\s*=\s*function', src, re.M))
     for m in re.finditer(r'(?<![\w.:])([A-Z][A-Za-z0-9_]{2,})\s*\(', src):
         calls[m.group(1)] += 1
 

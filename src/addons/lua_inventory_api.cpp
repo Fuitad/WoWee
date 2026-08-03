@@ -2395,6 +2395,44 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"IsDressableItem",   lua_IsDressableItem},
                 {"GetItemQualityColor", lua_GetItemQualityColor},
                 {"_GetItemTooltipData", lua_GetItemTooltipData},
+                // GetItemSpell(item) → spellName, spellRank
+                //
+                // The "Use:" spell on an item, which is what /use and the chat
+                // macro parser look for to tell a usable item from an inert
+                // one. Trigger 0 is on-use; equip and proc effects are not what
+                // is being asked for.
+                {"GetItemSpell", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return luaReturnNil(L);
+            // Either an item id or a name, as everywhere else an item is named.
+            uint32_t itemId = 0;
+            if (lua_isnumber(L, 1)) {
+                itemId = static_cast<uint32_t>(lua_tonumber(L, 1));
+            } else if (const char* s = lua_tostring(L, 1)) {
+                std::string str(s);
+                // An item link carries the id; a bare name has to be matched.
+                const auto pos = str.find("item:");
+                if (pos != std::string::npos) {
+                    itemId = static_cast<uint32_t>(std::strtoul(str.c_str() + pos + 5, nullptr, 10));
+                } else {
+                    for (const auto& [id, info] : gh->getItemInfoCache()) {
+                        if (info.name == str) { itemId = id; break; }
+                    }
+                }
+            }
+            if (itemId == 0) return luaReturnNil(L);
+            const auto* info = gh->getItemInfo(itemId);
+            if (!info) return luaReturnNil(L);
+            for (const auto& sp : info->spells) {
+                if (sp.spellId == 0 || sp.spellTrigger != 0) continue;
+                const std::string& name = gh->getSpellName(sp.spellId);
+                if (name.empty()) continue;
+                lua_pushstring(L, name.c_str());
+                lua_pushstring(L, "");   // rank — not tracked per item spell
+                return 2;
+            }
+            return luaReturnNil(L);
+        }},
                 // ---- Currency tab ----
                 {"GetCurrencyListSize", [](lua_State* L) -> int {
             lua_pushnumber(L, static_cast<lua_Number>(buildCurrencyList(L).size()));
