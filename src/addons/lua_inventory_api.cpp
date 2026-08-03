@@ -362,7 +362,16 @@ static int lua_GetMerchantItemInfo(lua_State* L) {
     lua_pushnumber(L, vi.stackCount > 0 ? vi.stackCount : 1); // stackCount
     lua_pushnumber(L, vi.maxCount == -1 ? -1 : vi.maxCount);  // numAvailable (-1=unlimited)
     lua_pushboolean(L, 1);                              // isUsable
-    return 6;
+    // The extended cost — tokens, honour, arena points — which merchantframe
+    // reads as `if ( extendedCost and (price <= 0) )` to decide whether to
+    // show a token price instead of a coin one. It was not returned at all, so
+    // an item bought with marks or emblems showed as free.
+    //
+    // Nil rather than zero when there is none: zero is *true* in Lua, so a
+    // zero here would claim every free item had a token cost.
+    if (vi.extendedCost != 0) lua_pushnumber(L, vi.extendedCost);
+    else                      lua_pushnil(L);
+    return 7;
 }
 
 // GetMerchantItemLink(index) → item link

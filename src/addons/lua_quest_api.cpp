@@ -28,15 +28,29 @@ static int lua_GetQuestLogTitle(lua_State* L) {
     const auto& ql = gh->getQuestLog();
     if (index > static_cast<int>(ql.size())) { return luaReturnNil(L); }
     const auto& q = ql[index - 1];  // 1-based
-    lua_pushstring(L, q.title.c_str());  // title
-    lua_pushnumber(L, 0);                // level (not tracked)
-    lua_pushnumber(L, 0);                // suggestedGroup
-    lua_pushboolean(L, 0);               // isHeader
-    lua_pushboolean(L, 0);               // isCollapsed
-    lua_pushboolean(L, q.complete);      // isComplete
-    lua_pushnumber(L, 0);                // frequency
-    lua_pushnumber(L, q.questId);        // questID
-    return 8;
+    // The client's ten, in its order:
+    //
+    //   title, level, questTag, suggestedGroup, isHeader, isCollapsed,
+    //   isComplete, isDaily, questID, displayQuestID
+    //
+    // Eight were returned, with questTag and isDaily absent, so everything
+    // from the third value on landed one or two places early. isComplete
+    // received a zero and so no quest ever showed as complete; isDaily
+    // received the quest id, which is a large number and therefore true, so
+    // every quest in the log was marked daily; and questID arrived nil.
+    lua_pushstring(L, q.title.c_str());  // 1: title
+    // The level is tracked — the query response carries it — and was being
+    // answered as a flat zero beside a comment saying it was not.
+    lua_pushnumber(L, q.level);          // 2: level
+    lua_pushnil(L);                      // 3: questTag ("Elite", "PvP", …)
+    lua_pushnumber(L, 0);                // 4: suggestedGroup
+    lua_pushboolean(L, 0);               // 5: isHeader
+    lua_pushboolean(L, 0);               // 6: isCollapsed
+    lua_pushboolean(L, q.complete);      // 7: isComplete
+    lua_pushboolean(L, 0);               // 8: isDaily
+    lua_pushnumber(L, q.questId);        // 9: questID
+    lua_pushnumber(L, q.questId);        // 10: displayQuestID
+    return 10;
 }
 
 // GetQuestLogQuestText(index) → description, objectives

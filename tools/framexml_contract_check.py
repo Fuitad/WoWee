@@ -129,7 +129,13 @@ def checkReturns():
     want = {}
     for p in luaSources():
         t = stripComments(p.read_text(errors="ignore"))
-        for m in re.finditer(r"local\s+([A-Za-z_][\w\s,]*?)\s*=\s*([A-Z]\w{2,})\s*\(", t):
+        # `local a, b = Foo()` and the plain `a, b = Foo()` beside it. The
+        # second form is 234 lines in FrameXML alone — the achievement summary
+        # unpacks its counts that way — and looking only for `local` walked
+        # straight past all of them.
+        for m in re.finditer(
+                r"(?:local\s+)?\b([A-Za-z_][\w]*(?:\s*,\s*[A-Za-z_]\w*)+)\s*=\s*"
+                r"([A-Z]\w{2,})\s*\(", t):
             names = [x for x in m.group(1).split(",") if x.strip()]
             if len(names) <= 1:
                 continue
