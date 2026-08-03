@@ -178,6 +178,22 @@ static int lua_GetCVar(lua_State* L) {
     // The empty string is not a placeholder here — it is the value the client
     // stores until a GM actually writes.
     else if (n == "lasttalkedtogm") lua_pushstring(L, "");
+    // On, as a stock client has them. Each of these gates something off
+    // entirely when it reads false, so "0" is not a quiet preference — it is
+    // the feature missing with no way to ask for it back.
+    //
+    //   chatMouseScroll  the chat frame only calls EnableMouseWheel(true)
+    //                    inside this test, so the wheel did nothing over chat
+    //   showKeyring      MainMenuBar_UpdateKeyRing only ever calls
+    //                    KeyRingButton:Show() inside it, so the keyring was
+    //                    unreachable despite the slots being tracked
+    else if (n == "chatmousescroll") lua_pushstring(L, "1");
+    else if (n == "showkeyring")     lua_pushstring(L, "1");
+    // Full volume and sound on, which is what a fresh client has. These are
+    // read as numbers by the sound options, where zero reads as silence
+    // rather than as "unset".
+    else if (n == "sound_mastervolume")   lua_pushstring(L, "1");
+    else if (n == "sound_enableallsound") lua_pushstring(L, "1");
     // On, as a stock client has it. ActionButton_SetTooltip branches on this:
     // with it off the tooltip is anchored to the right of the button itself, so
     // an action bar tooltip appeared at the bottom of the screen across the
