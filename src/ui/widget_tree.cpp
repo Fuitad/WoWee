@@ -412,8 +412,16 @@ uint32_t WidgetTree::hitTest(float x, float y) const {
         if (w.id == 0 || w.kind != WidgetKind::Frame) continue;
         if (!w.visible || !w.mouseEnabled) continue;
         if (w.rectW <= 0.0f || w.rectH <= 0.0f) continue;
-        if (x < w.left || x > w.left + w.rectW) continue;
-        if (y < w.bottom || y > w.bottom + w.rectH) continue;
+        // The hit rect, which is the frame's rect brought in by its insets.
+        // Top and bottom are named the way WoW names them: top is the upper
+        // edge, and y grows upward here, so it comes off bottom + height.
+        const float hx0 = w.left + w.hitInsetLeft;
+        const float hx1 = w.left + w.rectW - w.hitInsetRight;
+        const float hy0 = w.bottom + w.hitInsetBottom;
+        const float hy1 = w.bottom + w.rectH - w.hitInsetTop;
+        if (hx1 <= hx0 || hy1 <= hy0) continue;  // inset to nothing: unclickable
+        if (x < hx0 || x > hx1) continue;
+        if (y < hy0 || y > hy1) continue;
         // Scrolled out of sight is out of reach. A scroll frame shows a window
         // onto a taller child, and the part of that child above or below the
         // window is not drawn — so it must not be clickable either, or a quest

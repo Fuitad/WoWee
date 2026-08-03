@@ -1627,6 +1627,24 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
 
 // ── Backdrop and StatusBar ──────────────────────────────────────────────────
 
+int lua_Frame_SetHitRectInsets(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->hitInsetLeft   = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+        w->hitInsetRight  = static_cast<float>(luaL_optnumber(L, 3, 0.0));
+        w->hitInsetTop    = static_cast<float>(luaL_optnumber(L, 4, 0.0));
+        w->hitInsetBottom = static_cast<float>(luaL_optnumber(L, 5, 0.0));
+    }
+    return 0;
+}
+int lua_Frame_GetHitRectInsets(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->hitInsetLeft   : 0.0);
+    lua_pushnumber(L, w ? w->hitInsetRight  : 0.0);
+    lua_pushnumber(L, w ? w->hitInsetTop    : 0.0);
+    lua_pushnumber(L, w ? w->hitInsetBottom : 0.0);
+    return 4;
+}
+
 int lua_Frame_SetToplevel(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->topLevel = lua_toboolean(L, 2) != 0;
     return 0;
@@ -2559,6 +2577,8 @@ void LuaEngine::registerCoreAPI() {
         {"GetAlpha",        lua_Region_GetAlpha},
         {"EnableMouse",     lua_Frame_EnableMouse},
         {"IsMouseEnabled",  lua_Frame_IsMouseEnabled},
+        {"SetHitRectInsets",      lua_Frame_SetHitRectInsets},
+        {"GetHitRectInsets",      lua_Frame_GetHitRectInsets},
         {"SetToplevel",           lua_Frame_SetToplevel},
         {"IsToplevel",            lua_Frame_IsToplevel},
         {"Raise",                 lua_Frame_Raise},
@@ -2638,7 +2658,6 @@ void LuaEngine::registerCoreAPI() {
         // block. Leaving the flat versions here would only be a silent
         // fallback if that order ever changed, and a constant point is worse
         // than none: it is where every frame goes.
-        "function mt:SetHitRectInsets(...) end\n"
         // Recorded, because a frame only receives the clicks it asks for.
         // FrameXML calls RegisterForClicks("LeftButtonUp", "RightButtonUp") on
         // the frames that want a context menu, and without this every frame

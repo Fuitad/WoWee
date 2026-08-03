@@ -110,6 +110,15 @@ struct Widget {
     /// this to fit a panel where it would not otherwise go. When nothing sets a
     /// scale every effScale is 1 and the arithmetic in layoutWidget is a
     /// no-op, so a tree that never scales lays out exactly as it did before.
+    /// How far in from each edge the frame actually answers the mouse.
+    ///
+    /// Positive shrinks, negative expands — WoW's sense. PaperDollFrame is the
+    /// case that matters: it covers the whole character sheet and takes the
+    /// mouse, and declares 30 off its right and 45 off its bottom so the
+    /// transparent parts do not swallow clicks meant for what is behind them.
+    float hitInsetLeft = 0.0f, hitInsetRight = 0.0f;
+    float hitInsetTop = 0.0f, hitInsetBottom = 0.0f;
+
     float scale = 1.0f;
     float effScale = 1.0f;
     bool dragLeft = false;

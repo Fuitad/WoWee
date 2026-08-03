@@ -607,6 +607,17 @@ struct Emitter {
         if (const std::string* a = node.attr("alpha")) {
             line(var + ":SetAlpha(" + *a + ")");
         }
+        // <HitRectInsets><AbsInset .../></HitRectInsets>
+        for (const XmlNode& child : node.children) {
+            if (child.name != "HitRectInsets") continue;
+            for (const XmlNode& ins : child.children) {
+                if (ins.name != "AbsInset") continue;
+                line(var + ":SetHitRectInsets(" + ins.attrOr("left", "0") + ", " +
+                     ins.attrOr("right", "0") + ", " + ins.attrOr("top", "0") + ", " +
+                     ins.attrOr("bottom", "0") + ")");
+            }
+            break;
+        }
         if (const std::string* sc = node.attr("scale")) {
             line(var + ":SetScale(" + *sc + ")");
         }

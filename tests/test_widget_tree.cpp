@@ -1377,3 +1377,55 @@ TEST_CASE("An unscaled tree lays out exactly as before", "[widget][layout]") {
     REQUIRE(tree.get(f)->rectW  == Catch::Approx(200.0f));
     REQUIRE(tree.get(f)->rectH  == Catch::Approx(100.0f));
 }
+
+TEST_CASE("Hit rect insets bring the clickable area in", "[widget][input]") {
+    WidgetTree tree;
+    const uint32_t f = tree.create(WidgetKind::Frame, tree.root(), "Panel");
+    tree.setWidth(f, 200.0f);
+    tree.setHeight(f, 100.0f);
+    Anchor a; a.point = "BOTTOMLEFT"; a.relativePoint = "BOTTOMLEFT";
+    tree.addPoint(f, a);
+    tree.get(f)->mouseEnabled = true;
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.hitTest(190.0f, 90.0f) == f);   // inside, before insets
+
+    // PaperDollFrame's shape: nothing off the left or top, a strip off the
+    // right and a deeper one off the bottom.
+    tree.get(f)->hitInsetRight  = 30.0f;
+    tree.get(f)->hitInsetBottom = 45.0f;
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.hitTest(190.0f, 90.0f) != f);   // now in the inset strip
+    REQUIRE(tree.hitTest(150.0f, 90.0f) == f);   // still inside
+    REQUIRE(tree.hitTest(150.0f, 20.0f) != f);   // below the bottom inset
+    REQUIRE(tree.hitTest(5.0f,  90.0f) == f);    // left edge untouched
+}
+
+TEST_CASE("A negative inset reaches outside the frame", "[widget][input]") {
+    // WoW's sense: negative expands. Small buttons use it to be clickable
+    // beyond their art.
+    WidgetTree tree;
+    const uint32_t f = tree.create(WidgetKind::Frame, tree.root(), "Tiny");
+    tree.setWidth(f, 20.0f);
+    tree.setHeight(f, 20.0f);
+    Anchor a; a.point = "BOTTOMLEFT"; a.relativePoint = "BOTTOMLEFT";
+    a.x = 100.0f; a.y = 100.0f;
+    tree.addPoint(f, a);
+    tree.get(f)->mouseEnabled = true;
+    tree.get(f)->hitInsetLeft = -10.0f;
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.hitTest(95.0f, 110.0f) == f);   // outside the rect, inside the hit area
+}
+
+TEST_CASE("A frame inset to nothing takes no clicks", "[widget][input]") {
+    WidgetTree tree;
+    const uint32_t f = tree.create(WidgetKind::Frame, tree.root(), "Closed");
+    tree.setWidth(f, 40.0f);
+    tree.setHeight(f, 40.0f);
+    Anchor a; a.point = "BOTTOMLEFT"; a.relativePoint = "BOTTOMLEFT";
+    tree.addPoint(f, a);
+    tree.get(f)->mouseEnabled = true;
+    tree.get(f)->hitInsetLeft = 25.0f;
+    tree.get(f)->hitInsetRight = 25.0f;   // overlapping insets
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.hitTest(20.0f, 20.0f) != f);
+}
