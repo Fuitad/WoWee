@@ -459,19 +459,113 @@ static int lua_GetNumMapLandmarks(lua_State* L) {
 /// not nil — MiniMapTrackingIcon:SetTexture(GetTrackingTexture()) would then
 /// be handed a table where a path belongs and the button would show the
 /// tracking icon for a tracking type that does not exist.
+// ── Minimap tracking ───────────────────────────────────────────────────────
+//
+// The tracking menu is not a fixed list. It is whatever tracking the player
+// has learned, which is the known spells applying aura 44 (creatures) or 45
+// (resources) — Spell.dbc's EffectApplyAuraName, and the only thing in the
+// spell data that tells a tracking spell from any other buff. The effect id
+// beside it says an aura is applied but never which one.
+//
+// All three of these used to be stubs: no texture, no types, and no binding
+// at all for the count. GetNumTrackingTypes being absent was the worst of
+// them, because a missing global answers nil and the initialiser opens with
+// `for id = 1, count`, which raises on nil and took the whole menu down.
+
+/// Aura ids that make a spell a tracking spell.
+static constexpr uint32_t kAuraTrackCreatures = 44;
+static constexpr uint32_t kAuraTrackResources = 45;
+
+/// The player's tracking spells, ordered by name.
+///
+/// Sorted rather than left in the known-spell set's own order, which is a hash
+/// order: the menu would otherwise list the same spells differently from one
+/// session to the next.
+static std::vector<uint32_t> trackingSpells(game::GameHandler* gh) {
+    std::vector<uint32_t> out;
+    if (!gh) return out;
+    for (uint32_t sid : gh->getKnownSpells()) {
+        // Asking for the name is what fills the cache; the entry is not there
+        // to be read until something has.
+        gh->getSpellName(sid);
+        auto it = gh->spellNameCacheRef().find(sid);
+        if (it == gh->spellNameCacheRef().end()) continue;
+        for (uint32_t aura : it->second.effectAuraIds) {
+            if (aura == kAuraTrackCreatures || aura == kAuraTrackResources) {
+                out.push_back(sid);
+                break;
+            }
+        }
+    }
+    std::sort(out.begin(), out.end(), [gh](uint32_t a, uint32_t b) {
+        return gh->getSpellName(a) < gh->getSpellName(b);
+    });
+    return out;
+}
+
+/// Whether that tracking is the one currently running.
+static bool trackingActive(game::GameHandler* gh, uint32_t spellId) {
+    if (!gh) return false;
+    for (const auto& aura : gh->getPlayerAuras()) {
+        if (aura.spellId == spellId) return true;
+    }
+    return false;
+}
+
+/// GetTrackingTexture() → the icon on the minimap button.
+///
+/// The button's own art is empty in the XML and comes entirely from here, so
+/// answering nil left a blank square on the minimap. Nothing tracked is not
+/// nothing to draw: it is the magnifying glass, which is what a stock client
+/// shows and what makes the button look like something to click.
 static int lua_GetTrackingTexture(lua_State* L) {
-    lua_pushnil(L);
+    auto* gh = getGameHandler(L);
+    for (uint32_t sid : trackingSpells(gh)) {
+        if (!trackingActive(gh, sid)) continue;
+        const std::string icon = gh->getSpellIconPath(sid);
+        if (!icon.empty()) { lua_pushstring(L, icon.c_str()); return 1; }
+    }
+    lua_pushstring(L, "Interface\\Minimap\\Tracking\\None");
     return 1;
 }
 
-/// GetTrackingInfo(index) → name, texture, active, category. There are no
-/// tracking types, so there is no index that answers — but the dropdown asks
-/// before it counts on some paths.
+/// GetNumTrackingTypes() → how many the player knows.
+static int lua_GetNumTrackingTypes(lua_State* L) {
+    lua_pushnumber(L, static_cast<lua_Number>(trackingSpells(getGameHandler(L)).size()));
+    return 1;
+}
+
+/// GetTrackingInfo(index) → name, texture, active, category.
+///
+/// "spell" for the category, because these are spell icons and the menu uses
+/// that to crop the icon's border — the same trim the action bar gives them.
 static int lua_GetTrackingInfo(lua_State* L) {
-    (void)L;
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const auto spells = trackingSpells(gh);
+    if (index < 1 || index > static_cast<int>(spells.size())) return 0;
+    const uint32_t sid = spells[static_cast<size_t>(index - 1)];
+    lua_pushstring(L, gh->getSpellName(sid).c_str());
+    lua_pushstring(L, gh->getSpellIconPath(sid).c_str());
+    lua_pushboolean(L, trackingActive(gh, sid) ? 1 : 0);
+    lua_pushstring(L, "spell");
+    return 4;
+}
+
+/// SetTracking(index) — casting the spell is how tracking is turned on; there
+/// is no separate message for it. A nil index is the menu's "None" entry,
+/// which in a stock client cancels the running tracking aura. Cancelling a
+/// player's own buff is not wired up here, so that entry does nothing rather
+/// than casting something arbitrary.
+static int lua_SetTracking(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh || lua_isnoneornil(L, 1)) return 0;
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const auto spells = trackingSpells(gh);
+    if (index < 1 || index > static_cast<int>(spells.size())) return 0;
+    gh->castSpell(spells[static_cast<size_t>(index - 1)], 0);
     return 0;
 }
-static int lua_SetTracking(lua_State* L) { (void)L; return 0; }
 
 
 static int lua_GetGameTime(lua_State* L) {
@@ -1269,6 +1363,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetMapZones",         lua_GetMapZones},
                 {"GetNumMapLandmarks",  lua_GetNumMapLandmarks},
                 {"GetTrackingTexture",  lua_GetTrackingTexture},
+                {"GetNumTrackingTypes", lua_GetNumTrackingTypes},
                 {"GetTrackingInfo",     lua_GetTrackingInfo},
                 {"SetTracking",         lua_SetTracking},
                 {"GetZoneText",          lua_GetZoneText},

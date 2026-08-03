@@ -251,7 +251,10 @@
     "SchoolMask": 225,
     "SpellVisualID": 131,
     "TargetAuraState": 21,
-    "Tooltip": 187
+    "Tooltip": 187,
+    "EffectApplyAuraName0": 95,
+    "EffectApplyAuraName1": 96,
+    "EffectApplyAuraName2": 97
   },
   "SpellIcon": {
     "ID": 0,

@@ -2792,6 +2792,9 @@ void SpellHandler::loadSpellNameCache() const {
     const uint32_t effect0Field = spellL ? spellL->field("Effect0") : 0xFFFFFFFF;
     const uint32_t effect1Field = spellL ? spellL->field("Effect1") : 0xFFFFFFFF;
     const uint32_t effect2Field = spellL ? spellL->field("Effect2") : 0xFFFFFFFF;
+    const uint32_t aura0Field = spellL ? spellL->field("EffectApplyAuraName0") : 0xFFFFFFFF;
+    const uint32_t aura1Field = spellL ? spellL->field("EffectApplyAuraName1") : 0xFFFFFFFF;
+    const uint32_t aura2Field = spellL ? spellL->field("EffectApplyAuraName2") : 0xFFFFFFFF;
     const uint32_t implicitTargetAField =
         spellL ? spellL->field("EffectImplicitTargetA") : 0xFFFFFFFF;
     const uint32_t durIdxField = spellL ? spellL->field("DurationIndex") : 0xFFFFFFFF;
@@ -2844,9 +2847,13 @@ void SpellHandler::loadSpellNameCache() const {
                 entry.implicitTargetA = dbc->getUInt32(i, implicitTargetAField);
             }
             const uint32_t effectFields[3] = {effect0Field, effect1Field, effect2Field};
+            const uint32_t auraFields[3]   = {aura0Field, aura1Field, aura2Field};
             for (size_t effect = 0; effect < 3; ++effect) {
                 if (effectFields[effect] != 0xFFFFFFFF && effectFields[effect] < fieldCount) {
                     entry.effectIds[effect] = dbc->getUInt32(i, effectFields[effect]);
+                }
+                if (auraFields[effect] != 0xFFFFFFFF && auraFields[effect] < fieldCount) {
+                    entry.effectAuraIds[effect] = dbc->getUInt32(i, auraFields[effect]);
                 }
             }
             // Duration: read DurationIndex and resolve via SpellDuration.dbc later

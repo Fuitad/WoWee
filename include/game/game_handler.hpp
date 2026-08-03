@@ -2913,6 +2913,11 @@ public:
         float maxRange = -1.0f;
         int32_t effectBasePoints[3] = {0, 0, 0};
         uint32_t effectIds[3] = {0, 0, 0};
+        // Spell.dbc EffectApplyAuraName — which aura an APPLY_AURA effect
+        // applies. The effect id above only says that one is applied; this
+        // says which, and it is the only thing that distinguishes a tracking
+        // spell (44 creatures, 45 resources) from any other buff.
+        uint32_t effectAuraIds[3] = {0, 0, 0};
         // Spell.dbc EffectImplicitTargetA — what the spell expects to be aimed
         // at. 21 means a friendly unit, which is how heals and buffs are told
         // apart from damage that shares the same effect and school.
