@@ -72,6 +72,22 @@ def without_comments(text):
     return LINE_COMMENT.sub("", BLOCK_COMMENT.sub("", text))
 
 
+# Text inside a string is not code. globalstrings.lua describes the Horde as
+# "opposed to members of the Alliance (Night Elves, ...)", and reading that as a
+# call to Alliance() put a function nobody wrote on every missing list — along
+# with Horde, Epic, Strength and a dozen more that are only ever prose.
+STRINGS = re.compile(r'"(?:\\.|[^"\\\n])*"' r"|'(?:\\.|[^'\\\n])*'" r"|\[\[.*?\]\]", re.S)
+
+
+def without_strings(text):
+    return STRINGS.sub('""', text)
+
+
+def calls_in(text):
+    """Every global-looking call, ignoring anything quoted."""
+    return set(CALL.findall(without_strings(text)))
+
+
 def known_names():
     """Everything a Lua chunk could reasonably find already defined."""
     names = set()
@@ -107,7 +123,7 @@ def audit(addon_dir, known):
         defined |= set(DEF_FUNC.findall(s)) | set(DEF_ASSIGN.findall(s))
         defined |= set(DEF_ALIAS.findall(s))
         defined |= set(XML_NAME.findall(s))   # a frame's name is a global too
-    return sorted(c for c in set(CALL.findall(body))
+    return sorted(c for c in calls_in(body)
                   if c not in known and c not in defined)
 
 
@@ -156,7 +172,7 @@ def auditFrameXml(known):
         body = without_comments(read(path))
         defined = set(DEF_FUNC.findall(body)) | set(DEF_ASSIGN.findall(body))
         defined |= set(XML_NAME.findall(body))       # a frame's name is a global
-        missing = sorted(c for c in set(CALL.findall(body))
+        missing = sorted(c for c in calls_in(body)
                          if c not in known and c not in defined)
         rows.append((len(missing), path.name, missing))
     rows.sort()
