@@ -1348,6 +1348,25 @@ static int lua_CreateMiniWorldMapArrowFrame(lua_State* L) { (void)L; return 0; }
 static int lua_PositionMiniWorldMapArrowFrame(lua_State* L) { (void)L; return 0; }
 static int lua_ShowMiniWorldMapArrowFrame(lua_State* L) { (void)L; return 0; }
 
+// ---- The stored combat log (Blizzard_CombatLog's refilter) ----
+//
+// The client keeps no history of combat events — they are handled as they
+// arrive — so there is nothing to walk back through and the log rebuilds itself
+// from new events only.
+//
+// CombatLogGetCurrentEntry answers nil rather than zero, and that distinction
+// is the whole of it. Blizzard_CombatLog_RefilterUpdate loops
+// `while (valid and total < COMBATLOG_LIMIT_PER_FRAME)`, and a zero is true in
+// Lua — it would add a line per iteration from an entry that does not exist,
+// stop only on the per-frame cap, and be re-armed by the OnUpdate that
+// scheduled it, every frame, for as long as the log was open.
+static int lua_CombatLogGetNumEntries(lua_State* L) { lua_pushnumber(L, 0); return 1; }
+static int lua_CombatLogGetCurrentEntry(lua_State* L) { (void)L; return luaReturnNil(L); }
+static int lua_CombatLogAdvanceEntry(lua_State* L) { (void)L; return luaReturnNil(L); }
+static int lua_CombatLogSetCurrentEntry(lua_State* L) { (void)L; return 0; }
+static int lua_CombatLogAddFilter(lua_State* L) { (void)L; return 0; }
+static int lua_CombatLogResetFilter(lua_State* L) { (void)L; return 0; }
+
 // CombatTextSetActiveUnit(unit) — which unit the floating combat text follows.
 // It tells the client where to aim the events it already sends; the events do
 // not change, so this is recorded by the caller and nothing is needed here.
@@ -1575,6 +1594,12 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetBattlefieldMapIconScale",     lua_GetBattlefieldMapIconScale},
                 {"PlayerIsPVPInactive",            lua_PlayerIsPVPInactive},
                 {"CombatTextSetActiveUnit",        lua_CombatTextSetActiveUnit},
+                {"CombatLogGetNumEntries",         lua_CombatLogGetNumEntries},
+                {"CombatLogGetCurrentEntry",       lua_CombatLogGetCurrentEntry},
+                {"CombatLogAdvanceEntry",          lua_CombatLogAdvanceEntry},
+                {"CombatLogSetCurrentEntry",       lua_CombatLogSetCurrentEntry},
+                {"CombatLogAddFilter",             lua_CombatLogAddFilter},
+                {"CombatLogResetFilter",           lua_CombatLogResetFilter},
                 {"GetCVarMin",               lua_GetCVarMin},
                 {"GetCVarMax",               lua_GetCVarMax},
                 {"IsVoiceChatAllowedByServer", lua_IsVoiceChatAllowedByServer},
