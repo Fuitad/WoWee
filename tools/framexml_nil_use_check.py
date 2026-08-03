@@ -65,8 +65,12 @@ for f, t in texts.items():
         if not m or m.group(2) in known:
             continue
         var, fn = m.group(1), m.group(2)
+        # Both sides of every operator. Only the left was checked, so
+        # `if ( GetMoney() >= cost )` — the variable on the right of a
+        # comparison — went unseen, which is how the bank frame's nil slot
+        # cost stayed hidden while the sweep reported clean.
         use = re.compile(r'\b' + re.escape(var) + r'\s*(?:[<>]=?|[-+*/]|\.\.)'
-                         r'|(?:[-+*/]|\.\.)\s*\b' + re.escape(var) + r'\b')
+                         r'|(?:[<>]=?|[-+*/]|\.\.)\s*\b' + re.escape(var) + r'\b')
         # A guard between the two makes the use safe, and this is the whole
         # reason the shape was left out of the contract checker before: most
         # candidates are `local x = Foo(); if ( x ) then ... x .. "y" ...`,

@@ -89,6 +89,34 @@ static int lua_GetInventoryAlertStatus(lua_State* L) {
     return 1;
 }
 
+// GetBankSlotCost(slotsOwned) → what the next bank bag slot costs, in copper.
+//
+// The bank compares it against the player's money the line after it asks —
+//
+//     local cost = GetBankSlotCost(numSlots);
+//     if( GetMoney() >= cost ) then
+//
+// — so nil is a comparison against nothing and takes the frame down as it
+// opens. Only reached while the bank window is handed over, since the events
+// that lead here are registered in its OnShow and a suppressed frame never
+// runs one, but that is the case this branch exists to make work.
+//
+// The prices are the game's own fixed schedule for the seven buyable slots,
+// not a guess and not something the server quotes: ten silver, then a gold,
+// then ten, twenty-five, fifty, a hundred and two hundred and fifty. Past the
+// last one there is nothing left to sell, and zero is what the real client
+// answers there.
+static int lua_GetBankSlotCost(lua_State* L) {
+    static constexpr uint32_t kSlotPrices[] = {
+        1'000, 10'000, 100'000, 250'000, 500'000, 1'000'000, 2'500'000,
+    };
+    constexpr int kNumBuyable = static_cast<int>(std::size(kSlotPrices));
+    const int owned = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const bool haveAll = owned < 0 || owned >= kNumBuyable;
+    lua_pushnumber(L, haveAll ? 0.0 : static_cast<double>(kSlotPrices[owned]));
+    return 1;
+}
+
 /// GetContainerItemCooldown(bag, slot) → start, duration, enabled. Item
 /// cooldowns are not tracked, and all zero is "nothing running" — which is
 /// what ContainerFrame checks before doing arithmetic with the first two.
@@ -2042,6 +2070,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetMerchantItemLink",  lua_GetMerchantItemLink},
                 {"CanMerchantRepair",    lua_CanMerchantRepair},
                 {"GetContainerItemCooldown",  lua_GetContainerItemCooldown},
+                {"GetBankSlotCost",        lua_GetBankSlotCost},
                 {"GetInventoryAlertStatus",   lua_GetInventoryAlertStatus},
                 {"GetContainerItemQuestInfo", lua_GetContainerItemQuestInfo},
                 {"KeyRingButtonIDToInvSlotID", lua_KeyRingButtonIDToInvSlotID},
