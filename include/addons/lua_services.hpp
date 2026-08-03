@@ -17,6 +17,11 @@ struct LuaServices {
     audio::AudioCoordinator* audioCoordinator  = nullptr;
     game::ExpansionRegistry* expansionRegistry = nullptr;
 
+    /// Screen gamma, for the interface's own video options. Callbacks rather
+    /// than a renderer pointer, to keep this header off the rendering ones.
+    std::function<float()> getGamma;
+    std::function<void(float)> setGamma;
+
     /// Load a load-on-demand addon by name, as LoadAddOn() does.
     ///
     /// The interface asks for these itself: opening the talent frame is

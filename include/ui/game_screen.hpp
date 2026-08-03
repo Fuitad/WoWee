@@ -43,6 +43,13 @@ public:
     /// nothing of its own to show while GameMenuFrame is suppressed.
     void openSettings() { settingsPanel_.showSettingsWindow = true; }
 
+    // Gamma, as WoW's video options mean it: 1.0 is untouched, and the client
+    // keeps the same number as a 0-100 brightness where 50 is neutral. Exposed
+    // so the interface's own brightness slider drives the one setting rather
+    // than a second copy of it.
+    float getGamma() const;
+    void  setGamma(float gamma);
+
     GameScreen();
 
     /**

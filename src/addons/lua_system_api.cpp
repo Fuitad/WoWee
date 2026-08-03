@@ -1409,6 +1409,41 @@ static int lua_GetBattlefieldMapIconScale(lua_State* L) { lua_pushnumber(L, 1.0)
 // and nothing here parses it, so nobody reads as idle.
 static int lua_PlayerIsPVPInactive(lua_State* L) { lua_pushboolean(L, 0); return 1; }
 
+// GetGamma() / SetGamma(value) — screen brightness, as the video options mean
+// it. One is neutral. Backed by the client's own brightness setting, so the
+// two sliders move together instead of disagreeing.
+static int lua_GetGamma(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    lua_pushnumber(L, (svc && svc->getGamma) ? svc->getGamma() : 1.0);
+    return 1;
+}
+
+static int lua_SetGamma(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    if (svc && svc->setGamma) svc->setGamma(static_cast<float>(luaL_optnumber(L, 1, 1.0)));
+    return 0;
+}
+
+// GetVideoCaps() →
+//   anisotropic, pixelShaders, vertexShaders, trilinear, buffering,
+//   maxAnisotropy, hardwareCursor
+//
+// Everything here runs on Vulkan, so the capability questions all answer yes —
+// they were written for a Direct3D 9 client that could genuinely lack them.
+// maxAnisotropy is the one real number, and sixteen is the ceiling every
+// device this client will start on supports; the options panel uses it only to
+// bound its own dropdown.
+static int lua_GetVideoCaps(lua_State* L) {
+    lua_pushboolean(L, 1);   // 1: anisotropic
+    lua_pushboolean(L, 1);   // 2: pixelShaders
+    lua_pushboolean(L, 1);   // 3: vertexShaders
+    lua_pushboolean(L, 1);   // 4: trilinear
+    lua_pushboolean(L, 1);   // 5: buffering
+    lua_pushnumber(L, 16);   // 6: maxAnisotropy
+    lua_pushboolean(L, 1);   // 7: hardwareCursor
+    return 7;
+}
+
 // GetCVarMin(name) / GetCVarMax(name) → the range a CVar is allowed, if it
 // declares one.
 //
@@ -1627,6 +1662,9 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"CombatLogSetCurrentEntry",       lua_CombatLogSetCurrentEntry},
                 {"CombatLogAddFilter",             lua_CombatLogAddFilter},
                 {"CombatLogResetFilter",           lua_CombatLogResetFilter},
+                {"GetGamma",                 lua_GetGamma},
+                {"SetGamma",                 lua_SetGamma},
+                {"GetVideoCaps",             lua_GetVideoCaps},
                 {"GetCVarMin",               lua_GetCVarMin},
                 {"GetCVarMax",               lua_GetCVarMax},
                 {"IsVoiceChatAllowedByServer", lua_IsVoiceChatAllowedByServer},

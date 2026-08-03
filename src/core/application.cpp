@@ -363,6 +363,12 @@ bool Application::initialize() {
         luaSvc.window            = window.get();
         luaSvc.audioCoordinator  = audioCoordinator_.get();
         luaSvc.expansionRegistry = expansionRegistry_.get();
+        luaSvc.getGamma = [uim = uiManager.get()]() -> float {
+            return uim ? uim->getGameScreen().getGamma() : 1.0f;
+        };
+        luaSvc.setGamma = [uim = uiManager.get()](float g) {
+            if (uim) uim->getGameScreen().setGamma(g);
+        };
         luaSvc.takeScreenshot = [uim = uiManager.get()]() {
             if (uim) uim->getGameScreen().takeScreenshot();
         };

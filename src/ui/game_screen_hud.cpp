@@ -1889,6 +1889,24 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
 // Durability Warning (equipment damage indicator)
 // ============================================================
 
+// The settings panel keeps brightness as 0-100 with 50 neutral, and the post
+// process pipeline wants that over 50 — so the number the video options call
+// gamma is exactly what the pipeline is already given, and this converts
+// between the two rather than introducing a third scale.
+float GameScreen::getGamma() const {
+    return static_cast<float>(settingsPanel_.pendingBrightness) / 50.0f;
+}
+
+void GameScreen::setGamma(float gamma) {
+    // WoW's own slider runs 0.3 to 2.8; clamped to what the 0-100 setting can
+    // hold so a value from outside cannot push the slider off its own track.
+    const float clamped = std::clamp(gamma, 0.0f, 2.0f);
+    settingsPanel_.pendingBrightness = static_cast<int>(clamped * 50.0f + 0.5f);
+    if (auto* renderer = services_.renderer) {
+        renderer->getPostProcessPipeline()->setBrightness(clamped);
+    }
+}
+
 void GameScreen::takeScreenshot() {
     auto* renderer = services_.renderer;
     if (!renderer) return;
