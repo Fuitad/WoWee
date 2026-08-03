@@ -1456,7 +1456,21 @@ int lua_FontString_GetJustifyV(lua_State* L) {
 // ── Fonts ───────────────────────────────────────────────────────────────────
 
 int lua_FontString_SetTextColor(lua_State* L) {
-    if (auto* w = widgetOf(L, 1)) {
+    // On a button this colours the label it holds, which is where a button's
+    // text actually lives; on a font string it colours itself. FrameXML calls
+    // it both ways at two hundred sites — greying an unavailable option,
+    // reddening a cost that cannot be paid — and on the frame metatable it was
+    // a no-op, so none of that showed.
+    auto* tree = wowee::addons::getWidgetTree(L);
+    wowee::ui::Widget* w = widgetOf(L, 1);
+    if (w && w->kind != wowee::ui::WidgetKind::FontString && tree) {
+        lua_getfield(L, 1, "__fontString");
+        if (lua_istable(L, -1)) {
+            if (auto* fs = tree->get(widgetIdOf(L, lua_gettop(L)))) w = fs;
+        }
+        lua_pop(L, 1);
+    }
+    if (w) {
         w->color[0] = static_cast<float>(luaL_optnumber(L, 2, 1.0));
         w->color[1] = static_cast<float>(luaL_optnumber(L, 3, 1.0));
         w->color[2] = static_cast<float>(luaL_optnumber(L, 4, 1.0));
@@ -2728,6 +2742,7 @@ void LuaEngine::registerCoreAPI() {
         {"EnableMouse",     lua_Frame_EnableMouse},
         {"IsMouseEnabled",  lua_Frame_IsMouseEnabled},
         {"SetNormalFontObject",   lua_Frame_SetNormalFontObject},
+        {"SetTextColor",          lua_FontString_SetTextColor},
         {"SetTextFontObject",     lua_Frame_SetNormalFontObject},
         {"SetHighlightFontObject", lua_Frame_SetHighlightFontObject},
         {"SetDisabledFontObject",  lua_Frame_SetDisabledFontObject},
@@ -3231,7 +3246,7 @@ void LuaEngine::registerCoreAPI() {
         "SetScrollChild=1,SetSelection=1,SetSendMailItem=1,SetSequence=1,\n"
         "SetSequenceTime=1,SetShadowOffset=1,SetShapeshift=1,SetShown=1,SetSize=1,\n"
         "SetSpacing=1,SetSpell=1,SetSpellByID=1,SetStartDelay=1,SetStatusBarColor=1,\n"
-        "SetStatusBarTexture=1,SetTexCoord=1,SetText=1,SetTextColor=1,SetTextHeight=1,\n"
+        "SetStatusBarTexture=1,SetTexCoord=1,SetText=1,SetTextHeight=1,\n"
         "SetTextInsets=1,SetTexture=1,SetToplevel=1,SetTotem=1,SetTracking=1,\n"
         "SetTradePlayerItem=1,SetTradeTargetItem=1,SetUIPanel=1,SetUnit=1,SetUnitAura=1,\n"
         "SetUnitBuff=1,SetUnitDebuff=1,SetUserPlaced=1,SetValue=1,SetValueStep=1,\n"
