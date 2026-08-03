@@ -934,6 +934,13 @@ int lua_Tooltip_SetOwner(lua_State* L) {
     // Cleared here, because SetOwner is what precedes a fresh set of lines.
     w->tooltipLines.clear();
 
+    // Remembered, because IsOwned reads it and nothing wrote it — so every
+    // check answered false and a tooltip outlived the frame it belonged to.
+    // FrameXML hides a tooltip on OnLeave only when it owns it, which is what
+    // stops one panel's tooltip being cleared by another's cursor.
+    lua_pushvalue(L, 2);
+    lua_setfield(L, 1, "__owner");
+
     const uint32_t owner = lua_istable(L, 2) ? widgetIdOf(L, 2) : 0;
     const std::string anchor = luaL_optstring(L, 3, "ANCHOR_RIGHT");
     // ANCHOR_PRESERVE is the one that means what it says: keep the anchors.
@@ -3253,7 +3260,7 @@ void LuaEngine::registerCoreAPI() {
         "GetItem=1,GetLeft=1,GetLowerEmblemTexture=1,GetMessageInfo=1,GetMinimumWidth=1,\n"
         "GetMinMaxValues=1,GetMousePosition=1,GetName=1,GetNormalTexture=1,GetNumber=1,\n"
         "GetNumChildren=1,GetNumMessages=1,GetNumPoints=1,GetNumTooltips=1,\n"
-        "GetObjectType=1,GetOwner=1,GetParent=1,GetPoint=1,GetPushedTexture=1,GetRect=1,\n"
+        "GetObjectType=1,GetParent=1,GetPoint=1,GetPushedTexture=1,GetRect=1,\n"
         "GetRegionParent=1,GetRegions=1,GetRight=1,GetScale=1,GetScript=1,\n"
         "GetScrollChild=1,GetSize=1,GetSpacing=1,GetStatusBarTexture=1,\n"
         "GetStringHeight=1,GetStringWidth=1,GetTexCoord=1,GetText=1,GetTextColor=1,\n"
@@ -3263,7 +3270,7 @@ void LuaEngine::registerCoreAPI() {
         "GetZoom=1,GetZoomLevels=1,HasFocus=1,HasScript=1,Hide=1,HideUIPanel=1,\n"
         "HighlightText=1,HookScript=1,IgnoreDepth=1,InitializeTabardColors=1,Insert=1,\n"
         "IsEnabled=1,IsEquippedItem=1,IsEventRegistered=1,IsMouseEnabled=1,\n"
-        "IsMouseOver=1,IsObjectType=1,IsOwned=1,IsProtected=1,IsShown=1,IsUnderMouse=1,\n"
+        "IsMouseOver=1,IsObjectType=1,IsProtected=1,IsShown=1,IsUnderMouse=1,\n"
         "IsUnit=1,IsVisible=1,LockHighlight=1,Lower=1,MoveUIPanel=1,\n"
         "New=1,NumLines=1,OnFinished=1,OnUpdate=1,PageDown=1,PageUp=1,PingLocation=1,\n"
         "Play=1,Raise=1,RefreshUnit=1,RefreshValue=1,RegisterAutoHide=1,RegisterEvent=1,\n"
@@ -3882,7 +3889,11 @@ void LuaEngine::registerCoreAPI() {
         // leave the tooltip in whatever stratum it inherited, under the frames
         // it is meant to sit above.
         "function GameTooltip:SetClampedToScreen(...) end\n"
-        "function GameTooltip:IsOwned(f) return self.__owner == f end\n"
+        // On the frame metatable rather than on GameTooltip, because a tooltip
+        // is not always that one — item comparison uses ShoppingTooltip1 and 2
+        // — and a copy on the table itself would shadow this for no gain.
+        "function mt:GetOwner() return rawget(self, '__owner') end\n"
+        "function mt:IsOwned(f) return rawget(self, '__owner') == f end\n"
         // ShoppingTooltip: used by comparison tooltips
         "ShoppingTooltip1 = CreateFrame('Frame', 'ShoppingTooltip1')\n"
         "ShoppingTooltip2 = CreateFrame('Frame', 'ShoppingTooltip2')\n"
