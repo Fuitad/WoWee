@@ -1727,8 +1727,14 @@ void registerSystemLuaAPI(lua_State* L) {
             return 0;
         }},
                 {"GetInspectHonorData", [](lua_State* L) -> int {
-            for (int i = 0; i < 5; ++i) lua_pushnumber(L, 0);
-            return 5;
+            // Six: today's kills and honour, yesterday's, lifetime kills, and
+            // the lifetime *rank* — which inspecthonorframe feeds straight
+            // into GetPVPRankInfo. The old rank ladder was retired in this
+            // expansion and the server sends nothing for it, so zero is the
+            // truthful answer rather than a placeholder; what was missing was
+            // returning it at all.
+            for (int i = 0; i < 6; ++i) lua_pushnumber(L, 0);
+            return 6;
         }},
                 {"GetInspectPVPRankProgress", [](lua_State* L) -> int {
             lua_pushnumber(L, 0);
