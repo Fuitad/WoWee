@@ -34,7 +34,9 @@ int main(int argc, char** argv) {
     }
     lua_State* L = luaL_newstate();
     int ok = 0, bad = 0, shown = 0, unparsed = 0, unbuilt = 0;
-    for (auto& e : std::filesystem::directory_iterator(dir)) {
+    // Recursive so this works on the addons directory too, where each addon
+    // is a folder of its own. FrameXML is flat and unaffected.
+    for (auto& e : std::filesystem::recursive_directory_iterator(dir)) {
         if (e.path().extension() != ".xml") continue;
         std::ifstream f(e.path()); std::stringstream ss; ss << f.rdbuf();
         wowee::ui::XmlNode root; std::string err;

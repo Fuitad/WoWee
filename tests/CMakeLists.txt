@@ -92,6 +92,13 @@ add_test(NAME framexml_compiles COMMAND framexml_compile_check
          ${CMAKE_SOURCE_DIR}/Data/interface/framexml)
 set_tests_properties(framexml_compiles PROPERTIES SKIP_RETURN_CODE 77)
 
+# The Blizzard addons go through the same emitter and were never checked by it.
+# Their XML is where the load-on-demand panels come from — a file that will not
+# compile takes its whole panel with it, and only when someone opens it.
+add_test(NAME addon_xml_compiles COMMAND framexml_compile_check
+         ${CMAKE_SOURCE_DIR}/Data/interface/addons)
+set_tests_properties(addon_xml_compiles PROPERTIES SKIP_RETURN_CODE 77)
+
 # ── test_widget_tree ────────────────────────────────────────
 add_executable(test_widget_tree
     test_widget_tree.cpp
