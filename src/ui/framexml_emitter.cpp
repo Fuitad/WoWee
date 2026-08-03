@@ -629,6 +629,12 @@ struct Emitter {
         if (const std::string* a = node.attr("alpha")) {
             line(var + ":SetAlpha(" + *a + ")");
         }
+        // A message frame holds as many lines as it says it does. Twenty-two
+        // of them ask for three; without this each kept a hundred and
+        // twenty-eight and drew far past the box drawn for it.
+        if (const std::string* ml = node.attr("maxLines"); ml && !ml->empty()) {
+            line(var + ":SetMaxLines(" + *ml + ")");
+        }
         // The keyboard, on the same principle as the mouse and the wheel: a
         // frame that declares OnKeyDown or OnKeyUp wants keys. Every one that
         // does in FrameXML is a dialog hidden until it is wanted, so nothing

@@ -83,6 +83,24 @@ TEST_CASE("A frame emits CreateFrame with its type and parent", "[framexml][emit
     REQUIRE(has(r.lua, "CreateFrame(\"Button\", \"MyButton\", UIParent)"));
 }
 
+TEST_CASE("A message frame keeps as many lines as it asks for",
+          "[framexml][emit]") {
+    // Twenty-two frames ask for three. Without this each kept the default of a
+    // hundred and twenty-eight and drew far past the box drawn for it.
+    XmlNode root = parseOrFail(
+        "<Ui><MessageFrame name=\"M\" parent=\"UIParent\" maxLines=\"3\"/></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, ":SetMaxLines(3)"));
+}
+
+TEST_CASE("A frame that says nothing about its lines is left alone",
+          "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><MessageFrame name=\"M\" parent=\"UIParent\"/></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(has(r.lua, "SetMaxLines"));
+}
+
 TEST_CASE("A binding becomes a listed command and a callable body",
           "[framexml][emit][bindings]") {
     XmlNode root = parseOrFail(
