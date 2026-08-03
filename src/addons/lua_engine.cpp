@@ -4682,8 +4682,8 @@ void LuaEngine::installMissingApiFallback() {
     bootstrap(
         "local counting = {\n"
         "  'GetCurrencyListSize','GetFieldSize','GetInventoryItemCount',\n"
-        "  'GetLFDLockPlayerCount','GetNumActiveQuests','GetNumArenaTeamMembers',\n"
-        "  'GetNumAvailableQuests','GetNumBankSlots','GetNumBattlefieldStats',\n"
+        "  'GetLFDLockPlayerCount','GetNumArenaTeamMembers',\n"
+        "  'GetNumBankSlots','GetNumBattlefieldStats',\n"
         "  'GetNumBattlefields','GetNumBuybackItems','GetNumChannelMembers',\n"
         "  'GetNumCompanions','GetNumEquipmentSets','GetNumFactions',\n"
         "  'GetNumGuildBankTabs','GetNumGuildEvents','GetNumLanguages',\n"

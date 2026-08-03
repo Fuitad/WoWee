@@ -274,6 +274,39 @@ bool gossipQuestIsActive(uint32_t icon) {
     return gossipQuestIsIncomplete(icon) || gossipQuestIsCompletable(icon);
 }
 
+/// The i-th quest of one kind, or null past the end. One walk shared by
+/// everything that indexes these lists, so they cannot disagree about which
+/// quest is second.
+const game::GossipQuestItem* gossipQuestAt(lua_State* L, bool available, int index) {
+    auto* gh = getGameHandler(L);
+    if (!gh || index < 1) return nullptr;
+    int seen = 0;
+    for (const auto& q : gh->getCurrentGossip().quests) {
+        const bool matches = available ? gossipQuestIsAvailable(q.questIcon)
+                                       : gossipQuestIsActive(q.questIcon);
+        if (matches && ++seen == index) return &q;
+    }
+    return nullptr;
+}
+
+int countGossipQuests(lua_State* L, bool available) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+    int n = 0;
+    for (const auto& q : gh->getCurrentGossip().quests) {
+        if (available ? gossipQuestIsAvailable(q.questIcon)
+                      : gossipQuestIsActive(q.questIcon)) ++n;
+    }
+    return n;
+}
+
+int pushGossipQuestTitle(lua_State* L, bool available) {
+    const int index = static_cast<int>(luaL_checknumber(L, 1));
+    const auto* q = gossipQuestAt(L, available, index);
+    lua_pushstring(L, q ? q->title.c_str() : "");
+    return 1;
+}
+
 /// Index into whichever of the two lists the caller means, then ask for that
 /// quest by id — the position in the filtered list is not the position in the
 /// packet, so the id is the only thing safe to send.
@@ -554,6 +587,51 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
                 {"SelectGossipActiveQuest", [](lua_State* L) -> int {
             return selectGossipQuestAt(L, /*available=*/false);
+        }},
+                // The greeting panel, shown when a quest giver has several
+                // quests and nothing else to say. It reads the same list as the
+                // gossip window — this client routes both through one — but
+                // asks for it a quest at a time rather than all at once.
+                {"GetGreetingText", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushstring(L, gh ? gh->getQuestGreeting().c_str() : "");
+            return 1;
+        }},
+                {"GetNumAvailableQuests", [](lua_State* L) -> int {
+            lua_pushnumber(L, countGossipQuests(L, /*available=*/true));
+            return 1;
+        }},
+                {"GetNumActiveQuests", [](lua_State* L) -> int {
+            lua_pushnumber(L, countGossipQuests(L, /*available=*/false));
+            return 1;
+        }},
+                {"GetAvailableTitle", [](lua_State* L) -> int {
+            return pushGossipQuestTitle(L, /*available=*/true);
+        }},
+                {"GetActiveTitle", [](lua_State* L) -> int {
+            return pushGossipQuestTitle(L, /*available=*/false);
+        }},
+                {"SelectAvailableQuest", [](lua_State* L) -> int {
+            return selectGossipQuestAt(L, /*available=*/true);
+        }},
+                {"SelectActiveQuest", [](lua_State* L) -> int {
+            return selectGossipQuestAt(L, /*available=*/false);
+        }},
+                // Only greys a title, and nothing here knows a quest's green
+                // range — a guess would grey quests that are not trivial.
+                {"IsActiveQuestTrivial", [](lua_State* L) -> int {
+            lua_pushboolean(L, 0);
+            return 1;
+        }},
+                // isTrivial, isDaily, isRepeatable — which icon the greeting
+                // panel puts beside an offered quest.
+                {"GetAvailableQuestInfo", [](lua_State* L) -> int {
+            const int index = static_cast<int>(luaL_checknumber(L, 1));
+            const auto* q = gossipQuestAt(L, /*available=*/true, index);
+            lua_pushboolean(L, 0);
+            lua_pushboolean(L, q && (q->questFlags & kQuestFlagsDaily) ? 1 : 0);
+            lua_pushboolean(L, q && q->isRepeatable ? 1 : 0);
+            return 3;
         }},
                 {"GetGossipOptions", [](lua_State* L) -> int {
             // Returns pairs of (text, type) for each option

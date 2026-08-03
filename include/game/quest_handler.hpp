@@ -41,6 +41,10 @@ public:
     bool isGossipWindowOpen() const { return gossipWindowOpen_; }
     const GossipMessageData& getCurrentGossip() const { return currentGossip_; }
     const std::string& getNpcText(uint32_t textId) const;
+    /// What a quest giver says over its list of quests, from
+    /// SMSG_QUESTGIVER_QUEST_LIST. Empty when the window came from gossip
+    /// instead, which carries its text as an npc-text id rather than inline.
+    const std::string& getQuestGreeting() const { return questGreeting_; }
 
     // Quest details
     bool isQuestDetailsOpen() {
@@ -199,6 +203,7 @@ private:
     // Gossip
     bool gossipWindowOpen_ = false;
     GossipMessageData currentGossip_;
+    std::string questGreeting_;
     std::vector<GossipPoi> gossipPois_;
 
     // Quest details

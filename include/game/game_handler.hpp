@@ -1627,6 +1627,9 @@ public:
     bool isGossipWindowOpen() const;
     const GossipMessageData& getCurrentGossip() const;
     const std::string& getNpcText(uint32_t textId) const;
+    /// What a quest giver says over its list of quests, when the window came
+    /// from SMSG_QUESTGIVER_QUEST_LIST rather than from gossip.
+    const std::string& getQuestGreeting() const;
     bool isQuestDetailsOpen();
     const QuestDetailsData& getQuestDetails() const;
 

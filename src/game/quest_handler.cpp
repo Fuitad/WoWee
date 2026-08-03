@@ -1347,6 +1347,7 @@ void QuestHandler::closeGossip() {
     gossipWindowOpen_ = false;
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("GOSSIP_CLOSED", {});
     currentGossip_ = GossipMessageData{};
+    questGreeting_.clear();
 }
 
 void QuestHandler::offerQuestFromItem(uint64_t itemGuid, uint32_t questId) {
@@ -1782,6 +1783,9 @@ void QuestHandler::handleGossipMessage(network::Packet& packet) {
     if (!ok) return;
     if (questDetailsOpen_) return; // Don't reopen gossip while viewing quest
     gossipWindowOpen_ = true;
+    // Gossip carries its text as an npc-text id, not inline, so any greeting
+    // left over from a quest list belongs to a different window.
+    questGreeting_.clear();
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("GOSSIP_SHOW", {});
     owner_.closeVendor(); // Close vendor if gossip opens
 
@@ -1817,12 +1821,14 @@ void QuestHandler::handleQuestgiverQuestList(network::Packet& packet) {
     data.menuId = 0;
     data.titleTextId = 0;
 
-    std::string header = packet.readString();
+    // What the quest giver says above its list. Read and discarded before, so
+    // GetGreetingText had nothing to answer with and the greeting panel was
+    // blank over a list that was otherwise correct.
+    questGreeting_ = normalizeWowTextTokens(packet.readString());
     if (packet.hasRemaining(8)) {
         (void)packet.readUInt32(); // emoteDelay / unk
         (void)packet.readUInt32(); // emote / unk
     }
-    (void)header;
 
     // questCount is uint8 in all WoW versions for SMSG_QUESTGIVER_QUEST_LIST.
     uint32_t questCount = 0;
@@ -1921,6 +1927,7 @@ void QuestHandler::handleGossipComplete(network::Packet& packet) {
     gossipWindowOpen_ = false;
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("GOSSIP_CLOSED", {});
     currentGossip_ = GossipMessageData{};
+    questGreeting_.clear();
 }
 
 void QuestHandler::handleNpcTextUpdate(network::Packet& packet) {
