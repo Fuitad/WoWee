@@ -14,6 +14,17 @@ model and there was nothing anywhere to say why.
 That is the shape this looks for: a CVar compared against string literals, none
 of which is "0", and which lua_system_api.cpp has no explicit answer for.
 
+**The comparison is often a line away from the call.** uiparent.lua writes
+
+    local lastTalkedToGM = GetCVar("lastTalkedToGM");
+    if ( lastTalkedToGM ~= "" ) then GMChatFrame_LoadUI(); GMChatFrame:Show()
+
+and "0" is not "", so the GM chat window opened on every login for a player no
+GM had ever written to. Matching only `GetCVar("x") == "y"` on one line walked
+straight past it, which is the same blindness the for-limit check had. Both the
+direct form and an assignment compared later in the same function are checked
+now.
+
 Note what it does **not** report, because the first version did and every one
 was a false positive: a CVar compared against "1" at all. That is a number,
 and "0" is its sibling — off for a boolean, and the first of a set for
@@ -42,6 +53,17 @@ for f in files:
         compared[cv].add(val)
     for val, cv in re.findall(r'"([^"]*)"\s*==\s*GetCVar\(\s*"(\w+)"\s*\)', t):
         compared[cv].add(val)
+    # `local x = GetCVar("y")` then `x ~= ""` or `x == "z"` further down.
+    lines = t.splitlines()
+    pending = {}
+    for i, line in enumerate(lines):
+        if re.match(r'\s*(?:local\s+)?function\b', line):
+            pending.clear()
+        for var, cv in re.findall(r'\b(\w+)\s*=\s*GetCVar\(\s*"(\w+)"\s*\)', line):
+            pending[var] = cv
+        for var, val in re.findall(r'\b(\w+)\s*[=~]=\s*"([^"]*)"', line):
+            if var in pending:
+                compared[pending[var]].add(val)
 
 faults = {cv: vals for cv, vals in compared.items()
           if cv not in known and "0" not in vals and "1" not in vals}

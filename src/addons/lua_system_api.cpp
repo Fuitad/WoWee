@@ -161,6 +161,16 @@ static int lua_GetCVar(lua_State* L) {
     // name rather than a number, which is the case where falling through to
     // "0" is luck rather than a default.
     else if (n == "conversationMode") lua_pushstring(L, "inline");
+    // Who last spoke to you as a GM, and empty means nobody has.
+    //
+    // uiparent.lua does `if ( lastTalkedToGM ~= "" )` at login and, when that
+    // passes, loads Blizzard_GMChatUI and *shows* it with a "your last session"
+    // line. Falling through to "0" made that test pass every time, so the GM
+    // chat window opened on every login for a player no GM had ever contacted.
+    //
+    // The empty string is not a placeholder here — it is the value the client
+    // stores until a GM actually writes.
+    else if (n == "lastTalkedToGM") lua_pushstring(L, "");
     // On, as a stock client has it. ActionButton_SetTooltip branches on this:
     // with it off the tooltip is anchored to the right of the button itself, so
     // an action bar tooltip appeared at the bottom of the screen across the
