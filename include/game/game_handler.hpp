@@ -2321,6 +2321,26 @@ public:
     void setAuctionActiveTab(int tab);
     float getAuctionSearchDelay() const;
 
+    /// One row of a profession's recipe list.
+    struct CraftRecipe {
+        uint32_t spellId = 0;
+        std::string name;
+        int difficulty = 0;   ///< 0 optimal, 1 medium, 2 easy, 3 trivial
+        int canMake = 0;      ///< how many the bags have reagents for
+    };
+    /// The known recipes of the profession whose window is open.
+    ///
+    /// Shared with the interface rather than rebuilt there: the difficulty
+    /// bands and the reagent arithmetic are fiddly enough that two copies
+    /// would drift, and a recipe that is orange in one window and yellow in
+    /// the other is a bug nobody can explain.
+    std::vector<CraftRecipe> getCraftingRecipes() const;
+    /// Where a recipe sits against the player's skill, in the same bands the
+    /// crafting window colours by.
+    int getRecipeDifficulty(uint32_t spellId) const;
+    /// How many of an item the backpack and equipped bags hold together.
+    uint32_t countItemInBags(uint32_t itemId) const;
+
     // Trainer
     bool isTrainerWindowOpen() const;
     const TrainerListData& getTrainerSpells() const;

@@ -1120,6 +1120,81 @@ const std::string& GameHandler::getMacroText(uint32_t macroId) const {
     return (it != macros_.end()) ? it->second : EMPTY_MACRO_TEXT;
 }
 
+int GameHandler::getRecipeDifficulty(uint32_t spellId) const {
+    auto cit = spellNameCache_.find(spellId);
+    if (cit == spellNameCache_.end()) return 0;
+    const auto& se = cit->second;
+    // No thresholds means the recipe never greys out.
+    if (se.trivialSkillHigh == 0 && se.trivialSkillLow == 0) return 0;
+    auto slIt = spellToSkillLine_.find(spellId);
+    if (slIt == spellToSkillLine_.end()) return 0;
+    auto skIt = getPlayerSkills().find(slIt->second);
+    if (skIt == getPlayerSkills().end()) return 0;
+    const uint32_t skill = skIt->second.effectiveValue();
+    if (skill >= se.trivialSkillHigh) return 3;
+    if (skill >= se.trivialSkillLow)  return 2;
+    const uint32_t yellow = se.minSkillRank +
+                            (se.trivialSkillLow - se.minSkillRank) / 2;
+    if (skill >= yellow) return 1;
+    return 0;
+}
+
+uint32_t GameHandler::countItemInBags(uint32_t itemId) const {
+    const auto& inv = getInventory();
+    uint32_t total = 0;
+    for (int i = 0; i < inv.getBackpackSize(); ++i) {
+        const auto& slot = inv.getBackpackSlot(i);
+        if (!slot.empty() && slot.item.itemId == itemId) total += slot.item.stackCount;
+    }
+    for (int bag = 0; bag < Inventory::NUM_BAG_SLOTS; ++bag) {
+        const int bagSize = inv.getBagSize(bag);
+        for (int sIdx = 0; sIdx < bagSize; ++sIdx) {
+            const auto& slot = inv.getBagSlot(bag, sIdx);
+            if (!slot.empty() && slot.item.itemId == itemId) {
+                total += slot.item.stackCount;
+            }
+        }
+    }
+    return total;
+}
+
+std::vector<GameHandler::CraftRecipe> GameHandler::getCraftingRecipes() const {
+    std::vector<CraftRecipe> out;
+    const uint32_t skillLine = getCraftingSkillLine();
+    if (skillLine == 0) return out;
+    for (uint32_t spellId : getKnownSpells()) {
+        auto slIt = spellToSkillLine_.find(spellId);
+        if (slIt == spellToSkillLine_.end() || slIt->second != skillLine) continue;
+        auto cit = spellNameCache_.find(spellId);
+        if (cit == spellNameCache_.end()) continue;
+        const auto& se = cit->second;
+
+        bool hasReagents = false;
+        for (const auto& r : se.reagents) {
+            if (r.itemId != 0) { hasReagents = true; break; }
+        }
+        // The window-opener spell and passive skill ranks are not recipes.
+        if (!hasReagents && se.createdItemId == 0) continue;
+
+        CraftRecipe row;
+        row.spellId = spellId;
+        row.name = se.name;
+        row.difficulty = getRecipeDifficulty(spellId);
+        row.canMake = hasReagents ? 999 : 0;
+        for (const auto& r : se.reagents) {
+            if (r.itemId == 0 || r.count == 0) continue;
+            row.canMake = std::min(row.canMake,
+                static_cast<int>(countItemInBags(r.itemId) / r.count));
+        }
+        out.push_back(std::move(row));
+    }
+    std::sort(out.begin(), out.end(),
+              [](const CraftRecipe& a, const CraftRecipe& b) {
+                  return a.name < b.name;
+              });
+    return out;
+}
+
 const std::string& GameHandler::getMacroName(uint32_t macroId) const {
     auto it = macroNames_.find(macroId);
     return (it != macroNames_.end()) ? it->second : EMPTY_MACRO_TEXT;

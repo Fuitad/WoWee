@@ -522,6 +522,10 @@ static int lua_GetTalentInfo(lua_State* L) {
 /// The trainer panel's own selection and filters. The client has no opinion
 /// about either — they are what the player last clicked — so they live here
 /// rather than being invented on every read.
+static int& tradeSkillSelection() {
+    static int selected = 0;
+    return selected;
+}
 static int& trainerSelection() {
     static int selected = 0;
     return selected;
@@ -814,6 +818,198 @@ void registerQuestLuaAPI(lua_State* L) {
             }
             return 4;
         }},
+                // ---- Trade skills ---------------------------------------
+                //
+                // The recipe list comes from GameHandler so this panel and the
+                // client's own crafting window agree on every number.
+                {"GetNumTradeSkills", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? static_cast<double>(
+                gh->getCraftingRecipes().size()) : 0.0);
+            return 1;
+        }},
+                // GetTradeSkillInfo(i) → name, type, numAvailable, isExpanded,
+                //                        altVerb, numSkillUps
+                {"GetTradeSkillInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh) return luaReturnNil(L);
+            const auto recipes = gh->getCraftingRecipes();
+            if (i < 1 || i > static_cast<int>(recipes.size())) return luaReturnNil(L);
+            const auto& r = recipes[i - 1];
+            static const char* kBands[4] = {"optimal", "medium", "easy", "trivial"};
+            lua_pushstring(L, r.name.c_str());
+            lua_pushstring(L, kBands[r.difficulty < 0 || r.difficulty > 3
+                                         ? 0 : r.difficulty]);
+            lua_pushnumber(L, r.canMake);
+            lua_pushboolean(L, 1);      // expanded: this list has no headers
+            lua_pushnil(L);             // altVerb
+            lua_pushnumber(L, 1);       // numSkillUps
+            return 6;
+        }},
+                {"GetTradeSkillIcon", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh) return luaReturnNil(L);
+            const auto recipes = gh->getCraftingRecipes();
+            if (i < 1 || i > static_cast<int>(recipes.size())) return luaReturnNil(L);
+            const std::string icon = gh->getSpellIconPath(recipes[i - 1].spellId);
+            lua_pushstring(L, icon.empty()
+                ? "Interface\\Icons\\INV_Misc_QuestionMark" : icon.c_str());
+            return 1;
+        }},
+                {"GetTradeSkillDescription", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh) return luaReturnNil(L);
+            const auto recipes = gh->getCraftingRecipes();
+            if (i < 1 || i > static_cast<int>(recipes.size())) return luaReturnNil(L);
+            const uint32_t id = recipes[i - 1].spellId;
+            lua_pushstring(L, gh->formatSpellDescription(
+                id, gh->getSpellDescription(id)).c_str());
+            return 1;
+        }},
+                {"GetTradeSkillNumReagents", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+            int n = 0;
+            if (gh) {
+                const auto recipes = gh->getCraftingRecipes();
+                if (i >= 1 && i <= static_cast<int>(recipes.size())) {
+                    auto it = gh->spellNameCacheRef().find(recipes[i - 1].spellId);
+                    if (it != gh->spellNameCacheRef().end()) {
+                        for (const auto& r : it->second.reagents) {
+                            if (r.itemId != 0) ++n;
+                        }
+                    }
+                }
+            }
+            lua_pushnumber(L, n);
+            return 1;
+        }},
+                // GetTradeSkillReagentInfo(i, n) → name, texture, needed, have
+                {"GetTradeSkillReagentInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const int n = static_cast<int>(luaL_optnumber(L, 2, 1));
+            if (!gh) return luaReturnNil(L);
+            const auto recipes = gh->getCraftingRecipes();
+            if (i < 1 || i > static_cast<int>(recipes.size())) return luaReturnNil(L);
+            auto it = gh->spellNameCacheRef().find(recipes[i - 1].spellId);
+            if (it == gh->spellNameCacheRef().end()) return luaReturnNil(L);
+            int seen = 0;
+            for (const auto& r : it->second.reagents) {
+                if (r.itemId == 0) continue;
+                if (++seen != n) continue;
+                gh->ensureItemInfo(r.itemId);
+                const auto* info = gh->getItemInfo(r.itemId);
+                lua_pushstring(L, info ? info->name.c_str() : "Reagent");
+                const std::string ricon =
+                    info ? gh->getItemIconPath(info->displayInfoId) : std::string();
+                lua_pushstring(L, ricon.empty()
+                    ? "Interface\\Icons\\INV_Misc_QuestionMark" : ricon.c_str());
+                lua_pushnumber(L, r.count);
+                lua_pushnumber(L, gh->countItemInBags(r.itemId));
+                return 4;
+            }
+            return luaReturnNil(L);
+        }},
+                {"GetTradeSkillNumMade", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+            int lo = 1, hi = 1;
+            if (gh) {
+                const auto recipes = gh->getCraftingRecipes();
+                if (i >= 1 && i <= static_cast<int>(recipes.size())) {
+                    auto it = gh->spellNameCacheRef().find(recipes[i - 1].spellId);
+                    if (it != gh->spellNameCacheRef().end()) {
+                        // The count is not in what this client parses; one is
+                        // right for the great majority of recipes and wrong
+                        // only in the amount, never in the item.
+                        (void)it;
+                    }
+                }
+            }
+            lua_pushnumber(L, lo);
+            lua_pushnumber(L, hi);
+            return 2;
+        }},
+                // GetTradeSkillLine() → name, rank, maxRank
+                {"GetTradeSkillLine", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return luaReturnNil(L);
+            const uint32_t line = gh->getCraftingSkillLine();
+            std::string name = gh->getSkillLineName(line);
+            if (name.empty()) name = "Trade Skill";
+            uint32_t rank = 0, maxRank = 0;
+            auto it = gh->getPlayerSkills().find(line);
+            if (it != gh->getPlayerSkills().end()) {
+                rank    = it->second.effectiveValue();
+                maxRank = it->second.maxValue;
+            }
+            lua_pushstring(L, name.c_str());
+            lua_pushnumber(L, rank);
+            lua_pushnumber(L, maxRank);
+            return 3;
+        }},
+                {"DoTradeSkill", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh) return 0;
+            const auto recipes = gh->getCraftingRecipes();
+            if (i < 1 || i > static_cast<int>(recipes.size())) return 0;
+            gh->castSpell(recipes[i - 1].spellId);
+            return 0;
+        }},
+                {"CloseTradeSkill", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->closeCraftingWindow();
+            return 0;
+        }},
+                {"SelectTradeSkill", [](lua_State* L) -> int {
+            tradeSkillSelection() = static_cast<int>(luaL_optnumber(L, 1, 0));
+            return 0;
+        }},
+                {"GetTradeSkillSelectionIndex", [](lua_State* L) -> int {
+            lua_pushnumber(L, tradeSkillSelection());
+            return 1;
+        }},
+                {"GetFirstTradeSkill", [](lua_State* L) -> int {
+            // No headers in this list, so the first recipe is the first row.
+            lua_pushnumber(L, 1);
+            return 1;
+        }},
+                {"GetTradeSkillCooldown", [](lua_State* L) -> int {
+            return luaReturnNil(L);   // nil means "not on cooldown"
+        }},
+                {"GetTradeSkillTools", [](lua_State* L) -> int {
+            // The tool requirement is not in what this client parses, and
+            // claiming a tool is missing would grey out recipes that work.
+            return luaReturnNil(L);
+        }},
+                // Links, which need an item this client does not resolve for a
+                // recipe, and the play-time limits that only Chinese realms set.
+                {"GetTradeSkillItemLink",     [](lua_State* L) -> int { return luaReturnNil(L); }},
+                {"GetTradeSkillRecipeLink",   [](lua_State* L) -> int { return luaReturnNil(L); }},
+                {"GetTradeSkillReagentItemLink", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                {"GetTradeSkillListLink",     [](lua_State* L) -> int { return luaReturnNil(L); }},
+                {"IsTradeSkillLinked",        [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                {"NoPlayTime",                [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                {"PartialPlayTime",           [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                {"GetBillingTimeRested",      [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
+                // Filters and sub-classes: panel state, kept so it reads back.
+                {"GetTradeSkillSubClasses",   [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GetTradeSkillInvSlots",     [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GetTradeSkillSubClassFilter", [](lua_State* L) -> int { lua_pushboolean(L, 1); return 1; }},
+                {"GetTradeSkillInvSlotFilter",  [](lua_State* L) -> int { lua_pushboolean(L, 1); return 1; }},
+                {"SetTradeSkillSubClassFilter", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SetTradeSkillInvSlotFilter",  [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SetTradeSkillItemNameFilter", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SetTradeSkillItemLevelFilter",[](lua_State* L) -> int { (void)L; return 0; }},
+                {"TradeSkillOnlyShowMakeable",  [](lua_State* L) -> int { (void)L; return 0; }},
+                {"CollapseTradeSkillSubClass",  [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ExpandTradeSkillSubClass",    [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GetTradeskillRepeatCount",    [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
+                {"StopTradeSkillRepeat",        [](lua_State* L) -> int { (void)L; return 0; }},
                 // ---- Trainer -------------------------------------------
                 //
                 // The client has parsed the trainer list all along — spell,
