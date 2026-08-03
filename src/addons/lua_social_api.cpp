@@ -634,6 +634,46 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetMacroItemIconInfo", lua_GetMacroIconInfo},
                 {"NewGMTicket",         lua_NewGMTicket},
                 {"DeleteGMTicket",      lua_DeleteGMTicket},
+                // ---- Mail: invoices, stationery, and the spam report ----
+                //
+                // GetInboxInvoiceInfo(id) → invoiceType, itemName, playerName,
+                //   bid, buyout, deposit, consignment, moneyDelay, etaHour, etaMin
+                //
+                // Ten nils. The auction house sends these as mail and nothing
+                // here parses the invoice body, so there is no invoice to
+                // describe — and the caller compares the first against a string,
+                // which nil fails cleanly.
+                {"GetInboxInvoiceInfo", [](lua_State* L) -> int {
+            for (int i = 0; i < 10; ++i) lua_pushnil(L);
+            return 10;
+        }},
+                // Stationery is the letterhead a mail is written on. The list
+                // is empty — GetNumStationeries answers zero — so the picker
+                // has no rows and these are the calls around it.
+                {"GetStationeryInfo", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                {"SelectStationery", [](lua_State* L) -> int { (void)L; return 0; }},
+                // Guarded with `if ( texture )` before being pasted into a
+                // path, so nil leaves the default parchment rather than
+                // building a texture name out of nothing.
+                {"GetSelectedStationeryTexture", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                // Reporting a mail as spam needs a GM channel this client does
+                // not have, so no mail can be complained about.
+                {"CanComplainInboxItem", luaReturnFalse},
+                // Tells the client the send-mail tab is open, so it can hold a
+                // draft. Nothing here holds one.
+                {"SetSendMailShowing", [](lua_State* L) -> int { (void)L; return 0; }},
+
+                // ---- The help frame's GM requests ----
+                //
+                // There is no GM to reach: tickets are submitted through
+                // NewGMTicket, and these three are the paths beside it — asking
+                // for a lag report, saying an answer did not help, and polling
+                // whether a GM is available. Answered rather than left missing
+                // because the help frame calls the last one from its OnLoad.
+                {"GMReportLag", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GMResponseNeedMoreHelp", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GetGMStatus", [](lua_State* L) -> int { (void)L; return 0; }},
+
                 // ---- Guild rank editing ----
                 {"GuildControlGetRankName", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
