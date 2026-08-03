@@ -1402,6 +1402,54 @@ static int lua_GetBattlefieldMapIconScale(lua_State* L) { lua_pushnumber(L, 1.0)
 // and nothing here parses it, so nobody reads as idle.
 static int lua_PlayerIsPVPInactive(lua_State* L) { lua_pushboolean(L, 0); return 1; }
 
+// ---- The battlemaster's battleground list ----
+//
+// GetBattlefieldInfo() → mapName, mapDescription, maxGroup
+//
+// About the battleground the battlemaster being spoken to offers, which is
+// what the last SMSG_BATTLEFIELD_LIST described. The frame returns early on a
+// nil name, so before this the list drew nothing at all.
+//
+// The description is nil: BattlemasterList.dbc carries no blurb, and the panel
+// treats a missing one as "no description" rather than raising on it.
+static int lua_GetBattlefieldInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return luaReturnNil(L);
+    const auto& bgs = gh->getAvailableBgs();
+    if (bgs.empty()) return luaReturnNil(L);
+    const auto* info = gh->getBattlemasterInfo(bgs.back().bgTypeId);
+    if (!info || info->name.empty()) return luaReturnNil(L);
+    lua_pushstring(L, info->name.c_str());   // 1: mapName
+    lua_pushnil(L);                          // 2: mapDescription
+    lua_pushnumber(L, info->maxGroupSize);   // 3: maxGroup
+    return 3;
+}
+
+// GetSelectedBattlefield() → which instance of it is picked.
+//
+// Zero, which the list reads as its first row — "first available". Picking a
+// specific instance is a choice the client does not keep, and zero is the one
+// the server understands as no preference.
+static int lua_GetSelectedBattlefield(lua_State* L) { lua_pushnumber(L, 0); return 1; }
+
+// JoinBattlefield(index, asGroup, isArena) — queue for it.
+static int lua_JoinBattlefield(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+    const auto& bgs = gh->getAvailableBgs();
+    if (bgs.empty()) return 0;
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const bool asGroup = lua_toboolean(L, 2) != 0;
+    // The index names an instance in the list, and zero means first available.
+    const auto& bg = bgs.back();
+    uint32_t instanceId = 0;
+    if (index > 0 && index <= static_cast<int>(bg.instanceIds.size())) {
+        instanceId = bg.instanceIds[static_cast<size_t>(index) - 1];
+    }
+    gh->joinBattlefield(gh->getCurrentGossip().npcGuid, bg.bgTypeId, instanceId, asGroup);
+    return 0;
+}
+
 // ReloadUI() — rebuild the interface, as /reload does.
 //
 // Only asks. The reload shuts this Lua state down and builds a new one, and
@@ -1666,6 +1714,9 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"CombatLogSetCurrentEntry",       lua_CombatLogSetCurrentEntry},
                 {"CombatLogAddFilter",             lua_CombatLogAddFilter},
                 {"CombatLogResetFilter",           lua_CombatLogResetFilter},
+                {"GetBattlefieldInfo",       lua_GetBattlefieldInfo},
+                {"GetSelectedBattlefield",   lua_GetSelectedBattlefield},
+                {"JoinBattlefield",          lua_JoinBattlefield},
                 {"ReloadUI",                 lua_ReloadUI},
                 {"GetGamma",                 lua_GetGamma},
                 {"SetGamma",                 lua_SetGamma},

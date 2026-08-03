@@ -500,6 +500,8 @@ public:
     void acceptBattlefield(uint32_t queueSlot = 0xFFFFFFFF);
     void declineBattlefield(uint32_t queueSlot = 0xFFFFFFFF);
     void leaveBattlefield();
+    void joinBattlefield(uint64_t battlemasterGuid, uint32_t bgTypeId,
+                         uint32_t instanceId, bool asGroup);
     const std::array<BgQueueSlot, 3>& getBgQueues() const;
     const std::vector<AvailableBgInfo>& getAvailableBgs() const;
 
@@ -2087,6 +2089,19 @@ public:
         uint32_t    assetId = 0;
         uint32_t    quantity = 0;
     };
+
+    // ---- Battlegrounds (BattlemasterList.dbc) ----
+    // Thirteen rows: ID=0, MapID=1, Name=11, MaxGroupSize=28, MinLevel=30,
+    // MaxLevel=31. Verified against the file rather than inferred — the name
+    // sits past sixteen locale slots, so a field either side of it reads as a
+    // fragment of the previous string.
+    struct BattlemasterEntry {
+        std::string name;
+        uint32_t    maxGroupSize = 0;
+        uint32_t    minLevel = 0;
+        uint32_t    maxLevel = 0;
+    };
+    const BattlemasterEntry* getBattlemasterInfo(uint32_t bgTypeId);
 
     // ---- Currencies (CurrencyTypes.dbc) ----
     // In 3.3.5a a currency is a row pointing at an item, and the amount held is
@@ -3857,6 +3872,8 @@ private:
     std::unordered_map<uint32_t, uint32_t>    achievementIconCache_;  // achievementId → SpellIcon.dbc ID
     std::vector<CurrencyType> currencyTypes_;
     bool currencyTypesLoaded_ = false;
+    std::unordered_map<uint32_t, BattlemasterEntry> battlemasterList_;
+    bool battlemasterListLoaded_ = false;
     std::unordered_map<uint32_t, uint32_t>    achievementCategoryCache_;  // achievementId → Achievement_Category.dbc ID
     // Achievement ids per category, in the DBC's own order — the panel lists a
     // category by index, so the order has to be stable across calls.

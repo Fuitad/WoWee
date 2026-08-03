@@ -2216,6 +2216,31 @@ void GameHandler::loadAchievementNameCache() {
     LOG_INFO("Achievement: loaded ", achievementNameCache_.size(), " names from Achievement.dbc");
 }
 
+const GameHandler::BattlemasterEntry* GameHandler::getBattlemasterInfo(uint32_t bgTypeId) {
+    if (!battlemasterListLoaded_) {
+        auto* am = services_.assetManager;
+        // Checked before the latch, as with the other DBC caches here.
+        if (!am || !am->isInitialized()) return nullptr;
+        battlemasterListLoaded_ = true;
+        auto dbc = am->loadDBC("BattlemasterList.dbc");
+        if (dbc && dbc->isLoaded() && dbc->getFieldCount() > 31) {
+            for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+                const uint32_t id = dbc->getUInt32(i, 0);
+                if (id == 0) continue;
+                BattlemasterEntry e;
+                e.name         = dbc->getString(i, 11);
+                e.maxGroupSize = dbc->getUInt32(i, 28);
+                e.minLevel     = dbc->getUInt32(i, 30);
+                e.maxLevel     = dbc->getUInt32(i, 31);
+                battlemasterList_[id] = std::move(e);
+            }
+            LOG_INFO("Battleground: ", battlemasterList_.size(), " from BattlemasterList.dbc");
+        }
+    }
+    auto it = battlemasterList_.find(bgTypeId);
+    return it != battlemasterList_.end() ? &it->second : nullptr;
+}
+
 // CurrencyTypes.dbc: id, then the item that carries the amount. Everything the
 // currency tab shows about a currency — name, icon, how many — comes from that
 // item, so the row itself needs nothing else.

@@ -2029,6 +2029,11 @@ void GameHandler::swapRaidSubgroup(const std::string& a, const std::string& b) {
     if (socialHandler_) socialHandler_->swapRaidSubgroup(a, b);
 }
 
+void GameHandler::joinBattlefield(uint64_t battlemasterGuid, uint32_t bgTypeId,
+                                  uint32_t instanceId, bool asGroup) {
+    if (socialHandler_) socialHandler_->joinBattlefield(battlemasterGuid, bgTypeId, instanceId, asGroup);
+}
+
 void GameHandler::leaveBattlefield() {
     if (socialHandler_) socialHandler_->leaveBattlefield();
 }

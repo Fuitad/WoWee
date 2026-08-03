@@ -2652,6 +2652,21 @@ void SocialHandler::acceptBattlefield(uint32_t queueSlot) {
 // Leave the battleground the player is standing in, which is a different thing
 // from declining an invitation to one — that is CMSG_BATTLEFIELD_PORT with a
 // refusal, this is the player walking out of a match already joined.
+// CMSG_BATTLEMASTER_JOIN: which battlemaster is being spoken to, which
+// battleground, which instance of it, and whether the whole group is coming.
+// An instance of zero means "first available", which is what the top row of
+// the battlefield list is.
+void SocialHandler::joinBattlefield(uint64_t battlemasterGuid, uint32_t bgTypeId,
+                                    uint32_t instanceId, bool asGroup) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_BATTLEMASTER_JOIN));
+    packet.writeUInt64(battlemasterGuid);
+    packet.writeUInt32(bgTypeId);
+    packet.writeUInt32(instanceId);
+    packet.writeUInt8(asGroup ? 1 : 0);
+    owner_.getSocket()->send(packet);
+}
+
 void SocialHandler::leaveBattlefield() {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     network::Packet pkt(wireOpcode(Opcode::CMSG_LEAVE_BATTLEFIELD));
