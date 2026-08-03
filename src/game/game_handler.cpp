@@ -2395,6 +2395,10 @@ void GameHandler::handleAllAchievementData(network::Packet& packet) {
 
     LOG_INFO("SMSG_ALL_ACHIEVEMENT_DATA: loaded ", earnedAchievements_.size(),
              " achievements, ", criteriaProgress_.size(), " criteria");
+    // The panel builds its whole tree on this, and it arrives once at login —
+    // well before anything opens the panel — so without the event a panel
+    // opened later showed the empty state it was built with.
+    if (addonEventCallback_) addonEventCallback_("RECEIVED_ACHIEVEMENT_LIST", {});
 }
 
 // ---------------------------------------------------------------------------

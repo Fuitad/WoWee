@@ -2520,21 +2520,30 @@ void registerQuestLuaAPI(lua_State* L) {
             const auto& list = gh->getAchievementCriteria(id);
             if (idx > static_cast<int>(list.size())) return luaReturnNil(L);
             const auto& c = list[static_cast<size_t>(idx) - 1];
-            // Per-criterion progress is not tracked — only whether the whole
-            // achievement was earned — so an earned achievement reports all of
-            // its criteria met and an unearned one reports none. The panel
-            // draws a tick per criterion from this, which is right at both
-            // ends and only coarse in between.
-            const bool done = gh->getEarnedAchievements().count(id) > 0;
+            // Per-criterion progress is tracked after all: SMSG_ALL_ACHIEVEMENT_DATA
+            // carries a counter per criterion id, and this reported all-or-none
+            // from the achievement's earned flag while that sat unread beside
+            // it. A half-finished achievement now shows which of its criteria
+            // are done and how far the rest have got.
+            const auto& progress = gh->getCriteriaProgress();
+            const auto pit = progress.find(c.id);
+            const uint32_t have = (pit != progress.end())
+                ? static_cast<uint32_t>(pit->second) : 0u;
+            const bool earned = gh->getEarnedAchievements().count(id) > 0;
+            // Earned wins over the counter: the server stops counting once an
+            // achievement is complete, so a finished one can carry a criterion
+            // still short of its quantity.
+            const bool done = earned || (c.quantity > 0 && have >= c.quantity);
+            const uint32_t shown = earned ? c.quantity : have;
             lua_pushstring(L, c.description.c_str());          // 1: description
             lua_pushnumber(L, c.type);                         // 2: criteriaType
             lua_pushboolean(L, done ? 1 : 0);                  // 3: completed
-            lua_pushnumber(L, done ? c.quantity : 0);          // 4: quantity
+            lua_pushnumber(L, shown);                          // 4: quantity
             lua_pushnumber(L, c.quantity);                     // 5: reqQuantity
             lua_pushnil(L);                                    // 6: charName
             lua_pushnumber(L, 0);                              // 7: flags
             lua_pushnumber(L, c.assetId);                      // 8: assetID
-            lua_pushstring(L, std::to_string(done ? c.quantity : 0).c_str()); // 9
+            lua_pushstring(L, std::to_string(shown).c_str());  // 9: quantityString
             lua_pushnumber(L, c.id);                           // 10: criteriaID
             return 10;
         }},
