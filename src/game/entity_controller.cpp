@@ -1180,6 +1180,13 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
                                                const PlayerFieldIndices& pfi,
                                                bool isCreate) {
     bool slotsChanged = false;
+    // Whether anything the character sheet prints actually moved. The sheet
+    // refreshes on events, not on a timer, so a stat that changes without one
+    // being fired leaves the panel showing the old number until something else
+    // happens to redraw it.
+    bool statsChanged = false;
+    bool ratingsChanged = false;
+    bool powerChanged = false;
     for (const auto& [key, val] : fields) {
         if (key == pfi.xp) {
             owner_.playerXpRef() = val;
@@ -1308,8 +1315,16 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
             pendingEvents_.emit("PLAYER_FLAGS_CHANGED", {});
           }
         }
-        else if (pfi.meleeAP  != 0xFFFF && key == pfi.meleeAP)  { owner_.playerMeleeAPRef()  = static_cast<int32_t>(val); }
-        else if (pfi.rangedAP != 0xFFFF && key == pfi.rangedAP) { owner_.playerRangedAPRef() = static_cast<int32_t>(val); }
+        else if (pfi.meleeAP  != 0xFFFF && key == pfi.meleeAP)  {
+            const int32_t ap = static_cast<int32_t>(val);
+            if (owner_.playerMeleeAPRef() != ap) powerChanged = true;
+            owner_.playerMeleeAPRef() = ap;
+        }
+        else if (pfi.rangedAP != 0xFFFF && key == pfi.rangedAP) {
+            const int32_t ap = static_cast<int32_t>(val);
+            if (owner_.playerRangedAPRef() != ap) powerChanged = true;
+            owner_.playerRangedAPRef() = ap;
+        }
         else if (pfi.spDmg1   != 0xFFFF && key >= pfi.spDmg1 && key < pfi.spDmg1 + 7) {
             owner_.playerSpellDmgBonusArr()[key - pfi.spDmg1] = static_cast<int32_t>(val);
         }
@@ -1326,12 +1341,16 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
             std::memcpy(&owner_.playerSpellCritPctArr()[key - pfi.sCrit1], &val, 4);
         }
         else if (pfi.rating1  != 0xFFFF && key >= pfi.rating1 && key < pfi.rating1 + 25) {
-            owner_.playerCombatRatingsRef()[key - pfi.rating1] = static_cast<int32_t>(val);
+            const int32_t r = static_cast<int32_t>(val);
+            if (owner_.playerCombatRatingsRef()[key - pfi.rating1] != r) ratingsChanged = true;
+            owner_.playerCombatRatingsRef()[key - pfi.rating1] = r;
         }
         else {
             for (int si = 0; si < 5; ++si) {
                 if (pfi.stats[si] != 0xFFFF && key == pfi.stats[si]) {
-                    owner_.playerStatsArr()[si] = static_cast<int32_t>(val);
+                    const int32_t sv = static_cast<int32_t>(val);
+                    if (owner_.playerStatsArr()[si] != sv) statsChanged = true;
+                    owner_.playerStatsArr()[si] = sv;
                     break;
                 }
             }
@@ -1341,6 +1360,19 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
         // phantom "already accepted" quests that block quest acceptance.
     }
     if (owner_.applyInventoryFields(fields)) slotsChanged = true;
+
+    // Announced only on an update, never on the create block: at create the
+    // sheet has not been built yet, and every field looks like a change.
+    //
+    // PaperDollFrame listens for these and calls PaperDollFrame_UpdateStats
+    // from each. Without them the panels were filled once at login and then
+    // never again — a new weapon or a stat buff left the old numbers on screen
+    // with nothing to say they were stale.
+    if (!isCreate) {
+        if (statsChanged)   pendingEvents_.emit("UNIT_STATS", {"player"});
+        if (ratingsChanged) pendingEvents_.emit("COMBAT_RATING_UPDATE", {});
+        if (powerChanged)   pendingEvents_.emit("UNIT_ATTACK_POWER", {"player"});
+    }
     return slotsChanged;
 }
 
