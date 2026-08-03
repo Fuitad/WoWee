@@ -751,6 +751,20 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
         return;
     }
 
+    // Said at warning level when it happens in-world, because from here the
+    // player is moved to the position this packet carries. A duplicate that
+    // slips past the test above is indistinguishable, after the fact, from a
+    // teleport nobody asked for — and one arriving in-world is what puts a
+    // player back where they logged in.
+    if (!initialWorldEntry) {
+        LOG_WARNING("SMSG_LOGIN_VERIFY_WORLD in-world is being treated as a "
+                    "teleport: mapId=", data.mapId, " sameMap=", sameMap,
+                    " dist=", std::sqrt(distSqCurrent),
+                    " onTaxi=", flying,
+                    " — the player is about to be placed at (", data.x, ", ",
+                    data.y, ", ", data.z, ")");
+    }
+
     // Successfully entered the world (or teleported)
     currentMapId_ = data.mapId;
     setState(WorldState::IN_WORLD);
