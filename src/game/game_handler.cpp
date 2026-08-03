@@ -2846,6 +2846,37 @@ const GossipMessageData& GameHandler::getCurrentGossip() const {
     if (questHandler_) return questHandler_->getCurrentGossip();
     return currentGossip;
 }
+const GameHandler::ExtendedCostEntry*
+GameHandler::getExtendedCost(uint32_t extendedCostId) const {
+    if (!extendedCostCacheLoaded_) {
+        extendedCostCacheLoaded_ = true;
+        auto* am = services_.assetManager;
+        if (am && am->isInitialized()) {
+            if (auto dbc = am->loadDBC("ItemExtendedCost.dbc"); dbc && dbc->isLoaded()) {
+                // WotLK layout: 0=ID, 1=honorPoints, 2=arenaPoints,
+                // 3=arenaSlotRestrictions, 4-8=itemId[5], 9-13=itemCount[5],
+                // 14=reqRating, 15=purchaseGroup
+                for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+                    const uint32_t id = dbc->getUInt32(i, 0);
+                    if (id == 0) continue;
+                    ExtendedCostEntry e;
+                    e.honorPoints = dbc->getUInt32(i, 1);
+                    e.arenaPoints = dbc->getUInt32(i, 2);
+                    for (int j = 0; j < 5; ++j) {
+                        e.itemId[j]    = dbc->getUInt32(i, 4 + j);
+                        e.itemCount[j] = dbc->getUInt32(i, 9 + j);
+                    }
+                    extendedCostCache_[id] = e;
+                }
+                LOG_INFO("ItemExtendedCost.dbc: loaded ", extendedCostCache_.size(),
+                         " entries");
+            }
+        }
+    }
+    auto it = extendedCostCache_.find(extendedCostId);
+    return it == extendedCostCache_.end() ? nullptr : &it->second;
+}
+
 const std::string& GameHandler::getQuestGreeting() const {
     static const std::string empty;
     if (questHandler_) return questHandler_->getQuestGreeting();

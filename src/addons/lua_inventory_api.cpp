@@ -204,9 +204,75 @@ static int lua_GetMerchantItemMaxStack(lua_State* L) {
 /// Extended cost — the badges, marks and honour some vendors charge instead of
 /// money. Not tracked, and zero is "this one costs money", which is true of
 /// every vendor this client has met.
+/// The extended cost behind a vendor slot, or null when it is bought with coin.
+static const game::GameHandler::ExtendedCostEntry* merchantCost(lua_State* L, int index) {
+    auto* gh = getGameHandler(L);
+    if (!gh || index < 1) return nullptr;
+    const auto& items = gh->getVendorItems().items;
+    if (index > static_cast<int>(items.size())) return nullptr;
+    const uint32_t costId = items[index - 1].extendedCost;
+    return costId ? gh->getExtendedCost(costId) : nullptr;
+}
+
+// GetMerchantItemCostInfo(index) → honorPoints, arenaPoints, itemCount
+//
+// Three values, not one. The merchant frame reads all three and then tests
+// `itemCount > 0` — against nil that is an error rather than a false, and it
+// runs for every slot the vendor shows.
 static int lua_GetMerchantItemCostInfo(lua_State* L) {
-    lua_pushnumber(L, 0);
-    return 1;
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const auto* cost = merchantCost(L, index);
+    if (!cost) {
+        lua_pushnumber(L, 0);
+        lua_pushnumber(L, 0);
+        lua_pushnumber(L, 0);
+        return 3;
+    }
+    int items = 0;
+    for (int j = 0; j < 5; ++j) {
+        if (cost->itemId[j] != 0 && cost->itemCount[j] != 0) ++items;
+    }
+    lua_pushnumber(L, cost->honorPoints);
+    lua_pushnumber(L, cost->arenaPoints);
+    lua_pushnumber(L, items);
+    return 3;
+}
+
+// GetMerchantItemCostItem(index, i) → itemTexture, itemValue, itemLink
+//
+// The i-th thing a vendor wants for a slot besides coin. Counts only the filled
+// entries, so the second cost is the second one shown rather than whatever sits
+// in the second of five fixed fields.
+static int lua_GetMerchantItemCostItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const int which = static_cast<int>(luaL_optnumber(L, 2, 0));
+    const auto* cost = merchantCost(L, index);
+    if (!gh || !cost || which < 1) { return luaReturnNil(L); }
+
+    int seen = 0;
+    for (int j = 0; j < 5; ++j) {
+        if (cost->itemId[j] == 0 || cost->itemCount[j] == 0) continue;
+        if (++seen != which) continue;
+
+        // Asked for by id, because a cost item is often one the player has
+        // never seen and so was never sent with the vendor list.
+        gh->ensureItemInfo(cost->itemId[j]);
+        const auto* info = gh->getItemInfo(cost->itemId[j]);
+        lua_pushstring(L, info ? gh->getItemIconPath(info->displayInfoId).c_str() : "");
+        lua_pushnumber(L, cost->itemCount[j]);
+        if (info && !info->name.empty()) {
+            const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
+            char link[256];
+            snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+                     ch, cost->itemId[j], info->name.c_str());
+            lua_pushstring(L, link);
+        } else {
+            lua_pushnil(L);
+        }
+        return 3;
+    }
+    return luaReturnNil(L);
 }
 
 
@@ -1116,6 +1182,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"CloseMerchant",           lua_CloseMerchant},
                 {"GetMerchantItemMaxStack", lua_GetMerchantItemMaxStack},
                 {"GetMerchantItemCostInfo", lua_GetMerchantItemCostInfo},
+                {"GetMerchantItemCostItem", lua_GetMerchantItemCostItem},
                 {"GetItemInfo",       lua_GetItemInfo},
                 {"IsDressableItem",   lua_IsDressableItem},
                 {"GetItemQualityColor", lua_GetItemQualityColor},

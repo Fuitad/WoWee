@@ -252,21 +252,11 @@ public:
     int guildBankMoneyInput_[3] = {0, 0, 0};
 
     // ItemExtendedCost.dbc cache
-    struct ExtendedCostEntry {
-        uint32_t honorPoints = 0;
-        uint32_t arenaPoints = 0;
-        uint32_t itemId[5] = {};
-        uint32_t itemCount[5] = {};
-    };
-    std::unordered_map<uint32_t, ExtendedCostEntry> extendedCostCache_;
-    bool extendedCostDbLoaded_ = false;
-
     // UIServices injection (Phase B singleton breaking)
     void setServices(const UIServices& services) { services_ = services; }
 
 private:
     UIServices services_;
-    void loadExtendedCostDBC();
     // Resolve an achievement's SpellIcon.dbc ID to an ImGui texture (lazy BLP load + cache).
     VkDescriptorSet getAchievementIcon(uint32_t spellIconId);
     std::string formatExtendedCost(uint32_t extendedCostId, game::GameHandler& gameHandler);

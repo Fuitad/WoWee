@@ -1979,6 +1979,22 @@ public:
         return (it != achievementDates_.end()) ? it->second : 0u;
     }
     /// Returns the name of an achievement by ID, or empty string if unknown.
+    /// What a vendor wants besides coin: honor, arena points, or up to five
+    /// items of a given count. ItemExtendedCost.dbc, keyed by the id a vendor
+    /// item carries.
+    struct ExtendedCostEntry {
+        uint32_t honorPoints = 0;
+        uint32_t arenaPoints = 0;
+        uint32_t itemId[5] = {};
+        uint32_t itemCount[5] = {};
+    };
+    /// Null when the id is unknown or the DBC is not there.
+    ///
+    /// Lives here rather than in the window that draws vendors, because the
+    /// original interface asks for the same thing through
+    /// GetMerchantItemCostItem and cannot reach into this client's UI.
+    const ExtendedCostEntry* getExtendedCost(uint32_t extendedCostId) const;
+
     const std::string& getAchievementName(uint32_t id) const {
         auto it = achievementNameCache_.find(id);
         if (it != achievementNameCache_.end()) return it->second;
@@ -3677,6 +3693,9 @@ private:
 
     // Achievement caches (lazy-loaded from Achievement.dbc on first earned event)
     std::unordered_map<uint32_t, std::string> achievementNameCache_;
+    /// Read once on the first ask, like the other DBC-backed caches here.
+    mutable std::unordered_map<uint32_t, ExtendedCostEntry> extendedCostCache_;
+    mutable bool extendedCostCacheLoaded_ = false;
     std::unordered_map<uint32_t, std::string> achievementDescCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementPointsCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementIconCache_;  // achievementId → SpellIcon.dbc ID

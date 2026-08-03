@@ -845,35 +845,13 @@ void WindowManager::renderQuestOfferRewardWindow(game::GameHandler& gameHandler,
     }
 }
 
-void WindowManager::loadExtendedCostDBC() {
-    if (extendedCostDbLoaded_) return;
-    extendedCostDbLoaded_ = true;
-    auto* am = services_.assetManager;
-    if (!am || !am->isInitialized()) return;
-    auto dbc = am->loadDBC("ItemExtendedCost.dbc");
-    if (!dbc || !dbc->isLoaded()) return;
-    // WotLK ItemExtendedCost.dbc: field 0=ID, 1=honorPoints, 2=arenaPoints,
-    // 3=arenaSlotRestrictions, 4-8=itemId[5], 9-13=itemCount[5], 14=reqRating, 15=purchaseGroup
-    for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
-        uint32_t id = dbc->getUInt32(i, 0);
-        if (id == 0) continue;
-        ExtendedCostEntry e;
-        e.honorPoints = dbc->getUInt32(i, 1);
-        e.arenaPoints = dbc->getUInt32(i, 2);
-        for (int j = 0; j < 5; ++j) {
-            e.itemId[j]    = dbc->getUInt32(i, 4 + j);
-            e.itemCount[j] = dbc->getUInt32(i, 9 + j);
-        }
-        extendedCostCache_[id] = e;
-    }
-    LOG_INFO("ItemExtendedCost.dbc: loaded ", extendedCostCache_.size(), " entries");
-}
-
 std::string WindowManager::formatExtendedCost(uint32_t extendedCostId, game::GameHandler& gameHandler) {
-    loadExtendedCostDBC();
-    auto it = extendedCostCache_.find(extendedCostId);
-    if (it == extendedCostCache_.end()) return "[Tokens]";
-    const auto& e = it->second;
+    // Read from the game handler, which is where this lives now: the original
+    // interface asks the same question through GetMerchantItemCostItem and
+    // cannot reach in here.
+    const auto* entry = gameHandler.getExtendedCost(extendedCostId);
+    if (!entry) return "[Tokens]";
+    const auto& e = *entry;
     std::string result;
     if (e.honorPoints > 0) {
         result += std::to_string(e.honorPoints) + " Honor";
