@@ -1586,6 +1586,8 @@ bool VkContext::ensureUiTextureDescriptorPool() {
     poolInfo.maxSets = 4096;
     poolInfo.poolSizeCount = 1;
     poolInfo.pPoolSizes = &size;
+    LOG_WARNING("UI textures allocate from this context's own descriptor pool, "
+                "so they outlive an ImGui backend restart");
     if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &uiTexturePool_) != VK_SUCCESS) {
         LOG_ERROR("Could not create the UI texture descriptor pool");
         vkDestroyDescriptorSetLayout(device, uiTextureLayout_, nullptr);
