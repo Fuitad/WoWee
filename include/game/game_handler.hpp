@@ -2069,6 +2069,56 @@ public:
         return kEmpty;
     }
     void ensureAchievementNamesLoaded() { loadAchievementNameCache(); }
+
+    struct AchievementCategoryInfo {
+        std::string name;
+        int32_t     parentId = -1;  // -1 is a top-level category, as WoW reports it
+    };
+    struct AchievementCriterion {
+        uint32_t    id = 0;
+        std::string description;
+        uint32_t    type = 0;
+        uint32_t    assetId = 0;
+        uint32_t    quantity = 0;
+    };
+
+    // ---- Achievement categories and criteria (Achievement_Category.dbc,
+    // Achievement_Criteria.dbc). The panel is a tree of categories, so it needs
+    // all of this before it can draw a single row.
+    void ensureAchievementCategoriesLoaded();
+    void ensureAchievementCriteriaLoaded();
+    const std::vector<uint32_t>& getAchievementCategoryOrder() const { return achievementCategoryOrder_; }
+    const AchievementCategoryInfo* getAchievementCategoryInfo(uint32_t categoryId) const {
+        auto it = achievementCategoryInfo_.find(categoryId);
+        return it != achievementCategoryInfo_.end() ? &it->second : nullptr;
+    }
+    const std::vector<uint32_t>& getCategoryAchievements(uint32_t categoryId) const {
+        auto it = categoryAchievements_.find(categoryId);
+        static const std::vector<uint32_t> kEmpty;
+        return it != categoryAchievements_.end() ? it->second : kEmpty;
+    }
+    uint32_t getAchievementCategory(uint32_t achievementId) const {
+        auto it = achievementCategoryCache_.find(achievementId);
+        return it != achievementCategoryCache_.end() ? it->second : 0u;
+    }
+    const std::unordered_map<uint32_t, std::vector<AchievementCriterion>>& getAchievementCriteriaMap() const {
+        return achievementCriteria_;
+    }
+    const std::vector<AchievementCriterion>& getAchievementCriteria(uint32_t achievementId) const {
+        auto it = achievementCriteria_.find(achievementId);
+        static const std::vector<AchievementCriterion> kEmpty;
+        return it != achievementCriteria_.end() ? it->second : kEmpty;
+    }
+    /// Points from every achievement the player has earned.
+    uint32_t getTotalAchievementPoints() const {
+        uint32_t total = 0;
+        for (uint32_t id : earnedAchievements_) total += getAchievementPoints(id);
+        return total;
+    }
+    const std::unordered_set<uint32_t>& getTrackedAchievements() const { return trackedAchievements_; }
+    void setAchievementTracked(uint32_t id, bool tracked) {
+        if (tracked) trackedAchievements_.insert(id); else trackedAchievements_.erase(id);
+    }
     /// Returns the description of an achievement by ID, or empty string if unknown.
     const std::string& getAchievementDescription(uint32_t id) const {
         auto it = achievementDescCache_.find(id);
@@ -3790,6 +3840,17 @@ private:
     std::unordered_map<uint32_t, std::string> achievementDescCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementPointsCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementIconCache_;  // achievementId → SpellIcon.dbc ID
+    std::unordered_map<uint32_t, uint32_t>    achievementCategoryCache_;  // achievementId → Achievement_Category.dbc ID
+    // Achievement ids per category, in the DBC's own order — the panel lists a
+    // category by index, so the order has to be stable across calls.
+    std::unordered_map<uint32_t, std::vector<uint32_t>> categoryAchievements_;
+    std::unordered_map<uint32_t, AchievementCategoryInfo> achievementCategoryInfo_;
+    std::vector<uint32_t> achievementCategoryOrder_;
+    bool achievementCategoriesLoaded_ = false;
+    std::unordered_map<uint32_t, std::vector<AchievementCriterion>> achievementCriteria_;
+    bool achievementCriteriaLoaded_ = false;
+    // Client-side, like the quest tracker's set — nothing is sent for it.
+    std::unordered_set<uint32_t> trackedAchievements_;
     bool achievementNameCacheLoaded_ = false;
     // Set of achievement IDs earned by the player (populated from SMSG_ALL_ACHIEVEMENT_DATA)
     std::unordered_set<uint32_t> earnedAchievements_;

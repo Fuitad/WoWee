@@ -2319,11 +2319,217 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushnumber(L, static_cast<lua_Number>(earned));
             return 2;
         }},
+                // GetCategoryList() → every achievement category id, as a table.
+                {"GetCategoryList", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_newtable(L);
+            if (!gh) return 1;
+            gh->ensureAchievementCategoriesLoaded();
+            int n = 0;
+            for (uint32_t id : gh->getAchievementCategoryOrder()) {
+                lua_pushnumber(L, ++n);
+                lua_pushnumber(L, id);
+                lua_settable(L, -3);
+            }
+            return 1;
+        }},
+                // GetCategoryInfo(id) → name, parentCategoryID, flags
+                {"GetCategoryInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (!gh) return luaReturnNil(L);
+            gh->ensureAchievementCategoriesLoaded();
+            const auto* info = gh->getAchievementCategoryInfo(id);
+            if (!info) return luaReturnNil(L);
+            lua_pushstring(L, info->name.c_str());
+            lua_pushnumber(L, info->parentId);
+            lua_pushnumber(L, 0);
+            return 3;
+        }},
+                // GetCategoryNumAchievements(id) → total, completed, incomplete
+                {"GetCategoryNumAchievements", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (!gh) { lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 0); return 3; }
+            gh->ensureAchievementCategoriesLoaded();
+            const auto& ids = gh->getCategoryAchievements(id);
+            const auto& earned = gh->getEarnedAchievements();
+            uint32_t done = 0;
+            for (uint32_t a : ids) if (earned.count(a)) ++done;
+            lua_pushnumber(L, static_cast<lua_Number>(ids.size()));
+            lua_pushnumber(L, done);
+            lua_pushnumber(L, static_cast<lua_Number>(ids.size() - done));
+            return 3;
+        }},
+                {"GetAchievementCategory", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (!gh) return luaReturnNil(L);
+            gh->ensureAchievementCategoriesLoaded();
+            lua_pushnumber(L, gh->getAchievementCategory(id));
+            return 1;
+        }},
+                {"GetAchievementNumCriteria", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (!gh) { lua_pushnumber(L, 0); return 1; }
+            gh->ensureAchievementCriteriaLoaded();
+            lua_pushnumber(L, static_cast<lua_Number>(gh->getAchievementCriteria(id).size()));
+            return 1;
+        }},
+                // GetAchievementCriteriaInfo(achievementID, index) →
+                //   description, criteriaType, completed, quantity,
+                //   reqQuantity, charName, flags, assetID, quantityString,
+                //   criteriaID
+                {"GetAchievementCriteriaInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto id  = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            const int  idx = static_cast<int>(luaL_optnumber(L, 2, 0));
+            if (!gh || idx < 1) return luaReturnNil(L);
+            gh->ensureAchievementCriteriaLoaded();
+            const auto& list = gh->getAchievementCriteria(id);
+            if (idx > static_cast<int>(list.size())) return luaReturnNil(L);
+            const auto& c = list[static_cast<size_t>(idx) - 1];
+            // Per-criterion progress is not tracked — only whether the whole
+            // achievement was earned — so an earned achievement reports all of
+            // its criteria met and an unearned one reports none. The panel
+            // draws a tick per criterion from this, which is right at both
+            // ends and only coarse in between.
+            const bool done = gh->getEarnedAchievements().count(id) > 0;
+            lua_pushstring(L, c.description.c_str());          // 1: description
+            lua_pushnumber(L, c.type);                         // 2: criteriaType
+            lua_pushboolean(L, done ? 1 : 0);                  // 3: completed
+            lua_pushnumber(L, done ? c.quantity : 0);          // 4: quantity
+            lua_pushnumber(L, c.quantity);                     // 5: reqQuantity
+            lua_pushnil(L);                                    // 6: charName
+            lua_pushnumber(L, 0);                              // 7: flags
+            lua_pushnumber(L, c.assetId);                      // 8: assetID
+            lua_pushstring(L, std::to_string(done ? c.quantity : 0).c_str()); // 9
+            lua_pushnumber(L, c.id);                           // 10: criteriaID
+            return 10;
+        }},
+                // GetLatestCompletedAchievements() → the most recent earned
+                // ids, newest first. The summary page fills its top rows from
+                // these. The earn date is a WoW PackedTime — year in the low
+                // sixteen bits, then day, then month — so it does not sort as
+                // a plain integer and has to be unpacked first.
+                {"GetLatestCompletedAchievements", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            std::vector<std::pair<uint32_t, uint32_t>> byDate;  // sortKey, id
+            for (uint32_t id : gh->getEarnedAchievements()) {
+                const uint32_t d = gh->getAchievementDate(id);
+                const uint32_t year  = d & 0xFFFFu;
+                const uint32_t day   = (d >> 16) & 0xFFu;
+                const uint32_t month = (d >> 24) & 0xFFu;
+                byDate.emplace_back((year << 9) | (month << 5) | day, id);
+            }
+            std::sort(byDate.begin(), byDate.end(),
+                      [](const auto& a, const auto& b) {
+                          if (a.first != b.first) return a.first > b.first;
+                          return a.second > b.second;  // stable, and a total order
+                      });
+            const size_t n = std::min<size_t>(byDate.size(), 5);
+            for (size_t i = 0; i < n; ++i) lua_pushnumber(L, byDate[i].second);
+            return static_cast<int>(n);
+        }},
+                // GetAchievementInfoFromCriteria(criteriaID) → the achievement
+                // that criterion belongs to, in GetAchievementInfo's shape.
+                {"GetAchievementInfoFromCriteria", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto critId = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (!gh || critId == 0) return luaReturnNil(L);
+            gh->ensureAchievementCriteriaLoaded();
+            // Nothing indexes criteria by their own id — the panel asks this
+            // once per link clicked, not per frame, so the walk is cheaper
+            // than a second map kept in step with the first.
+            for (const auto& [achId, list] : gh->getAchievementCriteriaMap()) {
+                for (const auto& c : list) {
+                    if (c.id != critId) continue;
+                    lua_pushnumber(L, achId);
+                    lua_pushstring(L, gh->getAchievementName(achId).c_str());
+                    lua_pushnumber(L, gh->getAchievementPoints(achId));
+                    lua_pushboolean(L, gh->getEarnedAchievements().count(achId) ? 1 : 0);
+                    return 4;
+                }
+            }
+            return luaReturnNil(L);
+        }},
+                // The chain an achievement belongs to. Achievement.dbc carries
+                // it in Supercedes, which is not loaded — so no chain, and the
+                // panel simply draws none rather than a wrong one.
+                {"GetNextAchievement",     [](lua_State* L) -> int { return luaReturnNil(L); }},
+                {"GetPreviousAchievement", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                // GetStatistic(id) → the statistic's value, as a string.
+                // Statistics count criteria progress, and only whether an
+                // achievement was earned is tracked here, so this reports the
+                // dash WoW itself shows for a statistic with no value.
+                {"GetStatistic", [](lua_State* L) -> int { lua_pushstring(L, "--"); return 1; }},
+                // Comparing achievements against an inspected player needs the
+                // server to send theirs, which is never asked for here.
+                {"SetAchievementComparisonUnit",   [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ClearAchievementComparisonUnit", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GetAchievementComparisonInfo",   [](lua_State* L) -> int { return luaReturnNil(L); }},
+                {"GetComparisonStatistic",         [](lua_State* L) -> int { lua_pushstring(L, "--"); return 1; }},
+                {"GetComparisonAchievementPoints", [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
+                {"GetTotalAchievementPoints", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? gh->getTotalAchievementPoints() : 0);
+            return 1;
+        }},
+                {"GetAchievementLink", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (!gh || id == 0) return luaReturnNil(L);
+            gh->ensureAchievementNamesLoaded();
+            const std::string& name = gh->getAchievementName(id);
+            if (name.empty()) return luaReturnNil(L);
+            std::string link = "|cffffff00|Hachievement:" + std::to_string(id) +
+                               ":0:0:0:0:0:0:0:0:0|h[" + name + "]|h|r";
+            lua_pushstring(L, link.c_str());
+            return 1;
+        }},
+                // ---- Achievement tracking (client-side, like the quest tracker)
+                {"IsTrackedAchievement", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            lua_pushboolean(L, gh && gh->getTrackedAchievements().count(id) ? 1 : 0);
+            return 1;
+        }},
+                {"AddTrackedAchievement", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (gh && id) { gh->setAchievementTracked(id, true); gh->fireAddonEvent("TRACKED_ACHIEVEMENT_UPDATE", {}); }
+            return 0;
+        }},
+                {"RemoveTrackedAchievement", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (gh && id) { gh->setAchievementTracked(id, false); gh->fireAddonEvent("TRACKED_ACHIEVEMENT_UPDATE", {}); }
+            return 0;
+        }},
+                {"GetNumTrackedAchievements", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? static_cast<lua_Number>(gh->getTrackedAchievements().size()) : 0);
+            return 1;
+        }},
                 {"GetAchievementInfo", [](lua_State* L) -> int {
             // GetAchievementInfo(id) → id, name, points, completed, month, day, year, description, flags, icon, rewardText, isGuildAch
             auto* gh = getGameHandler(L);
             uint32_t id = static_cast<uint32_t>(luaL_checknumber(L, 1));
             if (!gh) { return luaReturnNil(L); }
+            // The other form the panel uses: GetAchievementInfo(category,
+            // index) walks a category's achievements by position. Only the
+            // by-id form existed, so every row the achievements panel asked
+            // for was read as an achievement id and answered with the wrong
+            // achievement, or with nothing.
+            if (!lua_isnoneornil(L, 2)) {
+                const int idx = static_cast<int>(luaL_optnumber(L, 2, 0));
+                gh->ensureAchievementCategoriesLoaded();
+                const auto& ids = gh->getCategoryAchievements(id);
+                if (idx < 1 || idx > static_cast<int>(ids.size())) return luaReturnNil(L);
+                id = ids[static_cast<size_t>(idx) - 1];
+            }
             const std::string& name = gh->getAchievementName(id);
             if (name.empty()) { return luaReturnNil(L); }
             bool completed = gh->getEarnedAchievements().count(id) > 0;

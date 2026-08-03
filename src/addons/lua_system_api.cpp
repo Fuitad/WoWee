@@ -1254,8 +1254,14 @@ static int lua_GetLFGRandomCooldownExpiration(lua_State* L) { lua_pushnil(L); re
 static int lua_RefreshLFGList(lua_State* L) { (void)L; return 0; }
 
 // GetTrackedAchievements() → the achievement ids being watched, as separate
-// values. None are tracked, and the watch frame counts them by return count.
-static int lua_GetTrackedAchievements(lua_State* L) { (void)L; return 0; }
+// values. The watch frame counts them by return count.
+static int lua_GetTrackedAchievements(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+    const auto& tracked = gh->getTrackedAchievements();
+    for (uint32_t id : tracked) lua_pushnumber(L, id);
+    return static_cast<int>(tracked.size());
+}
 
 // The PvP flag's countdown. The client knows whether the flag is set but not
 // how long it has left, so the timer is reported as not running and the player

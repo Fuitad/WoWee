@@ -2216,6 +2216,85 @@ void GameHandler::loadAchievementNameCache() {
     LOG_INFO("Achievement: loaded ", achievementNameCache_.size(), " names from Achievement.dbc");
 }
 
+// Achievement.dbc field 38 is the category. It is not in the layout file, but
+// the fields either side of it are — Points at 39, Description at 21, IconID at
+// 42 — which is the stock 3.3.5a order, so 38 is where the category sits.
+void GameHandler::ensureAchievementCategoriesLoaded() {
+    if (achievementCategoriesLoaded_) return;
+    auto* am = services_.assetManager;
+    // Checked before the latch, not after: one call made before the asset
+    // manager is up would otherwise disable this for the rest of the session.
+    if (!am || !am->isInitialized()) return;
+    loadAchievementNameCache();
+    achievementCategoriesLoaded_ = true;
+
+    auto dbc = am->loadDBC("Achievement.dbc");
+    if (!dbc || !dbc->isLoaded()) return;
+    const uint32_t fieldCount = dbc->getFieldCount();
+    if (fieldCount <= 38) return;
+    for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+        const uint32_t id = dbc->getUInt32(i, 0);
+        if (id == 0 || achievementNameCache_.find(id) == achievementNameCache_.end()) continue;
+        const uint32_t category = dbc->getUInt32(i, 38);
+        achievementCategoryCache_[id] = category;
+        categoryAchievements_[category].push_back(id);
+    }
+
+    // Achievement_Category.dbc: id, parent, then the localised names. A parent
+    // of -1 (0xFFFFFFFF) means the category sits at the top of the tree.
+    auto catDbc = am->loadDBC("Achievement_Category.dbc");
+    if (catDbc && catDbc->isLoaded() && catDbc->getFieldCount() >= 3) {
+        for (uint32_t i = 0; i < catDbc->getRecordCount(); ++i) {
+            const uint32_t id = catDbc->getUInt32(i, 0);
+            const uint32_t parent = catDbc->getUInt32(i, 1);
+            AchievementCategoryInfo info;
+            info.name = catDbc->getString(i, 2);
+            info.parentId = (parent == 0xFFFFFFFFu) ? -1 : static_cast<int32_t>(parent);
+            achievementCategoryInfo_[id] = std::move(info);
+            achievementCategoryOrder_.push_back(id);
+        }
+    }
+    LOG_INFO("Achievement: ", achievementCategoryOrder_.size(), " categories, ",
+             achievementCategoryCache_.size(), " achievements placed");
+}
+
+// Achievement_Criteria.dbc: id, achievement, type, asset, quantity, then the
+// localised descriptions. Type and asset are what the panel needs to tell a
+// "kill N" criterion from a "reach level N" one.
+void GameHandler::ensureAchievementCriteriaLoaded() {
+    if (achievementCriteriaLoaded_) return;
+    auto* am = services_.assetManager;
+    if (!am || !am->isInitialized()) return;
+    achievementCriteriaLoaded_ = true;
+
+    auto dbc = am->loadDBC("Achievement_Criteria.dbc");
+    if (!dbc || !dbc->isLoaded() || dbc->getFieldCount() < 10) return;
+
+    const auto* critL = pipeline::getActiveDBCLayout()
+        ? pipeline::getActiveDBCLayout()->getLayout("AchievementCriteria") : nullptr;
+    auto fieldOr = [&](const char* name, uint32_t fallback) {
+        const uint32_t f = critL ? critL->field(name) : 0xFFFFFFFFu;
+        return (f == 0xFFFFFFFFu) ? fallback : f;
+    };
+    const uint32_t achField  = fieldOr("AchievementID", 1);
+    const uint32_t qtyField  = fieldOr("Quantity", 4);
+    const uint32_t descField = fieldOr("Description", 9);
+    const uint32_t fieldCount = dbc->getFieldCount();
+
+    for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+        AchievementCriterion c;
+        c.id = dbc->getUInt32(i, 0);
+        const uint32_t achId = dbc->getUInt32(i, achField);
+        if (achId == 0) continue;
+        if (fieldCount > 2) c.type    = dbc->getUInt32(i, 2);
+        if (fieldCount > 3) c.assetId = dbc->getUInt32(i, 3);
+        if (qtyField  < fieldCount) c.quantity    = dbc->getUInt32(i, qtyField);
+        if (descField < fieldCount) c.description = dbc->getString(i, descField);
+        achievementCriteria_[achId].push_back(std::move(c));
+    }
+    LOG_INFO("Achievement: criteria for ", achievementCriteria_.size(), " achievements");
+}
+
 // ---------------------------------------------------------------------------
 // SMSG_ALL_ACHIEVEMENT_DATA (WotLK 3.3.5a)
 //   Achievement records: repeated { uint32 id, uint32 packedDate } until 0xFFFFFFFF sentinel
