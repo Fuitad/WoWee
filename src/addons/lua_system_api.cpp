@@ -1278,6 +1278,75 @@ static int lua_GetCurrentArenaSeason(lua_State* L) { lua_pushnumber(L, 0); retur
 // Fed straight to HonorFrameProgressBar:SetValue, which needs a number.
 static int lua_GetPVPRankProgress(lua_State* L) { lua_pushnumber(L, 0); return 1; }
 
+// ---- Arena team roster ----
+//
+// Which team an index names comes from the same list GetArenaTeam reads.
+static uint32_t arenaTeamIdAt(game::GameHandler* gh, int index) {
+    if (!gh || index < 1) return 0;
+    const auto& teams = gh->getArenaTeamStats();
+    if (index > static_cast<int>(teams.size())) return 0;
+    return teams[static_cast<size_t>(index) - 1].teamId;
+}
+
+// ArenaTeamRoster(index) — ask the server for the roster.
+static int lua_ArenaTeamRoster(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const uint32_t teamId = arenaTeamIdAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    if (gh && teamId) gh->requestArenaTeamRoster(teamId);
+    return 0;
+}
+
+// GetArenaTeamRosterInfo(teamIndex, memberIndex) →
+//   name, rank, level, class, online, played, win, seasonPlayed, seasonWin, rating
+//
+// The six counts are numbers rather than nil: the panel subtracts them the line
+// after — `loss = played - win` — so a nil raises there. Class stays nil, which
+// the panel does test before using, and rank and level are zero because the
+// roster carries neither.
+static int lua_GetArenaTeamRosterInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const uint32_t teamId = arenaTeamIdAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    const int member = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (!gh || teamId == 0 || member < 1) return luaReturnNil(L);
+    const auto* roster = gh->getArenaTeamRoster(teamId);
+    if (!roster || member > static_cast<int>(roster->members.size())) return luaReturnNil(L);
+    const auto& m = roster->members[static_cast<size_t>(member) - 1];
+
+    lua_pushstring(L, m.name.c_str());       // 1: name
+    lua_pushnumber(L, 0);                    // 2: rank
+    lua_pushnumber(L, 0);                    // 3: level
+    lua_pushnil(L);                          // 4: class
+    lua_pushboolean(L, m.online ? 1 : 0);    // 5: online
+    lua_pushnumber(L, m.weekGames);          // 6: played
+    lua_pushnumber(L, m.weekWins);           // 7: win
+    lua_pushnumber(L, m.seasonGames);        // 8: seasonPlayed
+    lua_pushnumber(L, m.seasonWins);         // 9: seasonWin
+    lua_pushnumber(L, m.personalRating);     // 10: rating
+    return 10;
+}
+
+// Which roster row is selected, and closing the roster. Both are the panel's
+// own state — nothing is sent for either.
+static int lua_GetArenaTeamRosterSelection(lua_State* L) { lua_pushnumber(L, 0); return 1; }
+static int lua_SetArenaTeamRosterSelection(lua_State* L) { (void)L; return 0; }
+static int lua_CloseArenaTeamRoster(lua_State* L) { (void)L; return 0; }
+
+// Team captaincy is not reported by anything this client parses, so no team
+// reads as the player's to run.
+static int lua_IsArenaTeamCaptain(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+
+// Closing the battlemaster's window, which is a client-side dismissal.
+static int lua_CloseBattlefield(lua_State* L) { (void)L; return 0; }
+
+// Leaving a vehicle, and whether its aim can be raised or lowered. Vehicles
+// are not modelled here, so neither is possible.
+static int lua_CanExitVehicle(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+static int lua_IsVehicleAimAngleAdjustable(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+
+// HasKey() — whether the player carries a key ring at all. The keyring exists
+// and holds keys, so the button that opens it is offered.
+static int lua_HasKey(lua_State* L) { lua_pushboolean(L, 1); return 1; }
+
 // GetArenaTeam(index) →
 //   teamName, teamSize, teamRating, teamPlayed, teamWins, seasonTeamPlayed,
 //   seasonTeamWins, playerPlayed, seasonPlayerPlayed, teamRank, playerRating,
@@ -1771,6 +1840,16 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetPVPTimer",              lua_GetPVPTimer},
                 {"GetCurrentArenaSeason",    lua_GetCurrentArenaSeason},
                 {"GetPVPRankProgress",       lua_GetPVPRankProgress},
+                {"ArenaTeamRoster",              lua_ArenaTeamRoster},
+                {"GetArenaTeamRosterInfo",       lua_GetArenaTeamRosterInfo},
+                {"GetArenaTeamRosterSelection",  lua_GetArenaTeamRosterSelection},
+                {"SetArenaTeamRosterSelection",  lua_SetArenaTeamRosterSelection},
+                {"CloseArenaTeamRoster",         lua_CloseArenaTeamRoster},
+                {"IsArenaTeamCaptain",           lua_IsArenaTeamCaptain},
+                {"CloseBattlefield",             lua_CloseBattlefield},
+                {"CanExitVehicle",               lua_CanExitVehicle},
+                {"IsVehicleAimAngleAdjustable",  lua_IsVehicleAimAngleAdjustable},
+                {"HasKey",                       lua_HasKey},
                 {"GetArenaTeam",             lua_GetArenaTeam},
                 {"IsActiveBattlefieldArena", lua_IsActiveBattlefieldArena},
                 {"CanHearthAndResurrectFromArea", lua_CanHearthAndResurrectFromArea},
