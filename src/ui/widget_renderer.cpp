@@ -1020,9 +1020,12 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 const float size = ((w->fontHeight > 0.0f) ? w->fontHeight
                                                            : ImGui::GetFontSize()) * s;
                 const uint32_t col = packColor(w->color, w->alpha);
-                const float ty = y0 + ((y1 - y0) - size) * 0.5f;
-                // Four units of padding, in pixels.
-                const float pad = 4.0f * s;
+                // Between the top and bottom insets rather than the whole
+                // frame, so a box with art above its text does not sit high.
+                const float boxTop = y0 + w->textInsetTop * s;
+                const float boxBottom = y1 - w->textInsetBottom * s;
+                const float ty = boxTop + ((boxBottom - boxTop) - size) * 0.5f;
+                const float pad = w->textInsetLeft * s;
                 if (!w->editText.empty()) {
                     dl->AddText(font, size, ImVec2(x0 + pad, ty), col,
                                 w->editText.c_str());

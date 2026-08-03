@@ -103,7 +103,12 @@ const std::set<std::string>& requested() {
 
         if (out.count("all") == 0) {
             for (const std::string& name : out) {
-                bool known = (name == "mainmenubar");
+                // "none" and "all" are answers, not element names — "none" is
+                // how a run says to use this client's own interface throughout,
+                // and reporting it as a misspelling reads as though the flag
+                // was ignored.
+                bool known = (name == "mainmenubar" || name == "none" ||
+                              name == "all");
                 for (const Entry& e : kElements) known |= (e.name == name);
                 if (!known) LOG_WARNING("WOWEE_FRAMEXML_UI: no element called '", name, "'");
             }

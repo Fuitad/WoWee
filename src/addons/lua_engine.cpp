@@ -2017,6 +2017,24 @@ int lua_EditBox_Insert(lua_State* L) {
     w->cursorPos = at + add.size();
     return 0;
 }
+int lua_EditBox_SetTextInsets(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->textInsetLeft   = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+        w->textInsetRight  = static_cast<float>(luaL_optnumber(L, 3, 0.0));
+        w->textInsetTop    = static_cast<float>(luaL_optnumber(L, 4, 0.0));
+        w->textInsetBottom = static_cast<float>(luaL_optnumber(L, 5, 0.0));
+    }
+    return 0;
+}
+int lua_EditBox_GetTextInsets(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->textInsetLeft   : 0.0);
+    lua_pushnumber(L, w ? w->textInsetRight  : 0.0);
+    lua_pushnumber(L, w ? w->textInsetTop    : 0.0);
+    lua_pushnumber(L, w ? w->textInsetBottom : 0.0);
+    return 4;
+}
+
 int lua_EditBox_SetMaxLetters(lua_State* L) {
     if (auto* w = widgetOf(L, 1))
         w->editMaxLetters = static_cast<int>(luaL_optnumber(L, 2, 0));
@@ -2826,6 +2844,8 @@ void LuaEngine::registerCoreAPI() {
         // than the distinction: an edit box that answers nothing for its limit
         // is one FrameXML will not stop typing into.
         {"SetMaxBytes",          lua_EditBox_SetMaxLetters},
+        {"SetTextInsets",        lua_EditBox_SetTextInsets},
+        {"GetTextInsets",        lua_EditBox_GetTextInsets},
         {"SetNumeric",            lua_EditBox_SetNumeric},
         {"SetMultiLine",          lua_EditBox_SetMultiLine},
         {"SetCursorPosition",     lua_EditBox_SetCursorPosition},
@@ -3320,7 +3340,7 @@ void LuaEngine::registerCoreAPI() {
         "SetSequenceTime=1,SetShadowOffset=1,SetShapeshift=1,SetShown=1,SetSize=1,\n"
         "SetSpacing=1,SetSpell=1,SetSpellByID=1,SetStartDelay=1,SetStatusBarColor=1,\n"
         "SetStatusBarTexture=1,SetTexCoord=1,SetText=1,SetTextHeight=1,\n"
-        "SetTextInsets=1,SetTexture=1,SetToplevel=1,SetTotem=1,SetTracking=1,\n"
+        "SetTexture=1,SetToplevel=1,SetTotem=1,SetTracking=1,\n"
         "SetTradePlayerItem=1,SetTradeTargetItem=1,SetUIPanel=1,SetUnit=1,SetUnitAura=1,\n"
         "SetUnitBuff=1,SetUnitDebuff=1,SetValue=1,SetValueStep=1,\n"
         "SetVertexColor=1,SetVerticalScroll=1,SetWidth=1,SetZoom=1,Show=1,ShowUIPanel=1,\n"

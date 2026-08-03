@@ -241,6 +241,11 @@ struct Widget {
     float reportedRangeX = -1.0f, reportedRangeY = -1.0f;
 
     bool  isEditBox = false;
+    /// Where an edit box's text starts inside its own frame. WoW's default is
+    /// nothing; the four units used here until now were a stand-in, and a box
+    /// whose art has a wide border drew its text on top of it.
+    float textInsetLeft = 4.0f, textInsetRight = 4.0f;
+    float textInsetTop = 0.0f, textInsetBottom = 0.0f;
     std::string editText;
     size_t cursorPos = 0;
     bool  editFocused = false;
