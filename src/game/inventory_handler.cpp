@@ -3,6 +3,7 @@
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
 #include "game/entity.hpp"
+#include <set>
 #include "game/packet_parsers.hpp"
 #include "rendering/renderer.hpp"
 #include "audio/audio_coordinator.hpp"
@@ -3239,6 +3240,18 @@ bool InventoryHandler::applyInventoryFields(const FlatFieldMap& fields) {
         keyringBase = bankBagBase + (effectiveBankBagSlots_ * 2) + 24;
     }
 
+    // Which bank slots actually moved, so the bank window can be told.
+    //
+    // BankFrame registers PLAYERBANKSLOTS_CHANGED and refreshes exactly one
+    // button from it. It does *not* register BAG_UPDATE, so that event was the
+    // only thing that could redraw a bank slot — and it was never fired, which
+    // left an item moved into or out of the bank sitting on screen in its old
+    // place until the window was closed and reopened.
+    // The interface's own NUM_BANKGENERIC_SLOTS, which is 28 on WotLK and 24
+    // on Classic — the same figure this function already derives from the
+    // field gap, so it is taken from there rather than written out again.
+    const int kBankGeneralSlotCount = effectiveBankSlots_;
+    std::set<int> changedBankSlots;
     for (const auto& [key, val] : fields) {
         if (key >= equipBase && key <= equipBase + (game::Inventory::NUM_EQUIP_SLOTS * 2 - 1)) {
             int slotIndex = (key - equipBase) / 2;
@@ -3276,9 +3289,13 @@ bool InventoryHandler::applyInventoryFields(const FlatFieldMap& fields) {
             bool isLow = ((key - bankBase) % 2 == 0);
             if (slotIndex < static_cast<int>(bankSlotGuids_.size())) {
                 uint64_t& guid = bankSlotGuids_[slotIndex];
+                const uint64_t before = guid;
                 if (isLow) guid = (guid & 0xFFFFFFFF00000000ULL) | val;
                 else guid = (guid & 0x00000000FFFFFFFFULL) | (uint64_t(val) << 32);
                 slotsChanged = true;
+                // Counted as the bank window counts: its general slots first,
+                // from one. A guid arrives as two fields, so this is a set.
+                if (guid != before) changedBankSlots.insert(slotIndex + 1);
             }
         }
 
@@ -3289,9 +3306,13 @@ bool InventoryHandler::applyInventoryFields(const FlatFieldMap& fields) {
             bool isLow = ((key - bankBagBase) % 2 == 0);
             if (slotIndex < static_cast<int>(bankBagSlotGuids_.size())) {
                 uint64_t& guid = bankBagSlotGuids_[slotIndex];
+                const uint64_t before = guid;
                 if (isLow) guid = (guid & 0xFFFFFFFF00000000ULL) | val;
                 else guid = (guid & 0x00000000FFFFFFFFULL) | (uint64_t(val) << 32);
                 slotsChanged = true;
+                // The bag slots continue the same numbering, after the 28
+                // general ones — which is how bankframe.lua splits them again.
+                if (guid != before) changedBankSlots.insert(kBankGeneralSlotCount + slotIndex + 1);
             }
         }
 
@@ -3310,6 +3331,11 @@ bool InventoryHandler::applyInventoryFields(const FlatFieldMap& fields) {
     }
 
     if (buybackSlotsChanged) reconcileBuybackSlots();
+    for (int slot : changedBankSlots) {
+        if (owner_.addonEventCallbackRef())
+            owner_.addonEventCallbackRef()("PLAYERBANKSLOTS_CHANGED", {std::to_string(slot)});
+    }
+
 
     return slotsChanged;
 }
