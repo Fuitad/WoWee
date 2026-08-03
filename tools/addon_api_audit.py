@@ -48,11 +48,22 @@ DEF_ALIAS = re.compile(r"^\s*local\s+([A-Za-z_]\w*)\s*=\s*[A-Za-z_]\w*\s*;?\s*$"
 XML_NAME = re.compile(r'name="([^"$]+)"')
 
 
+# Lua comments, which are not code. The guild bank's XML carries a call to
+# GuildBankItemButton_OnUpdate with two dashes in front of it, and reading that
+# as a call made a function nobody invokes look like a missing one.
+BLOCK_COMMENT = re.compile(r"--\[(=*)\[.*?\]\1\]", re.S)
+LINE_COMMENT = re.compile(r"--[^\n]*")
+
+
 def read(path):
     try:
         return path.read_text(errors="ignore")
     except OSError:
         return ""
+
+
+def without_comments(text):
+    return LINE_COMMENT.sub("", BLOCK_COMMENT.sub("", text))
 
 
 def known_names():
@@ -86,7 +97,7 @@ def audit(addon_dir, known):
     body, defined = "", set()
     for f in sorted(addon_dir.glob("*.lua")) + sorted(addon_dir.glob("*.xml")):
         s = read(f)
-        body += s
+        body += without_comments(s)
         defined |= set(DEF_FUNC.findall(s)) | set(DEF_ASSIGN.findall(s))
         defined |= set(DEF_ALIAS.findall(s))
         defined |= set(XML_NAME.findall(s))   # a frame's name is a global too
