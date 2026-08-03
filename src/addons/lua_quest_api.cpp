@@ -522,8 +522,12 @@ static uint32_t& pendingAbandonQuest() {
 /// which talent is fourth — and the prerequisite lines are drawn between
 /// positions, so a disagreement points an arrow at the wrong button rather than
 /// failing outright.
-static const game::GameHandler::TalentEntry* talentAt(game::GameHandler* gh,
-                                                      int tabIndex, int talentIndex) {
+// Not static: the tooltip setters in lua_engine.cpp ask the same question, and
+// two copies of this would have to keep the same tab ordering and the same
+// row/column sort forever or the tooltip would describe a different talent from
+// the one under the cursor. Declared in lua_api_helpers.hpp.
+const game::TalentEntry* talentAt(game::GameHandler* gh,
+                                  int tabIndex, int talentIndex) {
     if (!gh || tabIndex < 1 || talentIndex < 1) return nullptr;
     const uint8_t classId = gh->getPlayerClass();
     const uint32_t classMask = (classId > 0) ? (1u << (classId - 1)) : 0;

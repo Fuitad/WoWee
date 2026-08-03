@@ -200,4 +200,15 @@ inline const game::GroupMember* findPartyMember(game::GameHandler* gh, uint64_t 
     return nullptr;
 }
 
+/// The talent at a position in the tree, by the tab and index FrameXML counts
+/// in. Defined in lua_quest_api.cpp, which is where everything else about
+/// talents lives.
+///
+/// Declared here because the tooltip setters are in lua_engine.cpp and need the
+/// same lookup. Copying it there would mean two answers to "which talent is
+/// this", and the pair would agree only for as long as nobody touched either —
+/// the tab ordering and the row/column sort both have to match exactly or the
+/// tooltip describes a different talent from the one under the cursor.
+const game::TalentEntry* talentAt(game::GameHandler* gh, int tabIndex, int talentIndex);
+
 } // namespace wowee::addons

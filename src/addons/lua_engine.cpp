@@ -1087,6 +1087,72 @@ int lua_Tooltip_SetSpellByID(lua_State* L) {
     return 1;
 }
 
+/// A talent's name, the rank the player has in it, and what it does.
+///
+/// Hovering a talent used to raise: the metatable had no SetTalent, so the call
+/// landed on nil and took the handler with it. Listing it as a no-op stopped
+/// that and left the tooltip empty; this fills it, which is the whole reason
+/// anyone hovers a talent.
+///
+/// The description shown is the rank the player actually has. An unlearned
+/// talent describes its first rank, which is what taking a point in it would
+/// buy — the useful thing to read when deciding.
+int lua_Tooltip_SetTalent(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    const int tabIndex    = static_cast<int>(luaL_optnumber(L, 2, 0));
+    const int talentIndex = static_cast<int>(luaL_optnumber(L, 3, 0));
+    if (!w || !gh) { lua_pushboolean(L, 0); return 1; }
+
+    const auto* talent = wowee::addons::talentAt(gh, tabIndex, talentIndex);
+    if (!talent) { lua_pushboolean(L, 0); return 1; }
+
+    const uint8_t rank = gh->getTalentRank(talent->talentId);
+    // Rank 1's spell names the talent whatever the player has in it, and is the
+    // only entry guaranteed to be filled.
+    const uint32_t titleSpell = talent->rankSpells[0];
+    // The rank being described: what the player has, or the first if none.
+    const uint32_t bodySpell = talent->rankSpells[rank > 0 ? rank - 1 : 0];
+    if (titleSpell == 0) { lua_pushboolean(L, 0); return 1; }
+
+    const std::string& name = gh->getSpellName(titleSpell);
+    if (name.empty()) { lua_pushboolean(L, 0); return 1; }
+
+    w->isTooltip = true;
+    w->tooltipLines.clear();
+
+    wowee::ui::Widget::TooltipLine title;
+    title.left = name;
+    title.lc[0] = 1.0f; title.lc[1] = 0.82f; title.lc[2] = 0.0f; title.lc[3] = 1.0f;
+    title.rc[0] = title.rc[1] = title.rc[2] = title.rc[3] = 1.0f;
+    w->tooltipLines.push_back(std::move(title));
+
+    if (talent->maxRank > 0) {
+        wowee::ui::Widget::TooltipLine rankLine;
+        rankLine.left = "Rank " + std::to_string(rank) + "/" +
+                        std::to_string(static_cast<int>(talent->maxRank));
+        rankLine.lc[0] = rankLine.lc[1] = rankLine.lc[2] = 1.0f; rankLine.lc[3] = 1.0f;
+        rankLine.rc[0] = rankLine.rc[1] = rankLine.rc[2] = rankLine.rc[3] = 1.0f;
+        w->tooltipLines.push_back(std::move(rankLine));
+    }
+
+    // Through the formatter for the same reason SetSpellByID is: a description
+    // arrives as a template of $-tokens and reads as one if handed over raw.
+    const std::string body =
+        gh->formatSpellDescription(bodySpell, gh->getSpellDescription(bodySpell));
+    if (!body.empty()) {
+        wowee::ui::Widget::TooltipLine desc;
+        desc.left = body;
+        desc.lc[0] = desc.lc[1] = desc.lc[2] = 1.0f; desc.lc[3] = 1.0f;
+        desc.rc[0] = desc.rc[1] = desc.rc[2] = desc.rc[3] = 1.0f;
+        w->tooltipLines.push_back(std::move(desc));
+    }
+
+    w->shown = true;
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 /// A unit's name and level, which is what hovering a unit frame shows.
 int lua_Tooltip_SetUnit(lua_State* L) {
     auto* w = widgetOf(L, 1);
@@ -2801,6 +2867,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetInventoryItem", lua_Tooltip_SetInventoryItem},
         {"SetBagItem",      lua_Tooltip_SetBagItem},
         {"SetSpellByID",    lua_Tooltip_SetSpellByID},
+        {"SetTalent",       lua_Tooltip_SetTalent},
         {"SetUnit",         lua_Tooltip_SetUnit},
         {"AddDoubleLine",   lua_Tooltip_AddDoubleLine},
         {"ClearLines",      lua_Tooltip_ClearLines},
@@ -3386,7 +3453,12 @@ void LuaEngine::registerCoreAPI() {
         // show a tooltip. Hovering a talent did that, and the talent, auction
         // and trade skill panels all load. A no-op leaves the tooltip empty and
         // is recorded, so it stays visible as a gap instead of a crash.
-        "SetTalent=1,SetAuctionItem=1,SetTradeSkillItem=1,SetGuildBankItem=1,\n"
+        // SetTalent has left this list because it is implemented now. Leaving
+        // it would not have broken anything — the lookup rawgets the real
+        // method table first and only falls through to here — but this set says
+        // "cannot describe it yet", and a name in it that works reads as a gap
+        // that is not there, in the one place someone would check.
+        "SetAuctionItem=1,SetTradeSkillItem=1,SetGuildBankItem=1,\n"
         "SetGlyph=1,SetSocketGem=1,SetSocketedItem=1,SetExistingSocketGem=1,\n"
         "SetScrollOffset=1,RegisterAllEvents=1,\n"
         "SetStatusBarTexture=1,SetTexCoord=1,SetText=1,SetTextHeight=1,\n"
