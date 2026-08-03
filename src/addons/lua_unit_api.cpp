@@ -1266,6 +1266,58 @@ static int lua_GetInventoryItemCooldown(lua_State* L) {
     return 3;
 }
 
+// --- What the barber shop calls the two things it can change ---
+//
+// These name a category rather than describing it, and the barber builds a
+// global's name out of the answer:
+//
+//     BarberShopFrameSelector1Category:SetText(_G["HAIR_"..GetHairCustomization().."_STYLE"])
+//
+// Concatenating nil raises, and this runs from BarberShop_OnLoad — which the
+// client reaches the moment a player sits down, because BARBER_SHOP_OPEN is
+// fired and the interface answers it by loading the barber addon. So sitting
+// in the chair took the addon down as it loaded.
+//
+// The hair category is "NORMAL" for everyone. There is a HORNS variant, and
+// which races use it is not something this client knows; NORMAL is a real
+// label and right for nearly every race, where a guess would be wrong for
+// whoever it was guessed against.
+static int lua_GetHairCustomization(lua_State* L) {
+    lua_pushstring(L, "NORMAL");
+    return 1;
+}
+
+/// The facial category, which genuinely differs by race — a troll's is tusks
+/// and a night elf's is markings, and calling either "hair" reads as a mistake
+/// rather than as a shortcut. These are the game's own categories; anything
+/// unlisted falls back to NORMAL, which is what a beard is.
+static int lua_GetFacialHairCustomization(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const char* category = "NORMAL";
+    if (gh) {
+        switch (static_cast<game::Race>(gh->getPlayerRace())) {
+            case game::Race::NIGHT_ELF: category = "MARKINGS"; break;
+            case game::Race::UNDEAD:    category = "FEATURES"; break;
+            case game::Race::TAUREN:    category = "HORNS";    break;
+            case game::Race::TROLL:     category = "TUSKS";    break;
+            case game::Race::BLOOD_ELF: category = "EARRINGS"; break;
+            default: break;
+        }
+    }
+    lua_pushstring(L, category);
+    return 1;
+}
+
+/// CanAlterSkin() — whether the barber offers a fourth selector for skin.
+///
+/// False, and not merely for want of data: answering yes would put a selector
+/// on screen that this client cannot fill, and the barber tests every selector
+/// it has drawn before it will let the player buy anything.
+static int lua_CanAlterSkin(lua_State* L) {
+    lua_pushboolean(L, 0);
+    return 1;
+}
+
 /// Things this client does not model, answered false rather than left to the
 /// fallback — which would answer with an object, and an object is true.
 /// InRepairMode deciding yes would put a repair cursor on every item in the
@@ -2097,6 +2149,9 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetMaxCombatRatingBonus", lua_GetMaxCombatRatingBonus},
                 {"GetUnitMaxHealthModifier", lua_GetUnitMaxHealthModifier},
                 {"GetInventoryItemCooldown", lua_GetInventoryItemCooldown},
+                {"GetHairCustomization",       lua_GetHairCustomization},
+                {"GetFacialHairCustomization", lua_GetFacialHairCustomization},
+                {"CanAlterSkin",               lua_CanAlterSkin},
                 {"HasWandEquipped",         lua_ReturnFalse},
                 {"UnitHasRelicSlot",        lua_ReturnFalse},
                 {"InRepairMode",            lua_ReturnFalse},
