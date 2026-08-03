@@ -1,4 +1,5 @@
 #include "ui/widget_renderer.hpp"
+#include <set>
 
 #include "ui/widget_tree.hpp"
 #include "ui/framexml_takeover.hpp"
@@ -907,6 +908,33 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         // WoW measures from the bottom-left and upward; the screen measures from
         // the top-left and downward. Flip here, at the one place it matters, so
         // every anchor rule upstream reads the way Blizzard documents it.
+        // A rect that is not finite, or larger than any screen, is not drawn.
+        //
+        // ImGui takes these straight into vertex positions, and a triangle
+        // with an infinity or a NaN in it is one the rasteriser can chew on
+        // until the driver's watchdog resets the device — which surfaces as
+        // several seconds inside endFrame and then VK_ERROR_DEVICE_LOST, with
+        // nothing to say which frame did it. Named once so there is.
+        {
+            const float vals[4] = {w->left, w->bottom, w->rectW, w->rectH};
+            bool sane = true;
+            for (float v : vals) {
+                if (!std::isfinite(v) || std::fabs(v) > 1.0e6f) { sane = false; break; }
+            }
+            if (!sane) {
+                static std::set<uint32_t> reported;
+                if (reported.insert(w->id).second) {
+                    LOG_WARNING("Not drawing '",
+                                w->name.empty() ? "(unnamed)" : w->name.c_str(),
+                                "': its rect is (", w->left, ", ", w->bottom, " ",
+                                w->rectW, "x", w->rectH,
+                                ") — a value like that reaches the rasteriser as "
+                                "geometry it may never finish");
+                }
+                continue;
+            }
+        }
+
         const float x0 = w->left * s;
         const float y0 = screenH - (w->bottom + w->rectH) * s;
         const float x1 = (w->left + w->rectW) * s;
