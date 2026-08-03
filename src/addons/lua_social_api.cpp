@@ -1,9 +1,64 @@
 // lua_social_api.cpp — Chat, guild, friends, ignore, gossip, party management, and emotes Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include <vector>
 #include "addons/lua_api_helpers.hpp"
 #include "game/reputation_standing.hpp"
 
 namespace wowee::addons {
+
+// The languages a character can speak: their racial one, plus the faction
+// tongue every member of that faction is taught. Human and Orc are the two
+// where those are the same, so they know exactly one.
+//
+// Returned as (name, id) pairs rather than read from Languages.dbc: the wire
+// ids are fixed across every expansion this client speaks, and the dbc adds
+// nothing but a localised name we do not have a table for.
+struct LanguageEntry { const char* name; int id; };
+
+static void collectKnownLanguages(uint8_t raceId, std::vector<LanguageEntry>& out) {
+    const bool horde = (raceId == 2 || raceId == 5 || raceId == 6 ||
+                        raceId == 8 || raceId == 10);
+    // Racial language first — that is the order the dropdown shows them in.
+    switch (raceId) {
+        case 1:  out.push_back({"Common", 7});      break;
+        case 2:  out.push_back({"Orcish", 1});      break;
+        case 3:  out.push_back({"Dwarvish", 6});    break;
+        case 4:  out.push_back({"Darnassian", 2});  break;
+        case 5:  out.push_back({"Gutterspeak", 33}); break;
+        case 6:  out.push_back({"Taurahe", 3});     break;
+        case 7:  out.push_back({"Gnomish", 13});    break;
+        case 8:  out.push_back({"Troll", 14});      break;
+        case 10: out.push_back({"Thalassian", 10}); break;
+        case 11: out.push_back({"Draenei", 35});    break;
+        default: break;
+    }
+    const LanguageEntry faction = horde ? LanguageEntry{"Orcish", 1}
+                                        : LanguageEntry{"Common", 7};
+    // Skipped when it is the racial one, so Human does not list Common twice.
+    if (out.empty() || out[0].id != faction.id) out.push_back(faction);
+}
+
+static int lua_GetNumLanguages(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    std::vector<LanguageEntry> langs;
+    if (gh) collectKnownLanguages(gh->getPlayerRace(), langs);
+    if (langs.empty()) langs.push_back({"Common", 7});
+    lua_pushnumber(L, static_cast<double>(langs.size()));
+    return 1;
+}
+
+static int lua_GetLanguageByIndex(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    std::vector<LanguageEntry> langs;
+    if (gh) collectKnownLanguages(gh->getPlayerRace(), langs);
+    if (langs.empty()) langs.push_back({"Common", 7});
+
+    const int idx = static_cast<int>(luaL_optnumber(L, 1, 1));
+    if (idx < 1 || idx > static_cast<int>(langs.size())) return 0;
+    lua_pushstring(L, langs[static_cast<size_t>(idx) - 1].name);
+    lua_pushnumber(L, langs[static_cast<size_t>(idx) - 1].id);
+    return 2;
+}
 
 static int lua_SendChatMessage(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -579,6 +634,8 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetMacroItemIconInfo", lua_GetMacroIconInfo},
                 {"NewGMTicket",         lua_NewGMTicket},
                 {"DeleteGMTicket",      lua_DeleteGMTicket},
+                {"GetNumLanguages",   lua_GetNumLanguages},
+                {"GetLanguageByIndex", lua_GetLanguageByIndex},
                 {"SendChatMessage",   lua_SendChatMessage},
                 {"SendAddonMessage",  lua_SendAddonMessage},
                 {"RegisterAddonMessagePrefix", lua_RegisterAddonMessagePrefix},

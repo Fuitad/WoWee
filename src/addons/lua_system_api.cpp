@@ -19,6 +19,40 @@
 
 namespace wowee::addons {
 
+// CombatLog_Object_IsA(unitFlags, mask) — does a combat log unit match a filter.
+//
+// The flags are four exclusive categories packed together (affiliation,
+// reaction, control, unit type) plus a set of non-exclusive special bits, and a
+// filter names every value it accepts within a category. COMBATLOG_FILTER_MINE
+// is AFFILIATION_MINE + REACTION_FRIENDLY + CONTROL_PLAYER + TYPE_PLAYER +
+// TYPE_OBJECT, and a player only ever carries one of those two type bits — so
+// the obvious (flags & mask) == mask never matches anything, and the whole
+// combat log filters itself empty.
+//
+// A category the mask says nothing about is not a constraint.
+static int lua_CombatLog_Object_IsA(lua_State* L) {
+    const auto flags = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+    const auto mask  = static_cast<uint32_t>(luaL_optnumber(L, 2, 0));
+
+    static constexpr uint32_t kCategories[] = {
+        0x0000000Fu,  // affiliation: mine / party / raid / outsider
+        0x000000F0u,  // reaction: friendly / neutral / hostile
+        0x00000300u,  // control: player / npc
+        0x0000FC00u,  // type: player / npc / pet / guardian / object
+    };
+    for (const uint32_t cat : kCategories) {
+        const uint32_t wanted = mask & cat;
+        if (wanted == 0) continue;            // unconstrained
+        if ((flags & wanted) == 0) { lua_pushboolean(L, 0); return 1; }
+    }
+    // The special bits are non-exclusive, so every one asked for must be present.
+    const uint32_t special = mask & 0xFFFF0000u;
+    if (special != 0 && (flags & special) != special) { lua_pushboolean(L, 0); return 1; }
+
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 static int lua_PlaySound(lua_State* L) {
     auto* svc = getLuaServices(L);
     auto* ac = svc ? svc->audioCoordinator : nullptr;
@@ -1518,6 +1552,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetMinimapZoneText",   lua_GetMinimapZoneText},
                 {"GetGameTime",             lua_GetGameTime},
                 {"GetServerTime",           lua_GetServerTime},
+                {"CombatLog_Object_IsA", lua_CombatLog_Object_IsA},
                 {"GetNumAddOns",      lua_GetNumAddOns},
                 {"GetAddOnInfo",      lua_GetAddOnInfo},
                 {"GetAddOnMetadata",  lua_GetAddOnMetadata},
