@@ -2021,6 +2021,21 @@ public:
         if (uiErrorCallback_) uiErrorCallback_(msg);
         fireAddonEvent("UI_ERROR_MESSAGE", {msg});
     }
+    /// A script that failed, shown on screen without telling any script about it.
+    ///
+    /// Deliberately not addUIError. That fires UI_ERROR_MESSAGE, which is a Lua
+    /// event, and UIErrorsFrame is registered for it — so reporting a script
+    /// error ran script, and if that script errored it was reported the same
+    /// way. One broken handler fed itself as fast as the frame loop allowed
+    /// until the process died, which is not what a Lua error looks like from
+    /// outside and cost a long hunt through the renderer.
+    ///
+    /// UI_ERROR_MESSAGE is also the wrong event for this: it carries the game's
+    /// own refusals — out of range, not enough mana — and the real client
+    /// reports script errors somewhere else entirely.
+    void addScriptError(const std::string& msg) {
+        if (uiErrorCallback_) uiErrorCallback_(msg);
+    }
     void addUIInfoMessage(const std::string& msg) {
         fireAddonEvent("UI_INFO_MESSAGE", {msg});
     }
