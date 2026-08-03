@@ -69,6 +69,14 @@ for _f in list(pathlib.Path("Data/interface").glob("framexml/*.lua")) + \
     # installed that way, which is most of the achievement buttons'.
     interface_defined |= set(re.findall(r'[\w.\]\[]+\.(\w+)\s*=\s*[\w.]+\s*;?\s*$', _t, re.M))
     interface_defined |= set(re.findall(r'[\w.]+\.(\w+)\s*=\s*function', _t))
+    # Assigned the *result of a call*, which is how dump.lua installs its
+    # three name lookups:
+    #     context.GetTableName = Pick_Cache_Function(DevTools_Cache_Table,
+    #                                                DEVTOOLS_USE_TABLE_CACHE);
+    # The earlier patterns wanted the right-hand side to be a bare name or an
+    # inline function and to end on the same line, so all three read as missing
+    # client methods when the interface defines them itself.
+    interface_defined |= set(re.findall(r'[\w.\]\[]+\.(\w+)\s*=\s*[\w.]+\s*\(', _t))
 answered |= interface_defined
 
 interface = pathlib.Path("Data/interface")
