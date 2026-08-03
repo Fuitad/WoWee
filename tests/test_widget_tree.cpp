@@ -1241,11 +1241,18 @@ TEST_CASE("An unclamped frame is free to leave the screen", "[widget][layout]") 
     REQUIRE(tree.get(f)->left == Catch::Approx(-490.0f));
 }
 
-TEST_CASE("A clamped frame already off-screen can be brought back",
+TEST_CASE("A clamped frame is brought on-screen wherever it was placed",
           "[widget][layout]") {
     // Saved positions from a larger resolution land frames outside; pinning
     // them where they are would make them unrecoverable, which is the very
     // thing clamping exists to prevent.
+    //
+    // This used to assert that the layout left it stranded and only a *drag*
+    // pulled it back. That was too narrow, and tooltips are what it cost:
+    // GameTooltipTemplate is clamped and every tooltip inherits it, but a
+    // tooltip is anchored beside its owner and never dragged, so one owned by
+    // a frame near an edge ran straight off the screen. A clamped frame is
+    // clamped however it got where it is.
     WidgetTree tree;
     const uint32_t f = tree.create(WidgetKind::Frame, tree.root(), "Stranded");
     tree.setWidth(f, 200.0f);
@@ -1255,11 +1262,40 @@ TEST_CASE("A clamped frame already off-screen can be brought back",
     tree.addPoint(f, a);
     tree.get(f)->clampedToScreen = true;
     tree.layout(kScreenW, kScreenH);
-    REQUIRE(tree.get(f)->left == Catch::Approx(-300.0f));
+    REQUIRE(tree.get(f)->left == Catch::Approx(0.0f));
 
-    tree.nudge(f, 50.0f, 0.0f);
+    // And it stays there: dragging further left cannot push it back out.
+    tree.nudge(f, -50.0f, 0.0f);
     tree.layout(kScreenW, kScreenH);
     REQUIRE(tree.get(f)->left == Catch::Approx(0.0f));
+}
+
+TEST_CASE("A clamped tooltip anchored past the right edge is pulled back in",
+          "[widget][layout]") {
+    // The calendar button sits at the right of the minimap and anchors its
+    // tooltip ANCHOR_RIGHT, so the tooltip's left edge starts at the button's
+    // right edge — a few pixels from the screen edge, with the whole width of
+    // the tooltip still to come.
+    WidgetTree tree;
+    const uint32_t owner = tree.create(WidgetKind::Frame, tree.root(), "Button");
+    tree.setWidth(owner, 32.0f);
+    tree.setHeight(owner, 32.0f);
+    Anchor oa; oa.point = "BOTTOMRIGHT"; oa.relativePoint = "BOTTOMRIGHT";
+    oa.x = 0.0f; oa.y = 400.0f;
+    tree.addPoint(owner, oa);
+
+    const uint32_t tip = tree.create(WidgetKind::Frame, tree.root(), "Tip");
+    tree.setWidth(tip, 250.0f);
+    tree.setHeight(tip, 60.0f);
+    Anchor ta; ta.point = "LEFT"; ta.relativeTo = owner; ta.relativePoint = "RIGHT";
+    tree.addPoint(tip, ta);
+    tree.get(tip)->clampedToScreen = true;
+    tree.layout(kScreenW, kScreenH);
+
+    // Fully on screen, and hard against the edge it would otherwise have
+    // crossed rather than merely nearer to it.
+    REQUIRE(tree.get(tip)->left + tree.get(tip)->rectW <= Catch::Approx(kScreenW));
+    REQUIRE(tree.get(tip)->left == Catch::Approx(kScreenW - 250.0f));
 }
 
 TEST_CASE("A frame wider than the screen is not snapped to a nonsense edge",

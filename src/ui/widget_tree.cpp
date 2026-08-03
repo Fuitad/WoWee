@@ -201,6 +201,23 @@ void WidgetTree::pinToCurrentPosition(uint32_t id) {
     w->userMoved = true;
 }
 
+namespace {
+/// Pulls a frame inside the screen it must stay within.
+///
+/// An axis where the frame is larger than the screen is left alone: there is
+/// no position that satisfies both edges, and snapping to one of them moves
+/// the frame for no benefit.
+void clampInside(const Widget& screen, float rectW, float rectH,
+                 float& left, float& bottom) {
+    const float loX = screen.left;
+    const float hiX = screen.left + screen.rectW - rectW;
+    const float loY = screen.bottom;
+    const float hiY = screen.bottom + screen.rectH - rectH;
+    if (hiX >= loX) left   = std::clamp(left,   loX, hiX);
+    if (hiY >= loY) bottom = std::clamp(bottom, loY, hiY);
+}
+}  // namespace
+
 void WidgetTree::nudge(uint32_t id, float dx, float dy) {
     Widget* w = get(id);
     if (!w) return;
@@ -213,18 +230,13 @@ void WidgetTree::nudge(uint32_t id, float dx, float dy) {
     // frame is restored from saved variables at a smaller resolution.
     if (w->clampedToScreen && w->rectW > 0.0f && w->rectH > 0.0f) {
         if (const Widget* screen = get(rootId_)) {
-            const float loX = screen->left;
-            const float hiX = screen->left + screen->rectW - w->rectW;
-            const float loY = screen->bottom;
-            const float hiY = screen->bottom + screen->rectH - w->rectH;
-            // A frame larger than the screen has no valid range; leave that
-            // axis alone rather than snapping it to a nonsense edge.
-            if (hiX >= loX) {
-                dx = std::clamp(w->left + dx, loX, hiX) - w->left;
-            }
-            if (hiY >= loY) {
-                dy = std::clamp(w->bottom + dy, loY, hiY) - w->bottom;
-            }
+            // Back to a delta, because a drag moves the anchors rather than
+            // the rect: the clamped position is what the anchors have to add
+            // up to, not something that can be written to left/bottom here.
+            float left = w->left + dx, bottom = w->bottom + dy;
+            clampInside(*screen, w->rectW, w->rectH, left, bottom);
+            dx = left - w->left;
+            dy = bottom - w->bottom;
         }
     }
     for (Anchor& a : w->anchors) { a.x += dx; a.y += dy; }
@@ -463,6 +475,25 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
     if (parent && parent->isScrollFrame && parent->scrollChild == id) {
         w->left   -= parent->scrollX;
         w->bottom += parent->scrollY;
+    }
+
+    // A clamped frame stays on screen however it was placed, not only when it
+    // was dragged there.
+    //
+    // GameTooltipTemplate declares clampedToScreen="true" and every tooltip in
+    // the interface inherits it, but the clamp lived only in the drag path —
+    // and a tooltip is never dragged. It is anchored beside whatever it
+    // describes, so one owned by a frame near an edge simply ran off it: the
+    // minimap's calendar button put its tooltip past the right of the screen,
+    // where it was laid out, drawn, and invisible.
+    //
+    // Before the children, so they follow the clamped position rather than the
+    // one it was moved out of.
+    if (w->clampedToScreen && id != rootId_ &&
+        w->rectW > 0.0f && w->rectH > 0.0f) {
+        if (const Widget* screen = get(rootId_)) {
+            clampInside(*screen, w->rectW, w->rectH, w->left, w->bottom);
+        }
     }
 
     for (uint32_t child : w->children) layoutWidget(child, screenW, screenH);
