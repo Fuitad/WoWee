@@ -1,4 +1,7 @@
 #define VMA_IMPLEMENTATION
+#include <set>
+#include <thread>
+#include <mutex>
 #include "rendering/vk_context.hpp"
 #include "core/logger.hpp"
 #include <VkBootstrap.h>
@@ -824,6 +827,11 @@ bool VkContext::createSyncObjects() {
             LOG_ERROR("Failed to create sync objects for frame ", i);
             return false;
         }
+        // The handle, because validation reports a fence by handle and there is
+        // no way to tell a frame fence from the upload fence in that message.
+        // Two rounds of this went on a fence nobody could identify.
+        LOG_WARNING("frame fence ", i, " = 0x", std::hex,
+                    reinterpret_cast<uint64_t>(frames[i].inFlightFence), std::dec);
     }
 
     // Per-swapchain-image semaphores: avoids reuse while the presentation engine
@@ -849,6 +857,9 @@ bool VkContext::createSyncObjects() {
     // Immediate submit fence (not signaled initially)
     VkFenceCreateInfo immFenceInfo{};
     immFenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    // Logged for the same reason as the frame fences: validation reports a
+    // fence by handle, and immFence is shared by endSingleTimeCommands and the
+    // upload batches — which submit on different queues.
     if (vkCreateFence(device, &immFenceInfo, nullptr, &immFence) != VK_SUCCESS) {
         LOG_ERROR("Failed to create immediate submit fence");
         return false;
@@ -2298,6 +2309,19 @@ VkCommandBuffer VkContext::beginSingleTimeCommands() {
     return immCmdBuf_;
 }
 
+void VkContext::noteImmediateSubmitThread(const char* who) {
+    static std::mutex seenMutex;
+    static std::set<std::thread::id> seen;
+    const std::thread::id self = std::this_thread::get_id();
+    std::lock_guard<std::mutex> lock(seenMutex);
+    if (seen.insert(self).second && seen.size() > 1) {
+        LOG_WARNING("immFence is now being used from ", seen.size(),
+                    " threads (latest via ", who, ") — it is shared and "
+                    "unguarded, so two of them can reset a fence the other "
+                    "is waiting on");
+    }
+}
+
 void VkContext::endSingleTimeCommands(VkCommandBuffer cmd) {
     vkEndCommandBuffer(cmd);
 
@@ -2305,6 +2329,13 @@ void VkContext::endSingleTimeCommands(VkCommandBuffer cmd) {
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &cmd;
+
+    // immFence and the immediate command pool are shared and unguarded. If two
+    // threads reach here at once, one resets a fence the other is waiting on —
+    // which is what validation reports as VUID-vkResetFences-pFences-01123,
+    // and the driver answers by losing the device. Said once per thread so a
+    // log shows whether that is happening.
+    noteImmediateSubmitThread("endSingleTimeCommands");
 
     vkQueueSubmit(graphicsQueue, 1, &submitInfo, immFence);
     vkWaitForFences(device, 1, &immFence, VK_TRUE, UINT64_MAX);
@@ -2420,6 +2451,8 @@ void VkContext::endUploadBatchSync() {
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &batchCmd_;
+
+    noteImmediateSubmitThread("endUploadBatchSync");
 
     vkQueueSubmit(targetQueue, 1, &submitInfo, immFence);
     vkWaitForFences(device, 1, &immFence, VK_TRUE, UINT64_MAX);
