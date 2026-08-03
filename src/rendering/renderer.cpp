@@ -905,6 +905,16 @@ void Renderer::beginFrame() {
         if (vkCtx) vkCtx->resetFrameSyncState();
     }
 
+    // Retire finished upload batches every frame.
+    //
+    // This was polled only from the terrain manager, so batches submitted by
+    // anything else retired only while terrain happened to be streaming. A
+    // rebuild reported 1423 submitted against 1241 retired — 182 outstanding,
+    // each holding a fence, a command buffer and its staging buffers. With
+    // FrameXML uploading hundreds of textures the backlog is much larger than
+    // it was, and nothing bounded it.
+    if (vkCtx) vkCtx->pollUploadBatches();
+
     // Post-process resource management (§4.3 — delegates to PostProcessPipeline)
     if (postProcessPipeline_) postProcessPipeline_->manageResources();
 
