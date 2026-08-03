@@ -2500,6 +2500,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetContainerItemPurchaseInfo", lua_GetContainerItemPurchaseInfo},
                 {"GetContainerItemPurchaseItem", lua_GetContainerItemPurchaseItem},
                 {"PickupPlayerMoney",       lua_MoneyCursorNoop},
+                {"PickupTradeMoney",        lua_MoneyCursorNoop},
                 {"PickupSendMailMoney",     lua_MoneyCursorNoop},
                 {"PickupSendMailCOD",       lua_MoneyCursorNoop},
                 {"PickupGuildBankMoney",    lua_MoneyCursorNoop},
