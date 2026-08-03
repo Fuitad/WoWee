@@ -2366,6 +2366,28 @@ int lua_EditBox_GetCursorPosition(lua_State* L) {
     return 1;
 }
 
+/// How many *characters* precede the cursor, where GetCursorPosition counts
+/// bytes. The two agree for plain ASCII and diverge the moment anything
+/// accented is typed, which is why the interface asks for this one by name
+/// wherever it is doing arithmetic on a position.
+///
+/// It was in the no-op method list, so it answered nil — and autocomplete.lua
+/// writes `self:GetUTF8CursorPosition() - strlenutf8(command) - 1`, which
+/// raises on nil rather than misbehaving. Typing a slash command or a player
+/// name took the chat frame's autocomplete down with it.
+int lua_EditBox_GetUTF8CursorPosition(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    if (!w) { lua_pushnumber(L, 0); return 1; }
+    const size_t upTo = std::min(w->cursorPos, w->editText.size());
+    int chars = 0;
+    for (size_t i = 0; i < upTo; ++i) {
+        // A continuation byte is 10xxxxxx; every other byte opens a character.
+        if ((static_cast<unsigned char>(w->editText[i]) & 0xC0) != 0x80) ++chars;
+    }
+    lua_pushnumber(L, chars);
+    return 1;
+}
+
 int lua_Cooldown_SetCooldown(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
         w->cooldownStart = luaL_optnumber(L, 2, 0.0);
@@ -3176,6 +3198,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetAutoFocus",          lua_EditBox_SetAutoFocus},
         {"SetCursorPosition",     lua_EditBox_SetCursorPosition},
         {"GetCursorPosition",     lua_EditBox_GetCursorPosition},
+        {"GetUTF8CursorPosition", lua_EditBox_GetUTF8CursorPosition},
         {"SetFocus",              lua_EditBox_SetFocus},
         {"ClearFocus",            lua_EditBox_ClearFocus},
         {"HasFocus",              lua_EditBox_HasFocus},
@@ -3688,7 +3711,11 @@ void LuaEngine::registerCoreAPI() {
         "GetScrollChild=1,GetSize=1,GetSpacing=1,GetStatusBarTexture=1,\n"
         "GetStringHeight=1,GetStringWidth=1,GetTexCoord=1,GetText=1,GetTextColor=1,\n"
         "GetTextHeight=1,GetTexture=1,GetTextWidth=1,GetTooltipIndex=1,GetTop=1,\n"
-        "GetUIPanel=1,GetUpperEmblemTexture=1,GetUTF8CursorPosition=1,GetValue=1,\n"
+        // GetUTF8CursorPosition is a real binding now, applied after this set.
+        // A real method wins the lookup either way, but a name left here is a
+        // claim that nothing implements it, and autocomplete's arithmetic is
+        // the reason it could not stay a no-op.
+        "GetUIPanel=1,GetUpperEmblemTexture=1,GetValue=1,\n"
         "GetVertexColor=1,GetVerticalScroll=1,GetVerticalScrollRange=1,GetWidth=1,\n"
         "GetZoom=1,GetZoomLevels=1,HasFocus=1,HasScript=1,Hide=1,HideUIPanel=1,\n"
         "HighlightText=1,HookScript=1,IgnoreDepth=1,InitializeTabardColors=1,Insert=1,\n"

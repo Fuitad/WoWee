@@ -655,6 +655,25 @@ static int lua_strtrim(lua_State* L) {
     return 1;
 }
 
+/// strlenutf8(s) — the number of characters, where string.len counts bytes.
+///
+/// Unbound, it answered nil through the fallback, and both callers do
+/// arithmetic on the result rather than checking it: autocomplete.lua and
+/// chatframe.lua compute an offset as
+/// `GetUTF8CursorPosition() - strlenutf8(command) - 1`. A nil there raises, so
+/// typing a slash command or a player name took chat autocomplete down.
+static int lua_strlenutf8(lua_State* L) {
+    size_t len = 0;
+    const char* s = luaL_optlstring(L, 1, "", &len);
+    int chars = 0;
+    for (size_t i = 0; i < len; ++i) {
+        // A continuation byte is 10xxxxxx; every other byte opens a character.
+        if ((static_cast<unsigned char>(s[i]) & 0xC0) != 0x80) ++chars;
+    }
+    lua_pushnumber(L, chars);
+    return 1;
+}
+
 // wipe(table) — clear all entries from a table
 static int lua_wipe(lua_State* L) {
     luaL_checktype(L, 1, LUA_TTABLE);
@@ -1402,6 +1421,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetInstanceDifficulty", lua_GetInstanceDifficulty},
                 {"strsplit",          lua_strsplit},
                 {"strtrim",           lua_strtrim},
+                {"strlenutf8",        lua_strlenutf8},
                 {"wipe",              lua_wipe},
                 {"date",              lua_wow_date},
                 {"time",              lua_wow_time},
