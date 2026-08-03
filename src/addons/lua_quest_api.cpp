@@ -251,6 +251,22 @@ static std::vector<uint32_t> questsWithPois(game::GameHandler* gh) {
     return out;
 }
 
+/// QuestMapUpdateAllQuests() → how many quests have a marker on the map.
+///
+/// Both a verb and a question in the real client: it refreshes the POI set and
+/// answers how many there are. There is nothing to refresh here — the list is
+/// whatever the server last sent — so this is the answer alone.
+///
+/// It was not bound at all, and WatchFrame_GetCurrentMapQuests reads it
+/// straight into `for i = 1, numQuests`. A nil limit there is not an empty
+/// loop but an error, so the tracker's map-quest table was never built and the
+/// handler around it died on the way. The count it needs was already sitting
+/// in the same list QuestPOIGetQuestIDByVisibleIndex indexes.
+static int lua_QuestMapUpdateAllQuests(lua_State* L) {
+    lua_pushnumber(L, static_cast<lua_Number>(questsWithPois(getGameHandler(L)).size()));
+    return 1;
+}
+
 static int lua_QuestPOIGetQuestIDByVisibleIndex(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int index = static_cast<int>(luaL_checknumber(L, 1));
@@ -1444,6 +1460,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetQuestLink",            lua_GetQuestLink},
                 {"GetNumQuestLeaderBoards", lua_GetNumQuestLeaderBoards},
                 {"GetQuestLogLeaderBoard",  lua_GetQuestLogLeaderBoard},
+                {"QuestMapUpdateAllQuests", lua_QuestMapUpdateAllQuests},
                 {"QuestPOIGetQuestIDByVisibleIndex", lua_QuestPOIGetQuestIDByVisibleIndex},
                 {"QuestPOIGetIconInfo",     lua_QuestPOIGetIconInfo},
                 {"QuestPOIUpdateIcons",     lua_QuestPOIUpdateIcons},

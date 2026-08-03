@@ -1227,6 +1227,28 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetMultisampleFormats",    lua_ReturnNothing},
                 {"GetRefreshRates",          lua_ReturnNothing},
                 {"GetCompanionInfo",         lua_ReturnNil},
+                // Counts, and the count is the whole point: each of these is
+                // read straight into `for i = 1, X()`, where a nil limit is
+                // not an empty loop but an error — "'for' limit must be a
+                // number" — that takes down the handler around it. Unbound,
+                // the fallback answered nil and the character sheet's title
+                // list, the companion tab and the token frame each raised
+                // rather than showing nothing.
+                //
+                // Zero is the honest answer, not a placeholder: no known-title
+                // bitmask, companion list or currency list is tracked here, so
+                // there is genuinely nothing to count. They stop being zero
+                // when something starts reading that data, and the frames
+                // above will fill themselves in when it does.
+                {"GetNumTitles",             lua_ReturnZero},
+                {"GetNumCompanions",         lua_ReturnZero},
+                {"GetCurrencyListSize",      lua_ReturnZero},
+                // The knowledge base is the server's FAQ, and there is no
+                // server here answering for it. Its category dropdown is
+                // reached from the "?" micro button beside the action bar, so
+                // the raise was one click away rather than in a corner.
+                {"KBSetup_GetCategoryCount",    lua_ReturnZero},
+                {"KBSetup_GetSubCategoryCount", lua_ReturnZero},
                 {"GetMultiCastTotemSpells",  lua_ReturnNil},
                 {"GetPossessInfo",           lua_ReturnNil},
                 {"GetVoiceStatus",           lua_ReturnFalse},
