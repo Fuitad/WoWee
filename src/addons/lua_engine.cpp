@@ -1153,6 +1153,46 @@ int lua_Tooltip_SetTalent(lua_State* L) {
     return 1;
 }
 
+/// SetTradeSkillItem(index) — what a recipe in the open profession makes.
+///
+/// This client knows a recipe by its crafting spell rather than by the item it
+/// produces, so what is shown is that spell: its name and its description,
+/// which is the line that says what gets made. Not the crafted item's own
+/// tooltip, which is what the real client shows — but the useful half of it,
+/// and it is what this client actually knows.
+int lua_Tooltip_SetTradeSkillItem(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (!w || !gh || index < 1) { lua_pushboolean(L, 0); return 1; }
+
+    const auto recipes = gh->getCraftingRecipes();
+    if (index > static_cast<int>(recipes.size())) { lua_pushboolean(L, 0); return 1; }
+    const uint32_t spellId = recipes[index - 1].spellId;
+    if (spellId == 0) { lua_pushboolean(L, 0); return 1; }
+
+    w->isTooltip = true;
+    w->tooltipLines.clear();
+    wowee::ui::Widget::TooltipLine title;
+    title.left = recipes[index - 1].name;
+    title.lc[0] = 1.0f; title.lc[1] = 0.82f; title.lc[2] = 0.0f; title.lc[3] = 1.0f;
+    title.rc[0] = title.rc[1] = title.rc[2] = title.rc[3] = 1.0f;
+    w->tooltipLines.push_back(std::move(title));
+
+    const std::string body =
+        gh->formatSpellDescription(spellId, gh->getSpellDescription(spellId));
+    if (!body.empty()) {
+        wowee::ui::Widget::TooltipLine desc;
+        desc.left = body;
+        desc.lc[0] = desc.lc[1] = desc.lc[2] = 1.0f; desc.lc[3] = 1.0f;
+        desc.rc[0] = desc.rc[1] = desc.rc[2] = desc.rc[3] = 1.0f;
+        w->tooltipLines.push_back(std::move(desc));
+    }
+    w->shown = true;
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 /// A unit's name and level, which is what hovering a unit frame shows.
 int lua_Tooltip_SetUnit(lua_State* L) {
     auto* w = widgetOf(L, 1);
@@ -1221,6 +1261,52 @@ static void fillItemTooltip(wowee::ui::Widget* w, const game::ItemDef& item) {
         sub.rc[0] = sub.rc[1] = sub.rc[2] = sub.rc[3] = 1.0f;
         w->tooltipLines.push_back(std::move(sub));
     }
+}
+
+/// The same tooltip for an item known only by its id.
+///
+/// Bags and the paperdoll hold a whole ItemDef; an auction row holds an entry
+/// number and nothing else. Rather than a second tooltip builder for that case,
+/// this fills in what the item cache knows and hands it to the one above — so
+/// there is one quality colour table and one idea of what an item tooltip looks
+/// like. False when the cache has not heard of the item yet, which is the same
+/// answer an empty bag slot gives.
+static bool fillItemTooltipById(wowee::ui::Widget* w, game::GameHandler* gh,
+                                uint32_t itemId) {
+    if (!w || !gh || itemId == 0) return false;
+    const auto* info = gh->getItemInfo(itemId);
+    if (!info || info->name.empty()) return false;
+    game::ItemDef def;
+    def.itemId  = itemId;
+    def.name    = info->name;
+    def.quality = static_cast<game::ItemQuality>(info->quality);
+    fillItemTooltip(w, def);
+    return true;
+}
+
+/// SetAuctionItem(list, index) — the item on an auction row.
+///
+/// The three lists are the browse results, the player's own auctions and the
+/// ones they have bid on, named as GetAuctionItemInfo names them.
+int lua_Tooltip_SetAuctionItem(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    const char* list = luaL_optstring(L, 2, "list");
+    const int index = static_cast<int>(luaL_optnumber(L, 3, 0));
+    if (!w || !gh || index < 1) { lua_pushboolean(L, 0); return 1; }
+
+    const std::string which(list ? list : "list");
+    const auto& results = (which == "owner")  ? gh->getAuctionOwnerResults()
+                        : (which == "bidder") ? gh->getAuctionBidderResults()
+                                              : gh->getAuctionBrowseResults();
+    if (index > static_cast<int>(results.auctions.size())) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    const bool filled =
+        fillItemTooltipById(w, gh, results.auctions[index - 1].itemEntry);
+    lua_pushboolean(L, filled ? 1 : 0);
+    return 1;
 }
 
 /// SetInventoryItem(unit, slot) — the gear on the paperdoll.
@@ -2868,6 +2954,8 @@ void LuaEngine::registerCoreAPI() {
         {"SetBagItem",      lua_Tooltip_SetBagItem},
         {"SetSpellByID",    lua_Tooltip_SetSpellByID},
         {"SetTalent",       lua_Tooltip_SetTalent},
+        {"SetAuctionItem",  lua_Tooltip_SetAuctionItem},
+        {"SetTradeSkillItem", lua_Tooltip_SetTradeSkillItem},
         {"SetUnit",         lua_Tooltip_SetUnit},
         {"AddDoubleLine",   lua_Tooltip_AddDoubleLine},
         {"ClearLines",      lua_Tooltip_ClearLines},
@@ -3458,7 +3546,7 @@ void LuaEngine::registerCoreAPI() {
         // method table first and only falls through to here — but this set says
         // "cannot describe it yet", and a name in it that works reads as a gap
         // that is not there, in the one place someone would check.
-        "SetAuctionItem=1,SetTradeSkillItem=1,SetGuildBankItem=1,\n"
+        "SetGuildBankItem=1,\n"
         "SetGlyph=1,SetSocketGem=1,SetSocketedItem=1,SetExistingSocketGem=1,\n"
         "SetScrollOffset=1,RegisterAllEvents=1,\n"
         "SetStatusBarTexture=1,SetTexCoord=1,SetText=1,SetTextHeight=1,\n"
