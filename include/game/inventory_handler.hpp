@@ -340,6 +340,13 @@ private:
     void handleTradeStatusExtended(network::Packet& packet);
     void handleLootRoll(network::Packet& packet);
     void handleLootRollWon(network::Packet& packet);
+
+    /// Tell the interface a roll is over, by the id it was opened with.
+    ///
+    /// The roll window hides itself on this and nothing else, so without it a
+    /// resolved roll stays on screen over a bar that has run down, offering
+    /// buttons the server has already stopped listening for.
+    void announceLootRollClosed(uint32_t lootSlot);
     void handleShowBank(network::Packet& packet);
     void handleBuyBankSlotResult(network::Packet& packet);
     void handleGuildBankList(network::Packet& packet);

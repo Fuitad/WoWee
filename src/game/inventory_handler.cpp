@@ -250,7 +250,7 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
         // objectGuid(8) + lootSlot(4) + itemId(4) + randSuffix(4) + randProp(4)
         if (!packet.hasRemaining(24)) return;
         /*uint64_t objectGuid =*/ packet.readUInt64();
-        /*uint32_t lootSlot   =*/ packet.readUInt32();
+        const uint32_t passedSlot = packet.readUInt32();
         uint32_t itemId     = packet.readUInt32();
         /*uint32_t randSuffix =*/ packet.readUInt32();
         (void)packet.readUInt32(); // random property
@@ -261,6 +261,7 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
         uint32_t allPassQuality = allPassInfo ? allPassInfo->quality : 1u;
         owner_.addSystemChatMessage("Everyone passed on " + buildItemLink(itemId, allPassQuality, allPassName) + ".");
         pendingLootRollActive_ = false;
+        announceLootRollClosed(passedSlot);
     };
 
     table[Opcode::SMSG_LOOT_ITEM_NOTIFY] = [this](network::Packet& packet) {
@@ -972,6 +973,14 @@ void InventoryHandler::handleLootRemoved(network::Packet& packet) {
 // Loot Roll
 // ============================================================
 
+void InventoryHandler::announceLootRollClosed(uint32_t lootSlot) {
+    // Same id START_LOOT_ROLL was fired with: the slot plus one.
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("CANCEL_LOOT_ROLL",
+                                       {std::to_string(lootSlot + 1)});
+    }
+}
+
 void InventoryHandler::sendLootRoll(uint64_t objectGuid, uint32_t slot, uint8_t rollType) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     network::Packet pkt(wireOpcode(Opcode::CMSG_LOOT_ROLL));
@@ -981,6 +990,7 @@ void InventoryHandler::sendLootRoll(uint64_t objectGuid, uint32_t slot, uint8_t 
     owner_.getSocket()->send(pkt);
     // Once we've sent any choice (pass/need/greed/disenchant), close the dialog.
     pendingLootRollActive_ = false;
+    announceLootRollClosed(slot);
 }
 
 void InventoryHandler::handleLootRoll(network::Packet& packet) {
@@ -1029,7 +1039,7 @@ void InventoryHandler::handleLootRollWon(network::Packet& packet) {
     // objectGuid(8) + lootSlot(4) + itemId(4) + itemSuffix(4) + itemProp(4) + playerGuid(8) + rollNumber(1) + rollType(1)
     if (!packet.hasRemaining(34)) return;
     /*uint64_t objectGuid =*/ packet.readUInt64();
-    /*uint32_t lootSlot   =*/ packet.readUInt32();
+    const uint32_t wonSlot = packet.readUInt32();
     uint32_t itemId     = packet.readUInt32();
     /*uint32_t randSuffix =*/ packet.readUInt32();
     int32_t wonRandProp = static_cast<int32_t>(packet.readUInt32());
@@ -1059,6 +1069,7 @@ void InventoryHandler::handleLootRollWon(network::Packet& packet) {
 
     owner_.addSystemChatMessage(winnerName + " won " + link + " (" + typeStr + " - " + std::to_string(rollNumber) + ")");
     pendingLootRollActive_ = false;
+    announceLootRollClosed(wonSlot);
 }
 
 // ============================================================
