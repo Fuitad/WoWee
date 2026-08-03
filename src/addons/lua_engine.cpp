@@ -3433,7 +3433,16 @@ void LuaEngine::registerCoreAPI() {
         // An edit box keeps its own text; a button shows its font string's.
         // FrameXML calls SetText on both and the widget decides which it means.
         "function mt:SetText(text, r, g, b)\n"
-        "    if self.__isEditBox then return __WoweeEditSetText(self, text) end\n"
+        // OnTextSet belongs to the box, not to the typing: it fires when the
+        // text is *set* rather than entered, which is how the chat box learns
+        // that something put a channel prefix in it. Declared on the chat edit
+        // box and dispatched by nothing until now.
+        "    if self.__isEditBox then\n"
+        "        __WoweeEditSetText(self, text)\n"
+        "        local h = self.__scripts and self.__scripts.OnTextSet\n"
+        "        if h then h(self) end\n"
+        "        return\n"
+        "    end\n"
         // A tooltip's SetText is its first line, not a font string's text.
         // It answers whether it took the call, so this can stop there.
         "    if __WoweeTooltipSetText(self, text, r, g, b) then return end\n"
@@ -5159,6 +5168,14 @@ void LuaEngine::dispatchText(const char* utf8) {
     // The handler that tells a search field to filter, and a chat box to look
     // for a channel prefix.
     callFrameScript(focusedWid_, "OnTextChanged");
+    // A space is its own handler, and the chat box is what wants it: typing
+    // "/w Bob " is how a whisper gets its target, and ChatEdit_OnSpacePressed
+    // is what reads the name out and turns the box into a whisper with a
+    // header. Without it the slash command stayed literal text until it was
+    // sent.
+    if (add.find(' ') != std::string::npos) {
+        callFrameScript(focusedWid_, "OnSpacePressed");
+    }
 }
 
 /// SDL's keycode as WoW names it, or empty for one WoW has no name for.
