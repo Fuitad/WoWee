@@ -195,8 +195,15 @@ void AddonManager::loadAllAddons() {
     // Only hand the Lua VM the addons that are actually enabled, so disabled ones
     // don't appear via GetNumAddOns/IsAddOnLoaded either.
     std::vector<TocFile> enabled;
-    enabled.reserve(addons_.size());
+    enabled.reserve(addons_.size() + lodAddons_.size());
     for (const auto& addon : addons_) {
+        if (isAddonEnabled(addon.addonName)) enabled.push_back(addon);
+    }
+    // Load-on-demand addons are listed too, as WoW lists them: an addon
+    // manager panel shows the talent tree and the auction house alongside
+    // everything else, and GetNumAddOns counts them. They carry a flag so
+    // IsAddOnLoaded does not mistake being listed for being loaded.
+    for (const auto& addon : lodAddons_) {
         if (isAddonEnabled(addon.addonName)) enabled.push_back(addon);
     }
     luaEngine_.setAddonList(enabled);

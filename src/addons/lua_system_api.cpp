@@ -748,9 +748,15 @@ static int lua_IsAddOnLoaded(lua_State* L) {
     for (int i = 1; i <= count && !found; ++i) {
         lua_rawgeti(L, -1, i);
         if (lua_istable(L, -1)) {
+            lua_getfield(L, -1, "loadOnDemand");
+            const bool lod = lua_toboolean(L, -1) != 0;
+            lua_pop(L, 1);
             lua_getfield(L, -1, "name");
             const char* name = lua_tostring(L, -1);
-            found = name && std::strcmp(name, wanted) == 0;
+            // Being listed means loaded only for addons that load at startup.
+            // A load-on-demand one is listed from the start and loaded later,
+            // so its state is the manager's to answer, below.
+            found = !lod && name && std::strcmp(name, wanted) == 0;
             lua_pop(L, 1);
         }
         lua_pop(L, 1);

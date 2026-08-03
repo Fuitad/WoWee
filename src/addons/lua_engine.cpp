@@ -5126,6 +5126,12 @@ void LuaEngine::setAddonList(const std::vector<TocFile>& addons) {
             lua_setfield(L_, -2, key.c_str());
         }
         lua_setfield(L_, -2, "metadata");
+        // Marked, because this list doubles as the answer to IsAddOnLoaded and
+        // a load-on-demand addon is listed long before it is loaded. Without
+        // the flag, adding them here would report every one of them as loaded
+        // from the moment the client started.
+        lua_pushboolean(L_, addons[i].isLoadOnDemand() ? 1 : 0);
+        lua_setfield(L_, -2, "loadOnDemand");
         lua_rawseti(L_, -2, static_cast<int>(i + 1));
     }
     lua_setfield(L_, LUA_REGISTRYINDEX, "wowee_addon_info");
