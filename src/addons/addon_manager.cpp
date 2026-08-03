@@ -96,13 +96,31 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
         // Same case problem as FrameXML: this install has interface/addons in
         // lower case, and a hardcoded AddOns misses it on a case-sensitive
         // filesystem.
+        //
+        // Every spelling is taken, not the first that exists. This install has
+        // *both* — an empty interface/AddOns beside the interface/addons that
+        // holds all twenty-four Blizzard addons — and looking only until one
+        // was found stopped at the empty one. Nothing load-on-demand had ever
+        // loaded here: no talent frame, no macro frame, no achievements, no
+        // key bindings, and Blizzard_GMChatUI reporting itself missing on
+        // every login.
         std::error_code ec;
-        fs::path p(addonsPath);
-        if (!fs::is_directory(p, ec)) {
-            p = resolvePath(fs::path(addonsPath).parent_path().parent_path(),
-                            "interface/AddOns");
+        const fs::path asked(addonsPath);
+        if (fs::is_directory(asked, ec)) roots.emplace_back(asked);
+
+        const fs::path interfaceDir = asked.parent_path();
+        if (fs::is_directory(interfaceDir, ec)) {
+            for (const auto& entry : fs::directory_iterator(interfaceDir, ec)) {
+                if (!entry.is_directory(ec)) continue;
+                std::string name = entry.path().filename().string();
+                for (char& c : name) {
+                    c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+                }
+                if (name != "addons") continue;
+                if (fs::equivalent(entry.path(), asked, ec)) continue;
+                roots.emplace_back(entry.path());
+            }
         }
-        if (!p.empty()) roots.emplace_back(p);
     }
     std::error_code rec;
     for (const char* local : {"addons", "../addons", "../../addons"}) {
