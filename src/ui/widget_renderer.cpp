@@ -314,12 +314,49 @@ void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
         dl->AddImage(reinterpret_cast<ImTextureID>(edge), ImVec2(px0, py0), ImVec2(px1, py1),
                      ImVec2(u0, 0.0f), ImVec2(u1, 1.0f), col);
     };
+    // An edge is a run of square tiles, not one tile stretched down it.
+    //
+    // Each tile in the strip is square — UI-Tooltip-Border is 128x16, eight
+    // 16x16 tiles — and the art in it is directional: a bevel that reads as a
+    // raised lip at its authored size. Stretched over a two-hundred-pixel span
+    // that bevel becomes a single soft gradient, so a long border looked
+    // nothing like a short one and neither looked like the client's.
+    //
+    // Tiled by drawing repeated quads rather than by letting the UVs run past
+    // 1: the eight tiles share one texture, so a u outside its own eighth
+    // samples the neighbouring corner rather than repeating.
+    auto run = [&](int index, float px0, float py0, float px1, float py1,
+                   bool vertical) {
+        const float span = vertical ? (py1 - py0) : (px1 - px0);
+        if (span <= 0.0f) return;
+        // Below a couple of pixels a tile carries no visible detail, and a
+        // full-width frame would ask for a thousand quads to say nothing.
+        // Stretching one is indistinguishable there and bounded.
+        if (e < 2.0f) { piece(index, px0, py0, px1, py1); return; }
+        const float tu0 = index / 8.0f, tu1 = (index + 1) / 8.0f;
+        for (float at = 0.0f; at < span; at += e) {
+            // The last tile is cut short rather than overhanging, and its UVs
+            // are cut with it so the art is cropped rather than squeezed into
+            // the remainder.
+            const float len = std::min(e, span - at);
+            const float frac = len / e;
+            if (vertical) {
+                dl->AddImage(reinterpret_cast<ImTextureID>(edge),
+                             ImVec2(px0, py0 + at), ImVec2(px1, py0 + at + len),
+                             ImVec2(tu0, 0.0f), ImVec2(tu1, frac), col);
+            } else {
+                dl->AddImage(reinterpret_cast<ImTextureID>(edge),
+                             ImVec2(px0 + at, py0), ImVec2(px0 + at + len, py1),
+                             ImVec2(tu0, 0.0f), ImVec2(tu0 + frac * (tu1 - tu0), 1.0f), col);
+            }
+        }
+    };
     // Edges first, then corners over them, so a corner is never clipped by the
     // run it meets.
-    piece(0, x0,     y0 + e, x0 + e, y1 - e);   // left
-    piece(1, x1 - e, y0 + e, x1,     y1 - e);   // right
-    piece(2, x0 + e, y0,     x1 - e, y0 + e);   // top
-    piece(3, x0 + e, y1 - e, x1 - e, y1);       // bottom
+    run(0, x0,     y0 + e, x0 + e, y1 - e, true);    // left
+    run(1, x1 - e, y0 + e, x1,     y1 - e, true);    // right
+    run(2, x0 + e, y0,     x1 - e, y0 + e, false);   // top
+    run(3, x0 + e, y1 - e, x1 - e, y1,     false);   // bottom
     piece(4, x0,     y0,     x0 + e, y0 + e);   // top-left
     piece(5, x1 - e, y0,     x1,     y0 + e);   // top-right
     piece(6, x0,     y1 - e, x0 + e, y1);       // bottom-left
