@@ -508,7 +508,13 @@ static int lua_GetEnchantInfo(lua_State* L) {
 
 static int lua_GetSpellCooldown(lua_State* L) {
     auto* gh = getGameHandler(L);
-    if (!gh) { lua_pushnumber(L, 0); lua_pushnumber(L, 0); return 2; }
+    // Three values on this path too, like every other. The cooldown frame does
+    // `start > 0 and duration > 0 and enable > 0`, and `and` short-circuits, so
+    // a missing third value is only ever reached when the first two say a
+    // cooldown is running — which this path cannot say, because it answers
+    // zero. Safe by accident rather than by design, and the next person to give
+    // this branch a real start time would have found out the hard way.
+    if (!gh) { lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 1); return 3; }
     // Accept spell name or ID
     uint32_t spellId = 0;
     if (lua_isnumber(L, 1)) {
