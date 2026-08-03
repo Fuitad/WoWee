@@ -1429,3 +1429,51 @@ TEST_CASE("A frame inset to nothing takes no clicks", "[widget][input]") {
     tree.layout(kScreenW, kScreenH);
     REQUIRE(tree.hitTest(20.0f, 20.0f) != f);
 }
+
+TEST_CASE("Raising a window carries its regions with it", "[widget][layout]") {
+    // The shape the character sheet has: a window, a frame inside it, and a
+    // label inside that. Raising the window must lift all three, or the label
+    // sorts under the window's own art and vanishes.
+    WidgetTree tree;
+    const uint32_t win = tree.create(WidgetKind::Frame, tree.root(), "Window");
+    const uint32_t inner = tree.create(WidgetKind::Frame, win, "Inner");
+    const uint32_t label = tree.create(WidgetKind::FontString, inner, "Label");
+    Anchor p; p.point = "CENTER"; p.relativePoint = "CENTER";
+    tree.addPoint(win, p);
+    tree.addPoint(inner, p);
+    tree.addPoint(label, p);
+    const uint32_t other = tree.create(WidgetKind::Frame, tree.root(), "Other");
+    tree.addPoint(other, p);
+    tree.layout(kScreenW, kScreenH);
+
+    tree.raise(win);
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(win)->effLevel > tree.get(other)->effLevel);
+    REQUIRE(tree.get(inner)->effLevel > tree.get(win)->effLevel);
+    REQUIRE(tree.get(label)->effLevel > tree.get(inner)->effLevel);
+}
+
+TEST_CASE("A child with its own level still follows when the parent is raised",
+          "[widget][layout]") {
+    // SetFrameLevel makes a child's level explicit, and FrameXML calls it
+    // freely — RaiseFrameLevelByTwo alone is used all over. In WoW a child's
+    // level is relative to its parent, so raising the parent must carry it.
+    WidgetTree tree;
+    const uint32_t win = tree.create(WidgetKind::Frame, tree.root(), "Window");
+    const uint32_t inner = tree.create(WidgetKind::Frame, win, "Inner");
+    Anchor p; p.point = "CENTER"; p.relativePoint = "CENTER";
+    tree.addPoint(win, p);
+    tree.addPoint(inner, p);
+    tree.layout(kScreenW, kScreenH);
+    // What RaiseFrameLevelByTwo does.
+    tree.get(inner)->level = tree.get(inner)->effLevel + 2;
+    tree.get(inner)->levelExplicit = true;
+    tree.layout(kScreenW, kScreenH);
+    const int before = tree.get(inner)->effLevel - tree.get(win)->effLevel;
+
+    tree.raise(win);
+    tree.layout(kScreenW, kScreenH);
+    const int after = tree.get(inner)->effLevel - tree.get(win)->effLevel;
+    REQUIRE(after == before);           // the gap is kept
+    REQUIRE(tree.get(inner)->effLevel > tree.get(win)->effLevel);
+}

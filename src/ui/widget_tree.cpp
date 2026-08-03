@@ -198,6 +198,28 @@ void WidgetTree::nudge(uint32_t id, float dx, float dy) {
     for (Anchor& a : w->anchors) { a.x += dx; a.y += dy; }
 }
 
+/// Move every descendant that carries its own level by the same amount.
+///
+/// A child's level is relative to its parent in WoW, and FrameXML sets levels
+/// freely — RaiseFrameLevelByTwo alone is used throughout. Without this, a
+/// raised window keeps its own art in front but leaves anything that set its
+/// own level behind: the character sheet's name label sat at 6 while the panel
+/// it belongs to went to 174, and sorting by level drew the name underneath
+/// the panel, where it cannot be seen.
+void WidgetTree::shiftExplicitLevels(uint32_t id, int delta) {
+    if (delta == 0) return;
+    const Widget* w = get(id);
+    if (!w) return;
+    // A copy, because get() invalidates nothing but the recursion below may.
+    const std::vector<uint32_t> kids = w->children;
+    for (uint32_t child : kids) {
+        if (Widget* c = get(child)) {
+            if (c->levelExplicit) c->level += delta;
+        }
+        shiftExplicitLevels(child, delta);
+    }
+}
+
 void WidgetTree::raise(uint32_t id) {
     Widget* w = get(id);
     if (!w) return;
@@ -209,7 +231,9 @@ void WidgetTree::raise(uint32_t id) {
     }
     // Explicit from here on, or the next layout would recompute it from the
     // parent and undo the raise immediately.
-    w->level = highest + 1;
+    const int newLevel = highest + 1;
+    shiftExplicitLevels(id, newLevel - w->effLevel);
+    w->level = newLevel;
     w->levelExplicit = true;
 }
 
@@ -224,7 +248,9 @@ void WidgetTree::lower(uint32_t id) {
     }
     // Never below zero: a negative level sorts under the root and the frame
     // stops being drawn at all.
-    w->level = (lowest > 0) ? lowest - 1 : 0;
+    const int newLevel = (lowest > 0) ? lowest - 1 : 0;
+    shiftExplicitLevels(id, newLevel - w->effLevel);
+    w->level = newLevel;
     w->levelExplicit = true;
 }
 

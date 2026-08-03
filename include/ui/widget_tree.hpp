@@ -376,6 +376,10 @@ public:
     void raise(uint32_t id);
     /// The reverse, for Lower().
     void lower(uint32_t id);
+    /// Shift every descendant that carries its own level, so a raised window
+    /// takes what is inside it along. Public because SetFrameLevel needs the
+    /// same behaviour.
+    void shiftExplicitLevels(uint32_t id, int delta);
 
     /// The frame currently following the cursor, if any.
     ///

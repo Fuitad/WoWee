@@ -1405,10 +1405,17 @@ int lua_Frame_SetFrameStrata(lua_State* L) {
     return 0;
 }
 int lua_Frame_SetFrameLevel(lua_State* L) {
-    if (auto* w = widgetOf(L, 1)) {
-        w->level = static_cast<int>(luaL_optnumber(L, 2, 0));
-        w->levelExplicit = true;
-    }
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    const int wanted = static_cast<int>(luaL_optnumber(L, 2, 0));
+    // Anything inside that set its own level moves by the same amount, because
+    // a child's level is relative to its parent. Raising a window by hand and
+    // raising it by clicking it must leave the same arrangement behind.
+    if (tree && id) tree->shiftExplicitLevels(id, wanted - w->effLevel);
+    w->level = wanted;
+    w->levelExplicit = true;
     return 0;
 }
 int lua_FontString_SetText(lua_State* L) {
