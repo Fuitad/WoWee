@@ -2478,11 +2478,32 @@ void VkContext::endUploadBatchSync() {
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &batchCmd_;
 
-    noteImmediateSubmitThread("endUploadBatchSync");
+    // Its own fence, not the shared immediate one.
+    //
+    // immFence is also used by endSingleTimeCommands, which submits on the
+    // graphics queue while this submits on the transfer queue when there is
+    // one. Validation reports that fence — 0x170000000017, named at creation
+    // — being reset while still in use, repeatedly, just before the device is
+    // lost. Two queues signalling one fence is the fragility whatever the
+    // exact interleaving; a fence per submit has no such question about it.
+    //
+    // FrameXML is what makes this reachable: it uploads hundreds of textures
+    // through here, where this client alone uploads a handful.
+    VkFenceCreateInfo batchFenceInfo{};
+    batchFenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    VkFence batchFence = VK_NULL_HANDLE;
+    if (vkCreateFence(device, &batchFenceInfo, nullptr, &batchFence) != VK_SUCCESS) {
+        LOG_ERROR("Could not create an upload fence; falling back to the shared one");
+        batchFence = immFence;
+    }
 
-    vkQueueSubmit(targetQueue, 1, &submitInfo, immFence);
-    vkWaitForFences(device, 1, &immFence, VK_TRUE, UINT64_MAX);
-    vkResetFences(device, 1, &immFence);
+    vkQueueSubmit(targetQueue, 1, &submitInfo, batchFence);
+    vkWaitForFences(device, 1, &batchFence, VK_TRUE, UINT64_MAX);
+    if (batchFence != immFence) {
+        vkDestroyFence(device, batchFence, nullptr);
+    } else {
+        vkResetFences(device, 1, &immFence);
+    }
 
     vkFreeCommandBuffers(device, pool, 1, &batchCmd_);
     batchCmd_ = VK_NULL_HANDLE;
