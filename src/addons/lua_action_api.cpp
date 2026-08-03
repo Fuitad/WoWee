@@ -533,6 +533,45 @@ static int lua_PickupContainerItem(lua_State* L) {
 }
 
 // PickupInventoryItem(slot) — picks up an equipped item
+// PickupBagFromSlot(inventorySlot) — pick up or put down a bank bag.
+//
+// The bank's bag buttons hand over an inventory slot rather than an index:
+// BankButtonIDToInvSlotID puts the seven bank bags at sixty-eight upward, and
+// the wire counts from zero, so the slot sent is one less. That is the same
+// arithmetic PickupInventoryItem does for worn equipment, and the cursor
+// carries it the same way — a negative bag means "not in a container", which
+// cursorWireSlot turns back into container 0xFF and the slot less one.
+//
+// Deferred for a long time on the belief that this client had no cursor to
+// drop things from. It has had one all along, with both halves of a drag in
+// one function, and the wire numbers here are the ones its own bank window
+// already sends.
+static int lua_PickupBagFromSlot(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+    constexpr int kFirstBankBagSlot = 68;   // BankButtonIDToInvSlotID(1, true)
+    const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const int bagIndex = slot - kFirstBankBagSlot;
+    if (bagIndex < 0 || bagIndex >= game::Inventory::BANK_BAG_SLOTS) return 0;
+
+    // Carrying something: this is the drop, into the bag slot.
+    uint8_t srcBag = 0, srcSlot = 0;
+    if (cursorWireSlot(srcBag, srcSlot)) {
+        gh->swapContainerItems(srcBag, srcSlot, 0xFF,
+                               static_cast<uint8_t>(slot - 1));
+        clearCursorItem();
+        return 0;
+    }
+
+    const auto& held = gh->getInventory().getBankBagItem(bagIndex);
+    if (held.empty()) return 0;
+    s_cursorType = CursorType::ITEM;
+    s_cursorId = held.item.itemId;
+    s_cursorSlot = slot;
+    s_cursorBag = -1;
+    return 0;
+}
+
 static int lua_PickupInventoryItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -1103,6 +1142,7 @@ void registerActionLuaAPI(lua_State* L) {
                 {"PickupSpellBookItem", lua_PickupSpellBookItem},
                 {"PickupContainerItem", lua_PickupContainerItem},
                 {"PickupInventoryItem", lua_PickupInventoryItem},
+                {"PickupBagFromSlot",   lua_PickupBagFromSlot},
                 {"ClearCursor",         lua_ClearCursor},
                 {"GetCursorInfo",       lua_GetCursorInfo},
                 {"CursorHasItem",       lua_CursorHasItem},
