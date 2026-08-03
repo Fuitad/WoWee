@@ -860,7 +860,11 @@ bool VkContext::createSyncObjects() {
     // Logged for the same reason as the frame fences: validation reports a
     // fence by handle, and immFence is shared by endSingleTimeCommands and the
     // upload batches — which submit on different queues.
-    if (vkCreateFence(device, &immFenceInfo, nullptr, &immFence) != VK_SUCCESS) {
+    if (vkCreateFence(device, &immFenceInfo, nullptr, &immFence) == VK_SUCCESS) {
+        LOG_WARNING("immediate fence = 0x", std::hex,
+                    reinterpret_cast<uint64_t>(immFence), std::dec);
+    }
+    if (immFence == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create immediate submit fence");
         return false;
     }
@@ -2136,6 +2140,15 @@ bool VkContext::recreateSwapchain(int width, int height) {
 
 void VkContext::resetFrameSyncState() {
     if (device == VK_NULL_HANDLE) return;
+    // How many asynchronous upload batches are still outstanding when a
+    // rebuild happens. These are submitted without being waited on, one fence
+    // each, and FrameXML makes hundreds where this client alone makes almost
+    // none — which is the one difference that scales the way the fault does.
+    if (!inFlightBatches_.empty()) {
+        LOG_WARNING("rebuild with ", inFlightBatches_.size(),
+                    " upload batches still in flight (", batchesSubmitted_,
+                    " submitted, ", batchesRetired_, " retired)");
+    }
     vkDeviceWaitIdle(device);
 
     // Recreated rather than reset: a fence has to end up signalled, and
@@ -2415,6 +2428,17 @@ void VkContext::endUploadBatch() {
     VkQueue targetQueue = hasDedicatedTransfer_ ? transferQueue_ : graphicsQueue;
     vkQueueSubmit(targetQueue, 1, &submitInfo, fence);
 
+    // Said once, with the handle, because these are the only fences created
+    // after startup — so a validation message naming a high handle is one of
+    // these rather than a frame fence or the immediate one. FrameXML makes
+    // hundreds of them; without it there are almost none, which is the shape
+    // of the difference between the two branches.
+    if (batchesSubmitted_ == 0) {
+        LOG_WARNING("first async upload batch fence = 0x", std::hex,
+                    reinterpret_cast<uint64_t>(fence), std::dec);
+    }
+    ++batchesSubmitted_;
+
     // Stash everything for later cleanup when fence signals
     InFlightBatch batch;
     batch.fence = fence;
@@ -2490,6 +2514,7 @@ void VkContext::pollUploadBatches() {
             vkFreeCommandBuffers(device, pool, 1, &it->cmd);
             vkDestroyFence(device, it->fence, nullptr);
             it = inFlightBatches_.erase(it);
+            ++batchesRetired_;
         } else {
             ++it;
         }

@@ -333,6 +333,10 @@ private:
     /// is a fault the GPU reports by resetting. Callers that keep sets compare
     /// this against what they last saw and throw their cache away.
     uint32_t imguiBackendGeneration_ = 0;
+    /// How many asynchronous upload batches have been submitted and retired.
+    /// Only used to name the first fence and to say how many are outstanding.
+    uint64_t batchesSubmitted_ = 0;
+    uint64_t batchesRetired_ = 0;
 
     /// A descriptor pool and layout this context owns, for UI textures.
     ///
