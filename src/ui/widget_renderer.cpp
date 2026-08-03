@@ -309,24 +309,11 @@ void WidgetRenderer::drawCooldown(ImDrawList* dl, const Widget& w,
 }
 
 void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
-    // A tooltip has no size of its own until it has something to say, and WoW
-    // sizes it to its lines. Done before layout, because everything anchored
-    // to the tooltip is placed from the rect this produces — and with the real
-    // font, since guessing at a character width puts the border in the wrong
-    // place on every line.
-    // Frames FrameXML declares but this client has not handed over yet.
-    //
-    // Every FrameXML file is loaded, so every frame it declares exists and
-    // draws — the takeover list only decides whether this client's own version
-    // is suppressed alongside it. Hiding them once after loading is not enough:
-    // the interface shows its chat windows again on its own schedule, so this
-    // is done each frame, where nothing can undo it.
     // ImGui's backend is torn down and restarted when the anti-aliasing
     // changes, and every descriptor set in this cache came from the pool that
-    // went with it. Holding them past that point means drawing with freed
-    // descriptors, which the GPU answers by being reset — several seconds in
-    // endFrame and then VK_ERROR_DEVICE_LOST, one second after the pipelines
-    // were rebuilt. Dropping the cache costs a re-upload of what is on screen.
+    // went with it. The pool is this context's own now, so the sets survive —
+    // this stays as a belt on the braces, and costs a re-upload of what is on
+    // screen if it ever fires.
     if (vkCtx_) {
         const uint32_t generation = vkCtx_->imguiBackendGeneration();
         if (generation != imguiGenerationSeen_) {

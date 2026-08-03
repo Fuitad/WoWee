@@ -1519,6 +1519,18 @@ void VkContext::destroyImGuiResources() {
     uiTextures_.clear();
     uiTextureSampler_ = VK_NULL_HANDLE; // Owned by sampler cache
 
+    // This context's own UI texture pool, which the sets above were allocated
+    // from. Freed with them rather than with ImGui's, which is the whole point
+    // of it existing.
+    if (uiTexturePool_) {
+        vkDestroyDescriptorPool(device, uiTexturePool_, nullptr);
+        uiTexturePool_ = VK_NULL_HANDLE;
+    }
+    if (uiTextureLayout_) {
+        vkDestroyDescriptorSetLayout(device, uiTextureLayout_, nullptr);
+        uiTextureLayout_ = VK_NULL_HANDLE;
+    }
+
     if (imguiDescriptorPool) {
         vkDestroyDescriptorPool(device, imguiDescriptorPool, nullptr);
         imguiDescriptorPool = VK_NULL_HANDLE;
@@ -1543,6 +1555,44 @@ static uint32_t findMemType(VkPhysicalDevice physDev, uint32_t typeFilter, VkMem
     }
     LOG_ERROR("VkContext: no suitable memory type found");
     return UINT32_MAX;
+}
+
+bool VkContext::ensureUiTextureDescriptorPool() {
+    if (uiTexturePool_ != VK_NULL_HANDLE) return true;
+
+    VkDescriptorSetLayoutBinding binding{};
+    binding.binding = 0;
+    binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    binding.descriptorCount = 1;
+    binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &binding;
+    if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr,
+                                    &uiTextureLayout_) != VK_SUCCESS) {
+        LOG_ERROR("Could not create the UI texture descriptor layout");
+        return false;
+    }
+
+    // Sized for the interface with FrameXML loaded, which asks for several
+    // hundred distinct files; the old path shared ImGui's pool and inherited
+    // whatever that was sized for.
+    VkDescriptorPoolSize size{};
+    size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    size.descriptorCount = 4096;
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.maxSets = 4096;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &size;
+    if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &uiTexturePool_) != VK_SUCCESS) {
+        LOG_ERROR("Could not create the UI texture descriptor pool");
+        vkDestroyDescriptorSetLayout(device, uiTextureLayout_, nullptr);
+        uiTextureLayout_ = VK_NULL_HANDLE;
+        return false;
+    }
+    return true;
 }
 
 VkDescriptorSet VkContext::uploadImGuiTexture(const uint8_t* rgba, int width, int height) {
@@ -1694,12 +1744,36 @@ VkDescriptorSet VkContext::uploadImGuiTexture(const uint8_t* rgba, int width, in
         }
     }
 
-    // Register with ImGui (allocates from imguiDescriptorPool)
-    VkDescriptorSet ds = ImGui_ImplVulkan_AddTexture(uiTextureSampler_, imageView,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    // From this context's own pool rather than ImGui's, so the set survives a
+    // backend restart. ImGui only ever binds what ImTextureID points at, and a
+    // set built to the same layout binds identically.
+    VkDescriptorSet ds = VK_NULL_HANDLE;
+    if (ensureUiTextureDescriptorPool()) {
+        VkDescriptorSetAllocateInfo alloc{};
+        alloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        alloc.descriptorPool = uiTexturePool_;
+        alloc.descriptorSetCount = 1;
+        alloc.pSetLayouts = &uiTextureLayout_;
+        if (vkAllocateDescriptorSets(device, &alloc, &ds) != VK_SUCCESS) {
+            ds = VK_NULL_HANDLE;
+        } else {
+            VkDescriptorImageInfo info{};
+            info.sampler = uiTextureSampler_;
+            info.imageView = imageView;
+            info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            VkWriteDescriptorSet write{};
+            write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write.dstSet = ds;
+            write.dstBinding = 0;
+            write.descriptorCount = 1;
+            write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            write.pImageInfo = &info;
+            vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+        }
+    }
 
     if (!ds) {
-        LOG_ERROR("ImGui descriptor pool exhausted — cannot upload UI texture");
+        LOG_ERROR("UI descriptor pool exhausted — cannot upload UI texture");
         vkDestroyImageView(device, imageView, nullptr);
         vkDestroyImage(device, image, nullptr);
         vkFreeMemory(device, imageMemory, nullptr);

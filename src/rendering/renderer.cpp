@@ -893,9 +893,7 @@ void Renderer::applyMsaaChange() {
     ImGui_ImplVulkan_Init(&initInfo);
     // Every descriptor set the old backend handed out is gone with its pool.
     // Anything holding one has to be told, or it draws with freed descriptors
-    // and the device is lost on the next submit — which is what changing the
-    // anti-aliasing did once FrameXML gave the widget renderer hundreds of
-    // textures to cache.
+    // and the device is lost on the next submit.
     vkCtx->noteImGuiBackendRestarted();
 
 }
