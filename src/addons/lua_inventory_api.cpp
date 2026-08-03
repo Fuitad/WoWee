@@ -707,6 +707,25 @@ static int lua_GetSendMailItem(lua_State* L) {
 // attachment and deleting were all here, and returning was not, so a letter
 // that should have gone back could only be deleted — which destroys whatever
 // came with it.
+// GetCoinIcon(copper) → the coin to draw for an amount.
+//
+// The letter's money attachment is drawn with SetItemButtonTexture, and a nil
+// texture reads as an empty slot to FrameXML — so a letter carrying gold showed
+// nothing attached at all. Gold above a gold, silver above a silver, copper
+// below: the three icon paths are the ones globalstrings names in
+// GOLD_AMOUNT_TEXTURE and its pair, so this is the interface's own artwork
+// rather than a path invented to fill the gap.
+static int lua_GetCoinIcon(lua_State* L) {
+    constexpr double kCopperPerSilver = 100.0;
+    constexpr double kCopperPerGold   = 100.0 * 100.0;
+    const double copper = luaL_optnumber(L, 1, 0);
+    const char* icon = (copper >= kCopperPerGold)   ? "Interface\\MoneyFrame\\UI-GoldIcon"
+                     : (copper >= kCopperPerSilver) ? "Interface\\MoneyFrame\\UI-SilverIcon"
+                                                    : "Interface\\MoneyFrame\\UI-CopperIcon";
+    lua_pushstring(L, icon);
+    return 1;
+}
+
 static int lua_ReturnInboxItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
@@ -2165,6 +2184,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetSendMailItem",     lua_GetSendMailItem},
                 {"CheckInbox",          lua_CheckInbox},
                 {"ReturnInboxItem",      lua_ReturnInboxItem},
+                {"GetCoinIcon",          lua_GetCoinIcon},
                 {"CloseMail",           lua_CloseMail},
                 {"SendMail",            lua_SendMail},
                 {"SetSendMailMoney",    lua_SetSendMailMoney},
