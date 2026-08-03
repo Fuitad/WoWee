@@ -763,6 +763,22 @@ static uint32_t carriedItemMatching(game::GameHandler* gh, lua_State* L, int arg
     return 0;
 }
 
+// GetInventoryItemDurability(slot) → current, maximum
+//
+// Absent for an item that cannot be damaged, which is what the durability
+// frame reads to decide whether the slot is worth drawing at all.
+static int lua_GetInventoryItemDurability(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int slotId = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || slotId < 1 || slotId > kEquipSlots) { return luaReturnNil(L); }
+    const auto& sl = gh->getInventory().getEquipSlot(
+        static_cast<game::EquipSlot>(slotId - 1));
+    if (sl.empty() || sl.item.maxDurability == 0) { return luaReturnNil(L); }
+    lua_pushnumber(L, sl.item.curDurability);
+    lua_pushnumber(L, sl.item.maxDurability);
+    return 2;
+}
+
 // UseItemByName(item) — what /use does
 static int lua_UseItemByName(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -1818,6 +1834,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"BankButtonIDToInvSlotID", lua_BankButtonIDToInvSlotID},
                 {"CloseBankFrame",      lua_CloseBankFrame},
                 {"UseInventoryItem",    lua_UseInventoryItem},
+                {"GetInventoryItemDurability", lua_GetInventoryItemDurability},
                 {"UseItemByName",       lua_UseItemByName},
                 {"EquipItemByName",     lua_EquipItemByName},
                 {"IsEquippableItem",    lua_IsEquippableItem},

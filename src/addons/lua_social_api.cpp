@@ -308,6 +308,19 @@ static int lua_GetAutoCompleteResults(lua_State* L) {
 
 
 
+/// Which row the friends and ignore lists have selected. The client has no
+/// opinion about either; they are what the player last clicked.
+static int& selectedFriend() { static int v = 0; return v; }
+static int& selectedIgnore() { static int v = 0; return v; }
+
+// SendSystemMessage(text) — put a line in the chat as the client itself would
+static int lua_SendSystemMessage(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const char* msg = luaL_optstring(L, 1, "");
+    if (gh && msg && *msg) gh->addSystemChatMessage(msg);
+    return 0;
+}
+
 // AddOrRemoveFriend(name, note) / AddOrDelIgnore(name) — the slash commands
 //
 // /friend and /ignore both toggle: naming someone already on the list takes
@@ -808,6 +821,15 @@ void registerSocialLuaAPI(lua_State* L) {
                 // the frame reads it as "not ForceGossip()" to decide whether
                 // to go straight to a lone vendor or flight master — which is
                 // what the real client does, so a definite no keeps that.
+                {"SendSystemMessage",   lua_SendSystemMessage},
+                {"GetSelectedFriend", [](lua_State* L) -> int {
+            lua_pushnumber(L, selectedFriend()); return 1; }},
+                {"SetSelectedFriend", [](lua_State* L) -> int {
+            selectedFriend() = static_cast<int>(luaL_optnumber(L, 1, 0)); return 0; }},
+                {"GetSelectedIgnore", [](lua_State* L) -> int {
+            lua_pushnumber(L, selectedIgnore()); return 1; }},
+                {"SetSelectedIgnore", [](lua_State* L) -> int {
+            selectedIgnore() = static_cast<int>(luaL_optnumber(L, 1, 0)); return 0; }},
                 {"AddOrRemoveFriend",   lua_AddOrRemoveFriend},
                 {"AddOrDelIgnore",      lua_AddOrDelIgnore},
                 // DoReadyCheck() — what /readycheck does

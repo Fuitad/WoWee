@@ -1328,6 +1328,18 @@ static int lua_UnitAffectingCombat(lua_State* L) {
 }
 
 
+
+// HasFullControl() — whether the player is in command of their own character
+//
+// Read as `not HasFullControl()` to grey out the right-click menu, so an absent
+// answer disabled duelling, trading and inviting permanently. Nothing here
+// charms, fears or confuses anyone, so control is never lost and saying so is
+// the truthful answer rather than a convenient one.
+static int lua_HasFullControl(lua_State* L) {
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 // --- Dying, and getting back up ---
 //
 // The death popup already appears; its buttons had nothing behind them, so a
@@ -2023,6 +2035,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetRealNumRaidMembers",  lua_GetNumRaidMembers},
                 {"GetRealNumPartyMembers", lua_GetNumPartyMembers},
                 {"GetReleaseTimeRemaining", lua_GetReleaseTimeRemaining},
+                {"HasFullControl",      lua_HasFullControl},
                 {"RepopMe",             lua_RepopMe},
                 {"RetrieveCorpse",      lua_RetrieveCorpse},
                 {"Dismount",            lua_Dismount},
