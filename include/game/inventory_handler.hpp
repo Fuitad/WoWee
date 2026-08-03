@@ -86,6 +86,10 @@ public:
     /// money is not one of the numbered loot slots on the wire even
     /// though the interface shows it as one.
     void lootMoney();
+    /// Drop a temporary weapon enchant — a sharpening stone, poison, or a
+    /// shaman's weapon imbue. Slot zero is the main hand and one the off hand,
+    /// which is how the request numbers them; the interface counts from one.
+    void cancelTempEnchantment(uint8_t handIndex);
     void closeLoot();
     bool isLootWindowOpen() const { return lootWindowOpen_; }
     const LootResponseData& getCurrentLoot() const { return currentLoot_; }

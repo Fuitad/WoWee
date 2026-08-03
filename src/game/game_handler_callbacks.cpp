@@ -2316,6 +2316,10 @@ void GameHandler::lootMoney() {
     if (inventoryHandler_) inventoryHandler_->lootMoney();
 }
 
+void GameHandler::cancelTempEnchantment(uint8_t handIndex) {
+    if (inventoryHandler_) inventoryHandler_->cancelTempEnchantment(handIndex);
+}
+
 void GameHandler::closeLoot() {
     if (inventoryHandler_) inventoryHandler_->closeLoot();
 }

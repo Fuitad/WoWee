@@ -1180,6 +1180,35 @@ void registerActionLuaAPI(lua_State* L) {
             lua_pushnil(L);
             return 1;
         }},
+                // GetPetActionSlotUsable(index) → whether the pet can use it
+                //
+                // Read as "if usable then draw it normally, else grey it out",
+                // so an absent answer greyed out every ability the pet has. A
+                // slot holding a spell is usable; an empty one has nothing to
+                // grey.
+                // CancelItemTempEnchantment(hand) — drop a weapon imbue
+                //
+                // The interface counts the hands from one and the request from
+                // zero, which is the only thing between them.
+                {"CancelItemTempEnchantment", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int hand = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (gh && (hand == 1 || hand == 2)) {
+                gh->cancelTempEnchantment(static_cast<uint8_t>(hand - 1));
+            }
+            return 0;
+        }},
+                {"GetPetActionSlotUsable", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh || index < 1 || index > game::GameHandler::PET_ACTION_BAR_SLOTS) {
+                lua_pushboolean(L, 0);
+                return 1;
+            }
+            const uint32_t spellId = gh->getPetActionSlot(index - 1) & 0x00FFFFFF;
+            lua_pushboolean(L, spellId != 0 ? 1 : 0);
+            return 1;
+        }},
                 {"GetPetActionInfo", [](lua_State* L) -> int {
             // GetPetActionInfo(index) → name, subtext, texture, isToken, isActive, autoCastAllowed, autoCastEnabled
             auto* gh = getGameHandler(L);

@@ -828,6 +828,16 @@ void InventoryHandler::lootMoney() {
     owner_.getSocket()->send(packet);
 }
 
+void InventoryHandler::cancelTempEnchantment(uint8_t handIndex) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    if (handIndex > 1) return;      // only the two weapon hands carry one
+    const uint16_t wireOp = wireOpcode(Opcode::CMSG_CANCEL_TEMP_ENCHANTMENT);
+    if (wireOp == 0xFFFF) return;
+    network::Packet packet(wireOp);
+    packet.writeUInt32(handIndex);
+    owner_.getSocket()->send(packet);
+}
+
 void InventoryHandler::closeLoot() {
     if (!lootWindowOpen_) return;
     const uint64_t lootGuid = currentLoot_.lootGuid;
