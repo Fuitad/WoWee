@@ -2442,6 +2442,11 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"ShowContainerSellCursor", lua_ContainerNoOp},
                 {"ShowBuybackSellCursor", lua_ContainerNoOp},
                 {"PickupMerchantItem",    lua_ContainerNoOp},
+                // Opening the socketing panel on an equipped item. Answers
+                // false as SocketContainerItem beside it does: the panel needs
+                // per-item socket contents, which are not tracked, so it is not
+                // opened rather than opened empty.
+                {"SocketInventoryItem",   lua_ContainerFalse},
                 {"SocketContainerItem",   lua_ContainerFalse},
                 {"SpellCanTargetItem",    lua_ContainerFalse},
                 {"CanGuildBankRepair",    lua_ContainerFalse},

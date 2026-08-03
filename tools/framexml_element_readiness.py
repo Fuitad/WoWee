@@ -73,6 +73,26 @@ ELEMENTS = {
     "questtracker": ["watchframe.lua", "watchframe.xml"],
     "help":         ["helpframe.lua", "helpframe.xml"],
     "social":       ["friendsframe.lua", "friendsframe.xml"],
+    "partyframes":  ["partyframe.xml", "partyframetemplates.xml"],
+    "micromenu":    ["mainmenubarmicrobuttons.lua", "mainmenubarmicrobuttons.xml"],
+    "bagbar":       ["mainmenubarbagbuttons.lua", "mainmenubarbagbuttons.xml"],
+    "gamemenu":     ["gamemenuframe.xml"],
+    "worldmap":     ["worldmapframe.lua", "worldmapframe.xml"],
+}
+
+# Elements whose frames arrive with a load-on-demand addon rather than with
+# FrameXML. Their whole directory is the element.
+ADDON_ELEMENTS = {
+    "achievements": "blizzard_achievementui",
+    "auctionhouse": "blizzard_auctionui",
+    "barbershop":   "blizzard_barbershopui",
+    "guildbank":    "blizzard_guildbankui",
+    "inspect":      "blizzard_inspectui",
+    "talents":      "blizzard_talentui",
+    "tradeskill":   "blizzard_tradeskillui",
+    "macro":        "blizzard_macroui",
+    "keybindings":  "blizzard_bindingui",
+    "timemanager":  "blizzard_timemanager",
 }
 
 # A handler body in XML is Lua, and holds calls that appear nowhere in any .lua.
@@ -169,8 +189,28 @@ def main():
         if not missing:
             ready.append(element)
 
+    for element, addon in sorted(ADDON_ELEMENTS.items()):
+        root = os.path.join(ROOT, "Data", "interface", "addons", addon)
+        if not os.path.isdir(root):
+            continue
+        missing, nfiles = set(), 0
+        for dirpath, _, filenames in os.walk(root):
+            for fn in filenames:
+                if not fn.endswith((".lua", ".xml")):
+                    continue
+                nfiles += 1
+                for name in calls.get(fn, ()):
+                    if name in have or name in defined_by or name.startswith("BN"):
+                        continue
+                    missing.add(name)
+        listed = " ".join(sorted(missing)[:6])
+        print(f"  {element:<13} {nfiles:>3}   {len(missing):>3}  {listed}")
+        if not missing:
+            ready.append(element)
+
+    total = len(ELEMENTS) + len(ADDON_ELEMENTS)
     print()
-    print(f"{len(ready)} of {len(ELEMENTS)} with no known gaps: {' '.join(ready)}")
+    print(f"{len(ready)} of {total} with no known gaps: {' '.join(sorted(ready))}")
     print()
     print("To try one, name it alongside the current defaults — the environment")
     print("replaces the list rather than adding to it:")

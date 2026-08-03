@@ -1479,6 +1479,23 @@ static int lua_GetLFGCompletionRewardItem(lua_State* L) {
     return 2;
 }
 
+// TriggerTutorial(id) — show one of the interface's tutorial pop-outs.
+//
+// Tutorials are a saved per-account set of which have been seen, and none of
+// that is kept here, so nothing is shown. Answered rather than left missing
+// because the bag bar fires it whenever a bag is picked up.
+static int lua_TriggerTutorial(lua_State* L) { (void)L; return 0; }
+
+// Quit() — leave the game, as the game menu's Exit button does.
+//
+// The same path /exit takes: a clean logout that ends the process rather than
+// dropping to character select.
+static int lua_Quit(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (gh) gh->requestLogout(/*exitAfterLogout=*/true);
+    return 0;
+}
+
 // ReloadUI() — rebuild the interface, as /reload does.
 //
 // Only asks. The reload shuts this Lua state down and builds a new one, and
@@ -1748,6 +1765,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"JoinBattlefield",          lua_JoinBattlefield},
                 {"GetLFGCompletionReward",     lua_GetLFGCompletionReward},
                 {"GetLFGCompletionRewardItem", lua_GetLFGCompletionRewardItem},
+                {"TriggerTutorial",          lua_TriggerTutorial},
+                {"Quit",                     lua_Quit},
                 {"ReloadUI",                 lua_ReloadUI},
                 {"GetGamma",                 lua_GetGamma},
                 {"SetGamma",                 lua_SetGamma},
