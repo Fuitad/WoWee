@@ -533,6 +533,38 @@ static int lua_PickupContainerItem(lua_State* L) {
 }
 
 // PickupInventoryItem(slot) — picks up an equipped item
+// ClickSendMailItemButton(index, isRightClick) — attach what is held to the
+// letter, or take an attachment back.
+//
+// Lives here rather than with the other mail functions because the cursor
+// does, and this is entirely about the cursor: carrying an item means attach
+// it, carrying nothing means the slot clicked gives its item back to the bags.
+// The attachment index is optional — the drop handler calls this with no
+// arguments at all, meaning "attach to wherever there is room", which is what
+// attachItemFrom* already does.
+static int lua_ClickSendMailItemButton(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+
+    if (s_cursorType == CursorType::ITEM) {
+        // The cursor counts the backpack as bag zero and the worn bags from
+        // one, with slots from one; the attach functions count both from zero.
+        const bool attached = (s_cursorBag == 0)
+            ? gh->attachItemFromBackpack(s_cursorSlot - 1)
+            : (s_cursorBag > 0
+                   ? gh->attachItemFromBag(s_cursorBag - 1, s_cursorSlot - 1)
+                   : false);
+        if (attached) clearCursorItem();
+        return 0;
+    }
+
+    // Nothing held: the click takes an attachment off the letter. Without an
+    // index there is nothing to take off, since the caller meant a drop.
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (index >= 1) gh->detachMailAttachment(index - 1);
+    return 0;
+}
+
 // PickupBagFromSlot(inventorySlot) — pick up or put down a bank bag.
 //
 // The bank's bag buttons hand over an inventory slot rather than an index:
@@ -1143,6 +1175,7 @@ void registerActionLuaAPI(lua_State* L) {
                 {"PickupContainerItem", lua_PickupContainerItem},
                 {"PickupInventoryItem", lua_PickupInventoryItem},
                 {"PickupBagFromSlot",   lua_PickupBagFromSlot},
+                {"ClickSendMailItemButton", lua_ClickSendMailItemButton},
                 {"ClearCursor",         lua_ClearCursor},
                 {"GetCursorInfo",       lua_GetCursorInfo},
                 {"CursorHasItem",       lua_CursorHasItem},
