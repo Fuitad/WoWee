@@ -7,6 +7,7 @@
 #include "game/spell_defines.hpp"
 #include "game/group_defines.hpp"
 #include "game/flat_field_map.hpp"
+#include <array>
 #include <vector>
 #include <cstdint>
 #include <string>
@@ -1236,6 +1237,10 @@ struct GuildRosterMember {
 struct GuildRankInfo {
     uint32_t rights = 0;
     uint32_t goldLimit = 0;
+    // Per guild bank tab, for this rank. The roster has always carried both —
+    // they were read to stay aligned with the packet and then thrown away.
+    std::array<uint32_t, 6> bankTabRights{};
+    std::array<uint32_t, 6> bankTabSlotsPerDay{};
 };
 
 /** SMSG_GUILD_ROSTER data */

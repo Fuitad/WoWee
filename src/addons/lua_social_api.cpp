@@ -693,10 +693,38 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"SetSelectedMute", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GetMuteName",     [](lua_State* L) -> int { return luaReturnNil(L); }},
                 {"DelMute",         [](lua_State* L) -> int { (void)L; return 0; }},
-                // Guild bank rank permissions are not parsed, and guessing them
-                // would offer withdrawals the server will refuse.
-                {"GetGuildBankTabPermissions", [](lua_State* L) -> int { return luaReturnNil(L); }},
-                {"GetGuildBankWithdrawLimit",  [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
+                // GetGuildBankTabPermissions(tab) → canView, canDeposit,
+                //   canUpdateText, withdrawPerDay
+                //
+                // The roster carries these per rank per tab; they were read
+                // past to stay aligned with the packet and discarded. The bits
+                // are view 0x01, deposit 0x02, update text 0x04.
+                {"GetGuildBankTabPermissions", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int tab = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh || tab < 1 || tab > 6) return luaReturnNil(L);
+            const auto& roster = gh->getGuildRoster();
+            const int sel = gh->getSelectedGuildRank();
+            if (sel < 1 || sel > static_cast<int>(roster.ranks.size())) return luaReturnNil(L);
+            const auto& rank = roster.ranks[static_cast<size_t>(sel) - 1];
+            const uint32_t flags = rank.bankTabRights[static_cast<size_t>(tab) - 1];
+            lua_pushboolean(L, (flags & 0x01u) ? 1 : 0);   // 1: canView
+            lua_pushboolean(L, (flags & 0x02u) ? 1 : 0);   // 2: canDeposit
+            lua_pushboolean(L, (flags & 0x04u) ? 1 : 0);   // 3: canUpdateText
+            lua_pushnumber(L, rank.bankTabSlotsPerDay[static_cast<size_t>(tab) - 1]);
+            return 4;
+        }},
+                // GetGuildBankWithdrawLimit() → gold per day for the selected
+                // rank. The roster calls it goldLimit and it was already parsed.
+                {"GetGuildBankWithdrawLimit",  [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) { lua_pushnumber(L, 0); return 1; }
+            const auto& roster = gh->getGuildRoster();
+            const int sel = gh->getSelectedGuildRank();
+            if (sel < 1 || sel > static_cast<int>(roster.ranks.size())) { lua_pushnumber(L, 0); return 1; }
+            lua_pushnumber(L, roster.ranks[static_cast<size_t>(sel) - 1].goldLimit);
+            return 1;
+        }},
                 {"SetGuildBankTabPermissions", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"SetGuildBankTabWithdraw",    [](lua_State* L) -> int { (void)L; return 0; }},
                 {"SetGuildBankWithdrawLimit",  [](lua_State* L) -> int { (void)L; return 0; }},

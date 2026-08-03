@@ -932,11 +932,13 @@ bool GuildRosterParser::parse(network::Packet& packet, GuildRosterData& data) {
         } else {
             data.ranks[i].goldLimit = packet.readUInt32();
         }
-        // 6 bank tab flags + 6 bank tab items per day
+        // 6 bank tab flags + 6 bank tab items per day. Kept rather than read
+        // past: the guild bank panel asks what this rank may do with each tab,
+        // and the rank editor cannot save without sending them back.
         for (int t = 0; t < 6; ++t) {
             if (!packet.hasRemaining(8)) break;
-            packet.readUInt32(); // tabFlags
-            packet.readUInt32(); // tabItemsPerDay
+            data.ranks[i].bankTabRights[t]      = packet.readUInt32();
+            data.ranks[i].bankTabSlotsPerDay[t] = packet.readUInt32();
         }
     }
 
