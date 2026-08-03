@@ -130,6 +130,13 @@ bool frameXmlBuiltOnDemand(std::string_view frameName);
 /// A diagnostic taken at load therefore describes a layout nobody ever sees,
 /// which is worse than none — it looks like an answer. This is how the
 /// diagnostics know to wait for the state being asked about.
+/// Warn about any element that is neither handed over nor suppressed.
+///
+/// Such an element is drawn twice — once by this client and once by FrameXML —
+/// and that is invisible from either list alone, because it is the gap between
+/// them. Fifteen windows sat in that gap before anyone went looking.
+void frameXmlReportUnaccountedElements();
+
 void frameXmlNoteWorldEntry();
 bool frameXmlWorldEntered();
 

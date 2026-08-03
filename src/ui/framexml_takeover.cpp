@@ -239,9 +239,9 @@ std::vector<std::string> frameXmlCandidateFrames() {
     return out;
 }
 
-std::vector<std::string> frameXmlSuppressedFrames() {
-    struct Suppress { UiElement element; const char* frames; };
-    static const Suppress kSuppress[] = {
+namespace {
+struct Suppress { UiElement element; const char* frames; };
+const Suppress kSuppress[] = {
         // The tabs are parented to UIParent rather than to the frame they
         // belong to, so hiding the chat windows leaves a row of tabs behind.
         // The combat log is ChatFrame2 with its own strip of buttons.
@@ -285,6 +285,9 @@ std::vector<std::string> frameXmlSuppressedFrames() {
         // ride on the same frame.
         {UiElement::QuestTracker, "WatchFrame"},
     };
+}  // namespace
+
+std::vector<std::string> frameXmlSuppressedFrames() {
 
     std::vector<std::string> out;
     for (const Suppress& s : kSuppress) {
@@ -301,6 +304,39 @@ std::vector<std::string> frameXmlSuppressedFrames() {
         }
     }
     return out;
+}
+
+void frameXmlReportUnaccountedElements() {
+    // Every element must be one thing or the other: drawn by FrameXML with
+    // this client's version gated off, or drawn by this client with FrameXML's
+    // hidden. An element that is neither is drawn twice, and that is not
+    // visible from either list on its own — it is the gap between them.
+    //
+    // Thirteen windows were in that gap and nobody noticed until they were
+    // looked for: the vendor, the loot window, the bank, the party frames, the
+    // friends list, the quest giver, the gossip list, the mailbox, and then
+    // the trade skill, trainer, auction and guild bank panels once their
+    // addons started loading. The buff bar and the durability warning made
+    // fifteen. Saying so at startup is cheaper than finding the sixteenth the
+    // same way.
+    const std::vector<std::string> suppressed = frameXmlSuppressedFrames();
+    for (const Entry& e : kElements) {
+        if (frameXmlOwns(e.element)) continue;
+        // Suppressed elements contribute frame names; an element that
+        // contributes none while not being owned is unaccounted for.
+        bool hasFrames = false;
+        for (const Suppress& sup : kSuppress) {
+            if (sup.element == e.element && sup.frames && *sup.frames) {
+                hasFrames = true;
+                break;
+            }
+        }
+        if (!hasFrames) {
+            LOG_WARNING("FrameXML: '", e.name, "' is neither handed over nor "
+                        "suppressed — if FrameXML draws it, it is on screen "
+                        "twice");
+        }
+    }
 }
 
 std::vector<std::string> frameXmlCheckFrames() {

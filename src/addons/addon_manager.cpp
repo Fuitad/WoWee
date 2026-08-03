@@ -213,6 +213,9 @@ void AddonManager::loadAllAddons() {
     const bool loadIt = wantFrameXml ? (std::string(wantFrameXml) != "0") : true;
     if (loadIt && !frameXmlDir_.empty()) {
         loadFrameXml(frameXmlDir_);
+        // Said once, after the interface is up: anything neither handed over
+        // nor hidden is about to be on screen twice.
+        ui::frameXmlReportUnaccountedElements();
     }
 
     // Only hand the Lua VM the addons that are actually enabled, so disabled ones
