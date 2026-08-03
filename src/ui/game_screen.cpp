@@ -492,60 +492,106 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     renderUIErrors(gameHandler, ImGui::GetIO().DeltaTime);
     toastManager_.renderEarlyToasts(ImGui::GetIO().DeltaTime, gameHandler);
     if (socialPanel_.showRaidFrames_) {
-        socialPanel_.renderPartyFrames(gameHandler, chatPanel_, spellIconFn);
+        if (!frameXmlOwns(UiElement::PartyFrames)) {
+            socialPanel_.renderPartyFrames(gameHandler, chatPanel_, spellIconFn);
+        }
     }
     socialPanel_.renderBossFrames(gameHandler, spellbookScreen, spellIconFn);
     dialogManager_.renderDialogs(gameHandler, inventoryScreen, chatPanel_);
     socialPanel_.renderGuildRoster(gameHandler, chatPanel_);
-    socialPanel_.renderSocialFrame(gameHandler, chatPanel_);
+    if (!frameXmlOwns(UiElement::Social)) {
+        socialPanel_.renderSocialFrame(gameHandler, chatPanel_);
+    }
     // FrameXML's buff frame is checked as in use beside the minimap cluster,
     // and this one was drawn regardless — two bars of the same auras.
     if (!frameXmlOwns(UiElement::Buffs)) {
         combatUI_.renderBuffBar(gameHandler, spellbookScreen, inventoryScreen, settingsPanel_, spellIconFn);
     }
-    windowManager_.renderLootWindow(gameHandler, inventoryScreen, chatPanel_);
-    windowManager_.renderGossipWindow(gameHandler, chatPanel_);
-    windowManager_.renderQuestDetailsWindow(gameHandler, chatPanel_, inventoryScreen);
-    windowManager_.renderQuestRequestItemsWindow(gameHandler, chatPanel_, inventoryScreen);
-    windowManager_.renderQuestOfferRewardWindow(gameHandler, chatPanel_, inventoryScreen);
-    windowManager_.renderVendorWindow(gameHandler, inventoryScreen, chatPanel_);
-    windowManager_.renderTrainerWindow(gameHandler,
-        [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); },
-        inventoryScreen);
-    windowManager_.renderCraftingWindow(gameHandler,
-        [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); },
-        inventoryScreen);
-    windowManager_.renderBarberShopWindow(gameHandler);
-    windowManager_.renderStableWindow(gameHandler);
+    if (!frameXmlOwns(UiElement::Loot)) {
+        windowManager_.renderLootWindow(gameHandler, inventoryScreen, chatPanel_);
+    }
+    if (!frameXmlOwns(UiElement::Gossip)) {
+        windowManager_.renderGossipWindow(gameHandler, chatPanel_);
+    }
+    if (!frameXmlOwns(UiElement::QuestGiver)) {
+        windowManager_.renderQuestDetailsWindow(gameHandler, chatPanel_, inventoryScreen);
+    }
+    if (!frameXmlOwns(UiElement::QuestGiver)) {
+        windowManager_.renderQuestRequestItemsWindow(gameHandler, chatPanel_, inventoryScreen);
+    }
+    if (!frameXmlOwns(UiElement::QuestGiver)) {
+        windowManager_.renderQuestOfferRewardWindow(gameHandler, chatPanel_, inventoryScreen);
+    }
+    if (!frameXmlOwns(UiElement::Vendor)) {
+        windowManager_.renderVendorWindow(gameHandler, inventoryScreen, chatPanel_);
+    }
+    if (!frameXmlOwns(UiElement::ClassTrainer)) {
+        windowManager_.renderTrainerWindow(gameHandler,
+            [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); },
+            inventoryScreen);
+    }
+    if (!frameXmlOwns(UiElement::TradeSkill)) {
+        windowManager_.renderCraftingWindow(gameHandler,
+            [this](uint32_t id, pipeline::AssetManager* am) { return getSpellIcon(id, am); },
+            inventoryScreen);
+    }
+    if (!frameXmlOwns(UiElement::BarberShop)) {
+        windowManager_.renderBarberShopWindow(gameHandler);
+    }
+    if (!frameXmlOwns(UiElement::Stable)) {
+        windowManager_.renderStableWindow(gameHandler);
+    }
     // Flight selection is handled by the world map's flight-map mode (see
     // renderWorldMap); the legacy list window remains as a fallback when the
     // world map system is unavailable.
     {
         auto* mapRenderer = core::Application::getInstance().getRenderer();
         if (!mapRenderer || !mapRenderer->getWorldMap()) {
-            windowManager_.renderTaxiWindow(gameHandler);
+            if (!frameXmlOwns(UiElement::Taxi)) {
+                windowManager_.renderTaxiWindow(gameHandler);
+            }
         }
     }
-    windowManager_.renderMailWindow(gameHandler, inventoryScreen, chatPanel_);
-    windowManager_.renderMailComposeWindow(gameHandler, inventoryScreen);
-    if (windowManager_.renderBankWindow(gameHandler, inventoryScreen, chatPanel_))
-        saveSettings();
-    windowManager_.renderGuildBankWindow(gameHandler, inventoryScreen, chatPanel_);
+    if (!frameXmlOwns(UiElement::Mail)) {
+        windowManager_.renderMailWindow(gameHandler, inventoryScreen, chatPanel_);
+    }
+    if (!frameXmlOwns(UiElement::Mail)) {
+        windowManager_.renderMailComposeWindow(gameHandler, inventoryScreen);
+    }
+    if (!frameXmlOwns(UiElement::Bank)) {
+        if (windowManager_.renderBankWindow(gameHandler, inventoryScreen, chatPanel_))
+            saveSettings();
+    }
+    if (!frameXmlOwns(UiElement::GuildBank)) {
+        windowManager_.renderGuildBankWindow(gameHandler, inventoryScreen, chatPanel_);
+    }
     windowManager_.renderGmCommandScreen(gameHandler);
-    windowManager_.renderAuctionHouseWindow(gameHandler, inventoryScreen, chatPanel_);
+    if (!frameXmlOwns(UiElement::AuctionHouse)) {
+        windowManager_.renderAuctionHouseWindow(gameHandler, inventoryScreen, chatPanel_);
+    }
     socialPanel_.renderDungeonFinderWindow(gameHandler, chatPanel_);
     windowManager_.renderInstanceLockouts(gameHandler);
     socialPanel_.renderWhoWindow(gameHandler, chatPanel_);
     combatUI_.renderCombatLog(gameHandler, spellbookScreen);
-    windowManager_.renderAchievementWindow(gameHandler);
+    if (!frameXmlOwns(UiElement::Achievements)) {
+        windowManager_.renderAchievementWindow(gameHandler);
+    }
     windowManager_.renderSkillsWindow(gameHandler);
     windowManager_.renderTitlesWindow(gameHandler);
     windowManager_.renderEquipSetWindow(gameHandler);
-    windowManager_.renderGmTicketWindow(gameHandler);
-    socialPanel_.renderInspectWindow(gameHandler, inventoryScreen);
-    windowManager_.renderBookWindow(gameHandler);
+    if (!frameXmlOwns(UiElement::Help)) {
+        windowManager_.renderGmTicketWindow(gameHandler);
+    }
+    if (!frameXmlOwns(UiElement::Inspect)) {
+        socialPanel_.renderInspectWindow(gameHandler, inventoryScreen);
+    }
+    if (!frameXmlOwns(UiElement::Book)) {
+        windowManager_.renderBookWindow(gameHandler);
+    }
     combatUI_.renderThreatWindow(gameHandler);
-    combatUI_.renderBgScoreboard(gameHandler);
+    if (!frameXmlOwns(UiElement::BattlegroundScore)) {
+        combatUI_.renderBgScoreboard(gameHandler);
+    }
     if (showMinimap_ && !frameXmlOwns(UiElement::Minimap)) {
         renderMinimapMarkers(gameHandler);
     }
@@ -554,8 +600,12 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     windowManager_.renderReclaimCorpseButton(gameHandler);
     dialogManager_.renderLateDialogs(gameHandler);
     chatPanel_.renderBubbles(gameHandler);
-    windowManager_.renderEscapeMenu(settingsPanel_);
-    settingsPanel_.renderSettingsWindow(inventoryScreen, chatPanel_, [this]() { saveSettings(); });
+    if (!frameXmlOwns(UiElement::GameMenu)) {
+        windowManager_.renderEscapeMenu(settingsPanel_);
+    }
+    if (!frameXmlOwns(UiElement::GameMenu)) {
+        settingsPanel_.renderSettingsWindow(inventoryScreen, chatPanel_, [this]() { saveSettings(); });
+    }
     toastManager_.renderLateToasts(gameHandler);
     renderWeatherOverlay(gameHandler);
 
