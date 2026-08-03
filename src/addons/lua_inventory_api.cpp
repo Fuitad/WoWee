@@ -727,6 +727,99 @@ static int lua_GetInventoryItemsForSlot(lua_State* L) {
     return 0;
 }
 
+
+// --- Items named rather than pointed at ---
+//
+// /use and /equip take what the player typed, so these accept a name or a link
+// and look through what is carried. A link is preferred when given, because two
+// items can share a name and only the link says which.
+
+/// The first carried item whose id or name matches, or zero.
+static uint32_t carriedItemMatching(game::GameHandler* gh, lua_State* L, int arg) {
+    if (!gh) return 0;
+    const uint32_t byId = itemIdFromArg(L, arg);
+    std::string byName = lua_isstring(L, arg) ? lua_tostring(L, arg) : "";
+    // A link parsed to an id above; treat the text as a name only otherwise.
+    if (byId != 0) byName.clear();
+
+    const auto& inv = gh->getInventory();
+    auto matches = [&](uint32_t itemId) {
+        if (itemId == 0) return false;
+        if (byId != 0) return itemId == byId;
+        if (byName.empty()) return false;
+        const auto* info = gh->getItemInfo(itemId);
+        return info && info->name == byName;
+    };
+    for (int i = 0; i < inv.getBackpackSize(); ++i) {
+        const auto& sl = inv.getBackpackSlot(i);
+        if (!sl.empty() && matches(sl.item.itemId)) return sl.item.itemId;
+    }
+    for (int bag = 0; bag < game::Inventory::NUM_BAG_SLOTS; ++bag) {
+        for (int i = 0; i < inv.getBagSize(bag); ++i) {
+            const auto& sl = inv.getBagSlot(bag, i);
+            if (!sl.empty() && matches(sl.item.itemId)) return sl.item.itemId;
+        }
+    }
+    return 0;
+}
+
+// UseItemByName(item) — what /use does
+static int lua_UseItemByName(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const uint32_t itemId = carriedItemMatching(gh, L, 1);
+    if (gh && itemId != 0) gh->useItemById(itemId);
+    return 0;
+}
+
+// EquipItemByName(item) — what /equip does
+static int lua_EquipItemByName(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+    const uint32_t itemId = carriedItemMatching(gh, L, 1);
+    if (itemId == 0) return 0;
+    const auto& inv = gh->getInventory();
+    for (int i = 0; i < inv.getBackpackSize(); ++i) {
+        const auto& sl = inv.getBackpackSlot(i);
+        if (!sl.empty() && sl.item.itemId == itemId) { gh->autoEquipItemBySlot(i); return 0; }
+    }
+    for (int bag = 0; bag < game::Inventory::NUM_BAG_SLOTS; ++bag) {
+        for (int i = 0; i < inv.getBagSize(bag); ++i) {
+            const auto& sl = inv.getBagSlot(bag, i);
+            if (!sl.empty() && sl.item.itemId == itemId) {
+                gh->autoEquipItemInBag(bag, i);
+                return 0;
+            }
+        }
+    }
+    return 0;
+}
+
+// IsEquippableItem(item) — whether it has a slot to go in at all
+static int lua_IsEquippableItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const uint32_t itemId = itemIdFromArg(L, 1);
+    const auto* info = (gh && itemId) ? gh->getItemInfo(itemId) : nullptr;
+    // Zero is "nowhere to wear it" — reagents, food, quest items.
+    lua_pushboolean(L, (info && info->inventoryType != 0) ? 1 : 0);
+    return 1;
+}
+
+// IsEquippedItem(item) — whether it is being worn right now
+static int lua_IsEquippedItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const uint32_t itemId = itemIdFromArg(L, 1);
+    bool worn = false;
+    if (gh && itemId != 0) {
+        const auto& inv = gh->getInventory();
+        for (int i = 0; i < kEquipSlots && !worn; ++i) {
+            const auto& sl = inv.getEquipSlot(static_cast<game::EquipSlot>(i));
+            worn = !sl.empty() && sl.item.itemId == itemId;
+        }
+    }
+    lua_pushboolean(L, worn ? 1 : 0);
+    return 1;
+}
+
 // GetNumEquipmentSets() → how many are saved
 static int lua_GetNumEquipmentSets(lua_State* L) {
     loadEquipmentSets();
@@ -1725,6 +1818,10 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"BankButtonIDToInvSlotID", lua_BankButtonIDToInvSlotID},
                 {"CloseBankFrame",      lua_CloseBankFrame},
                 {"UseInventoryItem",    lua_UseInventoryItem},
+                {"UseItemByName",       lua_UseItemByName},
+                {"EquipItemByName",     lua_EquipItemByName},
+                {"IsEquippableItem",    lua_IsEquippableItem},
+                {"IsEquippedItem",      lua_IsEquippedItem},
                 {"GetInventoryItemsForSlot", lua_GetInventoryItemsForSlot},
                 {"GetNumEquipmentSets", lua_GetNumEquipmentSets},
                 {"GetEquipmentSetInfo", lua_GetEquipmentSetInfo},

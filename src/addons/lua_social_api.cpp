@@ -810,6 +810,11 @@ void registerSocialLuaAPI(lua_State* L) {
                 // what the real client does, so a definite no keeps that.
                 {"AddOrRemoveFriend",   lua_AddOrRemoveFriend},
                 {"AddOrDelIgnore",      lua_AddOrDelIgnore},
+                // DoReadyCheck() — what /readycheck does
+                {"DoReadyCheck", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->initiateReadyCheck();
+            return 0;
+        }},
                 {"AcceptGroup",         lua_AcceptGroup},
                 {"DeclineGroup",        lua_DeclineGroup},
                 {"AcceptGuild",         lua_AcceptGuild},
