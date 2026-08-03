@@ -4,6 +4,16 @@
 
 Work on the `framexml-ui-transition` branch. None of this is in a tagged build yet.
 
+### Added — things that could be seen but not done
+- **A party invitation could not be accepted.** Nor a guild invitation, a resurrect, or a duel: all four popups already appeared, and none of their eight buttons was connected to anything
+- **The death popup announced the death and offered no way out of it** — releasing the spirit and resurrecting at the corpse both do something now
+- **The mailbox** reads letters, takes coin and attachments, deletes, returns and sends. An attachment is asked for by its own id rather than by where it sits in the letter, which is what the request carries
+- **The trade window** shows what each side has offered and lets items be placed and taken back. The other side's slots stay read-only
+- **Equipment sets**, kept on this side rather than on the server, since nothing here can ask the server for them. A set does not follow the character to another install; everything else about it behaves
+- **The character sheet offers what fits a slot** when one is clicked, and **shows what a quest pays** in the quest log
+- `/friend`, `/ignore`, `/use`, `/equip`, `/readycheck`, `/dismount` and `/script` all reach something now. Both list commands toggle, so naming someone already on the list takes them off it
+- **Names complete themselves** as a whisper or mail address is typed, from the group, the guild and the friends list
+
 ### Fixed — errors the interface raised on its own
 These are the ones that stopped something working rather than leaving it empty. A missing function is mostly harmless, because an undefined global answers nil and nil reads as false in a condition; what breaks the interface is a function that exists and is the wrong shape, because Lua raises rather than shrugging.
 - **Abandoning a quest from the quest log.** `AbandonQuest()` is called with no arguments and the binding demanded one, which raises rather than returning nothing, so it had never once worked. Abandoning is also two steps — the log marks the quest, a confirmation shows its name — and only the second existed
@@ -13,6 +23,16 @@ These are the ones that stopped something working rather than leaving it empty. 
 - **Dying.** `GetReleaseTimeRemaining` is asked for the moment the player dies and compared against zero
 - **Hovering the performance bar**, which adds up what every loaded addon uses
 - **Following a player**, whose name was in scope at the call and not passed
+- **Selecting anything a trainer offers**, which read a third cost the binding never returned
+- **Opening the mail**, every time a letter arrived
+- **Confirming a profession** at a trainer
+- **The talent frame the moment a point was staged**, which is how talents are spent at all
+- **Hovering the performance bar**, which adds up what every loaded addon uses
+
+### Fixed — drawn wrongly rather than not at all
+- **Every pet ability was greyed out**, because the frame asks whether a slot is usable and nothing answered
+- **The right-click menu disabled duelling, trading and inviting**, because it asks whether the player is in control of their own character
+- **A message frame kept a hundred and twenty-eight lines** whatever it asked for; twenty-two of them ask for three, and drew far past their own box
 
 ### Fixed — drawn twice
 A window whose functions all return nil stays empty and unnoticed, and appears the moment they start answering. Finishing three APIs opened three windows that had been quietly present.
