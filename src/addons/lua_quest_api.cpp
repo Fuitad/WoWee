@@ -18,6 +18,62 @@ static int lua_GetNumQuestLogEntries(lua_State* L) {
 }
 
 // GetQuestLogTitle(index) → title, level, suggestedGroup, isHeader, isCollapsed, isComplete, frequency, questID
+// ---- The quest info panel's reward block ----
+//
+// Shared by the quest giver and the quest log, so a raise here takes both down.
+// None of these appeared in a scan of either frame's own file, because the
+// panel that draws the rewards is a third file they both pull in.
+
+// GetQuestLogTimeLeft() → seconds left on the selected quest, or nil.
+// Backed by the same PLAYER_QUEST_LOG expiry the tracker's timers read.
+static int lua_GetQuestLogTimeLeft(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return luaReturnNil(L);
+    const int sel = gh->getSelectedQuestLogIndex();
+    const auto& ql = gh->getQuestLog();
+    if (sel < 1 || sel > static_cast<int>(ql.size())) return luaReturnNil(L);
+    const uint32_t questId = ql[static_cast<size_t>(sel) - 1].questId;
+    for (const auto& t : gh->getQuestTimers()) {
+        if (t.first == questId) { lua_pushnumber(L, t.second); return 1; }
+    }
+    return luaReturnNil(L);   // not a timed quest
+}
+
+// Whether the quest being looked at has been failed. Failure is not tracked —
+// GetQuestLogTitle reports complete or not and nothing else — so no quest reads
+// as failed rather than every quest reading as one.
+static int lua_IsCurrentQuestFailed(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+
+// The spell, title and faction rewards a quest can carry. The query response
+// this client parses parses none of them, and each is asked behind `if ( ... )`
+// before its block is drawn — so nil leaves the block out rather than drawing
+// an empty one.
+static int lua_GetQuestRewardSpell(lua_State* L) { (void)L; return luaReturnNil(L); }
+static int lua_GetQuestRewardTitle(lua_State* L) { (void)L; return luaReturnNil(L); }
+static int lua_ProcessQuestLogRewardFactions(lua_State* L) { (void)L; return 0; }
+static int lua_GetQuestLogRewardFactionInfo(lua_State* L) { (void)L; return luaReturnNil(L); }
+
+// GetFactionInfoByID(id) → name, description, standingId, barMin, barMax, barValue
+//
+// The same answer GetFactionInfo gives by position, found by faction id
+// instead. The reputation list carries the id already.
+static int lua_GetFactionInfoByID(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+    if (!gh || id == 0) return luaReturnNil(L);
+    for (const auto& r : gh->getReputationList()) {
+        if (r.factionId != id) continue;
+        lua_pushstring(L, r.name.c_str());   // 1: name
+        lua_pushnil(L);                      // 2: description
+        lua_pushnil(L);                      // 3: standingId
+        lua_pushnil(L);                      // 4: barMin
+        lua_pushnil(L);                      // 5: barMax
+        lua_pushnil(L);                      // 6: barValue
+        return 6;
+    }
+    return luaReturnNil(L);
+}
+
 // ---- Quest watch ordering ----
 //
 // The watch list here is a set of quest ids, so its order is the quest log's
@@ -1588,6 +1644,15 @@ static int lua_GetQuestSpellLink(lua_State* L) {
 void registerQuestLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"GetNumQuestLogEntries",   lua_GetNumQuestLogEntries},
+                {"GetQuestLogTimeLeft",     lua_GetQuestLogTimeLeft},
+                {"IsCurrentQuestFailed",    lua_IsCurrentQuestFailed},
+                {"GetQuestLogRewardSpell",  lua_GetQuestRewardSpell},
+                {"GetRewardSpell",          lua_GetQuestRewardSpell},
+                {"GetRewardTitle",          lua_GetQuestRewardTitle},
+                {"GetQuestLogRewardTitle",  lua_GetQuestRewardTitle},
+                {"ProcessQuestLogRewardFactions", lua_ProcessQuestLogRewardFactions},
+                {"GetQuestLogRewardFactionInfo",  lua_GetQuestLogRewardFactionInfo},
+                {"GetFactionInfoByID",      lua_GetFactionInfoByID},
                 {"GetQuestWatchIndex",      lua_GetQuestWatchIndex},
                 {"SortQuestWatches",        lua_SortQuestWatches},
                 {"ShiftQuestWatches",       lua_ShiftQuestWatches},
