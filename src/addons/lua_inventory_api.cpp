@@ -1036,10 +1036,75 @@ static int lua_PutItemInBackpack(lua_State* L) {
 /// undo; it exists because the interface calls it on every mouse-leave.
 static int lua_ResetCursor(lua_State* L) { (void)L; return 0; }
 
+/// Coin as words, for the name of the money slot: "1 Gold, 20 Silver".
+/// Empty denominations are left out rather than shown as zero.
+static std::string lootCoinText(uint32_t copper) {
+    const uint32_t g = copper / 10000, s = (copper / 100) % 100, c = copper % 100;
+    std::string out;
+    auto add = [&out](uint32_t v, const char* unit) {
+        if (v == 0) return;
+        if (!out.empty()) out += ", ";
+        out += std::to_string(v);
+        out += ' ';
+        out += unit;
+    };
+    add(g, "Gold");
+    add(s, "Silver");
+    add(c, "Copper");
+    return out;
+}
+
+/// Money occupies a loot slot in the interface but not on the wire.
+///
+/// The real client shows coin as the first slot when there is any, with the
+/// items after it, and the loot frame asks LootSlotIsCoin which one it is
+/// looking at. The server numbers only the items, so every slot here is
+/// translated before it is sent — which LootSlot already did by carrying
+/// LootItem::slotIndex rather than the display position.
+static bool lootHasCoin(game::GameHandler* gh) {
+    return gh && gh->isLootWindowOpen() && gh->getCurrentLoot().gold > 0;
+}
+
+/// The item behind a display slot, or null when the slot is the coin or past
+/// the end.
+static const game::LootItem* lootItemAtSlot(game::GameHandler* gh, int slot) {
+    if (!gh || !gh->isLootWindowOpen() || slot < 1) return nullptr;
+    const auto& loot = gh->getCurrentLoot();
+    const int itemIndex = lootHasCoin(gh) ? slot - 1 : slot;   // 1-based already
+    if (itemIndex < 1 || itemIndex > static_cast<int>(loot.items.size())) return nullptr;
+    return &loot.items[itemIndex - 1];
+}
+
+// LootSlotIsCoin(slot) → whether this slot is the money
+static int lua_LootSlotIsCoin(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
+    lua_pushboolean(L, (lootHasCoin(gh) && slot == 1) ? 1 : 0);
+    return 1;
+}
+
+// LootSlotIsItem(slot) → whether this slot is a real item
+static int lua_LootSlotIsItem(lua_State* L) {
+    lua_pushboolean(L, lootItemAtSlot(getGameHandler(L),
+                                      static_cast<int>(luaL_optnumber(L, 1, 0))) ? 1 : 0);
+    return 1;
+}
+
+// IsFishingLoot() → whether this came out of the water
+static int lua_IsFishingLoot(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    // LOOT_TYPE_FISHING, as the server sends it.
+    const bool fishing = gh && gh->isLootWindowOpen() &&
+                         gh->getCurrentLoot().lootType == 2;
+    lua_pushboolean(L, fishing ? 1 : 0);
+    return 1;
+}
+
 static int lua_GetNumLootItems(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh || !gh->isLootWindowOpen()) { return luaReturnZero(L); }
-    lua_pushnumber(L, gh->getCurrentLoot().items.size());
+    // Coin counts as a slot, which is what the loot frame iterates over.
+    lua_pushnumber(L, gh->getCurrentLoot().items.size() + (lootHasCoin(gh) ? 1 : 0));
     return 1;
 }
 
@@ -1051,10 +1116,19 @@ static int lua_GetLootSlotInfo(lua_State* L) {
         return luaReturnNil(L);
     }
     const auto& loot = gh->getCurrentLoot();
-    if (slot < 1 || slot > static_cast<int>(loot.items.size())) {
-        return luaReturnNil(L);
+    if (lootHasCoin(gh) && slot == 1) {
+        // The coin slot describes itself: the interface shows the amount as the
+        // name and has a texture of its own for it.
+        lua_pushstring(L, "Interface\\Icons\\INV_Misc_Coin_01");
+        lua_pushstring(L, lootCoinText(loot.gold).c_str());
+        lua_pushnumber(L, loot.gold);
+        lua_pushnumber(L, 1);
+        lua_pushboolean(L, 0);
+        return 5;
     }
-    const auto& item = loot.items[slot - 1];
+    const auto* itemPtr = lootItemAtSlot(gh, slot);
+    if (!itemPtr) { return luaReturnNil(L); }
+    const auto& item = *itemPtr;
     const auto* info = gh->getItemInfo(item.itemId);
 
     // texture (icon path from ItemDisplayInfo.dbc)
@@ -1080,11 +1154,9 @@ static int lua_GetLootSlotLink(lua_State* L) {
     auto* gh = getGameHandler(L);
     int slot = static_cast<int>(luaL_checknumber(L, 1));
     if (!gh || !gh->isLootWindowOpen()) { return luaReturnNil(L); }
-    const auto& loot = gh->getCurrentLoot();
-    if (slot < 1 || slot > static_cast<int>(loot.items.size())) {
-        return luaReturnNil(L);
-    }
-    const auto& item = loot.items[slot - 1];
+    const auto* itemPtr = lootItemAtSlot(gh, slot);
+    if (!itemPtr) { return luaReturnNil(L); }   // coin has no link
+    const auto& item = *itemPtr;
     const auto* info = gh->getItemInfo(item.itemId);
     if (!info || info->name.empty()) { return luaReturnNil(L); }
 
@@ -1101,9 +1173,11 @@ static int lua_LootSlot(lua_State* L) {
     auto* gh = getGameHandler(L);
     int slot = static_cast<int>(luaL_checknumber(L, 1));
     if (!gh || !gh->isLootWindowOpen()) return 0;
-    const auto& loot = gh->getCurrentLoot();
-    if (slot < 1 || slot > static_cast<int>(loot.items.size())) return 0;
-    gh->lootItem(loot.items[slot - 1].slotIndex);
+    if (lootHasCoin(gh) && slot == 1) { gh->lootMoney(); return 0; }
+    if (const auto* item = lootItemAtSlot(gh, slot)) {
+        // The server's own slot number, not the position on screen.
+        gh->lootItem(item->slotIndex);
+    }
     return 0;
 }
 
@@ -1208,6 +1282,9 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetLootSlotInfo",     lua_GetLootSlotInfo},
                 {"GetLootSlotLink",     lua_GetLootSlotLink},
                 {"LootSlot",            lua_LootSlot},
+                {"LootSlotIsCoin",      lua_LootSlotIsCoin},
+                {"LootSlotIsItem",      lua_LootSlotIsItem},
+                {"IsFishingLoot",       lua_IsFishingLoot},
                 {"CloseLoot",           lua_CloseLoot},
                 {"GetLootMethod",       lua_GetLootMethod},
                 {"GetLootThreshold",    lua_GetLootThreshold},

@@ -2312,6 +2312,10 @@ void GameHandler::lootItem(uint8_t slotIndex) {
     if (inventoryHandler_) inventoryHandler_->lootItem(slotIndex);
 }
 
+void GameHandler::lootMoney() {
+    if (inventoryHandler_) inventoryHandler_->lootMoney();
+}
+
 void GameHandler::closeLoot() {
     if (inventoryHandler_) inventoryHandler_->closeLoot();
 }

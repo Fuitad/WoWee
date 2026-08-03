@@ -1567,6 +1567,7 @@ public:
     // ---- Loot ----
     void lootTarget(uint64_t guid);
     void lootItem(uint8_t slotIndex);
+    void lootMoney();
     void closeLoot();
     void scheduleGameObjectLootOpen(uint64_t guid, float delaySeconds = 0.35f, uint8_t attempts = 1);
 

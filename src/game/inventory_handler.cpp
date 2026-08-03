@@ -822,6 +822,12 @@ void InventoryHandler::lootItem(uint8_t slotIndex) {
     owner_.getSocket()->send(packet);
 }
 
+void InventoryHandler::lootMoney() {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    auto packet = LootMoneyPacket::build();
+    owner_.getSocket()->send(packet);
+}
+
 void InventoryHandler::closeLoot() {
     if (!lootWindowOpen_) return;
     const uint64_t lootGuid = currentLoot_.lootGuid;

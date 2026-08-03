@@ -82,6 +82,10 @@ public:
     // ---- Loot ----
     void lootTarget(uint64_t targetGuid);
     void lootItem(uint8_t slotIndex);
+    /// Take the coin on the corpse. Its own request, with no slot:
+    /// money is not one of the numbered loot slots on the wire even
+    /// though the interface shows it as one.
+    void lootMoney();
     void closeLoot();
     bool isLootWindowOpen() const { return lootWindowOpen_; }
     const LootResponseData& getCurrentLoot() const { return currentLoot_; }
