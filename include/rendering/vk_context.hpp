@@ -78,6 +78,9 @@ public:
     // Batch upload mode: records multiple upload commands into a single
     // command buffer, then submits with ONE fence wait instead of one per upload.
     void beginUploadBatch();
+    /// Opens the batch command buffer on first record, so a batch that
+    /// nothing writes to never allocates one.
+    void ensureBatchCmd();
     void endUploadBatch();       // Async: submits but does NOT wait for fence
     void endUploadBatchSync();   // Sync: submits and waits (for load screens)
     bool isInUploadBatch() const { return inUploadBatch_; }

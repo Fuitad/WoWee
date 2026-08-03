@@ -2364,8 +2364,10 @@ void VkContext::endSingleTimeCommands(VkCommandBuffer cmd) {
 
 void VkContext::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) {
     if (inUploadBatch_) {
-        // Record into the batch command buffer — no submit, no fence wait
-        function(batchCmd_);
+        // Record into the batch command buffer — no submit, no fence wait.
+        // Opened on demand, so a batch nothing writes to costs nothing.
+        ensureBatchCmd();
+        if (batchCmd_ != VK_NULL_HANDLE) function(batchCmd_);
         return;
     }
     VkCommandBuffer cmd = beginSingleTimeCommands();
@@ -2377,8 +2379,20 @@ void VkContext::beginUploadBatch() {
     uploadBatchDepth_++;
     if (inUploadBatch_) return; // already in a batch (nested call)
     inUploadBatch_ = true;
+    // The command buffer is not allocated here.
+    //
+    // A batch now wraps the whole interface render, which happens every frame
+    // and usually uploads nothing at all. Allocating and freeing a command
+    // buffer to record nothing into, sixty times a second, is churn the pool
+    // does not need. ensureBatchCmd() opens one the first time something
+    // actually records, and the end calls treat a null buffer as an empty
+    // batch.
+}
 
-    // Allocate from transfer pool if available, otherwise from immCommandPool.
+/// Opens the batch's command buffer if nothing has recorded into one yet.
+void VkContext::ensureBatchCmd() {
+    if (batchCmd_ != VK_NULL_HANDLE) return;
+    // From the transfer pool where there is one, otherwise the immediate pool.
     VkCommandPool pool = hasDedicatedTransfer_ ? transferCommandPool_ : immCommandPool;
 
     VkCommandBufferAllocateInfo allocInfo{};
@@ -2386,7 +2400,10 @@ void VkContext::beginUploadBatch() {
     allocInfo.commandPool = pool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = 1;
-    vkAllocateCommandBuffers(device, &allocInfo, &batchCmd_);
+    if (vkAllocateCommandBuffers(device, &allocInfo, &batchCmd_) != VK_SUCCESS) {
+        batchCmd_ = VK_NULL_HANDLE;
+        return;
+    }
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -2400,6 +2417,13 @@ void VkContext::endUploadBatch() {
     if (uploadBatchDepth_ > 0) return; // still inside an outer batch
 
     inUploadBatch_ = false;
+
+    // Nothing ever recorded, so there is nothing to end, submit or free.
+    if (batchCmd_ == VK_NULL_HANDLE) {
+        batchStagingBuffers_.clear();
+        batchRawStaging_.clear();
+        return;
+    }
 
     VkCommandPool pool = hasDedicatedTransfer_ ? transferCommandPool_ : immCommandPool;
 
@@ -2462,6 +2486,13 @@ void VkContext::endUploadBatchSync() {
     if (uploadBatchDepth_ > 0) return;
 
     inUploadBatch_ = false;
+
+    // Nothing ever recorded, so there is nothing to end, submit or free.
+    if (batchCmd_ == VK_NULL_HANDLE) {
+        batchStagingBuffers_.clear();
+        batchRawStaging_.clear();
+        return;
+    }
 
     VkCommandPool pool = hasDedicatedTransfer_ ? transferCommandPool_ : immCommandPool;
 
