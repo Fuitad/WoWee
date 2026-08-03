@@ -15,7 +15,7 @@ namespace {
 struct Entry { UiElement element; std::string_view name; };
 
 // One row per element, and the only place a name is written down.
-constexpr std::array<Entry, 34> kElements{{
+constexpr std::array<Entry, 39> kElements{{
     {UiElement::PlayerFrame,  "playerframe"},
     {UiElement::TargetFrame,  "targetframe"},
     {UiElement::PetFrame,     "petframe"},
@@ -50,6 +50,11 @@ constexpr std::array<Entry, 34> kElements{{
     {UiElement::Inspect,      "inspect"},
     {UiElement::Buffs,        "buffs"},
     {UiElement::Durability,   "durability"},
+    {UiElement::Achievements, "achievements"},
+    {UiElement::BarberShop,   "barbershop"},
+    {UiElement::Taxi,         "taxi"},
+    {UiElement::Stable,       "stable"},
+    {UiElement::Book,         "book"},
 }};
 
 /// Parsed once. An unknown name is reported rather than dropped: a typo would
@@ -281,6 +286,19 @@ const Suppress kSuppress[] = {
         {UiElement::AuctionHouse, "AuctionFrame"},
         {UiElement::GuildBank,    "GuildBankFrame"},
         {UiElement::Inspect,      "InspectFrame"},
+        // BARBER_SHOP_OPEN is fired and the achievements micro button belongs
+        // to the bar this branch has taken over, so both of these can open
+        // beside the client's own.
+        {UiElement::Achievements, "AchievementFrame"},
+        {UiElement::BarberShop,   "BarberShopFrame"},
+        // These three cannot appear yet: TAXIMAP_OPENED, PET_STABLE_SHOW and
+        // ITEM_TEXT_BEGIN are not fired. Named anyway, because that is a fact
+        // about what this client reaches rather than a decision about which
+        // window should win, and firing any of those events later would
+        // otherwise put a second window on screen with nothing to say why.
+        {UiElement::Taxi,         "TaxiFrame"},
+        {UiElement::Stable,       "PetStableFrame"},
+        {UiElement::Book,         "ItemTextFrame"},
         // WatchFrameTitle is the "Objectives" label, and the buttons beside it
         // ride on the same frame.
         {UiElement::QuestTracker, "WatchFrame"},

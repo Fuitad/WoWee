@@ -77,6 +77,15 @@ enum class UiElement {
     /// DurabilityFrame is checked as in use and this client drew its own
     /// warning beside it.
     Durability,
+    /// Windows this client draws that FrameXML also has. The last three cannot
+    /// appear today because the events that would show them are not fired —
+    /// but that is a fact about the client's current reach, not a decision,
+    /// and it would stop being true the moment someone fired one.
+    Achievements,
+    BarberShop,
+    Taxi,
+    Stable,
+    Book,
 };
 
 /// True when FrameXML is drawing this instead, so the client should not.
