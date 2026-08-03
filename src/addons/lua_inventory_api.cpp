@@ -430,7 +430,21 @@ static int lua_GetItemInfo(lua_State* L) {
     if (itemId == 0) { return luaReturnNil(L); }
 
     const auto* info = gh->getItemInfo(itemId);
-    if (!info) { return luaReturnNil(L); }
+    if (!info) {
+    // Ask the server for it rather than only reporting its absence.
+    //
+    // An item template arrives from the server, and until it does this
+    // answered nil and left it at that — so hovering anything the client had
+    // not already seen gave a name and nothing else, permanently. The real
+    // client sends CMSG_ITEM_QUERY_SINGLE on exactly this miss.
+    //
+    // Safe to call on every miss: queryItemInfo drops the request if one is
+    // already pending or the entry is cached, and does nothing out of world.
+    // GameTooltip re-runs its owner's UpdateTooltip every TOOLTIP_UPDATE_TIME,
+    // so the lines appear on their own once the reply lands.
+        gh->queryItemInfo(itemId, 0);
+        return luaReturnNil(L);
+    }
 
     lua_pushstring(L, info->name.c_str());          // 1: name
     // Build item link with quality-colored text
@@ -1268,7 +1282,12 @@ static int lua_GetItemTooltipData(lua_State* L) {
     uint32_t itemId = static_cast<uint32_t>(luaL_checknumber(L, 1));
     if (!gh || itemId == 0) { return luaReturnNil(L); }
     const auto* info = gh->getItemInfo(itemId);
-    if (!info) { return luaReturnNil(L); }
+    if (!info) {
+        // Same miss, same request — this is the path a tooltip takes for its
+        // stats, and it was the one leaving rings reading "Miscellaneous".
+        gh->queryItemInfo(itemId, 0);
+        return luaReturnNil(L);
+    }
 
     lua_newtable(L);
     // Unique / Heroic flags

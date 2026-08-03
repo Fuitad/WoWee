@@ -2878,7 +2878,7 @@ public:
     void loadSpellNameCache() const;
     void loadFactionNameCache() const;
     void loadAchievementNameCache();
-    void loadSkillLineDbc();
+    void loadSkillLineDbc() const;
     void loadSkillLineAbilityDbc();
     std::string getFactionName(uint32_t factionId) const;
     std::string getLfgDungeonName(uint32_t dungeonId) const;

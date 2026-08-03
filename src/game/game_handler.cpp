@@ -1079,6 +1079,12 @@ void GameHandler::fail(const std::string& reason) {
 static const std::string kEmptySkillName;
 
 const std::string& GameHandler::getSkillName(uint32_t skillId) const {
+    // Asked for a name is a reason to read the file. The load used to be
+    // driven only from the *write* paths — a player update block carrying
+    // skill fields, the spellbook building its tabs — so if every one of those
+    // ran before the assets were up, nothing ever went back for it and every
+    // skill stayed nameless. getSpellName has always done this; this did not.
+    loadSkillLineDbc();
     auto it = skillLineNames_.find(skillId);
     return (it != skillLineNames_.end()) ? it->second : kEmptySkillName;
 }
@@ -1097,7 +1103,7 @@ bool GameHandler::isProfessionSpell(uint32_t spellId) const {
     return catIt->second == 11 || catIt->second == 9;
 }
 
-void GameHandler::loadSkillLineDbc() {
+void GameHandler::loadSkillLineDbc() const {
     if (spellHandler_) spellHandler_->loadSkillLineDbc();
 }
 
