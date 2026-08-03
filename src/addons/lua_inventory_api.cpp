@@ -478,6 +478,54 @@ static int lua_GetItemCount(lua_State* L) {
     return 1;
 }
 
+// SplitContainerItem(bag, slot, count) — take part of a stack onto the cursor
+//
+// The interface counts containers from zero for the backpack and one to four
+// for the bags, with slots starting at one. The wire counts neither way: the
+// backpack is 0xFF with its slots offset past the equipment, and a bag is
+// nineteen plus its index with slots from zero. The mapping is the one this
+// client's own inventory uses, taken from there rather than restated.
+static int lua_SplitContainerItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int bag = static_cast<int>(luaL_checknumber(L, 1));
+    const int slot = static_cast<int>(luaL_checknumber(L, 2));
+    const int count = static_cast<int>(luaL_optnumber(L, 3, 1));
+    if (!gh || slot < 1 || count < 1) return 0;
+
+    if (bag == 0) {
+        const auto& inv = gh->getInventory();
+        if (slot > inv.getBackpackSize()) return 0;
+        gh->splitItem(0xFF, static_cast<uint8_t>(23 + (slot - 1)),
+                      static_cast<uint8_t>(count));
+    } else if (bag >= 1 && bag <= 4) {
+        const auto& inv = gh->getInventory();
+        if (slot > inv.getBagSize(bag - 1)) return 0;
+        gh->splitItem(static_cast<uint8_t>(19 + (bag - 1)),
+                      static_cast<uint8_t>(slot - 1),
+                      static_cast<uint8_t>(count));
+    }
+    return 0;
+}
+
+// BankButtonIDToInvSlotID(buttonID, isBag) → the equipment slot a bank button
+// stands for
+//
+// Arithmetic, not state: the twenty-eight general bank slots follow the
+// equipment at forty, and the seven bank bag slots at sixty-eight.
+static int lua_BankButtonIDToInvSlotID(lua_State* L) {
+    const int buttonId = static_cast<int>(luaL_checknumber(L, 1));
+    const bool isBag = lua_toboolean(L, 2) != 0;
+    lua_pushnumber(L, isBag ? 67 + buttonId : 39 + buttonId);
+    return 1;
+}
+
+// CloseBankFrame() — tell the server the bank is done with
+static int lua_CloseBankFrame(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (gh) gh->closeBank();
+    return 0;
+}
+
 // UseContainerItem(bag, slot) — use/equip an item from a bag
 static int lua_UseContainerItem(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -1282,6 +1330,9 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetLootSlotInfo",     lua_GetLootSlotInfo},
                 {"GetLootSlotLink",     lua_GetLootSlotLink},
                 {"LootSlot",            lua_LootSlot},
+                {"SplitContainerItem",  lua_SplitContainerItem},
+                {"BankButtonIDToInvSlotID", lua_BankButtonIDToInvSlotID},
+                {"CloseBankFrame",      lua_CloseBankFrame},
                 {"LootSlotIsCoin",      lua_LootSlotIsCoin},
                 {"LootSlotIsItem",      lua_LootSlotIsItem},
                 {"IsFishingLoot",       lua_IsFishingLoot},
