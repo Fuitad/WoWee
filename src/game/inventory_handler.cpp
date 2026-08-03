@@ -4259,10 +4259,13 @@ void InventoryHandler::addMoneyCopper(uint32_t amount) {
 
 void InventoryHandler::loadRepairDbc() const {
     if (repairDbcLoaded_) return;
-    repairDbcLoaded_ = true;
 
     auto* am = owner_.services().assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    repairDbcLoaded_ = true;
 
     // DurabilityCosts.dbc: field 0 = itemLevel (key), fields 1-29 = cost multipliers
     // Columns 1-21 = weapon subclass (0-20), columns 22-29 = armor subclass (0-7)

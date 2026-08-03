@@ -2111,10 +2111,13 @@ void GameHandler::sendLootRoll(uint64_t objectGuid, uint32_t slot, uint8_t rollT
 // ---------------------------------------------------------------------------
 void GameHandler::loadTitleNameCache() const {
     if (titleNameCacheLoaded_) return;
-    titleNameCacheLoaded_ = true;
 
     auto* am = services_.assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    titleNameCacheLoaded_ = true;
 
     auto dbc = am->loadDBC("CharTitles.dbc");
     if (!dbc || !dbc->isLoaded() || dbc->getFieldCount() < 5) return;
@@ -2163,10 +2166,13 @@ void GameHandler::sendSetTitle(int32_t bit) {
 
 void GameHandler::loadAchievementNameCache() {
     if (achievementNameCacheLoaded_) return;
-    achievementNameCacheLoaded_ = true;
 
     auto* am = services_.assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    achievementNameCacheLoaded_ = true;
 
     auto dbc = am->loadDBC("Achievement.dbc");
     if (!dbc || !dbc->isLoaded() || dbc->getFieldCount() < 22) return;
@@ -2256,10 +2262,13 @@ void GameHandler::handleAllAchievementData(network::Packet& packet) {
 
 void GameHandler::loadFactionNameCache() const {
     if (factionNameCacheLoaded_) return;
-    factionNameCacheLoaded_ = true;
 
     auto* am = services_.assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    factionNameCacheLoaded_ = true;
 
     auto dbc = am->loadDBC("Faction.dbc");
     if (!dbc || !dbc->isLoaded()) return;
@@ -2387,10 +2396,13 @@ const std::string& GameHandler::getFactionNamePublic(uint32_t factionId) const {
 
 void GameHandler::loadAreaNameCache() const {
     if (areaNameCacheLoaded_) return;
-    areaNameCacheLoaded_ = true;
 
     auto* am = services_.assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    areaNameCacheLoaded_ = true;
 
     // AreaTable.dbc has the canonical zone/area names keyed by AreaID.
     // Field 0 = ID, field 11 = AreaName (enUS locale).
@@ -2439,10 +2451,13 @@ std::string GameHandler::getAreaName(uint32_t areaId) const {
 
 void GameHandler::loadMapNameCache() const {
     if (mapNameCacheLoaded_) return;
-    mapNameCacheLoaded_ = true;
 
     auto* am = services_.assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    mapNameCacheLoaded_ = true;
 
     auto dbc = am->loadDBC("Map.dbc");
     if (!dbc || !dbc->isLoaded()) return;
@@ -2473,10 +2488,13 @@ std::string GameHandler::getMapName(uint32_t mapId) const {
 
 void GameHandler::loadLfgDungeonDbc() const {
     if (lfgDungeonNameCacheLoaded_) return;
-    lfgDungeonNameCacheLoaded_ = true;
 
     auto* am = services_.assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    lfgDungeonNameCacheLoaded_ = true;
 
     auto dbc = am->loadDBC("LFGDungeons.dbc");
     if (!dbc || !dbc->isLoaded()) return;

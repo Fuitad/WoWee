@@ -1248,10 +1248,13 @@ const std::vector<SpellHandler::SpellBookTab>& SpellHandler::getSpellBookTabs() 
 
 void SpellHandler::loadTalentDbc() {
     if (talentDbcLoaded_) return;
-    talentDbcLoaded_ = true;
 
     auto* am = owner_.services().assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    talentDbcLoaded_ = true;
 
     // Load Talent.dbc
     auto talentDbc = am->loadDBC("Talent.dbc");
@@ -2717,10 +2720,13 @@ static const std::string SPELL_EMPTY_STRING;
 
 void SpellHandler::loadSpellNameCache() const {
     if (owner_.spellNameCacheLoadedRef()) return;
-    owner_.spellNameCacheLoadedRef() = true;
 
     auto* am = owner_.services().assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    owner_.spellNameCacheLoadedRef() = true;
 
     auto dbc = am->loadDBC("Spell.dbc");
     if (!dbc || !dbc->isLoaded()) {
@@ -2928,10 +2934,13 @@ void SpellHandler::loadSpellNameCache() const {
 
 void SpellHandler::loadSkillLineAbilityDbc() {
     if (owner_.skillLineAbilityLoadedRef()) return;
-    owner_.skillLineAbilityLoadedRef() = true;
 
     auto* am = owner_.services().assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    owner_.skillLineAbilityLoadedRef() = true;
 
     auto slaDbc = am->loadDBC("SkillLineAbility.dbc");
     if (slaDbc && slaDbc->isLoaded()) {
@@ -3257,10 +3266,13 @@ const std::string& SpellHandler::getSkillLineName(uint32_t spellId) const {
 
 void SpellHandler::loadSkillLineDbc() {
     if (owner_.skillLineDbcLoadedRef()) return;
-    owner_.skillLineDbcLoadedRef() = true;
 
     auto* am = owner_.services().assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    owner_.skillLineDbcLoadedRef() = true;
 
     auto dbc = am->loadDBC("SkillLine.dbc");
     if (!dbc || !dbc->isLoaded()) {

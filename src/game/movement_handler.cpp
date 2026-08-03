@@ -2137,10 +2137,13 @@ void MovementHandler::handleNewWorld(network::Packet& packet) {
 
 void MovementHandler::loadTaxiDbc() {
     if (taxiDbcLoaded_) return;
-    taxiDbcLoaded_ = true;
 
     auto* am = owner_.services().assetManager;
+    // Not an attempt: the assets are not there to read yet, and a
+    // caller can reach this before they are. Marking it loaded here
+    // meant one early call disabled this file for the whole session.
     if (!am || !am->isInitialized()) return;
+    taxiDbcLoaded_ = true;
 
     auto nodesDbc = am->loadDBC("TaxiNodes.dbc");
     if (nodesDbc && nodesDbc->isLoaded()) {
