@@ -118,7 +118,11 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
             LOG_INFO("AddonManager: no AddOns directory at ", root.string());
             continue;
         }
-        LOG_INFO("AddonManager: searching ", root.string());
+        // Said out loud, because which directory this lands on decides what
+        // gets loaded and it is resolved differently on a case-insensitive
+        // filesystem. A report of the interface appearing when nobody asked
+        // for it is unanswerable without knowing where the scan looked.
+        LOG_WARNING("AddonManager: scanning for addons in ", root.string());
         for (const auto& entry : fs::directory_iterator(root, ec)) {
             if (entry.is_directory()) dirs.push_back(entry.path());
         }
@@ -139,6 +143,25 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
     for (const auto& dir : dirs) {
         ++scannedDirs;
         std::string dirName = dir.filename().string();
+        // The original interface is not an addon and must never be loaded as
+        // one. It ships with a .toc of its own, so a scan that lands on
+        // Data/interface rather than Data/interface/AddOns — which is what a
+        // case-insensitive filesystem can produce — would find FrameXML and
+        // load the whole of it, with none of the opt-in that is supposed to
+        // guard it. It has exactly one way in, and this is not it.
+        {
+            std::string lower = dirName;
+            for (char& c : lower) {
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            }
+            if (lower == "framexml" || lower == "gluexml") {
+                LOG_WARNING("AddonManager: refusing to load ", dirName,
+                            " as an addon — the original interface loads only "
+                            "through WOWEE_LOAD_FRAMEXML");
+                continue;
+            }
+        }
+
         std::string tocPath = (dir / (dirName + ".toc")).string();
         auto toc = parseTocFile(tocPath);
         if (!toc) { ++noToc; continue; }

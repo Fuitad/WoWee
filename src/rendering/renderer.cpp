@@ -3316,7 +3316,12 @@ void Renderer::buildFrameGraph(game::GameHandler* gameHandler) {
     // Shadow pre-pass → outputs shadow_depth
     renderGraph_->addPass("shadow_pass", {}, {shadowDepth},
         [this](VkCommandBuffer) {
-            if (shadowsEnabled && shadowDepthImage[0] != VK_NULL_HANDLE)
+            // Not gated on shadowsEnabled: renderShadowPass is what clears the
+            // map and leaves it in the layout its readers expect, and it
+            // already skips the casters on its own when shadows are off.
+            // Declining to call it here put the transition back where it was
+            // before, which is the whole of the fault this was meant to end.
+            if (shadowDepthImage[0] != VK_NULL_HANDLE)
                 renderShadowPass();
         });
     // Left enabled even with shadows off, as long as the image exists.
