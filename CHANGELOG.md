@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased — the original interface
+
+Work on the `framexml-ui-transition` branch. None of this is in a tagged build yet.
+
+### Fixed — errors the interface raised on its own
+These are the ones that stopped something working rather than leaving it empty. A missing function is mostly harmless, because an undefined global answers nil and nil reads as false in a condition; what breaks the interface is a function that exists and is the wrong shape, because Lua raises rather than shrugging.
+- **Abandoning a quest from the quest log.** `AbandonQuest()` is called with no arguments and the binding demanded one, which raises rather than returning nothing, so it had never once worked. Abandoning is also two steps — the log marks the quest, a confirmation shows its name — and only the second existed
+- **The talent frame, the moment a point was staged.** `GetTalentInfo` returned eight values where ten are read; the frame puts the ninth into the rank it displays and compares that against the maximum. The same call also handed back no icon, which the interface reads as an empty slot, so every talent button drew blank — and reported every talent as learnable however deep in a chain it sat
+- **Levelling up.** `PLAYER_LEVEL_UP` carried the level alone, of nine values the chat frame reads, and it tests the third to decide whether to mention mana. Every one of them was already parsed and simply not passed
+- **Gaining talent points**, for the same reason: `CHARACTER_POINTS_CHANGED` is read as a count and was fired with nothing
+- **Dying.** `GetReleaseTimeRemaining` is asked for the moment the player dies and compared against zero
+- **Hovering the performance bar**, which adds up what every loaded addon uses
+- **Following a player**, whose name was in scope at the call and not passed
+
+### Fixed — drawn twice
+A window whose functions all return nil stays empty and unnoticed, and appears the moment they start answering. Finishing three APIs opened three windows that had been quietly present.
+- **Every server refusal was shown twice** — "out of range", "not enough mana" — once by each interface, because this client fires the event the original's error frame listens for
+- The extra action bars, the combo points, the pet's cast bar, the totem bar and the talent screen were each drawn by both
+- **The quest log's list of quests was never suppressed at all**: the name listed for it belongs to no frame, which looks exactly like a frame that never opens
+
+### Added
+- **A reputation panel.** Standings arrive by an index that is not the faction id, and only Faction.dbc knows which is which; nothing had ever resolved it
+- **Key bindings**, read from the file that declares all 275 of them, which was never loaded — the list had nothing to list
+- The quest giver's dialog, its greeting, and the gossip window's list of an NPC's quests
+- Talent prerequisites, totem timers, vendor prices in honor or badges, splitting a stack, and coin as a loot slot
+- `RunScript`, without which `/script` and every macro body were silently inert
+
 ## [v2.0.37-preview] — 2026-08-02
 
 ### Fixed
