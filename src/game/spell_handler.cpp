@@ -2584,6 +2584,13 @@ void SpellHandler::handleListStabledPets(network::Packet& packet) {
                   " level=", p.level, " name='", p.name, "' displayId=", p.displayId,
                   " active=", p.isActive);
     }
+    // This packet both opens the stable window and is the only thing that
+    // refreshes it, so it carries both events. Neither was fired, which is why
+    // the original interface's stable could not appear.
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("PET_STABLE_SHOW", {});
+        owner_.addonEventCallbackRef()("PET_STABLE_UPDATE", {});
+    }
 }
 
 // ============================================================

@@ -373,6 +373,124 @@ static std::vector<uint32_t> skillOrder(game::GameHandler* gh) {
     return ids;
 }
 
+// --- The stable ---
+//
+// Everything here was already tracked: the pets, their levels, how many slots
+// the player has bought, and the three commands that list, store and retrieve.
+// Only the questions the original interface asks were missing, so its stable
+// opened on nothing however many pets were in it.
+//
+// Slot 0 is the pet that is out, and 1 upwards are the ones stabled. That is
+// the interface's numbering, not this client's — the pets arrive in one list
+// with a flag saying which is active.
+namespace {
+
+/// The stabled pets, in the order they arrived, with the active one left out.
+std::vector<const game::GameHandler::StabledPet*> stabledOnly(game::GameHandler* gh) {
+    std::vector<const game::GameHandler::StabledPet*> out;
+    if (!gh) return out;
+    for (const auto& p : gh->getStabledPets()) {
+        if (!p.isActive) out.push_back(&p);
+    }
+    return out;
+}
+
+/// The pet that is currently out, or null if none is.
+const game::GameHandler::StabledPet* activePet(game::GameHandler* gh) {
+    if (!gh) return nullptr;
+    for (const auto& p : gh->getStabledPets()) {
+        if (p.isActive) return &p;
+    }
+    return nullptr;
+}
+
+/// Which slot the player has clicked. Held here because it is a fact about the
+/// window rather than about the character, and the server is never told.
+int& selectedStableSlot() {
+    static int slot = 0;
+    return slot;
+}
+
+} // namespace
+
+// GetStablePetInfo(slot) → icon, name, level, family, talent
+//
+// The icon is what says a slot is occupied: the frame tests it before deciding
+// whether the slot reads as a pet or as an empty box, so an occupied slot must
+// answer something and an empty one must answer nil.
+//
+// Family and talent tree are blank. They come from the creature's family, and
+// the stable packet carries the creature entry without it — this client's own
+// stable window shows a name and a level for the same reason.
+static int lua_GetStablePetInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int slot = static_cast<int>(luaL_optnumber(L, 1, -1));
+    if (!gh || slot < 0) { return luaReturnNil(L); }
+
+    const game::GameHandler::StabledPet* pet = nullptr;
+    if (slot == 0) {
+        pet = activePet(gh);
+    } else {
+        const auto stabled = stabledOnly(gh);
+        if (slot <= static_cast<int>(stabled.size())) {
+            pet = stabled[static_cast<size_t>(slot - 1)];
+        }
+    }
+    if (!pet) { return luaReturnNil(L); }
+
+    lua_pushstring(L, "Interface\\Icons\\Ability_Hunter_BeastTaming");
+    lua_pushstring(L, pet->name.empty()
+                          ? ("Pet #" + std::to_string(pet->petNumber)).c_str()
+                          : pet->name.c_str());
+    lua_pushnumber(L, pet->level);
+    lua_pushstring(L, "");   // family
+    lua_pushstring(L, "");   // pet talent tree
+    return 5;
+}
+
+static int lua_GetNumStablePets(lua_State* L) {
+    lua_pushnumber(L, static_cast<double>(stabledOnly(getGameHandler(L)).size()));
+    return 1;
+}
+
+static int lua_GetNumStableSlots(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushnumber(L, gh ? gh->getStableSlots() : 0);
+    return 1;
+}
+
+static int lua_GetSelectedStablePet(lua_State* L) {
+    lua_pushnumber(L, selectedStableSlot());
+    return 1;
+}
+
+static int lua_ClickStablePet(lua_State* L) {
+    selectedStableSlot() = static_cast<int>(luaL_optnumber(L, 1, 0));
+    return 0;
+}
+
+static int lua_ClosePetStables(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->closeStableWindow();
+    return 0;
+}
+
+static int lua_IsAtStableMaster(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushboolean(L, gh && gh->isStableWindowOpen() ? 1 : 0);
+    return 1;
+}
+
+// GetNextStableSlotCost() → what the next slot costs, in copper.
+//
+// Zero, because the server never says. It reaches a money frame, which divides
+// it into gold and silver the moment the window opens, so it has to be a number
+// — and a made-up price shown as though the server had quoted it is worse than
+// a visible nothing.
+static int lua_GetNextStableSlotCost(lua_State* L) {
+    lua_pushnumber(L, 0);
+    return 1;
+}
+
 static int lua_GetNumSkillLines(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnZero(L); }
@@ -1185,6 +1303,14 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"CollapseQuestHeader",     lua_CollapseQuestHeader},
                 {"GetQuestLogSpecialItemInfo", lua_GetQuestLogSpecialItemInfo},
                 {"GetNumSkillLines",        lua_GetNumSkillLines},
+                {"GetStablePetInfo",       lua_GetStablePetInfo},
+                {"GetNumStablePets",       lua_GetNumStablePets},
+                {"GetNumStableSlots",      lua_GetNumStableSlots},
+                {"GetSelectedStablePet",   lua_GetSelectedStablePet},
+                {"ClickStablePet",         lua_ClickStablePet},
+                {"ClosePetStables",        lua_ClosePetStables},
+                {"IsAtStableMaster",       lua_IsAtStableMaster},
+                {"GetNextStableSlotCost",  lua_GetNextStableSlotCost},
                 {"GetSkillLineInfo",        lua_GetSkillLineInfo},
                 {"GetNumTalentTabs",        lua_GetNumTalentTabs},
                 {"GetTalentTabInfo",        lua_GetTalentTabInfo},

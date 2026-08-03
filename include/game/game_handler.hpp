@@ -797,7 +797,12 @@ public:
         bool     isActive   = false;  // true = currently summoned/active slot
     };
     bool isStableWindowOpen() const { return stableWindowOpen_; }
-    void closeStableWindow() { stableWindowOpen_ = false; }
+    void closeStableWindow() {
+        const bool wasOpen = stableWindowOpen_;
+        stableWindowOpen_ = false;
+        // The stable window hides on this and nothing else.
+        if (wasOpen && addonEventCallback_) addonEventCallback_("PET_STABLE_CLOSED", {});
+    }
     uint64_t getStableMasterGuid() const { return stableMasterGuid_; }
     uint8_t  getStableSlots() const { return stableNumSlots_; }
     const std::vector<StabledPet>& getStabledPets() const { return stabledPets_; }
