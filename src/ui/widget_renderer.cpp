@@ -366,6 +366,16 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         }
         if (w) w->shown = false;
     }
+    // Suppression is a drawing decision and nothing more. A frame hidden here
+    // keeps every event it registered, and the frame dispatch does not filter
+    // on visibility — rightly, because that is how the real client behaves and
+    // FrameXML relies on it, registering and unregistering in OnShow/OnHide
+    // where it wants otherwise.
+    //
+    // So a suppressed window is still running its handlers on every event this
+    // client fires, and can still raise from one. Eighteen of them are live
+    // this way. When judging whether a fault in some window can be reached, the
+    // question is whether its events are fired, never whether it is on screen.
 
     if (!reportedUnresolved && (now - firstSeen) > 20.0) {
         reportedUnresolved = true;
