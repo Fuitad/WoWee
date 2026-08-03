@@ -49,19 +49,62 @@ def stripComments(text):
     return re.sub(r"--[^\n]*", "", text)
 
 
+def bodyFrom(text, start):
+    """The function body beginning at an opening brace, by matching braces.
+
+    This used to read a fixed 1200 characters and cut at whatever marker
+    turned up first. 102 of the bindings are longer than that and never
+    reached their marker, so the checker was reading part of a function and
+    drawing conclusions about the whole: a luaL_check past the cutoff was
+    invisible, which under-reports the one fault it calls always real, and a
+    lua_push past it made a binding look like it returned fewer values than
+    it does, which is most of the return-count noise.
+
+    Braces inside string and character literals are skipped, since a body
+    that formats a message with one would otherwise end early.
+    """
+    depth, i, n = 0, start, len(text)
+    while i < n:
+        c = text[i]
+        two = text[i:i + 2]
+        # Comments first, and this is not fussiness: an apostrophe in prose —
+        # "// Blizzard's own thresholds" — reads as an opening character
+        # literal, and the scan then runs to the next apostrophe anywhere in
+        # the file, swallowing every brace between. That put the end of one
+        # binding eleven hundred lines further down and reported a function
+        # that takes no arguments as requiring one.
+        if two == "//":
+            i = text.find("\n", i)
+            if i == -1:
+                break
+        elif two == "/*":
+            i = text.find("*/", i)
+            if i == -1:
+                break
+            i += 1
+        elif c == '"' or c == "'":
+            quote = c
+            i += 1
+            while i < n and text[i] != quote:
+                i += 2 if text[i] == "\\" else 1
+        elif c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:i]
+        i += 1
+    return text[start:]
+
+
 def bindingBodies():
     """Each binding's name and its body, however it was registered."""
     for cpp in sorted(BINDINGS.glob("*.cpp")):
         s = cpp.read_text()
-        for pattern, span, stops in ((NAMED_FN, 1200, ("\nstatic int ",)),
-                                     (LAMBDA_FN, 900, ("}},",))):
+        for pattern in (NAMED_FN, LAMBDA_FN):
             for m in pattern.finditer(s):
-                body = s[m.end():m.end() + span]
-                for stop in stops:
-                    i = body.find(stop)
-                    if i != -1:
-                        body = body[:i]
-                yield m.group(1), body, cpp.name
+                # end() sits just past the opening brace the pattern matched.
+                yield m.group(1), bodyFrom(s, m.end() - 1), cpp.name
 
 
 def checkArity():

@@ -564,6 +564,10 @@ static int lua_GetNumTalentTabs(lua_State* L) {
     return 1;
 }
 
+/// Points staged in the talent preview but not yet learned, defined below with
+/// the functions that change it.
+static std::unordered_map<uint32_t, int>& previewPoints();
+
 // GetTalentTabInfo(tabIndex) → name, iconTexture, pointsSpent, background
 static int lua_GetTalentTabInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -591,11 +595,23 @@ static int lua_GetTalentTabInfo(lua_State* L) {
         const auto* entry = gh->getTalentEntry(talentId);
         if (entry && entry->tabId == tab->tabId) pointsSpent += rank;
     }
+    // Points staged in the preview but not yet learned, for this tab. The
+    // talent frame adds this to the spent count without checking it —
+    //     local displayPointsSpent = pointsSpent + previewPointsSpent;
+    // — in a loop over every tab, so leaving it out took the whole frame down
+    // as it opened rather than merely showing the wrong total.
+    int previewSpent = 0;
+    for (const auto& [talentId, staged] : previewPoints()) {
+        const auto* entry = gh->getTalentEntry(talentId);
+        if (entry && entry->tabId == tab->tabId) previewSpent += staged;
+    }
+
     lua_pushstring(L, tab->name.c_str());              // 1: name
     lua_pushnil(L);                                     // 2: iconTexture (not resolved)
     lua_pushnumber(L, pointsSpent);                     // 3: pointsSpent
     lua_pushstring(L, tab->backgroundFile.c_str());     // 4: background
-    return 4;
+    lua_pushnumber(L, previewSpent);                    // 5: previewPointsSpent
+    return 5;
 }
 
 // GetNumTalents(tabIndex) → count
@@ -644,6 +660,7 @@ static uint32_t& pendingAbandonQuest() {
 // two copies of this would have to keep the same tab ordering and the same
 // row/column sort forever or the tooltip would describe a different talent from
 // the one under the cursor. Declared in lua_api_helpers.hpp.
+
 const game::TalentEntry* talentAt(game::GameHandler* gh,
                                   int tabIndex, int talentIndex) {
     if (!gh || tabIndex < 1 || talentIndex < 1) return nullptr;
@@ -671,9 +688,6 @@ const game::TalentEntry* talentAt(game::GameHandler* gh,
     return tabTalents[talentIndex - 1];
 }
 
-/// Points staged in the talent preview but not yet learned, defined below with
-/// the functions that change it.
-static std::unordered_map<uint32_t, int>& previewPoints();
 
 /// Whether every prerequisite of a talent is satisfied, optionally counting
 /// points staged in the preview but not yet learned.
