@@ -573,6 +573,28 @@ static int lua_GetCoinText(lua_State* L) {
 // the frames that offer the gesture to raise on it.
 static int lua_MoneyCursorNoop(lua_State* L) { (void)L; return 0; }
 
+// GetContainerItemPurchaseInfo(bag, slot, isEquipped) →
+//   money, honorPoints, arenaPoints, itemCount, refundSec
+//
+// What an item could be handed back for, and how long is left to do it. The
+// refund window is a per-item timer the server sends and this client does not
+// keep, so there is nothing to report — and the caller opens with
+// `if ( not refundSec ...) then return false`, which is exactly the answer.
+static int lua_GetContainerItemPurchaseInfo(lua_State* L) {
+    for (int i = 0; i < 5; ++i) lua_pushnil(L);
+    return 5;
+}
+
+// GetContainerItemPurchaseItem(bag, slot, index, isEquipped) →
+//   texture, quantity, link, name
+//
+// The currencies that would come back with it. Only reached once the call above
+// reports a live refund window, so it is never asked here.
+static int lua_GetContainerItemPurchaseItem(lua_State* L) {
+    for (int i = 0; i < 4; ++i) lua_pushnil(L);
+    return 4;
+}
+
 // ---- Currency tab (Blizzard_TokenUI) ----
 //
 // In 3.3.5a a currency is a CurrencyTypes.dbc row pointing at an item, and the
@@ -2475,6 +2497,8 @@ void registerInventoryLuaAPI(lua_State* L) {
         }},
                 // ---- Currency tab ----
                 {"GetCoinText",             lua_GetCoinText},
+                {"GetContainerItemPurchaseInfo", lua_GetContainerItemPurchaseInfo},
+                {"GetContainerItemPurchaseItem", lua_GetContainerItemPurchaseItem},
                 {"PickupPlayerMoney",       lua_MoneyCursorNoop},
                 {"PickupSendMailMoney",     lua_MoneyCursorNoop},
                 {"PickupSendMailCOD",       lua_MoneyCursorNoop},
