@@ -36,6 +36,87 @@ uint32_t packColor(const float rgba[4], float alpha) {
     return IM_COL32(ch(rgba[0]), ch(rgba[1]), ch(rgba[2]), ch(rgba[3] * alpha));
 }
 
+
+/// WoW's inline markup, split into runs of text that share a colour.
+///
+/// The interface writes colour into the string itself — "|cffffd200(M)|r" is
+/// the world map's keybinding hint in gold — and draws it with the same call as
+/// any other label. Drawn without parsing, the escape is what appears on
+/// screen, which is what the map button's tooltip was showing.
+///
+/// Also dropped here: |H...|h link markers, which wrap the display text of an
+/// item or spell link, and |T...|t inline textures, which name a file this has
+/// no way to place mid-line. "||" is a literal bar.
+struct TextRun {
+    std::string text;
+    bool  hasColor = false;
+    float rgba[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+};
+
+std::vector<TextRun> parseMarkup(const std::string& in) {
+    std::vector<TextRun> runs;
+    TextRun cur;
+    auto flush = [&] {
+        if (!cur.text.empty()) runs.push_back(cur);
+        cur.text.clear();
+    };
+    auto hexPair = [](const std::string& s, size_t at) {
+        auto v = [](char c) -> int {
+            if (c >= '0' && c <= '9') return c - '0';
+            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+            if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+            return -1;
+        };
+        const int hi = v(s[at]), lo = v(s[at + 1]);
+        return (hi < 0 || lo < 0) ? -1 : hi * 16 + lo;
+    };
+
+    for (size_t i = 0; i < in.size();) {
+        if (in[i] != '|') { cur.text += in[i++]; continue; }
+        if (i + 1 >= in.size()) { cur.text += in[i++]; continue; }
+        const char tag = in[i + 1];
+        if (tag == '|') { cur.text += '|'; i += 2; continue; }
+        if ((tag == 'c' || tag == 'C') && i + 9 < in.size()) {
+            // |cAARRGGBB — alpha first, and the interface almost always sends
+            // ff for it. Ignored rather than applied: a label's own alpha
+            // already governs it, and multiplying the two fades text that the
+            // real client draws solid.
+            const int r = hexPair(in, i + 4), g = hexPair(in, i + 6),
+                      b = hexPair(in, i + 8);
+            if (r >= 0 && g >= 0 && b >= 0) {
+                flush();
+                cur.hasColor = true;
+                cur.rgba[0] = r / 255.0f; cur.rgba[1] = g / 255.0f;
+                cur.rgba[2] = b / 255.0f; cur.rgba[3] = 1.0f;
+                i += 10;
+                continue;
+            }
+        }
+        if (tag == 'r' || tag == 'R') { flush(); cur.hasColor = false; i += 2; continue; }
+        if (tag == 'H' || tag == 'h') {
+            // |Hitem:...|h[Name]|h — the part between the markers is the text.
+            const size_t end = in.find('|', i + 2);
+            i = (end == std::string::npos) ? in.size() : end;
+            continue;
+        }
+        if (tag == 'T' || tag == 't') {
+            const size_t end = in.find("|t", i + 2);
+            i = (end == std::string::npos) ? in.size() : end + 2;
+            continue;
+        }
+        cur.text += in[i++];   // a bar that means nothing in particular
+    }
+    flush();
+    return runs;
+}
+
+/// The same string with every escape taken out, for measuring.
+std::string strippedText(const std::string& in) {
+    std::string out;
+    for (const TextRun& r : parseMarkup(in)) out += r.text;
+    return out;
+}
+
 } // namespace
 
 void WidgetRenderer::initialize(pipeline::AssetManager* assets,
@@ -121,7 +202,8 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
         if (!w->autoSized && w->width > 0.0f && w->height > 0.0f) continue;
 
         const float size = (w->fontHeight > 0.0f) ? w->fontHeight : 12.0f;
-        const ImVec2 measured = font->CalcTextSizeA(size, FLT_MAX, 0.0f, w->text.c_str());
+        const ImVec2 measured =
+            font->CalcTextSizeA(size, FLT_MAX, 0.0f, strippedText(w->text).c_str());
         w->width = measured.x;
         if (w->height <= 0.0f || w->autoSized) w->height = size * 1.2f;
         w->autoSized = true;
@@ -153,16 +235,34 @@ void WidgetRenderer::sizeTooltips(WidgetTree& tree) {
         constexpr float kPad = 10.0f;
         float widest = 0.0f;
         for (const auto& line : w->tooltipLines) {
-            float wide = font->CalcTextSizeA(size, FLT_MAX, 0.0f, line.left.c_str()).x;
+            float wide = font->CalcTextSizeA(size, FLT_MAX, 0.0f,
+                                             strippedText(line.left).c_str()).x;
             if (!line.right.empty()) {
                 // Left and right text share a line with a gap between them.
                 wide += 20.0f +
-                        font->CalcTextSizeA(size, FLT_MAX, 0.0f, line.right.c_str()).x;
+                        font->CalcTextSizeA(size, FLT_MAX, 0.0f,
+                                            strippedText(line.right).c_str()).x;
             }
             if (wide > widest) widest = wide;
         }
         w->width  = widest + kPad * 2.0f;
         w->height = lineH * static_cast<float>(w->tooltipLines.size()) + kPad * 2.0f;
+    }
+}
+
+
+void WidgetRenderer::drawMarkupText(ImDrawList* dl, ImFont* font, float size,
+                                    ImVec2 at, uint32_t fallback, float alpha,
+                                    const std::string& text) {
+    float x = at.x;
+    for (const TextRun& run : parseMarkup(text)) {
+        uint32_t col = fallback;
+        if (run.hasColor) {
+            float rgba[4] = {run.rgba[0], run.rgba[1], run.rgba[2], run.rgba[3]};
+            col = packColor(rgba, alpha);
+        }
+        dl->AddText(font, size, ImVec2(x, at.y), col, run.text.c_str());
+        x += font->CalcTextSizeA(size, FLT_MAX, 0.0f, run.text.c_str()).x;
     }
 }
 
@@ -997,14 +1097,14 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 float y = y0 + pad;
                 for (const auto& line : w->tooltipLines) {
                     float lc[4] = {line.lc[0], line.lc[1], line.lc[2], line.lc[3]};
-                    dl->AddText(font, size, ImVec2(x0 + pad, y),
-                                packColor(lc, w->alpha), line.left.c_str());
+                    drawMarkupText(dl, font, size, ImVec2(x0 + pad, y),
+                                   packColor(lc, w->alpha), w->alpha, line.left);
                     if (!line.right.empty()) {
                         float rc[4] = {line.rc[0], line.rc[1], line.rc[2], line.rc[3]};
-                        const float rw = font->CalcTextSizeA(size, FLT_MAX, 0.0f,
-                                                             line.right.c_str()).x;
-                        dl->AddText(font, size, ImVec2(x1 - pad - rw, y),
-                                    packColor(rc, w->alpha), line.right.c_str());
+                        const float rw = font->CalcTextSizeA(
+                            size, FLT_MAX, 0.0f, strippedText(line.right).c_str()).x;
+                        drawMarkupText(dl, font, size, ImVec2(x1 - pad - rw, y),
+                                       packColor(rc, w->alpha), w->alpha, line.right);
                     }
                     y += lineH;
                 }
@@ -1203,7 +1303,7 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 };
                 for (const ImVec2& o : around) {
                     dl->AddText(font, size, ImVec2(tx + o.x, ty + o.y), shadow,
-                                w->text.c_str());
+                                strippedText(w->text).c_str());
                 }
             }
             // The shadow sits under the text and over the outline: it is a
@@ -1216,7 +1316,7 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 dl->AddText(font, size,
                             ImVec2(tx + w->shadowX * s, ty - w->shadowY * s),
                             packColor(sc, w->alpha * w->shadowColor[3]),
-                            w->text.c_str());
+                            strippedText(w->text).c_str());
             }
             // A button's label takes its colour from the button's state. The
             // colour lives on the parent because that is where the template
@@ -1231,8 +1331,8 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                     textColor = owner->highlightColor;
                 }
             }
-            dl->AddText(font, size, ImVec2(tx, ty),
-                        packColor(textColor, w->alpha), w->text.c_str());
+            drawMarkupText(dl, font, size, ImVec2(tx, ty),
+                           packColor(textColor, w->alpha), w->alpha, w->text);
         }
     }
 }

@@ -17,6 +17,8 @@
 #include <vulkan/vulkan.h>
 
 struct ImDrawList;   // global, as ImGui declares it
+struct ImFont;
+struct ImVec2;
 
 namespace wowee {
 namespace pipeline { class AssetManager; }
@@ -64,6 +66,9 @@ private:
 
     void sizeTooltips(WidgetTree& tree);
 
+    /// Draw a string that may carry WoW's inline colour markup, as runs.
+    void drawMarkupText(ImDrawList* dl, ImFont* font, float size, ImVec2 at,
+                        uint32_t fallback, float alpha, const std::string& text);
     void drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
                       float x0, float y0, float x1, float y1);
     void drawStatusBar(ImDrawList* dl, const Widget& w,
