@@ -215,6 +215,24 @@ void WidgetRenderer::drawCooldown(ImDrawList* dl, const Widget& w,
 }
 
 void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
+    // ImGui's backend is torn down and restarted when the anti-aliasing
+    // changes, and every descriptor set in this cache came from the pool that
+    // went with it. Holding them past that point means drawing with freed
+    // descriptors, which the GPU answers by being reset.
+    if (vkCtx_) {
+        const uint32_t generation = vkCtx_->imguiBackendGeneration();
+        if (generation != imguiGenerationSeen_) {
+            imguiGenerationSeen_ = generation;
+            if (!textures_.empty()) {
+                LOG_WARNING("ImGui's backend restarted; dropping ",
+                            textures_.size(),
+                            " cached textures rather than drawing with the "
+                            "descriptor sets it freed");
+                textures_.clear();
+            }
+        }
+    }
+
     tree.layout(screenW, screenH);
     const auto& order = tree.drawOrder();
     if (order.empty()) return;

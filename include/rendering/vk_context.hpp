@@ -24,6 +24,11 @@ struct FrameData {
 
 class VkContext {
 public:
+    /// Which incarnation of ImGui's Vulkan backend is current. See
+    /// imguiBackendGeneration_.
+    uint32_t imguiBackendGeneration() const { return imguiBackendGeneration_; }
+    void noteImGuiBackendRestarted() { ++imguiBackendGeneration_; }
+
     VkContext() = default;
     ~VkContext();
 
@@ -303,6 +308,27 @@ private:
 
     // Shared sampler for UI textures (created on first uploadImGuiTexture call)
     VkSampler uiTextureSampler_ = VK_NULL_HANDLE;
+    /// Bumped whenever ImGui's Vulkan backend is torn down and started again.
+    ///
+    /// Every descriptor set handed out by uploadImGuiTexture comes from ImGui's
+    /// own descriptor pool, and shutting the backend down frees that pool. Any
+    /// cache of those sets is dangling from that moment, and drawing with one
+    /// is a fault the GPU reports by resetting. Callers that keep sets compare
+    /// this against what they last saw and throw their cache away.
+    uint32_t imguiBackendGeneration_ = 0;
+
+    /// A descriptor pool and layout this context owns, for UI textures.
+    ///
+    /// ImGui_ImplVulkan_AddTexture allocates from ImGui's pool, which is
+    /// destroyed whenever the backend restarts — and the backend restarts on
+    /// every anti-aliasing change, because that is how its render pass is
+    /// rebound. Ten different caches around the interface hold sets from that
+    /// pool and none of them hear about it. Allocating from a pool owned here
+    /// makes the sets outlive the restart; the layout matches the one ImGui
+    /// allocates with, so its pipeline binds them just the same.
+    VkDescriptorPool uiTexturePool_ = VK_NULL_HANDLE;
+    VkDescriptorSetLayout uiTextureLayout_ = VK_NULL_HANDLE;
+    bool ensureUiTextureDescriptorPool();
 
     // Tracked UI textures for cleanup
     struct UiTexture {
