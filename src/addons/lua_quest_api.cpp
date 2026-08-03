@@ -2120,10 +2120,28 @@ void registerQuestLuaAPI(lua_State* L) {
                 // SetCursor(art) — the pointer's own image, which this client
                 // does not change.
                 {"SetCursor", [](lua_State* L) -> int { (void)L; return 0; }},
+                // GetNumCompletedAchievements() → total, completed.
+                //
+                // Two values, and the total comes first. This returned one —
+                // the *earned* count in the total's place — so the summary bar
+                // was scaled to the number earned, and `completed` was nil.
+                // AchievementFrameSummaryCategoriesStatusBar_Update then does
+                // SetText(completed.."/"..total), and concatenating nil raises,
+                // so opening the achievements panel took its own update down.
                 {"GetNumCompletedAchievements", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            lua_pushnumber(L, gh ? gh->getEarnedAchievements().size() : 0);
-            return 1;
+            if (!gh) { lua_pushnumber(L, 0); lua_pushnumber(L, 0); return 2; }
+            // The name cache is one entry per achievement in the DBC, which is
+            // the only count of "all of them" this client has. Asking for it
+            // is what loads it.
+            gh->ensureAchievementNamesLoaded();
+            const size_t total = gh->achievementNameCacheRef().size();
+            const size_t earned = gh->getEarnedAchievements().size();
+            // Never fewer total than earned: if the DBC did not load, saying
+            // "3 of 0" is worse than saying the total is what we have seen.
+            lua_pushnumber(L, static_cast<lua_Number>(total ? total : earned));
+            lua_pushnumber(L, static_cast<lua_Number>(earned));
+            return 2;
         }},
                 {"GetAchievementInfo", [](lua_State* L) -> int {
             // GetAchievementInfo(id) → id, name, points, completed, month, day, year, description, flags, icon, rewardText, isGuildAch
