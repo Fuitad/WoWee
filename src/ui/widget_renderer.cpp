@@ -342,7 +342,15 @@ void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
         // tile stretched over the whole span is indistinguishable there and
         // bounded — and it goes through the same loop rather than a separate
         // path, so it keeps the rotation the horizontal edges need.
-        const float step = (e < 2.0f) ? span : e;
+        // Bounded, because this is the one thing here whose cost grows with
+        // the frame it is drawing. A border tiles at its authored size, so a
+        // very wide frame would ask for a quad every sixteen pixels across —
+        // fine for a tooltip, and hundreds for anything full-width. Past the
+        // cap the remainder is stretched, which is what this did everywhere
+        // before tiling and is indistinguishable at that length.
+        constexpr float kMaxTiles = 64.0f;
+        float step = (e < 2.0f) ? span : e;
+        if (step > 0.0f && span / step > kMaxTiles) step = span / kMaxTiles;
         const float tu0 = index / 8.0f, tu1 = (index + 1) / 8.0f;
         for (float at = 0.0f; at < span; at += step) {
             // The last tile is cut short rather than overhanging, and its UVs
