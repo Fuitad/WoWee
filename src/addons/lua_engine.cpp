@@ -2867,6 +2867,16 @@ void LuaEngine::registerCoreAPI() {
         "    __WoweeSetWheelEnabled(self, enable ~= false)\n"
         "end\n"
         "function mt:SetResizable(resizable) end\n"
+        // A scroll frame's range is recomputed after every layout, so asking
+        // for it again has nothing to do — but answering rather than falling
+        // through to the no-op list keeps it out of a report whose whole
+        // purpose is naming things that are genuinely absent.
+        "function mt:UpdateScrollChildRect() end\n"
+        // Message frames here do not scroll: every line is drawn and the frame
+        // is always showing its newest, which is what AtBottom asks. Answering
+        // false would have the interface offer a scroll-to-bottom button that
+        // does nothing.
+        "function mt:AtBottom() return true end\n"
         // Click() runs the frame's own OnClick, with the same PreClick and
         // PostClick around it that a real press produces. FrameXML activates
         // buttons this way — a keybinding that presses an action button, a
@@ -3242,7 +3252,7 @@ void LuaEngine::registerCoreAPI() {
     bootstrap(
         "__WoweeWidgetMethods = {\n"
         "AddDoubleLine=1,AddHistoryLine=1,AddLine=1,AddMessage=1,AddTexture=1,\n"
-        "AddToAutoHide=1,AllowAttributeChanges=1,Animate=1,AppendText=1,AtBottom=1,\n"
+        "AddToAutoHide=1,AllowAttributeChanges=1,Animate=1,AppendText=1,\n"
         "CallMethod=1,CanSaveTabardNow=1,ChildUpdate=1,Clear=1,ClearAllPoints=1,\n"
         "ClearBinding=1,ClearBindings=1,ClearFocus=1,ClearHistory=1,ClearLines=1,\n"
         "ClearModel=1,CreateFontString=1,CreatePlayerArrowFrame=1,\n"
@@ -3313,7 +3323,7 @@ void LuaEngine::registerCoreAPI() {
         "StopMovie=1,StopMovingOrSizing=1,ToggleInputLanguage=1,TryOn=1,\n"
         "UIParentManageFramePositions=1,UnlockHighlight=1,UnregisterAllEvents=1,\n"
         "UnregisterAutoHide=1,UnregisterEvent=1,UpdateColorByID=1,\n"
-        "UpdateMouseOverTooltip=1,UpdateScrollChildRect=1,UpdateTooltip=1,\n"
+        "UpdateMouseOverTooltip=1,UpdateTooltip=1,\n"
         "UpdateUIPanelPositions=1,\n"
         "}\n"
     );
