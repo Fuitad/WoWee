@@ -1516,6 +1516,19 @@ int lua_Texture_GetTexture(lua_State* L) {
 }
 int lua_Texture_SetTexCoord(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
+        // Eight numbers is the rotated form: a UV per corner, in WoW's order
+        // of upper-left, lower-left, upper-right, lower-right. Four is the
+        // plain left/right/top/bottom crop. Reading the first four of an
+        // eight-number call treats two corners as a crop rectangle, which is
+        // how the paperdoll's sideways flyout arrow became a pale bar.
+        if (lua_gettop(L) >= 9) {
+            for (int i = 0; i < 8; ++i) {
+                w->texCoordQuad[i] = static_cast<float>(luaL_optnumber(L, 2 + i, 0.0));
+            }
+            w->texCoordRotated = true;
+            return 0;
+        }
+        w->texCoordRotated = false;
         w->texCoord[0] = static_cast<float>(luaL_optnumber(L, 2, 0.0));
         w->texCoord[1] = static_cast<float>(luaL_optnumber(L, 3, 1.0));
         w->texCoord[2] = static_cast<float>(luaL_optnumber(L, 4, 0.0));

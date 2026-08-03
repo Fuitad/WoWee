@@ -181,6 +181,19 @@ struct Widget {
     // Texture regions.
     std::string texturePath;
     float texCoord[4] = {0.0f, 1.0f, 0.0f, 1.0f};   ///< left, right, top, bottom
+
+    /// SetTexCoord's other form: a UV per corner, which is how the interface
+    /// rotates a texture. Eight numbers in WoW's order — upper-left,
+    /// lower-left, upper-right, lower-right — and only meaningful while
+    /// texCoordRotated is set.
+    ///
+    /// The paperdoll's flyout arrow is the case that matters: the same art
+    /// serves the left-hand slots pointing down and the right-hand slots
+    /// pointing sideways, and the sideways one is the rotated form. Reading
+    /// only the first four numbers of it mapped the art into a 16x38 frame at
+    /// the wrong angle, which drew as a pale vertical bar beside the slot.
+    bool  texCoordRotated = false;
+    float texCoordQuad[8] = {0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f};
     float color[4] = {1.0f, 1.0f, 1.0f, 1.0f};
     bool solidColor = false;    ///< SetTexture(r,g,b[,a]) rather than a file.
 

@@ -1123,9 +1123,24 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                                     : ImVec2(w->texCoord[0], w->texCoord[2]);
             const ImVec2 uv1 = live ? ImVec2(1.0f, 1.0f)
                                     : ImVec2(w->texCoord[1], w->texCoord[3]);
-            dl->AddImage(reinterpret_cast<ImTextureID>(tex),
-                         ImVec2(x0, y0), ImVec2(x1, y1), uv0, uv1,
-                         packColor(w->color, w->alpha));
+            if (!live && w->texCoordRotated) {
+                // A UV per corner, so the art can sit in the frame at any
+                // angle. WoW's order is upper-left, lower-left, upper-right,
+                // lower-right; the quad wants them going round the rect.
+                const float* q = w->texCoordQuad;
+                dl->AddImageQuad(reinterpret_cast<ImTextureID>(tex),
+                                 ImVec2(x0, y0), ImVec2(x1, y0),
+                                 ImVec2(x1, y1), ImVec2(x0, y1),
+                                 ImVec2(q[0], q[1]),   // upper-left
+                                 ImVec2(q[4], q[5]),   // upper-right
+                                 ImVec2(q[6], q[7]),   // lower-right
+                                 ImVec2(q[2], q[3]),   // lower-left
+                                 packColor(w->color, w->alpha));
+            } else {
+                dl->AddImage(reinterpret_cast<ImTextureID>(tex),
+                             ImVec2(x0, y0), ImVec2(x1, y1), uv0, uv1,
+                             packColor(w->color, w->alpha));
+            }
         } else if (w->kind == WidgetKind::FontString) {
             // Font objects carry a height, and honouring it is most of what
             // makes a label look right — a heading and a footnote are the same
