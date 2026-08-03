@@ -254,6 +254,52 @@ static int lua_BNGetNumFriends(lua_State* L) {
     return 2;
 }
 
+// --- Reputation ---
+//
+// The panel is a list of factions with a bar showing how far through the
+// current standing the player is. The bands are the game's own and fixed:
+// hated starts at -42000 and exalted at 42000, with the rest between.
+namespace {
+
+/// Which standing a raw reputation value falls in, and the band it sits in.
+/// standingId is 1..8 as the interface numbers them.
+struct Standing {
+    int id = 4;        // Neutral, for a faction the player has not moved
+    int32_t barMin = 0;
+    int32_t barMax = 3000;
+};
+
+Standing standingFor(int32_t value) {
+    // Bottom of each standing, in order. The top of one is the bottom of the
+    // next, and exalted has no top so it is given the width of revered.
+    static const int32_t kBottoms[8] = {
+        -42000, -6000, -3000, 0, 3000, 9000, 21000, 42000
+    };
+    Standing s;
+    for (int i = 7; i >= 0; --i) {
+        if (value >= kBottoms[i]) {
+            s.id = i + 1;
+            s.barMin = kBottoms[i];
+            s.barMax = (i < 7) ? kBottoms[i + 1] : 42000 + 21000;
+            return s;
+        }
+    }
+    // Below hated is still hated; the server does not send lower.
+    s.id = 1;
+    s.barMin = kBottoms[0];
+    s.barMax = kBottoms[1];
+    return s;
+}
+
+/// Which row the panel has selected. The client has no opinion — it is what
+/// the player last clicked — so it lives here rather than being invented.
+int& selectedFaction() {
+    static int selected = 1;
+    return selected;
+}
+
+}  // namespace
+
 // --- Gossip quest lists ---
 //
 // Which of an NPC's quests are on offer and which are already taken is decided
@@ -638,6 +684,66 @@ void registerSocialLuaAPI(lua_State* L) {
                 // the frame reads it as "not ForceGossip()" to decide whether
                 // to go straight to a lone vendor or flight master — which is
                 // what the real client does, so a definite no keeps that.
+                {"GetNumFactions", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? static_cast<double>(gh->getReputationList().size()) : 0.0);
+            return 1;
+        }},
+                // name, description, standingID, barMin, barMax, barValue,
+                // atWarWith, canToggleAtWar, isHeader, isCollapsed, hasRep,
+                // isWatched, isChild
+                //
+                // Flat: every row is a faction. The real client groups these
+                // under collapsible headers built from each faction's parent,
+                // which this does not read — so the list is complete and in the
+                // server's order, but not divided into categories.
+                {"GetFactionInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_checknumber(L, 1));
+            if (!gh || index < 1) { return luaReturnNil(L); }
+            const auto& list = gh->getReputationList();
+            if (index > static_cast<int>(list.size())) { return luaReturnNil(L); }
+            const auto& f = list[index - 1];
+
+            const int32_t value = gh->getFactionStanding(f.factionId);
+            const Standing s = standingFor(value);
+            const bool atWar = (f.flags & game::GameHandler::FACTION_FLAG_AT_WAR) != 0;
+            const bool peaceForced =
+                (f.flags & game::GameHandler::FACTION_FLAG_PEACE_FORCED) != 0;
+
+            lua_pushstring(L, f.name.c_str());
+            lua_pushstring(L, "");            // description: not in the data here
+            lua_pushnumber(L, s.id);
+            lua_pushnumber(L, s.barMin);
+            lua_pushnumber(L, s.barMax);
+            lua_pushnumber(L, value);
+            lua_pushboolean(L, atWar ? 1 : 0);
+            lua_pushboolean(L, peaceForced ? 0 : 1);   // canToggleAtWar
+            lua_pushboolean(L, 0);            // isHeader
+            lua_pushboolean(L, 0);            // isCollapsed
+            lua_pushboolean(L, 1);            // hasRep
+            lua_pushboolean(L, 0);            // isWatched
+            lua_pushboolean(L, 0);            // isChild
+            return 13;
+        }},
+                {"IsFactionInactive", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_checknumber(L, 1));
+            const auto* list = gh ? &gh->getReputationList() : nullptr;
+            const bool inactive = list && index >= 1 &&
+                index <= static_cast<int>(list->size()) &&
+                ((*list)[index - 1].flags & game::GameHandler::FACTION_FLAG_INACTIVE) != 0;
+            lua_pushboolean(L, inactive ? 1 : 0);
+            return 1;
+        }},
+                {"GetSelectedFaction", [](lua_State* L) -> int {
+            lua_pushnumber(L, selectedFaction());
+            return 1;
+        }},
+                {"SetSelectedFaction", [](lua_State* L) -> int {
+            selectedFaction() = static_cast<int>(luaL_checknumber(L, 1));
+            return 0;
+        }},
                 {"ForceGossip", [](lua_State* L) -> int {
             lua_pushboolean(L, 0);
             return 1;

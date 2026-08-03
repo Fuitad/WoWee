@@ -1845,6 +1845,26 @@ public:
     static constexpr uint8_t FACTION_FLAG_PEACE_FORCED     = 0x10;
     static constexpr uint8_t FACTION_FLAG_INACTIVE         = 0x20; // moved to the inactive list
 
+    /// A faction the player has a standing with, as the reputation panel lists
+    /// it.
+    ///
+    /// The server sends standings by *reputation index* — a dense numbering
+    /// that is not the faction id — and only Faction.dbc knows which faction
+    /// each index belongs to. Resolved here rather than in a window, because
+    /// the original interface asks the same question through GetFactionInfo.
+    struct ReputationEntry {
+        uint32_t factionId = 0;
+        uint32_t reputationIndex = 0;
+        std::string name;
+        uint8_t flags = 0;
+    };
+    /// Visible factions in the server's own order. Empty until the standings
+    /// arrive, and built once after they do.
+    const std::vector<ReputationEntry>& getReputationList() const;
+    /// The player's current standing with a faction, which moves after the
+    /// list is built and so is not stored in it.
+    int32_t getFactionStanding(uint32_t factionId) const;
+
     const std::vector<FactionStandingInit>& getInitialFactions() const { return initialFactions_; }
     const std::unordered_map<uint32_t, int32_t>& getFactionStandings() const { return factionStandings_; }
 
@@ -3697,6 +3717,8 @@ private:
     /// Read once on the first ask, like the other DBC-backed caches here.
     mutable std::unordered_map<uint32_t, ExtendedCostEntry> extendedCostCache_;
     mutable bool extendedCostCacheLoaded_ = false;
+    mutable std::vector<ReputationEntry> reputationList_;
+    mutable bool reputationListBuilt_ = false;
     std::unordered_map<uint32_t, std::string> achievementDescCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementPointsCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementIconCache_;  // achievementId → SpellIcon.dbc ID

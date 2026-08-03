@@ -2846,6 +2846,58 @@ const GossipMessageData& GameHandler::getCurrentGossip() const {
     if (questHandler_) return questHandler_->getCurrentGossip();
     return currentGossip;
 }
+int32_t GameHandler::getFactionStanding(uint32_t factionId) const {
+    auto it = factionStandings_.find(factionId);
+    return it == factionStandings_.end() ? 0 : it->second;
+}
+
+const std::vector<GameHandler::ReputationEntry>& GameHandler::getReputationList() const {
+    // Nothing to resolve until the server has sent the standings, and building
+    // an empty list once would keep it empty for the session.
+    if (reputationListBuilt_ || initialFactions_.empty()) return reputationList_;
+
+    auto* am = services_.assetManager;
+    if (!am || !am->isInitialized()) return reputationList_;
+    auto dbc = am->loadDBC("Faction.dbc");
+    if (!dbc || !dbc->isLoaded()) return reputationList_;
+    reputationListBuilt_ = true;
+
+    const auto* layout = pipeline::getActiveDBCLayout()
+        ? pipeline::getActiveDBCLayout()->getLayout("Faction") : nullptr;
+    const uint32_t idField = layout ? (*layout)["ID"] : 0;
+    // Sits between the id and the race masks, and is not in the layout by
+    // name. Signed: -1 means the faction has no reputation bar at all, which
+    // is most of them.
+    const uint32_t reputationIndexField = 1;
+
+    for (uint32_t row = 0; row < dbc->getRecordCount(); ++row) {
+        const int32_t repIndex =
+            static_cast<int32_t>(dbc->getUInt32(row, reputationIndexField));
+        if (repIndex < 0 || repIndex >= static_cast<int32_t>(initialFactions_.size())) {
+            continue;
+        }
+        const auto& standing = initialFactions_[static_cast<size_t>(repIndex)];
+        // Hidden factions are never shown, and one the player has not met yet
+        // is not visible either.
+        if ((standing.flags & FACTION_FLAG_HIDDEN) != 0) continue;
+        if ((standing.flags & FACTION_FLAG_VISIBLE) == 0) continue;
+
+        ReputationEntry e;
+        e.factionId = dbc->getUInt32(row, idField);
+        e.reputationIndex = static_cast<uint32_t>(repIndex);
+        e.name = getFactionNamePublic(e.factionId);
+        e.flags = standing.flags;
+        if (e.factionId != 0) reputationList_.push_back(std::move(e));
+    }
+    // The server's own order, so the list does not reshuffle between sessions.
+    std::sort(reputationList_.begin(), reputationList_.end(),
+              [](const ReputationEntry& a, const ReputationEntry& b) {
+                  return a.reputationIndex < b.reputationIndex;
+              });
+    LOG_INFO("Reputation: ", reputationList_.size(), " visible factions");
+    return reputationList_;
+}
+
 const GameHandler::ExtendedCostEntry*
 GameHandler::getExtendedCost(uint32_t extendedCostId) const {
     if (!extendedCostCacheLoaded_) {

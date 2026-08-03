@@ -937,11 +937,21 @@ static int lua_CanShowAchievementUI(lua_State* L) {
     return 1;
 }
 
+// IsXPUserDisabled() → whether the player has turned experience off
+//
+// Nothing here can turn it off, so this is a definite no rather than an absent
+// answer — the reputation panel reads it to decide whether to offer the bar.
+static int lua_IsXPUserDisabled(lua_State* L) {
+    lua_pushboolean(L, 0);
+    return 1;
+}
+
 void registerSystemLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"Screenshot",               lua_Screenshot},
                 {"HasLFGRestrictions",       lua_HasLFGRestrictions},
                 {"CanShowAchievementUI",     lua_CanShowAchievementUI},
+                {"IsXPUserDisabled",         lua_IsXPUserDisabled},
                 {"RunScript",                lua_RunScript},
                 {"IsMouseButtonDown",        lua_IsMouseButtonDown},
                 {"GetTime",                  lua_GetTime},
