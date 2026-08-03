@@ -1341,6 +1341,7 @@ void QuestHandler::declineQuest() {
     questDetailsOpen_ = false;
     questDetailsOpenTime_ = std::chrono::steady_clock::time_point{};
     currentQuestDetails_ = QuestDetailsData{};
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("QUEST_FINISHED", {});
 }
 
 void QuestHandler::closeGossip() {
@@ -1387,6 +1388,10 @@ void QuestHandler::closeQuestRequestItems() {
     pendingTurnInRewardRequest_ = false;
     questRequestItemsOpen_ = false;
     currentQuestRequestItems_ = QuestRequestItemsData{};
+    // What closes the quest frame. It opens on QUEST_DETAIL, QUEST_PROGRESS or
+    // QUEST_COMPLETE and hides on this, so without it the window would open and
+    // stay open over whatever came next.
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("QUEST_FINISHED", {});
 }
 
 void QuestHandler::chooseQuestReward(uint32_t rewardIndex) {
@@ -1415,6 +1420,7 @@ void QuestHandler::closeQuestOfferReward() {
     pendingTurnInRewardRequest_ = false;
     questOfferRewardOpen_ = false;
     currentQuestOfferReward_ = QuestOfferRewardData{};
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("QUEST_FINISHED", {});
 }
 
 void QuestHandler::abandonQuest(uint32_t questId) {
@@ -2087,6 +2093,12 @@ void QuestHandler::handleQuestRequestItems(network::Packet& packet) {
     gossipWindowOpen_ = false;
     questDetailsOpen_ = false;
     questDetailsOpenTime_ = std::chrono::steady_clock::time_point{};
+
+    // The panel shown when a quest is handed back before it is finished, or
+    // when it asks for something in return. Its siblings QUEST_DETAIL and
+    // QUEST_COMPLETE were both fired and this one was not, so the original
+    // interface had the text for this step and no event to draw it on.
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("QUEST_PROGRESS", {});
 
     // Query item names for required items
     for (const auto& item : data.requiredItems) {
