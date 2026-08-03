@@ -1479,6 +1479,38 @@ static int lua_GetLFGCompletionRewardItem(lua_State* L) {
     return 2;
 }
 
+// RunMacroText(body) — run a macro body, one command per line.
+//
+// The same path the action bar takes for a macro button, so a macro run from a
+// party frame's click behaves as one run from the bar: /stopmacro is honoured,
+// and each line goes through the slash dispatch rather than being sent as chat.
+static int lua_RunMacroText(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    const char* body = luaL_optstring(L, 1, "");
+    if (svc && svc->runMacroText && body && *body) svc->runMacroText(body);
+    return 0;
+}
+
+// RunMacro(id or name) — run a saved macro by which one it is.
+static int lua_RunMacro(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    auto* gh = getGameHandler(L);
+    if (!svc || !svc->runMacroText || !gh) return 0;
+    uint32_t macroId = 0;
+    if (lua_isnumber(L, 1)) {
+        macroId = static_cast<uint32_t>(lua_tonumber(L, 1));
+    } else if (const char* name = lua_tostring(L, 1)) {
+        // By name, which is how a macro written into another macro names it.
+        for (uint32_t id : gh->getMacroIds()) {
+            if (gh->getMacroName(id) == name) { macroId = id; break; }
+        }
+    }
+    if (macroId == 0) return 0;
+    const std::string& body = gh->getMacroText(macroId);
+    if (!body.empty()) svc->runMacroText(body);
+    return 0;
+}
+
 // TriggerTutorial(id) — show one of the interface's tutorial pop-outs.
 //
 // Tutorials are a saved per-account set of which have been seen, and none of
@@ -1765,6 +1797,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"JoinBattlefield",          lua_JoinBattlefield},
                 {"GetLFGCompletionReward",     lua_GetLFGCompletionReward},
                 {"GetLFGCompletionRewardItem", lua_GetLFGCompletionRewardItem},
+                {"RunMacroText",             lua_RunMacroText},
+                {"RunMacro",                 lua_RunMacro},
                 {"TriggerTutorial",          lua_TriggerTutorial},
                 {"Quit",                     lua_Quit},
                 {"ReloadUI",                 lua_ReloadUI},

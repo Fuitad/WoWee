@@ -17,6 +17,10 @@ struct LuaServices {
     audio::AudioCoordinator* audioCoordinator  = nullptr;
     game::ExpansionRegistry* expansionRegistry = nullptr;
 
+    /// Run a macro body, as RunMacroText() does — one command per line,
+    /// through the same path the action bar uses for a macro button.
+    std::function<void(const std::string&)> runMacroText;
+
     /// Ask for the interface to be reloaded, as ReloadUI() does.
     ///
     /// A request rather than the act: reloading shuts the Lua state down and

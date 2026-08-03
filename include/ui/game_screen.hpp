@@ -62,6 +62,7 @@ public:
      * Check if chat input is active
      */
     bool isChatInputActive() const { return chatPanel_.isChatInputActive(); }
+    ChatPanel& getChatPanel() { return chatPanel_; }
 
     void saveSettings();
     void loadSettings();
