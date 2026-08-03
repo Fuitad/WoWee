@@ -1283,15 +1283,42 @@ static int lua_GetCurrentArenaSeason(lua_State* L) { lua_pushnumber(L, 0); retur
 // Fed straight to HonorFrameProgressBar:SetValue, which needs a number.
 static int lua_GetPVPRankProgress(lua_State* L) { lua_pushnumber(L, 0); return 1; }
 
-// GetArenaTeam(index) → the team's name, for the promote/kick confirmations.
+// GetArenaTeam(index) →
+//   teamName, teamSize, teamRating, teamPlayed, teamWins, seasonTeamPlayed,
+//   seasonTeamWins, playerPlayed, seasonPlayerPlayed, teamRank, playerRating,
+//   backgroundR, backgroundG, backgroundB, emblem, emblemR, emblemG, emblemB,
+//   border, borderR, borderG, borderB
+//
+// Twenty-two, because PVPTeam_Update unpacks every one of them on a single line
+// and then feeds the colour components straight to SetVertexColor. Answering
+// just the name — which is all the promote and kick confirmations need — left
+// twenty-one nils behind it and took the team list down.
+//
+// The tabard is not tracked: SMSG_ARENA_TEAM_QUERY_RESPONSE carries the emblem
+// style and colours and nothing here reads them. Those eight answer zero rather
+// than nil, so the tabard draws black instead of raising mid-arithmetic.
 static int lua_GetArenaTeam(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));
     if (!gh || idx < 1) return luaReturnNil(L);
     const auto& teams = gh->getArenaTeamStats();
     if (idx > static_cast<int>(teams.size())) return luaReturnNil(L);
-    lua_pushstring(L, teams[static_cast<size_t>(idx) - 1].teamName.c_str());
-    return 1;
+    const auto& t = teams[static_cast<size_t>(idx) - 1];
+
+    lua_pushstring(L, t.teamName.c_str());  // 1: teamName
+    lua_pushnumber(L, t.teamType);          // 2: teamSize (2, 3 or 5)
+    lua_pushnumber(L, t.rating);            // 3: teamRating
+    lua_pushnumber(L, t.weekGames);         // 4: teamPlayed
+    lua_pushnumber(L, t.weekWins);          // 5: teamWins
+    lua_pushnumber(L, t.seasonGames);       // 6: seasonTeamPlayed
+    lua_pushnumber(L, t.seasonWins);        // 7: seasonTeamWins
+    // Per-player totals come with the roster, not the team summary.
+    lua_pushnumber(L, 0);                   // 8: playerPlayed
+    lua_pushnumber(L, 0);                   // 9: seasonPlayerPlayed
+    lua_pushnumber(L, t.rank);              // 10: teamRank
+    lua_pushnumber(L, 0);                   // 11: playerRating
+    for (int i = 0; i < 11; ++i) lua_pushnumber(L, 0);  // 12-22: tabard
+    return 22;
 }
 
 // IsActiveBattlefieldArena() → isArena, isRegistered

@@ -2446,11 +2446,22 @@ void registerQuestLuaAPI(lua_State* L) {
             for (const auto& [achId, list] : gh->getAchievementCriteriaMap()) {
                 for (const auto& c : list) {
                     if (c.id != critId) continue;
-                    lua_pushnumber(L, achId);
-                    lua_pushstring(L, gh->getAchievementName(achId).c_str());
-                    lua_pushnumber(L, gh->getAchievementPoints(achId));
-                    lua_pushboolean(L, gh->getEarnedAchievements().count(achId) ? 1 : 0);
-                    return 4;
+                    // Ten, the same shape as GetAchievementInfo: the panel
+                    // unpacks it into the same ten names and puts the last one
+                    // on a button as its texture.
+                    const bool done = gh->getEarnedAchievements().count(achId) > 0;
+                    const uint32_t date = gh->getAchievementDate(achId);
+                    lua_pushnumber(L, achId);                                    // 1: id
+                    lua_pushstring(L, gh->getAchievementName(achId).c_str());    // 2: name
+                    lua_pushnumber(L, gh->getAchievementPoints(achId));          // 3: points
+                    lua_pushboolean(L, done ? 1 : 0);                            // 4: completed
+                    lua_pushnumber(L, done ? ((date >> 24) & 0xFF) : 0);         // 5: month
+                    lua_pushnumber(L, done ? ((date >> 16) & 0xFF) : 0);         // 6: day
+                    lua_pushnumber(L, done ? (date & 0xFFFF) : 0);               // 7: year
+                    lua_pushstring(L, gh->getAchievementDescription(achId).c_str()); // 8
+                    lua_pushnumber(L, 0);                                        // 9: flags
+                    lua_pushnumber(L, gh->getAchievementIconId(achId));            // 10: icon
+                    return 10;
                 }
             }
             return luaReturnNil(L);
@@ -2499,13 +2510,13 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"AddTrackedAchievement", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
-            if (gh && id) { gh->setAchievementTracked(id, true); gh->fireAddonEvent("TRACKED_ACHIEVEMENT_UPDATE", {}); }
+            if (gh && id) { gh->setAchievementTracked(id, true); gh->fireAddonEvent("TRACKED_ACHIEVEMENT_UPDATE", {std::to_string(id)}); }
             return 0;
         }},
                 {"RemoveTrackedAchievement", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
-            if (gh && id) { gh->setAchievementTracked(id, false); gh->fireAddonEvent("TRACKED_ACHIEVEMENT_UPDATE", {}); }
+            if (gh && id) { gh->setAchievementTracked(id, false); gh->fireAddonEvent("TRACKED_ACHIEVEMENT_UPDATE", {std::to_string(id)}); }
             return 0;
         }},
                 {"GetNumTrackedAchievements", [](lua_State* L) -> int {
