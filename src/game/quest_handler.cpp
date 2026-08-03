@@ -1905,7 +1905,13 @@ void QuestHandler::handleQuestgiverQuestList(network::Packet& packet) {
 
     currentGossip_ = std::move(data);
     gossipWindowOpen_ = true;
-    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("GOSSIP_SHOW", {});
+    // QUEST_GREETING, not GOSSIP_SHOW. This is SMSG_QUESTGIVER_QUEST_LIST — a
+    // quest giver listing what it has, which the greeting frame answers.
+    // GOSSIP_SHOW belongs to SMSG_GOSSIP_MESSAGE and opens the gossip frame
+    // instead, so firing it here put the wrong panel over the list. Both would
+    // be worse: each frame shows itself on its own event, so sending both shows
+    // two.
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("QUEST_GREETING", {});
     owner_.closeVendor();
 
     classifyGossipQuests(false);
