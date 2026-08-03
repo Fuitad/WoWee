@@ -1,7 +1,9 @@
 // lua_system_api.cpp — System, time, sound, locale, map, addons, instances, and utilities Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include <algorithm>
 #include <cstring>
 #include <set>
+#include <vector>
 #include "imgui.h"
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_engine.hpp"
@@ -959,6 +961,42 @@ static int lua_IsXPUserDisabled(lua_State* L) {
     return 1;
 }
 
+/// The taxi nodes the flight map is showing, in a fixed order.
+///
+/// Every taxi function is asked about a node by position in this list, and the
+/// answers only line up if each of them walks the same order. They used to walk
+/// `getTaxiNodes()` directly, which is an unordered_map: its order is arbitrary,
+/// and rehashing it — which learning a flight path while the window is open
+/// does — reorders it under a list already drawn. Clicking a destination would
+/// then fly somewhere else. Sorting by node id costs a copy of a few hundred
+/// integers and makes the order the same every time it is asked.
+///
+/// Only the nodes on the map the player is standing on are listed. That is what
+/// the flight map shows, and it is what this client's own window already lists.
+static std::vector<uint32_t> taxiNodeOrder(game::GameHandler* gh) {
+    std::vector<uint32_t> ids;
+    if (!gh) return ids;
+
+    const auto& nodes = gh->getTaxiNodes();
+    const auto current = nodes.find(gh->getTaxiCurrentNode());
+    if (current == nodes.end()) return ids;
+
+    const uint32_t mapId = current->second.mapId;
+    ids.reserve(nodes.size());
+    for (const auto& [id, node] : nodes) {
+        if (node.mapId == mapId) ids.push_back(id);
+    }
+    std::sort(ids.begin(), ids.end());
+    return ids;
+}
+
+/// The node at a one-based position on the flight map, or 0 for no such node.
+static uint32_t taxiNodeAt(game::GameHandler* gh, int index) {
+    const auto ids = taxiNodeOrder(gh);
+    if (index < 1 || index > static_cast<int>(ids.size())) return 0;
+    return ids[static_cast<size_t>(index - 1)];
+}
+
 void registerSystemLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"Screenshot",               lua_Screenshot},
@@ -1217,51 +1255,49 @@ void registerSystemLuaAPI(lua_State* L) {
             return 0;
         }},
                 {"NumTaxiNodes", [](lua_State* L) -> int {
-            auto* gh = getGameHandler(L);
-            lua_pushnumber(L, gh ? gh->getTaxiNodes().size() : 0);
+            lua_pushnumber(L, static_cast<double>(taxiNodeOrder(getGameHandler(L)).size()));
             return 1;
         }},
                 {"TaxiNodeName", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            int index = static_cast<int>(luaL_checknumber(L, 1));
-            if (!gh) { lua_pushstring(L, ""); return 1; }
-            int i = 0;
-            for (const auto& [id, node] : gh->getTaxiNodes()) {
-                if (++i == index) {
-                    lua_pushstring(L, node.name.c_str());
-                    return 1;
-                }
-            }
-            lua_pushstring(L, "");
+            const uint32_t id = taxiNodeAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            if (id == 0) { lua_pushstring(L, ""); return 1; }
+            const auto& nodes = gh->getTaxiNodes();
+            const auto it = nodes.find(id);
+            lua_pushstring(L, it != nodes.end() ? it->second.name.c_str() : "");
             return 1;
         }},
+                // TaxiNodeGetType(index) → "CURRENT" | "REACHABLE" | "DISTANT" | "NONE"
+                //
+                // A name, not a number. The flight map compares this against
+                // those four words — to pick the pin's colour, and first of all
+                // to decide whether the node is on the map at all. Answering 0
+                // or 1 is never equal to any of them, so every node counted as
+                // shown, including the ones the player has never been to.
                 {"TaxiNodeGetType", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            int index = static_cast<int>(luaL_checknumber(L, 1));
-            if (!gh) { return luaReturnZero(L); }
-            int i = 0;
-            for (const auto& [id, node] : gh->getTaxiNodes()) {
-                if (++i == index) {
-                    bool known = gh->isKnownTaxiNode(id);
-                    lua_pushnumber(L, known ? 1 : 0); // 0=none, 1=reachable, 2=current
-                    return 1;
-                }
-            }
-            lua_pushnumber(L, 0);
+            const uint32_t id = taxiNodeAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            if (id == 0) { lua_pushstring(L, "NONE"); return 1; }
+            if (id == gh->getTaxiCurrentNode())  { lua_pushstring(L, "CURRENT"); return 1; }
+            if (!gh->isKnownTaxiNode(id))        { lua_pushstring(L, "NONE"); return 1; }
+            // Known, but nothing flies there from where the player is standing:
+            // shown in yellow rather than hidden, so it reads as somewhere they
+            // have been rather than somewhere that does not exist.
+            lua_pushstring(L, gh->hasTaxiRouteTo(id) ? "REACHABLE" : "DISTANT");
             return 1;
         }},
                 {"TakeTaxiNode", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            int index = static_cast<int>(luaL_checknumber(L, 1));
-            if (!gh) return 0;
-            int i = 0;
-            for (const auto& [id, node] : gh->getTaxiNodes()) {
-                if (++i == index) {
-                    gh->activateTaxi(id);
-                    break;
-                }
-            }
+            const uint32_t id = taxiNodeAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            if (id != 0) gh->activateTaxi(id);
             return 0;
+        }},
+                // TaxiNodeCost(index) → the fare in copper, for the tooltip.
+                {"TaxiNodeCost", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t id = taxiNodeAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            lua_pushnumber(L, id != 0 ? static_cast<double>(gh->getTaxiCostTo(id)) : 0.0);
+            return 1;
         }},
                 {"GetNetStats", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
