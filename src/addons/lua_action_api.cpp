@@ -16,6 +16,17 @@
 
 namespace wowee::addons {
 
+// What the interface is holding.
+//
+// This is the original interface's cursor, and it is not the only one: this
+// client's inventory screen keeps a held item of its own. They do not need
+// merging, because whichever interface is drawing the bags is the one the
+// player can pick anything up from, and that is the cursor in use — with the
+// bags owned, as they are by default, this is it.
+//
+// What that does mean is that CursorHasItem answers for this cursor alone. An
+// addon asking while the player is dragging in this client's own bags is told
+// no, which is true of the cursor it can see and not of the player's hand.
 enum class CursorType { NONE, SPELL, ITEM, ACTION, MACRO };
 static CursorType s_cursorType = CursorType::NONE;
 static uint32_t   s_cursorId   = 0;    // spellId, itemId, or action slot
