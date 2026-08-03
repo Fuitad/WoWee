@@ -910,6 +910,94 @@ int lua_Tooltip_AddLine(lua_State* L) {
     w->tooltipLines.push_back(std::move(line));
     return 0;
 }
+/// GameTooltip:SetFrameStack(showHidden) — what is under the cursor.
+///
+/// This is /framestack, and it is the answer to every "what is drawing that?"
+/// that otherwise costs a screenshot, a guess, and a round trip. It was the
+/// last thing Blizzard_DebugTools needed that this client did not answer, and
+/// a missing method there is a hard error rather than an empty tooltip.
+///
+/// Two deliberate differences from the real client, both because this is a
+/// diagnostic and being useful beats being faithful:
+///
+///   * textures and font strings are listed too, not only frames. A stray
+///     *region* is exactly the kind of thing worth identifying, and the real
+///     framestack cannot name one.
+///   * each line carries the rect, so a widget in the wrong place or at the
+///     wrong size says so without anything else being opened.
+///
+/// Ordered outermost first, so the last line is what the cursor is really on.
+int lua_Tooltip_SetFrameStack(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* tree = wowee::addons::getWidgetTree(L);
+    if (!w || !tree) return 0;
+    const bool showHidden = lua_toboolean(L, 2) != 0;
+
+    // The same conversion the input path makes: pixels to interface units,
+    // and y flipped, because the widget tree grows upward and ImGui does not.
+    const auto& io = ImGui::GetIO();
+    const float s = tree->uiScale();
+    const float px = io.MousePos.x;
+    const float py = io.DisplaySize.y - io.MousePos.y;
+    const float x = (s > 0.0f) ? px / s : px;
+    const float y = (s > 0.0f) ? py / s : py;
+
+    struct Entry { const wowee::ui::Widget* w; };
+    std::vector<Entry> under;
+    for (size_t id = 1; id < tree->size(); ++id) {
+        const auto* c = tree->get(static_cast<uint32_t>(id));
+        if (!c || c->id == 0) continue;
+        if (!showHidden && !c->visible) continue;
+        if (c->rectW <= 0.0f || c->rectH <= 0.0f) continue;
+        if (x < c->left || x > c->left + c->rectW) continue;
+        if (y < c->bottom || y > c->bottom + c->rectH) continue;
+        under.push_back({c});
+    }
+    std::sort(under.begin(), under.end(), [](const Entry& a, const Entry& b) {
+        if (a.w->effStrata != b.w->effStrata)
+            return static_cast<int>(a.w->effStrata) < static_cast<int>(b.w->effStrata);
+        return a.w->effLevel < b.w->effLevel;
+    });
+
+    w->isTooltip = true;
+    w->tooltipLines.clear();
+    auto line = [&](std::string text, float r, float g, float b) {
+        wowee::ui::Widget::TooltipLine tl;
+        tl.left = std::move(text);
+        tl.lc[0] = r; tl.lc[1] = g; tl.lc[2] = b; tl.lc[3] = 1.0f;
+        tl.rc[0] = tl.rc[1] = tl.rc[2] = tl.rc[3] = 1.0f;
+        w->tooltipLines.push_back(std::move(tl));
+    };
+    auto num = [](float v) {
+        std::string s = std::to_string(static_cast<int>(v + (v < 0 ? -0.5f : 0.5f)));
+        return s;
+    };
+
+    line("Frame Stack  (" + num(x) + ", " + num(y) + ")", 1.0f, 0.82f, 0.0f);
+    if (under.empty()) {
+        line("nothing under the cursor", 0.6f, 0.6f, 0.6f);
+        return 0;
+    }
+    for (const Entry& e : under) {
+        const char* kind = e.w->kind == wowee::ui::WidgetKind::Texture    ? "texture"
+                         : e.w->kind == wowee::ui::WidgetKind::FontString ? "label"
+                                                                         : "frame";
+        std::string text = (e.w->name.empty() ? std::string("(unnamed)") : e.w->name);
+        text += "  " + std::string(kind);
+        text += "  " + num(e.w->left) + "," + num(e.w->bottom);
+        text += " " + num(e.w->rectW) + "x" + num(e.w->rectH);
+        if (!e.w->visible) text += "  HIDDEN";
+        // A region is dimmer than a frame, so the frames read as the structure
+        // and the art hanging off them as detail.
+        if (e.w->kind == wowee::ui::WidgetKind::Frame) line(text, 1.0f, 1.0f, 1.0f);
+        else                                           line(text, 0.6f, 0.8f, 1.0f);
+        if (e.w->kind == wowee::ui::WidgetKind::Texture && !e.w->texturePath.empty()) {
+            line("    " + e.w->texturePath, 0.5f, 0.5f, 0.5f);
+        }
+    }
+    return 0;
+}
+
 int lua_Tooltip_AddDoubleLine(lua_State* L) {
     auto* w = widgetOf(L, 1);
     if (!w) return 0;
@@ -3000,6 +3088,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetUnit",         lua_Tooltip_SetUnit},
         {"AddDoubleLine",   lua_Tooltip_AddDoubleLine},
         {"ClearLines",      lua_Tooltip_ClearLines},
+        {"SetFrameStack",   lua_Tooltip_SetFrameStack},
         {"NumLines",        lua_Tooltip_NumLines},
         {"Clear",           lua_MessageFrame_Clear},
         {"GetNumMessages",  lua_MessageFrame_GetNumMessages},
