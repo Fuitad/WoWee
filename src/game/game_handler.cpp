@@ -3021,6 +3021,11 @@ QuestGiverStatus GameHandler::getQuestGiverStatus(uint64_t guid) const {
     if (questHandler_) return questHandler_->getQuestGiverStatus(guid);
     return QuestGiverStatus::NONE;
 }
+std::vector<std::pair<uint32_t, uint32_t>> GameHandler::getQuestTimers() const {
+    if (questHandler_) return questHandler_->getQuestTimers();
+    return {};
+}
+
 const std::vector<GameHandler::QuestLogEntry>& GameHandler::getQuestLog() const {
     if (questHandler_) return questHandler_->getQuestLog();
     static const std::vector<QuestLogEntry> empty;

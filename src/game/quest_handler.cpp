@@ -16,6 +16,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdio>
+#include <ctime>
 #include <limits>
 #include <sstream>
 
@@ -1552,6 +1553,43 @@ bool QuestHandler::hasQuestInLog(uint32_t questId) const {
         if (q.questId == questId) return true;
     }
     return false;
+}
+
+std::vector<std::pair<uint32_t, uint32_t>> QuestHandler::getQuestTimers() const {
+    std::vector<std::pair<uint32_t, uint32_t>> timers;
+    if (owner_.lastPlayerFieldsRef().empty()) return timers;
+
+    const uint16_t ufQuestStart = fieldIndex(UF::PLAYER_QUEST_LOG_START);
+    const uint8_t qStride = owner_.getPacketParsers() ? owner_.getPacketParsers()->questLogStride() : 5;
+    if (qStride == 0) return timers;
+    const auto now = static_cast<uint64_t>(std::time(nullptr));
+    const uint16_t maxSlots = static_cast<uint16_t>(maxQuestLogSlots());
+
+    // Walked in quest log order rather than slot order: the timer frame numbers
+    // its rows the way the log lists the quests, and the two disagree once a
+    // quest has been turned in and its slot reused.
+    for (const auto& q : questLog_) {
+        if (q.questId == 0) continue;
+        for (uint16_t slot = 0; slot < maxSlots; ++slot) {
+            const uint16_t idField = ufQuestStart + slot * qStride;
+            auto idIt = owner_.lastPlayerFieldsRef().find(idField);
+            if (idIt == owner_.lastPlayerFieldsRef().end() || idIt->second != q.questId) continue;
+
+            // The expiry is the last field of the slot in every expansion:
+            // Classic packs state and counts together and so uses three, TBC
+            // four, WotLK five.
+            const uint16_t timeField = static_cast<uint16_t>(idField + qStride - 1);
+            auto tIt = owner_.lastPlayerFieldsRef().find(timeField);
+            if (tIt == owner_.lastPlayerFieldsRef().end() || tIt->second == 0) break;
+            const auto expiry = static_cast<uint64_t>(tIt->second);
+            // An expired timer is reported as zero rather than dropped, so the
+            // row stays put until the server removes the quest.
+            timers.emplace_back(q.questId,
+                                expiry > now ? static_cast<uint32_t>(expiry - now) : 0u);
+            break;
+        }
+    }
+    return timers;
 }
 
 int QuestHandler::findQuestLogSlotIndexFromServer(uint32_t questId) const {

@@ -18,6 +18,37 @@ static int lua_GetNumQuestLogEntries(lua_State* L) {
 }
 
 // GetQuestLogTitle(index) → title, level, suggestedGroup, isHeader, isCollapsed, isComplete, frequency, questID
+// GetQuestTimers() — the seconds left on each timed quest, as separate values.
+//
+// QuestTimerFrame counts them with select("#", ...) and reads them with
+// select(i, ...), so the count is the return count. Returning nothing is the
+// honest answer for a log with no timed quest in it, and the frame hides
+// itself — which it could not do while this was missing, because the OnEvent
+// that calls it runs on every QUEST_LOG_UPDATE.
+static int lua_GetQuestTimers(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+    const auto timers = gh->getQuestTimers();
+    for (const auto& t : timers) lua_pushnumber(L, t.second);
+    return static_cast<int>(timers.size());
+}
+
+// GetQuestIndexForTimer(i) — the quest log index the i-th timer belongs to,
+// so clicking a timer row selects its quest.
+static int lua_GetQuestIndexForTimer(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || idx < 1) return luaReturnNil(L);
+    const auto timers = gh->getQuestTimers();
+    if (idx > static_cast<int>(timers.size())) return luaReturnNil(L);
+    const uint32_t questId = timers[static_cast<size_t>(idx) - 1].first;
+    const auto& ql = gh->getQuestLog();
+    for (size_t i = 0; i < ql.size(); ++i) {
+        if (ql[i].questId == questId) { lua_pushnumber(L, static_cast<double>(i + 1)); return 1; }
+    }
+    return luaReturnNil(L);
+}
+
 static int lua_GetQuestLogTitle(lua_State* L) {
     auto* gh = getGameHandler(L);
     // optnumber, not checknumber: FrameXML walks the quest log with an index
@@ -1499,6 +1530,8 @@ static int lua_GetQuestSpellLink(lua_State* L) {
 void registerQuestLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"GetNumQuestLogEntries",   lua_GetNumQuestLogEntries},
+                {"GetQuestTimers",          lua_GetQuestTimers},
+                {"GetQuestIndexForTimer",   lua_GetQuestIndexForTimer},
                 {"GetQuestLogTitle",        lua_GetQuestLogTitle},
                 // IsUnitOnQuest(questIndex, unit) — whether that unit is also
                 // on the quest, which the log prints as "[2]" beside an entry

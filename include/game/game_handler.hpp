@@ -1679,6 +1679,8 @@ public:
     // Quest log
     using QuestLogEntry = QuestHandler::QuestLogEntry;
     const std::vector<QuestLogEntry>& getQuestLog() const;
+    // Seconds left on each timed quest, paired with its quest id.
+    std::vector<std::pair<uint32_t, uint32_t>> getQuestTimers() const;
     // Reconcile collect-item quest objectives against current bag contents.
     // Forwards to QuestHandler; called by InventoryHandler after each rebuild.
     void reconcileQuestItemObjectives(const std::unordered_map<uint32_t, uint32_t>& carriedCounts);
