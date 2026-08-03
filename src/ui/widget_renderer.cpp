@@ -815,6 +815,24 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                                 " \"", w->text, "\" rect=(", w->left, ",", w->bottom,
                                 " ", w->rectW, "x", w->rectH, ")");
                 }
+                // The tabs themselves, with the state that decides whether a
+                // click reaches them. WoW disables the tab you are already on,
+                // so exactly one being disabled is right and all of them being
+                // disabled is the fault — and the label dump above cannot tell
+                // those two apart.
+                for (int i = 1; i <= 5; ++i) {
+                    const std::string tabName = "CharacterFrameTab" + std::to_string(i);
+                    const Widget* tab = tree.findByName(tabName);
+                    if (!tab) {
+                        LOG_WARNING("  SHEET TAB ", tabName, " NOT BUILT");
+                        continue;
+                    }
+                    LOG_WARNING("  SHEET TAB ", tabName,
+                                tab->shown ? " shown" : " HIDDEN",
+                                tab->enabled ? " enabled" : " DISABLED",
+                                " rect=(", tab->left, ",", tab->bottom,
+                                " ", tab->rectW, "x", tab->rectH, ")");
+                }
             }
 
             int orphans = 0;

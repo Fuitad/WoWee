@@ -148,6 +148,21 @@ void WidgetTree::clearPoints(uint32_t id) {
 void WidgetTree::setWidth(uint32_t id, float width) {
     Widget* w = get(id);
     if (!w) return;
+    // Zero on a font string means "as wide as your text", not "no width".
+    // That is WoW's convention and the interface leans on it:
+    // PanelTemplates_TabResize ends with tabText:SetWidth(0) for a tab that
+    // is not being capped, meaning let the label size itself.
+    //
+    // Taken literally it left the label zero wide, and a region with no width
+    // is not drawn at all — which is why every tab on the character sheet had
+    // its text set correctly and showed nothing. Clearing the measured mark
+    // is what lets it be measured again; without that the label keeps the
+    // zero, because it has already been measured once and its text has not
+    // changed since.
+    if (width <= 0.0f && w->kind == WidgetKind::FontString) {
+        w->autoSized = false;
+        w->measuredText.clear();
+    }
     w->width = width;
     // Provisional, so a read before the next layout sees what was just set.
     // The layout overwrites it from the anchors, which is the final answer
