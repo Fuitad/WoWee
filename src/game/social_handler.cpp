@@ -963,6 +963,17 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
                 char guidBuf[32];
                 snprintf(guidBuf, sizeof(guidBuf), "0x%016llX", (unsigned long long)guid);
                 owner_.addonEventCallbackRef()("INSPECT_READY", {guidBuf});
+                // INSPECT_READY is a later expansion's name and nothing in this
+                // interface listens for it. The inspect paperdoll refreshes on
+                // UNIT_INVENTORY_CHANGED for the unit it is showing, so the gear
+                // arrived and the window was never told — it kept whatever it had
+                // when it opened. Fired for the unit token this guid answers to,
+                // and only when it answers to one: an inspected player who is not
+                // the target has no token for the interface to match against.
+                const std::string inspectUnit = owner_.guidToUnitId(guid);
+                if (!inspectUnit.empty()) {
+                    owner_.addonEventCallbackRef()("UNIT_INVENTORY_CHANGED", {inspectUnit});
+                }
             }
             return;
         }
@@ -1022,6 +1033,10 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
             char guidBuf[32];
             snprintf(guidBuf, sizeof(guidBuf), "0x%016llX", (unsigned long long)guid);
             owner_.addonEventCallbackRef()("INSPECT_READY", {guidBuf});
+            const std::string inspectUnit = owner_.guidToUnitId(guid);
+            if (!inspectUnit.empty()) {
+                owner_.addonEventCallbackRef()("UNIT_INVENTORY_CHANGED", {inspectUnit});
+            }
         }
         return;
     }
@@ -1164,6 +1179,10 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
         char guidBuf[32];
         snprintf(guidBuf, sizeof(guidBuf), "0x%016llX", (unsigned long long)guid);
         owner_.addonEventCallbackRef()("INSPECT_READY", {guidBuf});
+        const std::string inspectUnit = owner_.guidToUnitId(guid);
+        if (!inspectUnit.empty()) {
+            owner_.addonEventCallbackRef()("UNIT_INVENTORY_CHANGED", {inspectUnit});
+        }
     }
 }
 

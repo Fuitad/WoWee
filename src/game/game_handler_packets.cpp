@@ -2126,6 +2126,17 @@ void GameHandler::registerOpcodeHandlers() {
             char guidBuf[32];
             snprintf(guidBuf, sizeof(guidBuf), "0x%016llX", (unsigned long long)guid);
             fireAddonEvent("INSPECT_READY", {guidBuf});
+            // INSPECT_READY is a later expansion's name and nothing in this
+            // interface listens for it. The inspect paperdoll refreshes on
+            // UNIT_INVENTORY_CHANGED for the unit it is showing, so the gear
+            // arrived and the window was never told — it kept whatever it had
+            // when it opened. Fired for the unit token this guid answers to,
+            // and only when it answers to one: an inspected player who is not
+            // the target has no token for the interface to match against.
+            const std::string inspectUnit = guidToUnitId(guid);
+            if (!inspectUnit.empty()) {
+                fireAddonEvent("UNIT_INVENTORY_CHANGED", {inspectUnit});
+            }
         }
     };
     // Same wire format as SMSG_COMPRESSED_MOVES: uint8 size + uint16 opcode + payload[]
