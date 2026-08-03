@@ -1833,6 +1833,25 @@ int lua_StatusBar_SetDisplayValue(lua_State* L) {
     return 0;
 }
 
+/// GetMouseFocus() — the frame the cursor is over, or nil.
+///
+/// The tree already knows: it is what decides which frame receives OnEnter and
+/// which takes a click. FrameXML compares against it to decide whether a
+/// tooltip belongs to the frame under the pointer, and the vehicle bar asks it
+/// directly. It answered nothing at all before.
+int lua_GetMouseFocus(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    if (!tree) { lua_pushnil(L); return 1; }
+    const uint32_t hovered = tree->hoveredWidget();
+    if (hovered == 0) { lua_pushnil(L); return 1; }
+    lua_getglobal(L, "__WoweeFramesByWid");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); lua_pushnil(L); return 1; }
+    lua_pushinteger(L, static_cast<lua_Integer>(hovered));
+    lua_rawget(L, -2);
+    lua_remove(L, -2);          // drop the registry table, keep the frame
+    return 1;
+}
+
 int lua_Frame_EnableKeyboard(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->keyboardEnabled = lua_toboolean(L, 2) != 0;
     return 0;
@@ -2629,6 +2648,9 @@ void LuaEngine::registerCoreAPI() {
 
     lua_pushcfunction(L_, lua_wowee_setAnimOffset);
     lua_setglobal(L_, "__WoweeSetAnimOffset");
+
+    lua_pushcfunction(L_, lua_GetMouseFocus);
+    lua_setglobal(L_, "GetMouseFocus");
 
 
     lua_pushcfunction(L_, [](lua_State* L) -> int {
