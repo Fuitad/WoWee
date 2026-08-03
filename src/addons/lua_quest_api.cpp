@@ -520,29 +520,69 @@ static const game::GameHandler::TalentEntry* talentAt(game::GameHandler* gh,
     return tabTalents[talentIndex - 1];
 }
 
+/// Points staged in the talent preview but not yet learned, defined below with
+/// the functions that change it.
+static std::unordered_map<uint32_t, int>& previewPoints();
+
+/// Whether every prerequisite of a talent is satisfied, optionally counting
+/// points staged in the preview but not yet learned.
+static bool talentPrereqsMet(game::GameHandler* gh,
+                             const game::GameHandler::TalentEntry* talent,
+                             bool withPreview) {
+    if (!gh || !talent) return false;
+    for (int p = 0; p < 3; ++p) {
+        const uint32_t prereqId = talent->prereqTalent[p];
+        if (prereqId == 0) continue;
+        // Counted from zero in the DBC, so the rank asked for is one more.
+        const int needed = static_cast<int>(talent->prereqRank[p]) + 1;
+        int have = gh->getTalentRank(prereqId);
+        if (withPreview) {
+            const auto staged = previewPoints().find(prereqId);
+            if (staged != previewPoints().end()) have += staged->second;
+        }
+        if (have < needed) return false;
+    }
+    return true;
+}
+
 static int lua_GetTalentInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int tabIndex = static_cast<int>(luaL_checknumber(L, 1));
     const int talentIndex = static_cast<int>(luaL_checknumber(L, 2));
     const auto* talent = talentAt(gh, tabIndex, talentIndex);
+    // Ten values, not eight. The frame reads previewRank into the rank it
+    // displays and then compares it against maxRank — as nil that is an error
+    // rather than a blank, and it happens the moment points are staged, which
+    // is how talents are spent at all.
     if (!talent) {
-        for (int i = 0; i < 8; i++) lua_pushnil(L);
-        return 8;
+        for (int i = 0; i < 10; i++) lua_pushnil(L);
+        return 10;
     }
-    uint8_t rank = gh->getTalentRank(talent->talentId);
-    // Get spell name for rank 1 spell
+    const int rank = gh->getTalentRank(talent->talentId);
+    const auto staged = previewPoints().find(talent->talentId);
+    const int previewRank =
+        rank + (staged == previewPoints().end() ? 0 : staged->second);
+
     std::string name = gh->getSpellName(talent->rankSpells[0]);
     if (name.empty()) name = "Talent " + std::to_string(talent->talentId);
+    // A nil texture is an empty slot to the interface, so every talent button
+    // was drawn blank.
+    const std::string icon = gh->getSpellIconPath(talent->rankSpells[0]);
 
     lua_pushstring(L, name.c_str());          // 1: name
-    lua_pushnil(L);                            // 2: iconTexture
+    if (icon.empty()) lua_pushnil(L);          // 2: iconTexture
+    else lua_pushstring(L, icon.c_str());
     lua_pushnumber(L, talent->row + 1);        // 3: tier (1-indexed)
     lua_pushnumber(L, talent->column + 1);     // 4: column (1-indexed)
     lua_pushnumber(L, rank);                   // 5: rank
     lua_pushnumber(L, talent->maxRank);        // 6: maxRank
     lua_pushboolean(L, 0);                     // 7: isExceptional
-    lua_pushboolean(L, 1);                     // 8: available
-    return 8;
+    // Was hardcoded true, which drew every talent as learnable however deep in
+    // a chain it sat.
+    lua_pushboolean(L, talentPrereqsMet(gh, talent, /*withPreview=*/false) ? 1 : 0);
+    lua_pushnumber(L, previewRank);            // 9: previewRank
+    lua_pushboolean(L, talentPrereqsMet(gh, talent, /*withPreview=*/true) ? 1 : 0);
+    return 10;
 }
 
 /// The trainer panel's own selection and filters. The client has no opinion
