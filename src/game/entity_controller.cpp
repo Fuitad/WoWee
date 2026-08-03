@@ -828,8 +828,14 @@ bool EntityController::applyUnitFieldsOnCreate(const UpdateBlock& block,
             unit->setDisplayId(val);
             if (owner_.addonEventCallbackRef()) {
                 auto uid = owner_.guidToUnitId(block.guid);
-                if (!uid.empty())
+                if (!uid.empty()) {
                     pendingEvents_.emit("UNIT_MODEL_CHANGED", {uid});
+                    // The portrait is drawn from the display id, so a unit that
+                    // changes model — a shapeshift, a polymorph, a mount —
+                    // needs its portrait redrawn too. Six frames listen for
+                    // this and none of them had ever heard it.
+                    pendingEvents_.emit("UNIT_PORTRAIT_UPDATE", {uid});
+                }
             }
         }
         else if (key == ufi.npcFlags) { unit->setNpcFlags(val); }

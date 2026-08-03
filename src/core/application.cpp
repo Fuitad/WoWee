@@ -920,7 +920,34 @@ void Application::run() {
                     }
                 }
                 // Debug controls
-                else if (event.type == SDL_KEYDOWN) {
+                else if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP) {
+                    // Shift, control and alt announce themselves. The interface
+                    // watches these to swap what a tooltip shows and what a
+                    // click will do — item comparison appears on shift, and an
+                    // action button's self-cast indicator on alt. Four frames
+                    // listen and none had ever been told.
+                    if (addonManager_ && addonsLoaded_) {
+                        const char* modName = nullptr;
+                        switch (event.key.keysym.sym) {
+                            case SDLK_LSHIFT: modName = "LSHIFT"; break;
+                            case SDLK_RSHIFT: modName = "RSHIFT"; break;
+                            case SDLK_LCTRL:  modName = "LCTRL";  break;
+                            case SDLK_RCTRL:  modName = "RCTRL";  break;
+                            case SDLK_LALT:   modName = "LALT";   break;
+                            case SDLK_RALT:   modName = "RALT";   break;
+                            default: break;
+                        }
+                        // Repeats are not changes: holding shift sends a stream
+                        // of key-downs and the interface would rebuild every
+                        // tooltip in the game for each one.
+                        if (modName && event.key.repeat == 0) {
+                            addonManager_->fireEvent(
+                                "MODIFIER_STATE_CHANGED",
+                                {modName, event.type == SDL_KEYDOWN ? "1" : "0"});
+                        }
+                    }
+                }
+                if (event.type == SDL_KEYDOWN) {
                     // An addon's edit box takes the keystroke before anything
                     // else looks at it. Otherwise typing into one would also
                     // walk the character, and backspace would trip a keybind.
