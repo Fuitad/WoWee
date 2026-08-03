@@ -50,6 +50,12 @@ enum class UiElement {
     Bags,
     Spellbook,
     QuestLog,
+    /// The quest giver, the gossip list and the mailbox. This client draws all
+    /// three itself and they work; FrameXML's versions are drawn too unless
+    /// they are named here, which is two of every window at every NPC.
+    QuestGiver,
+    Gossip,
+    Mail,
 };
 
 /// True when FrameXML is drawing this instead, so the client should not.

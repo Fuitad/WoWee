@@ -15,7 +15,7 @@ namespace {
 struct Entry { UiElement element; std::string_view name; };
 
 // One row per element, and the only place a name is written down.
-constexpr std::array<Entry, 19> kElements{{
+constexpr std::array<Entry, 22> kElements{{
     {UiElement::PlayerFrame,  "playerframe"},
     {UiElement::TargetFrame,  "targetframe"},
     {UiElement::PetFrame,     "petframe"},
@@ -35,6 +35,9 @@ constexpr std::array<Entry, 19> kElements{{
     {UiElement::Bags,         "bags"},
     {UiElement::Spellbook,    "spellbook"},
     {UiElement::QuestLog,     "questlog"},
+    {UiElement::QuestGiver,   "questgiver"},
+    {UiElement::Gossip,       "gossip"},
+    {UiElement::Mail,         "mail"},
 }};
 
 /// Parsed once. An unknown name is reported rather than dropped: a typo would
@@ -238,6 +241,14 @@ std::vector<std::string> frameXmlSuppressedFrames() {
                               "ChatFrameMenuButton FriendsMicroButton "
                               "CombatLogQuickButtonFrame_Custom"},
         {UiElement::QuestLog, "QuestLogFrame"},
+        // Talking to an NPC opened two of everything: this client's gossip and
+        // quest windows, which work, and FrameXML's, which cannot — the calls
+        // behind them are among the names the missing-API report lists every
+        // run. The greeting and detail panels are children of QuestFrame and
+        // go with it.
+        {UiElement::QuestGiver, "QuestFrame"},
+        {UiElement::Gossip,     "GossipFrame"},
+        {UiElement::Mail,       "MailFrame OpenMailFrame"},
         // WatchFrameTitle is the "Objectives" label, and the buttons beside it
         // ride on the same frame.
         {UiElement::QuestTracker, "WatchFrame"},
