@@ -633,6 +633,15 @@ void registerSocialLuaAPI(lua_State* L) {
             lua_pushboolean(L, q && q->isRepeatable ? 1 : 0);
             return 3;
         }},
+                // Whether the gossip window must be shown even when there is
+                // one thing to click. The server sends no such flag here, and
+                // the frame reads it as "not ForceGossip()" to decide whether
+                // to go straight to a lone vendor or flight master — which is
+                // what the real client does, so a definite no keeps that.
+                {"ForceGossip", [](lua_State* L) -> int {
+            lua_pushboolean(L, 0);
+            return 1;
+        }},
                 {"GetGossipOptions", [](lua_State* L) -> int {
             // Returns pairs of (text, type) for each option
             auto* gh = getGameHandler(L);

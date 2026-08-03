@@ -453,7 +453,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         if (cmds.showGmTicket) windowManager_.showGmTicketWindow_ = true;
         if (cmds.showWho) socialPanel_.showWhoWindow_ = true;
         if (cmds.toggleCombatLog) combatUI_.showCombatLog_ = !combatUI_.showCombatLog_;
-        if (cmds.takeScreenshot) takeScreenshot(gameHandler);
+        if (cmds.takeScreenshot) takeScreenshot();
     }
 
     // ---- New UI elements ----
@@ -1288,7 +1288,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
 
             // Screenshot (PrintScreen key)
             if (input.isKeyJustPressed(SDL_SCANCODE_PRINTSCREEN)) {
-                takeScreenshot(gameHandler);
+                takeScreenshot();
             }
 
             // Action bar keys (1-9, 0, -, =)

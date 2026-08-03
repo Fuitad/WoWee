@@ -1869,7 +1869,7 @@ void GameScreen::renderNameplates(game::GameHandler& gameHandler) {
 // Durability Warning (equipment damage indicator)
 // ============================================================
 
-void GameScreen::takeScreenshot(game::GameHandler& /*gameHandler*/) {
+void GameScreen::takeScreenshot() {
     auto* renderer = services_.renderer;
     if (!renderer) return;
 

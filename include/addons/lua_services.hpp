@@ -37,6 +37,12 @@ struct LuaServices {
     /// manifest rather than a fixed list, so an install carrying different art
     /// offers what it actually has.
     std::function<const std::vector<std::string>&()> listIconTextures;
+
+    /// Save a screenshot, as the client's own binding and /screenshot do.
+    ///
+    /// Routed through the same call rather than reimplemented, so both put the
+    /// file in the same place under the same name.
+    std::function<void()> takeScreenshot;
 };
 
 } // namespace wowee::addons

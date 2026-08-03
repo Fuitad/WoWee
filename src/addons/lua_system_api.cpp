@@ -914,8 +914,34 @@ static int lua_IsMouseButtonDown(lua_State* L) {
     return 1;
 }
 
+// Screenshot() → saves one where the client's own binding puts it
+static int lua_Screenshot(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    if (svc && svc->takeScreenshot) svc->takeScreenshot();
+    return 0;
+}
+
+// HasLFGRestrictions() → whether the player is in a dungeon-finder group
+//
+// Answers false rather than nothing. There is no dungeon finder here, and four
+// frames ask this to decide whether to draw a badge — a definite no is the
+// truthful answer, not an absent one.
+static int lua_HasLFGRestrictions(lua_State* L) {
+    lua_pushboolean(L, 0);
+    return 1;
+}
+
+// CanShowAchievementUI() → whether the achievement panel may open
+static int lua_CanShowAchievementUI(lua_State* L) {
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 void registerSystemLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
+                {"Screenshot",               lua_Screenshot},
+                {"HasLFGRestrictions",       lua_HasLFGRestrictions},
+                {"CanShowAchievementUI",     lua_CanShowAchievementUI},
                 {"RunScript",                lua_RunScript},
                 {"IsMouseButtonDown",        lua_IsMouseButtonDown},
                 {"GetTime",                  lua_GetTime},

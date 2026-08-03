@@ -59,6 +59,13 @@ public:
     // UIServices injection (Phase B singleton breaking)
     void setServices(const UIServices& services);
 
+    /// Save a screenshot where the client's own binding and /screenshot put it.
+    ///
+    /// Public because the interface's Screenshot() reaches the same call — a
+    /// second path would name and place the file differently. Took a
+    /// GameHandler it never read.
+    void takeScreenshot();
+
 private:
     void applyCameraControlSettings();
 
@@ -181,7 +188,6 @@ private:
     void renderQuestObjectiveTracker(game::GameHandler& gameHandler);
     void renderNameplates(game::GameHandler& gameHandler);
     void renderDurabilityWarning(game::GameHandler& gameHandler);
-    void takeScreenshot(game::GameHandler& gameHandler);
 
     /**
      * Inventory screen

@@ -357,6 +357,9 @@ bool Application::initialize() {
         luaSvc.window            = window.get();
         luaSvc.audioCoordinator  = audioCoordinator_.get();
         luaSvc.expansionRegistry = expansionRegistry_.get();
+        luaSvc.takeScreenshot = [uim = uiManager.get()]() {
+            if (uim) uim->getGameScreen().takeScreenshot();
+        };
         // Gathered once, on the first ask rather than at startup: it is a walk
         // of the whole manifest, and most sessions never open an icon picker.
         luaSvc.listIconTextures = [am = assetManager.get()]() -> const std::vector<std::string>& {

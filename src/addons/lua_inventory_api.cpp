@@ -268,22 +268,42 @@ static int lua_CanMerchantRepair(lua_State* L) {
 
 // UnitStat(unit, statIndex) → base, effective, posBuff, negBuff
 
+/// An item id from either an id or a link, which is what every one of these
+/// functions is documented to accept.
+static uint32_t itemIdFromArg(lua_State* L, int index) {
+    if (lua_isnumber(L, index)) {
+        return static_cast<uint32_t>(lua_tonumber(L, index));
+    }
+    if (lua_isstring(L, index)) {
+        const char* s = lua_tostring(L, index);
+        std::string str(s ? s : "");
+        const auto pos = str.find("item:");
+        if (pos != std::string::npos) {
+            try { return static_cast<uint32_t>(std::stoul(str.substr(pos + 5))); } catch (...) {}
+        }
+    }
+    return 0;
+}
+
+// IsDressableItem(item) → whether the dress-up model can wear or hold it
+//
+// Armour and weapons only: everything else has no display slot, and the frame
+// opens an empty preview for anything that answers yes.
+static int lua_IsDressableItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const uint32_t itemId = itemIdFromArg(L, 1);
+    const auto* info = (gh && itemId) ? gh->getItemInfo(itemId) : nullptr;
+    // 2 is weapon and 4 is armour, as the item class is sent.
+    const bool dressable = info && (info->itemClass == 2 || info->itemClass == 4);
+    lua_pushboolean(L, dressable ? 1 : 0);
+    return 1;
+}
+
 static int lua_GetItemInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnNil(L); }
 
-    uint32_t itemId = 0;
-    if (lua_isnumber(L, 1)) {
-        itemId = static_cast<uint32_t>(lua_tonumber(L, 1));
-    } else if (lua_isstring(L, 1)) {
-        // Try to parse "item:12345" link format
-        const char* s = lua_tostring(L, 1);
-        std::string str(s ? s : "");
-        auto pos = str.find("item:");
-        if (pos != std::string::npos) {
-            try { itemId = static_cast<uint32_t>(std::stoul(str.substr(pos + 5))); } catch (...) {}
-        }
-    }
+    const uint32_t itemId = itemIdFromArg(L, 1);
     if (itemId == 0) { return luaReturnNil(L); }
 
     const auto* info = gh->getItemInfo(itemId);
@@ -1097,6 +1117,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetMerchantItemMaxStack", lua_GetMerchantItemMaxStack},
                 {"GetMerchantItemCostInfo", lua_GetMerchantItemCostInfo},
                 {"GetItemInfo",       lua_GetItemInfo},
+                {"IsDressableItem",   lua_IsDressableItem},
                 {"GetItemQualityColor", lua_GetItemQualityColor},
                 {"_GetItemTooltipData", lua_GetItemTooltipData},
                 {"GetItemCount",      lua_GetItemCount},
