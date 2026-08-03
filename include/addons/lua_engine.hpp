@@ -3,7 +3,9 @@
 #include "addons/lua_services.hpp"
 #include "ui/widget_tree.hpp"
 #include <functional>
+#include <unordered_map>
 #include <string>
+#include <utility>
 #include <vector>
 
 struct lua_State;
@@ -88,6 +90,10 @@ public:
     /// frame hides everything under it and none of those were told.
     void updateVisibility();
 
+    /// Fires OnSizeChanged for anything whose rect changed. Declared by
+    /// FrameXML and used heavily by addons, and never fired until now.
+    void updateSizeChanges();
+
     /// Says once, a little after loading, how many frames are listening for
     /// the events a unit frame lives on.
     ///
@@ -168,6 +174,13 @@ private:
     uint32_t clickOwnerOf(uint32_t wid, const char* button);
 
     uint32_t hoverWid_ = 0;
+    /// The last frame clicked and when, so a second click on it can be told
+    /// from the first. WoW's threshold, near enough.
+    uint32_t lastClickWid_ = 0;
+    double   lastClickTime_ = 0.0;
+    static constexpr double kDoubleClickSeconds = 0.4;
+    /// The rect each frame had last time round, for OnSizeChanged.
+    std::unordered_map<uint32_t, std::pair<float, float>> lastSize_;
     /// The edit box taking keystrokes, or zero. One at a time, which is
     /// what focus means.
     uint32_t focusedWid_ = 0;

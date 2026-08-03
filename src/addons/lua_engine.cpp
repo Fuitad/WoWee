@@ -4809,6 +4809,54 @@ void LuaEngine::reportEventListenersOnce() {
     LOG_WARNING("Event listeners: ", line);
 }
 
+/// Fire OnSizeChanged for anything whose rect changed since the last frame.
+///
+/// Declared by FrameXML and reached for constantly by addons, which resize a
+/// panel and expect the pieces inside it to be told. Noticed here rather than
+/// fired from SetWidth, because a frame is far more often resized by its
+/// anchors than by anyone calling a setter — a scroll child stretched by its
+/// parent never goes near SetWidth.
+void LuaEngine::updateSizeChanges() {
+    if (!L_) return;
+    for (size_t id = 1; id < widgets_.size(); ++id) {
+        const ui::Widget* wp = widgets_.get(static_cast<uint32_t>(id));
+        if (!wp) continue;
+        const ui::Widget& w = *wp;
+        if (w.id == 0 || w.kind != ui::WidgetKind::Frame) continue;
+        auto it = lastSize_.find(w.id);
+        const bool known = (it != lastSize_.end());
+        if (known && it->second.first == w.rectW && it->second.second == w.rectH) {
+            continue;
+        }
+        lastSize_[w.id] = {w.rectW, w.rectH};
+        // Nothing is fired the first time a frame is measured: every frame in
+        // the interface would report a change on the first layout, which says
+        // nothing and runs 3000 handlers to say it.
+        if (!known) continue;
+        if (w.rectW <= 0.0f || w.rectH <= 0.0f) continue;
+        lua_getglobal(L_, "__WoweeFramesByWid");
+        if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
+        lua_pushinteger(L_, static_cast<lua_Integer>(w.id));
+        lua_rawget(L_, -2);
+        if (lua_istable(L_, -1)) {
+            lua_getfield(L_, -1, "OnSizeChanged");
+            if (lua_isfunction(L_, -1)) {
+                lua_pushvalue(L_, -2);
+                lua_pushnumber(L_, w.rectW);
+                lua_pushnumber(L_, w.rectH);
+                if (lua_pcall(L_, 3, 0, 0) != 0) {
+                    LOG_WARNING("OnSizeChanged error: ",
+                                luaL_optstring(L_, -1, "?"));
+                    lua_pop(L_, 1);
+                }
+            } else {
+                lua_pop(L_, 1);
+            }
+        }
+        lua_pop(L_, 2);
+    }
+}
+
 void LuaEngine::updateVisibility() {
     if (!L_) return;
     // By index and re-fetched each time: a handler is free to create frames,
@@ -5137,7 +5185,28 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
                 const uint32_t releasedOn = clickOwnerOf(hit, b.name);
                 if (!wasDragged && pressedWid_[i] == releasedOn &&
                     (!pressed || pressed->enabled) && takesIt) {
+                    // PreClick and PostClick bracket the click. Secure buttons
+                    // use them to set up and tear down around an action, and
+                    // an addon that only has PostClick would otherwise never
+                    // hear that its button was used.
+                    callFrameScript(pressedWid_[i], "PreClick", b.name);
                     callFrameScript(pressedWid_[i], "OnClick", b.name);
+                    callFrameScript(pressedWid_[i], "PostClick", b.name);
+
+                    // A second click on the same frame, soon enough after the
+                    // first, is also a double click — WoW sends both, and the
+                    // frames that care about one usually care about the other.
+                    const double now = core::appTimeSeconds();
+                    if (pressedWid_[i] == lastClickWid_ &&
+                        (now - lastClickTime_) <= kDoubleClickSeconds) {
+                        callFrameScript(pressedWid_[i], "OnDoubleClick", b.name);
+                        // Cleared, or a third click reads as a second double.
+                        lastClickWid_ = 0;
+                        lastClickTime_ = 0.0;
+                    } else {
+                        lastClickWid_ = pressedWid_[i];
+                        lastClickTime_ = now;
+                    }
                 }
                 // The other half of the press report: a click that lands and a
                 // click that is handled are different things, and the gap

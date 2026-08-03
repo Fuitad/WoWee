@@ -3069,6 +3069,9 @@ void Application::render() {
             // then measured from.
             engine->reportEventListenersOnce();
             engine->updateVisibility();
+            // After visibility, because a frame shown this frame is measured
+            // this frame and its size is new rather than changed.
+            engine->updateSizeChanges();
             engine->updateScrollRanges();
 
             // A click that never reaches the interface and a click whose
