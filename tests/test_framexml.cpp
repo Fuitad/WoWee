@@ -83,6 +83,50 @@ TEST_CASE("A frame emits CreateFrame with its type and parent", "[framexml][emit
     REQUIRE(has(r.lua, "CreateFrame(\"Button\", \"MyButton\", UIParent)"));
 }
 
+TEST_CASE("A binding becomes a listed command and a callable body",
+          "[framexml][emit][bindings]") {
+    XmlNode root = parseOrFail(
+        "<Bindings><Binding name=\"JUMP\" header=\"MOVEMENT\">"
+        "DoJump();</Binding></Bindings>");
+    const EmitResult r = emitFrameXml(root);
+    // The header opens a row of its own, before the command that declared it.
+    REQUIRE(has(r.lua, "\"HEADER_MOVEMENT\""));
+    REQUIRE(has(r.lua, "\"JUMP\""));
+    REQUIRE(r.lua.find("HEADER_MOVEMENT") < r.lua.find("+1] = \"JUMP\""));
+    REQUIRE(has(r.lua, "__WoweeBindingScripts[\"JUMP\"] = function(keystate)"));
+    REQUIRE(has(r.lua, "DoJump();"));
+}
+
+TEST_CASE("A binding without a header adds no row of its own",
+          "[framexml][emit][bindings]") {
+    XmlNode root = parseOrFail("<Bindings><Binding name=\"JUMP\"/></Bindings>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(has(r.lua, "HEADER"));
+    REQUIRE(has(r.lua, "\"JUMP\""));
+    // Nothing to run is not the same as a body that does nothing: RunBinding
+    // has to be able to tell them apart.
+    REQUIRE_FALSE(has(r.lua, "__WoweeBindingScripts[\"JUMP\"]"));
+}
+
+TEST_CASE("runOnUp is carried, because a release means something to some",
+          "[framexml][emit][bindings]") {
+    XmlNode root = parseOrFail(
+        "<Bindings><Binding name=\"MOVEFORWARD\" runOnUp=\"true\">go()</Binding>"
+        "<Binding name=\"SCREENSHOT\">snap()</Binding></Bindings>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "__WoweeBindingRunOnUp[\"MOVEFORWARD\"] = true"));
+    REQUIRE_FALSE(has(r.lua, "__WoweeBindingRunOnUp[\"SCREENSHOT\"]"));
+}
+
+TEST_CASE("A bindings file is not reported as the wrong kind of document",
+          "[framexml][emit][bindings]") {
+    // <Bindings> is a root in its own right. Warning about it would say the
+    // file is broken when it is exactly what it should be.
+    XmlNode root = parseOrFail("<Bindings><Binding name=\"JUMP\"/></Bindings>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(r.warnings.empty());
+}
+
 TEST_CASE("Size and anchors become the same calls a script would make",
           "[framexml][emit]") {
     XmlNode root = parseOrFail(

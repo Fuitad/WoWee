@@ -1039,10 +1039,57 @@ void canonicaliseNames(XmlNode& node) {
 }
 }  // namespace
 
+/// <Bindings> declares the commands the key bindings list shows, in the order
+/// it shows them, and the Lua each one runs. Nothing is drawn for it, so it
+/// emits data rather than frames — plus a closure per command, because
+/// RunBinding has to be able to call one.
+void emitBindings(Emitter& e, const XmlNode& root) {
+    e.line("__WoweeBindings = __WoweeBindings or {}");
+    e.line("__WoweeBindingScripts = __WoweeBindingScripts or {}");
+    e.line("__WoweeBindingRunOnUp = __WoweeBindingRunOnUp or {}");
+    for (const XmlNode& b : root.children) {
+        if (b.name != "Binding") continue;
+        const std::string name = b.attrOr("name", "");
+        if (name.empty()) {
+            e.result.warnings.push_back("<Binding> without a name is not a "
+                                        "command anything can refer to");
+            continue;
+        }
+        // A header attribute does not name the binding's section — it opens
+        // one, as a row of its own above the command that carries it. The list
+        // shows it through BINDING_HEADER_*, and everything after it belongs to
+        // it until the next.
+        if (const std::string* h = b.attr("header")) {
+            if (!h->empty()) {
+                e.line("__WoweeBindings[#__WoweeBindings+1] = \"HEADER_" + *h + "\"");
+            }
+        }
+        e.line("__WoweeBindings[#__WoweeBindings+1] = \"" + name + "\"");
+        if (b.attrBool("runOnUp")) {
+            e.line("__WoweeBindingRunOnUp[\"" + name + "\"] = true");
+        }
+        if (!b.text.empty()) {
+            // keystate arrives as a parameter rather than a global. The bodies
+            // read it to tell a press from a release, and a global would carry
+            // one binding's state into the next.
+            e.result.lua += "__WoweeBindingScripts[\"" + name +
+                            "\"] = function(keystate)\n";
+            e.result.lua += b.text;
+            e.result.lua += "\nend\n";
+        }
+    }
+}
+
 EmitResult emitFrameXml(const XmlNode& rootIn) {
     XmlNode root = rootIn;
     canonicaliseNames(root);
     Emitter e;
+    // Bindings carry no frames, so the local every frame file opens with would
+    // be an unused declaration in a file that is otherwise all data.
+    if (root.name == "Bindings") {
+        emitBindings(e, root);
+        return e.result;
+    }
     e.line("local __w = {}");
     if (root.name != "Ui") {
         e.result.warnings.push_back("root element is <" + root.name + ">, expected <Ui>");

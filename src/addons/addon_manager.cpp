@@ -323,6 +323,16 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     LOG_WARNING("FrameXML: attempting to load the original interface — ",
                 toc->files.size(), " files from ", resolvedDir);
 
+    // Bindings are not in the manifest — the real client loads them itself, and
+    // before the interface, so that a script asking what a command is bound to
+    // during load gets an answer. Without this the file was never read at all
+    // and the key bindings list had nothing to list.
+    if (const auto bindings = resolveChild(dir, "Bindings.xml"); !bindings.empty()) {
+        if (!loadXmlFile(bindings.string(), 0)) {
+            LOG_WARNING("FrameXML: could not read the key bindings: ", lastXmlError_);
+        }
+    }
+
     int lua = 0, xml = 0, failed = 0;
     // Kept and printed together at the end. Spread through the log these are
     // unreadable: the reasons land among thousands of other lines, and one

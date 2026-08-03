@@ -2,6 +2,13 @@
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
 #include "ui/framexml_takeover.hpp"
+#include "ui/keybinding_manager.hpp"
+#include "core/config_paths.hpp"
+#include <array>
+#include <cctype>
+#include <filesystem>
+#include <fstream>
+#include <map>
 #include "game/pet_action.hpp"
 #include "imgui.h"
 #include <SDL2/SDL_keyboard.h>
@@ -647,28 +654,124 @@ static int lua_GetModifiedClick(lua_State* L) {
 static int lua_SetModifiedClick(lua_State* L) { (void)L; return 0; }
 
 // --- Keybinding API ---
-// Maps WoW binding names like "ACTIONBUTTON1" to key display strings like "1"
+//
+// Which commands exist, and in what order, comes from bindings.xml: the emitter
+// turns it into __WoweeBindings (the list the UI walks, header rows included)
+// and __WoweeBindingScripts (what each one runs). What each is *bound to* lives
+// here instead, because it outlives any one Lua state and has to reach a file.
+
+namespace {
+
+/// command → its two keys, empty meaning not bound. Two because the UI offers a
+/// primary and a secondary and will write either.
+std::map<std::string, std::array<std::string, 2>>& bindingKeys() {
+    static std::map<std::string, std::array<std::string, 2>> keys;
+    return keys;
+}
+
+std::string bindingsFilePath() {
+    return core::getConfigRoot() + "/bindings.cfg";
+}
+
+/// ImGui spells keys as "C" and "Space"; the interface expects "C" and "SPACE",
+/// and compares them as strings everywhere.
+std::string wowKeyFromImGui(ImGuiKey key) {
+    // An action with nothing bound to it answers "None", which uppercased is a
+    // perfectly ordinary-looking key name and would show as one.
+    if (key == ImGuiKey_None) return "";
+    const char* name = ImGui::GetKeyName(key);
+    if (!name || !*name) return "";
+    std::string out(name);
+    for (char& c : out) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    return out;
+}
+
+/// The keys the client is actually listening for, asked of the manager that
+/// listens rather than restated here — a second copy would be wrong the moment
+/// either side moved. Commands the client has no action for keep their retail
+/// default, so the list reads correctly even where nothing acts on it yet.
+void seedBindingDefaults() {
+    auto& keys = bindingKeys();
+    if (!keys.empty()) return;
+
+    static const struct { const char* command; const char* key; } kDefaults[] = {
+        {"MOVEFORWARD", "W"},   {"MOVEBACKWARD", "S"},
+        {"TURNLEFT", "A"},      {"TURNRIGHT", "D"},
+        {"STRAFELEFT", "Q"},    {"STRAFERIGHT", "E"},
+        {"JUMP", "SPACE"},      {"TOGGLEAUTORUN", "NUMLOCK"},
+        {"TOGGLEGAMEMENU", "ESCAPE"},
+        {"SCREENSHOT", "PRINTSCREEN"},
+        {"ACTIONBUTTON1", "1"}, {"ACTIONBUTTON2", "2"},
+        {"ACTIONBUTTON3", "3"}, {"ACTIONBUTTON4", "4"},
+        {"ACTIONBUTTON5", "5"}, {"ACTIONBUTTON6", "6"},
+        {"ACTIONBUTTON7", "7"}, {"ACTIONBUTTON8", "8"},
+        {"ACTIONBUTTON9", "9"}, {"ACTIONBUTTON10", "0"},
+        {"ACTIONBUTTON11", "-"},{"ACTIONBUTTON12", "="},
+    };
+    for (const auto& d : kDefaults) keys[d.command] = {d.key, ""};
+
+    // Where a command corresponds to something the client really does, the key
+    // shown is the one it really answers to.
+    using Action = wowee::ui::KeybindingManager::Action;
+    static const struct { const char* command; Action action; } kLive[] = {
+        {"TOGGLECHARACTER0",  Action::TOGGLE_CHARACTER_SCREEN},
+        {"TOGGLEBACKPACK",    Action::TOGGLE_BAGS},
+        {"TOGGLESPELLBOOK",   Action::TOGGLE_SPELLBOOK},
+        {"TOGGLETALENTS",     Action::TOGGLE_TALENTS},
+        {"TOGGLEQUESTLOG",    Action::TOGGLE_QUESTS},
+        {"TOGGLEWORLDMAP",    Action::TOGGLE_WORLD_MAP},
+        {"TOGGLEMINIMAP",     Action::TOGGLE_MINIMAP},
+        {"TOGGLEACHIEVEMENT", Action::TOGGLE_ACHIEVEMENTS},
+        {"TOGGLEGUILDTAB",    Action::TOGGLE_GUILD_ROSTER},
+    };
+    auto& manager = wowee::ui::KeybindingManager::getInstance();
+    for (const auto& l : kLive) {
+        const std::string key = wowKeyFromImGui(manager.getKeyForAction(l.action));
+        if (!key.empty()) keys[l.command] = {key, ""};
+    }
+}
+
+/// The command list the emitter built, or zero if bindings.xml never loaded.
+int bindingCount(lua_State* L) {
+    lua_getglobal(L, "__WoweeBindings");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); return 0; }
+    const int n = static_cast<int>(lua_objlen(L, -1));
+    lua_pop(L, 1);
+    return n;
+}
+
+/// The command at a one-based position, empty when out of range.
+std::string bindingAt(lua_State* L, int index) {
+    lua_getglobal(L, "__WoweeBindings");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); return ""; }
+    lua_rawgeti(L, -1, index);
+    const char* s = lua_tostring(L, -1);
+    std::string out = s ? s : "";
+    lua_pop(L, 2);
+    return out;
+}
+
+}  // namespace
 
 // GetBindingKey(command) → key1, key2 (or nil)
 static int lua_GetBindingKey(lua_State* L) {
-    const char* cmd = luaL_checkstring(L, 1);
-    std::string command(cmd);
-    // Return intuitive default bindings for action buttons
-    if (command.find("ACTIONBUTTON") == 0) {
-        std::string num = command.substr(12);
-        int n = 0;
-        try { n = std::stoi(num); } catch(...) {}
-        if (n >= 1 && n <= 9) {
-            lua_pushstring(L, num.c_str());
-            return 1;
-        } else if (n == 10) {
-            lua_pushstring(L, "0");
-            return 1;
-        } else if (n == 11) {
-            lua_pushstring(L, "-");
-            return 1;
-        } else if (n == 12) {
-            lua_pushstring(L, "=");
+    seedBindingDefaults();
+    const std::string command = luaL_checkstring(L, 1);
+    auto it = bindingKeys().find(command);
+    if (it == bindingKeys().end()) { lua_pushnil(L); lua_pushnil(L); return 2; }
+    for (const std::string& key : it->second) {
+        if (key.empty()) lua_pushnil(L); else lua_pushstring(L, key.c_str());
+    }
+    return 2;
+}
+
+// GetBindingAction(key) → command (or nil)
+static int lua_GetBindingAction(lua_State* L) {
+    seedBindingDefaults();
+    const std::string key = luaL_checkstring(L, 1);
+    for (const auto& [command, keys] : bindingKeys()) {
+        if (keys[0] == key || keys[1] == key) {
+            lua_pushstring(L, command.c_str());
             return 1;
         }
     }
@@ -676,26 +779,111 @@ static int lua_GetBindingKey(lua_State* L) {
     return 1;
 }
 
-// GetBindingAction(key) → command (or nil)
-static int lua_GetBindingAction(lua_State* L) {
-    const char* key = luaL_checkstring(L, 1);
-    std::string k(key);
-    // Simple reverse mapping for number keys
-    if (k.size() == 1 && k[0] >= '1' && k[0] <= '9') {
-        lua_pushstring(L, ("ACTIONBUTTON" + k).c_str());
-        return 1;
-    } else if (k == "0") {
-        lua_pushstring(L, "ACTIONBUTTON10");
-        return 1;
-    }
-    lua_pushnil(L);
+// GetNumBindings() → how many rows the list has, headers included
+static int lua_GetNumBindings(lua_State* L) {
+    lua_pushinteger(L, bindingCount(L));
     return 1;
 }
 
-static int lua_GetNumBindings(lua_State* L) { return luaReturnZero(L); }
-static int lua_GetBinding(lua_State* L) { (void)L; lua_pushnil(L); return 1; }
-static int lua_SetBinding(lua_State* L) { (void)L; return 0; }
-static int lua_SaveBindings(lua_State* L) { (void)L; return 0; }
+// GetBinding(index) → command, key1, key2. A header row is a command like
+// "HEADER_MOVEMENT" with no keys, which is how the UI tells the two apart.
+static int lua_GetBinding(lua_State* L) {
+    seedBindingDefaults();
+    const int index = static_cast<int>(luaL_checkinteger(L, 1));
+    const std::string command = bindingAt(L, index);
+    if (command.empty()) { lua_pushnil(L); return 1; }
+    lua_pushstring(L, command.c_str());
+    auto it = bindingKeys().find(command);
+    if (it == bindingKeys().end()) { lua_pushnil(L); lua_pushnil(L); return 3; }
+    for (const std::string& key : it->second) {
+        if (key.empty()) lua_pushnil(L); else lua_pushstring(L, key.c_str());
+    }
+    return 3;
+}
+
+// SetBinding(key, command) → true. A nil command clears whatever holds the key,
+// which is how the UI unbinds.
+static int lua_SetBinding(lua_State* L) {
+    seedBindingDefaults();
+    const std::string key = luaL_checkstring(L, 1);
+    const char* command = lua_isnoneornil(L, 2) ? nullptr : luaL_checkstring(L, 2);
+
+    // A key belongs to one command at a time, so it leaves the one that had it
+    // before it joins another — otherwise both claim it and which one answers
+    // depends on map order.
+    for (auto& [existing, keys] : bindingKeys()) {
+        (void)existing;
+        for (std::string& slot : keys) {
+            if (slot == key) slot.clear();
+        }
+    }
+    if (command) {
+        auto& keys = bindingKeys()[command];
+        if (keys[0].empty()) keys[0] = key; else keys[1] = key;
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+// SaveBindings(which) → writes what is bound where, for the next run
+static int lua_SaveBindings(lua_State* L) {
+    (void)L;
+    const std::string path = bindingsFilePath();
+    std::error_code ec;
+    std::filesystem::create_directories(
+        std::filesystem::path(path).parent_path(), ec);
+    std::ofstream out(path, std::ios::trunc);
+    if (!out) {
+        LOG_WARNING("Could not write the key bindings to ", path);
+        return 0;
+    }
+    for (const auto& [command, keys] : bindingKeys()) {
+        // Both slots on one line, the second empty when there is no second key,
+        // so a command that lost one is recorded as having lost it.
+        out << command << "=" << keys[0] << "," << keys[1] << "\n";
+    }
+    return 0;
+}
+
+// LoadBindings(which) → what a previous run saved, over the defaults
+static int lua_LoadBindings(lua_State* L) {
+    (void)L;
+    seedBindingDefaults();
+    std::ifstream in(bindingsFilePath());
+    if (!in) return 0;   // Nothing saved yet is not a failure.
+    std::string line;
+    while (std::getline(in, line)) {
+        const size_t eq = line.find('=');
+        if (eq == std::string::npos) continue;
+        const std::string command = line.substr(0, eq);
+        const std::string rest = line.substr(eq + 1);
+        const size_t comma = rest.find(',');
+        bindingKeys()[command] = {
+            rest.substr(0, comma),
+            comma == std::string::npos ? "" : rest.substr(comma + 1)
+        };
+    }
+    return 0;
+}
+
+// RunBinding(command, keystate) → runs what bindings.xml says the command does
+static int lua_RunBinding(lua_State* L) {
+    const std::string command = luaL_checkstring(L, 1);
+    const char* keystate = lua_isnoneornil(L, 2) ? "down" : luaL_checkstring(L, 2);
+
+    lua_getglobal(L, "__WoweeBindingScripts");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); return 0; }
+    lua_getfield(L, -1, command.c_str());
+    if (!lua_isfunction(L, -1)) { lua_pop(L, 2); return 0; }
+    lua_pushstring(L, keystate);
+    if (lua_pcall(L, 1, 0, 0) != 0) {
+        LOG_WARNING("Binding ", command, " failed: ",
+                    lua_tostring(L, -1) ? lua_tostring(L, -1) : "?");
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+    return 0;
+}
 static int lua_SetOverrideBindingClick(lua_State* L) { (void)L; return 0; }
 static int lua_ClearOverrideBindings(lua_State* L) { (void)L; return 0; }
 
@@ -848,6 +1036,8 @@ void registerActionLuaAPI(lua_State* L) {
                 {"GetBinding",          lua_GetBinding},
                 {"SetBinding",          lua_SetBinding},
                 {"SaveBindings",        lua_SaveBindings},
+                {"LoadBindings",        lua_LoadBindings},
+                {"RunBinding",          lua_RunBinding},
                 {"SetOverrideBindingClick", lua_SetOverrideBindingClick},
                 {"ClearOverrideBindings", lua_ClearOverrideBindings},
                 // Paging lives here, and the getter with it. Both were
