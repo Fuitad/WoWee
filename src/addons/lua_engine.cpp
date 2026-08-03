@@ -529,12 +529,17 @@ int lua_Region_GetTextHeight(lua_State* L) {
 
 int lua_Region_GetWidth(lua_State* L) {
     const auto* w = widgetOf(L, 1);
-    lua_pushnumber(L, w ? (w->rectW > 0.0f ? w->rectW : w->width) : 0.0);
+    // In the frame's own units, which is what WoW reports: the laid-out rect
+    // has the effective scale in it and handing that back would have a script
+    // that reads a width and sets it again shrink the frame every time.
+    const float es = (w && w->effScale > 0.0f) ? w->effScale : 1.0f;
+    lua_pushnumber(L, w ? (w->rectW > 0.0f ? w->rectW / es : w->width) : 0.0);
     return 1;
 }
 int lua_Region_GetHeight(lua_State* L) {
     const auto* w = widgetOf(L, 1);
-    lua_pushnumber(L, w ? (w->rectH > 0.0f ? w->rectH : w->height) : 0.0);
+    const float es = (w && w->effScale > 0.0f) ? w->effScale : 1.0f;
+    lua_pushnumber(L, w ? (w->rectH > 0.0f ? w->rectH / es : w->height) : 0.0);
     return 1;
 }
 // The four edges, in the same coordinates the tree lays out in: origin at the
@@ -580,8 +585,22 @@ int lua_Region_GetRect(lua_State* L) {
 /// wants comes from. One is therefore the true answer for every frame, and it
 /// is a number, which is the part that matters where it is divided by.
 int lua_Region_GetScale(lua_State* L) {
-    (void)L;
-    lua_pushnumber(L, 1.0);
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->scale : 1.0);
+    return 1;
+}
+int lua_Region_SetScale(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        const float v = static_cast<float>(luaL_optnumber(L, 2, 1.0));
+        // A scale of zero collapses the frame and everything under it to
+        // nothing, with no way back from Lua; WoW rejects it too.
+        if (v > 0.0f) w->scale = v;
+    }
+    return 0;
+}
+int lua_Region_GetEffectiveScale(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->effScale : 1.0);
     return 1;
 }
 int lua_Frame_GetFrameLevel(lua_State* L) {
@@ -1549,7 +1568,8 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     set("IsObjectType", lua_Region_IsObjectType);
     set("GetNumPoints", lua_Region_GetNumPoints);
     set("GetScale", lua_Region_GetScale);
-    set("GetEffectiveScale", lua_Region_GetScale);
+    set("SetScale", lua_Region_SetScale);
+    set("GetEffectiveScale", lua_Region_GetEffectiveScale);
     set("Show", lua_Region_Show);
     set("Hide", lua_Region_Hide);
     set("IsShown", lua_Region_IsShown);
@@ -2480,6 +2500,9 @@ void LuaEngine::registerCoreAPI() {
         {"StartMoving",     lua_Frame_StartMoving},
         {"StopMovingOrSizing", lua_Frame_StopMovingOrSizing},
         {"GetWidth",        lua_Region_GetWidth},
+        {"SetScale",        lua_Region_SetScale},
+        {"GetScale",        lua_Region_GetScale},
+        {"GetEffectiveScale", lua_Region_GetEffectiveScale},
         {"GetTextWidth",    lua_Region_GetTextWidth},
         {"GetStringWidth",  lua_Region_GetTextWidth},
         {"GetTextHeight",   lua_Region_GetTextHeight},
@@ -2607,9 +2630,6 @@ void LuaEngine::registerCoreAPI() {
         "function mt:SetResizable(resizable) end\n"
         "function mt:SetID(id) self.__id = id end\n"
         "function mt:GetID() return self.__id or 0 end\n"
-        "function mt:SetScale(scale) self.__scale = scale end\n"
-        "function mt:GetScale() return self.__scale or 1.0 end\n"
-        "function mt:GetEffectiveScale() return self.__scale or 1.0 end\n"
         // The four edges are real bindings now, applied after this block.
         // Left here they would only be a silent fallback if that order ever
         // changed, and every frame reporting itself at the origin is worse

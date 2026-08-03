@@ -1334,3 +1334,46 @@ TEST_CASE("Lower never sends a frame below zero", "[widget][layout]") {
     for (int i = 0; i < 5; ++i) { tree.lower(f); tree.layout(kScreenW, kScreenH); }
     REQUIRE(tree.get(f)->effLevel >= 0);
 }
+
+TEST_CASE("Scale sizes a frame and its offsets, and compounds", "[widget][layout]") {
+    WidgetTree tree;
+    const uint32_t outer = tree.create(WidgetKind::Frame, tree.root(), "Outer");
+    tree.setWidth(outer, 200.0f);
+    tree.setHeight(outer, 100.0f);
+    Anchor a; a.point = "BOTTOMLEFT"; a.relativePoint = "BOTTOMLEFT";
+    a.x = 100.0f; a.y = 50.0f;
+    tree.addPoint(outer, a);
+    tree.get(outer)->scale = 0.5f;
+
+    // A child at its own scale: the two multiply, as they do in WoW.
+    const uint32_t inner = tree.create(WidgetKind::Frame, outer, "Inner");
+    tree.setWidth(inner, 100.0f);
+    tree.setHeight(inner, 100.0f);
+    Anchor b; b.point = "BOTTOMLEFT"; b.relativePoint = "BOTTOMLEFT";
+    tree.addPoint(inner, b);
+    tree.get(inner)->scale = 0.5f;
+    tree.layout(kScreenW, kScreenH);
+
+    REQUIRE(tree.get(outer)->rectW == Catch::Approx(100.0f));   // 200 * 0.5
+    REQUIRE(tree.get(outer)->left  == Catch::Approx(50.0f));    // offset scaled too
+    REQUIRE(tree.get(inner)->effScale == Catch::Approx(0.25f));
+    REQUIRE(tree.get(inner)->rectW == Catch::Approx(25.0f));    // 100 * 0.25
+}
+
+TEST_CASE("An unscaled tree lays out exactly as before", "[widget][layout]") {
+    // The safety property the whole change rests on: with every scale at 1,
+    // each multiplication is by 1 and nothing moves.
+    WidgetTree tree;
+    const uint32_t f = tree.create(WidgetKind::Frame, tree.root(), "Plain");
+    tree.setWidth(f, 200.0f);
+    tree.setHeight(f, 100.0f);
+    Anchor a; a.point = "BOTTOMLEFT"; a.relativePoint = "BOTTOMLEFT";
+    a.x = 37.0f; a.y = 11.0f;
+    tree.addPoint(f, a);
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(f)->effScale == Catch::Approx(1.0f));
+    REQUIRE(tree.get(f)->left   == Catch::Approx(37.0f));
+    REQUIRE(tree.get(f)->bottom == Catch::Approx(11.0f));
+    REQUIRE(tree.get(f)->rectW  == Catch::Approx(200.0f));
+    REQUIRE(tree.get(f)->rectH  == Catch::Approx(100.0f));
+}

@@ -607,6 +607,9 @@ struct Emitter {
         if (const std::string* a = node.attr("alpha")) {
             line(var + ":SetAlpha(" + *a + ")");
         }
+        if (const std::string* sc = node.attr("scale")) {
+            line(var + ":SetScale(" + *sc + ")");
+        }
         if (node.attr("toplevel")) {
             line(var + ":SetToplevel(" +
                  (node.attrBool("toplevel") ? "true" : "false") + ")");

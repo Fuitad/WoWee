@@ -103,6 +103,15 @@ struct Widget {
     /// calls it toplevel, and it is what stops one window staying buried under
     /// another once two overlap. FrameXML declares it on 102 frames.
     bool topLevel = false;
+    /// The frame's own scale, and the product of it with every scale above it.
+    ///
+    /// A frame's width, height and anchor offsets are in its own units, and
+    /// WoW multiplies them by the effective scale to place it. Addons lean on
+    /// this to fit a panel where it would not otherwise go. When nothing sets a
+    /// scale every effScale is 1 and the arithmetic in layoutWidget is a
+    /// no-op, so a tree that never scales lays out exactly as it did before.
+    float scale = 1.0f;
+    float effScale = 1.0f;
     bool dragLeft = false;
     bool dragRight = false;
     /// Whether a drag put this frame where it is. The single anchor a move

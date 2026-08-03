@@ -283,6 +283,7 @@ void WidgetTree::layout(float pixelW, float pixelH) {
     rootW.visible = rootW.shown;
     rootW.effStrata = rootW.strata;
     rootW.effLevel = 0;
+    rootW.effScale = 1.0f;
 
     for (uint32_t child : rootW.children) layoutWidget(child, screenW, screenH);
     collectDrawOrder();
@@ -313,6 +314,9 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
     // makes a button's own regions land on top of the frame holding it.
     w->effStrata = w->strataExplicit ? w->strata : (parent ? parent->effStrata : FrameStrata::Medium);
     w->effLevel  = w->levelExplicit  ? w->level  : (parent ? parent->effLevel + 1 : 0);
+    // Multiplied down the chain, so scaling a window scales everything in it.
+    w->effScale  = (parent ? parent->effScale : 1.0f) * w->scale;
+    const float es = w->effScale;
 
     // Solve each axis from the anchors. An anchor says "this fraction of my rect
     // sits at that point", which is one linear constraint; two constraints with
@@ -334,8 +338,10 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
         }
         const AnchorPoint rp = resolveAnchorPoint(a.relativePoint);
         const AnchorPoint mp = resolveAnchorPoint(a.point);
-        cx.push_back({mp.fx, relLeft   + rp.fx * relW + a.x});
-        cy.push_back({mp.fy, relBottom + rp.fy * relH + a.y});
+        // The offset is in this frame's units; the anchor it hangs from is
+        // already resolved, so only the offset is scaled.
+        cx.push_back({mp.fx, relLeft   + rp.fx * relW + a.x * es});
+        cy.push_back({mp.fy, relBottom + rp.fy * relH + a.y * es});
     }
 
     auto solveAxis = [](const std::vector<Constraint>& cs, float explicitSize,
@@ -385,8 +391,8 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
         w->rectW  = parent->rectW;
         w->rectH  = parent->rectH;
     } else {
-        solveAxis(cx, w->width,  pLeft,   pW, w->left,   w->rectW);
-        solveAxis(cy, w->height, pBottom, pH, w->bottom, w->rectH);
+        solveAxis(cx, w->width * es,  pLeft,   pW, w->left,   w->rectW);
+        solveAxis(cy, w->height * es, pBottom, pH, w->bottom, w->rectH);
     }
 
     // The scroll offset, applied to the child a scroll frame holds. Scrolling
