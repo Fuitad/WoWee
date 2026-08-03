@@ -11,10 +11,18 @@ broken rather than one that was never wired up.
     tools/addon_api_audit.py blizzard_talentui   # one addon, names listed
     tools/addon_api_audit.py --framexml          # the original interface, per file
 
-The --framexml mode counts only files the client actually loads. Eleven on disk
+The --framexml mode counts only files the client actually loads. Twelve on disk
 are not in the manifest and are reached by no Include — focusframe,
-minigameframe, questtimerframe, tictactoeframe and friends — and their gaps were
-being reported as real work for as long as this scanned the directory.
+minigameframe, petpopup, questtimerframe, tictactoeframe, opacitysliderframe,
+bindings.xml — and their gaps were being reported as real work for as long as
+this scanned the directory.
+
+**focusframe is not an oversight, and adding it to the manifest would break
+the focus frame rather than fix it.** targetframe.xml declares FocusFrame too,
+inheriting TargetFrameTemplate, and targetframe.xml is in the manifest — so the
+focus frame is built, and loading the stray file as well would declare it
+twice. The trap is that "focusframe" is in the branch defaults, which makes it
+look as though the file must be missing for a reason nobody noticed.
 
 Counting honestly took two tries, and both mistakes are easy to repeat:
 
