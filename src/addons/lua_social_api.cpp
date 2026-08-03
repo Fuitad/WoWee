@@ -254,6 +254,58 @@ static int lua_BNGetNumFriends(lua_State* L) {
     return 2;
 }
 
+
+// GetAutoCompleteResults(text, include, exclude, max, cursorPos) → names
+//
+// What the box under a whisper or a mail address offers as you type. Returns
+// the names themselves, one value each, because AutoComplete_UpdateResults
+// reads them with select rather than out of a table.
+//
+// The sources are the ones this client actually knows: the group, the guild
+// roster and the friends list. Battle.net has none here, so its flag matches
+// nothing rather than pretending.
+static int lua_GetAutoCompleteResults(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    std::string prefix = luaL_optstring(L, 1, "");
+    const uint32_t include = static_cast<uint32_t>(luaL_optnumber(L, 2, 0xFFFFFFFFu));
+    const uint32_t exclude = static_cast<uint32_t>(luaL_optnumber(L, 3, 0));
+    const int wanted = static_cast<int>(luaL_optnumber(L, 4, 5));
+    if (!gh || wanted <= 0) return 0;
+
+    constexpr uint32_t kInGroup = 0x01, kInGuild = 0x02, kFriend = 0x04, kOnline = 0x20;
+
+    auto lower = [](std::string v) {
+        for (char& c : v) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        return v;
+    };
+    const std::string want = lower(prefix);
+
+    // One name may be a guildmate and a friend both, so what it is comes first
+    // and the flags are merged before anything is decided about it.
+    std::map<std::string, uint32_t> byName;
+    auto note = [&](const std::string& name, uint32_t flag, bool online) {
+        if (name.empty()) return;
+        if (!want.empty() && lower(name).compare(0, want.size(), want) != 0) return;
+        byName[name] |= flag | (online ? kOnline : 0u);
+    };
+
+    for (const auto& mbr : gh->getPartyData().members) note(mbr.name, kInGroup, mbr.isOnline != 0);
+    for (const auto& mbr : gh->getGuildRoster().members) note(mbr.name, kInGuild, mbr.online);
+    for (const auto& c : gh->getContacts()) {
+        if (c.isFriend()) note(c.name, kFriend, c.isOnline());
+    }
+
+    int pushed = 0;
+    for (const auto& [name, flags] : byName) {
+        if (pushed >= wanted) break;
+        if ((flags & exclude) != 0) continue;
+        if (include != 0 && (flags & include) == 0) continue;
+        lua_pushstring(L, name.c_str());
+        ++pushed;
+    }
+    return pushed;
+}
+
 // --- Reputation ---
 //
 // The panel is a list of factions with a bar showing how far through the
@@ -684,6 +736,7 @@ void registerSocialLuaAPI(lua_State* L) {
                 // the frame reads it as "not ForceGossip()" to decide whether
                 // to go straight to a lone vendor or flight master — which is
                 // what the real client does, so a definite no keeps that.
+                {"GetAutoCompleteResults", lua_GetAutoCompleteResults},
                 {"GetNumFactions", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             lua_pushnumber(L, gh ? static_cast<double>(gh->getReputationList().size()) : 0.0);
