@@ -1534,6 +1534,10 @@ void VkContext::destroyImGuiResources() {
     uiTextures_.clear();
     uiTextureSampler_ = VK_NULL_HANDLE; // Owned by sampler cache
 
+    // Said here rather than by whoever decided to destroy them, so that the
+    // generation cannot disagree with what actually happened to the sets.
+    ++uiTextureGeneration_;
+
     // This context's own UI texture pool, which the sets above were allocated
     // from. Freed with them rather than with ImGui's, which is the whole point
     // of it existing.

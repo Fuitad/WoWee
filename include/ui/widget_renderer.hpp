@@ -77,7 +77,7 @@ private:
     rendering::VkContext* vkCtx_ = nullptr;
     std::unordered_map<std::string, VkDescriptorSet> textures_;
     /// Which incarnation of ImGui's backend the cache above belongs to.
-    uint32_t imguiGenerationSeen_ = 0;
+    uint32_t uiTextureGenerationSeen_ = 0;
 };
 
 } // namespace ui

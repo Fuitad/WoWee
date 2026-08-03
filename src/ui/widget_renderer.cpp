@@ -309,20 +309,19 @@ void WidgetRenderer::drawCooldown(ImDrawList* dl, const Widget& w,
 }
 
 void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
-    // ImGui's backend is torn down and restarted when the anti-aliasing
-    // changes, and every descriptor set in this cache came from the pool that
-    // went with it. The pool is this context's own now, so the sets survive —
-    // this stays as a belt on the braces, and costs a re-upload of what is on
-    // screen if it ever fires.
+    // Every descriptor set in this cache belongs to the context, which frees
+    // them all together. Drawing with one afterwards is a fault the GPU answers
+    // by resetting, so the cache goes when they do — at the cost of re-uploading
+    // whatever is on screen.
     if (vkCtx_) {
-        const uint32_t generation = vkCtx_->imguiBackendGeneration();
-        if (generation != imguiGenerationSeen_) {
-            imguiGenerationSeen_ = generation;
+        const uint32_t generation = vkCtx_->uiTextureGeneration();
+        if (generation != uiTextureGenerationSeen_) {
+            uiTextureGenerationSeen_ = generation;
             if (!textures_.empty()) {
-                LOG_WARNING("ImGui's backend restarted; dropping ",
+                LOG_WARNING("The UI textures were destroyed; dropping ",
                             textures_.size(),
                             " cached textures rather than drawing with the "
-                            "descriptor sets it freed");
+                            "descriptor sets that went with them");
                 textures_.clear();
             }
         }

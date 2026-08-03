@@ -41,10 +41,16 @@ public:
     /// than one thread, which is unsafe and matches what validation reports.
     void noteImmediateSubmitThread(const char* who);
 
-    /// Which incarnation of ImGui's Vulkan backend is current. See
-    /// imguiBackendGeneration_.
-    uint32_t imguiBackendGeneration() const { return imguiBackendGeneration_; }
-    void noteImGuiBackendRestarted() { ++imguiBackendGeneration_; }
+    /// Which incarnation of the UI textures is current. Anything holding a
+    /// descriptor set from uploadImGuiTexture caches this alongside it and
+    /// drops the cache when it moves, because those sets are this context's to
+    /// free and are not valid across the free.
+    ///
+    /// Counted against the destruction rather than against an ImGui backend
+    /// restart, which is what it used to key on: the restart was removed, its
+    /// only caller went with it, and the check downstream quietly became dead
+    /// code that never fired.
+    uint32_t uiTextureGeneration() const { return uiTextureGeneration_; }
 
     VkContext() = default;
     ~VkContext();
@@ -325,14 +331,13 @@ private:
 
     // Shared sampler for UI textures (created on first uploadImGuiTexture call)
     VkSampler uiTextureSampler_ = VK_NULL_HANDLE;
-    /// Bumped whenever ImGui's Vulkan backend is torn down and started again.
+    /// Bumped whenever the UI textures and the pool their descriptor sets came
+    /// from are destroyed.
     ///
-    /// Every descriptor set handed out by uploadImGuiTexture comes from ImGui's
-    /// own descriptor pool, and shutting the backend down frees that pool. Any
-    /// cache of those sets is dangling from that moment, and drawing with one
-    /// is a fault the GPU reports by resetting. Callers that keep sets compare
-    /// this against what they last saw and throw their cache away.
-    uint32_t imguiBackendGeneration_ = 0;
+    /// Any cache of those sets is dangling from that moment, and drawing with
+    /// one is a fault the GPU reports by resetting. Callers that keep sets
+    /// compare this against what they last saw and throw their cache away.
+    uint32_t uiTextureGeneration_ = 0;
     /// How many asynchronous upload batches have been submitted and retired.
     /// Only used to name the first fence and to say how many are outstanding.
     uint64_t batchesSubmitted_ = 0;
