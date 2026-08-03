@@ -18,6 +18,64 @@ static int lua_GetNumQuestLogEntries(lua_State* L) {
 }
 
 // GetQuestLogTitle(index) → title, level, suggestedGroup, isHeader, isCollapsed, isComplete, frequency, questID
+// ---- Quest watch ordering ----
+//
+// The watch list here is a set of quest ids, so its order is the quest log's
+// order rather than one of its own. That is what these three say.
+
+// GetQuestWatchIndex(questLogIndex) → where that quest sits in the watch list.
+static int lua_GetQuestWatchIndex(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || idx < 1) return luaReturnNil(L);
+    const auto& ql = gh->getQuestLog();
+    if (idx > static_cast<int>(ql.size())) return luaReturnNil(L);
+    const uint32_t wanted = ql[static_cast<size_t>(idx) - 1].questId;
+    int position = 0;
+    for (const auto& q : ql) {
+        if (!gh->isQuestTracked(q.questId)) continue;
+        ++position;
+        if (q.questId == wanted) { lua_pushnumber(L, position); return 1; }
+    }
+    return luaReturnNil(L);   // not watched
+}
+
+// SortQuestWatches() → whether the order changed.
+//
+// False, and that is the truthful answer rather than a shrug: the watch order
+// follows the quest log, so there is never a separate order to sort. The
+// caller reads it as "did anything move" and rebuilds the tracker when it did.
+static int lua_SortQuestWatches(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+
+// ShiftQuestWatches(from, to) — reorder the list by hand. Nothing is stored to
+// reorder, so dragging a tracker entry leaves it where the log puts it.
+static int lua_ShiftQuestWatches(lua_State* L) { (void)L; return 0; }
+
+// GetQuestSortIndex(questLogIndex) → the header the quest sits under.
+//
+// Nil: this quest log has no headers — GetQuestLogTitle answers false for
+// isHeader on every row — so there is no header index to give and nothing for
+// the caller to expand.
+static int lua_GetQuestSortIndex(lua_State* L) { (void)L; return luaReturnNil(L); }
+
+// ---- Quest log special items ----
+//
+// The usable item some quests carry. GetQuestLogSpecialItemInfo answers nil, so
+// no item button is built and none of these is reached — they are defined so
+// that stays true if it ever starts answering.
+static int lua_IsQuestLogSpecialItemInRange(lua_State* L) { (void)L; return luaReturnNil(L); }
+static int lua_UseQuestLogSpecialItem(lua_State* L) { (void)L; return 0; }
+
+// GetQuestLogSpecialItemCooldown(index) → start, duration, enable.
+// Enable is one, not zero: zero means the cooldown swipe is switched off, and
+// the caller feeds all three straight to CooldownFrame_SetTimer.
+static int lua_GetQuestLogSpecialItemCooldown(lua_State* L) {
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 0);
+    lua_pushnumber(L, 1);
+    return 3;
+}
+
 // GetQuestTimers() — the seconds left on each timed quest, as separate values.
 //
 // QuestTimerFrame counts them with select("#", ...) and reads them with
@@ -1530,6 +1588,13 @@ static int lua_GetQuestSpellLink(lua_State* L) {
 void registerQuestLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"GetNumQuestLogEntries",   lua_GetNumQuestLogEntries},
+                {"GetQuestWatchIndex",      lua_GetQuestWatchIndex},
+                {"SortQuestWatches",        lua_SortQuestWatches},
+                {"ShiftQuestWatches",       lua_ShiftQuestWatches},
+                {"GetQuestSortIndex",       lua_GetQuestSortIndex},
+                {"IsQuestLogSpecialItemInRange", lua_IsQuestLogSpecialItemInRange},
+                {"UseQuestLogSpecialItem",  lua_UseQuestLogSpecialItem},
+                {"GetQuestLogSpecialItemCooldown", lua_GetQuestLogSpecialItemCooldown},
                 {"GetQuestTimers",          lua_GetQuestTimers},
                 {"GetQuestIndexForTimer",   lua_GetQuestIndexForTimer},
                 {"GetQuestLogTitle",        lua_GetQuestLogTitle},
