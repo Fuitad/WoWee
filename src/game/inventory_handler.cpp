@@ -2849,7 +2849,17 @@ void InventoryHandler::handleTradeStatusExtended(network::Packet& packet) {
         // else; the two money frames listen for this and only this. Without it
         // the gold on the table stays at whatever it read when the window
         // opened, however much either side puts down.
-        if (goldChanged) owner_.addonEventCallbackRef()("TRADE_MONEY_CHANGED", {});
+        //
+        // One event per side, because they are two different frames. A money
+        // frame carries a moneyType and answers only its own name:
+        // TARGET_TRADE listens for TRADE_MONEY_CHANGED, PLAYER_TRADE for
+        // PLAYER_TRADE_MONEY. Announcing the peer's event for both refreshed
+        // their side when our own gold moved and never refreshed ours — so the
+        // amount *this* player had put down never appeared.
+        if (goldChanged) {
+            owner_.addonEventCallbackRef()(
+                whichPlayer == 0 ? "PLAYER_TRADE_MONEY" : "TRADE_MONEY_CHANGED", {});
+        }
     }
 }
 
