@@ -1284,6 +1284,28 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetNumQuestLogEntries",   lua_GetNumQuestLogEntries},
                 {"GetQuestLogTitle",        lua_GetQuestLogTitle},
                 {"GetQuestLogQuestText",    lua_GetQuestLogQuestText},
+                // The line a quest shows once its objectives are done. Not in
+                // anything this client parses — the quest log is built from
+                // SMSG_QUEST_QUERY_RESPONSE, which does not carry it.
+                //
+                // An empty string rather than nothing, because the world map
+                // hovers a finished quest's pin and writes
+                // AddLine("- "..GetQuestLogCompletionText(i)) without checking.
+                // Concatenating nil raises, so the pin would have taken the map
+                // down; concatenating an empty string draws a bare dash.
+                {"GetQuestLogCompletionText", [](lua_State* L) -> int {
+            lua_pushstring(L, "");
+            return 1;
+        }},
+                // The words on a book or a plaque. ITEM_TEXT_BEGIN is not
+                // fired, so nothing opens that window today — but the page it
+                // draws is "\n"..ItemTextGetText()..creator, and if the event
+                // is ever fired a nil there takes the whole window with it.
+                // Empty costs nothing and removes the trap.
+                {"ItemTextGetText", [](lua_State* L) -> int {
+            lua_pushstring(L, "");
+            return 1;
+        }},
                 {"IsQuestComplete",         lua_IsQuestComplete},
                 {"SelectQuestLogEntry",     lua_SelectQuestLogEntry},
                 {"GetQuestLogSelection",    lua_GetQuestLogSelection},
