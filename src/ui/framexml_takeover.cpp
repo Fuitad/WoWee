@@ -15,7 +15,7 @@ namespace {
 struct Entry { UiElement element; std::string_view name; };
 
 // One row per element, and the only place a name is written down.
-constexpr std::array<Entry, 42> kElements{{
+constexpr std::array<Entry, 45> kElements{{
     {UiElement::PlayerFrame,  "playerframe"},
     {UiElement::TargetFrame,  "targetframe"},
     {UiElement::PetFrame,     "petframe"},
@@ -58,6 +58,9 @@ constexpr std::array<Entry, 42> kElements{{
     {UiElement::GameMenu,          "gamemenu"},
     {UiElement::Help,              "help"},
     {UiElement::BattlegroundScore, "bgscore"},
+    {UiElement::Reputation,   "reputation"},
+    {UiElement::Totems,       "totems"},
+    {UiElement::Talents,      "talents"},
 }};
 
 /// Parsed once. An unknown name is reported rather than dropped: a typo would
@@ -323,6 +326,13 @@ const Suppress kSuppress[] = {
                                 "VideoOptionsFrame AudioOptionsFrame"},
         {UiElement::Help,       "HelpFrame TicketStatusFrame"},
         {UiElement::BattlegroundScore, "WorldStateScoreFrame"},
+        // Reachable only since their APIs were finished: a window whose
+        // functions all answer opens where before it stayed empty and unnoticed.
+        // This client draws a reputation panel inside the character screen, a
+        // totem bar, and a talent screen of its own.
+        {UiElement::Reputation, "ReputationFrame"},
+        {UiElement::Totems,     "TotemFrame MultiCastActionBarFrame"},
+        {UiElement::Talents,    "PlayerTalentFrame", /*lazy=*/true},
         // Found by the unaccounted-element check on its first run. The world
         // map is neither handed over nor hidden, so FrameXML's draws over this
         // client's own. It appears in the check list, which is what made it

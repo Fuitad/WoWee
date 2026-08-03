@@ -415,7 +415,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     }
 
     // Totem frame (Shaman only, when any totem is active)
-    if (gameHandler.getPlayerClass() == 7) {
+    if (gameHandler.getPlayerClass() == 7 && !frameXmlOwns(UiElement::Totems)) {
         renderTotemFrame(gameHandler);
     }
 

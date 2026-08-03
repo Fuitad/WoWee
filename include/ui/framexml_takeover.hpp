@@ -93,6 +93,12 @@ enum class UiElement {
     GameMenu,
     Help,
     BattlegroundScore,
+    /// Windows whose FrameXML version only became reachable once its API was
+    /// finished. Each has a counterpart this client draws, so each has to be
+    /// accounted for or it appears twice.
+    Reputation,
+    Totems,
+    Talents,
 };
 
 /// True when FrameXML is drawing this instead, so the client should not.

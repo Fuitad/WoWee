@@ -1,4 +1,5 @@
 #include "ui/inventory_screen.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/keybinding_manager.hpp"
 #include "game/game_handler.hpp"
@@ -1770,7 +1771,11 @@ void InventoryScreen::renderCharacterScreen(game::GameHandler& gameHandler) {
             ImGui::EndTabItem();
         }
 
-        if (ImGui::BeginTabItem("Reputation")) {
+        // The tab goes entirely when the original interface owns reputation:
+        // an empty tab beside a window that has the same thing in it reads as
+        // the feature being broken.
+        if (!ui::frameXmlOwns(ui::UiElement::Reputation) &&
+            ImGui::BeginTabItem("Reputation")) {
             renderReputationPanel(gameHandler);
             ImGui::EndTabItem();
         }
