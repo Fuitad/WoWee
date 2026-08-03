@@ -2197,7 +2197,9 @@ static int lua_GiveMasterLoot(lua_State* L) {
 // GetLootMethod() → "freeforall"|"roundrobin"|"master"|"group"|"needbeforegreed", partyLoot, raidLoot
 static int lua_GetLootMethod(lua_State* L) {
     auto* gh = getGameHandler(L);
-    if (!gh) { lua_pushstring(L, "freeforall"); lua_pushnumber(L, 0); lua_pushnumber(L, 0); return 3; }
+    // Nil for the two indices here as well: no handler is no group, and a
+    // zero would claim the player is the master looter of it.
+    if (!gh) { lua_pushstring(L, "freeforall"); lua_pushnil(L); lua_pushnil(L); return 3; }
     const auto& pd = gh->getPartyData();
     const char* method = "freeforall";
     switch (pd.lootMethod) {
@@ -2208,8 +2210,41 @@ static int lua_GetLootMethod(lua_State* L) {
         case 4: method = "needbeforegreed"; break;
     }
     lua_pushstring(L, method);
-    lua_pushnumber(L, 0); // partyLootMaster (index)
-    lua_pushnumber(L, 0); // raidLootMaster (index)
+    // Who the master looter is, or nobody.
+    //
+    // Zero is not "nobody" here — it is *the player*. playerframe.lua reads
+    //     if ( lootMaster == 0 and (in a party or raid) ) then
+    //         PlayerMasterIcon:Show()
+    // so answering zero unconditionally hung the master-looter crown on the
+    // player's own frame in every group, whatever the loot method was and
+    // whoever was actually holding it. partymemberframe.lua does the mirror
+    // of that with `if ( id == lootMaster )`.
+    //
+    // Nil is how the client says there is no master looter, and it is the
+    // truthful answer under every method but master loot. The guid comes with
+    // the group list, so when there is one it can be named rather than
+    // guessed: index 0 is the player, 1 upward the party members in order.
+    static constexpr uint8_t kMasterLoot = 2;
+    if (pd.lootMethod != kMasterLoot || pd.looterGuid == 0) {
+        lua_pushnil(L);
+        lua_pushnil(L);
+    } else if (pd.looterGuid == gh->getPlayerGuid()) {
+        lua_pushnumber(L, 0);
+        lua_pushnil(L);
+    } else {
+        int partyIndex = -1;
+        for (size_t i = 0; i < pd.members.size(); ++i) {
+            if (pd.members[i].guid == pd.looterGuid) {
+                partyIndex = static_cast<int>(i) + 1;
+                break;
+            }
+        }
+        if (partyIndex > 0) lua_pushnumber(L, partyIndex);
+        else                lua_pushnil(L);
+        // The raid index is a different numbering and this client does not
+        // keep one, so it says so rather than reusing the party position.
+        lua_pushnil(L);
+    }
     return 3;
 }
 
