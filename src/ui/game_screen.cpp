@@ -486,7 +486,9 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     combatUI_.renderRaidWarningOverlay(gameHandler);
     combatUI_.renderCombatText(gameHandler);
     combatUI_.renderDPSMeter(gameHandler, settingsPanel_, lastTargetFrameBottom_);
-    renderDurabilityWarning(gameHandler);
+    if (!frameXmlOwns(UiElement::Durability)) {
+        renderDurabilityWarning(gameHandler);
+    }
     renderUIErrors(gameHandler, ImGui::GetIO().DeltaTime);
     toastManager_.renderEarlyToasts(ImGui::GetIO().DeltaTime, gameHandler);
     if (socialPanel_.showRaidFrames_) {
@@ -496,7 +498,11 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     dialogManager_.renderDialogs(gameHandler, inventoryScreen, chatPanel_);
     socialPanel_.renderGuildRoster(gameHandler, chatPanel_);
     socialPanel_.renderSocialFrame(gameHandler, chatPanel_);
-    combatUI_.renderBuffBar(gameHandler, spellbookScreen, inventoryScreen, settingsPanel_, spellIconFn);
+    // FrameXML's buff frame is checked as in use beside the minimap cluster,
+    // and this one was drawn regardless — two bars of the same auras.
+    if (!frameXmlOwns(UiElement::Buffs)) {
+        combatUI_.renderBuffBar(gameHandler, spellbookScreen, inventoryScreen, settingsPanel_, spellIconFn);
+    }
     windowManager_.renderLootWindow(gameHandler, inventoryScreen, chatPanel_);
     windowManager_.renderGossipWindow(gameHandler, chatPanel_);
     windowManager_.renderQuestDetailsWindow(gameHandler, chatPanel_, inventoryScreen);

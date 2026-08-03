@@ -69,6 +69,14 @@ enum class UiElement {
     AuctionHouse,
     GuildBank,
     Inspect,
+    /// The buff and debuff bar. FrameXML's is already treated as in use — it
+    /// is checked alongside the minimap cluster — but this client kept drawing
+    /// its own beside it, so there were two.
+    Buffs,
+    /// The low-durability warning. Same story as the buffs: FrameXML's
+    /// DurabilityFrame is checked as in use and this client drew its own
+    /// warning beside it.
+    Durability,
 };
 
 /// True when FrameXML is drawing this instead, so the client should not.

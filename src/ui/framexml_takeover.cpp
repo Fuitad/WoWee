@@ -15,7 +15,7 @@ namespace {
 struct Entry { UiElement element; std::string_view name; };
 
 // One row per element, and the only place a name is written down.
-constexpr std::array<Entry, 32> kElements{{
+constexpr std::array<Entry, 34> kElements{{
     {UiElement::PlayerFrame,  "playerframe"},
     {UiElement::TargetFrame,  "targetframe"},
     {UiElement::PetFrame,     "petframe"},
@@ -48,6 +48,8 @@ constexpr std::array<Entry, 32> kElements{{
     {UiElement::AuctionHouse, "auctionhouse"},
     {UiElement::GuildBank,    "guildbank"},
     {UiElement::Inspect,      "inspect"},
+    {UiElement::Buffs,        "buffs"},
+    {UiElement::Durability,   "durability"},
 }};
 
 /// Parsed once. An unknown name is reported rather than dropped: a typo would
@@ -70,7 +72,7 @@ const std::set<std::string>& requested() {
         if (!raw || !*raw) {
             out = {"playerframe", "targetframe", "minimap",
                    "mainmenubar", "characterframe", "bags", "castbar",
-                   "spellbook", "petframe", "focusframe"};
+                   "spellbook", "petframe", "focusframe", "buffs", "durability"};
             LOG_WARNING("FrameXML is drawing the branch defaults; "
                         "set WOWEE_FRAMEXML_UI to choose, or 'none' for this "
                         "client's own interface");
