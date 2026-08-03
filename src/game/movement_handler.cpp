@@ -3443,7 +3443,9 @@ void MovementHandler::followTarget() {
 
     owner_.addSystemChatMessage("Now following " + targetName + ".");
     LOG_INFO("Following target: ", targetName, " (GUID: 0x", std::hex, owner_.getTargetGuid(), std::dec, ")");
-    owner_.fireAddonEvent("AUTOFOLLOW_BEGIN", {});
+    // The name goes with it: the status text is formatted from this argument,
+    // and without one it formats a nil.
+    owner_.fireAddonEvent("AUTOFOLLOW_BEGIN", {targetName});
 }
 
 void MovementHandler::cancelFollow() {

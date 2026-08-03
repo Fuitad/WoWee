@@ -1360,7 +1360,11 @@ void SpellHandler::syncPreWotlkTalentsFromKnownSpells() {
              " unspent=", static_cast<int>(unspent));
 
     if (owner_.addonEventCallbackRef()) {
-        owner_.addonEventCallbackRef()("CHARACTER_POINTS_CHANGED", {});
+        // Two arguments, both zero: the interface reads the second as a count
+        // of skill points just gained and compares it against zero, which is an
+        // error against nothing. These fire on a full refresh rather than an
+        // increment, so nothing was gained and nothing is announced.
+        owner_.addonEventCallbackRef()("CHARACTER_POINTS_CHANGED", {"0", "0"});
         owner_.addonEventCallbackRef()("PLAYER_TALENT_UPDATE", {});
     }
 }
@@ -1563,7 +1567,6 @@ void SpellHandler::handleInitialSpells(network::Packet& packet) {
 
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("SPELLS_CHANGED", {});
-        owner_.addonEventCallbackRef()("LEARNED_SPELL_IN_TAB", {});
     }
 }
 
@@ -2150,7 +2153,7 @@ void SpellHandler::handleLearnedSpell(network::Packet& packet) {
                          " (spell ", spellId, ") in spec ", (int)activeTalentSpec_);
                 isTalentSpell = true;
                 if (owner_.addonEventCallbackRef()) {
-                    owner_.addonEventCallbackRef()("CHARACTER_POINTS_CHANGED", {});
+                    owner_.addonEventCallbackRef()("CHARACTER_POINTS_CHANGED", {"0", "0"});
                     owner_.addonEventCallbackRef()("PLAYER_TALENT_UPDATE", {});
                 }
                 break;
@@ -2333,7 +2336,11 @@ void SpellHandler::handleTalentsInfo(network::Packet& packet) {
              " learned=", learnedTalents_[activeTalentGroup].size());
 
     if (owner_.addonEventCallbackRef()) {
-        owner_.addonEventCallbackRef()("CHARACTER_POINTS_CHANGED", {});
+        // Two arguments, both zero: the interface reads the second as a count
+        // of skill points just gained and compares it against zero, which is an
+        // error against nothing. These fire on a full refresh rather than an
+        // increment, so nothing was gained and nothing is announced.
+        owner_.addonEventCallbackRef()("CHARACTER_POINTS_CHANGED", {"0", "0"});
         owner_.addonEventCallbackRef()("ACTIVE_TALENT_GROUP_CHANGED", {});
         owner_.addonEventCallbackRef()("PLAYER_TALENT_UPDATE", {});
     }
