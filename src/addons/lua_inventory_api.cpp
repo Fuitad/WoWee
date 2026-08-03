@@ -2020,6 +2020,26 @@ static int lua_RollOnLoot(lua_State* L) {
     return 0;
 }
 
+// GiveMasterLoot(slot, candidate) — hand an item to someone, as master looter.
+//
+// The candidate is a position in the list the server sent with the loot, not a
+// guid: the menu is built by walking that list, and the entry clicked is the
+// number passed back. Checked against the list rather than trusted, since a
+// menu left open while the loot changed would otherwise name whoever now
+// happens to sit at that position.
+static int lua_GiveMasterLoot(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const int candidate = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (!gh || slot < 1 || candidate < 1) return 0;
+
+    const auto& candidates = gh->getMasterLootCandidates();
+    if (candidate > static_cast<int>(candidates.size())) return 0;
+    gh->lootMasterGive(static_cast<uint8_t>(slot - 1),
+                       candidates[static_cast<size_t>(candidate - 1)]);
+    return 0;
+}
+
 // GetLootMethod() → "freeforall"|"roundrobin"|"master"|"group"|"needbeforegreed", partyLoot, raidLoot
 static int lua_GetLootMethod(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -2157,6 +2177,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"LootSlotIsItem",      lua_LootSlotIsItem},
                 {"IsFishingLoot",       lua_IsFishingLoot},
                 {"CloseLoot",           lua_CloseLoot},
+                {"GiveMasterLoot",      lua_GiveMasterLoot},
                 {"GetLootRollItemInfo", lua_GetLootRollItemInfo},
                 {"GetLootRollItemLink", lua_GetLootRollItemLink},
                 {"GetLootRollTimeLeft", lua_GetLootRollTimeLeft},
