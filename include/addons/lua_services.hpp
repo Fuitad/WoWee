@@ -17,6 +17,15 @@ struct LuaServices {
     audio::AudioCoordinator* audioCoordinator  = nullptr;
     game::ExpansionRegistry* expansionRegistry = nullptr;
 
+    /// Ask for the interface to be reloaded, as ReloadUI() does.
+    ///
+    /// A request rather than the act: reloading shuts the Lua state down and
+    /// builds a new one, and ReloadUI is called from inside that state — by a
+    /// static popup's OnAccept, or by /reload going through the interface. Doing
+    /// it there frees the machinery running the call. The application performs
+    /// it between frames instead.
+    std::function<void()> requestReloadUI;
+
     /// Screen gamma, for the interface's own video options. Callbacks rather
     /// than a renderer pointer, to keep this header off the rendering ones.
     std::function<float()> getGamma;

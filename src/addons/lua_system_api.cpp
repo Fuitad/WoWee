@@ -1402,6 +1402,18 @@ static int lua_GetBattlefieldMapIconScale(lua_State* L) { lua_pushnumber(L, 1.0)
 // and nothing here parses it, so nobody reads as idle.
 static int lua_PlayerIsPVPInactive(lua_State* L) { lua_pushboolean(L, 0); return 1; }
 
+// ReloadUI() — rebuild the interface, as /reload does.
+//
+// Only asks. The reload shuts this Lua state down and builds a new one, and
+// every caller is inside it: a static popup's OnAccept after a setting that
+// needs one, or /reload typed at the interface rather than at the client's own
+// command handler. Doing the work here would free the state mid-call.
+static int lua_ReloadUI(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    if (svc && svc->requestReloadUI) svc->requestReloadUI();
+    return 0;
+}
+
 // GetGamma() / SetGamma(value) — screen brightness, as the video options mean
 // it. One is neutral. Backed by the client's own brightness setting, so the
 // two sliders move together instead of disagreeing.
@@ -1654,6 +1666,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"CombatLogSetCurrentEntry",       lua_CombatLogSetCurrentEntry},
                 {"CombatLogAddFilter",             lua_CombatLogAddFilter},
                 {"CombatLogResetFilter",           lua_CombatLogResetFilter},
+                {"ReloadUI",                 lua_ReloadUI},
                 {"GetGamma",                 lua_GetGamma},
                 {"SetGamma",                 lua_SetGamma},
                 {"GetVideoCaps",             lua_GetVideoCaps},

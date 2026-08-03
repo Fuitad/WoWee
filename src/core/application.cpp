@@ -363,6 +363,7 @@ bool Application::initialize() {
         luaSvc.window            = window.get();
         luaSvc.audioCoordinator  = audioCoordinator_.get();
         luaSvc.expansionRegistry = expansionRegistry_.get();
+        luaSvc.requestReloadUI = [this]() { reloadUiPending_ = true; };
         luaSvc.getGamma = [uim = uiManager.get()]() -> float {
             return uim ? uim->getGameScreen().getGamma() : 1.0f;
         };
@@ -1611,6 +1612,21 @@ void Application::update(float deltaTime) {
     ZoneScopedN("Application::update");
     const char* updateCheckpoint = "enter";
     try {
+    // A reload asked for by the interface. Done here, between frames, because
+    // the request comes from inside the Lua state that the reload destroys —
+    // performing it at the call site would free the machinery mid-call.
+    if (reloadUiPending_) {
+        reloadUiPending_ = false;
+        if (addonManager_) {
+            addonManager_->reload();
+            // The same three the /reload command sends, so an interface
+            // reloaded from a popup comes up in the same state as one reloaded
+            // from chat rather than waiting for events that already fired.
+            addonManager_->fireEvent("VARIABLES_LOADED");
+            addonManager_->fireEvent("PLAYER_LOGIN");
+            addonManager_->fireEvent("PLAYER_ENTERING_WORLD");
+        }
+    }
     // Update based on current state
     updateCheckpoint = "state switch";
     switch (state) {
