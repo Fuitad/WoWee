@@ -15,7 +15,7 @@ namespace {
 struct Entry { UiElement element; std::string_view name; };
 
 // One row per element, and the only place a name is written down.
-constexpr std::array<Entry, 39> kElements{{
+constexpr std::array<Entry, 42> kElements{{
     {UiElement::PlayerFrame,  "playerframe"},
     {UiElement::TargetFrame,  "targetframe"},
     {UiElement::PetFrame,     "petframe"},
@@ -55,6 +55,9 @@ constexpr std::array<Entry, 39> kElements{{
     {UiElement::Taxi,         "taxi"},
     {UiElement::Stable,       "stable"},
     {UiElement::Book,         "book"},
+    {UiElement::GameMenu,          "gamemenu"},
+    {UiElement::Help,              "help"},
+    {UiElement::BattlegroundScore, "bgscore"},
 }};
 
 /// Parsed once. An unknown name is reported rather than dropped: a typo would
@@ -257,7 +260,7 @@ const Suppress kSuppress[] = {
                               "GeneralDockManager GeneralDockManagerOverflowButton "
                               "ChatFrameMenuButton FriendsMicroButton "
                               "CombatLogQuickButtonFrame_Custom"},
-        {UiElement::QuestLog, "QuestLogFrame"},
+        {UiElement::QuestLog, "QuestLogFrame QuestLogDetailFrame"},
         // Talking to an NPC opened two of everything: this client's gossip and
         // quest windows, which work, and FrameXML's, which cannot — the calls
         // behind them are among the names the missing-API report lists every
@@ -299,6 +302,13 @@ const Suppress kSuppress[] = {
         {UiElement::Taxi,         "TaxiFrame"},
         {UiElement::Stable,       "PetStableFrame"},
         {UiElement::Book,         "ItemTextFrame"},
+        // All three open from the micro buttons, which belong to the bar this
+        // branch draws — so they appear without anyone deciding they should,
+        // beside this client's own escape menu, settings and ticket window.
+        {UiElement::GameMenu,   "GameMenuFrame InterfaceOptionsFrame "
+                                "VideoOptionsFrame AudioOptionsFrame"},
+        {UiElement::Help,       "HelpFrame TicketStatusFrame"},
+        {UiElement::BattlegroundScore, "WorldStateScoreFrame"},
         // WatchFrameTitle is the "Objectives" label, and the buttons beside it
         // ride on the same frame.
         {UiElement::QuestTracker, "WatchFrame"},

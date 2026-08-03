@@ -86,6 +86,13 @@ enum class UiElement {
     Taxi,
     Stable,
     Book,
+    /// The game menu and the options panels behind it, the help window, and
+    /// the battleground scoreboard. Each has a working equivalent here, and
+    /// each is reachable from the micro buttons on the bar this branch has
+    /// taken over — so they open without anyone choosing them.
+    GameMenu,
+    Help,
+    BattlegroundScore,
 };
 
 /// True when FrameXML is drawing this instead, so the client should not.
