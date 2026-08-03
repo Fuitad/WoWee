@@ -1041,7 +1041,6 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"QueryGuildEventLog",       lua_ReturnNothing},
                 {"RegisterForSave",          lua_ReturnNothing},
                 {"RegisterStaticConstants",  lua_ReturnNothing},
-                {"SetAbandonQuest",          lua_ReturnNothing},
                 {"SetChatWindowDocked",      lua_ReturnNothing},
                 {"SetChatWindowLocked",      lua_ReturnNothing},
                 {"SetChatWindowName",        lua_ReturnNothing},

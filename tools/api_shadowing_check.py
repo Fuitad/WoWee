@@ -42,7 +42,9 @@ def sources():
 def scan():
     binding_names = {}          # name -> [files]
     bootstrap_globals = {}      # name -> [files]
+    counting_stubs = set()      # names the bootstrap answers zero for
     metatable_methods = set()
+    zero_bindings = set()       # bindings that answer a constant
     table_methods = {}          # object -> {method: file}
 
     for path in sources():
@@ -50,6 +52,11 @@ def scan():
 
         for name in re.findall(r'\{\s*"([A-Za-z_]\w*)"\s*,\s*(?:lua_|\[)', text):
             binding_names.setdefault(name, []).append(path.name)
+        # A binding that is itself a plain stub answers the same as the
+        # counting list, so one shadowing the other changes nothing.
+        for name in re.findall(
+                r'\{\s*"([A-Za-z_]\w*)"\s*,\s*lua_Return(?:Zero|Nil|Nothing|False)\b', text):
+            zero_bindings.add(name)
         for name in re.findall(r'\{\s*"([A-Za-z_]\w*)"\s*,\s*lua_', text):
             metatable_methods.add(name)
         for name in re.findall(r'"function mt:([A-Za-z_]\w*)', text):
@@ -61,15 +68,32 @@ def scan():
         for name in re.findall(r'"([A-Za-z_]\w*)\s*=\s*function', text):
             bootstrap_globals.setdefault(name, []).append(path.name)
 
+        # The counting stubs, defined by looping over a list of names rather
+        # than one at a time. They are bootstrap Lua like any other, so one that
+        # shares a name with a C binding wins and answers zero forever —
+        # GetNumMacroIcons did exactly that, leaving the icon picker empty
+        # beside a working GetMacroIconInfo.
+        for block in re.findall(r"local counting = \{(.*?)\}", text, re.S):
+            for name in re.findall(r"'(\w+)'", block):
+                counting_stubs.add(name)
+
         # Methods hung directly on a named global's table.
         for obj, meth in re.findall(r'"function ([A-Z]\w*):([A-Za-z_]\w*)\(', text):
             table_methods.setdefault(obj, {})[meth] = path.name
 
-    return binding_names, bootstrap_globals, metatable_methods, table_methods
+    return (binding_names, bootstrap_globals, metatable_methods,
+            table_methods, counting_stubs, zero_bindings)
 
 
 def main():
-    bindings, boot, mt, tables = scan()
+    bindings, boot, mt, tables, counting, zeroes = scan()
+    # A counting stub over a binding matters only when the binding
+    # does real work; two ways of answering zero are not a fault.
+    for name in counting:
+        # Not filtered by metatable_methods: that set holds every binding,
+        # so testing against it silenced the very case this catches.
+        if name in bindings and name not in zeroes:
+            boot.setdefault(name, []).append('lua_engine.cpp (counting)')
     problems = 0
 
     over_binding = sorted(set(bindings) & set(boot))
