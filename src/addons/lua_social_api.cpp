@@ -827,6 +827,18 @@ void registerSocialLuaAPI(lua_State* L) {
                 // the frame reads it as "not ForceGossip()" to decide whether
                 // to go straight to a lone vendor or flight master — which is
                 // what the real client does, so a definite no keeps that.
+                // GuildSetMOTD(text) — what /gmotd does
+                //
+                // The rest of the guild commands were already bound; this one
+                // was not, and the server refuses it from a rank without the
+                // right, which is where that decision belongs while nothing
+                // here reads rank rights.
+                {"GuildSetMOTD", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* motd = luaL_optstring(L, 1, "");
+            if (gh && motd) gh->setGuildMotd(motd);
+            return 0;
+        }},
                 {"SendSystemMessage",   lua_SendSystemMessage},
                 {"GetSelectedFriend", [](lua_State* L) -> int {
             lua_pushnumber(L, selectedFriend()); return 1; }},
