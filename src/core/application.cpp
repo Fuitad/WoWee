@@ -3244,31 +3244,23 @@ void Application::render() {
     // Render UI on top (ends ImGui frame with ImGui::Render())
     if (uiManager) {
         runRenderStage("uiManager->render", [&] {
-            // One upload batch around the whole interface render.
+            // Not wrapped in an upload batch, though the temptation is
+            // strong: nine screens here upload icons one texture at a time,
+            // each submitting and waiting on the shared immediate fence, and
+            // batching them took this stage from 682ms to under 200.
             //
-            // Nine screens here — inventory, spellbook, talents, the action
-            // bar, the window manager, the HUD, the raid icons — each upload
-            // their icons a texture at a time through uploadImGuiTexture,
-            // which outside a batch submits and *waits* on the shared
-            // immediate fence for every single one. A screen full of icons is
-            // that many round trips to the GPU inside one frame.
+            // It also broke correctness, which is why it is not done. This
+            // stage does not only build draw lists — the unit portrait and the
+            // character preview render models to offscreen targets inside it,
+            // and those are real draws. With the batch still open they sampled
+            // images whose uploads had not been submitted, and validation
+            // began reporting VK_IMAGE_LAYOUT_UNDEFINED one second into every
+            // run rather than only at the moment the device was lost.
             //
-            // A live log shows the cost: this stage reaching 682ms, with the
-            // command buffer and fence reported as still in use on every
-            // iteration — reset, begin, submit, reset fence, destroy staging,
-            // over and over about a millisecond apart — and the device lost
-            // immediately after, images reported as never having left
-            // VK_IMAGE_LAYOUT_UNDEFINED.
-            //
-            // Inside a batch those same calls record into one command buffer
-            // and are submitted once, here, before anything draws. That is
-            // safe for this stage specifically because these screens build
-            // ImGui draw lists rather than issuing draws: nothing samples the
-            // new images until the frame's own submit, which is later.
-            auto* vk = renderer ? renderer->getVkContext() : nullptr;
-            if (vk) vk->beginUploadBatch();
+            // The stall is real and worth fixing, but it has to be fixed where
+            // the uploads are — around each screen's icon loop, inside which
+            // nothing draws — not around a stage that draws.
             uiManager->render(state, authHandler.get(), gameHandler.get());
-            if (vk) vk->endUploadBatchSync();
         });
     }
 
