@@ -321,6 +321,26 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     // is suppressed alongside it. Hiding them once after loading is not enough:
     // the interface shows its chat windows again on its own schedule, so this
     // is done each frame, where nothing can undo it.
+    // ImGui's backend is torn down and restarted when the anti-aliasing
+    // changes, and every descriptor set in this cache came from the pool that
+    // went with it. Holding them past that point means drawing with freed
+    // descriptors, which the GPU answers by being reset — several seconds in
+    // endFrame and then VK_ERROR_DEVICE_LOST, one second after the pipelines
+    // were rebuilt. Dropping the cache costs a re-upload of what is on screen.
+    if (vkCtx_) {
+        const uint32_t generation = vkCtx_->imguiBackendGeneration();
+        if (generation != imguiGenerationSeen_) {
+            imguiGenerationSeen_ = generation;
+            if (!textures_.empty()) {
+                LOG_WARNING("ImGui's backend restarted; dropping ",
+                            textures_.size(),
+                            " cached textures rather than drawing with the "
+                            "descriptor sets it freed");
+                textures_.clear();
+            }
+        }
+    }
+
     static const std::vector<std::string> kSuppressed = frameXmlSuppressedFrames();
     // Which of these never resolved, said once a few seconds in.
     //
