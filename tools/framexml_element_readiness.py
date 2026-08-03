@@ -9,9 +9,25 @@ global the element's code calls is answered by something.
 
     tools/framexml_element_readiness.py
 
+Two measures, because resolving every call was only ever half of it.
+
+  * **calls** — globals the element's code invokes that nothing answers. These
+    raise.
+  * **events** — events its frames RegisterEvent for that nothing in src/ ever
+    fires. These do not raise: the element simply sits there, or shows stale
+    data, or never opens. Six real bugs came out of this column after the call
+    column had gone quiet — a mail frame that hung after sending, bag cooldown
+    swirls that never drew, an achievements panel that showed the empty state it
+    was built with, a master looter menu that could not open.
+
 Reports "no known gaps", not "works". A resolved call is one that will not
 raise; it says nothing about whether the frame draws, is positioned, or is
 anchored to anything. The visual half is still a run of the client.
+
+An event in the second column is a lead, not a verdict. "Never fired" can also
+mean *something else is fired in its place*: SMSG_QUESTGIVER_QUEST_LIST was
+sending GOSSIP_SHOW where QUEST_GREETING belonged, which opened the gossip frame
+over the quest list. Read the handler before concluding the event is absent.
 
 WHAT COUNTS AS THE ELEMENT'S CODE
 ---------------------------------
@@ -115,6 +131,29 @@ def code_only(src):
     return _STRINGS.sub('""', src)
 
 
+def events_fired():
+    """Every event name the client can send, taken from the C++ that sends them."""
+    names = set()
+    for dirpath, _, filenames in os.walk(os.path.join(ROOT, "src")):
+        for fn in filenames:
+            if not fn.endswith((".cpp", ".hpp")):
+                continue
+            src = open(os.path.join(dirpath, fn), encoding="utf-8", errors="ignore").read()
+            names |= set(re.findall(r'"([A-Z][A-Z0-9_]{3,})"', src))
+    return names
+
+
+def events_registered():
+    """file -> the events its frames ask for."""
+    want = collections.defaultdict(set)
+    for path in glob.glob(os.path.join(FX, "*.lua")) + glob.glob(os.path.join(FX, "*.xml")):
+        name = os.path.basename(path)
+        src = open(path, encoding="utf-8", errors="ignore").read()
+        want[name] |= set(re.findall(r'RegisterEvent\(\s*"([A-Z][A-Z0-9_]+)"', src))
+        want[name] |= set(re.findall(r'<Event\s+name="([A-Z][A-Z0-9_]+)"', src))
+    return want
+
+
 def registered():
     """Every global name the C++ bindings answer."""
     names = set()
@@ -163,8 +202,10 @@ def scan_interface():
 def main():
     have = registered()
     defined_by, calls = scan_interface()
+    fired = events_fired()
+    wants = events_registered()
 
-    print("element        files  unresolved")
+    print("element        files  calls  events")
     ready = []
     for element, roots in sorted(ELEMENTS.items()):
         files = set(roots)
@@ -184,9 +225,17 @@ def main():
                     continue
                 missing.add(name)
 
-        listed = " ".join(sorted(missing)[:6])
-        print(f"  {element:<13} {len(files):>3}   {len(missing):>3}  {listed}")
-        if not missing:
+        # Only the element's own files: an event another file asks for belongs
+        # to that file's element, not to this one.
+        want = set()
+        for root in roots:
+            want |= wants.get(root, set())
+        # Battle.net has no counterpart on a 3.3.5 server.
+        dead = sorted(e for e in want if e not in fired and not e.startswith("BN_"))
+
+        listed = " ".join(sorted(missing)[:4] + dead[:3])
+        print(f"  {element:<13} {len(files):>3}   {len(missing):>4}   {len(dead):>4}  {listed}")
+        if not missing and not dead:
             ready.append(element)
 
     for element, addon in sorted(ADDON_ELEMENTS.items()):
