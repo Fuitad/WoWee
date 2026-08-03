@@ -254,6 +254,47 @@ static int lua_BNGetNumFriends(lua_State* L) {
     return 2;
 }
 
+// --- Gossip quest lists ---
+//
+// Which of an NPC's quests are on offer and which are already taken is decided
+// by the icon the server sent, not by anything the client tracks. The values
+// are the server's QUEST_STATUS enum and are the same ones quest_handler.cpp
+// classifies by — kept in step with it deliberately, since a quest sorted into
+// the wrong list is offered twice or not at all.
+namespace {
+
+/// Daily quests take a different icon in the list. Protocol-defined, WotLK.
+constexpr uint32_t kQuestFlagsDaily = 0x1000;
+
+bool gossipQuestIsAvailable(uint32_t icon)   { return icon == 2 || icon == 7 || icon == 8; }
+bool gossipQuestIsCompletable(uint32_t icon) { return icon == 5 || icon == 6 || icon == 10; }
+bool gossipQuestIsIncomplete(uint32_t icon)  { return icon == 3 || icon == 4; }
+/// Taken already, finished or not — which is one list in the gossip window.
+bool gossipQuestIsActive(uint32_t icon) {
+    return gossipQuestIsIncomplete(icon) || gossipQuestIsCompletable(icon);
+}
+
+/// Index into whichever of the two lists the caller means, then ask for that
+/// quest by id — the position in the filtered list is not the position in the
+/// packet, so the id is the only thing safe to send.
+int selectGossipQuestAt(lua_State* L, bool available) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_checknumber(L, 1));
+    if (!gh || index < 1) return 0;
+    int seen = 0;
+    for (const auto& q : gh->getCurrentGossip().quests) {
+        const bool matches = available ? gossipQuestIsAvailable(q.questIcon)
+                                       : gossipQuestIsActive(q.questIcon);
+        if (!matches) continue;
+        if (++seen != index) continue;
+        gh->selectGossipQuest(q.questId);
+        return 0;
+    }
+    return 0;
+}
+
+}  // namespace
+
 // --- GM tickets ---
 //
 // GetGMTicket asks; it does not answer. The reply arrives as UPDATE_TICKET,
@@ -473,6 +514,46 @@ void registerSocialLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             lua_pushnumber(L, gh ? gh->getCurrentGossip().options.size() : 0);
             return 1;
+        }},
+                // The gossip window's two quest lists. Both are flat runs of
+                // values rather than tables — five per available quest and four
+                // per active one, which is the stride GossipFrame reads them at.
+                {"GetGossipAvailableQuests", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            int n = 0;
+            for (const auto& q : gh->getCurrentGossip().quests) {
+                if (!gossipQuestIsAvailable(q.questIcon)) continue;
+                lua_pushstring(L, q.title.c_str());
+                lua_pushnumber(L, q.questLevel);
+                // Trivial greys the title out. Nothing here knows a quest's
+                // green range, and guessing it would grey quests that are not.
+                lua_pushboolean(L, 0);
+                lua_pushboolean(L, (q.questFlags & kQuestFlagsDaily) ? 1 : 0);
+                lua_pushboolean(L, q.isRepeatable ? 1 : 0);
+                n += 5;
+            }
+            return n;
+        }},
+                {"GetGossipActiveQuests", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            int n = 0;
+            for (const auto& q : gh->getCurrentGossip().quests) {
+                if (!gossipQuestIsActive(q.questIcon)) continue;
+                lua_pushstring(L, q.title.c_str());
+                lua_pushnumber(L, q.questLevel);
+                lua_pushboolean(L, 0);
+                lua_pushboolean(L, gossipQuestIsCompletable(q.questIcon) ? 1 : 0);
+                n += 4;
+            }
+            return n;
+        }},
+                {"SelectGossipAvailableQuest", [](lua_State* L) -> int {
+            return selectGossipQuestAt(L, /*available=*/true);
+        }},
+                {"SelectGossipActiveQuest", [](lua_State* L) -> int {
+            return selectGossipQuestAt(L, /*available=*/false);
         }},
                 {"GetGossipOptions", [](lua_State* L) -> int {
             // Returns pairs of (text, type) for each option
