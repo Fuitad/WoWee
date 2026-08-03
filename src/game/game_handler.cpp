@@ -2070,6 +2070,10 @@ void GameHandler::acceptTrade() {
     if (inventoryHandler_) inventoryHandler_->acceptTrade();
 }
 
+void GameHandler::unacceptTrade() {
+    if (inventoryHandler_) inventoryHandler_->unacceptTrade();
+}
+
 void GameHandler::cancelTrade() {
     if (inventoryHandler_) inventoryHandler_->cancelTrade();
 }

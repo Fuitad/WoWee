@@ -2667,6 +2667,16 @@ void InventoryHandler::acceptTrade() {
     owner_.getSocket()->send(packet);
 }
 
+void InventoryHandler::unacceptTrade() {
+    // Only from Accepted: the request means "take my acceptance back", and
+    // sending it before there is one to take back is a message the server has
+    // no answer for.
+    if (tradeStatus_ != TradeStatus::Accepted) return;
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    auto packet = UnacceptTradePacket::build();
+    owner_.getSocket()->send(packet);
+}
+
 void InventoryHandler::cancelTrade() {
     if (tradeStatus_ == TradeStatus::None) return;
     if (owner_.getState() == WorldState::IN_WORLD && owner_.getSocket()) {

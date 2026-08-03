@@ -1490,6 +1490,8 @@ public:
     uint64_t getPeerTradeGold() const;
 
     void acceptTradeRequest();   // respond to incoming SMSG_TRADE_STATUS(1) with CMSG_BEGIN_TRADE
+    /// Take back an acceptance, leaving the trade open.
+    void unacceptTrade();
     void declineTradeRequest();  // respond with CMSG_CANCEL_TRADE
     void acceptTrade();          // lock in offer: CMSG_ACCEPT_TRADE
     void cancelTrade();          // CMSG_CANCEL_TRADE

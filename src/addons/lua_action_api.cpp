@@ -1294,6 +1294,14 @@ void registerActionLuaAPI(lua_State* L) {
                 {"ClickTradeButton",    lua_ClickTradeButton},
                 {"ClickTargetTradeButton", lua_ClickTargetTradeButton},
                 {"SetTradeMoney",       lua_SetTradeMoney},
+                // CancelTradeAccept() — take an acceptance back without
+                // closing the trade. The cancel button does this instead of
+                // closing while the player has already accepted, so without it
+                // the only way out of an accepted trade was to end it.
+                {"CancelTradeAccept", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->unacceptTrade();
+            return 0;
+        }},
                 {"CloseTrade",          lua_CloseTrade},
                 {"BeginTrade",          lua_BeginTrade},
                 {"GetBindingKey",       lua_GetBindingKey},

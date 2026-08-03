@@ -74,6 +74,7 @@ public:
     void acceptTradeRequest();
     void declineTradeRequest();
     void acceptTrade();
+    void unacceptTrade();
     void cancelTrade();
     void setTradeItem(uint8_t tradeSlot, uint8_t srcBag, uint8_t srcSlot);
     void clearTradeItem(uint8_t tradeSlot);
