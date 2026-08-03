@@ -989,6 +989,7 @@ void SpellHandler::seedCooldownFromSpellInfo(uint32_t spellId) {
     LOG_DEBUG("Seeded cooldown from Spell.dbc: spell=", spellId, " ms=", cooldownMs);
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("SPELL_UPDATE_COOLDOWN", {});
+        owner_.addonEventCallbackRef()("BAG_UPDATE_COOLDOWN", {});
         owner_.addonEventCallbackRef()("ACTIONBAR_UPDATE_COOLDOWN", {});
     }
 }
@@ -2047,6 +2048,7 @@ void SpellHandler::handleSpellCooldown(network::Packet& packet) {
               isClassicFormat ? "Classic" : "TBC/WotLK", " format");
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("SPELL_UPDATE_COOLDOWN", {});
+        owner_.addonEventCallbackRef()("BAG_UPDATE_COOLDOWN", {});
         owner_.addonEventCallbackRef()("ACTIONBAR_UPDATE_COOLDOWN", {});
     }
 }
@@ -2064,6 +2066,7 @@ void SpellHandler::handleCooldownEvent(network::Packet& packet) {
     }
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("SPELL_UPDATE_COOLDOWN", {});
+        owner_.addonEventCallbackRef()("BAG_UPDATE_COOLDOWN", {});
         owner_.addonEventCallbackRef()("ACTIONBAR_UPDATE_COOLDOWN", {});
     }
 }
@@ -3802,6 +3805,12 @@ void SpellHandler::handleItemCooldown(network::Packet& packet) {
             LOG_DEBUG("SMSG_ITEM_COOLDOWN: itemGuid=0x", std::hex, itemGuid, std::dec,
                       " spellId=", spellId, " itemId=", itemId, " cd=", cdSec, "s");
         }
+    }
+    // The bags redraw their cooldown swirls from this and nothing else, so a
+    // potion or trinket put on cooldown showed none. This message is the item
+    // cooldown, so it is the one place the event certainly belongs.
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("BAG_UPDATE_COOLDOWN", {});
     }
 }
 
