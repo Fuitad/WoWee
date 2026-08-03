@@ -100,6 +100,23 @@ void WidgetTree::markScrollFrame(uint32_t id) {
     scrollFrames_.push_back(id);
 }
 
+void WidgetTree::markPlayerPortrait(uint32_t id) {
+    if (id == 0) return;
+    for (uint32_t existing : playerPortraits_) {
+        if (existing == id) return;
+    }
+    playerPortraits_.push_back(id);
+}
+
+void WidgetTree::unmarkPlayerPortrait(uint32_t id) {
+    for (size_t i = 0; i < playerPortraits_.size(); ++i) {
+        if (playerPortraits_[i] != id) continue;
+        playerPortraits_[i] = playerPortraits_.back();
+        playerPortraits_.pop_back();
+        return;
+    }
+}
+
 Widget* WidgetTree::findByName(std::string_view name) {
     if (name.empty()) return nullptr;
     // Backwards, so the last frame to take the name is the one found — the

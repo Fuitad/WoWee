@@ -1266,6 +1266,36 @@ static int lua_GetInventoryItemCooldown(lua_State* L) {
     return 3;
 }
 
+// SetPortraitTexture(texture, unit) — put a unit's face in a texture.
+//
+// Only the player's, because the player's is the only one this client renders
+// to an offscreen image. Asking for anyone else leaves the texture as it was
+// and clears any earlier claim on it, so a portrait frame reused for an NPC
+// does not keep showing the player.
+//
+// The texture is remembered rather than filled here: the handle is rebuilt
+// whenever the portrait's render target is, so it has to be assigned every
+// frame, which the render loop does for everything on this list.
+static int lua_SetPortraitTexture(lua_State* L) {
+    auto* tree = getWidgetTree(L);
+    if (!tree || !lua_istable(L, 1)) return 0;
+    // The widget id the frame table carries. widgetIdOf lives in lua_engine.cpp
+    // and is not declared anywhere this file can see it.
+    lua_getfield(L, 1, "__wid");
+    const uint32_t id = static_cast<uint32_t>(lua_tointeger(L, -1));
+    lua_pop(L, 1);
+    if (id == 0) return 0;
+
+    std::string unit(luaL_optstring(L, 2, ""));
+    toLowerInPlace(unit);
+    if (unit == "player") {
+        tree->markPlayerPortrait(id);
+    } else {
+        tree->unmarkPlayerPortrait(id);
+    }
+    return 0;
+}
+
 // --- What the barber shop calls the two things it can change ---
 //
 // These name a category rather than describing it, and the barber builds a
@@ -2149,6 +2179,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetMaxCombatRatingBonus", lua_GetMaxCombatRatingBonus},
                 {"GetUnitMaxHealthModifier", lua_GetUnitMaxHealthModifier},
                 {"GetInventoryItemCooldown", lua_GetInventoryItemCooldown},
+                {"SetPortraitTexture",         lua_SetPortraitTexture},
                 {"GetHairCustomization",       lua_GetHairCustomization},
                 {"GetFacialHairCustomization", lua_GetFacialHairCustomization},
                 {"CanAlterSkin",               lua_CanAlterSkin},

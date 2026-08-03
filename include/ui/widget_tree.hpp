@@ -428,6 +428,16 @@ public:
     /// not show up until the interface is large, which it now is.
     void markScrollFrame(uint32_t id);
 
+    /// Remember that a texture is meant to show the player's portrait.
+    ///
+    /// SetPortraitTexture names the texture to fill, and the handle it should
+    /// be filled with is rebuilt whenever the portrait's render target is —
+    /// so the assignment has to happen every frame rather than once here. A
+    /// list, for the same reason scroll frames are a list: the alternative is
+    /// scanning every widget in the tree for a flag, every frame.
+    void markPlayerPortrait(uint32_t id);
+    void unmarkPlayerPortrait(uint32_t id);
+
     /// What the mouse is doing, so state art can be chosen. The engine owns
     /// this — it is the only thing that knows what is under the cursor and
     /// what is being held — and the tree needs it to decide which of a
@@ -445,6 +455,7 @@ public:
     /// the template names rather than a colour the renderer invents.
     uint32_t hoveredWidget() const { return hoveredId_; }
     const std::vector<uint32_t>& scrollFrames() const { return scrollFrames_; }
+    const std::vector<uint32_t>& playerPortraits() const { return playerPortraits_; }
 
     /// The widget published under this name, or null. Names are unique in
     /// FrameXML by convention, and the last one to claim a name wins, which is
@@ -476,6 +487,7 @@ private:
     /// references valid when it grows, which is the guarantee this needs.
     float uiScale_ = 1.0f;
     std::vector<uint32_t> scrollFrames_;
+    std::vector<uint32_t> playerPortraits_;
     uint32_t hoveredId_ = 0;
     uint32_t pressedId_ = 0;
 

@@ -3082,6 +3082,19 @@ void Application::render() {
                     // rather than a stale picture.
                     portrait->externalTexture = unitPortrait_.textureId();
                 }
+
+                // Every texture SetPortraitTexture was told to fill with the
+                // player. Assigned here rather than when it was asked for,
+                // because the handle is rebuilt whenever the portrait's render
+                // target is and one kept across that is stale. The list is
+                // short — five frames name the player in all of FrameXML — so
+                // this costs a handful of lookups rather than a scan.
+                const uint64_t playerFace = unitPortrait_.textureId();
+                for (uint32_t id : widgets.playerPortraits()) {
+                    if (ui::Widget* w = widgets.get(id)) {
+                        w->externalTexture = playerFace;
+                    }
+                }
             }
 
             // Lay out first: hit testing reads the rects this produces, so
