@@ -897,6 +897,12 @@ void Renderer::beginFrame() {
     // Apply deferred MSAA change between frames (before any rendering state is used)
     if (msaaChangePending_) {
         applyMsaaChange();
+        // The rebuild destroys and remakes the swapchain, every render pass and
+        // every pipeline. The frame slots are left mid-cycle by it, and the
+        // next frame would reset a fence and re-record a command buffer the
+        // GPU has not finished with — which is what validation reports and the
+        // driver answers by losing the device.
+        if (vkCtx) vkCtx->resetFrameSyncState();
     }
 
     // Post-process resource management (§4.3 — delegates to PostProcessPipeline)
