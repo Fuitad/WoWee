@@ -1,4 +1,5 @@
 #include "ui/spellbook_screen.hpp"
+#include "ui/ui_upload_budget.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/keybinding_manager.hpp"
 #include "core/input.hpp"
@@ -482,7 +483,7 @@ VkDescriptorSet SpellbookScreen::getSpellIcon(uint32_t iconId, pipeline::AssetMa
     if (curFrame != lastImGuiFrame) { loadsThisFrame = 0; lastImGuiFrame = curFrame; }
     // Defer without caching — returning null here allows retry next frame when
     // the budget resets, rather than permanently blacklisting the icon as missing
-    if (loadsThisFrame >= 4) return VK_NULL_HANDLE;
+    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;
 
     auto pit = spellIconPaths.find(iconId);
     if (pit == spellIconPaths.end()) {

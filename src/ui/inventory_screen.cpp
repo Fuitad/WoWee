@@ -1,4 +1,5 @@
 #include "game/reputation_standing.hpp"
+#include "ui/ui_upload_budget.hpp"
 #include "ui/inventory_screen.hpp"
 #include "game/inventory_slots.hpp"
 #include "ui/framexml_takeover.hpp"
@@ -273,7 +274,7 @@ VkDescriptorSet InventoryScreen::getItemIcon(uint32_t displayInfoId) {
     static int iiLastImGuiFrame = -1;
     int iiCurFrame = ImGui::GetFrameCount();
     if (iiCurFrame != iiLastImGuiFrame) { iiLoadsThisFrame = 0; iiLastImGuiFrame = iiCurFrame; }
-    if (iiLoadsThisFrame >= 4) return VK_NULL_HANDLE;  // defer — do NOT cache null here
+    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;  // defer — do NOT cache null here
 
     // Load ItemDisplayInfo.dbc
     auto displayInfoDbc = assetManager_->loadDBC("ItemDisplayInfo.dbc");

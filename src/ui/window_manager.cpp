@@ -3,6 +3,7 @@
 // Owns all NPC interaction windows, popup dialogs, etc.
 // ============================================================
 #include "ui/window_manager.hpp"
+#include "ui/ui_upload_budget.hpp"
 #include "game/inventory_slots.hpp"
 #include "ui/chat_panel.hpp"
 #include "ui/chat/chat_utils.hpp"
@@ -4599,7 +4600,7 @@ VkDescriptorSet WindowManager::getAchievementIcon(uint32_t spellIconId) {
     static int achLastFrame = -1;
     int curFrame = ImGui::GetFrameCount();
     if (curFrame != achLastFrame) { achLoadsThisFrame = 0; achLastFrame = curFrame; }
-    if (achLoadsThisFrame >= 6) return VK_NULL_HANDLE;
+    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;
 
     auto pit = achievementIconPaths_.find(spellIconId);
     if (pit == achievementIconPaths_.end()) {

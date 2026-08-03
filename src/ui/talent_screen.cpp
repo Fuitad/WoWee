@@ -1,4 +1,5 @@
 #include "ui/talent_screen.hpp"
+#include "ui/ui_upload_budget.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/keybinding_manager.hpp"
 #include "core/input.hpp"
@@ -821,7 +822,7 @@ VkDescriptorSet TalentScreen::getSpellIcon(uint32_t iconId, pipeline::AssetManag
     static int lastImGuiFrame = -1;
     int curFrame = ImGui::GetFrameCount();
     if (curFrame != lastImGuiFrame) { loadsThisFrame = 0; lastImGuiFrame = curFrame; }
-    if (loadsThisFrame >= 4) return VK_NULL_HANDLE;  // defer, don't cache null
+    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;  // defer, don't cache null
     ++loadsThisFrame;
 
     auto pit = spellIconPaths.find(iconId);

@@ -1,4 +1,5 @@
 #include "ui/game_screen.hpp"
+#include "ui/ui_upload_budget.hpp"
 #include "core/helm_visual.hpp"
 #include "ui/ui_raid_icons.hpp"
 #include "ui/ui_colors.hpp"
@@ -760,7 +761,7 @@ VkDescriptorSet GameScreen::getSpellIcon(uint32_t spellId, pipeline::AssetManage
     static int gsLastImGuiFrame = -1;
     int gsCurFrame = ImGui::GetFrameCount();
     if (gsCurFrame != gsLastImGuiFrame) { gsLoadsThisFrame = 0; gsLastImGuiFrame = gsCurFrame; }
-    if (gsLoadsThisFrame >= 4) return VK_NULL_HANDLE;  // defer — do NOT cache null here
+    if (!claimUiTextureUpload()) return VK_NULL_HANDLE;  // defer — do NOT cache null here
 
     // Look up spellId -> SpellIconID -> icon path
     auto iit = spellIconIds_.find(spellId);
