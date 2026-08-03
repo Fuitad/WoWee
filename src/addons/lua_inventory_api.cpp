@@ -2880,13 +2880,27 @@ void registerInventoryLuaAPI(lua_State* L) {
             lua_pushnumber(L, mail.money);                        // money (copper)
             lua_pushnumber(L, mail.cod);                          // COD
             lua_pushnumber(L, mail.expirationTime);              // daysLeft (server sends days)
-            lua_pushboolean(L, mail.attachments.empty() ? 0 : 1); // hasItem
+            // A *count*, not a flag. InboxFrame_Update assigns it to both
+            // button.hasItem and button.itemCount, and the tooltip then does
+            //     MAIL_MULTIPLE_ITEMS.." ("..self.itemCount..")"
+            // — concatenating a boolean raises, and `itemCount == 1` is never
+            // true for one, so a single attachment took the multiple branch
+            // and hovering any mail with something in it took the tooltip
+            // down. Nil when empty, because zero is true in Lua and every
+            // caller here tests it for truth.
+            if (mail.attachments.empty()) lua_pushnil(L);
+            else lua_pushnumber(L, static_cast<lua_Number>(mail.attachments.size()));
             lua_pushboolean(L, mail.read ? 1 : 0);               // wasRead
             lua_pushboolean(L, 0);                                // wasReturned
             lua_pushboolean(L, !mail.body.empty() ? 1 : 0);      // textCreated
             lua_pushboolean(L, mail.messageType == 0 ? 1 : 0);   // canReply (player mail only)
             lua_pushboolean(L, 0);                                // isGM
-            return 13;
+            // How many of the first attachment there are, which is what the
+            // inbox button prints in its corner.
+            lua_pushnumber(L, mail.attachments.empty()
+                                  ? 0
+                                  : static_cast<lua_Number>(mail.attachments[0].stackCount));
+            return 14;
         }},
                 // body, stationery texture, isTakeable, isInvoice
                 //

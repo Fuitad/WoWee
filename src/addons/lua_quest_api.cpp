@@ -281,13 +281,36 @@ static int lua_QuestMapUpdateAllQuests(lua_State* L) {
     return 1;
 }
 
+/// QuestPOIGetQuestIDByVisibleIndex(i) → questId, questLogIndex.
+///
+/// Both, because the world map uses the second to reach everything else about
+/// the quest: `if ( questLogIndex and questLogIndex > 0 )` gates the whole
+/// block that builds the map's quest list, and with only one value returned
+/// that gate never opened — so the list was always empty, quietly, with no
+/// error to say why.
 static int lua_QuestPOIGetQuestIDByVisibleIndex(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int index = static_cast<int>(luaL_checknumber(L, 1));
     const auto ids = questsWithPois(gh);
-    if (index < 1 || index > static_cast<int>(ids.size())) { lua_pushnumber(L, 0); return 1; }
-    lua_pushnumber(L, ids[index - 1]);
-    return 1;
+    if (index < 1 || index > static_cast<int>(ids.size())) {
+        lua_pushnumber(L, 0);
+        lua_pushnumber(L, 0);
+        return 2;
+    }
+    const uint32_t questId = ids[static_cast<size_t>(index - 1)];
+    lua_pushnumber(L, questId);
+    // Where that quest sits in the log, counted as Lua counts. A marker can
+    // outlive the log entry — the server sends POIs separately — so a quest
+    // that is no longer held answers zero rather than a stale position.
+    int logIndex = 0;
+    if (gh) {
+        const auto& ql = gh->getQuestLog();
+        for (size_t i = 0; i < ql.size(); ++i) {
+            if (ql[i].questId == questId) { logIndex = static_cast<int>(i) + 1; break; }
+        }
+    }
+    lua_pushnumber(L, logIndex);
+    return 2;
 }
 
 /// QuestPOIGetIconInfo(questId) → completed, x, y.
