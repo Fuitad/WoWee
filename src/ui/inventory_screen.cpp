@@ -576,7 +576,7 @@ void InventoryScreen::placeInBackpack(game::Inventory& inv, int index) {
         } else if (heldSource == HeldSource::BANK && heldBankIndex >= 0) {
             srcSlot = static_cast<uint8_t>(game::slots::bankGeneralWireSlot(heldBankIndex));
         } else if (heldSource == HeldSource::BANK_BAG && heldBankBagIndex >= 0) {
-            srcBag = static_cast<uint8_t>(game::slots::bankBagWireSlot(heldBankBagIndex));
+            srcBag = static_cast<uint8_t>(game::slots::bankBagContainer(heldBankBagIndex));
             srcSlot = static_cast<uint8_t>(heldBankBagSlotIndex);
         } else if (heldSource == HeldSource::BANK_BAG_EQUIP && heldBankBagIndex >= 0) {
             srcSlot = static_cast<uint8_t>(game::slots::bankBagWireSlot(heldBankBagIndex));
@@ -623,7 +623,7 @@ void InventoryScreen::placeInBag(game::Inventory& inv, int bagIndex, int slotInd
         } else if (heldSource == HeldSource::BANK && heldBankIndex >= 0) {
             srcSlot = static_cast<uint8_t>(game::slots::bankGeneralWireSlot(heldBankIndex));
         } else if (heldSource == HeldSource::BANK_BAG && heldBankBagIndex >= 0) {
-            srcBag = static_cast<uint8_t>(game::slots::bankBagWireSlot(heldBankBagIndex));
+            srcBag = static_cast<uint8_t>(game::slots::bankBagContainer(heldBankBagIndex));
             srcSlot = static_cast<uint8_t>(heldBankBagSlotIndex);
         } else if (heldSource == HeldSource::BANK_BAG_EQUIP && heldBankBagIndex >= 0) {
             srcSlot = static_cast<uint8_t>(game::slots::bankBagWireSlot(heldBankBagIndex));
@@ -744,7 +744,7 @@ void InventoryScreen::placeInEquipment(game::Inventory& inv, game::EquipSlot slo
         } else if (heldSource == HeldSource::BANK && heldBankIndex >= 0) {
             srcSlot = static_cast<uint8_t>(game::slots::bankGeneralWireSlot(heldBankIndex));
         } else if (heldSource == HeldSource::BANK_BAG && heldBankBagIndex >= 0) {
-            srcBag = static_cast<uint8_t>(game::slots::bankBagWireSlot(heldBankBagIndex));
+            srcBag = static_cast<uint8_t>(game::slots::bankBagContainer(heldBankBagIndex));
             srcSlot = static_cast<uint8_t>(heldBankBagSlotIndex);
         } else {
             cancelPickup(inv);
@@ -955,7 +955,7 @@ void InventoryScreen::dropIntoBankSlot(game::GameHandler& /*gh*/, uint8_t dstBag
     } else if (heldSource == HeldSource::BANK && heldBankIndex >= 0) {
         srcSlot = static_cast<uint8_t>(game::slots::bankGeneralWireSlot(heldBankIndex));
     } else if (heldSource == HeldSource::BANK_BAG && heldBankBagIndex >= 0) {
-        srcBag = static_cast<uint8_t>(game::slots::bankBagWireSlot(heldBankBagIndex));
+        srcBag = static_cast<uint8_t>(game::slots::bankBagContainer(heldBankBagIndex));
         srcSlot = static_cast<uint8_t>(heldBankBagSlotIndex);
     } else if (heldSource == HeldSource::BANK_BAG_EQUIP && heldBankBagIndex >= 0) {
         srcSlot = static_cast<uint8_t>(game::slots::bankBagWireSlot(heldBankBagIndex));

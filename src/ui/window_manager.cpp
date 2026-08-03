@@ -3269,7 +3269,7 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
                     uint8_t srcBag = 0xFF;
                     uint8_t srcSlot = 0;
                     if (pickType == 1) {
-                        srcBag = static_cast<uint8_t>(game::slots::bankBagWireSlot(bagIdx));
+                        srcBag = static_cast<uint8_t>(game::slots::bankBagContainer(bagIdx));
                         srcSlot = static_cast<uint8_t>(bagSlotIdx);
                     } else if (pickType == 2) {
                         srcSlot = static_cast<uint8_t>(game::slots::bankBagWireSlot(mainIdx));
