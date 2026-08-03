@@ -1507,13 +1507,17 @@ int lua_FontString_SetSpacing(lua_State* L) {
 /// a height and a colour. FrameXML reaches for these more than three thousand
 /// times, so a FontString that ignores them is the wrong size and colour nearly
 /// everywhere.
-int lua_FontString_SetFontObject(lua_State* L) {
-    auto* w = widgetOf(L, 1);
-    if (!w) return 0;
-    if (lua_isstring(L, 2)) {              // by name
-        lua_getglobal(L, lua_tostring(L, 2));
+/// Read a font object — a table, or the name of one — onto a widget.
+///
+/// Shared because a button says the same thing a different way: a font string
+/// has SetFontObject, a button has SetNormalFontObject and the font belongs to
+/// the font string it holds.
+static void applyFontObject(lua_State* L, int fontIndex, wowee::ui::Widget* w) {
+    if (!w) return;
+    if (lua_isstring(L, fontIndex)) {       // by name
+        lua_getglobal(L, lua_tostring(L, fontIndex));
     } else {
-        lua_pushvalue(L, 2);
+        lua_pushvalue(L, fontIndex);
     }
     if (lua_istable(L, -1)) {
         lua_getfield(L, -1, "height");
@@ -1536,6 +1540,28 @@ int lua_FontString_SetFontObject(lua_State* L) {
         }
     }
     lua_pop(L, 1);
+}
+
+int lua_FontString_SetFontObject(lua_State* L) {
+    applyFontObject(L, 2, widgetOf(L, 1));
+    return 0;
+}
+
+/// Button:SetNormalFontObject(font) — the font its label is drawn in.
+///
+/// FrameXML declares this as <NormalFont style="GameFontNormal"/> on 71 button
+/// templates and never sets the font on the label itself, so without this every
+/// button in the interface drew its text at the built-in default rather than at
+/// the size and face the template asked for.
+int lua_Frame_SetNormalFontObject(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    if (!tree) return 0;
+    // The label, not the button: a button has no text of its own.
+    lua_getfield(L, 1, "__fontString");
+    wowee::ui::Widget* fs =
+        lua_istable(L, -1) ? tree->get(widgetIdOf(L, lua_gettop(L))) : nullptr;
+    lua_pop(L, 1);
+    applyFontObject(L, 2, fs ? fs : widgetOf(L, 1));
     return 0;
 }
 
@@ -2577,6 +2603,8 @@ void LuaEngine::registerCoreAPI() {
         {"GetAlpha",        lua_Region_GetAlpha},
         {"EnableMouse",     lua_Frame_EnableMouse},
         {"IsMouseEnabled",  lua_Frame_IsMouseEnabled},
+        {"SetNormalFontObject",   lua_Frame_SetNormalFontObject},
+        {"SetTextFontObject",     lua_Frame_SetNormalFontObject},
         {"SetHitRectInsets",      lua_Frame_SetHitRectInsets},
         {"GetHitRectInsets",      lua_Frame_GetHitRectInsets},
         {"SetToplevel",           lua_Frame_SetToplevel},

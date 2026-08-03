@@ -607,6 +607,17 @@ struct Emitter {
         if (const std::string* a = node.attr("alpha")) {
             line(var + ":SetAlpha(" + *a + ")");
         }
+        // <NormalFont style="GameFontNormal"/> — the font a button's label is
+        // drawn in. Only the normal one: this renderer does not draw a button's
+        // text differently when it is highlighted or disabled, so emitting the
+        // other two would be calls that read as support and change nothing.
+        for (const XmlNode& child : node.children) {
+            if (child.name != "NormalFont") continue;
+            if (const std::string* style = child.attr("style")) {
+                line(var + ":SetNormalFontObject(" + quote(*style) + ")");
+            }
+            break;
+        }
         // <HitRectInsets><AbsInset .../></HitRectInsets>
         for (const XmlNode& child : node.children) {
             if (child.name != "HitRectInsets") continue;

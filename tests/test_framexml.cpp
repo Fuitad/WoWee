@@ -780,3 +780,21 @@ TEST_CASE("justifyV reaches the font string", "[framexml][emit]") {
     REQUIRE(has(r.lua, "SetJustifyV(\"TOP\")"));
     REQUIRE(has(r.lua, "SetJustifyH(\"LEFT\")"));
 }
+
+TEST_CASE("A button's NormalFont reaches its label", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Button name=\"Btn\">"
+        "<NormalFont style=\"GameFontNormal\"/>"
+        "</Button></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetNormalFontObject(\"GameFontNormal\")"));
+}
+
+TEST_CASE("HitRectInsets become a SetHitRectInsets call", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Panel\">"
+        "<HitRectInsets><AbsInset left=\"0\" right=\"30\" top=\"0\" bottom=\"45\"/></HitRectInsets>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetHitRectInsets(0, 30, 0, 45)"));
+}
