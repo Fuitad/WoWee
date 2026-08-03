@@ -306,6 +306,49 @@ static int lua_GetAutoCompleteResults(lua_State* L) {
     return pushed;
 }
 
+
+// --- The confirmations that answer another player ---
+//
+// Every one of these popups already appears: the client fires
+// PARTY_INVITE_REQUEST, GUILD_INVITE_REQUEST, RESURRECT_REQUEST and
+// DUEL_REQUESTED, and StaticPopup draws them. None of the buttons did anything,
+// because the functions behind them were never bound — so an invitation could
+// be seen and not taken.
+static int lua_AcceptGroup(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->acceptGroupInvite();
+    return 0;
+}
+static int lua_DeclineGroup(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->declineGroupInvite();
+    return 0;
+}
+static int lua_AcceptGuild(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->acceptGuildInvite();
+    return 0;
+}
+static int lua_DeclineGuild(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->declineGuildInvite();
+    return 0;
+}
+static int lua_AcceptResurrect(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->acceptResurrect();
+    return 0;
+}
+static int lua_DeclineResurrect(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->declineResurrect();
+    return 0;
+}
+static int lua_AcceptDuel(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->acceptDuel();
+    return 0;
+}
+// A duel is refused by forfeiting it, which is the only way this client has to
+// say no and is what the server reads as a decline before it starts.
+static int lua_CancelDuel(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->forfeitDuel();
+    return 0;
+}
+
 // --- Reputation ---
 //
 // The panel is a list of factions with a bar showing how far through the
@@ -736,6 +779,14 @@ void registerSocialLuaAPI(lua_State* L) {
                 // the frame reads it as "not ForceGossip()" to decide whether
                 // to go straight to a lone vendor or flight master — which is
                 // what the real client does, so a definite no keeps that.
+                {"AcceptGroup",         lua_AcceptGroup},
+                {"DeclineGroup",        lua_DeclineGroup},
+                {"AcceptGuild",         lua_AcceptGuild},
+                {"DeclineGuild",        lua_DeclineGuild},
+                {"AcceptResurrect",     lua_AcceptResurrect},
+                {"DeclineResurrect",    lua_DeclineResurrect},
+                {"AcceptDuel",          lua_AcceptDuel},
+                {"CancelDuel",          lua_CancelDuel},
                 {"GetAutoCompleteResults", lua_GetAutoCompleteResults},
                 {"GetNumFactions", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
