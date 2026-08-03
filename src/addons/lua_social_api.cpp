@@ -752,16 +752,54 @@ void registerSocialLuaAPI(lua_State* L) {
             return 1;
         }},
                 // GuildControlSetRank(index) — which rank the panel is editing.
-                // Purely a selection; the panel reads it back through its own
-                // dropdown, and nothing is sent until something is saved.
-                {"GuildControlSetRank", [](lua_State* L) -> int { (void)L; return 0; }},
-                // GuildControlGetRankFlags() → one boolean per permission.
+                // Remembered rather than sent: GuildControlGetRankFlags below
+                // takes no argument, so this is the only thing that says which
+                // rank it is being asked about.
+                {"GuildControlSetRank", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (gh && idx >= 1) gh->setSelectedGuildRank(idx);
+            return 0;
+        }},
+                // GuildControlGetRankFlags() → one boolean per permission
+                // checkbox, in the panel's order.
                 //
-                // Nothing is returned because no permission is parsed here. The
-                // consumer loops over select("#", ...) to tick its checkboxes,
-                // so an empty answer leaves them all clear — whereas guessing
-                // would show a rank as holding rights it may not have.
-                {"GuildControlGetRankFlags", [](lua_State* L) -> int { (void)L; return 0; }},
+                // That order is not the bit order and the two must not be
+                // confused: the panel lists Promote and Demote fifth and sixth
+                // while their bits are 0x80 and 0x100, above Invite's 0x10 and
+                // Remove's 0x20 — so walking the mask in order would tick the
+                // wrong four boxes.
+                //
+                // Thirteen, not seventeen. Fourteen through seventeen are guild
+                // event and guild bank rights carried in a mask this client
+                // does not parse, and the consumer loops select('#', ...), so a
+                // short answer leaves those boxes untouched rather than
+                // claiming they are clear.
+                {"GuildControlGetRankFlags", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const auto& roster = gh->getGuildRoster();
+            const int sel = gh->getSelectedGuildRank();
+            if (sel < 1 || sel > static_cast<int>(roster.ranks.size())) return 0;
+            const uint32_t rights = roster.ranks[static_cast<size_t>(sel) - 1].rights;
+            static constexpr uint32_t kOrder[13] = {
+                0x00000001u,  // 1  Guildchat Listen
+                0x00000002u,  // 2  Guildchat Speak
+                0x00000004u,  // 3  Officerchat Listen
+                0x00000008u,  // 4  Officerchat Speak
+                0x00000080u,  // 5  Promote
+                0x00000100u,  // 6  Demote
+                0x00000010u,  // 7  Invite Member
+                0x00000020u,  // 8  Remove Member
+                0x00001000u,  // 9  Set MOTD
+                0x00002000u,  // 10 Edit Public Note
+                0x00004000u,  // 11 View Officer Note
+                0x00008000u,  // 12 Edit Officer Note
+                0x00010000u,  // 13 Modify Guild Info
+            };
+            for (uint32_t bit : kOrder) lua_pushboolean(L, (rights & bit) ? 1 : 0);
+            return 13;
+        }},
                 {"GuildControlAddRank", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const char* name = luaL_optstring(L, 1, "");

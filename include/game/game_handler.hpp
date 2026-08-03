@@ -616,6 +616,11 @@ public:
     bool hasGuildRoster() const;
     const std::vector<std::string>& getGuildRankNames() const;
     uint32_t getPlayerGuildRankRights() const;
+    /// Which rank the guild control panel is editing. Client-side only — the
+    /// panel picks it from a dropdown and asks for its rights with a call that
+    /// takes no argument, so the choice has to be remembered here.
+    int  getSelectedGuildRank() const { return selectedGuildRank_; }
+    void setSelectedGuildRank(int index) { selectedGuildRank_ = index; }
     bool hasPendingGuildInvite() const;
     const std::string& getPendingGuildInviterName() const;
     const std::string& getPendingGuildInviteGuildName() const;
@@ -3871,6 +3876,7 @@ private:
     std::unordered_map<uint32_t, std::string> achievementDescCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementPointsCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementIconCache_;  // achievementId → SpellIcon.dbc ID
+    int selectedGuildRank_ = 1;
     std::vector<CurrencyType> currencyTypes_;
     bool currencyTypesLoaded_ = false;
     std::unordered_map<uint32_t, BattlemasterEntry> battlemasterList_;
