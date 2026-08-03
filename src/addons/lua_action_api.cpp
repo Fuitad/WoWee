@@ -11,6 +11,7 @@
 #include <map>
 #include "game/pet_action.hpp"
 #include "imgui.h"
+#include <optional>
 #include <SDL2/SDL_keyboard.h>
 
 namespace wowee::addons {
@@ -827,6 +828,24 @@ void pushBindingToClient(const std::string& command, const std::string& key) {
     }
 }
 
+/// The key the client is listening for, when this is a command it acts on.
+///
+/// Read at the moment it is asked rather than from the copy below, because the
+/// client's own settings panel can rebind these too — and then the copy is a
+/// second answer to a question the manager already owns, one keystroke out of
+/// date and shown on every action button.
+std::optional<std::string> liveKeyFor(const std::string& command) {
+    for (const auto& live : kLiveBindings) {
+        if (command != live.command) continue;
+        const std::string key =
+            wowKeyFromImGui(wowee::ui::KeybindingManager::getInstance()
+                                .getKeyForAction(live.action));
+        if (key.empty()) return std::nullopt;
+        return key;
+    }
+    return std::nullopt;
+}
+
 /// The keys the client is actually listening for, asked of the manager that
 /// listens rather than restated here — a second copy would be wrong the moment
 /// either side moved. Commands the client has no action for keep their retail
@@ -886,6 +905,11 @@ std::string bindingAt(lua_State* L, int index) {
 static int lua_GetBindingKey(lua_State* L) {
     seedBindingDefaults();
     const std::string command = luaL_checkstring(L, 1);
+    if (auto live = liveKeyFor(command)) {
+        lua_pushstring(L, live->c_str());
+        lua_pushnil(L);
+        return 2;
+    }
     auto it = bindingKeys().find(command);
     if (it == bindingKeys().end()) { lua_pushnil(L); lua_pushnil(L); return 2; }
     for (const std::string& key : it->second) {
@@ -922,6 +946,11 @@ static int lua_GetBinding(lua_State* L) {
     const std::string command = bindingAt(L, index);
     if (command.empty()) { lua_pushnil(L); return 1; }
     lua_pushstring(L, command.c_str());
+    if (auto live = liveKeyFor(command)) {
+        lua_pushstring(L, live->c_str());
+        lua_pushnil(L);
+        return 3;
+    }
     auto it = bindingKeys().find(command);
     if (it == bindingKeys().end()) { lua_pushnil(L); lua_pushnil(L); return 3; }
     for (const std::string& key : it->second) {
