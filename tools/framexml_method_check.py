@@ -85,6 +85,22 @@ for f in files:
                 continue
             hits[meth].append(f"{f.name}:{i}: {line.strip()[:80]}")
 
+# Methods the emitter writes into the Lua it generates.
+#
+# These never appear in any .lua or .xml file, so the scan above cannot see
+# them — and a method emitted for an attribute nobody implemented is the same
+# "attempt to call method" as any other, only harder to trace because the call
+# site does not exist in any file anyone reads. Reading `letters` and emitting
+# SetMaxLetters is safe because SetMaxLetters exists; reading `horizTile` and
+# emitting SetHorizTile would not be.
+EMITTED = re.compile(r'\+\s*":([A-Z]\w*)\("')
+emitter = pathlib.Path("src/ui/framexml_emitter.cpp").read_text(errors="ignore")
+for meth in sorted(set(EMITTED.findall(emitter))):
+    if meth in answered or meth.startswith("On"):
+        continue
+    hits[meth].append(("emitted by framexml_emitter.cpp",
+                       "src/ui/framexml_emitter.cpp: written into generated Lua"))
+
 for meth in sorted(hits, key=lambda m: -len(hits[m])):
     print(f"\n### {meth}  ({len(hits[meth])} call sites)")
     for h in hits[meth][:3]:
