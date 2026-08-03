@@ -1031,6 +1031,22 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             // font already scaled by s, so centring on the raw rect placed a
             // label off by half the difference between the two — around half
             // the box's width at this scale, which is most of the way out of it.
+            // A held button moves its label. The offset is declared on the
+            // button, and this is the label, so it comes from the parent — and
+            // only while that parent is the frame being held.
+            float pushX = 0.0f, pushY = 0.0f;
+            if (const uint32_t held = tree.pressedWidget(); held != 0) {
+                if (const Widget* owner = tree.get(w->parent)) {
+                    if (owner->id == held &&
+                        (owner->pushedTextOffsetX != 0.0f ||
+                         owner->pushedTextOffsetY != 0.0f)) {
+                        pushX = owner->pushedTextOffsetX * s;
+                        // Down the screen for a negative y, as with the shadow:
+                        // the interface counts y upward and this draws downward.
+                        pushY = -owner->pushedTextOffsetY * s;
+                    }
+                }
+            }
             const float boxW = x1 - x0, boxH = y1 - y0;
             float tx = x0;
             if (w->justifyH == "CENTER")     tx = x0 + (boxW - extent.x) * 0.5f;
@@ -1038,6 +1054,8 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             float ty = y0 + (boxH - extent.y) * 0.5f;
             if (w->justifyV == "TOP")         ty = y0;
             else if (w->justifyV == "BOTTOM") ty = y1 - extent.y;
+            tx += pushX;
+            ty += pushY;
             // An outline is drawn as the same glyphs in black around the text.
             // ImGui has no outlined draw, and offsetting a few copies is what
             // the effect amounts to at these sizes — it is what keeps a

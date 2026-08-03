@@ -125,6 +125,11 @@ struct Widget {
     /// instead would make every played animation permanent.
     float animOffsetX = 0.0f, animOffsetY = 0.0f;
 
+    /// How far a button's label shifts while the button is held. Declared as
+    /// <PushedTextOffset> on 11 templates; it is the small movement that makes
+    /// a button feel pressed rather than merely recoloured.
+    float pushedTextOffsetX = 0.0f, pushedTextOffsetY = 0.0f;
+
     float scale = 1.0f;
     float effScale = 1.0f;
     bool dragLeft = false;
@@ -400,6 +405,10 @@ public:
         hoveredId_ = hovered;
         pressedId_ = pressed;
     }
+    /// Which frame is being held, for anything that draws differently while a
+    /// button is down. The tree already chooses the pushed texture from this;
+    /// the label moves with it.
+    uint32_t pressedWidget() const { return pressedId_; }
     const std::vector<uint32_t>& scrollFrames() const { return scrollFrames_; }
 
     /// The widget published under this name, or null. Names are unique in

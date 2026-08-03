@@ -628,6 +628,16 @@ struct Emitter {
         if (const std::string* a = node.attr("alpha")) {
             line(var + ":SetAlpha(" + *a + ")");
         }
+        // <PushedTextOffset><AbsDimension x="1" y="-1"/></PushedTextOffset>
+        for (const XmlNode& child : node.children) {
+            if (child.name != "PushedTextOffset") continue;
+            for (const XmlNode& d : child.children) {
+                if (d.name != "AbsDimension") continue;
+                line(var + ":SetPushedTextOffset(" + d.attrOr("x", "0") + ", " +
+                     d.attrOr("y", "0") + ")");
+            }
+            break;
+        }
         // <TitleRegion> — the part of a frame you can drag it by. All three in
         // FrameXML cover the whole frame, and the loot window is one of them:
         // without this it cannot be moved at all.

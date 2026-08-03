@@ -1703,6 +1703,20 @@ int lua_wowee_setAnimOffset(lua_State* L) {
     return 0;
 }
 
+int lua_Frame_SetPushedTextOffset(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->pushedTextOffsetX = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+        w->pushedTextOffsetY = static_cast<float>(luaL_optnumber(L, 3, 0.0));
+    }
+    return 0;
+}
+int lua_Frame_GetPushedTextOffset(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->pushedTextOffsetX : 0.0);
+    lua_pushnumber(L, w ? w->pushedTextOffsetY : 0.0);
+    return 2;
+}
+
 int lua_Frame_SetHitRectInsets(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
         w->hitInsetLeft   = static_cast<float>(luaL_optnumber(L, 2, 0.0));
@@ -2658,6 +2672,8 @@ void LuaEngine::registerCoreAPI() {
         {"IsMouseEnabled",  lua_Frame_IsMouseEnabled},
         {"SetNormalFontObject",   lua_Frame_SetNormalFontObject},
         {"SetTextFontObject",     lua_Frame_SetNormalFontObject},
+        {"SetPushedTextOffset",   lua_Frame_SetPushedTextOffset},
+        {"GetPushedTextOffset",   lua_Frame_GetPushedTextOffset},
         {"SetHitRectInsets",      lua_Frame_SetHitRectInsets},
         {"GetHitRectInsets",      lua_Frame_GetHitRectInsets},
         {"SetToplevel",           lua_Frame_SetToplevel},

@@ -862,3 +862,12 @@ TEST_CASE("A frame with its own drag scripts keeps them", "[framexml][emit]") {
     REQUIRE(has(r.lua, "SetMovable(true)"));
     REQUIRE_FALSE(has(r.lua, "StartMoving()"));
 }
+
+TEST_CASE("PushedTextOffset reaches the button", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Button name=\"Btn\">"
+        "<PushedTextOffset><AbsDimension x=\"1\" y=\"-1\"/></PushedTextOffset>"
+        "</Button></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetPushedTextOffset(1, -1)"));
+}
