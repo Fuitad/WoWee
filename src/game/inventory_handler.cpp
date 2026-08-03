@@ -3077,6 +3077,18 @@ void InventoryHandler::handleItemQueryResponse(network::Packet& packet) {
         rebuildOnlineInventory();
         maybeDetectVisibleItemLayout();
 
+        // A quest's reward icons are drawn before their items are known — the
+        // query goes out when the panel opens and lands after it has drawn — so
+        // without this the rewards stayed blank until something else redrew
+        // them. Fired only while a quest window is up: the query runs hundreds
+        // of times over a login, and the handler is only interesting when there
+        // is a panel to refresh.
+        if (owner_.isQuestDetailsOpen() || owner_.isGossipWindowOpen()) {
+            if (owner_.addonEventCallbackRef()) {
+                owner_.addonEventCallbackRef()("QUEST_ITEM_UPDATE", {});
+            }
+        }
+
         // Auction mail subjects contain an item entry rather than display text.
         // Refresh FrameXML mail rows once that item's name becomes available.
         bool resolvedAuctionSubject = false;
