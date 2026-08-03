@@ -642,6 +642,35 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetMacroItemIconInfo", lua_GetMacroIconInfo},
                 {"NewGMTicket",         lua_NewGMTicket},
                 {"DeleteGMTicket",      lua_DeleteGMTicket},
+                // The long-form guild information, which is a different field
+                // from the message of the day and has its own opcode. The
+                // roster already carries the current text.
+                {"GetGuildInfoText", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return luaReturnNil(L);
+            lua_pushstring(L, gh->getGuildRoster().guildInfo.c_str());
+            return 1;
+        }},
+                {"SetGuildInfoText", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* text = luaL_optstring(L, 1, "");
+            if (gh && text) gh->setGuildInfoText(text);
+            return 0;
+        }},
+                // Whether the roster lists members who are offline. A display
+                // choice the client does not keep, and the roster it is given
+                // holds everyone either way — so the list shows them, which is
+                // what answering true says.
+                {"GetGuildRosterShowOffline", [](lua_State* L) -> int { lua_pushboolean(L, 1); return 1; }},
+                {"SetGuildRosterShowOffline", [](lua_State* L) -> int { (void)L; return 0; }},
+                // The who list arrives in the server's order and is shown in
+                // it; there is no second order to sort into.
+                {"SortWho", [](lua_State* L) -> int { (void)L; return 0; }},
+                // Voice again: nothing can be muted, so nothing is added to the
+                // list and there is no list to update.
+                {"AddMute",         [](lua_State* L) -> int { (void)L; return 0; }},
+                {"MutedList_Update", [](lua_State* L) -> int { (void)L; return 0; }},
+
                 // ---- Guild rank permissions ----
                 //
                 // SMSG_GUILD_ROSTER carries a rights bitmask per rank and names
@@ -780,6 +809,15 @@ void registerSocialLuaAPI(lua_State* L) {
                 // Reporting a mail as spam needs a GM channel this client does
                 // not have, so no mail can be complained about.
                 {"CanComplainInboxItem", luaReturnFalse},
+                // Turning a letter into a keepable item. Called from the mail
+                // frame's XML rather than its Lua, which is why a scan of the
+                // Lua alone never reported it.
+                {"TakeInboxTextItem", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (gh && id) gh->takeInboxTextItem(id);
+            return 0;
+        }},
                 // Tells the client the send-mail tab is open, so it can hold a
                 // draft. Nothing here holds one.
                 {"SetSendMailShowing", [](lua_State* L) -> int { (void)L; return 0; }},
@@ -791,6 +829,17 @@ void registerSocialLuaAPI(lua_State* L) {
                 // for a lag report, saying an answer did not help, and polling
                 // whether a GM is available. Answered rather than left missing
                 // because the help frame calls the last one from its OnLoad.
+                // Stuck() — the help frame's "I'm stuck" button.
+                //
+                // In WoW this casts the Stuck spell, which the server answers
+                // by moving the character to a graveyard. Cast rather than
+                // stubbed, because the button hides the help frame straight
+                // after and a no-op would look like the request was made.
+                {"Stuck", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (gh) gh->castSpell(7355);
+            return 0;
+        }},
                 {"GMReportLag", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GMResponseNeedMoreHelp", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GetGMStatus", [](lua_State* L) -> int { (void)L; return 0; }},

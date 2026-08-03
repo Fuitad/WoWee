@@ -1328,6 +1328,26 @@ void SocialHandler::requestGuildRoster() {
     owner_.addSystemChatMessage("Requesting guild roster...");
 }
 
+// The longer "guild information" text, which is a different field from the
+// message of the day and has its own opcode.
+void SocialHandler::setGuildInfoText(const std::string& text) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_GUILD_INFO_TEXT));
+    packet.writeString(text);
+    owner_.getSocket()->send(packet);
+    requestGuildRoster();
+}
+
+// Turn a letter into a readable item, which is what "take" does to a mail whose
+// body is the thing being kept.
+void SocialHandler::takeInboxTextItem(uint32_t mailId) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_MAIL_CREATE_TEXT_ITEM));
+    packet.writeUInt64(0);            // mailbox guid — the server uses the open one
+    packet.writeUInt32(mailId);
+    owner_.getSocket()->send(packet);
+}
+
 void SocialHandler::setGuildMotd(const std::string& motd) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     auto packet = GuildMotdPacket::build(motd);

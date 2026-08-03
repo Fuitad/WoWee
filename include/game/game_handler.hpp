@@ -566,6 +566,8 @@ public:
     // Guild commands
     void requestGuildInfo();
     void requestGuildRoster();
+    void setGuildInfoText(const std::string& text);
+    void takeInboxTextItem(uint32_t mailId);
     void setGuildMotd(const std::string& motd);
     void promoteGuildMember(const std::string& playerName);
     void demoteGuildMember(const std::string& playerName);

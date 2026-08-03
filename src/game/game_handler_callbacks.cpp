@@ -2033,6 +2033,14 @@ void GameHandler::saveGuildRank(const std::string& rankName) {
                                   p.tabRights.data(), p.tabSlots.data());
 }
 
+void GameHandler::setGuildInfoText(const std::string& text) {
+    if (socialHandler_) socialHandler_->setGuildInfoText(text);
+}
+
+void GameHandler::takeInboxTextItem(uint32_t mailId) {
+    if (socialHandler_) socialHandler_->takeInboxTextItem(mailId);
+}
+
 uint32_t GameHandler::getPlayerGuildRankRights() const {
     return socialHandler_ ? socialHandler_->getPlayerGuildRankRights() : 0u;
 }
