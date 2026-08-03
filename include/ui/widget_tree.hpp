@@ -254,6 +254,14 @@ struct Widget {
     float reportedRangeX = -1.0f, reportedRangeY = -1.0f;
 
     bool  isEditBox = false;
+    /// Whether this box takes the keyboard the moment it appears.
+    ///
+    /// Declared on 42 boxes in FrameXML and false on 40 of them, which is the
+    /// point of the attribute — a box that grabs focus on sight takes the
+    /// keyboard away from whatever the player was doing. The two that ask for
+    /// it are the channel-name field and the box that names an equipment set,
+    /// where typing is the only reason the dialog opened.
+    bool  editAutoFocus = false;
     /// Where an edit box's text starts inside its own frame. WoW's default is
     /// nothing; the four units used here until now were a stand-in, and a box
     /// whose art has a wide border drew its text on top of it.

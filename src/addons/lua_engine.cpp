@@ -2255,6 +2255,11 @@ int lua_EditBox_SetNumeric(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->editNumeric = lua_toboolean(L, 2) != 0;
     return 0;
 }
+int lua_EditBox_SetAutoFocus(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->editAutoFocus = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+
 int lua_EditBox_SetMultiLine(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->editMultiLine = lua_toboolean(L, 2) != 0;
     return 0;
@@ -3067,6 +3072,7 @@ void LuaEngine::registerCoreAPI() {
         {"GetTextInsets",        lua_EditBox_GetTextInsets},
         {"SetNumeric",            lua_EditBox_SetNumeric},
         {"SetMultiLine",          lua_EditBox_SetMultiLine},
+        {"SetAutoFocus",          lua_EditBox_SetAutoFocus},
         {"SetCursorPosition",     lua_EditBox_SetCursorPosition},
         {"GetCursorPosition",     lua_EditBox_GetCursorPosition},
         {"SetFocus",              lua_EditBox_SetFocus},
@@ -3541,7 +3547,7 @@ void LuaEngine::registerCoreAPI() {
         "RemoveMessagesByAccessID=1,ReplaceIconTexture=1,Reset=1,Reuse=1,Run=1,\n"
         "RunAttribute=1,RunFor=1,Save=1,ScrollDown=1,ScrollToBottom=1,ScrollUp=1,\n"
         "SelectWindow=1,SetAction=1,SetAllPoints=1,SetAlpha=1,SetAlphaGradient=1,\n"
-        "SetAnchorType=1,SetAttribute=1,SetAutoFocus=1,SetBackdrop=1,\n"
+        "SetAnchorType=1,SetAttribute=1,SetBackdrop=1,\n"
         "SetBackdropBorderColor=1,SetBackdropColor=1,SetBagItem=1,SetBinding=1,\n"
         "SetBindingClick=1,SetBindingItem=1,SetBindingMacro=1,SetBindingSpell=1,\n"
         "SetBlendMode=1,SetBorderAlpha=1,SetBorderScalar=1,SetBorderTexture=1,\n"
@@ -5437,6 +5443,14 @@ void LuaEngine::updateVisibility() {
         if (w->visible == w->reportedVisible) continue;
         w->reportedVisible = w->visible;
         callFrameScript(id, w->visible ? "OnShow" : "OnHide");
+        // A box that asked for the keyboard takes it as it appears, and gives
+        // it up when it goes. Only the two that ask: the rest say autoFocus
+        // ="false" precisely so that opening a panel does not swallow the
+        // player's next keystroke.
+        if (w->isEditBox && w->editAutoFocus) {
+            if (w->visible) setEditFocus(id);
+            else if (focusedWid_ == id) setEditFocus(0);
+        }
     }
 }
 
