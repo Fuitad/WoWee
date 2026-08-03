@@ -24,6 +24,20 @@ struct FrameData {
 
 class VkContext {
 public:
+    /// Put frame synchronisation back to the state it starts in.
+    ///
+    /// After the swapchain and every pipeline are rebuilt, the frame slots are
+    /// left mid-cycle: a fence may be unsignalled with no submit coming, and
+    /// the slot index points partway through the ring. The next frame then
+    /// resets a fence and re-records a command buffer that the GPU has not
+    /// finished with, which validation reports as VUID-vkResetFences-01123
+    /// and VUID-vkBeginCommandBuffer-00049 and the driver answers by losing
+    /// the device.
+    ///
+    /// Waits for the device, signals every fence, and starts again at slot
+    /// zero. Only safe between frames, which is where the rebuild happens.
+    void resetFrameSyncState();
+
     /// Which incarnation of ImGui's Vulkan backend is current. See
     /// imguiBackendGeneration_.
     uint32_t imguiBackendGeneration() const { return imguiBackendGeneration_; }

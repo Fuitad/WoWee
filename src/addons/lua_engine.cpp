@@ -1457,7 +1457,12 @@ void LuaEngine::registerCoreAPI() {
         {"SetCooldown",           lua_Cooldown_SetCooldown},
         {"GetNumber",             lua_EditBox_GetNumber},
         {"Insert",                lua_EditBox_Insert},
-        {"SetMaxLetters",         lua_EditBox_SetMaxLetters},
+        {"SetMaxLetters",         lua_EditBox_SetMaxLetters},        // The limit here is applied against the text's size in bytes, which is
+        // what SetMaxBytes asks for; SetMaxLetters is the same field because
+        // this counts the same way for both. Reporting it back matters more
+        // than the distinction: an edit box that answers nothing for its limit
+        // is one FrameXML will not stop typing into.
+        {"SetMaxBytes",          lua_EditBox_SetMaxLetters},
         {"SetNumeric",            lua_EditBox_SetNumeric},
         {"SetMultiLine",          lua_EditBox_SetMultiLine},
         {"SetCursorPosition",     lua_EditBox_SetCursorPosition},

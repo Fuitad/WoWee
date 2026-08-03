@@ -2121,6 +2121,33 @@ bool VkContext::recreateSwapchain(int width, int height) {
     return true;
 }
 
+void VkContext::resetFrameSyncState() {
+    if (device == VK_NULL_HANDLE) return;
+    vkDeviceWaitIdle(device);
+
+    // Recreated rather than reset: a fence has to end up signalled, and
+    // vkResetFences only ever unsignals. Destroying and remaking with
+    // VK_FENCE_CREATE_SIGNALED_BIT is the state the first frame expects.
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        if (frames[i].inFlightFence) {
+            vkDestroyFence(device, frames[i].inFlightFence, nullptr);
+            frames[i].inFlightFence = VK_NULL_HANDLE;
+        }
+        if (vkCreateFence(device, &fenceInfo, nullptr, &frames[i].inFlightFence) != VK_SUCCESS) {
+            LOG_ERROR("Could not remake frame fence ", i, " after a rebuild");
+        }
+        if (frames[i].commandBuffer) {
+            vkResetCommandBuffer(frames[i].commandBuffer, 0);
+        }
+    }
+    currentFrame = 0;
+    LOG_WARNING("Frame synchronisation reset after a rebuild: fences signalled, "
+                "command buffers reset, back to slot 0");
+}
+
 VkCommandBuffer VkContext::beginFrame(uint32_t& imageIndex) {
     if (deviceLost_) return VK_NULL_HANDLE;
     if (swapchain == VK_NULL_HANDLE) return VK_NULL_HANDLE;  // Swapchain lost; recreate pending
