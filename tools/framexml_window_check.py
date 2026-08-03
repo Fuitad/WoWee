@@ -255,5 +255,61 @@ def main():
     return 0
 
 
+def checkInherits():
+    """Every inherits= naming something the XML never declares.
+
+    A frame that inherits a template which is not there loses every part the
+    template would have given it — its art, its regions, its scripts — and
+    says nothing. Same for a font string naming a font object that does not
+    exist: the text draws in whatever the default is.
+
+    Nothing else here would catch it. The emitter copies the name through, the
+    compile check only asks whether the Lua parses, and a frame with no parts
+    looks like a frame whose parts failed to draw.
+
+    inherits= names either a virtual frame template *or* a virtual FontString
+    template *or* a <Font> object, so all three count as declarations —
+    counting only <Font> reported four false positives on the first run.
+    """
+    FRAME_TAGS = (r'(?:Frame|Button|CheckButton|StatusBar|Slider|EditBox'
+                  r'|ScrollFrame|ScrollingMessageFrame|MessageFrame|GameTooltip'
+                  r'|Model|PlayerModel|DressUpModel|TabardModel|ColorSelect'
+                  r'|SimpleHTML|Cooldown|QuestPOIFrame|Minimap|MovieFrame'
+                  r'|FontString)')
+    xmls = sorted(FRAMEXML.glob("*.xml")) + \
+           sorted((ROOT / "Data" / "interface" / "addons").glob("*/*.xml"))
+    declared, referenced = set(), {}
+    for path in xmls:
+        text = path.read_text(errors="ignore")
+        declared |= set(re.findall(r'<Font\b[^>]*name="([^"]+)"', text))
+        for m in re.finditer(r'<' + FRAME_TAGS + r'\b([^>]*)>', text):
+            attrs = m.group(1)
+            if 'virtual="true"' not in attrs:
+                continue
+            n = re.search(r'name="([^"]+)"', attrs)
+            if n:
+                declared.add(n.group(1))
+    for path in xmls:
+        text = re.sub(r"<!--.*?-->", "", path.read_text(errors="ignore"), flags=re.S)
+        for m in re.finditer(r'<' + FRAME_TAGS + r'\b([^>]*)>', text):
+            inh = re.search(r'inherits="([^"]+)"', m.group(1))
+            if not inh:
+                continue
+            for name in inh.group(1).split(","):
+                referenced.setdefault(name.strip(), []).append(path.name)
+    missing = {n: f for n, f in referenced.items() if n not in declared}
+    print(f"\n{len(referenced)} templates and font objects inherited; "
+          f"{len(declared)} declared.")
+    if not missing:
+        print("Every inherits= resolves.")
+        return
+    print("\nInherited but never declared — the frame loses everything the "
+          "template would have given it:")
+    for name, files in sorted(missing.items(), key=lambda kv: -len(kv[1])):
+        print(f"    {name:<38} {len(files)} uses, e.g. {files[0]}")
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    code = main()
+    checkInherits()
+    sys.exit(code)
