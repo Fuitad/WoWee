@@ -856,6 +856,28 @@ struct Emitter {
         if (node.attr("movable")) {
             line(var + ":SetMovable(" + (node.attrBool("movable") ? "true" : "false") + ")");
         }
+        // What an edit box was declared to be. Every one of these has had a
+        // method and a field behind it all along and no way to reach them from
+        // the XML, so a box came out with whatever the defaults were.
+        //
+        // SendMailBodyEditBox says letters="500" multiLine="true", and without
+        // these it was a single-line box with no limit — a letter nobody could
+        // write a second line in.
+        if (const std::string* letters = node.attr("letters"); letters && !letters->empty()) {
+            line(var + ":SetMaxLetters(" + std::to_string(static_cast<int>(node.attrFloat("letters", 0.0f))) + ")");
+        }
+        if (node.attr("multiLine")) {
+            line(var + ":SetMultiLine(" + (node.attrBool("multiLine") ? "true" : "false") + ")");
+        }
+        if (node.attr("numeric")) {
+            line(var + ":SetNumeric(" + (node.attrBool("numeric") ? "true" : "false") + ")");
+        }
+        // Declared false on nearly every box in FrameXML, which is the whole
+        // point of it: a box that takes focus when it appears swallows the
+        // keyboard from whatever the player was doing.
+        if (node.attr("autoFocus")) {
+            line(var + ":SetAutoFocus(" + (node.attrBool("autoFocus") ? "true" : "false") + ")");
+        }
         // Attributes declared in the XML, which is where FrameXML puts a
         // frame's initial state — UIParent's panel offsets among them. Set
         // before anything else runs, because SetAttribute fires

@@ -989,3 +989,40 @@ TEST_CASE("A frame with no key handler does not take the keyboard",
     const EmitResult r = emitFrameXml(root);
     REQUIRE_FALSE(has(r.lua, "EnableKeyboard"));
 }
+
+TEST_CASE("An edit box is built as it was declared", "[framexml][emit]") {
+    // Every one of these had a method and a field behind it and no way to
+    // reach them from the XML, so a box came out with the defaults whatever
+    // it said. SendMailBodyEditBox declares letters="500" multiLine="true",
+    // and without them it was a single-line box with no limit — a letter
+    // nobody could write a second line in.
+    XmlNode root = parseOrFail(
+        "<Ui><EditBox name=\"E\" letters=\"500\" multiLine=\"true\"/></Ui>");
+    const std::string lua = emitFrameXml(root).lua;
+    REQUIRE(has(lua, ":SetMaxLetters(500)"));
+    REQUIRE(has(lua, ":SetMultiLine(true)"));
+}
+
+TEST_CASE("An edit box that says nothing about itself is left alone",
+          "[framexml][emit]") {
+    // The defaults belong to the widget, not to the emitter: writing
+    // SetMultiLine(false) for a box that never mentioned it would override
+    // whatever a template had already set.
+    XmlNode root = parseOrFail("<Ui><EditBox name=\"E\"/></Ui>");
+    const std::string lua = emitFrameXml(root).lua;
+    REQUIRE_FALSE(has(lua, ":SetMaxLetters"));
+    REQUIRE_FALSE(has(lua, ":SetMultiLine"));
+    REQUIRE_FALSE(has(lua, ":SetAutoFocus"));
+}
+
+TEST_CASE("autoFocus false is carried, because it is why it is written",
+          "[framexml][emit]") {
+    // Declared false on nearly every box in FrameXML. A box that takes focus
+    // when it appears swallows the keyboard from whatever the player was
+    // doing, so the false is the whole point of the attribute.
+    XmlNode root = parseOrFail(
+        "<Ui><EditBox name=\"E\" autoFocus=\"false\" numeric=\"true\"/></Ui>");
+    const std::string lua = emitFrameXml(root).lua;
+    REQUIRE(has(lua, ":SetAutoFocus(false)"));
+    REQUIRE(has(lua, ":SetNumeric(true)"));
+}
