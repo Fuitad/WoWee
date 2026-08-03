@@ -2,6 +2,9 @@
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
 
+#include <algorithm>
+#include <vector>
+
 namespace wowee::addons {
 
 static int lua_GetNumQuestLogEntries(lua_State* L) {
@@ -344,6 +347,32 @@ static int lua_CollapseQuestHeader(lua_State* L) { (void)L; return 0; }
 // GetQuestLogSpecialItemInfo(questLogIndex) — returns nil (no special items)
 static int lua_GetQuestLogSpecialItemInfo(lua_State* L) { (void)L; lua_pushnil(L); return 1; }
 
+/// The player's skills in the order the list shows them: by name.
+///
+/// They live in an unordered_map, and the skill list used to be read out of it
+/// by counting to the asked-for position. That order is arbitrary — the list
+/// came out in no order a player could recognise — and worse, it is not fixed:
+/// learning a skill inserts, inserting can rehash, and rehashing reorders a
+/// list already drawn under a selection held as an index. The skill being
+/// looked at would quietly become a different one.
+///
+/// By name, with the id breaking ties, so the answer is the same every time it
+/// is asked and reads like a list rather than a spill. Ties matter: two skills
+/// can share a name before the name cache has resolved either.
+static std::vector<uint32_t> skillOrder(game::GameHandler* gh) {
+    std::vector<uint32_t> ids;
+    if (!gh) return ids;
+    const auto& skills = gh->getPlayerSkills();
+    ids.reserve(skills.size());
+    for (const auto& [id, skill] : skills) ids.push_back(id);
+    std::sort(ids.begin(), ids.end(), [gh](uint32_t a, uint32_t b) {
+        const std::string na = gh->getSkillName(a), nb = gh->getSkillName(b);
+        if (na != nb) return na < nb;
+        return a < b;
+    });
+    return ids;
+}
+
 static int lua_GetNumSkillLines(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnZero(L); }
@@ -377,11 +406,11 @@ static int lua_GetSkillLineInfo(lua_State* L) {
         for (int i = 9; i <= 12; ++i) lua_pushnumber(L, 0); // costs, minLevel, type
         return 12;
     }
-    // Skills are in a map — iterate to the Nth entry
+    const auto order = skillOrder(gh);
     const auto& skills = gh->getPlayerSkills();
-    auto it = skills.begin();
-    std::advance(it, index - 1);
-    const auto& skill = it->second;
+    const auto found = skills.find(order[static_cast<size_t>(index - 1)]);
+    if (found == skills.end()) { return luaReturnNil(L); }
+    const auto& skill = found->second;
     std::string name = gh->getSkillName(skill.skillId);
     if (name.empty()) name = "Skill " + std::to_string(skill.skillId);
 
