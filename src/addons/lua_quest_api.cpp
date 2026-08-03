@@ -805,6 +805,89 @@ static int lua_GetActiveTalentGroup(lua_State* L) {
     return 1;
 }
 
+
+namespace {
+/// A template because the dialog carries its rewards in a vector and the quest
+/// log in a fixed array, and both are padded the same way.
+template <typename Container>
+int countRewards(const Container* v) {
+    if (!v) return 0;
+    int n = 0;
+    for (const auto& r : *v) if (r.itemId != 0) ++n;
+    return n;
+}
+}  // namespace
+
+// --- The quest log's own reward panel ---
+//
+// QuestInfo draws rewards for the quest log as well as for the quest giver, and
+// asks a different set of functions for each. The giver's were written earlier;
+// these read the same fields out of the log entry the player has selected.
+
+/// The quest log entry the panel is showing, or null.
+static const game::GameHandler::QuestLogEntry* selectedLogEntry(game::GameHandler* gh) {
+    if (!gh) return nullptr;
+    const int idx = gh->getSelectedQuestLogIndex();
+    const auto& log = gh->getQuestLog();
+    if (idx < 1 || idx > static_cast<int>(log.size())) return nullptr;
+    return &log[idx - 1];
+}
+
+/// One reward, described the way every reward button reads it.
+template <typename Container>
+static int pushRewardAt(lua_State* L, game::GameHandler* gh,
+                        const Container& list, int index) {
+    if (!gh || index < 1) { return luaReturnNil(L); }
+    int seen = 0;
+    for (const auto& r : list) {
+        if (r.itemId == 0) continue;
+        if (++seen != index) continue;
+        const auto* info = gh->getItemInfo(r.itemId);
+        lua_pushstring(L, info ? info->name.c_str() : "");
+        lua_pushstring(L, gh->getItemIconPath(
+            info && info->displayInfoId ? info->displayInfoId : r.displayInfoId).c_str());
+        lua_pushnumber(L, r.count);
+        lua_pushnumber(L, info ? info->quality : 1);
+        lua_pushboolean(L, 1);
+        return 5;
+    }
+    return luaReturnNil(L);
+}
+
+static int lua_GetNumQuestLogRewards(lua_State* L) {
+    const auto* q = selectedLogEntry(getGameHandler(L));
+    lua_pushnumber(L, q ? countRewards(&q->rewardItems) : 0);
+    return 1;
+}
+
+static int lua_GetNumQuestLogChoices(lua_State* L) {
+    const auto* q = selectedLogEntry(getGameHandler(L));
+    lua_pushnumber(L, q ? countRewards(&q->rewardChoiceItems) : 0);
+    return 1;
+}
+
+static int lua_GetQuestLogRewardInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* q = selectedLogEntry(gh);
+    if (!q) { return luaReturnNil(L); }
+    return pushRewardAt(L, gh, q->rewardItems,
+                        static_cast<int>(luaL_optnumber(L, 1, 0)));
+}
+
+static int lua_GetQuestLogChoiceInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* q = selectedLogEntry(gh);
+    if (!q) { return luaReturnNil(L); }
+    return pushRewardAt(L, gh, q->rewardChoiceItems,
+                        static_cast<int>(luaL_optnumber(L, 1, 0)));
+}
+
+static int lua_GetQuestLogRewardMoney(lua_State* L) {
+    const auto* q = selectedLogEntry(getGameHandler(L));
+    lua_pushnumber(L, q ? q->rewardMoney : 0);
+    return 1;
+}
+
 // --- The quest giver's own dialog ---
 //
 // WoW's quest-giver functions do not name which quest they mean: GetTitleText
@@ -842,15 +925,6 @@ QuestSource currentQuestSource(game::GameHandler* gh) {
 /// Counts only the filled slots: the server pads a reward list to a fixed
 /// width, and a row drawn for an empty one is a blank button the player can
 /// click.
-/// A template because the dialog carries its rewards in a vector and the quest
-/// log in a fixed array, and both are padded the same way.
-template <typename Container>
-int countRewards(const Container* v) {
-    if (!v) return 0;
-    int n = 0;
-    for (const auto& r : *v) if (r.itemId != 0) ++n;
-    return n;
-}
 
 int pushQuestText(lua_State* L, const std::string* s) {
     lua_pushstring(L, s ? s->c_str() : "");
@@ -1110,6 +1184,11 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushnumber(L, countRewards(&ql[idx-1].rewardChoiceItems));
             return 1;
         }},
+                {"GetNumQuestLogRewards", lua_GetNumQuestLogRewards},
+                {"GetNumQuestLogChoices", lua_GetNumQuestLogChoices},
+                {"GetQuestLogRewardInfo", lua_GetQuestLogRewardInfo},
+                {"GetQuestLogChoiceInfo", lua_GetQuestLogChoiceInfo},
+                {"GetQuestLogRewardMoney", lua_GetQuestLogRewardMoney},
                 {"GetTitleText",         lua_GetTitleText},
                 {"GetQuestText",         lua_GetQuestText},
                 {"GetObjectiveText",     lua_GetObjectiveText},
