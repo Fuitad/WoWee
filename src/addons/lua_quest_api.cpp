@@ -36,9 +36,18 @@ static int lua_GetQuestLogTitle(lua_State* L) {
 }
 
 // GetQuestLogQuestText(index) → description, objectives
+/// The quest log index an argument-less call means: the one the log has
+/// selected. WoW's quest log functions take the index only when asking about
+/// some other entry, and demanding it raised a Lua error on every bare call.
+static int questLogIndexOrSelected(lua_State* L, int arg) {
+    if (!lua_isnoneornil(L, arg)) return static_cast<int>(luaL_checknumber(L, arg));
+    auto* gh = getGameHandler(L);
+    return gh ? gh->getSelectedQuestLogIndex() : 0;
+}
+
 static int lua_GetQuestLogQuestText(lua_State* L) {
     auto* gh = getGameHandler(L);
-    int index = static_cast<int>(luaL_checknumber(L, 1));
+    const int index = questLogIndexOrSelected(L, 1);
     if (!gh || index < 1) { return luaReturnNil(L); }
     const auto& ql = gh->getQuestLog();
     if (index > static_cast<int>(ql.size())) { return luaReturnNil(L); }
@@ -163,7 +172,7 @@ static int lua_GetQuestLink(lua_State* L) {
 // GetNumQuestLeaderBoards(questLogIndex) → count of objectives
 static int lua_GetNumQuestLeaderBoards(lua_State* L) {
     auto* gh = getGameHandler(L);
-    int index = static_cast<int>(luaL_checknumber(L, 1));
+    const int index = questLogIndexOrSelected(L, 1);
     if (!gh || index < 1) { return luaReturnZero(L); }
     const auto& ql = gh->getQuestLog();
     if (index > static_cast<int>(ql.size())) { return luaReturnZero(L); }
@@ -468,6 +477,14 @@ static int lua_GetNumTalents(lua_State* L) {
 }
 
 // GetTalentInfo(tabIndex, talentIndex) → name, iconTexture, tier, column, rank, maxRank, isExceptional, available
+/// Which quest the confirmation is about. Set when the log asks to abandon one
+/// and read back by the popup that confirms it, because the two are separate
+/// calls with the player's answer in between.
+static uint32_t& pendingAbandonQuest() {
+    static uint32_t questId = 0;
+    return questId;
+}
+
 /// The talent at a tab and index, by the ordering every talent function has to
 /// agree on: the player's own tabs in their order index, then the tab's talents
 /// by row and column.
@@ -979,10 +996,47 @@ void registerQuestLuaAPI(lua_State* L) {
             if (gh) gh->completeQuest();
             return 0;
         }},
+                // Abandoning is two steps, not one: the quest log marks which
+                // quest it means, a confirmation shows its name, and only then
+                // is it abandoned. AbandonQuest therefore takes no argument in
+                // the interface, and requiring one raised a Lua error on every
+                // attempt — the id is accepted when given so anything already
+                // passing one keeps working.
+                {"SetAbandonQuest", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const int idx = gh->getSelectedQuestLogIndex();
+            const auto& log = gh->getQuestLog();
+            pendingAbandonQuest() =
+                (idx >= 1 && idx <= static_cast<int>(log.size())) ? log[idx - 1].questId : 0;
+            return 0;
+        }},
+                {"GetAbandonQuestName", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t id = pendingAbandonQuest();
+            if (gh && id != 0) {
+                for (const auto& q : gh->getQuestLog()) {
+                    if (q.questId == id) { lua_pushstring(L, q.title.c_str()); return 1; }
+                }
+            }
+            lua_pushstring(L, "");
+            return 1;
+        }},
+                // What is destroyed along with the quest. Nothing here knows
+                // which items a quest would take back, and an invented list
+                // would warn about items the player keeps.
+                {"GetAbandonQuestItems", [](lua_State* L) -> int {
+            lua_pushstring(L, "");
+            return 1;
+        }},
                 {"AbandonQuest", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            uint32_t questId = static_cast<uint32_t>(luaL_checknumber(L, 1));
-            if (gh) gh->abandonQuest(questId);
+            if (!gh) return 0;
+            const uint32_t questId = lua_isnoneornil(L, 1)
+                ? pendingAbandonQuest()
+                : static_cast<uint32_t>(luaL_checknumber(L, 1));
+            if (questId != 0) gh->abandonQuest(questId);
+            pendingAbandonQuest() = 0;
             return 0;
         }},
                 // Both of these answer for the quest giver's dialog while one
