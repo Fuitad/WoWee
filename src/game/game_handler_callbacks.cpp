@@ -2009,6 +2009,14 @@ bool GameHandler::hasPendingBgInvite() const {
     return socialHandler_ && socialHandler_->hasPendingBgInvite();
 }
 
+void GameHandler::setRaidSubgroup(const std::string& playerName, uint8_t group) {
+    if (socialHandler_) socialHandler_->setRaidSubgroup(playerName, group);
+}
+
+void GameHandler::swapRaidSubgroup(const std::string& a, const std::string& b) {
+    if (socialHandler_) socialHandler_->swapRaidSubgroup(a, b);
+}
+
 void GameHandler::leaveBattlefield() {
     if (socialHandler_) socialHandler_->leaveBattlefield();
 }

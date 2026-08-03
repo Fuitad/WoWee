@@ -1639,6 +1639,29 @@ void SocialHandler::uninvitePlayer(const std::string& playerName) {
     owner_.addSystemChatMessage("Removed " + playerName + " from the group.");
 }
 
+// Move a raid member into a different group of eight. The server takes the
+// player's name and the destination group as a zero-based index, while the raid
+// UI counts its groups from one.
+void SocialHandler::setRaidSubgroup(const std::string& playerName, uint8_t group) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    if (playerName.empty() || group < 1 || group > 8) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_GROUP_CHANGE_SUB_GROUP));
+    packet.writeString(playerName);
+    packet.writeUInt8(static_cast<uint8_t>(group - 1));
+    owner_.getSocket()->send(packet);
+}
+
+// Exchange two raid members' places. Used when the destination group is already
+// full, which is why it is a separate packet rather than two moves.
+void SocialHandler::swapRaidSubgroup(const std::string& firstName, const std::string& secondName) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    if (firstName.empty() || secondName.empty()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_GROUP_SWAP_SUB_GROUP));
+    packet.writeString(firstName);
+    packet.writeString(secondName);
+    owner_.getSocket()->send(packet);
+}
+
 void SocialHandler::leaveParty() {
     // Delegates to leaveGroup which handles both the packet send AND local
     // state cleanup (clearing partyData, firing addon events). Previously

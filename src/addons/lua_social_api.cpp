@@ -634,6 +634,46 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetMacroItemIconInfo", lua_GetMacroIconInfo},
                 {"NewGMTicket",         lua_NewGMTicket},
                 {"DeleteGMTicket",      lua_DeleteGMTicket},
+                // ---- Raid group management ----
+                // SetRaidSubgroup(raidIndex, group) — move a member into a
+                // different group of eight. SwapRaidSubgroup exchanges two,
+                // which is what the raid UI uses when the destination is full.
+                {"SetRaidSubgroup", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int idx   = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const int group = static_cast<int>(luaL_optnumber(L, 2, 0));
+            if (!gh || idx < 1) return 0;
+            const auto& members = gh->getPartyData().members;
+            if (idx > static_cast<int>(members.size())) return 0;
+            gh->setRaidSubgroup(members[static_cast<size_t>(idx) - 1].name,
+                                static_cast<uint8_t>(group));
+            return 0;
+        }},
+                {"SwapRaidSubgroup", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int a = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const int b = static_cast<int>(luaL_optnumber(L, 2, 0));
+            if (!gh || a < 1 || b < 1) return 0;
+            const auto& members = gh->getPartyData().members;
+            const int n = static_cast<int>(members.size());
+            if (a > n || b > n) return 0;
+            gh->swapRaidSubgroup(members[static_cast<size_t>(a) - 1].name,
+                                 members[static_cast<size_t>(b) - 1].name);
+            return 0;
+        }},
+                // Which row the raid roster has highlighted. Purely local —
+                // the raid UI reads it back through its own frames, and
+                // nothing is sent for it.
+                {"SetRaidRosterSelection", [](lua_State* L) -> int { (void)L; return 0; }},
+                // Voice chat again: there is none, so nobody is muted or
+                // silenced and asking to mute them does nothing.
+                {"IsMuted",             luaReturnFalse},
+                {"UnitIsSilenced",      luaReturnFalse},
+                {"AddOrDelMute",        [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ChannelSilenceVoice", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ChannelUnSilenceVoice", [](lua_State* L) -> int { (void)L; return 0; }},
+                // Vehicles are not modelled in the raid frames.
+                {"UnitTargetsVehicleInRaidUI", luaReturnFalse},
                 {"GetNumLanguages",   lua_GetNumLanguages},
                 {"GetLanguageByIndex", lua_GetLanguageByIndex},
                 {"SendChatMessage",   lua_SendChatMessage},
