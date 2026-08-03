@@ -3892,8 +3892,14 @@ void LuaEngine::registerCoreAPI() {
         // On the frame metatable rather than on GameTooltip, because a tooltip
         // is not always that one — item comparison uses ShoppingTooltip1 and 2
         // — and a copy on the table itself would shadow this for no gain.
-        "function mt:GetOwner() return rawget(self, '__owner') end\n"
-        "function mt:IsOwned(f) return rawget(self, '__owner') == f end\n"
+        // Named in full rather than through the local `mt`, which belongs to a
+        // different bootstrap chunk: referring to it here left the chunk
+        // failing to load, so these two never existed — and with them removed
+        // from the no-op list at the same time, nothing answered IsOwned at
+        // all. FrameXML calls it from CursorOnUpdate, so it raised every frame
+        // until the device went down.
+        "function __WoweeFrameMT:GetOwner() return rawget(self, '__owner') end\n"
+        "function __WoweeFrameMT:IsOwned(f) return rawget(self, '__owner') == f end\n"
         // ShoppingTooltip: used by comparison tooltips
         "ShoppingTooltip1 = CreateFrame('Frame', 'ShoppingTooltip1')\n"
         "ShoppingTooltip2 = CreateFrame('Frame', 'ShoppingTooltip2')\n"
