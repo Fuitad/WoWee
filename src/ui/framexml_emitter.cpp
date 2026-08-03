@@ -629,6 +629,27 @@ struct Emitter {
         if (const std::string* a = node.attr("alpha")) {
             line(var + ":SetAlpha(" + *a + ")");
         }
+        // The keyboard, on the same principle as the mouse and the wheel: a
+        // frame that declares OnKeyDown or OnKeyUp wants keys. Every one that
+        // does in FrameXML is a dialog hidden until it is wanted, so nothing
+        // here listens during ordinary play.
+        if (node.attr("enableKeyboard")) {
+            line(var + ":EnableKeyboard(" +
+                 (node.attrBool("enableKeyboard") ? "true" : "false") + ")");
+        } else {
+            bool wantsKeys = false;
+            for (const XmlNode& child : node.children) {
+                if (child.name != "Scripts") continue;
+                for (const XmlNode& script : child.children) {
+                    if (script.name == "OnKeyDown" || script.name == "OnKeyUp") {
+                        wantsKeys = true;
+                        break;
+                    }
+                }
+                if (wantsKeys) break;
+            }
+            if (wantsKeys) line(var + ":EnableKeyboard(true)");
+        }
         // <PushedTextOffset><AbsDimension x="1" y="-1"/></PushedTextOffset>
         for (const XmlNode& child : node.children) {
             if (child.name != "PushedTextOffset") continue;

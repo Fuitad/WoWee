@@ -115,6 +115,10 @@ public:
     void dispatchText(const char* utf8);
     /// A key that is not text: backspace, the arrows, enter, escape.
     void dispatchKey(int sdlKeycode, bool ctrlHeld);
+    /// A key for a frame rather than an edit box. Returns true when a frame
+    /// took it, so the caller knows not to also treat it as a movement key or
+    /// a binding — which is the whole reason a dialog can be typed into.
+    bool dispatchFrameKey(int sdlKeycode, bool down);
     /// Whether an edit box currently has focus, so the client knows not to
     /// treat the same keystrokes as movement.
     bool editBoxHasFocus() const { return focusedWid_ != 0; }

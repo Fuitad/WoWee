@@ -906,3 +906,24 @@ TEST_CASE("A button's state fonts reach it", "[framexml][emit]") {
     REQUIRE(has(r.lua, "SetHighlightFontObject(\"GameFontHighlight\")"));
     REQUIRE(has(r.lua, "SetDisabledFontObject(\"GameFontDisable\")"));
 }
+
+TEST_CASE("A key handler asks for the keyboard", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Dialog\">"
+        "<Scripts><OnKeyDown>Handle(self, key)</OnKeyDown></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "EnableKeyboard(true)"));
+}
+
+TEST_CASE("A frame with no key handler does not take the keyboard",
+          "[framexml][emit]") {
+    // The safety property: nothing listens during ordinary play, so movement
+    // keys are never swallowed by a frame that merely exists.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Quiet\">"
+        "<Scripts><OnShow>Nothing()</OnShow></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(has(r.lua, "EnableKeyboard"));
+}

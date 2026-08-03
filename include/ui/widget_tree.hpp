@@ -103,6 +103,12 @@ struct Widget {
     /// calls it toplevel, and it is what stops one window staying buried under
     /// another once two overlap. FrameXML declares it on 102 frames.
     bool topLevel = false;
+    /// Whether the frame receives OnKeyDown and OnKeyUp, and whether it lets
+    /// the key through afterwards. WoW consumes by default and passes on only
+    /// when asked, which is why a dialog swallows the movement keys while it
+    /// is up and nothing else does.
+    bool keyboardEnabled = false;
+    bool propagateKeys = false;
     /// The frame's own scale, and the product of it with every scale above it.
     ///
     /// A frame's width, height and anchor offsets are in its own units, and

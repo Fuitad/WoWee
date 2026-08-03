@@ -1771,6 +1771,20 @@ int lua_Frame_GetHitRectInsets(lua_State* L) {
     return 4;
 }
 
+int lua_Frame_EnableKeyboard(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->keyboardEnabled = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+int lua_Frame_IsKeyboardEnabled(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushboolean(L, w && w->keyboardEnabled);
+    return 1;
+}
+int lua_Frame_SetPropagateKeyboardInput(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->propagateKeys = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+
 int lua_Frame_SetToplevel(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->topLevel = lua_toboolean(L, 2) != 0;
     return 0;
@@ -2714,6 +2728,9 @@ void LuaEngine::registerCoreAPI() {
         {"GetPushedTextOffset",   lua_Frame_GetPushedTextOffset},
         {"SetHitRectInsets",      lua_Frame_SetHitRectInsets},
         {"GetHitRectInsets",      lua_Frame_GetHitRectInsets},
+        {"EnableKeyboard",        lua_Frame_EnableKeyboard},
+        {"IsKeyboardEnabled",     lua_Frame_IsKeyboardEnabled},
+        {"SetPropagateKeyboardInput", lua_Frame_SetPropagateKeyboardInput},
         {"SetToplevel",           lua_Frame_SetToplevel},
         {"IsToplevel",            lua_Frame_IsToplevel},
         {"Raise",                 lua_Frame_Raise},
@@ -4752,6 +4769,66 @@ void LuaEngine::dispatchText(const char* utf8) {
     // The handler that tells a search field to filter, and a chat box to look
     // for a channel prefix.
     callFrameScript(focusedWid_, "OnTextChanged");
+}
+
+/// SDL's keycode as WoW names it, or empty for one WoW has no name for.
+///
+/// The handlers compare against these by name — CoinPickupFrame checks for
+/// "ESCAPE" and the digits — so a wrong spelling is a handler that never
+/// matches rather than an error anyone would see.
+static std::string wowKeyName(int sym) {
+    if (sym >= 'a' && sym <= 'z') return std::string(1, static_cast<char>(sym - 32));
+    if (sym >= '0' && sym <= '9') return std::string(1, static_cast<char>(sym));
+    switch (sym) {
+        case 27:         return "ESCAPE";
+        case ' ':        return "SPACE";
+        case '\r':       return "ENTER";
+        case '\t':       return "TAB";
+        case '\b':       return "BACKSPACE";
+        case 0x4000004A: return "HOME";
+        case 0x4000004D: return "END";
+        case 0x4000004B: return "PAGEUP";
+        case 0x4000004E: return "PAGEDOWN";
+        case 0x4000004C: return "DELETE";
+        case 0x40000049: return "INSERT";
+        case 0x40000050: return "LEFT";
+        case 0x4000004F: return "RIGHT";
+        case 0x40000052: return "UP";
+        case 0x40000051: return "DOWN";
+        default: break;
+    }
+    // F1..F12 are contiguous in SDL's scancode-derived range.
+    if (sym >= 0x4000003A && sym <= 0x40000045) {
+        return "F" + std::to_string(sym - 0x4000003A + 1);
+    }
+    return {};
+}
+
+bool LuaEngine::dispatchFrameKey(int sdlKeycode, bool down) {
+    if (!L_) return false;
+    const std::string key = wowKeyName(sdlKeycode);
+    if (key.empty()) return false;
+
+    // The topmost frame that is both visible and listening. Everything that
+    // declares a key handler in the interface is a dialog that is hidden until
+    // it is wanted, so in ordinary play there is nothing here and the key goes
+    // straight through to the game.
+    const ui::Widget* best = nullptr;
+    for (size_t id = 1; id < widgets_.size(); ++id) {
+        const ui::Widget* w = widgets_.get(static_cast<uint32_t>(id));
+        if (!w || !w->keyboardEnabled || !w->visible) continue;
+        if (!best) { best = w; continue; }
+        if (w->effStrata > best->effStrata ||
+            (w->effStrata == best->effStrata && w->effLevel >= best->effLevel)) {
+            best = w;
+        }
+    }
+    if (!best) return false;
+
+    callFrameScript(best->id, down ? "OnKeyDown" : "OnKeyUp", key.c_str());
+    // Consumed unless the frame asked for the key to carry on, which is WoW's
+    // default and the reason a dialog stops the character walking.
+    return !best->propagateKeys;
 }
 
 void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {

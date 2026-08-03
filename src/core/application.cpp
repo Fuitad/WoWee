@@ -932,6 +932,16 @@ void Application::run() {
                             engine->dispatchKey(event.key.keysym.sym, ctrl);
                             continue;
                         }
+                        // No edit box, but a dialog may still be listening —
+                        // the colour picker, the stack splitter, the coin
+                        // pickup. The key is only swallowed when one of them
+                        // actually takes it, so with nothing up the movement
+                        // keys and every binding carry on exactly as before.
+                        if (auto* engine = addonManager_->getLuaEngine()) {
+                            if (engine->dispatchFrameKey(event.key.keysym.sym, true)) {
+                                continue;
+                            }
+                        }
                     }
                     // Skip non-function-key input when UI (chat) has keyboard focus
                     bool uiHasKeyboard = ImGui::GetIO().WantCaptureKeyboard;
