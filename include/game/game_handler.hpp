@@ -620,7 +620,24 @@ public:
     /// panel picks it from a dropdown and asks for its rights with a call that
     /// takes no argument, so the choice has to be remembered here.
     int  getSelectedGuildRank() const { return selectedGuildRank_; }
-    void setSelectedGuildRank(int index) { selectedGuildRank_ = index; }
+    void setSelectedGuildRank(int index);
+
+    /// What the guild rank editor has staged but not yet sent.
+    ///
+    /// The panel edits by parts — a checkbox stages one right, the gold box
+    /// stages the allowance, each bank tab stages three more — and only then
+    /// commits with one packet carrying all of it. Seeded from the rank's
+    /// current values when a rank is selected, so anything the panel does not
+    /// touch is sent back exactly as it arrived rather than as a zero.
+    struct PendingGuildRank {
+        uint32_t rights = 0;
+        uint32_t goldLimit = 0;
+        std::array<uint32_t, 6> tabRights{};
+        std::array<uint32_t, 6> tabSlots{};
+    };
+    PendingGuildRank& pendingGuildRankRef() { return pendingGuildRank_; }
+    const PendingGuildRank& getPendingGuildRank() const { return pendingGuildRank_; }
+    void saveGuildRank(const std::string& rankName);
     bool hasPendingGuildInvite() const;
     const std::string& getPendingGuildInviterName() const;
     const std::string& getPendingGuildInviteGuildName() const;
@@ -3877,6 +3894,7 @@ private:
     std::unordered_map<uint32_t, uint32_t>    achievementPointsCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementIconCache_;  // achievementId → SpellIcon.dbc ID
     int selectedGuildRank_ = 1;
+    PendingGuildRank pendingGuildRank_;
     std::vector<CurrencyType> currencyTypes_;
     bool currencyTypesLoaded_ = false;
     std::unordered_map<uint32_t, BattlemasterEntry> battlemasterList_;

@@ -133,6 +133,8 @@ public:
     void createGuild(const std::string& guildName);
     void addGuildRank(const std::string& rankName);
     void delGuildRank();
+    void saveGuildRank(uint32_t rankId, uint32_t rights, const std::string& rankName,
+                       uint32_t goldLimit, const uint32_t* tabRights, const uint32_t* tabSlots);
     void deleteGuildRank();
     void requestPetitionShowlist(uint64_t npcGuid);
     void buyPetition(uint64_t npcGuid, const std::string& guildName);

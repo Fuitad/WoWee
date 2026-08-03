@@ -2036,6 +2036,27 @@ void SocialHandler::handleGuildRoster(network::Packet& packet) {
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("GUILD_ROSTER_UPDATE", {});
 }
 
+// CMSG_GUILD_RANK rewrites the rank whole: id, rights, name, gold per day, then
+// six pairs of bank tab rights and slots. Everything it carries has to be sent,
+// which is why the caller stages from the rank's current values rather than
+// from nothing — a field left at zero here is not "unchanged", it is revoked.
+void SocialHandler::saveGuildRank(uint32_t rankId, uint32_t rights, const std::string& rankName,
+                                  uint32_t goldLimit, const uint32_t* tabRights,
+                                  const uint32_t* tabSlots) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_GUILD_RANK));
+    packet.writeUInt32(rankId);
+    packet.writeUInt32(rights);
+    packet.writeString(rankName);
+    packet.writeUInt32(goldLimit);
+    for (int t = 0; t < 6; ++t) {
+        packet.writeUInt32(tabRights ? tabRights[t] : 0);
+        packet.writeUInt32(tabSlots ? tabSlots[t] : 0);
+    }
+    owner_.getSocket()->send(packet);
+    requestGuildRoster();
+}
+
 uint32_t SocialHandler::getPlayerGuildRankRights() const {
     if (!hasGuildRoster_) return 0;
     const uint64_t me = owner_.getPlayerGuid();

@@ -2009,6 +2009,30 @@ bool GameHandler::hasPendingBgInvite() const {
     return socialHandler_ && socialHandler_->hasPendingBgInvite();
 }
 
+// Seeds the staging copy from the rank as it stands, so a field the panel never
+// touches goes back to the server unchanged instead of as a zero.
+void GameHandler::setSelectedGuildRank(int index) {
+    selectedGuildRank_ = index;
+    pendingGuildRank_ = PendingGuildRank{};
+    const auto& roster = getGuildRoster();
+    if (index < 1 || index > static_cast<int>(roster.ranks.size())) return;
+    const auto& r = roster.ranks[static_cast<size_t>(index) - 1];
+    pendingGuildRank_.rights    = r.rights;
+    pendingGuildRank_.goldLimit = r.goldLimit;
+    pendingGuildRank_.tabRights = r.bankTabRights;
+    pendingGuildRank_.tabSlots  = r.bankTabSlotsPerDay;
+}
+
+void GameHandler::saveGuildRank(const std::string& rankName) {
+    if (!socialHandler_) return;
+    if (selectedGuildRank_ < 1) return;
+    const auto& p = pendingGuildRank_;
+    // Ranks are zero-based on the wire and one-based in the panel.
+    socialHandler_->saveGuildRank(static_cast<uint32_t>(selectedGuildRank_ - 1),
+                                  p.rights, rankName, p.goldLimit,
+                                  p.tabRights.data(), p.tabSlots.data());
+}
+
 uint32_t GameHandler::getPlayerGuildRankRights() const {
     return socialHandler_ ? socialHandler_->getPlayerGuildRankRights() : 0u;
 }

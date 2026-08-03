@@ -725,9 +725,35 @@ void registerSocialLuaAPI(lua_State* L) {
             lua_pushnumber(L, roster.ranks[static_cast<size_t>(sel) - 1].goldLimit);
             return 1;
         }},
-                {"SetGuildBankTabPermissions", [](lua_State* L) -> int { (void)L; return 0; }},
-                {"SetGuildBankTabWithdraw",    [](lua_State* L) -> int { (void)L; return 0; }},
-                {"SetGuildBankWithdrawLimit",  [](lua_State* L) -> int { (void)L; return 0; }},
+                // The three that stage the bank half of a rank edit. Bits are
+                // view 0x01, deposit 0x02, update text 0x04 — the same the
+                // roster reports.
+                {"SetGuildBankTabPermissions", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int tab  = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const int perm = static_cast<int>(luaL_optnumber(L, 2, 0));
+            const bool on  = lua_toboolean(L, 3) != 0;
+            if (!gh || tab < 1 || tab > 6 || perm < 1 || perm > 3) return 0;
+            const uint32_t bit = 1u << (perm - 1);
+            auto& p = gh->pendingGuildRankRef();
+            if (on) p.tabRights[static_cast<size_t>(tab) - 1] |= bit;
+            else    p.tabRights[static_cast<size_t>(tab) - 1] &= ~bit;
+            return 0;
+        }},
+                {"SetGuildBankTabWithdraw", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int tab = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const auto n  = static_cast<uint32_t>(luaL_optnumber(L, 2, 0));
+            if (!gh || tab < 1 || tab > 6) return 0;
+            gh->pendingGuildRankRef().tabSlots[static_cast<size_t>(tab) - 1] = n;
+            return 0;
+        }},
+                {"SetGuildBankWithdrawLimit", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (gh) gh->pendingGuildRankRef().goldLimit =
+                static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            return 0;
+        }},
 
                 // ---- Mail: invoices, stationery, and the spam report ----
                 //
@@ -839,19 +865,39 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh) gh->delGuildRank();
             return 0;
         }},
-                // GuildControlSaveRank(name) — deliberately does nothing.
+                // GuildControlSetRankFlag(checkboxIndex, checked) — stage one
+                // permission. Called from the checkbox's own OnClick in the
+                // XML, which is why it never appeared in a scan of the Lua.
                 //
-                // CMSG_GUILD_RANK carries the rank's whole permission bitmask
-                // and its gold-per-day allowance alongside the name, and none
-                // of that is parsed here — GuildControlGetRankFlags above has
-                // nothing to answer with. Sending the packet would write back
-                // the zeroes we hold rather than the rights the rank actually
-                // has, stripping them from every member of it. Renaming a rank
-                // is not worth that, so it waits for the permissions to be
-                // read first.
+                // Same order as GuildControlGetRankFlags reads them, and for
+                // the same reason: the panel's order is not the bit order.
+                {"GuildControlSetRankFlag", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const bool on = lua_toboolean(L, 2) != 0;
+            if (!gh || idx < 1 || idx > 13) return 0;
+            static constexpr uint32_t kOrder[13] = {
+                0x00000001u, 0x00000002u, 0x00000004u, 0x00000008u,
+                0x00000080u, 0x00000100u, 0x00000010u, 0x00000020u,
+                0x00001000u, 0x00002000u, 0x00004000u, 0x00008000u,
+                0x00010000u,
+            };
+            const uint32_t bit = kOrder[static_cast<size_t>(idx) - 1];
+            auto& p = gh->pendingGuildRankRef();
+            if (on) p.rights |= bit; else p.rights &= ~bit;
+            return 0;
+        }},
+                // GuildControlSaveRank(name) — commit the staged rank.
+                //
+                // One packet rewrites the rank whole: rights, name, gold per
+                // day and all six bank tabs. A field left at zero is not
+                // "unchanged", it is revoked — which is why the staging copy is
+                // seeded from the rank as it stands when the panel selects it,
+                // and only what the panel edits moves.
                 {"GuildControlSaveRank", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            if (gh) gh->addSystemChatMessage("Guild rank permissions are not editable yet.");
+            const char* name = luaL_optstring(L, 1, "");
+            if (gh && name && *name) gh->saveGuildRank(name);
             return 0;
         }},
                 // JoinPermanentChannel(name, password, frameId, permanent)
