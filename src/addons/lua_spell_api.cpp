@@ -4,6 +4,26 @@
 
 namespace wowee::addons {
 
+// ---- Finishing a spell that is waiting for a target ----
+//
+// A spell cast with no target leaves the cursor holding it until something is
+// clicked; these are what the unit and party frames call when that click lands
+// on them. This client resolves a target at cast time instead — there is no
+// pending spell on the cursor to complete — so each answers false: nothing was
+// waiting, so nothing was consumed, and the frame falls through to its ordinary
+// click handling rather than swallowing it.
+static int lua_SpellTargetUnit(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+static int lua_SpellTargetItem(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+
+// Dropping what the cursor holds onto a unit, which opens a trade. The cursor
+// carries no item here, so there is nothing to drop.
+static int lua_DropItemOnUnit(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+
+// The totem bar's per-slot spell choice, which needs the multi-cast action bar
+// this client does not model.
+static int lua_SetMultiCastSpell(lua_State* L) { (void)L; return 0; }
+
+
 // --- Totems ---
 //
 // Four slots, each holding a spell and how long it has left. The interface
@@ -936,6 +956,10 @@ void registerSpellLuaAPI(lua_State* L) {
                 {"GetSpellBookItemInfo", lua_GetSpellBookItemInfo},
                 {"GetSpellBookItemName", lua_GetSpellBookItemName},
                 {"GetSpellName",      lua_GetSpellName},
+                {"SpellTargetUnit",   lua_SpellTargetUnit},
+                {"SpellTargetItem",   lua_SpellTargetItem},
+                {"DropItemOnUnit",    lua_DropItemOnUnit},
+                {"SetMultiCastSpell", lua_SetMultiCastSpell},
                 {"CastSpell",         lua_CastSpell},
                 {"IsPassiveSpell",    lua_IsPassiveSpell},
                 {"IsSelectedSpell",   lua_IsSelectedSpell},
