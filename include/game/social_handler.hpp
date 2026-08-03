@@ -95,6 +95,7 @@ public:
     bool hasPendingBgInvite() const;
     void acceptBattlefield(uint32_t queueSlot = 0xFFFFFFFF);
     void declineBattlefield(uint32_t queueSlot = 0xFFFFFFFF);
+    void leaveBattlefield();
     const std::array<BgQueueSlot, 3>& getBgQueues() const { return bgQueues_; }
     const std::vector<AvailableBgInfo>& getAvailableBgs() const { return availableBgs_; }
     void requestPvpLog();

@@ -2009,6 +2009,10 @@ bool GameHandler::hasPendingBgInvite() const {
     return socialHandler_ && socialHandler_->hasPendingBgInvite();
 }
 
+void GameHandler::leaveBattlefield() {
+    if (socialHandler_) socialHandler_->leaveBattlefield();
+}
+
 void GameHandler::acceptBattlefield(uint32_t queueSlot) {
     if (socialHandler_) socialHandler_->acceptBattlefield(queueSlot);
 }

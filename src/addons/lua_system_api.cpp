@@ -1257,6 +1257,97 @@ static int lua_RefreshLFGList(lua_State* L) { (void)L; return 0; }
 // values. None are tracked, and the watch frame counts them by return count.
 static int lua_GetTrackedAchievements(lua_State* L) { (void)L; return 0; }
 
+// The PvP flag's countdown. The client knows whether the flag is set but not
+// how long it has left, so the timer is reported as not running and the player
+// frame hides the text rather than showing a number it cannot compute.
+static int lua_IsPVPTimerRunning(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+
+// Never reached while the above answers false, but playerframe reads it on the
+// line after and a missing global there would raise before the branch is taken.
+static int lua_GetPVPTimer(lua_State* L) { lua_pushnumber(L, 0); return 1; }
+
+// GetCurrentArenaSeason() → the season number, or NO_ARENA_SEASON.
+//
+// Zero is the right answer here rather than the usual trap: arenaframe compares
+// it with == and ~= against NO_ARENA_SEASON, which is itself 0, so a nil would
+// fail both tests instead of meaning "no season".
+static int lua_GetCurrentArenaSeason(lua_State* L) { lua_pushnumber(L, 0); return 1; }
+
+// GetPVPRankProgress() → how far through the current rank, 0..1.
+// Fed straight to HonorFrameProgressBar:SetValue, which needs a number.
+static int lua_GetPVPRankProgress(lua_State* L) { lua_pushnumber(L, 0); return 1; }
+
+// GetArenaTeam(index) → the team's name, for the promote/kick confirmations.
+static int lua_GetArenaTeam(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || idx < 1) return luaReturnNil(L);
+    const auto& teams = gh->getArenaTeamStats();
+    if (idx > static_cast<int>(teams.size())) return luaReturnNil(L);
+    lua_pushstring(L, teams[static_cast<size_t>(idx) - 1].teamName.c_str());
+    return 1;
+}
+
+// IsActiveBattlefieldArena() → isArena, isRegistered
+static int lua_IsActiveBattlefieldArena(lua_State* L) {
+    lua_pushnil(L);
+    lua_pushnil(L);
+    return 2;
+}
+
+// CanHearthAndResurrectFromArea() → whether the zone offers the combined
+// hearth-and-release button. Only world PvP zones do, and none are tracked.
+static int lua_CanHearthAndResurrectFromArea(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+
+// GetWorldPVPQueueStatus(i) → status, mapName, queueID
+static int lua_GetWorldPVPQueueStatus(lua_State* L) {
+    lua_pushnil(L);
+    lua_pushnil(L);
+    lua_pushnil(L);
+    return 3;
+}
+
+// LeaveBattlefield() — walk out of the battleground currently being played.
+static int lua_LeaveBattlefield(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (gh) gh->leaveBattlefield();
+    return 0;
+}
+
+// GetCVarMin(name) / GetCVarMax(name) → the range a CVar is allowed, if it
+// declares one.
+//
+// Nil, because none of them do here. Every caller is written for that:
+// BlizzardOptionsPanel_GetCVarMinSafe passes it through tonumber, the slider
+// setup falls back with `or entry.minValue`, and the clamp reads
+// `if ( minValue and value < minValue )`. Answering a made-up zero instead
+// would clamp every graphics slider in the options panel to it.
+static int lua_GetCVarMin(lua_State* L) { (void)L; return luaReturnNil(L); }
+static int lua_GetCVarMax(lua_State* L) { (void)L; return luaReturnNil(L); }
+
+// ---- Voice chat ----
+//
+// There is no voice chat in this client and no plan for one. These are answered
+// rather than left missing because the panels that ask are otherwise perfectly
+// usable: the audio options page reads the microphone level from an OnUpdate,
+// so one absent global there raises every frame the page is open.
+static int lua_IsVoiceChatAllowedByServer(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+static int lua_VoiceChat_IsRecordingLoopbackSound(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+static int lua_VoiceChat_IsPlayingLoopbackSound(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+static int lua_VoiceChat_GetCurrentMicrophoneSignalLevel(lua_State* L) { lua_pushnumber(L, 0); return 1; }
+
+// GetVoiceSessionInfo(i) → name, active
+static int lua_GetVoiceSessionInfo(lua_State* L) {
+    lua_pushnil(L);
+    lua_pushnil(L);
+    return 2;
+}
+
+static int lua_GetNumVoiceSessionMembersBySessionID(lua_State* L) {
+    lua_pushnumber(L, 0);
+    return 1;
+}
+
 // RequestRaidInfo() — ask the server for saved instance lockouts. The reply is
 // SMSG_RAID_INSTANCE_INFO, which the client already parses for
 // GetSavedInstanceInfo; nothing was asking for it.
@@ -1415,6 +1506,23 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"RefreshLFGList",           lua_RefreshLFGList},
                 {"GetTrackedAchievements",   lua_GetTrackedAchievements},
                 {"RequestRaidInfo",          lua_RequestRaidInfo},
+                {"IsPVPTimerRunning",        lua_IsPVPTimerRunning},
+                {"GetPVPTimer",              lua_GetPVPTimer},
+                {"GetCurrentArenaSeason",    lua_GetCurrentArenaSeason},
+                {"GetPVPRankProgress",       lua_GetPVPRankProgress},
+                {"GetArenaTeam",             lua_GetArenaTeam},
+                {"IsActiveBattlefieldArena", lua_IsActiveBattlefieldArena},
+                {"CanHearthAndResurrectFromArea", lua_CanHearthAndResurrectFromArea},
+                {"GetWorldPVPQueueStatus",   lua_GetWorldPVPQueueStatus},
+                {"LeaveBattlefield",         lua_LeaveBattlefield},
+                {"GetCVarMin",               lua_GetCVarMin},
+                {"GetCVarMax",               lua_GetCVarMax},
+                {"IsVoiceChatAllowedByServer", lua_IsVoiceChatAllowedByServer},
+                {"VoiceChat_IsRecordingLoopbackSound", lua_VoiceChat_IsRecordingLoopbackSound},
+                {"VoiceChat_IsPlayingLoopbackSound",   lua_VoiceChat_IsPlayingLoopbackSound},
+                {"VoiceChat_GetCurrentMicrophoneSignalLevel", lua_VoiceChat_GetCurrentMicrophoneSignalLevel},
+                {"GetVoiceSessionInfo",      lua_GetVoiceSessionInfo},
+                {"GetNumVoiceSessionMembersBySessionID", lua_GetNumVoiceSessionMembersBySessionID},
                 {"CanShowAchievementUI",     lua_CanShowAchievementUI},
                 {"IsXPUserDisabled",         lua_IsXPUserDisabled},
                 {"GetAddOnMemoryUsage",      lua_GetAddOnMemoryUsage},

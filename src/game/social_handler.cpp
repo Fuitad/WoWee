@@ -2593,6 +2593,15 @@ void SocialHandler::acceptBattlefield(uint32_t queueSlot) {
     owner_.addSystemChatMessage("Accepting battleground invitation...");
 }
 
+// Leave the battleground the player is standing in, which is a different thing
+// from declining an invitation to one — that is CMSG_BATTLEFIELD_PORT with a
+// refusal, this is the player walking out of a match already joined.
+void SocialHandler::leaveBattlefield() {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet pkt(wireOpcode(Opcode::CMSG_LEAVE_BATTLEFIELD));
+    owner_.getSocket()->send(pkt);
+}
+
 void SocialHandler::declineBattlefield(uint32_t queueSlot) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     const BgQueueSlot* slot = nullptr;
