@@ -854,6 +854,45 @@ static int pushRewardAt(lua_State* L, game::GameHandler* gh,
     return luaReturnNil(L);
 }
 
+// GetSuggestedGroupNum() / GetQuestLogGroupNum() → how many players a quest
+// suggests bringing
+//
+// QuestInfo assigns one of these and then tests `groupNum > 0`, so an absent
+// answer is an error rather than a quest that suggests nothing — and QuestInfo
+// draws for the quest giver and the quest log both.
+//
+// The giver's packet carries the number. The log's does not, and zero is what
+// stops the line being drawn at all.
+// GetDailyQuestsCompleted() / GetMaxDailyQuests() → the daily allowance
+//
+// The quest log tests the first against zero before drawing the line at all, so
+// an absent answer is an error rather than a hidden line. Nothing here counts
+// dailies, and zero completed is what keeps the line hidden — which is the same
+// thing the count would do if it were counting and found none.
+static int lua_GetDailyQuestsCompleted(lua_State* L) {
+    lua_pushnumber(L, 0);
+    return 1;
+}
+
+// Twenty-five is the allowance in this era. Only ever shown beside the count
+// above, which stays at zero, so it is a label rather than a limit here.
+static int lua_GetMaxDailyQuests(lua_State* L) {
+    lua_pushnumber(L, 25);
+    return 1;
+}
+
+static int lua_GetSuggestedGroupNum(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const bool open = gh && gh->isQuestDetailsOpen();
+    lua_pushnumber(L, open ? gh->getQuestDetails().suggestedPlayers : 0);
+    return 1;
+}
+
+static int lua_GetQuestLogGroupNum(lua_State* L) {
+    lua_pushnumber(L, 0);
+    return 1;
+}
+
 static int lua_GetNumQuestLogRewards(lua_State* L) {
     const auto* q = selectedLogEntry(getGameHandler(L));
     lua_pushnumber(L, q ? countRewards(&q->rewardItems) : 0);
@@ -1184,6 +1223,10 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushnumber(L, countRewards(&ql[idx-1].rewardChoiceItems));
             return 1;
         }},
+                {"GetSuggestedGroupNum", lua_GetSuggestedGroupNum},
+                {"GetDailyQuestsCompleted", lua_GetDailyQuestsCompleted},
+                {"GetMaxDailyQuests",    lua_GetMaxDailyQuests},
+                {"GetQuestLogGroupNum",  lua_GetQuestLogGroupNum},
                 {"GetNumQuestLogRewards", lua_GetNumQuestLogRewards},
                 {"GetNumQuestLogChoices", lua_GetNumQuestLogChoices},
                 {"GetQuestLogRewardInfo", lua_GetQuestLogRewardInfo},

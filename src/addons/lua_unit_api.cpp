@@ -1335,6 +1335,17 @@ static int lua_UnitAffectingCombat(lua_State* L) {
 // answer disabled duelling, trading and inviting permanently. Nothing here
 // charms, fears or confuses anyone, so control is never lost and saying so is
 // the truthful answer rather than a convenient one.
+// GetPetSpellBonusDamage() → the spell power a pet inherits
+//
+// The pet tab formats this with %d before testing it, and %d against nil raises
+// on the spot — on a tab of the character frame, which is drawn by default.
+// Nothing here works out what a pet inherits, and zero is the honest figure
+// rather than a guess at a scaling rule.
+static int lua_GetPetSpellBonusDamage(lua_State* L) {
+    lua_pushnumber(L, 0);
+    return 1;
+}
+
 static int lua_HasFullControl(lua_State* L) {
     lua_pushboolean(L, 1);
     return 1;
@@ -2036,6 +2047,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetRealNumPartyMembers", lua_GetNumPartyMembers},
                 {"GetReleaseTimeRemaining", lua_GetReleaseTimeRemaining},
                 {"HasFullControl",      lua_HasFullControl},
+                {"GetPetSpellBonusDamage", lua_GetPetSpellBonusDamage},
                 {"RepopMe",             lua_RepopMe},
                 {"RetrieveCorpse",      lua_RetrieveCorpse},
                 {"Dismount",            lua_Dismount},
