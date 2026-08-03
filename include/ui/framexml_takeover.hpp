@@ -56,6 +56,19 @@ enum class UiElement {
     QuestGiver,
     Gossip,
     Mail,
+    /// The rest of the windows this client draws itself. Each is named
+    /// separately rather than lumped together so that handing one over later
+    /// is a single word in the defaults, the way the character sheet was.
+    Vendor,
+    Loot,
+    Bank,
+    PartyFrames,
+    Social,
+    TradeSkill,
+    ClassTrainer,
+    AuctionHouse,
+    GuildBank,
+    Inspect,
 };
 
 /// True when FrameXML is drawing this instead, so the client should not.

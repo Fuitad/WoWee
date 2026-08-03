@@ -15,7 +15,7 @@ namespace {
 struct Entry { UiElement element; std::string_view name; };
 
 // One row per element, and the only place a name is written down.
-constexpr std::array<Entry, 22> kElements{{
+constexpr std::array<Entry, 32> kElements{{
     {UiElement::PlayerFrame,  "playerframe"},
     {UiElement::TargetFrame,  "targetframe"},
     {UiElement::PetFrame,     "petframe"},
@@ -38,6 +38,16 @@ constexpr std::array<Entry, 22> kElements{{
     {UiElement::QuestGiver,   "questgiver"},
     {UiElement::Gossip,       "gossip"},
     {UiElement::Mail,         "mail"},
+    {UiElement::Vendor,       "vendor"},
+    {UiElement::Loot,         "loot"},
+    {UiElement::Bank,         "bank"},
+    {UiElement::PartyFrames,  "partyframes"},
+    {UiElement::Social,       "social"},
+    {UiElement::TradeSkill,   "tradeskill"},
+    {UiElement::ClassTrainer, "classtrainer"},
+    {UiElement::AuctionHouse, "auctionhouse"},
+    {UiElement::GuildBank,    "guildbank"},
+    {UiElement::Inspect,      "inspect"},
 }};
 
 /// Parsed once. An unknown name is reported rather than dropped: a typo would
@@ -249,6 +259,26 @@ std::vector<std::string> frameXmlSuppressedFrames() {
         {UiElement::QuestGiver, "QuestFrame"},
         {UiElement::Gossip,     "GossipFrame"},
         {UiElement::Mail,       "MailFrame OpenMailFrame"},
+        // Every one of these has a working window in this client and a
+        // FrameXML twin that shows on the same event. The client fires
+        // MERCHANT_SHOW, LOOT_OPENED, BANKFRAME_OPENED, PARTY_MEMBERS_CHANGED
+        // and FRIENDLIST_UPDATE, so all of them were appearing in pairs.
+        {UiElement::Vendor,      "MerchantFrame"},
+        {UiElement::Loot,        "LootFrame"},
+        {UiElement::Bank,        "BankFrame"},
+        {UiElement::PartyFrames, "PartyMemberFrame1 PartyMemberFrame2 "
+                                 "PartyMemberFrame3 PartyMemberFrame4"},
+        {UiElement::Social,      "FriendsFrame"},
+        // These four arrive with the load-on-demand addons, which now load —
+        // so making them work is what put a second window beside the client's
+        // at every profession, trainer, auctioneer and guild bank. The panels
+        // themselves are finished and waiting; this only decides which of the
+        // two is on screen.
+        {UiElement::TradeSkill,   "TradeSkillFrame"},
+        {UiElement::ClassTrainer, "ClassTrainerFrame"},
+        {UiElement::AuctionHouse, "AuctionFrame"},
+        {UiElement::GuildBank,    "GuildBankFrame"},
+        {UiElement::Inspect,      "InspectFrame"},
         // WatchFrameTitle is the "Objectives" label, and the buttons beside it
         // ride on the same frame.
         {UiElement::QuestTracker, "WatchFrame"},
