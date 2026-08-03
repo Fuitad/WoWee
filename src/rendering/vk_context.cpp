@@ -2153,7 +2153,12 @@ void VkContext::resetFrameSyncState() {
                     " upload batches still in flight (", batchesSubmitted_,
                     " submitted, ", batchesRetired_, " retired)");
     }
-    vkDeviceWaitIdle(device);
+    // Checked: if the device is already gone, everything below is theatre and
+    // the fence wait in the next frame takes the blame for it.
+    if (const VkResult idle = vkDeviceWaitIdle(device); idle != VK_SUCCESS) {
+        LOG_ERROR("wait-idle before a rebuild failed: ", static_cast<int>(idle),
+                  " — the device was already lost before this rebuild, not by it");
+    }
 
     // Recreated rather than reset: a fence has to end up signalled, and
     // vkResetFences only ever unsignals. Destroying and remaking with
@@ -2173,6 +2178,40 @@ void VkContext::resetFrameSyncState() {
             vkResetCommandBuffer(frames[i].commandBuffer, 0);
         }
     }
+    // The semaphores go the same way, and for the same reason the fences do.
+    //
+    // A binary semaphore cannot be reset, only waited on. An acquire signals
+    // one; if the swapchain is rebuilt before the submit that would have
+    // waited on it, it stays signalled with nothing left to consume it. The
+    // rebuild only ever created or destroyed these when the image *count*
+    // changed, so on a rebuild that keeps the same count — which an MSAA or
+    // FSR change does — every one of them carried its state across.
+    //
+    // Handing an already-signalled semaphore to vkAcquireNextImageKHR is
+    // undefined, and the driver answers by losing the device. That is the
+    // shape of it: a settings change, a rebuild, then the very next frame
+    // failing its fence wait with VK_ERROR_DEVICE_LOST.
+    //
+    // vkDeviceWaitIdle above guarantees nothing is still using them, so
+    // destroying and remaking here is safe and leaves every one unsignalled.
+    {
+        VkSemaphoreCreateInfo semInfo{};
+        semInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        auto remake = [&](VkSemaphore& sem) {
+            if (sem) vkDestroySemaphore(device, sem, nullptr);
+            sem = VK_NULL_HANDLE;
+            if (vkCreateSemaphore(device, &semInfo, nullptr, &sem) != VK_SUCCESS) {
+                LOG_ERROR("Could not remake a swapchain semaphore after a rebuild");
+            }
+        };
+        for (auto& sem : imageAcquiredSemaphores_)  remake(sem);
+        for (auto& sem : renderFinishedSemaphores_) remake(sem);
+        remake(nextAcquireSemaphore_);
+        // Not remade: it is one of the per-image ones above, already replaced.
+        // Left dangling it would name a semaphore that no longer exists.
+        currentAcquireSemaphore_ = VK_NULL_HANDLE;
+    }
+
     currentFrame = 0;
     LOG_WARNING("Frame synchronisation reset after a rebuild: fences signalled, "
                 "command buffers reset, back to slot 0");
