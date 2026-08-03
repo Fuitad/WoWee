@@ -503,7 +503,10 @@ std::vector<std::string> frameXmlCheckFrames() {
                                   "ContainerFrame2BackgroundMiddle1 "
                                   "ContainerFrame2BackgroundBottom"},
         {UiElement::Spellbook,    "SpellBookFrame SpellButton1 SpellBookSkillLineTab1"},
-        {UiElement::QuestLog,     "QuestLogFrame QuestLogListScrollFrame "
+        // QuestLogScrollFrame, not QuestLogListScrollFrame: no frame has ever
+        // been called that, so the list of quests was never hidden with the
+        // window around it.
+        {UiElement::QuestLog,     "QuestLogFrame QuestLogScrollFrame "
                                   "QuestLogDetailScrollFrame"},
     };
 

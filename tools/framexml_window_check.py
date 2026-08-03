@@ -90,6 +90,74 @@ def topLevelWindows():
     return found
 
 
+def declaredNames():
+    """Every frame or region name the XML declares, and the $parent suffixes."""
+    plain, suffixes = set(), set()
+    for path in list(FRAMEXML.glob("*.xml")) + \
+                list((ROOT / "Data" / "interface" / "addons").glob("*/*.xml")):
+        text = path.read_text(errors="ignore")
+        for n in re.findall(r'name="([^"]+)"', text):
+            if n.startswith("$parent"):
+                suffixes.add(n[len("$parent"):])
+            else:
+                plain.add(n)
+    return plain, suffixes
+
+
+def checkSuppressionNames():
+    """Names listed for suppression that no XML declares.
+
+    A name invented here suppresses nothing and reports NOT BUILT forever, which
+    looks identical to a frame that simply never opens. Names built from
+    $parent are composed at run time, so a listed name counts as real when it is
+    some declared frame followed by a declared $parent suffix.
+    """
+    plain, suffixes = declaredNames()
+
+    # Frames the Lua builds by name at run time: BuffButton1 comes from
+    # CreateFrame("Button", "BuffButton"..i, ...) and no XML mentions it.
+    builtPrefixes = set()
+    for path in FRAMEXML.glob("*.lua"):
+        text = path.read_text(errors="ignore")
+        builtPrefixes |= set(re.findall(
+            r'CreateFrame\(\s*"[^"]+"\s*,\s*"([A-Za-z]\w*)"\s*\.\.', text))
+        # BuffButton1 is reached as _G["BuffButton"..i]; the frame itself was
+        # created from a variable, so the prefix only appears at the lookup.
+        builtPrefixes |= set(re.findall(r'_G\[\s*"([A-Za-z]\w*)"\s*\.\.', text))
+
+    def composed(name):
+        """A $parent name, possibly nested: TargetFrame + TextureFrame + Name."""
+        seen = set()
+        while name and name not in seen:
+            if name in plain:
+                return True
+            seen.add(name)
+            longest = ""
+            for suffix in suffixes:
+                if suffix and name.endswith(suffix) and len(suffix) > len(longest):
+                    longest = suffix
+            if not longest:
+                return False
+            name = name[: -len(longest)]
+        return False
+
+    listed = []
+    for m in re.finditer(r'\{UiElement::(\w+),\s*((?:"[^"]*"\s*)+)', TAKEOVER.read_text()):
+        blob = " ".join(re.findall(r'"([^"]*)"', m.group(2)))
+        listed += [(n, m.group(1)) for n in blob.split() if n and n[0].isupper()]
+
+    unknown = []
+    for name, element in listed:
+        if name in plain:
+            continue
+        if composed(name):
+            continue                      # composed from $parent at run time
+        if any(name.startswith(pre) for pre in builtPrefixes):
+            continue                      # named by the Lua as it creates it
+        unknown.append((name, element))
+    return listed, unknown
+
+
 def main():
     showAll = "--all" in sys.argv
     if not TAKEOVER.is_file():
@@ -113,8 +181,24 @@ def main():
     print(f"{len(windows)} top-level windows; "
           f"{len(windows) - len(unknown)} accounted for or ignored\n")
     if not unknown:
-        print("Nothing undecided.")
+        listed, bad = checkSuppressionNames()
+        if bad:
+            print(f"{len(listed)} names listed for suppression; "
+                  f"{len(bad)} that no XML declares:")
+            for name, element in bad:
+                print(f"    {name:<38} {element}")
+            print("    A name nothing declares suppresses nothing.")
+        else:
+            print("Nothing undecided, and every suppressed name is a real frame.")
         return 0
+
+    listed, badNames = checkSuppressionNames()
+    if badNames:
+        print(f"{len(listed)} frame names listed for suppression; "
+              f"{len(badNames)} that no XML declares:")
+        for name, element in badNames:
+            print(f"    {name:<38} {element}")
+        print("    A name nothing declares suppresses nothing.\n")
 
     print("Neither owned nor suppressed — check whether this client draws one:")
     for name, source in sorted(unknown.items()):
