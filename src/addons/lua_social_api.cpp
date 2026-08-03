@@ -407,17 +407,23 @@ struct Standing {
 };
 
 Standing standingFor(int32_t value) {
-    // Bottom of each standing, in order. The top of one is the bottom of the
-    // next, and exalted has no top so it is given the width of revered.
+    // Bottom of each standing, in order; the top of one is the bottom of the
+    // next. Checked against the tier table this client's own reputation panel
+    // carries, which agrees to the number — two tables of the same thresholds
+    // that disagreed would put the same faction in different standings
+    // depending on which window was open.
     static const int32_t kBottoms[8] = {
         -42000, -6000, -3000, 0, 3000, 9000, 21000, 42000
     };
+    // Exalted is a thousand wide and stays there: the bar reads out of a
+    // thousand rather than filling from forty-two to sixty-three.
+    constexpr int32_t kExaltedWidth = 1000;
     Standing s;
     for (int i = 7; i >= 0; --i) {
         if (value >= kBottoms[i]) {
             s.id = i + 1;
             s.barMin = kBottoms[i];
-            s.barMax = (i < 7) ? kBottoms[i + 1] : 42000 + 21000;
+            s.barMax = (i < 7) ? kBottoms[i + 1] : kBottoms[7] + kExaltedWidth;
             return s;
         }
     }
