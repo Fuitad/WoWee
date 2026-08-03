@@ -99,6 +99,15 @@ add_test(NAME addon_xml_compiles COMMAND framexml_compile_check
          ${CMAKE_SOURCE_DIR}/Data/interface/addons)
 set_tests_properties(addon_xml_compiles PROPERTIES SKIP_RETURN_CODE 77)
 
+# ── test_reputation_standing ────────────────────────────────
+# Header-only and constexpr, so this needs nothing linked: the point is that the
+# thresholds have one home now and stay put.
+add_executable(test_reputation_standing test_reputation_standing.cpp)
+target_include_directories(test_reputation_standing PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_reputation_standing SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_reputation_standing PRIVATE catch2_main)
+add_test(NAME reputation_standing COMMAND test_reputation_standing)
+
 # ── test_widget_tree ────────────────────────────────────────
 add_executable(test_widget_tree
     test_widget_tree.cpp
