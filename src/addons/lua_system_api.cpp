@@ -1054,11 +1054,6 @@ static int lua_IsAddOnLoaded(lua_State* L) {
 /// GetTime() + duration and something else compares against it later. It was
 /// never implemented, so every one of those comparisons was against nil —
 /// including the ones in this client's own bootstrap.
-static int lua_GetTime(lua_State* L) {
-    lua_pushnumber(L, wowee::core::appTimeSeconds());
-    return 1;
-}
-
 /// LoadAddOn(name) → loaded, reason.
 ///
 /// The reason is not optional when loaded is false: UIParentLoadAddOn builds
@@ -1360,11 +1355,9 @@ static int lua_LeaveBattlefield(lua_State* L) {
 // so the black separator never got its colour, the ping never initialised, and
 // the WorldMapFrame_Update() call that ends OnLoad never ran at all.
 //
-// UpdateWorldMapArrowFrames is here for the same reason even though nothing
-// reported it missing — it is the first of the group inside
-// WorldMapFrame_Update, which could not be reached while OnLoad was failing.
+// UpdateWorldMapArrowFrames is not among them: it was already registered
+// elsewhere in this file, which is why it never appeared as missing.
 static int lua_CreateWorldMapArrowFrame(lua_State* L) { (void)L; return 0; }
-static int lua_UpdateWorldMapArrowFrames(lua_State* L) { (void)L; return 0; }
 static int lua_ShowWorldMapArrowFrame(lua_State* L) { (void)L; return 0; }
 static int lua_PositionWorldMapArrowFrame(lua_State* L) { (void)L; return 0; }
 static int lua_InitWorldMapPing(lua_State* L) { (void)L; return 0; }
@@ -1646,7 +1639,6 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetWorldPVPQueueStatus",   lua_GetWorldPVPQueueStatus},
                 {"LeaveBattlefield",         lua_LeaveBattlefield},
                 {"CreateWorldMapArrowFrame",   lua_CreateWorldMapArrowFrame},
-                {"UpdateWorldMapArrowFrames",  lua_UpdateWorldMapArrowFrames},
                 {"ShowWorldMapArrowFrame",     lua_ShowWorldMapArrowFrame},
                 {"PositionWorldMapArrowFrame", lua_PositionWorldMapArrowFrame},
                 {"InitWorldMapPing",           lua_InitWorldMapPing},
@@ -1679,7 +1671,6 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"UpdateAddOnMemoryUsage",   lua_ReturnNothing},
                 {"RunScript",                lua_RunScript},
                 {"IsMouseButtonDown",        lua_IsMouseButtonDown},
-                {"GetTime",                  lua_GetTime},
                 {"GetCVarDefault",           lua_GetCVar},
                 {"IsAddOnLoaded",            lua_IsAddOnLoaded},
                 {"LoadAddOn",                lua_LoadAddOn},

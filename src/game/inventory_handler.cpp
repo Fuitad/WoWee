@@ -892,7 +892,12 @@ void InventoryHandler::handleLootResponse(network::Packet& packet) {
     lootWindowOpen_ = true;
     if (owner_.lootWindowCallbackRef()) owner_.lootWindowCallbackRef()(true);
     if (owner_.addonEventCallbackRef()) {
-        owner_.addonEventCallbackRef()("LOOT_OPENED", {});
+        // Carries whether this loot is being taken automatically. The loot
+        // frame reads it on the path where it could not show itself, and
+        // closes with CloseLoot(autoLoot == 0) — so an absent argument
+        // compares false and tells the server the window opened when it did
+        // not.
+        owner_.addonEventCallbackRef()("LOOT_OPENED", {autoLoot_ ? "1" : "0"});
         owner_.addonEventCallbackRef()("LOOT_READY", {});
     }
     if (currentLoot_.lootGuid == lastInteractedGoGuid) {
