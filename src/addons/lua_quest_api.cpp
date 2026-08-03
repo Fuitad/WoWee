@@ -2235,6 +2235,34 @@ void registerQuestLuaAPI(lua_State* L) {
                 // SetCursor(art) — the pointer's own image, which this client
                 // does not change.
                 {"SetCursor", [](lua_State* L) -> int { (void)L; return 0; }},
+                // How long until the daily quests reset, which the quest log
+                // prints in a tooltip through SecondsToTime. A nil there is
+                // arithmetic on nothing rather than a blank line.
+                //
+                // Counted to the next midnight in the server's own day, which
+                // is where a stock realm puts it. Not the true reset — that is
+                // a realm setting nothing sends — but the right shape and the
+                // right order of magnitude, where zero would read as "the
+                // reset is now" every time the tooltip was opened.
+                {"GetQuestResetTime", [](lua_State* L) -> int {
+            const time_t now = time(nullptr);
+            struct tm* t = localtime(&now);
+            const int secondsIntoDay = t ? (t->tm_hour * 3600 + t->tm_min * 60 + t->tm_sec) : 0;
+            lua_pushnumber(L, 86400 - secondsIntoDay);
+            return 1;
+        }},
+                // The cursor changes at a vendor: the hand that sells, and the
+                // hammer that repairs. This client draws its own cursor and
+                // has no art switched by name, so these do nothing — which is
+                // what they did before, silently, as unknown globals.
+                //
+                // Bound rather than left to the fallback because the fallback
+                // is what makes a typo look like a working call, and because a
+                // window that calls nothing undefined is the measure of
+                // whether it can be handed over.
+                {"ShowMerchantSellCursor", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ShowRepairCursor",       [](lua_State* L) -> int { (void)L; return 0; }},
+                {"HideRepairCursor",       [](lua_State* L) -> int { (void)L; return 0; }},
                 // GetNumCompletedAchievements() → total, completed.
                 //
                 // Two values, and the total comes first. This returned one —
