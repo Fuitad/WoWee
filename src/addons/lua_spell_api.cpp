@@ -422,6 +422,49 @@ static uint32_t spellIdForBookSlot(game::GameHandler* gh, int slot) {
     return 0;
 }
 
+/// The spell a call means, in either of the two forms the client accepts.
+///
+/// GetSpellTexture, GetSpellCooldown and GetSpellLink are each overloaded:
+/// **one** argument is a spell id or a spell name, **two** are a book *slot*
+/// and the book holding it. Only the second form is ever used by the
+/// spellbook — SpellBook_GetSpellID hands its buttons a slot, never an id.
+///
+/// Read as an id regardless, a slot of 1, 2, 3 resolved to whatever spells
+/// happen to carry those ids, which is why the spellbook drew a page of
+/// unrelated icons. The names beside them were right the whole time, because
+/// GetSpellName already took the slot form.
+static uint32_t spellIdForCall(lua_State* L, game::GameHandler* gh) {
+    if (!gh) return 0;
+    // A book beside a number is a slot. A book beside a *name* is not a form
+    // the client has, but falling through to the name lookup is free and
+    // beats raising out of a caller that only wanted an icon.
+    if (!lua_isnoneornil(L, 2) && lua_isnumber(L, 1)) {
+        const int slot = static_cast<int>(lua_tonumber(L, 1));
+        // The pet book is a list of its own, not a tab in the player's.
+        // Resolving a pet slot through the player's tabs answers with one of
+        // the player's own spells — a wrong answer that looks like a right
+        // one, which is worse than none.
+        const char* book = lua_tostring(L, 2);
+        if (book && std::string(book) == "pet") {
+            const auto& pet = gh->getPetSpells();
+            if (slot < 1 || slot > static_cast<int>(pet.size())) return 0;
+            return pet[static_cast<size_t>(slot - 1)];
+        }
+        return spellIdForBookSlot(gh, slot);
+    }
+    if (lua_isnumber(L, 1)) return static_cast<uint32_t>(lua_tonumber(L, 1));
+    const char* name = lua_tostring(L, 1);
+    if (!name || !*name) return 0;
+    std::string nameLow(name);
+    toLowerInPlace(nameLow);
+    for (uint32_t sid : gh->getKnownSpells()) {
+        std::string sn = gh->getSpellName(sid);
+        toLowerInPlace(sn);
+        if (sn == nameLow) return sid;
+    }
+    return 0;
+}
+
 /// GetSpellName(slot, bookType) → name, rank.
 static int lua_GetSpellName(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -515,20 +558,9 @@ static int lua_GetSpellCooldown(lua_State* L) {
     // zero. Safe by accident rather than by design, and the next person to give
     // this branch a real start time would have found out the hard way.
     if (!gh) { lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 1); return 3; }
-    // Accept spell name or ID
-    uint32_t spellId = 0;
-    if (lua_isnumber(L, 1)) {
-        spellId = static_cast<uint32_t>(lua_tonumber(L, 1));
-    } else {
-        const char* name = luaL_checkstring(L, 1);
-        std::string nameLow(name);
-        toLowerInPlace(nameLow);
-        for (uint32_t sid : gh->getKnownSpells()) {
-            std::string sn = gh->getSpellName(sid);
-            toLowerInPlace(sn);
-            if (sn == nameLow) { spellId = sid; break; }
-        }
-    }
+    // A name, an id, or a book slot with the book beside it — the spellbook
+    // asks in the last of those three.
+    const uint32_t spellId = spellIdForCall(L, gh);
     float cd = gh->getSpellCooldown(spellId);
     // Also check GCD — if spell has no individual cooldown but GCD is active,
     // return the GCD timing (this is how WoW handles it)
@@ -747,20 +779,7 @@ static int lua_GetSpellTexture(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnNil(L); }
 
-    uint32_t spellId = 0;
-    if (lua_isnumber(L, 1)) {
-        spellId = static_cast<uint32_t>(lua_tonumber(L, 1));
-    } else if (lua_isstring(L, 1)) {
-        const char* name = lua_tostring(L, 1);
-        if (!name || !*name) { return luaReturnNil(L); }
-        std::string nameLow(name);
-        toLowerInPlace(nameLow);
-        for (uint32_t sid : gh->getKnownSpells()) {
-            std::string sn = gh->getSpellName(sid);
-            toLowerInPlace(sn);
-            if (sn == nameLow) { spellId = sid; break; }
-        }
-    }
+    const uint32_t spellId = spellIdForCall(L, gh);
     if (spellId == 0) { return luaReturnNil(L); }
     std::string iconPath = gh->getSpellIconPath(spellId);
     if (!iconPath.empty()) lua_pushstring(L, iconPath.c_str());
@@ -774,20 +793,7 @@ static int lua_GetSpellLink(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnNil(L); }
 
-    uint32_t spellId = 0;
-    if (lua_isnumber(L, 1)) {
-        spellId = static_cast<uint32_t>(lua_tonumber(L, 1));
-    } else if (lua_isstring(L, 1)) {
-        const char* name = lua_tostring(L, 1);
-        if (!name || !*name) { return luaReturnNil(L); }
-        std::string nameLow(name);
-        toLowerInPlace(nameLow);
-        for (uint32_t sid : gh->getKnownSpells()) {
-            std::string sn = gh->getSpellName(sid);
-            toLowerInPlace(sn);
-            if (sn == nameLow) { spellId = sid; break; }
-        }
-    }
+    const uint32_t spellId = spellIdForCall(L, gh);
     if (spellId == 0) { return luaReturnNil(L); }
     std::string name = gh->getSpellName(spellId);
     if (name.empty()) { return luaReturnNil(L); }
