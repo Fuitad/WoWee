@@ -91,6 +91,36 @@ static int lua_GetQuestLogSelection(lua_State* L) {
     return 1;
 }
 
+/// The quest the log has selected, or null if none is.
+static const game::QuestHandler::QuestLogEntry* selectedQuest(game::GameHandler* gh) {
+    if (!gh) return nullptr;
+    const int index = gh->getSelectedQuestLogIndex();
+    const auto& log = gh->getQuestLog();
+    if (index < 1 || index > static_cast<int>(log.size())) return nullptr;
+    return &log[static_cast<size_t>(index - 1)];
+}
+
+// GetQuestLogPushable() → whether the selected quest may be offered to the party.
+//
+// Yes for any real selection. Which quests the server will actually share is a
+// flag on the quest, and no packet this client parses carries it — so the
+// choice is between offering the attempt and letting the server refuse, or
+// never offering it at all. The button is disabled without this, and sharing
+// works, so silence would be the more misleading answer of the two.
+static int lua_GetQuestLogPushable(lua_State* L) {
+    lua_pushboolean(L, selectedQuest(getGameHandler(L)) != nullptr ? 1 : 0);
+    return 1;
+}
+
+// QuestLogPushQuest() — offer the selected quest to the party.
+static int lua_QuestLogPushQuest(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (const auto* quest = selectedQuest(gh)) {
+        gh->shareQuestWithParty(quest->questId);
+    }
+    return 0;
+}
+
 // GetNumQuestWatches() → count
 static int lua_GetNumQuestWatches(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -1365,6 +1395,8 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"IsQuestComplete",         lua_IsQuestComplete},
                 {"SelectQuestLogEntry",     lua_SelectQuestLogEntry},
                 {"GetQuestLogSelection",    lua_GetQuestLogSelection},
+                {"GetQuestLogPushable",     lua_GetQuestLogPushable},
+                {"QuestLogPushQuest",       lua_QuestLogPushQuest},
                 {"GetNumQuestWatches",      lua_GetNumQuestWatches},
                 {"GetQuestIndexForWatch",   lua_GetQuestIndexForWatch},
                 {"AddQuestWatch",           lua_AddQuestWatch},
