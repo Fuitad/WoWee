@@ -42,7 +42,12 @@ SRC = ROOT / "src" / "addons"
 # A call on something, rather than a call to a global: the character before the
 # name is a colon or a dot. Lua's own `string.format` is caught by this too,
 # which is correct — it is not a global this client has to provide.
-CALL = re.compile(r"(?<![:.\w])([A-Z][A-Za-z0-9_]{2,})\s*\(")
+# A call is a bare global, not obj.Method() and not a:Method() — but the
+# lookbehind that says so also rejects the operand of a concatenation,
+# because the character before the name in `.."x"..Call()` is a dot. That
+# hid every function called that way, and one of them was raising in
+# BarberShop_OnLoad while this reported the barber addon clean.
+CALL = re.compile(r"(?:(?<![:.\w])|(?<=\.\.))([A-Z][A-Za-z0-9_]{2,})\s*\(")
 DEF_FUNC = re.compile(r"^\s*(?:local\s+)?function\s+([A-Za-z_]\w*)", re.M)
 # `= function` specifically, and not a bare assignment: matching any `x = ...`
 # swallowed every variable in the interface and took the known-set from four
