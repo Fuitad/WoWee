@@ -1124,6 +1124,45 @@ static int lua_GetQuestLogChoiceInfo(lua_State* L) {
                         static_cast<int>(luaL_optnumber(L, 1, 0)));
 }
 
+// GetQuestLogItemLink(type, index) → a reward of the selected quest, as a link.
+//
+// The quest log's own version of GetQuestItemLink, over the same two lists
+// GetQuestLogRewardInfo and GetQuestLogChoiceInfo read. Shift-clicking a
+// reward in the log put nothing in chat before.
+static int lua_GetQuestLogItemLink(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* q = selectedLogEntry(gh);
+    const char* type = luaL_optstring(L, 1, "reward");
+    const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (!gh || !q || index < 1) { return luaReturnNil(L); }
+
+    // The two lists are fixed arrays of different lengths, so they are walked
+    // by a template rather than bound to one reference.
+    const auto linkAt = [&](const auto& list) -> int {
+        int seen = 0;
+        for (const auto& r : list) {
+            if (r.itemId == 0) continue;
+            if (++seen != index) continue;
+            const auto* info = gh->getItemInfo(r.itemId);
+            const std::string name = info ? info->name : "";
+            if (name.empty()) break;
+            lua_pushstring(L, game::buildItemLink(r.itemId,
+                                                  info ? info->quality : 1u,
+                                                  name).c_str());
+            return 1;
+        }
+        return luaReturnNil(L);
+    };
+    return (std::string(type) == "choice") ? linkAt(q->rewardChoiceItems)
+                                           : linkAt(q->rewardItems);
+}
+
+// Nil for the same reason GetQuestSpellLink is: nothing this client parses
+// says a quest gives a spell, so there is no spell to name.
+static int lua_GetQuestLogSpellLink(lua_State* L) {
+    return luaReturnNil(L);
+}
+
 static int lua_GetQuestLogRewardMoney(lua_State* L) {
     const auto* q = selectedLogEntry(getGameHandler(L));
     lua_pushnumber(L, q ? q->rewardMoney : 0);
@@ -1534,6 +1573,8 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetNumQuestLogChoices", lua_GetNumQuestLogChoices},
                 {"GetQuestLogRewardInfo", lua_GetQuestLogRewardInfo},
                 {"GetQuestLogChoiceInfo", lua_GetQuestLogChoiceInfo},
+                {"GetQuestLogItemLink",     lua_GetQuestLogItemLink},
+                {"GetQuestLogSpellLink",    lua_GetQuestLogSpellLink},
                 {"GetQuestLogRewardMoney", lua_GetQuestLogRewardMoney},
                 {"GetTitleText",         lua_GetTitleText},
                 {"GetQuestText",         lua_GetQuestText},
