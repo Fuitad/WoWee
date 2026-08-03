@@ -143,6 +143,11 @@ public:
     const GuildRosterData& getGuildRoster() const { return guildRoster_; }
     bool hasGuildRoster() const { return hasGuildRoster_; }
     const std::vector<std::string>& getGuildRankNames() const { return guildRankNames_; }
+    /// The rights bitmask of the player's own guild rank, or 0 when it is not
+    /// known. The roster carries one per rank and the member row names which
+    /// rank each member holds; both were parsed and stored and neither was
+    /// being read.
+    uint32_t getPlayerGuildRankRights() const;
     bool hasPendingGuildInvite() const { return pendingGuildInvite_; }
     const std::string& getPendingGuildInviterName() const { return pendingGuildInviterName_; }
     const std::string& getPendingGuildInviteGuildName() const { return pendingGuildInviteGuildName_; }

@@ -615,6 +615,7 @@ public:
     const GuildRosterData& getGuildRoster() const;
     bool hasGuildRoster() const;
     const std::vector<std::string>& getGuildRankNames() const;
+    uint32_t getPlayerGuildRankRights() const;
     bool hasPendingGuildInvite() const;
     const std::string& getPendingGuildInviterName() const;
     const std::string& getPendingGuildInviteGuildName() const;

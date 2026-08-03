@@ -2009,6 +2009,10 @@ bool GameHandler::hasPendingBgInvite() const {
     return socialHandler_ && socialHandler_->hasPendingBgInvite();
 }
 
+uint32_t GameHandler::getPlayerGuildRankRights() const {
+    return socialHandler_ ? socialHandler_->getPlayerGuildRankRights() : 0u;
+}
+
 void GameHandler::delGuildRank() {
     if (socialHandler_) socialHandler_->delGuildRank();
 }

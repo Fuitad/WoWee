@@ -2036,6 +2036,17 @@ void SocialHandler::handleGuildRoster(network::Packet& packet) {
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("GUILD_ROSTER_UPDATE", {});
 }
 
+uint32_t SocialHandler::getPlayerGuildRankRights() const {
+    if (!hasGuildRoster_) return 0;
+    const uint64_t me = owner_.getPlayerGuid();
+    for (const auto& m : guildRoster_.members) {
+        if (m.guid != me) continue;
+        if (m.rankIndex >= guildRoster_.ranks.size()) return 0;
+        return guildRoster_.ranks[m.rankIndex].rights;
+    }
+    return 0;
+}
+
 void SocialHandler::handleGuildQueryResponse(network::Packet& packet) {
     GuildQueryResponseData data;
     if (!owner_.getPacketParsers()->parseGuildQueryResponse(packet, data)) return;

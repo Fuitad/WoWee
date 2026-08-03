@@ -38,6 +38,14 @@ static void collectKnownLanguages(uint8_t raceId, std::vector<LanguageEntry>& ou
     if (out.empty() || out[0].id != faction.id) out.push_back(faction);
 }
 
+/// Whether the player's guild rank holds one right. Shared by the nine Can*
+/// queries, which differ only in which bit they ask about.
+static int luaGuildRight(lua_State* L, uint32_t bit) {
+    auto* gh = getGameHandler(L);
+    lua_pushboolean(L, (gh && (gh->getPlayerGuildRankRights() & bit)) ? 1 : 0);
+    return 1;
+}
+
 static int lua_GetNumLanguages(lua_State* L) {
     auto* gh = getGameHandler(L);
     std::vector<LanguageEntry> langs;
@@ -634,6 +642,65 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetMacroItemIconInfo", lua_GetMacroIconInfo},
                 {"NewGMTicket",         lua_NewGMTicket},
                 {"DeleteGMTicket",      lua_DeleteGMTicket},
+                // ---- Guild rank permissions ----
+                //
+                // SMSG_GUILD_ROSTER carries a rights bitmask per rank and names
+                // which rank each member holds. Both were already parsed and
+                // stored; nothing read them, so every one of these answered
+                // through the missing-API fallback and the guild panel offered
+                // actions the player may not have.
+                //
+                // The bits are the server's own: invite 0x10, remove 0x20,
+                // promote 0x80, demote 0x100, set MOTD 0x1000, edit public note
+                // 0x2000, view officer note 0x4000, edit officer note 0x8000.
+                {"CanGuildInvite",      [](lua_State* L) -> int { return luaGuildRight(L, 0x00000010u); }},
+                {"CanGuildRemove",      [](lua_State* L) -> int { return luaGuildRight(L, 0x00000020u); }},
+                {"CanGuildPromote",     [](lua_State* L) -> int { return luaGuildRight(L, 0x00000080u); }},
+                {"CanGuildDemote",      [](lua_State* L) -> int { return luaGuildRight(L, 0x00000100u); }},
+                {"CanEditMOTD",         [](lua_State* L) -> int { return luaGuildRight(L, 0x00001000u); }},
+                {"CanEditPublicNote",   [](lua_State* L) -> int { return luaGuildRight(L, 0x00002000u); }},
+                {"CanViewOfficerNote",  [](lua_State* L) -> int { return luaGuildRight(L, 0x00004000u); }},
+                {"CanEditOfficerNote",  [](lua_State* L) -> int { return luaGuildRight(L, 0x00008000u); }},
+                {"CanEditGuildInfo",    [](lua_State* L) -> int { return luaGuildRight(L, 0x00010000u); }},
+
+                // GetGuildRosterLastOnline(index) → how long since that member
+                // was last seen, as years, months, days, hours.
+                {"GetGuildRosterLastOnline", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh || idx < 1) return luaReturnNil(L);
+            const auto& roster = gh->getGuildRoster();
+            if (idx > static_cast<int>(roster.members.size())) return luaReturnNil(L);
+            // The roster reports it in days, fractionally.
+            const float days = roster.members[static_cast<size_t>(idx) - 1].lastOnline;
+            const int totalDays = static_cast<int>(days);
+            lua_pushnumber(L, totalDays / 365);          // years
+            lua_pushnumber(L, (totalDays % 365) / 30);   // months
+            lua_pushnumber(L, (totalDays % 365) % 30);   // days
+            lua_pushnumber(L, static_cast<int>((days - totalDays) * 24.0f)); // hours
+            return 4;
+        }},
+                // The guild event log is a separate request this client never
+                // makes, so there are no entries to describe.
+                {"GetGuildEventInfo", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                // One realm, so everyone is on it.
+                {"UnitIsSameServer", [](lua_State* L) -> int { lua_pushboolean(L, 1); return 1; }},
+                // Recruit-a-Friend summoning, which needs a linked account.
+                {"CanSummonFriend", luaReturnFalse},
+                {"SummonFriend",    [](lua_State* L) -> int { (void)L; return 0; }},
+                // The voice mute list, which cannot have entries without voice.
+                {"GetSelectedMute", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                {"SetSelectedMute", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GetMuteName",     [](lua_State* L) -> int { return luaReturnNil(L); }},
+                {"DelMute",         [](lua_State* L) -> int { (void)L; return 0; }},
+                // Guild bank rank permissions are not parsed, and guessing them
+                // would offer withdrawals the server will refuse.
+                {"GetGuildBankTabPermissions", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                {"GetGuildBankWithdrawLimit",  [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
+                {"SetGuildBankTabPermissions", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SetGuildBankTabWithdraw",    [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SetGuildBankWithdrawLimit",  [](lua_State* L) -> int { (void)L; return 0; }},
+
                 // ---- Mail: invoices, stationery, and the spam report ----
                 //
                 // GetInboxInvoiceInfo(id) → invoiceType, itemName, playerName,
