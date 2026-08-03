@@ -4,6 +4,56 @@
 
 namespace wowee::addons {
 
+// --- Totems ---
+//
+// Four slots, each holding a spell and how long it has left. The interface
+// wants the moment one was placed rather than its age, on the same clock
+// GetTime() reports — a bar that is drawn from start and duration cannot use a
+// figure measured from a different zero.
+
+// GetTotemInfo(slot) → haveTotem, name, startTime, duration, icon
+static int lua_GetTotemInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || slot < 1 || slot > game::GameHandler::NUM_TOTEM_SLOTS) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "");
+        lua_pushnumber(L, 0);
+        lua_pushnumber(L, 0);
+        lua_pushnil(L);
+        return 5;
+    }
+    const auto& totem = gh->getTotemSlot(slot - 1);
+    const bool active = totem.active();
+    const double durationSec = totem.durationMs / 1000.0;
+    const double remainingSec = totem.remainingMs() / 1000.0;
+
+    lua_pushboolean(L, active ? 1 : 0);
+    lua_pushstring(L, active ? gh->getSpellName(totem.spellId).c_str() : "");
+    // Placed at however long ago it has already run for.
+    lua_pushnumber(L, active ? luaGetTimeNow() - (durationSec - remainingSec) : 0.0);
+    lua_pushnumber(L, active ? durationSec : 0.0);
+    if (active) {
+        const std::string icon = gh->getSpellIconPath(totem.spellId);
+        if (!icon.empty()) lua_pushstring(L, icon.c_str()); else lua_pushnil(L);
+    } else {
+        lua_pushnil(L);
+    }
+    return 5;
+}
+
+// GetTotemTimeLeft(slot) → seconds
+static int lua_GetTotemTimeLeft(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || slot < 1 || slot > game::GameHandler::NUM_TOTEM_SLOTS) {
+        lua_pushnumber(L, 0);
+        return 1;
+    }
+    lua_pushnumber(L, gh->getTotemSlot(slot - 1).remainingMs() / 1000.0);
+    return 1;
+}
+
 static int lua_IsSpellInRange(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnNil(L); }
@@ -822,6 +872,8 @@ static int lua_IsUsableSpell(lua_State* L) {
 
 void registerSpellLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
+                {"GetTotemInfo",     lua_GetTotemInfo},
+                {"GetTotemTimeLeft", lua_GetTotemTimeLeft},
                 {"SpellStopCasting", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (gh) gh->cancelCast();
