@@ -3379,6 +3379,16 @@ void LuaEngine::registerCoreAPI() {
         "SetScrollChild=1,SetSelection=1,SetSendMailItem=1,SetSequence=1,\n"
         "SetSequenceTime=1,SetShadowOffset=1,SetShapeshift=1,SetShown=1,SetSize=1,\n"
         "SetSpacing=1,SetSpell=1,SetSpellByID=1,SetStartDelay=1,SetStatusBarColor=1,\n"
+        // Tooltip setters for things this client cannot describe yet. They
+        // belong here rather than nowhere: a name the metatable does not answer
+        // comes back nil, and GameTooltip:SetTalent(...) on nil is "attempt to
+        // call method", which takes down the handler that was only trying to
+        // show a tooltip. Hovering a talent did that, and the talent, auction
+        // and trade skill panels all load. A no-op leaves the tooltip empty and
+        // is recorded, so it stays visible as a gap instead of a crash.
+        "SetTalent=1,SetAuctionItem=1,SetTradeSkillItem=1,SetGuildBankItem=1,\n"
+        "SetGlyph=1,SetSocketGem=1,SetSocketedItem=1,SetExistingSocketGem=1,\n"
+        "SetScrollOffset=1,RegisterAllEvents=1,\n"
         "SetStatusBarTexture=1,SetTexCoord=1,SetText=1,SetTextHeight=1,\n"
         "SetTexture=1,SetToplevel=1,SetTotem=1,SetTracking=1,\n"
         "SetTradePlayerItem=1,SetTradeTargetItem=1,SetUIPanel=1,SetUnit=1,SetUnitAura=1,\n"
