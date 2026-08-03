@@ -1,3 +1,4 @@
+#include "game/reputation_standing.hpp"
 #include "ui/inventory_screen.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "ui/ui_colors.hpp"
@@ -2014,31 +2015,30 @@ void InventoryScreen::renderReputationPanel(game::GameHandler& gameHandler) {
         return;
     }
 
-    // WoW reputation tier breakpoints (cumulative from floor -42000)
-    // Tier name, threshold for next rank, bar color
+    // Colours only. Where each standing begins and ends is in
+    // game/reputation_standing.hpp, shared with the original interface's
+    // GetFactionInfo — two tables of the same thresholds would eventually
+    // disagree, and the same faction would sit at different standings
+    // depending on which window was open.
+    static const ImVec4 tierColors[8] = {
+        ImVec4(0.6f, 0.1f, 0.1f, 1.0f),   // Hated
+        ImVec4(0.8f, 0.2f, 0.1f, 1.0f),   // Hostile
+        ImVec4(0.9f, 0.5f, 0.1f, 1.0f),   // Unfriendly
+        ImVec4(0.8f, 0.8f, 0.2f, 1.0f),   // Neutral
+        ui::colors::kFriendlyGreen,        // Friendly
+        ImVec4(0.2f, 0.8f, 0.5f, 1.0f),   // Honored
+        ImVec4(0.3f, 0.6f, 1.0f, 1.0f),   // Revered
+        ui::colors::kWarmGold,             // Exalted
+    };
     struct RepTier {
         const char* name;
-        int32_t     floor;   // raw value where this tier begins
-        int32_t     ceiling; // raw value where the next tier begins
+        int32_t     floor;
+        int32_t     ceiling;
         ImVec4      color;
     };
-    static constexpr RepTier tiers[] = {
-        { "Hated",       -42000, -6001, ImVec4(0.6f, 0.1f, 0.1f, 1.0f) },
-        { "Hostile",      -6000, -3001, ImVec4(0.8f, 0.2f, 0.1f, 1.0f) },
-        { "Unfriendly",   -3000,    -1, ImVec4(0.9f, 0.5f, 0.1f, 1.0f) },
-        { "Neutral",          0,  2999, ImVec4(0.8f, 0.8f, 0.2f, 1.0f) },
-        { "Friendly",      3000,  8999, ui::colors::kFriendlyGreen },
-        { "Honored",       9000, 20999, ImVec4(0.2f, 0.8f, 0.5f, 1.0f) },
-        { "Revered",      21000, 41999, ImVec4(0.3f, 0.6f, 1.0f, 1.0f) },
-        { "Exalted",      42000, 42000, ui::colors::kWarmGold },
-    };
-
-    constexpr int kNumTiers = static_cast<int>(sizeof(tiers) / sizeof(tiers[0]));
-    auto getTier = [&](int32_t val) -> const RepTier& {
-        for (int i = kNumTiers - 1; i >= 0; --i) {
-            if (val >= tiers[i].floor) return tiers[i];
-        }
-        return tiers[0];
+    auto getTier = [&](int32_t val) -> RepTier {
+        const auto& band = game::reputationStandingFor(val);
+        return {band.name, band.floor, band.ceiling, tierColors[band.id - 1]};
     };
 
     // --- Reputation controls ---
@@ -2078,7 +2078,7 @@ void InventoryScreen::renderReputationPanel(game::GameHandler& gameHandler) {
         });
 
     for (const auto& [factionId, standing] : sortedFactions) {
-        const RepTier& tier = getTier(standing);
+        const RepTier tier = getTier(standing);
 
         const std::string& factionName = gameHandler.getFactionNamePublic(factionId);
         const char* displayName = factionName.empty() ? "Unknown Faction" : factionName.c_str();
