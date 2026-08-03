@@ -2765,6 +2765,11 @@ void MovementHandler::handleActivateTaxiReply(network::Packet& packet) {
         return;
     }
 
+    // Whether a reply arrived at all is the first thing worth knowing when a
+    // flight does not happen, and it was only ever said at info level.
+    LOG_WARNING("SMSG_ACTIVATETAXIREPLY: result=", data.result,
+                " pending=", taxiActivatePending_);
+
     if (!taxiActivatePending_) {
         LOG_DEBUG("Ignoring stray taxi reply: result=", data.result);
         return;
@@ -2966,8 +2971,13 @@ void MovementHandler::activateTaxi(uint32_t destNodeId) {
 
     LOG_INFO("Taxi path: ", path.size(), " nodes, from ", startNode, " to ", destNodeId);
 
-    LOG_INFO("Taxi activate: npc=0x", std::hex, taxiNpcGuid_, std::dec,
-             " start=", startNode, " dest=", destNodeId, " pathLen=", path.size());
+    // At warning level: the log carries nothing below it, and a flight that
+    // goes wrong is otherwise reported with the request that caused it
+    // invisible. A guid of zero here means no flight master was recorded, and
+    // the server has nothing to answer.
+    LOG_WARNING("Taxi activate: npc=0x", std::hex, taxiNpcGuid_, std::dec,
+                " start=", startNode, " dest=", destNodeId,
+                " pathLen=", path.size());
     if (!path.empty()) {
         std::string pathStr;
         for (size_t i = 0; i < path.size(); i++) {
@@ -2980,8 +2990,22 @@ void MovementHandler::activateTaxi(uint32_t destNodeId) {
     uint32_t totalCost = getTaxiCostTo(destNodeId);
     LOG_INFO("Taxi activate: start=", startNode, " dest=", destNodeId, " cost=", totalCost);
 
-    auto basicPkt = ActivateTaxiPacket::build(taxiNpcGuid_, startNode, destNodeId);
-    owner_.getSocket()->send(basicPkt);
+    // A route of more than two nodes has to go as ACTIVATETAXIEXPRESS with the
+    // whole path. CMSG_ACTIVATETAXI carries only a source and a destination,
+    // and the server answers it by looking for a single TaxiPath joining the
+    // two — so anything needing an intermediate stop has no such path, gets no
+    // reply, and times out. Stormwind to Westfall is one hop and worked;
+    // everything further did not.
+    if (path.size() > 2) {
+        auto expressPkt =
+            ActivateTaxiExpressPacket::build(taxiNpcGuid_, totalCost, path);
+        owner_.getSocket()->send(expressPkt);
+        LOG_WARNING("Taxi activate: sent EXPRESS for ", path.size(),
+                    " nodes (a multi-hop route has no single path to ask for)");
+    } else {
+        auto basicPkt = ActivateTaxiPacket::build(taxiNpcGuid_, startNode, destNodeId);
+        owner_.getSocket()->send(basicPkt);
+    }
 
     taxiWindowOpen_ = false;
     taxiActivatePending_ = true;
