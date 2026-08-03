@@ -15,7 +15,7 @@ namespace {
 struct Entry { UiElement element; std::string_view name; };
 
 // One row per element, and the only place a name is written down.
-constexpr std::array<Entry, 46> kElements{{
+constexpr std::array<Entry, 45> kElements{{
     {UiElement::PlayerFrame,  "playerframe"},
     {UiElement::TargetFrame,  "targetframe"},
     {UiElement::PetFrame,     "petframe"},
@@ -58,7 +58,6 @@ constexpr std::array<Entry, 46> kElements{{
     {UiElement::GameMenu,          "gamemenu"},
     {UiElement::Help,              "help"},
     {UiElement::BattlegroundScore, "bgscore"},
-    {UiElement::Reputation,   "reputation"},
     {UiElement::Totems,       "totems"},
     {UiElement::Talents,      "talents"},
     {UiElement::UiErrors,     "uierrors"},
@@ -328,10 +327,15 @@ const Suppress kSuppress[] = {
         {UiElement::Help,       "HelpFrame TicketStatusFrame"},
         {UiElement::BattlegroundScore, "WorldStateScoreFrame"},
         // Reachable only since their APIs were finished: a window whose
-        // functions all answer opens where before it stayed empty and unnoticed.
-        // This client draws a reputation panel inside the character screen, a
-        // totem bar, and a talent screen of its own.
-        {UiElement::Reputation, "ReputationFrame"},
+        // functions all answer opens where before it stayed empty and
+        // unnoticed. This client draws a totem bar and a talent screen of its
+        // own.
+        //
+        // ReputationFrame is deliberately absent. It is one of
+        // CHARACTERFRAME_SUBFRAMES, so it belongs to the character frame rather
+        // than standing alone — and that is owned, with this client's whole
+        // character screen already gated on it. Suppressing the frame blanked
+        // the Reputation tab of a window FrameXML is supposed to be drawing.
         {UiElement::Totems,     "TotemFrame MultiCastActionBarFrame"},
         {UiElement::Talents,    "PlayerTalentFrame", /*lazy=*/true},
         // Errors are fired as UI_ERROR_MESSAGE, which UIErrorsFrame listens

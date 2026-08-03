@@ -1771,11 +1771,7 @@ void InventoryScreen::renderCharacterScreen(game::GameHandler& gameHandler) {
             ImGui::EndTabItem();
         }
 
-        // The tab goes entirely when the original interface owns reputation:
-        // an empty tab beside a window that has the same thing in it reads as
-        // the feature being broken.
-        if (!ui::frameXmlOwns(ui::UiElement::Reputation) &&
-            ImGui::BeginTabItem("Reputation")) {
+        if (ImGui::BeginTabItem("Reputation")) {
             renderReputationPanel(gameHandler);
             ImGui::EndTabItem();
         }

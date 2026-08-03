@@ -633,7 +633,9 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     }
 
     // Talents (N key toggle handled inside)
-    talentScreen.render(gameHandler);
+    if (!frameXmlOwns(UiElement::Talents)) {
+        talentScreen.render(gameHandler);
+    }
 
     // Set up inventory screen asset manager + player appearance (re-init on character switch)
     {
