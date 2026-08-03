@@ -1031,6 +1031,33 @@ static int lua_GetRewardXP(lua_State* L) {
     return 1;
 }
 
+// --- Rewards this client is not told about ---
+//
+// Honour, arena points and talent points are not in any quest packet this
+// client parses, and the quest log is built from SMSG_QUEST_QUERY_RESPONSE,
+// which does not carry experience either — in 3.3.5a the client derives that
+// from a QuestXP.dbc row index and the quest's level, which nothing here reads.
+//
+// They answer zero rather than staying absent because the reward panel adds
+// and compares them without checking first:
+//
+//     local totalRewards = numQuestRewards + numQuestChoices + numQuestSpellRewards;
+//     if ( numQuestRewards > 0 or money > 0 or honor > 0 or ... )
+//
+// `or` short-circuits, so `honor > 0` is only reached when there is no fixed
+// item reward and no money — which is most quests. Comparing nil against a
+// number raises, so the panel died on opening for them. Zero is also the true
+// answer for nearly every quest: honour, arena points and talent points are
+// rare rewards. A quest that does pay them shows one line short, which is a
+// far smaller wrong than a reward panel that will not open.
+//
+// The title is deliberately left nil. It is read as `not playerTitle`, where
+// nil means "no title" and is exactly right.
+static int lua_GetZeroReward(lua_State* L) {
+    lua_pushnumber(L, 0);
+    return 1;
+}
+
 // GetQuestMoneyToGet() → coin the player has to *hand over*, which is the
 // opposite of the reward and a different field entirely. Some quests ask for
 // money; showing the reward here would tell the player they are being paid
@@ -1249,6 +1276,13 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetQuestMoneyToGet",   lua_GetQuestMoneyToGet},
                 {"GetRewardMoney",       lua_GetRewardMoney},
                 {"GetRewardXP",          lua_GetRewardXP},
+                {"GetRewardHonor",              lua_GetZeroReward},
+                {"GetRewardArenaPoints",        lua_GetZeroReward},
+                {"GetRewardTalents",            lua_GetZeroReward},
+                {"GetQuestLogRewardHonor",       lua_GetZeroReward},
+                {"GetQuestLogRewardArenaPoints", lua_GetZeroReward},
+                {"GetQuestLogRewardTalents",     lua_GetZeroReward},
+                {"GetQuestLogRewardXP",          lua_GetZeroReward},
                 {"IsQuestCompletable",   lua_IsQuestCompletable},
                 {"GetQuestReward",       lua_GetQuestReward},
                 {"CloseQuest",           lua_CloseQuest},

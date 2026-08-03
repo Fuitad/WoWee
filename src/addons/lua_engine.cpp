@@ -4696,6 +4696,17 @@ void LuaEngine::installMissingApiFallback() {
         "  'GetNumVoiceSessionMembersBySessionID','GetNumBattlegroundTypes',\n"
         "  'GetNumDungeonMapLevels','GetNumMapOverlays','GetNumVoiceSessions',\n"
         "  'GuildControlGetNumRanks','BNGetNumConversationMembers','GetKeyRingSize',\n"
+        // The ignore list asks for all three of these before it draws a row,
+        // and compares each against zero without checking. There is no
+        // Battle.net here, so none of them is an unknown quantity being guessed
+        // at — nobody can have a Battle.net block or a pending invite, and zero
+        // is what is true. Without them, opening the Ignore tab raised.
+        "  'BNGetNumBlocked','BNGetNumBlockedToons','BNGetNumFriendInvites',\n"
+        // Both are counts of something that cannot exist here: nothing tracks
+        // achievements, and no battleground port is ever pending. The
+        // achievement panel compares the first against its own limit before
+        // adding a tracker, and the battlefield frame the second against zero.
+        "  'GetNumTrackedAchievements','GetBattlefieldPortExpiration',\n"
         "}\n"
         "local told = {}\n"
         "for _, name in ipairs(counting) do\n"
