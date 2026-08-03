@@ -802,6 +802,52 @@ void registerQuestLuaAPI(lua_State* L) {
             }
             return 4;
         }},
+                // GetGlyphLink(socket [, talentGroup]) → hyperlink, or nil
+                {"GetGlyphLink", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const int spec  = static_cast<int>(luaL_optnumber(L, 2, 0));
+            if (!gh || index < 1 || index > game::GameHandler::MAX_GLYPH_SLOTS) {
+                lua_pushnil(L);
+                return 1;
+            }
+            const auto& glyphs = (spec >= 1 && spec <= 2)
+                ? gh->getGlyphs(static_cast<uint8_t>(spec - 1)) : gh->getGlyphs();
+            const uint16_t glyphId = glyphs[index - 1];
+            if (glyphId == 0) { lua_pushnil(L); return 1; }
+            std::string name = gh->getSpellName(glyphId);
+            if (name.empty()) name = "Glyph";
+            const std::string link = "|cff66bbff|Hglyph:" + std::to_string(index) +
+                                     ":" + std::to_string(glyphId) + "|h[" + name +
+                                     "]|h|r";
+            lua_pushstring(L, link.c_str());
+            return 1;
+        }},
+                // GlyphMatchesSocket(socket) → whether what is on the cursor
+                // fits. Always false: this client does not track a glyph on the
+                // cursor, and answering yes would light every empty socket as a
+                // place to drop something that cannot be dropped.
+                {"GlyphMatchesSocket", [](lua_State* L) -> int {
+            lua_pushboolean(L, 0);
+            return 1;
+        }},
+                // PlaceGlyphInSocket(socket). Socketing needs a packet this
+                // client does not send, so this says so once rather than
+                // failing quietly — a button that looks live and does nothing
+                // is worse than one that explains itself.
+                {"PlaceGlyphInSocket", [](lua_State* L) -> int {
+            static bool said = false;
+            if (!said) {
+                said = true;
+                LOG_WARNING("PlaceGlyphInSocket: this client cannot apply "
+                            "glyphs — the glyph panel is read-only");
+            }
+            (void)L;
+            return 0;
+        }},
+                // SetCursor(art) — the pointer's own image, which this client
+                // does not change.
+                {"SetCursor", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GetNumCompletedAchievements", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             lua_pushnumber(L, gh ? gh->getEarnedAchievements().size() : 0);
