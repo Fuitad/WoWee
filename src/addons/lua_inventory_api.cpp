@@ -785,27 +785,32 @@ static int lua_GetInventoryItemsForSlot(lua_State* L) {
     // Which inventory types the server sends fit which slot. A flyout that is a
     // little generous about weapons is better than one that hides a sword,
     // so a one-handed weapon is offered for either hand.
-    auto fits = [](int slot, uint32_t invType) {
+    // Named rather than numbered: this client already spells the inventory
+    // types out, and the two agreed when checked against each other.
+    namespace IT = game::InvType;
+    auto fits = [](int slot, uint32_t t) {
         switch (slot) {
-            case 1:  return invType == 1;                       // head
-            case 2:  return invType == 2;                       // neck
-            case 3:  return invType == 3;                       // shoulders
-            case 4:  return invType == 4;                       // shirt
-            case 5:  return invType == 5  || invType == 20;     // chest or robe
-            case 6:  return invType == 6;                       // waist
-            case 7:  return invType == 7;                       // legs
-            case 8:  return invType == 8;                       // feet
-            case 9:  return invType == 9;                       // wrists
-            case 10: return invType == 10;                      // hands
-            case 11: case 12: return invType == 11;             // the two rings
-            case 13: case 14: return invType == 12;             // the two trinkets
-            case 15: return invType == 16;                      // back
-            case 16: return invType == 13 || invType == 17 || invType == 21;
-            case 17: return invType == 13 || invType == 14 ||
-                            invType == 22 || invType == 23;
-            case 18: return invType == 15 || invType == 25 ||
-                            invType == 26 || invType == 28;     // ranged
-            case 19: return invType == 19;                      // tabard
+            case 1:  return t == IT::HEAD;
+            case 2:  return t == IT::NECK;
+            case 3:  return t == IT::SHOULDERS;
+            case 4:  return t == IT::SHIRT;
+            case 5:  return t == IT::CHEST || t == IT::ROBE;
+            case 6:  return t == IT::WAIST;
+            case 7:  return t == IT::LEGS;
+            case 8:  return t == IT::FEET;
+            case 9:  return t == IT::WRISTS;
+            case 10: return t == IT::HANDS;
+            case 11: case 12: return t == IT::FINGER;     // the two rings
+            case 13: case 14: return t == IT::TRINKET;    // the two trinkets
+            case 15: return t == IT::BACK;
+            case 16: return t == IT::ONE_HAND || t == IT::TWO_HAND || t == IT::MAIN_HAND;
+            case 17: return t == IT::ONE_HAND || t == IT::SHIELD ||
+                            t == IT::OFF_HAND || t == IT::HOLDABLE;
+            // Relics go in the ranged slot and have no name here, the list
+            // stopping at guns; twenty-eight is what the server sends for one.
+            case 18: return t == IT::RANGED_BOW || t == IT::THROWN ||
+                            t == IT::RANGED_GUN || t == 28;
+            case 19: return t == IT::TABARD;
             default: return false;
         }
     };
