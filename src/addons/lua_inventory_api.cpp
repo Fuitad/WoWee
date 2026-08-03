@@ -519,9 +519,15 @@ static int lua_SplitContainerItem(lua_State* L) {
 // Arithmetic, not state: the twenty-eight general bank slots follow the
 // equipment at forty, and the seven bank bag slots at sixty-eight.
 static int lua_BankButtonIDToInvSlotID(lua_State* L) {
+    // Both from the interface's own constants: the general slots start one past
+    // the offset, and the bank bags start one past the last of them. Written as
+    // the sum rather than as sixty-seven so the arithmetic is visible.
+    constexpr int kBankOffset = 39;        // BANK_CONTAINER_INVENTORY_OFFSET
+    constexpr int kGeneralSlots = 28;      // NUM_BANKGENERIC_SLOTS
     const int buttonId = static_cast<int>(luaL_checknumber(L, 1));
     const bool isBag = lua_toboolean(L, 2) != 0;
-    lua_pushnumber(L, isBag ? 67 + buttonId : 39 + buttonId);
+    lua_pushnumber(L, isBag ? kBankOffset + kGeneralSlots + buttonId
+                            : kBankOffset + buttonId);
     return 1;
 }
 
