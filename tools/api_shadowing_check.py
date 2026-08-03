@@ -184,6 +184,36 @@ if _dupes:
 else:
     print("    (none)")
 
+# ── events fired by hand into one registry ──────────────────
+#
+# There are two: __WoweeEvents, which frame:RegisterEvent from an addon fills,
+# and __WoweeFrameEvents, which FrameXML's own frames fill. LuaEngine::fireEvent
+# delivers to both. Anything that walks one of those tables itself reaches half
+# the listeners.
+#
+# ChangeActionBarPage did exactly that, and the six FrameXML frames registered
+# for ACTIONBAR_PAGE_CHANGED — including the one that redraws every action
+# button — never heard it. The page number changed and the icons did not.
+_here = _pathlib.Path("src/addons")
+_offenders = []
+for _f in sorted(_here.glob("*.cpp")):
+    if _f.name == "lua_engine.cpp":
+        continue  # the dispatcher itself
+    for _i, _line in enumerate(_f.read_text(errors="ignore").splitlines(), 1):
+        if "__WoweeEvents" not in _line and "__WoweeFrameEvents" not in _line:
+            continue
+        if _line.lstrip().startswith("//"):
+            continue  # a comment explaining the rule is not a breach of it
+        _offenders.append(f"{_f.name}:{_i}: {_line.strip()[:70]}")
+print("\nevent tables touched outside the dispatcher:")
+if _offenders:
+    for _o in _offenders:
+        print("    " + _o)
+    print("    → call engine->fireEvent instead; it delivers to both.")
+else:
+    print("    (none — every event goes through fireEvent)")
+
+
 if __name__ == "__main__":
     sys.exit(main())
 

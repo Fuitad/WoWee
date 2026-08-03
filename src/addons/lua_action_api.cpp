@@ -1,6 +1,8 @@
 // lua_action_api.cpp — Action bar, cursor/pickup, keyboard input, key bindings, and pet actions Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
+// For fireEvent: paging has to reach the frames as well as the addons.
+#include "addons/lua_engine.hpp"
 #include "game/inventory_slots.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "ui/keybinding_manager.hpp"
@@ -1332,27 +1334,21 @@ void registerActionLuaAPI(lua_State* L) {
             if (page > 6) page = 6;
             lua_pushnumber(L, page);
             lua_setglobal(L, "__WoweeActionBarPage");
-            // Fire ACTIONBAR_PAGE_CHANGED via the frame event system
-            lua_getglobal(L, "__WoweeEvents");
-            if (!lua_isnil(L, -1)) {
-                lua_getfield(L, -1, "ACTIONBAR_PAGE_CHANGED");
-                if (!lua_isnil(L, -1)) {
-                    int n = static_cast<int>(lua_objlen(L, -1));
-                    for (int i = 1; i <= n; i++) {
-                        lua_rawgeti(L, -1, i);
-                        if (lua_isfunction(L, -1)) {
-                            lua_pushstring(L, "ACTIONBAR_PAGE_CHANGED");
-                            if (lua_pcall(L, 1, 0, 0) != 0) {
-                                LOG_ERROR("LuaEngine: ACTIONBAR_PAGE_CHANGED handler error: ",
-                                          lua_tostring(L, -1) ? lua_tostring(L, -1) : "(unknown)");
-                                lua_pop(L, 1);
-                            }
-                        } else lua_pop(L, 1);
-                    }
-                }
-                lua_pop(L, 1);
-            }
+            // Through the engine, which delivers to both registries.
+            //
+            // This walked __WoweeEvents by hand and stopped there. That table
+            // is where an addon's RegisterEvent lands; FrameXML registers
+            // through frame:RegisterEvent, which fills __WoweeFrameEvents — so
+            // the six frames that listen for this, including the one in
+            // actionbutton.lua that redraws every button, were never told.
+            //
+            // The page number moved and nothing else did, which is exactly
+            // what the arrows beside the bar looked like: they clicked, they
+            // played their sound, and the icons stayed where they were.
+            lua_getfield(L, LUA_REGISTRYINDEX, "wowee_lua_engine");
+            auto* engine = static_cast<LuaEngine*>(lua_touserdata(L, -1));
             lua_pop(L, 1);
+            if (engine) engine->fireEvent("ACTIONBAR_PAGE_CHANGED", {});
             return 0;
         }},
                 // Two returns: whether there is a pet interface at all, and
