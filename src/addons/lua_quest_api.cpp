@@ -1487,6 +1487,25 @@ void registerQuestLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"GetNumQuestLogEntries",   lua_GetNumQuestLogEntries},
                 {"GetQuestLogTitle",        lua_GetQuestLogTitle},
+                // IsUnitOnQuest(questIndex, unit) — whether that unit is also
+                // on the quest, which the log prints as "[2]" beside an entry
+                // to say how many group mates share it.
+                //
+                // Only answerable for the player: the server does not tell a
+                // client what its party members' quest logs hold, and nothing
+                // here tracks them. False for everyone else is the truthful
+                // answer and is what leaves the counter hidden, rather than
+                // claiming a number nobody can stand behind.
+                {"IsUnitOnQuest", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const char* uid = luaL_optstring(L, 2, "player");
+            std::string u(uid);
+            for (char& c : u) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            if (!gh || u != "player" || index < 1) { lua_pushboolean(L, 0); return 1; }
+            lua_pushboolean(L, index <= static_cast<int>(gh->getQuestLog().size()) ? 1 : 0);
+            return 1;
+        }},
                 {"GetQuestLogQuestText",    lua_GetQuestLogQuestText},
                 // The line a quest shows once its objectives are done. Not in
                 // anything this client parses — the quest log is built from

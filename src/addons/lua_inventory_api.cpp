@@ -1703,6 +1703,31 @@ static const game::AuctionListResult& auctionListFor(game::GameHandler* gh,
 static int& auctionSelection() { static int sel = 0; return sel; }
 static int& auctionSellSlot()  { static int slot = -1; return slot; }
 
+/// GetInventoryItemCount(unit, slot) → how many are in that equipped slot.
+///
+/// Stackable equipped things — ammo, thrown weapons — and the bank window's
+/// own bag buttons, which print the count on the button face. Answering
+/// nothing left every one of those blank.
+static int lua_GetInventoryItemCount(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const char* uid = luaL_optstring(L, 1, "player");
+    const int slotId = static_cast<int>(luaL_optnumber(L, 2, 0));
+    std::string uidStr(uid);
+    toLowerInPlace(uidStr);
+    if (!gh || uidStr != "player" || slotId < 1 || slotId > 19) {
+        lua_pushnumber(L, 0);
+        return 1;
+    }
+    const auto& slot = gh->getInventory().getEquipSlot(
+        static_cast<game::EquipSlot>(slotId - 1));
+    if (slot.empty()) { lua_pushnumber(L, 0); return 1; }
+    // A single item reports a stack of one rather than zero, which is how the
+    // count is drawn: zero would print nothing where the client prints nothing
+    // for one either, but the two mean different things to a caller.
+    lua_pushnumber(L, slot.item.stackCount > 0 ? slot.item.stackCount : 1);
+    return 1;
+}
+
 static int lua_GetInventoryItemLink(lua_State* L) {
     auto* gh = getGameHandler(L);
     const char* uid = luaL_optstring(L, 1, "player");
@@ -2317,6 +2342,15 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetContainerNumFreeSlots", lua_GetContainerNumFreeSlots},
                 {"GetInventorySlotInfo",    lua_GetInventorySlotInfo},
                 {"GetInventoryItemLink",    lua_GetInventoryItemLink},
+                {"GetInventoryItemCount",   lua_GetInventoryItemCount},
+                // How many rows the buyback tab has. The merchant window walks
+                // this to build the tab, and without it the tab was empty even
+                // with items sitting in the buyback ring the client tracks.
+                {"GetNumBuybackItems", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? static_cast<lua_Number>(gh->getBuybackItems().size()) : 0);
+            return 1;
+        }},
                 {"GetInventoryItemID",      lua_GetInventoryItemID},
                 {"GetInventoryItemTexture", lua_GetInventoryItemTexture},
                 {"GetItemLink",          lua_GetItemLink},
