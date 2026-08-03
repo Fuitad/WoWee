@@ -519,6 +519,21 @@ static int lua_BankButtonIDToInvSlotID(lua_State* L) {
     return 1;
 }
 
+// UseInventoryItem(slot) — use what is equipped in a slot
+//
+// How a trinket is clicked on the character sheet. The slot numbers are the
+// interface's, one-based, and the item is used by id the same way the client's
+// own paperdoll uses it.
+static int lua_UseInventoryItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int slotId = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || slotId < 1 || slotId > 19) return 0;
+    const auto& slot = gh->getInventory().getEquipSlot(
+        static_cast<game::EquipSlot>(slotId - 1));
+    if (!slot.empty()) gh->useItemById(slot.item.itemId);
+    return 0;
+}
+
 // CloseBankFrame() — tell the server the bank is done with
 static int lua_CloseBankFrame(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -1333,6 +1348,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"SplitContainerItem",  lua_SplitContainerItem},
                 {"BankButtonIDToInvSlotID", lua_BankButtonIDToInvSlotID},
                 {"CloseBankFrame",      lua_CloseBankFrame},
+                {"UseInventoryItem",    lua_UseInventoryItem},
                 {"LootSlotIsCoin",      lua_LootSlotIsCoin},
                 {"LootSlotIsItem",      lua_LootSlotIsItem},
                 {"IsFishingLoot",       lua_IsFishingLoot},

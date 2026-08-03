@@ -937,6 +937,19 @@ static int lua_CanShowAchievementUI(lua_State* L) {
     return 1;
 }
 
+// GetAddOnMemoryUsage(index) → kilobytes, and UpdateAddOnMemoryUsage() to
+// refresh them
+//
+// Zero rather than nothing. The performance bar's tooltip adds these up —
+// `totalMem = totalMem + mem` for every addon loaded — and nil there is an
+// error, on an interface element that is drawn by default. Nothing here
+// measures per-addon memory, and zero is what an unmeasured addon costs as far
+// as this client knows.
+static int lua_GetAddOnMemoryUsage(lua_State* L) {
+    lua_pushnumber(L, 0);
+    return 1;
+}
+
 // IsXPUserDisabled() → whether the player has turned experience off
 //
 // Nothing here can turn it off, so this is a definite no rather than an absent
@@ -952,6 +965,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"HasLFGRestrictions",       lua_HasLFGRestrictions},
                 {"CanShowAchievementUI",     lua_CanShowAchievementUI},
                 {"IsXPUserDisabled",         lua_IsXPUserDisabled},
+                {"GetAddOnMemoryUsage",      lua_GetAddOnMemoryUsage},
+                {"UpdateAddOnMemoryUsage",   lua_ReturnNothing},
                 {"RunScript",                lua_RunScript},
                 {"IsMouseButtonDown",        lua_IsMouseButtonDown},
                 {"GetTime",                  lua_GetTime},
