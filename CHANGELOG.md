@@ -16,7 +16,7 @@ Four things were written down here that the client already owned. A copy does no
 - **The death popup announced the death and offered no way out of it** — releasing the spirit and resurrecting at the corpse both do something now
 - **The mailbox** reads letters, takes coin and attachments, deletes, returns and sends. An attachment is asked for by its own id rather than by where it sits in the letter, which is what the request carries
 - **The trade window** shows what each side has offered and lets items be placed and taken back. The other side's slots stay read-only
-- **Equipment sets**, kept on this side rather than on the server, since nothing here can ask the server for them. A set does not follow the character to another install; everything else about it behaves
+- **Equipment sets** — saved, used, deleted and shown, reading the list the server already sends and asking it to make the changes
 - **The character sheet offers what fits a slot** when one is clicked, and **shows what a quest pays** in the quest log
 - `/friend`, `/ignore`, `/use`, `/equip`, `/readycheck`, `/dismount` and `/script` all reach something now. Both list commands toggle, so naming someone already on the list takes them off it
 - **Names complete themselves** as a whisper or mail address is typed, from the group, the guild and the friends list
