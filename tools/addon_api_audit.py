@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""What an addon calls that nothing defines.
+
+The point of this is to answer "will this addon work" before loading it, because
+the missing-API fallback makes the honest answer hard to see at runtime: an
+undefined global is callable and returns nil, so an addon calling one does not
+error — it quietly does nothing, which reads as a feature that is present but
+broken rather than one that was never wired up.
+
+    tools/addon_api_audit.py                 # every addon, worst last
+    tools/addon_api_audit.py blizzard_talentui   # one addon, names listed
+
+Counting honestly took two tries, and both mistakes are easy to repeat:
+
+  * `CreateFrame` is registered with lua_setglobal, not through one of the
+    luaL_Reg tables. Miss that pattern and the single most-called function in
+    the interface reads as undefined, and every count is nonsense.
+  * `self:Click()` is a method call, not a global one. Counting those turned a
+    real figure of about thirty into four hundred and twenty-two.
+
+Never fails the build. It measures; it does not judge.
+"""
+
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+ADDONS = ROOT / "Data" / "interface" / "addons"
+FRAMEXML = ROOT / "Data" / "interface" / "framexml"
+SRC = ROOT / "src" / "addons"
+
+# A call on something, rather than a call to a global: the character before the
+# name is a colon or a dot. Lua's own `string.format` is caught by this too,
+# which is correct — it is not a global this client has to provide.
+CALL = re.compile(r"(?<![:.\w])([A-Z][A-Za-z0-9_]{2,})\s*\(")
+DEF_FUNC = re.compile(r"^function\s+([A-Za-z_]\w*)", re.M)
+DEF_ASSIGN = re.compile(r"^([A-Za-z_]\w*)\s*=\s*function", re.M)
+XML_NAME = re.compile(r'name="([^"$]+)"')
+
+
+def read(path):
+    try:
+        return path.read_text(errors="ignore")
+    except OSError:
+        return ""
+
+
+def known_names():
+    """Everything a Lua chunk could reasonably find already defined."""
+    names = set()
+    for cpp in SRC.glob("*.cpp"):
+        s = read(cpp)
+        names |= set(re.findall(r'\{"(\w+)"\s*,', s))          # luaL_Reg tables
+        names |= set(re.findall(r'set\("(\w+)"', s))           # region methods
+        names |= set(re.findall(r'lua_setglobal\(\s*\w+\s*,\s*"(\w+)"', s))
+        names |= set(re.findall(r'"function (\w+)\(', s))      # bootstrap Lua
+        names |= set(re.findall(r'"(\w+)\s*=\s*function', s))
+    for lua in FRAMEXML.glob("*.lua"):
+        s = read(lua)
+        names |= set(DEF_FUNC.findall(s)) | set(DEF_ASSIGN.findall(s))
+    # Addons define globals for each other: the talent frame calls
+    # GlyphFrame_Update and loads Blizzard_GlyphUI to get it.
+    for lua in ADDONS.glob("*/*.lua"):
+        s = read(lua)
+        names |= set(DEF_FUNC.findall(s)) | set(DEF_ASSIGN.findall(s))
+    return names
+
+
+def audit(addon_dir, known):
+    body, defined = "", set()
+    for f in sorted(addon_dir.glob("*.lua")) + sorted(addon_dir.glob("*.xml")):
+        s = read(f)
+        body += s
+        defined |= set(DEF_FUNC.findall(s)) | set(DEF_ASSIGN.findall(s))
+        defined |= set(XML_NAME.findall(s))   # a frame's name is a global too
+    return sorted(c for c in set(CALL.findall(body))
+                  if c not in known and c not in defined)
+
+
+def main():
+    if not ADDONS.is_dir():
+        print(f"no addons at {ADDONS}")
+        return 0
+    known = known_names()
+    wanted = sys.argv[1] if len(sys.argv) > 1 else None
+
+    rows = []
+    for d in sorted(p for p in ADDONS.iterdir() if p.is_dir()):
+        if wanted and d.name != wanted:
+            continue
+        rows.append((len(missing := audit(d, known)), d.name, missing))
+    if not rows:
+        print(f"no addon named {wanted}")
+        return 0
+
+    rows.sort()
+    for count, name, missing in rows:
+        if wanted or count == 0:
+            print(f"{count:4}  {name}")
+            for m in missing:
+                print(f"        {m}")
+        else:
+            print(f"{count:4}  {name}")
+    total = len({m for _, _, ms in rows for m in ms})
+    print(f"\n{len(known)} names known; {total} distinct still missing "
+          f"across {len(rows)} addon(s)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
