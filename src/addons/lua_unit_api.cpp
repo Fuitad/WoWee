@@ -461,6 +461,44 @@ static int lua_CheckInteractDistance(lua_State* L) {
     return 1;
 }
 
+// UnitInRange(unit) → inRange, checkedOk
+//
+// The raid frames dim a member who has gone too far to help. Forty yards is
+// what WoW means by it — the range most party-useful spells share — and the
+// second return says whether the question could be answered at all: a member
+// on another part of the map has no entity here, and dimming them for being
+// out of range would be a guess dressed as a measurement.
+static int lua_UnitInRange(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) { lua_pushboolean(L, 0); lua_pushboolean(L, 0); return 2; }
+    std::string uidStr(luaL_optstring(L, 1, "player"));
+    toLowerInPlace(uidStr);
+    const uint64_t guid = resolveUnitGuid(gh, uidStr);
+    auto other  = guid ? gh->getEntityManager().getEntity(guid) : nullptr;
+    auto player = gh->getEntityManager().getEntity(gh->getPlayerGuid());
+    if (!other || !player) {
+        lua_pushboolean(L, 0);
+        lua_pushboolean(L, 0);   // could not be checked
+        return 2;
+    }
+    const float dx = player->getX() - other->getX();
+    const float dy = player->getY() - other->getY();
+    const float dz = player->getZ() - other->getZ();
+    lua_pushboolean(L, (dx*dx + dy*dy + dz*dz) <= (40.0f * 40.0f));
+    lua_pushboolean(L, 1);
+    return 2;
+}
+
+// IsRaidLeader() / IsPartyLeader-style check against the group's leader guid.
+static int lua_IsRaidLeader(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) { return luaReturnFalse(L); }
+    const auto& group = gh->getPartyData();
+    lua_pushboolean(L, group.leaderGuid != 0 &&
+                       group.leaderGuid == gh->getPlayerGuid() ? 1 : 0);
+    return 1;
+}
+
 // UnitIsVisible(unit) → boolean (entity exists in the client's entity manager)
 static int lua_UnitIsVisible(lua_State* L) {
     const char* uid = luaL_optstring(L, 1, "target");
@@ -1882,6 +1920,20 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"InCombatLockdown",  lua_InCombatLockdown},
                 {"UnitDistanceSquared", lua_UnitDistanceSquared},
                 {"CheckInteractDistance", lua_CheckInteractDistance},
+                {"UnitInRange",           lua_UnitInRange},
+                {"IsRaidLeader",          lua_IsRaidLeader},
+                // The class token without the localised name beside it, which
+                // is all UnitClassBase is: the same second return UnitClass
+                // already computes.
+                {"UnitClassBase",         [](lua_State* L) -> int {
+            lua_getglobal(L, "UnitClass");
+            lua_pushvalue(L, 1);
+            if (lua_pcall(L, 1, 3, 0) != 0) { lua_pop(L, 1); lua_pushnil(L); return 1; }
+            // UnitClass answers name, token, id; the token is what is wanted.
+            lua_remove(L, -3);
+            lua_pop(L, 1);
+            return 1;
+        }},
                 {"IsMounted",         lua_IsMounted},
                 {"IsFlying",          lua_IsFlying},
                 {"IsSwimming",        lua_IsSwimming},
