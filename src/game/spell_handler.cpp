@@ -1567,6 +1567,9 @@ void SpellHandler::handleInitialSpells(network::Packet& packet) {
 
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("SPELLS_CHANGED", {});
+        // A crafting window's recipes are the spells that just changed, and
+        // it refreshes on its own event rather than on that one.
+        if (craftingWindowOpen_) owner_.addonEventCallbackRef()("TRADE_SKILL_UPDATE", {});
     }
 }
 
@@ -2165,6 +2168,9 @@ void SpellHandler::handleLearnedSpell(network::Packet& packet) {
     if (!alreadyKnown && owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("LEARNED_SPELL_IN_TAB", {std::to_string(spellId)});
         owner_.addonEventCallbackRef()("SPELLS_CHANGED", {});
+        // A crafting window's recipes are the spells that just changed, and
+        // it refreshes on its own event rather than on that one.
+        if (craftingWindowOpen_) owner_.addonEventCallbackRef()("TRADE_SKILL_UPDATE", {});
     }
 
     if (isTalentSpell) return;
@@ -2188,6 +2194,9 @@ void SpellHandler::handleRemovedSpell(network::Packet& packet) {
     syncPreWotlkTalentsFromKnownSpells();
     LOG_INFO("Removed spell: ", spellId);
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("SPELLS_CHANGED", {});
+        // A crafting window's recipes are the spells that just changed, and
+        // it refreshes on its own event rather than on that one.
+        if (craftingWindowOpen_) owner_.addonEventCallbackRef()("TRADE_SKILL_UPDATE", {});
 
     // Learning a new talent rank legitimately removes/replaces its internal
     // talent spell. That is rank bookkeeping, not the player unlearning the

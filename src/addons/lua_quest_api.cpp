@@ -663,6 +663,9 @@ static int lua_AddPreviewTalentPoints(lua_State* L) {
     const int wanted = std::clamp(staged + delta, 0, static_cast<int>(maxRank) - have);
     staged = wanted;
     if (staged == 0) previewPoints().erase(id);
+    // What makes a staged point appear: the talent frame refreshes on this
+    // event, and reads the rank back through GetTalentInfo's preview value.
+    gh->fireAddonEvent("PREVIEW_TALENT_POINTS_CHANGED", {});
     return 0;
 }
 
@@ -712,8 +715,12 @@ static int lua_GetGroupPreviewTalentPointsSpent(lua_State* L) {
 
 // ResetGroupPreviewTalentPoints(pet, group)
 static int lua_ResetGroupPreviewTalentPoints(lua_State* L) {
-    (void)L;
     previewPoints().clear();
+    // The frame redraws on this and on nothing else, so clearing the staged
+    // points without it leaves them on screen after they are gone.
+    if (auto* gh = getGameHandler(L)) {
+        gh->fireAddonEvent("PREVIEW_TALENT_POINTS_CHANGED", {});
+    }
     return 0;
 }
 
