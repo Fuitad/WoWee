@@ -2356,8 +2356,30 @@ void VkContext::endSingleTimeCommands(VkCommandBuffer cmd) {
     // log shows whether that is happening.
     noteImmediateSubmitThread("endSingleTimeCommands");
 
-    vkQueueSubmit(graphicsQueue, 1, &submitInfo, immFence);
-    vkWaitForFences(device, 1, &immFence, VK_TRUE, UINT64_MAX);
+    // Checked, because this is where the first sign of trouble goes missing.
+    //
+    // A log of a lost device begins with validation complaining that immFence
+    // is being reset while still in use — which is what happens *after* a wait
+    // that returned an error rather than waiting. The submit and the wait were
+    // both unchecked, so whatever actually went wrong left no line at all and
+    // the reset took the blame for it.
+    //
+    // Said once. If the device is gone, every subsequent call fails the same
+    // way and a log full of it buries the first one.
+    static bool reported = false;
+    const VkResult submitted = vkQueueSubmit(graphicsQueue, 1, &submitInfo, immFence);
+    if (submitted != VK_SUCCESS && !reported) {
+        reported = true;
+        LOG_ERROR("immediate submit failed: ", static_cast<int>(submitted),
+                  " — this is the first failure, whatever follows is its wake");
+    }
+    const VkResult waited = vkWaitForFences(device, 1, &immFence, VK_TRUE, UINT64_MAX);
+    if (waited != VK_SUCCESS && !reported) {
+        reported = true;
+        LOG_ERROR("immediate wait failed: ", static_cast<int>(waited),
+                  " (VK_ERROR_DEVICE_LOST is -4) — the fence is not signalled,"
+                  " so the reset below is the symptom rather than the cause");
+    }
     vkResetFences(device, 1, &immFence);
     // Buffer stays allocated; it will be reset on the next beginSingleTimeCommands.
 }
