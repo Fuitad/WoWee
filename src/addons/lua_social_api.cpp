@@ -634,6 +634,62 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetMacroItemIconInfo", lua_GetMacroIconInfo},
                 {"NewGMTicket",         lua_NewGMTicket},
                 {"DeleteGMTicket",      lua_DeleteGMTicket},
+                // JoinPermanentChannel(name, password, frameId, permanent)
+                //   → zoneChannel, channelName
+                //
+                // The same join as JoinChannelByName, plus the chat frame the
+                // channel should show in. The frame binding is handled entirely
+                // in FrameXML, so only the join happens here.
+                //
+                // The first value says whether this is one of the automatic
+                // zone channels; nothing joined by name is, so it is nil rather
+                // than a zero that would read as true.
+                {"JoinPermanentChannel", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* name = luaL_optstring(L, 1, "");
+            const char* pass = luaL_optstring(L, 2, "");
+            if (!gh || !name || !*name) return luaReturnNil(L);
+            gh->joinChannel(name, pass ? pass : "");
+            lua_pushnil(L);
+            lua_pushstring(L, name);
+            return 2;
+        }},
+                // GetChannelList() → id, name, disabled, repeated per channel.
+                {"GetChannelList", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const auto& joined = gh->getJoinedChannels();
+            for (size_t i = 0; i < joined.size(); ++i) {
+                lua_pushnumber(L, static_cast<lua_Number>(i + 1));
+                lua_pushstring(L, joined[i].c_str());
+                lua_pushboolean(L, 0);   // disabled
+            }
+            return static_cast<int>(joined.size() * 3);
+        }},
+                // Channel moderation is not modelled, so the player owns none.
+                {"IsDisplayChannelOwner", luaReturnFalse},
+                // ChangeChatColor(type, r, g, b) — recolour one kind of chat
+                // message.
+                //
+                // The colour lives in FrameXML's ChatTypeInfo table, which its
+                // UPDATE_CHAT_COLOR handler fills from the event's own
+                // arguments, so firing the event is the whole of the change.
+                //
+                // Three decimal places, because an event argument is only read
+                // back as a number when it is under twelve characters — a full
+                // float would arrive as a string and be assigned straight into
+                // a colour field.
+                {"ChangeChatColor", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* type = luaL_optstring(L, 1, "");
+            if (!gh || !type || !*type) return 0;
+            char r[16], g[16], b[16];
+            std::snprintf(r, sizeof(r), "%.3f", luaL_optnumber(L, 2, 1.0));
+            std::snprintf(g, sizeof(g), "%.3f", luaL_optnumber(L, 3, 1.0));
+            std::snprintf(b, sizeof(b), "%.3f", luaL_optnumber(L, 4, 1.0));
+            gh->fireAddonEvent("UPDATE_CHAT_COLOR", {type, r, g, b});
+            return 0;
+        }},
                 // UnitIsRaidOfficer(unit) → whether that unit is an assistant.
                 // The bit rides along with the group list, same as the main
                 // tank and main assist flags read above.
