@@ -1342,6 +1342,27 @@ static int lua_ShowWorldMapArrowFrame(lua_State* L) { (void)L; return 0; }
 static int lua_PositionWorldMapArrowFrame(lua_State* L) { (void)L; return 0; }
 static int lua_InitWorldMapPing(lua_State* L) { (void)L; return 0; }
 
+// The battlefield minimap's own copy of the arrow, for the same reason and
+// with the same answer as the world map's above.
+static int lua_CreateMiniWorldMapArrowFrame(lua_State* L) { (void)L; return 0; }
+static int lua_PositionMiniWorldMapArrowFrame(lua_State* L) { (void)L; return 0; }
+static int lua_ShowMiniWorldMapArrowFrame(lua_State* L) { (void)L; return 0; }
+
+// CombatTextSetActiveUnit(unit) — which unit the floating combat text follows.
+// It tells the client where to aim the events it already sends; the events do
+// not change, so this is recorded by the caller and nothing is needed here.
+static int lua_CombatTextSetActiveUnit(lua_State* L) { (void)L; return 0; }
+
+// GetBattlefieldMapIconScale() → what to multiply the map's icon sizes by.
+// One is the client's own default; the icons are sized in the frame itself,
+// and every use here is a multiply, so a nil would take the arithmetic down.
+static int lua_GetBattlefieldMapIconScale(lua_State* L) { lua_pushnumber(L, 1.0); return 1; }
+
+// PlayerIsPVPInactive(unit) → whether a battleground member has gone idle and
+// is about to be removed. The server reports this per-player in a battleground
+// and nothing here parses it, so nobody reads as idle.
+static int lua_PlayerIsPVPInactive(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+
 // GetCVarMin(name) / GetCVarMax(name) → the range a CVar is allowed, if it
 // declares one.
 //
@@ -1548,6 +1569,12 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"ShowWorldMapArrowFrame",     lua_ShowWorldMapArrowFrame},
                 {"PositionWorldMapArrowFrame", lua_PositionWorldMapArrowFrame},
                 {"InitWorldMapPing",           lua_InitWorldMapPing},
+                {"CreateMiniWorldMapArrowFrame",   lua_CreateMiniWorldMapArrowFrame},
+                {"PositionMiniWorldMapArrowFrame", lua_PositionMiniWorldMapArrowFrame},
+                {"ShowMiniWorldMapArrowFrame",     lua_ShowMiniWorldMapArrowFrame},
+                {"GetBattlefieldMapIconScale",     lua_GetBattlefieldMapIconScale},
+                {"PlayerIsPVPInactive",            lua_PlayerIsPVPInactive},
+                {"CombatTextSetActiveUnit",        lua_CombatTextSetActiveUnit},
                 {"GetCVarMin",               lua_GetCVarMin},
                 {"GetCVarMax",               lua_GetCVarMax},
                 {"IsVoiceChatAllowedByServer", lua_IsVoiceChatAllowedByServer},
