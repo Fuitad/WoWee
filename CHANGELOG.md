@@ -1,6 +1,16 @@
 # Changelog
 
-## [v2.0.36-preview] — 2026-08-01
+## [v2.0.37-preview] — 2026-08-02
+
+### Fixed
+- **A broken script no longer takes the client down.** Lua errors were reported by firing `UI_ERROR_MESSAGE`, which is itself a Lua event that `UIErrorsFrame` listens for — so reporting an error ran script, and when that script errored it was reported the same way, recursing through both stacks inside a single frame until the process died. Because it died with drawing in flight, what survived in the log was a Vulkan device loss, which sent the search into the renderer for a fault that was never there. Errors now go to a path that shows them without telling any script, and event dispatch refuses to nest more than eight deep
+- **Flights to anywhere but the next stop work.** Two separate faults: `CMSG_ACTIVATETAXI` carries only a source and a destination, so the server had no single path to answer with and the request timed out; and the route was worked out by a second search of the flight graph that included nodes the player had never visited, which the server refuses outright on the first one it does not recognise. Multi-stop routes are sent whole, and are built from the same discovered-node search the quoted price already came from
+- **Turning shadows off no longer loses the device**
+- **Casting a spell on yourself no longer turns you around**
+- **A long flight path is no longer rejected for its length**, and a rejected one says why
+- **Arriving in the world during a flight no longer returns the player to where they logged in**
+- **The interface fonts are found whatever the case the install spells them in.** Four fixed spellings were tried, so a directory written `Misc/fonts` matched none of them and the built-in face was kept — reported at a level the log does not carry, which left wrong-looking text and no reason anywhere. Every way this can fail is now a distinct warning
+- **Texture uploads no longer share one fence across two queues**, and finished batches are retired every frame rather than only while terrain is streaming
 
 ### Changed
 - **The client's interface is drawn in the game's own typeface.** FRIZQT is loaded at fifteen points and added first, so it is the face ImGui uses for everything that does not ask for another — close enough to the metrics the panels were built against for their layouts to survive. The five faces stay registered at eighteen points for the widget renderer, which asks for them by name. This reverses the previous release's fix, which kept the built-in face as the default
