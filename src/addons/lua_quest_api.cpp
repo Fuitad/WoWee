@@ -703,6 +703,182 @@ static int lua_GetActiveTalentGroup(lua_State* L) {
     return 1;
 }
 
+// --- The quest giver's own dialog ---
+//
+// WoW's quest-giver functions do not name which quest they mean: GetTitleText
+// and the reward accessors serve the dialog and the quest log both, and answer
+// for whichever is in front. A dialog is in front while it is open — the
+// reward panel over the progress panel over the offer, in the order the server
+// walks a player through them — and the log's selection answers otherwise.
+
+namespace {
+
+struct QuestSource {
+    const std::string* title = nullptr;
+    const std::vector<game::QuestRewardItem>* rewards = nullptr;
+    const std::vector<game::QuestRewardItem>* choices = nullptr;
+    uint32_t money = 0;
+    uint32_t xp = 0;
+};
+
+QuestSource currentQuestSource(game::GameHandler* gh) {
+    QuestSource s;
+    if (!gh) return s;
+    if (gh->isQuestOfferRewardOpen()) {
+        const auto& d = gh->getQuestOfferReward();
+        s = {&d.title, &d.fixedRewards, &d.choiceRewards, d.rewardMoney, d.rewardXp};
+    } else if (gh->isQuestRequestItemsOpen()) {
+        const auto& d = gh->getQuestRequestItems();
+        s.title = &d.title;
+    } else if (gh->isQuestDetailsOpen()) {
+        const auto& d = gh->getQuestDetails();
+        s = {&d.title, &d.rewardItems, &d.rewardChoiceItems, d.rewardMoney, d.rewardXp};
+    }
+    return s;
+}
+
+/// Counts only the filled slots: the server pads a reward list to a fixed
+/// width, and a row drawn for an empty one is a blank button the player can
+/// click.
+/// A template because the dialog carries its rewards in a vector and the quest
+/// log in a fixed array, and both are padded the same way.
+template <typename Container>
+int countRewards(const Container* v) {
+    if (!v) return 0;
+    int n = 0;
+    for (const auto& r : *v) if (r.itemId != 0) ++n;
+    return n;
+}
+
+int pushQuestText(lua_State* L, const std::string* s) {
+    lua_pushstring(L, s ? s->c_str() : "");
+    return 1;
+}
+
+}  // namespace
+
+// GetTitleText() → the quest's name, whichever panel is showing it
+static int lua_GetTitleText(lua_State* L) {
+    return pushQuestText(L, currentQuestSource(getGameHandler(L)).title);
+}
+
+// GetQuestText() → what the quest giver says when offering it
+static int lua_GetQuestText(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh || !gh->isQuestDetailsOpen()) { lua_pushstring(L, ""); return 1; }
+    return pushQuestText(L, &gh->getQuestDetails().details);
+}
+
+// GetObjectiveText() → what the quest asks for
+static int lua_GetObjectiveText(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh || !gh->isQuestDetailsOpen()) { lua_pushstring(L, ""); return 1; }
+    return pushQuestText(L, &gh->getQuestDetails().objectives);
+}
+
+// GetProgressText() → what is said while the quest is still unfinished
+static int lua_GetProgressText(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh || !gh->isQuestRequestItemsOpen()) { lua_pushstring(L, ""); return 1; }
+    return pushQuestText(L, &gh->getQuestRequestItems().completionText);
+}
+
+// GetRewardText() → what is said on handing it in
+static int lua_GetRewardText(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh || !gh->isQuestOfferRewardOpen()) { lua_pushstring(L, ""); return 1; }
+    return pushQuestText(L, &gh->getQuestOfferReward().rewardText);
+}
+
+// GetGossipText() → the body of the gossip window
+static int lua_GetGossipText(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh || !gh->isGossipWindowOpen()) { lua_pushstring(L, ""); return 1; }
+    return pushQuestText(L, &gh->getNpcText(gh->getCurrentGossip().titleTextId));
+}
+
+// GetRewardMoney() → coin the quest pays out
+static int lua_GetRewardMoney(lua_State* L) {
+    lua_pushnumber(L, currentQuestSource(getGameHandler(L)).money);
+    return 1;
+}
+
+// GetRewardXP() → experience the quest pays out
+static int lua_GetRewardXP(lua_State* L) {
+    lua_pushnumber(L, currentQuestSource(getGameHandler(L)).xp);
+    return 1;
+}
+
+// GetQuestMoneyToGet() → coin the player has to *hand over*, which is the
+// opposite of the reward and a different field entirely. Some quests ask for
+// money; showing the reward here would tell the player they are being paid
+// when they are being charged.
+static int lua_GetQuestMoneyToGet(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh || !gh->isQuestRequestItemsOpen()) { lua_pushnumber(L, 0); return 1; }
+    lua_pushnumber(L, gh->getQuestRequestItems().requiredMoney);
+    return 1;
+}
+
+// IsQuestCompletable() → whether the turn-in button should work
+static int lua_IsQuestCompletable(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const bool ok = gh && gh->isQuestRequestItemsOpen() &&
+                    gh->getQuestRequestItems().isCompletable();
+    lua_pushboolean(L, ok ? 1 : 0);
+    return 1;
+}
+
+// GetQuestReward(choiceIndex) → takes the reward and closes the dialog
+static int lua_GetQuestReward(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+    // One-based, and zero means the quest offered nothing to choose between.
+    const int choice = static_cast<int>(luaL_optnumber(L, 1, 0));
+    gh->chooseQuestReward(choice > 0 ? static_cast<uint32_t>(choice - 1) : 0);
+    return 0;
+}
+
+// CloseQuest() → puts the dialog away without answering it
+static int lua_CloseQuest(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+    if (gh->isQuestOfferRewardOpen())      gh->closeQuestOfferReward();
+    else if (gh->isQuestRequestItemsOpen()) gh->closeQuestRequestItems();
+    else                                    gh->declineQuest();
+    return 0;
+}
+
+// GetQuestItemInfo(type, index) → name, texture, count, quality, isUsable
+//
+// type is "choice" for the rewards a player picks between and "reward" for the
+// ones always given.
+static int lua_GetQuestItemInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const char* type = luaL_optstring(L, 1, "reward");
+    const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+    const QuestSource s = currentQuestSource(gh);
+
+    const bool wantChoice = std::string(type) == "choice";
+    const auto* list = wantChoice ? s.choices : s.rewards;
+    if (!gh || !list || index < 1) { return luaReturnNil(L); }
+
+    int seen = 0;
+    for (const auto& r : *list) {
+        if (r.itemId == 0) continue;
+        if (++seen != index) continue;
+        const auto* info = gh->getItemInfo(r.itemId);
+        lua_pushstring(L, info ? info->name.c_str() : "");
+        lua_pushstring(L, gh->getItemIconPath(
+            info && info->displayInfoId ? info->displayInfoId : r.displayInfoId).c_str());
+        lua_pushnumber(L, r.count);
+        lua_pushnumber(L, info ? info->quality : 1);
+        lua_pushboolean(L, 1);
+        return 5;
+    }
+    return luaReturnNil(L);
+}
+
 void registerQuestLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"GetNumQuestLogEntries",   lua_GetNumQuestLogEntries},
@@ -763,32 +939,50 @@ void registerQuestLuaAPI(lua_State* L) {
             if (gh) gh->abandonQuest(questId);
             return 0;
         }},
+                // Both of these answer for the quest giver's dialog while one
+                // is open and for the log's selection otherwise, which is the
+                // same rule the text accessors follow.
                 {"GetNumQuestRewards", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (!gh) { return luaReturnZero(L); }
+            if (const auto* v = currentQuestSource(gh).rewards) {
+                lua_pushnumber(L, countRewards(v));
+                return 1;
+            }
             int idx = gh->getSelectedQuestLogIndex();
             if (idx < 1) { return luaReturnZero(L); }
             const auto& ql = gh->getQuestLog();
             if (idx > static_cast<int>(ql.size())) { return luaReturnZero(L); }
-            int count = 0;
-            for (const auto& r : ql[idx-1].rewardItems)
-                if (r.itemId != 0) ++count;
-            lua_pushnumber(L, count);
+            lua_pushnumber(L, countRewards(&ql[idx-1].rewardItems));
             return 1;
         }},
                 {"GetNumQuestChoices", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (!gh) { return luaReturnZero(L); }
+            if (const auto* v = currentQuestSource(gh).choices) {
+                lua_pushnumber(L, countRewards(v));
+                return 1;
+            }
             int idx = gh->getSelectedQuestLogIndex();
             if (idx < 1) { return luaReturnZero(L); }
             const auto& ql = gh->getQuestLog();
             if (idx > static_cast<int>(ql.size())) { return luaReturnZero(L); }
-            int count = 0;
-            for (const auto& r : ql[idx-1].rewardChoiceItems)
-                if (r.itemId != 0) ++count;
-            lua_pushnumber(L, count);
+            lua_pushnumber(L, countRewards(&ql[idx-1].rewardChoiceItems));
             return 1;
         }},
+                {"GetTitleText",         lua_GetTitleText},
+                {"GetQuestText",         lua_GetQuestText},
+                {"GetObjectiveText",     lua_GetObjectiveText},
+                {"GetProgressText",      lua_GetProgressText},
+                {"GetRewardText",        lua_GetRewardText},
+                {"GetGossipText",        lua_GetGossipText},
+                {"GetQuestItemInfo",     lua_GetQuestItemInfo},
+                {"GetQuestMoneyToGet",   lua_GetQuestMoneyToGet},
+                {"GetRewardMoney",       lua_GetRewardMoney},
+                {"GetRewardXP",          lua_GetRewardXP},
+                {"IsQuestCompletable",   lua_IsQuestCompletable},
+                {"GetQuestReward",       lua_GetQuestReward},
+                {"CloseQuest",           lua_CloseQuest},
                 {"GetNumGlyphSockets", [](lua_State* L) -> int {
             lua_pushnumber(L, game::GameHandler::MAX_GLYPH_SLOTS);
             return 1;
