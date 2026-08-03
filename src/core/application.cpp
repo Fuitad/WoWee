@@ -477,7 +477,10 @@ bool Application::initialize() {
                 // the tabs happen to be built first.
                 auto ensureLoaded = std::make_shared<std::function<void()>>(
                     [spellIconPaths, spellIconIds, loaded, am]() {
-                    if (!am || *loaded) return;
+                    if (!am || !am->isInitialized() || *loaded) return;
+                    // Initialised, not merely present: loadDBC answers nullptr
+                    // before the assets are up, and latching on that left both
+                    // tables empty for the rest of the session.
                     *loaded = true;
                     auto iconDbc = am->loadDBC("SpellIcon.dbc");
                     const auto* iconL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("SpellIcon") : nullptr;
@@ -540,7 +543,10 @@ bool Application::initialize() {
                 auto* am = assetManager.get();
                 gameHandler->setItemIconPathResolver([iconNames, loaded, am](uint32_t displayInfoId) -> std::string {
                     if (!am || displayInfoId == 0) return {};
-                    if (!*loaded) {
+                    if (!*loaded && am->isInitialized()) {
+                        // Initialised, not merely present: loadDBC answers
+                        // nullptr before the assets are up, and latching on
+                        // that left this table empty for the session.
                         *loaded = true;
                         auto dbc = am->loadDBC("ItemDisplayInfo.dbc");
                         const auto* dispL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
@@ -571,7 +577,10 @@ bool Application::initialize() {
                 auto* am = assetManager.get();
                 gameHandler->setSpellDataResolver([castTimeMap, rangeMap, spellCastIdx, spellRangeIdx, spellCostMap, loaded, am](uint32_t spellId) -> game::GameHandler::SpellDataInfo {
                     if (!am) return {};
-                    if (!*loaded) {
+                    if (!*loaded && am->isInitialized()) {
+                        // Initialised, not merely present: loadDBC answers
+                        // nullptr before the assets are up, and latching on
+                        // that left this table empty for the session.
                         *loaded = true;
                         // Load SpellCastTimes.dbc
                         auto ctDbc = am->loadDBC("SpellCastTimes.dbc");
@@ -653,7 +662,10 @@ bool Application::initialize() {
                 auto* amPtr = assetManager.get();
                 gameHandler->setRandomPropertyNameResolver([propNames, propLoaded, amPtr](int32_t id) -> std::string {
                     if (!amPtr || id == 0) return {};
-                    if (!*propLoaded) {
+                    // Initialised, not merely present: loadDBC answers nullptr
+                    // before the assets are up, and latching on that left the
+                    // suffix names empty for the rest of the session.
+                    if (!*propLoaded && amPtr->isInitialized()) {
                         *propLoaded = true;
                         // Both DBCs carry the display name ("of the Bear" / "of Strength") as
                         // the first string column, field 1, across classic/tbc/wotlk/turtle.
@@ -695,7 +707,10 @@ bool Application::initialize() {
                         -> std::vector<game::GameHandler::RandomStatBonus> {
                     std::vector<game::GameHandler::RandomStatBonus> out;
                     if (!amPtr || id == 0) return out;
-                    if (!*loaded) {
+                    if (!*loaded && amPtr->isInitialized()) {
+                        // Initialised, not merely present: loadDBC answers
+                        // nullptr before the assets are up, and latching on
+                        // that left this table empty for the session.
                         *loaded = true;
                         // SpellItemEnchantment: enchId -> up to 3 (type, statArg, minAmount).
                         // Arg (stat type) is the 3 fields before Name; the effect-type array

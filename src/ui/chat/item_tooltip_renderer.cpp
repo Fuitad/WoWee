@@ -214,7 +214,7 @@ void ItemTooltipRenderer::render(
         if (hasSocket && info->socketBonus != 0) {
             static std::unordered_map<uint32_t, std::string> s_enchantNames;
             static bool s_enchantNamesLoaded = false;
-            if (!s_enchantNamesLoaded && assetMgr) {
+            if (!s_enchantNamesLoaded && assetMgr && assetMgr->isInitialized()) {
                 s_enchantNamesLoaded = true;
                 auto dbc = assetMgr->loadDBC("SpellItemEnchantment.dbc");
                 if (dbc && dbc->isLoaded()) {
@@ -247,7 +247,7 @@ void ItemTooltipRenderer::render(
         };
         static std::unordered_map<uint32_t, SetEntry> s_setData;
         static bool s_setDataLoaded = false;
-        if (!s_setDataLoaded && assetMgr) {
+        if (!s_setDataLoaded && assetMgr && assetMgr->isInitialized()) {
             s_setDataLoaded = true;
             auto dbc = assetMgr->loadDBC("ItemSet.dbc");
             if (dbc && dbc->isLoaded()) {
@@ -336,7 +336,7 @@ void ItemTooltipRenderer::render(
     if (info->requiredSkill != 0 && info->requiredSkillRank > 0) {
         static std::unordered_map<uint32_t, std::string> s_skillNames;
         static bool s_skillNamesLoaded = false;
-        if (!s_skillNamesLoaded && assetMgr) {
+        if (!s_skillNamesLoaded && assetMgr && assetMgr->isInitialized()) {
             s_skillNamesLoaded = true;
             auto dbc = assetMgr->loadDBC("SkillLine.dbc");
             if (dbc && dbc->isLoaded()) {
@@ -368,7 +368,7 @@ void ItemTooltipRenderer::render(
     if (info->requiredReputationFaction != 0 && info->requiredReputationRank > 0) {
         static std::unordered_map<uint32_t, std::string> s_factionNames;
         static bool s_factionNamesLoaded = false;
-        if (!s_factionNamesLoaded && assetMgr) {
+        if (!s_factionNamesLoaded && assetMgr && assetMgr->isInitialized()) {
             s_factionNamesLoaded = true;
             auto dbc = assetMgr->loadDBC("Faction.dbc");
             if (dbc && dbc->isLoaded()) {

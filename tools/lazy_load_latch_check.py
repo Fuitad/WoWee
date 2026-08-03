@@ -28,6 +28,20 @@ This looks for a `*Loaded*`/`*Init*` flag set to true with a bail-out on the
 asset manager below it. It deliberately does not flag a bail-out on the *result
 of a read* (`if (!dbc || !dbc->isLoaded()) return;`), which is the correct
 place to latch.
+
+**Two spellings of the same mistake, and the first version only saw one.**
+The lazily-loaded resolvers in application.cpp keep their flag in a shared_ptr
+and write `*loaded = true`, and they guard on the pointer being non-null rather
+than on the assets being up:
+
+    if (!am || *loaded) return;
+    *loaded = true;                       // am may exist but not be initialised
+
+loadDBC answers nullptr before initialisation, so those latch on a read that
+returned nothing — spell icons, item icons, spell cast times and random stat
+bonuses, all empty for the session. A leading `*` and a `!am` without
+`isInitialized` were enough to hide four of them from the check written to find
+exactly this.
 """
 import re
 import sys
@@ -38,7 +52,10 @@ if not root.is_dir():
     sys.exit(f"no such directory: {root}")
 
 LATCH = re.compile(
-    r'^\s*(?:owner_\.)?(\w*(?:[Ll]oaded|[Ii]nitialized)\w*)(?:Ref\(\))?\s*=\s*true;')
+    r'^\s*\*?(?:owner_\.)?(\w*(?:[Ll]oaded|[Ii]nitialized)\w*)(?:Ref\(\))?\s*=\s*true;')
+# A guard on the pointer alone. Having an asset manager is not having assets:
+# loadDBC answers nullptr until it is initialised.
+NULL_ONLY = re.compile(r'if\s*\(\s*!\s*(\w*[Aa]m\w*|\w*[Aa]sset\w*)\b(?![^)]*isInitialized)')
 # The precondition that must come first: the assets, however it is spelled.
 PRECOND = re.compile(
     r'if\s*\(\s*!\s*\w*[Aa]sset\w*'                 # !assetManager / !cachedAssetManager_
@@ -57,6 +74,15 @@ for p in sorted(root.rglob("*.cpp")):
             if PRECOND.search(w) and "return" in "\n".join(window[j:j + 2]):
                 hits.append((p.as_posix(), i + 1, m.group(1), w.strip()[:58]))
                 break
+        else:
+            # The other spelling: guarded above the latch, but on the pointer
+            # being non-null rather than on the assets being ready.
+            above = lines[max(0, i - 4):i + 1]
+            for w in above:
+                if NULL_ONLY.search(w) and "loadDBC" in "\n".join(lines[i:i + 12]):
+                    hits.append((p.as_posix(), i + 1, m.group(1),
+                                 w.strip()[:58] + "   (no isInitialized)"))
+                    break
 
 print(f"scanned {len(list(root.rglob('*.cpp')))} translation units")
 if not hits:

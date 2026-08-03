@@ -3127,7 +3127,7 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
 const std::unordered_map<uint32_t, std::string>& InventoryScreen::getEnchantmentNames() {
     static std::unordered_map<uint32_t, std::string> s_cache;
     static bool s_loaded = false;
-    if (!s_loaded && assetManager_) {
+    if (!s_loaded && assetManager_ && assetManager_->isInitialized()) {
         s_loaded = true;
         auto dbc = assetManager_->loadDBC("SpellItemEnchantment.dbc");
         if (dbc && dbc->isLoaded()) {
@@ -3390,7 +3390,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
             if (qInfo->requiredSkill != 0 && qInfo->requiredSkillRank > 0) {
                 static std::unordered_map<uint32_t, std::string> s_skillNamesB;
                 static bool s_skillNamesLoadedB = false;
-                if (!s_skillNamesLoadedB && assetManager_) {
+                if (!s_skillNamesLoadedB && assetManager_ && assetManager_->isInitialized()) {
                     s_skillNamesLoadedB = true;
                     auto dbc = assetManager_->loadDBC("SkillLine.dbc");
                     if (dbc && dbc->isLoaded()) {
@@ -3421,7 +3421,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
             if (qInfo->requiredReputationFaction != 0 && qInfo->requiredReputationRank > 0) {
                 static std::unordered_map<uint32_t, std::string> s_factionNamesB;
                 static bool s_factionNamesLoadedB = false;
-                if (!s_factionNamesLoadedB && assetManager_) {
+                if (!s_factionNamesLoadedB && assetManager_ && assetManager_->isInitialized()) {
                     s_factionNamesLoadedB = true;
                     auto dbc = assetManager_->loadDBC("Faction.dbc");
                     if (dbc && dbc->isLoaded()) {
@@ -3499,7 +3499,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
                 };
                 static std::unordered_map<uint32_t, SetEntryD> s_setDataD;
                 static bool s_setDataLoadedD = false;
-                if (!s_setDataLoadedD && assetManager_) {
+                if (!s_setDataLoadedD && assetManager_ && assetManager_->isInitialized()) {
                     s_setDataLoadedD = true;
                     auto dbc = assetManager_->loadDBC("ItemSet.dbc");
                     if (dbc && dbc->isLoaded()) {
@@ -3863,7 +3863,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
         // Lazy-load SkillLine.dbc names
         static std::unordered_map<uint32_t, std::string> s_skillNames;
         static bool s_skillNamesLoaded = false;
-        if (!s_skillNamesLoaded && assetManager_) {
+        if (!s_skillNamesLoaded && assetManager_ && assetManager_->isInitialized()) {
             s_skillNamesLoaded = true;
             auto dbc = assetManager_->loadDBC("SkillLine.dbc");
             if (dbc && dbc->isLoaded()) {
@@ -3898,7 +3898,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
     if (info.requiredReputationFaction != 0 && info.requiredReputationRank > 0) {
         static std::unordered_map<uint32_t, std::string> s_factionNames;
         static bool s_factionNamesLoaded = false;
-        if (!s_factionNamesLoaded && assetManager_) {
+        if (!s_factionNamesLoaded && assetManager_ && assetManager_->isInitialized()) {
             s_factionNamesLoaded = true;
             auto dbc = assetManager_->loadDBC("Faction.dbc");
             if (dbc && dbc->isLoaded()) {
@@ -4019,7 +4019,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
         };
         static std::unordered_map<uint32_t, SetEntry> s_setData;
         static bool s_setDataLoaded = false;
-        if (!s_setDataLoaded && assetManager_) {
+        if (!s_setDataLoaded && assetManager_ && assetManager_->isInitialized()) {
             s_setDataLoaded = true;
             auto dbc = assetManager_->loadDBC("ItemSet.dbc");
             if (dbc && dbc->isLoaded()) {

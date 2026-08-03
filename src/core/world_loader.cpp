@@ -427,7 +427,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
 
     // Resolve map folder name from Map.dbc (authoritative for world/instance maps).
     // This is required for instances like DeeprunTram (map 369) that are not Azeroth/Kalimdor.
-    if (!mapNameCacheLoaded_ && assetManager_) {
+    if (!mapNameCacheLoaded_ && assetManager_ && assetManager_->isInitialized()) {
         mapNameCacheLoaded_ = true;
         if (auto mapDbc = assetManager_->loadDBC("Map.dbc"); mapDbc && mapDbc->isLoaded()) {
             mapNameById_.reserve(mapDbc->getRecordCount());
