@@ -1921,7 +1921,16 @@ void registerQuestLuaAPI(lua_State* L) {
             const std::string skill = gh->getSkillLineName(sp.reqSkill);
             lua_pushstring(L, skill.empty() ? "Skill" : skill.c_str());
             lua_pushnumber(L, sp.reqSkillValue);
-            return 2;
+            // Whether the player already meets it. The trainer window picks
+            // between TRAINER_REQ_SKILL_RANK and its _RED twin on this, so
+            // leaving it nil painted every requirement red — including the
+            // ones already satisfied, next to a spell the player could train.
+            const auto& skills = gh->getPlayerSkills();
+            const auto it = skills.find(sp.reqSkill);
+            const bool met = it != skills.end() &&
+                             it->second.effectiveValue() >= sp.reqSkillValue;
+            lua_pushboolean(L, met ? 1 : 0);
+            return 3;
         }},
                 {"GetTrainerServiceIcon", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
@@ -1996,9 +2005,18 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushboolean(L, gh->getKnownSpells().count(req) ? 1 : 0);
             return 2;
         }},
+                // GetTrainerServiceStepReq(i) → step, met.
+                //
+                // Nil, not zero. The trainer window does `if ( step ) then`
+                // and zero is truthy in Lua, so answering 0 claimed every
+                // service had a step requirement — and with `met` missing it
+                // took the red branch, printing a bogus unmet requirement of
+                // "0" beside every spell on the list.
+                //
+                // No step requirement is tracked here, and saying so is both
+                // true and what removes the line.
                 {"GetTrainerServiceStepReq", [](lua_State* L) -> int {
-            lua_pushnumber(L, 0);
-            return 1;
+            return luaReturnNil(L);
         }},
                 {"GetTrainerServiceItemLink", [](lua_State* L) -> int {
             return luaReturnNil(L);
