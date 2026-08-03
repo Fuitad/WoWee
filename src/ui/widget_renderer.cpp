@@ -602,7 +602,22 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     // fails, and the device is lost. Hoisting them out means the wait happens
     // between frames instead of during one, and the budget means a screen full
     // of new art costs several quiet frames rather than one very long one.
-    constexpr int kUploadsPerFrame = 8;
+    // Three, not eight.
+    //
+    // Each one is a BLP decode, a staging buffer, a copy and a wait — and the
+    // batch around them is synchronous, so the whole cost lands inside
+    // uiManager->render. A live log shows that stage reaching 186ms while the
+    // terrain was uploading M2 instances on the same queue, and the device was
+    // lost shortly after with images reported as never having left
+    // VK_IMAGE_LAYOUT_UNDEFINED.
+    //
+    // FrameXML wants far more distinct art than this client's own interface
+    // did — icons per spellbook tab, per tracking type, per dropdown entry —
+    // so the budget that was comfortable before is now reached every frame
+    // during a load. Spreading the same work over more frames costs a texture
+    // appearing a frame or two later, which is invisible, and shortens each
+    // stall to something that cannot sit across a driver's patience.
+    constexpr int kUploadsPerFrame = 3;
     std::vector<std::pair<const std::string*, bool>> wanted;
     wanted.reserve(kUploadsPerFrame);
     auto want = [&](const std::string& path, bool add = false) {
