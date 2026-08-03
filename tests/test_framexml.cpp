@@ -820,3 +820,23 @@ TEST_CASE("A font object without a Shadow says nothing about one",
     const EmitResult r = emitFrameXml(root);
     REQUIRE_FALSE(has(r.lua, "shadow"));
 }
+
+TEST_CASE("An Animations block becomes group and animation calls",
+          "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Pulse\">"
+        "<Animations><AnimationGroup name=\"$parentGroup\" looping=\"BOUNCE\">"
+        "<Alpha change=\"-0.7\" duration=\"0.75\" order=\"1\" startDelay=\"0.2\"/>"
+        "<Translation offsetX=\"10\" offsetY=\"-5\" duration=\"1\"/>"
+        "</AnimationGroup></Animations></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "CreateAnimationGroup(\"PulseGroup\")"));
+    REQUIRE(has(r.lua, "SetLooping(\"BOUNCE\")"));
+    REQUIRE(has(r.lua, "CreateAnimation(\"Alpha\")"));
+    REQUIRE(has(r.lua, "SetChange(-0.7)"));
+    REQUIRE(has(r.lua, "SetStartDelay(0.2)"));
+    REQUIRE(has(r.lua, "CreateAnimation(\"Translation\")"));
+    REQUIRE(has(r.lua, "SetOffset(10, -5)"));
+    // The vars are table slots, not names: "local __w[3]" would not parse.
+    REQUIRE_FALSE(has(r.lua, "local __w["));
+}

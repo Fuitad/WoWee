@@ -628,6 +628,53 @@ struct Emitter {
         if (const std::string* a = node.attr("alpha")) {
             line(var + ":SetAlpha(" + *a + ")");
         }
+        // <Animations> — one or more <AnimationGroup>, each holding <Alpha>,
+        // <Translation> and friends. The group is a Lua object rather than a
+        // widget, so this emits the calls a script would make.
+        for (const XmlNode& anims : node.children) {
+            if (anims.name != "Animations") continue;
+            for (const XmlNode& group : anims.children) {
+                if (group.name != "AnimationGroup") continue;
+                const std::string gvar = nextVar();
+                const std::string gname = substituteParent(
+                    group.attrOr("name", ""), name);
+                line(gvar + " = " + var + ":CreateAnimationGroup(" +
+                     (gname.empty() ? "nil" : quote(gname)) + ")");
+                if (const std::string* loop = group.attr("looping")) {
+                    line(gvar + ":SetLooping(" + quote(*loop) + ")");
+                }
+                if (const std::string* pk = group.attr("parentKey")) {
+                    line(var + "." + *pk + " = " + gvar);
+                }
+                for (const XmlNode& a : group.children) {
+                    if (a.name != "Alpha" && a.name != "Translation" &&
+                        a.name != "Scale" && a.name != "Rotation" &&
+                        a.name != "Animation") {
+                        continue;
+                    }
+                    const std::string avar = nextVar();
+                    const std::string aname = substituteParent(
+                        a.attrOr("name", ""), name);
+                    line(avar + " = " + gvar + ":CreateAnimation(" +
+                         quote(a.name == "Animation" ? "Alpha" : a.name) +
+                         (aname.empty() ? "" : ", " + quote(aname)) + ")");
+                    if (const std::string* d = a.attr("duration"))
+                        line(avar + ":SetDuration(" + *d + ")");
+                    if (const std::string* o = a.attr("order"))
+                        line(avar + ":SetOrder(" + *o + ")");
+                    if (const std::string* sd = a.attr("startDelay"))
+                        line(avar + ":SetStartDelay(" + *sd + ")");
+                    if (const std::string* c = a.attr("change"))
+                        line(avar + ":SetChange(" + *c + ")");
+                    if (a.attr("offsetX") || a.attr("offsetY")) {
+                        line(avar + ":SetOffset(" + a.attrOr("offsetX", "0") +
+                             ", " + a.attrOr("offsetY", "0") + ")");
+                    }
+                    if (const std::string* pk = a.attr("parentKey"))
+                        line(var + "." + *pk + " = " + avar);
+                }
+            }
+        }
         // <NormalFont style="GameFontNormal"/> — the font a button's label is
         // drawn in. Only the normal one: this renderer does not draw a button's
         // text differently when it is highlighted or disabled, so emitting the

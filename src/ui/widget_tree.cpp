@@ -394,6 +394,10 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
         solveAxis(cx, w->width * es,  pLeft,   pW, w->left,   w->rectW);
         solveAxis(cy, w->height * es, pBottom, pH, w->bottom, w->rectH);
     }
+    // After the solve, so it displaces the result rather than becoming another
+    // constraint on it.
+    w->left   += w->animOffsetX;
+    w->bottom += w->animOffsetY;
 
     // The scroll offset, applied to the child a scroll frame holds. Scrolling
     // down means seeing content further down a taller child, which is the

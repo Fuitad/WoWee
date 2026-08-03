@@ -119,6 +119,12 @@ struct Widget {
     float hitInsetLeft = 0.0f, hitInsetRight = 0.0f;
     float hitInsetTop = 0.0f, hitInsetBottom = 0.0f;
 
+    /// Where a running Translation animation has moved the frame to, in
+    /// interface units. Kept apart from the anchors so an animation that is
+    /// stopped or interrupted leaves no trace in them — nudging the anchors
+    /// instead would make every played animation permanent.
+    float animOffsetX = 0.0f, animOffsetY = 0.0f;
+
     float scale = 1.0f;
     float effScale = 1.0f;
     bool dragLeft = false;
