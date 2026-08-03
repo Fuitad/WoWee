@@ -869,32 +869,23 @@ void Renderer::applyMsaaChange() {
     if (overlaySystem_) overlaySystem_->recreatePipelines();
     if (postProcessPipeline_) postProcessPipeline_->destroyAllResources(); // Will be lazily recreated in beginFrame()
 
-    // Reinitialize ImGui Vulkan backend with new MSAA sample count
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplVulkan_InitInfo initInfo{};
-    initInfo.ApiVersion = VK_API_VERSION_1_1;
-    initInfo.Instance = vkCtx->getInstance();
-    initInfo.PhysicalDevice = vkCtx->getPhysicalDevice();
-    initInfo.Device = vkCtx->getDevice();
-    initInfo.QueueFamily = vkCtx->getGraphicsQueueFamily();
-    initInfo.Queue = vkCtx->getGraphicsQueue();
-    initInfo.DescriptorPool = vkCtx->getImGuiDescriptorPool();
-    initInfo.MinImageCount = 2;
-    initInfo.ImageCount = vkCtx->getSwapchainImageCount();
-    // The UI renders in the overlay pass, which is single-sampled on purpose:
-    // ImGui draws axis-aligned rects and pre-antialiased glyphs, so MSAA buys
-    // almost nothing there and costs fill rate at the sample count the scene uses.
-    initInfo.PipelineInfoMain.RenderPass = vkCtx->getOverlayRenderPass();
-    initInfo.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-    initInfo.CheckVkResultFn = [](VkResult err) {
-        if (err != VK_SUCCESS)
-            LOG_ERROR("ImGui Vulkan error: ", static_cast<int>(err));
-    };
-    ImGui_ImplVulkan_Init(&initInfo);
-    // Every descriptor set the old backend handed out is gone with its pool.
-    // Anything holding one has to be told, or it draws with freed descriptors
-    // and the device is lost on the next submit.
-    vkCtx->noteImGuiBackendRestarted();
+    // ImGui is deliberately not restarted here.
+    //
+    // It always initialises at one sample into the overlay pass, which is
+    // itself always single-sampled and depends only on the swapchain format —
+    // so a change of scene anti-aliasing does not change anything ImGui built.
+    // Recreating the swapchain produces a new overlay pass handle, but a
+    // structurally identical one, and Vulkan requires a pipeline's render pass
+    // to be compatible rather than the same object.
+    //
+    // Tearing the backend down destroyed its descriptor pool, and every UI
+    // texture in the client — item and spell icons, raid icons, the talent
+    // background, the world map layers, the widget renderer — holds a
+    // descriptor set allocated from it. Nothing was told, so the next frame
+    // drew with freed descriptors and the GPU was reset: the log shows the
+    // swapchain and pipelines rebuilt, then the fence wait failing with
+    // VK_ERROR_DEVICE_LOST a fraction of a second later. Applying a saved
+    // anti-aliasing setting at startup made that look like a crash on launch.
 
 }
 
