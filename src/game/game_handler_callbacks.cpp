@@ -2257,6 +2257,19 @@ void GameHandler::submitGmTicket(const std::string& text) {
     if (chatHandler_) chatHandler_->submitGmTicket(text);
 }
 
+void GameHandler::updateGmTicket(const std::string& text) {
+    if (chatHandler_) chatHandler_->updateGmTicket(text);
+}
+
+void GameHandler::destroyTotem(int slot) {
+    // CMSG_TOTEM_DESTROYED carries the slot and nothing else on these
+    // expansions; the guid form arrived a expansion later than any of them.
+    if (slot < 0 || slot > 3 || !isInWorld() || !getSocket()) return;
+    network::Packet pkt(wireOpcode(Opcode::CMSG_TOTEM_DESTROYED));
+    pkt.writeUInt8(static_cast<uint8_t>(slot));
+    getSocket()->send(pkt);
+}
+
 void GameHandler::deleteGmTicket() {
     if (socialHandler_) socialHandler_->deleteGmTicket();
 }

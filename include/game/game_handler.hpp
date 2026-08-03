@@ -569,6 +569,7 @@ public:
 
     // GM Ticket
     void submitGmTicket(const std::string& text);
+    void updateGmTicket(const std::string& text);
     void deleteGmTicket();
     void requestGmTicket();          ///< Send CMSG_GMTICKET_GETTICKET to query open ticket
 
@@ -1924,6 +1925,9 @@ public:
         }
     };
     static constexpr int NUM_TOTEM_SLOTS = 4;
+    /// Pull down a totem by the slot it stands in.
+    void destroyTotem(int slot);
+
     const TotemSlot& getTotemSlot(int slot) const {
         static TotemSlot empty;
         return (slot >= 0 && slot < NUM_TOTEM_SLOTS) ? activeTotemSlots_[slot] : empty;

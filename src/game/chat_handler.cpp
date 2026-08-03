@@ -1020,6 +1020,17 @@ void ChatHandler::handleChannelList(network::Packet& packet) {
 // Methods moved from GameHandler
 // ============================================================
 
+void ChatHandler::updateGmTicket(const std::string& text) {
+    if (!owner_.isInWorld() || !owner_.getSocket()) return;
+    // CMSG_GMTICKET_UPDATETEXT (WotLK 3.3.5a): the new text and nothing else.
+    // Creating carries the player's position because a new ticket records where
+    // it was raised; editing one does not move it.
+    network::Packet pkt(wireOpcode(Opcode::CMSG_GMTICKET_UPDATETEXT));
+    pkt.writeString(text);
+    owner_.getSocket()->send(pkt);
+    LOG_INFO("Updated GM ticket text");
+}
+
 void ChatHandler::submitGmTicket(const std::string& text) {
     if (!owner_.isInWorld()) return;
 

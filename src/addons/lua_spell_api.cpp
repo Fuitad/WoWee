@@ -879,6 +879,15 @@ static int lua_IsUsableSpell(lua_State* L) {
 void registerSpellLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"GetTotemInfo",     lua_GetTotemInfo},
+                // DestroyTotem(slot) — pull one down early. The totem bar's
+                // right-click, and the slot is all the request carries.
+                {"DestroyTotem", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
+            // The bar counts from one and the request from zero.
+            if (gh && slot >= 1) gh->destroyTotem(slot - 1);
+            return 0;
+        }},
                 {"GetTotemTimeLeft", lua_GetTotemTimeLeft},
                 {"SpellStopCasting", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);

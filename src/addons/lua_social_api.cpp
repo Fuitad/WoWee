@@ -561,6 +561,16 @@ void registerSocialLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"BNGetNumFriends",     lua_BNGetNumFriends},
                 {"GetGMTicket",         lua_GetGMTicket},
+                // UpdateGMTicket(text) — rewrite the ticket already open.
+                // Creating one carries the player's position because a new
+                // ticket records where it was raised; editing does not move it,
+                // and the request is the text alone.
+                {"UpdateGMTicket", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* text = luaL_optstring(L, 1, "");
+            if (gh && text && *text) gh->updateGmTicket(text);
+            return 0;
+        }},
                 {"GetNumMacroIcons",    lua_GetNumMacroIcons},
                 {"GetMacroIconInfo",    lua_GetMacroIconInfo},
                 // The guild bank tab dialog picks from the same icons under a

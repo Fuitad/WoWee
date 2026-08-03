@@ -49,6 +49,8 @@ public:
 
     // ---- Methods moved from GameHandler ----
     void submitGmTicket(const std::string& text);
+    /// Replace the text of the ticket already open.
+    void updateGmTicket(const std::string& text);
     void handleMotd(network::Packet& packet);
     void handleNotification(network::Packet& packet);
 
