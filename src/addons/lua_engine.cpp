@@ -5259,6 +5259,29 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
         case kHome:  w->cursorPos = 0; break;
         case kEnd:   w->cursorPos = len; break;
         case kReturn:
+            // A box declared multiLine takes the return as a line break rather
+            // than as "done". The mail body says multiLine="true" and letters
+            // ="500"; reading the limit and not the flag left a letter that
+            // stops at five hundred characters and still cannot hold two
+            // paragraphs.
+            //
+            // Blizzard's own boxes rely on this split: the chat box has no
+            // multiLine and submits, the mail body has it and does not, and
+            // both are the same OnEnterPressed handler.
+            if (w->editMultiLine) {
+                // The break counts against the limit like any other character;
+                // inserting it directly would let a full box grow by one every
+                // time return was pressed.
+                if (w->editMaxLetters > 0 &&
+                    static_cast<int>(w->editText.size()) >= w->editMaxLetters) {
+                    break;
+                }
+                const size_t at = std::min(w->cursorPos, w->editText.size());
+                w->editText.insert(at, 1, '\n');
+                w->cursorPos = at + 1;
+                callFrameScript(focusedWid_, "OnTextChanged");
+                break;
+            }
             // The handler decides what to do with it, including whether to let
             // go of focus — a chat box does, a search field does not.
             callFrameScript(focusedWid_, "OnEnterPressed");
