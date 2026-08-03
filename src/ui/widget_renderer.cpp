@@ -321,8 +321,32 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     // the interface shows its chat windows again on its own schedule, so this
     // is done each frame, where nothing can undo it.
     static const std::vector<std::string> kSuppressed = frameXmlSuppressedFrames();
+    // Which of these never resolved, said once a few seconds in.
+    //
+    // A name that matches no frame suppresses nothing, silently — the window
+    // it was meant to hide keeps opening beside this client's own, and the
+    // list looks complete. Reported late rather than at load because several
+    // of these frames belong to addons that are not loaded until something
+    // asks for them, and a name is only wrong if it is still unresolved after
+    // the interface has settled.
+    static bool reportedUnresolved = false;
+    static double firstSeen = 0.0;
+    const double now = core::appTimeSeconds();
+    if (firstSeen == 0.0) firstSeen = now;
+
     for (const std::string& name : kSuppressed) {
         if (Widget* w = tree.findByName(name)) w->shown = false;
+    }
+
+    if (!reportedUnresolved && (now - firstSeen) > 20.0) {
+        reportedUnresolved = true;
+        for (const std::string& name : kSuppressed) {
+            if (!tree.findByName(name)) {
+                LOG_WARNING("FrameXML: nothing is named '", name,
+                            "' — that suppression is doing nothing, and "
+                            "whatever it was meant to hide is still shown");
+            }
+        }
     }
 
     sizeTooltips(tree);
