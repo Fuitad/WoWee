@@ -686,6 +686,49 @@ std::string wowKeyFromImGui(ImGuiKey key) {
     return out;
 }
 
+/// The commands the client has a real action behind. Rebinding one of these has
+/// to reach the manager, or the list would show the new key while the client
+/// went on answering to the old one.
+struct LiveBinding {
+    const char* command;
+    wowee::ui::KeybindingManager::Action action;
+};
+const LiveBinding kLiveBindings[] = {
+    {"TOGGLECHARACTER0",  wowee::ui::KeybindingManager::Action::TOGGLE_CHARACTER_SCREEN},
+    {"TOGGLEBACKPACK",    wowee::ui::KeybindingManager::Action::TOGGLE_BAGS},
+    {"TOGGLESPELLBOOK",   wowee::ui::KeybindingManager::Action::TOGGLE_SPELLBOOK},
+    {"TOGGLETALENTS",     wowee::ui::KeybindingManager::Action::TOGGLE_TALENTS},
+    {"TOGGLEQUESTLOG",    wowee::ui::KeybindingManager::Action::TOGGLE_QUESTS},
+    {"TOGGLEWORLDMAP",    wowee::ui::KeybindingManager::Action::TOGGLE_WORLD_MAP},
+    {"TOGGLEMINIMAP",     wowee::ui::KeybindingManager::Action::TOGGLE_MINIMAP},
+    {"TOGGLEACHIEVEMENT", wowee::ui::KeybindingManager::Action::TOGGLE_ACHIEVEMENTS},
+    {"TOGGLEGUILDTAB",    wowee::ui::KeybindingManager::Action::TOGGLE_GUILD_ROSTER},
+};
+
+/// The named key whose name matches, or none. ImGui offers no reverse lookup,
+/// and the set is small enough that walking it costs nothing next to the file
+/// write that follows a rebind.
+ImGuiKey imGuiKeyFromWow(const std::string& name) {
+    if (name.empty()) return ImGuiKey_None;
+    for (int k = ImGuiKey_NamedKey_BEGIN; k < ImGuiKey_NamedKey_END; ++k) {
+        if (wowKeyFromImGui(static_cast<ImGuiKey>(k)) == name) {
+            return static_cast<ImGuiKey>(k);
+        }
+    }
+    return ImGuiKey_None;
+}
+
+/// Tells the client what a command is bound to now, for the commands it acts
+/// on. Silent for the rest, which are listed and saved but not yet answered.
+void pushBindingToClient(const std::string& command, const std::string& key) {
+    for (const auto& live : kLiveBindings) {
+        if (command != live.command) continue;
+        const ImGuiKey imKey = imGuiKeyFromWow(key);
+        wowee::ui::KeybindingManager::getInstance().setKeyForAction(live.action, imKey);
+        return;
+    }
+}
+
 /// The keys the client is actually listening for, asked of the manager that
 /// listens rather than restated here — a second copy would be wrong the moment
 /// either side moved. Commands the client has no action for keep their retail
@@ -712,22 +755,10 @@ void seedBindingDefaults() {
 
     // Where a command corresponds to something the client really does, the key
     // shown is the one it really answers to.
-    using Action = wowee::ui::KeybindingManager::Action;
-    static const struct { const char* command; Action action; } kLive[] = {
-        {"TOGGLECHARACTER0",  Action::TOGGLE_CHARACTER_SCREEN},
-        {"TOGGLEBACKPACK",    Action::TOGGLE_BAGS},
-        {"TOGGLESPELLBOOK",   Action::TOGGLE_SPELLBOOK},
-        {"TOGGLETALENTS",     Action::TOGGLE_TALENTS},
-        {"TOGGLEQUESTLOG",    Action::TOGGLE_QUESTS},
-        {"TOGGLEWORLDMAP",    Action::TOGGLE_WORLD_MAP},
-        {"TOGGLEMINIMAP",     Action::TOGGLE_MINIMAP},
-        {"TOGGLEACHIEVEMENT", Action::TOGGLE_ACHIEVEMENTS},
-        {"TOGGLEGUILDTAB",    Action::TOGGLE_GUILD_ROSTER},
-    };
     auto& manager = wowee::ui::KeybindingManager::getInstance();
-    for (const auto& l : kLive) {
-        const std::string key = wowKeyFromImGui(manager.getKeyForAction(l.action));
-        if (!key.empty()) keys[l.command] = {key, ""};
+    for (const auto& live : kLiveBindings) {
+        const std::string key = wowKeyFromImGui(manager.getKeyForAction(live.action));
+        if (!key.empty()) keys[live.command] = {key, ""};
     }
 }
 
@@ -812,14 +843,20 @@ static int lua_SetBinding(lua_State* L) {
     // before it joins another — otherwise both claim it and which one answers
     // depends on map order.
     for (auto& [existing, keys] : bindingKeys()) {
-        (void)existing;
         for (std::string& slot : keys) {
-            if (slot == key) slot.clear();
+            if (slot != key) continue;
+            slot.clear();
+            // The command that just lost the key has to be told, not only the
+            // one that gained it, or the client answers to both. What it
+            // answers to now is whichever slot still holds something, which is
+            // not always the first.
+            pushBindingToClient(existing, keys[0].empty() ? keys[1] : keys[0]);
         }
     }
     if (command) {
         auto& keys = bindingKeys()[command];
         if (keys[0].empty()) keys[0] = key; else keys[1] = key;
+        pushBindingToClient(command, keys[0]);
     }
     lua_pushboolean(L, 1);
     return 1;
@@ -862,6 +899,10 @@ static int lua_LoadBindings(lua_State* L) {
             rest.substr(0, comma),
             comma == std::string::npos ? "" : rest.substr(comma + 1)
         };
+        // What was saved is what the client should answer to, not what it
+        // started with — otherwise a rebind survives in the list and nowhere
+        // else, and only until the next save overwrites it.
+        pushBindingToClient(command, bindingKeys()[command][0]);
     }
     return 0;
 }
