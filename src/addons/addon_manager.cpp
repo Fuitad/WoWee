@@ -664,7 +664,25 @@ bool AddonManager::loadAddOnByName(const std::string& name, std::string& reason)
     for (const TocFile& a : lodAddons_) {
         if (lowered(a.addonName) == key) { found = &a; break; }
     }
-    if (!found) { reason = "MISSING"; return false; }
+    if (!found) {
+        // Not on the on-demand list is not the same as not present. An addon
+        // whose .toc omits LoadOnDemand is loaded at startup instead, and
+        // FrameXML still asks for it by name: uiparent.lua calls
+        // UIParentLoadAddOn("Blizzard_TokenUI"), whose .toc has no such line,
+        // and that reported MISSING for an addon already running — raising the
+        // "Couldn't load" popup over a UI that was working.
+        for (const TocFile& a : addons_) {
+            if (lowered(a.addonName) != key) continue;
+            if (!isAddonEnabled(a.addonName)) { reason = "DISABLED"; return false; }
+            // Only once the startup pass has actually run it. Before that it is
+            // listed but not loaded, and saying otherwise would have the caller
+            // use frames that do not exist yet.
+            if (addonsLoaded_) { reason.clear(); return true; }
+            break;
+        }
+        reason = "MISSING";
+        return false;
+    }
     if (!isAddonEnabled(found->addonName)) { reason = "DISABLED"; return false; }
 
     // Recorded before loading, not after: the addon's own files run during
