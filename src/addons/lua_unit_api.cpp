@@ -1190,9 +1190,27 @@ static int lua_UnitDefense(lua_State* L) {
 /// UnitAttackSpeed(unit) → main hand, off hand, in seconds. Nothing here
 /// tracks weapon speed yet; two seconds is a one-handed weapon and keeps the
 /// damage-per-second division that follows from dividing by zero.
+/// UnitAttackSpeed(unit) → mainHandSpeed, offHandSpeed.
+///
+/// The off-hand speed is nil when nothing is in that hand, and that is what
+/// the character sheet branches on: PaperDollFrame_SetAttackSpeed does
+/// `if ( offhandSpeed )` and then prints a two-handed line. Answering a speed
+/// unconditionally claimed an off-hand weapon for everyone, and the line it
+/// then built concatenated a value nothing had filled in.
 static int lua_UnitAttackSpeed(lua_State* L) {
     lua_pushnumber(L, 2.0);
-    lua_pushnumber(L, 2.0);
+    auto* gh = getGameHandler(L);
+    const char* uid = luaL_optstring(L, 1, "player");
+    std::string u(uid);
+    toLowerInPlace(u);
+    bool hasOffHand = false;
+    if (gh && u == "player") {
+        // Slot 17 is the off hand, as the interface numbers them.
+        const auto& slot = gh->getInventory().getEquipSlot(static_cast<game::EquipSlot>(16));
+        hasOffHand = !slot.empty();
+    }
+    if (hasOffHand) lua_pushnumber(L, 2.0);
+    else            lua_pushnil(L);
     return 2;
 }
 
@@ -2220,7 +2238,14 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetCombatRatingBonus",    lua_ZeroPercent},
                 {"GetCritChanceFromAgility", lua_ZeroPercent},
                 {"GetSpellCritChanceFromIntellect", lua_ZeroPercent},
-                {"GetExpertise",            lua_ZeroPercent},
+                // Three values — main hand, off hand, ranged — because the
+                // character sheet reads the second and concatenates it. One
+                // value left it nil, and the line that prints "expertise /
+                // off-hand expertise" raised rather than printing.
+                {"GetExpertise", [](lua_State* L) -> int {
+            lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 0);
+            return 3;
+        }},
                 {"GetExpertisePercent",     lua_ZeroPercent},
                 {"GetArmorPenetration",     lua_ZeroPercent},
                 {"GetSpellPenetration",     lua_ZeroPercent},

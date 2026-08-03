@@ -46,7 +46,13 @@ static int lua_GetQuestLogTitle(lua_State* L) {
     lua_pushnumber(L, 0);                // 4: suggestedGroup
     lua_pushboolean(L, 0);               // 5: isHeader
     lua_pushboolean(L, 0);               // 6: isCollapsed
-    lua_pushboolean(L, q.complete);      // 7: isComplete
+    // A number, not a boolean: 1 for complete, -1 for failed, nil otherwise.
+    // watchframe.lua writes `if ( isComplete and isComplete < 0 )` to tell a
+    // failed quest from a finished one, and comparing a boolean with a number
+    // raises. Correcting the *position* of this value without correcting its
+    // type turned a quiet wrong answer into an error on the quest tracker.
+    // Failure is not tracked here, so a quest is either complete or not.
+    if (q.complete) lua_pushnumber(L, 1); else lua_pushnil(L);  // 7: isComplete
     lua_pushboolean(L, 0);               // 8: isDaily
     lua_pushnumber(L, q.questId);        // 9: questID
     lua_pushnumber(L, q.questId);        // 10: displayQuestID
@@ -1422,8 +1428,15 @@ static int lua_GetQuestItemInfo(lua_State* L) {
     const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
     const QuestSource s = currentQuestSource(gh);
 
-    const bool wantChoice = std::string(type) == "choice";
-    const auto* list = wantChoice ? s.choices : s.rewards;
+    // Three lists, not two. "required" is what the *progress* page asks for —
+    // the items a quest wants handed in — and it was falling through to the
+    // reward list, so turning in a quest showed what it would pay rather than
+    // what it wanted.
+    const std::string want(type);
+    const std::vector<game::QuestRewardItem>* list = nullptr;
+    if (want == "choice")        list = s.choices;
+    else if (want == "required") list = gh ? &gh->getQuestRequestItems().requiredItems : nullptr;
+    else                         list = s.rewards;
     if (!gh || !list || index < 1) { return luaReturnNil(L); }
 
     int seen = 0;
@@ -1682,6 +1695,35 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetRewardText",        lua_GetRewardText},
                 {"GetGossipText",        lua_GetGossipText},
                 {"GetQuestItemInfo",     lua_GetQuestItemInfo},
+                // How many items a quest wants handed in.
+                // QuestFrameProgressItems_Update reads it straight into
+                // `numRequiredItems > 0`, and comparing nil against a number
+                // raises — so opening the progress page of any quest that
+                // takes items took the page down.
+                {"GetNumQuestItems", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) { lua_pushnumber(L, 0); return 1; }
+            const auto& req = gh->getQuestRequestItems().requiredItems;
+            int n = 0;
+            for (const auto& r : req) if (r.itemId != 0) ++n;
+            lua_pushnumber(L, n);
+            return 1;
+        }},
+                // The parchment behind the quest text. The caller substitutes
+                // "Parchment" for a nil, which is the only material this
+                // client has art for, so nil is both honest and correct.
+                {"GetQuestBackgroundMaterial", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                // Whether the quest is flagged PvP, and whether the giver
+                // opened it without being asked. Neither is parsed from the
+                // quest packets here, and false is what the interface does
+                // with an absent answer anyway.
+                {"QuestFlagsPVP",      [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                {"QuestGetAutoAccept", [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                // Shown when a reward is confirmed without one being picked.
+                // The message belongs to the server in the real client; there
+                // is nothing to say here, and the call is made for its effect
+                // rather than its answer.
+                {"QuestChooseRewardError", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GetQuestItemLink",        lua_GetQuestItemLink},
                 {"GetQuestSpellLink",       lua_GetQuestSpellLink},
                 {"GetQuestMoneyToGet",   lua_GetQuestMoneyToGet},
