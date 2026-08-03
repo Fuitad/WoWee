@@ -5039,12 +5039,15 @@ void LuaEngine::updateSizeChanges() {
         if (!wp) continue;
         const ui::Widget& w = *wp;
         if (w.id == 0 || w.kind != ui::WidgetKind::Frame) continue;
-        auto it = lastSize_.find(w.id);
-        const bool known = (it != lastSize_.end());
-        if (known && it->second.first == w.rectW && it->second.second == w.rectH) {
+        const bool known = (w.lastReportedW >= 0.0f);
+        if (known && w.lastReportedW == w.rectW && w.lastReportedH == w.rectH) {
             continue;
         }
-        lastSize_[w.id] = {w.rectW, w.rectH};
+        // Written through the tree, since the loop reads a const view.
+        if (auto* mut = widgets_.get(w.id)) {
+            mut->lastReportedW = w.rectW;
+            mut->lastReportedH = w.rectH;
+        }
         // Nothing is fired the first time a frame is measured: every frame in
         // the interface would report a change on the first layout, which says
         // nothing and runs 3000 handlers to say it.

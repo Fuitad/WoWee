@@ -183,8 +183,7 @@ private:
     uint32_t lastClickWid_ = 0;
     double   lastClickTime_ = 0.0;
     static constexpr double kDoubleClickSeconds = 0.4;
-    /// The rect each frame had last time round, for OnSizeChanged.
-    std::unordered_map<uint32_t, std::pair<float, float>> lastSize_;
+
     /// The edit box taking keystrokes, or zero. One at a time, which is
     /// what focus means.
     uint32_t focusedWid_ = 0;

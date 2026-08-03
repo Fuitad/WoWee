@@ -334,8 +334,30 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     const double now = core::appTimeSeconds();
     if (firstSeen == 0.0) firstSeen = now;
 
-    for (const std::string& name : kSuppressed) {
-        if (Widget* w = tree.findByName(name)) w->shown = false;
+    // Resolved once and kept, because findByName is a linear scan over every
+    // widget with a string compare on each. Sixty-two names against several
+    // thousand FrameXML widgets is a few hundred thousand comparisons a frame,
+    // every frame, for a list that barely changes — the cost arrived with the
+    // list, which grew from fifteen names to sixty-two in one sitting.
+    //
+    // The id is verified against the name before use, so a slot reused by a
+    // different frame re-resolves rather than hiding the wrong one. Names that
+    // do not resolve are retried on a timer, not per frame: several belong to
+    // load-on-demand addons and only appear once something asks for them.
+    static std::vector<uint32_t> resolved(kSuppressed.size(), 0);
+    static double lastRetry = 0.0;
+    const bool retryMisses = (now - lastRetry) > 1.0;
+    if (retryMisses) lastRetry = now;
+
+    for (size_t i = 0; i < kSuppressed.size(); ++i) {
+        const std::string& name = kSuppressed[i];
+        Widget* w = (resolved[i] != 0) ? tree.get(resolved[i]) : nullptr;
+        if (w && w->name != name) w = nullptr;   // that slot is someone else now
+        if (!w && (resolved[i] != 0 || retryMisses)) {
+            w = tree.findByName(name);
+            resolved[i] = w ? w->id : 0;
+        }
+        if (w) w->shown = false;
     }
 
     if (!reportedUnresolved && (now - firstSeen) > 20.0) {

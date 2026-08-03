@@ -131,6 +131,12 @@ struct Widget {
     /// instead would make every played animation permanent.
     float animOffsetX = 0.0f, animOffsetY = 0.0f;
 
+    /// The rect this frame last reported through OnSizeChanged. Kept on the
+    /// widget rather than in a map beside it: the pass runs every frame over
+    /// every widget, and a hash lookup each was paying for a comparison that
+    /// two floats here answer directly.
+    float lastReportedW = -1.0f, lastReportedH = -1.0f;
+
     /// How far a button's label shifts while the button is held. Declared as
     /// <PushedTextOffset> on 11 templates; it is the small movement that makes
     /// a button feel pressed rather than merely recoloured.
