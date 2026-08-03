@@ -236,7 +236,14 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
         pendingLootRoll_.playerRolls.clear();
         std::string link = buildItemLink(itemId, quality, itemName);
         owner_.addSystemChatMessage("Loot roll started for " + link + ".");
-        if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("START_LOOT_ROLL", {});
+        // The roll id the interface will ask every later question by. The slot
+        // plus one, so it is never zero and stays the same for the whole roll;
+        // fired without it, the roll window opened with a nil id and could not
+        // find out what it was asking about.
+        if (owner_.addonEventCallbackRef()) {
+            owner_.addonEventCallbackRef()("START_LOOT_ROLL",
+                                           {std::to_string(lootSlot + 1)});
+        }
     };
 
     table[Opcode::SMSG_LOOT_ALL_PASSED] = [this](network::Packet& packet) {

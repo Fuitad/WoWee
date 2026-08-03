@@ -1,6 +1,7 @@
 // lua_inventory_api.cpp — Items, containers, merchant, loot, equipment, trading, auction, and mail Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
+#include "game/game_utils.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "core/logger.hpp"
 #include "core/config_paths.hpp"
@@ -1883,6 +1884,114 @@ static int lua_CloseLoot(lua_State* L) {
     return 0;
 }
 
+// --- Group loot rolls ---
+//
+// The roll window opens on START_LOOT_ROLL, which this client fires, and then
+// asked three questions it had no answer to: what is being rolled for, how long
+// is left, and — when a button was pressed — nothing happened, because
+// RollOnLoot did not exist. So the window appeared over a roll the player could
+// watch and not take part in, and passed by default when the timer ran out on
+// the server.
+//
+// All of it was already here. SMSG_LOOT_START_ROLL is parsed into a
+// LootRollEntry with the item, the quality, the countdown and the mask of which
+// buttons the server will accept, and sendLootRoll addresses the reply by the
+// object and slot the roll came from.
+//
+// One roll at a time is all this client keeps, which is the same limit its own
+// window has. The roll id is the loot slot plus one — stable for the length of
+// the roll, never zero, and checked rather than trusted, so a frame left over
+// from a previous roll is told there is nothing there and hides itself instead
+// of answering about the wrong item.
+namespace {
+
+/// The roll a Lua roll id refers to, or null if it is not the one in progress.
+const game::LootRollEntry* rollFor(game::GameHandler* gh, int rollId) {
+    if (!gh || !gh->hasPendingLootRoll()) return nullptr;
+    const auto& roll = gh->getPendingLootRoll();
+    if (rollId != static_cast<int>(roll.slot) + 1) return nullptr;
+    return &roll;
+}
+
+// Which buttons the server said it would accept. The same three bits the
+// roll packet carries.
+constexpr uint8_t kRollNeed       = 0x01;
+constexpr uint8_t kRollGreed      = 0x02;
+constexpr uint8_t kRollDisenchant = 0x04;
+
+} // namespace
+
+// GetLootRollItemInfo(rollId) → texture, name, count, quality, bindOnPickUp,
+//   canNeed, canGreed, canDisenchant, reasonNeed, reasonGreed,
+//   reasonDisenchant, deSkillRequired
+//
+// All twelve, because the roll window unpacks all twelve and uses the tail of
+// them: a reason is concatenated into a global's name when its button is
+// disabled, and the count is compared against one. Nil in either place raises.
+// The reasons are the generic "your class may not" line — this client is not
+// told why the server refused a button, only that it did.
+static int lua_GetLootRollItemInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* roll = rollFor(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    if (!roll) { return luaReturnNil(L); }
+
+    const auto* info = gh->getItemInfo(roll->itemId);
+    lua_pushstring(L, gh->getItemIconPath(info ? info->displayInfoId : 0).c_str());
+    lua_pushstring(L, roll->itemName.c_str());
+    // The roll packet does not carry a stack size. One is right for nearly
+    // everything rolled for, and the window only reads it to decide whether to
+    // print a number in the corner at all.
+    lua_pushnumber(L, 1);
+    lua_pushnumber(L, roll->itemQuality);
+    lua_pushboolean(L, info && info->bindType == 1 ? 1 : 0);  // bind on pickup
+    lua_pushboolean(L, (roll->voteMask & kRollNeed) ? 1 : 0);
+    lua_pushboolean(L, (roll->voteMask & kRollGreed) ? 1 : 0);
+    lua_pushboolean(L, (roll->voteMask & kRollDisenchant) ? 1 : 0);
+    lua_pushnumber(L, 1);   // reasonNeed        → "Your class may not roll need"
+    lua_pushnumber(L, 1);   // reasonGreed
+    lua_pushnumber(L, 3);   // reasonDisenchant  → "may not be disenchanted"
+    lua_pushnumber(L, 0);   // disenchanting skill the group would need
+    return 12;
+}
+
+static int lua_GetLootRollItemLink(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* roll = rollFor(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    if (!roll) { return luaReturnNil(L); }
+    lua_pushstring(L, game::buildItemLink(roll->itemId, roll->itemQuality,
+                                          roll->itemName).c_str());
+    return 1;
+}
+
+// GetLootRollTimeLeft(rollId) → milliseconds still to answer in.
+//
+// Answered zero before, from the list of counts that are genuinely nothing.
+// It is not nothing here: the bar under the item is drawn from it, so it sat
+// empty for the whole roll.
+static int lua_GetLootRollTimeLeft(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* roll = rollFor(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    if (!roll) { lua_pushnumber(L, 0); return 1; }
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - roll->rollStartedAt).count();
+    const auto left = static_cast<int64_t>(roll->rollCountdownMs) - elapsed;
+    lua_pushnumber(L, left > 0 ? static_cast<double>(left) : 0.0);
+    return 1;
+}
+
+// RollOnLoot(rollId, rollType) — 0 pass, 1 need, 2 greed, 3 disenchant, which
+// is both the order the buttons carry as their id and the order the server
+// expects.
+static int lua_RollOnLoot(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* roll = rollFor(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    if (!roll) return 0;
+    const int type = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (type < 0 || type > 3) return 0;
+    gh->sendLootRoll(roll->objectGuid, roll->slot, static_cast<uint8_t>(type));
+    return 0;
+}
+
 // GetLootMethod() → "freeforall"|"roundrobin"|"master"|"group"|"needbeforegreed", partyLoot, raidLoot
 static int lua_GetLootMethod(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -2019,6 +2128,10 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"LootSlotIsItem",      lua_LootSlotIsItem},
                 {"IsFishingLoot",       lua_IsFishingLoot},
                 {"CloseLoot",           lua_CloseLoot},
+                {"GetLootRollItemInfo", lua_GetLootRollItemInfo},
+                {"GetLootRollItemLink", lua_GetLootRollItemLink},
+                {"GetLootRollTimeLeft", lua_GetLootRollTimeLeft},
+                {"RollOnLoot",          lua_RollOnLoot},
                 {"GetLootMethod",       lua_GetLootMethod},
                 {"GetLootThreshold",    lua_GetLootThreshold},
                 {"GetTabardCreationCost", lua_GetTabardCreationCost},

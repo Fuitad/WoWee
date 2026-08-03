@@ -1125,7 +1125,6 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GuildControlGetNumRanks",  lua_ReturnZero},
                 // Time left on a loot roll that is not running, which
                 // GroupLootFrame compares against a bar range at once.
-                {"GetLootRollTimeLeft",      lua_ReturnZero},
                 {"GetNumDungeonMapLevels",   lua_ReturnZero},
                 // Bar offsets, added to a page number the line they
                 // are read on. No bonus or multi-cast bar is showing,
