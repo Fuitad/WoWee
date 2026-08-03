@@ -752,8 +752,16 @@ SetTally tallySet(game::GameHandler* gh, const EquipmentSet& set) {
         const uint32_t want = set.items[i];
         if (want == 0) { ++t.ignored; continue; }
         ++t.items;
-        const auto& worn = inv.getEquipSlot(static_cast<game::EquipSlot>(i));
-        if (!worn.empty() && worn.item.itemId == want) { ++t.equipped; continue; }
+        // Worn anywhere counts as worn, not only in the slot the set recorded
+        // it from. A ring saved from the first ring slot and put back on in the
+        // second is on the player either way, and counting it missing told the
+        // panel a set was incomplete while the player was wearing all of it.
+        bool onBody = false;
+        for (int w = 0; w < kEquipSlots && !onBody; ++w) {
+            const auto& worn = inv.getEquipSlot(static_cast<game::EquipSlot>(w));
+            onBody = !worn.empty() && worn.item.itemId == want;
+        }
+        if (onBody) { ++t.equipped; continue; }
         // Anywhere in the bags counts as to hand, which is what the panel means
         // by an item it can still put on.
         bool found = false;
