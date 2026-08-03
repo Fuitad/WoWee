@@ -8,7 +8,7 @@
 
 namespace wowee::addons {
 
-enum class CursorType { NONE, SPELL, ITEM, ACTION };
+enum class CursorType { NONE, SPELL, ITEM, ACTION, MACRO };
 static CursorType s_cursorType = CursorType::NONE;
 static uint32_t   s_cursorId   = 0;    // spellId, itemId, or action slot
 static int        s_cursorSlot = 0;    // source slot for placement
@@ -311,6 +311,10 @@ static int lua_GetCursorInfo(lua_State* L) {
             lua_pushstring(L, "action");
             lua_pushnumber(L, s_cursorSlot);
             return 2;
+        case CursorType::MACRO:
+            lua_pushstring(L, "macro");
+            lua_pushnumber(L, s_cursorId);
+            return 2;
         default:
             return 0;
     }
@@ -362,6 +366,8 @@ static int lua_PlaceAction(lua_State* L) {
         gh->setActionBarSlot(slot - 1, game::ActionBarSlot::SPELL, s_cursorId);
     } else if (s_cursorType == CursorType::ITEM && s_cursorId != 0) {
         gh->setActionBarSlot(slot - 1, game::ActionBarSlot::ITEM, s_cursorId);
+    } else if (s_cursorType == CursorType::MACRO && s_cursorId != 0) {
+        gh->setActionBarSlot(slot - 1, game::ActionBarSlot::MACRO, s_cursorId);
     }
     s_cursorType = CursorType::NONE;
     s_cursorId = 0;
@@ -734,6 +740,108 @@ void registerActionLuaAPI(lua_State* L) {
                 {"IsModifiedClick",     lua_IsModifiedClick},
                 {"GetModifiedClick",    lua_GetModifiedClick},
                 {"SetModifiedClick",    lua_SetModifiedClick},
+                // Macros. The client has stored their text all along and
+                // persisted it per character; only the interface's way in was
+                // missing, so GetNumMacros answered zero and the panel opened
+                // empty over a full set.
+                //
+                // WoW splits the ids: 1-36 are account-wide, 37 and up belong
+                // to the character. That split is what GetNumMacros reports and
+                // what CreateMacro's perCharacter flag chooses between.
+                {"GetNumMacros",        [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            int global = 0, perChar = 0;
+            if (gh) {
+                for (uint32_t id : gh->getMacroIds()) {
+                    if (id <= 36) ++global; else ++perChar;
+                }
+            }
+            lua_pushnumber(L, global);
+            lua_pushnumber(L, perChar);
+            return 2;
+        }},
+                // GetMacroInfo(id) → name, icon, body
+                {"GetMacroInfo",        [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (!gh || id == 0 || gh->getMacroText(id).empty()) {
+                return luaReturnNil(L);
+            }
+            std::string name = gh->getMacroName(id);
+            if (name.empty()) name = "Macro";
+            std::string icon = gh->getMacroIcon(id);
+            if (icon.empty()) icon = "Interface\\Icons\\INV_Misc_QuestionMark";
+            lua_pushstring(L, name.c_str());
+            lua_pushstring(L, icon.c_str());
+            lua_pushstring(L, gh->getMacroText(id).c_str());
+            return 3;
+        }},
+                // CreateMacro(name, icon, body, perCharacter) → id
+                {"CreateMacro",         [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return luaReturnNil(L);
+            const char* name = luaL_optstring(L, 1, "Macro");
+            const char* icon = luaL_optstring(L, 2, "");
+            const char* body = luaL_optstring(L, 3, "");
+            const bool perChar = lua_toboolean(L, 4) != 0;
+            // The first free id in the half that was asked for. WoW allows 18
+            // of each; refusing past that is what stops a full list growing
+            // ids the interface will not show.
+            const uint32_t first = perChar ? 37u : 1u;
+            const uint32_t last  = perChar ? 54u : 36u;
+            uint32_t id = 0;
+            for (uint32_t candidate = first; candidate <= last; ++candidate) {
+                if (gh->getMacroText(candidate).empty()) { id = candidate; break; }
+            }
+            if (id == 0) return luaReturnNil(L);
+            gh->setMacroText(id, body);
+            gh->setMacroMeta(id, name, icon);
+            lua_pushnumber(L, id);
+            return 1;
+        }},
+                // EditMacro(id, name, icon, body) → id
+                {"EditMacro",           [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (!gh || id == 0) return luaReturnNil(L);
+            const char* name = luaL_optstring(L, 2, nullptr);
+            const char* icon = luaL_optstring(L, 3, nullptr);
+            const char* body = luaL_optstring(L, 4, nullptr);
+            // Each part is optional and nil means "leave it": EditMacro is
+            // called with only a name when a macro is renamed, and writing the
+            // other two as empty would erase the macro being renamed.
+            if (body) gh->setMacroText(id, body);
+            gh->setMacroMeta(id, name ? name : gh->getMacroName(id),
+                                 icon ? icon : gh->getMacroIcon(id));
+            lua_pushnumber(L, id);
+            return 1;
+        }},
+                {"DeleteMacro",         [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (gh && id != 0) {
+                gh->setMacroText(id, "");     // empty text removes it
+                gh->setMacroMeta(id, "", "");
+            }
+            return 0;
+        }},
+                // Saved as each change is made, so this has nothing to do.
+                {"SaveMacros",          [](lua_State* L) -> int { (void)L; return 0; }},
+                // PickupMacro(id) — onto the cursor, so it can be dropped on
+                // an action slot. The slot type already existed and the packet
+                // that sets it already went out for spells and items; a macro
+                // was simply never something the cursor could hold.
+                {"PickupMacro",         [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (!gh || id == 0 || gh->getMacroText(id).empty()) return 0;
+            s_cursorType = CursorType::MACRO;
+            s_cursorId = id;
+            std::string icon = gh->getMacroIcon(id);
+            if (icon.empty()) icon = "Interface\\Icons\\INV_Misc_QuestionMark";
+            wowee::ui::frameXmlSetCursorItem(icon);
+            return 0;
+        }},
                 {"GetBindingKey",       lua_GetBindingKey},
                 {"GetBindingAction",    lua_GetBindingAction},
                 {"GetNumBindings",      lua_GetNumBindings},

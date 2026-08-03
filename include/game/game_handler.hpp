@@ -934,6 +934,15 @@ public:
     // Client-side macro text storage (server sends only macro index; text is stored locally)
     const std::string& getMacroText(uint32_t macroId) const;
     void setMacroText(uint32_t macroId, const std::string& text);
+    /// A macro's name and icon, which the text alone never carried. Stored
+    /// beside it under their own keys, so a config written before this still
+    /// loads — the name simply comes back empty and is shown as "Macro".
+    const std::string& getMacroName(uint32_t macroId) const;
+    const std::string& getMacroIcon(uint32_t macroId) const;
+    void setMacroMeta(uint32_t macroId, const std::string& name,
+                      const std::string& icon);
+    /// Every macro id in use, ascending, so the interface can list them.
+    std::vector<uint32_t> getMacroIds() const;
 
     void saveCharacterConfig();
     void loadCharacterConfig();
@@ -3273,6 +3282,8 @@ private:
 
     std::array<ActionBarSlot, ACTION_BAR_SLOTS> actionBar{};
     std::unordered_map<uint32_t, std::string> macros_;  // client-side macro text (persisted in char config)
+    std::unordered_map<uint32_t, std::string> macroNames_;
+    std::unordered_map<uint32_t, std::string> macroIcons_;
     std::vector<AuraSlot> playerAuras;
     std::vector<AuraSlot> targetAuras;
     std::unordered_map<uint64_t, std::vector<AuraSlot>> unitAurasCache_; // per-unit aura cache

@@ -1120,6 +1120,34 @@ const std::string& GameHandler::getMacroText(uint32_t macroId) const {
     return (it != macros_.end()) ? it->second : EMPTY_MACRO_TEXT;
 }
 
+const std::string& GameHandler::getMacroName(uint32_t macroId) const {
+    auto it = macroNames_.find(macroId);
+    return (it != macroNames_.end()) ? it->second : EMPTY_MACRO_TEXT;
+}
+
+const std::string& GameHandler::getMacroIcon(uint32_t macroId) const {
+    auto it = macroIcons_.find(macroId);
+    return (it != macroIcons_.end()) ? it->second : EMPTY_MACRO_TEXT;
+}
+
+void GameHandler::setMacroMeta(uint32_t macroId, const std::string& name,
+                               const std::string& icon) {
+    if (name.empty()) macroNames_.erase(macroId); else macroNames_[macroId] = name;
+    if (icon.empty()) macroIcons_.erase(macroId); else macroIcons_[macroId] = icon;
+    saveCharacterConfig();
+}
+
+std::vector<uint32_t> GameHandler::getMacroIds() const {
+    std::vector<uint32_t> ids;
+    ids.reserve(macros_.size());
+    for (const auto& [id, text] : macros_) { (void)text; ids.push_back(id); }
+    // Ascending, because the interface indexes macros by position in this list
+    // and an unordered_map hands them back in whatever order it likes — the
+    // same macro would answer to a different index each session.
+    std::sort(ids.begin(), ids.end());
+    return ids;
+}
+
 void GameHandler::setMacroText(uint32_t macroId, const std::string& text) {
     if (text.empty())
         macros_.erase(macroId);
@@ -1167,6 +1195,12 @@ void GameHandler::saveCharacterConfig() {
             }
             out << "macro_" << id << "_text=" << escaped << "\n";
         }
+    }
+    for (const auto& [id, name] : macroNames_) {
+        if (!name.empty()) out << "macro_" << id << "_name=" << name << "\n";
+    }
+    for (const auto& [id, icon] : macroIcons_) {
+        if (!icon.empty()) out << "macro_" << id << "_icon=" << icon << "\n";
     }
 
     // Save quest log
@@ -1256,6 +1290,10 @@ void GameHandler::loadCharacterConfig() {
                     }
                 }
                 macros_[macroId] = std::move(unescaped);
+            } else if (key.substr(secondUnder + 1) == "name" && !val.empty()) {
+                macroNames_[macroId] = val;
+            } else if (key.substr(secondUnder + 1) == "icon" && !val.empty()) {
+                macroIcons_[macroId] = val;
             }
         } else if ((key == "tracked_quests" || key == "map_visible_quests") &&
                    !val.empty()) {
