@@ -1749,15 +1749,27 @@ void registerSystemLuaAPI(lua_State* L) {
             (void)L;
             return 0;
         }},
+                // Both answer the amount held *and the cap*. staticpopup.lua
+                // does `MerchantFrame.honorPoints + currentHonor > maxHonor`
+                // when confirming a PvP refund, and comparing a number against
+                // a nil raises — so refunding a honour purchase took the
+                // confirmation down rather than showing it.
+                //
+                // The caps are the client's own constants for this expansion,
+                // not something the server sends: 75000 honour, 5000 arena
+                // points. They are only ever used to warn that a refund would
+                // overflow, which is exactly what they are right for.
                 {"GetHonorCurrency", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             lua_pushnumber(L, gh ? gh->getHonorPoints() : 0);
-            return 1;
+            lua_pushnumber(L, 75000);
+            return 2;
         }},
                 {"GetArenaCurrency", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             lua_pushnumber(L, gh ? gh->getArenaPoints() : 0);
-            return 1;
+            lua_pushnumber(L, 5000);
+            return 2;
         }},
                 {"GetTimePlayed", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
