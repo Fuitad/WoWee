@@ -278,6 +278,9 @@ struct Widget {
     bool  isMessageFrame = false;
     struct Message { std::string text; float color[4]; };
     std::deque<Message> messages;
+    /// Extra space between message lines, which SetPadding sets. WoW's default
+    /// is none; the 15% used here is the leading a line already carries.
+    float messagePadding = 0.0f;
     size_t maxMessages = 128;
     /// How far back through the history the frame has been scrolled, in lines.
     int   messageScroll = 0;

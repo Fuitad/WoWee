@@ -2017,6 +2017,22 @@ int lua_EditBox_Insert(lua_State* L) {
     w->cursorPos = at + add.size();
     return 0;
 }
+int lua_MessageFrame_SetPadding(lua_State* L) {
+    // WoW takes a horizontal and a vertical padding; only the vertical one
+    // changes anything here, because message lines are drawn from the frame's
+    // left edge rather than inset.
+    if (auto* w = widgetOf(L, 1)) {
+        w->messagePadding = static_cast<float>(luaL_optnumber(L, 3, 0.0));
+    }
+    return 0;
+}
+int lua_MessageFrame_GetPadding(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, 0.0);
+    lua_pushnumber(L, w ? w->messagePadding : 0.0);
+    return 2;
+}
+
 int lua_EditBox_SetTextInsets(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
         w->textInsetLeft   = static_cast<float>(luaL_optnumber(L, 2, 0.0));
@@ -2845,6 +2861,8 @@ void LuaEngine::registerCoreAPI() {
         // is one FrameXML will not stop typing into.
         {"SetMaxBytes",          lua_EditBox_SetMaxLetters},
         {"SetTextInsets",        lua_EditBox_SetTextInsets},
+        {"SetPadding",           lua_MessageFrame_SetPadding},
+        {"GetPadding",           lua_MessageFrame_GetPadding},
         {"GetTextInsets",        lua_EditBox_GetTextInsets},
         {"SetNumeric",            lua_EditBox_SetNumeric},
         {"SetMultiLine",          lua_EditBox_SetMultiLine},
@@ -3331,7 +3349,7 @@ void LuaEngine::registerCoreAPI() {
         "SetMaxLetters=1,SetMaxResize=1,SetMerchantCostItem=1,SetMerchantItem=1,\n"
         "SetMinimumWidth=1,SetMinMaxValues=1,SetMinResize=1,SetModel=1,SetModelScale=1,\n"
         "SetMovable=1,SetMultiLine=1,SetNormalFontObject=1,SetNormalTexture=1,\n"
-        "SetNumber=1,SetNumeric=1,SetOwner=1,SetPadding=1,SetParent=1,SetPetAction=1,\n"
+        "SetNumber=1,SetNumeric=1,SetOwner=1,SetParent=1,SetPetAction=1,\n"
         "SetPlayerTextureHeight=1,SetPlayerTextureWidth=1,SetPoint=1,SetPosition=1,\n"
         "SetPossession=1,SetPropagateKeyboardInput=1,SetPushedTexture=1,SetQuestItem=1,\n"
         "SetQuestLogItem=1,SetQuestLogRewardSpell=1,SetQuestLogSpecialItem=1,\n"

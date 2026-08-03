@@ -998,7 +998,7 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 if (!font) font = ImGui::GetFont();
                 const float size = ((w->fontHeight > 0.0f) ? w->fontHeight
                                                            : ImGui::GetFontSize()) * s;
-                const float lineH = size * 1.15f;
+                const float lineH = size * 1.15f + w->messagePadding * s;
                 float y = y1 - lineH;
                 const int scroll = w->messageScroll;
                 for (int i = static_cast<int>(w->messages.size()) - 1 - scroll;
