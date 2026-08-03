@@ -2078,6 +2078,10 @@ bool InventoryHandler::detachMailAttachment(int attachIndex) {
 
 void InventoryHandler::clearMailAttachments() {
     for (auto& a : mailAttachments_) a = MailAttachSlot{};
+    // The send frame recomputes its postage and its Send button from this.
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("MAIL_SEND_INFO_UPDATE", {});
+    }
 }
 
 int InventoryHandler::getMailAttachmentCount() const {
@@ -2180,8 +2184,19 @@ void InventoryHandler::handleSendMailResult(network::Packet& packet) {
             owner_.addSystemChatMessage("Mail sent.");
             clearMailAttachments();
             showMailCompose_ = false;
+            // The send frame waits on these before it will clear its fields and
+            // re-enable the Send button. Without them a mail went out and the
+            // frame sat there as though it had not.
+            if (owner_.addonEventCallbackRef()) {
+                owner_.addonEventCallbackRef()("MAIL_SEND_SUCCESS", {});
+                owner_.addonEventCallbackRef()("MAIL_SUCCESS", {});
+            }
         } else {
             owner_.addSystemChatMessage("Failed to send mail (error " + std::to_string(error) + ").");
+            // Carries the error so the frame can say which refusal it was.
+            if (owner_.addonEventCallbackRef()) {
+                owner_.addonEventCallbackRef()("MAIL_FAILED", {std::to_string(error)});
+            }
         }
     } else if (action == MAIL_ITEM_TAKEN) {
         if (error == 0) {
