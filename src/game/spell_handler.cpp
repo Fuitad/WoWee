@@ -1212,17 +1212,35 @@ const std::vector<SpellHandler::SpellBookTab>& SpellHandler::getSpellBookTabs() 
         spellBookTabs_.push_back({"General", "Interface\\Icons\\INV_Misc_Book_09", std::move(general)});
     }
 
+    // Each tab's own picture, from SkillLine.dbc's icon column. Every tab used
+    // to carry the same book, so the row of tabs down the side of the
+    // spellbook was a column of identical squares that said nothing about
+    // which was which — the tooltip was the only way to tell them apart.
+    //
+    // The book stays as the fallback: a skill line with no icon, or an icon
+    // this install cannot resolve, keeps what it had rather than going blank.
+    static constexpr const char* kDefaultTabIcon = "Interface\\Icons\\INV_Misc_Book_09";
+    auto tabIcon = [this](uint32_t skillLineId) -> std::string {
+        auto it = owner_.skillLineIconsRef().find(skillLineId);
+        if (it == owner_.skillLineIconsRef().end()) return kDefaultTabIcon;
+        std::string path = owner_.getIconPath(it->second);
+        return path.empty() ? kDefaultTabIcon : path;
+    };
+
     std::vector<std::pair<std::string, std::vector<uint32_t>>> named;
+    std::unordered_map<std::string, std::string> iconForTab;
     for (auto& [skillLineId, spells] : bySkillLine) {
         auto nameIt = owner_.skillLineNamesRef().find(skillLineId);
         std::string tabName = (nameIt != owner_.skillLineNamesRef().end()) ? nameIt->second : "Unknown";
         std::sort(spells.begin(), spells.end(), byName);
+        iconForTab[tabName] = tabIcon(skillLineId);
         named.emplace_back(std::move(tabName), std::move(spells));
     }
     std::sort(named.begin(), named.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
 
     for (auto& [name, spells] : named) {
-        spellBookTabs_.push_back({std::move(name), "Interface\\Icons\\INV_Misc_Book_09", std::move(spells)});
+        std::string icon = iconForTab.count(name) ? iconForTab[name] : kDefaultTabIcon;
+        spellBookTabs_.push_back({std::move(name), std::move(icon), std::move(spells)});
     }
 
     return spellBookTabs_;
@@ -3247,6 +3265,12 @@ void SpellHandler::loadSkillLineDbc() {
     const uint32_t slIdField   = slL ? (*slL)["ID"]       : 0;
     const uint32_t slCatField  = slL ? (*slL)["Category"] : 1;
     const uint32_t slNameField = slL ? (*slL)["Name"]     : 3;
+    // The icon column moved between expansions with the locale block in front
+    // of it: 37 where there is a description and an alternate verb, 21 in the
+    // vanilla-era file that has neither. Both were read off the files rather
+    // than assumed, and the default is only reached with no layout at all.
+    const uint32_t slIconField = slL ? (*slL)["SpellIcon"] : 37;
+    const uint32_t fieldCount  = dbc->getFieldCount();
     for (uint32_t i = 0; i < dbc->getRecordCount(); i++) {
         uint32_t id = dbc->getUInt32(i, slIdField);
         uint32_t category = dbc->getUInt32(i, slCatField);
@@ -3254,6 +3278,14 @@ void SpellHandler::loadSkillLineDbc() {
         if (id > 0 && !name.empty()) {
             owner_.skillLineNamesRef()[id] = name;
             owner_.skillLineCategoriesRef()[id] = category;
+            // Guarded on the count, because a layout naming a column this file
+            // does not have would otherwise read past the end of the row and
+            // give every tab the same nonsense icon rather than none.
+            if (slIconField < fieldCount) {
+                if (uint32_t icon = dbc->getUInt32(i, slIconField); icon > 0) {
+                    owner_.skillLineIconsRef()[id] = icon;
+                }
+            }
         }
     }
     LOG_INFO("GameHandler: Loaded ", owner_.skillLineNamesRef().size(), " skill line names");

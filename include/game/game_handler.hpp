@@ -295,6 +295,15 @@ public:
         return spellIconPathResolver_ ? spellIconPathResolver_(spellId) : std::string{};
     }
 
+    // The same SpellIcon.dbc, reached by icon id rather than through a spell.
+    // SkillLine.dbc names an icon directly, so a spellbook tab has one without
+    // any spell standing between it and the picture.
+    using IconPathResolver = std::function<std::string(uint32_t)>;
+    void setIconPathResolver(IconPathResolver r) { iconPathResolver_ = std::move(r); }
+    std::string getIconPath(uint32_t iconId) const {
+        return iconPathResolver_ ? iconPathResolver_(iconId) : std::string{};
+    }
+
     // Spell data resolver: spellId -> {castTimeMs, minRange, maxRange}
     struct SpellDataInfo { uint32_t castTimeMs = 0; float minRange = 0; float maxRange = 0; uint32_t manaCost = 0; uint8_t powerType = 0; };
     using SpellDataResolver = std::function<SpellDataInfo(uint32_t)>;
@@ -2652,6 +2661,7 @@ public:
     auto& playerSkillsRef() { return playerSkills_; }
     auto& skillLineAbilityLoadedRef() { return skillLineAbilityLoaded_; }
     auto& skillLineCategoriesRef() { return skillLineCategories_; }
+    auto& skillLineIconsRef() { return skillLineIcons_; }
     auto& skillLineDbcLoadedRef() { return skillLineDbcLoaded_; }
     auto& skillLineNamesRef() { return skillLineNames_; }
     auto& spellToSkillLineRef() { return spellToSkillLine_; }
@@ -3176,6 +3186,7 @@ private:
     AddonChatCallback addonChatCallback_;
     AddonEventCallback addonEventCallback_;
     SpellIconPathResolver spellIconPathResolver_;
+    IconPathResolver iconPathResolver_;
     ItemIconPathResolver itemIconPathResolver_;
     SpellDataResolver spellDataResolver_;
     RandomPropertyNameResolver randomPropertyNameResolver_;
@@ -3879,6 +3890,10 @@ private:
     std::unordered_map<uint32_t, PlayerSkill> playerSkills_;
     std::unordered_map<uint32_t, std::string> skillLineNames_;
     std::unordered_map<uint32_t, uint32_t> skillLineCategories_;
+    /// SkillLine.dbc's own icon, which is what gives each spellbook tab down
+    /// the side of the book its distinct picture. Read alongside the name
+    /// because they come out of the same row of the same file.
+    std::unordered_map<uint32_t, uint32_t> skillLineIcons_;
     std::unordered_map<uint32_t, uint32_t> spellToSkillLine_;      // spellID -> skillLineID
     std::vector<SpellBookTab> spellBookTabs_;
     bool spellBookTabsDirty_ = true;

@@ -469,48 +469,68 @@ bool Application::initialize() {
                 auto spellIconIds    = std::make_shared<std::unordered_map<uint32_t, uint32_t>>();
                 auto loaded          = std::make_shared<bool>(false);
                 auto* am = assetManager.get();
-                gameHandler->setSpellIconPathResolver([spellIconPaths, spellIconIds, loaded, am](uint32_t spellId) -> std::string {
-                    if (!am) return {};
-                    // Lazy-load SpellIcon.dbc + Spell.dbc icon IDs on first call
-                    if (!*loaded) {
-                        *loaded = true;
-                        auto iconDbc = am->loadDBC("SpellIcon.dbc");
-                        const auto* iconL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("SpellIcon") : nullptr;
-                        if (iconDbc && iconDbc->isLoaded()) {
-                            for (uint32_t i = 0; i < iconDbc->getRecordCount(); i++) {
-                                uint32_t id = iconDbc->getUInt32(i, iconL ? (*iconL)["ID"] : 0);
-                                std::string path = iconDbc->getString(i, iconL ? (*iconL)["Path"] : 1);
-                                if (!path.empty() && id > 0) (*spellIconPaths)[id] = path;
-                            }
-                        }
-                        auto spellDbc = am->loadDBC("Spell.dbc");
-                        const auto* spellL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("Spell") : nullptr;
-                        if (spellDbc && spellDbc->isLoaded()) {
-                            uint32_t fieldCount = spellDbc->getFieldCount();
-                            uint32_t iconField = 133; // WotLK default
-                            uint32_t idField = 0;
-                            if (spellL) {
-                                try {
-                                    uint32_t layoutId = (*spellL)["ID"];
-                                    uint32_t layoutIcon = (*spellL)["IconID"];
-                                    if (layoutId < fieldCount && layoutIcon < fieldCount) {
-                                        iconField = layoutIcon;
-                                        idField = layoutId;
-                                    }
-                                } catch (...) {}
-                            }
-                            for (uint32_t i = 0; i < spellDbc->getRecordCount(); i++) {
-                                uint32_t id = spellDbc->getUInt32(i, idField);
-                                uint32_t iconId = spellDbc->getUInt32(i, iconField);
-                                if (id > 0 && iconId > 0) (*spellIconIds)[id] = iconId;
-                            }
+                // Shared, because two resolvers now read these maps and either
+                // may be asked first. Left inside the spell resolver, a
+                // spellbook tab asking for an icon id before any spell had
+                // asked for one would have found the table empty and answered
+                // nothing, which is the sort of thing that only shows up when
+                // the tabs happen to be built first.
+                auto ensureLoaded = std::make_shared<std::function<void()>>(
+                    [spellIconPaths, spellIconIds, loaded, am]() {
+                    if (!am || *loaded) return;
+                    *loaded = true;
+                    auto iconDbc = am->loadDBC("SpellIcon.dbc");
+                    const auto* iconL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("SpellIcon") : nullptr;
+                    if (iconDbc && iconDbc->isLoaded()) {
+                        for (uint32_t i = 0; i < iconDbc->getRecordCount(); i++) {
+                            uint32_t id = iconDbc->getUInt32(i, iconL ? (*iconL)["ID"] : 0);
+                            std::string path = iconDbc->getString(i, iconL ? (*iconL)["Path"] : 1);
+                            if (!path.empty() && id > 0) (*spellIconPaths)[id] = path;
                         }
                     }
+                    auto spellDbc = am->loadDBC("Spell.dbc");
+                    const auto* spellL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("Spell") : nullptr;
+                    if (spellDbc && spellDbc->isLoaded()) {
+                        uint32_t fieldCount = spellDbc->getFieldCount();
+                        uint32_t iconField = 133; // WotLK default
+                        uint32_t idField = 0;
+                        if (spellL) {
+                            try {
+                                uint32_t layoutId = (*spellL)["ID"];
+                                uint32_t layoutIcon = (*spellL)["IconID"];
+                                if (layoutId < fieldCount && layoutIcon < fieldCount) {
+                                    iconField = layoutIcon;
+                                    idField = layoutId;
+                                }
+                            } catch (...) {}
+                        }
+                        for (uint32_t i = 0; i < spellDbc->getRecordCount(); i++) {
+                            uint32_t id = spellDbc->getUInt32(i, idField);
+                            uint32_t iconId = spellDbc->getUInt32(i, iconField);
+                            if (id > 0 && iconId > 0) (*spellIconIds)[id] = iconId;
+                        }
+                    }
+                });
+
+                gameHandler->setSpellIconPathResolver(
+                    [spellIconPaths, spellIconIds, ensureLoaded](uint32_t spellId) -> std::string {
+                    (*ensureLoaded)();
                     auto iit = spellIconIds->find(spellId);
                     if (iit == spellIconIds->end()) return {};
                     auto pit = spellIconPaths->find(iit->second);
                     if (pit == spellIconPaths->end()) return {};
                     return pit->second;
+                });
+
+                // Straight to the artwork, for callers that already hold an
+                // icon id rather than a spell — SkillLine.dbc names one for
+                // each spellbook tab.
+                gameHandler->setIconPathResolver(
+                    [spellIconPaths, ensureLoaded](uint32_t iconId) -> std::string {
+                    if (iconId == 0) return {};
+                    (*ensureLoaded)();
+                    auto pit = spellIconPaths->find(iconId);
+                    return pit == spellIconPaths->end() ? std::string{} : pit->second;
                 });
             }
             // Wire item icon path resolver: displayInfoId -> "Interface\\Icons\\INV_..."
