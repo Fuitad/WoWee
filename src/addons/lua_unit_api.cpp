@@ -1309,6 +1309,18 @@ static int lua_UnitAffectingCombat(lua_State* L) {
     return 1;
 }
 
+// GetReleaseTimeRemaining() → milliseconds before the corpse releases itself,
+// or -1 when nothing will force it
+//
+// UIParent asks this the moment the player dies, as `> 0 or == -1`, so an
+// absent answer is an error on every death rather than a popup that does not
+// appear. Nothing here counts down to a forced release, and -1 is the game's
+// own way of saying so.
+static int lua_GetReleaseTimeRemaining(lua_State* L) {
+    lua_pushnumber(L, -1);
+    return 1;
+}
+
 static int lua_GetNumRaidMembers(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh || !gh->isInGroup()) { return luaReturnZero(L); }
@@ -1944,6 +1956,13 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"UnitAffectingCombat", lua_UnitAffectingCombat},
                 {"GetNumRaidMembers",   lua_GetNumRaidMembers},
                 {"GetNumPartyMembers",  lua_GetNumPartyMembers},
+                // The counts before the dungeon finder inflates them. There is
+                // no dungeon finder here, so they are the same number — and
+                // UIParent does arithmetic on them, where absent is an error
+                // rather than a zero.
+                {"GetRealNumRaidMembers",  lua_GetNumRaidMembers},
+                {"GetRealNumPartyMembers", lua_GetNumPartyMembers},
+                {"GetReleaseTimeRemaining", lua_GetReleaseTimeRemaining},
                 {"UnitInParty",         lua_UnitInParty},
                 {"UnitInRaid",          lua_UnitInRaid},
                 {"UnitHasVehicleUI",    lua_UnitHasVehicleUI},
