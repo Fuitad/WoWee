@@ -893,3 +893,16 @@ TEST_CASE("An element nobody knows is still reported", "[framexml][emit]") {
     const EmitResult r = emitFrameXml(root);
     REQUIRE_FALSE(r.warnings.empty());
 }
+
+TEST_CASE("A button's state fonts reach it", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Button name=\"Btn\">"
+        "<NormalFont style=\"GameFontNormal\"/>"
+        "<HighlightFont style=\"GameFontHighlight\"/>"
+        "<DisabledFont style=\"GameFontDisable\"/>"
+        "</Button></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetNormalFontObject(\"GameFontNormal\")"));
+    REQUIRE(has(r.lua, "SetHighlightFontObject(\"GameFontHighlight\")"));
+    REQUIRE(has(r.lua, "SetDisabledFontObject(\"GameFontDisable\")"));
+}

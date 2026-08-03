@@ -130,6 +130,13 @@ struct Widget {
     /// a button feel pressed rather than merely recoloured.
     float pushedTextOffsetX = 0.0f, pushedTextOffsetY = 0.0f;
 
+    /// A button's label colour while the cursor is over it and while it is
+    /// disabled, from <HighlightFont> and <DisabledFont>. Unset means draw it
+    /// the usual way, so a template that names neither is unaffected.
+    bool  hasHighlightColor = false, hasDisabledColor = false;
+    float highlightColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float disabledColor[4]  = {0.5f, 0.5f, 0.5f, 1.0f};
+
     float scale = 1.0f;
     float effScale = 1.0f;
     bool dragLeft = false;
@@ -409,6 +416,10 @@ public:
     /// button is down. The tree already chooses the pushed texture from this;
     /// the label moves with it.
     uint32_t pressedWidget() const { return pressedId_; }
+    /// Which frame the cursor is over, for anything that draws differently
+    /// under it — a button's label lightens in WoW, and that is a font object
+    /// the template names rather than a colour the renderer invents.
+    uint32_t hoveredWidget() const { return hoveredId_; }
     const std::vector<uint32_t>& scrollFrames() const { return scrollFrames_; }
 
     /// The widget published under this name, or null. Names are unique in

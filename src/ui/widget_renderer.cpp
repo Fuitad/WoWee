@@ -1085,8 +1085,21 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                             packColor(sc, w->alpha * w->shadowColor[3]),
                             w->text.c_str());
             }
+            // A button's label takes its colour from the button's state. The
+            // colour lives on the parent because that is where the template
+            // declares it; only the colour changes, never the size, or a label
+            // would jump about as the cursor crossed it.
+            const float* textColor = w->color;
+            if (const Widget* owner = tree.get(w->parent)) {
+                if (!owner->enabled && owner->hasDisabledColor) {
+                    textColor = owner->disabledColor;
+                } else if (owner->enabled && owner->hasHighlightColor &&
+                           owner->id == tree.hoveredWidget()) {
+                    textColor = owner->highlightColor;
+                }
+            }
             dl->AddText(font, size, ImVec2(tx, ty),
-                        packColor(w->color, w->alpha), w->text.c_str());
+                        packColor(textColor, w->alpha), w->text.c_str());
         }
     }
 }

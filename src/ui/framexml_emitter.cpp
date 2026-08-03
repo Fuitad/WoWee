@@ -724,6 +724,18 @@ struct Emitter {
             }
             break;
         }
+        // The other two states, which this renderer distinguishes by colour.
+        for (const XmlNode& child : node.children) {
+            const char* setter = child.name == "HighlightFont"
+                                     ? ":SetHighlightFontObject("
+                                 : child.name == "DisabledFont"
+                                     ? ":SetDisabledFontObject("
+                                     : nullptr;
+            if (!setter) continue;
+            if (const std::string* style = child.attr("style")) {
+                line(var + setter + quote(*style) + ")");
+            }
+        }
         // <HitRectInsets><AbsInset .../></HitRectInsets>
         for (const XmlNode& child : node.children) {
             if (child.name != "HitRectInsets") continue;

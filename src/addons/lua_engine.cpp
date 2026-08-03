@@ -1703,6 +1703,42 @@ int lua_wowee_setAnimOffset(lua_State* L) {
     return 0;
 }
 
+/// Read just the colour out of a font object, for the states this renderer
+/// draws by colour alone. The face and size come from the normal font: a
+/// button whose label changed size on hover would jump about.
+static void applyStateColor(lua_State* L, int fontIndex, float out[4], bool& flag) {
+    if (lua_isstring(L, fontIndex)) {
+        lua_getglobal(L, lua_tostring(L, fontIndex));
+    } else {
+        lua_pushvalue(L, fontIndex);
+    }
+    if (lua_istable(L, -1)) {
+        const char* keys[4] = {"r", "g", "b", "a"};
+        for (int i = 0; i < 4; ++i) {
+            lua_getfield(L, -1, keys[i]);
+            if (lua_isnumber(L, -1)) {
+                out[i] = static_cast<float>(lua_tonumber(L, -1));
+                flag = true;
+            }
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+}
+
+int lua_Frame_SetHighlightFontObject(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        applyStateColor(L, 2, w->highlightColor, w->hasHighlightColor);
+    }
+    return 0;
+}
+int lua_Frame_SetDisabledFontObject(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        applyStateColor(L, 2, w->disabledColor, w->hasDisabledColor);
+    }
+    return 0;
+}
+
 int lua_Frame_SetPushedTextOffset(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
         w->pushedTextOffsetX = static_cast<float>(luaL_optnumber(L, 2, 0.0));
@@ -2672,6 +2708,8 @@ void LuaEngine::registerCoreAPI() {
         {"IsMouseEnabled",  lua_Frame_IsMouseEnabled},
         {"SetNormalFontObject",   lua_Frame_SetNormalFontObject},
         {"SetTextFontObject",     lua_Frame_SetNormalFontObject},
+        {"SetHighlightFontObject", lua_Frame_SetHighlightFontObject},
+        {"SetDisabledFontObject",  lua_Frame_SetDisabledFontObject},
         {"SetPushedTextOffset",   lua_Frame_SetPushedTextOffset},
         {"GetPushedTextOffset",   lua_Frame_GetPushedTextOffset},
         {"SetHitRectInsets",      lua_Frame_SetHitRectInsets},
