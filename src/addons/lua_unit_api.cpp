@@ -2157,6 +2157,14 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"UnitInParty",         lua_UnitInParty},
                 {"UnitInRaid",          lua_UnitInRaid},
                 {"UnitHasVehicleUI",    lua_UnitHasVehicleUI},
+                // Which vehicle art a unit's frame should wear. Reached only
+                // behind UnitHasVehicleUI, which answers false here because no
+                // vehicle is modelled — so this is unreachable today and nil
+                // is the honest answer for a unit that is not in one. It is
+                // bound because leaving it out is the difference between the
+                // party frames calling nothing this client lacks and calling
+                // one thing it does.
+                {"UnitVehicleSkin",     [](lua_State* L) -> int { return luaReturnNil(L); }},
                 {"UnitInVehicle",       lua_UnitInVehicle},
                 {"UnitControllingVehicle", lua_UnitControllingVehicle},
                 {"UnitIsPossessed",     lua_UnitIsPossessed},

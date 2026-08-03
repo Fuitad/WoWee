@@ -2510,6 +2510,18 @@ void registerInventoryLuaAPI(lua_State* L) {
             if (gh && tab >= 1) gh->queryGuildBankTab(static_cast<uint8_t>(tab - 1));
             return 0;
         }},
+                // How many tabs the guild has bought. blizzard_guildbankui does
+                // `elseif ( tab > GetNumGuildBankTabs() )` to decide whether to
+                // offer the buy screen, and comparing a number against nil
+                // raises — so the window died on any tab past the last one.
+                //
+                // The list it counts is the same one GetGuildBankTabInfo
+                // indexes, so the two cannot disagree.
+                {"GetNumGuildBankTabs", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? static_cast<lua_Number>(gh->getGuildBankData().tabs.size()) : 0);
+            return 1;
+        }},
                 // GetGuildBankTabInfo(tab) → name, icon, viewable, canDeposit,
                 //                            numWithdrawals, remaining
                 {"GetGuildBankTabInfo", [](lua_State* L) -> int {
