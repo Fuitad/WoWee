@@ -13,6 +13,7 @@
 union SDL_Event;
 
 namespace wowee {
+namespace pipeline { class AssetManager; }
 
 // Forward declarations
 namespace core { class Window; class AppearanceComposer; enum class AppState; }
@@ -44,7 +45,17 @@ public:
     /// the glyph atlas is built once, before the first frame — adding a face
     /// afterwards means tearing the font texture down and rebuilding it, which
     /// cannot happen while a frame is in flight.
-    void loadInterfaceFont(const std::string& dataRoot);
+    /// Load the interface typefaces, from loose files or from the archives.
+    ///
+    /// `assets` may be null, and is only consulted when nothing was found on
+    /// disk: an install that never extracted its data keeps the fonts inside
+    /// the MPQs, where std::filesystem cannot see them. That is why this used
+    /// to work on one machine and not another with the same build — the case
+    /// of the directory was never the whole story.
+    void loadInterfaceFont(const std::string& dataRoot,
+                           pipeline::AssetManager* assets = nullptr);
+    /// Whether a face has already been taken; a second call is a no-op.
+    bool interfaceFontsLoaded_ = false;
 
     /**
      * Shutdown ImGui and cleanup

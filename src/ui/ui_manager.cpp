@@ -1,4 +1,6 @@
 #include "ui/ui_manager.hpp"
+#include <cstring>
+#include "pipeline/asset_manager.hpp"
 #include "ui/interface_fonts.hpp"
 
 #include <algorithm>
@@ -102,8 +104,14 @@ bool UIManager::initialize(core::Window* win) {
     return true;
 }
 
-void UIManager::loadInterfaceFont(const std::string& dataRoot) {
+void UIManager::loadInterfaceFont(const std::string& dataRoot,
+                                  pipeline::AssetManager* assets) {
     if (!imguiInitialized) return;
+    // Called twice on purpose: once with the archives open, and once after in
+    // case they never opened. Whichever gets there first takes the face, and
+    // the atlas can only be added to before the first frame anyway.
+    if (interfaceFontsLoaded_) return;
+    interfaceFontsLoaded_ = true;
     if (dataRoot.empty()) {
         // Nothing to search is not the same as searching and finding nothing,
         // and both end up in the built-in face.
@@ -185,8 +193,27 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot) {
     // face was added first and that is what everything without an opinion gets
     // — this client's own windows included. The same face is added again below
     // at the atlas size for the interface, which asks for it by name.
+    // A font the archives hold, handed to ImGui as bytes. An install that never
+    // extracted its data keeps every font inside the MPQs, where the directory
+    // walk above sees nothing at all — which is why the same build found them
+    // on one machine and not another. The bytes are copied because ImGui takes
+    // ownership of the buffer it is given and frees it with its own allocator.
+    auto addFromArchive = [&](const char* name, float size) -> ImFont* {
+        if (!assets) return nullptr;
+        auto data = assets->readFileOptional(std::string("Fonts\\") + name);
+        if (data.empty()) return nullptr;
+        void* owned = IM_ALLOC(data.size());
+        std::memcpy(owned, data.data(), data.size());
+        ImFontConfig cfg;
+        cfg.FontDataOwnedByAtlas = true;
+        return io.Fonts->AddFontFromMemoryTTF(owned, static_cast<int>(data.size()),
+                                              size, &cfg);
+    };
+
     const fs::path frizqt = resolve("frizqt__.ttf");
-    if (!frizqt.empty()) {
+    if (frizqt.empty() && addFromArchive("FRIZQT__.TTF", kClientSize)) {
+        LOG_INFO("Interface font read from the archives rather than from disk");
+    } else if (!frizqt.empty()) {
         if (!io.Fonts->AddFontFromFileTTF(frizqt.string().c_str(), kClientSize)) {
             // Found and refused is a different problem from not found, and
             // reads identically on screen.
@@ -208,8 +235,17 @@ void UIManager::loadInterfaceFont(const std::string& dataRoot) {
     int loaded = 0;
     for (const char* name : faces) {
         const fs::path file = resolve(name);
-        if (file.empty()) continue;
-        if (ImFont* f = io.Fonts->AddFontFromFileTTF(file.string().c_str(), kAtlasSize)) {
+        ImFont* f = file.empty()
+            ? nullptr
+            : io.Fonts->AddFontFromFileTTF(file.string().c_str(), kAtlasSize);
+        if (!f) {
+            // The archives spell them in upper case, which matters on a
+            // filesystem that cares and costs nothing on one that does not.
+            std::string upper(name);
+            for (char& c : upper) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+            f = addFromArchive(upper.c_str(), kAtlasSize);
+        }
+        if (f) {
             registerInterfaceFace(name, f);
             ++loaded;
         }

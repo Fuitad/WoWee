@@ -292,15 +292,21 @@ bool Application::initialize() {
         }
     }
 
-    // Now the data root is settled and before any frame is drawn, which is the
-    // only moment the glyph atlas can take another face without being rebuilt.
-    // The base Data path, not the expansion overlay: overlays carry DBCs and
-    // art, not fonts.
-    if (uiManager) uiManager->loadInterfaceFont(dataPath);
-
     LOG_INFO("Attempting to load WoW assets from: ", assetPath);
     if (assetManager->initialize(assetPath)) {
         LOG_INFO("Asset manager initialized successfully");
+
+        // Fonts, now the archives are open and still before any frame is
+        // drawn — the only moment the glyph atlas can take another face
+        // without being rebuilt.
+        //
+        // It used to run above this, which meant it could only ever see loose
+        // files. An install that never extracted its data keeps every font
+        // inside the MPQs, so the search found nothing and the client fell
+        // back to ImGui's built-in face — the same build reading the game's
+        // own fonts on one machine and not on another. The base Data path,
+        // not the expansion overlay: overlays carry DBCs and art, not fonts.
+        if (uiManager) uiManager->loadInterfaceFont(dataPath, assetManager.get());
 
         // Renderer creation precedes AssetManager creation, so DBC-driven
         // lighting must be initialized here rather than in Renderer::initialize.
@@ -793,6 +799,10 @@ bool Application::initialize() {
         LOG_WARNING("Failed to initialize asset manager - asset loading will be unavailable");
         LOG_WARNING("Set WOW_DATA_PATH environment variable to your WoW Data directory");
     }
+
+    // If the archives never opened, the fonts were not tried at all. Loose
+    // files are still worth a look, and this is still before the first frame.
+    if (uiManager) uiManager->loadInterfaceFont(dataPath, nullptr);
 
     // Set up UI callbacks
     setupUICallbacks();
