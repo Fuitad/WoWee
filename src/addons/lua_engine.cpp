@@ -4100,7 +4100,58 @@ void LuaEngine::registerCoreAPI() {
         // most. They stored text nothing draws.
         "GameTooltip = CreateFrame('GameTooltip', 'GameTooltip')\n"
         "GameTooltip.__lines = {}\n"
-        "function GameTooltip:GetItem()\n"
+        // SetHyperlinkCompareItem(link, index, shift, anchor) — the tooltip
+        // that appears beside an item when Shift is held.
+        //
+        // GameTooltip_ShowCompareItem calls this on each of the three shopping
+        // tooltips in turn and shows the ones that answer true. It was never
+        // implemented, so every one answered nil and nothing was ever shown:
+        // shift-hovering an item did nothing at all, silently.
+        //
+        // The index picks which of the equipped counterparts to show, which
+        // matters only for the slots there are two of. A ring is compared
+        // against both rings, a trinket against both trinkets, a one-hander
+        // against main and off hand; everything else has one slot and answers
+        // false for index 2.
+        "__WoweeCompareSlots = {\n"
+        "    INVTYPE_FINGER = {11, 12},\n"
+        "    INVTYPE_TRINKET = {13, 14},\n"
+        "    INVTYPE_WEAPON = {16, 17},\n"
+        "    INVTYPE_HEAD = {1}, INVTYPE_NECK = {2}, INVTYPE_SHOULDER = {3},\n"
+        "    INVTYPE_BODY = {4}, INVTYPE_CHEST = {5}, INVTYPE_ROBE = {5},\n"
+        "    INVTYPE_WAIST = {6}, INVTYPE_LEGS = {7}, INVTYPE_FEET = {8},\n"
+        "    INVTYPE_WRIST = {9}, INVTYPE_HAND = {10}, INVTYPE_CLOAK = {15},\n"
+        "    INVTYPE_2HWEAPON = {16}, INVTYPE_WEAPONMAINHAND = {16},\n"
+        "    INVTYPE_WEAPONOFFHAND = {17}, INVTYPE_HOLDABLE = {17},\n"
+        "    INVTYPE_SHIELD = {17}, INVTYPE_RANGED = {18},\n"
+        "    INVTYPE_RANGEDRIGHT = {18}, INVTYPE_THROWN = {18},\n"
+        "    INVTYPE_RELIC = {18}, INVTYPE_TABARD = {19},\n"
+        "}\n"
+        "function __WoweeFrameMT:SetHyperlinkCompareItem(link, index, shift, anchor)\n"
+        "    self:ClearLines()\n"
+        "    if not link then return false end\n"
+        "    local id = tonumber(link:match('item:(%d+)'))\n"
+        "    if not id then return false end\n"
+        "    local _, _, _, _, _, _, _, _, equipSlot = GetItemInfo(id)\n"
+        "    if not equipSlot or equipSlot == '' then return false end\n"
+        "    local slots = __WoweeCompareSlots[equipSlot]\n"
+        "    if not slots then return false end\n"
+        "    local slot = slots[index or 1]\n"
+        "    if not slot then return false end\n"
+        // Nothing worn there is not a comparison, it is an empty tooltip —
+        // and answering true for one would show a blank box beside the item.
+        "    local wornLink = GetInventoryItemLink('player', slot)\n"
+        "    if not wornLink then return false end\n"
+        "    local wornId = tonumber(wornLink:match('item:(%d+)'))\n"
+        "    if not wornId then return false end\n"
+        // Comparing something against itself says nothing. WoW leaves the
+        // second tooltip off when the item is already the one worn.
+        "    if wornId == id then return false end\n"
+        "    if not _WoweePopulateItemTooltip(self, wornId) then return false end\n"
+        "    self:Show()\n"
+        "    return true\n"
+        "end\n"
+        "function __WoweeFrameMT:GetItem()\n"
         "    if self.__itemId and self.__itemId > 0 then\n"
         "        local name = GetItemInfo(self.__itemId)\n"
         "        local _, itemLink = GetItemInfo(self.__itemId)\n"
@@ -4108,17 +4159,17 @@ void LuaEngine::registerCoreAPI() {
         "    end\n"
         "    return nil\n"
         "end\n"
-        "function GameTooltip:GetSpell()\n"
+        "function __WoweeFrameMT:GetSpell()\n"
         "    if self.__spellId and self.__spellId > 0 then\n"
         "        local name = GetSpellInfo(self.__spellId)\n"
         "        return name, nil, self.__spellId\n"
         "    end\n"
         "    return nil\n"
         "end\n"
-        "function GameTooltip:GetUnit() return nil end\n"
+        "function __WoweeFrameMT:GetUnit() return nil end\n"
         // NumLines and GetText come from the widget itself, which is where
         // the lines now live.
-        "function GameTooltip:SetUnitBuff(unit, index, filter)\n"
+        "function __WoweeFrameMT:SetUnitBuff(unit, index, filter)\n"
         "    self:ClearLines()\n"
         "    local name, rank, icon, count, debuffType, duration, expTime, caster, steal, consolidate, spellId = UnitBuff(unit, index, filter)\n"
         "    if name then\n"
@@ -4129,7 +4180,7 @@ void LuaEngine::registerCoreAPI() {
         "        self.__spellId = spellId\n"
         "    end\n"
         "end\n"
-        "function GameTooltip:SetUnitDebuff(unit, index, filter)\n"
+        "function __WoweeFrameMT:SetUnitDebuff(unit, index, filter)\n"
         "    self:ClearLines()\n"
         "    local name, rank, icon, count, debuffType, duration, expTime, caster, steal, consolidate, spellId = UnitDebuff(unit, index, filter)\n"
         "    if name then\n"
@@ -4138,7 +4189,7 @@ void LuaEngine::registerCoreAPI() {
         "        self.__spellId = spellId\n"
         "    end\n"
         "end\n"
-        "function GameTooltip:SetHyperlink(link)\n"
+        "function __WoweeFrameMT:SetHyperlink(link)\n"
         "    self:ClearLines()\n"
         "    if not link then return end\n"
         "    local id = link:match('item:(%d+)')\n"
@@ -4276,7 +4327,7 @@ void LuaEngine::registerCoreAPI() {
         "    self.__itemId = itemId\n"
         "    return true\n"
         "end\n"
-        "function GameTooltip:SetInventoryItem(unit, slot)\n"
+        "function __WoweeFrameMT:SetInventoryItem(unit, slot)\n"
         "    self:ClearLines()\n"
         "    if unit ~= 'player' then return false, false, 0 end\n"
         "    local link = GetInventoryItemLink(unit, slot)\n"
@@ -4286,7 +4337,7 @@ void LuaEngine::registerCoreAPI() {
         "    local ok = _WoweePopulateItemTooltip(self, tonumber(id))\n"
         "    return ok or false, false, 0\n"
         "end\n"
-        "function GameTooltip:SetBagItem(bag, slot)\n"
+        "function __WoweeFrameMT:SetBagItem(bag, slot)\n"
         "    self:ClearLines()\n"
         "    local tex, count, locked, quality, readable, lootable, link = GetContainerItemInfo(bag, slot)\n"
         "    if not link then return end\n"
@@ -4295,7 +4346,7 @@ void LuaEngine::registerCoreAPI() {
         "    _WoweePopulateItemTooltip(self, tonumber(id))\n"
         "    if count and count > 1 then self:AddLine('Count: '..count, 0.5, 0.5, 0.5) end\n"
         "end\n"
-        "function GameTooltip:SetSpellByID(spellId)\n"
+        "function __WoweeFrameMT:SetSpellByID(spellId)\n"
         "    self:ClearLines()\n"
         "    if not spellId or spellId == 0 then return end\n"
         // Nine values, in the client's order. This used to read the fourth as
@@ -4339,7 +4390,7 @@ void LuaEngine::registerCoreAPI() {
         // ActionButton_SetTooltip is `if (GameTooltip:SetAction(self.action))`,
         // and returning nothing sent every action button down its no-tooltip
         // branch however much the tooltip itself could do.
-        "function GameTooltip:SetAction(slot)\n"
+        "function __WoweeFrameMT:SetAction(slot)\n"
         "    self:ClearLines()\n"
         "    if not slot then return false end\n"
         "    local actionType, id = GetActionInfo(slot)\n"
@@ -4352,11 +4403,11 @@ void LuaEngine::registerCoreAPI() {
         "    end\n"
         "    return false\n"
         "end\n"
-        "function GameTooltip:FadeOut() end\n"
+        "function __WoweeFrameMT:FadeOut() end\n"
         // SetFrameStrata is a real binding; a no-op here would shadow it and
         // leave the tooltip in whatever stratum it inherited, under the frames
         // it is meant to sit above.
-        "function GameTooltip:SetClampedToScreen(...) end\n"
+        "function __WoweeFrameMT:SetClampedToScreen(...) end\n"
         // On the frame metatable rather than on GameTooltip, because a tooltip
         // is not always that one — item comparison uses ShoppingTooltip1 and 2
         // — and a copy on the table itself would shadow this for no gain.
