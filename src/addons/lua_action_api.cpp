@@ -1317,9 +1317,34 @@ void registerActionLuaAPI(lua_State* L) {
             lua_pushstring(L, kLabels[index]);
             return 6;
         }},
+                // GetPetHappiness() → happiness 1..3, and what it does to damage
+                //
+                // Both values, and that is not tidiness. The pet frame does
+                // format(PET_DAMAGE_PERCENTAGE, damagePercentage) — "Causes %d%%
+                // of normal damage" — the moment happiness is anything at all,
+                // and %d against nil raises. Answering nil, as this did before,
+                // was safe only because the line above it returns early on a nil
+                // happiness; filling in the first value alone would have turned
+                // a blank indicator into a dead pet frame for every hunter.
+                //
+                // Happiness is a power like mana, at index 4, running from
+                // nothing to its own maximum. The three faces are the thirds of
+                // that range, and the damage each is worth — three quarters,
+                // normal, a quarter more — is the game's, not a guess.
                 {"GetPetHappiness", [](lua_State* L) -> int {
-            lua_pushnil(L);
-            return 1;
+            auto* pet = resolveUnit(L, "pet");
+            if (!pet) { lua_pushnil(L); return 1; }
+            const uint32_t maxHappiness = pet->getMaxPowerByType(4);
+            if (maxHappiness == 0) { lua_pushnil(L); return 1; }
+
+            const uint32_t happiness = pet->getPowerByType(4);
+            const int level = (happiness * 3 >= maxHappiness * 2) ? 3
+                            : (happiness * 3 >= maxHappiness)     ? 2
+                                                                  : 1;
+            static const int kDamagePercent[4] = {0, 75, 100, 125};
+            lua_pushnumber(L, level);
+            lua_pushnumber(L, kDamagePercent[level]);
+            return 2;
         }},
                 // Only referenced from commented-out code in 3.3.5, but a
                 // temporary pet's timer is nil when there is no timer.
