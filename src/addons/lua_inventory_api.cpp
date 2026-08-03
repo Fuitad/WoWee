@@ -1025,7 +1025,14 @@ static int lua_GetEquipmentSetItemIDs(lua_State* L) {
 // SaveEquipmentSet(name, iconIndex) → snapshot what is worn now
 static int lua_SaveEquipmentSet(lua_State* L) {
     auto* gh = getGameHandler(L);
-    const std::string name = luaL_optstring(L, 1, "");
+    std::string name = luaL_optstring(L, 1, "");
+    // The name is whatever was typed, and the file is one set per line with
+    // tabs between the fields. A tab or a newline in the name would move the
+    // rest of that set into the wrong columns, or split it across two lines and
+    // take the next set with it. Neither belongs in a name.
+    name.erase(std::remove_if(name.begin(), name.end(),
+                              [](unsigned char c) { return c == '\t' || c == '\n' || c == '\r'; }),
+               name.end());
     if (!gh || name.empty()) return 0;
     loadEquipmentSets();
 
