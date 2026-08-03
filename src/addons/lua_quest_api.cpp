@@ -1,6 +1,7 @@
 // lua_quest_api.cpp — Quest log, skills, talents, glyphs, and achievements Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
+#include "game/game_utils.hpp"
 
 #include <algorithm>
 #include <vector>
@@ -1293,6 +1294,47 @@ static int lua_GetQuestItemInfo(lua_State* L) {
     return luaReturnNil(L);
 }
 
+// GetQuestItemLink(type, index) → the reward as a link, for shift-clicking it
+// into chat.
+//
+// The same two lists GetQuestItemInfo walks, answered as a link rather than as
+// pieces. Nil when there is no such reward, which is what the click handler
+// checks before doing anything with it.
+static int lua_GetQuestItemLink(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const char* type = luaL_optstring(L, 1, "reward");
+    const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+    const QuestSource s = currentQuestSource(gh);
+
+    const auto* list = (std::string(type) == "choice") ? s.choices : s.rewards;
+    if (!gh || !list || index < 1) { return luaReturnNil(L); }
+
+    int seen = 0;
+    for (const auto& r : *list) {
+        if (r.itemId == 0) continue;
+        if (++seen != index) continue;
+        const auto* info = gh->getItemInfo(r.itemId);
+        const std::string name = info ? info->name : "";
+        if (name.empty()) { return luaReturnNil(L); }
+        lua_pushstring(L, game::buildItemLink(r.itemId,
+                                              info ? info->quality : 1u,
+                                              name).c_str());
+        return 1;
+    }
+    return luaReturnNil(L);
+}
+
+// GetQuestSpellLink(...) — the spell a quest gives, as a link.
+//
+// Nil, and deliberately: no quest packet this client parses carries a reward
+// spell, so there is nothing to name. The click handler passes whatever it
+// gets to HandleModifiedItemClick, which does nothing with nil — where a
+// made-up link would put a spell in someone's chat that the quest does not
+// give.
+static int lua_GetQuestSpellLink(lua_State* L) {
+    return luaReturnNil(L);
+}
+
 void registerQuestLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"GetNumQuestLogEntries",   lua_GetNumQuestLogEntries},
@@ -1468,6 +1510,8 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetRewardText",        lua_GetRewardText},
                 {"GetGossipText",        lua_GetGossipText},
                 {"GetQuestItemInfo",     lua_GetQuestItemInfo},
+                {"GetQuestItemLink",        lua_GetQuestItemLink},
+                {"GetQuestSpellLink",       lua_GetQuestSpellLink},
                 {"GetQuestMoneyToGet",   lua_GetQuestMoneyToGet},
                 {"GetRewardMoney",       lua_GetRewardMoney},
                 {"GetRewardXP",          lua_GetRewardXP},
