@@ -9,6 +9,12 @@ broken rather than one that was never wired up.
 
     tools/addon_api_audit.py                 # every addon, worst last
     tools/addon_api_audit.py blizzard_talentui   # one addon, names listed
+    tools/addon_api_audit.py --framexml          # the original interface, per file
+
+The --framexml mode counts only files the client actually loads. Eleven on disk
+are not in the manifest and are reached by no Include — focusframe,
+minigameframe, questtimerframe, tictactoeframe and friends — and their gaps were
+being reported as real work for as long as this scanned the directory.
 
 Counting honestly took two tries, and both mistakes are easy to repeat:
 
@@ -105,7 +111,73 @@ def audit(addon_dir, known):
                   if c not in known and c not in defined)
 
 
+def reachableFrameXml():
+    """The interface files the client will actually load.
+
+    The manifest names the entry points; each of those pulls in more through
+    Include and Script. Anything left over is on disk and unreachable, and
+    counting it reports work that does not exist — FocusFrame, for one, is
+    declared in targetframe.xml, and focusframe.xml is never read.
+    """
+    toc = FRAMEXML / "framexml.toc"
+    if not toc.is_file():
+        toc = FRAMEXML / "FrameXML.toc"
+    if not toc.is_file():
+        return sorted(FRAMEXML.glob("*.lua"))
+
+    reached = set()
+
+    def walk(name):
+        key = name.lower().replace("\\", "/").split("/")[-1]
+        if key in reached:
+            return
+        reached.add(key)
+        path = FRAMEXML / key
+        if not path.is_file() or path.suffix.lower() != ".xml":
+            return
+        text = read(path)
+        for ref in re.findall(r'<(?:Include|Script)\s+file="([^"]+)"', text):
+            walk(ref)
+
+    for line in read(toc).splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            walk(line)
+    # Both kinds: the XML carries inline OnLoad and OnEvent bodies, which call
+    # globals exactly like the Lua does.
+    return sorted(p for p in FRAMEXML.iterdir()
+                  if p.suffix.lower() in (".lua", ".xml") and p.name.lower() in reached)
+
+
+def auditFrameXml(known):
+    files = reachableFrameXml()
+    rows = []
+    for path in files:
+        body = without_comments(read(path))
+        defined = set(DEF_FUNC.findall(body)) | set(DEF_ASSIGN.findall(body))
+        defined |= set(XML_NAME.findall(body))       # a frame's name is a global
+        missing = sorted(c for c in set(CALL.findall(body))
+                         if c not in known and c not in defined)
+        rows.append((len(missing), path.name, missing))
+    rows.sort()
+    clean = sum(1 for n, _, _ in rows if n == 0)
+    print(f"{len(files)} interface files the client loads; {clean} need nothing.\n")
+    for count, name, missing in rows:
+        if count == 0:
+            continue
+        print(f"{count:4}  {name}")
+        if count <= 3:
+            for m in missing:
+                print(f"        {m}")
+    total = len({m for _, _, ms in rows for m in ms})
+    print(f"\n{len(known)} names known; {total} distinct missing across the "
+          f"files that load")
+    return 0
+
+
 def main():
+    if "--framexml" in sys.argv:
+        return auditFrameXml(known_names())
     if not ADDONS.is_dir():
         print(f"no addons at {ADDONS}")
         return 0
