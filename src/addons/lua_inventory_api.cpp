@@ -648,6 +648,85 @@ SetTally tallySet(game::GameHandler* gh, const EquipmentSet& set) {
 
 }  // namespace
 
+
+// GetInventoryItemsForSlot(slotId, table) — everything that could go in a slot
+//
+// Fills the caller's table with location -> itemID, where the location is packed
+// the way the equipment manager unpacks it: a flag for where it is, and for a
+// bag the bag index shifted left eight with the slot in the low bits. The
+// interface subtracts the slot id from the equipped entry to recognise and drop
+// it, so the equipped item has to be in there too.
+static int lua_GetInventoryItemsForSlot(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int slotId = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || slotId < 1 || slotId > kEquipSlots || !lua_istable(L, 2)) return 0;
+
+    constexpr uint32_t kLocationPlayer = 0x00100000;
+    constexpr uint32_t kLocationBags   = 0x00200000;
+    constexpr int      kBagBitOffset   = 8;
+
+    // Which inventory types the server sends fit which slot. A flyout that is a
+    // little generous about weapons is better than one that hides a sword,
+    // so a one-handed weapon is offered for either hand.
+    auto fits = [](int slot, uint32_t invType) {
+        switch (slot) {
+            case 1:  return invType == 1;                       // head
+            case 2:  return invType == 2;                       // neck
+            case 3:  return invType == 3;                       // shoulders
+            case 4:  return invType == 4;                       // shirt
+            case 5:  return invType == 5  || invType == 20;     // chest or robe
+            case 6:  return invType == 6;                       // waist
+            case 7:  return invType == 7;                       // legs
+            case 8:  return invType == 8;                       // feet
+            case 9:  return invType == 9;                       // wrists
+            case 10: return invType == 10;                      // hands
+            case 11: case 12: return invType == 11;             // the two rings
+            case 13: case 14: return invType == 12;             // the two trinkets
+            case 15: return invType == 16;                      // back
+            case 16: return invType == 13 || invType == 17 || invType == 21;
+            case 17: return invType == 13 || invType == 14 ||
+                            invType == 22 || invType == 23;
+            case 18: return invType == 15 || invType == 25 ||
+                            invType == 26 || invType == 28;     // ranged
+            case 19: return invType == 19;                      // tabard
+            default: return false;
+        }
+    };
+    auto offer = [&](uint32_t location, uint32_t itemId) {
+        lua_pushnumber(L, static_cast<double>(location));
+        lua_pushnumber(L, static_cast<double>(itemId));
+        lua_settable(L, 2);
+    };
+    auto invTypeOf = [&](uint32_t itemId) -> uint32_t {
+        const auto* info = gh->getItemInfo(itemId);
+        return info ? info->inventoryType : 0u;
+    };
+
+    const auto& inv = gh->getInventory();
+    const auto& worn = inv.getEquipSlot(static_cast<game::EquipSlot>(slotId - 1));
+    if (!worn.empty()) {
+        offer(kLocationPlayer + static_cast<uint32_t>(slotId), worn.item.itemId);
+    }
+    // Bag zero is the backpack, and slots count from one, which is how the
+    // interface reads them back out with GetContainerItemInfo.
+    for (int i = 0; i < inv.getBackpackSize(); ++i) {
+        const auto& sl = inv.getBackpackSlot(i);
+        if (sl.empty() || !fits(slotId, invTypeOf(sl.item.itemId))) continue;
+        offer(kLocationBags | static_cast<uint32_t>(i + 1), sl.item.itemId);
+    }
+    for (int bag = 0; bag < game::Inventory::NUM_BAG_SLOTS; ++bag) {
+        for (int i = 0; i < inv.getBagSize(bag); ++i) {
+            const auto& sl = inv.getBagSlot(bag, i);
+            if (sl.empty() || !fits(slotId, invTypeOf(sl.item.itemId))) continue;
+            const uint32_t location = kLocationBags |
+                (static_cast<uint32_t>(bag + 1) << kBagBitOffset) |
+                static_cast<uint32_t>(i + 1);
+            offer(location, sl.item.itemId);
+        }
+    }
+    return 0;
+}
+
 // GetNumEquipmentSets() → how many are saved
 static int lua_GetNumEquipmentSets(lua_State* L) {
     loadEquipmentSets();
@@ -1646,6 +1725,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"BankButtonIDToInvSlotID", lua_BankButtonIDToInvSlotID},
                 {"CloseBankFrame",      lua_CloseBankFrame},
                 {"UseInventoryItem",    lua_UseInventoryItem},
+                {"GetInventoryItemsForSlot", lua_GetInventoryItemsForSlot},
                 {"GetNumEquipmentSets", lua_GetNumEquipmentSets},
                 {"GetEquipmentSetInfo", lua_GetEquipmentSetInfo},
                 {"GetEquipmentSetInfoByName", lua_GetEquipmentSetInfoByName},
