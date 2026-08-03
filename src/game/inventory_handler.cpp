@@ -2795,13 +2795,22 @@ void InventoryHandler::handleTradeStatusExtended(network::Packet& packet) {
     }
 
     // Gold
+    bool goldChanged = false;
     if (packet.hasRemaining(4)) {
         uint32_t gold = packet.readUInt32();
-        if (whichPlayer == 0) myTradeGold_ = gold;
-        else peerTradeGold_ = gold;
+        uint64_t& side = (whichPlayer == 0) ? myTradeGold_ : peerTradeGold_;
+        goldChanged = (side != gold);
+        side = gold;
     }
 
-    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("TRADE_UPDATE", {});
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("TRADE_UPDATE", {});
+        // The trade window's own refresh redraws the item slots and nothing
+        // else; the two money frames listen for this and only this. Without it
+        // the gold on the table stays at whatever it read when the window
+        // opened, however much either side puts down.
+        if (goldChanged) owner_.addonEventCallbackRef()("TRADE_MONEY_CHANGED", {});
+    }
 }
 
 // ============================================================

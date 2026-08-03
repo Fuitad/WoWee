@@ -12,15 +12,35 @@
 
 namespace wowee::addons {
 
-/// Money held on the cursor and staked in a trade. Both are genuinely zero
-/// here — this client has neither a money cursor nor an open trade at load —
-/// but they have to answer with a number rather than not exist. MoneyFrame's
-/// very first update reads GetMoney() - GetCursorMoney() - GetPlayerTradeMoney(),
-/// and a missing name comes back from the API fallback as a function whose
-/// call yields nothing, so the subtraction hits nil and takes the whole file
-/// down. Eleven of them, on this one line.
+/// Money held on the cursor. There is no money cursor here, so this is a real
+/// zero rather than an absent answer — but it has to be a number rather than
+/// not exist. MoneyFrame's very first update reads
+/// GetMoney() - GetCursorMoney() - GetPlayerTradeMoney(), and a missing name
+/// comes back from the API fallback as a function whose call yields nothing,
+/// so the subtraction hits nil and takes the whole file down.
 static int lua_GetZeroMoney(lua_State* L) {
     lua_pushnumber(L, 0.0);
+    return 1;
+}
+
+/// What each side has staked in the open trade.
+///
+/// These answered zero alongside the cursor, on the reasoning that there is no
+/// trade open when the money frame first reads them. That much is true, and it
+/// is why they must answer a number — but it is only true at load. The client
+/// tracks both amounts for the whole trade, and answering zero throughout meant
+/// the trade window showed each side offering nothing however much gold was
+/// actually on the table. Someone would accept a trade believing no gold was
+/// coming, or that none was going.
+static int lua_GetPlayerTradeMoney(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushnumber(L, gh ? static_cast<double>(gh->getMyTradeGold()) : 0.0);
+    return 1;
+}
+
+static int lua_GetTargetTradeMoney(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushnumber(L, gh ? static_cast<double>(gh->getPeerTradeGold()) : 0.0);
     return 1;
 }
 
@@ -656,19 +676,87 @@ static int lua_CheckInbox(lua_State* L) {
     return 0;
 }
 
+// --- Money attached to the letter being written ---
+//
+// SendMail carries an amount and a cash-on-delivery charge, and the compose
+// frame sets them before it sends: it reads the copper out of its own money
+// input, then calls SetSendMailMoney or SetSendMailCOD depending on which of
+// the two buttons is checked. Neither of those existed, so the amount the
+// player typed reached nothing and every letter was sent with SendMail's money
+// and COD arguments hard-coded to zero.
+//
+// That failure is quiet in the worst way. Nothing raises and nothing is logged;
+// the letter simply arrives empty, and the sender has no reason to think it did
+// not work until whoever received it says so.
+//
+// The amount belongs here rather than on the game handler because it is not
+// game state — the server is told it once, as an argument to the send. It is
+// cleared after a send and when the mailbox closes so that a figure typed and
+// then abandoned cannot attach itself to the next letter.
+namespace {
+uint32_t s_sendMailMoney = 0;
+uint32_t s_sendMailCOD   = 0;
+
+/// Copper from Lua, refusing negatives rather than wrapping them into a huge
+/// unsigned amount.
+uint32_t copperArg(lua_State* L, int index) {
+    const double v = luaL_optnumber(L, index, 0);
+    if (!(v > 0)) return 0;  // also catches NaN
+    return static_cast<uint32_t>(v);
+}
+} // namespace
+
 static int lua_CloseMail(lua_State* L) {
+    s_sendMailMoney = 0;
+    s_sendMailCOD = 0;
     if (auto* gh = getGameHandler(L)) gh->closeMailbox();
     return 0;
 }
 
-// SendMail(recipient, subject, body) — the money and the cash-on-delivery are
-// set separately by the interface before this is called
+static int lua_SetSendMailMoney(lua_State* L) {
+    s_sendMailMoney = copperArg(L, 1);
+    return 0;
+}
+
+static int lua_SetSendMailCOD(lua_State* L) {
+    s_sendMailCOD = copperArg(L, 1);
+    return 0;
+}
+
+// The coin pickup frame adds to what is already attached rather than replacing
+// it, so these are not the setters under another name.
+static int lua_AddSendMailMoney(lua_State* L) {
+    s_sendMailMoney += copperArg(L, 1);
+    return 0;
+}
+
+static int lua_AddSendMailCOD(lua_State* L) {
+    s_sendMailCOD += copperArg(L, 1);
+    return 0;
+}
+
+static int lua_GetSendMailMoney(lua_State* L) {
+    lua_pushnumber(L, static_cast<double>(s_sendMailMoney));
+    return 1;
+}
+
+static int lua_GetSendMailCOD(lua_State* L) {
+    lua_pushnumber(L, static_cast<double>(s_sendMailCOD));
+    return 1;
+}
+
+// SendMail(recipient, subject, body) — the money and the cash-on-delivery were
+// set separately by the interface before this was called.
 static int lua_SendMail(lua_State* L) {
     auto* gh = getGameHandler(L);
     const char* to = luaL_optstring(L, 1, "");
     const char* subject = luaL_optstring(L, 2, "");
     const char* body = luaL_optstring(L, 3, "");
-    if (gh && to && *to) gh->sendMail(to, subject, body, 0, 0);
+    if (gh && to && *to) gh->sendMail(to, subject, body, s_sendMailMoney, s_sendMailCOD);
+    // Whether or not it went, the next letter starts empty. Leaving the amount
+    // set would attach it again to a letter nobody meant to put money in.
+    s_sendMailMoney = 0;
+    s_sendMailCOD = 0;
     return 0;
 }
 
@@ -1838,8 +1926,8 @@ void registerInventoryLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"GetMoney",      lua_GetMoney},
                 {"GetCursorMoney",      lua_GetZeroMoney},
-                {"GetPlayerTradeMoney", lua_GetZeroMoney},
-                {"GetTargetTradeMoney", lua_GetZeroMoney},
+                {"GetPlayerTradeMoney", lua_GetPlayerTradeMoney},
+                {"GetTargetTradeMoney", lua_GetTargetTradeMoney},
                 {"GetMerchantNumItems",  lua_GetMerchantNumItems},
                 {"GetMerchantItemInfo",  lua_GetMerchantItemInfo},
                 {"GetMerchantItemLink",  lua_GetMerchantItemLink},
@@ -1903,6 +1991,12 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"CheckInbox",          lua_CheckInbox},
                 {"CloseMail",           lua_CloseMail},
                 {"SendMail",            lua_SendMail},
+                {"SetSendMailMoney",    lua_SetSendMailMoney},
+                {"SetSendMailCOD",      lua_SetSendMailCOD},
+                {"AddSendMailMoney",    lua_AddSendMailMoney},
+                {"AddSendMailCOD",      lua_AddSendMailCOD},
+                {"GetSendMailMoney",    lua_GetSendMailMoney},
+                {"GetSendMailCOD",      lua_GetSendMailCOD},
                 {"UseInventoryItem",    lua_UseInventoryItem},
                 {"GetInventoryItemDurability", lua_GetInventoryItemDurability},
                 {"UseItemByName",       lua_UseItemByName},
