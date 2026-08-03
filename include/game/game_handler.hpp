@@ -2084,6 +2084,15 @@ public:
         uint32_t    quantity = 0;
     };
 
+    // ---- Currencies (CurrencyTypes.dbc) ----
+    // In 3.3.5a a currency is a row pointing at an item, and the amount held is
+    // that item's stack count in the bags — there is no separate store to read.
+    struct CurrencyType {
+        uint32_t id = 0;
+        uint32_t itemId = 0;
+    };
+    const std::vector<CurrencyType>& getCurrencyTypes();
+
     // ---- Achievement categories and criteria (Achievement_Category.dbc,
     // Achievement_Criteria.dbc). The panel is a tree of categories, so it needs
     // all of this before it can draw a single row.
@@ -3842,6 +3851,8 @@ private:
     std::unordered_map<uint32_t, std::string> achievementDescCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementPointsCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementIconCache_;  // achievementId → SpellIcon.dbc ID
+    std::vector<CurrencyType> currencyTypes_;
+    bool currencyTypesLoaded_ = false;
     std::unordered_map<uint32_t, uint32_t>    achievementCategoryCache_;  // achievementId → Achievement_Category.dbc ID
     // Achievement ids per category, in the DBC's own order — the panel lists a
     // category by index, so the order has to be stable across calls.

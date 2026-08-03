@@ -2216,6 +2216,30 @@ void GameHandler::loadAchievementNameCache() {
     LOG_INFO("Achievement: loaded ", achievementNameCache_.size(), " names from Achievement.dbc");
 }
 
+// CurrencyTypes.dbc: id, then the item that carries the amount. Everything the
+// currency tab shows about a currency — name, icon, how many — comes from that
+// item, so the row itself needs nothing else.
+const std::vector<GameHandler::CurrencyType>& GameHandler::getCurrencyTypes() {
+    if (currencyTypesLoaded_) return currencyTypes_;
+    auto* am = services_.assetManager;
+    // Checked before the latch: an early ask would otherwise leave the tab
+    // permanently empty for the session.
+    if (!am || !am->isInitialized()) return currencyTypes_;
+    currencyTypesLoaded_ = true;
+
+    auto dbc = am->loadDBC("CurrencyTypes.dbc");
+    if (!dbc || !dbc->isLoaded() || dbc->getFieldCount() < 2) return currencyTypes_;
+    for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+        CurrencyType c;
+        c.id     = dbc->getUInt32(i, 0);
+        c.itemId = dbc->getUInt32(i, 1);
+        if (c.id == 0 || c.itemId == 0) continue;
+        currencyTypes_.push_back(c);
+    }
+    LOG_INFO("Currency: ", currencyTypes_.size(), " types from CurrencyTypes.dbc");
+    return currencyTypes_;
+}
+
 // Achievement.dbc field 38 is the category. It is not in the layout file, but
 // the fields either side of it are — Points at 39, Description at 21, IconID at
 // 42 — which is the stock 3.3.5a order, so 38 is where the category sits.

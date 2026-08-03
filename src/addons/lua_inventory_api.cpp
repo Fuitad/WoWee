@@ -533,6 +533,73 @@ static int lua_GetItemQualityColor(lua_State* L) {
 }
 
 // GetItemCount(itemId [, includeBank]) → count
+// ---- Currency tab (Blizzard_TokenUI) ----
+//
+// In 3.3.5a a currency is a CurrencyTypes.dbc row pointing at an item, and the
+// amount held is that item's stack count in the bags. There is no separate
+// currency store to read, which is why this is assembled here rather than
+// tracked in the handler.
+//
+// Only currencies the player actually holds are listed. The real client lists
+// every one ever earned, from PLAYER_FIELD_KNOWN_CURRENCIES, which is not
+// parsed here — showing what is held is the subset that can be stated
+// truthfully, and the tab was completely empty before.
+namespace {
+
+struct CurrencyRow {
+    std::string name;
+    uint32_t    itemId = 0;
+    uint32_t    currencyId = 0;
+    uint32_t    count = 0;
+    std::string icon;
+};
+
+uint32_t countItemInBags(game::GameHandler* gh, uint32_t itemId) {
+    const auto& inv = gh->getInventory();
+    uint32_t count = 0;
+    for (int i = 0; i < inv.getBackpackSize(); ++i) {
+        const auto& s = inv.getBackpackSlot(i);
+        if (!s.empty() && s.item.itemId == itemId)
+            count += (s.item.stackCount > 0 ? s.item.stackCount : 1);
+    }
+    for (int b = 0; b < game::Inventory::NUM_BAG_SLOTS; ++b) {
+        const int sz = inv.getBagSize(b);
+        for (int i = 0; i < sz; ++i) {
+            const auto& s = inv.getBagSlot(b, i);
+            if (!s.empty() && s.item.itemId == itemId)
+                count += (s.item.stackCount > 0 ? s.item.stackCount : 1);
+        }
+    }
+    return count;
+}
+
+// Rebuilt per call rather than cached: the tab is opened rarely and the counts
+// change with every loot, so a cache here would be one more thing to
+// invalidate.
+std::vector<CurrencyRow> buildCurrencyList(lua_State* L) {
+    std::vector<CurrencyRow> rows;
+    auto* gh = getGameHandler(L);
+    if (!gh) return rows;
+    for (const auto& c : gh->getCurrencyTypes()) {
+        const uint32_t count = countItemInBags(gh, c.itemId);
+        if (count == 0) continue;
+        CurrencyRow r;
+        r.currencyId = c.id;
+        r.itemId     = c.itemId;
+        r.count      = count;
+        if (const auto* info = gh->getItemInfo(c.itemId)) r.name = info->name;
+        if (r.name.empty()) r.name = "Item #" + std::to_string(c.itemId);
+        rows.push_back(std::move(r));
+    }
+    std::sort(rows.begin(), rows.end(), [](const CurrencyRow& a, const CurrencyRow& b) {
+        if (a.name != b.name) return a.name < b.name;
+        return a.currencyId < b.currencyId;   // a total order, not just a tie-break
+    });
+    return rows;
+}
+
+}  // namespace
+
 static int lua_GetItemCount(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnZero(L); }
@@ -2328,6 +2395,41 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"IsDressableItem",   lua_IsDressableItem},
                 {"GetItemQualityColor", lua_GetItemQualityColor},
                 {"_GetItemTooltipData", lua_GetItemTooltipData},
+                // ---- Currency tab ----
+                {"GetCurrencyListSize", [](lua_State* L) -> int {
+            lua_pushnumber(L, static_cast<lua_Number>(buildCurrencyList(L).size()));
+            return 1;
+        }},
+                // GetCurrencyListInfo(index) → name, isHeader, isExpanded,
+                //   isUnused, isWatched, count, extraCurrencyType, icon, itemID
+                {"GetCurrencyListInfo", [](lua_State* L) -> int {
+            const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const auto rows = buildCurrencyList(L);
+            if (idx < 1 || idx > static_cast<int>(rows.size())) return luaReturnNil(L);
+            const auto& r = rows[static_cast<size_t>(idx) - 1];
+            lua_pushstring(L, r.name.c_str());   // 1: name
+            lua_pushboolean(L, 0);               // 2: isHeader — the list is flat
+            lua_pushboolean(L, 0);               // 3: isExpanded
+            lua_pushboolean(L, 0);               // 4: isUnused
+            lua_pushboolean(L, 0);               // 5: isWatched
+            lua_pushnumber(L, r.count);          // 6: count
+            lua_pushnumber(L, 0);                // 7: extraCurrencyType
+            lua_pushnil(L);                      // 8: icon — read from the item
+            lua_pushnumber(L, r.itemId);         // 9: itemID
+            return 9;
+        }},
+                // GetBackpackCurrencyInfo(index) → name, count, icon, currencyTypesID
+                //
+                // Nothing is pinned to the backpack: that is a saved choice the
+                // client does not keep, and answering with the whole list would
+                // put every currency under the bags.
+                {"GetBackpackCurrencyInfo", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                // The three that change how the list is displayed. Each is a
+                // saved preference with nowhere to be saved, so they are
+                // accepted and forgotten rather than left to raise.
+                {"ExpandCurrencyList",  [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SetCurrencyBackpack", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SetCurrencyUnused",   [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GetItemCount",      lua_GetItemCount},
                 {"UseContainerItem",  lua_UseContainerItem},
                 {"GetContainerNumSlots",    lua_GetContainerNumSlots},

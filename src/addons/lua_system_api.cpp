@@ -1613,7 +1613,6 @@ void registerSystemLuaAPI(lua_State* L) {
                 // above will fill themselves in when it does.
                 {"GetNumTitles",             lua_ReturnZero},
                 {"GetNumCompanions",         lua_ReturnZero},
-                {"GetCurrencyListSize",      lua_ReturnZero},
                 // The knowledge base is the server's FAQ, and there is no
                 // server here answering for it. Its category dropdown is
                 // reached from the "?" micro button beside the action bar, so
