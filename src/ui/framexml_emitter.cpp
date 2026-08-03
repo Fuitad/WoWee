@@ -426,6 +426,27 @@ struct Emitter {
             line(name + ".b = " + std::to_string(col->attrFloat("b", 1.0f)));
             line(name + ".a = " + std::to_string(col->attrFloat("a", 1.0f)));
         }
+        // <Shadow> — a dark copy of the glyphs one pixel down and across,
+        // which is what keeps a label readable over the world and over the
+        // action bar art. Nineteen font objects declare one, and it is written
+        // on the font rather than the label, so it arrives this way.
+        if (const XmlNode* sh = node.child("Shadow")) {
+            float sx = 1.0f, sy = -1.0f;
+            if (const XmlNode* off = sh->child("Offset")) {
+                if (const XmlNode* abs = off->child("AbsDimension")) {
+                    sx = abs->attrFloat("x", 1.0f);
+                    sy = abs->attrFloat("y", -1.0f);
+                }
+            }
+            line(name + ".shadowX = " + std::to_string(sx));
+            line(name + ".shadowY = " + std::to_string(sy));
+            if (const XmlNode* sc = sh->child("Color")) {
+                line(name + ".shadowR = " + std::to_string(sc->attrFloat("r", 0.0f)));
+                line(name + ".shadowG = " + std::to_string(sc->attrFloat("g", 0.0f)));
+                line(name + ".shadowB = " + std::to_string(sc->attrFloat("b", 0.0f)));
+                line(name + ".shadowA = " + std::to_string(sc->attrFloat("a", 1.0f)));
+            }
+        }
     }
 
     /// Applies whatever this node inherits onto `var`. Templates apply before

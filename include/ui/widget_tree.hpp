@@ -271,6 +271,11 @@ struct Widget {
     /// The typeface a font object named, as it wrote it. Empty means
     /// whatever the renderer is already using.
     std::string fontFace;
+    /// A dark copy of the text, offset. Distinct from the outline, which
+    /// surrounds the glyphs on all sides; a shadow falls on one.
+    bool  hasShadow = false;
+    float shadowX = 1.0f, shadowY = -1.0f;
+    float shadowColor[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     /// NORMAL or THICK, as a font object writes it. Empty is no outline.
     std::string fontOutline;
     /// Extra space between wrapped lines, which FrameXML reads back.

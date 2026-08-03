@@ -1538,8 +1538,43 @@ static void applyFontObject(lua_State* L, int fontIndex, wowee::ui::Widget* w) {
             if (lua_isnumber(L, -1)) w->color[i] = static_cast<float>(lua_tonumber(L, -1));
             lua_pop(L, 1);
         }
+        lua_getfield(L, -1, "shadowX");
+        if (lua_isnumber(L, -1)) {
+            w->hasShadow = true;
+            w->shadowX = static_cast<float>(lua_tonumber(L, -1));
+        }
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "shadowY");
+        if (lua_isnumber(L, -1)) w->shadowY = static_cast<float>(lua_tonumber(L, -1));
+        lua_pop(L, 1);
+        const char* skeys[4] = {"shadowR", "shadowG", "shadowB", "shadowA"};
+        for (int i = 0; i < 4; ++i) {
+            lua_getfield(L, -1, skeys[i]);
+            if (lua_isnumber(L, -1)) {
+                w->shadowColor[i] = static_cast<float>(lua_tonumber(L, -1));
+            }
+            lua_pop(L, 1);
+        }
     }
     lua_pop(L, 1);
+}
+
+int lua_FontString_SetShadowOffset(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->hasShadow = true;
+        w->shadowX = static_cast<float>(luaL_optnumber(L, 2, 1.0));
+        w->shadowY = static_cast<float>(luaL_optnumber(L, 3, -1.0));
+    }
+    return 0;
+}
+int lua_FontString_SetShadowColor(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->shadowColor[0] = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+        w->shadowColor[1] = static_cast<float>(luaL_optnumber(L, 3, 0.0));
+        w->shadowColor[2] = static_cast<float>(luaL_optnumber(L, 4, 0.0));
+        w->shadowColor[3] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
+    }
+    return 0;
 }
 
 int lua_FontString_SetFontObject(lua_State* L) {
@@ -1624,6 +1659,8 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
         set("GetSpacing", lua_FontString_GetSpacing);
         set("SetSpacing", lua_FontString_SetSpacing);
         set("SetFontObject", lua_FontString_SetFontObject);
+        set("SetShadowOffset", lua_FontString_SetShadowOffset);
+        set("SetShadowColor", lua_FontString_SetShadowColor);
     }
     // Anything still unimplemented stays a no-op rather than an error, which is
     // what keeps a large addon running while the surface is filled in.

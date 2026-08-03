@@ -1055,6 +1055,18 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                                 w->text.c_str());
                 }
             }
+            // The shadow sits under the text and over the outline: it is a
+            // single offset copy rather than a ring, and the offset is in
+            // interface units like everything the font object states, so it
+            // scales with the rest.
+            if (w->hasShadow) {
+                float sc[4] = {w->shadowColor[0], w->shadowColor[1],
+                               w->shadowColor[2], w->shadowColor[3]};
+                dl->AddText(font, size,
+                            ImVec2(tx + w->shadowX * s, ty - w->shadowY * s),
+                            packColor(sc, w->alpha * w->shadowColor[3]),
+                            w->text.c_str());
+            }
             dl->AddText(font, size, ImVec2(tx, ty),
                         packColor(w->color, w->alpha), w->text.c_str());
         }

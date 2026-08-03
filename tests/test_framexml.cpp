@@ -798,3 +798,25 @@ TEST_CASE("HitRectInsets become a SetHitRectInsets call", "[framexml][emit]") {
     const EmitResult r = emitFrameXml(root);
     REQUIRE(has(r.lua, "SetHitRectInsets(0, 30, 0, 45)"));
 }
+
+TEST_CASE("A font object's Shadow reaches the table", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Font name=\"Shadowed\" font=\"F.ttf\">"
+        "<FontHeight><AbsValue val=\"12\"/></FontHeight>"
+        "<Shadow><Offset><AbsDimension x=\"1\" y=\"-1\"/></Offset>"
+        "<Color r=\"0\" g=\"0\" b=\"0\" a=\"1\"/></Shadow>"
+        "</Font></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "Shadowed.shadowX = 1"));
+    REQUIRE(has(r.lua, "Shadowed.shadowY = -1"));
+    REQUIRE(has(r.lua, "Shadowed.shadowA = 1"));
+}
+
+TEST_CASE("A font object without a Shadow says nothing about one",
+          "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Font name=\"Plain\" font=\"F.ttf\">"
+        "<FontHeight><AbsValue val=\"12\"/></FontHeight></Font></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE_FALSE(has(r.lua, "shadow"));
+}
