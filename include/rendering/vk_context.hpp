@@ -37,6 +37,9 @@ public:
     /// Waits for the device, signals every fence, and starts again at slot
     /// zero. Only safe between frames, which is where the rebuild happens.
     void resetFrameSyncState();
+    /// Says once when the shared immediate-submit fence is reached from more
+    /// than one thread, which is unsafe and matches what validation reports.
+    void noteImmediateSubmitThread(const char* who);
 
     /// Which incarnation of ImGui's Vulkan backend is current. See
     /// imguiBackendGeneration_.
