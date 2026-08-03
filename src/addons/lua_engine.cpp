@@ -4860,7 +4860,7 @@ void LuaEngine::installMissingApiFallback() {
         "  'GetNumMessages','GetNumMutes','GetNumPetitionNames',\n"
         "  'GetNumPoints','GetNumQuestItemDrops','GetNumQuestItems',\n"
         "  'GetNumQuestLogRewardFactions',\n"
-        "  'GetNumRandomDungeons','GetNumRoutes',\n"
+        "  'GetNumRandomDungeons',\n"
         "  'GetNumStationeries',\n"
         "  'GetNumTitles','GetNumTooltips','GetNumTrackingTypes',\n"
         "  'GetNumVoiceSessionMembersBySessionID','GetNumBattlegroundTypes',\n"
