@@ -569,7 +569,8 @@ static int lua_GetSkillLineInfo(lua_State* L) {
         for (int i = 4; i <= 7; ++i) lua_pushnumber(L, 0);   // rank, temp, mod, max
         lua_pushboolean(L, 0);                          // 8: isAbandonable
         for (int i = 9; i <= 12; ++i) lua_pushnumber(L, 0); // costs, minLevel, type
-        return 12;
+        lua_pushstring(L, "");                          // 13: skillDescription
+        return 13;
     }
     const auto order = skillOrder(gh);
     const auto& skills = gh->getPlayerSkills();
@@ -591,7 +592,15 @@ static int lua_GetSkillLineInfo(lua_State* L) {
     lua_pushnumber(L, 0);                               // 10: rankCost
     lua_pushnumber(L, 0);                               // 11: minLevel
     lua_pushnumber(L, 0);                               // 12: skillCostType
-    return 12;
+    // The sentence the detail panel prints under the selected skill.
+    //
+    // Returning twelve values left it nil, and SkillDetailFrame_SetStatusBar
+    // feeds it straight into SetFormattedText(SKILL_DESCRIPTION, type, desc).
+    // string.format raises on a nil %s, so the guarded SetFormattedText fell
+    // back to writing the format string itself — the lower half of the skills
+    // window showed "%s %s" where the description belongs.
+    lua_pushstring(L, gh->getSkillDescription(skill.skillId).c_str());  // 13
+    return 13;
 }
 
 // --- Friends/Ignore API ---

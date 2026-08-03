@@ -3277,6 +3277,10 @@ void SpellHandler::loadSkillLineDbc() {
     // vanilla-era file that has neither. Both were read off the files rather
     // than assumed, and the default is only reached with no layout at all.
     const uint32_t slIconField = slL ? (*slL)["SpellIcon"] : 37;
+    // The description moves with the same locale block: 20 where the file
+    // carries seventeen name columns, 12 where it carries nine. Read off the
+    // files rather than assumed, like the icon beside it.
+    const uint32_t slDescField = slL ? (*slL)["Description"] : 20;
     const uint32_t fieldCount  = dbc->getFieldCount();
     for (uint32_t i = 0; i < dbc->getRecordCount(); i++) {
         uint32_t id = dbc->getUInt32(i, slIdField);
@@ -3292,6 +3296,10 @@ void SpellHandler::loadSkillLineDbc() {
                 if (uint32_t icon = dbc->getUInt32(i, slIconField); icon > 0) {
                     owner_.skillLineIconsRef()[id] = icon;
                 }
+            }
+            if (slDescField < fieldCount) {
+                std::string desc = dbc->getString(i, slDescField);
+                if (!desc.empty()) owner_.skillLineDescriptionsRef()[id] = std::move(desc);
             }
         }
     }

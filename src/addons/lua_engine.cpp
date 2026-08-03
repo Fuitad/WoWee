@@ -4298,7 +4298,10 @@ void LuaEngine::registerCoreAPI() {
         "function GameTooltip:SetSpellByID(spellId)\n"
         "    self:ClearLines()\n"
         "    if not spellId or spellId == 0 then return end\n"
-        "    local name, rank, icon, castTime, minRange, maxRange = GetSpellInfo(spellId)\n"
+        // Nine values, in the client's order. This used to read the fourth as
+        // a cast time, which is where the cost is — so every spell tooltip
+        // printed its mana cost as a cast time in seconds.
+        "    local name, rank, icon, _cost, _isFunnel, _powerType, castTime, minRange, maxRange = GetSpellInfo(spellId)\n"
         "    if name then\n"
         "        self:SetText(name, 1, 1, 1)\n"
         "        if rank and rank ~= '' then self:AddLine(rank, 0.5, 0.5, 0.5) end\n"

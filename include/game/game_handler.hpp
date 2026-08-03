@@ -2662,6 +2662,12 @@ public:
     auto& skillLineAbilityLoadedRef() { return skillLineAbilityLoaded_; }
     auto& skillLineCategoriesRef() { return skillLineCategories_; }
     auto& skillLineIconsRef() { return skillLineIcons_; }
+    auto& skillLineDescriptionsRef() { return skillLineDescriptions_; }
+    const std::string& getSkillDescription(uint32_t skillId) const {
+        static const std::string kNone;
+        auto it = skillLineDescriptions_.find(skillId);
+        return it != skillLineDescriptions_.end() ? it->second : kNone;
+    }
     auto& skillLineDbcLoadedRef() { return skillLineDbcLoaded_; }
     auto& skillLineNamesRef() { return skillLineNames_; }
     auto& spellToSkillLineRef() { return spellToSkillLine_; }
@@ -3899,6 +3905,9 @@ private:
     /// the side of the book its distinct picture. Read alongside the name
     /// because they come out of the same row of the same file.
     std::unordered_map<uint32_t, uint32_t> skillLineIcons_;
+    /// The sentence the skills window prints under a selected skill. Read from
+    /// the same row as the name and the icon.
+    std::unordered_map<uint32_t, std::string> skillLineDescriptions_;
     std::unordered_map<uint32_t, uint32_t> spellToSkillLine_;      // spellID -> skillLineID
     std::vector<SpellBookTab> spellBookTabs_;
     bool spellBookTabsDirty_ = true;

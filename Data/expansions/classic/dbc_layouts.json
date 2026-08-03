@@ -162,7 +162,8 @@
     "Category": 1,
     "ID": 0,
     "Name": 3,
-    "SpellIcon": 21
+    "SpellIcon": 21,
+    "Description": 12
   },
   "SkillLineAbility": {
     "SkillLineID": 1,

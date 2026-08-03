@@ -765,13 +765,28 @@ static int lua_GetSpellInfo(lua_State* L) {
     std::string iconPath = gh->getSpellIconPath(spellId);
     if (!iconPath.empty()) lua_pushstring(L, iconPath.c_str());
     else lua_pushnil(L);                                     // 3: icon texture path
-    // Resolve cast time and range from Spell.dbc → SpellCastTimes.dbc / SpellRange.dbc
+    // The client's order, which this did not follow.
+    //
+    //   name, rank, icon, cost, isFunnel, powerType, castTime, minRange, maxRange
+    //
+    // Seven values were returned and only the first three were in the right
+    // places. Everything asking for a cost got a cast time in milliseconds,
+    // everything asking for a cast time got the spell id — so a spell read as
+    // taking several thousand seconds to cast — and the two ranges were nil.
+    // The interface unpacks all nine in one line in multicastactionbarframe,
+    // and any addon reading a spell does the same.
+    //
+    // isFunnel is the one value with nothing behind it here. False is right
+    // for every spell but a handful of warlock drains, and it is what the
+    // callers branch on rather than display.
     auto spellData = gh->getSpellData(spellId);
-    lua_pushnumber(L, spellData.castTimeMs);                 // 4: castTime (ms)
-    lua_pushnumber(L, spellData.minRange);                   // 5: minRange (yards)
-    lua_pushnumber(L, spellData.maxRange);                   // 6: maxRange (yards)
-    lua_pushnumber(L, spellId);                              // 7: spellId
-    return 7;
+    lua_pushnumber(L, spellData.manaCost);                   // 4: cost
+    lua_pushboolean(L, 0);                                   // 5: isFunnel
+    lua_pushnumber(L, spellData.powerType);                  // 6: powerType
+    lua_pushnumber(L, spellData.castTimeMs);                 // 7: castTime (ms)
+    lua_pushnumber(L, spellData.minRange);                   // 8: minRange (yards)
+    lua_pushnumber(L, spellData.maxRange);                   // 9: maxRange (yards)
+    return 9;
 }
 
 // GetSpellTexture(spellIdOrName) -> icon texture path string
