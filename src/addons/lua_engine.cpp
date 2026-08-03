@@ -4053,6 +4053,48 @@ void LuaEngine::registerCoreAPI() {
         // buff button was ever created.
         // The global already exists as a binding; only the table form was
         // missing, and FrameXML calls both.
+        // Positional format specifiers, which this Lua does not have.
+        //
+        // The client's format accepts "%2$s" — argument two, whatever its
+        // place in the string — and the interface leans on it hard: 189 uses
+        // of %2$s, 184 of %4$s, 154 of %1$s, nearly all of them combat log
+        // lines in GlobalStrings. Stock Lua 5.1 answers "invalid option '%$'
+        // to 'format'" and raises, so every one of those took down whatever
+        // was building the line. The combat log raised on its own first entry.
+        //
+        // Rewritten rather than reimplemented: the specifiers are stripped to
+        // plain ones and the arguments put in the order they asked for, then
+        // the real format does the work. A string with no positional specifier
+        // takes the original path untouched.
+        "do\n"
+        "    local rawformat = string.format\n"
+        "    local function positional(fmt, ...)\n"
+        "        if type(fmt) ~= 'string' or not fmt:find('%%%d+%$') then\n"
+        "            return rawformat(fmt, ...)\n"
+        "        end\n"
+        // A literal %% is not the start of a specifier, so it is put aside
+        // before the scan and restored after — otherwise "%%2$s" would be read
+        // as an argument reference and eat the escape.
+        "        local ESC = '\\1'\n"
+        "        local work = fmt:gsub('%%%%', ESC)\n"
+        "        local order = {}\n"
+        "        work = work:gsub('%%(%d+)%$', function(n)\n"
+        "            order[#order + 1] = tonumber(n)\n"
+        "            return '%'\n"
+        "        end)\n"
+        "        work = work:gsub(ESC, '%%%%')\n"
+        "        local args = {...}\n"
+        "        local picked = {}\n"
+        "        for i = 1, #order do picked[i] = args[order[i]] end\n"
+        // Guarded like the rest of the formatting here: a format string and
+        // its arguments disagreeing is an error, and losing the line is
+        // better than losing the frame that was writing it.
+        "        local ok, out = pcall(rawformat, work, unpack(picked, 1, #order))\n"
+        "        return ok and out or fmt\n"
+        "    end\n"
+        "    string.format = positional\n"
+        "    format = positional\n"
+        "end\n"
         "table.wipe = wipe\n"
         "function SetDesaturation() end\n"
         // A class circle rather than the 3D portrait the real client renders,
