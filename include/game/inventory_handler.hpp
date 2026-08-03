@@ -227,6 +227,7 @@ public:
     void mailTakeMoney(uint32_t mailId);
     void mailTakeItem(uint32_t mailId, uint32_t itemGuidLow);
     void mailDelete(uint32_t mailId);
+    void mailReturnToSender(uint32_t mailId);
     void mailMarkAsRead(uint32_t mailId);
     void refreshMailList();
 

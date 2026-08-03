@@ -1516,6 +1516,10 @@ void GameHandler::mailDelete(uint32_t mailId) {
     if (inventoryHandler_) inventoryHandler_->mailDelete(mailId);
 }
 
+void GameHandler::mailReturnToSender(uint32_t mailId) {
+    if (inventoryHandler_) inventoryHandler_->mailReturnToSender(mailId);
+}
+
 void GameHandler::mailMarkAsRead(uint32_t mailId) {
     if (inventoryHandler_) inventoryHandler_->mailMarkAsRead(mailId);
 }

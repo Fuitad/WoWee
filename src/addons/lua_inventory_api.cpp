@@ -700,6 +700,23 @@ static int lua_GetSendMailItem(lua_State* L) {
     return 4;
 }
 
+// ReturnInboxItem(index) — send a letter back where it came from, with
+// whatever is still attached to it.
+//
+// The one inbox action that was missing: taking the money, taking an
+// attachment and deleting were all here, and returning was not, so a letter
+// that should have gone back could only be deleted — which destroys whatever
+// came with it.
+static int lua_ReturnInboxItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || index < 1) return 0;
+    const auto& mail = gh->getMailInbox();
+    if (index > static_cast<int>(mail.size())) return 0;
+    gh->mailReturnToSender(mail[static_cast<size_t>(index - 1)].messageId);
+    return 0;
+}
+
 static int lua_CheckInbox(lua_State* L) {
     if (auto* gh = getGameHandler(L)) gh->refreshMailList();
     return 0;
@@ -2147,6 +2164,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"AutoLootMailItem",    lua_AutoLootMailItem},
                 {"GetSendMailItem",     lua_GetSendMailItem},
                 {"CheckInbox",          lua_CheckInbox},
+                {"ReturnInboxItem",      lua_ReturnInboxItem},
                 {"CloseMail",           lua_CloseMail},
                 {"SendMail",            lua_SendMail},
                 {"SetSendMailMoney",    lua_SetSendMailMoney},

@@ -2093,6 +2093,17 @@ void InventoryHandler::mailTakeItem(uint32_t mailId, uint32_t itemGuidLow) {
     owner_.getSocket()->send(packet);
 }
 
+void InventoryHandler::mailReturnToSender(uint32_t mailId) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() || mailboxGuid_ == 0) return;
+    auto packet = MailReturnToSenderPacket::build(mailboxGuid_, mailId);
+    owner_.getSocket()->send(packet);
+    // Same as deleting: the letter being read is this one, and the view over it
+    // hides when told which mail closed.
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("CLOSE_INBOX_ITEM", {std::to_string(mailId)});
+    }
+}
+
 void InventoryHandler::mailDelete(uint32_t mailId) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() || mailboxGuid_ == 0) return;
     auto packet = MailDeletePacket::build(mailboxGuid_, mailId, 0);

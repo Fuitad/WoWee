@@ -2714,6 +2714,12 @@ public:
     static network::Packet build(uint64_t mailboxGuid, uint32_t mailId, uint32_t mailTemplateId);
 };
 
+/** CMSG_MAIL_RETURN_TO_SENDER packet builder */
+class MailReturnToSenderPacket {
+public:
+    static network::Packet build(uint64_t mailboxGuid, uint32_t mailId);
+};
+
 /** CMSG_MAIL_MARK_AS_READ packet builder */
 class MailMarkAsReadPacket {
 public:

@@ -225,6 +225,13 @@ network::Packet MailDeletePacket::build(uint64_t mailboxGuid, uint32_t mailId, u
     return packet;
 }
 
+network::Packet MailReturnToSenderPacket::build(uint64_t mailboxGuid, uint32_t mailId) {
+    network::Packet packet(wireOpcode(Opcode::CMSG_MAIL_RETURN_TO_SENDER));
+    packet.writeUInt64(mailboxGuid);
+    packet.writeUInt32(mailId);
+    return packet;
+}
+
 network::Packet MailMarkAsReadPacket::build(uint64_t mailboxGuid, uint32_t mailId) {
     network::Packet packet(wireOpcode(Opcode::CMSG_MAIL_MARK_AS_READ));
     packet.writeUInt64(mailboxGuid);
