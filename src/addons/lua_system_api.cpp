@@ -603,19 +603,39 @@ static int lua_IsInInstance(lua_State* L) {
 static int lua_GetInstanceInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) {
-        lua_pushstring(L, ""); lua_pushstring(L, "none"); lua_pushnumber(L, 0);
+        // Seven, and a difficulty of one, so this branch answers in the same
+        // shape and the same numbering as the real one below it.
+        lua_pushstring(L, ""); lua_pushstring(L, "none"); lua_pushnumber(L, 1);
         lua_pushstring(L, "Normal"); lua_pushnumber(L, 0);
-        return 5;
+        lua_pushnumber(L, 0); lua_pushboolean(L, 0);
+        return 7;
     }
     std::string mapName = gh->getMapName(gh->getCurrentMapId());
+    const uint32_t diff = gh->getInstanceDifficulty();
     lua_pushstring(L, mapName.c_str());                    // 1: name
     lua_pushstring(L, gh->isInInstance() ? "party" : "none"); // 2: instanceType
-    lua_pushnumber(L, gh->getInstanceDifficulty());        // 3: difficultyIndex
+    // Counted from one, which is what the interface compares against.
+    //
+    // The wire value is zero-based — social_handler reads heroic as
+    // difficulty == 1 — and this pushed it straight through. minimap.lua tests
+    // `difficulty == 1 and maxPlayers == 5` to decide there is nothing worth
+    // showing, and `difficulty == 2` for heroic, so a normal dungeon failed
+    // the first test and hung a difficulty banner on the minimap, while a
+    // heroic failed the second and had that banner read "Normal".
+    //
+    // GetInstanceDifficulty beside this already added the one; only this path
+    // did not.
+    lua_pushnumber(L, diff + 1);                           // 3: difficultyIndex
     static constexpr const char* kDiff[] = {"Normal", "Heroic", "25 Normal", "25 Heroic"};
-    uint32_t diff = gh->getInstanceDifficulty();
     lua_pushstring(L, (diff < 4) ? kDiff[diff] : "Normal"); // 4: difficultyName
     lua_pushnumber(L, 5);                                   // 5: maxPlayers (default 5-man)
-    return 5;
+    // The two the raid branch reads. Neither is tracked here, and both are
+    // only consulted for a dynamic-difficulty raid — but nil reaches
+    // `playerDifficulty == 1` and `if ( isDynamicInstance )` in minimap.lua,
+    // and the interface unpacks all seven on one line.
+    lua_pushnumber(L, 0);                                   // 6: playerDifficulty
+    lua_pushboolean(L, 0);                                  // 7: isDynamicInstance
+    return 7;
 }
 
 static int lua_GetInstanceDifficulty(lua_State* L) {
