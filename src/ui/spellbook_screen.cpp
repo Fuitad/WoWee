@@ -262,9 +262,12 @@ void SpellbookScreen::getSpellAuraStateInfo(uint32_t spellId, pipeline::AssetMan
 
 void SpellbookScreen::loadSpellIconDBC(pipeline::AssetManager* assetManager) {
     if (iconDbLoaded) return;
-    iconDbLoaded = true;
 
     if (!assetManager || !assetManager->isInitialized()) return;
+    // Not an attempt: the assets are not up yet, and a caller can reach
+    // this before they are. Latching here recorded "read" for a file
+    // never opened, and disabled it for the rest of the session.
+    iconDbLoaded = true;
 
     auto dbc = assetManager->loadDBC("SpellIcon.dbc");
     if (!dbc || !dbc->isLoaded()) return;
@@ -281,9 +284,12 @@ void SpellbookScreen::loadSpellIconDBC(pipeline::AssetManager* assetManager) {
 
 void SpellbookScreen::loadSkillLineDBCs(pipeline::AssetManager* assetManager) {
     if (skillLineDbLoaded) return;
-    skillLineDbLoaded = true;
 
     if (!assetManager || !assetManager->isInitialized()) return;
+    // Not an attempt: the assets are not up yet, and a caller can reach
+    // this before they are. Latching here recorded "read" for a file
+    // never opened, and disabled it for the rest of the session.
+    skillLineDbLoaded = true;
 
     auto skillLineDbc = assetManager->loadDBC("SkillLine.dbc");
     const auto* slL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("SkillLine") : nullptr;

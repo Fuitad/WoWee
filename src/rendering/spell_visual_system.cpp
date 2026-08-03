@@ -31,12 +31,16 @@ void SpellVisualSystem::shutdown() {
 // to build cast/impact M2 path lookup maps.
 void SpellVisualSystem::loadSpellVisualDbc() {
     if (spellVisualDbcLoaded_) return;
-    spellVisualDbcLoaded_ = true; // Set early to prevent re-entry on failure
 
     if (!cachedAssetManager_) {
         cachedAssetManager_ = core::Application::getInstance().getAssetManager();
     }
+    // Not an attempt. "Set early to prevent re-entry on failure" was the
+    // intent, but there is no failure yet — only assets that have not
+    // arrived. Latching here left spell visuals off for the session
+    // whenever this was reached first.
     if (!cachedAssetManager_) return;
+    spellVisualDbcLoaded_ = true;  // a real attempt follows; do not repeat it
 
     auto* layout = pipeline::getActiveDBCLayout();
     const pipeline::DBCFieldMap* svLayout  = layout ? layout->getLayout("SpellVisual")           : nullptr;

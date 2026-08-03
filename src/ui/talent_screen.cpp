@@ -624,9 +624,12 @@ void TalentScreen::renderTalent(game::GameHandler& gameHandler,
 
 void TalentScreen::loadSpellDBC(pipeline::AssetManager* assetManager) {
     if (spellDbcLoaded) return;
-    spellDbcLoaded = true;
 
     if (!assetManager || !assetManager->isInitialized()) return;
+    // Not an attempt: the assets are not up yet, and a caller can reach
+    // this before they are. Latching here recorded "read" for a file
+    // never opened, and disabled it for the rest of the session.
+    spellDbcLoaded = true;
 
     auto dbc = assetManager->loadDBC("Spell.dbc");
     if (!dbc || !dbc->isLoaded()) return;
@@ -688,9 +691,12 @@ std::string TalentScreen::describeRankSpell(game::GameHandler& gameHandler, uint
 
 void TalentScreen::loadSpellIconDBC(pipeline::AssetManager* assetManager) {
     if (iconDbcLoaded) return;
-    iconDbcLoaded = true;
 
     if (!assetManager || !assetManager->isInitialized()) return;
+    // Not an attempt: the assets are not up yet, and a caller can reach
+    // this before they are. Latching here recorded "read" for a file
+    // never opened, and disabled it for the rest of the session.
+    iconDbcLoaded = true;
 
     auto dbc = assetManager->loadDBC("SpellIcon.dbc");
     if (!dbc || !dbc->isLoaded()) return;
@@ -707,9 +713,12 @@ void TalentScreen::loadSpellIconDBC(pipeline::AssetManager* assetManager) {
 
 void TalentScreen::loadGlyphPropertiesDBC(pipeline::AssetManager* assetManager) {
     if (glyphDbcLoaded) return;
-    glyphDbcLoaded = true;
 
     if (!assetManager || !assetManager->isInitialized()) return;
+    // Not an attempt: the assets are not up yet, and a caller can reach
+    // this before they are. Latching here recorded "read" for a file
+    // never opened, and disabled it for the rest of the session.
+    glyphDbcLoaded = true;
 
     auto dbc = assetManager->loadDBC("GlyphProperties.dbc");
     if (!dbc || !dbc->isLoaded()) return;
