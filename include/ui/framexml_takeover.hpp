@@ -99,6 +99,7 @@ enum class UiElement {
     Reputation,
     Totems,
     Talents,
+    UiErrors,
 };
 
 /// True when FrameXML is drawing this instead, so the client should not.

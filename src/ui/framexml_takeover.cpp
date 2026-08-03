@@ -15,7 +15,7 @@ namespace {
 struct Entry { UiElement element; std::string_view name; };
 
 // One row per element, and the only place a name is written down.
-constexpr std::array<Entry, 45> kElements{{
+constexpr std::array<Entry, 46> kElements{{
     {UiElement::PlayerFrame,  "playerframe"},
     {UiElement::TargetFrame,  "targetframe"},
     {UiElement::PetFrame,     "petframe"},
@@ -61,6 +61,7 @@ constexpr std::array<Entry, 45> kElements{{
     {UiElement::Reputation,   "reputation"},
     {UiElement::Totems,       "totems"},
     {UiElement::Talents,      "talents"},
+    {UiElement::UiErrors,     "uierrors"},
 }};
 
 /// Parsed once. An unknown name is reported rather than dropped: a typo would
@@ -333,6 +334,13 @@ const Suppress kSuppress[] = {
         {UiElement::Reputation, "ReputationFrame"},
         {UiElement::Totems,     "TotemFrame MultiCastActionBarFrame"},
         {UiElement::Talents,    "PlayerTalentFrame", /*lazy=*/true},
+        // Errors are fired as UI_ERROR_MESSAGE, which UIErrorsFrame listens
+        // for — so every refusal the server sends was shown twice, once by
+        // each interface.
+        {UiElement::UiErrors,   "UIErrorsFrame"},
+        // This client draws combo points on both the player and the target
+        // frame, so FrameXML's separate display is a third set of them.
+        {UiElement::TargetFrame, "ComboFrame"},
         // Found by the unaccounted-element check on its first run. The world
         // map is neither handed over nor hidden, so FrameXML's draws over this
         // client's own. It appears in the check list, which is what made it
@@ -435,8 +443,13 @@ std::vector<std::string> frameXmlCheckFrames() {
                                   "TargetFrameTextureFrameName TargetFrameNameBackground"},
         {UiElement::PetFrame,     "PetFrame PetFrameHealthBar PetFrameManaBar"},
         {UiElement::Minimap,      "Minimap MinimapBorder MinimapZoomIn MinimapZoneText"},
+        // The extra bars as well as the main one: this client draws its own
+        // second and third bars from the settings, so naming only MainMenuBar
+        // left four more stacked on top of them.
         {UiElement::ActionBar,    "MainMenuBar MainMenuBarArtFrame MainMenuBarLeftEndCap "
-                                  "MainMenuBarRightEndCap ActionButton1 ActionButton12"},
+                                  "MainMenuBarRightEndCap ActionButton1 ActionButton12 "
+                                  "MultiBarBottomLeft MultiBarBottomRight "
+                                  "MultiBarLeft MultiBarRight"},
         {UiElement::BagBar,       "MainMenuBarBackpackButton CharacterBag0Slot"},
         {UiElement::MicroMenu,    "CharacterMicroButton MainMenuBarPerformanceBar"},
         // MainMenuExpBar is the bar itself; ExhaustionTick is the rested

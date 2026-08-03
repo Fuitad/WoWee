@@ -210,6 +210,9 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     // Set up UI error frame callback (once)
     if (!uiErrorCallbackSet_) {
         gameHandler.setUIErrorCallback([this](const std::string& msg) {
+            // Both interfaces show these, and the event that carries them
+            // reaches whichever is drawing.
+            if (frameXmlOwns(UiElement::UiErrors)) return;
             uiErrors_.push_back({msg, 0.0f});
             if (uiErrors_.size() > 5) uiErrors_.erase(uiErrors_.begin());
             // Play error sound for each new error (rate-limited by deque cap of 5)
