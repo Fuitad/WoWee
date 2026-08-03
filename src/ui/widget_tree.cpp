@@ -424,19 +424,35 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
             outOrigin = parentOrigin + (parentSize - explicitSize) * 0.5f;
             return;
         }
-        // Pick the two constraints furthest apart in fraction; anything closer
-        // is either redundant or a near-degenerate pair that would divide by
-        // almost zero and throw the rect across the screen.
+        // A frame is resized on an axis only when two anchors pin *opposite
+        // edges* of it — a 0 and a 1. That is the rule WoW follows, and the
+        // difference from "any two fractions that differ" is not academic.
+        //
+        // The reputation rows are built from both: the XML anchors each row's
+        // TOPRIGHT under the previous row, and ReputationFrame_SetRowType then
+        // adds a LEFT anchor to set the indent. On x those are 0 and 1, so the
+        // row correctly spans from its indent to the frame's right edge. On y
+        // they are 1 (a top edge) and 0.5 (a centre) — not opposite edges, and
+        // nothing WoW would resize from.
+        //
+        // Deriving a height from an edge and a centre gave twice the distance
+        // between them, which for a row anchored near the top of a frame whose
+        // centre is halfway down is most of the frame. Every faction row was
+        // stretched to that height and drawn on top of the last, which is why
+        // the reputation tab showed a stack of overlapping names behind two
+        // enormous yellow bars.
         size_t lo = 0, hi = 0;
         for (size_t i = 1; i < cs.size(); ++i) {
             if (cs[i].f < cs[lo].f) lo = i;
             if (cs[i].f > cs[hi].f) hi = i;
         }
-        const float spread = cs[hi].f - cs[lo].f;
-        if (spread > 0.01f) {
-            outSize = (cs[hi].target - cs[lo].target) / spread;
-            outOrigin = cs[lo].target - cs[lo].f * outSize;
+        if (cs[lo].f < 0.01f && cs[hi].f > 0.99f) {
+            outSize = cs[hi].target - cs[lo].target;
+            outOrigin = cs[lo].target;
         } else {
+            // Positioned by the first anchor, which is the one the XML gave
+            // it: a point added later is refining where it sits, not replacing
+            // what it hangs from.
             outSize = explicitSize;
             outOrigin = cs[0].target - cs[0].f * outSize;
         }

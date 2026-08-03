@@ -1513,3 +1513,45 @@ TEST_CASE("A child with its own level still follows when the parent is raised",
     REQUIRE(after == before);           // the gap is kept
     REQUIRE(tree.get(inner)->effLevel > tree.get(win)->effLevel);
 }
+
+TEST_CASE("An edge and a centre do not resize a frame", "[widget][layout]") {
+    // The reputation rows are the case this is about, and they use both rules
+    // at once. The XML hangs each row's TOPRIGHT under the row above; then
+    // ReputationFrame_SetRowType adds a LEFT anchor to indent it.
+    //
+    // On x that is a 0 and a 1 — opposite edges — so the row is meant to
+    // stretch from its indent to the frame's right edge. On y it is a top edge
+    // and a *centre*, which is not a pair WoW sizes from: the row keeps the
+    // height its template gave it.
+    //
+    // Sizing from that pair instead gave twice the gap between the top and the
+    // frame's middle, so every row was stretched to most of the frame's height
+    // and drawn over the one before it.
+    WidgetTree tree;
+    const uint32_t frame = tree.create(WidgetKind::Frame, tree.root(), "RepFrame");
+    tree.setWidth(frame, 300.0f);
+    tree.setHeight(frame, 340.0f);
+    Anchor fa; fa.point = "BOTTOMLEFT"; fa.relativePoint = "BOTTOMLEFT";
+    tree.addPoint(frame, fa);
+
+    const uint32_t row = tree.create(WidgetKind::Frame, frame, "Row1");
+    tree.setWidth(row, 240.0f);
+    tree.setHeight(row, 21.0f);
+    Anchor top; top.point = "TOPRIGHT"; top.relativeTo = frame;
+    top.relativePoint = "TOPRIGHT"; top.x = -8.0f; top.y = -83.0f;
+    tree.addPoint(row, top);
+    Anchor left; left.point = "LEFT"; left.relativeTo = frame;
+    left.relativePoint = "LEFT"; left.x = 44.0f;
+    tree.addPoint(row, left);
+
+    tree.layout(kScreenW, kScreenH);
+    const Widget* w = tree.get(row);
+
+    // Height untouched by the centre anchor.
+    REQUIRE(w->rectH == Catch::Approx(21.0f));
+    // Top edge still where the XML anchor put it.
+    REQUIRE(w->bottom + w->rectH ==
+            Catch::Approx(tree.get(frame)->bottom + 340.0f - 83.0f));
+    // Width spans indent to right edge, which is what the two x anchors mean.
+    REQUIRE(w->rectW == Catch::Approx(300.0f - 44.0f - 8.0f));
+}
