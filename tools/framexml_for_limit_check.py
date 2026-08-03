@@ -21,6 +21,11 @@ later line — so a version matching only the direct form reported six real
 faults and stayed silent about the one it was written for. Both are checked
 now, the indirect one within the same function.
 
+**`or 0` is a guard too, and the tersest one.** channelframe.lua writes
+`local numMembers = GetNumVoiceSessionMembersBySessionID(...) or 0;` — a
+missing function answers nil, `or` replaces it, and the loop runs zero times.
+Reading only the call and not the rest of the line reported it as a crash.
+
 **A guarded variable is not a fault.** worldmapframe.lua writes
 `local n = GetNumQuestItemDrops(...)` and then `if (n and n > 0) then` before
 looping — nil is handled and nothing raises. Reporting it anyway was the
@@ -85,9 +90,15 @@ for f in lua:
         if line.lstrip().startswith("--"):
             continue
         for fn in LIMIT_DIRECT.findall(line):
+            if re.search(r'\)\s*or\s+\S', line):
+                continue
             if fn not in defined and fn not in provided:
                 hits[fn].append(f"{f.name}:{i}")
         for var, fn in ASSIGN.findall(line):
+            # `= Foo() or 0` has already handled the nil.
+            if re.search(r'\)\s*or\s+\S', line):
+                pending.pop(var, None)
+                continue
             if fn not in defined and fn not in provided:
                 pending[var] = (fn, i)
             else:
