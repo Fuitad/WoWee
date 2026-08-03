@@ -409,6 +409,10 @@ bool Application::initialize() {
                 // script, which is how a script error came to report itself.
                 if (gh) gh->addScriptError(err);
             });
+            // The game-menu button opens this client's settings panel.
+            addonManager_->getLuaEngine()->setOpenSettingsCallback([this] {
+                if (auto* uim = uiManager.get()) uim->getGameScreen().openSettings();
+            });
             // Wire chat messages to addon event dispatch
             gameHandler->setAddonChatCallback([this](const game::MessageChatData& msg) {
                 if (!addonManager_ || !addonsLoaded_) return;

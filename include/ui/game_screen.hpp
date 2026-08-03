@@ -37,6 +37,12 @@ namespace ui {
  */
 class GameScreen {
 public:
+    /// Open this client's own settings window.
+    ///
+    /// Reached from the original interface's game-menu button, which has
+    /// nothing of its own to show while GameMenuFrame is suppressed.
+    void openSettings() { settingsPanel_.showSettingsWindow = true; }
+
     GameScreen();
 
     /**

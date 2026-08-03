@@ -416,6 +416,26 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // LEFT_OFFSET to DEFAULT_FRAME_WIDTH one call deeper. The widths are
     // Blizzard's own defaults for a standard panel.
     luaEngine_.executeString(
+        std::string("__WoweeOwnsGameMenu = ") +
+        (ui::frameXmlOwns(ui::UiElement::GameMenu) ? "true" : "false") + "\n");
+
+    // The game-menu button opens this client's settings.
+    //
+    // ToggleGameMenu is FrameXML's own function and it shows GameMenuFrame,
+    // which is suppressed — so the button did nothing at all. Replaced rather
+    // than hooked, and only while this client owns that panel: with
+    // WOWEE_FRAMEXML_UI=gamemenu the original menu is drawn and should be the
+    // one that answers.
+    //
+    // After FrameXML has loaded, because a definition written before it would
+    // simply be overwritten by uiparent.lua.
+    luaEngine_.executeString(
+        "if not __WoweeOwnsGameMenu and __WoweeOpenClientSettings then\n"
+        "  ToggleGameMenu = function() __WoweeOpenClientSettings() end\n"
+        "end\n");
+
+
+    luaEngine_.executeString(
         "if UIParent and UIParent.SetAttribute then\n"
         "  local defaults = {\n"
         "    TOP_OFFSET = 0, LEFT_OFFSET = 0, CENTER_OFFSET = 0,\n"

@@ -2827,6 +2827,18 @@ void LuaEngine::registerCoreAPI() {
     lua_pushcfunction(L_, lua_wowee_warn);
     lua_setglobal(L_, "__WoweeWarn");
 
+    // The micro menu's game-menu button reaches this client's own settings.
+    // GameMenuFrame is suppressed, so ToggleGameMenu had nothing to show and
+    // the button did nothing at all; which interface owns that panel is a
+    // decision rather than a gap, and this is the decision.
+    lua_pushlightuserdata(L_, this);
+    lua_pushcclosure(L_, [](lua_State* L) -> int {
+        auto* self = static_cast<LuaEngine*>(lua_touserdata(L, lua_upvalueindex(1)));
+        if (self && self->openSettingsCallbackRef()) self->openSettingsCallbackRef()();
+        return 0;
+    }, 1);
+    lua_setglobal(L_, "__WoweeOpenClientSettings");
+
     lua_pushcfunction(L_, lua_wowee_setAnimOffset);
     lua_setglobal(L_, "__WoweeSetAnimOffset");
 
@@ -5141,6 +5153,7 @@ LuaEngine* engineFrom(lua_State* L) {
     lua_pop(L, 1);
     return e;
 }
+
 }  // namespace
 
 int lua_EditBox_SetFocus(lua_State* L) {

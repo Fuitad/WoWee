@@ -148,6 +148,21 @@ public:
     void setChunkTimeoutMs(unsigned long long ms) { chunkTimeoutMs_ = ms; }
 
     // Optional callback for Lua errors (displayed as UI errors to the player)
+    /// Open this client's own settings window.
+    ///
+    /// The micro menu's game-menu button calls ToggleGameMenu, and the frame
+    /// that answers it is suppressed — so the button did nothing at all. This
+    /// client has settings of its own and that is what the button should
+    /// reach, which is a decision about which interface owns the panel rather
+    /// than a gap in the other one.
+    using OpenSettingsCallback = std::function<void()>;
+    void setOpenSettingsCallback(OpenSettingsCallback cb) {
+        openSettingsCallback_ = std::move(cb);
+    }
+    const OpenSettingsCallback& openSettingsCallbackRef() const {
+        return openSettingsCallback_;
+    }
+
     using LuaErrorCallback = std::function<void(const std::string&)>;
     void setLuaErrorCallback(LuaErrorCallback cb) { luaErrorCallback_ = std::move(cb); }
 
@@ -157,6 +172,7 @@ private:
     game::GameHandler* gameHandler_ = nullptr;
     LuaServices luaServices_;
     LuaErrorCallback luaErrorCallback_;
+    OpenSettingsCallback openSettingsCallback_;
     /// How many events are being dispatched inside one another right now.
     /// Guards against two handlers triggering each other without end.
     int eventDepth_ = 0;
