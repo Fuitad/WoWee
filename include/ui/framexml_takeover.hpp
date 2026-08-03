@@ -129,6 +129,13 @@ std::vector<std::string> frameXmlCandidateFrames();
 /// the interface shows them again on its own schedule.
 std::vector<std::string> frameXmlSuppressedFrames();
 
+/// The subset of those whose frames arrive with a load-on-demand addon.
+///
+/// They do not exist until something asks for that addon, so a report of names
+/// that resolved to nothing has to leave them out — otherwise it names all of
+/// them on every run and the one real typo is lost among them.
+std::vector<std::string> frameXmlLazySuppressedFrames();
+
 /// Whether a frame in the check list is one the interface builds only when it
 /// has something to put in it.
 ///

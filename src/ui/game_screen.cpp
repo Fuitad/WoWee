@@ -609,7 +609,9 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     toastManager_.renderLateToasts(gameHandler);
     renderWeatherOverlay(gameHandler);
 
-    renderWorldMap(gameHandler);
+    if (!frameXmlOwns(UiElement::WorldMap)) {
+        renderWorldMap(gameHandler);
+    }
 
     if (!frameXmlOwns(UiElement::QuestLog)) {
         questLogScreen.render(gameHandler, inventoryScreen);

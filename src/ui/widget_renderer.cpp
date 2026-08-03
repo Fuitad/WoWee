@@ -340,7 +340,11 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
 
     if (!reportedUnresolved && (now - firstSeen) > 20.0) {
         reportedUnresolved = true;
+        static const std::vector<std::string> kLazy = frameXmlLazySuppressedFrames();
         for (const std::string& name : kSuppressed) {
+            // A frame from a load-on-demand addon is absent until that addon is
+            // asked for, which is not a fault and must not read as one.
+            if (std::find(kLazy.begin(), kLazy.end(), name) != kLazy.end()) continue;
             if (!tree.findByName(name)) {
                 LOG_WARNING("FrameXML: nothing is named '", name,
                             "' — that suppression is doing nothing, and "

@@ -248,7 +248,16 @@ std::vector<std::string> frameXmlCandidateFrames() {
 }
 
 namespace {
-struct Suppress { UiElement element; const char* frames; };
+struct Suppress {
+    UiElement element;
+    const char* frames;
+    /// True when these frames arrive with a load-on-demand addon and so do not
+    /// exist until something asks for it. Suppression still works — the pass
+    /// looks each name up every frame — but the "nothing is named this" report
+    /// must stay quiet about them, or it fires for all of them every run and
+    /// stops being worth reading.
+    bool lazy = false;
+};
 const Suppress kSuppress[] = {
         // The tabs are parented to UIParent rather than to the frame they
         // belong to, so hiding the chat windows leaves a row of tabs behind.
@@ -259,7 +268,7 @@ const Suppress kSuppress[] = {
                               "ChatFrame5Tab ChatFrame6Tab ChatFrame7Tab "
                               "GeneralDockManager GeneralDockManagerOverflowButton "
                               "ChatFrameMenuButton FriendsMicroButton "
-                              "CombatLogQuickButtonFrame_Custom"},
+                              "CombatLogQuickButtonFrame_Custom", true},
         {UiElement::QuestLog, "QuestLogFrame QuestLogDetailFrame"},
         // Talking to an NPC opened two of everything: this client's gossip and
         // quest windows, which work, and FrameXML's, which cannot — the calls
@@ -284,16 +293,16 @@ const Suppress kSuppress[] = {
         // at every profession, trainer, auctioneer and guild bank. The panels
         // themselves are finished and waiting; this only decides which of the
         // two is on screen.
-        {UiElement::TradeSkill,   "TradeSkillFrame"},
-        {UiElement::ClassTrainer, "ClassTrainerFrame"},
-        {UiElement::AuctionHouse, "AuctionFrame"},
-        {UiElement::GuildBank,    "GuildBankFrame"},
-        {UiElement::Inspect,      "InspectFrame"},
+        {UiElement::TradeSkill,   "TradeSkillFrame", true},
+        {UiElement::ClassTrainer, "ClassTrainerFrame", true},
+        {UiElement::AuctionHouse, "AuctionFrame", true},
+        {UiElement::GuildBank,    "GuildBankFrame", true},
+        {UiElement::Inspect,      "InspectFrame", true},
         // BARBER_SHOP_OPEN is fired and the achievements micro button belongs
         // to the bar this branch has taken over, so both of these can open
         // beside the client's own.
-        {UiElement::Achievements, "AchievementFrame"},
-        {UiElement::BarberShop,   "BarberShopFrame"},
+        {UiElement::Achievements, "AchievementFrame", true},
+        {UiElement::BarberShop,   "BarberShopFrame", true},
         // These three cannot appear yet: TAXIMAP_OPENED, PET_STABLE_SHOW and
         // ITEM_TEXT_BEGIN are not fired. Named anyway, because that is a fact
         // about what this client reaches rather than a decision about which
@@ -309,6 +318,12 @@ const Suppress kSuppress[] = {
                                 "VideoOptionsFrame AudioOptionsFrame"},
         {UiElement::Help,       "HelpFrame TicketStatusFrame"},
         {UiElement::BattlegroundScore, "WorldStateScoreFrame"},
+        // Found by the unaccounted-element check on its first run. The world
+        // map is neither handed over nor hidden, so FrameXML's draws over this
+        // client's own. It appears in the check list, which is what made it
+        // look accounted for on every reading by eye.
+        {UiElement::WorldMap,   "WorldMapFrame WorldMapDetailFrame "
+                                "WorldMapButton WorldMapZoneMinimapDropDown"},
         // WatchFrameTitle is the "Objectives" label, and the buttons beside it
         // ride on the same frame.
         {UiElement::QuestTracker, "WatchFrame"},
@@ -320,6 +335,24 @@ std::vector<std::string> frameXmlSuppressedFrames() {
     std::vector<std::string> out;
     for (const Suppress& s : kSuppress) {
         if (frameXmlOwns(s.element)) continue;   // it is the one in use
+        std::string all(s.frames);
+        size_t at = 0;
+        while (at < all.size()) {
+            const size_t sp = all.find(' ', at);
+            std::string one = all.substr(
+                at, sp == std::string::npos ? std::string::npos : sp - at);
+            if (!one.empty()) out.push_back(std::move(one));
+            if (sp == std::string::npos) break;
+            at = sp + 1;
+        }
+    }
+    return out;
+}
+
+std::vector<std::string> frameXmlLazySuppressedFrames() {
+    std::vector<std::string> out;
+    for (const Suppress& s : kSuppress) {
+        if (!s.lazy || !s.frames) continue;
         std::string all(s.frames);
         size_t at = 0;
         while (at < all.size()) {
