@@ -3,6 +3,7 @@
 // Owns all NPC interaction windows, popup dialogs, etc.
 // ============================================================
 #include "ui/window_manager.hpp"
+#include "game/inventory_slots.hpp"
 #include "ui/chat_panel.hpp"
 #include "ui/chat/chat_utils.hpp"
 #include "ui/settings_panel.hpp"
@@ -3268,12 +3269,12 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
                     uint8_t srcBag = 0xFF;
                     uint8_t srcSlot = 0;
                     if (pickType == 1) {
-                        srcBag = static_cast<uint8_t>(67 + bagIdx);
+                        srcBag = static_cast<uint8_t>(game::slots::bankBagWireSlot(bagIdx));
                         srcSlot = static_cast<uint8_t>(bagSlotIdx);
                     } else if (pickType == 2) {
-                        srcSlot = static_cast<uint8_t>(67 + mainIdx);
+                        srcSlot = static_cast<uint8_t>(game::slots::bankBagWireSlot(mainIdx));
                     } else { // pickType == 0: main bank slot
-                        srcSlot = static_cast<uint8_t>(39 + mainIdx);
+                        srcSlot = static_cast<uint8_t>(game::slots::bankGeneralWireSlot(mainIdx));
                     }
                     gameHandler.withdrawItem(srcBag, srcSlot);
                 }

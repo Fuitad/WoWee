@@ -112,15 +112,15 @@ target_link_libraries(test_taxi_map_projection PRIVATE catch2_main)
 add_test(NAME taxi_map_projection COMMAND test_taxi_map_projection)
 register_test_target(test_taxi_map_projection)
 
-# ── test_bank_slots ─────────────────────────────────────────
+# ── test_inventory_slots ─────────────────────────────────────────
 # Where the bank, its bags and the keyring sit. A wrong slot here moves an
 # item somewhere real that nobody asked for, so the numbers are pinned.
-add_executable(test_bank_slots test_bank_slots.cpp)
-target_include_directories(test_bank_slots PRIVATE ${TEST_INCLUDE_DIRS})
-target_include_directories(test_bank_slots SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
-target_link_libraries(test_bank_slots PRIVATE catch2_main)
-add_test(NAME bank_slots COMMAND test_bank_slots)
-register_test_target(test_bank_slots)
+add_executable(test_inventory_slots test_inventory_slots.cpp)
+target_include_directories(test_inventory_slots PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_inventory_slots SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_inventory_slots PRIVATE catch2_main)
+add_test(NAME inventory_slots COMMAND test_inventory_slots)
+register_test_target(test_inventory_slots)
 
 # ── test_reputation_standing ────────────────────────────────
 # Header-only and constexpr, so this needs nothing linked: the point is that the

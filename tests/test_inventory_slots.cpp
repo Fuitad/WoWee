@@ -1,6 +1,6 @@
 #include <catch_amalgamated.hpp>
 
-#include "game/bank_slots.hpp"
+#include "game/inventory_slots.hpp"
 
 using namespace wowee::game::slots;
 
@@ -47,4 +47,32 @@ TEST_CASE("Every bank bag maps to a distinct slot in both numberings",
         REQUIRE(inv == kFirstBankBagInventorySlot + i);
         REQUIRE(toWireSlot(inv) == bankBagWireSlot(i));
     }
+}
+
+TEST_CASE("The backpack and the worn bags are where the wire puts them",
+          "[bank][slots]") {
+    // Read out of cursorWireSlot and the split path, which have been sending
+    // these all along.
+    REQUIRE(backpackWireSlot(0) == 23);
+    REQUIRE(wornBagContainer(0) == 19);
+    // The backpack's slots sit inside no container, so they must not collide
+    // with the bank's, which sit there too.
+    REQUIRE(backpackWireSlot(kBackpackCount - 1) < bankGeneralWireSlot(0));
+}
+
+TEST_CASE("A bank bag's container is its slot", "[bank][slots]") {
+    // Not a coincidence and not a bug: a bag is an item in a slot and a
+    // container at once, and the wire gives both the same number. Two names
+    // for it so neither use reads as a mistake.
+    for (int i = 0; i < kBankBagCount; ++i) {
+        REQUIRE(bankBagContainer(i) == bankBagWireSlot(i));
+    }
+}
+
+TEST_CASE("No two regions inside the no-container overlap", "[bank][slots]") {
+    // Equipment, backpack, bank and keyring all address through kNoContainer,
+    // so an overlap would make one region's slot mean another's.
+    REQUIRE(kNoContainer == 0xFF);
+    REQUIRE(backpackWireSlot(kBackpackCount - 1) < kBankGeneralFirst);
+    REQUIRE(bankBagWireSlot(kBankBagCount - 1) < kKeyringFirst);
 }

@@ -1,7 +1,7 @@
 // lua_inventory_api.cpp — Items, containers, merchant, loot, equipment, trading, auction, and mail Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
-#include "game/bank_slots.hpp"
+#include "game/inventory_slots.hpp"
 #include "game/game_utils.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "core/logger.hpp"
@@ -551,12 +551,12 @@ static int lua_SplitContainerItem(lua_State* L) {
     if (bag == 0) {
         const auto& inv = gh->getInventory();
         if (slot > inv.getBackpackSize()) return 0;
-        gh->splitItem(0xFF, static_cast<uint8_t>(23 + (slot - 1)),
+        gh->splitItem(0xFF, static_cast<uint8_t>(game::slots::backpackWireSlot(slot - 1)),
                       static_cast<uint8_t>(count));
     } else if (bag >= 1 && bag <= 4) {
         const auto& inv = gh->getInventory();
         if (slot > inv.getBagSize(bag - 1)) return 0;
-        gh->splitItem(static_cast<uint8_t>(19 + (bag - 1)),
+        gh->splitItem(static_cast<uint8_t>(game::slots::wornBagContainer(bag - 1)),
                       static_cast<uint8_t>(slot - 1),
                       static_cast<uint8_t>(count));
     }
@@ -1733,9 +1733,9 @@ static bool heldWireSlot(uint8_t& bag, uint8_t& slot) {
         slot = static_cast<uint8_t>(held.slot - 1);
     } else if (held.bag == 0) {
         bag = 0xFF;
-        slot = static_cast<uint8_t>(23 + held.slot - 1);
+        slot = static_cast<uint8_t>(game::slots::backpackWireSlot(held.slot - 1));
     } else {
-        bag = static_cast<uint8_t>(19 + held.bag - 1);
+        bag = static_cast<uint8_t>(game::slots::wornBagContainer(held.bag - 1));
         slot = static_cast<uint8_t>(held.slot - 1);
     }
     return true;
@@ -1761,7 +1761,7 @@ static int lua_PutItemInBag(lua_State* L) {
     for (int i = 0; i < size; ++i) {
         if (!inv.getBagSlot(bagIndex, i).empty()) continue;
         gh->swapContainerItems(srcBag, srcSlot,
-                               static_cast<uint8_t>(19 + bagIndex),
+                               static_cast<uint8_t>(game::slots::wornBagContainer(bagIndex)),
                                static_cast<uint8_t>(i));
         cursorItemSlot() = {};
         wowee::ui::frameXmlSetCursorItem(std::string());
@@ -1785,7 +1785,7 @@ static int lua_PutItemInBackpack(lua_State* L) {
     const int free = gh->getInventory().findFreeBackpackSlot();
     if (free >= 0) {
         gh->swapContainerItems(srcBag, srcSlot, 0xFF,
-                               static_cast<uint8_t>(23 + free));
+                               static_cast<uint8_t>(game::slots::backpackWireSlot(free)));
         cursorItemSlot() = {};
         wowee::ui::frameXmlSetCursorItem(std::string());
     }

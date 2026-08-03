@@ -1,7 +1,7 @@
 // lua_action_api.cpp — Action bar, cursor/pickup, keyboard input, key bindings, and pet actions Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
-#include "game/bank_slots.hpp"
+#include "game/inventory_slots.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "ui/keybinding_manager.hpp"
 #include "core/config_paths.hpp"
@@ -433,9 +433,9 @@ static bool cursorWireSlot(uint8_t& bag, uint8_t& slot) {
         slot = static_cast<uint8_t>(s_cursorSlot - 1);
     } else if (s_cursorBag == 0) {            // the backpack
         bag = 0xFF;
-        slot = static_cast<uint8_t>(23 + s_cursorSlot - 1);
+        slot = static_cast<uint8_t>(game::slots::backpackWireSlot(s_cursorSlot - 1));
     } else {                                   // one of the four worn bags
-        bag = static_cast<uint8_t>(19 + s_cursorBag - 1);
+        bag = static_cast<uint8_t>(game::slots::wornBagContainer(s_cursorBag - 1));
         slot = static_cast<uint8_t>(s_cursorSlot - 1);
     }
     return true;
@@ -465,9 +465,9 @@ static int lua_PickupContainerItem(lua_State* L) {
         uint8_t dstBag, dstSlot;
         if (bag == 0) {
             dstBag = 0xFF;
-            dstSlot = static_cast<uint8_t>(23 + slot - 1);
+            dstSlot = static_cast<uint8_t>(game::slots::backpackWireSlot(slot - 1));
         } else {
-            dstBag = static_cast<uint8_t>(19 + bag - 1);
+            dstBag = static_cast<uint8_t>(game::slots::wornBagContainer(bag - 1));
             dstSlot = static_cast<uint8_t>(slot - 1);
         }
         // At warning level because it is the outcome of a drag and happens

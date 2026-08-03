@@ -1,4 +1,5 @@
 #include "game/game_handler.hpp"
+#include "game/inventory_slots.hpp"
 #include "game/game_utils.hpp"
 #include "game/chat_handler.hpp"
 #include "game/movement_handler.hpp"
@@ -2631,18 +2632,18 @@ void GameHandler::performGameObjectInteractionNow(uint64_t guid) {
             uint8_t keyBag = 0xFF, keySlot = 0; uint64_t keyGuid = 0; bool keyFound = false;
             for (int i = 0; i < inv.getBackpackSize() && !keyFound; ++i)
                 if (inv.getBackpackSlot(i).item.itemId == plan.keyItemId) {
-                    keyBag = 0xFF; keySlot = static_cast<uint8_t>(23 + i);
+                    keyBag = 0xFF; keySlot = static_cast<uint8_t>(game::slots::backpackWireSlot(i));
                     keyGuid = inv.getBackpackSlot(i).item.guid; keyFound = true;
                 }
             for (int b = 0; b < Inventory::NUM_BAG_SLOTS && !keyFound; ++b)
                 for (int s = 0; s < inv.getBagSize(b) && !keyFound; ++s)
                     if (inv.getBagSlot(b, s).item.itemId == plan.keyItemId) {
-                        keyBag = static_cast<uint8_t>(19 + b); keySlot = static_cast<uint8_t>(s);
+                        keyBag = static_cast<uint8_t>(game::slots::wornBagContainer(b)); keySlot = static_cast<uint8_t>(s);
                         keyGuid = inv.getBagSlot(b, s).item.guid; keyFound = true;
                     }
             for (int i = 0; i < inv.getKeyringSize() && !keyFound; ++i)
                 if (inv.getKeyringSlot(i).item.itemId == plan.keyItemId) {
-                    keyBag = 0xFF; keySlot = static_cast<uint8_t>(86 + i);
+                    keyBag = 0xFF; keySlot = static_cast<uint8_t>(game::slots::keyringWireSlot(i));
                     keyGuid = inv.getKeyringSlot(i).item.guid; keyFound = true;
                 }
 
