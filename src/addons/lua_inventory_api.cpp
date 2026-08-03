@@ -661,7 +661,10 @@ static int lua_SendMail(lua_State* L) {
 // EQUIPMENT_SET_IGNORED_SLOT rather than as an empty slot.
 namespace {
 
-constexpr int kEquipSlots = 19;              // head through tabard
+// Head through tabard: everything worn, stopping where the bag slots begin.
+// Taken from the enum rather than written as nineteen, so a slot added to it
+// cannot leave this behind — a set would silently stop saving the last one.
+constexpr int kEquipSlots = static_cast<int>(game::EquipSlot::BAG1);
 constexpr int kMaxEquipmentSets = 10;        // MAX_EQUIPMENT_SETS_PER_PLAYER
 
 struct EquipmentSet {
