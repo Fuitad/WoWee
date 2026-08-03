@@ -2274,9 +2274,25 @@ void GameHandler::ensureAchievementCategoriesLoaded() {
             AchievementCategoryInfo info;
             info.name = catDbc->getString(i, 2);
             info.parentId = (parent == 0xFFFFFFFFu) ? -1 : static_cast<int32_t>(parent);
+            // Field 19 is where a category sits among its siblings. Sorted by
+            // it, the top level comes out General, Quests, Exploration, Player
+            // vs. Player, Dungeons & Raids, Professions, Reputation, World
+            // Events, Feats of Strength, Statistics — which is the order the
+            // real client shows. Record order is not that, so the tree would
+            // otherwise read scrambled.
+            if (catDbc->getFieldCount() > 19) info.uiOrder = catDbc->getUInt32(i, 19);
             achievementCategoryInfo_[id] = std::move(info);
             achievementCategoryOrder_.push_back(id);
         }
+        // Id breaks ties, so the order is total and the same on every load —
+        // siblings share a ui_order across different parents.
+        std::sort(achievementCategoryOrder_.begin(), achievementCategoryOrder_.end(),
+                  [this](uint32_t a, uint32_t b) {
+                      const uint32_t oa = achievementCategoryInfo_[a].uiOrder;
+                      const uint32_t ob = achievementCategoryInfo_[b].uiOrder;
+                      if (oa != ob) return oa < ob;
+                      return a < b;
+                  });
     }
     LOG_INFO("Achievement: ", achievementCategoryOrder_.size(), " categories, ",
              achievementCategoryCache_.size(), " achievements placed");

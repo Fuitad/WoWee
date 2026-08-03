@@ -2078,6 +2078,7 @@ public:
     struct AchievementCategoryInfo {
         std::string name;
         int32_t     parentId = -1;  // -1 is a top-level category, as WoW reports it
+        uint32_t    uiOrder  = 0;   // where it sits among its siblings
     };
     struct AchievementCriterion {
         uint32_t    id = 0;
