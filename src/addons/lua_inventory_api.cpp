@@ -533,6 +533,46 @@ static int lua_GetItemQualityColor(lua_State* L) {
 }
 
 // GetItemCount(itemId [, includeBank]) → count
+// ---- Money frame ----
+//
+// Shared by the quest giver, the merchant, the bank, the mail frame and the
+// quest tracker, so one gap here is five elements' worth. None of it showed up
+// in a scan of any of those frames: they reach it through the money frame's own
+// file, which they pull in rather than declare.
+
+// GetCoinText(amount, separator) → "12g 30s 45c"
+//
+// Denominations with a zero count are left out, as WoW does — except when the
+// whole amount is zero, which prints as copper rather than as nothing.
+static int lua_GetCoinText(lua_State* L) {
+    const auto copper = static_cast<uint64_t>(luaL_optnumber(L, 1, 0));
+    const char* sep = luaL_optstring(L, 2, " ");
+    const uint64_t g = copper / 10000;
+    const uint64_t s = (copper % 10000) / 100;
+    const uint64_t c = copper % 100;
+    std::string out;
+    auto add = [&](uint64_t v, const char* suffix) {
+        if (v == 0) return;
+        if (!out.empty()) out += sep;
+        out += std::to_string(v);
+        out += suffix;
+    };
+    add(g, "g");
+    add(s, "s");
+    add(c, "c");
+    if (out.empty()) out = "0c";
+    lua_pushstring(L, out.c_str());
+    return 1;
+}
+
+// Moving money with the cursor: picking an amount up, dropping it into a trade,
+// a mail, a mail's cash-on-delivery box, or the guild bank.
+//
+// This client has no money on its cursor — amounts are typed into the frame
+// that wants them — so these accept the call and do nothing rather than leaving
+// the frames that offer the gesture to raise on it.
+static int lua_MoneyCursorNoop(lua_State* L) { (void)L; return 0; }
+
 // ---- Currency tab (Blizzard_TokenUI) ----
 //
 // In 3.3.5a a currency is a CurrencyTypes.dbc row pointing at an item, and the
@@ -2434,6 +2474,12 @@ void registerInventoryLuaAPI(lua_State* L) {
             return luaReturnNil(L);
         }},
                 // ---- Currency tab ----
+                {"GetCoinText",             lua_GetCoinText},
+                {"PickupPlayerMoney",       lua_MoneyCursorNoop},
+                {"PickupSendMailMoney",     lua_MoneyCursorNoop},
+                {"PickupSendMailCOD",       lua_MoneyCursorNoop},
+                {"PickupGuildBankMoney",    lua_MoneyCursorNoop},
+                {"AddTradeMoney",           lua_MoneyCursorNoop},
                 {"GetCurrencyListSize", [](lua_State* L) -> int {
             lua_pushnumber(L, static_cast<lua_Number>(buildCurrencyList(L).size()));
             return 1;
