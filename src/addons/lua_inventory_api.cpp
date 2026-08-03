@@ -1275,6 +1275,87 @@ static int lua_UseContainerItem(lua_State* L) {
     return 0;
 }
 
+// ── The auction panel's column sort ────────────────────────────────────────
+//
+// The server sends a list; the client sorts it. There is no re-query, which is
+// why all four of these used to be no-ops and nothing looked obviously broken:
+// the rows were there, just always in the order they arrived.
+//
+// What was missing was visible, though. AuctionFrame_OnClickSortColumn reads
+// GetAuctionSort to decide whether a second click on the same header should
+// reverse, and SortButton_UpdateArrow reads it to decide which header shows an
+// arrow and which way it points. With nothing to read, no header ever showed
+// an arrow and every click sorted the same way.
+//
+// FrameXML builds a sort as a *sequence*: SortAuctionClearSort, then one
+// SortAuctionSetSort per column from least significant to most, then
+// SortAuctionApplySort. GetAuctionSort(table, 1) asks for the primary, which
+// is therefore the one set last.
+
+namespace {
+
+struct AuctionSortKey { std::string column; bool reverse = false; };
+
+/// Per list — "list", "owner", "bidder" — because each tab sorts on its own.
+std::unordered_map<std::string, std::vector<AuctionSortKey>>& auctionSortState() {
+    static std::unordered_map<std::string, std::vector<AuctionSortKey>> s;
+    return s;
+}
+
+game::AuctionListResult* auctionListForSort(game::GameHandler* gh,
+                                            std::string_view which) {
+    if (!gh) return nullptr;
+    if (which == "owner")  return &gh->auctionOwnerResultsRef();
+    if (which == "bidder") return &gh->auctionBidderResultsRef();
+    return &gh->auctionBrowseResultsRef();
+}
+
+/// Orders two rows on one column.
+///
+/// Every row gets a defined key, including one whose item template has not
+/// arrived — it falls back to exactly what GetAuctionItemInfo displays for it
+/// ("Item #1234", level 0, quality 1), so the order matches what is on screen.
+///
+/// That is not tidiness. The first version answered "cannot compare" for a row
+/// with no template and let the caller treat the pair as equal, which makes
+/// the comparator not a strict weak ordering: an unknown row is equivalent to
+/// every known one, while the known ones order among themselves. std::sort and
+/// std::stable_sort are undefined on such a comparator — not merely wrong.
+bool auctionLess(game::GameHandler* gh, const std::string& column,
+                 const game::AuctionEntry& a, const game::AuctionEntry& b) {
+    if (column == "quantity") return a.stackCount < b.stackCount;
+    if (column == "duration") return a.timeLeftMs < b.timeLeftMs;
+    if (column == "bid") {
+        // What the row shows: the running bid where there is one, the opening
+        // price where there is not.
+        const uint32_t av = a.currentBid ? a.currentBid : a.startBid;
+        const uint32_t bv = b.currentBid ? b.currentBid : b.startBid;
+        return av < bv;
+    }
+    if (column == "minbidbuyout") return a.buyoutPrice < b.buyoutPrice;
+    if (column == "status") return a.bidderGuid < b.bidderGuid;
+    if (column == "seller") return a.ownerGuid < b.ownerGuid;
+
+    const auto* ia = gh ? gh->getItemInfo(a.itemEntry) : nullptr;
+    const auto* ib = gh ? gh->getItemInfo(b.itemEntry) : nullptr;
+    if (column == "name") {
+        const std::string na = ia ? ia->name : "Item #" + std::to_string(a.itemEntry);
+        const std::string nb = ib ? ib->name : "Item #" + std::to_string(b.itemEntry);
+        return na < nb;
+    }
+    if (column == "level") {
+        return (ia ? ia->requiredLevel : 0u) < (ib ? ib->requiredLevel : 0u);
+    }
+    if (column == "quality") {
+        return (ia ? ia->quality : 1u) < (ib ? ib->quality : 1u);
+    }
+    // A column this does not know orders nothing, which is a valid ordering:
+    // every row is equivalent, so a stable sort leaves the list alone.
+    return false;
+}
+
+}  // namespace
+
 // _GetItemTooltipData(itemId) → table with armor, bind, stats, damage, description
 // Returns a Lua table with detailed item info for tooltip building
 static int lua_GetItemTooltipData(lua_State* L) {
@@ -2625,10 +2706,47 @@ void registerInventoryLuaAPI(lua_State* L) {
             return 1;
         }},
                 // Sorting is the panel's own, applied to what the server sent.
-                {"SortAuctionSetSort",   [](lua_State* L) -> int { (void)L; return 0; }},
-                {"SortAuctionApplySort", [](lua_State* L) -> int { (void)L; return 0; }},
-                {"SortAuctionClearSort", [](lua_State* L) -> int { (void)L; return 0; }},
-                {"GetAuctionSort",       [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SortAuctionSetSort", [](lua_State* L) -> int {
+            const std::string which = luaL_optstring(L, 1, "list");
+            const char* column = luaL_optstring(L, 2, "");
+            if (!column || !*column) return 0;
+            auctionSortState()[which].push_back({column, lua_toboolean(L, 3) != 0});
+            return 0;
+        }},
+                {"SortAuctionClearSort", [](lua_State* L) -> int {
+            auctionSortState()[luaL_optstring(L, 1, "list")].clear();
+            return 0;
+        }},
+                // GetAuctionSort(table, index) → column, reverse.
+                //
+                // Index one is the primary, and the primary is the key set
+                // *last* — FrameXML pushes them least significant first.
+                {"GetAuctionSort", [](lua_State* L) -> int {
+            const auto& keys = auctionSortState()[luaL_optstring(L, 1, "list")];
+            const int index = static_cast<int>(luaL_optnumber(L, 2, 1));
+            if (index < 1 || index > static_cast<int>(keys.size())) return 0;
+            const auto& k = keys[keys.size() - static_cast<size_t>(index)];
+            lua_pushstring(L, k.column.c_str());
+            lua_pushboolean(L, k.reverse ? 1 : 0);
+            return 2;
+        }},
+                // Applied least significant first, each pass stable, which is
+                // how a multi-column sort is built out of single-column ones.
+                {"SortAuctionApplySort", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const std::string which = luaL_optstring(L, 1, "list");
+            auto* list = auctionListForSort(gh, which);
+            if (!list) return 0;
+            for (const auto& key : auctionSortState()[which]) {
+                std::stable_sort(list->auctions.begin(), list->auctions.end(),
+                                 [&](const game::AuctionEntry& a,
+                                     const game::AuctionEntry& b) {
+                    return key.reverse ? auctionLess(gh, key.column, b, a)
+                                       : auctionLess(gh, key.column, a, b);
+                });
+            }
+            return 0;
+        }},
                 // The browse filters' category lists. Returning nothing leaves
                 // the drop-downs empty and every search unfiltered, which is
                 // honest: this client has no item-class table to name them

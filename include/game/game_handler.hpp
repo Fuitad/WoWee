@@ -2417,6 +2417,12 @@ public:
     const AuctionListResult& getAuctionBrowseResults() const;
     const AuctionListResult& getAuctionOwnerResults() const;
     const AuctionListResult& getAuctionBidderResults() const;
+    /// Writable, for the one thing that reorders a result set in place: the
+    /// panel's own column sort. The server sends a list and the client sorts
+    /// it, which is what the real client does too — there is no re-query.
+    AuctionListResult& auctionBrowseResultsRef() { return auctionBrowseResults_; }
+    AuctionListResult& auctionOwnerResultsRef()  { return auctionOwnerResults_; }
+    AuctionListResult& auctionBidderResultsRef() { return auctionBidderResults_; }
     int getAuctionActiveTab() const;
     void setAuctionActiveTab(int tab);
     float getAuctionSearchDelay() const;
