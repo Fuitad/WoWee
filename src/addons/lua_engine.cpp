@@ -2822,6 +2822,19 @@ void LuaEngine::registerCoreAPI() {
         "    __WoweeSetWheelEnabled(self, enable ~= false)\n"
         "end\n"
         "function mt:SetResizable(resizable) end\n"
+        // Click() runs the frame's own OnClick, with the same PreClick and
+        // PostClick around it that a real press produces. FrameXML activates
+        // buttons this way — a keybinding that presses an action button, a
+        // dropdown that picks its default — and it answered as a no-op, so
+        // none of those did anything.
+        "function mt:Click(button, down)\n"
+        "    local s = rawget(self, '__scripts')\n"
+        "    if not s then return end\n"
+        "    button = button or 'LeftButton'\n"
+        "    if s.PreClick then s.PreClick(self, button, down) end\n"
+        "    if s.OnClick then s.OnClick(self, button, down) end\n"
+        "    if s.PostClick then s.PostClick(self, button, down) end\n"
+        "end\n"
     );
 
     // Animations. Written in Lua because it is almost entirely bookkeeping —
@@ -3187,7 +3200,7 @@ void LuaEngine::registerCoreAPI() {
         "AddToAutoHide=1,AllowAttributeChanges=1,Animate=1,AppendText=1,AtBottom=1,\n"
         "CallMethod=1,CanSaveTabardNow=1,ChildUpdate=1,Clear=1,ClearAllPoints=1,\n"
         "ClearBinding=1,ClearBindings=1,ClearFocus=1,ClearHistory=1,ClearLines=1,\n"
-        "ClearModel=1,Click=1,CreateFontString=1,CreatePlayerArrowFrame=1,\n"
+        "ClearModel=1,CreateFontString=1,CreatePlayerArrowFrame=1,\n"
         "CreateTexture=1,CreateTitleRegion=1,CycleVariation=1,Disable=1,DrawQuestBlob=1,\n"
         "Dress=1,Enable=1,EnableKeyboard=1,EnableMouse=1,EnableMouseWheel=1,\n"
         "EnableSubtitles=1,FadeOut=1,Free=1,GetAlpha=1,GetAnchorType=1,GetAttribute=1,\n"
