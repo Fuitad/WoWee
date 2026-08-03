@@ -1165,6 +1165,79 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, ir ? ir->activeTalentGroup : 0);
             return 1;
         }},
+                // GetInspectArenaTeamData(index) →
+                //   name, size, rating, weekPlayed, weekWins, seasonPlayed,
+                //   seasonWins, playerRating
+                //
+                // Real: the inspect reply carries these and this client already
+                // parses them into InspectResult.
+                {"GetInspectArenaTeamData", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto* ir = gh ? gh->getInspectResult() : nullptr;
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!ir || index < 1 ||
+                index > static_cast<int>(ir->arenaTeams.size())) {
+                return 0;   // nothing, which is how WoW says "no team here"
+            }
+            const auto& t = ir->arenaTeams[index - 1];
+            // The type is the team size: 2, 3 or 5.
+            lua_pushstring(L, t.name.c_str());
+            lua_pushnumber(L, t.type);
+            lua_pushnumber(L, t.personalRating);
+            lua_pushnumber(L, t.weekGames);
+            lua_pushnumber(L, t.weekWins);
+            lua_pushnumber(L, t.seasonGames);
+            lua_pushnumber(L, t.seasonWins);
+            lua_pushnumber(L, t.personalRating);
+            return 8;
+        }},
+                // CanInspect(unit [, showError]) — a player other than a
+                // corpse, which is as much as this client can judge; the server
+                // refuses the rest and the reply simply does not arrive.
+                {"CanInspect", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* uid = luaL_optstring(L, 1, "target");
+            if (!gh) { lua_pushboolean(L, 0); return 1; }
+            std::string uidStr(uid);
+            for (char& c : uidStr) {
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            }
+            const uint64_t guid = resolveUnitGuid(gh, uidStr);
+            if (guid == 0) { lua_pushboolean(L, 0); return 1; }
+            // High word 0x0000 marks a player guid in this range; creatures
+            // carry 0xF13/0xF14 and cannot be inspected at all.
+            const bool isPlayer = ((guid >> 48) & 0xFFFF) == 0;
+            lua_pushboolean(L, isPlayer ? 1 : 0);
+            return 1;
+        }},
+                // Honour data for an inspected player is not in the reply this
+                // client parses, so it says so plainly rather than reporting
+                // zeros as though they were the answer: HasInspectHonorData is
+                // false, and the panel's honour section stays empty instead of
+                // claiming the player has never won anything.
+                {"HasInspectHonorData", [](lua_State* L) -> int {
+            lua_pushboolean(L, 0);
+            return 1;
+        }},
+                {"RequestInspectHonorData", [](lua_State* L) -> int {
+            (void)L;
+            return 0;
+        }},
+                {"GetInspectHonorData", [](lua_State* L) -> int {
+            for (int i = 0; i < 5; ++i) lua_pushnumber(L, 0);
+            return 5;
+        }},
+                {"GetInspectPVPRankProgress", [](lua_State* L) -> int {
+            lua_pushnumber(L, 0);
+            return 1;
+        }},
+                // UnitPVPRank(unit) — the old honour rank, which no WotLK
+                // server sends; GetPVPRankInfo is fed from it and handles zero.
+                {"UnitPVPRank", [](lua_State* L) -> int {
+            (void)L;
+            lua_pushnumber(L, 0);
+            return 1;
+        }},
                 {"NotifyInspect", [](lua_State* L) -> int {
             (void)L; // Inspect is auto-triggered by the C++ side when targeting a player
             return 0;

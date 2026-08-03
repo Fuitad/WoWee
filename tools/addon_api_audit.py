@@ -56,6 +56,12 @@ def known_names():
         names |= set(re.findall(r'lua_setglobal\(\s*\w+\s*,\s*"(\w+)"', s))
         names |= set(re.findall(r'"function (\w+)\(', s))      # bootstrap Lua
         names |= set(re.findall(r'"(\w+)\s*=\s*function', s))
+        # The counting stubs, which are defined by looping over a Lua list of
+        # names rather than one at a time. Missing them made GetNumBankSlots,
+        # GetInventoryItemCount and thirty others read as undefined when they
+        # answer zero perfectly well.
+        for block in re.findall(r"local counting = \{(.*?)\}", s, re.S):
+            names |= set(re.findall(r"'(\w+)'", block))
     for lua in FRAMEXML.glob("*.lua"):
         s = read(lua)
         names |= set(DEF_FUNC.findall(s)) | set(DEF_ASSIGN.findall(s))
