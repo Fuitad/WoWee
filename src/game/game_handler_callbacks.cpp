@@ -1065,6 +1065,14 @@ const std::vector<GameHandler::EquipmentSetInfo>& GameHandler::getEquipmentSets(
     return empty;
 }
 
+const std::array<uint64_t, 19>* GameHandler::getEquipmentSetItems(uint32_t setId) const {
+    return inventoryHandler_ ? inventoryHandler_->getEquipmentSetItems(setId) : nullptr;
+}
+
+uint32_t GameHandler::getEquipmentSetIgnoreMask(uint32_t setId) const {
+    return inventoryHandler_ ? inventoryHandler_->getEquipmentSetIgnoreMask(setId) : 0u;
+}
+
 // Trade state delegation to InventoryHandler (which owns the canonical trade state)
 GameHandler::TradeStatus GameHandler::getTradeStatus() const {
     if (inventoryHandler_) return static_cast<TradeStatus>(inventoryHandler_->getTradeStatus());

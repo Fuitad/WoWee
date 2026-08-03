@@ -1608,6 +1608,14 @@ public:
     // Equipment Sets (aliased from handler_types.hpp)
     using EquipmentSetInfo = game::EquipmentSetInfo;
     const std::vector<EquipmentSetInfo>& getEquipmentSets() const;
+    /// The items a saved set holds, by slot, as the item guids the server sent.
+    const std::array<uint64_t, 19>* getEquipmentSetItems(uint32_t setId) const;
+    uint32_t getEquipmentSetIgnoreMask(uint32_t setId) const;
+    /// The item an online guid refers to, or zero when it is not known here.
+    uint32_t getItemIdByGuid(uint64_t guid) const {
+        auto it = onlineItems_.find(guid);
+        return it == onlineItems_.end() ? 0u : it->second.entry;
+    }
     bool supportsEquipmentSets() const;
     void useEquipmentSet(uint32_t setId);
     void saveEquipmentSet(const std::string& name, const std::string& iconName = "INV_Misc_QuestionMark",

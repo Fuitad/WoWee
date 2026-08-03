@@ -114,6 +114,21 @@ public:
     // ---- Equipment Sets (aliased from handler_types.hpp) ----
     using EquipmentSetInfo = game::EquipmentSetInfo;
     const std::vector<EquipmentSetInfo>& getEquipmentSets() const { return equipmentSetInfo_; }
+    /// The items a saved set holds, by equipment slot, and which slots it was
+    /// told to leave alone. Held as item guids, which is what the server sends.
+    /// Null when no set has that id.
+    const std::array<uint64_t, 19>* getEquipmentSetItems(uint32_t setId) const {
+        for (const auto& set : equipmentSets_) {
+            if (set.setId == setId) return &set.itemGuids;
+        }
+        return nullptr;
+    }
+    uint32_t getEquipmentSetIgnoreMask(uint32_t setId) const {
+        for (const auto& set : equipmentSets_) {
+            if (set.setId == setId) return set.ignoreSlotMask;
+        }
+        return 0;
+    }
     bool supportsEquipmentSets() const;
     void useEquipmentSet(uint32_t setId);
     void saveEquipmentSet(const std::string& name, const std::string& iconName = "INV_Misc_QuestionMark",

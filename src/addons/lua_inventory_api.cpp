@@ -674,119 +674,49 @@ static int lua_SendMail(lua_State* L) {
 
 // --- Equipment sets ---
 //
-// The real client keeps these on the server and hands the interface a list.
-// Nothing here can ask for that list, so the sets live beside the key bindings
-// instead: saved as the ids currently worn, written to a file, and put back on
-// by equipping each from the bags. What that costs is that a set does not
-// follow the character to another install — everything else about it behaves.
-//
-// A slot holding zero is one the set ignores, which the interface reads as
-// EQUIPMENT_SET_IGNORED_SLOT rather than as an empty slot.
+// These live on the server: it sends the list, and saving, using and deleting
+// are requests. This client already receives and keeps all of it — the names,
+// the icons, the item in each slot and the slots a set was told to ignore — so
+// these read that rather than keeping a second set of sets on this side. A
+// local copy would not be the character's sets, and anything saved through it
+// would not exist for anyone else.
 namespace {
 
-// Head through tabard: everything worn, stopping where the bag slots begin.
-// Taken from the enum rather than written as nineteen, so a slot added to it
-// cannot leave this behind — a set would silently stop saving the last one.
 constexpr int kEquipSlots = static_cast<int>(game::EquipSlot::BAG1);
-constexpr int kMaxEquipmentSets = 10;        // MAX_EQUIPMENT_SETS_PER_PLAYER
 
-struct EquipmentSet {
-    std::string name;
-    std::string icon;
-    std::array<uint32_t, kEquipSlots> items{};
-};
-
-std::vector<EquipmentSet>& equipmentSets() {
-    static std::vector<EquipmentSet> sets;
-    return sets;
-}
-
-/// Slots the player asked to leave alone when saving. Held here rather than in
-/// the set, because it is a choice about the next save and not part of one.
-std::set<int>& ignoredSlots() {
-    static std::set<int> slots;
-    return slots;
-}
-
-std::string equipmentSetsPath() {
-    return core::getConfigRoot() + "/equipmentsets.cfg";
-}
-
-bool equipmentSetsLoaded = false;
-
-void loadEquipmentSets() {
-    if (equipmentSetsLoaded) return;
-    equipmentSetsLoaded = true;
-    std::ifstream in(equipmentSetsPath());
-    if (!in) return;
-    std::string line;
-    while (std::getline(in, line)) {
-        // name\ticon\tid,id,id...
-        const size_t t1 = line.find('\t');
-        if (t1 == std::string::npos) continue;
-        const size_t t2 = line.find('\t', t1 + 1);
-        if (t2 == std::string::npos) continue;
-        EquipmentSet set;
-        set.name = line.substr(0, t1);
-        set.icon = line.substr(t1 + 1, t2 - t1 - 1);
-        std::stringstream ids(line.substr(t2 + 1));
-        std::string one;
-        for (int i = 0; i < kEquipSlots && std::getline(ids, one, ','); ++i) {
-            try { set.items[i] = static_cast<uint32_t>(std::stoul(one)); } catch (...) {}
-        }
-        if (!set.name.empty()) equipmentSets().push_back(std::move(set));
-    }
-}
-
-void saveEquipmentSets() {
-    const std::string path = equipmentSetsPath();
-    std::error_code ec;
-    std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
-    std::ofstream out(path, std::ios::trunc);
-    if (!out) {
-        LOG_WARNING("Could not write the equipment sets to ", path);
-        return;
-    }
-    for (const auto& set : equipmentSets()) {
-        out << set.name << '\t' << set.icon << '\t';
-        for (int i = 0; i < kEquipSlots; ++i) {
-            out << set.items[i] << (i + 1 < kEquipSlots ? "," : "");
-        }
-        out << '\n';
-    }
-}
-
-EquipmentSet* findEquipmentSet(const std::string& name) {
-    loadEquipmentSets();
-    for (auto& set : equipmentSets()) {
+const game::EquipmentSetInfo* equipmentSetByName(game::GameHandler* gh,
+                                                 const std::string& name) {
+    if (!gh) return nullptr;
+    for (const auto& set : gh->getEquipmentSets()) {
         if (set.name == name) return &set;
     }
     return nullptr;
 }
 
-/// How much of a set the player is wearing, and how much is merely to hand.
+/// How much of a set is worn, and how much is merely to hand.
 struct SetTally { int items = 0, equipped = 0, inBags = 0, missing = 0, ignored = 0; };
 
-SetTally tallySet(game::GameHandler* gh, const EquipmentSet& set) {
+SetTally tallySet(game::GameHandler* gh, const game::EquipmentSetInfo& set) {
     SetTally t;
-    if (!gh) return t;
+    const auto* guids = gh ? gh->getEquipmentSetItems(set.setId) : nullptr;
+    if (!gh || !guids) return t;
+    const uint32_t ignoreMask = gh->getEquipmentSetIgnoreMask(set.setId);
     const auto& inv = gh->getInventory();
+
     for (int i = 0; i < kEquipSlots; ++i) {
-        const uint32_t want = set.items[i];
+        if (ignoreMask & (1u << i)) { ++t.ignored; continue; }
+        const uint32_t want = gh->getItemIdByGuid((*guids)[i]);
         if (want == 0) { ++t.ignored; continue; }
         ++t.items;
-        // Worn anywhere counts as worn, not only in the slot the set recorded
-        // it from. A ring saved from the first ring slot and put back on in the
-        // second is on the player either way, and counting it missing told the
-        // panel a set was incomplete while the player was wearing all of it.
+        // Worn anywhere counts as worn: a ring saved from one ring slot and put
+        // back on in the other is on the player either way.
         bool onBody = false;
         for (int w = 0; w < kEquipSlots && !onBody; ++w) {
             const auto& worn = inv.getEquipSlot(static_cast<game::EquipSlot>(w));
             onBody = !worn.empty() && worn.item.itemId == want;
         }
         if (onBody) { ++t.equipped; continue; }
-        // Anywhere in the bags counts as to hand, which is what the panel means
-        // by an item it can still put on.
+
         bool found = false;
         for (int b = 0; b < inv.getBackpackSize() && !found; ++b) {
             const auto& sl = inv.getBackpackSlot(b);
@@ -803,8 +733,143 @@ SetTally tallySet(game::GameHandler* gh, const EquipmentSet& set) {
     return t;
 }
 
+/// Slots the player marked to leave alone before the next save. A choice about
+/// the save to come rather than part of any set, so it is kept here.
+std::set<int>& pendingIgnoredSlots() {
+    static std::set<int> slots;
+    return slots;
+}
+
 }  // namespace
 
+static int lua_GetNumEquipmentSets(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushnumber(L, gh ? static_cast<double>(gh->getEquipmentSets().size()) : 0.0);
+    return 1;
+}
+
+static void pushSetInfo(lua_State* L, game::GameHandler* gh,
+                        const game::EquipmentSetInfo& set) {
+    const SetTally t = tallySet(gh, set);
+    lua_pushstring(L, set.name.c_str());
+    // The server names the icon; the interface wants something SetTexture can
+    // use, and every one of them lives under the same directory.
+    if (set.iconName.empty()) lua_pushnil(L);
+    else lua_pushstring(L, ("Interface\\Icons\\" + set.iconName).c_str());
+    lua_pushnumber(L, set.setId);
+    lua_pushboolean(L, (t.items > 0 && t.equipped == t.items) ? 1 : 0);
+    lua_pushnumber(L, t.items);
+    lua_pushnumber(L, t.equipped);
+    lua_pushnumber(L, t.inBags);
+    lua_pushnumber(L, t.missing);
+    lua_pushnumber(L, t.ignored);
+}
+
+static int lua_GetEquipmentSetInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh) { return luaReturnNil(L); }
+    const auto& sets = gh->getEquipmentSets();
+    if (index < 1 || index > static_cast<int>(sets.size())) { return luaReturnNil(L); }
+    pushSetInfo(L, gh, sets[index - 1]);
+    return 9;
+}
+
+static int lua_GetEquipmentSetInfoByName(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* set = equipmentSetByName(gh, luaL_optstring(L, 1, ""));
+    if (!set) { return luaReturnNil(L); }
+    pushSetInfo(L, gh, *set);
+    return 9;
+}
+
+// GetEquipmentSetItemIDs(name) → one entry per slot, walked with ipairs
+static int lua_GetEquipmentSetItemIDs(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* set = equipmentSetByName(gh, luaL_optstring(L, 1, ""));
+    const auto* guids = (gh && set) ? gh->getEquipmentSetItems(set->setId) : nullptr;
+    const uint32_t ignoreMask = (gh && set) ? gh->getEquipmentSetIgnoreMask(set->setId) : 0u;
+    lua_newtable(L);
+    for (int i = 0; i < kEquipSlots; ++i) {
+        // Dense from one: the interface reads this with ipairs and would stop
+        // at the first hole. An ignored slot is one, which is what the
+        // interface reads as EQUIPMENT_SET_IGNORED_SLOT.
+        lua_pushnumber(L, i + 1);
+        if (ignoreMask & (1u << i)) {
+            lua_pushnumber(L, 1);
+        } else {
+            lua_pushnumber(L, guids ? gh->getItemIdByGuid((*guids)[i]) : 0);
+        }
+        lua_settable(L, -3);
+    }
+    return 1;
+}
+
+// SaveEquipmentSet(name, iconIndex) — asks the server to keep it
+static int lua_SaveEquipmentSet(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const std::string name = luaL_optstring(L, 1, "");
+    if (!gh || name.empty()) return 0;
+
+    // The icon arrives as a position in the same list the macro picker shows,
+    // and the server wants its name rather than its path.
+    std::string iconName = "INV_Misc_QuestionMark";
+    const int iconIndex = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (auto* svc = getLuaServices(L); svc && svc->listIconTextures && iconIndex >= 1) {
+        const auto& icons = svc->listIconTextures();
+        if (iconIndex <= static_cast<int>(icons.size())) {
+            const std::string& path = icons[static_cast<size_t>(iconIndex - 1)];
+            const size_t slash = path.find_last_of("\\/");
+            iconName = (slash == std::string::npos) ? path : path.substr(slash + 1);
+        }
+    }
+    // Overwriting one keeps its guid, which is how the server knows it is the
+    // same set rather than a new one with the same name.
+    const auto* existing = equipmentSetByName(gh, name);
+    gh->saveEquipmentSet(name, iconName, existing ? existing->setGuid : 0,
+                         existing ? existing->setId : 0xFFFFFFFFu);
+    return 0;
+}
+
+static int lua_DeleteEquipmentSet(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (const auto* set = equipmentSetByName(gh, luaL_optstring(L, 1, ""))) {
+        gh->deleteEquipmentSet(set->setGuid);
+    }
+    return 0;
+}
+
+static int lua_UseEquipmentSet(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* set = equipmentSetByName(gh, luaL_optstring(L, 1, ""));
+    if (!gh || !set) { lua_pushboolean(L, 0); return 1; }
+    gh->useEquipmentSet(set->setId);
+    // The manager waits on this before refreshing and clearing the slots it was
+    // told to ignore.
+    gh->fireAddonEvent("EQUIPMENT_SWAP_FINISHED", {"1", set->name});
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+// EquipmentSetContainsLockedItems(name) — nothing here locks an item
+static int lua_EquipmentSetContainsLockedItems(lua_State* L) {
+    lua_pushboolean(L, 0);
+    return 1;
+}
+
+static int lua_EquipmentManagerIgnoreSlotForSave(lua_State* L) {
+    pendingIgnoredSlots().insert(static_cast<int>(luaL_optnumber(L, 1, 0)));
+    return 0;
+}
+static int lua_EquipmentManagerUnignoreSlotForSave(lua_State* L) {
+    pendingIgnoredSlots().erase(static_cast<int>(luaL_optnumber(L, 1, 0)));
+    return 0;
+}
+static int lua_EquipmentManagerClearIgnoredSlotsForSave(lua_State* L) {
+    (void)L;
+    pendingIgnoredSlots().clear();
+    return 0;
+}
 
 // GetInventoryItemsForSlot(slotId, table) — everything that could go in a slot
 //
@@ -996,184 +1061,6 @@ static int lua_IsEquippedItem(lua_State* L) {
     }
     lua_pushboolean(L, worn ? 1 : 0);
     return 1;
-}
-
-// GetNumEquipmentSets() → how many are saved
-static int lua_GetNumEquipmentSets(lua_State* L) {
-    loadEquipmentSets();
-    lua_pushnumber(L, static_cast<double>(equipmentSets().size()));
-    return 1;
-}
-
-static void pushSetInfo(lua_State* L, game::GameHandler* gh,
-                        const EquipmentSet& set, int index) {
-    const SetTally t = tallySet(gh, set);
-    lua_pushstring(L, set.name.c_str());
-    if (set.icon.empty()) lua_pushnil(L); else lua_pushstring(L, set.icon.c_str());
-    lua_pushnumber(L, index);                       // setID
-    lua_pushboolean(L, (t.items > 0 && t.equipped == t.items) ? 1 : 0);
-    lua_pushnumber(L, t.items);
-    lua_pushnumber(L, t.equipped);
-    lua_pushnumber(L, t.inBags);
-    lua_pushnumber(L, t.missing);
-    lua_pushnumber(L, t.ignored);
-}
-
-// GetEquipmentSetInfo(index) → name, icon, setID, isEquipped, and the tallies
-static int lua_GetEquipmentSetInfo(lua_State* L) {
-    loadEquipmentSets();
-    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
-    auto& sets = equipmentSets();
-    if (index < 1 || index > static_cast<int>(sets.size())) { return luaReturnNil(L); }
-    pushSetInfo(L, getGameHandler(L), sets[index - 1], index);
-    return 9;
-}
-
-// GetEquipmentSetInfoByName(name) → the same, found by name
-static int lua_GetEquipmentSetInfoByName(lua_State* L) {
-    const std::string name = luaL_optstring(L, 1, "");
-    loadEquipmentSets();
-    auto& sets = equipmentSets();
-    for (size_t i = 0; i < sets.size(); ++i) {
-        if (sets[i].name != name) continue;
-        pushSetInfo(L, getGameHandler(L), sets[i], static_cast<int>(i + 1));
-        return 9;
-    }
-    return luaReturnNil(L);
-}
-
-// GetEquipmentSetItemIDs(name) → one entry per slot, walked with ipairs
-static int lua_GetEquipmentSetItemIDs(lua_State* L) {
-    const auto* set = findEquipmentSet(luaL_optstring(L, 1, ""));
-    lua_newtable(L);
-    for (int i = 0; i < kEquipSlots; ++i) {
-        // Dense from one, because the interface reads it with ipairs and would
-        // stop at the first hole.
-        lua_pushnumber(L, i + 1);
-        lua_pushnumber(L, set ? static_cast<double>(set->items[i]) : 0);
-        lua_settable(L, -3);
-    }
-    return 1;
-}
-
-// SaveEquipmentSet(name, iconIndex) → snapshot what is worn now
-static int lua_SaveEquipmentSet(lua_State* L) {
-    auto* gh = getGameHandler(L);
-    std::string name = luaL_optstring(L, 1, "");
-    // The name is whatever was typed, and the file is one set per line with
-    // tabs between the fields. A tab or a newline in the name would move the
-    // rest of that set into the wrong columns, or split it across two lines and
-    // take the next set with it. Neither belongs in a name.
-    name.erase(std::remove_if(name.begin(), name.end(),
-                              [](unsigned char c) { return c == '\t' || c == '\n' || c == '\r'; }),
-               name.end());
-    if (!gh || name.empty()) return 0;
-    loadEquipmentSets();
-
-    EquipmentSet fresh;
-    fresh.name = name;
-    // The icon arrives as a position in the same list the macro picker shows.
-    const int iconIndex = static_cast<int>(luaL_optnumber(L, 2, 0));
-    if (auto* svc = getLuaServices(L); svc && svc->listIconTextures && iconIndex >= 1) {
-        const auto& icons = svc->listIconTextures();
-        if (iconIndex <= static_cast<int>(icons.size())) {
-            fresh.icon = icons[static_cast<size_t>(iconIndex - 1)];
-        }
-    }
-    const auto& inv = gh->getInventory();
-    for (int i = 0; i < kEquipSlots; ++i) {
-        if (ignoredSlots().count(i + 1)) continue;   // left at zero on purpose
-        const auto& worn = inv.getEquipSlot(static_cast<game::EquipSlot>(i));
-        if (!worn.empty()) fresh.items[i] = worn.item.itemId;
-    }
-
-    if (auto* existing = findEquipmentSet(name)) {
-        *existing = std::move(fresh);
-    } else {
-        if (equipmentSets().size() >= kMaxEquipmentSets) {
-            LOG_WARNING("Refusing a eleventh equipment set; the interface allows ten");
-            return 0;
-        }
-        equipmentSets().push_back(std::move(fresh));
-    }
-    saveEquipmentSets();
-    if (gh) gh->fireAddonEvent("EQUIPMENT_SETS_CHANGED", {});
-    return 0;
-}
-
-// DeleteEquipmentSet(name)
-static int lua_DeleteEquipmentSet(lua_State* L) {
-    const std::string name = luaL_optstring(L, 1, "");
-    loadEquipmentSets();
-    auto& sets = equipmentSets();
-    for (auto it = sets.begin(); it != sets.end(); ++it) {
-        if (it->name != name) continue;
-        sets.erase(it);
-        saveEquipmentSets();
-        if (auto* gh = getGameHandler(L)) gh->fireAddonEvent("EQUIPMENT_SETS_CHANGED", {});
-        break;
-    }
-    return 0;
-}
-
-// UseEquipmentSet(name) → put the set back on
-static int lua_UseEquipmentSet(lua_State* L) {
-    auto* gh = getGameHandler(L);
-    const auto* set = findEquipmentSet(luaL_optstring(L, 1, ""));
-    if (!gh || !set) { lua_pushboolean(L, 0); return 1; }
-
-    const auto& inv = gh->getInventory();
-    for (int i = 0; i < kEquipSlots; ++i) {
-        const uint32_t want = set->items[i];
-        if (want == 0) continue;
-        const auto& worn = inv.getEquipSlot(static_cast<game::EquipSlot>(i));
-        if (!worn.empty() && worn.item.itemId == want) continue;   // already on
-        // Equipped from wherever it is found. autoEquip picks the slot the item
-        // belongs in, which is right except between two rings or two trinkets,
-        // where it takes the first free one.
-        bool done = false;
-        for (int b = 0; b < inv.getBackpackSize() && !done; ++b) {
-            const auto& sl = inv.getBackpackSlot(b);
-            if (!sl.empty() && sl.item.itemId == want) {
-                gh->autoEquipItemBySlot(b);
-                done = true;
-            }
-        }
-        for (int bag = 0; bag < game::Inventory::NUM_BAG_SLOTS && !done; ++bag) {
-            for (int sl = 0; sl < inv.getBagSize(bag) && !done; ++sl) {
-                const auto& s2 = inv.getBagSlot(bag, sl);
-                if (!s2.empty() && s2.item.itemId == want) {
-                    gh->autoEquipItemInBag(bag, sl);
-                    done = true;
-                }
-            }
-        }
-    }
-    // The manager waits on this before refreshing and clearing the slots it was
-    // told to ignore. Everything above happened already, so it is finished.
-    gh->fireAddonEvent("EQUIPMENT_SWAP_FINISHED", {"1", set->name});
-    lua_pushboolean(L, 1);
-    return 1;
-}
-
-// EquipmentSetContainsLockedItems(name) → nothing here locks an item
-static int lua_EquipmentSetContainsLockedItems(lua_State* L) {
-    lua_pushboolean(L, 0);
-    return 1;
-}
-
-static int lua_EquipmentManagerIgnoreSlotForSave(lua_State* L) {
-    ignoredSlots().insert(static_cast<int>(luaL_optnumber(L, 1, 0)));
-    return 0;
-}
-static int lua_EquipmentManagerUnignoreSlotForSave(lua_State* L) {
-    ignoredSlots().erase(static_cast<int>(luaL_optnumber(L, 1, 0)));
-    return 0;
-}
-static int lua_EquipmentManagerClearIgnoredSlotsForSave(lua_State* L) {
-    (void)L;
-    ignoredSlots().clear();
-    return 0;
 }
 
 // UseInventoryItem(slot) — use what is equipped in a slot
