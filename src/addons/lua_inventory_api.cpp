@@ -526,6 +526,123 @@ static int lua_BankButtonIDToInvSlotID(lua_State* L) {
 }
 
 
+
+// --- The mailbox ---
+//
+// The client had every piece of this and no way in: the inbox, each mail's
+// attachments, and the requests to take money, take an item, delete and send.
+// Indices are the interface's, counting from one.
+namespace {
+
+const game::MailMessage* mailAt(game::GameHandler* gh, int index) {
+    if (!gh || index < 1) return nullptr;
+    const auto& inbox = gh->getMailInbox();
+    if (index > static_cast<int>(inbox.size())) return nullptr;
+    return &inbox[index - 1];
+}
+
+const game::MailAttachment* attachmentAt(const game::MailMessage* mail, int slot) {
+    if (!mail || slot < 1 || slot > static_cast<int>(mail->attachments.size())) {
+        return nullptr;
+    }
+    return &mail->attachments[slot - 1];
+}
+
+}  // namespace
+
+// GetInboxItem(index, slot) → name, texture, count, quality, canUse
+static int lua_GetInboxItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* mail = mailAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    const auto* att = attachmentAt(mail, static_cast<int>(luaL_optnumber(L, 2, 1)));
+    if (!att) { return luaReturnNil(L); }
+    const auto* info = gh->getItemInfo(att->itemId);
+    lua_pushstring(L, info ? info->name.c_str() : "");
+    lua_pushstring(L, info ? gh->getItemIconPath(info->displayInfoId).c_str() : "");
+    lua_pushnumber(L, att->stackCount);
+    lua_pushnumber(L, info ? info->quality : 1);
+    lua_pushboolean(L, 1);
+    return 5;
+}
+
+// GetInboxItemLink(index, slot) → the link for a tooltip
+static int lua_GetInboxItemLink(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* mail = mailAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    const auto* att = attachmentAt(mail, static_cast<int>(luaL_optnumber(L, 2, 1)));
+    const auto* info = att ? gh->getItemInfo(att->itemId) : nullptr;
+    if (!info || info->name.empty()) { return luaReturnNil(L); }
+    const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
+    char link[256];
+    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+             ch, att->itemId, info->name.c_str());
+    lua_pushstring(L, link);
+    return 1;
+}
+
+// TakeInboxItem(index, slot) — an attachment is asked for by its own id, not by
+// where it sits in the list
+static int lua_TakeInboxItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* mail = mailAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    const auto* att = attachmentAt(mail, static_cast<int>(luaL_optnumber(L, 2, 1)));
+    if (gh && mail && att) gh->mailTakeItem(mail->messageId, att->itemGuidLow);
+    return 0;
+}
+
+static int lua_TakeInboxMoney(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* mail = mailAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    if (gh && mail) gh->mailTakeMoney(mail->messageId);
+    return 0;
+}
+
+static int lua_DeleteInboxItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* mail = mailAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    if (gh && mail) gh->mailDelete(mail->messageId);
+    return 0;
+}
+
+// InboxItemCanDelete(index) — nothing here refuses a deletion
+static int lua_InboxItemCanDelete(lua_State* L) {
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+// AutoLootMailItem(index) — the coin first, then every attachment
+static int lua_AutoLootMailItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* mail = mailAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+    if (!gh || !mail) return 0;
+    if (mail->money > 0) gh->mailTakeMoney(mail->messageId);
+    for (const auto& att : mail->attachments) {
+        gh->mailTakeItem(mail->messageId, att.itemGuidLow);
+    }
+    return 0;
+}
+
+static int lua_CheckInbox(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->refreshMailList();
+    return 0;
+}
+
+static int lua_CloseMail(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->closeMailbox();
+    return 0;
+}
+
+// SendMail(recipient, subject, body) — the money and the cash-on-delivery are
+// set separately by the interface before this is called
+static int lua_SendMail(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const char* to = luaL_optstring(L, 1, "");
+    const char* subject = luaL_optstring(L, 2, "");
+    const char* body = luaL_optstring(L, 3, "");
+    if (gh && to && *to) gh->sendMail(to, subject, body, 0, 0);
+    return 0;
+}
+
 // --- Equipment sets ---
 //
 // The real client keeps these on the server and hands the interface a list.
@@ -1833,6 +1950,16 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"SplitContainerItem",  lua_SplitContainerItem},
                 {"BankButtonIDToInvSlotID", lua_BankButtonIDToInvSlotID},
                 {"CloseBankFrame",      lua_CloseBankFrame},
+                {"GetInboxItem",        lua_GetInboxItem},
+                {"GetInboxItemLink",    lua_GetInboxItemLink},
+                {"TakeInboxItem",       lua_TakeInboxItem},
+                {"TakeInboxMoney",      lua_TakeInboxMoney},
+                {"DeleteInboxItem",     lua_DeleteInboxItem},
+                {"InboxItemCanDelete",  lua_InboxItemCanDelete},
+                {"AutoLootMailItem",    lua_AutoLootMailItem},
+                {"CheckInbox",          lua_CheckInbox},
+                {"CloseMail",           lua_CloseMail},
+                {"SendMail",            lua_SendMail},
                 {"UseInventoryItem",    lua_UseInventoryItem},
                 {"GetInventoryItemDurability", lua_GetInventoryItemDurability},
                 {"UseItemByName",       lua_UseItemByName},
@@ -2368,14 +2495,22 @@ void registerInventoryLuaAPI(lua_State* L) {
             lua_pushboolean(L, 0);                                // isGM
             return 13;
         }},
+                // body, stationery texture, isTakeable, isInvoice
+                //
+                // The third decides whether the frame offers to take anything,
+                // so a letter with coin or attachments in it needs to say so.
+                // The stationery is answered with nothing: the id is known but
+                // what art belongs to it is not, and a nil texture is an empty
+                // background rather than a wrong one.
                 {"GetInboxText", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            int index = static_cast<int>(luaL_checknumber(L, 1));
-            if (!gh || index < 1) { return luaReturnNil(L); }
-            const auto& inbox = gh->getMailInbox();
-            if (index > static_cast<int>(inbox.size())) { return luaReturnNil(L); }
-            lua_pushstring(L, inbox[index - 1].body.c_str());
-            return 1;
+            const auto* mail = mailAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            if (!mail) { return luaReturnNil(L); }
+            lua_pushstring(L, mail->body.c_str());
+            lua_pushnil(L);
+            lua_pushboolean(L, (mail->money > 0 || !mail->attachments.empty()) ? 1 : 0);
+            lua_pushboolean(L, 0);
+            return 4;
         }},
                 {"HasNewMail", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
