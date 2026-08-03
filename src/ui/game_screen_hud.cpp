@@ -973,7 +973,13 @@ void GameScreen::renderQuestObjectiveTracker(game::GameHandler& gameHandler) {
         return;
     }
 
-    ImGui::SetNextWindowPos(questTrackerPos_, ImGuiCond_Always);
+    // Placed by this client only when the screen changed size — otherwise the
+    // window keeps whatever position a drag gave it. Setting it every frame is
+    // what nailed the tracker down.
+    const bool screenResized = (questTrackerLastScreenW_ != screenW);
+    questTrackerLastScreenW_ = screenW;
+    ImGui::SetNextWindowPos(questTrackerPos_,
+                            screenResized ? ImGuiCond_Always : ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(questTrackerSize_, ImGuiCond_FirstUseEver);
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
@@ -986,6 +992,19 @@ void GameScreen::renderQuestObjectiveTracker(game::GameHandler& gameHandler) {
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 2.0f));
 
     if (ImGui::Begin("##QuestTracker", nullptr, flags)) {
+        // Where a drag left it, kept the way the collapsed bubble keeps its
+        // own, so the two share one anchor and it survives a restart.
+        {
+            ImVec2 moved = ImGui::GetWindowPos();
+            moved.x = std::clamp(moved.x, 0.0f, screenW - ImGui::GetWindowSize().x);
+            moved.y = std::clamp(moved.y, 0.0f, screenH - 40.0f);
+            if (std::abs(moved.x - questTrackerPos_.x) > 0.5f ||
+                std::abs(moved.y - questTrackerPos_.y) > 0.5f) {
+                questTrackerPos_ = moved;
+                questTrackerRightOffset_ = screenW - moved.x;
+                saveSettings();
+            }
+        }
         // Header row: quest count + completion filter (click to cycle) + hide
         static const char* kFilterNames[] = {"All", "Active", "Done", "Zone"};
         ImGui::TextDisabled("Quests (%d)", static_cast<int>(toShow.size()));

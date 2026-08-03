@@ -121,6 +121,14 @@ private:
     ImVec2 questTrackerSize_ = ImVec2(220.0f, 200.0f); // saved size
     float questTrackerRightOffset_ = -1.0f;            // pixels from right edge; <0 = use default
     bool questTrackerPosInit_ = false;
+    /// The screen width the tracker was last placed against.
+    ///
+    /// Its position is recomputed from the right edge whenever the window
+    /// resizes, and that recompute is why the tracker could not be dragged:
+    /// forcing the position every frame put it straight back. Forced only when
+    /// the width actually changed now, so the rest of the time the window owns
+    /// where it is and a drag survives.
+    float questTrackerLastScreenW_ = -1.0f;
     int questTrackerFilter_ = 3;                        // 0=All, 1=Active, 2=Done, 3=Zone (default)
     bool questTrackerCollapsed_ = false;                // collapsed to floating bubble
 
