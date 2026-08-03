@@ -17,6 +17,9 @@ Counting honestly took two tries, and both mistakes are easy to repeat:
     the interface reads as undefined, and every count is nonsense.
   * `self:Click()` is a method call, not a global one. Counting those turned a
     real figure of about thirty into four hundred and twenty-two.
+  * A `local function Foo()` is still a definition. Blizzard's auction house
+    declares two of its helpers that way, and reading only top-level `function`
+    reported both as missing from a file that defines them three lines up.
 
 Never fails the build. It measures; it does not judge.
 """
@@ -34,8 +37,14 @@ SRC = ROOT / "src" / "addons"
 # name is a colon or a dot. Lua's own `string.format` is caught by this too,
 # which is correct — it is not a global this client has to provide.
 CALL = re.compile(r"(?<![:.\w])([A-Z][A-Za-z0-9_]{2,})\s*\(")
-DEF_FUNC = re.compile(r"^function\s+([A-Za-z_]\w*)", re.M)
-DEF_ASSIGN = re.compile(r"^([A-Za-z_]\w*)\s*=\s*function", re.M)
+DEF_FUNC = re.compile(r"^\s*(?:local\s+)?function\s+([A-Za-z_]\w*)", re.M)
+# `= function` specifically, and not a bare assignment: matching any `x = ...`
+# swallowed every variable in the interface and took the known-set from four
+# and a half thousand names to eighteen thousand, hiding real gaps rather than
+# fixing false ones.
+DEF_ASSIGN = re.compile(r"^\s*(?:local\s+)?([A-Za-z_]\w*)\s*=\s*function", re.M)
+# A local alias of something already defined: `local Foo_orig = Foo`.
+DEF_ALIAS = re.compile(r"^\s*local\s+([A-Za-z_]\w*)\s*=\s*[A-Za-z_]\w*\s*;?\s*$", re.M)
 XML_NAME = re.compile(r'name="([^"$]+)"')
 
 
@@ -79,6 +88,7 @@ def audit(addon_dir, known):
         s = read(f)
         body += s
         defined |= set(DEF_FUNC.findall(s)) | set(DEF_ASSIGN.findall(s))
+        defined |= set(DEF_ALIAS.findall(s))
         defined |= set(XML_NAME.findall(s))   # a frame's name is a global too
     return sorted(c for c in set(CALL.findall(body))
                   if c not in known and c not in defined)

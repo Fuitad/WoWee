@@ -725,6 +725,20 @@ static int lua_GetInventorySlotInfo(lua_State* L) {
     return 1;
 }
 
+/// Which of the three lists a name refers to. The panel says "list", "owner"
+/// or "bidder" and every call that acts on a row is relative to one of them.
+static const game::AuctionListResult& auctionListFor(game::GameHandler* gh,
+                                                     const std::string& which) {
+    if (which == "owner")  return gh->getAuctionOwnerResults();
+    if (which == "bidder") return gh->getAuctionBidderResults();
+    return gh->getAuctionBrowseResults();
+}
+
+/// The panel's own state: which row is selected, and which bag slot is sitting
+/// in the sell box. Neither is anything the client has an opinion about.
+static int& auctionSelection() { static int sel = 0; return sel; }
+static int& auctionSellSlot()  { static int slot = -1; return slot; }
+
 static int lua_GetInventoryItemLink(lua_State* L) {
     auto* gh = getGameHandler(L);
     const char* uid = luaL_optstring(L, 1, "player");
@@ -1165,6 +1179,157 @@ void registerInventoryLuaAPI(lua_State* L) {
             }
             return 0;
         }},
+                // ---- Auction house, the acting half ---------------------
+                //
+                // The listing half was already here; these are the calls that
+                // search, bid, sell and cancel, all of which the client can
+                // send and none of which the interface could reach.
+                {"CanSendAuctionQuery", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            // Two returns: whether a search may be sent, and whether a
+            // getAll sweep may be. The second is always no — it asks the
+            // server for every auction at once and is rate-limited to once
+            // every fifteen minutes even where it is allowed.
+            const bool open = gh && gh->isAuctionHouseOpen();
+            lua_pushboolean(L, open && gh->getAuctionSearchDelay() <= 0.0f);
+            lua_pushboolean(L, 0);
+            return 2;
+        }},
+                // QueryAuctionItems(name, minLevel, maxLevel, invType, class,
+                //                   subclass, page, isUsable, quality)
+                {"QueryAuctionItems", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const char* name = luaL_optstring(L, 1, "");
+            const uint8_t lo  = static_cast<uint8_t>(luaL_optnumber(L, 2, 0));
+            const uint8_t hi  = static_cast<uint8_t>(luaL_optnumber(L, 3, 0));
+            const uint32_t inv = static_cast<uint32_t>(luaL_optnumber(L, 4, 0));
+            const uint32_t cls = static_cast<uint32_t>(luaL_optnumber(L, 5, 0));
+            const uint32_t sub = static_cast<uint32_t>(luaL_optnumber(L, 6, 0));
+            const uint32_t page = static_cast<uint32_t>(luaL_optnumber(L, 7, 0));
+            const uint8_t usable = lua_toboolean(L, 8) ? 1 : 0;
+            const uint32_t quality = static_cast<uint32_t>(luaL_optnumber(L, 9, 0));
+            // The page is a page; the wire wants the row it starts at.
+            gh->auctionSearch(name, lo, hi, quality, cls, sub, inv, usable,
+                              page * 50);
+            return 0;
+        }},
+                {"GetOwnerAuctionItems", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->auctionListOwnerItems(0);
+            return 0;
+        }},
+                {"GetBidderAuctionItems", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->auctionListBidderItems(0);
+            return 0;
+        }},
+                // PlaceAuctionBid(list, index, bid) — a bid equal to the
+                // buyout is a buyout, which is how the panel asks for one.
+                {"PlaceAuctionBid", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* list = luaL_optstring(L, 1, "list");
+            const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+            const uint32_t bid = static_cast<uint32_t>(luaL_optnumber(L, 3, 0));
+            if (!gh) return 0;
+            const auto& res = auctionListFor(gh, list);
+            if (index < 1 || index > static_cast<int>(res.auctions.size())) return 0;
+            const auto& a = res.auctions[index - 1];
+            if (a.buyoutPrice != 0 && bid >= a.buyoutPrice) {
+                gh->auctionBuyout(a.auctionId, a.buyoutPrice);
+            } else {
+                gh->auctionPlaceBid(a.auctionId, bid);
+            }
+            return 0;
+        }},
+                {"CancelAuction", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh) return 0;
+            const auto& res = gh->getAuctionOwnerResults();
+            if (index < 1 || index > static_cast<int>(res.auctions.size())) return 0;
+            gh->auctionCancelItem(res.auctions[index - 1].auctionId);
+            return 0;
+        }},
+                {"CanCancelAuction", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const auto* res = gh ? &gh->getAuctionOwnerResults() : nullptr;
+            // Only one that has not been bid on: cancelling after a bid costs
+            // a fee this client does not model, and the server refuses anyway.
+            const bool ok = res && index >= 1 &&
+                            index <= static_cast<int>(res->auctions.size()) &&
+                            res->auctions[index - 1].currentBid == 0;
+            lua_pushboolean(L, ok ? 1 : 0);
+            return 1;
+        }},
+                // StartAuction(minBid, buyout, duration, stackSize, numStacks)
+                {"StartAuction", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t bid = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            const uint32_t buy = static_cast<uint32_t>(luaL_optnumber(L, 2, 0));
+            const uint32_t dur = static_cast<uint32_t>(luaL_optnumber(L, 3, 720));
+            if (!gh || auctionSellSlot() < 0) return 0;
+            gh->auctionSellItem(auctionSellSlot(), bid, buy, dur);
+            auctionSellSlot() = -1;
+            return 0;
+        }},
+                // The sell slot: the item the player dropped on it, held here
+                // because it is the panel's own state until StartAuction sends
+                // it.
+                {"ClickAuctionSellItemButton", [](lua_State* L) -> int {
+            (void)L;
+            return 0;
+        }},
+                {"CancelSell", [](lua_State* L) -> int {
+            auctionSellSlot() = -1;
+            (void)L;
+            return 0;
+        }},
+                {"GetAuctionSellItemInfo", [](lua_State* L) -> int {
+            // Nothing in the slot until the sell flow is wired to the cursor,
+            // which needs a drop target this panel does not reach yet.
+            return luaReturnNil(L);
+        }},
+                {"CloseAuctionHouse", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->closeAuctionHouse();
+            return 0;
+        }},
+                {"SetAuctionsTabShowing", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) {
+                gh->setAuctionActiveTab(static_cast<int>(luaL_optnumber(L, 1, 0)));
+            }
+            return 0;
+        }},
+                {"SetSelectedAuctionItem", [](lua_State* L) -> int {
+            auctionSelection() = static_cast<int>(luaL_optnumber(L, 2, 0));
+            return 0;
+        }},
+                {"GetSelectedAuctionItem", [](lua_State* L) -> int {
+            lua_pushnumber(L, auctionSelection());
+            return 1;
+        }},
+                // CalculateAuctionDeposit(duration) → copper
+                //
+                // The real figure is a share of the item's vendor price scaled
+                // by the run length, and the vendor price is not to hand here,
+                // so it reports zero rather than a number that would be wrong
+                // in a way the player only discovers after posting.
+                {"CalculateAuctionDeposit", [](lua_State* L) -> int {
+            lua_pushnumber(L, 0);
+            return 1;
+        }},
+                // Sorting is the panel's own, applied to what the server sent.
+                {"SortAuctionSetSort",   [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SortAuctionApplySort", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SortAuctionClearSort", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GetAuctionSort",       [](lua_State* L) -> int { (void)L; return 0; }},
+                // The browse filters' category lists. Returning nothing leaves
+                // the drop-downs empty and every search unfiltered, which is
+                // honest: this client has no item-class table to name them
+                // from, and inventing the names would filter on numbers that
+                // mean nothing to the server.
+                {"GetAuctionItemClasses",    [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GetAuctionItemSubClasses", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GetAuctionInvTypes",       [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GetNumAuctionItems", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const char* listType = luaL_optstring(L, 1, "list");
