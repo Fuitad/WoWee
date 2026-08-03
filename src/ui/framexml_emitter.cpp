@@ -628,6 +628,33 @@ struct Emitter {
         if (const std::string* a = node.attr("alpha")) {
             line(var + ":SetAlpha(" + *a + ")");
         }
+        // <TitleRegion> — the part of a frame you can drag it by. All three in
+        // FrameXML cover the whole frame, and the loot window is one of them:
+        // without this it cannot be moved at all.
+        //
+        // Only wired when the frame declares no drag handling of its own. The
+        // chat frame has a title region and five OnDragStart scripts, and
+        // overwriting those with the generic pair would replace behaviour that
+        // is deliberately more specific.
+        for (const XmlNode& child : node.children) {
+            if (child.name != "TitleRegion") continue;
+            bool ownDrag = false;
+            for (const XmlNode& scripts : node.children) {
+                if (scripts.name != "Scripts") continue;
+                for (const XmlNode& sc : scripts.children) {
+                    if (sc.name == "OnDragStart" || sc.name == "OnDragStop") {
+                        ownDrag = true;
+                    }
+                }
+            }
+            line(var + ":SetMovable(true)");
+            if (!ownDrag) {
+                line(var + ":RegisterForDrag(\"LeftButton\")");
+                line(var + ":SetScript(\"OnDragStart\", function(self) self:StartMoving() end)");
+                line(var + ":SetScript(\"OnDragStop\", function(self) self:StopMovingOrSizing() end)");
+            }
+            break;
+        }
         // <Animations> — one or more <AnimationGroup>, each holding <Alpha>,
         // <Translation> and friends. The group is a Lua object rather than a
         // widget, so this emits the calls a script would make.

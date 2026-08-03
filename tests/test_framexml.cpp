@@ -840,3 +840,25 @@ TEST_CASE("An Animations block becomes group and animation calls",
     // The vars are table slots, not names: "local __w[3]" would not parse.
     REQUIRE_FALSE(has(r.lua, "local __w["));
 }
+
+TEST_CASE("A TitleRegion makes a frame draggable", "[framexml][emit]") {
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Loot\"><TitleRegion setAllPoints=\"true\"/></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetMovable(true)"));
+    REQUIRE(has(r.lua, "RegisterForDrag(\"LeftButton\")"));
+    REQUIRE(has(r.lua, "StartMoving()"));
+}
+
+TEST_CASE("A frame with its own drag scripts keeps them", "[framexml][emit]") {
+    // The chat frame has a title region and five OnDragStart handlers; the
+    // generic pair must not replace behaviour that is deliberately specific.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"Chat\">"
+        "<TitleRegion setAllPoints=\"true\"/>"
+        "<Scripts><OnDragStart>Special(self)</OnDragStart></Scripts>"
+        "</Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, "SetMovable(true)"));
+    REQUIRE_FALSE(has(r.lua, "StartMoving()"));
+}
