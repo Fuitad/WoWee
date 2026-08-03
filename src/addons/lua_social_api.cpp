@@ -254,9 +254,41 @@ static int lua_BNGetNumFriends(lua_State* L) {
     return 2;
 }
 
+// --- GM tickets ---
+//
+// GetGMTicket asks; it does not answer. The reply arrives as UPDATE_TICKET,
+// fired from the SMSG_GMTICKET_GETTICKET handler, with no arguments at all when
+// there is no ticket — which is how the help frame tells the two apart.
+
+// GetGMTicket() → asks the server what ticket this player has open
+static int lua_GetGMTicket(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->requestGmTicket();
+    return 0;
+}
+
+// NewGMTicket(text, needResponse) → opens one
+static int lua_NewGMTicket(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+    const char* text = luaL_checkstring(L, 1);
+    // needResponse is not carried by the packet this client sends, so it is
+    // read and dropped rather than quietly changing what is submitted.
+    gh->submitGmTicket(text);
+    return 0;
+}
+
+// DeleteGMTicket() → withdraws it
+static int lua_DeleteGMTicket(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->deleteGmTicket();
+    return 0;
+}
+
 void registerSocialLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"BNGetNumFriends",     lua_BNGetNumFriends},
+                {"GetGMTicket",         lua_GetGMTicket},
+                {"NewGMTicket",         lua_NewGMTicket},
+                {"DeleteGMTicket",      lua_DeleteGMTicket},
                 {"SendChatMessage",   lua_SendChatMessage},
                 {"SendAddonMessage",  lua_SendAddonMessage},
                 {"RegisterAddonMessagePrefix", lua_RegisterAddonMessagePrefix},

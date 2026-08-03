@@ -4401,12 +4401,23 @@ void pushEventArg(lua_State* L, const std::string& arg) {
         size_t at = (arg[0] == '-') ? 1 : 0;
         if (at < arg.size()) {
             bool digits = true;
+            // One decimal point is still a number. UPDATE_TICKET carries ages
+            // and wait times measured in days, all of them fractions of one,
+            // and the help frame compares them against zero — as a string that
+            // is the same error this exists to avoid, not a wrong answer.
+            int points = 0;
             for (size_t i = at; i < arg.size(); ++i) {
+                if (arg[i] == '.' && points == 0 && i != at && i + 1 < arg.size()) {
+                    ++points;
+                    continue;
+                }
                 if (arg[i] < '0' || arg[i] > '9') { digits = false; break; }
             }
-            // "007" is not a number anyone meant; a leading zero is a string.
+            // "007" is not a number anyone meant; a leading zero is a string,
+            // except the one in front of a decimal point.
             const bool canonical = digits &&
-                (arg.size() - at == 1 || arg[at] != '0');
+                (arg.size() - at == 1 || arg[at] != '0' ||
+                 (points == 1 && arg[at + 1] == '.'));
             if (canonical) {
                 lua_pushnumber(L, std::stod(arg));
                 return;

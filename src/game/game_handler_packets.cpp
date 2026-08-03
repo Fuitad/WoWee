@@ -1726,21 +1726,50 @@ void GameHandler::registerOpcodeHandlers() {
             addSystemChatMessage(buf);
             LOG_INFO("SMSG_GMTICKET_GETTICKET: open ticket age=", ageSec,
                      "s wait=", gmTicketWaitHours_, "h");
+
+            // The interface measures all of this in days and works the wait out
+            // itself, as (oldestTicketTime - ticketAge). This packet gives the
+            // wait directly, so the oldest time is the age plus it — which
+            // arrives at the same number the server meant.
+            //
+            // updateTime says how stale the estimate is; anything over an hour
+            // is treated as no estimate at all, and this one was computed from
+            // the packet that just arrived.
+            const double ageDays = static_cast<double>(ageSec) / 86400.0;
+            auto days = [](double v) {
+                char out[32];
+                std::snprintf(out, sizeof(out), "%.6f", v);
+                return std::string(out);
+            };
+            fireAddonEvent("UPDATE_TICKET", {
+                "1",                                            // category: has one
+                gmTicketText_,
+                days(ageDays),
+                days(ageDays + gmTicketWaitHours_ / 24.0),
+                "0",                                            // just measured
+                "0",                                            // not assigned
+                "0",                                            // not opened by a GM
+            });
         } else if (gmStatus == 3) {
             gmTicketActive_ = false;
             gmTicketText_.clear();
             addSystemChatMessage("Your GM ticket has been closed.");
             LOG_INFO("SMSG_GMTICKET_GETTICKET: ticket closed");
+            // No arguments at all is how the interface is told there is no
+            // ticket: it reads the first one and stops if it is absent.
+            fireAddonEvent("UPDATE_TICKET", {});
         } else if (gmStatus == 10) {
             gmTicketActive_ = false;
             gmTicketText_.clear();
             addSystemChatMessage("Your GM ticket has been suspended.");
             LOG_INFO("SMSG_GMTICKET_GETTICKET: ticket suspended");
+            fireAddonEvent("UPDATE_TICKET", {});
         } else {
             // Status 1 = no open ticket (default/no ticket)
             gmTicketActive_ = false;
             gmTicketText_.clear();
             LOG_DEBUG("SMSG_GMTICKET_GETTICKET: no open ticket (status=", static_cast<int>(gmStatus), ")");
+            fireAddonEvent("UPDATE_TICKET", {});
         }
         packet.skipAll();
     };
