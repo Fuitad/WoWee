@@ -1005,6 +1005,18 @@ void SpellHandler::learnTalent(uint32_t talentId, uint32_t requestedRank) {
     owner_.getSocket()->send(packet);
 }
 
+void SpellHandler::openCraftingWindow(uint32_t skillLine) {
+    craftingWindowOpen_ = true;
+    craftingSkillLine_ = skillLine;
+    owner_.fireAddonEvent("TRADE_SKILL_SHOW", {});
+}
+
+void SpellHandler::closeCraftingWindow() {
+    if (!craftingWindowOpen_) return;
+    craftingWindowOpen_ = false;
+    owner_.fireAddonEvent("TRADE_SKILL_CLOSE", {});
+}
+
 void SpellHandler::switchTalentSpec(uint8_t newSpec) {
     if (newSpec > 1) {
         LOG_WARNING("Invalid talent spec: ", (int)newSpec);

@@ -3,6 +3,7 @@
 #include <cstring>
 #include <set>
 #include "addons/lua_api_helpers.hpp"
+#include "addons/lua_engine.hpp"
 #include "audio/audio_coordinator.hpp"
 #include "audio/ui_sound_manager.hpp"
 #include "core/app_clock.hpp"
@@ -85,9 +86,25 @@ static int lua_GetPlayerFacing(lua_State* L) {
 }
 
 // GetCVar(name) → value string (stub for most, real for a few)
+/// CVars the player or the interface has actually set, which win over the
+/// defaults below.
+///
+/// SetCVar was a no-op, so every option the interface changed reverted the
+/// instant it was read back: ticking a box in the interface options did
+/// nothing, and any code that writes a CVar and then reads it to confirm — of
+/// which FrameXML has a fair amount — saw its own write disappear.
+static std::unordered_map<std::string, std::string>& cvarStore() {
+    static std::unordered_map<std::string, std::string> store;
+    return store;
+}
+
 static int lua_GetCVar(lua_State* L) {
     const char* name = luaL_checkstring(L, 1);
     std::string n(name);
+    if (auto it = cvarStore().find(n); it != cvarStore().end()) {
+        lua_pushstring(L, it->second.c_str());
+        return 1;
+    }
     // Return sensible defaults for commonly queried CVars
     if (n == "uiScale") lua_pushstring(L, "1");
     else if (n == "useUIScale") lua_pushstring(L, "1");
@@ -154,9 +171,26 @@ static int lua_GetCVarBool(lua_State* L) {
     return 1;
 }
 
-// SetCVar(name, value) — no-op stub
+// SetCVar(name, value [, scriptCVar])
 static int lua_SetCVar(lua_State* L) {
-    (void)L;
+    const char* name = lua_isstring(L, 1) ? lua_tostring(L, 1) : nullptr;
+    if (!name) return 0;
+    // A number is as valid as a string here and FrameXML passes both.
+    std::string value;
+    if (lua_isstring(L, 2) || lua_isnumber(L, 2)) {
+        value = lua_tostring(L, 2);
+    } else if (lua_isboolean(L, 2)) {
+        value = lua_toboolean(L, 2) ? "1" : "0";
+    }
+    cvarStore()[name] = value;
+    // Announced, because nine frames listen for it — the options panels redraw
+    // themselves from this rather than from the click that caused it.
+    // Through the engine in the registry, which is where it puts itself; the
+    // event tables are its business rather than this file's.
+    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_lua_engine");
+    auto* engine = static_cast<LuaEngine*>(lua_touserdata(L, -1));
+    lua_pop(L, 1);
+    if (engine) engine->fireEvent("CVAR_UPDATE", {name, value});
     return 0;
 }
 

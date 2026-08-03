@@ -100,8 +100,12 @@ public:
     // like Cooking or First Aid — see tradeskillOpenerSkillLine)
     bool isCraftingWindowOpen() const { return craftingWindowOpen_; }
     uint32_t getCraftingSkillLine() const { return craftingSkillLine_; }
-    void openCraftingWindow(uint32_t skillLine) { craftingWindowOpen_ = true; craftingSkillLine_ = skillLine; }
-    void closeCraftingWindow() { craftingWindowOpen_ = false; }
+    /// Opening and closing a profession announce themselves, because the
+    /// interface's trade skill panel is driven entirely by these two events —
+    /// it hides on TRADE_SKILL_CLOSE and fills itself on TRADE_SKILL_SHOW.
+    /// Without them the panel could be complete and still never appear.
+    void openCraftingWindow(uint32_t skillLine);
+    void closeCraftingWindow();
     // Returns the skill line id if spellId is a tradeskill-window opener
     // (e.g. Cooking → 185) with at least one known recipe, else 0.
     uint32_t tradeskillOpenerSkillLine(uint32_t spellId);
