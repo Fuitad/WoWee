@@ -468,28 +468,29 @@ static int lua_GetNumTalents(lua_State* L) {
 }
 
 // GetTalentInfo(tabIndex, talentIndex) → name, iconTexture, tier, column, rank, maxRank, isExceptional, available
-static int lua_GetTalentInfo(lua_State* L) {
-    auto* gh = getGameHandler(L);
-    int tabIndex = static_cast<int>(luaL_checknumber(L, 1));
-    int talentIndex = static_cast<int>(luaL_checknumber(L, 2));
-    if (!gh || tabIndex < 1 || talentIndex < 1) {
-        for (int i = 0; i < 8; i++) lua_pushnil(L);
-        return 8;
-    }
-    uint8_t classId = gh->getPlayerClass();
-    uint32_t classMask = (classId > 0) ? (1u << (classId - 1)) : 0;
+/// The talent at a tab and index, by the ordering every talent function has to
+/// agree on: the player's own tabs in their order index, then the tab's talents
+/// by row and column.
+///
+/// Shared rather than repeated, because two copies that drift disagree about
+/// which talent is fourth — and the prerequisite lines are drawn between
+/// positions, so a disagreement points an arrow at the wrong button rather than
+/// failing outright.
+static const game::GameHandler::TalentEntry* talentAt(game::GameHandler* gh,
+                                                      int tabIndex, int talentIndex) {
+    if (!gh || tabIndex < 1 || talentIndex < 1) return nullptr;
+    const uint8_t classId = gh->getPlayerClass();
+    const uint32_t classMask = (classId > 0) ? (1u << (classId - 1)) : 0;
+
     std::vector<const game::GameHandler::TalentTabEntry*> classTabs;
     for (const auto& [tabId, tab] : gh->getAllTalentTabs()) {
         if (tab.classMask & classMask) classTabs.push_back(&tab);
     }
     std::sort(classTabs.begin(), classTabs.end(),
         [](const auto* a, const auto* b) { return a->orderIndex < b->orderIndex; });
-    if (tabIndex > static_cast<int>(classTabs.size())) {
-        for (int i = 0; i < 8; i++) lua_pushnil(L);
-        return 8;
-    }
-    uint32_t targetTabId = classTabs[tabIndex - 1]->tabId;
-    // Collect talents for this tab, sorted by row then column
+    if (tabIndex > static_cast<int>(classTabs.size())) return nullptr;
+
+    const uint32_t targetTabId = classTabs[tabIndex - 1]->tabId;
     std::vector<const game::GameHandler::TalentEntry*> tabTalents;
     for (const auto& [talentId, entry] : gh->getAllTalents()) {
         if (entry.tabId == targetTabId) tabTalents.push_back(&entry);
@@ -498,11 +499,19 @@ static int lua_GetTalentInfo(lua_State* L) {
         [](const auto* a, const auto* b) {
             return (a->row != b->row) ? a->row < b->row : a->column < b->column;
         });
-    if (talentIndex > static_cast<int>(tabTalents.size())) {
+    if (talentIndex > static_cast<int>(tabTalents.size())) return nullptr;
+    return tabTalents[talentIndex - 1];
+}
+
+static int lua_GetTalentInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int tabIndex = static_cast<int>(luaL_checknumber(L, 1));
+    const int talentIndex = static_cast<int>(luaL_checknumber(L, 2));
+    const auto* talent = talentAt(gh, tabIndex, talentIndex);
+    if (!talent) {
         for (int i = 0; i < 8; i++) lua_pushnil(L);
         return 8;
     }
-    const auto* talent = tabTalents[talentIndex - 1];
     uint8_t rank = gh->getTalentRank(talent->talentId);
     // Get spell name for rank 1 spell
     std::string name = gh->getSpellName(talent->rankSpells[0]);
@@ -598,6 +607,42 @@ static int lua_AddPreviewTalentPoints(lua_State* L) {
     staged = wanted;
     if (staged == 0) previewPoints().erase(id);
     return 0;
+}
+
+// GetTalentPrereqs(tab, index) → tier, column, isLearnable, isPreviewLearnable
+//                                 repeated once per prerequisite
+//
+// The frame draws a line from each prerequisite to the talent that needs it, so
+// the positions here have to be the same ones GetTalentInfo reports — 1-indexed
+// row and column, from the same ordering.
+static int lua_GetTalentPrereqs(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int tabIndex = static_cast<int>(luaL_checknumber(L, 1));
+    const int talentIndex = static_cast<int>(luaL_checknumber(L, 2));
+    const auto* talent = talentAt(gh, tabIndex, talentIndex);
+    if (!talent) return 0;
+
+    int pushed = 0;
+    for (int p = 0; p < 3; ++p) {
+        const uint32_t prereqId = talent->prereqTalent[p];
+        if (prereqId == 0) continue;
+        const auto* prereq = gh->getTalentEntry(prereqId);
+        if (!prereq) continue;
+
+        // The DBC counts ranks from zero, so the rank a prerequisite asks for
+        // is one more than the number stored beside it.
+        const int needed = static_cast<int>(talent->prereqRank[p]) + 1;
+        const int have = gh->getTalentRank(prereqId);
+        const auto staged = previewPoints().find(prereqId);
+        const int previewHave = have + (staged == previewPoints().end() ? 0 : staged->second);
+
+        lua_pushnumber(L, prereq->row + 1);
+        lua_pushnumber(L, prereq->column + 1);
+        lua_pushboolean(L, have >= needed ? 1 : 0);
+        lua_pushboolean(L, previewHave >= needed ? 1 : 0);
+        pushed += 4;
+    }
+    return pushed;
 }
 
 // GetGroupPreviewTalentPointsSpent(pet, group) → points staged
@@ -908,6 +953,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetTalentTabInfo",        lua_GetTalentTabInfo},
                 {"GetNumTalents",           lua_GetNumTalents},
                 {"GetTalentInfo",           lua_GetTalentInfo},
+                {"GetTalentPrereqs",        lua_GetTalentPrereqs},
                 {"AddPreviewTalentPoints",  lua_AddPreviewTalentPoints},
                 {"GetGroupPreviewTalentPointsSpent", lua_GetGroupPreviewTalentPointsSpent},
                 {"ResetGroupPreviewTalentPoints",    lua_ResetGroupPreviewTalentPoints},
