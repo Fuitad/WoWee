@@ -1149,6 +1149,9 @@ static int lua_UseEquipmentSet(lua_State* L) {
             }
         }
     }
+    // The manager waits on this before refreshing and clearing the slots it was
+    // told to ignore. Everything above happened already, so it is finished.
+    gh->fireAddonEvent("EQUIPMENT_SWAP_FINISHED", {"1", set->name});
     lua_pushboolean(L, 1);
     return 1;
 }

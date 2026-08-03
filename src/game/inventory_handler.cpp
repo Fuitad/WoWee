@@ -2079,6 +2079,11 @@ void InventoryHandler::mailDelete(uint32_t mailId) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() || mailboxGuid_ == 0) return;
     auto packet = MailDeletePacket::build(mailboxGuid_, mailId, 0);
     owner_.getSocket()->send(packet);
+    // The letter being read is this one, so the view over it has to go: the
+    // interface hides it when told which mail closed, and was never told.
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("CLOSE_INBOX_ITEM", {std::to_string(mailId)});
+    }
 }
 
 void InventoryHandler::mailMarkAsRead(uint32_t mailId) {
