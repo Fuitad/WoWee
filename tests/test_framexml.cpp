@@ -1048,3 +1048,37 @@ TEST_CASE("A caption that is not a name is used as written",
     REQUIRE_FALSE(has(lua, "_G["));
 }
 
+
+TEST_CASE("A button gets its font string before its text", "[framexml][emit]") {
+    // The character sheet's tabs are the case this is about. The label comes
+    // from text= on the tab, but the font string it lands on is declared by
+    // the template the tab inherits — so two separate emissions have to happen
+    // in the right order, and SetText only forwards to a font string that is
+    // already attached. Set the text first and it goes into __text, where
+    // nothing draws it and nothing measures it.
+    //
+    // Both of the tab's symptoms come out of that single ordering: no label,
+    // and — because PanelTemplates_TabResize sizes the tab from
+    // CharacterFrameTab1Text:GetWidth() — a sliver barely wider than its
+    // borders.
+    XmlNode root = parseOrFail(
+        "<Ui>"
+        "<Button name=\"TabTemplate\" virtual=\"true\">"
+        "  <ButtonText name=\"$parentText\"/>"
+        "</Button>"
+        "<Button name=\"Tab1\" inherits=\"TabTemplate\" text=\"CHARACTER\"/>"
+        "</Ui>");
+    const std::string lua = emitFrameXml(root).lua;
+
+    // The template runs from inherits=, so what has to be ordered here is the
+    // inherits call against the tab's own SetText.
+    const size_t inherit = lua.find("__WoweeTemplates[\"TabTemplate\"]");
+    const size_t setText = lua.find(":SetText(_G[\"CHARACTER\"]");
+    REQUIRE(inherit != std::string::npos);
+    REQUIRE(setText != std::string::npos);
+    REQUIRE(inherit < setText);
+
+    // And the template itself must attach the font string rather than merely
+    // create it, or the tab has a named region no button knows about.
+    REQUIRE(has(lua, ":SetFontString("));
+}

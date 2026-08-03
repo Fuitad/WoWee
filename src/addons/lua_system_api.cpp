@@ -144,6 +144,23 @@ static int lua_GetCVar(lua_State* L) {
         lua_pushstring(L, "1");
     }
     else if (n == "statusTextPercentage") lua_pushstring(L, "0");
+    // Which stat category each column of the character sheet shows. These are
+    // not preferences with a sensible fallback — UpdatePaperdollStats compares
+    // the value against five names and fills the column from whichever matches,
+    // so an unrecognised one matches nothing and every row is left blank. That
+    // is what "0" gave it, and it is why the character sheet showed two empty
+    // panels below the model with no error anywhere to say why: the code ran to
+    // completion and simply had nothing to write.
+    //
+    // The two names below are what a fresh 3.3.5 account has.
+    else if (n == "playerStatLeftDropdown")  lua_pushstring(L, "PLAYERSTAT_BASE_STATS");
+    else if (n == "playerStatRightDropdown") lua_pushstring(L, "PLAYERSTAT_MELEE_COMBAT");
+    // Whether a conversation opens in its own window or in the chat frame.
+    // "0" already behaved as "inline" — the only test is against "popout" —
+    // so this changes nothing today. It is written out because the value is a
+    // name rather than a number, which is the case where falling through to
+    // "0" is luck rather than a default.
+    else if (n == "conversationMode") lua_pushstring(L, "inline");
     // On, as a stock client has it. ActionButton_SetTooltip branches on this:
     // with it off the tooltip is anchored to the right of the button itself, so
     // an action bar tooltip appeared at the bottom of the screen across the
