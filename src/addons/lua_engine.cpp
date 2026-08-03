@@ -2840,6 +2840,19 @@ void LuaEngine::registerCoreAPI() {
         "function animMeta:SetTarget(t) self.target = t end\n"
         "function animMeta:IsDelaying() return (self.elapsed or 0) < (self.startDelay or 0) end\n"
         "function animMeta:IsPlaying() return self.group and self.group:IsPlaying() end\n"
+        // An animation answers Play, Pause, Stop and Finish as well as its
+        // group does, and acts on the group when it does. Leaving these off
+        // was worse than having no animations at all: an undefined
+        // TutorialFrameCallOutPulser was a harmless fallback object that
+        // swallowed :Stop(), and a real table without the method is a hard
+        // error that took the whole file down with it.
+        "function animMeta:Play()   if self.group then self.group:Play()   end end\n"
+        "function animMeta:Stop()   if self.group then self.group:Stop()   end end\n"
+        "function animMeta:Pause()  if self.group then self.group:Pause()  end end\n"
+        "function animMeta:Resume() if self.group then self.group:Resume() end end\n"
+        "function animMeta:Finish() if self.group then self.group:Finish() end end\n"
+        "function animMeta:GetSmoothing() return self.smoothing end\n"
+        "function animMeta:GetOrder() return self.order or 1 end\n"
         "function animMeta:SetScript(k, f) self[k] = f end\n"
         "function animMeta:GetScript(k) return self[k] end\n"
 
