@@ -1327,6 +1327,48 @@ static int lua_UnitAffectingCombat(lua_State* L) {
     return 1;
 }
 
+
+// --- Dying, and getting back up ---
+//
+// The death popup already appears; its buttons had nothing behind them, so a
+// player could be told they had died and be unable to do anything about it.
+
+// RepopMe() — release the spirit and run back
+static int lua_RepopMe(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->releaseSpirit();
+    return 0;
+}
+
+// RetrieveCorpse() — resurrect where the body is
+static int lua_RetrieveCorpse(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->reclaimCorpse();
+    return 0;
+}
+
+// Dismount() — what /dismount does
+static int lua_Dismount(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->dismount();
+    return 0;
+}
+
+// StartAttack([unit]) / StopAttack() — swing at what is targeted
+//
+// The interface passes a unit only to attack something other than the current
+// target, which this client cannot do without changing target first, so the
+// argument is read and the current target used.
+static int lua_StartAttack(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+    const uint64_t target = gh->getTargetGuid();
+    if (target != 0) gh->startAutoAttack(target);
+    return 0;
+}
+
+static int lua_StopAttack(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->stopAutoAttack();
+    return 0;
+}
+
 // GetReleaseTimeRemaining() → milliseconds before the corpse releases itself,
 // or -1 when nothing will force it
 //
@@ -1981,6 +2023,11 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetRealNumRaidMembers",  lua_GetNumRaidMembers},
                 {"GetRealNumPartyMembers", lua_GetNumPartyMembers},
                 {"GetReleaseTimeRemaining", lua_GetReleaseTimeRemaining},
+                {"RepopMe",             lua_RepopMe},
+                {"RetrieveCorpse",      lua_RetrieveCorpse},
+                {"Dismount",            lua_Dismount},
+                {"StartAttack",         lua_StartAttack},
+                {"StopAttack",          lua_StopAttack},
                 {"UnitInParty",         lua_UnitInParty},
                 {"UnitInRaid",          lua_UnitInRaid},
                 {"UnitHasVehicleUI",    lua_UnitHasVehicleUI},
