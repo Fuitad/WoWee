@@ -908,14 +908,32 @@ static int lua_UnitPlayerOrPetInRaid(lua_State* L) {
 
 /// Talent points, and the two the interface actually reads: unspent points and
 /// the total spent. The micro button flashes on the first.
+// UnitCharacterPoints(unit) → talent points, primary professions still learnable
+//
+// Two values. The trainer's confirmation reads the second bare —
+// `if ( cp2 < MAX_LEARNABLE_PROFESSIONS )` — to decide whether it is offering a
+// first profession or a second, so returning one value made confirming a
+// profession an error rather than a question.
+//
+// Two is the limit, and a primary profession is category 11 in SkillLine.dbc,
+// which is the same test isProfessionSpell uses rather than a second opinion
+// about what counts.
 static int lua_UnitCharacterPoints(lua_State* L) {
     const char* uid = luaL_optstring(L, 1, "player");
     auto* gh = getGameHandler(L);
     std::string uidStr(uid);
     toLowerInPlace(uidStr);
-    if (!gh || uidStr != "player") { lua_pushinteger(L, 0); return 1; }
+    if (!gh || uidStr != "player") { lua_pushinteger(L, 0); lua_pushinteger(L, 0); return 2; }
+
+    constexpr int kMaxPrimaryProfessions = 2;
+    int known = 0;
+    for (const auto& [skillId, skill] : gh->getPlayerSkills()) {
+        (void)skill;
+        if (gh->getSkillCategory(skillId) == 11) ++known;
+    }
     lua_pushinteger(L, static_cast<lua_Integer>(gh->getUnspentTalentPoints()));
-    return 1;
+    lua_pushinteger(L, std::max(0, kMaxPrimaryProfessions - known));
+    return 2;
 }
 
 static int lua_PetHasActionBar(lua_State* L) {

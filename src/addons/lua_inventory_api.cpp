@@ -1829,10 +1829,18 @@ void registerInventoryLuaAPI(lua_State* L) {
             lua_pushstring(L, link);
             return 1;
         }},
+                // Two values: how many are in the inbox, and how many the
+                // server has in total. InboxFrame_Update compares them bare —
+                // `if ( totalItems > numItems )`, to say more mail is waiting
+                // than fits — so one value was an error every time mail
+                // arrived. They are equal here: this client holds every mail it
+                // has been sent, so none is waiting out of view.
                 {"GetInboxNumItems", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            lua_pushnumber(L, gh ? gh->getMailInbox().size() : 0);
-            return 1;
+            const double n = gh ? static_cast<double>(gh->getMailInbox().size()) : 0.0;
+            lua_pushnumber(L, n);
+            lua_pushnumber(L, n);
+            return 2;
         }},
                 {"GetInboxHeaderInfo", [](lua_State* L) -> int {
             // GetInboxHeaderInfo(index) → packageIcon, stationeryIcon, sender, subject, money, COD, daysLeft, hasItem, wasRead, wasReturned, textCreated, canReply, isGM
