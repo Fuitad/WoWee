@@ -1251,7 +1251,27 @@ void GameHandler::registerOpcodeHandlers() {
                         addSystemChatMessage("You have reached level " + std::to_string(newLevel) + "!");
                         withSoundManager(&audio::AudioCoordinator::getUiSoundManager, [](auto* sfx) { sfx->playLevelUp(); });
                         if (levelUpCallback_) levelUpCallback_(newLevel);
-                        fireAddonEvent("PLAYER_LEVEL_UP", {std::to_string(newLevel)});
+                        // All nine, in the order the interface reads them:
+                        // level, health, power, talent points, then the five
+                        // stats. The chat frame tests the third against zero
+                        // to decide whether to mention mana, so sending only
+                        // the level was an error on every level gained — and
+                        // every one of these was already parsed above.
+                        //
+                        // Talent points are zero: the packet carries no such
+                        // delta, and zero is what stops the interface claiming
+                        // a point was gained.
+                        fireAddonEvent("PLAYER_LEVEL_UP", {
+                            std::to_string(newLevel),
+                            std::to_string(lastLevelUpDeltas_.hp),
+                            std::to_string(lastLevelUpDeltas_.mana),
+                            "0",
+                            std::to_string(lastLevelUpDeltas_.str),
+                            std::to_string(lastLevelUpDeltas_.agi),
+                            std::to_string(lastLevelUpDeltas_.sta),
+                            std::to_string(lastLevelUpDeltas_.intel),
+                            std::to_string(lastLevelUpDeltas_.spi),
+                        });
                     }
                 }
             }
