@@ -2,6 +2,7 @@
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include <cstring>
 #include <set>
+#include "imgui.h"
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_engine.hpp"
 #include "audio/audio_coordinator.hpp"
@@ -869,8 +870,54 @@ static int lua_UnitFactionGroup(lua_State* L) {
     return 2;
 }
 
+// RunScript(body) → compiles and runs Lua, the way /script and every macro do
+//
+// A compile failure is reported the same way a runtime one is, because to
+// whoever typed it they are the same mistake. The error goes through the normal
+// path, which shows it without telling any script about it.
+static int lua_RunScript(lua_State* L) {
+    const char* body = luaL_optstring(L, 1, nullptr);
+    if (!body || !*body) return 0;
+    if (luaL_loadstring(L, body) != 0) {
+        const char* err = lua_tostring(L, -1);
+        LOG_WARNING("RunScript would not compile: ", err ? err : "?");
+        lua_pop(L, 1);
+        return 0;
+    }
+    if (lua_pcall(L, 0, 0, 0) != 0) {
+        const char* err = lua_tostring(L, -1);
+        LOG_WARNING("RunScript failed: ", err ? err : "?");
+        lua_pop(L, 1);
+    }
+    return 0;
+}
+
+// IsMouseButtonDown(button) → whether it is held right now
+//
+// Named as WoW names them — "LeftButton", "RightButton", "MiddleButton" — and
+// answers for any button when asked for none, which is what a bare call means.
+static int lua_IsMouseButtonDown(lua_State* L) {
+    const char* which = luaL_optstring(L, 1, nullptr);
+    bool down = false;
+    if (!which || !*which) {
+        down = ImGui::IsMouseDown(ImGuiMouseButton_Left) ||
+               ImGui::IsMouseDown(ImGuiMouseButton_Right) ||
+               ImGui::IsMouseDown(ImGuiMouseButton_Middle);
+    } else {
+        std::string name(which);
+        for (char& c : name) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        if (name == "leftbutton" || name == "left")        down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+        else if (name == "rightbutton" || name == "right") down = ImGui::IsMouseDown(ImGuiMouseButton_Right);
+        else if (name == "middlebutton" || name == "middle") down = ImGui::IsMouseDown(ImGuiMouseButton_Middle);
+    }
+    lua_pushboolean(L, down ? 1 : 0);
+    return 1;
+}
+
 void registerSystemLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
+                {"RunScript",                lua_RunScript},
+                {"IsMouseButtonDown",        lua_IsMouseButtonDown},
                 {"GetTime",                  lua_GetTime},
                 {"GetCVarDefault",           lua_GetCVar},
                 {"IsAddOnLoaded",            lua_IsAddOnLoaded},
