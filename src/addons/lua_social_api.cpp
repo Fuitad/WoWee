@@ -668,6 +668,11 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"SortWho", [](lua_State* L) -> int { (void)L; return 0; }},
                 // Voice again: nothing can be muted, so nothing is added to the
                 // list and there is no list to update.
+                // The last two the social frame reaches for, both belonging to
+                // systems this server has no counterpart to: Battle.net
+                // presence, and picking which voice channel is live.
+                {"GetAutoCompletePresenceID", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                {"SetActiveVoiceChannelBySessionID", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"AddMute",         [](lua_State* L) -> int { (void)L; return 0; }},
                 {"MutedList_Update", [](lua_State* L) -> int { (void)L; return 0; }},
 

@@ -111,9 +111,18 @@ def registered():
 
 
 def scan_interface():
-    """function -> defining file, and file -> names it calls."""
+    """function -> defining file, and file -> names it calls.
+
+    Skips Data/interface/gluexml. That is the login screen, a separate
+    interface in its own Lua state, and it defines functions under names the
+    in-game one also uses — so a one hop out of an in-game file was landing in
+    glue code and reporting its account-message and credits calls as gaps in
+    the quest log, the quest tracker, the social frame and the help frame.
+    """
     defined_by, calls = {}, collections.defaultdict(set)
     for dirpath, _, filenames in os.walk(os.path.join(ROOT, "Data", "interface")):
+        if "gluexml" in dirpath.replace("\\", "/").split("/"):
+            continue
         for name in filenames:
             path = os.path.join(dirpath, name)
             if name.endswith(".lua"):
