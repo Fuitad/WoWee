@@ -628,6 +628,29 @@ static int lua_AutoLootMailItem(lua_State* L) {
     return 0;
 }
 
+// GetSendMailItem(slot) → name, texture, stackCount, quality
+//
+// What is attached to the letter being written. The compose frame reads the
+// stack count and tests it against one without checking it first, so an absent
+// answer raises rather than drawing an empty attachment slot.
+static int lua_GetSendMailItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || slot < 1) { return luaReturnNil(L); }
+    const auto& attachments = gh->getMailAttachments();
+    if (slot > static_cast<int>(attachments.size())) { return luaReturnNil(L); }
+    const auto& att = attachments[slot - 1];
+    if (!att.occupied()) { return luaReturnNil(L); }
+
+    const auto* info = gh->getItemInfo(att.item.itemId);
+    lua_pushstring(L, info ? info->name.c_str() : "");
+    lua_pushstring(L, gh->getItemIconPath(
+        info && info->displayInfoId ? info->displayInfoId : att.item.displayInfoId).c_str());
+    lua_pushnumber(L, att.item.stackCount);
+    lua_pushnumber(L, info ? info->quality : 1);
+    return 4;
+}
+
 static int lua_CheckInbox(lua_State* L) {
     if (auto* gh = getGameHandler(L)) gh->refreshMailList();
     return 0;
@@ -1986,6 +2009,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"DeleteInboxItem",     lua_DeleteInboxItem},
                 {"InboxItemCanDelete",  lua_InboxItemCanDelete},
                 {"AutoLootMailItem",    lua_AutoLootMailItem},
+                {"GetSendMailItem",     lua_GetSendMailItem},
                 {"CheckInbox",          lua_CheckInbox},
                 {"CloseMail",           lua_CloseMail},
                 {"SendMail",            lua_SendMail},
