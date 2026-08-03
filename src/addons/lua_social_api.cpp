@@ -634,6 +634,95 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetMacroItemIconInfo", lua_GetMacroIconInfo},
                 {"NewGMTicket",         lua_NewGMTicket},
                 {"DeleteGMTicket",      lua_DeleteGMTicket},
+                // ---- Loot rules and party assignments ----
+                //
+                // SetLootMethod(method, masterPlayer) and SetLootThreshold(q)
+                // both write CMSG_LOOT_METHOD, which carries all three settings
+                // at once — so each resends the other two as they stand rather
+                // than clearing them.
+                {"SetLootMethod", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            std::string method(luaL_optstring(L, 1, ""));
+            toLowerInPlace(method);
+            uint8_t m = 0;
+            if (method == "roundrobin")           m = 1;
+            else if (method == "master")          m = 2;
+            else if (method == "group")           m = 3;
+            else if (method == "needbeforegreed") m = 4;
+
+            const auto& pd = gh->getPartyData();
+            uint64_t masterGuid = 0;
+            if (m == 2) {
+                // The second argument is a unit id or a name, depending on who
+                // is calling — the loot dropdown passes a name.
+                const char* who = luaL_optstring(L, 2, nullptr);
+                if (who && *who) {
+                    for (const auto& mem : pd.members) {
+                        if (mem.name == who) { masterGuid = mem.guid; break; }
+                    }
+                    if (masterGuid == 0) masterGuid = gh->getPlayerGuid();
+                }
+            }
+            gh->setLootMethod(m, masterGuid, pd.lootThreshold);
+            return 0;
+        }},
+                {"SetLootThreshold", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const auto quality = static_cast<uint8_t>(luaL_optnumber(L, 1, 2));
+            const auto& pd = gh->getPartyData();
+            gh->setLootMethod(pd.lootMethod, pd.looterGuid, quality);
+            return 0;
+        }},
+                // GetPartyAssignment(assignment, unit) → whether that unit
+                // holds it. The flags come with the group list.
+                {"GetPartyAssignment", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            std::string what(luaL_optstring(L, 1, ""));
+            const char* unit = luaL_optstring(L, 2, "");
+            toLowerInPlace(what);
+            if (!gh || !unit || !*unit) return luaReturnFalse(L);
+            const uint8_t bit = (what == "maintank") ? 0x02
+                              : (what == "mainassist") ? 0x04 : 0x00;
+            if (bit == 0) return luaReturnFalse(L);
+            std::string uid(unit);
+            toLowerInPlace(uid);
+            const uint64_t guid = resolveUnitGuid(gh, uid);
+            if (guid == 0) return luaReturnFalse(L);
+            for (const auto& mem : gh->getPartyData().members) {
+                if (mem.guid == guid) { lua_pushboolean(L, (mem.flags & bit) ? 1 : 0); return 1; }
+            }
+            return luaReturnFalse(L);
+        }},
+                {"SetPartyAssignment", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            std::string what(luaL_optstring(L, 1, ""));
+            const char* unit = luaL_optstring(L, 2, "");
+            toLowerInPlace(what);
+            if (!gh || !unit || !*unit) return 0;
+            const int assignment = (what == "maintank") ? 0 : (what == "mainassist") ? 1 : -1;
+            if (assignment < 0) return 0;
+            std::string uid(unit);
+            toLowerInPlace(uid);
+            const uint64_t guid = resolveUnitGuid(gh, uid);
+            if (guid) gh->setPartyAssignment(static_cast<uint8_t>(assignment), guid, true);
+            return 0;
+        }},
+                {"ClearPartyAssignment", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            std::string what(luaL_optstring(L, 1, ""));
+            const char* unit = luaL_optstring(L, 2, "");
+            toLowerInPlace(what);
+            if (!gh || !unit || !*unit) return 0;
+            const int assignment = (what == "maintank") ? 0 : (what == "mainassist") ? 1 : -1;
+            if (assignment < 0) return 0;
+            std::string uid(unit);
+            toLowerInPlace(uid);
+            const uint64_t guid = resolveUnitGuid(gh, uid);
+            if (guid) gh->setPartyAssignment(static_cast<uint8_t>(assignment), guid, false);
+            return 0;
+        }},
                 // ---- Raid group management ----
                 // SetRaidSubgroup(raidIndex, group) — move a member into a
                 // different group of eight. SwapRaidSubgroup exchanges two,

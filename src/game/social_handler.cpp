@@ -1639,6 +1639,30 @@ void SocialHandler::uninvitePlayer(const std::string& playerName) {
     owner_.addSystemChatMessage("Removed " + playerName + " from the group.");
 }
 
+// CMSG_LOOT_METHOD carries all three settings together, so changing one means
+// resending the other two as they stand. The master looter is only meaningful
+// for method 2 and is sent as an empty guid otherwise.
+void SocialHandler::setLootMethod(uint8_t method, uint64_t masterGuid, uint8_t threshold) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_LOOT_METHOD));
+    packet.writeUInt32(method);
+    packet.writeUInt64(method == 2 ? masterGuid : 0);
+    packet.writeUInt32(threshold);
+    owner_.getSocket()->send(packet);
+}
+
+// MSG_PARTY_ASSIGNMENT: which assignment (0 main tank, 1 main assist), whether
+// it is being given or taken away, and who.
+void SocialHandler::setPartyAssignment(uint8_t assignment, uint64_t guid, bool apply) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    if (guid == 0) return;
+    network::Packet packet(wireOpcode(Opcode::MSG_PARTY_ASSIGNMENT));
+    packet.writeUInt8(assignment);
+    packet.writeUInt8(apply ? 1 : 0);
+    packet.writeUInt64(guid);
+    owner_.getSocket()->send(packet);
+}
+
 // Move a raid member into a different group of eight. The server takes the
 // player's name and the destination group as a zero-based index, while the raid
 // UI counts its groups from one.

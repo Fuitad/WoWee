@@ -197,6 +197,8 @@ public:
     bool hasPendingGroupInvite() const { return pendingGroupInvite; }
     const std::string& getPendingInviterName() const { return pendingInviterName; }
     void uninvitePlayer(const std::string& playerName);
+    void setLootMethod(uint8_t method, uint64_t masterGuid, uint8_t threshold);
+    void setPartyAssignment(uint8_t assignment, uint64_t guid, bool apply);
     void setRaidSubgroup(const std::string& playerName, uint8_t group);
     void swapRaidSubgroup(const std::string& firstName, const std::string& secondName);
     void leaveParty();

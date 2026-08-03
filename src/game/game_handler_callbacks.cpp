@@ -2009,6 +2009,14 @@ bool GameHandler::hasPendingBgInvite() const {
     return socialHandler_ && socialHandler_->hasPendingBgInvite();
 }
 
+void GameHandler::setLootMethod(uint8_t method, uint64_t masterGuid, uint8_t threshold) {
+    if (socialHandler_) socialHandler_->setLootMethod(method, masterGuid, threshold);
+}
+
+void GameHandler::setPartyAssignment(uint8_t assignment, uint64_t guid, bool apply) {
+    if (socialHandler_) socialHandler_->setPartyAssignment(assignment, guid, apply);
+}
+
 void GameHandler::setRaidSubgroup(const std::string& playerName, uint8_t group) {
     if (socialHandler_) socialHandler_->setRaidSubgroup(playerName, group);
 }
