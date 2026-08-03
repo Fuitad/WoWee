@@ -3316,27 +3316,6 @@ void SpellHandler::loadSkillLineDbc() {
         }
     }
     LOG_INFO("GameHandler: Loaded ", owner_.skillLineNamesRef().size(), " skill line names");
-    // Three of them by name, at warning level, because this is the only place
-    // the answer can be seen. The skills list came up reading "Learn First
-    // Aid", "Learn Mounts" — the right skills, the right ranks, and a prefix
-    // that is in no SkillLine.dbc on disk, in no Spell.dbc name, and in no
-    // line of FrameXML. This map is the sole writer of those strings, so
-    // printing what actually landed in it separates "the DBC read is wrong"
-    // from "something downstream is decorating a correct name", and nothing
-    // short of running the client can tell those apart.
-    //
-    // Delete this once the prefix is accounted for; it is a probe, not a
-    // permanent report.
-    {
-        std::string sample;
-        int shown = 0;
-        for (const auto& [id, name] : owner_.skillLineNamesRef()) {
-            if (shown++ >= 3) break;
-            sample += " " + std::to_string(id) + "=\"" + name + "\"";
-        }
-        LOG_WARNING("SkillLine.dbc: ", owner_.skillLineNamesRef().size(),
-                    " names loaded, e.g.", sample);
-    }
 }
 
 void SpellHandler::extractSkillFields(const FlatFieldMap& fields) {
