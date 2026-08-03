@@ -1164,12 +1164,106 @@ static int lua_Screenshot(lua_State* L) {
 
 // HasLFGRestrictions() → whether the player is in a dungeon-finder group
 //
-// Answers false rather than nothing. There is no dungeon finder here, and four
-// frames ask this to decide whether to draw a badge — a definite no is the
-// truthful answer, not an absent one.
+// There is a dungeon finder here — the client tracks the queue, the proposal
+// and the dungeon — so this is answered from it rather than declared false the
+// way it was when the comment here said no such thing existed.
 static int lua_HasLFGRestrictions(lua_State* L) {
-    lua_pushboolean(L, 0);
+    auto* gh = getGameHandler(L);
+    lua_pushboolean(L, gh && gh->isLfgInDungeon() ? 1 : 0);
     return 1;
+}
+
+// GetLFGProposal() → proposalExists, typeID, id, name, texture, role,
+//                    hasResponded, totalEncounters, completedEncounters,
+//                    numMembers, isLeader
+//
+// Eleven values whether or not there is a proposal: lfdframe reads the eighth
+// on its own with select(8, GetLFGProposal()), and a short return makes that
+// an error rather than an answer of "none".
+static int lua_GetLFGProposal(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const bool pending = gh && gh->getLfgState() == game::LfgState::Proposal;
+    if (!pending) { for (int i = 0; i < 11; ++i) lua_pushnil(L); return 11; }
+
+    lua_pushboolean(L, 1);                                       // 1: proposalExists
+    lua_pushnil(L);                                              // 2: typeID
+    lua_pushnumber(L, gh->getLfgProposalId());                   // 3: id
+    lua_pushstring(L, gh->getCurrentLfgDungeonName().c_str());   // 4: name
+    lua_pushnil(L);                                              // 5: texture
+    lua_pushnil(L);                                              // 6: role
+    lua_pushboolean(L, 0);                                       // 7: hasResponded
+    lua_pushnil(L);                                              // 8: totalEncounters
+    lua_pushnil(L);                                              // 9: completedEncounters
+    lua_pushnil(L);                                              // 10: numMembers
+    lua_pushnil(L);                                              // 11: isLeader
+    return 11;
+}
+
+// GetLFGInfoServer() → inParty, joined, queued, noPartialClear, achievements,
+//                      lfgComment, slotCount
+static int lua_GetLFGInfoServer(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const bool queued = gh && gh->isLfgQueued();
+    lua_pushnil(L);                        // 1: inParty
+    lua_pushboolean(L, queued ? 1 : 0);    // 2: joined
+    lua_pushboolean(L, queued ? 1 : 0);    // 3: queued
+    lua_pushnil(L);                        // 4: noPartialClear
+    lua_pushnil(L);                        // 5: achievements
+    lua_pushnil(L);                        // 6: lfgComment
+    lua_pushnil(L);                        // 7: slotCount
+    return 7;
+}
+
+// GetLFGRoleUpdate() → roleCheckInProgress, slots, members
+static int lua_GetLFGRoleUpdate(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const bool checking = gh && gh->getLfgState() == game::LfgState::RoleCheck;
+    if (checking) lua_pushboolean(L, 1); else lua_pushnil(L);
+    lua_pushnil(L);
+    lua_pushnil(L);
+    return 3;
+}
+
+static int lua_IsListedInLFR(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushboolean(L, gh && gh->getLfgState() == game::LfgState::RaidBrowser ? 1 : 0);
+    return 1;
+}
+
+// IsPartyLFG() → was this group put together by the dungeon finder
+static int lua_IsPartyLFG(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    bool viaFinder = false;
+    if (gh) {
+        const auto st = gh->getLfgState();
+        viaFinder = (st == game::LfgState::InDungeon ||
+                     st == game::LfgState::FinishedDungeon ||
+                     st == game::LfgState::Boot);
+    }
+    lua_pushboolean(L, viaFinder ? 1 : 0);
+    return 1;
+}
+
+// The two cooldowns that gate re-queuing. Neither is tracked, and both are read
+// as `if ( expiration )` — so nil, because a zero would read as a live cooldown
+// and park the queue frame behind a countdown that never ends.
+static int lua_GetLFGDeserterExpiration(lua_State* L) { lua_pushnil(L); return 1; }
+static int lua_GetLFGRandomCooldownExpiration(lua_State* L) { lua_pushnil(L); return 1; }
+
+// RefreshLFGList() — the raid browser's refresh button.
+static int lua_RefreshLFGList(lua_State* L) { (void)L; return 0; }
+
+// GetTrackedAchievements() → the achievement ids being watched, as separate
+// values. None are tracked, and the watch frame counts them by return count.
+static int lua_GetTrackedAchievements(lua_State* L) { (void)L; return 0; }
+
+// RequestRaidInfo() — ask the server for saved instance lockouts. The reply is
+// SMSG_RAID_INSTANCE_INFO, which the client already parses for
+// GetSavedInstanceInfo; nothing was asking for it.
+static int lua_RequestRaidInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (gh) gh->requestRaidInfo();
+    return 0;
 }
 
 // CanShowAchievementUI() → whether the achievement panel may open
@@ -1311,6 +1405,16 @@ void registerSystemLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"Screenshot",               lua_Screenshot},
                 {"HasLFGRestrictions",       lua_HasLFGRestrictions},
+                {"GetLFGProposal",           lua_GetLFGProposal},
+                {"GetLFGInfoServer",         lua_GetLFGInfoServer},
+                {"GetLFGRoleUpdate",         lua_GetLFGRoleUpdate},
+                {"IsListedInLFR",            lua_IsListedInLFR},
+                {"IsPartyLFG",               lua_IsPartyLFG},
+                {"GetLFGDeserterExpiration", lua_GetLFGDeserterExpiration},
+                {"GetLFGRandomCooldownExpiration", lua_GetLFGRandomCooldownExpiration},
+                {"RefreshLFGList",           lua_RefreshLFGList},
+                {"GetTrackedAchievements",   lua_GetTrackedAchievements},
+                {"RequestRaidInfo",          lua_RequestRaidInfo},
                 {"CanShowAchievementUI",     lua_CanShowAchievementUI},
                 {"IsXPUserDisabled",         lua_IsXPUserDisabled},
                 {"GetAddOnMemoryUsage",      lua_GetAddOnMemoryUsage},
