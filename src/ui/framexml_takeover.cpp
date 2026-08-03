@@ -445,7 +445,11 @@ std::vector<std::string> frameXmlCheckFrames() {
         {UiElement::TargetFrame,  "TargetFrame TargetFrameTextureFrame TargetFramePortrait "
                                   "TargetFrameHealthBar TargetFrameManaBar "
                                   "TargetFrameTextureFrameName TargetFrameNameBackground"},
-        {UiElement::PetFrame,     "PetFrame PetFrameHealthBar PetFrameManaBar"},
+        // The pet's cast bar belongs with the pet frame rather than with
+        // the player's cast bar: this client draws it inside
+        // renderPetFrame, so it goes when that does.
+        {UiElement::PetFrame,     "PetFrame PetFrameHealthBar PetFrameManaBar "
+                                  "PetCastingBarFrame"},
         {UiElement::Minimap,      "Minimap MinimapBorder MinimapZoomIn MinimapZoneText"},
         // The extra bars as well as the main one: this client draws its own
         // second and third bars from the settings, so naming only MainMenuBar
