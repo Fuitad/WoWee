@@ -1268,6 +1268,38 @@ void registerSystemLuaAPI(lua_State* L) {
                 // the raise was one click away rather than in a corner.
                 {"KBSetup_GetCategoryCount",    lua_ReturnZero},
                 {"KBSetup_GetSubCategoryCount", lua_ReturnZero},
+                // Three more counts read straight into a comparison or a
+                // format, with the same result: the socketing window walks
+                // `i <= numSockets`, the PvP frame formats the season number
+                // into its off-season line, and the achievement comparison
+                // concatenates its total. None of the three has data behind it
+                // here — no socketing, no arena seasons, and no way to read
+                // another player's achievements — so zero is what is true.
+                // Three battlefield timers, all read as `X()/1000`. This
+                // client has partial battlefield support — status, score,
+                // winner and positions are all bound — so these are gaps in a
+                // system a player reaches rather than one that does not exist,
+                // and each raises the moment a battleground is queued for or
+                // entered. Zero reads correctly at every call site: no time in
+                // queue, no shutdown pending, no elapsed run time.
+                {"GetBattlefieldTimeWaited",         lua_ReturnZero},
+                {"GetBattlefieldInstanceExpiration", lua_ReturnZero},
+                {"GetBattlefieldInstanceRunTime",    lua_ReturnZero},
+                // The aspect ratio the Mac options panel builds its recording
+                // resolution from: `"640x"..floor(640*ratio)`. Answering the
+                // window's own ratio is both truthful and what makes that read
+                // 640x360 on a 16:9 display rather than raising.
+                {"MovieRecording_GetAspectRatio", [](lua_State* L) -> int {
+            auto* svc = getLuaServices(L);
+            auto* win = svc ? svc->window : nullptr;
+            const float w = win ? static_cast<float>(win->getWidth())  : 1920.0f;
+            const float h = win ? static_cast<float>(win->getHeight()) : 1080.0f;
+            lua_pushnumber(L, (w > 0.0f) ? (h / w) : 0.5625);
+            return 1;
+        }},
+                {"GetNumSockets",               lua_ReturnZero},
+                {"GetPreviousArenaSeason",      lua_ReturnZero},
+                {"GetComparisonCategoryNumAchievements", lua_ReturnZero},
                 {"GetMultiCastTotemSpells",  lua_ReturnNil},
                 {"GetPossessInfo",           lua_ReturnNil},
                 {"GetVoiceStatus",           lua_ReturnFalse},
@@ -1758,6 +1790,14 @@ void registerSystemLuaAPI(lua_State* L) {
             return luaReturnZero(L);
         }},
                 {"CalendarGetNumDayEvents", [](lua_State* L) -> int {
+            return luaReturnZero(L);
+        }},
+                // Compared against a number the moment it is called —
+                // `CalendarEventGetNumInvites() > MAX_PARTY_MEMBERS + 1` — so
+                // nil is not a quiet gap here but an error, and it took the
+                // event view down with it. No invite list is tracked, so none
+                // is the truth as well as the safe answer.
+                {"CalendarEventGetNumInvites", [](lua_State* L) -> int {
             return luaReturnZero(L);
         }},
                 {"GetDifficultyInfo", [](lua_State* L) -> int {
