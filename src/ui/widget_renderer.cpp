@@ -314,13 +314,21 @@ void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
         dl->AddImage(reinterpret_cast<ImTextureID>(edge), ImVec2(px0, py0), ImVec2(px1, py1),
                      ImVec2(u0, 0.0f), ImVec2(u1, 1.0f), col);
     };
-    // An edge is a run of square tiles, not one tile stretched down it.
+    // An edge is a run of square tiles, and the top and bottom ones are stored
+    // on their side.
     //
-    // Each tile in the strip is square — UI-Tooltip-Border is 128x16, eight
-    // 16x16 tiles — and the art in it is directional: a bevel that reads as a
-    // raised lip at its authored size. Stretched over a two-hundred-pixel span
-    // that bevel becomes a single soft gradient, so a long border looked
-    // nothing like a short one and neither looked like the client's.
+    // Decoding UI-Tooltip-Border settles both points. It is 128x16 — eight
+    // 16x16 tiles — and measuring each one's opacity by row and by column
+    // gives: tiles 0 to 3 are all *vertical* lines, and 4 to 7 are the four
+    // corners. There is no horizontal line anywhere in the file. Tiles 2 and 3
+    // are the top and bottom edges kept rotated, which is why their lines sit
+    // at opposite sides of the tile: rotated into place, one lands along the
+    // top of its strip and the other along the bottom.
+    //
+    // Drawing them unrotated repeats a vertical line along a horizontal edge,
+    // which is a row of tick marks across the top and bottom of every tooltip.
+    // Stretching one instead — which is what this did before — smears that
+    // line into a gradient, which is quieter but no more correct.
     //
     // Tiled by drawing repeated quads rather than by letting the UVs run past
     // 1: the eight tiles share one texture, so a u outside its own eighth
@@ -330,24 +338,35 @@ void WidgetRenderer::drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
         const float span = vertical ? (py1 - py0) : (px1 - px0);
         if (span <= 0.0f) return;
         // Below a couple of pixels a tile carries no visible detail, and a
-        // full-width frame would ask for a thousand quads to say nothing.
-        // Stretching one is indistinguishable there and bounded.
-        if (e < 2.0f) { piece(index, px0, py0, px1, py1); return; }
+        // full-width frame would ask for a thousand quads to say nothing. One
+        // tile stretched over the whole span is indistinguishable there and
+        // bounded — and it goes through the same loop rather than a separate
+        // path, so it keeps the rotation the horizontal edges need.
+        const float step = (e < 2.0f) ? span : e;
         const float tu0 = index / 8.0f, tu1 = (index + 1) / 8.0f;
-        for (float at = 0.0f; at < span; at += e) {
+        for (float at = 0.0f; at < span; at += step) {
             // The last tile is cut short rather than overhanging, and its UVs
             // are cut with it so the art is cropped rather than squeezed into
             // the remainder.
-            const float len = std::min(e, span - at);
-            const float frac = len / e;
+            const float len = std::min(step, span - at);
+            const float frac = len / step;
             if (vertical) {
                 dl->AddImage(reinterpret_cast<ImTextureID>(edge),
                              ImVec2(px0, py0 + at), ImVec2(px1, py0 + at + len),
                              ImVec2(tu0, 0.0f), ImVec2(tu1, frac), col);
             } else {
-                dl->AddImage(reinterpret_cast<ImTextureID>(edge),
-                             ImVec2(px0 + at, py0), ImVec2(px0 + at + len, py1),
-                             ImVec2(tu0, 0.0f), ImVec2(tu0 + frac * (tu1 - tu0), 1.0f), col);
+                // Quarter-turned: the strip runs along x, so screen x walks
+                // the tile's v and screen y walks its u. That puts the tile's
+                // left column along the top of the strip, which is where the
+                // top edge's line lives — and the bottom edge's line, sitting
+                // at the opposite side of its own tile, lands along the bottom
+                // by the same mapping. One rotation serves both.
+                const float ax0 = px0 + at, ax1 = px0 + at + len;
+                dl->AddImageQuad(reinterpret_cast<ImTextureID>(edge),
+                                 ImVec2(ax0, py0), ImVec2(ax1, py0),
+                                 ImVec2(ax1, py1), ImVec2(ax0, py1),
+                                 ImVec2(tu0, 0.0f),  ImVec2(tu0, frac),
+                                 ImVec2(tu1, frac),  ImVec2(tu1, 0.0f), col);
             }
         }
     };
