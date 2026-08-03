@@ -1792,6 +1792,40 @@ int lua_Frame_GetHitRectInsets(lua_State* L) {
     return 4;
 }
 
+/// SetUserPlaced marks a frame as positioned by the player.
+///
+/// The tree already tracks this — it is what stops the interface's own layout
+/// pass moving a window the player has dragged — but the two calls that read
+/// and set it answered as no-ops, so a frame restored from saved variables was
+/// not treated as placed and could be shifted out from under its own position.
+int lua_Frame_SetUserPlaced(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) w->userMoved = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+int lua_Frame_IsUserPlaced(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushboolean(L, w && w->userMoved);
+    return 1;
+}
+
+/// The value a bar is showing, as distinct from the one it was told to reach.
+///
+/// WoW animates between them; this draws the value directly, so the two are
+/// the same number. Answering honestly matters because the smoothing code
+/// compares them and loops while they differ — against a no-op returning
+/// nothing, that comparison never settles.
+int lua_StatusBar_GetCurrentValue(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->barValue : 0.0);
+    return 1;
+}
+int lua_StatusBar_SetDisplayValue(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->barValue = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+    }
+    return 0;
+}
+
 int lua_Frame_EnableKeyboard(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->keyboardEnabled = lua_toboolean(L, 2) != 0;
     return 0;
@@ -2750,6 +2784,10 @@ void LuaEngine::registerCoreAPI() {
         {"GetPushedTextOffset",   lua_Frame_GetPushedTextOffset},
         {"SetHitRectInsets",      lua_Frame_SetHitRectInsets},
         {"GetHitRectInsets",      lua_Frame_GetHitRectInsets},
+        {"SetUserPlaced",         lua_Frame_SetUserPlaced},
+        {"IsUserPlaced",          lua_Frame_IsUserPlaced},
+        {"GetCurrentValue",       lua_StatusBar_GetCurrentValue},
+        {"SetDisplayValue",       lua_StatusBar_SetDisplayValue},
         {"EnableKeyboard",        lua_Frame_EnableKeyboard},
         {"IsKeyboardEnabled",     lua_Frame_IsKeyboardEnabled},
         {"SetPropagateKeyboardInput", lua_Frame_SetPropagateKeyboardInput},
@@ -3206,7 +3244,7 @@ void LuaEngine::registerCoreAPI() {
         "EnableSubtitles=1,FadeOut=1,Free=1,GetAlpha=1,GetAnchorType=1,GetAttribute=1,\n"
         "GetBackdrop=1,GetBottom=1,GetButtonState=1,GetCenter=1,GetChecked=1,\n"
         "GetCheckedTexture=1,GetChildList=1,GetChildren=1,GetColorRGB=1,\n"
-        "GetCurrentValue=1,GetCursorPosition=1,GetDisabledCheckedTexture=1,\n"
+        "GetCursorPosition=1,GetDisabledCheckedTexture=1,\n"
         "GetDisabledTexture=1,GetDrawLayer=1,GetEffectiveAttribute=1,\n"
         "GetEffectiveScale=1,GetFieldSize=1,GetFileHeight=1,GetFileWidth=1,GetFont=1,\n"
         "GetFontObject=1,GetFontString=1,GetFrame=1,GetFrameLevel=1,GetFrameRef=1,\n"
@@ -3226,7 +3264,7 @@ void LuaEngine::registerCoreAPI() {
         "HighlightText=1,HookScript=1,IgnoreDepth=1,InitializeTabardColors=1,Insert=1,\n"
         "IsEnabled=1,IsEquippedItem=1,IsEventRegistered=1,IsMouseEnabled=1,\n"
         "IsMouseOver=1,IsObjectType=1,IsOwned=1,IsProtected=1,IsShown=1,IsUnderMouse=1,\n"
-        "IsUnit=1,IsUserPlaced=1,IsVisible=1,LockHighlight=1,Lower=1,MoveUIPanel=1,\n"
+        "IsUnit=1,IsVisible=1,LockHighlight=1,Lower=1,MoveUIPanel=1,\n"
         "New=1,NumLines=1,OnFinished=1,OnUpdate=1,PageDown=1,PageUp=1,PingLocation=1,\n"
         "Play=1,Raise=1,RefreshUnit=1,RefreshValue=1,RegisterAutoHide=1,RegisterEvent=1,\n"
         "RegisterForClicks=1,RegisterForDrag=1,ReleaseFrame=1,\n"
@@ -3240,7 +3278,7 @@ void LuaEngine::registerCoreAPI() {
         "SetButtonState=1,SetBuybackItem=1,SetCamera=1,SetChecked=1,SetCheckedTexture=1,\n"
         "SetClampedToScreen=1,SetClampRectInsets=1,SetColorRGB=1,SetCooldown=1,\n"
         "SetCreature=1,SetCursorPosition=1,SetDesaturated=1,SetDisabledCheckedTexture=1,\n"
-        "SetDisabledFontObject=1,SetDisabledTexture=1,SetDisplayValue=1,SetDrawLayer=1,\n"
+        "SetDisabledFontObject=1,SetDisabledTexture=1,SetDrawLayer=1,\n"
         "SetEquipmentSet=1,SetFacing=1,SetFillAlpha=1,SetFillTexture=1,SetFocus=1,\n"
         "SetFont=1,SetFontObject=1,SetFontString=1,SetFormattedText=1,SetFrameLevel=1,\n"
         "SetFrameRate=1,SetFrameStrata=1,SetHeight=1,SetHighlightFontObject=1,\n"
@@ -3262,7 +3300,7 @@ void LuaEngine::registerCoreAPI() {
         "SetStatusBarTexture=1,SetTexCoord=1,SetText=1,SetTextHeight=1,\n"
         "SetTextInsets=1,SetTexture=1,SetToplevel=1,SetTotem=1,SetTracking=1,\n"
         "SetTradePlayerItem=1,SetTradeTargetItem=1,SetUIPanel=1,SetUnit=1,SetUnitAura=1,\n"
-        "SetUnitBuff=1,SetUnitDebuff=1,SetUserPlaced=1,SetValue=1,SetValueStep=1,\n"
+        "SetUnitBuff=1,SetUnitDebuff=1,SetValue=1,SetValueStep=1,\n"
         "SetVertexColor=1,SetVerticalScroll=1,SetWidth=1,SetZoom=1,Show=1,ShowUIPanel=1,\n"
         "ShowUIPanelFailed=1,StartMovie=1,StartMoving=1,StartSizing=1,Stop=1,\n"
         "StopMovie=1,StopMovingOrSizing=1,ToggleInputLanguage=1,TryOn=1,\n"
