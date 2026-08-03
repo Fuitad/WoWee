@@ -1,6 +1,7 @@
 // lua_action_api.cpp — Action bar, cursor/pickup, keyboard input, key bindings, and pet actions Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
+#include "game/bank_slots.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "ui/keybinding_manager.hpp"
 #include "core/config_paths.hpp"
@@ -581,16 +582,15 @@ static int lua_ClickSendMailItemButton(lua_State* L) {
 static int lua_PickupBagFromSlot(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
-    constexpr int kFirstBankBagSlot = 68;   // BankButtonIDToInvSlotID(1, true)
     const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
-    const int bagIndex = slot - kFirstBankBagSlot;
+    const int bagIndex = slot - game::slots::kFirstBankBagInventorySlot;
     if (bagIndex < 0 || bagIndex >= game::Inventory::BANK_BAG_SLOTS) return 0;
 
     // Carrying something: this is the drop, into the bag slot.
     uint8_t srcBag = 0, srcSlot = 0;
     if (cursorWireSlot(srcBag, srcSlot)) {
         gh->swapContainerItems(srcBag, srcSlot, 0xFF,
-                               static_cast<uint8_t>(slot - 1));
+                               static_cast<uint8_t>(game::slots::toWireSlot(slot)));
         clearCursorItem();
         return 0;
     }

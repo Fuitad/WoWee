@@ -1,6 +1,7 @@
 // lua_inventory_api.cpp — Items, containers, merchant, loot, equipment, trading, auction, and mail Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
+#include "game/bank_slots.hpp"
 #include "game/game_utils.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "core/logger.hpp"
@@ -571,12 +572,13 @@ static int lua_BankButtonIDToInvSlotID(lua_State* L) {
     // Both from the interface's own constants: the general slots start one past
     // the offset, and the bank bags start one past the last of them. Written as
     // the sum rather than as sixty-seven so the arithmetic is visible.
-    constexpr int kBankOffset = 39;        // BANK_CONTAINER_INVENTORY_OFFSET
-    constexpr int kGeneralSlots = 28;      // NUM_BANKGENERIC_SLOTS
     const int buttonId = static_cast<int>(luaL_checknumber(L, 1));
     const bool isBag = lua_toboolean(L, 2) != 0;
-    lua_pushnumber(L, isBag ? kBankOffset + kGeneralSlots + buttonId
-                            : kBankOffset + buttonId);
+    // The buttons count from one and so do inventory slots, so the nth button
+    // is the (n-1)th wire slot, crossed back into the interface's numbering.
+    const int wire = isBag ? game::slots::bankBagWireSlot(buttonId - 1)
+                           : game::slots::bankGeneralWireSlot(buttonId - 1);
+    lua_pushnumber(L, game::slots::toInventorySlot(wire));
     return 1;
 }
 
