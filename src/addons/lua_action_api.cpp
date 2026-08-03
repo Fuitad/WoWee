@@ -653,6 +653,104 @@ static int lua_GetModifiedClick(lua_State* L) {
 }
 static int lua_SetModifiedClick(lua_State* L) { (void)L; return 0; }
 
+
+// --- Trading ---
+//
+// Placing an item is the only part that needs the cursor, which is why these
+// live here. The peer's side is read-only: a trade slot of theirs can be looked
+// at and not touched, so clicking one does nothing rather than pretending.
+
+static int pushTradeSlot(lua_State* L, game::GameHandler* gh,
+                         const game::GameHandler::TradeSlot& slot) {
+    if (!slot.occupied || slot.itemId == 0) { return luaReturnNil(L); }
+    const auto* info = gh->getItemInfo(slot.itemId);
+    lua_pushstring(L, info ? info->name.c_str() : "");
+    lua_pushstring(L, gh->getItemIconPath(
+        info && info->displayInfoId ? info->displayInfoId : slot.displayId).c_str());
+    lua_pushnumber(L, slot.stackCount);
+    lua_pushboolean(L, 1);       // isUsable
+    lua_pushnil(L);              // enchantment: not carried by the trade packet
+    return 5;
+}
+
+static int lua_GetTradePlayerItemInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || i < 1 || i > game::GameHandler::TRADE_SLOT_COUNT) { return luaReturnNil(L); }
+    return pushTradeSlot(L, gh, gh->getMyTradeSlots()[i - 1]);
+}
+
+static int lua_GetTradeTargetItemInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || i < 1 || i > game::GameHandler::TRADE_SLOT_COUNT) { return luaReturnNil(L); }
+    return pushTradeSlot(L, gh, gh->getPeerTradeSlots()[i - 1]);
+}
+
+static int pushTradeLink(lua_State* L, game::GameHandler* gh,
+                         const game::GameHandler::TradeSlot& slot) {
+    const auto* info = (gh && slot.occupied) ? gh->getItemInfo(slot.itemId) : nullptr;
+    if (!info || info->name.empty()) { return luaReturnNil(L); }
+    const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
+    char link[256];
+    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+             ch, slot.itemId, info->name.c_str());
+    lua_pushstring(L, link);
+    return 1;
+}
+
+static int lua_GetTradePlayerItemLink(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || i < 1 || i > game::GameHandler::TRADE_SLOT_COUNT) { return luaReturnNil(L); }
+    return pushTradeLink(L, gh, gh->getMyTradeSlots()[i - 1]);
+}
+
+static int lua_GetTradeTargetItemLink(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || i < 1 || i > game::GameHandler::TRADE_SLOT_COUNT) { return luaReturnNil(L); }
+    return pushTradeLink(L, gh, gh->getPeerTradeSlots()[i - 1]);
+}
+
+// ClickTradeButton(slot) — put what is held into the slot, or take back what is
+// already there when nothing is held
+static int lua_ClickTradeButton(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || i < 1 || i > game::GameHandler::TRADE_SLOT_COUNT) return 0;
+    if (s_cursorType == CursorType::ITEM && s_cursorBag >= 0) {
+        gh->setTradeItem(static_cast<uint8_t>(i - 1),
+                         static_cast<uint8_t>(s_cursorBag),
+                         static_cast<uint8_t>(s_cursorSlot));
+        s_cursorType = CursorType::NONE;
+        s_cursorId = 0;
+        s_cursorBag = -1;
+    } else {
+        gh->clearTradeItem(static_cast<uint8_t>(i - 1));
+    }
+    return 0;
+}
+
+// The other side's slots belong to the other player.
+static int lua_ClickTargetTradeButton(lua_State* L) { (void)L; return 0; }
+
+static int lua_SetTradeMoney(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (gh) gh->setTradeGold(static_cast<uint64_t>(luaL_optnumber(L, 1, 0)));
+    return 0;
+}
+
+static int lua_CloseTrade(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->cancelTrade();
+    return 0;
+}
+
+static int lua_BeginTrade(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->acceptTradeRequest();
+    return 0;
+}
+
 // --- Keybinding API ---
 //
 // Which commands exist, and in what order, comes from bindings.xml: the emitter
@@ -1076,6 +1174,15 @@ void registerActionLuaAPI(lua_State* L) {
             wowee::ui::frameXmlSetCursorItem(icon);
             return 0;
         }},
+                {"GetTradePlayerItemInfo", lua_GetTradePlayerItemInfo},
+                {"GetTradeTargetItemInfo", lua_GetTradeTargetItemInfo},
+                {"GetTradePlayerItemLink", lua_GetTradePlayerItemLink},
+                {"GetTradeTargetItemLink", lua_GetTradeTargetItemLink},
+                {"ClickTradeButton",    lua_ClickTradeButton},
+                {"ClickTargetTradeButton", lua_ClickTargetTradeButton},
+                {"SetTradeMoney",       lua_SetTradeMoney},
+                {"CloseTrade",          lua_CloseTrade},
+                {"BeginTrade",          lua_BeginTrade},
                 {"GetBindingKey",       lua_GetBindingKey},
                 {"GetBindingAction",    lua_GetBindingAction},
                 {"GetNumBindings",      lua_GetNumBindings},
