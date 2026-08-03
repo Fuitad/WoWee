@@ -508,6 +508,14 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 int dupes = 0;
                 for (const auto& [name, count] : seen) {
                     if (count < 2) continue;
+                    // UIParent and WorldFrame are meant to be shared. The tree
+                    // has a root of that name, the bootstrap builds a
+                    // full-size one so FrameXML's own has something to fill,
+                    // and FrameXML then declares it as well. Reporting the
+                    // three every run trains the reader to skip the line, and
+                    // the line's whole value is catching the duplicate nobody
+                    // intended.
+                    if (name == "UIParent" || name == "WorldFrame") continue;
                     if (++dupes > 10) break;
                     LOG_WARNING("  DUPLICATE ", name, " — ", count,
                                 " visible widgets share this name");
