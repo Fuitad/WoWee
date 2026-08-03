@@ -3336,8 +3336,11 @@ void LuaEngine::registerCoreAPI() {
         "    end\n"
         "end\n"
 
-        "function mt:SetID(id) self.__id = id end\n"
-        "function mt:GetID() return self.__id or 0 end\n"
+        // SetID and GetID are defined further down, in the later chunk that
+        // binds the same metatable, and that copy wins. The pair here was
+        // byte-identical to it — same body, same __id key — so nothing
+        // depended on which one ran. Removed so the duplicate-definition
+        // check has nothing left to report but real faults.
         // The four edges are real bindings now, applied after this block.
         // Left here they would only be a silent fallback if that order ever
         // changed, and every frame reporting itself at the origin is worse
@@ -3356,8 +3359,16 @@ void LuaEngine::registerCoreAPI() {
         "    self.__clicks = set\n"
         "end\n"
 
-        "function mt:SetAttribute(name, value) self['attr_'..name] = value end\n"
-        "function mt:GetAttribute(name) return self['attr_'..name] end\n"
+        // SetAttribute and GetAttribute are defined further down, on the same
+        // metatable, in a later chunk that overwrites whatever is here — so an
+        // earlier pair is dead the moment it is written. The pair that used to
+        // sit here kept its values under a different key and took one argument
+        // where the real one takes three, and it is on the path every unit
+        // frame's click goes through: SecureButton_GetModifiedAttribute asks
+        // GetAttribute(prefix, name, suffix). Had the chunks ever been
+        // reordered, clicking a unit frame would have stopped targeting and
+        // right-clicking would have stopped opening a menu, with nothing to
+        // say why.
         "function mt:HookScript(scriptType, fn)\n"
         "    local orig = self.__scripts and self.__scripts[scriptType]\n"
         "    if orig then\n"

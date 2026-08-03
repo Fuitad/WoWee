@@ -160,5 +160,30 @@ def main():
     return 0
 
 
+# ── the same method defined twice in bootstrap Lua ──────────
+#
+# Every "function mt:X" lands on one metatable, so a second definition wins and
+# the first is dead the moment it is written. That is invisible to the checks
+# above, which compare C bindings against Lua rather than Lua against itself.
+#
+# It matters because the loser is not always harmless. A superseded
+# GetAttribute took one argument where the real one takes three and kept its
+# values under a different key — and it sat on the path every unit frame's
+# click goes through, so reordering the two chunks would have stopped
+# targeting and right-click menus with nothing to say why.
+import collections as _collections
+import pathlib as _pathlib
+_src = _pathlib.Path("src/addons/lua_engine.cpp").read_text()
+_defs = _collections.Counter(
+    re.findall(r'"function\s+[\w.]*[Mm][Tt]\w*\s*:\s*(\w+)', _src))
+_dupes = sorted(n for n, c in _defs.items() if c > 1)
+print("\nbootstrap Lua defining the same metatable method more than once:")
+if _dupes:
+    for n in _dupes:
+        print(f"    {n:28} {_defs[n]} definitions — the last one wins")
+else:
+    print("    (none)")
+
 if __name__ == "__main__":
     sys.exit(main())
+

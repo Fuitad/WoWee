@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <sstream>
 #include <set>
+#include <string_view>
 
 namespace wowee::addons {
 
@@ -1575,8 +1576,14 @@ static int lua_GetInventorySlotInfo(lua_State* L) {
 
 /// Which of the three lists a name refers to. The panel says "list", "owner"
 /// or "bidder" and every call that acts on a row is relative to one of them.
+/// Takes a view, not a string: every caller passes the `const char*` straight
+/// off the Lua stack, and a `const std::string&` parameter built a temporary
+/// from it on each call. The temporary was harmless — the reference returned
+/// points into the handler, never into `which` — but it made the compiler warn
+/// that it might dangle, and a warning nobody can act on is worse than the
+/// allocation it was reporting.
 static const game::AuctionListResult& auctionListFor(game::GameHandler* gh,
-                                                     const std::string& which) {
+                                                     std::string_view which) {
     if (which == "owner")  return gh->getAuctionOwnerResults();
     if (which == "bidder") return gh->getAuctionBidderResults();
     return gh->getAuctionBrowseResults();
