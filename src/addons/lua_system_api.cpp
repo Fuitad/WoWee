@@ -1806,7 +1806,13 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, 0);                   // instanceIDMostSig
             lua_pushboolean(L, l.difficulty >= 2 ? 1 : 0); // isRaid (25-man = raid)
             lua_pushnumber(L, l.difficulty >= 2 ? 25 : (l.difficulty >= 1 ? 10 : 5)); // maxPlayers
-            return 9;
+            // The difficulty in words, which the raid lockout row prints
+            // beside the instance name. It was not returned, so that column
+            // was blank on every saved instance.
+            static constexpr const char* kNames[] = {"Normal", "Heroic",
+                                                     "25 Normal", "25 Heroic"};
+            lua_pushstring(L, l.difficulty < 4 ? kNames[l.difficulty] : "Normal");
+            return 10;
         }},
                 {"CalendarGetDate", [](lua_State* L) -> int {
             // CalendarGetDate() → weekday, month, day, year
