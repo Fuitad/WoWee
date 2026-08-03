@@ -39,9 +39,19 @@ patterns = [
                                 r'|' + CALL + r'\s*\.\.')),
 ]
 
+# The same fault with a variable in between: `local x = Missing()` and then x
+# used somewhere nil raises, a few lines down. Concatenation belongs here as
+# much as arithmetic — the barber shop reads
+#     local hairCustomization = GetHairCustomization();
+#     ... _G["HAIR_"..hairCustomization.."_STYLE"]
+# and it was the concatenation, not any arithmetic, that took the addon down.
+ASSIGN = re.compile(r'\blocal\s+([A-Za-z_]\w*)\s*=\s*'
+                    r'(?<![:.])([A-Z][A-Za-z0-9_]{3,})\s*\(')
+
 hits = collections.defaultdict(list)
 for f, t in texts.items():
-    for i, line in enumerate(t.splitlines(), 1):
+    lines = t.splitlines()
+    for i, line in enumerate(lines, 1):
         if line.lstrip().startswith("--"):
             continue
         for label, pat in patterns:
@@ -50,6 +60,28 @@ for f, t in texts.items():
                 if fn in known:
                     continue
                 hits[fn].append((label, f"{f.name}:{i}: {line.strip()[:88]}"))
+
+        m = ASSIGN.search(line)
+        if not m or m.group(2) in known:
+            continue
+        var, fn = m.group(1), m.group(2)
+        use = re.compile(r'\b' + re.escape(var) + r'\s*(?:[<>]=?|[-+*/]|\.\.)'
+                         r'|(?:[-+*/]|\.\.)\s*\b' + re.escape(var) + r'\b')
+        # A guard between the two makes the use safe, and this is the whole
+        # reason the shape was left out of the contract checker before: most
+        # candidates are `local x = Foo(); if ( x ) then ... x .. "y" ...`,
+        # where nil never reaches anything. Without noticing the guard the
+        # report is 20-odd false positives and gets ignored.
+        guard = re.compile(r'\bif\s*\(?\s*(?:not\s+)?' + re.escape(var) + r'\b')
+        for j, later in enumerate(lines[i:i + 20], start=i + 1):
+            if later.lstrip().startswith("--"):
+                continue
+            if guard.search(later):
+                break
+            if use.search(later):
+                hits[fn].append(("assigned then used",
+                                 f"{f.name}:{j}: {later.strip()[:88]}"))
+                break
 
 for fn in sorted(hits):
     labels = {l for l, _ in hits[fn]}
