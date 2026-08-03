@@ -307,6 +307,35 @@ static int lua_GetAutoCompleteResults(lua_State* L) {
 }
 
 
+
+// AddOrRemoveFriend(name, note) / AddOrDelIgnore(name) — the slash commands
+//
+// /friend and /ignore both toggle: naming someone already on the list takes
+// them off it. That is what the "OrRemove" and "OrDel" in the names mean, and
+// getting it backwards would remove the friend the player was trying to add.
+static int lua_AddOrRemoveFriend(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const std::string name = luaL_optstring(L, 1, "");
+    const std::string note = luaL_optstring(L, 2, "");
+    if (!gh || name.empty()) return 0;
+    for (const auto& c : gh->getContacts()) {
+        if (c.isFriend() && c.name == name) { gh->removeFriend(name); return 0; }
+    }
+    gh->addFriend(name, note);
+    return 0;
+}
+
+static int lua_AddOrDelIgnore(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const std::string name = luaL_optstring(L, 1, "");
+    if (!gh || name.empty()) return 0;
+    for (const auto& c : gh->getContacts()) {
+        if (c.isIgnored() && c.name == name) { gh->removeIgnore(name); return 0; }
+    }
+    gh->addIgnore(name);
+    return 0;
+}
+
 // --- The confirmations that answer another player ---
 //
 // Every one of these popups already appears: the client fires
@@ -779,6 +808,8 @@ void registerSocialLuaAPI(lua_State* L) {
                 // the frame reads it as "not ForceGossip()" to decide whether
                 // to go straight to a lone vendor or flight master — which is
                 // what the real client does, so a definite no keeps that.
+                {"AddOrRemoveFriend",   lua_AddOrRemoveFriend},
+                {"AddOrDelIgnore",      lua_AddOrDelIgnore},
                 {"AcceptGroup",         lua_AcceptGroup},
                 {"DeclineGroup",        lua_DeclineGroup},
                 {"AcceptGuild",         lua_AcceptGuild},
