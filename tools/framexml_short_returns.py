@@ -49,7 +49,14 @@ for f in ADDONS.glob("*.cpp"):
         nxt2 = s.find("\nstatic int ", m.end())
         end = min(x for x in [nxt, nxt2, len(s)] if x != -1)
         body = s[m.end():end]
+        # Plain `return N;` and the conditional form `return c ? N : M;`.
+        # Only the first was matched, and UnitCastingInfo ends
+        # `return wantChannel ? 8 : 9;` — so a binding returning nine values
+        # read as returning none and never appeared here, while the cast bar
+        # was raising on a shifted endTime.
         rets = [int(x) for x in re.findall(r"\breturn\s+(\d+)\s*;", body)]
+        for a, b in re.findall(r"\breturn\s+[^;]*\?\s*(\d+)\s*:\s*(\d+)\s*;", body):
+            rets += [int(a), int(b)]
         if rets:
             pushes[name] = max(rets)
 
