@@ -2349,23 +2349,43 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh) gh->leaveChannel(name);
             return 0;
         }},
+                // GetChannelName(indexOrName) → id, name, instanceID
+                //
+                // Three values, and the first is a NUMBER. This was returning
+                // the seven-value shape GetChannelDisplayInfo uses, so the
+                // channel number came back as the channel's name and
+                // chatframe.lua compared a string to a number —
+                // `if ( channelNum <= 0 )` — which raises rather than failing
+                // quietly. Addressing a channel by number, "/1 hello", went
+                // through exactly that line.
+                //
+                // Zero means "not in that channel", which is what every caller
+                // tests for.
                 {"GetChannelName", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            int index = static_cast<int>(luaL_checknumber(L, 1));
-            if (!gh || index < 1) { return luaReturnNil(L); }
-            std::string name = gh->getChannelByIndex(index - 1);
-            if (!name.empty()) {
-                lua_pushstring(L, name.c_str());
-                lua_pushstring(L, ""); // header
-                lua_pushboolean(L, 0); // collapsed
-                lua_pushnumber(L, index); // channelNumber
-                lua_pushnumber(L, 0); // count
-                lua_pushboolean(L, 1); // active
-                lua_pushstring(L, "CHANNEL_CATEGORY_CUSTOM"); // category
-                return 7;
+            if (!gh) { lua_pushnumber(L, 0); lua_pushnil(L); lua_pushnumber(L, 0); return 3; }
+            const auto& joined = gh->getJoinedChannels();
+
+            int index = 0;
+            if (lua_isnumber(L, 1)) {
+                index = static_cast<int>(lua_tonumber(L, 1));
+            } else if (const char* wanted = lua_tostring(L, 1)) {
+                // Accepts a name as well as an index; chat's slash handlers
+                // pass whichever the player typed.
+                for (size_t i = 0; i < joined.size(); ++i) {
+                    if (joined[i] == wanted) { index = static_cast<int>(i) + 1; break; }
+                }
             }
-            lua_pushnil(L);
-            return 1;
+            if (index < 1 || index > static_cast<int>(joined.size())) {
+                lua_pushnumber(L, 0);
+                lua_pushnil(L);
+                lua_pushnumber(L, 0);
+                return 3;
+            }
+            lua_pushnumber(L, index);
+            lua_pushstring(L, joined[static_cast<size_t>(index) - 1].c_str());
+            lua_pushnumber(L, 0);   // instanceID — one instance of each here
+            return 3;
         }},
     };
     for (const auto& [name, func] : api) {

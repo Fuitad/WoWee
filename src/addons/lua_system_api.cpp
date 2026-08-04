@@ -1019,6 +1019,10 @@ static int lua_ReturnZero(lua_State* L)  { lua_pushnumber(L, 0.0); return 1; }
 static int& selectedSkill() { static int v = 0; return v; }
 static int lua_ReturnNothing(lua_State*) { return 0; }
 
+/// Which channel the channel-list panel has highlighted. Panel state with no
+/// counterpart in the game, kept here so the getter and setter agree.
+static int& selectedDisplayChannel() { static int selected = 0; return selected; }
+
 /// A cooldown that is not running: start and duration both zero. Two values,
 /// because the caller adds them together on the next line —
 /// local start, duration = GetSummonFriendCooldown(); start + duration — and
@@ -2566,6 +2570,30 @@ void registerSystemLuaAPI(lua_State* L) {
                 // the raise was one click away rather than in a corner.
                 {"KBSetup_GetCategoryCount",    lua_ReturnZero},
                 {"KBSetup_GetSubCategoryCount", lua_ReturnZero},
+                // The other thirteen, which the note above should have covered
+                // and did not: two counts were bound and the rest of the same
+                // window was not, so the "?" button still raised — on
+                // KBSetup_BeginLoading, which KnowledgeBaseFrame_OnShow calls
+                // before anything else.
+                //
+                // Every caller here guards, and guards on exactly what an
+                // absent knowledge base should say. KnowledgeBaseFrame_Search
+                // returns early unless KBSetup_IsLoaded, the MOTD and notice
+                // are both `if ( x )`, and the article lists are walked by the
+                // counts. Never loaded, nothing in it.
+                {"KBSetup_IsLoaded",            lua_ReturnFalse},
+                {"KBSetup_BeginLoading",        lua_ReturnNothing},
+                {"KBQuery_BeginLoading",        lua_ReturnNothing},
+                {"KBArticle_BeginLoading",      lua_ReturnNothing},
+                {"KBSetup_GetArticleHeaderCount", lua_ReturnZero},
+                {"KBSetup_GetTotalArticleCount",  lua_ReturnZero},
+                {"KBQuery_GetArticleHeaderCount", lua_ReturnZero},
+                {"KBQuery_GetTotalArticleCount",  lua_ReturnZero},
+                {"KBSetup_GetCategoryData",     lua_ReturnNil},
+                {"KBSetup_GetSubCategoryData",  lua_ReturnNil},
+                {"KBArticle_GetData",           lua_ReturnNil},
+                {"KBSystem_GetMOTD",            lua_ReturnNil},
+                {"KBSystem_GetServerNotice",    lua_ReturnNil},
                 // Three more counts read straight into a comparison or a
                 // format, with the same result: the socketing window walks
                 // `i <= numSockets`, the PvP frame formats the season number
@@ -2843,7 +2871,16 @@ void registerSystemLuaAPI(lua_State* L) {
                 // Counts a loop bounds itself with. FrameXML writes
                 // "for i = 0, num-1" straight after asking, so nothing is not
                 // an answer — it is arithmetic on nil and the file is lost.
-                {"GetNumDisplayChannels",    lua_ReturnZero},
+                // The channel list panel walks these two, and both answered
+                // "there are none" while the client knew exactly which
+                // channels the player had joined — GetChannelList reports them
+                // from the same vector. A stub saying empty is how a working
+                // panel shows nothing.
+                {"GetNumDisplayChannels", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? static_cast<double>(gh->getJoinedChannels().size()) : 0.0);
+            return 1;
+        }},
                 {"GetNumMapOverlays",        lua_ReturnZero},
                 {"GetNumMapDebugObjects",    lua_ReturnZero},
                 {"GetNumBattlefieldPositions", lua_ReturnZero},
@@ -2887,7 +2924,31 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetSelectedSkill", [](lua_State* L) -> int {
             lua_pushnumber(L, selectedSkill()); return 1; }},
                 {"DungeonUsesTerrainMap",    lua_ReturnFalse},
-                {"GetChannelDisplayInfo",    lua_ReturnNil},
+                // GetChannelDisplayInfo(i) → name, header, collapsed,
+                //   channelNumber, count, active, category, voiceEnabled,
+                //   voiceActive
+                //
+                // header is FALSE, not "". An empty string is true in Lua, so
+                // returning one marks every channel as a category header:
+                // channelframe.lua does `if ( self.header )` and would draw
+                // each row as a heading, then call ExpandChannelHeader on it.
+                {"GetChannelDisplayInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh || index < 1) { lua_pushnil(L); return 1; }
+            const auto& joined = gh->getJoinedChannels();
+            if (index > static_cast<int>(joined.size())) { lua_pushnil(L); return 1; }
+            lua_pushstring(L, joined[static_cast<size_t>(index) - 1].c_str());
+            lua_pushboolean(L, 0);      // header — flat list, no categories
+            lua_pushboolean(L, 0);      // collapsed
+            lua_pushnumber(L, index);   // channelNumber
+            lua_pushnumber(L, 0);       // count — no roster is tracked
+            lua_pushboolean(L, 1);      // active
+            lua_pushstring(L, "CHANNEL_CATEGORY_CUSTOM");
+            lua_pushboolean(L, 0);      // voiceEnabled
+            lua_pushboolean(L, 0);      // voiceActive
+            return 9;
+        }},
                 {"IsThreatWarningEnabled",   lua_ReturnFalse},
                 // IsAutoRepeatAction(slot) — the button flashes for as long as
                 // an auto-repeat is running. There are exactly two in 3.3.5,
@@ -2991,7 +3052,26 @@ void registerSystemLuaAPI(lua_State* L) {
             return 3;
         }},
                 {"GetMasterLootCandidate",   lua_ReturnNil},
-                {"GetSelectedDisplayChannel", lua_ReturnNil},
+                // The selection is the panel's own state and nothing else
+                // reads it, so it lives here and round-trips. Answering nil
+                // for the getter meant the highlight never moved.
+                {"GetSelectedDisplayChannel", [](lua_State* L) -> int {
+            lua_pushnumber(L, selectedDisplayChannel());
+            return 1;
+        }},
+                {"SetSelectedDisplayChannel", [](lua_State* L) -> int {
+            selectedDisplayChannel() = static_cast<int>(luaL_optnumber(L, 1, 0));
+            return 0;
+        }},
+                // No categories exist to open or close — see the header note
+                // on GetChannelDisplayInfo — but the row click handler calls
+                // one of these on whatever it was given.
+                {"ExpandChannelHeader",      lua_ReturnNothing},
+                {"CollapseChannelHeader",    lua_ReturnNothing},
+                // Who is in a channel. The server sends a roster only on
+                // request and this client never asks, so there is nobody to
+                // report; the count above is zero for the same reason.
+                {"GetChannelRosterInfo",     lua_ReturnNil},
                 {"GetWintergraspWaitTime",   lua_ReturnNil},
                 {"GetNumWorldStateUI",       lua_GetNumWorldStateUI},
                 {"GetWorldStateUIInfo",      lua_GetWorldStateUIInfo},
