@@ -77,6 +77,16 @@ public:
     /// the mouse is finally heard from again.
     bool holdsMousePress() const;
 
+    /// Take the cursor away from the interface: whatever it was over is told
+    /// OnLeave and nothing is left highlighted.
+    ///
+    /// For when the mouse has gone somewhere this client's own interface claims
+    /// and dispatchMouse is not going to run. Hover is only ever changed in
+    /// there, so without this a frame the cursor merely slid off keeps its
+    /// highlight and its tooltip for as long as the cursor stays away — the
+    /// tree's last word on the subject is that the cursor is still on it.
+    void releaseMouseHover();
+
     /// The wheel, to the frame under the cursor that asked for it.
     ///
     /// Returns true when a frame took it, so the caller knows not to also zoom

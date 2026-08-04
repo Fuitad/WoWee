@@ -3297,7 +3297,11 @@ void Application::render() {
                 }
             }
 
-            if (!overClientUi) {
+            if (overClientUi) {
+                // Nothing below is going to run, so say so rather than leaving
+                // the tree believing the cursor is still where it last saw it.
+                engine->releaseMouseHover();
+            } else {
                 addons::LuaEngine::MouseButtons buttons;
                 buttons.left   = ImGui::IsMouseDown(ImGuiMouseButton_Left);
                 buttons.right  = ImGui::IsMouseDown(ImGuiMouseButton_Right);

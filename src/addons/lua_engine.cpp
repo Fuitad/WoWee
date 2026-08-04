@@ -5865,6 +5865,21 @@ bool LuaEngine::holdsMousePress() const {
     return draggingWid_ != 0 || widgets_.movingWidget() != 0;
 }
 
+void LuaEngine::releaseMouseHover() {
+    if (!L_) return;
+    if (hoverWid_ != 0) {
+        callFrameScript(hoverWid_, "OnLeave");
+        hoverWid_ = 0;
+    }
+    widgets_.setInteraction(0, 0);
+    // Nothing is under the cursor and nothing is holding it, which is the
+    // camera's cue that it may turn again.
+    ui::frameXmlNoteMouseOwned(false);
+    // The next position the tree hears is a fresh one rather than the far end
+    // of however far the cursor travelled while it was not listening.
+    haveCursor_ = false;
+}
+
 void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
     if (!L_) return;
     // The cursor arrives in pixels and the tree is in interface units, so this
