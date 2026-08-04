@@ -15,7 +15,7 @@ namespace {
 struct Entry { UiElement element; std::string_view name; };
 
 // One row per element, and the only place a name is written down.
-constexpr std::array<Entry, 45> kElements{{
+constexpr std::array<Entry, 46> kElements{{
     {UiElement::PlayerFrame,  "playerframe"},
     {UiElement::TargetFrame,  "targetframe"},
     {UiElement::PetFrame,     "petframe"},
@@ -50,6 +50,7 @@ constexpr std::array<Entry, 45> kElements{{
     {UiElement::Inspect,      "inspect"},
     {UiElement::Buffs,        "buffs"},
     {UiElement::Durability,   "durability"},
+    {UiElement::ZoneText,     "zonetext"},
     {UiElement::Achievements, "achievements"},
     {UiElement::BarberShop,   "barbershop"},
     {UiElement::Taxi,         "taxi"},
@@ -87,7 +88,8 @@ const std::set<std::string>& requested() {
             return std::set<std::string>{
                 "playerframe", "targetframe", "minimap",
                 "mainmenubar", "characterframe", "bags", "castbar",
-                "spellbook", "petframe", "focusframe", "buffs", "durability"};
+                "spellbook", "petframe", "focusframe", "buffs", "durability",
+                "zonetext"};
         }();
 
         if (!raw || !*raw) {
@@ -411,6 +413,10 @@ const Suppress kSuppress[] = {
         // WatchFrameTitle is the "Objectives" label, and the buttons beside it
         // ride on the same frame.
         {UiElement::QuestTracker, "WatchFrame"},
+        // Both, because the sub-zone line is a separate frame that fades on its
+        // own — naming only the zone would leave "Trade District" announcing
+        // itself twice while "Stormwind City" announced itself once.
+        {UiElement::ZoneText,   "ZoneTextFrame SubZoneTextFrame"},
     };
 }  // namespace
 
@@ -530,6 +536,9 @@ std::vector<std::string> frameXmlCheckFrames() {
         {UiElement::StanceBar,    "ShapeshiftBarFrame ShapeshiftButton1"},
         {UiElement::CastBar,      "CastingBarFrame CastingBarFrameBorder CastingBarFrameText"},
         {UiElement::Chat,         "ChatFrame1 ChatFrame1EditBox GeneralDockManager"},
+        // Both are hidden except during the fade, so NOT BUILT is the fault to
+        // look for here and hidden is the normal state.
+        {UiElement::ZoneText,     "ZoneTextFrame ZoneTextString SubZoneTextFrame"},
         {UiElement::QuestTracker, "WatchFrame WatchFrameTitle"},
         {UiElement::FocusFrame,   "FocusFrame FocusFrameHealthBar"},
         {UiElement::WorldMap,     "WorldMapFrame WorldMapDetailFrame WorldMapButton "

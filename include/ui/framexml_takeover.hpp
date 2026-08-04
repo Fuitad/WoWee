@@ -85,6 +85,13 @@ enum class UiElement {
     /// DurabilityFrame is checked as in use and this client drew its own
     /// warning beside it.
     Durability,
+    /// The zone name that appears on crossing into one. Same story again:
+    /// FrameXML's ZoneTextFrame listens for ZONE_CHANGED_NEW_AREA, which this
+    /// client fires, so its large centred banner was raised beside this
+    /// client's own smaller one and every zone crossing announced itself
+    /// twice. The large one is what retail shows, so this is handed over
+    /// rather than suppressed.
+    ZoneText,
     /// Windows this client draws that FrameXML also has. The last three cannot
     /// appear today because the events that would show them are not fired —
     /// but that is a fact about the client's current reach, not a decision,

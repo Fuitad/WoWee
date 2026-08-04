@@ -5,6 +5,7 @@
 #include "rendering/animation_controller.hpp"
 #include "audio/audio_coordinator.hpp"
 #include "audio/ui_sound_manager.hpp"
+#include "ui/framexml_takeover.hpp"
 
 #include <imgui.h>
 #include <algorithm>
@@ -1204,6 +1205,13 @@ void ToastManager::renderZoneText(game::GameHandler& gameHandler) {
     float dt = ImGui::GetIO().DeltaTime;
     zoneTextTimer_ -= dt;
     if (zoneTextTimer_ < 0.0f) zoneTextTimer_ = 0.0f;
+
+    // Drawn only if FrameXML is not, but tracked either way: the zone toasts
+    // above are suppressed while this timer is running, so a plain early
+    // return at the top of this function would swap one duplicate for
+    // another — the banner would go and "Entering: Stormwind City" would come
+    // back beside FrameXML's.
+    if (frameXmlOwns(UiElement::ZoneText)) return;
 
     auto* window = services_.window;
     float screenW = window ? static_cast<float>(window->getWidth())  : 1280.0f;
