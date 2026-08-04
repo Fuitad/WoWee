@@ -687,23 +687,48 @@ static int lua_ClickSendMailItemButton(lua_State* L) {
 // drop things from. It has had one all along, with both halves of a drag in
 // one function, and the wire numbers here are the ones its own bank window
 // already sends.
+/// The nth worn bag, as Lua numbers inventory slots — the four beside the
+/// backpack. BagSlotButton_OnDrag passes exactly these.
+static constexpr int kFirstWornBagInventorySlot =
+    game::slots::toInventorySlot(game::slots::wornBagContainer(0));
+
 static int lua_PickupBagFromSlot(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
     const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
-    const int bagIndex = slot - game::slots::kFirstBankBagInventorySlot;
-    if (bagIndex < 0 || bagIndex >= game::Inventory::BANK_BAG_SLOTS) return 0;
+
+    const int bankIndex = slot - game::slots::kFirstBankBagInventorySlot;
+    const int wornIndex = slot - kFirstWornBagInventorySlot;
+    const bool isBank = bankIndex >= 0 && bankIndex < game::Inventory::BANK_BAG_SLOTS;
+    const bool isWorn = wornIndex >= 0 && wornIndex < game::Inventory::NUM_BAG_SLOTS;
+    // Only the bank half was handled, so dragging one of the four worn bags did
+    // nothing at all — it returned here before doing anything. Latent until the
+    // bag bar was handed over, because this client's own bar never called it.
+    if (!isBank && !isWorn) return 0;
 
     // Carrying something: this is the drop, into the bag slot.
     uint8_t srcBag = 0, srcSlot = 0;
     if (cursorWireSlot(srcBag, srcSlot)) {
-        gh->swapContainerItems(srcBag, srcSlot, 0xFF,
-                               static_cast<uint8_t>(game::slots::toWireSlot(slot)));
+        const int srcWorn = s_cursorSlot - kFirstWornBagInventorySlot;
+        const bool fromWorn = s_cursorBag == -1 &&
+                              srcWorn >= 0 && srcWorn < game::Inventory::NUM_BAG_SLOTS;
+        if (fromWorn && isWorn) {
+            // Both are worn bags, which has its own verb: it swaps the bags'
+            // contents locally as well as sending the move, so the bags on
+            // screen do not have to wait for the server to agree.
+            gh->swapBagSlots(srcWorn, wornIndex);
+        } else {
+            gh->swapContainerItems(srcBag, srcSlot, 0xFF,
+                                   static_cast<uint8_t>(game::slots::toWireSlot(slot)));
+        }
         clearCursorItem(L);
         return 0;
     }
 
-    const auto& held = gh->getInventory().getBankBagItem(bagIndex);
+    const auto& held = isBank
+        ? gh->getInventory().getBankBagItem(bankIndex)
+        : gh->getInventory().getEquipSlot(static_cast<game::EquipSlot>(
+              static_cast<int>(game::EquipSlot::BAG1) + wornIndex));
     if (held.empty()) return 0;
     setCursorType(L, CursorType::ITEM);
     s_cursorId = held.item.itemId;
