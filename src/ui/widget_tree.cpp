@@ -207,12 +207,24 @@ namespace {
 /// An axis where the frame is larger than the screen is left alone: there is
 /// no position that satisfies both edges, and snapping to one of them moves
 /// the frame for no benefit.
+/// Keep a frame on screen, allowing for the insets it declared.
+///
+/// The insets move the edges of the rectangle that has to stay on screen,
+/// which is not the same as the frame's own rectangle. Positive is inward, as
+/// everywhere else in WoW: a positive right inset lets that much of the frame
+/// hang past the right edge, and a negative one holds it that much clear of it.
+///
+/// The world map names the case exactly — SetClampRectInsets(0, 0, 0, -60)
+/// with "don't overlap the xp/rep bars" beside it, so a negative bottom keeps
+/// the frame sixty above the bottom edge rather than letting it reach.
 void clampInside(const Widget& screen, float rectW, float rectH,
-                 float& left, float& bottom) {
-    const float loX = screen.left;
-    const float hiX = screen.left + screen.rectW - rectW;
-    const float loY = screen.bottom;
-    const float hiY = screen.bottom + screen.rectH - rectH;
+                 float& left, float& bottom,
+                 float insetL = 0.0f, float insetR = 0.0f,
+                 float insetT = 0.0f, float insetB = 0.0f) {
+    const float loX = screen.left - insetL;
+    const float hiX = screen.left + screen.rectW - rectW + insetR;
+    const float loY = screen.bottom - insetB;
+    const float hiY = screen.bottom + screen.rectH - rectH + insetT;
     if (hiX >= loX) left   = std::clamp(left,   loX, hiX);
     if (hiY >= loY) bottom = std::clamp(bottom, loY, hiY);
 }
@@ -234,7 +246,8 @@ void WidgetTree::nudge(uint32_t id, float dx, float dy) {
             // the rect: the clamped position is what the anchors have to add
             // up to, not something that can be written to left/bottom here.
             float left = w->left + dx, bottom = w->bottom + dy;
-            clampInside(*screen, w->rectW, w->rectH, left, bottom);
+            clampInside(*screen, w->rectW, w->rectH, left, bottom,
+                        w->clampInsetL, w->clampInsetR, w->clampInsetT, w->clampInsetB);
             dx = left - w->left;
             dy = bottom - w->bottom;
         }
@@ -508,7 +521,8 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
     if (w->clampedToScreen && id != rootId_ &&
         w->rectW > 0.0f && w->rectH > 0.0f) {
         if (const Widget* screen = get(rootId_)) {
-            clampInside(*screen, w->rectW, w->rectH, w->left, w->bottom);
+            clampInside(*screen, w->rectW, w->rectH, w->left, w->bottom,
+                        w->clampInsetL, w->clampInsetR, w->clampInsetT, w->clampInsetB);
         }
     }
 

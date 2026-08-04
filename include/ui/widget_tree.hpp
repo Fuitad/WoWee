@@ -99,6 +99,11 @@ struct Widget {
     /// move; without it a window dragged past the edge is gone for good, since
     /// the only way back is a drag on a title bar that is no longer reachable.
     bool clampedToScreen = false;
+    // How far past each screen edge a clamped frame may sit. Positive is
+    // inward, so a positive right lets that much hang off and a negative one
+    // holds it clear. Only read when clampedToScreen is set.
+    float clampInsetL = 0.0f, clampInsetR = 0.0f;
+    float clampInsetT = 0.0f, clampInsetB = 0.0f;
     /// Whether clicking this frame brings it to the front of its strata. WoW
     /// calls it toplevel, and it is what stops one window staying buried under
     /// another once two overlap. FrameXML declares it on 102 frames.

@@ -2162,6 +2162,24 @@ int lua_Frame_IsClampedToScreen(lua_State* L) {
     return 1;
 }
 
+/// SetClampRectInsets(left, right, top, bottom) — how far past each screen
+/// edge a clamped frame is allowed to sit.
+///
+/// It answered with a no-op, so every clamped frame was held fully on screen.
+/// The world map says what that costs in a comment beside its own call —
+/// SetClampRectInsets(0, 0, 0, -60), "don't overlap the xp/rep bars" — and the
+/// chat frame, which is clamped and movable and asks to overhang on three
+/// sides, could be dragged to places the real client does not allow.
+int lua_Frame_SetClampRectInsets(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    w->clampInsetL = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+    w->clampInsetR = static_cast<float>(luaL_optnumber(L, 3, 0.0));
+    w->clampInsetT = static_cast<float>(luaL_optnumber(L, 4, 0.0));
+    w->clampInsetB = static_cast<float>(luaL_optnumber(L, 5, 0.0));
+    return 0;
+}
+
 int lua_Frame_SetBackdrop(lua_State* L) {
     auto* w = widgetOf(L, 1);
     if (!w) return 0;
@@ -3171,6 +3189,7 @@ void LuaEngine::registerCoreAPI() {
         {"Raise",                 lua_Frame_Raise},
         {"Lower",                 lua_Frame_Lower},
         {"SetClampedToScreen",    lua_Frame_SetClampedToScreen},
+        {"SetClampRectInsets",    lua_Frame_SetClampRectInsets},
         {"IsClampedToScreen",     lua_Frame_IsClampedToScreen},
         {"SetBackdrop",           lua_Frame_SetBackdrop},
         {"SetBackdropColor",      lua_Frame_SetBackdropColor},
@@ -3738,7 +3757,7 @@ void LuaEngine::registerCoreAPI() {
         "SetBindingClick=1,SetBindingItem=1,SetBindingMacro=1,SetBindingSpell=1,\n"
         "SetBlendMode=1,SetBorderAlpha=1,SetBorderScalar=1,SetBorderTexture=1,\n"
         "SetButtonState=1,SetBuybackItem=1,SetCamera=1,SetChecked=1,SetCheckedTexture=1,\n"
-        "SetClampedToScreen=1,SetClampRectInsets=1,SetColorRGB=1,SetCooldown=1,\n"
+        "SetClampedToScreen=1,SetColorRGB=1,SetCooldown=1,\n"
         "SetCreature=1,SetCursorPosition=1,SetDesaturated=1,SetDisabledCheckedTexture=1,\n"
         "SetDisabledFontObject=1,SetDisabledTexture=1,SetDrawLayer=1,\n"
         "SetEquipmentSet=1,SetFacing=1,SetFillAlpha=1,SetFillTexture=1,SetFocus=1,\n"
