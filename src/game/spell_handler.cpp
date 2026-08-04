@@ -590,6 +590,14 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     LOG_DEBUG("castSpell: spellId=", spellId, " target=0x", std::hex, targetGuid, std::dec);
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
 
+    // Auto Shot and the wand's Shoot keep going once started, and the action
+    // button flashes for as long as they do. The stop half comes from the
+    // server on SMSG_CANCEL_AUTO_REPEAT; this is the start.
+    constexpr uint32_t kAutoShot = 75, kShoot = 5019;
+    if ((spellId == kAutoShot || spellId == kShoot) && owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("START_AUTOREPEAT_SPELL", {});
+    }
+
     // Food and water are server auras, but using any action interrupts them.
     // Cancel the aura and stand first, then allow the requested action to proceed.
     if (restorationActive_) cancelCast();

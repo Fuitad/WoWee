@@ -2761,7 +2761,26 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"DungeonUsesTerrainMap",    lua_ReturnFalse},
                 {"GetChannelDisplayInfo",    lua_ReturnNil},
                 {"IsThreatWarningEnabled",   lua_ReturnFalse},
-                {"IsAutoRepeatAction",       lua_ReturnFalse},
+                // IsAutoRepeatAction(slot) — the button flashes for as long as
+                // an auto-repeat is running. There are exactly two in 3.3.5,
+                // Auto Shot and the wand's Shoot, which is how IsAttackAction
+                // beside it identifies auto-attack: by id rather than by an
+                // attribute word this client does not cache.
+                {"IsAutoRepeatAction", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int slot = static_cast<int>(luaL_optnumber(L, 1, 0)) - 1;
+            bool repeating = false;
+            if (gh && slot >= 0) {
+                const auto& bar = gh->getActionBar();
+                if (slot < static_cast<int>(bar.size()) &&
+                    bar[slot].type == game::ActionBarSlot::SPELL) {
+                    constexpr uint32_t kAutoShot = 75, kShoot = 5019;
+                    repeating = bar[slot].id == kAutoShot || bar[slot].id == kShoot;
+                }
+            }
+            lua_pushboolean(L, repeating);
+            return 1;
+        }},
                 {"IsPetAttackAction",        lua_ReturnFalse},
                 {"IsMacClient",              lua_ReturnFalse},
                 // IsPartyLeader() — whether *this* player leads the group.

@@ -1097,8 +1097,12 @@ void GameHandler::registerOpcodeHandlers() {
     };
 
     // ---- Auto-repeat / auras / dispel / totem ----
-    dispatchTable_[Opcode::SMSG_CANCEL_AUTO_REPEAT] = [](network::Packet& /*packet*/) {
-        // Server signals to stop a repeating spell (wand/shoot); no client action needed
+    dispatchTable_[Opcode::SMSG_CANCEL_AUTO_REPEAT] = [this](network::Packet& /*packet*/) {
+        // The server saying a repeating spell has stopped. Nothing in this
+        // client's own interface reads it, which is why it did nothing — but
+        // the action button flashes for as long as one is running and stops on
+        // exactly this.
+        fireAddonEvent("STOP_AUTOREPEAT_SPELL", {});
     };
 
 
