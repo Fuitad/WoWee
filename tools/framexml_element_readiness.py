@@ -425,7 +425,7 @@ def main():
     settled = {
         "bags":         "BAG_OPEN/CLOSED are for a C client opening bags; FrameXML does it in Lua",
         "merchant":     "GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, which is fired",
-        "playerframe":  "voice chat, vehicles, the playtime nag and LFG roles — four absent features",
+        "playerframe":  "voice chat, vehicles and the playtime nag (PLAYER_ROLES_ASSIGNED was wrong here — roles are parsed and read, and it is fired now)",
         "mainmenubar":  "nine of nine calls and four events are vehicles; the rest verified",
         "minimap":      "four calls unreachable; tracking, zoom, movie recording, indoors all absent",
         "bgscore":      "both calls inside a loop over GetNumWorldStateUI, which answers zero",

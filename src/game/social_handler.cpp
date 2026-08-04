@@ -1899,6 +1899,11 @@ void SocialHandler::handleGroupList(network::Packet& packet) {
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("GROUP_ROSTER_UPDATE", {});
         owner_.addonEventCallbackRef()("PARTY_MEMBERS_CHANGED", {});
+        // The roles came with this roster and UnitGroupRolesAssigned reads them
+        // straight out of it. The player frame draws its tank or healer badge
+        // on this event and nothing else, so the roles were parsed, readable,
+        // and never shown.
+        owner_.addonEventCallbackRef()("PLAYER_ROLES_ASSIGNED", {});
         if (partyData.groupType == 1)
             owner_.addonEventCallbackRef()("RAID_ROSTER_UPDATE", {});
     }
