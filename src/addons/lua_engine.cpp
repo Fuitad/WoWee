@@ -195,14 +195,29 @@ static int lua_Frame_SetScript(lua_State* L) {
     lua_pop(L, 1);
 
     // Track frames with OnUpdate in __WoweeOnUpdateFrames
+    //
+    // Once each. Clearing an OnUpdate leaves the frame on this list — the
+    // dispatcher skips it because the script is gone — so setting one again
+    // appended a second entry, and the frame was then ticked twice a frame
+    // with the same elapsed. Start-and-stop is the ordinary shape for this
+    // handler (UIFrameFade installs one for the fade and clears it at the
+    // end), so a frame that faded five times ran its next OnUpdate five times
+    // over and every timer driven by elapsed ran that many times too fast.
     if (strcmp(scriptType, "OnUpdate") == 0) {
         lua_getglobal(L, "__WoweeOnUpdateFrames");
         if (!lua_istable(L, -1)) { lua_pop(L, 1); return 0; }
         if (lua_isfunction(L, 3)) {
-            // Add frame to the list
-            int len = static_cast<int>(lua_objlen(L, -1));
-            lua_pushvalue(L, 1);
-            lua_rawseti(L, -2, len + 1);
+            const int len = static_cast<int>(lua_objlen(L, -1));
+            bool already = false;
+            for (int i = 1; i <= len && !already; ++i) {
+                lua_rawgeti(L, -1, i);
+                already = lua_rawequal(L, -1, 1) != 0;
+                lua_pop(L, 1);
+            }
+            if (!already) {
+                lua_pushvalue(L, 1);
+                lua_rawseti(L, -2, len + 1);
+            }
         }
         lua_pop(L, 1);
     }
