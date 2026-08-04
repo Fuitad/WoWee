@@ -399,6 +399,34 @@ def main():
     total = len(ELEMENTS) + len(ADDON_ELEMENTS)
     print()
     print(f"{len(ready)} of {total} with no known gaps: {' '.join(sorted(ready))}")
+
+    # Elements whose remaining names have each been read and found not to be
+    # work. They still show a count above, because this cannot tell an absent
+    # feature from a gap — that is the judgement, and it is written down here
+    # so the headline number stops understating what is finished.
+    #
+    # Every entry names why. Re-check one if its reason stops being true.
+    settled = {
+        "bags":         "BAG_OPEN/CLOSED are for a C client opening bags; FrameXML does it in Lua",
+        "merchant":     "GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, which is fired",
+        "playerframe":  "voice chat, vehicles, the playtime nag and LFG roles — four absent features",
+        "mainmenubar":  "nine of nine calls and four events are vehicles; the rest verified",
+        "minimap":      "four calls unreachable; tracking, zoom, movie recording, indoors all absent",
+        "bgscore":      "both calls inside a loop over GetNumWorldStateUI, which answers zero",
+        "questlog":     "every call is the world map API, absent because this client draws its own",
+        "questtracker": "same world map API, reached through worldmapframe.lua",
+        "worldmap":     "the map is this client's; CLOSE_WORLD_MAP needs the key to drive Lua",
+        "mail":         "the refund lock needs item refund state the client does not parse",
+        "help":         "the GM reply and survey carry text and questions nothing parses",
+    }
+    also = [e for e in settled if e not in ready]
+    if also:
+        print()
+        print(f"{len(also)} more read and settled — the count above cannot see this:")
+        for e in sorted(also):
+            print(f"  {e:<13} {settled[e]}")
+        print()
+        print(f"{len(ready) + len(also)} of {total} finished, on that reading.")
     print()
     print("To try one, name it alongside the current defaults — the environment")
     print("replaces the list rather than adding to it:")
