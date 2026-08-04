@@ -60,10 +60,22 @@ for f in ADDONS.glob("*.cpp"):
         if rets:
             pushes[name] = max(rets)
 
+def strip_comments(text: str) -> str:
+    """Drop Lua and XML comments.
+
+    The unbound sweep learned this and this one had not: mainmenubar.lua carries
+    a commented-out `--exhaustionCurrXP, exhaustionMaxXP = GetXPExhaustion()`
+    above the live single-value call, so GetXPExhaustion read as short by one
+    against a line nothing runs.
+    """
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+    return re.sub(r"--\[\[.*?\]\]|--[^\n]*", "", text, flags=re.S)
+
+
 # FrameXML: max destructured count per call
 unpack = {}
 for path in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
-    t = path.read_text(errors="ignore")
+    t = strip_comments(path.read_text(errors="ignore"))
     for m in re.finditer(r"(?:local\s+)?([A-Za-z_][\w., \t]*?)\s*=\s*([A-Z][A-Za-z0-9_]*)\s*\(", t):
         lhs, fn = m.group(1), m.group(2)
         if "." in lhs or "[" in lhs:
