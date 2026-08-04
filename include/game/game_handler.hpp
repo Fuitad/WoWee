@@ -726,6 +726,8 @@ public:
     void clearMainTank();
     void clearMainAssist();
     void requestRaidInfo();
+    /// Hold a raid lockout past its reset, or let it go. Raid binds only.
+    void setSavedInstanceExtend(uint32_t mapId, uint32_t difficulty, bool extend);
 
     // Combat and Trade
     void proposeDuel(uint64_t targetGuid);

@@ -3476,6 +3476,24 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushstring(L, gh->getWhoAreaName(gh->getHomeBindZoneId()).c_str());
             return 1;
         }},
+                // SetSavedInstanceExtend(index, doExtend) — the Extend button
+                // on the raid lockout list, which raidframe.lua enables for any
+                // selected row. Everything around it was bound; this one was
+                // not, so pressing it raised.
+                //
+                // The call gives a position in the list and the wire wants the
+                // map and difficulty, which is what the lockout at that
+                // position holds.
+                {"SetSavedInstanceExtend", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh || index < 1) return 0;
+            const auto& locks = gh->getInstanceLockouts();
+            if (index > static_cast<int>(locks.size())) return 0;
+            const auto& l = locks[static_cast<size_t>(index) - 1];
+            gh->setSavedInstanceExtend(l.mapId, l.difficulty, lua_toboolean(L, 2) != 0);
+            return 0;
+        }},
                 {"GetNumSavedInstances", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             lua_pushnumber(L, gh ? gh->getInstanceLockouts().size() : 0);

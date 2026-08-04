@@ -1849,6 +1849,18 @@ void SocialHandler::setRaidMark(uint64_t guid, uint8_t icon) {
     }
 }
 
+void SocialHandler::setSavedInstanceExtend(uint32_t mapId, uint32_t difficulty, bool extend) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    // uint32 mapId, uint32 difficulty, uint8 toggle — HandleSetSavedInstanceExtend.
+    // The server ignores it unless the bind is permanent and the flag actually
+    // changes, so there is nothing to check here that it does not check better.
+    network::Packet packet(wireOpcode(Opcode::CMSG_SET_SAVED_INSTANCE_EXTEND));
+    packet.writeUInt32(mapId);
+    packet.writeUInt32(difficulty);
+    packet.writeUInt8(extend ? 1 : 0);
+    owner_.getSocket()->send(packet);
+}
+
 void SocialHandler::requestRaidInfo() {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     auto packet = RequestRaidInfoPacket::build();

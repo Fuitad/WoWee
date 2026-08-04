@@ -239,6 +239,7 @@ public:
     // server-authoritative so every member sees the same icons.
     void setRaidMarkLocally(uint64_t guid, uint8_t icon);
     void requestRaidInfo();
+    void setSavedInstanceExtend(uint32_t mapId, uint32_t difficulty, bool extend);
 
     // Instance lockouts
     const std::vector<InstanceLockout>& getInstanceLockouts() const { return instanceLockouts_; }

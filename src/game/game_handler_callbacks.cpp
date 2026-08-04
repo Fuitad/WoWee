@@ -1757,6 +1757,10 @@ void GameHandler::requestRaidInfo() {
     if (socialHandler_) socialHandler_->requestRaidInfo();
 }
 
+void GameHandler::setSavedInstanceExtend(uint32_t mapId, uint32_t difficulty, bool extend) {
+    if (socialHandler_) socialHandler_->setSavedInstanceExtend(mapId, difficulty, extend);
+}
+
 void GameHandler::proposeDuel(uint64_t targetGuid) {
     if (socialHandler_) socialHandler_->proposeDuel(targetGuid);
 }
