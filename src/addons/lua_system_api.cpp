@@ -240,6 +240,11 @@ static int lua_GetCVar(lua_State* L) {
             lua_pushstring(L, svc->getMinimapRotate() ? "1" : "0");
             return 1;
         }
+    } else if (n == "autoselfcast") {
+        if (auto* gh = getGameHandler(L)) {
+            lua_pushstring(L, gh->isAutoSelfCast() ? "1" : "0");
+            return 1;
+        }
     }
     if (auto it = cvarStore().find(n); it != cvarStore().end()) {
         lua_pushstring(L, it->second.c_str());
@@ -406,6 +411,8 @@ static int lua_SetCVar(lua_State* L) {
     } else if (key == "rotateminimap") {
         if (auto* svc = getLuaServices(L); svc && svc->setMinimapRotate)
             svc->setMinimapRotate(value != "0");
+    } else if (key == "autoselfcast") {
+        if (auto* gh = getGameHandler(L)) gh->setAutoSelfCast(value != "0");
     }
     // Announced, because nine frames listen for it — the options panels redraw
     // themselves from this rather than from the click that caused it.

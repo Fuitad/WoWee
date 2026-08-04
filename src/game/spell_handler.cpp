@@ -721,7 +721,12 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     // to the caster when nothing friendly is selected — no target at all, or an
     // enemy, which is the usual state mid-fight. Without it, healing yourself
     // while fighting means dropping the target, casting, and picking it back up.
-    if (!selfCast && !fishingCast && getSpellImplicitTargetA(spellId) != 0 &&
+    // Gated on the setting, which the interface offers and this ignored. With
+    // it off the cast goes out at whatever is selected and the server refuses
+    // it, which is what the real client does and what someone turning the
+    // option off is asking for.
+    if (owner_.isAutoSelfCast() &&
+        !selfCast && !fishingCast && getSpellImplicitTargetA(spellId) != 0 &&
         spellclass::requiresFriendlyTarget(getSpellImplicitTargetA(spellId))) {
         bool haveFriendlyTarget = false;
         if (target != 0 && target != owner_.getPlayerGuid()) {

@@ -1645,6 +1645,13 @@ public:
     void setAutoRepair(bool enabled);
     bool isAutoRepair() const;
 
+    /// Whether a friendly spell cast with nothing friendly selected falls back
+    /// to the caster. On by default, as the real client is, and turned off
+    /// through the interface's autoSelfCast option — which offered the choice
+    /// while the behaviour was unconditional.
+    void setAutoSelfCast(bool enabled) { autoSelfCast_ = enabled; }
+    bool isAutoSelfCast() const { return autoSelfCast_; }
+
     // Master loot candidates (from SMSG_LOOT_MASTER_LIST)
     const std::vector<uint64_t>& getMasterLootCandidates() const;
     bool hasMasterLootCandidates() const;
@@ -3705,6 +3712,7 @@ private:
     // ---- Loot ----
     bool lootWindowOpen = false;
     bool autoLoot_ = false;
+    bool autoSelfCast_ = true;
     bool autoSellGrey_ = false;
     bool autoRepair_ = false;
     LootResponseData currentLoot;
