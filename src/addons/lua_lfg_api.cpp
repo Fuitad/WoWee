@@ -94,11 +94,12 @@ std::unordered_map<int, bool>& collapsedHeaders() {
 int luaReturnTrue(lua_State* L)    { lua_pushboolean(L, 1); return 1; }
 int luaReturnNothing(lua_State* L) { (void)L; return 0; }
 
-/// The roles the player has offered. lfgSetRoles sends them and keeps nothing,
-/// so the panel reading its own checkboxes back has to read them from here.
-uint8_t& offeredRoles() {
-    static uint8_t roles = 0x01;   // "player" is always set
-    return roles;
+/// The roles the player has offered. Kept on the handler now — the ready
+/// dialog names the role it found you a group for, and a static in this file
+/// was not somewhere GetLFGProposal could reach.
+uint8_t offeredRoles(game::GameHandler* gh) {
+    const uint8_t roles = gh ? gh->getLfgOfferedRoles() : 0;
+    return roles ? roles : 0x01;   // "player" is always set
 }
 
 /// Build the ordered id list one side of the panel shows: a header, then the
@@ -252,7 +253,7 @@ void registerLfgLuaAPI(lua_State* L) {
     // GetLFGRoles() → leader, tank, healer, damage. The client keeps the three
     // role flags; nobody here is a leader of an LFG group that does not exist.
     {"GetLFGRoles", [](lua_State* L) -> int {
-        const uint8_t roles = offeredRoles();
+        const uint8_t roles = offeredRoles(getGameHandler(L));
         lua_pushboolean(L, 0);
         lua_pushboolean(L, (roles & 0x02) ? 1 : 0);   // tank
         lua_pushboolean(L, (roles & 0x04) ? 1 : 0);   // healer
@@ -267,7 +268,6 @@ void registerLfgLuaAPI(lua_State* L) {
         if (lua_toboolean(L, 2)) roles |= 0x02;
         if (lua_toboolean(L, 3)) roles |= 0x04;
         if (lua_toboolean(L, 4)) roles |= 0x08;
-        offeredRoles() = roles;
         gh->lfgSetRoles(roles);
         return 0;
     }},
@@ -302,7 +302,7 @@ void registerLfgLuaAPI(lua_State* L) {
         // needs CMSG_LFG_JOIN to carry a list, which lfgJoin does not.
         for (const auto& [id, on] : enabledDungeons()) {
             if (on && id > 0) {
-                gh->lfgJoin(static_cast<uint32_t>(id), offeredRoles());
+                gh->lfgJoin(static_cast<uint32_t>(id), offeredRoles(gh));
                 break;
             }
         }

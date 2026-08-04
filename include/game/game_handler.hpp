@@ -1626,6 +1626,7 @@ public:
     std::string getCurrentLfgDungeonName() const;
     std::string getMapName(uint32_t mapId) const;
     uint32_t getLfgProposalId() const;
+    uint8_t  getLfgOfferedRoles() const;
     int32_t  getLfgAvgWaitSec() const;
     uint32_t getLfgTimeInQueueMs() const;
     uint32_t getLfgBootVotes() const;

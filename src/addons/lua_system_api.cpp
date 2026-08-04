@@ -1583,17 +1583,47 @@ static int lua_GetLFGProposal(lua_State* L) {
     const bool pending = gh && gh->getLfgState() == game::LfgState::Proposal;
     if (!pending) { for (int i = 0; i < 11; ++i) lua_pushnil(L); return 11; }
 
+    // Nils here are not survivable, which only showed once the dialog could
+    // actually open. LFDDungeonReadyPopup_Update builds a path with
+    // "UI-LFG-BACKGROUND-"..texture, and concatenating nil raises; numMembers
+    // goes into `for i = numMembers+1, ...`, where nil is arithmetic on
+    // nothing; completedEncounters is compared with > 0. The dialog was
+    // unreachable before, so none of it had ever run.
+    const uint32_t dungeonId = gh->getLfgDungeonId();
+    const game::LfgDungeon* dungeon = nullptr;
+    for (const auto& d : gh->getLfgDungeons()) {
+        if (d.id == dungeonId) { dungeon = &d; break; }
+    }
+
+    // The role the player queued as. The dialog names it and picks its icon
+    // from it, and these are the tokens GetTexCoordsForRole indexes by.
+    const uint8_t roles = gh->getLfgOfferedRoles();
+    const char* role = (roles & 0x02) ? "TANK"
+                     : (roles & 0x04) ? "HEALER"
+                                      : "DAMAGER";
+
     lua_pushboolean(L, 1);                                       // 1: proposalExists
-    lua_pushnil(L);                                              // 2: typeID
-    lua_pushnumber(L, gh->getLfgProposalId());                   // 3: id
-    lua_pushstring(L, gh->getCurrentLfgDungeonName().c_str());   // 4: name
-    lua_pushnil(L);                                              // 5: texture
-    lua_pushnil(L);                                              // 6: role
+    lua_pushnumber(L, dungeon ? dungeon->typeId : 1);            // 2: typeID
+    // The dungeon, not the proposal: LFDDungeonReadyPopup keeps this as
+    // dungeonID and looks the dungeon up by it.
+    lua_pushnumber(L, dungeonId);                                // 3: id
+    lua_pushstring(L, dungeon ? dungeon->name.c_str()
+                              : gh->getCurrentLfgDungeonName().c_str());  // 4: name
+    // TextureFilename from LFGDungeons.dbc, which is exactly the suffix that
+    // path is built from.
+    lua_pushstring(L, dungeon ? dungeon->texture.c_str() : "");  // 5: texture
+    lua_pushstring(L, role);                                     // 6: role
     lua_pushboolean(L, 0);                                       // 7: hasResponded
-    lua_pushnil(L);                                              // 8: totalEncounters
-    lua_pushnil(L);                                              // 9: completedEncounters
-    lua_pushnil(L);                                              // 10: numMembers
-    lua_pushnil(L);                                              // 11: isLeader
+    // Encounter progress is not parsed out of the proposal, and zero is the
+    // honest answer — it reads as "nothing cleared yet", which is what a fresh
+    // pop is, and keeps the dialog off its in-progress layout.
+    lua_pushnumber(L, 0);                                        // 8: totalEncounters
+    lua_pushnumber(L, 0);                                        // 9: completedEncounters
+    // Zero rather than five: the per-member rows come from
+    // GetLFGProposalMember, which has nothing to answer with, so a count would
+    // draw rows with no one in them.
+    lua_pushnumber(L, 0);                                        // 10: numMembers
+    lua_pushboolean(L, 0);                                       // 11: isLeader
     return 11;
 }
 

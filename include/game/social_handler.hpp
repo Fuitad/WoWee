@@ -240,6 +240,10 @@ public:
     void setRaidMarkLocally(uint64_t guid, uint8_t icon);
     void requestRaidInfo();
     void setSavedInstanceExtend(uint32_t mapId, uint32_t difficulty, bool extend);
+    /// The roles last offered to the dungeon finder. lfgSetRoles used to send
+    /// them and keep nothing, so the panel reading its own checkboxes back, and
+    /// the ready dialog naming the role it found you a group for, had no source.
+    uint8_t getLfgOfferedRoles() const { return lfgOfferedRoles_; }
 
     // Instance lockouts
     const std::vector<InstanceLockout>& getInstanceLockouts() const { return instanceLockouts_; }
@@ -491,6 +495,7 @@ private:
     /// resends the update as each member answers, and opening again would
     /// reset the countdown and the ticks beside every name.
     uint32_t shownProposalId_ = 0;
+    uint8_t  lfgOfferedRoles_ = 0;
     int32_t  lfgAvgWaitSec_   = -1;
     uint32_t lfgTimeInQueueMs_= 0;
     uint32_t lfgBootVotes_    = 0;

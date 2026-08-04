@@ -3175,6 +3175,10 @@ uint32_t GameHandler::getLfgProposalId() const {
     return socialHandler_ ? socialHandler_->getLfgProposalId() : 0;
 }
 
+uint8_t GameHandler::getLfgOfferedRoles() const {
+    return socialHandler_ ? socialHandler_->getLfgOfferedRoles() : 0;
+}
+
 int32_t GameHandler::getLfgAvgWaitSec() const {
     return socialHandler_ ? socialHandler_->getLfgAvgWaitSec() : -1;
 }

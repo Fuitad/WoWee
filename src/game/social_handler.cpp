@@ -3181,6 +3181,7 @@ void SocialHandler::lfgLeave() {
 }
 
 void SocialHandler::lfgSetRoles(uint8_t roles) {
+    lfgOfferedRoles_ = roles;
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     const uint32_t wire = wireOpcode(Opcode::CMSG_LFG_SET_ROLES);
     if (wire == 0xFFFF) return;
