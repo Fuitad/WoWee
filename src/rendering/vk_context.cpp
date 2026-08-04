@@ -2160,6 +2160,14 @@ void VkContext::resetFrameSyncState() {
                   " — the device was already lost before this rebuild, not by it");
     }
 
+    // Retire the upload batches now. The wait above means every one of them has
+    // finished, so this frees each fence, command buffer and staging buffer
+    // while the pools they came from are still alive — the same condition
+    // flushDeferredCleanup needs, and for the same reason. Left alone they
+    // survived the rebuild holding all three, and the only thing that would
+    // ever collect them is a later frame happening to poll.
+    pollUploadBatches();
+
     // Everything queued to be freed later can be freed now, because the wait
     // above says the GPU holds nothing. Left queued, these frees sit against
     // frame slots whose fences are about to be remade signalled — so the next
@@ -2661,6 +2669,11 @@ void VkContext::waitAllUploads() {
         }
         vkFreeCommandBuffers(device, pool, 1, &batch.cmd);
         vkDestroyFence(device, batch.fence, nullptr);
+        // Counted, because the rebuild warning reports submitted against
+        // retired and this path used to clear the list without saying so. It
+        // read as a hundred and thirty-seven batches outstanding while one was,
+        // which is a number that invites exactly the wrong conclusion.
+        ++batchesRetired_;
     }
     inFlightBatches_.clear();
 }

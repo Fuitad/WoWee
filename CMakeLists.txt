@@ -403,6 +403,20 @@ else()
     message(WARNING "Shaders will not be compiled to SPIR-V.")
 endif()
 
+# Shaders carry no source information by default, because -O strips it. Without
+# it a GPU-assisted validation error names a pipeline handle and an instruction
+# index and nothing else — which is a shader you then have to identify by
+# elimination, and that has already cost a full session once.
+#
+#   cmake -B build -DWOWEE_SHADER_DEBUG_INFO=ON && cmake --build build
+#
+# Off by default and worth keeping that way: it disables optimisation as well,
+# since an optimised shader has no line numbers left to report. The .spv files
+# are tracked, so a debug build rewrites them in place — check them out again
+# before committing anything else.
+option(WOWEE_SHADER_DEBUG_INFO
+       "Compile shaders unoptimised and with debug info, so GPU validation can name a line" OFF)
+
 # Function to compile GLSL shaders to SPIR-V
 function(compile_shaders TARGET_NAME)
     set(SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders)
