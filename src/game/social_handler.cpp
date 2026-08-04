@@ -2887,6 +2887,14 @@ void SocialHandler::handleInstanceDifficulty(network::Packet& packet) {
         static const char* kDiffLabels[] = {"Normal", "Heroic", "25-Man Normal", "25-Man Heroic"};
         const char* diffLabel = (instanceDifficulty_ < 4) ? kDiffLabels[instanceDifficulty_] : nullptr;
         if (diffLabel) owner_.addSystemChatMessage(std::string("Dungeon difficulty set to ") + diffLabel + ".");
+        // Already noticed and already said — in chat, to the player. The
+        // minimap hangs a difficulty banner off its own corner and rereads
+        // GetInstanceInfo on this, which answers from the value just stored,
+        // so the banner was the one thing not told the difficulty had changed.
+        if (owner_.addonEventCallbackRef()) {
+            owner_.addonEventCallbackRef()("PLAYER_DIFFICULTY_CHANGED", {});
+            owner_.addonEventCallbackRef()("UPDATE_INSTANCE_INFO", {});
+        }
     }
 }
 

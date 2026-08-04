@@ -126,15 +126,16 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     cursor that announces half its changes is harder to reason about than one
     that announces none, so it is all of them or nothing.
 
-    minimap's PLAYER_DIFFICULTY_CHANGED and UPDATE_INSTANCE_INFO both drive
-    MiniMapInstanceDifficulty_OnEvent, which reads GetInstanceInfo and hides
-    the indicator unless the difficulty says something other than normal
-    five-player. GetInstanceInfo answers "party" for real when in an instance,
-    so the path is live — but it reports a fixed difficulty, and firing the
-    events against that changes nothing. The chain worth following is
-    GroupListData::difficultyId and raidDifficultyId, which the group list
-    already parses and GetInstanceInfo does not read; wire those first and the
-    two events become worth firing.
+    The inverse also exists and is worth naming: announced but never read. An
+    event whose handler is reachable is still pointless if what that handler
+    reads is stubbed, and firing it then looks like progress while changing
+    nothing. Check the values the handler consults, not just that it runs.
+
+    (Written after getting minimap's difficulty events wrong in both
+    directions: first calling them worth firing, then calling GetInstanceInfo
+    a stub without reading the line where it consults getInstanceDifficulty.
+    It is real, parsed from SMSG_INSTANCE_DIFFICULTY, and the events were
+    worth firing after all.)
 """
 
 import collections
