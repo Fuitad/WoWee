@@ -1697,6 +1697,39 @@ static int lua_GetArenaTeam(lua_State* L) {
     return 22;
 }
 
+// The daily-win bonus on a random or holiday battleground.
+//
+// → hasWin, winHonor, winArena, lossHonor, lossArena
+//
+// Zero rather than nil for the four amounts, and the difference matters: the
+// frame writes `if (winHonor ~= 0)` and shows a reward line when that passes.
+// nil passes it — nil is not zero — and the line appears with nothing in it.
+// Zero says "no bonus" and the line is correctly skipped.
+//
+// The bonus itself is a per-character daily the server tracks and does not
+// volunteer, so "none available" is the honest answer rather than a placeholder
+// for one. Reachable, unlike most of this file's absences: the random
+// battleground row is drawn from GetBattlegroundInfo, which answers for real.
+static int lua_BattlegroundHonorBonusesNone(lua_State* L) {
+    lua_pushboolean(L, 0);   // hasWin — the daily is not known to be waiting
+    lua_pushnumber(L, 0);    // winHonor
+    lua_pushnumber(L, 0);    // winArena
+    lua_pushnumber(L, 0);    // lossHonor
+    lua_pushnumber(L, 0);    // lossArena
+    return 5;
+}
+
+// GetBattlefieldInstanceInfo(index) → which numbered instance that row is.
+//
+// Zero, which the list reads as unnumbered — the same "first available" the
+// selection means. The server numbers instances only for a client that asks to
+// pick one, and nothing here does.
+static int lua_GetBattlefieldInstanceInfo(lua_State* L) {
+    (void)L;
+    lua_pushnumber(L, 0);
+    return 1;
+}
+
 // IsInLFGDungeon() — standing inside a dungeon the finder put you in.
 //
 // The state is already tracked: SocialHandler keeps an LfgState and InDungeon
@@ -2277,6 +2310,9 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"IsVehicleAimAngleAdjustable",  lua_IsVehicleAimAngleAdjustable},
                 {"HasKey",                       lua_HasKey},
                 {"GetArenaTeam",             lua_GetArenaTeam},
+                {"GetRandomBGHonorCurrencyBonuses",  lua_BattlegroundHonorBonusesNone},
+                {"GetHolidayBGHonorCurrencyBonuses", lua_BattlegroundHonorBonusesNone},
+                {"GetBattlefieldInstanceInfo",       lua_GetBattlefieldInstanceInfo},
                 {"IsInLFGDungeon",           lua_IsInLFGDungeon},
                 {"LFGTeleport",              lua_LFGTeleport},
                 {"IsBattlefieldArena",       lua_IsBattlefieldArena},
