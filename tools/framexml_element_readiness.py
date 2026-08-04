@@ -414,6 +414,14 @@ def main():
     # claiming there was none. The reasons are worth more than the count
     # precisely because they can be checked; treat an unchecked entry as a
     # claim rather than a finding.
+    #
+    # Four checked, and the split is clean: the two that were wrong were both
+    # carried forward from an earlier assertion, and the two that held were
+    # both derived from a grep run while writing the entry. bgscore and mail
+    # stood up; worldmap and help did not. So the question to ask of an entry
+    # is not how confident it sounds but whether anyone looked while writing
+    # it — which is also why each one names a file or a function rather than a
+    # conclusion.
     settled = {
         "bags":         "BAG_OPEN/CLOSED are for a C client opening bags; FrameXML does it in Lua",
         "merchant":     "GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, which is fired",
