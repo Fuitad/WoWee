@@ -885,10 +885,12 @@ void TerrainRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, c
     // Use mega VB + IB when available.
     // Bind mega buffers once, then use direct draws with base vertex/index offsets.
     const bool useMegaBuffers = (megaVB_ && megaIB_);
+    bool megaBuffersBound = false;
     if (useMegaBuffers) {
         VkDeviceSize megaOffset = 0;
         vkCmdBindVertexBuffers(cmd, 0, 1, &megaVB_, &megaOffset);
         vkCmdBindIndexBuffer(cmd, megaIB_, 0, VK_INDEX_TYPE_UINT32);
+        megaBuffersBound = true;
     }
 
     for (const auto& chunk : chunks) {
@@ -911,7 +913,18 @@ void TerrainRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, c
                                  1, 1, &chunk.materialSet, 0, nullptr);
 
         if (useMegaBuffers && chunk.megaBaseVertex >= 0) {
-            // Direct draw from mega buffer — single VB/IB already bound
+            // Rebound if a fallback chunk bound its own buffers since. The mega
+            // buffers are bound once before the loop, and a chunk without a
+            // place in them binds its own — which stays bound for whatever comes
+            // next. A chunk after that one then drew its mega offsets against a
+            // single chunk's buffer: firstIndex 6,290,784 into 3,072 bytes,
+            // which is what took the GPU down.
+            if (!megaBuffersBound) {
+                VkDeviceSize megaOffset = 0;
+                vkCmdBindVertexBuffers(cmd, 0, 1, &megaVB_, &megaOffset);
+                vkCmdBindIndexBuffer(cmd, megaIB_, 0, VK_INDEX_TYPE_UINT32);
+                megaBuffersBound = true;
+            }
             vkCmdDrawIndexed(cmd, chunk.indexCount, 1,
                              chunk.megaFirstIndex, chunk.megaBaseVertex, 0);
         } else {
@@ -920,6 +933,7 @@ void TerrainRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet, c
             vkCmdBindVertexBuffers(cmd, 0, 1, &chunk.vertexBuffer, &offset);
             vkCmdBindIndexBuffer(cmd, chunk.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
             vkCmdDrawIndexed(cmd, chunk.indexCount, 1, 0, 0, 0);
+            megaBuffersBound = false;
         }
         renderedChunks++;
     }
@@ -1096,10 +1110,12 @@ void TerrainRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSp
 
     // Bind mega buffers once for shadow pass (same as opaque)
     const bool useMegaShadow = (megaVB_ && megaIB_);
+    bool megaShadowBound = false;
     if (useMegaShadow) {
         VkDeviceSize megaOffset = 0;
         vkCmdBindVertexBuffers(cmd, 0, 1, &megaVB_, &megaOffset);
         vkCmdBindIndexBuffer(cmd, megaIB_, 0, VK_INDEX_TYPE_UINT32);
+        megaShadowBound = true;
     }
 
     for (const auto& chunk : chunks) {
@@ -1112,12 +1128,22 @@ void TerrainRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSp
         if (distSq > combinedRadius * combinedRadius) continue;
 
         if (useMegaShadow && chunk.megaBaseVertex >= 0) {
+            // Rebound after a fallback chunk, for the reason given in the main
+            // pass above: the mega offsets are meaningless against the buffer a
+            // single chunk left bound.
+            if (!megaShadowBound) {
+                VkDeviceSize megaOffset = 0;
+                vkCmdBindVertexBuffers(cmd, 0, 1, &megaVB_, &megaOffset);
+                vkCmdBindIndexBuffer(cmd, megaIB_, 0, VK_INDEX_TYPE_UINT32);
+                megaShadowBound = true;
+            }
             vkCmdDrawIndexed(cmd, chunk.indexCount, 1, chunk.megaFirstIndex, chunk.megaBaseVertex, 0);
         } else {
             VkDeviceSize offset = 0;
             vkCmdBindVertexBuffers(cmd, 0, 1, &chunk.vertexBuffer, &offset);
             vkCmdBindIndexBuffer(cmd, chunk.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
             vkCmdDrawIndexed(cmd, chunk.indexCount, 1, 0, 0, 0);
+            megaShadowBound = false;
         }
     }
 }
