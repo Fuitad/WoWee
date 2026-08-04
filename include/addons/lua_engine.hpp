@@ -228,6 +228,14 @@ public:
     bool mouseOverFrameXml() const { return lastMouseHit_ != 0; }
 private:
     uint32_t lastMouseHit_ = 0;
+    /// Where the cursor last was, in interface units. Static so a widget
+    /// method can reach it without a handle on the engine.
+    static inline float sLastMouseX_ = 0.0f;
+    static inline float sLastMouseY_ = 0.0f;
+public:
+    static float lastMouseX() { return sLastMouseX_; }
+    static float lastMouseY() { return sLastMouseY_; }
+private:
 
     uint32_t hoverWid_ = 0;
     /// The last frame clicked and when, so a second click on it can be told

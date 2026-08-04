@@ -613,6 +613,24 @@ int lua_Region_GetTop(lua_State* L) {
 }
 /// GetRect() → left, bottom, width, height. All four at once, which is what
 /// the newer code in FrameXML reaches for.
+/// IsMouseOver() — whether the cursor is inside this frame's rect.
+///
+/// Answered from the rect rather than from hover, because hover names the
+/// mouse-enabled frame under the cursor and the callers ask about frames that
+/// are not: mainmenubarmicrobuttons.xml asks it of a micro button to decide
+/// whether to put its tooltip back, and floatingchatframe.lua asks it of the
+/// dock. It was in the no-op allowlist, so every one of those was false.
+int lua_Region_IsMouseOver(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    if (!w || !w->visible) { lua_pushboolean(L, 0); return 1; }
+    const float mx = wowee::addons::LuaEngine::lastMouseX();
+    const float my = wowee::addons::LuaEngine::lastMouseY();
+    const bool inside = mx >= w->left && mx <= w->left + w->rectW &&
+                        my >= w->bottom && my <= w->bottom + w->rectH;
+    lua_pushboolean(L, inside ? 1 : 0);
+    return 1;
+}
+
 int lua_Region_GetRect(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     if (!w) return 0;
@@ -3346,6 +3364,7 @@ void LuaEngine::registerCoreAPI() {
         {"GetBottom",       lua_Region_GetBottom},
         {"GetTop",          lua_Region_GetTop},
         {"GetRect",         lua_Region_GetRect},
+        {"IsMouseOver",     lua_Region_IsMouseOver},
         {"GetFrameLevel",   lua_Frame_GetFrameLevel},
         {"GetNumPoints",    lua_Region_GetNumPoints},
         {"AddMessage",      lua_MessageFrame_AddMessage},
@@ -3988,7 +4007,7 @@ void LuaEngine::registerCoreAPI() {
         "GetZoom=1,GetZoomLevels=1,HasFocus=1,HasScript=1,Hide=1,HideUIPanel=1,\n"
         "HighlightText=1,HookScript=1,IgnoreDepth=1,InitializeTabardColors=1,Insert=1,\n"
         "IsEnabled=1,IsEquippedItem=1,IsEventRegistered=1,IsMouseEnabled=1,\n"
-        "IsMouseOver=1,IsObjectType=1,IsProtected=1,IsShown=1,IsUnderMouse=1,\n"
+        "IsObjectType=1,IsProtected=1,IsShown=1,IsUnderMouse=1,\n"
         "IsUnit=1,IsVisible=1,LockHighlight=1,Lower=1,MoveUIPanel=1,\n"
         "New=1,NumLines=1,OnFinished=1,OnUpdate=1,PageDown=1,PageUp=1,PingLocation=1,\n"
         "Play=1,Raise=1,RefreshUnit=1,RefreshValue=1,RegisterAutoHide=1,RegisterEvent=1,\n"
@@ -6199,6 +6218,11 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
     if (s > 0.0f) { x /= s; y /= s; }
     const uint32_t hit = widgets_.hitTest(x, y);
     lastMouseHit_ = hit;
+    // Kept so IsMouseOver can answer from a frame's own rect. Hover alone is
+    // not enough: it names the mouse-enabled frame that was hit, and a
+    // container the cursor is plainly inside is often neither.
+    sLastMouseX_ = x;
+    sLastMouseY_ = y;
 
     // Throttled, and only while there is something to hit. Whether the mouse
     // reaches the widget tree at all is otherwise invisible: a frame that never
