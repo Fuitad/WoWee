@@ -1889,6 +1889,12 @@ void SocialHandler::handleGroupList(network::Packet& packet) {
         };
         const char* methodName = (partyData.lootMethod < 5) ? kLootMethods[partyData.lootMethod] : "Unknown";
         owner_.addSystemChatMessage(std::string("Loot method changed to ") + methodName + ".");
+        // Already noticed, and only ever said in chat. The party frames read
+        // the method to decide whether to offer the master-looter menu, and
+        // they reread it on this — so the change was announced to the player
+        // and not to the interface standing next to them.
+        if (owner_.addonEventCallbackRef())
+            owner_.addonEventCallbackRef()("PARTY_LOOT_METHOD_CHANGED", {});
     }
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("GROUP_ROSTER_UPDATE", {});
