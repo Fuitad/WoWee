@@ -145,6 +145,15 @@ const std::set<std::string>& requested() {
         // Run tools/framexml_unbound_globals.py against friendsframe before
         // adding it.
         //
+        // "keybindings", "macro" and "timemanager" also come out, for a
+        // duller reason: they are not elements. The readiness report scores
+        // them because their FrameXML files have no missing calls, but there
+        // is no UiElement of that name, so putting them here only produced
+        // three "no element called" warnings on every run that named
+        // candidates. Nothing suppresses those panels and nothing hands them
+        // over; making them real means adding an enum entry and a
+        // frameXmlOwns guard around this client's own version first.
+        //
         // "chat" comes out for the same reason, and it is the worse of the
         // two: forty-eight names in chatframe.lua are unbound, and unlike the
         // Battle.net set they are not behind a feature flag. They are slash
@@ -158,9 +167,9 @@ const std::set<std::string>& requested() {
                     "achievements", "auctionhouse", "bagbar", "bank",
                     "bgscore", "book", "classtrainer", "gamemenu",
                     "gossip", "guildbank", "help", "inspect", "keybindings",
-                    "loot", "macro", "merchant", "micromenu", "partyframes",
+                    "loot", "merchant", "micromenu", "partyframes",
                     "questgiver", "stable", "talents", "taxi",
-                    "timemanager", "totems", "tradeskill"}) {
+                    "totems", "tradeskill"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "
