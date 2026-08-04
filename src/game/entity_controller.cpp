@@ -1041,6 +1041,14 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
                     LOG_INFO("Shapeshift form changed: ", static_cast<int>(newForm));
                     pendingEvents_.emit("UPDATE_SHAPESHIFT_FORM", {});
                     pendingEvents_.emit("UPDATE_SHAPESHIFT_FORMS", {});
+                    // The stance bar and the action bar are two different
+                    // things. These two move the stance bar; the extra action
+                    // bar a form brings with it is shown and hidden by
+                    // UPDATE_BONUS_ACTIONBAR, and actionbutton.lua repages on
+                    // the same event. Neither was fired, so the bar never
+                    // appeared and the buttons kept reading page one.
+                    pendingEvents_.emit("UPDATE_BONUS_ACTIONBAR", {});
+                    pendingEvents_.emit("ACTIONBAR_PAGE_CHANGED", {});
                 }
             }
         }

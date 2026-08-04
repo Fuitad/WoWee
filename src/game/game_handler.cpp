@@ -2861,6 +2861,34 @@ void GameHandler::rebuildCompanions() const {
              critterSpells_.size(), " critters from ", known.size(), " known spells");
 }
 
+uint32_t GameHandler::getBonusActionBarOffset() const {
+    const uint8_t form = shapeshiftFormId_;
+    if (form == 0) return 0;
+
+    // Cached per form: the file does not change, and this is asked on every
+    // action button update.
+    static std::unordered_map<uint8_t, uint32_t> barOfForm;
+    if (auto it = barOfForm.find(form); it != barOfForm.end()) return it->second;
+
+    uint32_t bar = 0;
+    auto* am = services_.assetManager;
+    if (am && am->isInitialized()) {
+        if (auto dbc = am->loadDBC("SpellShapeshiftForm.dbc"); dbc && dbc->isLoaded()) {
+            const auto* layout = pipeline::getActiveDBCLayout()
+                ? pipeline::getActiveDBCLayout()->getLayout("SpellShapeshiftForm") : nullptr;
+            const uint32_t idField  = layout ? (*layout)["ID"] : 0;
+            const uint32_t barField = layout ? (*layout)["BonusActionBar"] : 1;
+            for (uint32_t row = 0; row < dbc->getRecordCount(); ++row) {
+                if (dbc->getUInt32(row, idField) != form) continue;
+                bar = dbc->getUInt32(row, barField);
+                break;
+            }
+        }
+    }
+    barOfForm[form] = bar;
+    return bar;
+}
+
 void GameHandler::announceCompanionChange() {
     if (!addonEventCallback_) return;
     for (bool mounts : {true, false}) {

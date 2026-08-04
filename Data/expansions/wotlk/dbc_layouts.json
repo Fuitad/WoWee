@@ -352,5 +352,10 @@
     "LocTop": 6,
     "MapID": 1,
     "ParentWorldMapID": 10
+  },
+  "SpellShapeshiftForm": {
+    "ID": 0,
+    "BonusActionBar": 1,
+    "Name": 2
   }
 }

@@ -2954,7 +2954,20 @@ void registerSystemLuaAPI(lua_State* L) {
                 // are read on. No bonus or multi-cast bar is showing,
                 // and that is zero rather than nothing.
                 {"GetMultiCastBarOffset",    lua_ReturnZero},
-                {"GetBonusBarOffset",        lua_ReturnZero},
+                // Which extra action bar the current form or stance uses.
+                // actionbutton.lua adds it to NUM_ACTIONBAR_PAGES to pick the
+                // page a bonus button reads from, so a flat zero left a druid
+                // or a warrior looking at the wrong page in every form.
+                //
+                // The mapping is in SpellShapeshiftForm.dbc rather than written
+                // out here — a table of class-and-form guesses is not
+                // checkable, and this one is: cat 1, bear 3, moonkin 4, the
+                // three warrior stances 1 to 3, 0 for the travel forms.
+                {"GetBonusBarOffset", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? static_cast<double>(gh->getBonusActionBarOffset()) : 0.0);
+            return 1;
+        }},
                 {"GetNumBattlegroundTypes",  lua_GetNumBattlegroundTypes},
                 {"GetBattlegroundInfo",      lua_GetBattlegroundInfo},
                 {"RequestBattlegroundInstanceInfo", lua_RequestBattlegroundInstanceInfo},

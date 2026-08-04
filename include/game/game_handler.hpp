@@ -1874,6 +1874,13 @@ public:
     // Combo points
     uint8_t  getComboPoints() const { return comboPoints_; }
     uint8_t  getShapeshiftFormId() const { return shapeshiftFormId_; }
+    /// Which extra action bar the current form or stance uses, or 0 for none.
+    ///
+    /// SpellShapeshiftForm.dbc carries it per form — cat 1, bear 3, moonkin 4,
+    /// the three warrior stances 1 to 3, and 0 for the travel forms, which have
+    /// no bar of their own. Read from the file rather than written out here,
+    /// because a table of class-and-form guesses is not checkable.
+    uint32_t getBonusActionBarOffset() const;
     uint64_t getComboTarget() const { return comboTarget_; }
 
     // Death Knight rune state (6 runes: 0-1=Blood, 2-3=Unholy, 4-5=Frost; may become Death=3)
