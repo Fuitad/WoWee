@@ -552,7 +552,14 @@ void ToastManager::renderDingEffect() {
 void ToastManager::triggerAchievementToast(uint32_t achievementId, std::string name) {
     achievementToastId_    = achievementId;
     achievementToastName_  = std::move(name);
-    achievementToastTimer_ = ACHIEVEMENT_TOAST_DURATION;
+    // alertframes.lua registers ACHIEVEMENT_EARNED itself and raises
+    // AchievementAlertFrame, so leaving the timer at zero is how this banner
+    // stands down. The sound below still plays: FrameXML's alert frame plays
+    // one only for LFG rewards, so handing the badge over would otherwise
+    // earn achievements in silence.
+    if (!frameXmlOwns(UiElement::Achievements)) {
+        achievementToastTimer_ = ACHIEVEMENT_TOAST_DURATION;
+    }
 
     // Play a UI sound if available
     auto* ac = services_.audioCoordinator;
