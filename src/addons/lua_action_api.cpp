@@ -1424,6 +1424,32 @@ void registerActionLuaAPI(lua_State* L) {
                 {"GetNumBindings",      lua_GetNumBindings},
                 {"GetBinding",          lua_GetBinding},
                 {"SetBinding",          lua_SetBinding},
+                // GetQuestGreenRange() — how many levels below the player a
+                // thing can be before it turns grey.
+                //
+                // This was left unbound on the grounds that a guessed constant
+                // would mis-colour every quest and that nothing live called it.
+                // The second half was wrong: TargetFrame_CheckLevel reaches it
+                // through GetQuestDifficultyColor for any target the player can
+                // attack, so it raised before levelText:Show() and an enemy's
+                // level never appeared. A friendly target took the other branch
+                // and showed its level, which is why it looked like enemies
+                // specifically.
+                //
+                // No guess needed either. AzerothCore's Formulas.h gives the
+                // grey level exactly, and the green range is the distance from
+                // the player's level down to it.
+                {"GetQuestGreenRange", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int lvl = gh ? static_cast<int>(gh->getPlayerLevel()) : 1;
+            int gray;
+            if (lvl <= 5)       gray = 0;
+            else if (lvl <= 39) gray = lvl - 5 - lvl / 10;
+            else if (lvl <= 59) gray = lvl - 1 - lvl / 5;
+            else                gray = lvl - 9;
+            lua_pushnumber(L, lvl - gray);
+            return 1;
+        }},
                 // Two latent raises on the escape-key path, bound as no-ops
                 // because doing nothing is the right behaviour rather than a
                 // placeholder for it. SetUIVisibility is reached only from
