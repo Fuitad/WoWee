@@ -1653,6 +1653,21 @@ static int lua_GetBattlegroundInfo(lua_State* L) {
     return 5;
 }
 
+// RequestBattlegroundInstanceInfo(index) — ask which instances are running.
+//
+// The reply is SMSG_BATTLEFIELD_LIST, which this client already handled and
+// had no way to ask for. The index is a row in the list above, not a
+// battleground id, so it is translated before it goes on the wire.
+static int lua_RequestBattlegroundInstanceInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh) return 0;
+    const auto& list = gh->getBattlegroundTypes();
+    if (index < 1 || index > static_cast<int>(list.size())) return 0;
+    gh->requestBattlefieldList(list[static_cast<size_t>(index - 1)].id);
+    return 0;
+}
+
 // GetSelectedBattlefield() → which instance of it is picked.
 //
 // Zero, which the list reads as its first row — "first available". Picking a
@@ -2235,6 +2250,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetBonusBarOffset",        lua_ReturnZero},
                 {"GetNumBattlegroundTypes",  lua_GetNumBattlegroundTypes},
                 {"GetBattlegroundInfo",      lua_GetBattlegroundInfo},
+                {"RequestBattlegroundInstanceInfo", lua_RequestBattlegroundInstanceInfo},
                 {"GetCurrentMapDungeonLevel", lua_ReturnZero},
                 {"Sound_GameSystem_GetNumOutputDrivers", lua_ReturnZero},
                 {"Sound_ChatSystem_GetNumInputDrivers",  lua_ReturnZero},

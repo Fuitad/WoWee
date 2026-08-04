@@ -96,6 +96,8 @@ public:
     void acceptBattlefield(uint32_t queueSlot = 0xFFFFFFFF);
     void declineBattlefield(uint32_t queueSlot = 0xFFFFFFFF);
     void leaveBattlefield();
+    /// Ask the server which instances of one battleground are running.
+    void requestBattlefieldList(uint32_t bgTypeId);
     void joinBattlefield(uint64_t battlemasterGuid, uint32_t bgTypeId,
                          uint32_t instanceId, bool asGroup);
     const std::array<BgQueueSlot, 3>& getBgQueues() const { return bgQueues_; }

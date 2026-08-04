@@ -2786,6 +2786,23 @@ void SocialHandler::joinBattlefield(uint64_t battlemasterGuid, uint32_t bgTypeId
     owner_.getSocket()->send(packet);
 }
 
+// CMSG_BATTLEFIELD_LIST: ask which instances of one battleground are running.
+// The reply is SMSG_BATTLEFIELD_LIST, which this client already handles — it
+// just had no way to ask, because nothing reached the frame that asks.
+void SocialHandler::requestBattlefieldList(uint32_t bgTypeId) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_BATTLEFIELD_LIST));
+    packet.writeUInt32(bgTypeId);
+    // WotLK added two bytes: where the request came from, and whether the
+    // player wants experience from it. Classic and TBC read the type id alone,
+    // and trailing bytes there would be read as the next packet.
+    if (!isPreWotlk()) {
+        packet.writeUInt8(0);  // fromWhere: 0 = the battlemaster list frame
+        packet.writeUInt8(1);  // canGainXP
+    }
+    owner_.getSocket()->send(packet);
+}
+
 void SocialHandler::leaveBattlefield() {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     network::Packet pkt(wireOpcode(Opcode::CMSG_LEAVE_BATTLEFIELD));

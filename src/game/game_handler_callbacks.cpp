@@ -2074,6 +2074,10 @@ void GameHandler::leaveBattlefield() {
     if (socialHandler_) socialHandler_->leaveBattlefield();
 }
 
+void GameHandler::requestBattlefieldList(uint32_t bgTypeId) {
+    if (socialHandler_) socialHandler_->requestBattlefieldList(bgTypeId);
+}
+
 void GameHandler::acceptBattlefield(uint32_t queueSlot) {
     if (socialHandler_) socialHandler_->acceptBattlefield(queueSlot);
 }
