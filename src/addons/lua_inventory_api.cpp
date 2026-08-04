@@ -1660,6 +1660,35 @@ static int lua_GetContainerNumSlots(lua_State* L) {
 }
 
 // GetContainerItemInfo(container, slot) → texture, count, locked, quality, readable, lootable, link
+// GetContainerItemID(container, slot) → the item's entry id, or nil.
+//
+// The same walk GetContainerItemInfo does, answering the one number rather
+// than the row. Callers use it to identify an item without caring what it
+// looks like — the character sheet asks it of every bag slot when looking for
+// something to equip — so it is the cheapest of the container queries and was
+// the only one of them missing.
+static int lua_GetContainerItemID(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int container = static_cast<int>(luaL_checknumber(L, 1));
+    const int slot = static_cast<int>(luaL_checknumber(L, 2));
+    if (!gh) { return luaReturnNil(L); }
+
+    const auto& inv = gh->getInventory();
+    const game::ItemSlot* itemSlot = nullptr;
+    if (container == 0 && slot >= 1 && slot <= inv.getBackpackSize()) {
+        itemSlot = &inv.getBackpackSlot(slot - 1);   // WoW slots are 1-based
+    } else if (container >= 1 && container <= 4) {
+        const int bagIdx = container - 1;
+        if (slot >= 1 && slot <= inv.getBagSize(bagIdx))
+            itemSlot = &inv.getBagSlot(bagIdx, slot - 1);
+    }
+    // An empty slot has no id, and nil is how that is said — zero would be an
+    // item, and the callers test the result rather than compare it.
+    if (!itemSlot || itemSlot->empty()) { return luaReturnNil(L); }
+    lua_pushnumber(L, itemSlot->item.itemId);
+    return 1;
+}
+
 static int lua_GetContainerItemInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
     int container = static_cast<int>(luaL_checknumber(L, 1));
@@ -2578,6 +2607,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"SetBagPortraitTexture",   lua_SetBagPortraitTexture},
                 {"PutItemInBag",            lua_PutItemInBag},
                 {"ResetCursor",             lua_ResetCursor},
+                {"GetContainerItemID",    lua_GetContainerItemID},
                 {"GetContainerItemInfo",    lua_GetContainerItemInfo},
                 {"GetContainerItemLink",    lua_GetContainerItemLink},
                 {"GetContainerNumFreeSlots", lua_GetContainerNumFreeSlots},
