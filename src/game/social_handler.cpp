@@ -1679,6 +1679,15 @@ void SocialHandler::sendSetLootMethod(uint32_t method, uint32_t threshold, uint6
     LOG_INFO("sendSetLootMethod: method=", method, " threshold=", threshold);
 }
 
+// The server checks that this player leads the group and that the target is in
+// it, so there is nothing to validate here beyond having a guid to send.
+void SocialHandler::promoteToLeader(uint64_t guid) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    if (guid == 0) return;
+    auto packet = GroupSetLeaderPacket::build(guid);
+    owner_.getSocket()->send(packet);
+}
+
 void SocialHandler::uninvitePlayer(const std::string& playerName) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     if (playerName.empty()) { owner_.addSystemChatMessage("You must specify a player name to uninvite."); return; }

@@ -1095,6 +1095,13 @@ network::Packet GroupUninvitePacket::build(const std::string& playerName) {
     return packet;
 }
 
+network::Packet GroupSetLeaderPacket::build(uint64_t guid) {
+    network::Packet packet(wireOpcode(Opcode::CMSG_GROUP_SET_LEADER));
+    packet.writeUInt64(guid);
+    LOG_DEBUG("Built CMSG_GROUP_SET_LEADER for guid: 0x", std::hex, guid, std::dec);
+    return packet;
+}
+
 network::Packet GroupDisbandPacket::build() {
     network::Packet packet(wireOpcode(Opcode::CMSG_GROUP_DISBAND));
     LOG_DEBUG("Built CMSG_GROUP_DISBAND");

@@ -1861,7 +1861,22 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"CanChangePlayerDifficulty", [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 {"IsSilenced",                [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 {"IsDisplayChannelModerator", [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
-                {"PromoteToLeader",           [](lua_State* L) -> int { (void)L; return 0; }},
+                // PromoteToLeader(name) — /promote, /pr, and the unit menu's
+                // "Promote to Leader". The client had no outgoing side for this
+                // at all: SMSG_GROUP_SET_LEADER was handled and CMSG was never
+                // sent, so leadership could be received and never given.
+                {"PromoteToLeader", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            std::string name(luaL_optstring(L, 1, ""));
+            if (!gh || name.empty()) return 0;
+            toLowerInPlace(name);
+            for (const auto& m : gh->getPartyData().members) {
+                std::string n = m.name;
+                toLowerInPlace(n);
+                if (n == name) { gh->promoteToLeader(m.guid); return 0; }
+            }
+            return 0;
+        }},
                 {"PromoteToAssistant",        [](lua_State* L) -> int { (void)L; return 0; }},
                 {"DemoteAssistant",           [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GrantLevel",                [](lua_State* L) -> int { (void)L; return 0; }},

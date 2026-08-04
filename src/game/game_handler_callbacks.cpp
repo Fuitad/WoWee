@@ -1692,6 +1692,10 @@ void GameHandler::replyToLastWhisper(const std::string& message) {
     if (chatHandler_) chatHandler_->replyToLastWhisper(message);
 }
 
+void GameHandler::promoteToLeader(uint64_t guid) {
+    if (socialHandler_) socialHandler_->promoteToLeader(guid);
+}
+
 void GameHandler::uninvitePlayer(const std::string& playerName) {
     if (socialHandler_) socialHandler_->uninvitePlayer(playerName);
 }

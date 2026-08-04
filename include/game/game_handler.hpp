@@ -705,6 +705,8 @@ public:
     void setLastWhisperSender(const std::string& name) { lastWhisperSender_ = name; }
 
     // Party/Raid management
+    /// Hand party leadership to another member.
+    void promoteToLeader(uint64_t guid);
     void uninvitePlayer(const std::string& playerName);
     void setLootMethod(uint8_t method, uint64_t masterGuid, uint8_t threshold);
     void setPartyAssignment(uint8_t assignment, uint64_t guid, bool apply);

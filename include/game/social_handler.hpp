@@ -219,6 +219,7 @@ public:
     const GroupListData& getPartyData() const { return partyData; }
     bool hasPendingGroupInvite() const { return pendingGroupInvite; }
     const std::string& getPendingInviterName() const { return pendingInviterName; }
+    void promoteToLeader(uint64_t guid);
     void uninvitePlayer(const std::string& playerName);
     void setLootMethod(uint8_t method, uint64_t masterGuid, uint8_t threshold);
     void setPartyAssignment(uint8_t assignment, uint64_t guid, bool apply);

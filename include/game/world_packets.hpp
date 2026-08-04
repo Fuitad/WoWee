@@ -1346,6 +1346,16 @@ public:
     static network::Packet build(const std::string& playerName);
 };
 
+/** CMSG_GROUP_SET_LEADER packet builder
+ *
+ * A single raw ObjectGuid, not a packed one — AzerothCore's
+ * HandleGroupSetLeaderOpcode does `recvData >> guid` straight into eight bytes.
+ */
+class GroupSetLeaderPacket {
+public:
+    static network::Packet build(uint64_t guid);
+};
+
 /** CMSG_GROUP_DISBAND packet builder */
 class GroupDisbandPacket {
 public:
