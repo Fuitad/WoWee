@@ -443,6 +443,7 @@ def main():
     # it — which is also why each one names a file or a function rather than a
     # conclusion.
     settled = {
+        "characterframe": "[checked] eight of nine events are the stat branch shared with UNIT_STATS, which is fired; SHOW_COMPARE_TOOLTIP is the one real item, fired by the C client on a shift-hover with a slot and tooltip index",
         "bags":         "[checked] BAG_OPEN/CLOSED are for a C client opening bags; ToggleBag, OpenBag and CloseBag are all Lua functions in containerframe.lua",
         "merchant":     "[checked] GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, fired from inventory_handler and entity_controller",
         "playerframe":  "[checked] voice chat, vehicles and the playtime nag (PLAYER_ROLES_ASSIGNED was wrong here — roles are parsed and read, and it is fired now)",
