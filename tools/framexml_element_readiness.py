@@ -93,6 +93,15 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     Worth counting before working: an element showing eight missing events can
     be four features absent by design rather than eight gaps. bags, merchant
     and playerframe all read as gapped and all three are complete.
+
+    Calls need the stronger test, because an unanswered call raises where an
+    unfired event only goes unheard. Ask whether it is *reachable*, not whether
+    the feature exists. mainmenubar's four vehicle calls live in
+    vehiclemenubar.lua — one hop away, which is why they are counted here — and
+    every one sits behind a guard that a client with no vehicles never passes:
+    UnitInVehicle gates the path and UnitVehicleSkin answers nil, so the
+    indicator is zero and the function returns before the call. Unreachable, as
+    GetMapLandmarkInfo is behind GetNumMapLandmarks answering zero.
 """
 
 import collections
