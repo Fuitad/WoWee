@@ -1870,6 +1870,33 @@ bool M2Loader::loadSkin(const std::vector<uint8_t>& skinData, M2Model& model) {
         core::Logger::getInstance().warning("  ", outOfBounds, " out-of-bounds indices clamped to 0");
     }
 
+    // A batch that reaches past the indices just resolved is emptied here,
+    // where every renderer that draws this model shares the check.
+    //
+    // The indices are final at this point and the batches are not: a submesh
+    // read from the wrong offset gives a start that no buffer could satisfy,
+    // and vkCmdDrawIndexed does not check. One such batch — start 6,290,784 in
+    // a 768-index model — was read 25 MB past the end forty-six times and took
+    // the GPU with it. Emptied rather than dropped so nothing downstream has to
+    // cope with a batch list that changed length.
+    {
+        const uint32_t total = static_cast<uint32_t>(model.indices.size());
+        uint32_t emptied = 0;
+        for (auto& batch : model.batches) {
+            const uint64_t end = static_cast<uint64_t>(batch.indexStart) + batch.indexCount;
+            if (end <= total) continue;
+            batch.indexStart = 0;
+            batch.indexCount = 0;
+            ++emptied;
+        }
+        if (emptied > 0) {
+            core::Logger::getInstance().warning(
+                "  ", emptied, " batch(es) index past the model's ", total,
+                " indices — emptied; this model's submeshes are being read from "
+                "the wrong offset");
+        }
+    }
+
     // Read submeshes (proper vertex/index ranges)
     std::vector<M2SkinSubmesh> submeshes;
     if (header.nSubmeshes > 0 && header.ofsSubmeshes > 0) {
