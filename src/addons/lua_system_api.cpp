@@ -2492,6 +2492,51 @@ void registerSystemLuaAPI(lua_State* L) {
                 // way to say there is none.
                 {"GetMultisampleFormats",    lua_ReturnNothing},
                 {"GetRefreshRates",          lua_ReturnNothing},
+                // ---- The options panels behind the game menu ----
+                //
+                // Every reader here was bound and none of the writers were, so
+                // opening Video or Sound and touching anything raised. The
+                // panels sit one click inside the game menu, which is a handed-
+                // over element, and none of their files was scanned by the
+                // readiness report until the question "which FrameXML files
+                // does no element reach" was asked.
+                //
+                // The answers are shaped by what the readers already say.
+                // GetScreenResolutions offers exactly one mode -- the window
+                // this client is already in -- and GetMultisampleFormats offers
+                // none, so choosing from either list can only ever re-choose
+                // what is set. These accept the call and change nothing, which
+                // is the truth rather than a stub.
+                {"SetScreenResolution",      lua_ReturnNothing},
+                {"SetMultisampleFormat",     lua_ReturnNothing},
+                // Nothing above is settable, so there is nothing to put back.
+                {"RestoreVideoResolutionDefaults", lua_ReturnNothing},
+                {"RestoreVideoEffectsDefaults",    lua_ReturnNothing},
+                {"RestoreVideoStereoDefaults",     lua_ReturnNothing},
+                // Applying video settings restarts the graphics device on the
+                // real client. This one applies what it can as it goes and has
+                // no device to tear down.
+                {"RestartGx",                lua_ReturnNothing},
+                {"Sound_GameSystem_RestartSoundSystem", lua_ReturnNothing},
+                // A separate render scale for the player model, which this
+                // client does not have. False disables the control rather than
+                // leaving it offering something that would do nothing.
+                {"IsPlayerResolutionAvailable", lua_ReturnFalse},
+                // Which extra action bars are shown. FrameXML draws the bars
+                // and MultiActionBar_Update decides from the SHOW_MULTI_ACTIONBAR_*
+                // globals, which are CVars and persist on their own — so the
+                // C-side toggle this mirrors has nothing left to do here.
+                {"SetActionBarToggles",      lua_ReturnNothing},
+                // Voice chat, which this client has none of. The enumerations
+                // hand back lists, so they answer with nothing rather than with
+                // a zero; IsVoiceChatEnabled already answers false beside them.
+                {"VoiceIsDisabledByClient",  lua_ReturnTrue},
+                {"VoiceEnumerateCaptureDevices", lua_ReturnNothing},
+                {"VoiceEnumerateOutputDevices",  lua_ReturnNothing},
+                {"VoiceSelectCaptureDevice", lua_ReturnNothing},
+                {"VoiceSelectOutputDevice",  lua_ReturnNothing},
+                {"VoiceChat_StopPlayingLoopbackSound",   lua_ReturnNothing},
+                {"VoiceChat_StopRecordingLoopbackSound", lua_ReturnNothing},
                 {"GetCompanionInfo",         lua_ReturnNil},
                 // Counts, and the count is the whole point: each of these is
                 // read straight into `for i = 1, X()`, where a nil limit is
