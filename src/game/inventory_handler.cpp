@@ -303,12 +303,20 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
         }
     };
 
-    table[Opcode::SMSG_LOOT_SLOT_CHANGED] = [](network::Packet& packet) {
+    table[Opcode::SMSG_LOOT_SLOT_CHANGED] = [this](network::Packet& packet) {
         if (packet.hasRemaining(1)) {
             uint8_t slotIdx = packet.readUInt8();
             LOG_DEBUG("SMSG_LOOT_SLOT_CHANGED: slot=", (int)slotIdx);
-            // The server re-sends loot info for this slot; we can refresh from
-            // the next SMSG_LOOT_RESPONSE or SMSG_LOOT_ITEM_NOTIFY.
+            // The loot frame redraws the one row from this. It carries the
+            // slot, and the slot is what the event carries — the interface
+            // reads arg1 to know which button to refresh, so a bare fire would
+            // make it redraw the wrong one.
+            //
+            // Slots are zero-based on the wire and one-based in the interface.
+            if (owner_.addonEventCallbackRef()) {
+                owner_.addonEventCallbackRef()("LOOT_SLOT_CHANGED",
+                                               {std::to_string(slotIdx + 1)});
+            }
         }
     };
 
