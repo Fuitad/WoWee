@@ -3191,6 +3191,11 @@ const std::vector<LfgProposalMember>& GameHandler::getLfgProposalMembers() const
     return socialHandler_ ? socialHandler_->getLfgProposalMembers() : empty;
 }
 
+const std::unordered_map<uint32_t, uint32_t>& GameHandler::getLfgLocks() const {
+    static const std::unordered_map<uint32_t, uint32_t> empty;
+    return socialHandler_ ? socialHandler_->getLfgLocks() : empty;
+}
+
 int32_t GameHandler::getLfgAvgWaitSec() const {
     return socialHandler_ ? socialHandler_->getLfgAvgWaitSec() : -1;
 }

@@ -1628,6 +1628,7 @@ public:
     uint32_t getLfgProposalId() const;
     uint8_t  getLfgOfferedRoles() const;
     const std::vector<LfgProposalMember>& getLfgProposalMembers() const;
+    const std::unordered_map<uint32_t, uint32_t>& getLfgLocks() const;
     int32_t  getLfgAvgWaitSec() const;
     uint32_t getLfgTimeInQueueMs() const;
     int32_t  getLfgWaitTank() const;

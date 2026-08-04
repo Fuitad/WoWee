@@ -216,14 +216,51 @@ void registerLfgLuaAPI(lua_State* L) {
         }
         return 1;
     }},
-    // Which dungeons the server will not let this character queue for, and
-    // why. The server sends that in SMSG_LFG_PLAYER_INFO and this client does
-    // not keep it, so nothing is locked. The list is read as
-    // `lockList[dungeonID]` and an absent entry is "not locked", which is the
-    // permissive answer — the filter's own comment allows for it: "if the
-    // server tells us we can join, who are we to complain".
-    {"GetLFDChoiceLockedState", [](lua_State* L) -> int { lua_newtable(L); return 1; }},
-    {"GetLFDLockInfo",          [](lua_State* L) -> int { return luaReturnNil(L); }},
+    // Which dungeons the server will not let this character queue for. It
+    // says so in SMSG_LFG_PLAYER_INFO, which this client skipped wholesale —
+    // so every dungeon listed as queueable and the server did the refusing.
+    {"GetLFDChoiceLockedState", [](lua_State* L) -> int {
+        auto* gh = getGameHandler(L);
+        lua_newtable(L);
+        if (!gh) return 1;
+        for (const auto& [dungeonId, status] : gh->getLfgLocks()) {
+            if (status == 0) continue;          // 0 is not a lock
+            lua_pushboolean(L, 1);
+            lua_rawseti(L, -2, static_cast<lua_Integer>(dungeonId));
+        }
+        return 1;
+    }},
+    // GetLFDLockInfo(dungeonID, index) → playerName, lockedReason
+    //
+    // The reason is the server's lock status, which indexes
+    // LFG_INSTANCE_INVALID_CODES directly — 1 expansion, 2 level too low, 3
+    // too high, 4 and 5 gear, 6 raid locked. The name stays nil: the player
+    // block names nobody, and the party block that would is a different packet
+    // this client does not read.
+    // How many players the lock list covers. One — this character. The counting
+    // table answers zero for it, which was right while nothing was parsed and
+    // is not now: a zero here means the loop that prints why you cannot queue
+    // never runs, so the tooltip shows its heading and no reason.
+    //
+    // Binding it over the counting table is what that table's own comment
+    // describes: a real implementation replaces the stub by existing. The
+    // party's locks are a different packet this client does not read, so the
+    // answer stays one rather than the group's size.
+    {"GetLFDLockPlayerCount", [](lua_State* L) -> int {
+        lua_pushinteger(L, 1);
+        return 1;
+    }},
+    {"GetLFDLockInfo", [](lua_State* L) -> int {
+        auto* gh = getGameHandler(L);
+        const uint32_t dungeonId = static_cast<uint32_t>(luaL_optinteger(L, 1, 0));
+        if (!gh || dungeonId == 0) return luaReturnNil(L);
+        const auto& locks = gh->getLfgLocks();
+        auto it = locks.find(dungeonId);
+        if (it == locks.end()) return luaReturnNil(L);
+        lua_pushnil(L);
+        lua_pushinteger(L, static_cast<lua_Integer>(it->second));
+        return 2;
+    }},
 
     {"SetLFGDungeonEnabled", [](lua_State* L) -> int {
         const int id = static_cast<int>(luaL_optinteger(L, 1, 0));

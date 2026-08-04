@@ -251,6 +251,8 @@ public:
     uint8_t  getLfgNeedHealer() const { return lfgNeedHealer_; }
     uint8_t  getLfgNeedDps() const    { return lfgNeedDps_; }
     uint64_t getLfgBootVictimGuid() const { return lfgBootVictimGuid_; }
+    const std::unordered_map<uint32_t, uint32_t>& getLfgLocks() const { return lfgLocks_; }
+    void handleLfgPlayerInfo(network::Packet& packet);
     const std::vector<LfgProposalMember>& getLfgProposalMembers() const {
         return lfgProposalMembers_;
     }
@@ -515,6 +517,11 @@ private:
     uint8_t  lfgNeedHealer_ = 0;
     uint8_t  lfgNeedDps_ = 0;
     uint64_t lfgBootVictimGuid_ = 0;
+    /// Why the server will not let this character queue for a dungeon, by
+    /// dungeon id. Empty means nothing is locked, which is also what it meant
+    /// while SMSG_LFG_PLAYER_INFO was being skipped — the difference is that
+    /// now it is an answer rather than an absence.
+    std::unordered_map<uint32_t, uint32_t> lfgLocks_;
     /// The group a proposal is offering, in the order the server lists it.
     std::vector<LfgProposalMember> lfgProposalMembers_;
     int32_t  lfgAvgWaitSec_   = -1;

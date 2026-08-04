@@ -858,8 +858,14 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         if (ready) owner_.addSystemChatMessage(pName + " has chosen: " + roleName);
         packet.skipAll();
     };
+    // The one that carries the locks. Skipped wholesale until now, which is
+    // why the dungeon finder listed every dungeon as queueable and left the
+    // server to refuse.
+    table[Opcode::SMSG_LFG_PLAYER_INFO] = [this](network::Packet& packet) {
+        handleLfgPlayerInfo(packet);
+    };
     for (auto op : { Opcode::SMSG_LFG_UPDATE_SEARCH, Opcode::SMSG_UPDATE_LFG_LIST,
-                     Opcode::SMSG_LFG_PLAYER_INFO, Opcode::SMSG_LFG_PARTY_INFO }) {
+                     Opcode::SMSG_LFG_PARTY_INFO }) {
         table[op] = [](network::Packet& packet) { packet.skipAll(); };
     }
     table[Opcode::SMSG_OPEN_LFG_DUNGEON_FINDER] = [this](network::Packet& packet) {
@@ -2983,6 +2989,53 @@ void SocialHandler::handleLfgJoinResult(network::Packet& packet) {
         std::string errMsg = std::string("Dungeon Finder: ") + (msg ? msg : "Join failed.");
         owner_.addUIError(errMsg);
         owner_.addSystemChatMessage(errMsg);
+    }
+}
+
+// SMSG_LFG_PLAYER_INFO — what the random dungeons pay out, and what this
+// character is not allowed to queue for.
+//
+// The reward block has to be walked even though none of it is kept, because
+// the locks are behind it and its length depends on how many items each
+// random dungeon rewards. Skipping to the end was not an option; the whole
+// packet was being skipped instead.
+void SocialHandler::handleLfgPlayerInfo(network::Packet& packet) {
+    if (!packet.hasRemaining(1)) { packet.skipAll(); return; }
+    const uint8_t randomCount = packet.readUInt8();
+    for (uint8_t i = 0; i < randomCount; ++i) {
+        if (!packet.hasRemaining(4 + 1 + 4 * 4 + 1)) { packet.skipAll(); return; }
+        packet.readUInt32();          // dungeon entry
+        packet.readUInt8();           // already done today
+        packet.readUInt32();          // money
+        packet.readUInt32();          // experience
+        packet.readUInt32();
+        packet.readUInt32();
+        const uint8_t items = packet.readUInt8();
+        for (uint8_t j = 0; j < items; ++j) {
+            if (!packet.hasRemaining(12)) { packet.skipAll(); return; }
+            packet.readUInt32();      // item id
+            packet.readUInt32();      // display info
+            packet.readUInt32();      // count
+        }
+    }
+
+    if (!packet.hasRemaining(4)) { packet.skipAll(); return; }
+    const uint32_t lockCount = packet.readUInt32();
+    lfgLocks_.clear();
+    for (uint32_t i = 0; i < lockCount && packet.hasRemaining(8); ++i) {
+        // The entry packs the dungeon and its type; the list is keyed by the
+        // dungeon alone, which is what the interface asks with.
+        const uint32_t entry = packet.readUInt32();
+        const uint32_t status = packet.readUInt32();
+        lfgLocks_[entry & 0x00FFFFFFu] = status;
+    }
+    packet.skipAll();
+
+    LOG_INFO("SMSG_LFG_PLAYER_INFO: ", randomCount, " random dungeons, ",
+             lfgLocks_.size(), " locked");
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("LFG_LOCK_INFO_RECEIVED", {});
+        owner_.addonEventCallbackRef()("LFG_UPDATE_RANDOM_INFO", {});
     }
 }
 
