@@ -102,6 +102,16 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     What is left is PickupPetAction. One absent feature and one cursor
     operation, reported as eighteen names.
 
+    questlog and questtracker are the largest case of this and the easiest to
+    misread: twelve and fifteen calls, and every one is the world map API —
+    ClickLandmark, GetMapLandmarkInfo, GetMapOverlayInfo, ProcessMapClick,
+    SetMapByID, ZoomOut, UpdateMapHighlight, the debug pair — which is absent
+    on purpose because this client draws its own map, as the note above says.
+    They reach it through one hop: both frames call into worldmapframe.lua.
+    The one name that looks different, GetQuestLogItemDrop, is in that file too
+    and sits inside `for i = 1, GetNumQuestItemDrops(...)`, which answers zero.
+    Twenty-seven names, one decision already taken.
+
     Calls need the stronger test, because an unanswered call raises where an
     unfired event only goes unheard. Ask whether it is *reachable*, not whether
     the feature exists. mainmenubar's four vehicle calls live in
