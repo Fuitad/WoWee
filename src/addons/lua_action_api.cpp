@@ -1361,6 +1361,17 @@ void registerActionLuaAPI(lua_State* L) {
                 {"GetNumBindings",      lua_GetNumBindings},
                 {"GetBinding",          lua_GetBinding},
                 {"SetBinding",          lua_SetBinding},
+                // GetCurrentBindingSet() — which set SaveBindings should write.
+                //
+                // 1 is account-wide and 2 is per character. This client keeps
+                // one set of bindings, so it is always the first. It was
+                // missing rather than stubbed, and interfaceoptionspanels.lua
+                // calls SaveBindings(GetCurrentBindingSet()) from three
+                // separate option handlers — so changing an option would have
+                // thrown rather than saved.
+                {"GetCurrentBindingSet", [](lua_State* L) -> int {
+            lua_pushnumber(L, 1); return 1;
+        }},
                 {"SaveBindings",        lua_SaveBindings},
                 {"LoadBindings",        lua_LoadBindings},
                 {"RunBinding",          lua_RunBinding},

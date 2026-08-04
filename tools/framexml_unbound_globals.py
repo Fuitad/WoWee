@@ -48,9 +48,21 @@ LUA = {"assert","collectgarbage","dofile","error","getfenv","getmetatable","ipai
        "strrep","strrev","strbyte","strchar","tinsert","tremove","tsort","wipe","date",
        "time","difftime","abs","ceil","floor","max","min","mod","random","sqrt","bit"}
 
+def strip_comments(text: str) -> str:
+    """Drop Lua line comments and XML comments.
+
+    Not cosmetic: two of the six names this flagged on the candidate elements
+    were commented-out calls — --FCFDock_ForceTabSort and
+    --GuildBankItemButton_OnUpdate — which read exactly like missing bindings
+    and are not called at all.
+    """
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+    return re.sub(r"--\[\[.*?\]\]|--[^\n]*", "", text, flags=re.S)
+
+
 calls = {}
 for path in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
-    t = path.read_text(errors="ignore")
+    t = strip_comments(path.read_text(errors="ignore"))
     for m in re.finditer(r"(?<![\w.:])([A-Z][A-Za-z0-9_]*)\s*\(", t):
         calls.setdefault(m.group(1), set()).add(path.name)
 
