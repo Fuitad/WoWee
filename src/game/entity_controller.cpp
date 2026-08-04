@@ -2587,6 +2587,20 @@ void EntityController::handleCreatureQueryResponse(network::Packet& packet) {
                 auto unit = std::static_pointer_cast<Unit>(entity);
                 if (unit->getEntry() == data.entry) {
                     unit->setName(data.name);
+                    // The rank came with this response, and UnitClassification
+                    // reads it from the cache just filled. A unit targeted
+                    // before its query came back answered "normal" until now —
+                    // so an elite or a rare drew a plain border and kept it,
+                    // because the frame only rechecks when told to.
+                    //
+                    // Only for a unit the interface has a token for: the frame
+                    // compares the argument against its own unit and ignores
+                    // anything else, and most of a zone is neither targeted nor
+                    // focused.
+                    const std::string unitId = owner_.guidToUnitId(guid);
+                    if (!unitId.empty() && owner_.addonEventCallbackRef()) {
+                        owner_.addonEventCallbackRef()("UNIT_CLASSIFICATION_CHANGED", {unitId});
+                    }
                 }
             }
         }
