@@ -439,18 +439,22 @@ const Suppress kSuppress[] = {
         // is not an element and never was, so nothing had an opinion about it.
         {UiElement::Achievements, "AlertFrame"},
         {UiElement::BarberShop,   "BarberShopFrame", true},
-        // TAXIMAP_OPENED and PET_STABLE_SHOW are not fired, so neither of those
-        // two can appear yet. Named anyway, because that is a fact about what
-        // this client reaches rather than a decision about which window should
-        // win, and firing either later would otherwise put a second window on
-        // screen with nothing to say why.
+        // All three of these are live now, and the note that used to sit here
+        // saying otherwise was stale in the way these notes go stale: someone
+        // fires the event later and nobody comes back to the comment that says
+        // it is unfired. TAXIMAP_OPENED is fired from movement_handler.cpp,
+        // PET_STABLE_SHOW from spell_handler.cpp, and ITEM_TEXT_BEGIN from the
+        // item text query response.
         //
-        // ITEM_TEXT_BEGIN was listed here as unfired and that was wrong: it is
-        // fired from the query response (inventory_handler.cpp). What was
-        // missing was the *trigger* — readItemBySlot had one caller, this
-        // client's own bag window, which is handed over. UseContainerItem
-        // reaches it now, so ItemTextFrame is genuinely reachable and this
-        // entry is load-bearing rather than precautionary.
+        // That matters more than a stale comment usually does: each of these
+        // suppresses a window this client draws and works. If the event were
+        // genuinely unfired, handing the element over would not swap two
+        // versions of a window — it would remove the feature.
+        //
+        // ITEM_TEXT_BEGIN needed one thing more than the event: its *trigger*.
+        // readItemBySlot had a single caller, this client's own bag window,
+        // which is handed over — so the event was fired and nothing could reach
+        // the code that asked for it. UseContainerItem reaches it now.
         {UiElement::Taxi,         "TaxiFrame"},
         {UiElement::Stable,       "PetStableFrame"},
         {UiElement::Book,         "ItemTextFrame"},
