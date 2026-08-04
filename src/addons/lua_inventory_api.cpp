@@ -180,9 +180,26 @@ static int lua_GetNumBankSlots(lua_State* L) {
 /// GetContainerItemCooldown(bag, slot) → start, duration, enabled. Item
 /// cooldowns are not tracked, and all zero is "nothing running" — which is
 /// what ContainerFrame checks before doing arithmetic with the first two.
+/// GetContainerItemCooldown(bag, slot) → start, duration, enable.
+///
+/// It answered zero for everything, so a potion or a trinket in the bags never
+/// drew its cooldown sweep. The bags are handed over, so FrameXML's is the only
+/// one drawing them.
 static int lua_GetContainerItemCooldown(lua_State* L) {
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
+    auto* gh = getGameHandler(L);
+    const int bag = static_cast<int>(luaL_optnumber(L, 1, -1));
+    const int slot = static_cast<int>(luaL_optnumber(L, 2, 0));
+    double start = 0.0, duration = 0.0;
+    if (gh && slot >= 1) {
+        const auto& inv = gh->getInventory();
+        const game::ItemSlot* s = nullptr;
+        if (bag == 0 && slot <= inv.getBackpackSize()) s = &inv.getBackpackSlot(slot - 1);
+        else if (bag >= 1 && bag <= 4 && slot <= inv.getBagSize(bag - 1))
+            s = &inv.getBagSlot(bag - 1, slot - 1);
+        if (s && !s->empty()) itemUseCooldown(gh, s->item.itemId, start, duration);
+    }
+    lua_pushnumber(L, start);
+    lua_pushnumber(L, duration);
     lua_pushnumber(L, 1);
     return 3;
 }

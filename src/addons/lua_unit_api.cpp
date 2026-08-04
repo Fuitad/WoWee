@@ -1374,9 +1374,21 @@ static int lua_GetUnitMaxHealthModifier(lua_State* L) {
 /// GetInventoryItemCooldown(unit, slot) → start, duration, enabled. All zero
 /// is "nothing on cooldown", which is what the sheet checks for before doing
 /// arithmetic with the first two.
+/// GetInventoryItemCooldown(unit, slot) → start, duration, enable.
+///
+/// The same as the container one and for the same reason: an equipped trinket
+/// on cooldown drew nothing on the paperdoll, which is handed over.
 static int lua_GetInventoryItemCooldown(lua_State* L) {
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
+    auto* gh = getGameHandler(L);
+    const int slot = static_cast<int>(luaL_optnumber(L, 2, 0));
+    double start = 0.0, duration = 0.0;
+    if (gh && slot >= 1 && slot <= 19) {
+        const auto& sl = gh->getInventory().getEquipSlot(
+            static_cast<game::EquipSlot>(slot - 1));
+        if (!sl.empty()) itemUseCooldown(gh, sl.item.itemId, start, duration);
+    }
+    lua_pushnumber(L, start);
+    lua_pushnumber(L, duration);
     lua_pushnumber(L, 1);
     return 3;
 }

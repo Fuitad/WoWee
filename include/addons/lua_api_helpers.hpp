@@ -249,6 +249,32 @@ inline uint64_t containerSlotGuid(game::GameHandler* gh, int bag, int slot) {
     return 0;
 }
 
+/// An item's cooldown, which is its on-use spell's.
+///
+/// The client tracks cooldowns per spell, and an item on cooldown is one whose
+/// use spell is — the same relationship dispatchUseItem walks to decide what
+/// using it casts. Only the remaining time is kept, not the original duration,
+/// so the sweep is reported as starting now and lasting what is left: that
+/// draws exactly the remaining arc, which is the part anyone reads.
+///
+/// False when the item has no use spell or that spell is ready.
+inline bool itemUseCooldown(game::GameHandler* gh, uint32_t itemId,
+                            double& start, double& duration) {
+    if (!gh || itemId == 0) return false;
+    const auto* info = gh->getItemInfo(itemId);
+    if (!info || !info->valid) return false;
+    for (const auto& sp : info->spells) {
+        if (sp.spellId == 0 || (sp.spellTrigger != 0 && sp.spellTrigger != 5)) continue;
+        const auto& cds = gh->getSpellCooldowns();
+        auto it = cds.find(sp.spellId);
+        if (it == cds.end() || it->second <= 0.0f) continue;
+        start = luaGetTimeNow();
+        duration = it->second;
+        return true;
+    }
+    return false;
+}
+
 // Find GroupMember data for a GUID (for party members out of entity range)
 inline const game::GroupMember* findPartyMember(game::GameHandler* gh, uint64_t guid) {
     if (!gh || guid == 0) return nullptr;
