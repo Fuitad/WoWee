@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static version of the unaccounted-frame sweep.
+r"""Static version of the unaccounted-frame sweep.
 
 Known blind spot, measured rather than assumed: this reads parent="UIParent"
 out of the XML, so frames built at runtime by CreateFrame are invisible to it.
