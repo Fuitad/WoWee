@@ -160,7 +160,13 @@ def code_only(src):
 def events_fired():
     """Every event name the client can send, taken from the C++ that sends them."""
     names = set()
-    for dirpath, _, filenames in os.walk(os.path.join(ROOT, "src")):
+    # include/ as well as src/. Plenty of this client's small state changes are
+    # inline in a header — closeStableWindow fires PET_STABLE_CLOSED from
+    # game_handler.hpp — and scanning only src/ reported those events as never
+    # sent, which is the one thing this column is supposed to be trusted on.
+    roots = [os.path.join(ROOT, "src"), os.path.join(ROOT, "include")]
+    for root in roots:
+      for dirpath, _, filenames in os.walk(root):
         for fn in filenames:
             if not fn.endswith((".cpp", ".hpp")):
                 continue

@@ -1,6 +1,7 @@
 // lua_quest_api.cpp — Quest log, skills, talents, glyphs, and achievements Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
+#include "addons/lua_engine.hpp"
 #include "game/game_utils.hpp"
 
 #include <algorithm>
@@ -701,7 +702,67 @@ static int lua_GetSelectedStablePet(lua_State* L) {
 
 static int lua_ClickStablePet(lua_State* L) {
     selectedStableSlot() = static_cast<int>(luaL_optnumber(L, 1, 0));
+    // The model preview shows whichever pet is selected, so selecting a
+    // different one is exactly when it has to be redrawn. Nothing else changes
+    // it, and the frame will not redraw on its own.
+    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_lua_engine");
+    auto* engine = static_cast<LuaEngine*>(lua_touserdata(L, -1));
+    lua_pop(L, 1);
+    if (engine) engine->fireEvent("PET_STABLE_UPDATE_PAPERDOLL", {});
     return 0;
+}
+
+// ---- What a pet eats, and what it trains into ----
+//
+// Both come from the creature's family. This client learns a family from
+// SMSG_CREATURE_QUERY_RESPONSE, which only ever arrives for creatures it has
+// seen — and a stabled pet is by definition not in the world, so its family is
+// never known. Mapping a family to a diet would need CreatureFamily.dbc on top
+// of that, whose field layout does not read cleanly enough to trust.
+//
+// So these answer absent, and the frame is built for that: GetPetIcon and
+// GetPetFoodTypes are both tested before use, and the talent tree is taken as
+// `GetPetTalentTree() or ""`.
+static int lua_GetPetIcon(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh || !activePet(gh)) { return luaReturnNil(L); }
+    lua_pushstring(L, "Interface\\Icons\\Ability_Hunter_BeastTaming");
+    return 1;
+}
+static int lua_GetPetTalentTree(lua_State* L) { return luaReturnNil(L); }
+static int lua_GetPetFoodTypes(lua_State* L)  { return luaReturnNil(L); }
+
+/// SetPetStablePaperdoll(model) — put the selected pet in the preview frame.
+///
+/// Defined and does nothing, which is deliberate and not the same as done. A
+/// model frame here shows an image this client renders for it, and it renders
+/// one for a player character; there is no path that puts an arbitrary
+/// creature in one. Leaving the name undefined would be worse than a blank
+/// preview — the call is unguarded, so it would take the stable window down
+/// on the click that selects a pet.
+static int lua_SetPetStablePaperdoll(lua_State* L) { (void)L; return 0; }
+
+/// PickupStablePet(slot) — start dragging a pet between stable slots.
+///
+/// Also a deliberate no-op. Moving a pet by dragging needs a cursor that can
+/// hold one, and this client's cursor holds items and spells; the buttons the
+/// stable frame offers for the same moves go through stablePet and
+/// unstablePet, which do work. So the frame loses the drag and keeps the
+/// operation.
+static int lua_PickupStablePet(lua_State* L) { (void)L; return 0; }
+
+/// GetStablePetFoodTypes(slot) — and the one that cannot answer nil.
+///
+/// Its result goes straight into format(PET_DIET_TEMPLATE,
+/// BuildListString(...)) with no test in between. BuildListString hands nil
+/// back for nil, and string.format raises on a nil where it wants a string, so
+/// answering honestly there takes the stable window down as it opens. An empty
+/// string is the one value that says "not known" without doing that: the diet
+/// line comes out blank instead of wrong.
+static int lua_GetStablePetFoodTypes(lua_State* L) {
+    (void)L;
+    lua_pushstring(L, "");
+    return 1;
 }
 
 static int lua_ClosePetStables(lua_State* L) {
@@ -1765,6 +1826,12 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetNumStableSlots",      lua_GetNumStableSlots},
                 {"GetSelectedStablePet",   lua_GetSelectedStablePet},
                 {"ClickStablePet",         lua_ClickStablePet},
+                {"GetPetIcon",             lua_GetPetIcon},
+                {"GetPetTalentTree",       lua_GetPetTalentTree},
+                {"GetPetFoodTypes",        lua_GetPetFoodTypes},
+                {"GetStablePetFoodTypes",  lua_GetStablePetFoodTypes},
+                {"SetPetStablePaperdoll",  lua_SetPetStablePaperdoll},
+                {"PickupStablePet",        lua_PickupStablePet},
                 {"ClosePetStables",        lua_ClosePetStables},
                 {"IsAtStableMaster",       lua_IsAtStableMaster},
                 {"GetNextStableSlotCost",  lua_GetNextStableSlotCost},
