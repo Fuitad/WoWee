@@ -185,6 +185,23 @@ void EntitySpawner::processAsyncCreatureResults(bool unlimited) {
 }
 
 void EntitySpawner::processAsyncNpcCompositeResults(bool unlimited) {
+    // Every texture this loop loads or composites goes through immediateSubmit,
+    // which submits and then blocks on a fence — unless a batch is open, in
+    // which case it records and returns. loadModel and processPendingNormalMaps
+    // already open one; this path did not, so each texture was a full GPU
+    // round-trip and one NPC's skin was dozens of them back to back.
+    //
+    // That is what the 2 ms budget could not catch: it gates whether a new item
+    // starts and cannot interrupt one already running. The stage was measured at
+    // 406-675 ms against a 2 ms budget, and the device was lost inside one of
+    // these waits.
+    auto* batchCtx = renderer_ ? renderer_->getVkContext() : nullptr;
+    if (batchCtx) batchCtx->beginUploadBatch();
+    struct BatchGuard {
+        rendering::VkContext* ctx;
+        ~BatchGuard() { if (ctx) ctx->endUploadBatchSync(); }
+    } batchGuard{batchCtx};
+
     auto* charRenderer = renderer_ ? renderer_->getCharacterRenderer() : nullptr;
     if (!charRenderer) return;
 
