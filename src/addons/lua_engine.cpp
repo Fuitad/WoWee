@@ -4017,8 +4017,8 @@ void LuaEngine::registerCoreAPI() {
         "SetNumber=1,SetNumeric=1,SetOwner=1,SetParent=1,SetPetAction=1,\n"
         "SetPlayerTextureHeight=1,SetPlayerTextureWidth=1,SetPoint=1,SetPosition=1,\n"
         "SetPossession=1,SetPropagateKeyboardInput=1,SetPushedTexture=1,SetQuestItem=1,\n"
-        "SetQuestLogItem=1,SetQuestLogRewardSpell=1,SetQuestLogSpecialItem=1,\n"
-        "SetQuestRewardSpell=1,SetResizable=1,SetRotation=1,SetScale=1,SetScript=1,\n"
+        "SetQuestLogRewardSpell=1,SetQuestLogSpecialItem=1,\n"
+        "SetResizable=1,SetRotation=1,SetScale=1,SetScript=1,\n"
         "SetScrollChild=1,SetSelection=1,SetSendMailItem=1,SetSequence=1,\n"
         "SetSequenceTime=1,SetShadowOffset=1,SetShapeshift=1,SetShown=1,SetSize=1,\n"
         "SetSpacing=1,SetSpell=1,SetSpellByID=1,SetStartDelay=1,SetStatusBarColor=1,\n"
@@ -4038,7 +4038,7 @@ void LuaEngine::registerCoreAPI() {
         "SetScrollOffset=1,RegisterAllEvents=1,\n"
         "SetStatusBarTexture=1,SetTexCoord=1,SetText=1,SetTextHeight=1,\n"
         "SetTexture=1,SetToplevel=1,SetTotem=1,SetTracking=1,\n"
-        "SetTradePlayerItem=1,SetTradeTargetItem=1,SetUIPanel=1,SetUnit=1,SetUnitAura=1,\n"
+        "SetTradeTargetItem=1,SetUIPanel=1,SetUnit=1,\n"
         "SetUnitBuff=1,SetUnitDebuff=1,SetValue=1,SetValueStep=1,\n"
         "SetVertexColor=1,SetVerticalScroll=1,SetWidth=1,SetZoom=1,Show=1,ShowUIPanel=1,\n"
         "ShowUIPanelFailed=1,StartMovie=1,StartMoving=1,StartSizing=1,Stop=1,\n"
@@ -4488,6 +4488,61 @@ void LuaEngine::registerCoreAPI() {
         "        end\n"
         "        self.__spellId = spellId\n"
         "    end\n"
+        "end\n"
+        // The one the buff frame actually calls. SetUnitBuff and
+        // SetUnitDebuff were written and this was left in the no-op
+        // allowlist, so every buff and debuff on the default buff frame
+        // hovered to an empty tooltip — buffframe.lua reaches for SetUnitAura
+        // in both its handlers and neither of the two that exist.
+        // Three more that were left in the no-op allowlist while everything
+        // they need was bound. Each is a hover that wrote nothing: a quest
+        // reward in the questgiver window, its spell reward, and an item on
+        // either side of a trade.
+        //
+        // They route through the item link rather than rebuilding a tooltip,
+        // because SetHyperlink already knows how to render one and the links
+        // are what the getters hand back.
+        "function __WoweeFrameMT:SetQuestLogItem(itemType, index)\n"
+        "    self:ClearLines()\n"
+        "    local link = GetQuestLogItemLink and GetQuestLogItemLink(itemType, index)\n"
+        "    if link then return self:SetHyperlink(link) end\n"
+        "    local name = GetQuestItemInfo(itemType, index)\n"
+        "    if name then self:SetText(name, 1, 1, 1) end\n"
+        "end\n"
+        "function __WoweeFrameMT:SetQuestItem(itemType, index)\n"
+        "    self:ClearLines()\n"
+        "    local link = GetQuestItemLink and GetQuestItemLink(itemType, index)\n"
+        "    if link then return self:SetHyperlink(link) end\n"
+        "    local name = GetQuestItemInfo(itemType, index)\n"
+        "    if name then self:SetText(name, 1, 1, 1) end\n"
+        "end\n"
+        "function __WoweeFrameMT:SetQuestRewardSpell()\n"
+        "    self:ClearLines()\n"
+        "    local _, _, _, name = GetRewardSpell()\n"
+        "    if name then self:SetText(name, 1, 1, 1) end\n"
+        "end\n"
+        "function __WoweeFrameMT:SetTradePlayerItem(index)\n"
+        "    self:ClearLines()\n"
+        "    local link = GetTradePlayerItemLink and GetTradePlayerItemLink(index)\n"
+        "    if link then return self:SetHyperlink(link) end\n"
+        "    local name = GetTradePlayerItemInfo(index)\n"
+        "    if name then self:SetText(name, 1, 1, 1) end\n"
+        "end\n"
+        "function __WoweeFrameMT:SetUnitAura(unit, index, filter)\n"
+        "    self:ClearLines()\n"
+        "    local name, rank, icon, count, debuffType, duration, expTime, caster, steal, consolidate, spellId = UnitAura(unit, index, filter)\n"
+        "    if not name then return end\n"
+        // Harmful auras name their school and are titled in red; a buff is
+        // white. filter is what the caller asked for, debuffType is what came
+        // back, and either is enough to tell them apart.
+        "    local harmful = debuffType ~= nil or (filter and string.find(filter, 'HARMFUL'))\n"
+        "    if harmful then self:SetText(name, 1, 0, 0) else self:SetText(name, 1, 1, 1) end\n"
+        "    if debuffType then self:AddLine(debuffType, 0.5, 0.5, 0.5) end\n"
+        "    if count and count > 1 then self:AddLine(count .. ' stacks', 1, 1, 1) end\n"
+        "    if duration and duration > 0 and expTime then\n"
+        "        self:AddLine(string.format('%.0f sec remaining', expTime - GetTime()), 1, 1, 1)\n"
+        "    end\n"
+        "    self.__spellId = spellId\n"
         "end\n"
         "function __WoweeFrameMT:SetUnitDebuff(unit, index, filter)\n"
         "    self:ClearLines()\n"
