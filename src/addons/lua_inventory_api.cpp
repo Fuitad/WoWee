@@ -1660,6 +1660,31 @@ static int lua_GetContainerNumSlots(lua_State* L) {
 }
 
 // GetContainerItemInfo(container, slot) → texture, count, locked, quality, readable, lootable, link
+// GetLatestThreeSenders() — who the unread mail is from.
+//
+// The minimap's mail icon builds its tooltip from these: with a name it says
+// "You have mail from", with none just "You have mail". This client has had
+// the inbox and the sender names all along and the tooltip only ever managed
+// the second, shorter sentence.
+//
+// Newest first, which is the order the tooltip reads them in, and only unread
+// mail — a sender whose letter has been opened is not news. Fewer than three
+// is normal and the caller tests each one, so the tail is simply absent.
+static int lua_GetLatestThreeSenders(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) { lua_pushnil(L); lua_pushnil(L); lua_pushnil(L); return 3; }
+
+    const auto& inbox = gh->getMailInbox();
+    int pushed = 0;
+    for (auto it = inbox.rbegin(); it != inbox.rend() && pushed < 3; ++it) {
+        if (it->read || it->senderName.empty()) continue;
+        lua_pushstring(L, it->senderName.c_str());
+        ++pushed;
+    }
+    for (; pushed < 3; ++pushed) lua_pushnil(L);
+    return 3;
+}
+
 /// PickupEquipmentSetByName(name) — drag a gear set onto the cursor.
 ///
 /// Defined and does nothing, deliberately. The cursor here holds items and
@@ -2681,6 +2706,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"ResetCursor",             lua_ResetCursor},
                 {"GetContainerItemID",    lua_GetContainerItemID},
                 {"GetContainerFreeSlots", lua_GetContainerFreeSlots},
+                {"GetLatestThreeSenders", lua_GetLatestThreeSenders},
                 {"PickupEquipmentSetByName", lua_PickupEquipmentSetByName},
                 {"GetContainerItemDurability", lua_GetContainerItemDurability},
                 {"GetContainerItemGems",  lua_ItemGemsNone},
