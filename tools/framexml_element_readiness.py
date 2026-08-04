@@ -446,7 +446,7 @@ def main():
     # conclusion.
     settled = {
         "characterframe": "[checked] eight of nine events are the stat branch shared with UNIT_STATS, which is fired; SHOW_COMPARE_TOOLTIP is absent by design — the C client fires it on a shift-hover to open a comparison tooltip, and this client has no item comparison at all (the only 'compare' in src/ui is std::string::compare)",
-        "book":         "[checked] the whole element is dead on this server — SMSG_ITEM_TEXT_QUERY_RESPONSE is STATUS_NEVER in AzerothCore, so no book text ever arrives and ITEM_TEXT_TRANSLATION is the least of it",
+        "book":         "[checked] ITEM_TEXT_TRANSLATION carries a translation timer nothing derives; the text itself does arrive — ItemHandler.cpp builds SMSG_ITEM_TEXT_QUERY_RESPONSE",
         "bags":         "[checked] BAG_OPEN/CLOSED are for a C client opening bags; ToggleBag, OpenBag and CloseBag are all Lua functions in containerframe.lua",
         "merchant":     "[checked] GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, fired from inventory_handler and entity_controller",
         "playerframe":  "[checked] voice chat, vehicles and the playtime nag (PLAYER_ROLES_ASSIGNED was wrong here — roles are parsed and read, and it is fired now)",
@@ -456,8 +456,8 @@ def main():
         "questlog":     "[checked] every call is the world map API, absent because this client draws its own",
         "questtracker": "[checked] twelve are the same world map API through worldmapframe.lua; the other three are AchievementFrame internals, defined in blizzard_achievementui and absent only until it loads",
         "worldmap":     "[checked] map API is this client's; WORLD_MAP_NAME_UPDATE has no handler branch, CLOSE_WORLD_MAP needs the key to drive Lua",
-        "mail":         "[checked] the refund lock is dead on this server — SMSG_ITEM_REFUND_INFO_RESPONSE is STATUS_NEVER in AzerothCore, so the state it needs never arrives",
-        "help":         "[checked] GMSURVEY_DISPLAY carries questions nothing parses; GMRESPONSE_RECEIVED is parsed and fired but SMSG_GMRESPONSE_RECEIVED is STATUS_NEVER in AzerothCore, so it cannot arrive on this server",
+        "mail":         "the refund lock is REAL and open — Player.cpp sends SMSG_ITEM_REFUND_INFO_RESPONSE and this client skip-handles it, so the data is available and unparsed",
+        "help":         "[checked] GMSURVEY_DISPLAY carries questions nothing parses; GMRESPONSE_RECEIVED is parsed and fired, and TicketMgr.cpp does send it",
     }
     also = [e for e in settled if e not in ready]
     if also:

@@ -31,16 +31,19 @@ TWO THINGS THIS CANNOT DECIDE
   SMSG_QUESTGIVER_QUEST_LIST was sending GOSSIP_SHOW where QUEST_GREETING
   belonged, so the gossip frame opened over the quest list. Read the handler.
 
-* **Check whether the server sends the message at all.** The source is on this
-  machine — /home/k/azerothcore-wotlk — and Opcodes.cpp marks every opcode it
-  never sends with STATUS_NEVER. All three names left in the table below are
-  that: SMSG_BATTLEFIELD_MGR_EJECTED, SMSG_BATTLEFIELD_MGR_EJECT_PENDING and
-  SMSG_UPDATE_LFG_LIST. A handler exists here for each, which is why they show
-  up, and none will ever be reached.
+* **Check whether the server sends the message, by finding where it builds it.**
+  The source is on this machine — /home/k/azerothcore-wotlk — so grep for
+  `WorldPacket data(SMSG_...)` in src/server/game.
 
-  That is a better answer than the one this file used to give for them —
-  "carries data this client does not parse" — which was a guess about the
-  contents of a packet that does not arrive.
+  Do *not* use the STATUS_NEVER field in Opcodes.cpp for this. It reads like a
+  statement that the server never sends the opcode and is not one:
+  SMSG_ITEM_TEXT_QUERY_RESPONSE and SMSG_GMRESPONSE_RECEIVED are both marked
+  STATUS_NEVER and both are built and sent, in ItemHandler.cpp and TicketMgr.cpp.
+  Trusting that field produced four wrong conclusions in a row here.
+
+  By the correct test, the three names below are all genuinely sent —
+  BattlefieldHandler.cpp and LFGMgr.cpp build them — so they are real gaps
+  rather than dead opcodes.
 
 * **An event is only worth firing if the data behind it exists.** The
   battlefield eject pair carries a relocation and a reason this client does not
