@@ -1890,6 +1890,11 @@ void GameHandler::registerOpcodeHandlers() {
             socialHandler_->setEncounterUnitGuid(slot, unit);
             LOG_DEBUG("SMSG_UPDATE_INSTANCE_ENCOUNTER_UNIT: slot=", slot,
                       " guid=0x", std::hex, unit, std::dec);
+            // The boss frames are drawn from these slots and redraw all of
+            // them on this event, which is why it carries no argument. Stored
+            // and never announced, so an encounter filled its slots and no
+            // boss frame appeared.
+            fireAddonEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT", {});
         }
     };
     // charName (cstring) + guid (uint64) + achievementId (uint32) + ...
