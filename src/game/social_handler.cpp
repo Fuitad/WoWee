@@ -3289,8 +3289,11 @@ void SocialHandler::handlePvpLogData(network::Packet& packet) {
                 LOG_WARNING("  AzerothCore reading: type=", static_cast<int>(acType),
                             " implies ", acCount, " players in ", forPlayers,
                             " bytes = ", (acCount ? forPlayers / acCount : 0),
-                            " each. Sane count and ~40 each means this layout is"
-                            " the right one; 36 each means no team byte.");
+                            " each. AzerothCore's layout is 36 + 4 per objective"
+                            " — 36 with none, 40 with one, 44 with two — so a"
+                            " figure in that family means it is the right one and"
+                            " there is no team byte. One byte more per player"
+                            " means there is.");
             }
         }
     }
