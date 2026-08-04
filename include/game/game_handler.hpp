@@ -501,6 +501,7 @@ public:
     void declineBattlefield(uint32_t queueSlot = 0xFFFFFFFF);
     void leaveBattlefield();
     void requestBattlefieldList(uint32_t bgTypeId);
+    void reportPvpAfk(uint64_t playerGuid);
     void joinBattlefield(uint64_t battlemasterGuid, uint32_t bgTypeId,
                          uint32_t instanceId, bool asGroup);
     const std::array<BgQueueSlot, 3>& getBgQueues() const;

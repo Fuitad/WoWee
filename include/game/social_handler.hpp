@@ -98,6 +98,8 @@ public:
     void leaveBattlefield();
     /// Ask the server which instances of one battleground are running.
     void requestBattlefieldList(uint32_t bgTypeId);
+    /// Report a player in this battleground as not participating.
+    void reportPvpAfk(uint64_t playerGuid);
     void joinBattlefield(uint64_t battlemasterGuid, uint32_t bgTypeId,
                          uint32_t instanceId, bool asGroup);
     const std::array<BgQueueSlot, 3>& getBgQueues() const { return bgQueues_; }

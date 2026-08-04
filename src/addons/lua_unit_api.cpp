@@ -1798,6 +1798,68 @@ static int lua_UnitReaction(lua_State* L) {
     return 1;
 }
 
+/// Which side the battlefield scoreboard is showing: 1 Alliance, 0 Horde,
+/// -1 both. Set by the frame's tabs through SetBattlefieldScoreFaction.
+static int& battlefieldScoreFaction() {
+    static int faction = -1;
+    return faction;
+}
+
+/// Which column the scoreboard is sorted by, and which way.
+///
+/// The direction lives here because the interface does not keep it: clicking a
+/// column hands the same name over again and expects the order to reverse,
+/// which only works if something remembers what it was.
+static std::string& battlefieldSortColumn() {
+    static std::string column;
+    return column;
+}
+static bool& battlefieldSortDescending() {
+    static bool descending = true;
+    return descending;
+}
+
+/// The scoreboard rows that pass the current filter, in the current order.
+///
+/// Pointers into the scoreboard rather than copies: this is rebuilt on every
+/// GetBattlefieldScore call, once per row per redraw, and a battleground holds
+/// forty players.
+static std::vector<const game::BgPlayerScore*>
+filteredBgScores(const game::BgScoreboardData& sb) {
+    std::vector<const game::BgPlayerScore*> rows;
+    rows.reserve(sb.players.size());
+    const int want = battlefieldScoreFaction();
+    for (const auto& p : sb.players) {
+        if (want < 0 || static_cast<int>(p.team) == want) rows.push_back(&p);
+    }
+
+    const std::string& column = battlefieldSortColumn();
+    if (column.empty()) return rows;
+
+    // Only the columns this client has the numbers for. "class" is not one of
+    // them — the scoreboard packet carries no class — and neither are damage
+    // and healing, which are not parsed and read as zero for everyone, so
+    // sorting by them would rearrange nothing while looking like it worked.
+    auto key = [&column](const game::BgPlayerScore* p) -> double {
+        if (column == "kills")  return p->killingBlows;
+        if (column == "deaths") return p->deaths;
+        if (column == "hk")     return p->honorableKills;
+        if (column == "cp")     return p->bonusHonor;
+        if (column == "team")   return p->team;
+        return 0.0;
+    };
+    const bool byName = (column == "name");
+    const bool descending = battlefieldSortDescending();
+    std::stable_sort(rows.begin(), rows.end(),
+                     [&](const game::BgPlayerScore* a, const game::BgPlayerScore* b) {
+                         if (byName) {
+                             return descending ? a->name > b->name : a->name < b->name;
+                         }
+                         return descending ? key(a) > key(b) : key(a) < key(b);
+                     });
+    return rows;
+}
+
 // UnitIsConnected(unit) → boolean
 static int lua_UnitIsConnected(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -2075,10 +2137,41 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushnumber(L, 0);
             return 1;
         }},
+                // SetBattlefieldScoreFaction(faction) — show one side only.
+                //
+                // The scoreboard's tabs are a filter, not a sort: 1 is
+                // Alliance, 0 is Horde, and nil is both. It has to reach the
+                // two functions below, because the rows the frame draws are
+                // the rows they hand back — the frame does no filtering of its
+                // own and would otherwise show everyone under either tab.
+                {"SetBattlefieldScoreFaction", [](lua_State* L) -> int {
+            if (lua_isnoneornil(L, 1)) battlefieldScoreFaction() = -1;
+            else battlefieldScoreFaction() = static_cast<int>(lua_tonumber(L, 1));
+            return 0;
+        }},
+                // SortBattlefieldScoreData(column) — order the rows.
+                //
+                // The same column twice reverses, which is the real client's
+                // behaviour and has to be remembered here: the interface hands
+                // over only the column name and keeps no direction of its own.
+                //
+                // A name is sensible ascending and a score is not, so a fresh
+                // column starts descending for everything but the name.
+                {"SortBattlefieldScoreData", [](lua_State* L) -> int {
+            std::string column(luaL_optstring(L, 1, ""));
+            if (column.empty()) return 0;
+            if (column == battlefieldSortColumn()) {
+                battlefieldSortDescending() = !battlefieldSortDescending();
+            } else {
+                battlefieldSortColumn() = column;
+                battlefieldSortDescending() = (column != "name");
+            }
+            return 0;
+        }},
                 {"GetNumBattlefieldScores", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const auto* sb = gh ? gh->getBgScoreboard() : nullptr;
-            lua_pushnumber(L, sb ? sb->players.size() : 0);
+            lua_pushnumber(L, sb ? static_cast<double>(filteredBgScores(*sb).size()) : 0.0);
             return 1;
         }},
                 {"GetBattlefieldScore", [](lua_State* L) -> int {
@@ -2086,10 +2179,12 @@ void registerUnitLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             int index = static_cast<int>(luaL_checknumber(L, 1));
             const auto* sb = gh ? gh->getBgScoreboard() : nullptr;
-            if (!sb || index < 1 || index > static_cast<int>(sb->players.size())) {
+            if (!sb) return luaReturnNil(L);
+            const auto rows = filteredBgScores(*sb);
+            if (index < 1 || index > static_cast<int>(rows.size())) {
                 return luaReturnNil(L);
             }
-            const auto& p = sb->players[index - 1];
+            const auto& p = *rows[static_cast<size_t>(index - 1)];
             lua_pushstring(L, p.name.c_str());     // name
             lua_pushnumber(L, p.killingBlows);      // killingBlows
             lua_pushnumber(L, p.honorableKills);    // honorableKills
@@ -2185,6 +2280,23 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushnumber(L, static_cast<double>(team.newRating));
             lua_pushnil(L);
             return 4;
+        }},
+                // ReportPlayerIsPVPAFK(name) — flag someone as not taking part.
+                //
+                // Named rather than targeted: the scoreboard row knows who it
+                // is showing but not their guid, so the name is matched against
+                // the scoreboard this client already holds. A name that is not
+                // on it cannot be reported, which is also true in the real
+                // client — the report is only offered from a row.
+                {"ReportPlayerIsPVPAFK", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* name = lua_isstring(L, 1) ? lua_tostring(L, 1) : nullptr;
+            const auto* sb = gh ? gh->getBgScoreboard() : nullptr;
+            if (!gh || !sb || !name || !*name) return 0;
+            for (const auto& p : sb->players) {
+                if (p.name == name) { gh->reportPvpAfk(p.guid); return 0; }
+            }
+            return 0;
         }},
                 {"GetBattlefieldWinner", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);

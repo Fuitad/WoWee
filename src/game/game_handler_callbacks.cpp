@@ -2078,6 +2078,10 @@ void GameHandler::requestBattlefieldList(uint32_t bgTypeId) {
     if (socialHandler_) socialHandler_->requestBattlefieldList(bgTypeId);
 }
 
+void GameHandler::reportPvpAfk(uint64_t playerGuid) {
+    if (socialHandler_) socialHandler_->reportPvpAfk(playerGuid);
+}
+
 void GameHandler::acceptBattlefield(uint32_t queueSlot) {
     if (socialHandler_) socialHandler_->acceptBattlefield(queueSlot);
 }

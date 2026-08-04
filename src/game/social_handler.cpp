@@ -2803,6 +2803,17 @@ void SocialHandler::requestBattlefieldList(uint32_t bgTypeId) {
     owner_.getSocket()->send(packet);
 }
 
+// CMSG_REPORT_PVP_AFK: this player is not participating. The reply,
+// SMSG_REPORT_PVP_AFK_RESULT, was already handled — the request was the half
+// that had no way to be sent.
+void SocialHandler::reportPvpAfk(uint64_t playerGuid) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    if (playerGuid == 0) return;
+    network::Packet pkt(wireOpcode(Opcode::CMSG_REPORT_PVP_AFK));
+    pkt.writeUInt64(playerGuid);
+    owner_.getSocket()->send(pkt);
+}
+
 void SocialHandler::leaveBattlefield() {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     network::Packet pkt(wireOpcode(Opcode::CMSG_LEAVE_BATTLEFIELD));
