@@ -50,6 +50,21 @@ for name in sorted(numeric):
     if "lua_pushboolean" in body and "lua_pushnumber" not in body.split("lua_pushboolean")[0][-400:]:
         hits.append((name, impl, sorted(numeric[name])[:2]))
 
+# A zero here is only worth anything if the sweep can still see. Both stages
+# are reported, and the canary is checked: IsActionInRange is the case that
+# named this sweep, and it must at least reach the numeric-comparison set. If
+# it stops appearing there, the Lua side has stopped parsing and the zero
+# below means nothing.
+print(f"{len(numeric)} names compared numerically in FrameXML, "
+      f"{len(bound)} C bindings parsed")
+canary = "IsActionInRange"
+if canary in numeric:
+    print(f"canary: {canary} seen compared numerically — the Lua side parses")
+else:
+    print(f"CANARY MISSING: {canary} not found compared numerically. "
+          f"The sweep is not reading FrameXML; the count below is meaningless.")
+print()
+
 print(f"{len(hits)} binding(s) push a boolean and are compared numerically:\n")
 for name, impl, where in hits:
     print(f"  {name}  ->  {impl}")

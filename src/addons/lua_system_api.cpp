@@ -2459,7 +2459,16 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"IsAddOnLoaded",            lua_IsAddOnLoaded},
                 {"LoadAddOn",                lua_LoadAddOn},
                 {"UIParentLoadAddOn",        lua_LoadAddOn},
-                {"HasCompletedAnyAchievement", lua_ReturnFalse},
+                // This is the whole of whether the achievement micro button is
+                // clickable: mainmenubarmicrobuttons.lua disables it unless
+                // this and CanShowAchievementUI both answer yes, and the other
+                // already did. A flat false left the button greyed out while
+                // the client knew exactly which achievements were earned.
+                {"HasCompletedAnyAchievement", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L, gh && !gh->getEarnedAchievements().empty() ? 1 : 0);
+            return 1;
+        }},
                 {"TurnInGuildCharter",       lua_ReturnNothing},
                 // Nothing is being driven, so aiming it does nothing
                 // and there is nothing to climb out of.
