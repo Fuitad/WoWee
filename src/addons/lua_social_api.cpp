@@ -1853,6 +1853,48 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"ChannelUnmoderator",        [](lua_State* L) -> int { (void)L; return 0; }},
                 {"SetChannelOwner",           [](lua_State* L) -> int { (void)L; return 0; }},
                 {"BNSetToonBlocked",          [](lua_State* L) -> int { (void)L; return 0; }},
+
+                // ---- What the summon and resurrect popups read ----
+                //
+                // These two prompts were handed to FrameXML so they would stop
+                // being asked twice, and that put their text and timer
+                // functions on a live path for the first time. Both were
+                // missing, so the summon popup threw in its OnShow and
+                // ShowResurrectRequest threw before it could show anything —
+                // the handover fixed a duplicate and replaced it with a raise.
+                {"GetSummonConfirmSummoner", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushstring(L, gh ? gh->getSummonerName().c_str() : "");
+            return 1;
+        }},
+                {"GetSummonConfirmTimeLeft", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? gh->getSummonTimeoutSec() : 0.0f);
+            return 1;
+        }},
+                // The destination is not carried in what this client parses,
+                // and the popup prints it into a sentence — so an empty string
+                // rather than nil, which would concatenate into a raise.
+                {"GetSummonConfirmAreaName", [](lua_State* L) -> int {
+            lua_pushstring(L, ""); return 1;
+        }},
+                // Asked every frame by the popup's OnUpdate to grey the accept
+                // button. The server refuses a summon it will not honour, so
+                // the client does not second-guess it.
+                {"PlayerCanTeleport", [](lua_State* L) -> int {
+            lua_pushboolean(L, 1); return 1;
+        }},
+                // Which of three resurrect popups to raise. Both false picks
+                // RESURRECT_NO_TIMER, the plain "accept?" prompt, which is the
+                // right one for a player casting a resurrect — sickness and the
+                // release timer belong to the spirit healer path, which this
+                // client answers itself.
+                {"ResurrectHasSickness", [](lua_State* L) -> int {
+            lua_pushboolean(L, 0); return 1;
+        }},
+                {"ResurrectHasTimer", [](lua_State* L) -> int {
+            lua_pushboolean(L, 0); return 1;
+        }},
                 {"StartDuel", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const char* unit = luaL_optstring(L, 1, "target");
