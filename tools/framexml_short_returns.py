@@ -10,6 +10,19 @@ Approximate by construction: it takes the largest `return N` in the function
 body against the largest left-hand side in FrameXML. Both are upper bounds, so
 a hit means "worth reading", not "wrong". Prints its own parse counts so a zero
 can be told from a silent failure.
+
+Two false-positive shapes, both seen and both worth knowing before acting:
+
+  * **Two calls on one right-hand side.** `local a, b = GetX(), GetY()` counts
+    two names on the left and credits both to GetX. blizzard_talentui does this
+    with GetActiveTalentGroup and GetNumTalentGroups on one line, and mainmenubar
+    does it with two GetCVarBool calls.
+
+  * **A widget method sharing a global's name.** The binding tables hold both
+    globals and widget methods, and this cannot tell them apart.
+    `GetCursorPosition` is a global returning x and y *and* an EditBox method
+    returning one character offset; resolving the name to the method makes the
+    global look short by one.
 """
 import re
 from pathlib import Path
