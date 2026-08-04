@@ -456,7 +456,6 @@ def main():
         "questlog":     "[checked] every call is the world map API, absent because this client draws its own",
         "questtracker": "[checked] twelve are the same world map API through worldmapframe.lua; the other three are AchievementFrame internals, defined in blizzard_achievementui and absent only until it loads",
         "worldmap":     "[checked] map API is this client's; WORLD_MAP_NAME_UPDATE has no handler branch, CLOSE_WORLD_MAP needs the key to drive Lua",
-        "mail":         "the refund lock is REAL and open — Player.cpp sends SMSG_ITEM_REFUND_INFO_RESPONSE and this client skip-handles it, so the data is available and unparsed",
         "help":         "[checked] GMSURVEY_DISPLAY carries questions nothing parses; GMRESPONSE_RECEIVED is parsed and fired, and TicketMgr.cpp does send it",
     }
     also = [e for e in settled if e not in ready]
