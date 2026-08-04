@@ -2629,7 +2629,30 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"IsHarmfulSpell",           lua_ReturnFalse},
                 {"IsHelpfulSpell",           lua_ReturnFalse},
                 {"IsPossessBarVisible",      lua_ReturnFalse},
-                {"IsRaidOfficer",            lua_ReturnFalse},
+                // IsRaidOfficer() — whether this player is an assistant.
+                //
+                // The same question UnitIsRaidOfficer already answers for
+                // anyone else, and off the same bit: MEMBER_FLAG_ASSISTANT is
+                // 0x01 in AzerothCore's Group.h, and the party members carry
+                // their flags. Only the player's own answer was hardcoded no.
+                //
+                // It gates the assistant-only entries on the unit menus and,
+                // with IsPartyLeader beside it, whether the chat frame offers
+                // to send a raid warning at all.
+                {"IsRaidOfficer", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) { lua_pushboolean(L, 0); return 1; }
+            const uint64_t self = gh->getPlayerGuid();
+            constexpr uint8_t kMemberFlagAssistant = 0x01;
+            for (const auto& mem : gh->getPartyData().members) {
+                if (mem.guid == self) {
+                    lua_pushboolean(L, (mem.flags & kMemberFlagAssistant) ? 1 : 0);
+                    return 1;
+                }
+            }
+            lua_pushboolean(L, 0);
+            return 1;
+        }},
                 {"IsReferAFriendLinked",     lua_ReturnFalse},
                 {"IsStereoVideoAvailable",   lua_ReturnFalse},
                 {"IsVoiceChatEnabled",       lua_ReturnFalse},
