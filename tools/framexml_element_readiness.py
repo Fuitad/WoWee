@@ -125,6 +125,16 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     so. Firing it wants a setter those thirteen go through — mechanical, but a
     cursor that announces half its changes is harder to reason about than one
     that announces none, so it is all of them or nothing.
+
+    minimap's PLAYER_DIFFICULTY_CHANGED and UPDATE_INSTANCE_INFO both drive
+    MiniMapInstanceDifficulty_OnEvent, which reads GetInstanceInfo and hides
+    the indicator unless the difficulty says something other than normal
+    five-player. GetInstanceInfo answers "party" for real when in an instance,
+    so the path is live — but it reports a fixed difficulty, and firing the
+    events against that changes nothing. The chain worth following is
+    GroupListData::difficultyId and raidDifficultyId, which the group list
+    already parses and GetInstanceInfo does not read; wire those first and the
+    two events become worth firing.
 """
 
 import collections
