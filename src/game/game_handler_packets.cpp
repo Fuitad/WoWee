@@ -2756,6 +2756,15 @@ void GameHandler::registerOpcodeHandlers() {
         if (addonEventCallback_) addonEventCallback_("LOGOUT_CANCEL", {});
         packet.skipAll();
     };
+    // Someone has taken the player's insignia, so the corpse is gone and any
+    // resurrect offer against it is void. The body carries a free-repop flag
+    // the interface reads only in code Blizzard commented out, so it is not
+    // parsed here — the message and the cancelled offers are the whole effect.
+    dispatchTable_[Opcode::SMSG_PLAYER_SKINNED] = [this](network::Packet& packet) {
+        addUIError("Insignia Taken - You can only resurrect at the graveyard");
+        if (addonEventCallback_) addonEventCallback_("PLAYER_SKINNED", {});
+        packet.skipAll();
+    };
     // These packets are not damage-shield events. Consume them without
     // synthesizing reflected damage entries or misattributing GUIDs.
     registerSkipHandler(Opcode::SMSG_AURACASTLOG);
@@ -2823,7 +2832,6 @@ void GameHandler::registerOpcodeHandlers() {
         Opcode::SMSG_NOTIFY_DEST_LOC_SPELL_CAST,
         Opcode::SMSG_PETGODMODE,
         Opcode::SMSG_PET_UPDATE_COMBO_POINTS,
-        Opcode::SMSG_PLAYER_SKINNED,
         Opcode::SMSG_PLAY_DANCE,
         Opcode::SMSG_PROFILEDATA_RESPONSE,
         Opcode::SMSG_PVP_QUEUE_STATS,
