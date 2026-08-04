@@ -66,6 +66,11 @@ public:
         if (am) {
             am->reload();
             am->fireEvent("VARIABLES_LOADED");
+            // The chat windows are rebuilt by the reload and come up with the
+            // defaults their XML carries, so they have to be told to read the
+            // settings back — same as at login, and the reason a /reload used
+            // to lose the chat layout.
+            am->fireEvent("UPDATE_CHAT_WINDOWS");
             am->fireEvent("PLAYER_LOGIN");
             am->fireEvent("PLAYER_ENTERING_WORLD");
             game::MessageChatData rlMsg;

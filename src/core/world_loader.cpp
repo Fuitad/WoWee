@@ -1266,6 +1266,12 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
         addonManager_->loadAllAddons();
         app_.addonsLoaded_ = true;
         addonManager_->fireEvent("VARIABLES_LOADED");
+        // After VARIABLES_LOADED, which is when the chat window
+        // settings are available to be read. Every chat frame
+        // answers this by applying its saved font, colour, size
+        // and docked state; without it they keep the defaults
+        // they were built with however much was saved.
+        addonManager_->fireEvent("UPDATE_CHAT_WINDOWS");
         addonManager_->fireEvent("PLAYER_LOGIN");
         addonManager_->fireEvent("PLAYER_ENTERING_WORLD");
     } else if (addonManager_ && app_.addonsLoaded_) {

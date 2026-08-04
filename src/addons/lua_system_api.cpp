@@ -1196,12 +1196,22 @@ static int lua_SetChatWindowSavedDimensions(lua_State* L) {
 }
 
 /// ResetChatWindows() — back to the layout a new character starts with.
+///
+/// Announced, because the settings changing is not something the windows can
+/// see. Every floating chat frame answers UPDATE_FLOATING_CHAT_WINDOWS by
+/// re-reading its own settings, which is exactly what has just changed
+/// underneath it; without the event the store is reset and the windows stay
+/// where they were until something else happens to reload them.
 static int lua_ResetChatWindows(lua_State* L) {
-    (void)L;
     auto& windows = chatWindows();
     windows = std::array<ChatWindowSettings, kNumChatWindows>{};
     windows[0].shown = true; windows[0].docked = 1;
     windows[1].shown = true; windows[1].docked = 2;
+
+    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_lua_engine");
+    auto* engine = static_cast<LuaEngine*>(lua_touserdata(L, -1));
+    lua_pop(L, 1);
+    if (engine) engine->fireEvent("UPDATE_FLOATING_CHAT_WINDOWS", {});
     return 0;
 }
 
