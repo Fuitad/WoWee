@@ -275,11 +275,21 @@ static int lua_UnitCastInfo(lua_State* L, bool wantChannel) {
     double startTimeMs = (nowSec - (timeTotal - timeRemaining)) * 1000.0;
     double endTimeMs   = (nowSec + timeRemaining) * 1000.0;
 
-    // Return values match WoW API:
-    // UnitCastingInfo: name, text, texture, startTime, endTime, isTradeSkill, castID, notInterruptible
-    // UnitChannelInfo: name, text, texture, startTime, endTime, isTradeSkill, notInterruptible
+    // The real signatures, which are one wider than what this used to send:
+    //
+    //   UnitCastingInfo → name, nameSubtext, text, texture, startTime,
+    //                     endTime, isTradeSkill, castID, notInterruptible
+    //   UnitChannelInfo → the same without castID
+    //
+    // nameSubtext is the rank, and leaving it out shifted every value after it
+    // by one. castingbarframe.lua destructures all nine by name, so it read the
+    // icon path as the bar's text, a timestamp as the texture, and a boolean as
+    // endTime — then computed (endTime - startTime) and raised, which is why no
+    // cast bar was ever drawn rather than a wrong one.
     lua_pushstring(L, name.empty() ? "Unknown" : name.c_str()); // name
-    lua_pushstring(L, "");                                       // text (sub-text, usually empty)
+    const std::string& rank = gh->getSpellRank(spellId);
+    lua_pushstring(L, rank.c_str());                             // nameSubtext
+    lua_pushstring(L, "");                                       // text
     if (!iconPath.empty()) lua_pushstring(L, iconPath.c_str());
     else lua_pushstring(L, "Interface\\Icons\\INV_Misc_QuestionMark");  // texture
     lua_pushnumber(L, startTimeMs);                              // startTime (ms)
@@ -289,7 +299,7 @@ static int lua_UnitCastInfo(lua_State* L, bool wantChannel) {
         lua_pushnumber(L, spellId);                              // castID (UnitCastingInfo only)
     }
     lua_pushboolean(L, interruptible ? 0 : 1);                  // notInterruptible
-    return wantChannel ? 7 : 8;
+    return wantChannel ? 8 : 9;
 }
 
 static int lua_UnitCastingInfo(lua_State* L) { return lua_UnitCastInfo(L, false); }
