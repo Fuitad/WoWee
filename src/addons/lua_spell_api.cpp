@@ -1,6 +1,7 @@
 // lua_spell_api.cpp — Spell info, casting, auras, and targeting Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
+#include "addons/lua_engine.hpp"
 
 namespace wowee::addons {
 
@@ -540,9 +541,30 @@ static int lua_GetKnownSlotFromHighestRankSlot(lua_State* L) {
     return 1;
 }
 
-/// UpdateSpells() — asks the client to re-read its own spell list. Nothing to
-/// do: the list is rebuilt when the server sends one.
-static int lua_UpdateSpells(lua_State* L) { (void)L; return 0; }
+/// UpdateSpells() — redraw the spell book page.
+///
+/// The list itself needs no rebuilding, which is why this was a no-op. But in
+/// WoW the call is what makes the client announce SPELLS_CHANGED, and that
+/// event is the only thing that redraws a spell button: SpellButton_OnEvent
+/// answers it with SpellButton_UpdateButton, and nothing else calls that.
+///
+/// Six places in spellbookframe.lua call this, and every one of them is a
+/// "now redraw the page" — after a skill-line tab is clicked, after a page
+/// turn, after the book type changes. SpellBookFrame_ShowSpells only calls
+/// Show() on buttons that are already shown, so no OnShow fires and without
+/// the event the page kept whatever it was displaying before. That is the
+/// whole of "the spell book does not update when the tab changes": the offset
+/// moved and nothing ever re-read it.
+static int lua_UpdateSpells(lua_State* L) {
+    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_lua_engine");
+    auto* engine = static_cast<LuaEngine*>(lua_touserdata(L, -1));
+    lua_pop(L, 1);
+    // Safe against the obvious loop: SpellBookFrame_OnEvent answers
+    // SPELLS_CHANGED with SpellBookFrame_Update() and no argument, and the
+    // branch that would call back here only runs when it is passed one.
+    if (engine) engine->fireEvent("SPELLS_CHANGED", {});
+    return 0;
+}
 
 
 static int lua_GetSpellDescription(lua_State* L) {

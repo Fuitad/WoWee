@@ -1803,7 +1803,8 @@ public:
     void tickMirrorTimers(float dt) {
         if (dt <= 0.0f) return;
         const float elapsedMs = dt * 1000.0f;
-        for (auto& t : mirrorTimers_) {
+        for (size_t ti = 0; ti < 3; ++ti) {
+            auto& t = mirrorTimers_[ti];
             if (!t.active || t.paused || t.scale == 0 || t.maxValue <= 0) continue;
             // Carry the sub-millisecond remainder: truncating each frame would lose
             // most of a 144fps frame's 6.94ms and run the timer visibly slow.
@@ -1824,6 +1825,17 @@ public:
             if (t.scale > 0 && t.value >= t.maxValue) {
                 t.active = false;
                 t.pendingMs = 0.0f;
+                // And say so. Clearing the flag only put away the bar this
+                // client draws, and the player frame is handed over — which
+                // means MirrorTimer1..3 are not suppressed and the bar actually
+                // on screen is FrameXML's. It hides on MIRROR_TIMER_STOP and
+                // nothing else, so without this it sat there full for good.
+                //
+                // Named rather than numbered, as the packet handler does:
+                // MirrorTimer_Hide matches on the timer's name.
+                static const char* kStopNames[3] = {"FATIGUE", "BREATH", "FEIGNDEATH"};
+                fireAddonEvent("MIRROR_TIMER_STOP",
+                               {ti < 3 ? kStopNames[ti] : "BREATH"});
             }
         }
     }
