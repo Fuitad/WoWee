@@ -2084,6 +2084,15 @@ void QuestHandler::handleQuestPoiQueryResponse(network::Packet& packet) {
             gossipPois_.push_back(std::move(poi));
         }
     }
+    // The tracker draws its POI marks from this and had no way to know the
+    // points had arrived — the query is answered well after the row is drawn.
+    //
+    // Fired for the tracker, not the map: this client owns the world map and
+    // its POI layer, but the quest tracker is a separate frame and
+    // QuestPOIGetIconInfo already answers it.
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("QUEST_POI_UPDATE", {});
+    }
 }
 
 void QuestHandler::handleQuestDetails(network::Packet& packet) {
