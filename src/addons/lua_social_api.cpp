@@ -1750,13 +1750,34 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh) gh->leaveGroup();
             return 0;
         }},
+                // FollowUnit(unit) — and this one matters more than it looks.
+                //
+                // FrameXML owns every follow command: SLASH_FOLLOW1 through 7
+                // are /f, /follow and /fol, and the client's chat tries
+                // SlashCmdList before its own registry and returns as soon as a
+                // handler is found — so all three landed on this no-op and the
+                // client's working /follow never ran. Following was simply
+                // broken from chat.
+                //
+                // followTarget aims at whatever is targeted, so the cases that
+                // mean that are answered and the rest still are not: a named
+                // party member who is not the target needs a guid the movement
+                // handler has no way to take yet.
                 {"FollowUnit", [](lua_State* L) -> int {
-            // Still nothing. followTarget exists and works, but it follows
-            // whatever is targeted and this is called with a *name* — a party
-            // member who is not the target cannot be followed without giving
-            // the movement handler a guid to aim at. A no-op is the honest
-            // answer until then, and unlike a missing global it does not raise.
-            (void)L;
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            std::string who(luaL_optstring(L, 1, ""));
+            toLowerInPlace(who);
+            const bool meansTarget =
+                who.empty() || who == "target" ||
+                // A typed name that happens to be the target, which is what
+                // "/follow Bob" is when Bob is already selected.
+                [&] {
+                    std::string n = gh->lookupName(gh->getTargetGuid());
+                    toLowerInPlace(n);
+                    return !n.empty() && n == who;
+                }();
+            if (meansTarget && gh->getTargetGuid() != 0) gh->followTarget();
             return 0;
         }},
                 // Inspect and duel, both of which unitpopup.lua calls straight
