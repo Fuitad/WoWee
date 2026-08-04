@@ -1183,7 +1183,8 @@ void EntitySpawner::processPendingTransportRegistrations() {
                                             canonicalSpawnPos,
                                             pending.entry,
                                             pending.displayId,
-                                            isM2Transport);
+                                            isM2Transport,
+                                            pending.orientation);
 
         transportManager->updateServerTransport(
             pending.guid, glm::vec3(pending.x, pending.y, pending.z), pending.orientation);
