@@ -2363,6 +2363,10 @@ void GameHandler::requestGmTicket() {
     if (socialHandler_) socialHandler_->requestGmTicket();
 }
 
+void GameHandler::requestGmSystemStatus() {
+    if (socialHandler_) socialHandler_->requestGmSystemStatus();
+}
+
 void GameHandler::queryGuildInfo(uint32_t guildId) {
     if (socialHandler_) socialHandler_->queryGuildInfo(guildId);
 }

@@ -3583,6 +3583,15 @@ void SocialHandler::deleteGmTicket() {
     LOG_INFO("Deleting GM ticket");
 }
 
+// CMSG_GMTICKET_SYSTEMSTATUS: is the ticket queue open at all. The reply,
+// SMSG_GMTICKET_SYSTEMSTATUS, was already parsed — asking was the missing half,
+// and the help frame asks every time it is shown.
+void SocialHandler::requestGmSystemStatus() {
+    if (!owner_.isInWorld()) return;
+    network::Packet pkt(wireOpcode(Opcode::CMSG_GMTICKET_SYSTEMSTATUS));
+    owner_.getSocket()->send(pkt);
+}
+
 void SocialHandler::requestGmTicket() {
     if (!owner_.isInWorld()) return;
     // CMSG_GMTICKET_GETTICKET has no payload — server responds with SMSG_GMTICKET_GETTICKET

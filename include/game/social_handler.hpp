@@ -263,6 +263,8 @@ public:
                              uint32_t facialHairEntry, uint32_t skinColorEntry);
     void deleteGmTicket();
     void requestGmTicket();
+    /// Ask whether the GM ticket queue is accepting tickets.
+    void requestGmSystemStatus();
 
     // Utility methods for delegation from GameHandler
     void updateLogoutCountdown(float deltaTime);

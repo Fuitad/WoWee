@@ -963,7 +963,16 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
                 {"GMReportLag", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GMResponseNeedMoreHelp", [](lua_State* L) -> int { (void)L; return 0; }},
-                {"GetGMStatus", [](lua_State* L) -> int { (void)L; return 0; }},
+                // GetGMStatus() — ask whether the ticket queue is open.
+                //
+                // A request, not a getter: the answer comes back as
+                // UPDATE_GM_STATUS. The help frame calls this from OnShow and
+                // waits for the event, so a no-op here meant it waited forever
+                // and kept whatever it was last told.
+                {"GetGMStatus", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->requestGmSystemStatus();
+            return 0;
+        }},
 
                 // ---- Guild rank editing ----
                 {"GuildControlGetRankName", [](lua_State* L) -> int {

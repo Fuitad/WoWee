@@ -1813,6 +1813,11 @@ void GameHandler::registerOpcodeHandlers() {
                 ? "GM support is currently available."
                 : "GM support is currently unavailable.");
             LOG_INFO("SMSG_GMTICKET_SYSTEMSTATUS: available=", gmSupportAvailable_);
+            // The help frame disables its "open a ticket" button on anything
+            // but GMTICKET_QUEUE_STATUS_ENABLED, which is the number 1 — and
+            // gets it from here. Parsed and stored and never said, so a closed
+            // queue looked open until the ticket was refused.
+            fireAddonEvent("UPDATE_GM_STATUS", {gmSupportAvailable_ ? "1" : "0"});
         }
         packet.skipAll();
     };
