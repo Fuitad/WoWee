@@ -1,5 +1,6 @@
 // lua_system_api.cpp — System, time, sound, locale, map, addons, instances, and utilities Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include <array>
 #include <algorithm>
 #include <cstring>
 #include <set>
@@ -1033,35 +1034,197 @@ static int lua_GetBattlefieldPosition(lua_State* L) {
     return 3;
 }
 
+// ---- Chat window settings ----
+//
+// The three getters here answered with fixed numbers and every setter was
+// missing, so the interface could read a chat window's settings and never save
+// one. Moving a window, resizing it, recolouring it or closing it all went
+// through a setter that did nothing, and the next FCF_LoadChatSettings read
+// back the same defaults it read the first time.
+//
+// This is entirely client-side — WoW keeps it in the config, not on the server
+// — so a store here is the whole feature rather than a stand-in for one.
+struct ChatWindowSettings {
+    std::string name;
+    float fontSize = 14.0f;
+    float r = 1.0f, g = 1.0f, b = 1.0f, alpha = 1.0f;
+    bool shown = false;
+    bool locked = false;
+    int  docked = 0;            // 0 = not docked; otherwise its place on the dock
+    bool uninteractable = false;
+    // Saved geometry. Absent until something saves it, which is not the same as
+    // zero: FCF_RestorePositionAndDimensions only restores what it is given,
+    // and a zero width is a window with no width.
+    bool hasPosition = false;
+    std::string point = "TOPLEFT";
+    float xOffset = 0.0f, yOffset = 0.0f;
+    bool hasDimensions = false;
+    float width = 0.0f, height = 0.0f;
+};
+
+/// NUM_CHAT_WINDOWS in 3.3.5. Indices are one-based from Lua.
+static constexpr int kNumChatWindows = 10;
+
+static std::array<ChatWindowSettings, kNumChatWindows>& chatWindows() {
+    static std::array<ChatWindowSettings, kNumChatWindows> windows = [] {
+        std::array<ChatWindowSettings, kNumChatWindows> w{};
+        // WoW's default layout docks General and the combat log and leaves the
+        // rest neither shown nor docked. Which window is being asked about
+        // matters: docked is that window's place on the dock, and FCF_DockFrame
+        // asserts that whatever claims position one is the dock's primary, so
+        // answering one for every window claimed each was first.
+        w[0].shown = true; w[0].docked = 1;
+        w[1].shown = true; w[1].docked = 2;
+        return w;
+    }();
+    return windows;
+}
+
+/// The window a one-based index names, or nullptr if it names none.
+static ChatWindowSettings* chatWindow(lua_State* L, int argIndex) {
+    const int id = static_cast<int>(luaL_optnumber(L, argIndex, 0));
+    if (id < 1 || id > kNumChatWindows) return nullptr;
+    return &chatWindows()[static_cast<size_t>(id - 1)];
+}
+
 /// A chat window's saved settings. FCF_SetWindowAlpha takes the alpha from
 /// here and remembers it as oldAlpha, which the fade handlers then hand to
 /// max() on every mouse-over — so a missing alpha is not a cosmetic gap, it is
 /// an error every time the cursor crosses the frame.
 static int lua_GetChatWindowInfo(lua_State* L) {
-    // Which window is being asked about matters: docked is that window's place
-    // on the dock, and FCF_DockFrame asserts that whatever claims position one
-    // is the dock's primary. Answering one for every window claimed each was
-    // first. WoW's default layout docks General and the combat log and leaves
-    // the rest neither shown nor docked.
-    const int id = static_cast<int>(luaL_optnumber(L, 1, 1));
-    const bool inDefaultLayout = (id >= 1 && id <= 2);
+    const ChatWindowSettings* w = chatWindow(L, 1);
+    if (!w) w = &chatWindows()[0];
 
-    lua_pushstring(L, "");      // name
-    lua_pushnumber(L, 14.0);    // fontSize
-    lua_pushnumber(L, 1.0);     // r
-    lua_pushnumber(L, 1.0);     // g
-    lua_pushnumber(L, 1.0);     // b
-    lua_pushnumber(L, 1.0);     // alpha
+    lua_pushstring(L, w->name.c_str());
+    lua_pushnumber(L, w->fontSize);
+    lua_pushnumber(L, w->r);
+    lua_pushnumber(L, w->g);
+    lua_pushnumber(L, w->b);
+    lua_pushnumber(L, w->alpha);
     // Numbers and nil, not booleans. docked is a dock position, not a flag —
     // FCF_LoadChatSettings hands it straight to FCF_DockFrame as the index to
     // insert at, and that compares it against a count. A boolean there is a
     // comparison between a boolean and a number, which is an error rather than
     // a wrong answer.
-    if (inDefaultLayout) lua_pushnumber(L, 1.0); else lua_pushnil(L);  // shown
-    lua_pushnil(L);                                                     // locked
-    if (inDefaultLayout) lua_pushnumber(L, id); else lua_pushnil(L);    // docked
-    lua_pushnil(L);                                                     // uninteractable
+    if (w->shown) lua_pushnumber(L, 1.0); else lua_pushnil(L);
+    if (w->locked) lua_pushnumber(L, 1.0); else lua_pushnil(L);
+    if (w->docked > 0) lua_pushnumber(L, w->docked); else lua_pushnil(L);
+    if (w->uninteractable) lua_pushnumber(L, 1.0); else lua_pushnil(L);
     return 10;
+}
+
+// GetChatWindowSavedPosition(index) → point, xOffset, yOffset
+static int lua_GetChatWindowSavedPosition(lua_State* L) {
+    const ChatWindowSettings* w = chatWindow(L, 1);
+    if (!w || !w->hasPosition) return luaReturnNil(L);
+    lua_pushstring(L, w->point.c_str());
+    lua_pushnumber(L, w->xOffset);
+    lua_pushnumber(L, w->yOffset);
+    return 3;
+}
+
+// GetChatWindowSavedDimensions(index) → width, height
+static int lua_GetChatWindowSavedDimensions(lua_State* L) {
+    const ChatWindowSettings* w = chatWindow(L, 1);
+    if (!w || !w->hasDimensions) return luaReturnNil(L);
+    lua_pushnumber(L, w->width);
+    lua_pushnumber(L, w->height);
+    return 2;
+}
+
+static int lua_SetChatWindowName(lua_State* L) {
+    if (auto* w = chatWindow(L, 1)) w->name = luaL_optstring(L, 2, "");
+    return 0;
+}
+static int lua_SetChatWindowSize(lua_State* L) {
+    if (auto* w = chatWindow(L, 1)) w->fontSize = static_cast<float>(luaL_optnumber(L, 2, 14.0));
+    return 0;
+}
+static int lua_SetChatWindowColor(lua_State* L) {
+    if (auto* w = chatWindow(L, 1)) {
+        w->r = static_cast<float>(luaL_optnumber(L, 2, 1.0));
+        w->g = static_cast<float>(luaL_optnumber(L, 3, 1.0));
+        w->b = static_cast<float>(luaL_optnumber(L, 4, 1.0));
+    }
+    return 0;
+}
+static int lua_SetChatWindowAlpha(lua_State* L) {
+    if (auto* w = chatWindow(L, 1)) w->alpha = static_cast<float>(luaL_optnumber(L, 2, 1.0));
+    return 0;
+}
+static int lua_SetChatWindowShown(lua_State* L) {
+    if (auto* w = chatWindow(L, 1)) w->shown = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+static int lua_SetChatWindowLocked(lua_State* L) {
+    if (auto* w = chatWindow(L, 1)) w->locked = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+/// The dock position, which is a number and not a flag — see GetChatWindowInfo.
+/// A false or nil means undocked, which is zero here rather than a missing key.
+static int lua_SetChatWindowDocked(lua_State* L) {
+    if (auto* w = chatWindow(L, 1)) {
+        if (lua_isnumber(L, 2)) w->docked = static_cast<int>(lua_tonumber(L, 2));
+        else w->docked = lua_toboolean(L, 2) ? 1 : 0;
+    }
+    return 0;
+}
+static int lua_SetChatWindowUninteractable(lua_State* L) {
+    if (auto* w = chatWindow(L, 1)) w->uninteractable = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+static int lua_SetChatWindowSavedPosition(lua_State* L) {
+    auto* w = chatWindow(L, 1);
+    if (!w) return 0;
+    // Called with nil to forget the position, which is how a window that has
+    // been re-docked stops being restored to where it floated.
+    if (lua_isnoneornil(L, 2)) { w->hasPosition = false; return 0; }
+    w->point   = luaL_optstring(L, 2, "TOPLEFT");
+    w->xOffset = static_cast<float>(luaL_optnumber(L, 3, 0.0));
+    w->yOffset = static_cast<float>(luaL_optnumber(L, 4, 0.0));
+    w->hasPosition = true;
+    return 0;
+}
+static int lua_SetChatWindowSavedDimensions(lua_State* L) {
+    auto* w = chatWindow(L, 1);
+    if (!w) return 0;
+    if (lua_isnoneornil(L, 2)) { w->hasDimensions = false; return 0; }
+    w->width  = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+    w->height = static_cast<float>(luaL_optnumber(L, 3, 0.0));
+    w->hasDimensions = true;
+    return 0;
+}
+
+/// ResetChatWindows() — back to the layout a new character starts with.
+static int lua_ResetChatWindows(lua_State* L) {
+    (void)L;
+    auto& windows = chatWindows();
+    windows = std::array<ChatWindowSettings, kNumChatWindows>{};
+    windows[0].shown = true; windows[0].docked = 1;
+    windows[1].shown = true; windows[1].docked = 2;
+    return 0;
+}
+
+/// Whether a chat type colours player names by class. Stored per chat type
+/// rather than globally, which is how the chat options panel presents it —
+/// a row per type, each with its own tick.
+static std::set<std::string>& chatColorByClass() {
+    static std::set<std::string> types;
+    return types;
+}
+static int lua_SetChatColorNameByClass(lua_State* L) {
+    std::string type(luaL_optstring(L, 1, ""));
+    toLowerInPlace(type);
+    if (type.empty()) return 0;
+    if (lua_toboolean(L, 2)) chatColorByClass().insert(type);
+    else chatColorByClass().erase(type);
+    return 0;
+}
+static int lua_GetChatColorNameByClass(lua_State* L) {
+    std::string type(luaL_optstring(L, 1, ""));
+    toLowerInPlace(type);
+    lua_pushboolean(L, chatColorByClass().count(type) ? 1 : 0);
+    return 1;
 }
 
 /// Names FrameXML reached for and did not find, harvested from a run rather
@@ -2177,8 +2340,20 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetPartyMember",           lua_ReturnFalse},
                 {"GetZonePVPInfo",           lua_ReturnNil},
                 {"GetMouseButtonClicked",    lua_ReturnNil},
-                {"GetChatWindowSavedPosition",   lua_ReturnNil},
-                {"GetChatWindowSavedDimensions", lua_ReturnNil},
+                {"GetChatWindowSavedPosition",   lua_GetChatWindowSavedPosition},
+                {"GetChatWindowSavedDimensions", lua_GetChatWindowSavedDimensions},
+                {"SetChatWindowSavedPosition",   lua_SetChatWindowSavedPosition},
+                {"SetChatWindowSavedDimensions", lua_SetChatWindowSavedDimensions},
+                {"SetChatWindowSize",            lua_SetChatWindowSize},
+                {"SetChatWindowColor",           lua_SetChatWindowColor},
+                {"SetChatWindowAlpha",           lua_SetChatWindowAlpha},
+                {"SetChatWindowShown",           lua_SetChatWindowShown},
+                {"SetChatWindowLocked",          lua_SetChatWindowLocked},
+                {"SetChatWindowDocked",          lua_SetChatWindowDocked},
+                {"SetChatWindowUninteractable",  lua_SetChatWindowUninteractable},
+                {"ResetChatWindows",             lua_ResetChatWindows},
+                {"SetChatColorNameByClass",      lua_SetChatColorNameByClass},
+                {"GetChatColorNameByClass",      lua_GetChatColorNameByClass},
                 {"GetExistingLocales",       lua_ReturnNil},
                 {"GetGuildRosterSelection",  lua_ReturnZero},
                 // Read from the real keyboard: a shift-click means something
@@ -2218,9 +2393,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"QueryGuildEventLog",       lua_ReturnNothing},
                 {"RegisterForSave",          lua_ReturnNothing},
                 {"RegisterStaticConstants",  lua_ReturnNothing},
-                {"SetChatWindowDocked",      lua_ReturnNothing},
-                {"SetChatWindowLocked",      lua_ReturnNothing},
-                {"SetChatWindowName",        lua_ReturnNothing},
+                {"SetChatWindowName",        lua_SetChatWindowName},
                 {"SetGuildRosterSelection",  lua_ReturnNothing},
                 {"SetupFullscreenScale",     lua_ReturnNothing},
                 {"DropCursorMoney",          lua_ReturnNothing},
@@ -2243,7 +2416,6 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetNumBattlefieldVehicles", lua_ReturnZero},
                 {"GetBattlefieldVehicleInfo", lua_ReturnNil},
                 {"GetChatWindowInfo",        lua_GetChatWindowInfo},
-                {"SetChatWindowAlpha",       lua_ReturnNothing},
                 {"GetNumBattlefieldFlagPositions", lua_ReturnZero},
                 {"GetBattlefieldFlagPosition",     lua_GetBattlefieldPosition},
                 {"GuildControlGetNumRanks",  lua_ReturnZero},

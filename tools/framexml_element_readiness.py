@@ -100,6 +100,17 @@ ELEMENTS = {
     "bagbar":       ["mainmenubarbagbuttons.lua", "mainmenubarbagbuttons.xml"],
     "gamemenu":     ["gamemenuframe.xml"],
     "worldmap":     ["worldmapframe.lua", "worldmapframe.xml"],
+    # chatframe.lua is deliberately not here — it is in SHARED, because it
+    # defines the slash commands the whole interface uses and its unanswered
+    # names belong to whichever command was typed rather than to the chat
+    # window. Its .xml is a different matter: that is the frame itself.
+    #
+    # voicechat.lua is left out too, and that one is a decision rather than a
+    # scoping detail. There is no voice chat here and there is not going to be,
+    # so every name it wants is correctly absent; counting them would put a
+    # permanent floor under this element's number and make it unreadable.
+    "chat":         ["floatingchatframe.lua", "floatingchatframe.xml",
+                     "chatframe.xml", "chatconfigframe.lua", "chatconfigframe.xml"],
 }
 
 # Elements whose frames arrive with a load-on-demand addon rather than with
