@@ -1886,12 +1886,29 @@ static int lua_RequestBattlegroundInstanceInfo(lua_State* L) {
     return 0;
 }
 
-// GetSelectedBattlefield() → which instance of it is picked.
+// Which instance of a battleground is picked in the list.
 //
-// Zero, which the list reads as its first row — "first available". Picking a
-// specific instance is a choice the client does not keep, and zero is the one
-// the server understands as no preference.
-static int lua_GetSelectedBattlefield(lua_State* L) { lua_pushnumber(L, 0); return 1; }
+// Kept here because the pair has to round-trip: the frame highlights the row
+// matching what it last set, so a getter that always answered zero left the
+// first row highlighted whatever was clicked.
+//
+// Zero remains the default and still means "first available", which is what
+// the server understands as no preference — the list opens on it, and nothing
+// here queues for a specific instance regardless. This is the selection the
+// interface is showing, not an instruction to the server.
+static int& selectedBattlefield() { static int selected = 0; return selected; }
+
+static int lua_GetSelectedBattlefield(lua_State* L) {
+    lua_pushnumber(L, selectedBattlefield());
+    return 1;
+}
+
+// SetSelectedBattlefield(index) — called unguarded from two places, so it has
+// to exist before it has to do anything.
+static int lua_SetSelectedBattlefield(lua_State* L) {
+    selectedBattlefield() = static_cast<int>(luaL_optnumber(L, 1, 0));
+    return 0;
+}
 
 // JoinBattlefield(index, asGroup, isArena) — queue for it.
 static int lua_JoinBattlefield(lua_State* L) {
@@ -2265,6 +2282,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"CombatLogAddFilter",             lua_CombatLogAddFilter},
                 {"CombatLogResetFilter",           lua_CombatLogResetFilter},
                 {"GetBattlefieldInfo",       lua_GetBattlefieldInfo},
+                {"SetSelectedBattlefield",   lua_SetSelectedBattlefield},
                 {"GetSelectedBattlefield",   lua_GetSelectedBattlefield},
                 {"JoinBattlefield",          lua_JoinBattlefield},
                 {"GetLFGCompletionReward",     lua_GetLFGCompletionReward},
