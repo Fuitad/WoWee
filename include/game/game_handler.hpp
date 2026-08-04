@@ -2657,6 +2657,10 @@ public:
     /// Returns true if the spell can be interrupted by abilities like Kick/Counterspell.
     /// False for spells with SPELL_ATTR_EX_NOT_INTERRUPTIBLE (attrEx bit 4 = 0x10).
     bool isSpellInterruptible(uint32_t spellId) const;
+    /// True for a spell that is never cast — a talent's passive effect, a
+    /// permanent aura. The spell book draws these without a cast border and
+    /// refuses to put them on the action bar.
+    bool isSpellPassive(uint32_t spellId) const;
     /// Returns the school bitmask for the spell from Spell.dbc
     /// (0x01=Physical, 0x02=Holy, 0x04=Fire, 0x08=Nature, 0x10=Frost, 0x20=Shadow, 0x40=Arcane).
     /// Returns 0 if unknown.
@@ -3098,6 +3102,8 @@ public:
     struct SpellNameEntry {
         std::string name; std::string rank; std::string description;
         uint32_t schoolMask = 0; uint8_t dispelType = 0; uint32_t attrEx = 0;
+        /// Spell.dbc Attributes, the base word. Bit 6 (0x40) is passive.
+        uint32_t attr = 0;
         // Spell.dbc Targets bitmask (SpellCastTargetFlags) — 0x10 = TARGET_FLAG_ITEM
         uint32_t targetFlags = 0;
         // Spell.dbc RangeIndex resolved against SpellRange.dbc. A max range of 0

@@ -2799,6 +2799,15 @@ void SpellHandler::loadSpellNameCache() const {
         if (f != 0xFFFFFFFF && f < dbc->getFieldCount()) { attrExField = f; hasAttrExField = true; }
     }
 
+    // The base attribute word, beside the Ex one that was already read. Bit 6
+    // marks a passive, which is the only thing asked of it so far.
+    uint32_t attrField = 0xFFFFFFFF;
+    bool hasAttrField = false;
+    if (spellL) {
+        uint32_t f = spellL->field("Attributes");
+        if (f != 0xFFFFFFFF && f < dbc->getFieldCount()) { attrField = f; hasAttrField = true; }
+    }
+
     uint32_t tooltipField = 0xFFFFFFFF;
     if (spellL) {
         uint32_t f = spellL->field("Tooltip");
@@ -2873,6 +2882,9 @@ void SpellHandler::loadSpellNameCache() const {
             }
             if (hasAttrExField) {
                 entry.attrEx = dbc->getUInt32(i, attrExField);
+            }
+            if (hasAttrField) {
+                entry.attr = dbc->getUInt32(i, attrField);
             }
             if (targetsField != 0xFFFFFFFF) {
                 entry.targetFlags = dbc->getUInt32(i, targetsField);
@@ -3217,6 +3229,14 @@ bool SpellHandler::isSpellInterruptible(uint32_t spellId) const {
     auto it = owner_.spellNameCacheRef().find(spellId);
     if (it == owner_.spellNameCacheRef().end()) return true;
     return (it->second.attrEx & 0x00000010u) == 0;
+}
+
+bool SpellHandler::isSpellPassive(uint32_t spellId) const {
+    if (spellId == 0) return false;
+    loadSpellNameCache();
+    auto it = owner_.spellNameCacheRef().find(spellId);
+    if (it == owner_.spellNameCacheRef().end()) return false;
+    return (it->second.attr & 0x00000040u) != 0;   // SPELL_ATTR0_PASSIVE
 }
 
 uint32_t SpellHandler::getSpellSchoolMask(uint32_t spellId) const {

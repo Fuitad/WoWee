@@ -3780,6 +3780,16 @@ void InventoryHandler::rebuildOnlineInventory() {
         owner_.lastEquipDisplayIdsRef() = currentEquipDisplayIds;
         lastEquipEnchantIds_ = currentEquipEnchantIds;
         owner_.onlineEquipDirtyRef() = true;
+        // And say so. The flag is polled by this client's own panels, which is
+        // why they redrew and FrameXML's did not — equipping something changes
+        // the player's own equipment fields rather than any item or container
+        // field, so the BAG_UPDATE the object path sends never fired for it.
+        //
+        // Both events, because equipping moves an item out of a bag as well as
+        // into a slot: the character sheet reads UNIT_INVENTORY_CHANGED and the
+        // bags read BAG_UPDATE, and only one of the two is enough to leave the
+        // other stale.
+        fireBagUpdates();
     }
 
     LOG_DEBUG("Rebuilt online inventory: equip=", [&](){

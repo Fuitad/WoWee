@@ -520,8 +520,18 @@ static int lua_CastSpell(lua_State* L) {
 /// the book decides not to draw a cast button for it. Spell attributes are not
 /// read from the DBC yet, so this answers no — which draws a button for a
 /// passive rather than hiding a real one, the less wrong way round.
+/// IsPassiveSpell(id or index, bookType) → whether the spell is never cast.
+///
+/// It answered no for everything, so the spell book drew a passive with the
+/// same cast border as an ability and let it be dragged onto the action bar,
+/// where it would sit doing nothing. Spell.dbc's base attribute word carries
+/// it — bit 6 — beside the Ex word the client already read for
+/// interruptibility.
 static int lua_IsPassiveSpell(lua_State* L) {
-    lua_pushboolean(L, 0);
+    auto* gh = getGameHandler(L);
+    if (!gh) { lua_pushboolean(L, 0); return 1; }
+    const uint32_t id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+    lua_pushboolean(L, gh->isSpellPassive(id) ? 1 : 0);
     return 1;
 }
 

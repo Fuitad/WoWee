@@ -3421,6 +3421,11 @@ bool GameHandler::isSpellInterruptible(uint32_t spellId) const {
     return true;
 }
 
+bool GameHandler::isSpellPassive(uint32_t spellId) const {
+    if (spellHandler_) return spellHandler_->isSpellPassive(spellId);
+    return false;
+}
+
 uint32_t GameHandler::getSpellSchoolMask(uint32_t spellId) const {
     if (spellHandler_) return spellHandler_->getSpellSchoolMask(spellId);
     return 0;
