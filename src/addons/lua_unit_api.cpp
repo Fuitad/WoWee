@@ -9,6 +9,9 @@ static int lua_UnitName(lua_State* L) {
     auto* unit = resolveUnit(L, uid);
     if (unit && !unit->getName().empty()) {
         lua_pushstring(L, unit->getName().c_str());
+    } else if (auto* go = resolveGameObject(L, uid); go && !go->getName().empty()) {
+        // The object's own name, which is the whole of what its frame shows.
+        lua_pushstring(L, go->getName().c_str());
     } else {
         // Fallback: party member name for out-of-range members
         auto* gh = getGameHandler(L);
@@ -115,6 +118,12 @@ static int lua_UnitExists(lua_State* L) {
     const char* uid = luaL_optstring(L, 1, "player");
     auto* unit = resolveUnit(L, uid);
     if (unit) {
+        lua_pushboolean(L, 1);
+    } else if (resolveGameObject(L, uid)) {
+        // A targeted object exists as much as a targeted creature does. Every
+        // other answer about it stays the default — no health, no level, no
+        // reaction — which is what leaves the frame showing a name and nothing
+        // else, the way targeting a mailbox does.
         lua_pushboolean(L, 1);
     } else {
         // Party members in other zones don't have entities but still "exist"
