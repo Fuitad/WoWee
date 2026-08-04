@@ -47,6 +47,14 @@ struct LuaServices {
     std::function<bool()> getMinimapRotate;
     std::function<void(bool)> setMinimapRotate;
 
+    /// Whether the camera is inside a WMO, for IsIndoors and IsOutdoors.
+    ///
+    /// The renderer has tracked this all along and the macro conditionals
+    /// [indoors] and [outdoors] already read it; only the Lua bindings were
+    /// stubbed, answering a flat false and a flat true. Two paths to the same
+    /// question, and only one of them was ever improved.
+    std::function<bool()> isPlayerIndoors;
+
     /// Load a load-on-demand addon by name, as LoadAddOn() does.
     ///
     /// The interface asks for these itself: opening the talent frame is

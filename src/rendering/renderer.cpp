@@ -1366,6 +1366,15 @@ void Renderer::update(float deltaTime) {
     uint32_t insideWmoId = 0;
     const bool insideWmo = canQueryWmo &&
         wmoRenderer->isInsideWMO(camPos.x, camPos.y, camPos.z, &insideWmoId);
+    // Announce the crossing. zonetext.lua and worldstateframe.lua both listen
+    // for ZONE_CHANGED_INDOORS, and WoW answers the way back out with a plain
+    // ZONE_CHANGED — there is no outdoors counterpart. Nothing fired either,
+    // so the state was known here and never left this file.
+    if (insideWmo != playerIndoors_) {
+        if (auto* gh = core::Application::getInstance().getGameHandler()) {
+            gh->fireAddonEvent(insideWmo ? "ZONE_CHANGED_INDOORS" : "ZONE_CHANGED", {});
+        }
+    }
     playerIndoors_ = insideWmo;
 
     // Update lighting system

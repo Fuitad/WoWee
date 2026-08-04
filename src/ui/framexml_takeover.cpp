@@ -167,7 +167,7 @@ const std::set<std::string>& requested() {
             for (const char* name : {
                     "achievements", "auctionhouse", "bagbar", "bank",
                     "bgscore", "book", "chat", "classtrainer", "gamemenu",
-                    "gossip", "guildbank", "help", "inspect", "keybindings",
+                    "gossip", "guildbank", "help", "inspect",
                     "loot", "merchant", "micromenu", "partyframes",
                     "questgiver", "stable", "talents", "taxi",
                     "totems", "tradeskill"}) {

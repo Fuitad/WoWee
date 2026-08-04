@@ -2723,8 +2723,19 @@ void registerSystemLuaAPI(lua_State* L) {
             return 1;
         }},
                 {"IsFlyableArea",            lua_ReturnFalse},
-                {"IsIndoors",                lua_ReturnFalse},
-                {"IsOutdoors",               lua_ReturnTrue},
+                // The renderer knows whether the camera is inside a WMO, and
+                // the macro conditionals [indoors] / [outdoors] have read it
+                // all along. These two answered a flat false and a flat true.
+                {"IsIndoors", [](lua_State* L) -> int {
+            auto* svc = getLuaServices(L);
+            lua_pushboolean(L, svc && svc->isPlayerIndoors && svc->isPlayerIndoors());
+            return 1;
+        }},
+                {"IsOutdoors", [](lua_State* L) -> int {
+            auto* svc = getLuaServices(L);
+            lua_pushboolean(L, !(svc && svc->isPlayerIndoors && svc->isPlayerIndoors()));
+            return 1;
+        }},
                 {"IsHarmfulItem",            lua_ReturnFalse},
                 {"IsHelpfulItem",            lua_ReturnFalse},
                 {"IsHarmfulSpell",           lua_ReturnFalse},

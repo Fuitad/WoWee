@@ -394,6 +394,9 @@ bool Application::initialize() {
         luaSvc.setNameplatesShown = [uim = uiManager.get()](bool shown) {
             if (uim) uim->getGameScreen().setShowNameplates(shown);
         };
+        luaSvc.isPlayerIndoors = [r = renderer.get()]() -> bool {
+            return r && r->isPlayerIndoors();
+        };
         luaSvc.getMinimapRotate = [r = renderer.get()]() -> bool {
             auto* mm = r ? r->getMinimap() : nullptr;
             return mm && mm->isRotateWithCamera();

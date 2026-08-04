@@ -444,6 +444,14 @@ def main():
     # is not how confident it sounds but whether anyone looked while writing
     # it — which is also why each one names a file or a function rather than a
     # conclusion.
+    #
+    # bgscore later failed for a different reason, worth its own warning: the
+    # entry was accurate and the reasoning was still wrong. "Unreachable
+    # because the binding it loops over answers zero" clears the calls by
+    # pointing at a stub, and a stub answering empty is not evidence a feature
+    # is absent — it is how a feature gets switched off without anyone
+    # noticing. When a claim rests on what another binding returns, check that
+    # the return is a real answer and not a placeholder.
     settled = {
         "characterframe": "[checked] eight of nine events are the stat branch shared with UNIT_STATS, which is fired; SHOW_COMPARE_TOOLTIP is absent by design — the C client fires it on a shift-hover to open a comparison tooltip, and this client has no item comparison at all (the only 'compare' in src/ui is std::string::compare)",
         "book":         "[checked] ITEM_TEXT_TRANSLATION carries a translation timer nothing derives; the text itself does arrive — ItemHandler.cpp builds SMSG_ITEM_TEXT_QUERY_RESPONSE",
@@ -452,7 +460,7 @@ def main():
         "playerframe":  "[checked] voice chat, vehicles and the playtime nag (PLAYER_ROLES_ASSIGNED was wrong here — roles are parsed and read, and it is fired now)",
         "mainmenubar":  "[checked] nine calls and five events are vehicles; CURRENCY_DISPLAY_UPDATE and UPDATE_BONUS_ACTIONBAR share fired branches, UPDATE_MULTI_CAST_ACTIONBAR shares one and has nil data besides",
         "minimap":      "[checked] four calls unreachable; zoom is widget state, movie recording absent, indoors redundant — MINIMAP_UPDATE_TRACKING was real and is fired now, from the player aura change — tracking is an aura, so that one site covers both routes",
-        "bgscore":      "[checked] both calls inside a loop over GetNumWorldStateUI, which answers zero",
+        "bgscore":      "[fixed] GetWorldStateUIInfo and IsSubZonePVPPOI are bound, and GetNumWorldStateUI answers from the battleground table in game/bg_score_defs.hpp — the earlier note here cleared them as unreachable *because* that stub answered zero, which was the bug rather than the clearance: an empty answer had switched WorldStateAlwaysUpFrame off entirely",
         "questlog":     "[checked] every call is the world map API, absent because this client draws its own",
         "questtracker": "[checked] twelve are the same world map API through worldmapframe.lua; the other three are AchievementFrame internals, defined in blizzard_achievementui and absent only until it loads",
         "worldmap":     "[checked] map API is this client's; WORLD_MAP_NAME_UPDATE has no handler branch, CLOSE_WORLD_MAP needs the key to drive Lua",
