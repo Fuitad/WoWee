@@ -415,7 +415,7 @@ def main():
         "bgscore":      "both calls inside a loop over GetNumWorldStateUI, which answers zero",
         "questlog":     "every call is the world map API, absent because this client draws its own",
         "questtracker": "same world map API, reached through worldmapframe.lua",
-        "worldmap":     "the map is this client's; CLOSE_WORLD_MAP needs the key to drive Lua",
+        "worldmap":     "map API is this client's; WORLD_MAP_NAME_UPDATE has no handler branch, CLOSE_WORLD_MAP needs the key to drive Lua",
         "mail":         "the refund lock needs item refund state the client does not parse",
         "help":         "the GM reply and survey carry text and questions nothing parses",
     }
