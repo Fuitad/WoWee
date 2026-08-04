@@ -589,6 +589,8 @@ public:
     void deleteGmTicket();
     void requestGmTicket();          ///< Send CMSG_GMTICKET_GETTICKET to query open ticket
     void requestGmSystemStatus();    ///< Send CMSG_GMTICKET_SYSTEMSTATUS to query the queue
+    void requestGuildEventLog();
+    const std::vector<GuildEventLogEntry>& getGuildEventLog() const;
 
     // GM ticket status accessors
     bool hasActiveGmTicket() const { return gmTicketActive_; }

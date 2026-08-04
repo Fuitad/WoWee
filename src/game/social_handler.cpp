@@ -641,6 +641,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
             else owner_.addSystemChatMessage("Cannot offer petition to that player.");
         }
     };
+    table[Opcode::MSG_GUILD_EVENT_LOG_QUERY] = [this](network::Packet& packet) { handleGuildEventLog(packet); };
     table[Opcode::SMSG_PETITION_QUERY_RESPONSE] = [this](network::Packet& packet) { handlePetitionQueryResponse(packet); };
     table[Opcode::SMSG_PETITION_SHOW_SIGNATURES] = [this](network::Packet& packet) { handlePetitionShowSignatures(packet); };
     table[Opcode::SMSG_PETITION_SIGN_RESULTS] = [this](network::Packet& packet) { handlePetitionSignResults(packet); };
@@ -3636,6 +3637,49 @@ void SocialHandler::deleteGmTicket() {
     owner_.gmTicketActiveRef() = false;
     owner_.gmTicketTextRef().clear();
     LOG_INFO("Deleting GM ticket");
+}
+
+// MSG_GUILD_EVENT_LOG_QUERY: ask, with no payload. The reply is the same
+// opcode and is parsed below.
+void SocialHandler::requestGuildEventLog() {
+    if (!owner_.isInWorld()) return;
+    network::Packet pkt(wireOpcode(Opcode::MSG_GUILD_EVENT_LOG_QUERY));
+    owner_.getSocket()->send(pkt);
+}
+
+// The reply. Two of the five fields are conditional, which is the whole
+// difficulty: a reader that always takes the second guid loses eight bytes on
+// every join and leave, and those are most of a guild log.
+//
+// Types, from AzerothCore's GuildEventLogTypes: 1 invite, 2 join, 3 promote,
+// 4 demote, 5 remove, 6 leave.
+void SocialHandler::handleGuildEventLog(network::Packet& packet) {
+    auto rem = [&]() { return packet.getRemainingSize(); };
+    if (rem() < 1) return;
+    const uint8_t count = packet.readUInt8();
+    guildEventLog_.clear();
+    guildEventLog_.reserve(count);
+    for (uint8_t i = 0; i < count; ++i) {
+        if (rem() < 9) break;                 // type + one guid at minimum
+        GuildEventLogEntry e;
+        e.type = packet.readUInt8();
+        e.playerGuid = packet.readUInt64();
+        // Everything but join (2) and leave (6) names a second player.
+        if (e.type != 2 && e.type != 6) {
+            if (rem() < 8) break;
+            e.otherGuid = packet.readUInt64();
+        }
+        // Promote (3) and demote (4) carry the new rank.
+        if (e.type == 3 || e.type == 4) {
+            if (rem() < 1) break;
+            e.newRank = packet.readUInt8();
+        }
+        if (rem() < 4) break;
+        e.secondsAgo = packet.readUInt32();
+        guildEventLog_.push_back(e);
+    }
+    LOG_INFO("Guild event log: ", guildEventLog_.size(), " entries");
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("GUILD_EVENT_LOG_UPDATE", {});
 }
 
 // CMSG_GMTICKET_SYSTEMSTATUS: is the ticket queue open at all. The reply,

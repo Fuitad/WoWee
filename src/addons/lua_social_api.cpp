@@ -729,6 +729,48 @@ static int lua_ClosePetition(lua_State* L) {
     return 0;
 }
 
+// GetNumGuildEvents() / GetGuildEventInfo(i) → the guild's event log.
+//
+// The log arrives as MSG_GUILD_EVENT_LOG_QUERY and is parsed against
+// AzerothCore's own writer rather than guessed — see handleGuildEventLog.
+//
+// GetGuildEventInfo answers type, player1, player2, rank, year, month, day,
+// hour. The wire sends an age in seconds, not a date, so the four time fields
+// are derived from it the way the interface expects them: year and month count
+// backwards from now in whole units, day is days-ago within the month, hour is
+// hours-ago within the day. That is what FriendsFrame formats, and it is why a
+// log entry reads "3 days ago" rather than a calendar date.
+static int lua_GetNumGuildEvents(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushnumber(L, gh ? static_cast<double>(gh->getGuildEventLog().size()) : 0.0);
+    return 1;
+}
+
+static int lua_GetGuildEventInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_checknumber(L, 1));
+    if (!gh) return luaReturnNil(L);
+    const auto& log = gh->getGuildEventLog();
+    if (index < 1 || index > static_cast<int>(log.size())) return luaReturnNil(L);
+    const auto& e = log[static_cast<size_t>(index - 1)];
+
+    static const char* kTypes[] = {
+        "", "invite", "join", "promote", "demote", "remove", "quit"
+    };
+    lua_pushstring(L, (e.type < 7) ? kTypes[e.type] : "");
+    lua_pushstring(L, gh->lookupName(e.playerGuid).c_str());
+    lua_pushstring(L, e.otherGuid ? gh->lookupName(e.otherGuid).c_str() : "");
+    lua_pushnumber(L, e.newRank);
+
+    // Whole units of age, largest first, each within its parent.
+    const uint32_t secs = e.secondsAgo;
+    lua_pushnumber(L, secs / (365u * 86400u));            // years ago
+    lua_pushnumber(L, (secs / (30u * 86400u)) % 12u);     // months within the year
+    lua_pushnumber(L, (secs / 86400u) % 30u);             // days within the month
+    lua_pushnumber(L, (secs / 3600u) % 24u);              // hours within the day
+    return 8;
+}
+
 void registerSocialLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"BNGetNumFriends",     lua_BNGetNumFriends},
@@ -745,6 +787,8 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
                 {"GetNumMacroIcons",    lua_GetNumMacroIcons},
                 {"GetMacroIconInfo",    lua_GetMacroIconInfo},
+                {"GetNumGuildEvents",   lua_GetNumGuildEvents},
+                {"GetGuildEventInfo",   lua_GetGuildEventInfo},
                 {"GetPetitionInfo",     lua_GetPetitionInfo},
                 {"CanSignPetition",     lua_CanSignPetition},
                 {"GetNumPetitionNames", lua_GetNumPetitionNames},

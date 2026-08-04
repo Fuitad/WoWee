@@ -2376,6 +2376,15 @@ void GameHandler::requestGmSystemStatus() {
     if (socialHandler_) socialHandler_->requestGmSystemStatus();
 }
 
+void GameHandler::requestGuildEventLog() {
+    if (socialHandler_) socialHandler_->requestGuildEventLog();
+}
+
+const std::vector<GuildEventLogEntry>& GameHandler::getGuildEventLog() const {
+    static const std::vector<GuildEventLogEntry> empty;
+    return socialHandler_ ? socialHandler_->getGuildEventLog() : empty;
+}
+
 void GameHandler::queryGuildInfo(uint32_t guildId) {
     if (socialHandler_) socialHandler_->queryGuildInfo(guildId);
 }

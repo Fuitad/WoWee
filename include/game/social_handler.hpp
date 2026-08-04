@@ -121,6 +121,9 @@ public:
     // Guild
     void requestGuildInfo();
     void requestGuildRoster();
+    /// Ask for the guild's event log. The reply is the same opcode.
+    void requestGuildEventLog();
+    const std::vector<GuildEventLogEntry>& getGuildEventLog() const { return guildEventLog_; }
     void setGuildInfoText(const std::string& text);
     void takeInboxTextItem(uint32_t mailId);
     void setGuildMotd(const std::string& motd);
@@ -356,6 +359,7 @@ private:
     void handleGuildCommandResult(network::Packet& packet);
     void handlePetitionShowlist(network::Packet& packet);
     void handlePetitionQueryResponse(network::Packet& packet);
+    void handleGuildEventLog(network::Packet& packet);
     void handlePetitionShowSignatures(network::Packet& packet);
     void handlePetitionSignResults(network::Packet& packet);
     void handleTurnInPetitionResults(network::Packet& packet);
@@ -451,6 +455,7 @@ private:
 
     // Instance
     std::vector<InstanceLockout> instanceLockouts_;
+    std::vector<GuildEventLogEntry> guildEventLog_;
     uint32_t instanceDifficulty_ = 0;
     bool instanceIsHeroic_ = false;
     bool inInstance_ = false;

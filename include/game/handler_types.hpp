@@ -164,6 +164,21 @@ struct BgPlayerPosition {
     int      group = 0;
 };
 
+// ---- Guild event log (MSG_GUILD_EVENT_LOG_QUERY) ----
+//
+// Layout verified against AzerothCore's GuildEventLogQueryResults::Write
+// (GuildPackets.cpp:146) rather than guessed: uint8 count, then per entry a
+// type byte, the acting player's guid, a second guid only when the type is
+// neither join nor leave, a rank byte only for promote and demote, and a date
+// that is seconds *ago* rather than absolute.
+struct GuildEventLogEntry {
+    uint8_t  type = 0;
+    uint64_t playerGuid = 0;
+    uint64_t otherGuid = 0;      // 0 when the type carries none
+    uint8_t  newRank = 0;        // only meaningful for promote/demote
+    uint32_t secondsAgo = 0;
+};
+
 // ---- Guild petition ----
 
 struct PetitionSignature {
