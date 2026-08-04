@@ -1495,6 +1495,19 @@ void SocialHandler::turnInPetition(uint64_t petitionGuid) {
     owner_.getSocket()->send(pkt);
 }
 
+void SocialHandler::offerPetition(uint64_t petitionGuid, uint64_t targetGuid) {
+    if (!owner_.getSocket() || owner_.getState() != WorldState::IN_WORLD) return;
+    if (petitionGuid == 0 || targetGuid == 0) return;
+    network::Packet pkt(wireOpcode(Opcode::CMSG_OFFER_PETITION));
+    // The leading dword is not the petition type despite where it sits — the
+    // server reads it and throws it away. Every expansion this client speaks
+    // has it, so it is written unconditionally rather than gated.
+    pkt.writeUInt32(0);
+    pkt.writeUInt64(petitionGuid);
+    pkt.writeUInt64(targetGuid);
+    owner_.getSocket()->send(pkt);
+}
+
 // ============================================================
 // Ready Check
 // ============================================================

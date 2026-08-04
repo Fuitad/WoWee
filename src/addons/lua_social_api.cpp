@@ -620,6 +620,115 @@ static int lua_GetMacroIconInfo(lua_State* L) {
     return 1;
 }
 
+// ── Guild and arena charters ──────────────────────────────────────────
+//
+// Every one of these was missing while the client underneath had the whole
+// flow: it parses the signature list, tracks who has signed, and its own popup
+// signs and turns in. SMSG_PETITION_SHOW_SIGNATURES already fires PETITION_SHOW,
+// so the interface's frame opened on cue and then raised on the first call it
+// made, which is worse than never opening.
+//
+// This client only ever holds a guild charter — arena charters are bought
+// through a registrar it does not implement — so the type is reported as
+// "guild" rather than guessed from the signature count. Saying "arena" wrongly
+// would relabel the whole frame and ask for a team size that is not there.
+
+/// The petition currently being shown, or nullptr when there is none.
+static const game::PetitionInfo* shownPetition(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return nullptr;
+    const auto& info = gh->getPetitionInfo();
+    return info.petitionGuid != 0 ? &info : nullptr;
+}
+
+// GetPetitionInfo() → type, title, bodyText, maxSignatures, originatorName,
+//                     isOriginator, minSignatures
+static int lua_GetPetitionInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* info = shownPetition(L);
+    if (!gh || !info) return 0;
+    const bool isOwner = info->ownerGuid == gh->getPlayerGuid();
+    const std::string& owner = gh->lookupName(info->ownerGuid);
+    lua_pushstring(L, "guild");
+    lua_pushstring(L, info->guildName.c_str());
+    lua_pushstring(L, "");                                   // body text: not sent
+    lua_pushnumber(L, info->signaturesRequired);
+    lua_pushstring(L, owner.empty() ? "Unknown" : owner.c_str());
+    lua_pushboolean(L, isOwner ? 1 : 0);
+    lua_pushnumber(L, info->signaturesRequired);
+    return 7;
+}
+
+// CanSignPetition() → whether the Sign button should be live.
+//
+// The originator cannot sign their own charter, and neither can someone who
+// already has. Both are answered from the signature list rather than assumed,
+// so the button greys out the moment the server confirms the signature.
+static int lua_CanSignPetition(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* info = shownPetition(L);
+    if (!gh || !info) { lua_pushboolean(L, 0); return 1; }
+    const uint64_t me = gh->getPlayerGuid();
+    if (info->ownerGuid == me) { lua_pushboolean(L, 0); return 1; }
+    for (const auto& sig : info->signatures) {
+        if (sig.playerGuid == me) { lua_pushboolean(L, 0); return 1; }
+    }
+    lua_pushboolean(L, info->signatureCount < info->signaturesRequired ? 1 : 0);
+    return 1;
+}
+
+static int lua_GetNumPetitionNames(lua_State* L) {
+    const auto* info = shownPetition(L);
+    lua_pushnumber(L, info ? static_cast<double>(info->signatures.size()) : 0.0);
+    return 1;
+}
+
+// GetPetitionNameInfo(index) → the signer's name.
+//
+// Only GUIDs come down the wire, so the name is resolved the same way this
+// client's own popup resolves it. A signer who has never been seen has no name
+// to give, and the row says so rather than going blank.
+static int lua_GetPetitionNameInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* info = shownPetition(L);
+    const int index = static_cast<int>(luaL_checknumber(L, 1));
+    if (!gh || !info || index < 1 || index > static_cast<int>(info->signatures.size())) {
+        lua_pushnil(L);
+        return 1;
+    }
+    const std::string& name = gh->lookupName(info->signatures[static_cast<size_t>(index - 1)].playerGuid);
+    lua_pushstring(L, name.empty() ? "Unknown" : name.c_str());
+    return 1;
+}
+
+static int lua_SignPetition(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (const auto* info = shownPetition(L); gh && info) gh->signPetition(info->petitionGuid);
+    return 0;
+}
+
+// OfferPetition() → hand the charter to the current target to sign.
+//
+// The interface offers this only to the originator, which matches the server:
+// nobody else can present someone else's charter.
+static int lua_OfferPetition(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* info = shownPetition(L);
+    if (!gh || !info) return 0;
+    const uint64_t target = gh->getTargetGuid();
+    if (target == 0) {
+        gh->addUIError("You have no target.");
+        return 0;
+    }
+    gh->offerPetition(info->petitionGuid, target);
+    return 0;
+}
+
+static int lua_ClosePetition(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->clearPetitionSignaturesUI();
+    return 0;
+}
+
 void registerSocialLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"BNGetNumFriends",     lua_BNGetNumFriends},
@@ -636,6 +745,13 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
                 {"GetNumMacroIcons",    lua_GetNumMacroIcons},
                 {"GetMacroIconInfo",    lua_GetMacroIconInfo},
+                {"GetPetitionInfo",     lua_GetPetitionInfo},
+                {"CanSignPetition",     lua_CanSignPetition},
+                {"GetNumPetitionNames", lua_GetNumPetitionNames},
+                {"GetPetitionNameInfo", lua_GetPetitionNameInfo},
+                {"SignPetition",        lua_SignPetition},
+                {"OfferPetition",       lua_OfferPetition},
+                {"ClosePetition",       lua_ClosePetition},
                 // The guild bank tab dialog picks from the same icons under a
                 // name of its own.
                 {"GetNumMacroItemIcons", lua_GetNumMacroIcons},

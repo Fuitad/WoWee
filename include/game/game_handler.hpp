@@ -659,6 +659,7 @@ public:
     void clearPetitionSignaturesUI() { petitionInfo_.showUI = false; }
     void signPetition(uint64_t petitionGuid);
     void turnInPetition(uint64_t petitionGuid);
+    void offerPetition(uint64_t petitionGuid, uint64_t targetGuid);
 
     // Guild name lookup for other players' nameplates
     // Returns the guild name for a given guildId, or empty if unknown.

@@ -5185,7 +5185,7 @@ void LuaEngine::installMissingApiFallback() {
         "  'GetNumBattlefields','GetNumBuybackItems','GetNumChannelMembers',\n"
         "  'GetNumCompanions',\n"
         "  'GetNumGuildBankTabs','GetNumGuildEvents','GetNumLanguages',\n"
-        "  'GetNumMessages','GetNumMutes','GetNumPetitionNames',\n"
+        "  'GetNumMessages','GetNumMutes',\n"
         "  'GetNumPoints','GetNumQuestItemDrops','GetNumQuestItems',\n"
         "  'GetNumQuestLogRewardFactions',\n"
         "  'GetNumRandomDungeons',\n"

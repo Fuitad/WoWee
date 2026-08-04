@@ -2387,6 +2387,10 @@ void GameHandler::turnInPetition(uint64_t petitionGuid) {
     if (socialHandler_) socialHandler_->turnInPetition(petitionGuid);
 }
 
+void GameHandler::offerPetition(uint64_t petitionGuid, uint64_t targetGuid) {
+    if (socialHandler_) socialHandler_->offerPetition(petitionGuid, targetGuid);
+}
+
 // ============================================================
 // Loot, Gossip, Vendor
 // ============================================================
