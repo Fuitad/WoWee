@@ -109,6 +109,13 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     three times — so it is never "queued" or "confirm". The other route in is a
     static popup shown by BATTLEFIELD_MGR_ENTRY_INVITE, which is never fired.
     Both doors are shut, and one shut door would not have been enough.
+
+    Where the checks stop: characterframe's last four are in
+    equipmentmanager.lua, and that feature is not absent here —
+    GetNumEquipmentSets answers from a real set list. A player with a saved set
+    runs that code and every one of those calls raises. So the same four tests
+    that cleared five elements find this one real, which is the point of
+    running them rather than assuming either way.
 """
 
 import collections
