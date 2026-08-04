@@ -2475,6 +2475,11 @@ void SocialHandler::handleWho(network::Packet& packet) {
         entry.raceId = raceId; entry.zoneId = zoneId;
         whoResults_.push_back(std::move(entry));
     }
+    // The who panel asked for this and redraws its rows on the answer coming
+    // back. Every row was parsed and stored and only this client's own window
+    // ever read them, so a /who through the interface filled a list nobody was
+    // told about and the panel kept showing the previous search.
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("WHO_LIST_UPDATE", {});
 }
 
 // ============================================================
