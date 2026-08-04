@@ -1012,6 +1012,10 @@ static int lua_ReturnFalse(lua_State* L) { lua_pushboolean(L, 0); return 1; }
 static int lua_ReturnTrue(lua_State* L)  { lua_pushboolean(L, 1); return 1; }
 static int lua_ReturnNil(lua_State* L)   { lua_pushnil(L); return 1; }
 static int lua_ReturnZero(lua_State* L)  { lua_pushnumber(L, 0.0); return 1; }
+
+/// Which row the skill list has selected, which is UI state rather than
+/// anything the game knows. Same shape as selectedFriend and selectedIgnore.
+static int& selectedSkill() { static int v = 0; return v; }
 static int lua_ReturnNothing(lua_State*) { return 0; }
 
 /// A cooldown that is not running: start and duration both zero. Two values,
@@ -2711,7 +2715,16 @@ void registerSystemLuaAPI(lua_State* L) {
                 // Nothing selected, which is a number rather than
                 // nothing: SkillFrame passes the result straight to
                 // GetSkillLineInfo as an index.
-                {"GetSelectedSkill",         lua_ReturnZero},
+                // Which row the skill list has selected. The client has no
+                // opinion about it — it is what the player last clicked — so
+                // it is held here, the way the friends and ignore lists are.
+                //
+                // Answering a constant zero meant no row ever matched, because
+                // the list is one-based: SkillFrame_SetStatusBar compares each
+                // row against this to decide which border to light, so nothing
+                // ever looked selected however many times it was clicked.
+                {"GetSelectedSkill", [](lua_State* L) -> int {
+            lua_pushnumber(L, selectedSkill()); return 1; }},
                 {"DungeonUsesTerrainMap",    lua_ReturnFalse},
                 {"GetChannelDisplayInfo",    lua_ReturnNil},
                 {"IsThreatWarningEnabled",   lua_ReturnFalse},
@@ -2762,7 +2775,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetNumVoiceSessions",      lua_ReturnZero},
                 {"RequestBattlefieldPositions", lua_ReturnNothing},
                 {"UpdateWorldMapArrowFrames",   lua_ReturnNothing},
-                {"SetSelectedSkill",         lua_ReturnNothing},
+                {"SetSelectedSkill", [](lua_State* L) -> int {
+            selectedSkill() = static_cast<int>(luaL_optnumber(L, 1, 0)); return 0; }},
                 {"Sound_GameSystem_GetOutputDriverNameByIndex", lua_ReturnNil},
                 {"PlaySound",           lua_PlaySound},
                 {"PlaySoundFile",       lua_PlaySoundFile},

@@ -39,6 +39,17 @@ OWNED = {
     "buffframe.xml": "buffs", "durabilityframe.lua": "durability",
     "zonetext.lua": "zonetext", "staticpopup.lua": "dialogs",
     "uiparent.lua": "dialogs",
+    # The character sheet is five tabs in five files, not one. Listing only
+    # paperdollframe.lua hid the skill list and the companions tab on the
+    # first run — the file list is itself a summary, and summaries here hide
+    # things. CHARACTERFRAME_SUBFRAMES in characterframe.lua names all five.
+    "reputationframe.lua": "characterframe/rep",
+    "skillframe.lua": "characterframe/skills",
+    "skillframe.xml": "characterframe/skills",
+    "tokenframe.lua": "characterframe/currency",
+    "petpaperdollframe.lua": "characterframe/pet",
+    "playerframe.lua": "playerframe",
+    "unitframe.xml": "unitframes",
 }
 
 bound = {}
