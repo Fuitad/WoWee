@@ -1692,6 +1692,10 @@ void GameHandler::replyToLastWhisper(const std::string& message) {
     if (chatHandler_) chatHandler_->replyToLastWhisper(message);
 }
 
+void GameHandler::setGuildBankTabText(uint8_t tab, const std::string& text) {
+    if (socialHandler_) socialHandler_->setGuildBankTabText(tab, text);
+}
+
 void GameHandler::channelModeration(Opcode op, const std::string& channelName,
                                     const std::string& targetName) {
     if (socialHandler_) socialHandler_->channelModeration(op, channelName, targetName);

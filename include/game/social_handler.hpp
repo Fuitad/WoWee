@@ -219,6 +219,7 @@ public:
     const GroupListData& getPartyData() const { return partyData; }
     bool hasPendingGroupInvite() const { return pendingGroupInvite; }
     const std::string& getPendingInviterName() const { return pendingInviterName; }
+    void setGuildBankTabText(uint8_t tab, const std::string& text);
     void channelModeration(Opcode op, const std::string& channelName,
                            const std::string& targetName);
     void promoteToLeader(uint64_t guid);

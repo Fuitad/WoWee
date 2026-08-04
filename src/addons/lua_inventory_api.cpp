@@ -3077,7 +3077,19 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"QueryGuildBankLog",   [](lua_State* L) -> int { (void)L; return 0; }},
                 {"QueryGuildBankText",  [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GetGuildBankText",    [](lua_State* L) -> int { lua_pushstring(L, ""); return 1; }},
-                {"SetGuildBankText",    [](lua_State* L) -> int { (void)L; return 0; }},
+                // SetGuildBankText(tab, text) — the info panel on a guild
+                // bank tab. The opcode existed and nothing built it, so the
+                // edit box saved nothing. FrameXML counts tabs from one and
+                // the wire counts from zero, the same offset
+                // GetCurrentGuildBankTab already applies in reverse.
+                {"SetGuildBankText", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int tab = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const char* text = luaL_optstring(L, 2, "");
+            if (gh && tab >= 1)
+                gh->setGuildBankTabText(static_cast<uint8_t>(tab - 1), text ? text : "");
+            return 0;
+        }},
                 {"GetNumGuildBankTransactions",      [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
                 {"GetNumGuildBankMoneyTransactions", [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
                 {"GetGuildBankTransaction",          [](lua_State* L) -> int { (void)L; return 0; }},

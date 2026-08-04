@@ -705,6 +705,9 @@ public:
     void setLastWhisperSender(const std::string& name) { lastWhisperSender_ = name; }
 
     // Party/Raid management
+    /// The info text on a guild bank tab. Tab is zero-based, as stored.
+    void setGuildBankTabText(uint8_t tab, const std::string& text);
+
     /// Channel moderation: invite, kick, ban, unban, mute, unmute and the
     /// moderator pair, which are one packet shape with eight opcodes.
     void channelModeration(Opcode op, const std::string& channelName,

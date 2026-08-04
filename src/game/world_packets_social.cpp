@@ -1095,6 +1095,13 @@ network::Packet GroupUninvitePacket::build(const std::string& playerName) {
     return packet;
 }
 
+network::Packet GuildBankSetTabTextPacket::build(uint8_t tab, const std::string& text) {
+    network::Packet packet(wireOpcode(Opcode::CMSG_SET_GUILD_BANK_TEXT));
+    packet.writeUInt8(tab);
+    packet.writeString(text);
+    return packet;
+}
+
 network::Packet ChannelModerationPacket::build(Opcode op,
                                               const std::string& channelName,
                                               const std::string& targetName) {

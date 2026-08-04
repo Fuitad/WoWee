@@ -1346,6 +1346,17 @@ public:
     static network::Packet build(const std::string& playerName);
 };
 
+/** CMSG_SET_GUILD_BANK_TEXT packet builder
+ *
+ * uint8 tab then the text, per AzerothCore's GuildBankSetTabText::Read. The
+ * tab is zero-based on the wire, which is how this client stores it — FrameXML
+ * is the side that counts from one.
+ */
+class GuildBankSetTabTextPacket {
+public:
+    static network::Packet build(uint8_t tab, const std::string& text);
+};
+
 /** The channel moderation commands, which share one shape.
  *
  * Every one of them is `channelName` then `targetName` as two strings —

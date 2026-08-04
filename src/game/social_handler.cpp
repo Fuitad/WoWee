@@ -1681,6 +1681,12 @@ void SocialHandler::sendSetLootMethod(uint32_t method, uint32_t threshold, uint6
 
 // The server checks that this player leads the group and that the target is in
 // it, so there is nothing to validate here beyond having a guid to send.
+void SocialHandler::setGuildBankTabText(uint8_t tab, const std::string& text) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    auto packet = GuildBankSetTabTextPacket::build(tab, text);
+    owner_.getSocket()->send(packet);
+}
+
 void SocialHandler::channelModeration(Opcode op, const std::string& channelName,
                                      const std::string& targetName) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
