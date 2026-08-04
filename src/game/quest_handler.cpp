@@ -1,3 +1,4 @@
+#include "ui/framexml_takeover.hpp"
 #include "game/quest_handler.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
@@ -1144,8 +1145,17 @@ void QuestHandler::selectGossipOption(uint32_t optionId) {
             LOG_DEBUG("Sent CMSG_LIST_INVENTORY (gossip) to npc=0x", std::hex, currentGossip_.npcGuid, std::dec);
         }
 
-        if (textLower.find("make this inn your home") != std::string::npos ||
-            textLower.find("set your home") != std::string::npos) {
+        // Only while this client draws the gossip window. It has no confirm
+        // step, so matching the option's text and sending the activate is the
+        // whole of how a hearthstone gets set there.
+        //
+        // FrameXML follows the server's own flow instead — the select goes out,
+        // the server asks with SMSG_BINDER_CONFIRM, the popup answers — so
+        // sending here as well would bind before the question was asked and
+        // then ask it anyway.
+        if (!ui::frameXmlOwns(ui::UiElement::Gossip) &&
+            (textLower.find("make this inn your home") != std::string::npos ||
+             textLower.find("set your home") != std::string::npos)) {
             auto bindPkt = BinderActivatePacket::build(currentGossip_.npcGuid);
             owner_.getSocket()->send(bindPkt);
             LOG_INFO("Sent CMSG_BINDER_ACTIVATE for npc=0x", std::hex, currentGossip_.npcGuid, std::dec);
