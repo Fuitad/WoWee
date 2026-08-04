@@ -5191,7 +5191,7 @@ void LuaEngine::installMissingApiFallback() {
         "  'GetNumRandomDungeons',\n"
         "  'GetNumStationeries',\n"
         "  'GetNumTitles','GetNumTooltips','GetNumTrackingTypes',\n"
-        "  'GetNumVoiceSessionMembersBySessionID','GetNumBattlegroundTypes',\n"
+        "  'GetNumVoiceSessionMembersBySessionID',\n"
         "  'GetNumDungeonMapLevels','GetNumMapOverlays','GetNumVoiceSessions',\n"
         "  'GuildControlGetNumRanks','BNGetNumConversationMembers','GetKeyRingSize',\n"
         // The ignore list asks for all three of these before it draws a row,

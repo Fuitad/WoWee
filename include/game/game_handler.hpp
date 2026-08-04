@@ -2122,12 +2122,25 @@ public:
     // sits past sixteen locale slots, so a field either side of it reads as a
     // fragment of the previous string.
     struct BattlemasterEntry {
+        uint32_t    id = 0;
         std::string name;
         uint32_t    maxGroupSize = 0;
         uint32_t    minLevel = 0;
         uint32_t    maxLevel = 0;
+        /// 3 = battleground, 4 = arena. The two share this table and the
+        /// battleground list must not offer arenas.
+        uint32_t    instanceType = 0;
+        /// How many maps the row names. Every real battleground names one; the
+        /// two rows that stand for a pool of them — Random Battleground, All
+        /// Arenas — name several, which is how a random entry is told apart
+        /// without hardcoding its id.
+        uint32_t    mapCount = 0;
     };
     const BattlemasterEntry* getBattlemasterInfo(uint32_t bgTypeId);
+
+    /// Every battleground in BattlemasterList.dbc, arenas excluded, ordered by
+    /// id so an index into it means the same thing from one call to the next.
+    const std::vector<BattlemasterEntry>& getBattlegroundTypes();
 
     // ---- Currencies (CurrencyTypes.dbc) ----
     // In 3.3.5a a currency is a row pointing at an item, and the amount held is
@@ -3901,6 +3914,7 @@ private:
     std::vector<CurrencyType> currencyTypes_;
     bool currencyTypesLoaded_ = false;
     std::unordered_map<uint32_t, BattlemasterEntry> battlemasterList_;
+    std::vector<BattlemasterEntry> battlegroundTypes_;  // arenas filtered out, id-ordered
     bool battlemasterListLoaded_ = false;
     std::unordered_map<uint32_t, uint32_t>    achievementCategoryCache_;  // achievementId → Achievement_Category.dbc ID
     // Achievement ids per category, in the DBC's own order — the panel lists a

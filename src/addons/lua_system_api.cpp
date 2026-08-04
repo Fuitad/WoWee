@@ -1609,6 +1609,50 @@ static int lua_GetBattlefieldInfo(lua_State* L) {
     return 3;
 }
 
+// GetNumBattlegroundTypes() → how many battlegrounds there are to queue for.
+//
+// This is the PvP frame's own list, not the battlemaster's offering, and it
+// comes from BattlemasterList.dbc — which this client already loads. It was
+// answering zero from the counting stub, so the list drew no rows, nothing was
+// ever assigned frame.BGindex, and the click handler read that field as nil.
+//
+// Arenas are excluded: they share the table with battlegrounds and are told
+// apart by the instance type, so offering them here would queue the player for
+// the wrong thing.
+static int lua_GetNumBattlegroundTypes(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushnumber(L, gh ? static_cast<double>(gh->getBattlegroundTypes().size()) : 0.0);
+    return 1;
+}
+
+// GetBattlegroundInfo(index) → localizedName, canEnter, isHoliday, isRandom, id
+//
+// canEnter is the level range from the row, which is what the client itself
+// knows; the server still has the final say when the queue request arrives.
+// isHoliday would need the call-to-arms world state, which nothing here parses,
+// and claiming a holiday that is not running is worse than not mentioning one.
+static int lua_GetBattlegroundInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_checknumber(L, 1));
+    if (!gh) return luaReturnNil(L);
+    const auto& list = gh->getBattlegroundTypes();
+    if (index < 1 || index > static_cast<int>(list.size())) return luaReturnNil(L);
+    const auto& bg = list[static_cast<size_t>(index - 1)];
+
+    // A row naming no level range — the random battleground is the only one —
+    // is not a row saying nobody qualifies.
+    const uint32_t level = gh->getPlayerLevel();
+    const bool hasRange = bg.minLevel != 0 || bg.maxLevel != 0;
+    const bool canEnter = !hasRange || (level >= bg.minLevel && level <= bg.maxLevel);
+
+    lua_pushstring(L, bg.name.c_str());
+    lua_pushboolean(L, canEnter ? 1 : 0);
+    lua_pushboolean(L, 0);                       // isHoliday: world state not parsed
+    lua_pushboolean(L, bg.mapCount > 1 ? 1 : 0); // several maps means a pool, i.e. random
+    lua_pushnumber(L, bg.id);
+    return 5;
+}
+
 // GetSelectedBattlefield() → which instance of it is picked.
 //
 // Zero, which the list reads as its first row — "first available". Picking a
@@ -2189,7 +2233,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 // and that is zero rather than nothing.
                 {"GetMultiCastBarOffset",    lua_ReturnZero},
                 {"GetBonusBarOffset",        lua_ReturnZero},
-                {"GetNumBattlegroundTypes",  lua_ReturnZero},
+                {"GetNumBattlegroundTypes",  lua_GetNumBattlegroundTypes},
+                {"GetBattlegroundInfo",      lua_GetBattlegroundInfo},
                 {"GetCurrentMapDungeonLevel", lua_ReturnZero},
                 {"Sound_GameSystem_GetNumOutputDrivers", lua_ReturnZero},
                 {"Sound_ChatSystem_GetNumInputDrivers",  lua_ReturnZero},
