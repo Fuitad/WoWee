@@ -119,6 +119,30 @@ static int lua_GetBankSlotCost(lua_State* L) {
     return 1;
 }
 
+// GetNumBankSlots() → how many bank bag slots are bought, and whether that is
+// all of them.
+//
+// The count comes off the player's own update field and this client has had it
+// all along — the bank window draws its bag row from exactly this number. Only
+// the binding was missing, so the interface fell through to the stub that
+// answers zero for anything named GetNum*, and zero is not a harmless wrong
+// answer here: bankframe.lua tints every bag button past numSlots red for
+// "purchase", so a player with all seven bought was shown seven for sale.
+//
+// The second return is WoW's own convention — 1 when there is nothing left to
+// buy, nil rather than false otherwise, which is the same thing to the `if`
+// that reads it.
+static int lua_GetNumBankSlots(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int owned = gh ? static_cast<int>(gh->getInventory().getPurchasedBankBagSlots()) : 0;
+    // Seven buyable slots, the same schedule GetBankSlotCost prices.
+    constexpr int kNumBuyable = 7;
+    lua_pushnumber(L, owned);
+    if (owned >= kNumBuyable) lua_pushnumber(L, 1);
+    else lua_pushnil(L);
+    return 2;
+}
+
 /// GetContainerItemCooldown(bag, slot) → start, duration, enabled. Item
 /// cooldowns are not tracked, and all zero is "nothing running" — which is
 /// what ContainerFrame checks before doing arithmetic with the first two.
@@ -2434,6 +2458,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"CanMerchantRepair",    lua_CanMerchantRepair},
                 {"GetContainerItemCooldown",  lua_GetContainerItemCooldown},
                 {"GetBankSlotCost",        lua_GetBankSlotCost},
+                {"GetNumBankSlots",        lua_GetNumBankSlots},
                 {"GetInventoryAlertStatus",   lua_GetInventoryAlertStatus},
                 {"GetContainerItemQuestInfo", lua_GetContainerItemQuestInfo},
                 {"KeyRingButtonIDToInvSlotID", lua_KeyRingButtonIDToInvSlotID},
