@@ -962,6 +962,15 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
         if (isBattlegroundMap(getCurrentMapId())) {
             fireAddonEvent("PLAYER_ENTERING_BATTLEGROUND", {});
         }
+        // The currencies are known now — CurrencyTypes.dbc is read on demand
+        // and the amounts are item stacks that have just arrived with the
+        // inventory. The main bar builds its token frame on this and had no
+        // reason to, so the frame stayed empty however much was held.
+        //
+        // One event, not two: KNOWN_CURRENCY_TYPES_UPDATE and
+        // CURRENCY_DISPLAY_UPDATE share a branch there, and the branch rebuilds
+        // the whole row either way.
+        fireAddonEvent("KNOWN_CURRENCY_TYPES_UPDATE", {});
         // PLAYER_LOGIN fires only on initial login (not teleports)
         if (initialWorldEntry) {
             fireAddonEvent("PLAYER_LOGIN", {});
