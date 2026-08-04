@@ -358,6 +358,15 @@ const Suppress kSuppress[] = {
         // to the bar this branch has taken over, so both of these can open
         // beside the client's own.
         {UiElement::Achievements, "AchievementFrame", true},
+        // The earned-achievement toast, which is not part of the achievement
+        // addon at all — alertframes.lua is core FrameXML and registers
+        // ACHIEVEMENT_EARNED itself, an event this client fires. So the badge
+        // was raised twice on every achievement, once by FrameXML's
+        // AchievementAlertFrame and once by this client's own toast.
+        //
+        // Found by the unaccounted-frame sweep rather than by eye: AlertFrame
+        // is not an element and never was, so nothing had an opinion about it.
+        {UiElement::Achievements, "AlertFrame"},
         {UiElement::BarberShop,   "BarberShopFrame", true},
         // TAXIMAP_OPENED and PET_STABLE_SHOW are not fired, so neither of those
         // two can appear yet. Named anyway, because that is a fact about what
