@@ -1078,8 +1078,19 @@ void CombatHandler::handlePetMode(network::Packet& packet) {
         uint64_t modeGuid = packet.readUInt64();
         uint32_t mode     = packet.readUInt32();
         if (modeGuid == owner_.petGuidRef()) {
+            // COMMAND_ATTACK is 2. The pet frame lights its attack indicator on
+            // the start and clears it on the stop, so only the crossing matters
+            // — this packet arrives for every mode change, and firing on each
+            // would relight an indicator that is already lit.
+            constexpr uint8_t kCommandAttack = 2;
+            const bool wasAttacking = owner_.petCommandRef() == kCommandAttack;
             owner_.petCommandRef() = static_cast<uint8_t>(mode & 0xFF);
             owner_.petReactRef()   = static_cast<uint8_t>((mode >> 8) & 0xFF);
+            const bool nowAttacking = owner_.petCommandRef() == kCommandAttack;
+            if (nowAttacking != wasAttacking && owner_.addonEventCallbackRef()) {
+                owner_.addonEventCallbackRef()(
+                    nowAttacking ? "PET_ATTACK_START" : "PET_ATTACK_STOP", {});
+            }
             LOG_DEBUG("SMSG_PET_MODE: command=", static_cast<int>(owner_.petCommandRef()),
                       " react=", static_cast<int>(owner_.petReactRef()));
         }
