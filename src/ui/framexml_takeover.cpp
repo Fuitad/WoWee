@@ -465,7 +465,12 @@ const Suppress kSuppress[] = {
         {UiElement::GameMenu,   "GameMenuFrame InterfaceOptionsFrame "
                                 "VideoOptionsFrame AudioOptionsFrame"},
         {UiElement::Help,       "HelpFrame TicketStatusFrame"},
-        {UiElement::BattlegroundScore, "WorldStateScoreFrame"},
+        // The end-of-match scoreboard and the live score line above it. The
+        // always-up frame was drawing unaccounted: it registers
+        // UPDATE_WORLD_STATES, which this client fires, and only stayed empty
+        // because GetNumWorldStateUI was stubbed to zero.
+        {UiElement::BattlegroundScore,
+         "WorldStateScoreFrame WorldStateAlwaysUpFrame"},
         // Reachable only since their APIs were finished: a window whose
         // functions all answer opens where before it stayed empty and
         // unnoticed. This client draws a totem bar and a talent screen of its

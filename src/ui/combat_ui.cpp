@@ -18,6 +18,7 @@
 #include "rendering/renderer.hpp"
 #include "rendering/camera.hpp"
 #include "game/game_handler.hpp"
+#include "game/bg_score_defs.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "audio/audio_coordinator.hpp"
 #include "audio/audio_engine.hpp"
@@ -1279,40 +1280,14 @@ void CombatUI::renderBuffBar(game::GameHandler& gameHandler,
 //   EotS 566 – Alliance / Horde resource scores (max 1600)
 // ============================================================================
 void CombatUI::renderBattlegroundScore(game::GameHandler& gameHandler) {
+    // FrameXML presents the same scores through WorldStateAlwaysUpFrame, which
+    // reads the shared table below via GetWorldStateUIInfo.
+    if (frameXmlOwns(UiElement::BattlegroundScore)) return;
+
     // Only show when in a recognised battleground map
     uint32_t mapId = gameHandler.getWorldStateMapId();
 
-    // World state key sets per battleground
-    // Keys from the WoW 3.3.5a WorldState.dbc / client source
-    struct BgScoreDef {
-        uint32_t mapId;
-        const char* name;
-        uint32_t allianceKey;   // world state key for Alliance value
-        uint32_t hordeKey;      // world state key for Horde value
-        uint32_t maxKey;        // max score world state key (0 = use hardcoded)
-        uint32_t hardcodedMax;  // used when maxKey == 0
-        const char* unit;       // suffix label (e.g. "flags", "resources")
-    };
-
-    static constexpr BgScoreDef kBgDefs[] = {
-        // Warsong Gulch: 3 flag captures wins
-        { 489, "Warsong Gulch", 1581, 1582, 0, 3, "flags" },
-        // Arathi Basin: 1600 resources wins
-        { 529, "Arathi Basin",  1218, 1219, 0, 1600, "resources" },
-        // Alterac Valley: reinforcements count down from 600 / 800 etc.
-        {  30, "Alterac Valley", 1322, 1323, 0, 600, "reinforcements" },
-        // Eye of the Storm: 1600 resources wins
-        { 566, "Eye of the Storm", 2757, 2758, 0, 1600, "resources" },
-        // Strand of the Ancients (WotLK)
-        { 607, "Strand of the Ancients", 3476, 3477, 0, 4, "" },
-        // Isle of Conquest (WotLK): reinforcements (300 default)
-        { 628, "Isle of Conquest", 4221, 4222, 0, 300, "reinforcements" },
-    };
-
-    const BgScoreDef* def = nullptr;
-    for (const auto& d : kBgDefs) {
-        if (d.mapId == mapId) { def = &d; break; }
-    }
+    const game::BgScoreDef* def = game::findBgScoreDef(mapId);
     if (!def) return;
 
     auto allianceOpt = gameHandler.getWorldState(def->allianceKey);

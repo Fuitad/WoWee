@@ -8,6 +8,7 @@
 #include "imgui.h"
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_engine.hpp"
+#include "game/bg_score_defs.hpp"
 #include "audio/activity_sound_manager.hpp"
 #include "audio/ambient_sound_manager.hpp"
 #include "audio/audio_coordinator.hpp"
@@ -1283,6 +1284,70 @@ static int lua_GetExpansionLevel(lua_State* L) {
 static int lua_ReturnOne(lua_State* L) {
     lua_pushnumber(L, 1.0);
     return 1;
+}
+
+// The always-up battleground score lines, in the order FrameXML asks for them.
+// The server sends world states as bare key/value pairs, so the labels come
+// from the shared table this client's own heads-up display also reads.
+struct WorldStateLine {
+    std::string text;
+};
+
+static std::vector<WorldStateLine> worldStateLines(game::GameHandler* gh) {
+    std::vector<WorldStateLine> out;
+    if (!gh) return out;
+    const game::BgScoreDef* def = game::findBgScoreDef(gh->getWorldStateMapId());
+    if (!def) return out;
+
+    auto alliance = gh->getWorldState(def->allianceKey);
+    auto horde    = gh->getWorldState(def->hordeKey);
+    if (!alliance && !horde) return out;
+
+    uint32_t maxScore = def->hardcodedMax;
+    if (def->maxKey != 0) {
+        if (auto mv = gh->getWorldState(def->maxKey)) maxScore = *mv;
+    }
+    const bool showMax = maxScore > 0 && def->unit && def->unit[0] != '\0';
+
+    char buf[96];
+    for (int side = 0; side < 2; ++side) {
+        const char* label = side == 0 ? "Alliance" : "Horde";
+        const uint32_t score = (side == 0 ? alliance : horde).value_or(0);
+        if (showMax) snprintf(buf, sizeof(buf), "%s: %u/%u", label, score, maxScore);
+        else         snprintf(buf, sizeof(buf), "%s: %u", label, score);
+        out.push_back({buf});
+    }
+    return out;
+}
+
+// GetNumWorldStateUI() — how many always-up lines there are to draw.
+static int lua_GetNumWorldStateUI(lua_State* L) {
+    lua_pushinteger(L, static_cast<lua_Integer>(worldStateLines(getGameHandler(L)).size()));
+    return 1;
+}
+
+// GetWorldStateUIInfo(index) → uiType, state, text, icon, dynamicIcon, tooltip,
+// dynamicTooltip, extendedUI, extendedUIState1, extendedUIState2, extendedUIState3
+//
+// uiType 0 keeps worldstateframe.lua out of its world-PvP branch, which is the
+// one gated on a CVar and on IsSubZonePVPPOI. state 1 means "show, no flash".
+static int lua_GetWorldStateUIInfo(lua_State* L) {
+    const int index = static_cast<int>(luaL_optinteger(L, 1, 0));
+    const auto lines = worldStateLines(getGameHandler(L));
+    if (index < 1 || index > static_cast<int>(lines.size())) return 0;
+
+    lua_pushinteger(L, 0);                              // uiType
+    lua_pushinteger(L, 1);                              // state
+    lua_pushstring(L, lines[index - 1].text.c_str());   // text
+    lua_pushstring(L, "");                              // icon
+    lua_pushstring(L, "");                              // dynamicIcon
+    lua_pushstring(L, "");                              // tooltip
+    lua_pushstring(L, "");                              // dynamicTooltip
+    lua_pushstring(L, "");                              // extendedUI
+    lua_pushinteger(L, 0);                              // extendedUIState1
+    lua_pushinteger(L, 0);                              // extendedUIState2
+    lua_pushinteger(L, 0);                              // extendedUIState3
+    return 11;
 }
 
 static int lua_GetDefaultLanguage(lua_State* L) {
@@ -2830,7 +2895,12 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetMasterLootCandidate",   lua_ReturnNil},
                 {"GetSelectedDisplayChannel", lua_ReturnNil},
                 {"GetWintergraspWaitTime",   lua_ReturnNil},
-                {"GetNumWorldStateUI",       lua_ReturnZero},
+                {"GetNumWorldStateUI",       lua_GetNumWorldStateUI},
+                {"GetWorldStateUIInfo",      lua_GetWorldStateUIInfo},
+                // Only reached from the world-PvP branch, which uiType 0 keeps
+                // worldstateframe.lua out of. Bound so the branch is safe if a
+                // later entry ever reports uiType 1.
+                {"IsSubZonePVPPOI",          lua_ReturnFalse},
                 {"GetNumVoiceSessions",      lua_ReturnZero},
                 {"RequestBattlefieldPositions", lua_ReturnNothing},
                 {"UpdateWorldMapArrowFrames",   lua_ReturnNothing},
