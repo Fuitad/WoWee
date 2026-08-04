@@ -57,6 +57,15 @@ public:
     bool getShowNameplates() const { return showNameplates_; }
     void setShowNameplates(bool shown) { showNameplates_ = shown; }
 
+    /// Hand the saved anti-aliasing setting to the renderer.
+    ///
+    /// Called once at startup, before the first frame. It used to be applied
+    /// from update(), which does not run until the game screen is up — so a
+    /// saved setting rebuilt the swapchain around fifteen hundred frames into
+    /// the session, with a world loaded and uploads in flight, rather than
+    /// against a renderer that has drawn nothing yet.
+    void applySavedAntiAliasing(rendering::Renderer* renderer);
+
     GameScreen();
 
     /**

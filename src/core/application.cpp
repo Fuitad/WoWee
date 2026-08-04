@@ -211,6 +211,18 @@ bool Application::initialize() {
         return false;
     }
 
+    // The saved anti-aliasing setting, applied here rather than from the game
+    // screen's update.
+    //
+    // GameScreen's constructor has just read settings.cfg, so the value is
+    // known — but update() does not run until the game screen is up, which is
+    // after character select. A saved setting therefore rebuilt the swapchain,
+    // every render pass and every pipeline around fifteen hundred frames into
+    // the session, with a world loaded, textures resident and uploads in
+    // flight. Here the renderer has drawn nothing yet and there is nothing for
+    // the rebuild to disturb.
+    uiManager->getGameScreen().applySavedAntiAliasing(renderer.get());
+
     // Create subsystems
     authHandler = std::make_unique<auth::AuthHandler>();
     world = std::make_unique<game::World>();

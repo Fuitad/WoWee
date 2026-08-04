@@ -129,6 +129,17 @@ GameScreen::GameScreen() {
     loadSettings();
 }
 
+void GameScreen::applySavedAntiAliasing(rendering::Renderer* renderer) {
+    if (!renderer) return;
+    settingsPanel_.msaaSettingsApplied_ = true;
+    if (settingsPanel_.pendingAntiAliasing <= 0) return;
+    static const VkSampleCountFlagBits aaSamples[] = {
+        VK_SAMPLE_COUNT_1_BIT, VK_SAMPLE_COUNT_2_BIT,
+        VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_8_BIT
+    };
+    renderer->setMsaaSamples(aaSamples[settingsPanel_.pendingAntiAliasing]);
+}
+
 // Set UI services and propagate to child components
 
 namespace {
@@ -298,16 +309,12 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         }
     }
 
-    // Apply saved MSAA setting once when renderer is available
+    // Normally already done at startup — see applySavedAntiAliasing, which the
+    // application calls before the first frame. This is the fallback for a
+    // renderer that was not there yet, and it latches either way.
     if (!settingsPanel_.msaaSettingsApplied_ && settingsPanel_.pendingAntiAliasing > 0) {
-        auto* renderer = services_.renderer;
-        if (renderer) {
-            static const VkSampleCountFlagBits aaSamples[] = {
-                VK_SAMPLE_COUNT_1_BIT, VK_SAMPLE_COUNT_2_BIT,
-                VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_8_BIT
-            };
-            renderer->setMsaaSamples(aaSamples[settingsPanel_.pendingAntiAliasing]);
-            settingsPanel_.msaaSettingsApplied_ = true;
+        if (auto* renderer = services_.renderer) {
+            applySavedAntiAliasing(renderer);
         }
     } else {
         settingsPanel_.msaaSettingsApplied_ = true;
