@@ -2530,8 +2530,31 @@ void VkContext::endUploadBatch() {
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &batchCmd_;
 
-    // Submit to the dedicated transfer queue if available, otherwise graphics.
-    VkQueue targetQueue = hasDedicatedTransfer_ ? transferQueue_ : graphicsQueue;
+    // On the graphics queue, not the transfer one, unless asked otherwise.
+    //
+    // Both queues are in the same family, so no ownership transfer is needed —
+    // that much of the setup comment is right. But same family is not same
+    // queue: two queues run independently, and nothing here ordered them. The
+    // upload was submitted with a fence and no semaphore, the fence only ever
+    // used to free staging afterwards, so the graphics queue could sample a
+    // texture while the transfer queue was still writing it. Undefined, and on
+    // this driver it hangs.
+    //
+    // Submitting to the same queue the rendering uses makes submission order
+    // the execution order, and the layout transitions already recorded in this
+    // command buffer do the rest. It costs the parallelism the split was for.
+    //
+    // Why it surfaced now: this client alone makes almost no async batches, and
+    // FrameXML makes hundreds. Both device losses under investigation landed
+    // within a second of the *first* batch of the session.
+    //
+    // WOWEE_VK_ASYNC_UPLOAD_QUEUE=1 restores the old behaviour, for confirming
+    // that is what this was rather than taking it on argument.
+    static const bool asyncUploadQueue = [] {
+        const char* v = std::getenv("WOWEE_VK_ASYNC_UPLOAD_QUEUE");
+        return v && *v && *v != '0';
+    }();
+    VkQueue targetQueue = (hasDedicatedTransfer_ && asyncUploadQueue) ? transferQueue_ : graphicsQueue;
     vkQueueSubmit(targetQueue, 1, &submitInfo, fence);
 
     // Said once, with the handle, because these are the only fences created
