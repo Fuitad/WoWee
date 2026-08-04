@@ -2491,7 +2491,14 @@ void SocialHandler::handleFriendList(network::Packet& packet) {
         entry.status = status; entry.areaId = area; entry.level = level; entry.classId = classId;
         owner_.contactsRef().push_back(std::move(entry));
     }
-    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("FRIENDLIST_UPDATE", {});
+    // The full list arrives in reply to this client asking for it, so it is the
+    // "show" case as well as the "changed" case. SHOW additionally re-selects
+    // the tab; UPDATE only refreshes the rows. A single friend going online
+    // sends the status packet instead, and fires UPDATE alone.
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("FRIENDLIST_UPDATE", {});
+        owner_.addonEventCallbackRef()("FRIENDLIST_SHOW", {});
+    }
 }
 
 void SocialHandler::handleContactList(network::Packet& packet) {
@@ -2526,6 +2533,7 @@ void SocialHandler::handleContactList(network::Packet& packet) {
     }
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("FRIENDLIST_UPDATE", {});
+        owner_.addonEventCallbackRef()("FRIENDLIST_SHOW", {});
         if (owner_.lastContactListMaskRef() & 0x2) owner_.addonEventCallbackRef()("IGNORELIST_UPDATE", {});
     }
 }
