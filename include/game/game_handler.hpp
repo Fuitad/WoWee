@@ -1429,6 +1429,14 @@ public:
     bool isPlayerDead() const { return playerDead_; }
     bool isPlayerGhost() const { return releasedSpirit_; }
     bool showDeathDialog() const { return playerDead_ && !releasedSpirit_; }
+    /// The graveyard a release would send the player to, in canonical space.
+    /// False when the server has not named one, or has withdrawn it.
+    bool getDeathReleaseLocation(uint32_t& mapId, glm::vec3& canonical) const {
+        if (!deathReleaseValid_) return false;
+        mapId = deathReleaseMapId_;
+        canonical = deathReleaseCanonical_;
+        return true;
+    }
     bool showResurrectDialog() const { return resurrectRequestPending_; }
     /** True when SMSG_PRE_RESURRECT arrived — Reincarnation/Twisting Nether available. */
     bool canSelfRes() const { return selfResAvailable_; }
@@ -4237,6 +4245,16 @@ private:
     // event; CORPSE_IN_RANGE and CORPSE_OUT_OF_RANGE are edges, and FrameXML
     // raises its reclaim prompt from them.
     bool corpseInRangeAnnounced_ = false;
+    // Where the server says the spirit healer is — the graveyard a release
+    // would send the player to. SMSG_DEATH_RELEASE_LOC carries it and it used
+    // to be read and logged and nothing else, so this client knew exactly where
+    // to point a ghost and never pointed anywhere.
+    //
+    // The server withdraws it by sending map id -1, which is how a resurrect
+    // clears the marker.
+    bool deathReleaseValid_ = false;
+    uint32_t deathReleaseMapId_ = 0;
+    glm::vec3 deathReleaseCanonical_{0.0f};
     // Death Knight runes (class 6): slots 0-1=Blood, 2-3=Unholy, 4-5=Frost initially
     std::array<RuneSlot, 6> playerRunes_ = [] {
         std::array<RuneSlot, 6> r{};

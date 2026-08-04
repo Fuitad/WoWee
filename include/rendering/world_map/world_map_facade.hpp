@@ -48,6 +48,8 @@ public:
     void setTaxiNodes(std::vector<TaxiNode> nodes);
     void setQuestPois(std::vector<QuestPOI> pois);
     void setCorpsePos(bool hasCorpse, glm::vec3 renderPos);
+    /// The spirit healer a release would send the player to.
+    void setGraveyardPos(bool hasGraveyard, glm::vec3 renderPos);
 
     /// Draw the map into this rect instead of a window of its own.
     ///

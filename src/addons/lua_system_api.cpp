@@ -2885,6 +2885,17 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetNumMapDebugObjects",    lua_ReturnZero},
                 {"GetNumBattlefieldPositions", lua_ReturnZero},
                 {"GetBattlefieldPosition",   lua_GetBattlefieldPosition},
+                // Both of these want a position normalised to the map frame
+                // currently on screen, which only the map that is drawing knows
+                // — and this client draws its own, so FrameXML's WorldMapFrame
+                // is suppressed and neither is reached.
+                //
+                // Zero is not a placeholder here, it is the answer: both call
+                // sites read `if ( x == 0 and y == 0 )` and hide the marker.
+                // The corpse and the spirit healer are drawn by this client's
+                // own map, from getCorpseCanonicalPos and
+                // getDeathReleaseLocation. Handing the world map over means
+                // giving these the projection, not just filling them in.
                 {"GetCorpseMapPosition",     lua_GetBattlefieldPosition},
                 {"GetDeathReleasePosition",  lua_GetBattlefieldPosition},
                 {"GetNumBattlefieldVehicles", lua_ReturnZero},

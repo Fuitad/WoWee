@@ -23,6 +23,14 @@ public:
         hasCorpse_ = hasCorpse;
         corpseRenderPos_ = renderPos;
     }
+    /// Where a release would put the player — the nearest spirit healer, as
+    /// the server names it in SMSG_DEATH_RELEASE_LOC. Drawn beside the corpse
+    /// because the two together are the whole of a corpse run: where the body
+    /// is, and where the alternative is.
+    void setGraveyard(bool hasGraveyard, glm::vec3 renderPos) {
+        hasGraveyard_ = hasGraveyard;
+        graveyardRenderPos_ = renderPos;
+    }
     void render(const LayerContext& ctx) override;
 private:
     void ensureTexture();
@@ -34,6 +42,8 @@ private:
     bool loadAttempted_ = false;
     bool hasCorpse_ = false;
     glm::vec3 corpseRenderPos_ = {};
+    bool hasGraveyard_ = false;
+    glm::vec3 graveyardRenderPos_ = {};
 };
 
 } // namespace world_map

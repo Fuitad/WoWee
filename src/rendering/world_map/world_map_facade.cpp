@@ -682,6 +682,11 @@ void WorldMapFacade::setCorpsePos(bool hasCorpse, glm::vec3 renderPos) {
         impl_->corpseMarkerLayer->setCorpse(hasCorpse, renderPos);
 }
 
+void WorldMapFacade::setGraveyardPos(bool hasGraveyard, glm::vec3 renderPos) {
+    if (impl_->corpseMarkerLayer)
+        impl_->corpseMarkerLayer->setGraveyard(hasGraveyard, renderPos);
+}
+
 bool WorldMapFacade::isOpen() const { return impl_->open; }
 void WorldMapFacade::close() {
     impl_->closeMap();

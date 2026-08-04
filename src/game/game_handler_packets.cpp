@@ -554,11 +554,27 @@ void GameHandler::registerOpcodeHandlers() {
             LOG_INFO("SMSG_CORPSE_RECLAIM_DELAY: ", delayMs, "ms");
         }
     };
-    dispatchTable_[Opcode::SMSG_DEATH_RELEASE_LOC] = [](network::Packet& packet) {
+    dispatchTable_[Opcode::SMSG_DEATH_RELEASE_LOC] = [this](network::Packet& packet) {
         if (packet.hasRemaining(16)) {
             uint32_t relMapId = packet.readUInt32();
             float relX = packet.readFloat(), relY = packet.readFloat(), relZ = packet.readFloat();
-            LOG_INFO("SMSG_DEATH_RELEASE_LOC (graveyard spawn): map=", relMapId, " x=", relX, " y=", relY, " z=", relZ);
+            // Read and logged and nothing else, until now: this is where the
+            // server says the nearest spirit healer is, and a ghost with no
+            // marker for it has to go looking.
+            //
+            // Map id -1 is the withdrawal. ResurrectPlayer sends it to take the
+            // marker down, so it is not a graveyard at (0,0,0).
+            if (relMapId == 0xFFFFFFFFu) {
+                deathReleaseValid_ = false;
+                LOG_INFO("SMSG_DEATH_RELEASE_LOC: spirit healer position cleared");
+            } else {
+                deathReleaseValid_ = true;
+                deathReleaseMapId_ = relMapId;
+                deathReleaseCanonical_ =
+                    core::coords::serverToCanonical(glm::vec3(relX, relY, relZ));
+                LOG_INFO("SMSG_DEATH_RELEASE_LOC (graveyard spawn): map=", relMapId,
+                         " x=", relX, " y=", relY, " z=", relZ);
+            }
         }
     };
     dispatchTable_[Opcode::SMSG_ENABLE_BARBER_SHOP] = [this](network::Packet& /*packet*/) {

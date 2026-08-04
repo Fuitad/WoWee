@@ -632,6 +632,18 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
             ? core::coords::canonicalToRender(glm::vec3(corpseCanX, corpseCanY, 0.0f))
             : glm::vec3{};
         wm->setCorpsePos(ghostWithCorpse, corpseRender);
+
+        // And where releasing would put them. Shown while dead either way:
+        // before releasing it is the choice being offered, and after it is the
+        // place to walk back from.
+        uint32_t healerMap = 0;
+        glm::vec3 healerCanonical(0.0f);
+        const bool haveHealer = gameHandler.isPlayerDead() &&
+                                gameHandler.getDeathReleaseLocation(healerMap, healerCanonical) &&
+                                healerMap == gameHandler.getCurrentMapId();
+        wm->setGraveyardPos(haveHealer,
+                            haveHealer ? core::coords::canonicalToRender(healerCanonical)
+                                       : glm::vec3{});
     }
 
     // Rare tracker: mark every spawned rare / rare-elite the client currently has loaded.

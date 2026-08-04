@@ -70,7 +70,7 @@ void CorpseMarkerLayer::ensureTexture() {
 }
 
 void CorpseMarkerLayer::render(const LayerContext& ctx) {
-    if (!hasCorpse_) return;
+    if (!hasCorpse_ && !hasGraveyard_) return;
     if (ctx.currentZoneIdx < 0) return;
     if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
     if (!ctx.zones) return;
@@ -84,6 +84,37 @@ void CorpseMarkerLayer::render(const LayerContext& ctx) {
             bounds = {l, r, t, b};
         }
     }
+
+    // Where a release would put the player. Drawn first so the corpse sits on
+    // top where the two coincide — the body is the thing being navigated to.
+    if (hasGraveyard_) {
+        glm::vec2 gv = renderPosToMapUV(graveyardRenderPos_, bounds, isContinent);
+        if (gv.x >= 0.0f && gv.x <= 1.0f && gv.y >= 0.0f && gv.y <= 1.0f) {
+            const float gx = ctx.imgMin.x + gv.x * ctx.displayW;
+            const float gy = ctx.imgMin.y + gv.y * ctx.displayH;
+            constexpr float H = 7.0f;      // half-height of the upright
+            constexpr float W = 4.5f;      // half-width of the crossbar
+            constexpr float T = 2.6f;
+            const ImU32 halo = IM_COL32(0, 0, 0, 200);
+            const ImU32 pale = IM_COL32(180, 215, 255, 245);
+            // A cross, drawn with a dark pass under a pale one so it reads on
+            // both the parchment and the darker continent art.
+            for (int pass = 0; pass < 2; ++pass) {
+                const ImU32 col = pass == 0 ? halo : pale;
+                const float th = pass == 0 ? T + 1.6f : T;
+                ctx.drawList->AddLine(ImVec2(gx, gy - H), ImVec2(gx, gy + H), col, th);
+                ctx.drawList->AddLine(ImVec2(gx - W, gy - H * 0.25f),
+                                      ImVec2(gx + W, gy - H * 0.25f), col, th);
+            }
+            ImVec2 gmp = ImGui::GetMousePos();
+            const float gdx = gmp.x - gx, gdy = gmp.y - gy;
+            if (gdx * gdx + gdy * gdy < (H + 2.0f) * (H + 2.0f)) {
+                ImGui::SetTooltip("Spirit healer");
+            }
+        }
+    }
+
+    if (!hasCorpse_) return;
 
     glm::vec2 uv = renderPosToMapUV(corpseRenderPos_, bounds, isContinent);
     if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) return;
