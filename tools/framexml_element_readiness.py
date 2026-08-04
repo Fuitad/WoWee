@@ -416,6 +416,12 @@ def main():
     # real gap — GMRESPONSE_RECEIVED and PLAYER_ROLES_ASSIGNED are fired now,
     # MINIMAP_UPDATE_TRACKING is recorded with its trigger.
     #
+    # The server source is at /home/k/azerothcore-wotlk. Anything blocked here
+    # on "the wire format is not known" can be read off it directly — that was
+    # not noticed until the end of a session spent declining to guess, and the
+    # scoreboard parser turned out to have three misalignments the moment it
+    # was checked against Battleground.cpp.
+    #
     # Five in eleven is the number to remember when writing the next one. The
     # five that held were each grepped while being written; the five that did
     # not were carried forward from an earlier conclusion. Provenance predicted
