@@ -345,6 +345,16 @@ const Suppress kSuppress[] = {
         {UiElement::Loot,        "LootFrame GroupLootFrame1 GroupLootFrame2 "
                                  "GroupLootFrame3 GroupLootFrame4"},
         {UiElement::Bank,        "BankFrame"},
+        // Buffs and durability had no suppression entry either, for the same
+        // reason the bags did not: both are handed over by default, so nothing
+        // ever showed twice and the gap stayed invisible. ConsolidatedBuffs and
+        // TemporaryEnchantFrame ride with the buff bar — this client draws the
+        // weapon enchant inside renderBuffBar, so the three go together.
+        {UiElement::Buffs,       "BuffFrame ConsolidatedBuffs TemporaryEnchantFrame"},
+        {UiElement::Durability,  "DurabilityFrame"},
+        // The party frames' shared backdrop, which is a top-level frame of its
+        // own rather than a child of any of them.
+        {UiElement::PartyFrames, "PartyMemberBackground"},
         // The bags had no suppression entry at all — they are handed over by
         // default, so nothing showed twice and the gap never surfaced. All
         // thirteen container frames, because a player with four bags open has
