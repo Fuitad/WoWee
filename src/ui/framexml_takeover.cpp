@@ -497,13 +497,17 @@ void frameXmlReportUnaccountedElements() {
     }
 }
 
-std::vector<std::string> frameXmlCheckFrames() {
-    // One row per element: what has to exist for it to have arrived. Chosen as
-    // the frame itself, the art that frames it, and the parts that carry live
-    // data — which between them separate "never built" from "built and empty"
-    // from "built and misplaced".
-    struct Check { UiElement element; const char* frames; };
-    static const Check kChecks[] = {
+namespace {
+// One row per element: what has to exist for it to have arrived. Chosen as
+// the frame itself, the art that frames it, and the parts that carry live
+// data — which between them separate "never built" from "built and empty"
+// from "built and misplaced".
+//
+// At namespace scope because the unaccounted-frame sweep reads it too: a name
+// mentioned here is a name somebody has considered, which is the whole of what
+// that sweep needs to know.
+struct Check { UiElement element; const char* frames; };
+const Check kChecks[] = {
         {UiElement::PlayerFrame,  "PlayerFrame PlayerFrameTexture PlayerPortrait "
                                   "PlayerFrameHealthBar PlayerFrameManaBar PlayerName "
                                   "PlayerLevelText "
@@ -581,8 +585,35 @@ std::vector<std::string> frameXmlCheckFrames() {
         // window around it.
         {UiElement::QuestLog,     "QuestLogFrame QuestLogScrollFrame "
                                   "QuestLogDetailScrollFrame"},
-    };
+};
 
+/// Split a space-separated frame list onto the end of a vector.
+void appendFrames(const char* frames, std::vector<std::string>& out) {
+    if (!frames) return;
+    std::string all(frames);
+    size_t at = 0;
+    while (at < all.size()) {
+        const size_t sp = all.find(' ', at);
+        const std::string one = all.substr(
+            at, sp == std::string::npos ? std::string::npos : sp - at);
+        if (!one.empty()) out.push_back(one);
+        if (sp == std::string::npos) break;
+        at = sp + 1;
+    }
+}
+}  // namespace
+
+std::vector<std::string> frameXmlAccountedFrames() {
+    std::vector<std::string> out;
+    // Both tables, and every element in them rather than only the owned ones:
+    // the question is whether a name has been considered at all, not whether
+    // its element won.
+    for (const Suppress& s : kSuppress) appendFrames(s.frames, out);
+    for (const Check& c : kChecks)      appendFrames(c.frames, out);
+    return out;
+}
+
+std::vector<std::string> frameXmlCheckFrames() {
     std::vector<std::string> out;
     for (const Check& c : kChecks) {
         if (!frameXmlOwns(c.element)) continue;

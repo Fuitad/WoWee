@@ -740,6 +740,55 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         }
     }
 
+    // Frames FrameXML puts on screen that no element accounts for.
+    //
+    // Every frame around it, and this runs every frame rather than on the
+    // checkpoints below, because the ones worth catching are the ones that are
+    // only up for a moment: the zone banner fades in on a crossing and was
+    // drawn beside this client's own for months without any check mentioning
+    // it. A checkpoint pass would have to land inside the fade to see it.
+    //
+    // frameXmlReportUnaccountedElements cannot find these. It iterates the
+    // element list, so it reports gaps among names somebody already thought of,
+    // and zone text was not an element at all. This asks the question from the
+    // other end — what is on screen — which is the end that needs no foresight.
+    //
+    // Said once per name, ever. A frame that is legitimately unlisted costs one
+    // line for the life of the process.
+    {
+        static const std::set<std::string> accounted = [] {
+            const auto all = frameXmlAccountedFrames();
+            return std::set<std::string>(all.begin(), all.end());
+        }();
+        static std::set<std::string> said;
+        // UIParent's own children only: every panel hangs off it, and the parts
+        // inside a panel are that panel's business rather than the takeover's.
+        //
+        // The id is cached because findByName scans the tree backwards and
+        // UIParent is built early, so looking it up by name every frame walks
+        // almost the whole tree — a cost worth paying nowhere, least of all for
+        // a diagnostic. Re-resolved if it ever stops naming UIParent, which is
+        // what a rebuilt tree would look like from here.
+        static uint32_t rootId = 0;
+        const Widget* root = rootId ? tree.get(rootId) : nullptr;
+        if (!root || root->name != "UIParent") {
+            root = tree.findByName("UIParent");
+            rootId = root ? root->id : 0;
+        }
+        if (root) {
+            for (const uint32_t childId : root->children) {
+                const Widget* w = tree.get(childId);
+                if (!w || !w->visible || w->name.empty()) continue;
+                if (w->rectW <= 0.0f || w->rectH <= 0.0f) continue;
+                if (accounted.count(w->name) || said.count(w->name)) continue;
+                said.insert(w->name);
+                LOG_WARNING("FrameXML: '", w->name, "' is on screen and no "
+                            "element accounts for it — if this client draws the "
+                            "same thing, both are up");
+            }
+        }
+    }
+
     const bool askedFor = frameXmlTakeCheckRequest();
     if (loadPass || worldPass || askedFor) {
         if (!askedFor) ++passesDone;

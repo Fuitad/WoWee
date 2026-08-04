@@ -132,6 +132,15 @@ std::string_view uiElementName(UiElement element);
 /// can be one block of log rather than an inspection.
 std::vector<std::string> frameXmlCheckFrames();
 
+/// Every frame name the takeover system mentions anywhere, owned or not.
+///
+/// A name in here is a name somebody has considered. Anything FrameXML puts on
+/// screen that is *not* in here is a part of the interface nobody has decided
+/// about, which is how the zone banner came to be drawn beside this client's
+/// own for months: it was not an element, so the element-level check had
+/// nothing to iterate and never mentioned it.
+std::vector<std::string> frameXmlAccountedFrames();
+
 /// The frames worth looking at for elements not yet handed over.
 ///
 /// Deciding whether the next element is ready means seeing whether FrameXML's
