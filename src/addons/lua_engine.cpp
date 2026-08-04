@@ -1594,6 +1594,39 @@ int lua_Tooltip_SetBagItem(lua_State* L) {
     return 1;
 }
 
+/// SetGuildBankItem(tab, slot) — hovering a slot in the guild bank.
+///
+/// It was in the no-op allowlist, so the call succeeded and wrote nothing: a
+/// guild bank where no item has a tooltip, which reads as the tooltip system
+/// being broken rather than as one method missing. The data was already there
+/// — GetGuildBankItemInfo answers from the same slots.
+int lua_Tooltip_SetGuildBankItem(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    const int tab  = static_cast<int>(luaL_optnumber(L, 2, 0));
+    const int slot = static_cast<int>(luaL_optnumber(L, 3, 0));
+    if (!w || !gh || slot < 1) { lua_pushboolean(L, 0); return 1; }
+
+    const auto& data = gh->getGuildBankData();
+    // The open tab is the one kept current; any other answers from whatever
+    // the last full update left behind, which is what the panel draws too.
+    const std::vector<game::GuildBankItemSlot>* items = nullptr;
+    if (tab - 1 == data.tabId) {
+        items = &data.tabItems;
+    } else if (tab >= 1 && tab <= static_cast<int>(data.tabs.size())) {
+        items = &data.tabs[tab - 1].items;
+    }
+    if (!items) { lua_pushboolean(L, 0); return 1; }
+
+    for (const auto& it : *items) {
+        if (it.slotId + 1 != slot) continue;
+        lua_pushboolean(L, fillItemTooltipById(w, gh, it.itemEntry) ? 1 : 0);
+        return 1;
+    }
+    lua_pushboolean(L, 0);
+    return 1;
+}
+
 int lua_Tooltip_ClearLines(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->tooltipLines.clear();
     return 0;
@@ -3321,6 +3354,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetAction",       lua_Tooltip_SetAction},
         {"SetInventoryItem", lua_Tooltip_SetInventoryItem},
         {"SetBagItem",      lua_Tooltip_SetBagItem},
+        {"SetGuildBankItem", lua_Tooltip_SetGuildBankItem},
         {"SetSpellByID",    lua_Tooltip_SetSpellByID},
         {"SetTalent",       lua_Tooltip_SetTalent},
         {"SetAuctionItem",  lua_Tooltip_SetAuctionItem},
@@ -4000,7 +4034,6 @@ void LuaEngine::registerCoreAPI() {
         // method table first and only falls through to here — but this set says
         // "cannot describe it yet", and a name in it that works reads as a gap
         // that is not there, in the one place someone would check.
-        "SetGuildBankItem=1,\n"
         "SetGlyph=1,SetSocketGem=1,SetSocketedItem=1,SetExistingSocketGem=1,\n"
         "SetScrollOffset=1,RegisterAllEvents=1,\n"
         "SetStatusBarTexture=1,SetTexCoord=1,SetText=1,SetTextHeight=1,\n"
