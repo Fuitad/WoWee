@@ -2727,14 +2727,59 @@ void GameHandler::loadLfgDungeonDbc() const {
     const uint32_t idField   = layout ? (*layout)["ID"]   : 0;
     const uint32_t nameField = layout ? (*layout)["Name"] : 1;
 
+    // Everything past the name, which the layout table does not describe. The
+    // WotLK file is 49 fields wide: sixteen name locales and their flags fill
+    // 1-17, and the rest follow in this order. Read off the file and checked
+    // against rows that can be recognised rather than taken on trust — Wailing
+    // Caverns on map 43, Ragefire Chasm the one entry with faction 0, Karazhan
+    // grouped with the Burning Crusade raids.
+    constexpr uint32_t kMinLevel = 18, kMaxLevel = 19, kTargetLevel = 20;
+    constexpr uint32_t kTargetMin = 21, kTargetMax = 22, kMapId = 23;
+    constexpr uint32_t kDifficulty = 24, kTypeId = 26, kFaction = 27;
+    constexpr uint32_t kTexture = 28, kExpansion = 29, kOrderIndex = 30, kGroupId = 31;
+    const bool wideEnough = dbc->getFieldCount() > kGroupId;
+    if (!wideEnough) {
+        LOG_WARNING("LFGDungeons.dbc has only ", dbc->getFieldCount(),
+                    " fields — the dungeon finder will list names only");
+    }
+
     for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
         uint32_t id = dbc->getUInt32(i, idField);
         if (id == 0) continue;
         std::string name = dbc->getString(i, nameField);
-        if (!name.empty())
-            lfgDungeonNameCache_[id] = std::move(name);
+        if (name.empty()) continue;
+        lfgDungeonNameCache_[id] = name;
+        if (!wideEnough) continue;
+
+        LfgDungeon d;
+        d.id          = id;
+        d.name        = std::move(name);
+        d.minLevel    = dbc->getUInt32(i, kMinLevel);
+        d.maxLevel    = dbc->getUInt32(i, kMaxLevel);
+        d.recLevel    = dbc->getUInt32(i, kTargetLevel);
+        d.minRecLevel = dbc->getUInt32(i, kTargetMin);
+        d.maxRecLevel = dbc->getUInt32(i, kTargetMax);
+        d.mapId       = dbc->getUInt32(i, kMapId);
+        d.difficulty  = dbc->getUInt32(i, kDifficulty);
+        d.typeId      = dbc->getUInt32(i, kTypeId);
+        d.faction     = static_cast<int32_t>(dbc->getUInt32(i, kFaction));
+        d.texture     = dbc->getString(i, kTexture);
+        d.expansion   = dbc->getUInt32(i, kExpansion);
+        d.orderIndex  = dbc->getUInt32(i, kOrderIndex);
+        d.groupId     = dbc->getUInt32(i, kGroupId);
+        lfgDungeons_.push_back(std::move(d));
     }
-    LOG_INFO("LFGDungeons.dbc: loaded ", lfgDungeonNameCache_.size(), " dungeon names");
+    // The order the picker lists them in: by group, then by the level the
+    // dungeon is meant for, so a category reads from lowest to highest.
+    std::sort(lfgDungeons_.begin(), lfgDungeons_.end(),
+              [](const LfgDungeon& a, const LfgDungeon& b) {
+                  if (a.groupId != b.groupId) return a.groupId < b.groupId;
+                  if (a.orderIndex != b.orderIndex) return a.orderIndex < b.orderIndex;
+                  if (a.recLevel != b.recLevel) return a.recLevel < b.recLevel;
+                  return a.id < b.id;
+              });
+    LOG_INFO("LFGDungeons.dbc: loaded ", lfgDungeonNameCache_.size(), " dungeon names, ",
+             lfgDungeons_.size(), " listable entries");
 }
 
 std::string GameHandler::getLfgDungeonName(uint32_t dungeonId) const {

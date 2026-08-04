@@ -3096,6 +3096,12 @@ public:
     void loadSkillLineAbilityDbc();
     std::string getFactionName(uint32_t factionId) const;
     std::string getLfgDungeonName(uint32_t dungeonId) const;
+    /// Every row of LFGDungeons.dbc worth offering, in the order it should be
+    /// listed. Built once; the file does not change while the client runs.
+    const std::vector<LfgDungeon>& getLfgDungeons() const {
+        loadLfgDungeonDbc();
+        return lfgDungeons_;
+    }
     void queryItemInfo(uint32_t entry, uint64_t guid);
 
     // --- Inner types exposed for former friend classes ---
@@ -4076,6 +4082,7 @@ private:
 
     // LFG dungeon name cache (lazy-loaded from LFGDungeons.dbc; WotLK only)
     mutable std::unordered_map<uint32_t, std::string> lfgDungeonNameCache_;
+    mutable std::vector<LfgDungeon> lfgDungeons_;
     mutable bool lfgDungeonNameCacheLoaded_ = false;
     void loadLfgDungeonDbc() const;
     std::vector<TrainerTab> trainerTabs_;

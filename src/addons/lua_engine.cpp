@@ -3191,6 +3191,7 @@ void LuaEngine::registerCoreAPI() {
     registerSocialLuaAPI(L_);
     registerSystemLuaAPI(L_);
     registerActionLuaAPI(L_);
+    registerLfgLuaAPI(L_);
 
     // WoW aliases
     lua_getglobal(L_, "string");

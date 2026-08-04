@@ -228,6 +228,40 @@ struct GossipPoi {
 
 // ---- Instance lockouts ----
 
+/// One row of LFGDungeons.dbc, as the dungeon finder needs it.
+///
+/// Field indices were read off the file rather than assumed: 195 records of 49
+/// fields, checked against values that can be recognised — Wailing Caverns on
+/// map 43, Ragefire Chasm faction 0 where everything else is -1, Karazhan in
+/// the Burning Crusade raid group. The layout table only ever named ID and
+/// Name, which is why the picker had nothing to list.
+struct LfgDungeon {
+    uint32_t id = 0;
+    std::string name;
+    uint32_t minLevel = 0;
+    uint32_t maxLevel = 0;
+    uint32_t recLevel = 0;      // target level
+    uint32_t minRecLevel = 0;
+    uint32_t maxRecLevel = 0;
+    uint32_t mapId = 0;
+    uint32_t difficulty = 0;
+    uint32_t typeId = 0;        // 1 dungeon, 2 raid, 4 zone, 5 heroic, 6 random
+    int32_t  faction = -1;      // -1 both, 0 Horde, 1 Alliance
+    std::string texture;
+    uint32_t expansion = 0;
+    uint32_t orderIndex = 0;
+    uint32_t groupId = 0;       // 0 means it belongs under no header
+};
+
+/// What LFGDungeons.dbc calls each kind of row.
+enum class LfgTypeId : uint32_t {
+    Dungeon = 1,
+    Raid    = 2,
+    Zone    = 4,
+    Heroic  = 5,
+    Random  = 6,
+};
+
 struct InstanceLockout {
     uint32_t mapId       = 0;
     uint32_t difficulty  = 0;
