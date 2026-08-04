@@ -119,6 +119,23 @@ ELEMENTS = {
     "stable":       ["petstable.lua", "petstable.xml"],
     "book":         ["itemtextframe.lua", "itemtextframe.xml"],
     "totems":       ["totemframe.lua", "totemframe.xml"],
+    # The twelve this client already hands over by default, and which nothing
+    # had ever measured. Being enabled is not evidence of being complete — it
+    # means someone once saw them draw, which is the visual half. An unanswered
+    # call in one of these is a live fault in the shipping default, not a
+    # candidate for a future round.
+    "playerframe":  ["playerframe.lua", "playerframe.xml"],
+    "targetframe":  ["targetframe.lua", "targetframe.xml"],
+    "focusframe":   ["focusframe.lua", "focusframe.xml"],
+    "petframe":     ["petframe.lua", "petframe.xml"],
+    "castbar":      ["castingbarframe.lua", "castingbarframe.xml"],
+    "buffs":        ["buffframe.lua", "buffframe.xml"],
+    "minimap":      ["minimap.lua", "minimap.xml"],
+    "characterframe": ["paperdollframe.lua", "paperdollframe.xml"],
+    "bags":         ["containerframe.lua", "containerframe.xml"],
+    "spellbook":    ["spellbookframe.lua", "spellbookframe.xml"],
+    "durability":   ["durabilityframe.lua", "durabilityframe.xml"],
+    "mainmenubar":  ["mainmenubar.lua", "mainmenubar.xml"],
 }
 
 # Elements whose frames arrive with a load-on-demand addon rather than with
