@@ -7,7 +7,18 @@
 #include "imgui.h"
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_engine.hpp"
+#include "audio/activity_sound_manager.hpp"
+#include "audio/ambient_sound_manager.hpp"
 #include "audio/audio_coordinator.hpp"
+#include "audio/audio_engine.hpp"
+#include "audio/combat_sound_manager.hpp"
+#include "audio/footstep_manager.hpp"
+#include "audio/mount_sound_manager.hpp"
+#include "audio/movement_sound_manager.hpp"
+#include "audio/music_manager.hpp"
+#include "audio/npc_voice_manager.hpp"
+#include "audio/player_voice_manager.hpp"
+#include "audio/spell_sound_manager.hpp"
 #include "audio/ui_sound_manager.hpp"
 #include "core/app_clock.hpp"
 #include "core/window.hpp"
@@ -137,6 +148,74 @@ static std::unordered_map<std::string, std::string>& cvarStore() {
     return store;
 }
 
+/// A sound CVar's value, or the stock client's default for it.
+///
+/// The defaults matter as much as the store does. Sound_MasterVolumeUp reads
+/// the CVar, runs it through tonumber and adds a step — with nothing stored and
+/// no default it reads nil, the `if (volume)` guard below it fails, and the
+/// volume keys do nothing at all rather than anything visible.
+static float soundCVar(const char* key, float fallback) {
+    if (auto it = cvarStore().find(key); it != cvarStore().end()) {
+        try {
+            return std::stof(it->second);
+        } catch (const std::exception&) {
+            return fallback;
+        }
+    }
+    return fallback;
+}
+
+/// Push the sound CVars at the audio system, which is what makes them settings
+/// rather than a record of what was clicked.
+///
+/// Every channel is recomputed from the store rather than from the one CVar
+/// that changed, so enable and volume compose and the order they arrive in does
+/// not matter — Sound_ToggleSound writes EnableSFX and EnableAmbience one after
+/// the other, and the interface's options panel writes a volume and an enable
+/// together on apply.
+///
+/// This client splits sound finer than the interface does: it has separate
+/// volumes for combat, spells, movement, footsteps and the rest, where FrameXML
+/// has one "sound effects". Turning SFX off and on again therefore levels those
+/// channels rather than restoring them. That is the retail behaviour — there is
+/// no finer control there to restore — and the client's own settings panel
+/// re-applies its sliders whenever it is used, so neither owner is stuck with
+/// the other's answer.
+static void applySoundCVars(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    auto* ac = svc ? svc->audioCoordinator : nullptr;
+    if (!ac) return;
+
+    const bool allSound = soundCVar("sound_enableallsound", 1.0f) != 0.0f;
+    const float master  = std::clamp(soundCVar("sound_mastervolume", 1.0f), 0.0f, 1.0f);
+    audio::AudioEngine::instance().setMasterVolume(allSound ? master : 0.0f);
+
+    const bool  musicOn  = soundCVar("sound_enablemusic", 1.0f) != 0.0f;
+    const float musicVol = std::clamp(soundCVar("sound_musicvolume", 1.0f), 0.0f, 1.0f);
+    if (auto* music = ac->getMusicManager())
+        music->setVolume(static_cast<int>((musicOn ? musicVol : 0.0f) * 100.0f));
+
+    const bool  ambOn  = soundCVar("sound_enableambience", 1.0f) != 0.0f;
+    const float ambVol = std::clamp(soundCVar("sound_ambiencevolume", 1.0f), 0.0f, 1.0f);
+    if (auto* ambient = ac->getAmbientSoundManager()) {
+        ambient->setVolumeScale(ambOn ? ambVol : 0.0f);
+        ambient->setBellVolumeScale(ambOn ? ambVol : 0.0f);
+    }
+
+    const bool  sfxOn  = soundCVar("sound_enablesfx", 1.0f) != 0.0f;
+    const float sfxVol = std::clamp(soundCVar("sound_sfxvolume", 1.0f), 0.0f, 1.0f);
+    const float sfx    = sfxOn ? sfxVol : 0.0f;
+    if (auto* m = ac->getUiSoundManager())        m->setVolumeScale(sfx);
+    if (auto* m = ac->getCombatSoundManager())    m->setVolumeScale(sfx);
+    if (auto* m = ac->getSpellSoundManager())     m->setVolumeScale(sfx);
+    if (auto* m = ac->getMovementSoundManager())  m->setVolumeScale(sfx);
+    if (auto* m = ac->getFootstepManager())       m->setVolumeScale(sfx);
+    if (auto* m = ac->getActivitySoundManager())  m->setVolumeScale(sfx);
+    if (auto* m = ac->getMountSoundManager())     m->setVolumeScale(sfx);
+    if (auto* m = ac->getNpcVoiceManager())       m->setVolumeScale(sfx);
+    if (auto* m = ac->getPlayerVoiceManager())    m->setVolumeScale(sfx);
+}
+
 static int lua_GetCVar(lua_State* L) {
     const char* name = luaL_checkstring(L, 1);
     // Folded to lower case, because the client's CVar names are not
@@ -152,7 +231,15 @@ static int lua_GetCVar(lua_State* L) {
         return 1;
     }
     // Return sensible defaults for commonly queried CVars
-    if (n == "uiscale") lua_pushstring(L, "1");
+    // The sound ones read back as on and at full, which is what this client
+    // starts as. Volume up/down step from whatever is read here, so answering
+    // nothing leaves those keys inert rather than merely at a default.
+    if (n.rfind("sound_enable", 0) == 0) lua_pushstring(L, "1");
+    else if (n == "sound_mastervolume" || n == "sound_musicvolume" ||
+             n == "sound_sfxvolume" || n == "sound_ambiencevolume") {
+        lua_pushstring(L, "1");
+    }
+    else if (n == "uiscale") lua_pushstring(L, "1");
     else if (n == "useuiscale") lua_pushstring(L, "1");
     else if (n == "screenwidth" || n == "gxresolution") {
         auto* svc = getLuaServices(L);
@@ -292,6 +379,10 @@ static int lua_SetCVar(lua_State* L) {
     std::string key(name);
     toLowerInPlace(key);
     cvarStore()[key] = value;
+    // A sound CVar is a setting, not a note. Without this the interface's
+    // volume keys and its Sound options both wrote to a map nobody read, so
+    // turning music off left it playing.
+    if (key.rfind("sound_", 0) == 0) applySoundCVars(L);
     // Announced, because nine frames listen for it — the options panels redraw
     // themselves from this rather than from the click that caused it.
     // Through the engine in the registry, which is where it puts itself; the
