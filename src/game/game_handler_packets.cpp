@@ -832,6 +832,13 @@ void GameHandler::registerOpcodeHandlers() {
             resurrectCasterName_ = "";
             resurrectIsSpiritHealer_ = true;
             resurrectRequestPending_ = true;
+            // The spirit healer's prompt is CONFIRM_XP_LOSS, not
+            // RESURRECT_REQUEST — uiparent.lua answers it with the durability
+            // and sickness warning and its Accept calls AcceptXPLoss. Nothing
+            // fired it, and the only thing that could reach
+            // activateSpiritHealer was this client's own gossip window, so with
+            // gossip handed over there was no way left to accept at all.
+            fireAddonEvent("CONFIRM_XP_LOSS", {});
         }
     };
     dispatchTable_[Opcode::SMSG_RESURRECT_REQUEST] = [this](network::Packet& packet) {

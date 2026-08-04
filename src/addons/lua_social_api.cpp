@@ -1644,6 +1644,49 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"AcceptGuild",         lua_AcceptGuild},
                 {"DeclineGuild",        lua_DeclineGuild},
                 {"AcceptResurrect",     lua_AcceptResurrect},
+                // --- The spirit healer ---
+                //
+                // Its prompt is the XP_LOSS popup, raised from CONFIRM_XP_LOSS.
+                // activateSpiritHealer had exactly one caller, this client's
+                // own gossip window, so with gossip handed over nothing could
+                // reach it and standing at a spirit healer did nothing.
+                {"AcceptXPLoss", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) {
+                const uint64_t healer = gh->resurrectCasterGuidRef();
+                if (healer) gh->activateSpiritHealer(healer);
+                gh->resurrectRequestPendingRef() = false;
+            }
+            return 0;
+        }},
+                // The popup hides itself and closes the gossip when this turns
+                // false, so it answers true for as long as the offer stands.
+                // The server withdraws the offer by other means; there is no
+                // distance to measure against a healer this client is not
+                // tracking the position of.
+                {"CheckSpiritHealerDist", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L, gh && gh->resurrectRequestPendingRef() &&
+                                gh->resurrectIsSpiritHealerRef() ? 1 : 0);
+            return 1;
+        }},
+                // GetResSicknessDuration() → how long the sickness lasts, as
+                // the text this goes into is "%s of Resurrection Sickness".
+                //
+                // The server's own rule (Player::ResurrectPlayer): below the
+                // sickness level there is none, 11 to 19 is a minute for each
+                // level above ten, and twenty and up is the full ten minutes.
+                // nil is what "none" looks like here, and it picks the
+                // no-sickness wording rather than printing "0 min".
+                {"GetResSicknessDuration", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t level = gh ? gh->getPlayerLevel() : 0;
+            constexpr uint32_t kSicknessLevel = 11;
+            if (level < kSicknessLevel) { lua_pushnil(L); return 1; }
+            const uint32_t minutes = level >= kSicknessLevel + 9
+                ? 10u : (level - kSicknessLevel + 1u);
+            lua_pushstring(L, (std::to_string(minutes) + " min").c_str());
+            return 1;
+        }},
                 {"DeclineResurrect",    lua_DeclineResurrect},
                 {"AcceptDuel",          lua_AcceptDuel},
                 {"CancelDuel",          lua_CancelDuel},
