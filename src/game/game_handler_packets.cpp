@@ -245,9 +245,13 @@ void GameHandler::registerOpcodeHandlers() {
         LOG_DEBUG("SMSG_UPDATE_WORLD_STATE: field=", field, " value=", value);
         fireAddonEvent("UPDATE_WORLD_STATES", {});
     };
-    dispatchTable_[Opcode::SMSG_WORLD_STATE_UI_TIMER_UPDATE] = [](network::Packet& packet) {
+    dispatchTable_[Opcode::SMSG_WORLD_STATE_UI_TIMER_UPDATE] = [this](network::Packet& packet) {
         if (packet.hasRemaining(4)) {
             uint32_t serverTime = packet.readUInt32();
+            // The world state timer bar counts from this and had nothing to
+            // count from — it was read and logged and dropped.
+            if (addonEventCallback_)
+                addonEventCallback_("WORLD_STATE_UI_TIMER_UPDATE", {std::to_string(serverTime)});
             LOG_DEBUG("SMSG_WORLD_STATE_UI_TIMER_UPDATE: serverTime=", serverTime);
         }
     };

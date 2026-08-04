@@ -819,6 +819,9 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
     };
     table[Opcode::SMSG_LFG_OFFER_CONTINUE] = [this](network::Packet& /*packet*/) {
         owner_.addSystemChatMessage("Dungeon Finder: You may continue your dungeon.");
+        // The offer to carry on is a dialog, not a chat line — the interface
+        // raises it on this and had only the message to go on.
+        if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("LFG_OFFER_CONTINUE", {});
     };
     table[Opcode::SMSG_LFG_ROLE_CHOSEN] = [this](network::Packet& packet) {
         if (!packet.hasRemaining(13)) { packet.skipAll(); return; }
