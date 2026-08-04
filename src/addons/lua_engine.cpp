@@ -4521,6 +4521,27 @@ void LuaEngine::registerCoreAPI() {
         // They route through the item link rather than rebuilding a tooltip,
         // because SetHyperlink already knows how to render one and the links
         // are what the getters hand back.
+        // Two more tooltip methods, and these RAISE rather than answering a
+        // no-op — they are in neither the method table nor the allowlist, so
+        // the fallback returns nil and the call takes its handler with it.
+        // Hovering a trainer's spell, or the item in the auction sell slot.
+        "function __WoweeFrameMT:SetTrainerService(index)\n"
+        "    self:ClearLines()\n"
+        "    if not index then return end\n"
+        "    local link = GetTrainerServiceItemLink and GetTrainerServiceItemLink(index)\n"
+        "    if link then return self:SetHyperlink(link) end\n"
+        "    local name, subText = GetTrainerServiceInfo(index)\n"
+        "    if name then self:SetText(name, 1, 1, 1) end\n"
+        "    if subText and subText ~= '' then self:AddLine(subText, 0.5, 0.5, 0.5) end\n"
+        "end\n"
+        "function __WoweeFrameMT:SetAuctionSellItem()\n"
+        "    self:ClearLines()\n"
+        "    local name, _, count, quality = GetAuctionSellItemInfo()\n"
+        "    if not name then return end\n"
+        "    local r, g, b = GetItemQualityColor(quality or 1)\n"
+        "    self:SetText(name, r, g, b)\n"
+        "    if count and count > 1 then self:AddLine(count .. ' in stack', 1, 1, 1) end\n"
+        "end\n"
         "function __WoweeFrameMT:SetQuestLogItem(itemType, index)\n"
         "    self:ClearLines()\n"
         "    local link = GetQuestLogItemLink and GetQuestLogItemLink(itemType, index)\n"
