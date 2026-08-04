@@ -1329,7 +1329,13 @@ int lua_Tooltip_SetUnit(lua_State* L) {
 /// Shared by every setter that ends up naming an item: title in the quality
 /// colour, then whatever else is worth saying. One place, because the four
 /// item setters differ only in how they find the item.
-static void fillItemTooltip(wowee::ui::Widget* w, const game::ItemDef& item) {
+static void appendItemStats(wowee::ui::Widget* w, const game::ItemQueryResponseData& info);
+
+/// gh is what turns the name into a tooltip: the ItemDef in a bag slot carries
+/// the name and the quality, and everything a player actually reads a tooltip
+/// for lives in the item cache behind it.
+static void fillItemTooltip(wowee::ui::Widget* w, const game::ItemDef& item,
+                            game::GameHandler* gh) {
     w->isTooltip = true;
     // A setter that finds something to say also shows the tooltip. That is
     // WoW's behaviour and FrameXML leans on it: ContainerFrameItemButton_OnEnter
@@ -1360,6 +1366,94 @@ static void fillItemTooltip(wowee::ui::Widget* w, const game::ItemDef& item) {
         sub.rc[0] = sub.rc[1] = sub.rc[2] = sub.rc[3] = 1.0f;
         w->tooltipLines.push_back(std::move(sub));
     }
+
+    if (gh && item.itemId != 0) {
+        if (const auto* info = gh->getItemInfo(item.itemId); info && info->valid) {
+            appendItemStats(w, *info);
+        }
+    }
+}
+
+/// What the item actually does, appended to the two lines above.
+///
+/// The name and its quality colour were the whole of the tooltip, which reads
+/// as a tooltip that works right up until someone wants to know whether the
+/// sword is better than the one they are holding. This client's own bag window
+/// has always shown the rest; the bags are handed over, so this is the only
+/// tooltip left and it has to say the same things.
+///
+/// Ordered as WoW orders it: binding, then what it is and where it goes, then
+/// the numbers, then the requirements, then the flavour text last.
+static void appendItemStats(wowee::ui::Widget* w, const game::ItemQueryResponseData& info) {
+    auto line = [&w](std::string text, float r, float g, float b) {
+        wowee::ui::Widget::TooltipLine l;
+        l.left = std::move(text);
+        l.lc[0] = r; l.lc[1] = g; l.lc[2] = b; l.lc[3] = 1.0f;
+        l.rc[0] = l.rc[1] = l.rc[2] = l.rc[3] = 1.0f;
+        w->tooltipLines.push_back(std::move(l));
+    };
+    constexpr float kW = 1.0f, kGrey = 0.62f, kGold = 1.0f;
+    auto white = [&](std::string s) { line(std::move(s), kW, kW, kW); };
+    auto grey  = [&](std::string s) { line(std::move(s), kGrey, kGrey, kGrey); };
+    auto gold  = [&](std::string s) { line(std::move(s), kGold, 0.82f, 0.0f); };
+    auto green = [&](std::string s) { line(std::move(s), 0.0f, 1.0f, 0.0f); };
+
+    switch (info.bindType) {
+        case 1: white("Binds when picked up"); break;
+        case 2: white("Binds when equipped"); break;
+        case 3: white("Binds when used"); break;
+        default: break;
+    }
+    if (info.maxCount == 1)                     gold("Unique");
+    else if (info.itemFlags & 0x1000000u)       gold("Unique-Equipped");
+
+    if (info.containerSlots > 0) {
+        white(std::to_string(info.containerSlots) + " Slot Container");
+    }
+
+    // A weapon says its damage, its speed and the two multiplied out, because
+    // damage alone compares two weapons wrongly whenever their speeds differ.
+    if (info.damageMax > 0.0f) {
+        char buf[96];
+        std::snprintf(buf, sizeof(buf), "%.0f - %.0f Damage",
+                      static_cast<double>(info.damageMin), static_cast<double>(info.damageMax));
+        white(buf);
+        if (info.delayMs > 0) {
+            const double speed = info.delayMs / 1000.0;
+            std::snprintf(buf, sizeof(buf), "Speed %.2f", speed);
+            white(buf);
+            const double dps = (info.damageMin + info.damageMax) / 2.0 / speed;
+            std::snprintf(buf, sizeof(buf), "(%.1f damage per second)", dps);
+            grey(buf);
+        }
+    }
+    if (info.armor > 0) white(std::to_string(info.armor) + " Armor");
+
+    const std::pair<int32_t, const char*> kBase[] = {
+        {info.strength,  "Strength"},  {info.agility, "Agility"},
+        {info.stamina,   "Stamina"},   {info.intellect, "Intellect"},
+        {info.spirit,    "Spirit"},
+    };
+    for (const auto& [v, name] : kBase) {
+        if (v != 0) white((v > 0 ? "+" : "") + std::to_string(v) + " " + name);
+    }
+    const std::pair<int32_t, const char*> kRes[] = {
+        {info.holyRes, "Holy"},   {info.fireRes,   "Fire"},  {info.natureRes, "Nature"},
+        {info.frostRes, "Frost"}, {info.shadowRes, "Shadow"}, {info.arcaneRes, "Arcane"},
+    };
+    for (const auto& [v, name] : kRes) {
+        if (v != 0) white("+" + std::to_string(v) + " " + name + " Resistance");
+    }
+    for (const auto& es : info.extraStats) {
+        if (es.statValue == 0) continue;
+        if (const char* n = game::itemStatName(es.statType)) {
+            green(std::string(es.statValue > 0 ? "+" : "") + std::to_string(es.statValue) +
+                  " " + n);
+        }
+    }
+
+    if (info.requiredLevel > 0) white("Requires Level " + std::to_string(info.requiredLevel));
+    if (!info.description.empty()) gold("\"" + info.description + "\"");
 }
 
 /// The same tooltip for an item known only by its id.
@@ -1379,7 +1473,8 @@ static bool fillItemTooltipById(wowee::ui::Widget* w, game::GameHandler* gh,
     def.itemId  = itemId;
     def.name    = info->name;
     def.quality = static_cast<game::ItemQuality>(info->quality);
-    fillItemTooltip(w, def);
+    def.subclassName = info->subclassName;
+    fillItemTooltip(w, def, gh);
     return true;
 }
 
@@ -1416,7 +1511,7 @@ int lua_Tooltip_SetInventoryItem(lua_State* L) {
     if (!w || !gh || slot < 1 || slot > 19) { lua_pushboolean(L, 0); return 1; }
     const auto& s = gh->getInventory().getEquipSlot(static_cast<game::EquipSlot>(slot - 1));
     if (s.empty()) { lua_pushboolean(L, 0); return 1; }
-    fillItemTooltip(w, s.item);
+    fillItemTooltip(w, s.item, gh);
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -1432,7 +1527,7 @@ int lua_Tooltip_SetBagItem(lua_State* L) {
     const auto& s = (bag == 0) ? inv.getBackpackSlot(slot - 1)
                                : inv.getBagSlot(bag - 1, slot - 1);
     if (s.empty()) { lua_pushboolean(L, 0); return 1; }
-    fillItemTooltip(w, s.item);
+    fillItemTooltip(w, s.item, gh);
     lua_pushboolean(L, 1);
     return 1;
 }
