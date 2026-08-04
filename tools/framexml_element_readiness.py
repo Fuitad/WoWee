@@ -411,6 +411,11 @@ def main():
     #
     # Every entry names why. Re-check one if its reason stops being true.
     #
+    # [checked] marks one re-verified since it was written. Eight have been,
+    # and four of those were wrong or ungrounded — three of the four were
+    # concealing a real gap. An unmarked entry reads exactly like a marked one
+    # and is, on this sample, about as likely to be wrong as right.
+    #
     # And re-check them anyway. Three have been spot-checked since this list
     # was written and two were wrong: worldmap named one event of two, and help
     # called GMRESPONSE_RECEIVED unparsed when it is parsed in full and only
@@ -429,15 +434,15 @@ def main():
     settled = {
         "bags":         "BAG_OPEN/CLOSED are for a C client opening bags; FrameXML does it in Lua",
         "merchant":     "GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, which is fired",
-        "playerframe":  "voice chat, vehicles and the playtime nag (PLAYER_ROLES_ASSIGNED was wrong here — roles are parsed and read, and it is fired now)",
-        "mainmenubar":  "nine calls and five events are vehicles; CURRENCY_DISPLAY_UPDATE and UPDATE_BONUS_ACTIONBAR share fired branches, UPDATE_MULTI_CAST_ACTIONBAR shares one and has nil data besides",
-        "minimap":      "four calls unreachable; zoom is widget state, movie recording absent, indoors redundant — but MINIMAP_UPDATE_TRACKING is REAL and unfired: MiniMapTracking_Update reads GetTrackingTexture, which walks the player's tracking spells and is not a stub",
-        "bgscore":      "both calls inside a loop over GetNumWorldStateUI, which answers zero",
-        "questlog":     "every call is the world map API, absent because this client draws its own",
+        "playerframe":  "[checked] voice chat, vehicles and the playtime nag (PLAYER_ROLES_ASSIGNED was wrong here — roles are parsed and read, and it is fired now)",
+        "mainmenubar":  "[checked] nine calls and five events are vehicles; CURRENCY_DISPLAY_UPDATE and UPDATE_BONUS_ACTIONBAR share fired branches, UPDATE_MULTI_CAST_ACTIONBAR shares one and has nil data besides",
+        "minimap":      "[checked] four calls unreachable; zoom is widget state, movie recording absent, indoors redundant — but MINIMAP_UPDATE_TRACKING is REAL and unfired: MiniMapTracking_Update reads GetTrackingTexture, which walks the player's tracking spells and is not a stub",
+        "bgscore":      "[checked] both calls inside a loop over GetNumWorldStateUI, which answers zero",
+        "questlog":     "[checked] every call is the world map API, absent because this client draws its own",
         "questtracker": "same world map API, reached through worldmapframe.lua",
-        "worldmap":     "map API is this client's; WORLD_MAP_NAME_UPDATE has no handler branch, CLOSE_WORLD_MAP needs the key to drive Lua",
-        "mail":         "the refund lock needs item refund state the client does not parse",
-        "help":         "GMSURVEY_DISPLAY carries questions nothing parses (GMRESPONSE_RECEIVED was wrong here — it is parsed, and is fired now)",
+        "worldmap":     "[checked] map API is this client's; WORLD_MAP_NAME_UPDATE has no handler branch, CLOSE_WORLD_MAP needs the key to drive Lua",
+        "mail":         "[checked] the refund lock needs item refund state the client does not parse",
+        "help":         "[checked] GMSURVEY_DISPLAY carries questions nothing parses (GMRESPONSE_RECEIVED was wrong here — it is parsed, and is fired now)",
     }
     also = [e for e in settled if e not in ready]
     if also:
