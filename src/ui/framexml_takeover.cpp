@@ -134,15 +134,25 @@ const std::set<std::string>& requested() {
         // prints it in this exact shape at the end of its run. Regenerate and
         // paste rather than editing by hand, or it drifts the first time an
         // element goes clean and nobody thinks to come here.
+        //
+        // One deliberate deviation: the report also calls "social" clean and it
+        // is held out. Clean there means no name its own element list needs is
+        // missing — it does not mean every global in friendsframe.lua is bound,
+        // and thirty Battle.net names are not. They sit behind
+        // BNFeaturesEnabled(), which answers false, so they are probably never
+        // reached; "probably" is not enough to promote on, and each one is a
+        // raise rather than a blank if the guard turns out to have a gap.
+        // Run tools/framexml_unbound_globals.py against friendsframe before
+        // adding it.
         if (out.erase("candidates") > 0) {
             out.insert(defaults.begin(), defaults.end());
             for (const char* name : {
-                    "bagbar", "bank", "bgscore", "book", "chat",
-                    "classtrainer", "gamemenu", "gossip", "guildbank",
-                    "help", "inspect", "keybindings", "loot", "macro",
-                    "merchant", "micromenu", "partyframes",
-                    "questgiver", "stable", "talents", "taxi", "timemanager",
-                    "totems", "tradeskill"}) {
+                    "achievements", "auctionhouse", "bagbar", "bank",
+                    "bgscore", "book", "chat", "classtrainer", "gamemenu",
+                    "gossip", "guildbank", "help", "inspect", "keybindings",
+                    "loot", "macro", "merchant", "micromenu", "partyframes",
+                    "questgiver", "stable", "talents", "taxi",
+                    "timemanager", "totems", "tradeskill"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "

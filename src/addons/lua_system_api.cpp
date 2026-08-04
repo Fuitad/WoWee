@@ -2673,6 +2673,14 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"SetGuildRosterSelection",  lua_ReturnNothing},
                 {"SetupFullscreenScale",     lua_ReturnNothing},
                 {"DropCursorMoney",          lua_ReturnNothing},
+                // AchievementMicroButton_Update() — called by the achievement
+                // addon and defined nowhere. mainmenubarmicrobuttons.lua has
+                // AchievementMicroButton_OnEvent but not this, so it is a hole
+                // in this FrameXML rather than a binding this client owes. A
+                // no-op, because what it would do is show a micro button that
+                // is hidden, and leaving it hidden is the honest outcome.
+                {"AchievementMicroButton_Update", [](lua_State* L) -> int {
+            (void)L; return 0; }},
                 {"BNFeaturesEnabled",        lua_ReturnFalse},
                 {"BNFeaturesEnabledAndConnected", lua_ReturnFalse},
                 {"BNGetMaxPlayersInConversation", lua_ReturnZero},
