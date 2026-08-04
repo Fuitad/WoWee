@@ -2328,6 +2328,12 @@ void GameHandler::registerOpcodeHandlers() {
                 "You are invited to the outdoor battlefield in zone %u. Click to enter.",
                 bfZoneId);
         addSystemChatMessage(buf);
+        // The prompt to enter is a static popup the interface raises from this.
+        // The zone id goes with it as the battle id: every handler in the group
+        // opens `local battleID = ...` and passes it back when the player
+        // answers, so a bare fire would answer for no battlefield.
+        if (addonEventCallback_)
+            addonEventCallback_("BATTLEFIELD_MGR_ENTRY_INVITE", {std::to_string(bfZoneId)});
         LOG_INFO("SMSG_BATTLEFIELD_MGR_ENTRY_INVITE: zoneId=", bfZoneId);
     };
     // uint64 battlefieldGuid + uint8 isSafe (1=pvp zones enabled) + uint8 onQueue
@@ -2343,6 +2349,8 @@ void GameHandler::registerOpcodeHandlers() {
             addSystemChatMessage(isSafe ? "You are in the battlefield zone (safe area)."
                                         : "You have entered the battlefield!");
             if (onQueue) addSystemChatMessage("You are in the battlefield queue.");
+            if (addonEventCallback_)
+                addonEventCallback_("BATTLEFIELD_MGR_ENTERED", {std::to_string(bfMgrZoneId_)});
             LOG_INFO("SMSG_BATTLEFIELD_MGR_ENTERED: isSafe=", static_cast<int>(isSafe), " onQueue=", static_cast<int>(onQueue));
         }
         packet.skipAll();
@@ -2363,6 +2371,8 @@ void GameHandler::registerOpcodeHandlers() {
         std::snprintf(buf, sizeof(buf),
             "A spot has opened in the battlefield queue (battlefield %u).", bfId);
         addSystemChatMessage(buf);
+        if (addonEventCallback_)
+            addonEventCallback_("BATTLEFIELD_MGR_QUEUE_INVITE", {std::to_string(bfId)});
         LOG_INFO("SMSG_BATTLEFIELD_MGR_QUEUE_INVITE: bfId=", bfId);
     };
     // uint32 battlefieldId + uint32 teamId + uint8 accepted + uint8 loggingEnabled + uint8 result
