@@ -951,6 +951,17 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
         // Also fire ZONE_CHANGED_NEW_AREA and UPDATE_WORLD_STATES so map/BG addons refresh
         fireAddonEvent("ZONE_CHANGED_NEW_AREA", {});
         fireAddonEvent("UPDATE_WORLD_STATES", {});
+        // Entering a battleground, told apart by the map itself rather than by
+        // anything the server says about it — BattlemasterList.dbc names the
+        // maps and this client already reads it for the queue list.
+        //
+        // The battleground frame answers this by filtering chat: a battleground
+        // announces every player joining and leaving, and the filter collapses
+        // that into one line that counts them. Without the event the filter is
+        // never installed and all of it goes to the chat window one at a time.
+        if (isBattlegroundMap(getCurrentMapId())) {
+            fireAddonEvent("PLAYER_ENTERING_BATTLEGROUND", {});
+        }
         // PLAYER_LOGIN fires only on initial login (not teleports)
         if (initialWorldEntry) {
             fireAddonEvent("PLAYER_LOGIN", {});

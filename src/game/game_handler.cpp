@@ -2238,7 +2238,10 @@ const GameHandler::BattlemasterEntry* GameHandler::getBattlemasterInfo(uint32_t 
                 // taken from a layout table, which does not carry this row.
                 e.instanceType = dbc->getUInt32(i, 9);
                 for (uint32_t f = 1; f <= 8; ++f) {
-                    if (dbc->getUInt32(i, f) != 0xFFFFFFFFu) e.mapCount++;
+                    const uint32_t mapId = dbc->getUInt32(i, f);
+                    if (mapId == 0xFFFFFFFFu) continue;
+                    e.mapCount++;
+                    e.mapIds.push_back(mapId);
                 }
                 if (e.instanceType == 3 && !e.name.empty()) battlegroundTypes_.push_back(e);
                 battlemasterList_[id] = std::move(e);
@@ -2254,6 +2257,18 @@ const GameHandler::BattlemasterEntry* GameHandler::getBattlemasterInfo(uint32_t 
     }
     auto it = battlemasterList_.find(bgTypeId);
     return it != battlemasterList_.end() ? &it->second : nullptr;
+}
+
+bool GameHandler::isBattlegroundMap(uint32_t mapId) {
+    // Only the battleground rows, so an arena does not read as one. The pooled
+    // "Random Battleground" row names the same maps the individual rows do, so
+    // it costs nothing to walk and cannot answer wrongly.
+    for (const auto& bg : getBattlegroundTypes()) {
+        for (uint32_t id : bg.mapIds) {
+            if (id == mapId) return true;
+        }
+    }
+    return false;
 }
 
 const std::vector<GameHandler::BattlemasterEntry>& GameHandler::getBattlegroundTypes() {

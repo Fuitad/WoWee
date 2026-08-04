@@ -2144,12 +2144,18 @@ public:
         /// Arenas — name several, which is how a random entry is told apart
         /// without hardcoding its id.
         uint32_t    mapCount = 0;
+        /// The maps themselves, which is what says whether the world the player
+        /// just entered is a battleground.
+        std::vector<uint32_t> mapIds;
     };
     const BattlemasterEntry* getBattlemasterInfo(uint32_t bgTypeId);
 
     /// Every battleground in BattlemasterList.dbc, arenas excluded, ordered by
     /// id so an index into it means the same thing from one call to the next.
     const std::vector<BattlemasterEntry>& getBattlegroundTypes();
+
+    /// Whether a map id belongs to a battleground, from the same table.
+    bool isBattlegroundMap(uint32_t mapId);
 
     // ---- Currencies (CurrencyTypes.dbc) ----
     // In 3.3.5a a currency is a row pointing at an item, and the amount held is
