@@ -2556,10 +2556,71 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"IsLeftAltKeyDown",         lua_IsAltKeyDown},
                 {"IsRightAltKeyDown",        lua_IsAltKeyDown},
                 {"IsModifierKeyDown",        lua_IsModifierKeyDown},
-                {"IsAttackAction",           lua_ReturnFalse},
-                {"IsConsumableAction",       lua_ReturnFalse},
-                {"IsEquippedAction",         lua_ReturnFalse},
-                {"IsStackableAction",        lua_ReturnFalse},
+                // The four predicates actionbutton.lua asks about a slot.
+                //
+                // All answered false, and the pair below the first is why a
+                // stack of potions on the bar showed no number: the count is
+                // drawn only inside `if ( IsConsumableAction(action) or
+                // IsStackableAction(action) )`, and GetActionCount underneath
+                // it has been counting across every bag the whole time.
+                {"IsAttackAction", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int slot = static_cast<int>(luaL_optnumber(L, 1, 0)) - 1;
+            if (!gh || slot < 0) { lua_pushboolean(L, 0); return 1; }
+            const auto& bar = gh->getActionBar();
+            // 6603 is Auto Attack, the one action that flashes the button red
+            // for as long as the swing keeps going.
+            constexpr uint32_t kAutoAttack = 6603;
+            lua_pushboolean(L, slot < static_cast<int>(bar.size()) &&
+                               bar[slot].type == game::ActionBarSlot::SPELL &&
+                               bar[slot].id == kAutoAttack);
+            return 1;
+        }},
+                {"IsConsumableAction", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int slot = static_cast<int>(luaL_optnumber(L, 1, 0)) - 1;
+            if (!gh || slot < 0) { lua_pushboolean(L, 0); return 1; }
+            const auto& bar = gh->getActionBar();
+            bool consumable = false;
+            if (slot < static_cast<int>(bar.size()) &&
+                bar[slot].type == game::ActionBarSlot::ITEM) {
+                const auto* info = gh->getItemInfo(bar[slot].id);
+                consumable = info && info->valid && info->itemClass == 0;  // Consumable
+            }
+            lua_pushboolean(L, consumable);
+            return 1;
+        }},
+                {"IsEquippedAction", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int slot = static_cast<int>(luaL_optnumber(L, 1, 0)) - 1;
+            if (!gh || slot < 0) { lua_pushboolean(L, 0); return 1; }
+            const auto& bar = gh->getActionBar();
+            bool worn = false;
+            if (slot < static_cast<int>(bar.size()) &&
+                bar[slot].type == game::ActionBarSlot::ITEM) {
+                const auto& inv = gh->getInventory();
+                for (int e = 0; e < game::Inventory::NUM_EQUIP_SLOTS && !worn; ++e) {
+                    const auto& s = inv.getEquipSlot(static_cast<game::EquipSlot>(e));
+                    worn = !s.empty() && s.item.itemId == bar[slot].id;
+                }
+            }
+            lua_pushboolean(L, worn);
+            return 1;
+        }},
+                {"IsStackableAction", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int slot = static_cast<int>(luaL_optnumber(L, 1, 0)) - 1;
+            if (!gh || slot < 0) { lua_pushboolean(L, 0); return 1; }
+            const auto& bar = gh->getActionBar();
+            bool stackable = false;
+            if (slot < static_cast<int>(bar.size()) &&
+                bar[slot].type == game::ActionBarSlot::ITEM) {
+                const auto* info = gh->getItemInfo(bar[slot].id);
+                stackable = info && info->valid && info->maxStack > 1;
+            }
+            lua_pushboolean(L, stackable);
+            return 1;
+        }},
                 {"IsFlyableArea",            lua_ReturnFalse},
                 {"IsIndoors",                lua_ReturnFalse},
                 {"IsOutdoors",               lua_ReturnTrue},
@@ -2634,7 +2695,20 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"IsAutoRepeatAction",       lua_ReturnFalse},
                 {"IsPetAttackAction",        lua_ReturnFalse},
                 {"IsMacClient",              lua_ReturnFalse},
-                {"IsPartyLeader",            lua_ReturnFalse},
+                // IsPartyLeader() — whether *this* player leads the group.
+                //
+                // The client has known this all along: the party data carries a
+                // leader guid and PARTY_LEADER_CHANGED is fired when it moves.
+                // Answering a flat false told FrameXML the player never leads,
+                // which is what gates the leader-only entries on the unit
+                // right-click menus and the loot-method controls.
+                {"IsPartyLeader", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) { lua_pushboolean(L, 0); return 1; }
+            const uint64_t leader = gh->getPartyData().leaderGuid;
+            lua_pushboolean(L, leader != 0 && leader == gh->getPlayerGuid());
+            return 1;
+        }},
                 {"UnitFactionGroup",         lua_UnitFactionGroup},
                 // HasPetSpells() → numSpells, petToken
                 //

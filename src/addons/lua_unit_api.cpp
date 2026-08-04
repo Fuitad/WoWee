@@ -2440,7 +2440,20 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"UnitHasRelicSlot",        lua_ReturnFalse},
                 {"InRepairMode",            lua_ReturnFalse},
                 {"IsInventoryItemLocked",   lua_ReturnFalse},
-                {"GetInventoryItemBroken",  lua_ReturnFalse},
+                // GetInventoryItemBroken(unit, slot) — worn out, so the
+                // paperdoll draws that slot's icon red. The durability is
+                // already tracked and already answered by
+                // GetInventoryItemDurability; only this was left saying no.
+                {"GetInventoryItemBroken",  [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int slotId = static_cast<int>(luaL_optnumber(L, 2, 0));
+            if (!gh || slotId < 1 || slotId > 19) { lua_pushboolean(L, 0); return 1; }
+            const auto& sl = gh->getInventory().getEquipSlot(
+                static_cast<game::EquipSlot>(slotId - 1));
+            lua_pushboolean(L, !sl.empty() && sl.item.maxDurability > 0 &&
+                               sl.item.curDurability == 0);
+            return 1;
+        }},
                 {"CursorCanGoInSlot",       lua_ReturnFalse},
                 // Zero rather than false: paperdollframe.lua asks
                 // `IsTitleKnown(i) ~= 0`, and `false ~= 0` compares two
