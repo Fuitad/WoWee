@@ -82,12 +82,34 @@ static int lua_GetMoney(lua_State* L) {
 
 /// GetInventoryAlertStatus(index) → 0 for undamaged, 1 low, 2 broken.
 ///
-/// Durability is not tracked, and zero is what an undamaged character has —
-/// which is what makes DurabilityFrame hide itself. Left to the fallback it
-/// returned nothing at all, and the frame stayed on screen showing damage
-/// warnings for gear that has none.
+/// The comment that used to sit here said durability was not tracked. It is,
+/// per equipped item, and GetInventoryItemDurability has been answering from
+/// the same two fields all along — so the armoured-figure warning never lit
+/// up whatever state the gear was in.
+///
+/// The index is durabilityframe.lua's own INVENTORY_ALERT_STATUS_SLOTS
+/// ordering, which is neither the equipment slot order nor a contiguous run
+/// of it: head, shoulders, chest, waist, legs, feet, wrists, hands, then the
+/// three weapon slots.
 static int lua_GetInventoryAlertStatus(lua_State* L) {
-    lua_pushnumber(L, 0);
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    static const game::EquipSlot kAlertSlots[] = {
+        game::EquipSlot::HEAD,   game::EquipSlot::SHOULDERS, game::EquipSlot::CHEST,
+        game::EquipSlot::WAIST,  game::EquipSlot::LEGS,      game::EquipSlot::FEET,
+        game::EquipSlot::WRISTS, game::EquipSlot::HANDS,     game::EquipSlot::MAIN_HAND,
+        game::EquipSlot::OFF_HAND, game::EquipSlot::RANGED,
+    };
+    constexpr int kCount = static_cast<int>(sizeof(kAlertSlots) / sizeof(kAlertSlots[0]));
+    if (!gh || index < 1 || index > kCount) { lua_pushnumber(L, 0); return 1; }
+    const auto& sl = gh->getInventory().getEquipSlot(kAlertSlots[index - 1]);
+    int status = 0;
+    if (!sl.empty() && sl.item.maxDurability > 0) {
+        // WoW's own thresholds: broken at nothing left, low at a fifth.
+        if (sl.item.curDurability == 0) status = 2;
+        else if (sl.item.curDurability * 5 <= sl.item.maxDurability) status = 1;
+    }
+    lua_pushnumber(L, status);
     return 1;
 }
 

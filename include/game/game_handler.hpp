@@ -1845,7 +1845,7 @@ public:
                 //
                 // Named rather than numbered, as the packet handler does:
                 // MirrorTimer_Hide matches on the timer's name.
-                static const char* kStopNames[3] = {"FATIGUE", "BREATH", "FEIGNDEATH"};
+                static const char* kStopNames[3] = {"EXHAUSTION", "BREATH", "DEATH"};
                 fireAddonEvent("MIRROR_TIMER_STOP",
                                {ti < 3 ? kStopNames[ti] : "BREATH"});
             }

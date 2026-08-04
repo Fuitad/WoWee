@@ -873,10 +873,27 @@ static int lua_UnitGUID(lua_State* L) {
 }
 
 /// UnitPVPName(unit) → the name with the player's title around it, or just
-/// the name. Titles are not tracked, so it is the name — which is what WoW
-/// answers for a character wearing no title, and what the paperdoll puts at
-/// the top of the character sheet.
+/// the name when there is no title.
+///
+/// The comment here used to say titles were not tracked. They are — the known
+/// bits and the chosen one both come off the player — so the character sheet
+/// showed a bare name for someone wearing a title.
+///
+/// Only for the player: a title is a bit index on the unit's own fields and
+/// this client reads that for itself alone, so anyone else answers their name,
+/// which is what WoW answers for a character wearing none.
 static int lua_UnitPVPName(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const char* uid = luaL_optstring(L, 1, "player");
+    if (gh && uid) {
+        std::string id(uid);
+        toLowerInPlace(id);
+        if (id == "player" && gh->getChosenTitleBit() > 0) {
+            const std::string titled =
+                gh->getFormattedTitle(static_cast<uint32_t>(gh->getChosenTitleBit()));
+            if (!titled.empty()) { lua_pushstring(L, titled.c_str()); return 1; }
+        }
+    }
     return lua_UnitName(L);
 }
 
@@ -1144,8 +1161,25 @@ static int lua_GetNumBagSlots(lua_State* L) {
 /// GetMirrorTimerProgress(timer) → milliseconds left on breath, fatigue or
 /// feign death. None of the three is tracked yet, and the honest answer is
 /// zero rather than a stub that reads as a timer running.
+/// GetMirrorTimerProgress(timer) → milliseconds left on that timer.
+///
+/// It answered a constant zero, and MirrorTimerFrame_OnUpdate divides it by a
+/// thousand and calls SetValue with the result on every frame — so the breath
+/// bar was reset to empty as fast as it could be drawn. An empty frame with a
+/// label was the whole of what it could ever show.
+///
+/// Named, not numbered: WoW passes the timer's name through the event and
+/// FrameXML hands the same string back here.
 static int lua_GetMirrorTimerProgress(lua_State* L) {
-    lua_pushnumber(L, 0);
+    auto* gh = getGameHandler(L);
+    std::string name(luaL_optstring(L, 1, ""));
+    toLowerInPlace(name);
+    int type = -1;
+    if (name == "exhaustion") type = 0;
+    else if (name == "breath") type = 1;
+    else if (name == "death") type = 2;
+    if (!gh || type < 0) { lua_pushnumber(L, 0); return 1; }
+    lua_pushnumber(L, gh->getMirrorTimer(type).value);
     return 1;
 }
 
