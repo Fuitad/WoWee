@@ -1513,6 +1513,9 @@ void EntityController::trackItemOnCreate(const UpdateBlock& block, bool& newItem
 void EntityController::updateItemOnValuesUpdate(const UpdateBlock& block,
                                                   const std::shared_ptr<Entity>& entity) {
     bool inventoryChanged = false;
+    // Tracked apart from inventoryChanged so the durability events fire on a
+    // durability change and not on every stack count that moves.
+    bool durabilityChanged = false;
     const uint16_t itemStackField   = fieldIndex(UF::ITEM_FIELD_STACK_COUNT);
     const uint16_t itemDurField     = fieldIndex(UF::ITEM_FIELD_DURABILITY);
     const uint16_t itemMaxDurField  = fieldIndex(UF::ITEM_FIELD_MAXDURABILITY);
@@ -1549,6 +1552,7 @@ void EntityController::updateItemOnValuesUpdate(const UpdateBlock& block,
                 const uint32_t prevDur = it->second.curDurability;
                 it->second.curDurability = val;
                 inventoryChanged = true;
+                durabilityChanged = true;
                 LOG_DEBUG("Item durability update: guid=0x", std::hex, block.guid,
                           std::dec, " dur ", prevDur, "->", val, "/", it->second.maxDurability);
                 // Warn once when durability drops below 20% for an equipped item.
@@ -1640,6 +1644,15 @@ void EntityController::updateItemOnValuesUpdate(const UpdateBlock& block,
         }
         LOG_WARNING("BAG_UPDATE fired for bags 0-4 (inventory fields changed)");
         pendingEvents_.emit("UNIT_INVENTORY_CHANGED", {"player"});
+    }
+    if (durabilityChanged) {
+        // The armour indicator is DurabilityFrame, which listens for
+        // UPDATE_INVENTORY_ALERTS; the merchant's repair buttons listen for
+        // UPDATE_INVENTORY_DURABILITY. Neither was fired anywhere but at world
+        // entry, so the indicator showed the durability the player logged in
+        // with -- a repair changed nothing on screen, and neither did damage.
+        pendingEvents_.emit("UPDATE_INVENTORY_ALERTS", {});
+        pendingEvents_.emit("UPDATE_INVENTORY_DURABILITY", {});
     }
 }
 

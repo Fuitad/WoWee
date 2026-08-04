@@ -1298,6 +1298,14 @@ void InventoryHandler::buyBackItem(uint32_t buybackSlot) {
     owner_.getSocket()->send(BuybackItemPacket::build(currentVendorItems_.vendorGuid, wireSlot));
 }
 
+// The armour indicator and the merchant's repair buttons both redraw from an
+// event rather than by polling. The optimistic repair below changes durability
+// without the server having said so yet, so it has to say so itself.
+void InventoryHandler::announceDurabilityChange() {
+    owner_.fireAddonEvent("UPDATE_INVENTORY_ALERTS", {});
+    owner_.fireAddonEvent("UPDATE_INVENTORY_DURABILITY", {});
+}
+
 void InventoryHandler::repairItem(uint64_t vendorGuid, uint64_t itemGuid) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
 
@@ -1320,6 +1328,7 @@ void InventoryHandler::repairItem(uint64_t vendorGuid, uint64_t itemGuid) {
         if (it != owner_.onlineItemsRef().end()) {
             it->second.curDurability = it->second.maxDurability;
             rebuildOnlineInventory();
+            announceDurabilityChange();
         }
     }
 }
@@ -1359,6 +1368,7 @@ void InventoryHandler::repairAll(uint64_t vendorGuid, bool useGuildBank) {
             }
         }
         rebuildOnlineInventory();
+        announceDurabilityChange();
     }
 }
 

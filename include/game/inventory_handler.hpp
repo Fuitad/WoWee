@@ -154,6 +154,9 @@ public:
     void sellItemBySlot(int backpackIndex);
     void sellItemInBag(int bagIndex, int slotIndex);
     void buyBackItem(uint32_t buybackSlot);
+    /// Tell the interface durability moved — the armour indicator redraws
+    /// from an event, not by polling.
+    void announceDurabilityChange();
     void repairItem(uint64_t vendorGuid, uint64_t itemGuid);
     void repairAll(uint64_t vendorGuid, bool useGuildBank = false);
     uint32_t estimateRepairAllCost() const;

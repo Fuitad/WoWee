@@ -1521,6 +1521,18 @@ static int lua_UseContainerItem(lua_State* L) {
                           ((info->itemFlags & kItemFlagOpenable) != 0 ||
                            info->itemClass == 1);
 
+    // With a merchant open, a right-click in a bag is a sale — the real client
+    // reads UseContainerItem that way and containerframe.lua relies on it,
+    // having already returned early for the buyback tab and for anything
+    // needing a price confirmation. There is no separate sell call for it to
+    // make; SellContainerItem is this client's own invention and FrameXML has
+    // never heard of it, so the sell verbs sat behind a name nothing calls.
+    if (gh->isVendorWindowOpen()) {
+        if (bag == 0) gh->sellItemBySlot(slot - 1);
+        else          gh->sellItemInBag(bag - 1, slot - 1);
+        return 0;
+    }
+
     // By slot rather than by item id: the id searches the bags for a match and
     // can find a different stack of the same thing than the one clicked.
     if (bag == 0) {
