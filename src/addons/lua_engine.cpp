@@ -1716,6 +1716,33 @@ int lua_Region_IsShown(lua_State* L) {
     lua_pushboolean(L, w ? (w->shown ? 1 : 0) : 0);
     return 1;
 }
+
+/// IsVisible() — shown, and every ancestor shown too.
+///
+/// It was an alias for IsShown, which answers only this frame's own flag, so a
+/// frame inside a closed panel reported itself visible. Fifty-six places in
+/// FrameXML ask this rather than IsShown, and they ask it precisely because
+/// they mean "on screen": SpellBookFrame_OnEvent rebuilds the page on
+/// SPELLS_CHANGED only when visible, and a dozen others skip work the same way.
+///
+/// Walks the parents rather than reading the tree's own computed flag, which
+/// is only right after a layout pass — a frame shown and asked in the same
+/// handler would otherwise answer no.
+int lua_Region_IsVisible(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    auto* tree = wowee::addons::getWidgetTree(L);
+    bool on = w != nullptr && w->shown;
+    if (on && tree) {
+        for (uint32_t id = w->parent; id != 0;) {
+            const auto* p = tree->get(id);
+            if (!p) break;
+            if (!p->shown) { on = false; break; }
+            id = p->parent;
+        }
+    }
+    lua_pushboolean(L, on);
+    return 1;
+}
 int lua_Region_SetAlpha(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->alpha = static_cast<float>(luaL_optnumber(L, 2, 1.0));
     return 0;
@@ -2072,7 +2099,7 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     set("Show", lua_Region_Show);
     set("Hide", lua_Region_Hide);
     set("IsShown", lua_Region_IsShown);
-    set("IsVisible", lua_Region_IsShown);
+    set("IsVisible", lua_Region_IsVisible);
     set("SetAlpha", lua_Region_SetAlpha);
     set("GetAlpha", lua_Region_GetAlpha);
     set("SetVertexColor", lua_Region_SetVertexColor);
@@ -3228,7 +3255,7 @@ void LuaEngine::registerCoreAPI() {
         {"Show",            lua_Region_Show},
         {"Hide",            lua_Region_Hide},
         {"IsShown",         lua_Region_IsShown},
-        {"IsVisible",       lua_Region_IsShown}, // alias
+        {"IsVisible",       lua_Region_IsVisible},
         // Geometry goes through the widget tree. The older table-field
         // versions kept the numbers where only Lua could see them, which is
         // why a frame could be sized and positioned and still never appear.
