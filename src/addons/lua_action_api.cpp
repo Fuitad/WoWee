@@ -36,6 +36,20 @@ static uint32_t   s_cursorId   = 0;    // spellId, itemId, or action slot
 static int        s_cursorSlot = 0;    // source slot for placement
 static int        s_cursorBag  = -1;   // source bag for container items
 
+/// PickupPetAction(slot) — pick a pet ability up off the pet bar.
+///
+/// Defined and does nothing. The cursor here holds spells, items, actions and
+/// macros; a pet action is a fifth kind in its own slot space, and moving one
+/// is a server operation this client does not send. Inventing a cursor state
+/// that cannot be put down anywhere would be worse than not picking up.
+///
+/// Defined because it is reachable three ways — shift-clicking a pet button,
+/// dragging one, and dropping on one — and the pet bar is drawn. Undefined,
+/// the first shift-click on a pet ability takes the bar down. Clicking a pet
+/// ability to use it goes through a different path and works; only rearranging
+/// the bar is lost.
+static int lua_PickupPetAction(lua_State* L) { (void)L; return 0; }
+
 static int lua_HasAction(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnFalse(L); }
@@ -1180,6 +1194,7 @@ void registerActionLuaAPI(lua_State* L) {
                 {"ClickSendMailItemButton", lua_ClickSendMailItemButton},
                 {"ClearCursor",         lua_ClearCursor},
                 {"GetCursorInfo",       lua_GetCursorInfo},
+                {"PickupPetAction",     lua_PickupPetAction},
                 {"CursorHasItem",       lua_CursorHasItem},
                 {"CursorHasSpell",      lua_CursorHasSpell},
                 {"DeleteCursorItem",    lua_DeleteCursorItem},
