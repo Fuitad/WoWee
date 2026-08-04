@@ -406,6 +406,14 @@ def main():
     # so the headline number stops understating what is finished.
     #
     # Every entry names why. Re-check one if its reason stops being true.
+    #
+    # And re-check them anyway. Three have been spot-checked since this list
+    # was written and two were wrong: worldmap named one event of two, and help
+    # called GMRESPONSE_RECEIVED unparsed when it is parsed in full and only
+    # ever said in chat — that one was a real gap sitting inside a line
+    # claiming there was none. The reasons are worth more than the count
+    # precisely because they can be checked; treat an unchecked entry as a
+    # claim rather than a finding.
     settled = {
         "bags":         "BAG_OPEN/CLOSED are for a C client opening bags; FrameXML does it in Lua",
         "merchant":     "GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, which is fired",
