@@ -2160,6 +2160,15 @@ void VkContext::resetFrameSyncState() {
                   " — the device was already lost before this rebuild, not by it");
     }
 
+    // Everything queued to be freed later can be freed now, because the wait
+    // above says the GPU holds nothing. Left queued, these frees sit against
+    // frame slots whose fences are about to be remade signalled — so the next
+    // visit to each slot releases them on a fence that reports completion by
+    // construction rather than because work finished. The pools they free from
+    // are still alive at this point, which is the condition flushDeferredCleanup
+    // is documented as needing.
+    flushDeferredCleanup();
+
     // Recreated rather than reset: a fence has to end up signalled, and
     // vkResetFences only ever unsignals. Destroying and remaking with
     // VK_FENCE_CREATE_SIGNALED_BIT is the state the first frame expects.
