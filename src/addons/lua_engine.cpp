@@ -1,5 +1,6 @@
 #include "addons/lua_engine.hpp"
 #include "ui/widget_tree.hpp"
+#include "ui/ui_colors.hpp"
 #include "ui/framexml_takeover.hpp"
 #include <chrono>
 #include <cfloat>
@@ -1411,14 +1412,12 @@ static void fillItemTooltip(wowee::ui::Widget* w, const game::ItemDef& item,
     title.left = item.name;
     // WoW's quality colours, which are most of what an item tooltip says at a
     // glance — an epic reads as purple before anyone reads the words.
-    static const float kQuality[8][3] = {
-        {0.62f, 0.62f, 0.62f}, {1.00f, 1.00f, 1.00f}, {0.12f, 1.00f, 0.00f},
-        {0.00f, 0.44f, 0.87f}, {0.64f, 0.21f, 0.93f}, {1.00f, 0.50f, 0.00f},
-        {0.90f, 0.80f, 0.50f}, {0.00f, 0.80f, 1.00f},
-    };
-    const int q = static_cast<int>(item.quality);
-    const float* c = kQuality[(q >= 0 && q < 8) ? q : 1];
-    title.lc[0] = c[0]; title.lc[1] = c[1]; title.lc[2] = c[2]; title.lc[3] = 1.0f;
+    // The client's own table rather than a fourth copy. This used to carry its
+    // own, and the copies had already drifted: it painted an heirloom cyan
+    // where ui_colors paints it the same gold as an artifact. Cyan is a later
+    // expansion's token colour; a 3.3.5 heirloom is e6cc80.
+    const ImVec4 qc = wowee::ui::getQualityColor(item.quality);
+    title.lc[0] = qc.x; title.lc[1] = qc.y; title.lc[2] = qc.z; title.lc[3] = 1.0f;
     title.rc[0] = title.rc[1] = title.rc[2] = title.rc[3] = 1.0f;
     w->tooltipLines.push_back(std::move(title));
 

@@ -96,8 +96,12 @@ inline constexpr const char* kQualHexNoAlpha[] = {
     "9d9d9d","ffffff","1eff00","0070dd","a335ee","ff8000","e6cc80","e6cc80"
 };
 // With ff alpha prefix — for Lua color returns
+// Heirloom is e6cc80, the same gold as an artifact — the table beside this one
+// has always said so and this one said 00ccff, which is a later expansion's
+// token colour and not a quality 3.3.5 has. An item link for an heirloom came
+// out cyan.
 inline constexpr const char* kQualHexAlpha[] = {
-    "ff9d9d9d","ffffffff","ff1eff00","ff0070dd","ffa335ee","ffff8000","ffe6cc80","ff00ccff"
+    "ff9d9d9d","ffffffff","ff1eff00","ff0070dd","ffa335ee","ffff8000","ffe6cc80","ffe6cc80"
 };
 
 // ---- Retrieve GameHandler pointer stored in Lua registry ----
