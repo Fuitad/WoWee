@@ -50,6 +50,13 @@ public:
     float getGamma() const;
     void  setGamma(float gamma);
 
+    // Nameplates over hostile and neutral units, which the V key already
+    // toggles. Exposed for the same reason gamma is: the interface's
+    // nameplateShowEnemies option should drive this flag rather than a second
+    // copy of it that disagrees with what the key did.
+    bool getShowNameplates() const { return showNameplates_; }
+    void setShowNameplates(bool shown) { showNameplates_ = shown; }
+
     GameScreen();
 
     /**

@@ -226,6 +226,21 @@ static int lua_GetCVar(lua_State* L) {
     // drawn, and invisible.
     std::string n(name);
     toLowerInPlace(n);
+    // Asked of the client before the store, for the two settings it also owns.
+    // The V key toggles nameplates and the settings panel turns the minimap,
+    // neither of which goes through SetCVar; answering from the store would
+    // report whatever the interface last wrote, which by then is a guess.
+    if (n == "nameplateshowenemies") {
+        if (auto* svc = getLuaServices(L); svc && svc->getNameplatesShown) {
+            lua_pushstring(L, svc->getNameplatesShown() ? "1" : "0");
+            return 1;
+        }
+    } else if (n == "rotateminimap") {
+        if (auto* svc = getLuaServices(L); svc && svc->getMinimapRotate) {
+            lua_pushstring(L, svc->getMinimapRotate() ? "1" : "0");
+            return 1;
+        }
+    }
     if (auto it = cvarStore().find(n); it != cvarStore().end()) {
         lua_pushstring(L, it->second.c_str());
         return 1;
@@ -383,6 +398,15 @@ static int lua_SetCVar(lua_State* L) {
     // volume keys and its Sound options both wrote to a map nobody read, so
     // turning music off left it playing.
     if (key.rfind("sound_", 0) == 0) applySoundCVars(L);
+    // The two other CVars this client can act on. "0" is the only false value
+    // a CVar carries — and it arrives as a string, which in Lua would be true.
+    else if (key == "nameplateshowenemies") {
+        if (auto* svc = getLuaServices(L); svc && svc->setNameplatesShown)
+            svc->setNameplatesShown(value != "0");
+    } else if (key == "rotateminimap") {
+        if (auto* svc = getLuaServices(L); svc && svc->setMinimapRotate)
+            svc->setMinimapRotate(value != "0");
+    }
     // Announced, because nine frames listen for it — the options panels redraw
     // themselves from this rather than from the click that caused it.
     // Through the engine in the registry, which is where it puts itself; the

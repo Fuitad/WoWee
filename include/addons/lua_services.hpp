@@ -35,6 +35,18 @@ struct LuaServices {
     std::function<float()> getGamma;
     std::function<void(float)> setGamma;
 
+    /// Nameplates over hostile and neutral units, for nameplateShowEnemies.
+    ///
+    /// There is no counterpart for nameplateShowFriends: this client always
+    /// draws player names and has no switch for them, so that CVar is stored
+    /// and answered but changes nothing.
+    std::function<bool()> getNameplatesShown;
+    std::function<void(bool)> setNameplatesShown;
+
+    /// Whether the minimap turns with the camera, for rotateMinimap.
+    std::function<bool()> getMinimapRotate;
+    std::function<void(bool)> setMinimapRotate;
+
     /// Load a load-on-demand addon by name, as LoadAddOn() does.
     ///
     /// The interface asks for these itself: opening the talent frame is
