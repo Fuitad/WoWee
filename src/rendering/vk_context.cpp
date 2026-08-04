@@ -2454,6 +2454,24 @@ void VkContext::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& funct
 }
 
 void VkContext::beginUploadBatch() {
+    // WOWEE_VK_NO_UPLOAD_BATCH=1 turns batching off entirely: every
+    // immediateSubmit then submits and waits on its own, as it did before the
+    // batch path existed.
+    //
+    // A diagnostic rather than a setting, and here because three device losses
+    // in a row have landed within a second of the first batch of the session —
+    // at frames 803, 1194 and 8916, so it is the batch and not the frame count
+    // — and moving the submit to the graphics queue did not change it. This
+    // separates "the batch path is implicated" from "something else at world
+    // entry is", which is a question no amount of reading has settled.
+    //
+    // Slow, because it is the path the batching replaced. Expect a long load.
+    static const bool noBatch = [] {
+        const char* v = std::getenv("WOWEE_VK_NO_UPLOAD_BATCH");
+        return v && *v && *v != '0';
+    }();
+    if (noBatch) return;
+
     uploadBatchDepth_++;
     if (inUploadBatch_) return; // already in a batch (nested call)
     inUploadBatch_ = true;
