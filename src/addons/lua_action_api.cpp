@@ -1244,7 +1244,16 @@ static int lua_RunBinding(lua_State* L) {
     lua_pop(L, 1);
     return 0;
 }
+// The override-binding family, none of which this client implements — only
+// the Click variant was ever *bound*, and the other four raised. They are
+// reached from restrictedframes.lua, the secure-frame machinery behind action
+// buttons and unit frames, so a raise there breaks the frame rather than the
+// binding. Bound alongside it, doing the same nothing.
 static int lua_SetOverrideBindingClick(lua_State* L) { (void)L; return 0; }
+static int lua_SetOverrideBinding(lua_State* L) { (void)L; return 0; }
+static int lua_SetOverrideBindingSpell(lua_State* L) { (void)L; return 0; }
+static int lua_SetOverrideBindingMacro(lua_State* L) { (void)L; return 0; }
+static int lua_SetOverrideBindingItem(lua_State* L) { (void)L; return 0; }
 static int lua_ClearOverrideBindings(lua_State* L) { (void)L; return 0; }
 
 // Frame methods: SetPoint, SetSize, SetWidth, SetHeight, GetWidth, GetHeight, GetCenter, SetAlpha, GetAlpha
@@ -1439,6 +1448,10 @@ void registerActionLuaAPI(lua_State* L) {
                 {"LoadBindings",        lua_LoadBindings},
                 {"RunBinding",          lua_RunBinding},
                 {"SetOverrideBindingClick", lua_SetOverrideBindingClick},
+                {"SetOverrideBinding",      lua_SetOverrideBinding},
+                {"SetOverrideBindingSpell", lua_SetOverrideBindingSpell},
+                {"SetOverrideBindingMacro", lua_SetOverrideBindingMacro},
+                {"SetOverrideBindingItem",  lua_SetOverrideBindingItem},
                 {"ClearOverrideBindings", lua_ClearOverrideBindings},
                 // Paging lives here, and the getter with it. Both were
                 // defined twice — this pair against __WoweeActionBarPage and a

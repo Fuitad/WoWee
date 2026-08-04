@@ -437,6 +437,11 @@ static int lua_DeclineGuild(lua_State* L) {
     return 0;
 }
 static int lua_AcceptResurrect(lua_State* L) {
+    // The other end of the same question: whether the popup's Accept button
+    // reached this at all. StaticPopup_OnClick decides accept from the
+    // button's GetID, so a button answering zero would run OnCancel instead
+    // and decline the offer while looking like it accepted.
+    LOG_INFO("AcceptResurrect called from the interface");
     if (auto* gh = getGameHandler(L)) gh->acceptResurrect();
     return 0;
 }

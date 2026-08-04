@@ -1689,7 +1689,18 @@ void CombatHandler::activateSpiritHealer(uint64_t npcGuid) {
 }
 
 void CombatHandler::acceptResurrect() {
-    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() || !owner_.resurrectRequestPendingRef()) return;
+    // Says which of the three refused it. Accepting a resurrect and nothing
+    // happening looks the same from the chair whether the click never arrived,
+    // the offer had already been cleared, or the packet went out and the server
+    // ignored it — and only the last of those is not this function's fault.
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() ||
+        !owner_.resurrectRequestPendingRef()) {
+        LOG_WARNING("acceptResurrect refused: inWorld=",
+                    owner_.getState() == WorldState::IN_WORLD,
+                    " socket=", owner_.getSocket() != nullptr,
+                    " offerPending=", owner_.resurrectRequestPendingRef());
+        return;
+    }
     if (owner_.resurrectIsSpiritHealerRef()) {
         auto activate = SpiritHealerActivatePacket::build(owner_.resurrectCasterGuidRef());
         owner_.getSocket()->send(activate);
