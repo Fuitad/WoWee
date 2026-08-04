@@ -2435,6 +2435,10 @@ public:
     void setMovementPitch(float radians) { movementInfo.pitch = radians; }
     void dismount();
 
+    /// Accept the innkeeper's offer to make this the player's home. The prompt
+    /// arrives as SMSG_BINDER_CONFIRM and this is the reply.
+    void confirmBinder();
+
     // Taxi / Flight Paths
     bool isTaxiWindowOpen() const;
     void closeTaxi();
@@ -3532,6 +3536,9 @@ private:
     int invSlotBase_ = -1;
     int packSlotBase_ = -1;
     FlatFieldMap lastPlayerFields_;
+    /// The innkeeper that asked "make this your home?". SMSG_BINDER_CONFIRM
+    /// names it and the answer has to go back to the same one.
+    uint64_t binderGuid_ = 0;
     bool onlineEquipDirty_ = false;
     std::array<uint32_t, 19> lastEquipDisplayIds_{};
 

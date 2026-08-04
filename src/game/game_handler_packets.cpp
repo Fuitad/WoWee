@@ -428,7 +428,15 @@ void GameHandler::registerOpcodeHandlers() {
         pbMsg += '.';
         addSystemChatMessage(pbMsg);
     };
-    registerSkipHandler(Opcode::SMSG_BINDER_CONFIRM);
+    // The innkeeper asking whether to make this the player's home. It was
+    // skipped because this client's own gossip window never waited for it — it
+    // matches the option's English text and sends the activate itself. FrameXML
+    // draws the gossip window now and follows the real flow: the server asks,
+    // a popup accepts, and the reply goes back.
+    dispatchTable_[Opcode::SMSG_BINDER_CONFIRM] = [this](network::Packet& packet) {
+        binderGuid_ = packet.hasRemaining(8) ? packet.readUInt64() : 0;
+        fireAddonEvent("CONFIRM_BINDER", {});
+    };
     registerSkipHandler(Opcode::SMSG_SET_PHASE_SHIFT);
     dispatchTable_[Opcode::SMSG_TOGGLE_XP_GAIN] = [this](network::Packet& packet) {
         if (!packet.hasRemaining(1)) return;

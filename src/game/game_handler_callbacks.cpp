@@ -2030,6 +2030,14 @@ bool GameHandler::isHostileAttacker(uint64_t guid) const {
     return combatHandler_ ? combatHandler_->isHostileAttacker(guid) : false;
 }
 
+void GameHandler::confirmBinder() {
+    if (!isInWorld() || !socket || binderGuid_ == 0) return;
+    auto pkt = BinderActivatePacket::build(binderGuid_);
+    socket->send(pkt);
+    LOG_INFO("Sent CMSG_BINDER_ACTIVATE (confirmed) for npc=0x",
+             std::hex, binderGuid_, std::dec);
+}
+
 void GameHandler::dismount() {
     if (movementHandler_) movementHandler_->dismount();
 }

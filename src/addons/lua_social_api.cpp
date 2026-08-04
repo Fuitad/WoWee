@@ -2074,6 +2074,18 @@ void registerSocialLuaAPI(lua_State* L) {
                 // minimap's battlefield icon while it is shown.
                 {"GetBattlefieldPortExpiration", [](lua_State* L) -> int {
             lua_pushnumber(L, 0); return 1; }},
+                // The innkeeper's prompt: CONFIRM_BINDER's accept sends the
+                // reply, and its OnUpdate hides the popup when the player walks
+                // away. Distance to the innkeeper is not tracked, and staying
+                // up is the lesser wrong — the server refuses a bind from too
+                // far off anyway.
+                {"ConfirmBinder", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->confirmBinder();
+            return 0;
+        }},
+                {"CheckBinderDist", [](lua_State* L) -> int {
+            lua_pushboolean(L, 1); return 1;
+        }},
                 {"InCinematic", [](lua_State* L) -> int {
             lua_pushboolean(L, 0); return 1;
         }},
