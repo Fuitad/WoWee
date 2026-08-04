@@ -359,11 +359,18 @@ const Suppress kSuppress[] = {
         // beside the client's own.
         {UiElement::Achievements, "AchievementFrame", true},
         {UiElement::BarberShop,   "BarberShopFrame", true},
-        // These three cannot appear yet: TAXIMAP_OPENED, PET_STABLE_SHOW and
-        // ITEM_TEXT_BEGIN are not fired. Named anyway, because that is a fact
-        // about what this client reaches rather than a decision about which
-        // window should win, and firing any of those events later would
-        // otherwise put a second window on screen with nothing to say why.
+        // TAXIMAP_OPENED and PET_STABLE_SHOW are not fired, so neither of those
+        // two can appear yet. Named anyway, because that is a fact about what
+        // this client reaches rather than a decision about which window should
+        // win, and firing either later would otherwise put a second window on
+        // screen with nothing to say why.
+        //
+        // ITEM_TEXT_BEGIN was listed here as unfired and that was wrong: it is
+        // fired from the query response (inventory_handler.cpp). What was
+        // missing was the *trigger* — readItemBySlot had one caller, this
+        // client's own bag window, which is handed over. UseContainerItem
+        // reaches it now, so ItemTextFrame is genuinely reachable and this
+        // entry is load-bearing rather than precautionary.
         {UiElement::Taxi,         "TaxiFrame"},
         {UiElement::Stable,       "PetStableFrame"},
         {UiElement::Book,         "ItemTextFrame"},

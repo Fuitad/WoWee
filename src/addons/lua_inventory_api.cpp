@@ -1452,8 +1452,36 @@ static int lua_UseContainerItem(lua_State* L) {
         if (slot >= 1 && slot <= sz)
             itemSlot = &inv.getBagSlot(bag - 1, slot - 1);
     }
-    if (itemSlot && !itemSlot->empty())
-        gh->useItemById(itemSlot->item.itemId);
+    if (!itemSlot || itemSlot->empty()) return 0;
+
+    // Right-clicking an item in a bag is three different messages depending on
+    // what the item is, and only the last of them was sent from here. Taken
+    // from this client's own bag window, which is where the distinction was
+    // already drawn and which is handed over.
+    //
+    // Openable is an item flag rather than an item-class guarantee — some
+    // fishing containers are miscellaneous items — so both the flag and the
+    // container class count, or those fall through to a CMSG_USE_ITEM the
+    // server silently ignores.
+    constexpr uint32_t kItemFlagOpenable = 0x00000004u;
+    const auto* info = gh->getItemInfo(itemSlot->item.itemId);
+    const bool readable = info && info->valid && info->pageTextId != 0;
+    const bool openable = info && info->valid &&
+                          ((info->itemFlags & kItemFlagOpenable) != 0 ||
+                           info->itemClass == 1);
+
+    // By slot rather than by item id: the id searches the bags for a match and
+    // can find a different stack of the same thing than the one clicked.
+    if (bag == 0) {
+        const int idx = slot - 1;
+        if (readable)      gh->readItemBySlot(idx);
+        else if (openable) gh->openItemBySlot(idx);
+        else               gh->useItemBySlot(idx);
+    } else {
+        if (readable)      gh->readItemInBag(bag - 1, slot - 1);
+        else if (openable) gh->openItemInBag(bag - 1, slot - 1);
+        else               gh->useItemInBag(bag - 1, slot - 1);
+    }
     return 0;
 }
 
