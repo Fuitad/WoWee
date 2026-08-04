@@ -431,7 +431,7 @@ def main():
         "merchant":     "GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, which is fired",
         "playerframe":  "voice chat, vehicles and the playtime nag (PLAYER_ROLES_ASSIGNED was wrong here — roles are parsed and read, and it is fired now)",
         "mainmenubar":  "nine calls and five events are vehicles; CURRENCY_DISPLAY_UPDATE and UPDATE_BONUS_ACTIONBAR share fired branches, UPDATE_MULTI_CAST_ACTIONBAR shares one and has nil data besides",
-        "minimap":      "four calls unreachable; tracking, zoom, movie recording, indoors all absent",
+        "minimap":      "four calls unreachable; zoom is widget state, movie recording absent, indoors redundant — but MINIMAP_UPDATE_TRACKING is REAL and unfired: MiniMapTracking_Update reads GetTrackingTexture, which walks the player's tracking spells and is not a stub",
         "bgscore":      "both calls inside a loop over GetNumWorldStateUI, which answers zero",
         "questlog":     "every call is the world map API, absent because this client draws its own",
         "questtracker": "same world map API, reached through worldmapframe.lua",
