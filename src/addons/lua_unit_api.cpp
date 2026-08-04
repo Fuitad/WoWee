@@ -1246,34 +1246,64 @@ static int lua_UnitDefense(lua_State* L) {
 /// unconditionally claimed an off-hand weapon for everyone, and the line it
 /// then built concatenated a value nothing had filled in.
 static int lua_UnitAttackSpeed(lua_State* L) {
-    lua_pushnumber(L, 2.0);
     auto* gh = getGameHandler(L);
     const char* uid = luaL_optstring(L, 1, "player");
     std::string u(uid);
     toLowerInPlace(u);
+    // The comment above used to say nothing tracked weapon speed. The equipped
+    // item carries delayMs and always has, so both hands answer from the
+    // weapon rather than from a flat two seconds — which every damage-per-
+    // second figure on the sheet is divided by.
+    double mainSpeed = 2.0;      // unarmed, which is what WoW uses bare-handed
+    double offSpeed = 0.0;
     bool hasOffHand = false;
     if (gh && u == "player") {
-        // Slot 17 is the off hand, as the interface numbers them.
-        const auto& slot = gh->getInventory().getEquipSlot(static_cast<game::EquipSlot>(16));
-        hasOffHand = !slot.empty();
+        const auto& inv = gh->getInventory();
+        const auto& mh = inv.getEquipSlot(game::EquipSlot::MAIN_HAND);
+        if (!mh.empty() && mh.item.delayMs > 0) mainSpeed = mh.item.delayMs / 1000.0;
+        const auto& oh = inv.getEquipSlot(game::EquipSlot::OFF_HAND);
+        hasOffHand = !oh.empty();
+        if (hasOffHand) offSpeed = oh.item.delayMs > 0 ? oh.item.delayMs / 1000.0 : 2.0;
     }
-    if (hasOffHand) lua_pushnumber(L, 2.0);
+    lua_pushnumber(L, mainSpeed);
+    if (hasOffHand) lua_pushnumber(L, offSpeed);
     else            lua_pushnil(L);
     return 2;
 }
 
 /// UnitDamage(unit) → min, max, off-hand min, off-hand max, positive bonus,
-/// negative bonus, percent. Weapon damage is not tracked, so this reports the
-/// attack power contribution alone, which is the part the server does send.
+/// negative bonus, percent.
+///
+/// The comment here used to say weapon damage was not tracked, so it reported
+/// the attack-power contribution alone against a two-second swing. The
+/// equipped weapon carries its damage range and its speed, so the figure is
+/// the weapon's own damage plus what attack power adds over one swing —
+/// attack power divided by fourteen is damage per second, times the speed.
 static int lua_UnitDamage(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int32_t ap = gh ? gh->getMeleeAttackPower() : -1;
-    const double dps = (ap > 0) ? (ap / 14.0) : 0.0;   // WoW's attack-power divisor
-    const double swing = dps * 2.0;                     // the two-second swing above
-    lua_pushnumber(L, swing);
-    lua_pushnumber(L, swing);
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
+    double baseMin = 1.0, baseMax = 2.0;   // bare hands
+    double speed = 2.0;
+    double offMin = 0.0, offMax = 0.0;
+    if (gh) {
+        const auto& inv = gh->getInventory();
+        const auto& mh = inv.getEquipSlot(game::EquipSlot::MAIN_HAND);
+        if (!mh.empty() && mh.item.damageMax > 0.0f) {
+            baseMin = mh.item.damageMin;
+            baseMax = mh.item.damageMax;
+            if (mh.item.delayMs > 0) speed = mh.item.delayMs / 1000.0;
+        }
+        const auto& oh = inv.getEquipSlot(game::EquipSlot::OFF_HAND);
+        if (!oh.empty() && oh.item.damageMax > 0.0f) {
+            offMin = oh.item.damageMin;
+            offMax = oh.item.damageMax;
+        }
+    }
+    const double apSwing = (ap > 0) ? (ap / 14.0) * speed : 0.0;
+    lua_pushnumber(L, baseMin + apSwing);
+    lua_pushnumber(L, baseMax + apSwing);
+    lua_pushnumber(L, offMin > 0.0 ? offMin + apSwing / 2.0 : 0.0);
+    lua_pushnumber(L, offMax > 0.0 ? offMax + apSwing / 2.0 : 0.0);
     lua_pushnumber(L, 0);
     lua_pushnumber(L, 0);
     lua_pushnumber(L, 1.0);
