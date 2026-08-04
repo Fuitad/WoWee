@@ -509,6 +509,15 @@ void EntityController::syncPreWotlkAurasFromFields(const std::shared_ptr<Entity>
         LOG_WARNING("player auras on first rebuild: ", owner_.getPlayerAuras().size());
     }
     pendingEvents_.emit("UNIT_AURA", {"player"});
+    // Tracking is one of these auras, and the minimap's tracking icon is drawn
+    // from whichever tracking spell is active — GetTrackingTexture walks the
+    // player's tracking spells and asks exactly this aura list. The icon
+    // updates on MINIMAP_UPDATE_TRACKING and nothing else, so it never changed.
+    //
+    // Here rather than at SetTracking, and that is what makes it complete
+    // rather than half: both routes end in the aura arriving, whether the
+    // spell was cast from the interface's dropdown or from a button.
+    pendingEvents_.emit("MINIMAP_UPDATE_TRACKING", {});
 }
 
 // Detect player mount/dismount from UNIT_FIELD_MOUNTDISPLAYID changes
