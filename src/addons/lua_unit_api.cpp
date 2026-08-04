@@ -2436,7 +2436,28 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetHairCustomization",       lua_GetHairCustomization},
                 {"GetFacialHairCustomization", lua_GetFacialHairCustomization},
                 {"CanAlterSkin",               lua_CanAlterSkin},
-                {"HasWandEquipped",         lua_ReturnFalse},
+                // HasWandEquipped() — a wand in the ranged slot, which the
+                // character sheet needs because a wand's damage is read
+                // differently from a bow's: PaperDollFrame_SetRangedDamage
+                // takes the plain average and skips the attack-power bonus a
+                // physical ranged weapon gets. Answering no meant a wand user's
+                // ranged damage was computed as though the wand were a bow.
+                //
+                // Weapon class 2, subclass 19, off the same table the client's
+                // own subclass names come from.
+                {"HasWandEquipped",         [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) { lua_pushboolean(L, 0); return 1; }
+            const auto& sl = gh->getInventory().getEquipSlot(game::EquipSlot::RANGED);
+            bool wand = false;
+            if (!sl.empty()) {
+                if (const auto* info = gh->getItemInfo(sl.item.itemId); info && info->valid) {
+                    wand = (info->itemClass == 2 && info->subClass == 19);
+                }
+            }
+            lua_pushboolean(L, wand);
+            return 1;
+        }},
                 // UnitHasRelicSlot(unit) — the four classes whose ranged slot
                 // holds a relic instead of a weapon: paladin librams, death
                 // knight sigils, shaman totems and druid idols. Answering no

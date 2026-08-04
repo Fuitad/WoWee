@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
 """Static version of the unaccounted-frame sweep.
 
+Known blind spot, measured rather than assumed: this reads parent="UIParent"
+out of the XML, so frames built at runtime by CreateFrame are invisible to it.
+Forty-two named frames are created that way and six are parented to UIParent —
+ChatFrame, RaidPullout, the two combat-log frames, WorldStateCaptureBar and
+this client's own widget demo. None duplicates a handed-over element today,
+and the capture bar cannot appear at all because GetNumWorldStateUI answers
+zero. Re-measure with:
+
+    grep -rhoP 'CreateFrame\(\s*"[A-Za-z]+"\s*,\s*"\K[A-Za-z0-9_]+' Data/interface/
+
+
 Top-level FrameXML frames (parent="UIParent") whose names appear nowhere in
 framexml_takeover.cpp. Each is a part of the interface nobody has decided
 about: if this client draws the same thing, both are on screen.
