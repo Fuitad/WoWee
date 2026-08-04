@@ -439,7 +439,7 @@ def main():
         "minimap":      "[checked] four calls unreachable; zoom is widget state, movie recording absent, indoors redundant — but MINIMAP_UPDATE_TRACKING is REAL and unfired: MiniMapTracking_Update reads GetTrackingTexture, which walks the player's tracking spells and is not a stub",
         "bgscore":      "[checked] both calls inside a loop over GetNumWorldStateUI, which answers zero",
         "questlog":     "[checked] every call is the world map API, absent because this client draws its own",
-        "questtracker": "same world map API, reached through worldmapframe.lua",
+        "questtracker": "[checked] twelve are the same world map API through worldmapframe.lua; the other three are AchievementFrame internals, defined in blizzard_achievementui and absent only until it loads",
         "worldmap":     "[checked] map API is this client's; WORLD_MAP_NAME_UPDATE has no handler branch, CLOSE_WORLD_MAP needs the key to drive Lua",
         "mail":         "[checked] the refund lock needs item refund state the client does not parse",
         "help":         "[checked] GMSURVEY_DISPLAY carries questions nothing parses (GMRESPONSE_RECEIVED was wrong here — it is parsed, and is fired now)",
