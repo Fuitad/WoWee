@@ -815,6 +815,10 @@ public:
     bool hasPet() const { return petGuid_ != 0; }
     // Returns true once after SMSG_PET_RENAMEABLE; consuming the flag clears it.
     bool consumePetRenameablePending() { bool v = petRenameablePending_; petRenameablePending_ = false; return v; }
+    /// The same flag without taking it. The unit menu asks whether a rename is
+    /// offered every time it is built, and consuming there would spend the one
+    /// answer this client's own naming dialog is waiting for.
+    bool isPetRenameable() const { return petRenameablePending_; }
     uint64_t getPetGuid() const { return petGuid_; }
 
     // ---- Pet state (populated by SMSG_PET_SPELLS / SMSG_PET_MODE) ----

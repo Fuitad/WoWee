@@ -1860,7 +1860,25 @@ void registerSocialLuaAPI(lua_State* L) {
                 // cannot do — party promotion and demotion, channel moderation,
                 // granting levels, reporting chat, and the recruit-a-friend and
                 // Battle.net pieces have no client support behind them.
-                {"PetCanBeRenamed",           [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                // A pet can be named once, after the first tame, and the
+                // client has tracked that all along — PET_RENAMEABLE is fired
+                // and this answered no regardless, so the unit menu never
+                // offered it.
+                {"PetCanBeRenamed", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L, gh && gh->isPetRenameable() ? 1 : 0);
+            return 1;
+        }},
+                // The other end: PETRENAMECONFIRM's accept calls this, so the
+                // naming dialog appeared, took a name, asked for confirmation
+                // and then raised on an unbound global. The packet has existed
+                // the whole time.
+                {"PetRename", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* name = luaL_optstring(L, 1, "");
+            if (gh && name && *name) gh->renamePet(name);
+            return 0;
+        }},
                 {"CanGrantLevel",             [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 {"CanComplainChat",           [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 {"CanChangePlayerDifficulty", [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
