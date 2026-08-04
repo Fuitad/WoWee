@@ -3,6 +3,7 @@
 // Owns all NPC interaction windows, popup dialogs, etc.
 // ============================================================
 #include "ui/window_manager.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "ui/ui_upload_budget.hpp"
 #include "game/inventory_slots.hpp"
 #include "ui/chat_panel.hpp"
@@ -2579,6 +2580,12 @@ void WindowManager::renderDeathScreen(game::GameHandler& gameHandler) {
     ImGui::End();
     ImGui::PopStyleColor();
 
+    // The prompt below is FrameXML's StaticPopup "DEATH", raised from
+    // PLAYER_DEAD which this client fires. The red wash above it is not — WoW
+    // desaturates the screen from C, so nothing on FrameXML's side draws it and
+    // it stays whoever owns the dialogs.
+    if (frameXmlOwns(UiElement::Dialogs)) return;
+
     // "Release Spirit" dialog centered on screen
     const bool hasSelfRes = gameHandler.canSelfRes();
     float dlgW = 280.0f;
@@ -2653,6 +2660,9 @@ void WindowManager::renderDeathScreen(game::GameHandler& gameHandler) {
 
 void WindowManager::renderReclaimCorpseButton(game::GameHandler& gameHandler) {
     if (!gameHandler.isPlayerGhost() || !gameHandler.canReclaimCorpse()) return;
+    // StaticPopup "RECOVER_CORPSE" now has the CORPSE_IN_RANGE edge it needs,
+    // so the prompt appears on FrameXML's side and this one steps aside.
+    if (frameXmlOwns(UiElement::Dialogs)) return;
 
     auto* window = services_.window;
     float screenW = window ? static_cast<float>(window->getWidth()) : 1280.0f;

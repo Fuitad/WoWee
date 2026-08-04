@@ -2408,7 +2408,14 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetChatTypeIndex",         lua_ReturnOne},
                 {"GetDefaultLanguage",       lua_GetDefaultLanguage},
                 {"GetWeaponEnchantInfo",     lua_GetWeaponEnchantInfo},
-                {"GetCorpseRecoveryDelay",   lua_ReturnZero},
+                // The PvP reclaim timer, which this client already tracks.
+                // Stubbed to zero this read as "reclaim now" and made the
+                // delay text on FrameXML's corpse prompt always empty.
+                {"GetCorpseRecoveryDelay", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? gh->getCorpseReclaimDelaySec() : 0.0);
+            return 1;
+        }},
                 {"GetAdjustedSkillPoints",   lua_ReturnZero},
                 {"GetPartyLeaderIndex",      lua_ReturnZero},
                 {"GetNumArenaOpponents",     lua_ReturnZero},

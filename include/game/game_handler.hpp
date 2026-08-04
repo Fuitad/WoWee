@@ -4227,6 +4227,11 @@ private:
     // Absolute time (ms since epoch) when PvP corpse-reclaim delay expires.
     // 0 means no active delay (reclaim allowed immediately upon proximity).
     uint64_t corpseReclaimAvailableMs_ = 0;
+    // Last announced corpse proximity. canReclaimCorpse() is a predicate this
+    // client's own button polled every frame, so the crossing was never an
+    // event; CORPSE_IN_RANGE and CORPSE_OUT_OF_RANGE are edges, and FrameXML
+    // raises its reclaim prompt from them.
+    bool corpseInRangeAnnounced_ = false;
     // Death Knight runes (class 6): slots 0-1=Blood, 2-3=Unholy, 4-5=Frost initially
     std::array<RuneSlot, 6> playerRunes_ = [] {
         std::array<RuneSlot, 6> r{};
