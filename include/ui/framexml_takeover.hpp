@@ -92,6 +92,19 @@ enum class UiElement {
     /// twice. The large one is what retail shows, so this is handed over
     /// rather than suppressed.
     ZoneText,
+    /// Three more found by the unaccounted-frame sweep. Each has a working
+    /// counterpart this client draws, and the first two are live duplicates:
+    /// TRADE_SHOW and READY_CHECK are both fired, so FrameXML raised its
+    /// window beside the client's own every time.
+    ///
+    /// RaidWarning is the exception and is named anyway. Its frames cannot
+    /// appear today because CHAT_MSG_RAID_WARNING is never fired — but this
+    /// client draws raid warnings from the chat history rather than from the
+    /// event, so firing it later would put a second banner on screen with
+    /// nothing to say why.
+    Trade,
+    ReadyCheck,
+    RaidWarning,
     /// Windows this client draws that FrameXML also has. The last three cannot
     /// appear today because the events that would show them are not fired —
     /// but that is a fact about the client's current reach, not a decision,

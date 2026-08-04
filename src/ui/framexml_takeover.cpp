@@ -15,7 +15,7 @@ namespace {
 struct Entry { UiElement element; std::string_view name; };
 
 // One row per element, and the only place a name is written down.
-constexpr std::array<Entry, 46> kElements{{
+constexpr std::array<Entry, 49> kElements{{
     {UiElement::PlayerFrame,  "playerframe"},
     {UiElement::TargetFrame,  "targetframe"},
     {UiElement::PetFrame,     "petframe"},
@@ -51,6 +51,9 @@ constexpr std::array<Entry, 46> kElements{{
     {UiElement::Buffs,        "buffs"},
     {UiElement::Durability,   "durability"},
     {UiElement::ZoneText,     "zonetext"},
+    {UiElement::Trade,        "trade"},
+    {UiElement::ReadyCheck,   "readycheck"},
+    {UiElement::RaidWarning,  "raidwarning"},
     {UiElement::Achievements, "achievements"},
     {UiElement::BarberShop,   "barbershop"},
     {UiElement::Taxi,         "taxi"},
@@ -341,9 +344,34 @@ const Suppress kSuppress[] = {
         {UiElement::Loot,        "LootFrame GroupLootFrame1 GroupLootFrame2 "
                                  "GroupLootFrame3 GroupLootFrame4"},
         {UiElement::Bank,        "BankFrame"},
+        // The bags had no suppression entry at all — they are handed over by
+        // default, so nothing showed twice and the gap never surfaced. All
+        // thirteen container frames, because a player with four bags open has
+        // ContainerFrame1 through 5 on screen and naming only the first would
+        // leave the rest of them beside this client's own.
+        //
+        // StackSplitFrame belongs here rather than to itself: this client's
+        // split dialog is drawn *inside* its bag window, so the two are the
+        // same feature and go together. With bags handed over FrameXML's is
+        // the only one, which is correct.
+        {UiElement::Bags,        "ContainerFrame1 ContainerFrame2 ContainerFrame3 "
+                                 "ContainerFrame4 ContainerFrame5 ContainerFrame6 "
+                                 "ContainerFrame7 ContainerFrame8 ContainerFrame9 "
+                                 "ContainerFrame10 ContainerFrame11 ContainerFrame12 "
+                                 "ContainerFrame13 StackSplitFrame"},
         {UiElement::PartyFrames, "PartyMemberFrame1 PartyMemberFrame2 "
                                  "PartyMemberFrame3 PartyMemberFrame4"},
         {UiElement::Social,      "FriendsFrame"},
+        // Both of these were live: TRADE_SHOW and READY_CHECK are fired, and
+        // this client draws its own trade window and its own ready-check popup
+        // in dialog_manager — so FrameXML raised a second one of each. Neither
+        // was an element, so nothing in this list had an opinion about them.
+        {UiElement::Trade,       "TradeFrame"},
+        {UiElement::ReadyCheck,  "ReadyCheckFrame"},
+        // Not reachable yet — CHAT_MSG_RAID_WARNING is not fired — but this
+        // client draws raid warnings by scanning the chat history rather than
+        // from the event, so the two would not cancel out if it ever were.
+        {UiElement::RaidWarning, "RaidWarningFrame RaidBossEmoteFrame"},
         // These four arrive with the load-on-demand addons, which now load —
         // so making them work is what put a second window beside the client's
         // at every profession, trainer, auctioneer and guild bank. The panels

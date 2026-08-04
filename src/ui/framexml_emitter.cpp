@@ -700,24 +700,38 @@ struct Emitter {
         // chat frame has a title region and five OnDragStart scripts, and
         // overwriting those with the generic pair would replace behaviour that
         // is deliberately more specific.
-        for (const XmlNode& child : node.children) {
-            if (child.name != "TitleRegion") continue;
+        // A window that says it is toplevel and movable counts too, title region
+        // or not. Only three frames in FrameXML declare one, so keying on it
+        // alone left the character sheet and the spellbook — both 384x512
+        // panels declaring toplevel and movable, neither with a title region —
+        // unable to be moved, along with thirty more windows.
+        //
+        // Both attributes, not just movable: forty-nine frames declare movable
+        // and the set includes the unit frames, which declare it so that addons
+        // can reposition them. Giving those a body drag would turn a click that
+        // slipped four units from "target this party member" into "move their
+        // frame". Pairing it with toplevel narrows it to the actual windows.
+        {
             bool ownDrag = false;
-            for (const XmlNode& scripts : node.children) {
-                if (scripts.name != "Scripts") continue;
-                for (const XmlNode& sc : scripts.children) {
+            bool titleRegion = false;
+            for (const XmlNode& child : node.children) {
+                if (child.name == "TitleRegion") titleRegion = true;
+                if (child.name != "Scripts") continue;
+                for (const XmlNode& sc : child.children) {
                     if (sc.name == "OnDragStart" || sc.name == "OnDragStop") {
                         ownDrag = true;
                     }
                 }
             }
-            line(var + ":SetMovable(true)");
-            if (!ownDrag) {
-                line(var + ":RegisterForDrag(\"LeftButton\")");
-                line(var + ":SetScript(\"OnDragStart\", function(self) self:StartMoving() end)");
-                line(var + ":SetScript(\"OnDragStop\", function(self) self:StopMovingOrSizing() end)");
+            const bool window = node.attrBool("toplevel") && node.attrBool("movable");
+            if (titleRegion || window) {
+                line(var + ":SetMovable(true)");
+                if (!ownDrag) {
+                    line(var + ":RegisterForDrag(\"LeftButton\")");
+                    line(var + ":SetScript(\"OnDragStart\", function(self) self:StartMoving() end)");
+                    line(var + ":SetScript(\"OnDragStop\", function(self) self:StopMovingOrSizing() end)");
+                }
             }
-            break;
         }
         // <Animations> — one or more <AnimationGroup>, each holding <Alpha>,
         // <Translation> and friends. The group is a Lua object rather than a
