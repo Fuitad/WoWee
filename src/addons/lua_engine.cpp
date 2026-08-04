@@ -5692,7 +5692,16 @@ void LuaEngine::reportMissingApi() const {
         lua_pop(L_, 1);
         if (!defined) absent.push_back(n);
     }
-    if (absent.empty()) return;
+    // Only the globals section has nothing to say. The no-op list is a
+    // separate question and returning here took it down with it: once the
+    // global surface went clean — which is the whole point of the transition —
+    // the report stopped being written at all, and every widget method
+    // answering with a no-op went quiet with it.
+    //
+    // That is how five real tooltips hid. SetUnitAura was serving a no-op on
+    // every buff hover, recording itself faithfully each time, into a report
+    // that was never produced.
+    if (absent.empty() && noops.empty()) return;
 
     // A name built from an existing frame's is a part that frame may or may
     // not have, not an API that is missing.
@@ -5727,11 +5736,13 @@ void LuaEngine::reportMissingApi() const {
                     "no-op: ", all);
     }
 
+    if (!realGaps.empty() || !partsOfFrames.empty()) {
     LOG_WARNING("LuaEngine: ", realGaps.size(), " distinct API names were called "
                 "and are still not defined (", globals.size() - absent.size(),
                 " more were read before whatever defines them had loaded, and ",
                 partsOfFrames.size(), " were optional parts of frames that do "
                 "exist)");
+    }
     std::string line;
     for (const auto& n : realGaps) {
         line += n;
