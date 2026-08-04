@@ -2440,6 +2440,21 @@ void registerSystemLuaAPI(lua_State* L) {
                 // resolution from: `"640x"..floor(640*ratio)`. Answering the
                 // window's own ratio is both truthful and what makes that read
                 // 640x360 on a 16:9 display rather than raising.
+                // The rest of the movie recorder, which this client does not
+                // have. Not stubs standing in for something — "we are not
+                // recording" is simply true, and the two toggles have nothing
+                // to toggle.
+                //
+                // Bound because they hang off keybindings. Those are declared
+                // platform="mac" and so should never be reachable here, but a
+                // binding is dispatched by name at the moment a key is pressed
+                // and answering nothing there raises in the key handler, which
+                // is a bad place to find out the filter was not applied.
+                {"MovieRecording_IsRecording",   lua_ReturnFalse},
+                {"MovieRecording_IsCompressing", lua_ReturnFalse},
+                {"MovieRecording_Toggle",        lua_ReturnNothing},
+                {"MovieRecording_ToggleGUI",     lua_ReturnNothing},
+                {"MovieRecording_Cancel",        lua_ReturnNothing},
                 {"MovieRecording_GetAspectRatio", [](lua_State* L) -> int {
             auto* svc = getLuaServices(L);
             auto* win = svc ? svc->window : nullptr;
