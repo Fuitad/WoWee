@@ -75,6 +75,13 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     Read the caller before treating an event as missing. If the interface can
     reach the same result without it, the client is not the one failing to
     speak.
+
+  * Events that share a branch with one already fired. GUILDBANK_UPDATE_MONEY
+    is merchant's last, and it sits in the same elseif as PLAYER_MONEY — both
+    just recheck the repair buttons. PLAYER_MONEY is fired, so the branch runs;
+    the guild-bank variant only adds anything to a client that funds repairs
+    from a guild bank, which this one does not. Applying the rule above: grep
+    the handler for the event and see what else reaches the same line.
 """
 
 import collections
