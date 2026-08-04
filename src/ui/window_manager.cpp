@@ -2148,6 +2148,22 @@ void WindowManager::barberResetSelections(game::GameHandler& gameHandler) {
     rebuildBarberHairColors(barberOrigHairStyle_, barberOrigHairColor_, raceId, sexId);
 }
 
+void WindowManager::barberApplySelection(game::GameHandler& gameHandler) {
+    ensureBarberState(gameHandler);
+    const BarberSelection sel = barberSelection(gameHandler);
+    // The server is sent BarberShopStyle.dbc entry ids, not the appearance
+    // numbers the preview uses — the two are different numbering spaces and
+    // only the entry id means anything on the wire.
+    auto entryOf = [](const std::vector<BarberStyleOption>& options, int index) {
+        return index >= 0 && index < static_cast<int>(options.size())
+            ? options[static_cast<size_t>(index)].entryId : 0u;
+    };
+    gameHandler.sendAlterAppearance(entryOf(barberHairStyles_, barberHairStyle_),
+                                    sel.hairColor,
+                                    entryOf(barberFacialStyles_, barberFacialHair_),
+                                    entryOf(barberSkinStyles_, barberSkinColor_));
+}
+
 bool WindowManager::barberStyleInfo(game::GameHandler& gameHandler, int selector,
                                     std::string& name, bool& isCurrent) {
     ensureBarberState(gameHandler);

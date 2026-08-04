@@ -2579,6 +2579,14 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetBarberShopTotalCost",     lua_GetBarberShopTotalCost},
                 {"BarberShopReset",            lua_BarberShopReset},
                 {"CancelBarberShop",           lua_CancelBarberShop},
+                // The Okay button, named as an OnClick attribute rather than
+                // called from a script body — which is exactly why the
+                // readiness report called this element finished while its one
+                // committing action raised.
+                {"ApplyBarberShopStyle", [](lua_State* L) -> int {
+            if (auto* svc = getLuaServices(L); svc && svc->barberApply) svc->barberApply();
+            return 0;
+        }},
                 // HasWandEquipped() — a wand in the ranged slot, which the
                 // character sheet needs because a wand's damage is read
                 // differently from a bow's: PaperDollFrame_SetRangedDamage

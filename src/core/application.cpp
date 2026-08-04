@@ -414,6 +414,9 @@ bool Application::initialize() {
         luaSvc.barberReset = [uim = uiManager.get(), gh = gameHandler.get()]() {
             if (uim && gh) uim->getGameScreen().windowManager().barberResetSelections(*gh);
         };
+        luaSvc.barberApply = [uim = uiManager.get(), gh = gameHandler.get()]() {
+            if (uim && gh) uim->getGameScreen().windowManager().barberApplySelection(*gh);
+        };
         luaSvc.isPlayerIndoors = [r = renderer.get()]() -> bool {
             return r && r->isPlayerIndoors();
         };

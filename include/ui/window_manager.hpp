@@ -245,6 +245,9 @@ public:
     void barberCycleStyle(game::GameHandler& gameHandler, int selector, int direction);
     uint32_t barberTotalCostCopper(game::GameHandler& gameHandler);
     void barberResetSelections(game::GameHandler& gameHandler);
+    /// Buy the current selection. The Okay button on either barber calls this;
+    /// FrameXML's reaches it through ApplyBarberShopStyle.
+    void barberApplySelection(game::GameHandler& gameHandler);
 
     // Trainer
     char trainerSearchFilter_[128] = "";

@@ -259,6 +259,7 @@ ADDON_ELEMENTS = {
 # GuildControlSetRankFlag and TakeInboxTextItem are both only ever called from
 # one, and a scan of the Lua alone reported their frames complete.
 SCRIPT_BODY = re.compile(r"<(On[A-Za-z]+)>(.*?)</\1>", re.S)
+SCRIPT_ATTR = re.compile(r'<On[A-Za-z]+\s+function="([A-Za-z_][\w]*)"')
 CALL = re.compile(r"(?<![\w.:])([A-Z][A-Za-z0-9_]*)\s*\(")
 
 # A Lua pattern in a string looks exactly like a call. gsub(point, "TOP(.*)",
@@ -353,6 +354,13 @@ def scan_interface():
                                        open(path, encoding="utf-8", errors="ignore").read())
                 for body in SCRIPT_BODY.finditer(src):
                     calls[name] |= set(CALL.findall(code_only(body.group(2))))
+                # A handler can be *named* instead of written out:
+                # <OnClick function="Foo"/> calls Foo just as surely as
+                # <OnClick>Foo()</OnClick>, and reading only the bodies missed
+                # it. That is how the barber shop was reported finished while
+                # ApplyBarberShopStyle -- its Okay button, and the one action
+                # that commits anything -- was bound by nothing at all.
+                calls[name] |= set(SCRIPT_ATTR.findall(src))
     return defined_by, calls
 
 

@@ -59,6 +59,10 @@ struct LuaServices {
     std::function<void(int selector, int direction)> setNextBarberStyle;
     std::function<uint32_t()> getBarberTotalCost;
     std::function<void()> barberReset;
+    /// The Okay button. blizzard_barbershopui.xml names ApplyBarberShopStyle
+    /// as an OnClick handler attribute, which is why nothing noticed it was
+    /// unbound — the readiness report reads script bodies, not attributes.
+    std::function<void()> barberApply;
 
     /// Whether the camera is inside a WMO, for IsIndoors and IsOutdoors.
     ///
