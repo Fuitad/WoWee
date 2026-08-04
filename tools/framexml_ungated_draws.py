@@ -212,4 +212,34 @@ for name, files, path in rows:
     print(f"  {name}   [{', '.join(files)}]")
     print(f"      {' -> '.join(path)}")
 
+# ---------------------------------------------------------------------------
+# The half-wired element, checked directly rather than through the walk.
+#
+# A handover is two halves: a suppression entry hides FrameXML's frame while
+# this client owns the element, and a frameXmlOwns gate stands this client's
+# own surface down when FrameXML owns it. Writing only the first is invisible
+# in every element set except the one that hands that element over -- which is
+# how Trade, ReadyCheck, RaidWarning and the achievement badge all shipped
+# drawing twice. Four of the fifty, none noticed by eye.
+# ---------------------------------------------------------------------------
+takeover = (ROOT / "src/ui/framexml_takeover.cpp").read_text(errors="ignore")
+suppressing = set(re.findall(r"\{UiElement::(\w+),\s*\n?\s*\"",
+                             takeover[takeover.index("kSuppress"):]))
+standing_down = set()
+for p in (ROOT / "src").rglob("*.cpp"):
+    if p.name == "framexml_takeover.cpp":
+        continue
+    standing_down |= set(re.findall(r"frameXmlOwns\(UiElement::(\w+)\)",
+                                    p.read_text(errors="ignore")))
+
+half_wired = sorted(suppressing - standing_down)
+print(f"\n{len(suppressing)} elements suppress a FrameXML frame, "
+      f"{len(standing_down)} are gated in client code")
+if half_wired:
+    print(f"\n{len(half_wired)} hide FrameXML's frame but never stand down themselves:")
+    for name in half_wired:
+        print(f"  UiElement::{name}")
+else:
+    print("\nEvery suppressed element also stands down. Both halves wired.")
+
 sys.exit(0)
