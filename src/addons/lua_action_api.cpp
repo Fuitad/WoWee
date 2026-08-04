@@ -1361,6 +1361,15 @@ void registerActionLuaAPI(lua_State* L) {
                 {"GetNumBindings",      lua_GetNumBindings},
                 {"GetBinding",          lua_GetBinding},
                 {"SetBinding",          lua_SetBinding},
+                // Two latent raises on the escape-key path, bound as no-ops
+                // because doing nothing is the right behaviour rather than a
+                // placeholder for it. SetUIVisibility is reached only from
+                // ToggleGameMenu's first branch, which runs when UIParent is
+                // hidden — out of the way until someone hides the interface,
+                // and then on the only path that brings it back.
+                // ConsoleAddMessage is the sink for FrameXML's debug print.
+                {"SetUIVisibility",   [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ConsoleAddMessage", [](lua_State* L) -> int { (void)L; return 0; }},
                 // GetCurrentBindingSet() — which set SaveBindings should write.
                 //
                 // 1 is account-wide and 2 is per character. This client keeps
