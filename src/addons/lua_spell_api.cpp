@@ -936,10 +936,15 @@ void registerSpellLuaAPI(lua_State* L) {
             return 0;
         }},
                 {"SpellStopTargeting", [](lua_State* L) -> int {
-            (void)L; return 0; // No targeting reticle in this client
+            // No AoE reticle, but the item cursor a stone or an oil arms is a
+            // kind of targeting and escape has to put it down.
+            auto* gh = getGameHandler(L);
+            if (gh && gh->isAwaitingItemTarget()) gh->cancelItemTargeting();
+            return 0;
         }},
                 {"SpellIsTargeting", [](lua_State* L) -> int {
-            lua_pushboolean(L, 0); // No AoE targeting reticle
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L, gh && gh->isAwaitingItemTarget());
             return 1;
         }},
                 {"IsSpellInRange",    lua_IsSpellInRange},

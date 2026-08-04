@@ -211,6 +211,34 @@ inline game::GameObject* resolveGameObject(lua_State* L, const char* unitId) {
     return dynamic_cast<game::GameObject*>(entity.get());
 }
 
+// Finish an armed item-target use on the item in a slot, if one is armed
+//
+// A sharpening stone, a weapon oil, an enchanting scroll and a disenchant all
+// park the use and wait for the player to pick the item it applies to. Every
+// button that can name an item has to be able to be that pick, and until now
+// the only one that could was this client's own bag window — which is handed
+// over, so nothing could finish one at all.
+//
+// True means the click was the target and is therefore not also a use or a
+// pickup. An empty slot is not a target: the click is still eaten, because the
+// cursor stays armed and dropping out of targeting on a miss would be worse
+// than doing nothing.
+inline bool completedItemTarget(lua_State* L, uint64_t targetGuid) {
+    auto* gh = getGameHandler(L);
+    if (!gh || !gh->isAwaitingItemTarget()) return false;
+    if (targetGuid != 0) gh->completeItemUseOnItem(targetGuid);
+    return true;
+}
+
+// The GUID of the item in a FrameXML container slot: bag 0 is the backpack,
+// 1-4 are the worn bags, and both are 1-based on the slot.
+inline uint64_t containerSlotGuid(game::GameHandler* gh, int bag, int slot) {
+    if (!gh || slot < 1) return 0;
+    if (bag == 0) return gh->getBackpackItemGuid(slot - 1);
+    if (bag >= 1 && bag <= 4) return gh->getBagItemGuid(bag - 1, slot - 1);
+    return 0;
+}
+
 // Find GroupMember data for a GUID (for party members out of entity range)
 inline const game::GroupMember* findPartyMember(game::GameHandler* gh, uint64_t guid) {
     if (!gh || guid == 0) return nullptr;

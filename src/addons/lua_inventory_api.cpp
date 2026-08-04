@@ -202,6 +202,19 @@ static int lua_SetPortraitToTexture(lua_State* L) {
 static int lua_ContainerNoOp(lua_State* L) { (void)L; return 0; }
 static int lua_ContainerFalse(lua_State* L) { lua_pushboolean(L, 0); return 1; }
 
+/// SpellCanTargetItem() — whether something is waiting to be applied to an item.
+///
+/// This client does have the notion after all: a sharpening stone, an oil, an
+/// enchanting scroll and a disenchant all park the use and wait for the player
+/// to pick a target. Answering a flat false is what made containerframe.lua
+/// take the pickup branch instead of the targeting one on every click, so
+/// there was no way to finish any of them once the bags were handed over.
+static int lua_SpellCanTargetItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushboolean(L, gh && gh->isAwaitingItemTarget());
+    return 1;
+}
+
 // ── Merchant: buyback and repair ───────────────────────────────────────────
 //
 // MerchantFrame reads all of these and this client already tracks what they
@@ -1404,6 +1417,9 @@ static int lua_UseInventoryItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int slotId = static_cast<int>(luaL_optnumber(L, 1, 0));
     if (!gh || slotId < 1 || slotId > 19) return 0;
+    // A weapon that is worn is as good a target as one in a bag, and the
+    // paperdoll's right-click arrives here.
+    if (completedItemTarget(L, gh->getEquipSlotGuid(slotId - 1))) return 0;
     const auto& slot = gh->getInventory().getEquipSlot(
         static_cast<game::EquipSlot>(slotId - 1));
     if (!slot.empty()) gh->useItemById(slot.item.itemId);
@@ -1423,6 +1439,10 @@ static int lua_UseContainerItem(lua_State* L) {
     if (!gh) return 0;
     int bag = static_cast<int>(luaL_checknumber(L, 1));
     int slot = static_cast<int>(luaL_checknumber(L, 2));
+    // The click that picks what a stone or an oil is applied to. FrameXML
+    // routes it here rather than to the pickup when SpellCanTargetItem says a
+    // spell is waiting for one.
+    if (completedItemTarget(L, containerSlotGuid(gh, bag, slot))) return 0;
     const auto& inv = gh->getInventory();
     const game::ItemSlot* itemSlot = nullptr;
     if (bag == 0 && slot >= 1 && slot <= inv.getBackpackSize())
@@ -2599,7 +2619,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // opened rather than opened empty.
                 {"SocketInventoryItem",   lua_ContainerFalse},
                 {"SocketContainerItem",   lua_ContainerFalse},
-                {"SpellCanTargetItem",    lua_ContainerFalse},
+                {"SpellCanTargetItem",    lua_SpellCanTargetItem},
                 {"CanGuildBankRepair",    lua_ContainerFalse},
                 {"GetBuybackItemInfo",      lua_GetBuybackItemInfo},
                 {"GetBuybackItemLink",      lua_GetBuybackItemLink},

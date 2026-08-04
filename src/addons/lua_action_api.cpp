@@ -495,6 +495,10 @@ static int lua_PickupContainerItem(lua_State* L) {
     int bag = static_cast<int>(luaL_checknumber(L, 1));
     int slot = static_cast<int>(luaL_checknumber(L, 2));
 
+    // Same as the paperdoll: a click while something is waiting for an item to
+    // be applied to is that choice, not a pickup.
+    if (completedItemTarget(L, containerSlotGuid(gh, bag, slot))) return 0;
+
     // Already carrying something, so this is the drop rather than the pickup.
     // One function does both halves of a drag in WoW, and without this half a
     // dragged item was picked up and never put down anywhere.
@@ -647,6 +651,11 @@ static int lua_PickupInventoryItem(lua_State* L) {
     if (!gh) return 0;
     int slot = static_cast<int>(luaL_checknumber(L, 1));
     if (slot < 1 || slot > 23) return 0;
+
+    // Before the pickup, because the paperdoll has no SpellCanTargetItem branch
+    // of its own — a left-click on a worn weapon always arrives here, and while
+    // a stone or an oil is waiting for a target that click is the target.
+    if (slot <= 19 && completedItemTarget(L, gh->getEquipSlotGuid(slot - 1))) return 0;
 
     // Carrying something: equip it here, which is the other half of the drag.
     uint8_t srcBag = 0, srcSlot = 0;
