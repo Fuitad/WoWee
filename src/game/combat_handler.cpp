@@ -295,6 +295,49 @@ void CombatHandler::addCombatText(CombatTextEntry::Type type, int32_t amount, ui
     entry.xSeed = dist(rng);
     combatText_.push_back(entry);
 
+    // UNIT_COMBAT — the same hit, for the frames that draw their own feedback
+    // over a portrait. This client renders the floating numbers itself from the
+    // list above; the interface's unit frames render theirs from this event and
+    // were never told, so a pet or target frame showed nothing while the world
+    // filled with numbers.
+    //
+    // The tokens are not invented: CombatFeedback_OnCombatEvent enumerates the
+    // ones it acts on, and everything else falls through its final else to a
+    // blank. Only a unit the interface has a token for is worth announcing —
+    // the frame compares the first argument against its own unit.
+    if (dstGuid != 0 && owner_.addonEventCallbackRef()) {
+        const std::string unitId = owner_.guidToUnitId(dstGuid);
+        if (!unitId.empty()) {
+            const char* action = nullptr;
+            const char* flags  = "";
+            switch (type) {
+                case CombatTextEntry::MELEE_DAMAGE:
+                case CombatTextEntry::SPELL_DAMAGE:
+                case CombatTextEntry::PERIODIC_DAMAGE: action = "WOUND"; break;
+                case CombatTextEntry::CRIT_DAMAGE: action = "WOUND"; flags = "CRITICAL"; break;
+                case CombatTextEntry::GLANCING:    action = "WOUND"; flags = "GLANCING"; break;
+                case CombatTextEntry::CRUSHING:    action = "WOUND"; flags = "CRUSHING"; break;
+                case CombatTextEntry::ABSORB:      action = "WOUND"; flags = "ABSORB";   break;
+                case CombatTextEntry::MISS:   action = "MISS";   break;
+                case CombatTextEntry::DODGE:  action = "DODGE";  break;
+                case CombatTextEntry::PARRY:  action = "PARRY";  break;
+                case CombatTextEntry::BLOCK:  action = "BLOCK";  break;
+                case CombatTextEntry::EVADE:  action = "EVADE";  break;
+                case CombatTextEntry::IMMUNE: action = "IMMUNE"; break;
+                case CombatTextEntry::RESIST: action = "RESIST"; break;
+                case CombatTextEntry::HEAL:
+                case CombatTextEntry::PERIODIC_HEAL: action = "HEAL"; break;
+                case CombatTextEntry::CRIT_HEAL: action = "HEAL"; flags = "CRITICAL"; break;
+                default: break;  // energize, xp, honour — not combat feedback
+            }
+            if (action) {
+                owner_.addonEventCallbackRef()(
+                    "UNIT_COMBAT",
+                    {unitId, action, flags, std::to_string(amount), "0"});
+            }
+        }
+    }
+
     // Persistent combat log — use explicit GUIDs if provided, else fall back to
     // player/current-target (the old behaviour for events without specific participants).
     CombatLogEntry log;
