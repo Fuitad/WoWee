@@ -3266,6 +3266,33 @@ void SocialHandler::handlePvpLogData(network::Packet& packet) {
             hex += buf;
         }
         LOG_WARNING("MSG_PVP_LOG_DATA: ", total, " bytes, first ", show, ": ", hex);
+
+        // Decode the header the way AzerothCore writes it and say what player
+        // count that implies. A sane count is the answer: the layout below is
+        // wrong and the one in Battleground.cpp is right.
+        //
+        //   uint8 type, [arena blocks], uint8 ended, [uint8 winner], uint32 count
+        //
+        // Read off the buffer rather than the packet, so nothing is consumed.
+        if (at < bytes.size()) {
+            size_t p = at;
+            const uint8_t acType = bytes[p++];
+            if (acType) p += 2 * 20;              // two rating blocks, two team blocks
+            if (p < bytes.size()) {
+                const uint8_t ended = bytes[p++];
+                if (ended && p < bytes.size()) p++;   // winner
+            }
+            if (p + 4 <= bytes.size()) {
+                uint32_t acCount = 0;
+                for (int i = 3; i >= 0; --i) acCount = (acCount << 8) | bytes[p + i];
+                const size_t forPlayers = total - (p + 4 - at);
+                LOG_WARNING("  AzerothCore reading: type=", static_cast<int>(acType),
+                            " implies ", acCount, " players in ", forPlayers,
+                            " bytes = ", (acCount ? forPlayers / acCount : 0),
+                            " each. Sane count and ~40 each means this layout is"
+                            " the right one; 36 each means no team byte.");
+            }
+        }
     }
     bgScoreboard_ = BgScoreboardData{};
     bgScoreboard_.isArena = (packet.readUInt8() != 0);
