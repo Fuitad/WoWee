@@ -123,10 +123,25 @@ static int lua_Frame_RegisterEvent(lua_State* L) {
         lua_pushvalue(L, -1);
         lua_setfield(L, -3, eventName);
     }
-    // Append frame reference
-    int len = static_cast<int>(lua_objlen(L, -1));
-    lua_pushvalue(L, 1);  // push frame
-    lua_rawseti(L, -2, len + 1);
+    // Append the frame, but only if it is not already listening.
+    //
+    // The frame's own __events table is keyed by name and so is already
+    // idempotent; this list is not. Registering the same event twice put the
+    // frame in it twice and its OnEvent then ran twice for every one of those
+    // events — and UnregisterEvent removes the first match and stops, so one
+    // unregister could not undo a double register. Nothing about the pair is
+    // symmetric unless the insert refuses duplicates.
+    const int len = static_cast<int>(lua_objlen(L, -1));
+    bool already = false;
+    for (int i = 1; i <= len && !already; ++i) {
+        lua_rawgeti(L, -1, i);
+        already = lua_rawequal(L, -1, 1) != 0;
+        lua_pop(L, 1);
+    }
+    if (!already) {
+        lua_pushvalue(L, 1);  // push frame
+        lua_rawseti(L, -2, len + 1);
+    }
     lua_pop(L, 2);  // pop list + __WoweeFrameEvents
     return 0;
 }
