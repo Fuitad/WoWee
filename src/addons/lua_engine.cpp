@@ -2904,8 +2904,13 @@ bool LuaEngine::initialize() {
 }
 
 void LuaEngine::shutdown() {
-    reportMissingApi();
+    // Inside the guard, not above it. The report asks _G whether each recorded
+    // name is still absent, so it needs the state it is asking about. Shutdown
+    // runs twice on the way out — AddonManager's destructor calls it, and then
+    // destroying the engine member calls it again — and the second pass found
+    // a closed state and dereferenced it.
     if (L_) {
+        reportMissingApi();
         lua_close(L_);
         L_ = nullptr;
         LOG_INFO("LuaEngine: shut down");
@@ -5304,6 +5309,10 @@ void LuaEngine::installMissingApiFallback() {
 }
 
 void LuaEngine::reportMissingApi() const {
+    // Every name is checked against _G before being reported, so without a
+    // state there is nothing to say. Guarded here as well as at the call site
+    // because the crash this cost was a null state, not an empty list.
+    if (!L_) return;
     const auto& names = missingApiNames();
     if (names.empty()) return;
     // At warning level, because release builds drop INFO and this is the whole
