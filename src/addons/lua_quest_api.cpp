@@ -3,6 +3,7 @@
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_engine.hpp"
 #include "game/game_utils.hpp"
+#include "game/packed_time.hpp"
 
 #include <algorithm>
 #include <vector>
@@ -2671,11 +2672,12 @@ void registerQuestLuaAPI(lua_State* L) {
             if (!gh) return 0;
             std::vector<std::pair<uint32_t, uint32_t>> byDate;  // sortKey, id
             for (uint32_t id : gh->getEarnedAchievements()) {
-                const uint32_t d = gh->getAchievementDate(id);
-                const uint32_t year  = d & 0xFFFFu;
-                const uint32_t day   = (d >> 16) & 0xFFu;
-                const uint32_t month = (d >> 24) & 0xFFu;
-                byDate.emplace_back((year << 9) | (month << 5) | day, id);
+                const game::WowDate d =
+                    game::unpackWowPackedTime(gh->getAchievementDate(id));
+                byDate.emplace_back(
+                    (static_cast<uint32_t>(d.yearSince2000) << 9) |
+                    (static_cast<uint32_t>(d.month) << 5) |
+                    static_cast<uint32_t>(d.day), id);
             }
             std::sort(byDate.begin(), byDate.end(),
                       [](const auto& a, const auto& b) {
@@ -2708,9 +2710,12 @@ void registerQuestLuaAPI(lua_State* L) {
                     lua_pushstring(L, gh->getAchievementName(achId).c_str());    // 2: name
                     lua_pushnumber(L, gh->getAchievementPoints(achId));          // 3: points
                     lua_pushboolean(L, done ? 1 : 0);                            // 4: completed
-                    lua_pushnumber(L, done ? ((date >> 24) & 0xFF) : 0);         // 5: month
-                    lua_pushnumber(L, done ? ((date >> 16) & 0xFF) : 0);         // 6: day
-                    lua_pushnumber(L, done ? (date & 0xFFFF) : 0);               // 7: year
+                    const game::WowDate on = game::unpackWowPackedTime(date);
+                    lua_pushnumber(L, done ? on.month : 0);                      // 5: month
+                    lua_pushnumber(L, done ? on.day : 0);                        // 6: day
+                    // SHORTDATE formats the year "%02d", so it wants the short
+                    // form rather than a four-digit one.
+                    lua_pushnumber(L, done ? on.yearSince2000 : 0);              // 7: year
                     lua_pushstring(L, gh->getAchievementDescription(achId).c_str()); // 8
                     lua_pushnumber(L, 0);                                        // 9: flags
                     lua_pushnumber(L, gh->getAchievementIconId(achId));            // 10: icon
@@ -2800,10 +2805,11 @@ void registerQuestLuaAPI(lua_State* L) {
             uint32_t date = gh->getAchievementDate(id);
             uint32_t points = gh->getAchievementPoints(id);
             const std::string& desc = gh->getAchievementDescription(id);
-            // Parse date: packed as (month << 24 | day << 16 | year)
-            int month = completed ? static_cast<int>((date >> 24) & 0xFF) : 0;
-            int day = completed ? static_cast<int>((date >> 16) & 0xFF) : 0;
-            int year = completed ? static_cast<int>(date & 0xFFFF) : 0;
+            const game::WowDate earned = game::unpackWowPackedTime(date);
+            int month = completed ? earned.month : 0;
+            int day   = completed ? earned.day : 0;
+            // Short form: SHORTDATE is "%2$d/%1$02d/%3$02d".
+            int year  = completed ? earned.yearSince2000 : 0;
             lua_pushnumber(L, id);                 // 1: id
             lua_pushstring(L, name.c_str());       // 2: name
             lua_pushnumber(L, points);             // 3: points
