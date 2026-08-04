@@ -378,6 +378,11 @@ void GameHandler::registerOpcodeHandlers() {
         }
         if (isLost) knownTitleBits_.erase(titleBit);
         else        knownTitleBits_.insert(titleBit);
+        // And announce it. The set is read by IsTitleKnown, which the character
+        // sheet's title dropdown builds itself from — but only when told to
+        // rebuild, and this is what tells it. Without it a title earned mid
+        // session did not appear in the list until the sheet was reopened.
+        fireAddonEvent("KNOWN_TITLES_UPDATE", {});
         addSystemChatMessage(msg);
         LOG_INFO("SMSG_TITLE_EARNED: bit=", titleBit, " lost=", isLost, " title='", titleStr, "'");
     };

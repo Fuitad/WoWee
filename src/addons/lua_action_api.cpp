@@ -151,10 +151,18 @@ static int lua_IsUsableAction(lua_State* L) {
         return 2;
     }
     const auto& action = bar[slot];
-    bool usable = action.isReady();
+    // Not the cooldown. WoW's answer here is about whether the action *could*
+    // be used — known, affordable, the right stance — and a spell waiting on a
+    // cooldown is all of those. The wait is shown by the sweep over the icon,
+    // which is drawn from GetActionCooldown and nothing to do with this.
+    //
+    // Folding it in here painted the icon dark grey for the whole of every
+    // cooldown, because ActionButton_UpdateUsable has three branches and
+    // "not usable, mana is fine" is the one that means unusable.
+    bool usable = true;
     bool noMana = false;
     if (action.type == game::ActionBarSlot::SPELL) {
-        usable = usable && gh->getKnownSpells().count(action.id);
+        usable = gh->getKnownSpells().count(action.id) > 0;
         // Check power cost
         if (usable && action.id != 0) {
             auto spellData = gh->getSpellData(action.id);
