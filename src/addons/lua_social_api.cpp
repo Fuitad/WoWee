@@ -968,15 +968,16 @@ void registerSocialLuaAPI(lua_State* L) {
             return 10;
         }},
                 // Stationery is the letterhead a mail is written on. The list
-                // is empty, so the picker has no rows and these are the calls
-                // around it.
+                // is empty — GetNumStationeries answers zero from the counting
+                // table in lua_engine.cpp — so the picker has no rows and these
+                // are the calls around it.
                 //
-                // The zero below is the one the note here already claimed was
-                // being answered, while nothing bound it: StationeryPopupFrame
-                // opens on a button beside the recipient field and its update
-                // asks the count first, so the picker raised the moment it was
-                // opened. A comment describing a binding is not a binding.
-                {"GetNumStationeries", luaReturnZero},
+                // Deliberately NOT bound here. That table records every name it
+                // answers for under a "count:" prefix so it stays in the
+                // missing-API report, and binding it explicitly would take it
+                // out — which is the one thing that report exists to prevent.
+                // The stationery list is a real feature this client does not
+                // have, and it should keep saying so.
                 {"GetStationeryInfo", [](lua_State* L) -> int { return luaReturnNil(L); }},
                 {"SelectStationery", [](lua_State* L) -> int { (void)L; return 0; }},
                 // Guarded with `if ( texture )` before being pasted into a

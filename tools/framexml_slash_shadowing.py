@@ -12,6 +12,14 @@ behind it.
 Reports only where both sides claim the same command AND FrameXML's handler
 bottoms out in a stub or a missing global — that is the pairing that loses a
 working feature.
+
+KNOWN FALSE POSITIVE: a handler whose *first* branch is a Battle.net call but
+whose else is real. /ignore reads BNet_GetPresenceID, which resolves to
+GetAutoCompletePresenceID answering nil here, and falls through to
+AddOrDelIgnore; /leave gates BNLeaveConversation behind
+`nameNum > MAX_WOW_CHAT_CHANNELS` and otherwise calls LeaveChannelByName. Both
+are bound and both work. Read the whole handler before believing a shadow —
+this sweep sees the first call, not the branch that runs.
 """
 import re
 from pathlib import Path

@@ -73,6 +73,14 @@ provided |= set(re.findall(r'"function\s+(\w+)\s*\(', src))
 provided |= set(re.findall(r'^\s*([A-Za-z_]\w*)\s*=', src, re.M))
 provided |= set(re.findall(r'\{"\w+",\s*"(\w+)",\s*"\w+"\}', src))
 provided |= set(re.findall(r'\{"\w+",\s*"\w+",\s*"(\w+)"\}', src))
+# The counting table in lua_engine.cpp bootstraps a zero for every name in it,
+# precisely so a nil never reaches a `for` limit. Missing it here reported
+# GetLFDLockPlayerCount, GetNumRandomDungeons and GetNumQuestLogRewardFactions
+# as raises when all three answer zero — the exact bug this sweep exists to
+# find, reported against its own fix.
+_counting = re.search(r"local counting = \{(.*?)\}", src, re.S)
+if _counting:
+    provided |= set(re.findall(r"'(\w+)'", _counting.group(1)))
 
 LIMIT_DIRECT = re.compile(r'\bfor\s+\w+\s*=\s*[^,]+,\s*([A-Za-z_]\w*)\s*\(')
 ASSIGN = re.compile(r'\blocal\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z_]\w*)\s*\(')
