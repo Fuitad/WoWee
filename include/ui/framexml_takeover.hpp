@@ -105,6 +105,20 @@ enum class UiElement {
     Trade,
     ReadyCheck,
     RaidWarning,
+    /// The confirmation prompts: StaticPopup1 through 4, which FrameXML reuses
+    /// for every question it asks.
+    ///
+    /// uiparent.lua answers PARTY_INVITE_REQUEST, RESURRECT_REQUEST,
+    /// CONFIRM_SUMMON and CONFIRM_TALENT_WIPE with one, and this client fires
+    /// all four while drawing its own dialog for each — so every one of those
+    /// was asked twice.
+    ///
+    /// This is the one that goes to FrameXML rather than staying here, because
+    /// a StaticPopup is also how an item is deleted: the bags are handed over,
+    /// so containerframe.lua raises the delete confirmation and this client has
+    /// no other way to ask. Keeping our own four and hiding FrameXML's would
+    /// have traded four duplicates for no way to destroy an item.
+    Dialogs,
     /// Windows this client draws that FrameXML also has. The last three cannot
     /// appear today because the events that would show them are not fired —
     /// but that is a fact about the client's current reach, not a decision,

@@ -38,7 +38,17 @@ static std::string buildItemChatLink(uint32_t itemId, uint8_t quality, const std
 void DialogManager::renderDialogs(game::GameHandler& gameHandler,
                                   InventoryScreen& inventoryScreen,
                                   ChatPanel& chatPanel) {
-    renderGroupInvitePopup(gameHandler);
+    // The four prompts FrameXML asks with a StaticPopup of its own, on events
+    // this client fires: the group invite here, the summon below, and the
+    // resurrect and talent wipe in renderLateDialogs. Whichever side asks the
+    // question answers it — AcceptGroup, DeclineGroup, AcceptResurrect,
+    // ConfirmSummon and ConfirmTalentWipe are all bound, so FrameXML's buttons
+    // do the same thing these do.
+    //
+    // The rest below have no FrameXML counterpart that can appear: the duel,
+    // the guild invite, the battleground invites and the LFG pair are all
+    // raised from events that are not fired.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderGroupInvitePopup(gameHandler);
     renderDuelRequestPopup(gameHandler);
     renderDuelCountdown(gameHandler);
     // The roll dialog belongs to the loot window, and FrameXML has four of its
@@ -49,7 +59,7 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
     }
     renderTradeRequestPopup(gameHandler);
     renderTradeWindow(gameHandler, inventoryScreen, chatPanel);
-    renderSummonRequestPopup(gameHandler);
+    if (!frameXmlOwns(UiElement::Dialogs)) renderSummonRequestPopup(gameHandler);
     renderSharedQuestPopup(gameHandler);
     renderItemTextWindow(gameHandler);
     renderGuildInvitePopup(gameHandler);
@@ -64,8 +74,10 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
 // Render late dialogs (resurrect, talent wipe, pet unlearn)
 // ---------------------------------------------------------------------------
 void DialogManager::renderLateDialogs(game::GameHandler& gameHandler) {
-    renderResurrectDialog(gameHandler);
-    renderTalentWipeConfirmDialog(gameHandler);
+    if (!frameXmlOwns(UiElement::Dialogs)) {
+        renderResurrectDialog(gameHandler);
+        renderTalentWipeConfirmDialog(gameHandler);
+    }
     renderPetUnlearnConfirmDialog(gameHandler);
 }
 

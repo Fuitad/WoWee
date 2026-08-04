@@ -15,7 +15,7 @@ namespace {
 struct Entry { UiElement element; std::string_view name; };
 
 // One row per element, and the only place a name is written down.
-constexpr std::array<Entry, 49> kElements{{
+constexpr std::array<Entry, 50> kElements{{
     {UiElement::PlayerFrame,  "playerframe"},
     {UiElement::TargetFrame,  "targetframe"},
     {UiElement::PetFrame,     "petframe"},
@@ -54,6 +54,7 @@ constexpr std::array<Entry, 49> kElements{{
     {UiElement::Trade,        "trade"},
     {UiElement::ReadyCheck,   "readycheck"},
     {UiElement::RaidWarning,  "raidwarning"},
+    {UiElement::Dialogs,      "dialogs"},
     {UiElement::Achievements, "achievements"},
     {UiElement::BarberShop,   "barbershop"},
     {UiElement::Taxi,         "taxi"},
@@ -92,7 +93,7 @@ const std::set<std::string>& requested() {
                 "playerframe", "targetframe", "minimap",
                 "mainmenubar", "characterframe", "bags", "castbar",
                 "spellbook", "petframe", "focusframe", "buffs", "durability",
-                "zonetext"};
+                "zonetext", "dialogs"};
         }();
 
         if (!raw || !*raw) {
@@ -372,6 +373,11 @@ const Suppress kSuppress[] = {
         // client draws raid warnings by scanning the chat history rather than
         // from the event, so the two would not cancel out if it ever were.
         {UiElement::RaidWarning, "RaidWarningFrame RaidBossEmoteFrame"},
+        // Symmetric with the four client dialogs gated on this element: a
+        // run that hands the prompts back to this client hides FrameXML's,
+        // or the duplicate simply swaps sides.
+        {UiElement::Dialogs,     "StaticPopup1 StaticPopup2 StaticPopup3 "
+                                 "StaticPopup4"},
         // These four arrive with the load-on-demand addons, which now load —
         // so making them work is what put a second window beside the client's
         // at every profession, trainer, auctioneer and guild bank. The panels

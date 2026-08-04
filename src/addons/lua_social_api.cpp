@@ -1593,6 +1593,29 @@ void registerSocialLuaAPI(lua_State* L) {
             if (auto* gh = getGameHandler(L)) gh->initiateReadyCheck();
             return 0;
         }},
+                // The buttons on FrameXML's summon and talent-wipe popups.
+                // Both prompts are raised — uiparent.lua answers CONFIRM_SUMMON
+                // and CONFIRM_TALENT_WIPE, and this client fires both — so
+                // without these the popup appeared and neither button did
+                // anything. The client's own dialogs were the only way to
+                // answer either, which is the shape this branch keeps finding:
+                // a capability reachable from one of this client's own windows
+                // and from nowhere else.
+                {"ConfirmSummon", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->acceptSummon();
+            return 0;
+        }},
+                {"CancelSummon", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->declineSummon();
+            return 0;
+        }},
+                // The popup's own OnCancel only hides the talent frame, so
+                // there is no DeclineTalentWipe to bind — cancelTalentWipe is
+                // this client's bookkeeping and runs when the popup goes.
+                {"ConfirmTalentWipe", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->confirmTalentWipe();
+            return 0;
+        }},
                 {"AcceptGroup",         lua_AcceptGroup},
                 {"DeclineGroup",        lua_DeclineGroup},
                 {"AcceptGuild",         lua_AcceptGuild},
