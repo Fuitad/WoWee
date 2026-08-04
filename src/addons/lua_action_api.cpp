@@ -50,6 +50,28 @@ static int        s_cursorBag  = -1;   // source bag for container items
 /// the bar is lost.
 static int lua_PickupPetAction(lua_State* L) { (void)L; return 0; }
 
+/// Change what the cursor is holding, and say so.
+///
+/// CURSOR_UPDATE is how the interface learns the cursor picked something up or
+/// put it down — action buttons redraw their highlight on it, and the
+/// equipment and container frames test the cursor from it. Thirteen places set
+/// this and none of them said anything, so the cursor changed silently.
+///
+/// Every one of those thirteen goes through here. Converting some and not
+/// others would give a cursor that announces half its changes, which is harder
+/// to reason about than one that announces none.
+///
+/// Only on an actual change: several of these run on every click of an empty
+/// slot, setting NONE over NONE, and the interface would redraw for each.
+static void setCursorType(lua_State* L, CursorType type) {
+    if (s_cursorType == type) return;
+    s_cursorType = type;
+    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_lua_engine");
+    auto* engine = static_cast<LuaEngine*>(lua_touserdata(L, -1));
+    lua_pop(L, 1);
+    if (engine) engine->fireEvent("CURSOR_UPDATE", {});
+}
+
 static int lua_HasAction(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnFalse(L); }
@@ -324,7 +346,7 @@ static int lua_UseAction(lua_State* L) {
 
 static int lua_ClearCursor(lua_State* L) {
     (void)L;
-    s_cursorType = CursorType::NONE;
+    setCursorType(L, CursorType::NONE);
     s_cursorId = 0;
     s_cursorSlot = 0;
     s_cursorBag = -1;
@@ -378,14 +400,14 @@ static int lua_PickupAction(lua_State* L) {
         // Empty slot — if cursor has something, place it
         if (s_cursorType == CursorType::SPELL && s_cursorId != 0) {
             gh->setActionBarSlot(slot - 1, game::ActionBarSlot::SPELL, s_cursorId);
-            s_cursorType = CursorType::NONE;
+            setCursorType(L, CursorType::NONE);
             s_cursorId = 0;
         }
     } else {
         // Pick up existing action
-        s_cursorType = (action.type == game::ActionBarSlot::SPELL) ? CursorType::SPELL :
+        setCursorType(L, (action.type == game::ActionBarSlot::SPELL) ? CursorType::SPELL :
                        (action.type == game::ActionBarSlot::ITEM)  ? CursorType::ITEM :
-                       CursorType::ACTION;
+                       CursorType::ACTION);
         s_cursorId = action.id;
         s_cursorSlot = slot;
     }
@@ -405,7 +427,7 @@ static int lua_PlaceAction(lua_State* L) {
     } else if (s_cursorType == CursorType::MACRO && s_cursorId != 0) {
         gh->setActionBarSlot(slot - 1, game::ActionBarSlot::MACRO, s_cursorId);
     }
-    s_cursorType = CursorType::NONE;
+    setCursorType(L, CursorType::NONE);
     s_cursorId = 0;
     return 0;
 }
@@ -419,7 +441,7 @@ static int lua_PickupSpell(lua_State* L) {
     int idx = slot;
     for (const auto& tab : tabs) {
         if (idx <= static_cast<int>(tab.spellIds.size())) {
-            s_cursorType = CursorType::SPELL;
+            setCursorType(L, CursorType::SPELL);
             s_cursorId = tab.spellIds[idx - 1];
             return 0;
         }
@@ -458,8 +480,8 @@ static bool cursorWireSlot(uint8_t& bag, uint8_t& slot) {
 }
 
 /// Put the cursor down.
-static void clearCursorItem() {
-    s_cursorType = CursorType::NONE;
+static void clearCursorItem(lua_State* L) {
+    setCursorType(L, CursorType::NONE);
     s_cursorId = 0;
     s_cursorSlot = 0;
     s_cursorBag = -1;
@@ -496,7 +518,7 @@ static int lua_PickupContainerItem(lua_State* L) {
         // swap a slot with itself.
         if (s_cursorBag == bag && s_cursorSlot == slot) {
             const int sameBag = bag, sameSlot = slot;
-            clearCursorItem();
+            clearCursorItem(L);
             gh->fireAddonEvent("ITEM_LOCK_CHANGED",
                                {std::to_string(sameBag), std::to_string(sameSlot)});
             return 0;
@@ -504,7 +526,7 @@ static int lua_PickupContainerItem(lua_State* L) {
 
         const int wasBag = s_cursorBag, wasSlot = s_cursorSlot;
         gh->swapContainerItems(srcBag, srcSlot, dstBag, dstSlot);
-        clearCursorItem();
+        clearCursorItem(L);
         gh->fireAddonEvent("ITEM_LOCK_CHANGED",
                            {std::to_string(wasBag), std::to_string(wasSlot)});
         gh->fireAddonEvent("ITEM_LOCK_CHANGED",
@@ -523,7 +545,7 @@ static int lua_PickupContainerItem(lua_State* L) {
         }
     }
     if (itemSlot && !itemSlot->empty()) {
-        s_cursorType = CursorType::ITEM;
+        setCursorType(L, CursorType::ITEM);
         s_cursorId = itemSlot->item.itemId;
         s_cursorBag = bag;
         s_cursorSlot = slot;
@@ -571,7 +593,7 @@ static int lua_ClickSendMailItemButton(lua_State* L) {
             : (s_cursorBag > 0
                    ? gh->attachItemFromBag(s_cursorBag - 1, s_cursorSlot - 1)
                    : false);
-        if (attached) clearCursorItem();
+        if (attached) clearCursorItem(L);
         return 0;
     }
 
@@ -607,13 +629,13 @@ static int lua_PickupBagFromSlot(lua_State* L) {
     if (cursorWireSlot(srcBag, srcSlot)) {
         gh->swapContainerItems(srcBag, srcSlot, 0xFF,
                                static_cast<uint8_t>(game::slots::toWireSlot(slot)));
-        clearCursorItem();
+        clearCursorItem(L);
         return 0;
     }
 
     const auto& held = gh->getInventory().getBankBagItem(bagIndex);
     if (held.empty()) return 0;
-    s_cursorType = CursorType::ITEM;
+    setCursorType(L, CursorType::ITEM);
     s_cursorId = held.item.itemId;
     s_cursorSlot = slot;
     s_cursorBag = -1;
@@ -631,14 +653,14 @@ static int lua_PickupInventoryItem(lua_State* L) {
     if (cursorWireSlot(srcBag, srcSlot)) {
         gh->swapContainerItems(srcBag, srcSlot, 0xFF,
                                static_cast<uint8_t>(slot - 1));
-        clearCursorItem();
+        clearCursorItem(L);
         return 0;
     }
 
     const auto& inv = gh->getInventory();
     const auto& eq = inv.getEquipSlot(static_cast<game::EquipSlot>(slot - 1));
     if (!eq.empty()) {
-        s_cursorType = CursorType::ITEM;
+        setCursorType(L, CursorType::ITEM);
         s_cursorId = eq.item.itemId;
         s_cursorSlot = slot;
         s_cursorBag = -1;
@@ -672,7 +694,7 @@ static int lua_PickupInventoryItem(lua_State* L) {
 // DeleteCursorItem() — destroys the item on cursor
 static int lua_DeleteCursorItem(lua_State* L) {
     (void)L;
-    s_cursorType = CursorType::NONE;
+    setCursorType(L, CursorType::NONE);
     s_cursorId = 0;
     return 0;
 }
@@ -683,7 +705,7 @@ static int lua_AutoEquipCursorItem(lua_State* L) {
     if (gh && s_cursorType == CursorType::ITEM && s_cursorId != 0) {
         gh->useItemById(s_cursorId);
     }
-    s_cursorType = CursorType::NONE;
+    setCursorType(L, CursorType::NONE);
     s_cursorId = 0;
     return 0;
 }
@@ -822,7 +844,7 @@ static int lua_ClickTradeButton(lua_State* L) {
         gh->setTradeItem(static_cast<uint8_t>(i - 1),
                          static_cast<uint8_t>(s_cursorBag),
                          static_cast<uint8_t>(s_cursorSlot));
-        s_cursorType = CursorType::NONE;
+        setCursorType(L, CursorType::NONE);
         s_cursorId = 0;
         s_cursorBag = -1;
     } else {
@@ -1297,7 +1319,7 @@ void registerActionLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const uint32_t id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
             if (!gh || id == 0 || gh->getMacroText(id).empty()) return 0;
-            s_cursorType = CursorType::MACRO;
+            setCursorType(L, CursorType::MACRO);
             s_cursorId = id;
             std::string icon = gh->getMacroIcon(id);
             if (icon.empty()) icon = "Interface\\Icons\\INV_Misc_QuestionMark";

@@ -138,11 +138,11 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     characterframe's three events split the same way. KNOWN_TITLES_UPDATE
     shares its branch with UNIT_NAME_UPDATE and PLAYER_DAMAGE_DONE_MODS shares
     its with UNIT_STATS; both siblings are fired, so both branches already run.
-    CURSOR_UPDATE is the one that is real: s_cursorType in lua_action_api.cpp
-    is this client's cursor and changes at thirteen sites, none of which say
-    so. Firing it wants a setter those thirteen go through — mechanical, but a
-    cursor that announces half its changes is harder to reason about than one
-    that announces none, so it is all of them or nothing.
+    CURSOR_UPDATE was the one that was real, and is done: all thirteen sites
+    now go through setCursorType, which fires on an actual change. It was
+    deferred three times as unverifiable and was not — the awkward part was
+    never the count but clearCursorItem, a helper with no lua_State to fire
+    from, which the compiler named in one line.
 
     The inverse also exists and is worth naming: announced but never read. An
     event whose handler is reachable is still pointless if what that handler
