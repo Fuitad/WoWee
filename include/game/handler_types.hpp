@@ -228,6 +228,15 @@ struct GossipPoi {
 
 // ---- Instance lockouts ----
 
+/// A mount or a critter the player knows, as the character sheet's pet tab
+/// lists them. Both are spells; what separates them is what the spell does.
+struct Companion {
+    uint32_t spellId = 0;
+    uint32_t creatureId = 0;   // EffectMiscValue — the creature summoned or ridden
+    std::string name;
+    bool isMount = false;
+};
+
 /// One row of LFGDungeons.dbc, as the dungeon finder needs it.
 ///
 /// Field indices were read off the file rather than assumed: 195 records of 49

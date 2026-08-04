@@ -2157,6 +2157,7 @@ void SpellHandler::handleAuraUpdate(network::Packet& packet, bool isAll) {
             else if (data.guid == owner_.petGuidRef()) unitId = "pet";
             if (!unitId.empty())
                 owner_.addonEventCallbackRef()("UNIT_AURA", {unitId});
+                if (unitId == "player") owner_.announceCompanionChange();
         }
 
         // Mount aura detection
@@ -2232,6 +2233,10 @@ void SpellHandler::handleLearnedSpell(network::Packet& packet) {
     if (!alreadyKnown && owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("LEARNED_SPELL_IN_TAB", {std::to_string(spellId)});
         owner_.addonEventCallbackRef()("SPELLS_CHANGED", {});
+        // The mounts and critters list is built from the spellbook, so a new
+        // spell can add to it. petpaperdollframe refreshes on this and on
+        // nothing else, which is why the tab stayed as it was first drawn.
+        owner_.addonEventCallbackRef()("COMPANION_LEARNED", {});
         // A crafting window's recipes are the spells that just changed, and
         // it refreshes on its own event rather than on that one.
         if (craftingWindowOpen_) owner_.addonEventCallbackRef()("TRADE_SKILL_UPDATE", {});
@@ -4128,6 +4133,9 @@ void SpellHandler::handleExtraAuraInfo(network::Packet& packet, bool isInit) {
         else if (auraTargetGuid == owner_.focusGuidRef()) unitId = "focus";
         else if (auraTargetGuid == owner_.petGuidRef()) unitId = "pet";
         if (!unitId.empty()) owner_.addonEventCallbackRef()("UNIT_AURA", {unitId});
+        // Whether a companion is out is an aura on the player, so the tab's
+        // "active" mark moves with one.
+        if (unitId == "player") owner_.announceCompanionChange();
     }
     if (auraTargetGuid == owner_.getPlayerGuid()) {
         refreshRestorationFromPlayerAuras();

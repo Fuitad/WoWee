@@ -509,6 +509,7 @@ void EntityController::syncPreWotlkAurasFromFields(const std::shared_ptr<Entity>
         LOG_WARNING("player auras on first rebuild: ", owner_.getPlayerAuras().size());
     }
     pendingEvents_.emit("UNIT_AURA", {"player"});
+    owner_.announceCompanionChange();
     // Tracking is one of these auras, and the minimap's tracking icon is drawn
     // from whichever tracking spell is active — GetTrackingTexture walks the
     // player's tracking spells and asks exactly this aura list. The icon

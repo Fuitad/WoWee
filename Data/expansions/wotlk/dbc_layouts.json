@@ -255,7 +255,13 @@
     "Tooltip": 187,
     "EffectApplyAuraName0": 95,
     "EffectApplyAuraName1": 96,
-    "EffectApplyAuraName2": 97
+    "EffectApplyAuraName2": 97,
+    "EffectMiscValue0": 110,
+    "EffectMiscValue1": 111,
+    "EffectMiscValue2": 112,
+    "EffectMiscValueB0": 113,
+    "EffectMiscValueB1": 114,
+    "EffectMiscValueB2": 115
   },
   "SpellIcon": {
     "ID": 0,

@@ -2729,8 +2729,37 @@ void registerUnitLuaAPI(lua_State* L) {
                 // would call if it did.
                 {"GetCompanionCooldown",    [](lua_State* L) -> int {
             lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 0); return 3; }},
-                {"CallCompanion",           [](lua_State* L) -> int { (void)L; return 0; }},
-                {"DismissCompanion",        [](lua_State* L) -> int { (void)L; return 0; }},
+                // Summoning a mount or a critter is casting its spell — there
+                // is no separate companion message on the wire in 3.3.5, which
+                // is why these two were no-ops beside a list that was empty
+                // anyway.
+                {"CallCompanion", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* kind = luaL_optstring(L, 1, "");
+            const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+            if (!gh || index < 1) return 0;
+            const auto& list = gh->getCompanions(std::string(kind) == "MOUNT");
+            if (index <= static_cast<int>(list.size())) {
+                gh->castSpell(list[static_cast<size_t>(index) - 1].spellId, 0);
+            }
+            return 0;
+        }},
+                // Putting one away is cancelling its aura, which is the same
+                // thing right-clicking the buff does.
+                {"DismissCompanion", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* kind = luaL_optstring(L, 1, "");
+            if (!gh) return 0;
+            const auto& list = gh->getCompanions(std::string(kind) == "MOUNT");
+            for (const auto& c : list) {
+                for (const auto& a : gh->getPlayerAuras()) {
+                    if (a.spellId != c.spellId) continue;
+                    gh->cancelAura(c.spellId);
+                    return 0;
+                }
+            }
+            return 0;
+        }},
                 {"PickupCompanion",         [](lua_State* L) -> int { (void)L; return 0; }},
                 {"IsTitleKnown",            [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);

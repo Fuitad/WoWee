@@ -2550,7 +2550,35 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"VoiceSelectOutputDevice",  lua_ReturnNothing},
                 {"VoiceChat_StopPlayingLoopbackSound",   lua_ReturnNothing},
                 {"VoiceChat_StopRecordingLoopbackSound", lua_ReturnNothing},
-                {"GetCompanionInfo",         lua_ReturnNil},
+                // GetCompanionInfo(type, index) → creatureID, creatureName,
+                // spellID, icon, active
+                //
+                // "MOUNT" or "CRITTER". Both are spells the player knows, told
+                // apart by what the spell does — see rebuildCompanions.
+                {"GetCompanionInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* kind = luaL_optstring(L, 1, "");
+            const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+            if (!gh || index < 1) return luaReturnNil(L);
+            const bool mounts = std::string(kind) == "MOUNT";
+            const auto& list = gh->getCompanions(mounts);
+            if (index > static_cast<int>(list.size())) return luaReturnNil(L);
+            const auto& c = list[static_cast<size_t>(index) - 1];
+            lua_pushnumber(L, c.creatureId);
+            lua_pushstring(L, c.name.c_str());
+            lua_pushnumber(L, c.spellId);
+            lua_pushstring(L, gh->getSpellIconPath(c.spellId).c_str());
+            // Whether it is out. A mount is an aura on the player; a critter is
+            // the pet that is following, and neither is tracked per companion —
+            // so this reads from what is actually active rather than from a
+            // flag nobody sets.
+            bool active = false;
+            for (const auto& a : gh->getPlayerAuras()) {
+                if (a.spellId == c.spellId) { active = true; break; }
+            }
+            lua_pushboolean(L, active ? 1 : 0);
+            return 5;
+        }},
                 // Counts, and the count is the whole point: each of these is
                 // read straight into `for i = 1, X()`, where a nil limit is
                 // not an empty loop but an error — "'for' limit must be a
@@ -2572,7 +2600,13 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetNumTitles", [](lua_State* L) -> int {
             lua_pushnumber(L, 192); return 1;
         }},
-                {"GetNumCompanions",         lua_ReturnZero},
+                {"GetNumCompanions", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* kind = luaL_optstring(L, 1, "");
+            const bool mounts = std::string(kind) == "MOUNT";
+            lua_pushnumber(L, gh ? static_cast<double>(gh->getCompanions(mounts).size()) : 0.0);
+            return 1;
+        }},
                 // The knowledge base is the server's FAQ, and there is no
                 // server here answering for it. Its category dropdown is
                 // reached from the "?" micro button beside the action bar, so

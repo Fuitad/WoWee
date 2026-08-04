@@ -2782,6 +2782,107 @@ void GameHandler::loadLfgDungeonDbc() const {
              lfgDungeons_.size(), " listable entries");
 }
 
+// ---------------------------------------------------------------------------
+// Mounts and critters
+//
+// The pet tab lists both, and both are spells the player knows. What separates
+// them is what the spell does, which is in Spell.dbc:
+//
+//   a mount   applies aura 78 (SPELL_AURA_MOUNTED)
+//   a critter uses effect 28 (SPELL_EFFECT_SUMMON) with EffectMiscValueB 41,
+//             which is the critter SummonProperties row
+//
+// Both checked against the file rather than assumed: aura 78 picks out Brown
+// Horse, Gray Wolf and White Stallion, and effect 28 with miscB 41 picks out
+// Mechanical Squirrel, Cockroach and Worg Pup. EffectMiscValue beside it is the
+// creature, which is what GetCompanionInfo reports first.
+// ---------------------------------------------------------------------------
+void GameHandler::rebuildCompanions() const {
+    const auto& known = getKnownSpells();
+    // Only the spellbook changing can change the answer, and it changes rarely.
+    if (companionsBuiltFromSpellCount_ == known.size()) return;
+    companionsBuiltFromSpellCount_ = known.size();
+    mountSpells_.clear();
+    critterSpells_.clear();
+
+    auto* am = services_.assetManager;
+    if (!am || !am->isInitialized()) return;
+    auto dbc = am->loadDBC("Spell.dbc");
+    if (!dbc || !dbc->isLoaded()) return;
+
+    const auto* layout = pipeline::getActiveDBCLayout()
+        ? pipeline::getActiveDBCLayout()->getLayout("Spell") : nullptr;
+    if (!layout) return;
+    const uint32_t idField = (*layout)["ID"];
+
+    // Built once per rebuild rather than searched per spell: the file is fifty
+    // thousand rows and the spellbook is a few hundred.
+    std::unordered_map<uint32_t, uint32_t> rowOfSpell;
+    rowOfSpell.reserve(dbc->getRecordCount());
+    for (uint32_t row = 0; row < dbc->getRecordCount(); ++row) {
+        rowOfSpell[dbc->getUInt32(row, idField)] = row;
+    }
+
+    constexpr uint32_t kAuraMounted = 78;
+    constexpr uint32_t kEffectSummon = 28;
+    constexpr uint32_t kCritterSummonProperties = 41;
+
+    for (uint32_t spellId : known) {
+        auto it = rowOfSpell.find(spellId);
+        if (it == rowOfSpell.end()) continue;
+        const uint32_t row = it->second;
+
+        Companion c;
+        c.spellId = spellId;
+        c.name = getSpellName(spellId);
+        if (c.name.empty()) continue;
+
+        bool mount = false, critter = false;
+        for (int i = 0; i < 3 && !mount && !critter; ++i) {
+            const std::string idx = std::to_string(i);
+            if (dbc->getUInt32(row, (*layout)["EffectApplyAuraName" + idx]) == kAuraMounted) {
+                mount = true;
+            } else if (dbc->getUInt32(row, (*layout)["Effect" + idx]) == kEffectSummon &&
+                       dbc->getUInt32(row, (*layout)["EffectMiscValueB" + idx]) ==
+                           kCritterSummonProperties) {
+                critter = true;
+                c.creatureId = dbc->getUInt32(row, (*layout)["EffectMiscValue" + idx]);
+            }
+        }
+        if (!mount && !critter) continue;
+        c.isMount = mount;
+        (mount ? mountSpells_ : critterSpells_).push_back(std::move(c));
+    }
+
+    auto byName = [](const Companion& a, const Companion& b) { return a.name < b.name; };
+    std::sort(mountSpells_.begin(), mountSpells_.end(), byName);
+    std::sort(critterSpells_.begin(), critterSpells_.end(), byName);
+    LOG_INFO("Companions: ", mountSpells_.size(), " mounts, ",
+             critterSpells_.size(), " critters from ", known.size(), " known spells");
+}
+
+void GameHandler::announceCompanionChange() {
+    if (!addonEventCallback_) return;
+    for (bool mounts : {true, false}) {
+        uint32_t active = 0;
+        for (const auto& c : getCompanions(mounts)) {
+            for (const auto& a : getPlayerAuras()) {
+                if (a.spellId == c.spellId) { active = c.spellId; break; }
+            }
+            if (active) break;
+        }
+        uint32_t& remembered = mounts ? activeMountSpell_ : activeCritterSpell_;
+        if (remembered == active) continue;
+        remembered = active;
+        addonEventCallback_("COMPANION_UPDATE", {mounts ? "MOUNT" : "CRITTER"});
+    }
+}
+
+const std::vector<Companion>& GameHandler::getCompanions(bool mounts) const {
+    rebuildCompanions();
+    return mounts ? mountSpells_ : critterSpells_;
+}
+
 std::string GameHandler::getLfgDungeonName(uint32_t dungeonId) const {
     if (dungeonId == 0) return {};
     loadLfgDungeonDbc();

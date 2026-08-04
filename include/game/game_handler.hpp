@@ -3096,6 +3096,20 @@ public:
     void loadSkillLineAbilityDbc();
     std::string getFactionName(uint32_t factionId) const;
     std::string getLfgDungeonName(uint32_t dungeonId) const;
+    /// The mounts and critters the player knows, as the pet tab lists them.
+    ///
+    /// Both are spells in the spellbook; what tells them apart is what the
+    /// spell does, read from Spell.dbc. A mount applies aura 78; a critter
+    /// summons with SummonProperties 41. Rebuilt when the spellbook changes,
+    /// because that is the only thing that can change the answer.
+    const std::vector<Companion>& getCompanions(bool mounts) const;
+    /// Fire COMPANION_UPDATE if a mount or critter has come out or gone away.
+    ///
+    /// Called from every place the player's auras change, and it has to filter:
+    /// a player's auras move constantly in combat and the pet tab cares about
+    /// two of them.
+    void announceCompanionChange();
+
     /// Every row of LFGDungeons.dbc worth offering, in the order it should be
     /// listed. Built once; the file does not change while the client runs.
     const std::vector<LfgDungeon>& getLfgDungeons() const {
@@ -4083,6 +4097,12 @@ private:
     // LFG dungeon name cache (lazy-loaded from LFGDungeons.dbc; WotLK only)
     mutable std::unordered_map<uint32_t, std::string> lfgDungeonNameCache_;
     mutable std::vector<LfgDungeon> lfgDungeons_;
+    mutable std::vector<Companion> mountSpells_;
+    mutable std::vector<Companion> critterSpells_;
+    mutable size_t companionsBuiltFromSpellCount_ = static_cast<size_t>(-1);
+    uint32_t activeMountSpell_ = 0;
+    uint32_t activeCritterSpell_ = 0;
+    void rebuildCompanions() const;
     mutable bool lfgDungeonNameCacheLoaded_ = false;
     void loadLfgDungeonDbc() const;
     std::vector<TrainerTab> trainerTabs_;
