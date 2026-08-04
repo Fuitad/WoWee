@@ -55,9 +55,15 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
   * Functions defined in a load-on-demand addon (AchievementFrame_*,
     BackpackTokenFrame_Update) are absent only until that addon loads.
   * Names this client answers deliberately as absent because it draws the thing
-    itself — GetMapLandmarkInfo and GetMapOverlayInfo are owned by
+    itself. GetMapLandmarkInfo and GetMapOverlayInfo are owned by
     src/rendering/world_map/, and answering them would draw a second map over
-    the first.
+    the first. The same goes for the barber shop: WindowManager has a working
+    one that reads BarberShopStyle.dbc and sends CMSG_ALTER_APPEARANCE, so
+    GetBarberShopStyleInfo and its four neighbours are absent on purpose.
+
+    Check src/ for an owner before treating an element's remaining names as
+    work. Both of these read as the last unimplemented features for several
+    rounds when neither was unimplemented at all.
 """
 
 import collections
