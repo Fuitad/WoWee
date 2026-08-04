@@ -456,8 +456,8 @@ def main():
         "questlog":     "[checked] every call is the world map API, absent because this client draws its own",
         "questtracker": "[checked] twelve are the same world map API through worldmapframe.lua; the other three are AchievementFrame internals, defined in blizzard_achievementui and absent only until it loads",
         "worldmap":     "[checked] map API is this client's; WORLD_MAP_NAME_UPDATE has no handler branch, CLOSE_WORLD_MAP needs the key to drive Lua",
-        "mail":         "[checked] the refund lock needs item refund state the client does not parse",
-        "help":         "[checked] GMSURVEY_DISPLAY carries questions nothing parses (GMRESPONSE_RECEIVED was wrong here — it is parsed, and is fired now)",
+        "mail":         "[checked] the refund lock is dead on this server — SMSG_ITEM_REFUND_INFO_RESPONSE is STATUS_NEVER in AzerothCore, so the state it needs never arrives",
+        "help":         "[checked] GMSURVEY_DISPLAY carries questions nothing parses; GMRESPONSE_RECEIVED is parsed and fired but SMSG_GMRESPONSE_RECEIVED is STATUS_NEVER in AzerothCore, so it cannot arrive on this server",
     }
     also = [e for e in settled if e not in ready]
     if also:
