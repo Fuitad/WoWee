@@ -2271,6 +2271,18 @@ bool GameHandler::isBattlegroundMap(uint32_t mapId) {
     return false;
 }
 
+bool GameHandler::isArenaMap(uint32_t mapId) {
+    getBattlemasterInfo(0);   // latch the load, as isBattlegroundMap does
+    for (const auto& [id, e] : battlemasterList_) {
+        (void)id;
+        if (e.instanceType != 4) continue;   // 4 = arena
+        for (uint32_t m : e.mapIds) {
+            if (m == mapId) return true;
+        }
+    }
+    return false;
+}
+
 const std::vector<GameHandler::BattlemasterEntry>& GameHandler::getBattlegroundTypes() {
     // Through the same accessor, because that is where the load is latched.
     // Asking for the list before anything asked for an entry would otherwise

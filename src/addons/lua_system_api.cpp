@@ -1697,9 +1697,30 @@ static int lua_GetArenaTeam(lua_State* L) {
     return 22;
 }
 
+// Whether the world the player is standing in is an arena.
+//
+// From BattlemasterList.dbc, which names each row's maps and which this client
+// already reads for the queue list — the arena rows are loaded alongside the
+// battleground ones and only the battlegrounds are kept in the queue list, so
+// the arena maps were sitting there unasked.
+//
+// Both of these answered nil, which the battlefield frame and the arena frame
+// each read as "not an arena". That is right until the player is in one.
+static int lua_IsBattlefieldArena(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushboolean(L, gh && gh->isArenaMap(gh->getCurrentMapId()) ? 1 : 0);
+    return 1;
+}
+
 // IsActiveBattlefieldArena() → isArena, isRegistered
+//
+// The second is whether the team is a registered one rather than a skirmish,
+// which needs the arena team the server never mentions outside a match. Left
+// nil, and the frame treats that as unregistered — which a skirmish is.
 static int lua_IsActiveBattlefieldArena(lua_State* L) {
-    lua_pushnil(L);
+    auto* gh = getGameHandler(L);
+    if (gh && gh->isArenaMap(gh->getCurrentMapId())) lua_pushboolean(L, 1);
+    else lua_pushnil(L);
     lua_pushnil(L);
     return 2;
 }
@@ -2222,6 +2243,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"IsVehicleAimAngleAdjustable",  lua_IsVehicleAimAngleAdjustable},
                 {"HasKey",                       lua_HasKey},
                 {"GetArenaTeam",             lua_GetArenaTeam},
+                {"IsBattlefieldArena",       lua_IsBattlefieldArena},
                 {"IsActiveBattlefieldArena", lua_IsActiveBattlefieldArena},
                 {"CanHearthAndResurrectFromArea", lua_CanHearthAndResurrectFromArea},
                 {"GetWorldPVPQueueStatus",   lua_GetWorldPVPQueueStatus},

@@ -2157,6 +2157,10 @@ public:
 
     /// Whether a map id belongs to a battleground, from the same table.
     bool isBattlegroundMap(uint32_t mapId);
+    /// Whether a map id belongs to an arena. Same table, the other instance
+    /// type — the rows are loaded either way and only the battleground ones
+    /// are kept in the queue list.
+    bool isArenaMap(uint32_t mapId);
 
     // ---- Currencies (CurrencyTypes.dbc) ----
     // In 3.3.5a a currency is a row pointing at an item, and the amount held is
