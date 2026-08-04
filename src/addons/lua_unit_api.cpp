@@ -2473,7 +2473,20 @@ void registerUnitLuaAPI(lua_State* L) {
             return 1;
         }},
                 {"InRepairMode",            lua_ReturnFalse},
-                {"IsInventoryItemLocked",   lua_ReturnFalse},
+                // IsInventoryItemLocked(slot) — that slot's item is on the
+                // cursor, so the paperdoll greys it while it is in the air.
+                // Answering no meant a picked-up item stayed drawn in the slot
+                // it had already left.
+                //
+                // It does show, despite SetDesaturated being a no-op here:
+                // SetItemButtonDesaturated reads the return value as
+                // "shaderSupported" and greys with SetVertexColor(0.5) when it
+                // is falsy, which is the branch a no-op takes.
+                {"IsInventoryItemLocked",   [](lua_State* L) -> int {
+            const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
+            lua_pushboolean(L, slot > 0 && cursorEquipSlot() == slot);
+            return 1;
+        }},
                 // GetInventoryItemBroken(unit, slot) — worn out, so the
                 // paperdoll draws that slot's icon red. The durability is
                 // already tracked and already answered by

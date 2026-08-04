@@ -267,4 +267,8 @@ const game::TalentEntry* talentAt(game::GameHandler* gh, int tabIndex, int talen
 /// it can say which paperdoll slot should light up.
 uint32_t cursorItemId();
 
+/// The paperdoll slot an item on the cursor was picked up from, or zero when it
+/// came from a bag or nothing is held. One-based, as FrameXML numbers slots.
+int cursorEquipSlot();
+
 } // namespace wowee::addons

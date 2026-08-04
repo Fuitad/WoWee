@@ -40,6 +40,12 @@ uint32_t cursorItemId() {
     return s_cursorType == CursorType::ITEM ? s_cursorId : 0;
 }
 
+int cursorEquipSlot() {
+    // s_cursorBag is -1 only for a pickup off the paperdoll, where s_cursorSlot
+    // is the one-based slot the item came out of.
+    return (s_cursorType == CursorType::ITEM && s_cursorBag == -1) ? s_cursorSlot : 0;
+}
+
 /// PickupPetAction(slot) — pick a pet ability up off the pet bar.
 ///
 /// Defined and does nothing. The cursor here holds spells, items, actions and
