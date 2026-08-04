@@ -2625,6 +2625,26 @@ void registerUnitLuaAPI(lua_State* L) {
                 // asks `IsTitleKnown(i) ~= 0` and false compares unequal to
                 // zero — which is the trap that made this a zero rather than a
                 // false in the first place.
+                // The pet tab of the character sheet, which is handed over —
+                // PetPaperDollFrame_SetStats and PetExpBar_Update run whenever
+                // it is shown, so with a pet out these raised on opening it.
+                //
+                // The two modifiers are multipliers, so one is the neutral
+                // answer; zero would have read as a pet with no health at all.
+                {"GetUnitHealthModifier",   [](lua_State* L) -> int {
+            lua_pushnumber(L, 1.0); return 1; }},
+                {"GetUnitPowerModifier",    [](lua_State* L) -> int {
+            lua_pushnumber(L, 1.0); return 1; }},
+                {"GetPetExperience",        [](lua_State* L) -> int {
+            lua_pushnumber(L, 0); lua_pushnumber(L, 0); return 2; }},
+                // Companions and mounts, which this client does not enumerate
+                // — the tab lists nothing, and these are what its buttons
+                // would call if it did.
+                {"GetCompanionCooldown",    [](lua_State* L) -> int {
+            lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 0); return 3; }},
+                {"CallCompanion",           [](lua_State* L) -> int { (void)L; return 0; }},
+                {"DismissCompanion",        [](lua_State* L) -> int { (void)L; return 0; }},
+                {"PickupCompanion",         [](lua_State* L) -> int { (void)L; return 0; }},
                 {"IsTitleKnown",            [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int bit = static_cast<int>(luaL_optnumber(L, 1, -1));

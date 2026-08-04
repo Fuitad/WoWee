@@ -2031,6 +2031,31 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"CheckTalentMasterDist", [](lua_State* L) -> int {
             lua_pushboolean(L, 1); return 1;
         }},
+                // ---- Reached through FrameXML's own calls, not directly ----
+                //
+                // Found by walking outward from each unbound name to the live
+                // file that reaches it, rather than judging by the file the
+                // call is written in. That distinction had already cost two
+                // live raises: GetQuestGreenRange is written in uiparent.lua
+                // and reached from the target frame, GetBindingByKey the same
+                // way from static popups.
+                //
+                // The Battle.net set arrives through the unit menu:
+                // UnitPopup_OnUpdate asks CanCooperateWithToon, which calls
+                // BNGetToonInfo with nothing guarding it. Answering nothing
+                // makes the comparison that follows false, which is the same
+                // outcome as having no Battle.net friends.
+                {"BNGetToonInfo",               [](lua_State* L) -> int { (void)L; return 0; }},
+                {"BNGetFriendInfo",             [](lua_State* L) -> int { (void)L; return 0; }},
+                {"BNGetFriendInfoByID",         [](lua_State* L) -> int { (void)L; return 0; }},
+                {"BNGetFriendInviteInfo",       [](lua_State* L) -> int { (void)L; return 0; }},
+                {"BNGetNumConversationMembers", [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
+                {"BNGetConversationMemberInfo", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"BNRequestFOFInfo",            [](lua_State* L) -> int { (void)L; return 0; }},
+                // The battleground queue timer, read in a loop from the
+                // minimap's battlefield icon while it is shown.
+                {"GetBattlefieldPortExpiration", [](lua_State* L) -> int {
+            lua_pushnumber(L, 0); return 1; }},
                 {"InCinematic", [](lua_State* L) -> int {
             lua_pushboolean(L, 0); return 1;
         }},
