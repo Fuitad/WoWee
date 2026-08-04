@@ -3179,6 +3179,11 @@ uint8_t GameHandler::getLfgOfferedRoles() const {
     return socialHandler_ ? socialHandler_->getLfgOfferedRoles() : 0;
 }
 
+const std::vector<LfgProposalMember>& GameHandler::getLfgProposalMembers() const {
+    static const std::vector<LfgProposalMember> empty;
+    return socialHandler_ ? socialHandler_->getLfgProposalMembers() : empty;
+}
+
 int32_t GameHandler::getLfgAvgWaitSec() const {
     return socialHandler_ ? socialHandler_->getLfgAvgWaitSec() : -1;
 }

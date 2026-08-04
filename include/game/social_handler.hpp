@@ -244,6 +244,9 @@ public:
     /// them and keep nothing, so the panel reading its own checkboxes back, and
     /// the ready dialog naming the role it found you a group for, had no source.
     uint8_t getLfgOfferedRoles() const { return lfgOfferedRoles_; }
+    const std::vector<LfgProposalMember>& getLfgProposalMembers() const {
+        return lfgProposalMembers_;
+    }
 
     // Instance lockouts
     const std::vector<InstanceLockout>& getInstanceLockouts() const { return instanceLockouts_; }
@@ -496,6 +499,8 @@ private:
     /// reset the countdown and the ticks beside every name.
     uint32_t shownProposalId_ = 0;
     uint8_t  lfgOfferedRoles_ = 0;
+    /// The group a proposal is offering, in the order the server lists it.
+    std::vector<LfgProposalMember> lfgProposalMembers_;
     int32_t  lfgAvgWaitSec_   = -1;
     uint32_t lfgTimeInQueueMs_= 0;
     uint32_t lfgBootVotes_    = 0;

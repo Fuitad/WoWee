@@ -2999,11 +2999,42 @@ void SocialHandler::handleLfgQueueStatus(network::Packet& packet) {
 }
 
 void SocialHandler::handleLfgProposalUpdate(network::Packet& packet) {
-    if (!packet.hasRemaining(17)) return;
-    uint32_t dungeonId = packet.readUInt32();
-    uint32_t proposalId = packet.readUInt32();
-    uint32_t proposalState = packet.readUInt32();
-    packet.readUInt32(); packet.readUInt8();
+    // The header is fifteen bytes, and the state is ONE of them.
+    //
+    // This read three uint32s where the server writes dungeon(4), state(1),
+    // id(4), encounters(4), silent(1), size(1) — so the proposal id came out of
+    // the state byte plus three bytes of the id, and the state itself out of
+    // the id's last byte plus three of the encounter count. Every branch below
+    // was taken on a number assembled from the wrong bytes, which is why the
+    // pop never behaved: it was not that the state was unhandled, it was never
+    // read.
+    if (!packet.hasRemaining(15)) return;
+    const uint32_t dungeonEntry = packet.readUInt32();
+    const uint32_t proposalState = packet.readUInt8();
+    const uint32_t proposalId = packet.readUInt32();
+    const uint32_t encountersDone = packet.readUInt32();
+    // "silent" means do NOT raise the window — the player is already in the
+    // group being proposed to, so there is nothing to accept.
+    const bool silent = packet.readUInt8() != 0;
+    const uint8_t groupSize = packet.hasRemaining(1) ? packet.readUInt8() : 0;
+    (void)encountersDone;
+
+    // The entry packs the dungeon and its type, the same way
+    // LFGDungeonData::Entry builds it.
+    const uint32_t dungeonId = dungeonEntry & 0x00FFFFFFu;
+
+    lfgProposalMembers_.clear();
+    for (uint8_t i = 0; i < groupSize && packet.hasRemaining(9); ++i) {
+        LfgProposalMember m;
+        m.role      = packet.readUInt32();
+        m.isSelf    = packet.readUInt8() != 0;
+        m.inDungeon = packet.readUInt8() != 0;
+        m.sameGroup = packet.readUInt8() != 0;
+        m.answered  = packet.readUInt8() != 0;
+        m.accepted  = packet.readUInt8() != 0;
+        lfgProposalMembers_.push_back(m);
+    }
+
     lfgDungeonId_ = dungeonId; lfgProposalId_ = proposalId;
     switch (proposalState) {
         case 0: lfgState_ = LfgState::Queued; lfgProposalId_ = 0;
@@ -3041,7 +3072,9 @@ void SocialHandler::handleLfgProposalUpdate(network::Packet& packet) {
             fire("LFG_PROPOSAL_SUCCEEDED", {});
             break;
         case 2:
-            if (shownProposalId_ != proposalId) {
+            // Not when the server says silent: that means the player is
+            // already in the group being proposed to and has nothing to answer.
+            if (!silent && shownProposalId_ != proposalId) {
                 shownProposalId_ = proposalId;
                 fire("LFG_PROPOSAL_SHOW", {});
             }

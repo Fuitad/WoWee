@@ -1627,6 +1627,7 @@ public:
     std::string getMapName(uint32_t mapId) const;
     uint32_t getLfgProposalId() const;
     uint8_t  getLfgOfferedRoles() const;
+    const std::vector<LfgProposalMember>& getLfgProposalMembers() const;
     int32_t  getLfgAvgWaitSec() const;
     uint32_t getLfgTimeInQueueMs() const;
     uint32_t getLfgBootVotes() const;

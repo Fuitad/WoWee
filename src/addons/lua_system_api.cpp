@@ -1619,10 +1619,10 @@ static int lua_GetLFGProposal(lua_State* L) {
     // pop is, and keeps the dialog off its in-progress layout.
     lua_pushnumber(L, 0);                                        // 8: totalEncounters
     lua_pushnumber(L, 0);                                        // 9: completedEncounters
-    // Zero rather than five: the per-member rows come from
-    // GetLFGProposalMember, which has nothing to answer with, so a count would
-    // draw rows with no one in them.
-    lua_pushnumber(L, 0);                                        // 10: numMembers
+    // The real count now that the roster is parsed — each row is a role icon
+    // and a tick, both of which GetLFGProposalMember can answer.
+    lua_pushnumber(L, static_cast<double>(gh->getLfgProposalMembers().size()));  // 10
+
     lua_pushboolean(L, 0);                                       // 11: isLeader
     return 11;
 }

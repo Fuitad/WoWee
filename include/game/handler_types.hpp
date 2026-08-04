@@ -228,6 +228,20 @@ struct GossipPoi {
 
 // ---- Instance lockouts ----
 
+/// One row of the dungeon-ready dialog: who the proposal is offering, and
+/// whether they have answered it yet.
+///
+/// The server sends no names or levels here — only what each player is for and
+/// what they have said — so those stay empty rather than being invented.
+struct LfgProposalMember {
+    uint32_t role = 0;      // LFG role mask, same bits SetLFGRoles sends
+    bool isSelf = false;
+    bool inDungeon = false;
+    bool sameGroup = false;
+    bool answered = false;
+    bool accepted = false;
+};
+
 /// A mount or a critter the player knows, as the character sheet's pet tab
 /// lists them. Both are spells; what separates them is what the spell does.
 struct Companion {

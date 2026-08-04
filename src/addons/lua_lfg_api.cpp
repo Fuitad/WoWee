@@ -352,11 +352,34 @@ void registerLfgLuaAPI(lua_State* L) {
     // Each of these is a real feature answered empty, not a feature that does
     // not exist. Named separately so a later pass can see what is left.
 
-    // The proposal's per-member and per-encounter breakdown. The client tracks
-    // the proposal id and answers it; who else is in it, and which bosses are
-    // already down, arrive in parts of SMSG_LFG_PROPOSAL_UPDATE it does not
-    // parse.
-    {"GetLFGProposalMember",    [](lua_State* L) -> int { return luaReturnNil(L); }},
+    // GetLFGProposalMember(index) → isLeader, role, level, responded,
+    //                                accepted, name, class
+    //
+    // The proposal does carry its group — role, whether it is you, whether the
+    // player has answered and what they said — once the header is read at the
+    // right offsets. What it does not carry is names, levels or classes: the
+    // server sends none, so those stay nil rather than being invented, and the
+    // dialog draws a role icon and a tick per row, which is what it is for.
+    {"GetLFGProposalMember", [](lua_State* L) -> int {
+        auto* gh = getGameHandler(L);
+        const int index = static_cast<int>(luaL_optinteger(L, 1, 0));
+        if (!gh || index < 1) return luaReturnNil(L);
+        const auto& members = gh->getLfgProposalMembers();
+        if (index > static_cast<int>(members.size())) return luaReturnNil(L);
+        const auto& m = members[static_cast<size_t>(index) - 1];
+        lua_pushboolean(L, 0);                       // 1: isLeader — not sent
+        // The same tokens GetTexCoordsForRole indexes by. The mask is the one
+        // SetLFGRoles sends: 2 tank, 4 healer, 8 damage.
+        lua_pushstring(L, (m.role & 0x02) ? "TANK"
+                        : (m.role & 0x04) ? "HEALER"
+                                          : "DAMAGER");   // 2: role
+        lua_pushnil(L);                              // 3: level — not sent
+        lua_pushboolean(L, m.answered ? 1 : 0);      // 4: responded
+        lua_pushboolean(L, m.accepted ? 1 : 0);      // 5: accepted
+        lua_pushnil(L);                              // 6: name — not sent
+        lua_pushnil(L);                              // 7: class — not sent
+        return 7;
+    }},
     {"GetLFGProposalEncounter", [](lua_State* L) -> int { return luaReturnNil(L); }},
     // The boot vote. getLfgBootVotes and friends have the counts; the name of
     // who is being voted on and the reason given are not parsed.
