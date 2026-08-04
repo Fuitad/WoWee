@@ -1847,6 +1847,15 @@ void SocialHandler::handleGroupList(network::Packet& packet) {
     partyData = GroupListData{};
     if (!GroupListParser::parse(packet, partyData, hasRoles, hasBattleGroupFlag)) return;
 
+    // The roster carries online state in isOnline; the per-member stat updates
+    // carry it in the onlineStatus bitmask. Seed the bitmask from the roster so
+    // both readers agree until the first SMSG_PARTY_MEMBER_STATS arrives —
+    // partyData was just reset, so every onlineStatus is otherwise zero and
+    // every member would read as offline.
+    for (auto& m : partyData.members) {
+        if (m.isOnline) m.onlineStatus |= 0x0001;
+    }
+
     const bool nowInGroup = !partyData.isEmpty();
     if (!nowInGroup && wasInGroup) {
         owner_.addSystemChatMessage("You are no longer in a group.");
@@ -1938,7 +1947,21 @@ void SocialHandler::handlePartyMemberStats(network::Packet& packet, bool isFull)
     }
     if (!member) { packet.skipAll(); return; }
 
-    if (updateFlags & 0x0001) { if (remaining() >= 2) member->onlineStatus = packet.readUInt16(); }
+    // Track the online transition so it can be announced once the packet is
+    // fully read. isOnline is what the Lua bindings read; onlineStatus is what
+    // this client's own panels read. Both describe the same fact, so keep them
+    // in step here — otherwise UnitIsConnected answers with the stale roster
+    // snapshot for as long as the group lasts.
+    const bool wasOnline = (member->onlineStatus & 0x0001) != 0;
+    bool onlineChanged = false;
+    if (updateFlags & 0x0001) {
+        if (remaining() >= 2) {
+            member->onlineStatus = packet.readUInt16();
+            const bool nowOnline = (member->onlineStatus & 0x0001) != 0;
+            member->isOnline = nowOnline ? 1 : 0;
+            onlineChanged = (nowOnline != wasOnline);
+        }
+    }
     if (updateFlags & 0x0002) {
         if (isWotLK) { if (remaining() >= 4) member->curHealth = packet.readUInt32(); }
         else { if (remaining() >= 2) member->curHealth = packet.readUInt16(); }
@@ -2026,6 +2049,14 @@ void SocialHandler::handlePartyMemberStats(network::Packet& packet, bool isFull)
             if (updateFlags & (0x0002 | 0x0004)) owner_.addonEventCallbackRef()("UNIT_HEALTH", {unitId});
             if (updateFlags & (0x0010 | 0x0020)) owner_.addonEventCallbackRef()("UNIT_POWER", {unitId});
             if (updateFlags & 0x0200) owner_.addonEventCallbackRef()("UNIT_AURA", {unitId});
+        }
+        // Fired without arguments, as the retail client does — the interface
+        // re-reads the whole roster rather than acting on one member. Not
+        // gated on unitId: the player's own stats resolve to no unit token,
+        // and a member dropping is worth announcing either way.
+        if (onlineChanged) {
+            owner_.addonEventCallbackRef()(
+                member->isOnline ? "PARTY_MEMBER_ENABLE" : "PARTY_MEMBER_DISABLE", {});
         }
     }
 }
