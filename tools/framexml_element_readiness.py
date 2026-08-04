@@ -64,6 +64,17 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     Check src/ for an owner before treating an element's remaining names as
     work. Both of these read as the last unimplemented features for several
     rounds when neither was unimplemented at all.
+
+  * Events only the C client ever sends, where FrameXML does the same job in
+    Lua. BAG_OPEN and BAG_CLOSED are the clear case: ToggleBag, OpenBag and
+    CloseBag are Lua functions in containerframe.lua that show and hide the
+    frames themselves, so the events are left for a bank or a merchant opening
+    bags from outside — which this client does not do. Firing them would
+    duplicate what the Lua already did.
+
+    Read the caller before treating an event as missing. If the interface can
+    reach the same result without it, the client is not the one failing to
+    speak.
 """
 
 import collections
