@@ -1959,6 +1959,27 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"ResurrectHasTimer", [](lua_State* L) -> int {
             lua_pushboolean(L, 0); return 1;
         }},
+                // StaticPopup_Show calls this on *every* popup, before it does
+                // anything else: `if ( InCinematic() and not
+                // info.interruptCinematic )`. It was unbound, so every popup
+                // raised there and none of them appeared — and handing the
+                // confirmation prompts to FrameXML is what put that call on a
+                // live path. The resurrect dialog was the visible half; the
+                // group invite, the summon, the talent wipe and the delete-item
+                // confirmation were all going the same way.
+                //
+                // False because this client plays no cinematics, and there is
+                // no state to read.
+                {"InCinematic", [](lua_State* L) -> int {
+            lua_pushboolean(L, 0); return 1;
+        }},
+                // The other half of RESURRECT_NO_TIMER's OnCancel:
+                // `UnitIsDead("player") and not UnitIsControlling("player")`.
+                // Controlling means driving a vehicle or a possessed creature,
+                // neither of which this client has.
+                {"UnitIsControlling", [](lua_State* L) -> int {
+            lua_pushboolean(L, 0); return 1;
+        }},
 
                 // ---- What chatframe.lua's slash commands call ----
                 //
