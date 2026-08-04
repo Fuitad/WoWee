@@ -487,6 +487,10 @@ private:
     LfgState lfgState_        = LfgState::None;
     uint32_t lfgDungeonId_    = 0;
     uint32_t lfgProposalId_   = 0;
+    /// The proposal the ready dialog has already been opened for. The server
+    /// resends the update as each member answers, and opening again would
+    /// reset the countdown and the ticks beside every name.
+    uint32_t shownProposalId_ = 0;
     int32_t  lfgAvgWaitSec_   = -1;
     uint32_t lfgTimeInQueueMs_= 0;
     uint32_t lfgBootVotes_    = 0;

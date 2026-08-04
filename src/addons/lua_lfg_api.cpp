@@ -308,6 +308,25 @@ void registerLfgLuaAPI(lua_State* L) {
         }
         return 0;
     }},
+    // The two buttons on the dungeon-ready dialog, and the same pair on the
+    // minimap's queue menu. Neither was bound, so a pop that did appear could
+    // not be answered — and it did not appear either, because LFG_PROPOSAL_SHOW
+    // was not fired.
+    {"AcceptProposal", [](lua_State* L) -> int {
+        auto* gh = getGameHandler(L);
+        if (gh && gh->getLfgProposalId() != 0) {
+            gh->lfgAcceptProposal(gh->getLfgProposalId(), true);
+        }
+        return 0;
+    }},
+    {"RejectProposal", [](lua_State* L) -> int {
+        auto* gh = getGameHandler(L);
+        if (gh && gh->getLfgProposalId() != 0) {
+            gh->lfgAcceptProposal(gh->getLfgProposalId(), false);
+        }
+        return 0;
+    }},
+
     {"GetLFGQueuedList", [](lua_State* L) -> int {
         auto* gh = getGameHandler(L);
         lua_newtable(L);

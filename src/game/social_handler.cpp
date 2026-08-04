@@ -3018,7 +3018,37 @@ void SocialHandler::handleLfgProposalUpdate(network::Packet& packet) {
     }
     // The proposal dialog is built from GetLFGProposal, which already answers
     // from this — it just had no way to know a proposal had arrived.
-    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("LFG_PROPOSAL_UPDATE", {});
+    if (!owner_.addonEventCallbackRef()) return;
+    auto fire = owner_.addonEventCallbackRef();
+    fire("LFG_PROPOSAL_UPDATE", {});
+
+    // UPDATE alone only refreshes a dialog already on screen.
+    // LFDFrame_OnEvent opens it on SHOW — that branch is the one calling
+    // StaticPopupSpecial_Show — and closes it on SUCCEEDED or FAILED. None of
+    // the three was fired, so a pop arrived as a line of chat and nothing else,
+    // with no way to accept it.
+    //
+    // SHOW once per proposal rather than on every update: the server resends
+    // this as each member answers, and showing again would reset the dialog's
+    // countdown and its per-member ticks every time.
+    switch (proposalState) {
+        case 0:
+            shownProposalId_ = 0;
+            fire("LFG_PROPOSAL_FAILED", {});
+            break;
+        case 1:
+            shownProposalId_ = 0;
+            fire("LFG_PROPOSAL_SUCCEEDED", {});
+            break;
+        case 2:
+            if (shownProposalId_ != proposalId) {
+                shownProposalId_ = proposalId;
+                fire("LFG_PROPOSAL_SHOW", {});
+            }
+            break;
+        default:
+            break;
+    }
 }
 
 void SocialHandler::handleLfgRoleCheckUpdate(network::Packet& packet) {
