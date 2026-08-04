@@ -584,6 +584,21 @@ static int mapIdToContinent(uint32_t mapId) {
 static int s_mapContinent = 0;
 static int s_mapZone = 0;
 
+/// The map view changed, so say so.
+///
+/// Fired unconditionally, including when the view was already what it is being
+/// set to. That is not laziness — watchframe.lua calls SetMapToCurrentZone
+/// purely for the side effect, and says so beside the call: "forces WatchFrame
+/// event via the WORLD_MAP_UPDATE event, needed to restore the POIs in the
+/// tracker to the current zone". Firing only on a change would drop exactly the
+/// case that line exists for.
+static void fireWorldMapUpdate(lua_State* L) {
+    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_lua_engine");
+    auto* engine = static_cast<LuaEngine*>(lua_touserdata(L, -1));
+    lua_pop(L, 1);
+    if (engine) engine->fireEvent("WORLD_MAP_UPDATE", {});
+}
+
 // SetMapToCurrentZone() — sets map view to the player's current zone
 static int lua_SetMapToCurrentZone(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -591,6 +606,7 @@ static int lua_SetMapToCurrentZone(lua_State* L) {
         s_mapContinent = mapIdToContinent(gh->getCurrentMapId());
         s_mapZone = static_cast<int>(gh->getWorldStateZoneId());
     }
+    fireWorldMapUpdate(L);
     return 0;
 }
 
@@ -618,6 +634,7 @@ static int lua_GetCurrentMapZone(lua_State* L) {
 static int lua_SetMapZoom(lua_State* L) {
     s_mapContinent = static_cast<int>(luaL_checknumber(L, 1));
     s_mapZone = static_cast<int>(luaL_optnumber(L, 2, 0));
+    fireWorldMapUpdate(L);
     return 0;
 }
 
