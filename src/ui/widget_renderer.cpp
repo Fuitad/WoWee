@@ -1,3 +1,4 @@
+#include <cstring>
 #include "ui/widget_renderer.hpp"
 #include <set>
 
@@ -152,6 +153,28 @@ VkDescriptorSet WidgetRenderer::texture(const std::string& path, bool add) {
     if (!hasExt) resolved += ".blp";
 
     auto data = assets_->readFile(resolved);
+    if (data.empty()) {
+        // The interface is WotLK's; the assets are whichever expansion this
+        // install carries, and the two do not always agree on a folder. The
+        // quest icon is the one that differs here — FrameXML asks for
+        // Interface\GossipFrame\AvailableQuestIcon, which is where 3.3.5 keeps
+        // it, and this install has Interface\Gossip\. Retried rather than
+        // aliased at extraction time, because the extractor preserves the
+        // paths its MPQs use and is right to.
+        static constexpr struct { const char* from; const char* to; } kFolders[] = {
+            {"gossipframe\\", "gossip\\"},
+        };
+        std::string lower = resolved;
+        for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        for (const auto& swap : kFolders) {
+            const size_t at = lower.find(swap.from);
+            if (at == std::string::npos) continue;
+            std::string alt = resolved;
+            alt.replace(at, std::strlen(swap.from), swap.to);
+            data = assets_->readFile(alt);
+            if (!data.empty()) break;
+        }
+    }
     if (data.empty()) {
         LOG_WARNING("Widget texture not found: ", path);
         textures_[key] = kMissing;
