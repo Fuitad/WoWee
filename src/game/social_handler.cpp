@@ -3235,6 +3235,37 @@ void SocialHandler::handleArenaError(network::Packet& packet) {
 void SocialHandler::handlePvpLogData(network::Packet& packet) {
     auto remaining = [&]() { return packet.getRemainingSize(); };
     if (remaining() < 1) return;
+    // Diagnostic, once per session, because this parse is under suspicion and
+    // the question cannot be settled by reading either side.
+    //
+    // AzerothCore writes the per-player block as guid, then six uint32s
+    // (killing blows, honourable kills, deaths, bonus honour, damage, healing),
+    // then an objectives count and that many bare uint32s. This parser expects
+    // a team byte after the guid, no damage or healing, and a null-terminated
+    // name before each objective value — the shape of something written against
+    // a different core. Whichever is right, the other is badly wrong, so the
+    // bytes are dumped rather than guessed at.
+    //
+    // Read it as: 44 bytes for one player with two objectives on AzerothCore's
+    // layout (8 + 24 + 4 + 8), and the trailing values should look like scores
+    // rather than ASCII.
+    static bool dumpedPvpLog = false;
+    if (!dumpedPvpLog) {
+        dumpedPvpLog = true;
+        const size_t total = packet.getRemainingSize();
+        // Straight off the buffer at the current read position, so the parse
+        // below is untouched by the dump.
+        const auto& bytes = packet.getData();
+        const size_t at = packet.getReadPos();
+        std::string hex;
+        const size_t show = total < 64 ? total : 64;
+        for (size_t i = 0; i < show && at + i < bytes.size(); ++i) {
+            char buf[4];
+            std::snprintf(buf, sizeof(buf), "%02x ", bytes[at + i]);
+            hex += buf;
+        }
+        LOG_WARNING("MSG_PVP_LOG_DATA: ", total, " bytes, first ", show, ": ", hex);
+    }
     bgScoreboard_ = BgScoreboardData{};
     bgScoreboard_.isArena = (packet.readUInt8() != 0);
     if (bgScoreboard_.isArena) {
