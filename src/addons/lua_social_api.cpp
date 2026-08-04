@@ -1994,7 +1994,24 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"BNListConversation",       [](lua_State* L) -> int { (void)L; return 0; }},
                 {"BNSendConversationMessage",[](lua_State* L) -> int { (void)L; return 0; }},
                 {"BNSendWhisper",            [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ConsoleExec",              [](lua_State* L) -> int { (void)L; return 0; }},
+                // ConsoleExec(command) — the console, of which one command is
+                // reachable and worth honouring.
+                //
+                // SlashCmdList["RELOAD"] is ConsoleExec("reloadui") and nothing
+                // else, and this client's chat tries SlashCmdList before its
+                // own registry — so /reload, /reloadui and /rl all landed here
+                // and did nothing while the client's own reload sat behind
+                // them. Routed to the same request ReloadUI makes.
+                {"ConsoleExec", [](lua_State* L) -> int {
+            std::string cmd(luaL_optstring(L, 1, ""));
+            toLowerInPlace(cmd);
+            if (cmd == "reloadui") {
+                if (auto* svc = getLuaServices(L); svc && svc->requestReloadUI) {
+                    svc->requestReloadUI();
+                }
+            }
+            return 0;
+        }},
                 {"DisableAllAddOns",         [](lua_State* L) -> int { (void)L; return 0; }},
                 {"EnableAllAddOns",          [](lua_State* L) -> int { (void)L; return 0; }},
                 {"SetTaxiBenchmarkMode",     [](lua_State* L) -> int { (void)L; return 0; }},
