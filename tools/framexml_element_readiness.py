@@ -102,6 +102,13 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     UnitInVehicle gates the path and UnitVehicleSkin answers nil, so the
     indicator is zero and the function returns before the call. Unreachable, as
     GetMapLandmarkInfo is behind GetNumMapLandmarks answering zero.
+
+    minimap's Wintergrasp pair is the same, and took two hops to see. Both
+    BattlefieldMgr calls sit inside `for i=1, MAX_WORLD_PVP_QUEUES`, and the
+    status that gates them comes from GetWorldPVPQueueStatus, which answers nil
+    three times — so it is never "queued" or "confirm". The other route in is a
+    static popup shown by BATTLEFIELD_MGR_ENTRY_INVITE, which is never fired.
+    Both doors are shut, and one shut door would not have been enough.
 """
 
 import collections
