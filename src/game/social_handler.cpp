@@ -2847,6 +2847,9 @@ void SocialHandler::handleLfgProposalUpdate(network::Packet& packet) {
             owner_.addSystemChatMessage(dName.empty() ? "Dungeon Finder: A group has been found. Accept or decline." : "Dungeon Finder: A group has been found for " + dName + ". Accept or decline."); break; }
         default: break;
     }
+    // The proposal dialog is built from GetLFGProposal, which already answers
+    // from this — it just had no way to know a proposal had arrived.
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("LFG_PROPOSAL_UPDATE", {});
 }
 
 void SocialHandler::handleLfgRoleCheckUpdate(network::Packet& packet) {
@@ -2857,6 +2860,8 @@ void SocialHandler::handleLfgRoleCheckUpdate(network::Packet& packet) {
     if (roleCheckState == 1) lfgState_ = LfgState::Queued;
     else if (roleCheckState == 3) { lfgState_ = LfgState::None; owner_.addUIError("Dungeon Finder: Role check failed — missing required role."); owner_.addSystemChatMessage("Dungeon Finder: Role check failed — missing required role."); }
     else if (roleCheckState == 2) { lfgState_ = LfgState::RoleCheck; owner_.addSystemChatMessage("Dungeon Finder: Performing role check..."); }
+    // Likewise GetLFGRoleUpdate, which reports the check in progress.
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("LFG_ROLE_CHECK_UPDATE", {});
 }
 
 void SocialHandler::handleLfgUpdatePlayer(network::Packet& packet) {
@@ -2889,6 +2894,8 @@ void SocialHandler::handleLfgUpdatePlayer(network::Packet& packet) {
         case 14: lfgState_ = LfgState::InDungeon; break;
         default: break;
     }
+    // Queue state changed — GetLFGInfoServer answers the new one.
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("LFG_UPDATE", {});
 }
 
 void SocialHandler::handleLfgPlayerReward(network::Packet& packet) {
@@ -2944,6 +2951,8 @@ void SocialHandler::handleLfgBootProposalUpdate(network::Packet& packet) {
         lfgState_ = LfgState::InDungeon;
         owner_.addSystemChatMessage(bootPassed ? "Dungeon Finder: Vote kick passed — member removed." : "Dungeon Finder: Vote kick failed.");
     }
+    // The vote-to-kick dialog, whose countdown starts on this.
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("LFG_BOOT_PROPOSAL_UPDATE", {});
 }
 
 void SocialHandler::handleLfgTeleportDenied(network::Packet& packet) {
