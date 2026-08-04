@@ -2339,7 +2339,42 @@ void registerSystemLuaAPI(lua_State* L) {
                 // and each raises the moment a battleground is queued for or
                 // entered. Zero reads correctly at every call site: no time in
                 // queue, no shutdown pending, no elapsed run time.
-                {"GetBattlefieldTimeWaited",         lua_ReturnZero},
+                // Both timers are read as X()/1000, so milliseconds. The
+                // queue slot carries each in seconds and this answered zero for
+                // both — a queue that always read as just-joined with no
+                // estimate, which is the whole content of that window.
+                {"GetBattlefieldTimeWaited", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 1));
+            double ms = 0.0;
+            if (gh && index >= 1 && index <= 3)
+                ms = gh->getBgQueues()[static_cast<size_t>(index - 1)].timeInQueueSec * 1000.0;
+            lua_pushnumber(L, ms);
+            return 1;
+        }},
+                {"GetBattlefieldEstimatedWaitTime", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 1));
+            double ms = 0.0;
+            if (gh && index >= 1 && index <= 3)
+                ms = gh->getBgQueues()[static_cast<size_t>(index - 1)].avgWaitTimeSec * 1000.0;
+            lua_pushnumber(L, ms);
+            return 1;
+        }},
+                // CanJoinBattlefieldAsGroup() — whether the queue button offers
+                // to take the party in.
+                //
+                // The server decides for itself when the request arrives; this
+                // only says whether it is worth offering, which is a party the
+                // player leads. Solo, there is no group to bring.
+                {"CanJoinBattlefieldAsGroup", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) { lua_pushboolean(L, 0); return 1; }
+            const auto& pd = gh->getPartyData();
+            const bool leadsAParty = !pd.isEmpty() && pd.leaderGuid == gh->getPlayerGuid();
+            lua_pushboolean(L, leadsAParty ? 1 : 0);
+            return 1;
+        }},
                 {"GetBattlefieldInstanceExpiration", lua_ReturnZero},
                 {"GetBattlefieldInstanceRunTime",    lua_ReturnZero},
                 // The aspect ratio the Mac options panel builds its recording
