@@ -244,6 +244,13 @@ public:
     /// them and keep nothing, so the panel reading its own checkboxes back, and
     /// the ready dialog naming the role it found you a group for, had no source.
     uint8_t getLfgOfferedRoles() const { return lfgOfferedRoles_; }
+    int32_t  getLfgWaitTank() const   { return lfgWaitTank_; }
+    int32_t  getLfgWaitHealer() const { return lfgWaitHealer_; }
+    int32_t  getLfgWaitDps() const    { return lfgWaitDps_; }
+    uint8_t  getLfgNeedTank() const   { return lfgNeedTank_; }
+    uint8_t  getLfgNeedHealer() const { return lfgNeedHealer_; }
+    uint8_t  getLfgNeedDps() const    { return lfgNeedDps_; }
+    uint64_t getLfgBootVictimGuid() const { return lfgBootVictimGuid_; }
     const std::vector<LfgProposalMember>& getLfgProposalMembers() const {
         return lfgProposalMembers_;
     }
@@ -499,6 +506,15 @@ private:
     /// reset the countdown and the ticks beside every name.
     uint32_t shownProposalId_ = 0;
     uint8_t  lfgOfferedRoles_ = 0;
+    // The queue's own numbers, which never arrived while the length check was
+    // longer than the packet.
+    int32_t  lfgWaitTank_ = -1;
+    int32_t  lfgWaitHealer_ = -1;
+    int32_t  lfgWaitDps_ = -1;
+    uint8_t  lfgNeedTank_ = 0;
+    uint8_t  lfgNeedHealer_ = 0;
+    uint8_t  lfgNeedDps_ = 0;
+    uint64_t lfgBootVictimGuid_ = 0;
     /// The group a proposal is offering, in the order the server lists it.
     std::vector<LfgProposalMember> lfgProposalMembers_;
     int32_t  lfgAvgWaitSec_   = -1;

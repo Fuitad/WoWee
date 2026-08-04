@@ -3179,6 +3179,13 @@ uint8_t GameHandler::getLfgOfferedRoles() const {
     return socialHandler_ ? socialHandler_->getLfgOfferedRoles() : 0;
 }
 
+int32_t GameHandler::getLfgWaitTank() const   { return socialHandler_ ? socialHandler_->getLfgWaitTank()   : -1; }
+int32_t GameHandler::getLfgWaitHealer() const { return socialHandler_ ? socialHandler_->getLfgWaitHealer() : -1; }
+int32_t GameHandler::getLfgWaitDps() const    { return socialHandler_ ? socialHandler_->getLfgWaitDps()    : -1; }
+uint8_t GameHandler::getLfgNeedTank() const   { return socialHandler_ ? socialHandler_->getLfgNeedTank()   : 0; }
+uint8_t GameHandler::getLfgNeedHealer() const { return socialHandler_ ? socialHandler_->getLfgNeedHealer() : 0; }
+uint8_t GameHandler::getLfgNeedDps() const    { return socialHandler_ ? socialHandler_->getLfgNeedDps()    : 0; }
+
 const std::vector<LfgProposalMember>& GameHandler::getLfgProposalMembers() const {
     static const std::vector<LfgProposalMember> empty;
     return socialHandler_ ? socialHandler_->getLfgProposalMembers() : empty;

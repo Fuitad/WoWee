@@ -1630,6 +1630,12 @@ public:
     const std::vector<LfgProposalMember>& getLfgProposalMembers() const;
     int32_t  getLfgAvgWaitSec() const;
     uint32_t getLfgTimeInQueueMs() const;
+    int32_t  getLfgWaitTank() const;
+    int32_t  getLfgWaitHealer() const;
+    int32_t  getLfgWaitDps() const;
+    uint8_t  getLfgNeedTank() const;
+    uint8_t  getLfgNeedHealer() const;
+    uint8_t  getLfgNeedDps() const;
     uint32_t getLfgBootVotes() const;
     uint32_t getLfgBootTotal() const;
     uint32_t getLfgBootTimeLeft() const;

@@ -2987,12 +2987,23 @@ void SocialHandler::handleLfgJoinResult(network::Packet& packet) {
 }
 
 void SocialHandler::handleLfgQueueStatus(network::Packet& packet) {
-    if (!packet.hasRemaining(33)) return;
+    // Thirty-one bytes, not thirty-three: dungeon, five wait times, three
+    // one-byte "needed" counts, and the time queued. The old length check was
+    // longer than the packet the server sends, so this returned before reading
+    // anything and the queue status never updated at all — no wait times, no
+    // time in queue.
+    if (!packet.hasRemaining(31)) return;
     lfgDungeonId_ = packet.readUInt32();
-    int32_t avgWait = static_cast<int32_t>(packet.readUInt32());
-    int32_t waitTime = static_cast<int32_t>(packet.readUInt32());
-    packet.readUInt32(); packet.readUInt32(); packet.readUInt32();
-    packet.readUInt8();
+    const int32_t avgWait  = static_cast<int32_t>(packet.readUInt32());
+    const int32_t waitTime = static_cast<int32_t>(packet.readUInt32());
+    lfgWaitTank_   = static_cast<int32_t>(packet.readUInt32());
+    lfgWaitHealer_ = static_cast<int32_t>(packet.readUInt32());
+    lfgWaitDps_    = static_cast<int32_t>(packet.readUInt32());
+    // Three of these, one per role, and only one was being read — so the time
+    // in queue came from two bytes of the needed-counts and two of its own.
+    lfgNeedTank_   = packet.readUInt8();
+    lfgNeedHealer_ = packet.readUInt8();
+    lfgNeedDps_    = packet.readUInt8();
     lfgTimeInQueueMs_ = packet.readUInt32();
     lfgAvgWaitSec_ = (waitTime >= 0) ? (waitTime / 1000) : (avgWait / 1000);
     lfgState_ = LfgState::Queued;
@@ -3085,10 +3096,14 @@ void SocialHandler::handleLfgProposalUpdate(network::Packet& packet) {
 }
 
 void SocialHandler::handleLfgRoleCheckUpdate(network::Packet& packet) {
+    // state is the uint32; the uint8 after it says whether the check is only
+    // starting. This read the state and threw it away, then took the starting
+    // flag for the state — so the branches below ran on 0 or 1 and never saw
+    // the values they test for.
     if (!packet.hasRemaining(6)) return;
-    packet.readUInt32();
-    uint8_t roleCheckState = packet.readUInt8();
-    packet.readUInt8();
+    const uint32_t roleCheckState = packet.readUInt32();
+    packet.readUInt8();   // initiating
+    packet.readUInt8();   // dungeon count, then the dungeons and the roster
     if (roleCheckState == 1) lfgState_ = LfgState::Queued;
     else if (roleCheckState == 3) { lfgState_ = LfgState::None; owner_.addUIError("Dungeon Finder: Role check failed — missing required role."); owner_.addSystemChatMessage("Dungeon Finder: Role check failed — missing required role."); }
     else if (roleCheckState == 2) { lfgState_ = LfgState::RoleCheck; owner_.addSystemChatMessage("Dungeon Finder: Performing role check..."); }
@@ -3164,9 +3179,14 @@ void SocialHandler::handleLfgPlayerReward(network::Packet& packet) {
 }
 
 void SocialHandler::handleLfgBootProposalUpdate(network::Packet& packet) {
-    if (!packet.hasRemaining( 23)) return;
+    // The victim's GUID sits between the three flags and the counts, and was
+    // not being read — so every number after it came from eight bytes earlier
+    // than it should have.
+    if (!packet.hasRemaining(27)) return;
     bool inProgress = packet.readUInt8() != 0;
-    packet.readUInt8(); packet.readUInt8();
+    packet.readUInt8();   // this player has voted
+    packet.readUInt8();   // and what they said
+    lfgBootVictimGuid_ = packet.readUInt64();
     uint32_t totalVotes = packet.readUInt32();
     uint32_t bootVotes = packet.readUInt32();
     uint32_t timeLeft = packet.readUInt32();

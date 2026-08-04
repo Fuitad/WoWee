@@ -342,10 +342,41 @@ void registerLfgLuaAPI(lua_State* L) {
     // Whether a row can be queued for at all. Nothing is locked here — see
     // GetLFDChoiceLockedState — so the answer is yes and the server decides.
     {"IsLFGDungeonJoinable", luaReturnTrue},
-    // How long the queue has been running and how it is filling. The client
-    // keeps the time in queue and nothing else, and the average waits are what
-    // the panel prints beside each role; a made-up wait is worse than a blank.
-    {"GetLFGQueueStats", [](lua_State* L) -> int { return luaReturnNil(L); }},
+    // GetLFGQueueStats() → hasData, leaderNeeds, tankNeeds, healerNeeds,
+    //   dpsNeeds, instanceType, instanceName, averageWait, tankWait,
+    //   healerWait, damageWait, myWait, queuedTime
+    //
+    // This answered nil because the numbers never arrived: the queue-status
+    // handler required a longer packet than the server sends and returned
+    // before reading any of it. With that fixed the whole row is real — how
+    // many of each role the queue still wants, and how long each has been
+    // waiting.
+    {"GetLFGQueueStats", [](lua_State* L) -> int {
+        auto* gh = getGameHandler(L);
+        if (!gh || !gh->isLfgQueued()) { lua_pushboolean(L, 0); return 1; }
+        const uint32_t dungeonId = gh->getLfgDungeonId();
+        const game::LfgDungeon* d = nullptr;
+        for (const auto& e : gh->getLfgDungeons()) {
+            if (e.id == dungeonId) { d = &e; break; }
+        }
+        // Seconds on the wire; the panel prints them with SecondsToTime.
+        auto wait = [](int32_t v) { return v >= 0 ? static_cast<double>(v) : 0.0; };
+
+        lua_pushboolean(L, 1);                                   // 1: hasData
+        lua_pushnumber(L, 0);                                    // 2: leaderNeeds
+        lua_pushnumber(L, gh->getLfgNeedTank());                 // 3: tankNeeds
+        lua_pushnumber(L, gh->getLfgNeedHealer());               // 4: healerNeeds
+        lua_pushnumber(L, gh->getLfgNeedDps());                  // 5: dpsNeeds
+        lua_pushnumber(L, d ? d->typeId : 1);                    // 6: instanceType
+        lua_pushstring(L, d ? d->name.c_str() : "");             // 7: instanceName
+        lua_pushnumber(L, gh->getLfgAvgWaitSec());               // 8: averageWait
+        lua_pushnumber(L, wait(gh->getLfgWaitTank()));           // 9: tankWait
+        lua_pushnumber(L, wait(gh->getLfgWaitHealer()));         // 10: healerWait
+        lua_pushnumber(L, wait(gh->getLfgWaitDps()));            // 11: damageWait
+        lua_pushnumber(L, gh->getLfgTimeInQueueMs() / 1000.0);   // 12: myWait
+        lua_pushnumber(L, gh->getLfgTimeInQueueMs() / 1000.0);   // 13: queuedTime
+        return 13;
+    }},
 
     // ---- Detail this client does not keep ----
     //
