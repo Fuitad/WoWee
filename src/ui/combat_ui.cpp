@@ -250,6 +250,14 @@ void CombatUI::renderCooldownTracker(game::GameHandler& gameHandler,
 // ============================================================
 
 void CombatUI::renderRaidWarningOverlay(game::GameHandler& gameHandler) {
+    // FrameXML's RaidWarningFrame and RaidBossEmoteFrame answer
+    // CHAT_MSG_RAID_WARNING and CHAT_MSG_RAID_BOSS_EMOTE, both of which this
+    // client fires — so when it owns them, collect no entries and the empty
+    // check below returns before anything is drawn. The gate is here rather
+    // than at the top of the function because the same scan plays the whisper
+    // sound, which belongs to no element and has to keep happening.
+    const bool ownsWarnings = frameXmlOwns(UiElement::RaidWarning);
+
     // Scan chat history for new RAID_WARNING / RAID_BOSS_EMOTE messages
     const auto& chatHistory = gameHandler.getChatHistory();
     size_t newCount = chatHistory.size();
@@ -259,9 +267,10 @@ void CombatUI::renderRaidWarningOverlay(game::GameHandler& gameHandler) {
         size_t startIdx = newCount > toScan ? newCount - toScan : 0;
         for (size_t i = startIdx; i < newCount; ++i) {
             const auto& msg = chatHistory[i];
-            if (msg.type == game::ChatType::RAID_WARNING ||
-                msg.type == game::ChatType::RAID_BOSS_EMOTE ||
-                msg.type == game::ChatType::MONSTER_EMOTE) {
+            if (!ownsWarnings &&
+                (msg.type == game::ChatType::RAID_WARNING ||
+                 msg.type == game::ChatType::RAID_BOSS_EMOTE ||
+                 msg.type == game::ChatType::MONSTER_EMOTE)) {
                 bool isBoss = (msg.type != game::ChatType::RAID_WARNING);
                 // Limit display text length to avoid giant overlay
                 std::string text = msg.message;

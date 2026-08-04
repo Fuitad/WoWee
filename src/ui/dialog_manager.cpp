@@ -38,16 +38,19 @@ static std::string buildItemChatLink(uint32_t itemId, uint8_t quality, const std
 void DialogManager::renderDialogs(game::GameHandler& gameHandler,
                                   InventoryScreen& inventoryScreen,
                                   ChatPanel& chatPanel) {
-    // The four prompts FrameXML asks with a StaticPopup of its own, on events
-    // this client fires: the group invite here, the summon below, and the
-    // resurrect and talent wipe in renderLateDialogs. Whichever side asks the
-    // question answers it — AcceptGroup, DeclineGroup, AcceptResurrect,
-    // ConfirmSummon and ConfirmTalentWipe are all bound, so FrameXML's buttons
-    // do the same thing these do.
+    // The prompts FrameXML asks with a StaticPopup of its own, on events this
+    // client fires: the group invite here, the trade request and summon below,
+    // and the resurrect and talent wipe in renderLateDialogs. Whichever side
+    // asks the question answers it — AcceptGroup, DeclineGroup,
+    // AcceptResurrect, ConfirmSummon, ConfirmTalentWipe, BeginTrade and
+    // CancelTrade are all bound, so FrameXML's buttons do the same thing these
+    // do.
     //
     // The rest below have no FrameXML counterpart that can appear: the duel,
     // the guild invite, the battleground invites and the LFG pair are all
-    // raised from events that are not fired.
+    // raised from events that are not fired. That claim is only true for the
+    // ones named — it read "the rest" when trade and the ready check were also
+    // in the list, and both were being drawn twice.
     if (!frameXmlOwns(UiElement::Dialogs)) renderGroupInvitePopup(gameHandler);
     renderDuelRequestPopup(gameHandler);
     renderDuelCountdown(gameHandler);
@@ -57,13 +60,22 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
     if (!frameXmlOwns(UiElement::Loot)) {
         renderLootRollPopup(gameHandler, inventoryScreen, chatPanel);
     }
-    renderTradeRequestPopup(gameHandler);
-    renderTradeWindow(gameHandler, inventoryScreen, chatPanel);
+    // The trade request and the trade window belong to different elements on
+    // FrameXML's side: uiparent.lua answers TRADE_REQUEST with StaticPopup
+    // "TRADE", while TradeFrame opens on TRADE_SHOW. This client fires both
+    // events, so each surface has to stand down for its own owner.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderTradeRequestPopup(gameHandler);
+    if (!frameXmlOwns(UiElement::Trade)) {
+        renderTradeWindow(gameHandler, inventoryScreen, chatPanel);
+    }
     if (!frameXmlOwns(UiElement::Dialogs)) renderSummonRequestPopup(gameHandler);
     renderSharedQuestPopup(gameHandler);
-    renderItemTextWindow(gameHandler);
+    // ItemTextFrame answers ITEM_TEXT_BEGIN, which this client fires. The
+    // client's other page-text surface, WindowManager::renderBookWindow, was
+    // already gated on Book; this one reads different state and was not.
+    if (!frameXmlOwns(UiElement::Book)) renderItemTextWindow(gameHandler);
     renderGuildInvitePopup(gameHandler);
-    renderReadyCheckPopup(gameHandler);
+    if (!frameXmlOwns(UiElement::ReadyCheck)) renderReadyCheckPopup(gameHandler);
     renderBgInvitePopup(gameHandler);
     renderBfMgrInvitePopup(gameHandler);
     renderLfgProposalPopup(gameHandler);

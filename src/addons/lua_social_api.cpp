@@ -1598,6 +1598,17 @@ void registerSocialLuaAPI(lua_State* L) {
             if (auto* gh = getGameHandler(L)) gh->initiateReadyCheck();
             return 0;
         }},
+                // ConfirmReadyCheck(ready) — the Yes and No buttons on
+                // FrameXML's ReadyCheckFrame. readycheck.xml passes 1 for yes
+                // and passes NOTHING for no, so the absent argument has to read
+                // as false rather than as a missing parameter.
+                {"ConfirmReadyCheck", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) {
+                gh->respondToReadyCheck(lua_toboolean(L, 1) != 0);
+                gh->dismissReadyCheck();
+            }
+            return 0;
+        }},
                 // The buttons on FrameXML's summon and talent-wipe popups.
                 // Both prompts are raised — uiparent.lua answers CONFIRM_SUMMON
                 // and CONFIRM_TALENT_WIPE, and this client fires both — so
