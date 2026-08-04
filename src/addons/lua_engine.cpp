@@ -1150,6 +1150,9 @@ int lua_Tooltip_SetText(lua_State* L) {
 /// what it does. ActionButton_SetTooltip asks for this and checks the answer —
 /// `if (GameTooltip:SetAction(self.action))` — so returning nothing meant
 /// every action button fell to its "no tooltip" branch.
+static bool fillItemTooltipById(wowee::ui::Widget* w, game::GameHandler* gh,
+                                uint32_t itemId);
+
 int lua_Tooltip_SetAction(lua_State* L) {
     auto* w = widgetOf(L, 1);
     auto* gh = wowee::addons::getGameHandler(L);
@@ -1162,13 +1165,18 @@ int lua_Tooltip_SetAction(lua_State* L) {
     }
 
     const auto& action = bar[slot];
+    // An item on the bar gets the tooltip the bags give it, stats and all.
+    // Naming it and stopping meant the same potion described itself two
+    // different ways depending on where it was hovered.
+    if (action.type == game::ActionBarSlot::ITEM) {
+        lua_pushboolean(L, fillItemTooltipById(w, gh, action.id) ? 1 : 0);
+        return 1;
+    }
     std::string name, body;
     if (action.type == game::ActionBarSlot::SPELL) {
         name = gh->getSpellName(action.id);
         body = gh->formatSpellDescription(action.id,
                                           gh->getSpellDescription(action.id));
-    } else if (action.type == game::ActionBarSlot::ITEM) {
-        if (const auto* info = gh->getItemInfo(action.id)) name = info->name;
     }
     if (name.empty()) { lua_pushboolean(L, 0); return 1; }
 
