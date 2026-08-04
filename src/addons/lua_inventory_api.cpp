@@ -1660,6 +1660,43 @@ static int lua_GetContainerNumSlots(lua_State* L) {
 }
 
 // GetContainerItemInfo(container, slot) → texture, count, locked, quality, readable, lootable, link
+// GetContainerFreeSlots(container [, table]) → the empty slots in that bag.
+//
+// Fills a table the caller supplies rather than building one, which is how the
+// equipment manager uses it: it wipes a work table, calls this, then walks the
+// result. The table is returned as well, so `if (GetContainerFreeSlots(i, t))`
+// passes — an empty bag gives an empty table, and walking that does nothing,
+// which is the right outcome rather than a branch skipped.
+//
+// Only the backpack and the four bags. The bank containers in the caller's
+// loop are not tracked per slot here, and answering an empty table for them
+// says "nothing free" rather than inventing space that is not there.
+static int lua_GetContainerFreeSlots(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int container = static_cast<int>(luaL_checknumber(L, 1));
+    // Reuse the caller's table when given one; otherwise make the result.
+    if (lua_istable(L, 2)) lua_pushvalue(L, 2);
+    else lua_newtable(L);
+    if (!gh) return 1;
+
+    const auto& inv = gh->getInventory();
+    int next = 1;
+    auto addIfEmpty = [&](const game::ItemSlot& sl, int slotIndex) {
+        if (!sl.empty()) return;
+        lua_pushnumber(L, slotIndex);          // WoW slots are 1-based
+        lua_rawseti(L, -2, next++);
+    };
+    if (container == 0) {
+        for (int i = 0; i < inv.getBackpackSize(); ++i)
+            addIfEmpty(inv.getBackpackSlot(i), i + 1);
+    } else if (container >= 1 && container <= 4) {
+        const int bagIdx = container - 1;
+        for (int i = 0; i < inv.getBagSize(bagIdx); ++i)
+            addIfEmpty(inv.getBagSlot(bagIdx, i), i + 1);
+    }
+    return 1;
+}
+
 // GetContainerItemID(container, slot) → the item's entry id, or nil.
 //
 // The same walk GetContainerItemInfo does, answering the one number rather
@@ -2608,6 +2645,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"PutItemInBag",            lua_PutItemInBag},
                 {"ResetCursor",             lua_ResetCursor},
                 {"GetContainerItemID",    lua_GetContainerItemID},
+                {"GetContainerFreeSlots", lua_GetContainerFreeSlots},
                 {"GetContainerItemInfo",    lua_GetContainerItemInfo},
                 {"GetContainerItemLink",    lua_GetContainerItemLink},
                 {"GetContainerNumFreeSlots", lua_GetContainerNumFreeSlots},
