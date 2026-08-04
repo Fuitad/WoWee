@@ -1772,6 +1772,25 @@ bool M2Renderer::loadModel(const pipeline::M2Model& model, uint32_t modelId) {
     // Build per-batch GPU entries
     if (!model.batches.empty()) {
         for (const auto& batch : model.batches) {
+            // A submesh that reaches past the model's own indices is not drawn.
+            //
+            // vkCmdDrawIndexed does not check this and the GPU does not survive
+            // it: validation caught a batch starting at index 6,290,784 of a
+            // 768-index buffer — an ending offset 25 MB past the end — repeated
+            // 46 times over twelve seconds before the device was lost. The same
+            // start every time, so it is a submesh read from the wrong offset
+            // rather than memory going bad, and this client parses two M2
+            // layouts whose skin data does not sit in the same place.
+            //
+            // Dropping the submesh loses a piece of one doodad. Drawing it
+            // loses the device.
+            const uint64_t end = static_cast<uint64_t>(batch.indexStart) + batch.indexCount;
+            if (end > gpuModel.indexCount) {
+                LOG_WARNING("M2 '", gpuModel.name, "': submesh indices ",
+                            batch.indexStart, "..", end, " lie past the model's ",
+                            gpuModel.indexCount, " — not drawn");
+                continue;
+            }
             M2ModelGPU::BatchGPU bgpu;
             bgpu.indexStart = batch.indexStart;
             bgpu.indexCount = batch.indexCount;
