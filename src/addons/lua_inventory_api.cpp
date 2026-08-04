@@ -64,8 +64,20 @@ static int lua_GetSendMailPrice(lua_State* L) {
 /// Uncommon, which is the default a fresh group starts on. Concatenated
 /// straight into a global name — "ITEM_QUALITY" .. threshold .. "_DESC" — so
 /// it has to be a number rather than nothing.
+/// GetLootThreshold() → the quality at which group loot rules kick in.
+///
+/// It answered a constant uncommon, which is only the default. The party data
+/// carries the real threshold and GetLootMethod beside it has been reading its
+/// half of the same packet all along — so the loot dropdown showed uncommon
+/// for a group that had set anything else, and setting it appeared not to
+/// take.
+///
+/// Uncommon when there is nothing to read: a threshold of zero is what an
+/// ungrouped player has, and the dropdown has no entry for it.
 static int lua_GetLootThreshold(lua_State* L) {
-    lua_pushnumber(L, 2.0);
+    auto* gh = getGameHandler(L);
+    const uint8_t t = gh ? gh->getPartyData().lootThreshold : 0;
+    lua_pushnumber(L, t > 0 ? t : 2);
     return 1;
 }
 
