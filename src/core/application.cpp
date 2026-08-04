@@ -3216,7 +3216,19 @@ void Application::render() {
             // held focus, and no addon frame would ever see the mouse no matter
             // where the cursor was. Asking whether a window is under the cursor
             // is the question that was meant.
-            const bool overClientUi = ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow);
+            //
+            // First claim, though, is claimed on the press. Once a frame has
+            // taken one the interface keeps the mouse until it comes up again,
+            // wherever the cursor goes in the meantime. A drag crosses the
+            // screen by definition — spellbook to action bar passes over
+            // whatever else is on the way — and dispatchMouse is the only thing
+            // that advances the press state, so cutting it off part way does
+            // not pause the drag, it strands it: OnDragStop and OnReceiveDrag
+            // live on the release path and the release is never seen. That is
+            // the whole of "cannot drag a spell to the action bar"; every link
+            // in the chain below this one was already correct.
+            const bool overClientUi = ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow) &&
+                                      !engine->holdsMousePress();
 
             // The keys that open what FrameXML now owns.
             //

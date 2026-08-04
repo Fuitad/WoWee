@@ -5855,6 +5855,16 @@ bool LuaEngine::dispatchMouseWheel(float x, float y, float delta) {
     return false;
 }
 
+bool LuaEngine::holdsMousePress() const {
+    for (int i = 0; i < kMouseButtons; ++i) {
+        if (buttonDown_[i]) return true;
+    }
+    // A drag or a moved frame counts even with nothing held, because that is
+    // precisely the state a stranded drag leaves behind and it has to stay
+    // reachable long enough for the release to clear it.
+    return draggingWid_ != 0 || widgets_.movingWidget() != 0;
+}
+
 void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
     if (!L_) return;
     // The cursor arrives in pixels and the tree is in interface units, so this

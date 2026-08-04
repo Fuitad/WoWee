@@ -63,6 +63,20 @@ public:
     };
     void dispatchMouse(float x, float y, MouseButtons buttons);
 
+    /// Whether the interface is holding a press: a button went down on a frame
+    /// and has not come up, or a frame is being dragged or moved.
+    ///
+    /// This is the capture test, and the caller is expected to keep feeding the
+    /// mouse while it answers true even when the cursor has wandered somewhere
+    /// this client's own interface would otherwise claim. dispatchMouse is the
+    /// only thing that advances any of the state above — the release path, and
+    /// with it OnDragStop and OnReceiveDrag, runs nowhere else. Stopping the
+    /// dispatch part way through a drag therefore does not pause it, it strands
+    /// it: the button is still down as far as the tree is concerned, the drag
+    /// never ends, and the drop lands wherever the cursor happens to be when
+    /// the mouse is finally heard from again.
+    bool holdsMousePress() const;
+
     /// The wheel, to the frame under the cursor that asked for it.
     ///
     /// Returns true when a frame took it, so the caller knows not to also zoom
