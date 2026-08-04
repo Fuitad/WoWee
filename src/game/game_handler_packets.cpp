@@ -2403,6 +2403,12 @@ void GameHandler::registerOpcodeHandlers() {
                                            : "Battlefield queue request failed.";
             addSystemChatMessage(std::string("Battlefield: ") + msg);
         }
+        // The battle id and whether the queue took, in that order — the
+        // interface reads both to say which battlefield answered and how.
+        if (addonEventCallback_) {
+            addonEventCallback_("BATTLEFIELD_MGR_QUEUE_REQUEST_RESPONSE",
+                                {std::to_string(bfId2), std::to_string(accepted)});
+        }
         LOG_INFO("SMSG_BATTLEFIELD_MGR_QUEUE_REQUEST_RESPONSE: accepted=", static_cast<int>(accepted),
                  " result=", static_cast<int>(result));
         packet.skipAll();
@@ -2738,7 +2744,14 @@ void GameHandler::registerOpcodeHandlers() {
     // Observed custom server packet (8 bytes). Safe-consume for now.
     registerSkipHandler(Opcode::MSG_MOVE_TIME_SKIPPED);
     // loggingOut_ already cleared by cancelLogout(); this is server's confirmation
-    registerSkipHandler(Opcode::SMSG_LOGOUT_CANCEL_ACK);
+    // Not skipped: this is the server confirming a logout was called off, and
+    // the interface hides its countdown on it. The client already cancels
+    // optimistically in cancelLogout(), so the ack changes no state here — it
+    // is the only thing that tells the interface the countdown is over.
+    dispatchTable_[Opcode::SMSG_LOGOUT_CANCEL_ACK] = [this](network::Packet& packet) {
+        if (addonEventCallback_) addonEventCallback_("LOGOUT_CANCEL", {});
+        packet.skipAll();
+    };
     // These packets are not damage-shield events. Consume them without
     // synthesizing reflected damage entries or misattributing GUIDs.
     registerSkipHandler(Opcode::SMSG_AURACASTLOG);
