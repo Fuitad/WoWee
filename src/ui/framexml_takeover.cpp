@@ -144,11 +144,19 @@ const std::set<std::string>& requested() {
         // raise rather than a blank if the guard turns out to have a gap.
         // Run tools/framexml_unbound_globals.py against friendsframe before
         // adding it.
+        //
+        // "chat" comes out for the same reason, and it is the worse of the
+        // two: forty-eight names in chatframe.lua are unbound, and unlike the
+        // Battle.net set they are not behind a feature flag. They are slash
+        // command handlers — /console, /stopmacro, /targetlastenemy, the
+        // channel and arena-team commands — so each is a raise the moment
+        // someone types the command, once FrameXML's edit box is the one
+        // taking input. It was on this list before either check existed.
         if (out.erase("candidates") > 0) {
             out.insert(defaults.begin(), defaults.end());
             for (const char* name : {
                     "achievements", "auctionhouse", "bagbar", "bank",
-                    "bgscore", "book", "chat", "classtrainer", "gamemenu",
+                    "bgscore", "book", "classtrainer", "gamemenu",
                     "gossip", "guildbank", "help", "inspect", "keybindings",
                     "loot", "macro", "merchant", "micromenu", "partyframes",
                     "questgiver", "stable", "talents", "taxi",
