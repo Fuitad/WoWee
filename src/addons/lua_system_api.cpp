@@ -1295,11 +1295,29 @@ static int lua_GetDefaultLanguage(lua_State* L) {
 
 /// No enchant on either hand: four values per hand, and MainMenuBar reads the
 /// expiry as a number.
+/// GetWeaponEnchantInfo() → per hand: hasEnchant, expiration, charges.
+///
+/// It answered no for both hands unconditionally, so TemporaryEnchantFrame
+/// took its early exit and hid itself — a sharpening stone or an oil showed
+/// nothing at all. The buff bar is handed over, so this client's own weapon
+/// enchant display beside it is suppressed and this was the only one left.
+///
+/// The enchant is tracked per equipped item; its remaining time is not, and
+/// the frame reads expiration only to write a countdown under an icon it has
+/// already decided to show. Zero there costs the countdown, not the icon.
 static int lua_GetWeaponEnchantInfo(lua_State* L) {
-    for (int i = 0; i < 2; ++i) {
-        lua_pushboolean(L, 0);   // hasEnchant
-        lua_pushnumber(L, 0.0);  // expiration
-        lua_pushnumber(L, 0.0);  // charges
+    auto* gh = getGameHandler(L);
+    const game::EquipSlot kHands[2] = {game::EquipSlot::MAIN_HAND,
+                                       game::EquipSlot::OFF_HAND};
+    for (const game::EquipSlot hand : kHands) {
+        bool enchanted = false;
+        if (gh) {
+            const uint64_t guid = gh->getEquipSlotGuid(static_cast<int>(hand));
+            if (guid != 0) enchanted = gh->getItemEnchantIds(guid).second != 0;
+        }
+        lua_pushboolean(L, enchanted ? 1 : 0);   // hasEnchant
+        lua_pushnumber(L, 0.0);                  // expiration, not tracked
+        lua_pushnumber(L, 0.0);                  // charges
     }
     return 6;
 }
