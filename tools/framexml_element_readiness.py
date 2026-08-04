@@ -446,6 +446,7 @@ def main():
     # conclusion.
     settled = {
         "characterframe": "[checked] eight of nine events are the stat branch shared with UNIT_STATS, which is fired; SHOW_COMPARE_TOOLTIP is absent by design — the C client fires it on a shift-hover to open a comparison tooltip, and this client has no item comparison at all (the only 'compare' in src/ui is std::string::compare)",
+        "book":         "[checked] the whole element is dead on this server — SMSG_ITEM_TEXT_QUERY_RESPONSE is STATUS_NEVER in AzerothCore, so no book text ever arrives and ITEM_TEXT_TRANSLATION is the least of it",
         "bags":         "[checked] BAG_OPEN/CLOSED are for a C client opening bags; ToggleBag, OpenBag and CloseBag are all Lua functions in containerframe.lua",
         "merchant":     "[checked] GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, fired from inventory_handler and entity_controller",
         "playerframe":  "[checked] voice chat, vehicles and the playtime nag (PLAYER_ROLES_ASSIGNED was wrong here — roles are parsed and read, and it is fired now)",
