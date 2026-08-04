@@ -41,7 +41,7 @@ public:
     // ---- Item text (books / readable items) ----
     bool isItemTextOpen() const { return itemTextOpen_; }
     const std::string& getItemText() const { return itemText_; }
-    void closeItemText() { itemTextOpen_ = false; }
+    void closeItemText();
     void queryItemText(uint64_t itemGuid);
 
     // ---- Trade ----

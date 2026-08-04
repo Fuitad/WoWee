@@ -1696,14 +1696,47 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushstring(L, "");
             return 1;
         }},
-                // The words on a book or a plaque. ITEM_TEXT_BEGIN is not
-                // fired, so nothing opens that window today — but the page it
-                // draws is "\n"..ItemTextGetText()..creator, and if the event
-                // is ever fired a nil there takes the whole window with it.
-                // Empty costs nothing and removes the trap.
+                // The words on a book or a plaque, which this client parses out
+                // of SMSG_ITEM_TEXT_QUERY_RESPONSE and kept to itself. This
+                // answered with an empty string on the reasoning that nothing
+                // opened the window anyway; ITEM_TEXT_READY is fired now, so it
+                // does open, and empty is the difference between a book and a
+                // blank page.
+                //
+                // Still a string and never nil: the page is drawn as
+                // "\n"..ItemTextGetText()..creator, and a nil there takes the
+                // whole window down rather than leaving it empty.
                 {"ItemTextGetText", [](lua_State* L) -> int {
-            lua_pushstring(L, "");
+            auto* gh = getGameHandler(L);
+            lua_pushstring(L, gh ? gh->getItemText().c_str() : "");
             return 1;
+        }},
+                // What the wire does not carry. The frame guards all three —
+                // a nil material becomes "Parchment", a nil creator drops the
+                // "from" line, and SetText takes a nil as no text — so absent
+                // is both honest and safe, where a made-up title or author
+                // would be neither.
+                {"ItemTextGetItem",     [](lua_State* L) -> int { return luaReturnNil(L); }},
+                {"ItemTextGetCreator",  [](lua_State* L) -> int { return luaReturnNil(L); }},
+                {"ItemTextGetMaterial", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                // One page. The response carries a single body of text with no
+                // pagination, so the turn-page buttons have nowhere to go and
+                // the frame hides them when told there is no next page.
+                {"ItemTextGetPage", [](lua_State* L) -> int {
+            lua_pushnumber(L, 1);
+            return 1;
+        }},
+                {"ItemTextHasNextPage", [](lua_State* L) -> int {
+            lua_pushboolean(L, 0);
+            return 1;
+        }},
+                {"ItemTextPrevPage", [](lua_State*) -> int { return 0; }},
+                {"ItemTextNextPage", [](lua_State*) -> int { return 0; }},
+                // Closing is a state change this client owns, and the frame
+                // calls it on hide as well as from its close button.
+                {"CloseItemText", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->closeItemText();
+            return 0;
         }},
                 {"IsQuestComplete",         lua_IsQuestComplete},
                 {"SelectQuestLogEntry",     lua_SelectQuestLogEntry},

@@ -2668,6 +2668,20 @@ void InventoryHandler::queryItemText(uint64_t itemGuid) {
     network::Packet pkt(wireOpcode(Opcode::CMSG_ITEM_TEXT_QUERY));
     pkt.writeUInt64(itemGuid);
     owner_.getSocket()->send(pkt);
+    // The read has started. The frame answers this by clearing the page and
+    // picking the material's text colour, before any words have arrived —
+    // which is why it is a separate event from ITEM_TEXT_READY and not a
+    // duplicate of it.
+    owner_.fireAddonEvent("ITEM_TEXT_BEGIN", {});
+}
+
+void InventoryHandler::closeItemText() {
+    if (!itemTextOpen_) return;
+    itemTextOpen_ = false;
+    // Announced so the interface's window closes with this client's own. Only
+    // when it was open: the frame calls this from OnHide as well as from its
+    // close button, and firing on an already-closed book would bounce.
+    owner_.fireAddonEvent("ITEM_TEXT_CLOSED", {});
 }
 
 void InventoryHandler::handleItemTextQueryResponse(network::Packet& packet) {
