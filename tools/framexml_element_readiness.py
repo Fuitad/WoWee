@@ -176,20 +176,20 @@ SHARED = {
 ELEMENTS = {
     "questgiver":   ["questframe.lua", "questframe.xml"],
     "gossip":       ["gossipframe.lua", "gossipframe.xml"],
-    "questlog":     ["questlogframe.lua", "questlogframe.xml"],
-    "mail":         ["mailframe.lua", "mailframe.xml"],
+    "questlog":     ["[checked] questlogframe.lua", "questlogframe.xml"],
+    "mail":         ["[checked] mailframe.lua", "mailframe.xml"],
     "taxi":         ["taxiframe.lua", "taxiframe.xml"],
     "loot":         ["lootframe.lua", "lootframe.xml"],
     "merchant":     ["merchantframe.lua", "merchantframe.xml"],
     "bank":         ["bankframe.lua", "bankframe.xml"],
     "questtracker": ["watchframe.lua", "watchframe.xml"],
-    "help":         ["helpframe.lua", "helpframe.xml"],
+    "help":         ["[checked] helpframe.lua", "helpframe.xml"],
     "social":       ["friendsframe.lua", "friendsframe.xml"],
     "partyframes":  ["partyframe.xml", "partyframetemplates.xml"],
     "micromenu":    ["mainmenubarmicrobuttons.lua", "mainmenubarmicrobuttons.xml"],
     "bagbar":       ["mainmenubarbagbuttons.lua", "mainmenubarbagbuttons.xml"],
     "gamemenu":     ["gamemenuframe.xml"],
-    "worldmap":     ["worldmapframe.lua", "worldmapframe.xml"],
+    "worldmap":     ["[checked] worldmapframe.lua", "worldmapframe.xml"],
     # chatframe.lua is deliberately not here — it is in SHARED, because it
     # defines the slash commands the whole interface uses and its unanswered
     # names belong to whichever command was typed rather than to the chat
@@ -205,7 +205,7 @@ ELEMENTS = {
     # nothing, which is the same hole chat sat in. An element the transition can
     # be asked to hand over and that no report covers is worse than one with a
     # known gap: it reads as ready by absence.
-    "bgscore":      ["worldstateframe.lua", "worldstateframe.xml"],
+    "bgscore":      ["[checked] worldstateframe.lua", "worldstateframe.xml"],
     "stable":       ["petstable.lua", "petstable.xml"],
     "book":         ["itemtextframe.lua", "itemtextframe.xml"],
     "totems":       ["totemframe.lua", "totemframe.xml"],
@@ -214,18 +214,18 @@ ELEMENTS = {
     # means someone once saw them draw, which is the visual half. An unanswered
     # call in one of these is a live fault in the shipping default, not a
     # candidate for a future round.
-    "playerframe":  ["playerframe.lua", "playerframe.xml"],
+    "playerframe":  ["[checked] playerframe.lua", "playerframe.xml"],
     "targetframe":  ["targetframe.lua", "targetframe.xml"],
     "focusframe":   ["focusframe.lua", "focusframe.xml"],
     "petframe":     ["petframe.lua", "petframe.xml"],
     "castbar":      ["castingbarframe.lua", "castingbarframe.xml"],
     "buffs":        ["buffframe.lua", "buffframe.xml"],
-    "minimap":      ["minimap.lua", "minimap.xml"],
+    "minimap":      ["[checked] minimap.lua", "minimap.xml"],
     "characterframe": ["paperdollframe.lua", "paperdollframe.xml"],
     "bags":         ["containerframe.lua", "containerframe.xml"],
     "spellbook":    ["spellbookframe.lua", "spellbookframe.xml"],
     "durability":   ["durabilityframe.lua", "durabilityframe.xml"],
-    "mainmenubar":  ["mainmenubar.lua", "mainmenubar.xml"],
+    "mainmenubar":  ["[checked] mainmenubar.lua", "mainmenubar.xml"],
 }
 
 # Elements whose frames arrive with a load-on-demand addon rather than with
@@ -410,6 +410,10 @@ def main():
     # so the headline number stops understating what is finished.
     #
     # Every entry names why. Re-check one if its reason stops being true.
+    #
+    # [checked] marks one re-verified since it was written. Seven have been:
+    # four were wrong or ungrounded and three of those four hid a real gap that
+    # is now fixed. An unmarked entry is a claim, not a finding.
     #
     # And re-check them anyway. Three have been spot-checked since this list
     # was written and two were wrong: worldmap named one event of two, and help
