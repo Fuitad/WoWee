@@ -865,6 +865,20 @@ void GameHandler::registerOpcodeHandlers() {
         if (senderGuid != playerGuid) {
                             withSoundManager(&audio::AudioCoordinator::getUiSoundManager, [](auto* sfx) { sfx->playMinimapPing(); });
         }
+        // The ping is drawn by this client from minimapPings_ and was never
+        // announced, so a handed-over minimap heard the sound and showed
+        // nothing. The interface wants the unit that pinged and the position,
+        // and marks the spot itself.
+        //
+        // x then y, in that order, which is the reverse of how they are stored
+        // above: the wire sends them the other way round and this client swaps
+        // them on the way in. Passing the stored pair straight through would
+        // put every ping at its own mirror image.
+        std::string unitId = guidToUnitId(senderGuid);
+        if (unitId.empty()) unitId = "player";
+        fireAddonEvent("MINIMAP_PING", {unitId,
+                                        std::to_string(ping.wowY),
+                                        std::to_string(ping.wowX)});
     };
     dispatchTable_[Opcode::SMSG_ZONE_UNDER_ATTACK] = [this](network::Packet& packet) {
         if (packet.hasRemaining(4)) {
