@@ -417,7 +417,7 @@ def main():
         "questtracker": "same world map API, reached through worldmapframe.lua",
         "worldmap":     "map API is this client's; WORLD_MAP_NAME_UPDATE has no handler branch, CLOSE_WORLD_MAP needs the key to drive Lua",
         "mail":         "the refund lock needs item refund state the client does not parse",
-        "help":         "the GM reply and survey carry text and questions nothing parses",
+        "help":         "GMSURVEY_DISPLAY carries questions nothing parses (GMRESPONSE_RECEIVED was wrong here — it is parsed, and is fired now)",
     }
     also = [e for e in settled if e not in ready]
     if also:

@@ -2742,6 +2742,16 @@ void GameHandler::registerOpcodeHandlers() {
             msg = "[GM Response] Your ticket has been answered.";
         addSystemChatMessage(msg);
         addUIError(msg);
+        // The help frame takes the ticket's own text and the reply, and opens
+        // the panel that lets the answer be accepted or more help asked for.
+        // Both strings are parsed right here and were only ever said in chat,
+        // so the reply arrived and the frame that deals with it never opened.
+        //
+        // The description first, then the response — the order it unpacks them
+        // — and the body stands in for a description the server did not send,
+        // since an empty first argument leaves the panel captionless.
+        fireAddonEvent("GMRESPONSE_RECEIVED",
+                       {subject.empty() ? body : subject, responseText});
         LOG_INFO("SMSG_GMRESPONSE_RECEIVED: ticketId=", ticketId,
                  " subject='", subject, "'");
     };
