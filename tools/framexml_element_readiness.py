@@ -94,6 +94,14 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     be four features absent by design rather than eight gaps. bags, merchant
     and playerframe all read as gapped and all three are complete.
 
+    mainmenubar is the same once its names are grouped: nine of ten calls and
+    four of eight events are vehicles, CURRENCY_DISPLAY_UPDATE shares a branch
+    with an event now fired, and UPDATE_BONUS_ACTIONBAR clears on both routes —
+    its actionbutton branch shares with ACTIONBAR_PAGE_CHANGED, which is fired,
+    and its own frame is the possess bar, which is the vehicle feature again.
+    What is left is PickupPetAction. One absent feature and one cursor
+    operation, reported as eighteen names.
+
     Calls need the stronger test, because an unanswered call raises where an
     unfired event only goes unheard. Ask whether it is *reachable*, not whether
     the feature exists. mainmenubar's four vehicle calls live in
