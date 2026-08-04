@@ -2844,14 +2844,32 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushstring(L, "WoWee");
             return 1;
         }},
+                // ShowHelm(show) and ShowCloak(show) are setters, and these
+                // toggled regardless of what they were passed.
+                //
+                // interfaceoptionspanels.xml drives both from a checkbox:
+                // `self:SetChecked(value); ShowHelm(value)`. Toggling on a set
+                // inverts the answer whenever the state already matched — the
+                // box would tick and the helm would go away — and the panel
+                // re-applies its value on every open, so it flipped again each
+                // time the options were shown.
+                //
+                // The client only has a toggle, so this toggles only when that
+                // lands on what was asked for. Same shape as SetPVP.
                 {"ShowHelm", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            if (gh) gh->toggleHelm(); // Toggles helm visibility
+            if (!gh) return 0;
+            const bool want = lua_isnumber(L, 1) ? (lua_tonumber(L, 1) != 0)
+                                                 : (lua_toboolean(L, 1) != 0);
+            if (want != gh->isHelmVisible()) gh->toggleHelm();
             return 0;
         }},
                 {"ShowCloak", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            if (gh) gh->toggleCloak();
+            if (!gh) return 0;
+            const bool want = lua_isnumber(L, 1) ? (lua_tonumber(L, 1) != 0)
+                                                 : (lua_toboolean(L, 1) != 0);
+            if (want != gh->isCloakVisible()) gh->toggleCloak();
             return 0;
         }},
                 {"TogglePVP", [](lua_State* L) -> int {
