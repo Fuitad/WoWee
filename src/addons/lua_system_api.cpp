@@ -2510,7 +2510,23 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetVoiceCurrentSessionID", lua_ReturnNil},
                 {"GetOptOutOfLoot",          lua_ReturnFalse},
                 {"GetPartyMember",           lua_ReturnFalse},
-                {"GetZonePVPInfo",           lua_ReturnNil},
+                // GetZonePVPInfo() → pvpType, isSubZonePvP, factionName
+                //
+                // minimap.lua unpacks three and answered nil for all of them,
+                // so the zone name on the minimap was always the default
+                // colour and its tooltip never said whose territory it was.
+                // Middle value stays nil: it is for a sub-zone that differs
+                // from its parent, which this reads at zone granularity.
+                {"GetZonePVPInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) { lua_pushnil(L); return 1; }
+            const auto [type, faction] = gh->getZonePvpInfo(gh->getWorldStateZoneId());
+            if (type.empty()) { lua_pushnil(L); return 1; }
+            lua_pushstring(L, type.c_str());
+            lua_pushnil(L);
+            if (faction.empty()) lua_pushnil(L); else lua_pushstring(L, faction.c_str());
+            return 3;
+        }},
                 {"GetMouseButtonClicked",    lua_ReturnNil},
                 {"GetChatWindowSavedPosition",   lua_GetChatWindowSavedPosition},
                 {"GetChatWindowSavedDimensions", lua_GetChatWindowSavedDimensions},
@@ -2620,7 +2636,27 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"IsMacClient",              lua_ReturnFalse},
                 {"IsPartyLeader",            lua_ReturnFalse},
                 {"UnitFactionGroup",         lua_UnitFactionGroup},
-                {"HasPetSpells",             lua_ReturnNil},
+                // HasPetSpells() → numSpells, petToken
+                //
+                // Answering nil meant the pet tab was never set up, so a hunter
+                // or a warlock with a pet out had no pet spell book at all —
+                // SpellBookFrame_Update only calls SpellBookFrame_SetTabType
+                // for it when this says there are spells.
+                //
+                // Both values or neither: the tab's label is built as
+                // _G["PET_TYPE_"..token], which raises on a nil token. Only two
+                // of those globals exist, DEMON and PET, and WoW picks the
+                // first for warlocks and the second for everyone else.
+                {"HasPetSpells", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) { lua_pushnil(L); return 1; }
+            const auto& spells = gh->getPetSpells();
+            if (spells.empty()) { lua_pushnil(L); return 1; }
+            lua_pushnumber(L, static_cast<lua_Number>(spells.size()));
+            constexpr uint8_t kWarlock = 9;
+            lua_pushstring(L, gh->getPlayerClass() == kWarlock ? "DEMON" : "PET");
+            return 2;
+        }},
                 {"GetRuneType",              lua_ReturnNil},
                 {"GetMasterLootCandidate",   lua_ReturnNil},
                 {"GetSelectedDisplayChannel", lua_ReturnNil},

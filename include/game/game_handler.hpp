@@ -3118,6 +3118,32 @@ public:
     };
     static constexpr size_t PLAYER_EXPLORED_ZONES_COUNT = 128;
     std::string getAreaName(uint32_t areaId) const;
+
+    /// What GetZonePVPInfo answers for a zone: one of "sanctuary", "arena",
+    /// "friendly", "hostile", "contested", or empty for a zone with no PvP
+    /// character at all. Second is the controlling faction, for the two that
+    /// name one.
+    ///
+    /// Goes through getAreaName first because that is what fills the cache
+    /// this reads, and it is lazy.
+    std::pair<std::string, std::string> getZonePvpInfo(uint32_t zoneId) const {
+        (void)getAreaName(zoneId);
+        auto it = areaPvpCache_.find(zoneId);
+        if (it == areaPvpCache_.end()) return {};
+        constexpr uint32_t kAreaFlagArena     = 0x00000080;
+        constexpr uint32_t kAreaFlagSanctuary = 0x00000800;
+        constexpr uint32_t kTeamNone = 0, kTeamAlly = 2, kTeamHorde = 4, kTeamAny = 6;
+        if (it->second.flags & kAreaFlagSanctuary) return {"sanctuary", ""};
+        if (it->second.flags & kAreaFlagArena)     return {"arena", ""};
+        const bool alliance = isPlayerAlliance();
+        switch (it->second.team) {
+            case kTeamAny:   return {"contested", ""};
+            case kTeamAlly:  return {alliance ? "friendly" : "hostile", "Alliance"};
+            case kTeamHorde: return {alliance ? "hostile" : "friendly", "Horde"};
+            case kTeamNone:
+            default:         return {};
+        }
+    }
     struct OnlineItemInfo {
         uint32_t entry = 0;
         uint32_t stackCount = 1;
@@ -3990,6 +4016,11 @@ private:
 
     // Area name cache (lazy-loaded from WorldMapArea.dbc; maps AreaTable ID → display name)
     mutable std::unordered_map<uint32_t, std::string> areaNameCache_;
+    /// AreaTable.dbc field 4 (flags) and field 28 (team), filled alongside the
+    /// names. Field numbers and the constants below are read off AzerothCore's
+    /// DBCStructure.h and DBCEnums.h rather than guessed.
+    struct AreaPvpInfo { uint32_t flags = 0; uint32_t team = 0; };
+    mutable std::unordered_map<uint32_t, AreaPvpInfo> areaPvpCache_;
     mutable bool areaNameCacheLoaded_ = false;
     void loadAreaNameCache() const;
 

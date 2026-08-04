@@ -2619,6 +2619,13 @@ void GameHandler::loadAreaNameCache() const {
             if (!name.empty()) {
                 areaNameCache_[areaId] = std::move(name);
             }
+            // Field 4 is the flag word and field 28 the controlling team, which
+            // together are the whole of what GetZonePVPInfo answers. Read while
+            // the file is open rather than opening it twice.
+            if (areaDbc->getFieldCount() > 28) {
+                areaPvpCache_[areaId] = AreaPvpInfo{areaDbc->getUInt32(i, 4),
+                                                    areaDbc->getUInt32(i, 28)};
+            }
         }
     }
 
