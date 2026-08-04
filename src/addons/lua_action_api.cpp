@@ -36,6 +36,10 @@ static uint32_t   s_cursorId   = 0;    // spellId, itemId, or action slot
 static int        s_cursorSlot = 0;    // source slot for placement
 static int        s_cursorBag  = -1;   // source bag for container items
 
+uint32_t cursorItemId() {
+    return s_cursorType == CursorType::ITEM ? s_cursorId : 0;
+}
+
 /// PickupPetAction(slot) — pick a pet ability up off the pet bar.
 ///
 /// Defined and does nothing. The cursor here holds spells, items, actions and

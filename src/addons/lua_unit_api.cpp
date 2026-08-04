@@ -2437,7 +2437,20 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetFacialHairCustomization", lua_GetFacialHairCustomization},
                 {"CanAlterSkin",               lua_CanAlterSkin},
                 {"HasWandEquipped",         lua_ReturnFalse},
-                {"UnitHasRelicSlot",        lua_ReturnFalse},
+                // UnitHasRelicSlot(unit) — the four classes whose ranged slot
+                // holds a relic instead of a weapon: paladin librams, death
+                // knight sigils, shaman totems and druid idols. Answering no
+                // for all of them made the paperdoll label that slot "Ranged"
+                // and read its stats as a ranged weapon's.
+                {"UnitHasRelicSlot",        [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* uid = luaL_optstring(L, 1, "player");
+            // Only the player's class is known well enough to answer this.
+            if (!gh || std::string(uid) != "player") { lua_pushboolean(L, 0); return 1; }
+            const uint8_t c = gh->getPlayerClass();
+            lua_pushboolean(L, c == 2 || c == 6 || c == 7 || c == 11);
+            return 1;
+        }},
                 {"InRepairMode",            lua_ReturnFalse},
                 {"IsInventoryItemLocked",   lua_ReturnFalse},
                 // GetInventoryItemBroken(unit, slot) — worn out, so the
@@ -2454,7 +2467,52 @@ void registerUnitLuaAPI(lua_State* L) {
                                sl.item.curDurability == 0);
             return 1;
         }},
-                {"CursorCanGoInSlot",       lua_ReturnFalse},
+                // CursorCanGoInSlot(slot) — whether what the cursor is holding
+                // could be worn in that paperdoll slot, which is what makes the
+                // slot light up while an item is being dragged. Answering no
+                // for everything meant nothing ever lit up.
+                //
+                // Which slot of a pair, this does not decide: both rings and
+                // both trinkets light up, as they do in WoW. That is a
+                // different question from the one InventoryScreen answers when
+                // it picks a slot to equip into, so this does not go looking
+                // for that logic.
+                {"CursorCanGoInSlot",       [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const uint32_t held = cursorItemId();
+            if (!gh || slot < 1 || held == 0) { lua_pushboolean(L, 0); return 1; }
+            const auto* info = gh->getItemInfo(held);
+            if (!info || !info->valid) { lua_pushboolean(L, 0); return 1; }
+            // Paperdoll slot ids are the EquipSlot enum plus one.
+            using namespace game::InvType;
+            bool fits = false;
+            switch (info->inventoryType) {
+                case HEAD:       fits = (slot == 1);  break;
+                case NECK:       fits = (slot == 2);  break;
+                case SHOULDERS:  fits = (slot == 3);  break;
+                case SHIRT:      fits = (slot == 4);  break;
+                case CHEST: case ROBE: fits = (slot == 5); break;
+                case WAIST:      fits = (slot == 6);  break;
+                case LEGS:       fits = (slot == 7);  break;
+                case FEET:       fits = (slot == 8);  break;
+                case WRISTS:     fits = (slot == 9);  break;
+                case HANDS:      fits = (slot == 10); break;
+                case FINGER:     fits = (slot == 11 || slot == 12); break;
+                case TRINKET:    fits = (slot == 13 || slot == 14); break;
+                case BACK:       fits = (slot == 15); break;
+                // A one-hander goes in either hand; a main-hand-only weapon and
+                // a two-hander only in the first.
+                case ONE_HAND:   fits = (slot == 16 || slot == 17); break;
+                case MAIN_HAND: case TWO_HAND: fits = (slot == 16); break;
+                case SHIELD: case OFF_HAND: case HOLDABLE: fits = (slot == 17); break;
+                case RANGED_BOW: case RANGED_GUN: case THROWN: fits = (slot == 18); break;
+                case TABARD:     fits = (slot == 19); break;
+                default:         fits = false; break;
+            }
+            lua_pushboolean(L, fits);
+            return 1;
+        }},
                 // Zero rather than false: paperdollframe.lua asks
                 // `IsTitleKnown(i) ~= 0`, and `false ~= 0` compares two
                 // different types and is therefore true — so every title would

@@ -259,4 +259,12 @@ inline const game::GroupMember* findPartyMember(game::GameHandler* gh, uint64_t 
 /// tooltip describes a different talent from the one under the cursor.
 const game::TalentEntry* talentAt(game::GameHandler* gh, int tabIndex, int talentIndex);
 
+/// The item id the cursor is carrying, or zero for anything else.
+///
+/// The cursor state lives in lua_action_api.cpp, where everything that picks
+/// something up and puts it down again is. This is the one thing another file
+/// needs from it: CursorCanGoInSlot has to know what is being dragged before
+/// it can say which paperdoll slot should light up.
+uint32_t cursorItemId();
+
 } // namespace wowee::addons
