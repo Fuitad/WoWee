@@ -871,6 +871,9 @@ void GameHandler::registerOpcodeHandlers() {
                 : (areaName + " is under attack!");
             addUIError(msg);
             addSystemChatMessage(msg);
+            // The zone name goes with it: the interface writes its own warning
+            // from arg1 rather than reusing the chat line.
+            if (addonEventCallback_) addonEventCallback_("ZONE_UNDER_ATTACK", {areaName});
         }
     };
 

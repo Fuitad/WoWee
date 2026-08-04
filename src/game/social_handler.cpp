@@ -586,8 +586,15 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
     table[Opcode::SMSG_DUEL_OUTOFBOUNDS] = [this](network::Packet& /*packet*/) {
         owner_.addUIError("You are out of the duel area!");
         owner_.addSystemChatMessage("You are out of the duel area!");
+        // The interface runs the ten-second countdown to a forfeit off this
+        // pair; the message alone says it once and never counts.
+        if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("DUEL_OUTOFBOUNDS", {});
     };
-    table[Opcode::SMSG_DUEL_INBOUNDS] = [](network::Packet& /*packet*/) {};
+    table[Opcode::SMSG_DUEL_INBOUNDS] = [this](network::Packet& /*packet*/) {
+        // Stops that countdown. Handled as a no-op before, so a duellist who
+        // stepped back inside kept a timer that was no longer true.
+        if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("DUEL_INBOUNDS", {});
+    };
     table[Opcode::SMSG_DUEL_COUNTDOWN] = [this](network::Packet& packet) {
         if (packet.hasRemaining(4)) {
             uint32_t ms = packet.readUInt32();
