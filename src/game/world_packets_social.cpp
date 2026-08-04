@@ -1095,6 +1095,15 @@ network::Packet GroupUninvitePacket::build(const std::string& playerName) {
     return packet;
 }
 
+network::Packet ChannelModerationPacket::build(Opcode op,
+                                              const std::string& channelName,
+                                              const std::string& targetName) {
+    network::Packet packet(wireOpcode(op));
+    packet.writeString(channelName);
+    packet.writeString(targetName);
+    return packet;
+}
+
 network::Packet GroupSetLeaderPacket::build(uint64_t guid) {
     network::Packet packet(wireOpcode(Opcode::CMSG_GROUP_SET_LEADER));
     packet.writeUInt64(guid);

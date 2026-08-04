@@ -1883,10 +1883,38 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"SetOptOutOfLoot",           [](lua_State* L) -> int { (void)L; return 0; }},
                 {"SetDungeonDifficulty",      [](lua_State* L) -> int { (void)L; return 0; }},
                 {"SetRaidDifficulty",         [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ChannelBan",                [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ChannelKick",               [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ChannelModerator",          [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ChannelUnmoderator",        [](lua_State* L) -> int { (void)L; return 0; }},
+                                {"ChannelBan", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* ch = luaL_optstring(L, 1, "");
+            const char* who = luaL_optstring(L, 2, "");
+            if (gh && ch && who && *ch && *who)
+                gh->channelModeration(game::Opcode::CMSG_CHANNEL_BAN, ch, who);
+            return 0;
+        }},
+                                {"ChannelKick", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* ch = luaL_optstring(L, 1, "");
+            const char* who = luaL_optstring(L, 2, "");
+            if (gh && ch && who && *ch && *who)
+                gh->channelModeration(game::Opcode::CMSG_CHANNEL_KICK, ch, who);
+            return 0;
+        }},
+                                {"ChannelModerator", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* ch = luaL_optstring(L, 1, "");
+            const char* who = luaL_optstring(L, 2, "");
+            if (gh && ch && who && *ch && *who)
+                gh->channelModeration(game::Opcode::CMSG_CHANNEL_MODERATOR, ch, who);
+            return 0;
+        }},
+                                {"ChannelUnmoderator", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* ch = luaL_optstring(L, 1, "");
+            const char* who = luaL_optstring(L, 2, "");
+            if (gh && ch && who && *ch && *who)
+                gh->channelModeration(game::Opcode::CMSG_CHANNEL_UNMODERATOR, ch, who);
+            return 0;
+        }},
                 {"SetChannelOwner",           [](lua_State* L) -> int { (void)L; return 0; }},
                 {"BNSetToonBlocked",          [](lua_State* L) -> int { (void)L; return 0; }},
 
@@ -1990,10 +2018,43 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"RemoveChatWindowChannel",  [](lua_State* L) -> int { (void)L; return 0; }},
                 {"AddChatWindowMessages",    [](lua_State* L) -> int { (void)L; return 0; }},
                 {"RemoveChatWindowMessages", [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ChannelInvite",            [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ChannelMute",              [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ChannelUnmute",            [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ChannelUnban",             [](lua_State* L) -> int { (void)L; return 0; }},
+                                // The eight channel moderation commands. Every one is the
+                // same packet — channel name then player name — and none of
+                // them was ever sent: the opcodes existed and nothing built
+                // them, so /cinvite and the channel entries on the unit menu
+                // reached bindings with nothing behind them.
+                {"ChannelInvite", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* ch = luaL_optstring(L, 1, "");
+            const char* who = luaL_optstring(L, 2, "");
+            if (gh && ch && who && *ch && *who)
+                gh->channelModeration(game::Opcode::CMSG_CHANNEL_INVITE, ch, who);
+            return 0;
+        }},
+                                {"ChannelMute", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* ch = luaL_optstring(L, 1, "");
+            const char* who = luaL_optstring(L, 2, "");
+            if (gh && ch && who && *ch && *who)
+                gh->channelModeration(game::Opcode::CMSG_CHANNEL_MUTE, ch, who);
+            return 0;
+        }},
+                                {"ChannelUnmute", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* ch = luaL_optstring(L, 1, "");
+            const char* who = luaL_optstring(L, 2, "");
+            if (gh && ch && who && *ch && *who)
+                gh->channelModeration(game::Opcode::CMSG_CHANNEL_UNMUTE, ch, who);
+            return 0;
+        }},
+                                {"ChannelUnban", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* ch = luaL_optstring(L, 1, "");
+            const char* who = luaL_optstring(L, 2, "");
+            if (gh && ch && who && *ch && *who)
+                gh->channelModeration(game::Opcode::CMSG_CHANNEL_UNBAN, ch, who);
+            return 0;
+        }},
                 {"ChannelToggleAnnouncements", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"DisplayChannelOwner",      [](lua_State* L) -> int { (void)L; return 0; }},
                 {"ListChannels",             [](lua_State* L) -> int { (void)L; return 0; }},

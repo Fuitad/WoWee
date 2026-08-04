@@ -1346,6 +1346,20 @@ public:
     static network::Packet build(const std::string& playerName);
 };
 
+/** The channel moderation commands, which share one shape.
+ *
+ * Every one of them is `channelName` then `targetName` as two strings —
+ * AzerothCore's ChannelHandler.cpp reads `recvPacket >> channelName >>
+ * targetName` identically for invite, kick, ban, unban, mute, unmute,
+ * moderator and unmoderator. One builder rather than eight, with the opcode
+ * passed in, because eight copies would only be eight chances to differ.
+ */
+class ChannelModerationPacket {
+public:
+    static network::Packet build(Opcode op, const std::string& channelName,
+                                 const std::string& targetName);
+};
+
 /** CMSG_GROUP_SET_LEADER packet builder
  *
  * A single raw ObjectGuid, not a packed one — AzerothCore's

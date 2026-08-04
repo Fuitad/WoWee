@@ -705,6 +705,11 @@ public:
     void setLastWhisperSender(const std::string& name) { lastWhisperSender_ = name; }
 
     // Party/Raid management
+    /// Channel moderation: invite, kick, ban, unban, mute, unmute and the
+    /// moderator pair, which are one packet shape with eight opcodes.
+    void channelModeration(Opcode op, const std::string& channelName,
+                           const std::string& targetName);
+
     /// Hand party leadership to another member.
     void promoteToLeader(uint64_t guid);
     void uninvitePlayer(const std::string& playerName);

@@ -1681,6 +1681,14 @@ void SocialHandler::sendSetLootMethod(uint32_t method, uint32_t threshold, uint6
 
 // The server checks that this player leads the group and that the target is in
 // it, so there is nothing to validate here beyond having a guid to send.
+void SocialHandler::channelModeration(Opcode op, const std::string& channelName,
+                                     const std::string& targetName) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    if (channelName.empty() || targetName.empty()) return;
+    auto packet = ChannelModerationPacket::build(op, channelName, targetName);
+    owner_.getSocket()->send(packet);
+}
+
 void SocialHandler::promoteToLeader(uint64_t guid) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     if (guid == 0) return;

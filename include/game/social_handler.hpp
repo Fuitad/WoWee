@@ -219,6 +219,8 @@ public:
     const GroupListData& getPartyData() const { return partyData; }
     bool hasPendingGroupInvite() const { return pendingGroupInvite; }
     const std::string& getPendingInviterName() const { return pendingInviterName; }
+    void channelModeration(Opcode op, const std::string& channelName,
+                           const std::string& targetName);
     void promoteToLeader(uint64_t guid);
     void uninvitePlayer(const std::string& playerName);
     void setLootMethod(uint8_t method, uint64_t masterGuid, uint8_t threshold);
