@@ -51,6 +51,7 @@
 #include "audio/audio_engine.hpp"
 #include "audio/audio_coordinator.hpp"
 #include "addons/addon_manager.hpp"
+#include "addons/lua_api_helpers.hpp"
 #include <imgui.h>
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/wmo_loader.hpp"
@@ -3331,6 +3332,27 @@ void Application::render() {
                 engine->dispatchMouse(io.MousePos.x,
                                       io.DisplaySize.y - io.MousePos.y,
                                       buttons);
+
+                // Letting a carried item go over the world is how an item is
+                // destroyed. The C client raises DELETE_ITEM_CONFIRM for it and
+                // uiparent.lua answers with the delete prompt, choosing the
+                // sterner wording by quality; nothing fired it, so dragging an
+                // item out of a bag and dropping it did nothing at all.
+                //
+                // Only when the release landed on no widget: over a frame the
+                // drop belongs to that frame, which has already had its say
+                // above.
+                if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) &&
+                    !engine->mouseOverFrameXml()) {
+                    const uint32_t carried = addons::cursorItemId();
+                    if (carried != 0 && gameHandler) {
+                        const auto* info = gameHandler->getItemInfo(carried);
+                        const std::string name = info ? info->name : std::string();
+                        const uint32_t quality = info ? info->quality : 0u;
+                        gameHandler->fireAddonEvent(
+                            "DELETE_ITEM_CONFIRM", {name, std::to_string(quality)});
+                    }
+                }
             }
         });
     }

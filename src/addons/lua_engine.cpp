@@ -6109,6 +6109,7 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
     const float s = widgets_.uiScale();
     if (s > 0.0f) { x /= s; y /= s; }
     const uint32_t hit = widgets_.hitTest(x, y);
+    lastMouseHit_ = hit;
 
     // Throttled, and only while there is something to hit. Whether the mouse
     // reaches the widget tree at all is otherwise invisible: a frame that never

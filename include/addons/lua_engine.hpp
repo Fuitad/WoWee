@@ -220,6 +220,15 @@ private:
     /// mouse, which is not always the one meant to answer it.
     uint32_t clickOwnerOf(uint32_t wid, const char* button);
 
+    /// Whether the last dispatched mouse position landed on any FrameXML
+    /// widget. Dropping a carried item on the world rather than on a frame is
+    /// how an item is destroyed, so the caller has to be able to tell the two
+    /// apart — and only the widget tree knows.
+public:
+    bool mouseOverFrameXml() const { return lastMouseHit_ != 0; }
+private:
+    uint32_t lastMouseHit_ = 0;
+
     uint32_t hoverWid_ = 0;
     /// The last frame clicked and when, so a second click on it can be told
     /// from the first. WoW's threshold, near enough.

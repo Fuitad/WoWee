@@ -766,11 +766,24 @@ static int lua_PickupInventoryItem(lua_State* L) {
     return 0;
 }
 
-// DeleteCursorItem() — destroys the item on cursor
+// DeleteCursorItem() — destroys the item on the cursor.
+//
+// It only put the cursor down. Nothing was ever destroyed: the item vanished
+// from the cursor, the server was never told, and the next bag update put it
+// straight back. StaticPopup "DELETE_ITEM" calls this on Accept, so the whole
+// drag-an-item-out-to-destroy-it gesture ended in the item reappearing.
+//
+// cursorWireSlot already converts the held position into the bag and slot the
+// server expects, which is the same translation the drop half of a drag uses.
 static int lua_DeleteCursorItem(lua_State* L) {
-    (void)L;
-    setCursorType(L, CursorType::NONE);
-    s_cursorId = 0;
+    auto* gh = getGameHandler(L);
+    uint8_t bag = 0, slot = 0;
+    if (gh && cursorWireSlot(bag, slot)) {
+        // The whole stack: WoW asks about a partial stack before it gets here,
+        // and the popup that calls this is the confirmation for all of it.
+        gh->destroyItem(bag, slot, 0);
+    }
+    clearCursorItem(L);
     return 0;
 }
 
