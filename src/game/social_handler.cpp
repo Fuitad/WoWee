@@ -2318,6 +2318,11 @@ void SocialHandler::handlePetitionShowSignatures(network::Packet& packet) {
         petitionInfo_.signatures.push_back(sig);
     }
     petitionInfo_.showUI = true;
+    // The signature list frame opens on this. The petition is parsed and
+    // stored above — showUI is what this client's own window reads — and the
+    // interface's version was never told, so a charter could not be signed
+    // through it.
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("PETITION_SHOW", {});
 }
 
 void SocialHandler::handlePetitionSignResults(network::Packet& packet) {

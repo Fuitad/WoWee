@@ -1507,6 +1507,9 @@ void GameHandler::registerOpcodeHandlers() {
         if (spellHandler_) spellHandler_->resetTalentState();
         addUIError("Your talents have been reset by the server.");
         addSystemChatMessage("Your talents have been reset by the server.");
+        // The talent frame rebuilds from this; the cached state was cleared
+        // above and nothing told it to redraw, so it kept the old trees.
+        if (addonEventCallback_) addonEventCallback_("TALENTS_INVOLUNTARILY_RESET", {});
         packet.skipAll();
     };
     dispatchTable_[Opcode::SMSG_SET_REST_START] = [this](network::Packet& packet) {
@@ -2069,6 +2072,9 @@ void GameHandler::registerOpcodeHandlers() {
     dispatchTable_[Opcode::SMSG_PET_RENAMEABLE] = [this](network::Packet& packet) {
         // Server signals that the pet can now be named (first tame)
         petRenameablePending_ = true;
+        // The naming dialog opens on this. The flag alone is read by this
+        // client's own UI, so the interface's version never appeared.
+        if (addonEventCallback_) addonEventCallback_("PET_RENAMEABLE", {});
         packet.skipAll();
     };
     dispatchTable_[Opcode::SMSG_PET_NAME_INVALID] = [this](network::Packet& packet) {
