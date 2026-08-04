@@ -30,7 +30,12 @@ namespace wowee::addons {
 // What that does mean is that CursorHasItem answers for this cursor alone. An
 // addon asking while the player is dragging in this client's own bags is told
 // no, which is true of the cursor it can see and not of the player's hand.
-enum class CursorType { NONE, SPELL, ITEM, ACTION, MACRO };
+// MERCHANT is a fifth kind and it is not an item: what the cursor holds is a
+// vendor's list index, not something the player owns. FrameXML's merchant
+// window puts one there on every left-click — PickupMerchantItem — and buying
+// is what happens when it is dropped into a bag, so without it a left-click at
+// a vendor did nothing at all and only right-click bought.
+enum class CursorType { NONE, SPELL, ITEM, ACTION, MACRO, MERCHANT };
 static CursorType s_cursorType = CursorType::NONE;
 static uint32_t   s_cursorId   = 0;    // spellId, itemId, or action slot
 static int        s_cursorSlot = 0;    // source slot for placement
@@ -383,6 +388,12 @@ static int lua_GetCursorInfo(lua_State* L) {
             lua_pushstring(L, "macro");
             lua_pushnumber(L, s_cursorId);
             return 2;
+        case CursorType::MERCHANT:
+            // containerframe.lua branches on this exact string to decide
+            // whether a click in a bag is a purchase.
+            lua_pushstring(L, "merchant");
+            lua_pushnumber(L, s_cursorId);   // the vendor's list index
+            return 2;
         default:
             return 0;
     }
@@ -499,6 +510,39 @@ static void clearCursorItem(lua_State* L) {
     cursorItemSlot() = {};
 }
 
+void pickupMerchantItem(lua_State* L, int index) {
+    if (index < 1) return;
+    setCursorType(L, CursorType::MERCHANT);
+    s_cursorId = static_cast<uint32_t>(index);
+    s_cursorSlot = 0;
+    s_cursorBag = -1;
+    // Show it on the pointer, as a bag pickup does. Without this the cursor
+    // holds something invisible and the click reads as having done nothing.
+    if (auto* gh = getGameHandler(L)) {
+        const auto& items = gh->getVendorItems().items;
+        if (index <= static_cast<int>(items.size())) {
+            ui::frameXmlSetCursorItem(
+                gh->getItemIconPath(items[index - 1].displayInfoId));
+        }
+    }
+}
+
+bool boughtHeldMerchantItem(lua_State* L) {
+    if (s_cursorType != CursorType::MERCHANT) return false;
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(s_cursorId);
+    if (gh && index >= 1) {
+        const auto& items = gh->getVendorItems().items;
+        if (index <= static_cast<int>(items.size())) {
+            const auto& vi = items[index - 1];
+            gh->buyItem(gh->getVendorGuid(), vi.itemId, vi.slot, 1);
+        }
+    }
+    clearCursorItem(L);
+    return true;
+}
+
+
 static int lua_PickupContainerItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -508,6 +552,10 @@ static int lua_PickupContainerItem(lua_State* L) {
     // Same as the paperdoll: a click while something is waiting for an item to
     // be applied to is that choice, not a pickup.
     if (completedItemTarget(L, containerSlotGuid(gh, bag, slot))) return 0;
+
+    // A bag click while the cursor holds a vendor's item is the purchase.
+    // containerframe.lua routes it here after checking GetCursorInfo.
+    if (boughtHeldMerchantItem(L)) return 0;
 
     // Already carrying something, so this is the drop rather than the pickup.
     // One function does both halves of a drag in WoW, and without this half a

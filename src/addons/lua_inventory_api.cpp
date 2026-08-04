@@ -2640,7 +2640,14 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"NotWhileDeadError",     lua_ContainerNoOp},
                 {"ShowContainerSellCursor", lua_ContainerNoOp},
                 {"ShowBuybackSellCursor", lua_ContainerNoOp},
-                {"PickupMerchantItem",    lua_ContainerNoOp},
+                // A left-click on a vendor's item goes here, and it was a
+                // no-op — so at a merchant only right-click bought anything.
+                // The cursor state lives in lua_action_api.cpp with everything
+                // else that picks up and puts down, so this hands off to it.
+                {"PickupMerchantItem", [](lua_State* L) -> int {
+            pickupMerchantItem(L, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            return 0;
+        }},
                 // Opening the socketing panel on an equipped item. Answers
                 // false as SocketContainerItem beside it does: the panel needs
                 // per-item socket contents, which are not tracked, so it is not

@@ -271,4 +271,13 @@ uint32_t cursorItemId();
 /// came from a bag or nothing is held. One-based, as FrameXML numbers slots.
 int cursorEquipSlot();
 
+/// Put a vendor's list entry on the cursor, which is what a left-click in
+/// FrameXML's merchant window does. Buying happens when it is dropped.
+void pickupMerchantItem(lua_State* L, int index);
+
+/// Buy whatever vendor entry the cursor is holding and put the cursor down.
+/// False when it is holding something else, so a caller can fall through to
+/// its normal handling.
+bool boughtHeldMerchantItem(lua_State* L);
+
 } // namespace wowee::addons
