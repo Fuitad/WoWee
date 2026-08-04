@@ -1153,6 +1153,63 @@ int lua_Tooltip_SetText(lua_State* L) {
 static bool fillItemTooltipById(wowee::ui::Widget* w, game::GameHandler* gh,
                                 uint32_t itemId);
 
+/// One spell tooltip, for every path that shows one.
+///
+/// The action bar and the spellbook each built their own and both stopped at
+/// the name and the description — so a spell never said what it costs, how far
+/// it reaches or how long it takes to cast, all of which the client already
+/// resolves for its own use. Two copies also meant either could be improved
+/// alone and quietly drift from the other, which is exactly what happened to
+/// the item tooltips.
+///
+/// Laid out as WoW lays it out: cost on the left of its line with the range on
+/// the right, then the cast time, then the description.
+static bool fillSpellTooltip(wowee::ui::Widget* w, game::GameHandler* gh,
+                             uint32_t spellId) {
+    if (!w || !gh || spellId == 0) return false;
+    const std::string& name = gh->getSpellName(spellId);
+    if (name.empty()) return false;
+
+    auto line = [&w](std::string l, std::string r, float lr, float lg, float lb) {
+        wowee::ui::Widget::TooltipLine t;
+        t.left = std::move(l);
+        t.right = std::move(r);
+        t.lc[0] = lr; t.lc[1] = lg; t.lc[2] = lb; t.lc[3] = 1.0f;
+        t.rc[0] = t.rc[1] = t.rc[2] = 1.0f; t.rc[3] = 1.0f;
+        w->tooltipLines.push_back(std::move(t));
+    };
+
+    w->isTooltip = true;
+    w->tooltipLines.clear();
+    line(name, "", 1.0f, 0.82f, 0.0f);   // gold, as WoW titles a tooltip
+
+    const auto info = gh->getSpellData(spellId);
+    std::string cost, range;
+    if (info.manaCost > 0) {
+        static const char* kPower[] = {"Mana", "Rage", "Focus", "Energy",
+                                       "Happiness", "", "Runic Power"};
+        const char* unit = info.powerType < 7 ? kPower[info.powerType] : "Mana";
+        cost = std::to_string(info.manaCost) + (*unit ? std::string(" ") + unit : "");
+    }
+    if (info.maxRange > 0.0f) {
+        range = std::to_string(static_cast<int>(info.maxRange)) + " yd range";
+    }
+    if (!cost.empty() || !range.empty()) line(cost, range, 1.0f, 1.0f, 1.0f);
+
+    // Instant is a word rather than a zero, which is what WoW prints.
+    const std::string cast = info.castTimeMs > 0
+        ? std::to_string(info.castTimeMs / 1000.0f).substr(0, 4) + " sec cast"
+        : std::string("Instant");
+    line(cast, "", 1.0f, 1.0f, 1.0f);
+
+    const std::string body =
+        gh->formatSpellDescription(spellId, gh->getSpellDescription(spellId));
+    if (!body.empty()) line(body, "", 1.0f, 1.0f, 1.0f);
+
+    w->shown = true;
+    return true;
+}
+
 int lua_Tooltip_SetAction(lua_State* L) {
     auto* w = widgetOf(L, 1);
     auto* gh = wowee::addons::getGameHandler(L);
@@ -1172,31 +1229,13 @@ int lua_Tooltip_SetAction(lua_State* L) {
         lua_pushboolean(L, fillItemTooltipById(w, gh, action.id) ? 1 : 0);
         return 1;
     }
-    std::string name, body;
     if (action.type == game::ActionBarSlot::SPELL) {
-        name = gh->getSpellName(action.id);
-        body = gh->formatSpellDescription(action.id,
-                                          gh->getSpellDescription(action.id));
+        lua_pushboolean(L, fillSpellTooltip(w, gh, action.id) ? 1 : 0);
+        return 1;
     }
-    if (name.empty()) { lua_pushboolean(L, 0); return 1; }
-
-    w->isTooltip = true;
-    w->tooltipLines.clear();
-    wowee::ui::Widget::TooltipLine title;
-    title.left = name;
-    // Gold, as WoW titles its tooltips.
-    title.lc[0] = 1.0f; title.lc[1] = 0.82f; title.lc[2] = 0.0f; title.lc[3] = 1.0f;
-    title.rc[0] = title.rc[1] = title.rc[2] = title.rc[3] = 1.0f;
-    w->tooltipLines.push_back(std::move(title));
-    if (!body.empty()) {
-        wowee::ui::Widget::TooltipLine desc;
-        desc.left = body;
-        desc.lc[0] = desc.lc[1] = desc.lc[2] = 1.0f; desc.lc[3] = 1.0f;
-        desc.rc[0] = desc.rc[1] = desc.rc[2] = desc.rc[3] = 1.0f;
-        w->tooltipLines.push_back(std::move(desc));
-    }
-    w->shown = true;
-    lua_pushboolean(L, 1);
+    // A macro is the third kind a slot can hold and it has no tooltip of its
+    // own — WoW shows the macro's name from the button rather than from here.
+    lua_pushboolean(L, 0);
     return 1;
 }
 
@@ -1206,32 +1245,7 @@ int lua_Tooltip_SetSpellByID(lua_State* L) {
     auto* w = widgetOf(L, 1);
     auto* gh = wowee::addons::getGameHandler(L);
     const uint32_t id = static_cast<uint32_t>(luaL_optnumber(L, 2, 0));
-    if (!w || !gh || id == 0) { lua_pushboolean(L, 0); return 1; }
-    const std::string& name = gh->getSpellName(id);
-    if (name.empty()) { lua_pushboolean(L, 0); return 1; }
-
-    w->isTooltip = true;
-    w->tooltipLines.clear();
-    wowee::ui::Widget::TooltipLine title;
-    title.left = name;
-    title.lc[0] = 1.0f; title.lc[1] = 0.82f; title.lc[2] = 0.0f; title.lc[3] = 1.0f;
-    title.rc[0] = title.rc[1] = title.rc[2] = title.rc[3] = 1.0f;
-    w->tooltipLines.push_back(std::move(title));
-    // Through the formatter, not raw: a description arrives as a template full
-    // of $-tokens — "$o1 Shadow damage over $d" — and the spellbook, the talent
-    // tree and item tooltips have always resolved them here. These two tooltip
-    // paths did not, so an action button showed the template itself.
-    const std::string body =
-        gh->formatSpellDescription(id, gh->getSpellDescription(id));
-    if (!body.empty()) {
-        wowee::ui::Widget::TooltipLine desc;
-        desc.left = body;
-        desc.lc[0] = desc.lc[1] = desc.lc[2] = 1.0f; desc.lc[3] = 1.0f;
-        desc.rc[0] = desc.rc[1] = desc.rc[2] = desc.rc[3] = 1.0f;
-        w->tooltipLines.push_back(std::move(desc));
-    }
-    w->shown = true;
-    lua_pushboolean(L, 1);
+    lua_pushboolean(L, fillSpellTooltip(w, gh, id) ? 1 : 0);
     return 1;
 }
 
