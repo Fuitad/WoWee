@@ -2784,11 +2784,18 @@ static int lua_GetFramerate(lua_State* L) {
     return 1;
 }
 
-// GetCursorPosition() → x, y (screen coordinates, origin top-left)
+// GetCursorPosition() → x, y — pixels, measured from the BOTTOM left.
+//
+// Pixels rather than interface units is right, and deliberate: every caller
+// divides by UIParent:GetScale() itself. channelframe.lua does exactly that on
+// the line after asking, and then anchors what it dragged to BOTTOMLEFT — which
+// is the half that was wrong. ImGui measures the cursor from the top, so y came
+// back mirrored and anything positioned from it landed as far from the bottom
+// as the cursor was from the top.
 static int lua_GetCursorPosition(lua_State* L) {
     const auto& io = ImGui::GetIO();
     lua_pushnumber(L, io.MousePos.x);
-    lua_pushnumber(L, io.MousePos.y);
+    lua_pushnumber(L, io.DisplaySize.y - io.MousePos.y);
     return 2;
 }
 
