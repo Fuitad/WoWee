@@ -1424,6 +1424,28 @@ void registerActionLuaAPI(lua_State* L) {
                 {"GetNumBindings",      lua_GetNumBindings},
                 {"GetBinding",          lua_GetBinding},
                 {"SetBinding",          lua_SetBinding},
+                // GetBindingByKey(key) — the binding a key runs, or nil.
+                //
+                // Reached from GetBindingFromClick, which StaticPopup_OnKeyDown
+                // calls on *every* keypress while a popup is up — so with
+                // dialogs handed over, pressing any key with one on screen hit
+                // an unbound global and raised. Escape is how a popup is
+                // dismissed, so it was the keypress most likely to hit it.
+                //
+                // Two names are all FrameXML compares against here, and both
+                // are fixed in this client: escape opens the game menu and
+                // print screen takes a screenshot, neither rebindable. Anything
+                // else answers nil, which is what WoW answers for an unbound
+                // key and which lets the dialog's own key handling run.
+                {"GetBindingByKey", [](lua_State* L) -> int {
+            std::string key(luaL_optstring(L, 1, ""));
+            for (char& c : key) c = static_cast<char>(std::toupper(
+                static_cast<unsigned char>(c)));
+            if (key == "ESCAPE")           lua_pushstring(L, "TOGGLEGAMEMENU");
+            else if (key == "PRINTSCREEN") lua_pushstring(L, "SCREENSHOT");
+            else                           lua_pushnil(L);
+            return 1;
+        }},
                 // GetQuestGreenRange() — how many levels below the player a
                 // thing can be before it turns grey.
                 //
