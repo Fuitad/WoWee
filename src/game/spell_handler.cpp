@@ -1771,8 +1771,22 @@ void SpellHandler::handleSpellStart(network::Packet& packet) {
     // Fire UNIT_SPELLCAST_START
     if (owner_.addonEventCallbackRef() && !rangedWeaponAttack) {
         std::string unitId = owner_.guidToUnitId(data.casterUnit);
-        if (!unitId.empty())
+        if (!unitId.empty()) {
             owner_.addonEventCallbackRef()("UNIT_SPELLCAST_START", {unitId, std::to_string(data.spellId)});
+            // Whether the cast can be kicked, which the cast bar draws as a
+            // shield around itself. This client already worked it out for the
+            // cast it is tracking and kept it — so a boss casting something
+            // uninterruptible looked exactly like one that could be stopped.
+            //
+            // After START, not before: the bar sets its shield up when the cast
+            // begins and these only change the border, so arriving first would
+            // be undone by the start it is describing.
+            owner_.addonEventCallbackRef()(
+                owner_.isSpellInterruptible(data.spellId)
+                    ? "UNIT_SPELLCAST_INTERRUPTIBLE"
+                    : "UNIT_SPELLCAST_NOT_INTERRUPTIBLE",
+                {unitId});
+        }
     }
 
     // Trigger cast visual effect (precast/cast kit M2) at the caster's position.
