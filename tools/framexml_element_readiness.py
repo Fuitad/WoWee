@@ -111,6 +111,14 @@ ELEMENTS = {
     # permanent floor under this element's number and make it unreadable.
     "chat":         ["floatingchatframe.lua", "floatingchatframe.xml",
                      "chatframe.xml", "chatconfigframe.lua", "chatconfigframe.xml"],
+    # These four are named in framexml_takeover.cpp and were measured by
+    # nothing, which is the same hole chat sat in. An element the transition can
+    # be asked to hand over and that no report covers is worse than one with a
+    # known gap: it reads as ready by absence.
+    "bgscore":      ["worldstateframe.lua", "worldstateframe.xml"],
+    "stable":       ["petstable.lua", "petstable.xml"],
+    "book":         ["itemtextframe.lua", "itemtextframe.xml"],
+    "totems":       ["totemframe.lua", "totemframe.xml"],
 }
 
 # Elements whose frames arrive with a load-on-demand addon rather than with
@@ -126,6 +134,7 @@ ADDON_ELEMENTS = {
     "macro":        "blizzard_macroui",
     "keybindings":  "blizzard_bindingui",
     "timemanager":  "blizzard_timemanager",
+    "classtrainer": "blizzard_trainerui",
 }
 
 # A handler body in XML is Lua, and holds calls that appear nowhere in any .lua.

@@ -2676,6 +2676,10 @@ void InventoryHandler::handleItemTextQueryResponse(network::Packet& packet) {
     if (!text.empty()) {
         itemText_ = std::move(text);
         itemTextOpen_ = true;
+        // ITEM_TEXT_READY is what the reading frame answers by asking for the
+        // page it has just been told about. Without it the text arrived, was
+        // stored, and only this client's own window ever showed it.
+        owner_.fireAddonEvent("ITEM_TEXT_READY", {});
     }
 }
 

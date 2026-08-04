@@ -3236,6 +3236,11 @@ void SocialHandler::handlePvpLogData(network::Packet& packet) {
         bgScoreboard_.hasWinner = (packet.readUInt8() != 0);
         if (bgScoreboard_.hasWinner && remaining() >= 1) bgScoreboard_.winner = packet.readUInt8();
     }
+    // The scoreboard is drawn from this and asked for it by name —
+    // RequestBattlefieldScoreData sends the query, UPDATE_BATTLEFIELD_SCORE is
+    // the answer arriving. Every row, every column and the winner were parsed
+    // and stored, and the frame that displays them was never told.
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("UPDATE_BATTLEFIELD_SCORE", {});
 }
 
 void SocialHandler::updateLogoutCountdown(float deltaTime) {
