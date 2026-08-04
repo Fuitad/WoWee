@@ -1660,6 +1660,28 @@ static int lua_GetContainerNumSlots(lua_State* L) {
 }
 
 // GetContainerItemInfo(container, slot) → texture, count, locked, quality, readable, lootable, link
+// What this client does not keep per bag slot: durability and gem sockets.
+//
+// Both are read straight into locals and guarded before use — paperdollframe
+// writes `local broken = ( maxDurability and durability == 0 )`, and the gems
+// are not even unpacked there — so absent is both safe and true. Answering a
+// full bar or three empty sockets would be a claim about an item nobody
+// inspected.
+//
+// They are bindings rather than parser work, which is worth saying because it
+// was called the other way once: the wire carries this detail and this client
+// parses it only for equipped items, so it looked like a data gap until the
+// caller was read.
+static int lua_GetContainerItemDurability(lua_State* L) {
+    lua_pushnil(L);   // durability
+    lua_pushnil(L);   // maxDurability
+    return 2;
+}
+static int lua_ItemGemsNone(lua_State* L) {
+    lua_pushnil(L); lua_pushnil(L); lua_pushnil(L);   // gem1, gem2, gem3
+    return 3;
+}
+
 // GetContainerFreeSlots(container [, table]) → the empty slots in that bag.
 //
 // Fills a table the caller supplies rather than building one, which is how the
@@ -2646,6 +2668,9 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"ResetCursor",             lua_ResetCursor},
                 {"GetContainerItemID",    lua_GetContainerItemID},
                 {"GetContainerFreeSlots", lua_GetContainerFreeSlots},
+                {"GetContainerItemDurability", lua_GetContainerItemDurability},
+                {"GetContainerItemGems",  lua_ItemGemsNone},
+                {"GetInventoryItemGems",  lua_ItemGemsNone},
                 {"GetContainerItemInfo",    lua_GetContainerItemInfo},
                 {"GetContainerItemLink",    lua_GetContainerItemLink},
                 {"GetContainerNumFreeSlots", lua_GetContainerNumFreeSlots},
