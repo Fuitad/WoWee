@@ -915,30 +915,34 @@ const std::string& SocialHandler::lookupGuildName(uint32_t guildId) {
 // Inspection
 // ============================================================
 
-void SocialHandler::inspectTarget() {
+void SocialHandler::inspectTarget() { inspectUnit(owner_.getTargetGuid()); }
+
+// Any player, not only the targeted one: FrameXML's unit menus name the unit
+// the menu was opened on, and on a party frame that is not the target.
+void SocialHandler::inspectUnit(uint64_t guid) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) {
         LOG_WARNING("Cannot inspect: not in world or not connected");
         return;
     }
-    if (owner_.getTargetGuid() == 0) {
+    if (guid == 0) {
         owner_.addSystemChatMessage("You must target a player to inspect.");
         return;
     }
-    auto target = owner_.getTarget();
-    if (!target || target->getType() != ObjectType::PLAYER) {
+    auto entity = owner_.getEntityManager().getEntity(guid);
+    if (!entity || entity->getType() != ObjectType::PLAYER) {
         owner_.addSystemChatMessage("You can only inspect players.");
         return;
     }
-    auto packet = InspectPacket::build(owner_.getTargetGuid());
+    auto packet = InspectPacket::build(guid);
     owner_.getSocket()->send(packet);
     if (isActiveExpansion("wotlk")) {
-        auto achPkt = QueryInspectAchievementsPacket::build(owner_.getTargetGuid());
+        auto achPkt = QueryInspectAchievementsPacket::build(guid);
         owner_.getSocket()->send(achPkt);
     }
-    auto player = std::static_pointer_cast<Player>(target);
+    auto player = std::static_pointer_cast<Player>(entity);
     std::string name = player->getName().empty() ? "Target" : player->getName();
     owner_.addSystemChatMessage("Inspecting " + name + "...");
-    LOG_INFO("Sent inspect request for player: ", name, " (GUID: 0x", std::hex, owner_.getTargetGuid(), std::dec, ")");
+    LOG_INFO("Sent inspect request for player: ", name, " (GUID: 0x", std::hex, guid, std::dec, ")");
 }
 
 void SocialHandler::handleInspectResults(network::Packet& packet) {

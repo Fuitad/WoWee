@@ -1751,7 +1751,40 @@ void registerSocialLuaAPI(lua_State* L) {
             return 0;
         }},
                 {"FollowUnit", [](lua_State* L) -> int {
-            (void)L; // Follow requires movement system integration
+            // Still nothing. followTarget exists and works, but it follows
+            // whatever is targeted and this is called with a *name* — a party
+            // member who is not the target cannot be followed without giving
+            // the movement handler a guid to aim at. A no-op is the honest
+            // answer until then, and unlike a missing global it does not raise.
+            (void)L;
+            return 0;
+        }},
+                // Inspect and duel, both of which unitpopup.lua calls straight
+                // out of the unit right-click menu — and neither was bound at
+                // all, so choosing either raised. A missing global is worse
+                // than a stub: an unanswered call throws where an unfired event
+                // only goes unheard.
+                {"InspectUnit", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* unit = luaL_optstring(L, 1, "target");
+            if (!gh || !unit) return 0;
+            std::string uid(unit);
+            toLowerInPlace(uid);
+            if (const uint64_t guid = resolveUnitGuid(gh, uid)) gh->inspectUnit(guid);
+            return 0;
+        }},
+                // The achievement comparison the same menu offers. The query
+                // goes out with the inspect above, and there is no comparison
+                // window to show it in — but it is bound rather than absent so
+                // that picking it does nothing instead of throwing.
+                {"InspectAchievements", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"StartDuel", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* unit = luaL_optstring(L, 1, "target");
+            if (!gh || !unit) return 0;
+            std::string uid(unit);
+            toLowerInPlace(uid);
+            if (const uint64_t guid = resolveUnitGuid(gh, uid)) gh->proposeDuel(guid);
             return 0;
         }},
                 {"RandomRoll", [](lua_State* L) -> int {

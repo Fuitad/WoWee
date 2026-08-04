@@ -1522,6 +1522,10 @@ void GameHandler::inspectTarget() {
     if (socialHandler_) socialHandler_->inspectTarget();
 }
 
+void GameHandler::inspectUnit(uint64_t guid) {
+    if (socialHandler_) socialHandler_->inspectUnit(guid);
+}
+
 const GameHandler::InspectResult* GameHandler::getInspectResult() const {
     return socialHandler_ ? socialHandler_->getInspectResult() : nullptr;
 }

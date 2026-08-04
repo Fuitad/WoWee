@@ -15,20 +15,29 @@ from pathlib import Path
 
 ROOT = Path("/home/k/Desktop/wowee")
 
-# Verb prefixes: things that *do* something, as opposed to getters the
-# replacement interface has its own answers for.
-VERBS = ("send", "complete", "begin", "use", "accept", "confirm", "request",
-         "cancel", "toggle", "buy", "sell", "split", "equip", "unequip",
-         "loot", "interact", "cast", "start", "stop", "apply", "choose",
-         "select", "decline", "abandon", "submit", "invite", "kick", "leave",
-         "join", "learn", "train", "repair", "enchant", "craft", "open",
-         "close", "pick", "put", "swap", "destroy", "delete", "report")
+# Exclude what is definitely not a verb, rather than listing what is.
+#
+# This started as a prefix whitelist of forty-odd words and saw 173 of 1495
+# names — about a fifth of the surface. InspectUnit and StartDuel were both
+# missing bindings that FrameXML calls straight out of the unit menu, and both
+# were invisible to it because "inspect" and "duel" were not on the list.
+# Any hand-written list of what to look at is a summary, and summaries here
+# hide things.
+def is_verb(name: str) -> bool:
+    if name.endswith("Ref") or name.endswith("_"):
+        return False                      # internal accessors
+    if name.startswith(("get", "is", "has", "can", "find", "lookup",
+                        "format", "num", "should")):
+        return False                      # getters and predicates
+    # Struct fields declared in the same header read as bare words: armor,
+    # angle, active, bar. A verb here is camelCase with an object.
+    return any(c.isupper() for c in name)
 
 hdr = (ROOT / "include/game/game_handler.hpp").read_text()
 methods = set()
 for m in re.finditer(r"\b([a-z][A-Za-z0-9_]*)\s*\(", hdr):
     name = m.group(1)
-    if name.startswith(VERBS):
+    if is_verb(name):
         methods.add(name)
 
 

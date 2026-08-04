@@ -67,6 +67,8 @@ public:
 
     // Inspection
     void inspectTarget();
+    /// Inspect any player by guid; inspectTarget is this with the current target.
+    void inspectUnit(uint64_t guid);
     const InspectResult* getInspectResult() const {
         return inspectResult_.guid ? &inspectResult_ : nullptr;
     }
