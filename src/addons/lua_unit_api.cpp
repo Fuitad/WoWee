@@ -255,11 +255,15 @@ static int lua_UnitIsAFK(lua_State* L) {
             // AFK is PLAYER_FLAGS bit 0x01, NOT UNIT_FIELD_FLAGS (where 0x01
             // is UNIT_FLAG_SERVER_CONTROLLED — completely unrelated).
             uint32_t playerFlags = entity->getField(game::fieldIndex(game::UF::PLAYER_FLAGS));
-            lua_pushboolean(L, (playerFlags & 0x01) != 0);
+            // 1 or nil, the way WoW answers a Unit predicate. bnet.lua tests
+            // `UnitIsAFK("player") == 1`, which a boolean fails silently, and
+            // the two chat sites test it for truth — 1 and nil satisfy both,
+            // where true/false and 1/0 each break one of them.
+            if (playerFlags & 0x01) lua_pushnumber(L, 1); else lua_pushnil(L);
             return 1;
         }
     }
-    lua_pushboolean(L, 0);
+    lua_pushnil(L);
     return 1;
 }
 
@@ -275,11 +279,12 @@ static int lua_UnitIsDND(lua_State* L) {
         if (entity) {
             // DND is PLAYER_FLAGS bit 0x02, NOT UNIT_FIELD_FLAGS.
             uint32_t playerFlags = entity->getField(game::fieldIndex(game::UF::PLAYER_FLAGS));
-            lua_pushboolean(L, (playerFlags & 0x02) != 0);
+            // 1 or nil, as UnitIsAFK above and for the same reason.
+            if (playerFlags & 0x02) lua_pushnumber(L, 1); else lua_pushnil(L);
             return 1;
         }
     }
-    lua_pushboolean(L, 0);
+    lua_pushnil(L);
     return 1;
 }
 
@@ -2437,7 +2442,13 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"IsInventoryItemLocked",   lua_ReturnFalse},
                 {"GetInventoryItemBroken",  lua_ReturnFalse},
                 {"CursorCanGoInSlot",       lua_ReturnFalse},
-                {"IsTitleKnown",            lua_ReturnFalse},
+                // Zero rather than false: paperdollframe.lua asks
+                // `IsTitleKnown(i) ~= 0`, and `false ~= 0` compares two
+                // different types and is therefore true — so every title would
+                // have counted as known. Latent today only because
+                // GetNumTitles answers zero and the loop never runs.
+                {"IsTitleKnown",            [](lua_State* L) -> int {
+            lua_pushnumber(L, 0); return 1; }},
                 {"GetCombatRatingBonus",    lua_ZeroPercent},
                 {"GetCritChanceFromAgility", lua_ZeroPercent},
                 {"GetSpellCritChanceFromIntellect", lua_ZeroPercent},

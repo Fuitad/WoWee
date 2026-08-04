@@ -1657,7 +1657,17 @@ int lua_Button_Disable(lua_State* L) {
 }
 int lua_Button_IsEnabled(lua_State* L) {
     const auto* w = widgetOf(L, 1);
-    lua_pushboolean(L, w ? (w->enabled ? 1 : 0) : 0);
+    // A number, not a boolean, because that is what WoW answers and FrameXML
+    // is written against it: twenty-two places test `IsEnabled() ~= 0` and six
+    // test it for truth. A boolean fails the twenty-two silently — `false ~= 0`
+    // compares two different types and is therefore *true* — so a disabled
+    // button read as enabled everywhere it was asked properly. Pressing return
+    // in the macro name box confirmed through a greyed-out OK button that way.
+    //
+    // The six truth tests then see 0 as true, which is a real flaw, but it is
+    // retail's flaw: FrameXML was authored against a client that answers a
+    // number here, and matching it is what keeps the other twenty-two right.
+    lua_pushnumber(L, w && w->enabled ? 1 : 0);
     return 1;
 }
 
