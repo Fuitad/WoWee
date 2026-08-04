@@ -82,6 +82,17 @@ KNOWN FALSE POSITIVES, which this cannot tell from a real gap:
     the guild-bank variant only adds anything to a client that funds repairs
     from a guild bank, which this one does not. Applying the rule above: grep
     the handler for the event and see what else reaches the same line.
+
+  * Whole features this client does not have, which read as a pile of events
+    rather than as one absence. playerframe's eight are voice chat twice,
+    vehicles four times, the Chinese anti-addiction playtime display and LFG
+    role assignment — none of which exists here, and UNIT_ENTERED_VEHICLE does
+    nothing but set inSeat and swap the frame art for a vehicle that cannot
+    happen.
+
+    Worth counting before working: an element showing eight missing events can
+    be four features absent by design rather than eight gaps. bags, merchant
+    and playerframe all read as gapped and all three are complete.
 """
 
 import collections
