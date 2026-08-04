@@ -1686,10 +1686,72 @@ void registerSocialLuaAPI(lua_State* L) {
             lua_pushboolean(L, 0);            // isHeader
             lua_pushboolean(L, 0);            // isCollapsed
             lua_pushboolean(L, 1);            // hasRep
-            lua_pushboolean(L, 0);            // isWatched
+            // Was a flat zero while the client tracked the watched faction all
+            // along, so the reputation tab never marked the bar it is showing.
+            lua_pushboolean(L, f.factionId == gh->getWatchedFactionId() ? 1 : 0);
             lua_pushboolean(L, 0);            // isChild
             return 13;
         }},
+                // The reputation tab's controls. Every one of these has a verb
+                // on GameHandler and none had a binding, so the tab could show
+                // a standing and change nothing about it — this client's own
+                // reputation panel was the only way to declare war on a faction
+                // or pick which bar to watch.
+                //
+                // All take a position in the flat list above, which is where
+                // reputationIndex (the server's repListId) comes from.
+                {"SetWatchedFactionIndex", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh) return 0;
+            // Zero is FrameXML's "watch nothing", not a missing argument.
+            if (index < 1) { gh->setWatchedFactionId(0); return 0; }
+            const auto& list = gh->getReputationList();
+            if (index <= static_cast<int>(list.size())) {
+                gh->setWatchedFactionId(list[static_cast<size_t>(index) - 1].factionId);
+            }
+            return 0;
+        }},
+                {"FactionToggleAtWar", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh || index < 1) return 0;
+            const auto& list = gh->getReputationList();
+            if (index > static_cast<int>(list.size())) return 0;
+            const auto& f = list[static_cast<size_t>(index) - 1];
+            const bool atWar = (f.flags & game::GameHandler::FACTION_FLAG_AT_WAR) != 0;
+            gh->setFactionAtWar(f.reputationIndex, !atWar);
+            return 0;
+        }},
+                {"SetFactionActive", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh || index < 1) return 0;
+            const auto& list = gh->getReputationList();
+            if (index <= static_cast<int>(list.size())) {
+                gh->setFactionInactive(list[static_cast<size_t>(index) - 1].reputationIndex,
+                                       false);
+            }
+            return 0;
+        }},
+                {"SetFactionInactive", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh || index < 1) return 0;
+            const auto& list = gh->getReputationList();
+            if (index <= static_cast<int>(list.size())) {
+                gh->setFactionInactive(list[static_cast<size_t>(index) - 1].reputationIndex,
+                                       true);
+            }
+            return 0;
+        }},
+                // GetFactionInfo reports every row as isHeader false, because
+                // the list it walks is flat — the client does not read each
+                // faction's parent to build categories. With no headers there
+                // is nothing to open or close, and the tab calls these from a
+                // row's click handler regardless of what the row is.
+                {"ExpandFactionHeader",   [](lua_State* L) -> int { (void)L; return 0; }},
+                {"CollapseFactionHeader", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"IsFactionInactive", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int index = static_cast<int>(luaL_checknumber(L, 1));

@@ -817,7 +817,14 @@ static int lua_GetSkillLineInfo(lua_State* L) {
         lua_pushboolean(L, 1);                          // 3: isExpanded
         for (int i = 4; i <= 7; ++i) lua_pushnumber(L, 0);   // rank, temp, mod, max
         lua_pushboolean(L, 0);                          // 8: isAbandonable
-        for (int i = 9; i <= 12; ++i) lua_pushnumber(L, 0); // costs, minLevel, type
+        // stepCost and rankCost nil for the same reason they are nil below:
+        // zero is true in Lua, so a zero here sends the empty row down the
+        // "Learn <skill>" branch. The fix went in on the real path and this
+        // fallback kept its zeros, which is how a fix half-lands.
+        lua_pushnil(L);                                 // 9: stepCost
+        lua_pushnil(L);                                 // 10: rankCost
+        lua_pushnumber(L, 0);                           // 11: minLevel
+        lua_pushnumber(L, 0);                           // 12: skillCostType
         lua_pushstring(L, "");                          // 13: skillDescription
         return 13;
     }
@@ -1836,6 +1843,13 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"IsAtStableMaster",       lua_IsAtStableMaster},
                 {"GetNextStableSlotCost",  lua_GetNextStableSlotCost},
                 {"GetSkillLineInfo",        lua_GetSkillLineInfo},
+                // GetSkillLineInfo reports isHeader false for every row, so the
+                // skills list has no headers to open or close. Bound rather
+                // than left out because the click that calls them is on the
+                // row label template, which the tab builds for whatever the
+                // data gives it — the guard is in the data, not in the frame.
+                {"ExpandSkillHeader",       [](lua_State* L) -> int { (void)L; return 0; }},
+                {"CollapseSkillHeader",     [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GetNumTalentTabs",        lua_GetNumTalentTabs},
                 {"GetTalentTabInfo",        lua_GetTalentTabInfo},
                 {"GetNumTalents",           lua_GetNumTalents},

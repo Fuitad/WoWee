@@ -221,7 +221,18 @@ ELEMENTS = {
     "castbar":      ["castingbarframe.lua", "castingbarframe.xml"],
     "buffs":        ["buffframe.lua", "buffframe.xml"],
     "minimap":      ["minimap.lua", "minimap.xml"],
-    "characterframe": ["paperdollframe.lua", "paperdollframe.xml"],
+    # All five tabs, not just the paperdoll. CHARACTERFRAME_SUBFRAMES
+    # (characterframe.lua:1) names PaperDollFrame, PetPaperDollFrame,
+    # SkillFrame, ReputationFrame and TokenFrame, and ToggleCharacter reaches
+    # any of them. Listing only the paperdoll left four tabs of a *default*
+    # element unscanned — the expansion that follows calls out of a root does
+    # not find them, because sibling tabs do not call each other.
+    "characterframe": ["characterframe.lua", "characterframe.xml",
+                       "paperdollframe.lua", "paperdollframe.xml",
+                       "petpaperdollframe.lua", "petpaperdollframe.xml",
+                       "skillframe.lua", "skillframe.xml",
+                       "reputationframe.lua", "reputationframe.xml",
+                       "tokenframe.lua", "tokenframe.xml"],
     "bags":         ["containerframe.lua", "containerframe.xml"],
     "spellbook":    ["spellbookframe.lua", "spellbookframe.xml"],
     "durability":   ["durabilityframe.lua", "durabilityframe.xml"],
@@ -256,6 +267,7 @@ CALL = re.compile(r"(?<![\w.:])([A-Z][A-Za-z0-9_]*)\s*\(")
 # Name() in prose.
 _STRINGS = re.compile(r'"(?:[^"\\\n]|\\.)*"' r"|'(?:[^'\\\n]|\\.)*'")
 _COMMENT = re.compile(r"--\[\[.*?\]\]|--[^\n]*", re.S)
+_XML_COMMENT = re.compile(r"<!--.*?-->", re.S)
 
 
 def code_only(src):
@@ -332,7 +344,13 @@ def scan_interface():
                     defined_by.setdefault(fn, name)
                 calls[name] |= set(CALL.findall(src))
             elif name.endswith(".xml"):
-                src = open(path, encoding="utf-8", errors="ignore").read()
+                # XML comments first. A whole widget can be commented out and
+                # its <OnClick> still matches, which reported skillframe.xml's
+                # sort button — a control that has not existed since whoever
+                # commented it out. Blanking Lua comments inside the body does
+                # not help; the body should not have been read at all.
+                src = _XML_COMMENT.sub(" ",
+                                       open(path, encoding="utf-8", errors="ignore").read())
                 for body in SCRIPT_BODY.finditer(src):
                     calls[name] |= set(CALL.findall(code_only(body.group(2))))
     return defined_by, calls
@@ -453,7 +471,7 @@ def main():
     # noticing. When a claim rests on what another binding returns, check that
     # the return is a real answer and not a placeholder.
     settled = {
-        "characterframe": "[checked] eight of nine events are the stat branch shared with UNIT_STATS, which is fired; SHOW_COMPARE_TOOLTIP is absent by design — the C client fires it on a shift-hover to open a comparison tooltip, and this client has no item comparison at all (the only 'compare' in src/ui is std::string::compare)",
+        "characterframe": "[checked] the paperdoll's own are the stat branch shared with UNIT_STATS, which is fired, plus SHOW_COMPARE_TOOLTIP — absent by design, the C client fires it on a shift-hover to open a comparison tooltip and this client has no item comparison at all. The rest arrived with the other four tabs, which this entry did not cover until their files were added: the three COMPANION_* and the two PET_* belong to the companions and mounts list on the pet tab, which needs mount and critter classification out of Spell.dbc and is the one real gap here; DISABLE/ENABLE_XP_GAIN is the WotLK experience-lock NPC, which this client has no path to; PLAYER_PVP_RANK_CHANGED is the vanilla honor rank, gone by 3.3.5. The four remaining calls are AddSkillUp, RemoveSkillUp and BuySkillTier — the skill-point purchase panel, unreachable because GetSkillLineInfo answers nil for stepCost and rankCost — and GetText, which is a widget method rather than a global",
         "book":         "[checked] ITEM_TEXT_TRANSLATION carries a translation timer nothing derives; the text itself does arrive — ItemHandler.cpp builds SMSG_ITEM_TEXT_QUERY_RESPONSE",
         "bags":         "[checked] BAG_OPEN/CLOSED are for a C client opening bags; ToggleBag, OpenBag and CloseBag are all Lua functions in containerframe.lua",
         "merchant":     "[checked] GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, fired from inventory_handler and entity_controller",
