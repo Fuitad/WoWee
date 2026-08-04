@@ -109,6 +109,15 @@ void WidgetTree::markPlayerPortrait(uint32_t id) {
 }
 
 void WidgetTree::unmarkPlayerPortrait(uint32_t id) {
+    // Put the frame's own art back. The player's face is pushed into
+    // externalTexture every frame for as long as the id is on this list, and
+    // dropping it off the list only stops the updates — the last face stays.
+    //
+    // The target frame is the one that shows: SetPortraitTexture marks it while
+    // the player is targeting themselves and unmarks it for anything else, so
+    // the next target wore the player's face. A game object made that obvious,
+    // having no portrait of its own to overwrite it with.
+    if (auto* w = get(id)) w->externalTexture = 0;
     for (size_t i = 0; i < playerPortraits_.size(); ++i) {
         if (playerPortraits_[i] != id) continue;
         playerPortraits_[i] = playerPortraits_.back();

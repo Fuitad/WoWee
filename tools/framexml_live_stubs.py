@@ -21,36 +21,59 @@ STUBS = {"lua_ReturnNil", "lua_ReturnZero", "lua_ReturnFalse", "lua_ReturnNothin
          "lua_ContainerFalse", "lua_NoOp", "lua_Noop"}
 
 # The FrameXML files that belong to elements handed over by default.
-OWNED = {
-    "unitframe.lua": "playerframe/targetframe", "targetframe.lua": "targetframe",
-    "targetframe.xml": "targetframe", "playerframe.xml": "playerframe",
-    "minimap.lua": "minimap", "minimap.xml": "minimap",
-    "mainmenubar.lua": "mainmenubar", "mainmenubar.xml": "mainmenubar",
-    "actionbutton.lua": "mainmenubar", "actionbutton.xml": "mainmenubar",
-    "mainmenubarbagbuttons.lua": "bagbar", "bonusactionbarframe.lua": "mainmenubar",
-    "characterframe.lua": "characterframe", "characterframe.xml": "characterframe",
-    "paperdollframe.lua": "characterframe", "paperdollframe.xml": "characterframe",
-    "containerframe.lua": "bags", "containerframe.xml": "bags",
-    "castingbarframe.lua": "castbar", "castingbarframe.xml": "castbar",
-    "spellbookframe.lua": "spellbook", "spellbookframe.xml": "spellbook",
-    "petframe.lua": "petframe", "petframe.xml": "petframe",
-    "petactionbarframe.lua": "petframe",
-    "focusframe.lua": "focusframe", "buffframe.lua": "buffs",
-    "buffframe.xml": "buffs", "durabilityframe.lua": "durability",
-    "zonetext.lua": "zonetext", "staticpopup.lua": "dialogs",
-    "uiparent.lua": "dialogs",
-    # The character sheet is five tabs in five files, not one. Listing only
-    # paperdollframe.lua hid the skill list and the companions tab on the
-    # first run — the file list is itself a summary, and summaries here hide
-    # things. CHARACTERFRAME_SUBFRAMES in characterframe.lua names all five.
-    "reputationframe.lua": "characterframe/rep",
-    "skillframe.lua": "characterframe/skills",
-    "skillframe.xml": "characterframe/skills",
-    "tokenframe.lua": "characterframe/currency",
-    "petpaperdollframe.lua": "characterframe/pet",
-    "playerframe.lua": "playerframe",
-    "unitframe.xml": "unitframes",
-}
+# Derived from the takeover file rather than written out: the elements handed
+# over by default plus the candidates tier, mapped to files through the
+# readiness tool's table, plus the shared files every panel goes through.
+#
+# It was a hand-made list and twice that was the bug — it named
+# paperdollframe.lua as "the character sheet" and missed the other four
+# subframes, and it covered only the defaults while the candidates tier was
+# what was actually on screen.
+def _live_files():
+    import re as _re
+    tk = (ROOT / "src/ui/framexml_takeover.cpp").read_text()
+    defaults = set(_re.findall(r'"([a-z]+)"',
+        _re.search(r"return std::set<std::string>\{(.*?)\};", tk, _re.S).group(1)))
+    cand = set(_re.findall(r'"([a-z]+)"',
+        _re.search(r"for \(const char\* name : \{(.*?)\}\)", tk, _re.S).group(1)))
+    rd = (ROOT / "tools/framexml_element_readiness.py").read_text()
+    ns = {}
+    exec(_re.search(r"^ELEMENTS = \{.*?^\}", rd, _re.S | _re.M).group(0), ns)
+    exec(_re.search(r"^ADDON_ELEMENTS = \{.*?^\}", rd, _re.S | _re.M).group(0), ns)
+    out = {}
+    for el in defaults | cand:
+        for f in ns["ELEMENTS"].get(el, []):
+            out[f] = el
+        addon = ns["ADDON_ELEMENTS"].get(el)
+        if addon:
+            d = XML / "addons" / addon
+            if d.exists():
+                for p in d.rglob("*"):
+                    if p.suffix in (".lua", ".xml"):
+                        out[p.name] = el
+    for f, el in {
+            "uiparent.lua": "dialogs", "staticpopup.lua": "dialogs",
+            "unitpopup.lua": "unitframes", "unitframe.lua": "unitframes",
+            "targetframe.lua": "targetframe", "playerframe.lua": "playerframe",
+            "actionbutton.lua": "mainmenubar", "bonusactionbarframe.lua": "mainmenubar",
+            "mainmenubar.lua": "mainmenubar", "mainmenubarbagbuttons.lua": "bagbar",
+            "containerframe.lua": "bags", "paperdollframe.lua": "characterframe",
+            "skillframe.lua": "characterframe/skills",
+            "reputationframe.lua": "characterframe/rep",
+            "tokenframe.lua": "characterframe/currency",
+            "petpaperdollframe.lua": "characterframe/pet",
+            "characterframe.lua": "characterframe", "spellbookframe.lua": "spellbook",
+            "petframe.lua": "petframe", "petactionbarframe.lua": "petframe",
+            "buffframe.lua": "buffs", "castingbarframe.lua": "castbar",
+            "durabilityframe.lua": "durability", "zonetext.lua": "zonetext",
+            "minimap.lua": "minimap", "mirrortimer.lua": "playerframe",
+            "focusframe.lua": "focusframe", "gametooltip.lua": "tooltips",
+            "itembuttontemplate.lua": "shared"}.items():
+        out.setdefault(f, el)
+    return out
+
+
+OWNED = _live_files()
 
 bound = {}
 for f in (ROOT / "src/addons").glob("*.cpp"):
