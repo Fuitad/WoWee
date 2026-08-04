@@ -33,11 +33,15 @@ STUBS = {"lua_ReturnNil", "lua_ReturnZero", "lua_ReturnFalse", "lua_ReturnNothin
 # Bound at all — the loose pattern, because a lambda body full of braces is
 # still a binding and matching only trivial ones made every real
 # implementation read as missing. InspectUnit was reported dead that way.
-bound, noop = set(), set()
+# One source of truth for what is answered — see framexml_provides. Working
+# this out per tool is how six sweeps came to disagree about it.
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).resolve().parent))
+from framexml_provides import globals_provided
+
+bound, noop = globals_provided(), set()
 for f in (ROOT / "src/addons").glob("*.cpp"):
     s = f.read_text(errors="ignore")
-    bound |= set(re.findall(r'\{"([A-Za-z0-9_]+)"\s*,', s))
-    bound |= set(re.findall(r'lua_setglobal\(\s*L_?\s*,\s*"([A-Za-z0-9_]+)"', s))
     # Does nothing: a named stub, or a lambda whose whole body discards L.
     for m in re.finditer(r'\{"([A-Za-z0-9_]+)",\s*(?:&)?\s*(lua_[A-Za-z0-9_]+)\}', s):
         if m.group(2) in STUBS:

@@ -160,6 +160,7 @@ import collections
 import glob
 import os
 import re
+import sys
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 FX = os.path.join(ROOT, "Data", "interface", "framexml")
@@ -307,18 +308,15 @@ def events_registered():
 
 
 def registered():
-    """Every global name the C++ bindings answer."""
-    names = set()
-    for path in glob.glob(os.path.join(ADDONS, "*.cpp")):
-        src = open(path, encoding="utf-8", errors="ignore").read()
-        names |= set(re.findall(r'\{\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*,', src))
-        names |= set(re.findall(
-            r'lua_setglobal\(\s*\w+\s*,\s*"([A-Za-z_][A-Za-z0-9_]*)"', src))
-        # Bootstrap Lua lives in C++ string literals: names defined there, and
-        # the quoted lists of stub names, both count as answered.
-        names |= set(re.findall(r"function\s+([A-Za-z_][A-Za-z0-9_]*)\s*[:(]", src))
-        names |= set(re.findall(r"'([A-Za-z_][A-Za-z0-9_]*)'", src))
-    return names
+    """Every global name the client answers.
+
+    This implementation moved to framexml_provides, which is now the one place
+    that decides — six other sweeps had worked it out for themselves and only
+    this one was right, because only this one read the bootstrap Lua.
+    """
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from framexml_provides import globals_provided
+    return globals_provided()
 
 
 def scan_interface():

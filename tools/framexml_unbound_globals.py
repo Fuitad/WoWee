@@ -11,23 +11,20 @@ each name is called from and lets the reader decide whether that file is on
 screen.
 """
 import re
+import sys
+from pathlib import Path as _ToolPath
+sys.path.insert(0, str(_ToolPath(__file__).resolve().parent))
 from pathlib import Path
 
 ROOT = Path("/home/k/Desktop/wowee")
 XML = ROOT / "Data/interface"
 
 # Bound on the C++ side.
-bound = set()
-for f in (ROOT / "src/addons").glob("*.cpp"):
-    s = f.read_text(errors="ignore")
-    bound |= set(re.findall(r'\{"([A-Za-z0-9_]+)"\s*,', s))
-    # Second registration style: lua_pushcfunction + lua_setglobal. Thirty-two
-    # names go in this way, CreateFrame and GetScreenWidth among them, and
-    # missing it made the whole report untrustworthy rather than merely short.
-    bound |= set(re.findall(r'lua_setglobal\(\s*L_?\s*,\s*"([A-Za-z0-9_]+)"', s))
-    # Names listed in the bootstrap's no-op / known-method tables count too.
-    for blob in re.findall(r'"([A-Za-z0-9_=,\\n ]{40,})"', s):
-        bound |= set(re.findall(r"([A-Za-z][A-Za-z0-9_]*)=1", blob))
+# One source of truth — see framexml_provides. Working this out per tool is
+# how six sweeps came to disagree about what the client answers.
+from framexml_provides import globals_provided, widget_methods_provided
+
+bound = globals_provided() | widget_methods_provided()
 
 # Defined in FrameXML itself, as a function or assigned one.
 defined = set()

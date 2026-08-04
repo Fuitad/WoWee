@@ -66,13 +66,13 @@ def strip(t):
     return re.sub(r"--\[\[.*?\]\]|--[^\n]*", "", t, flags=re.S)
 
 
-bound = set()
-for f in (ROOT / "src/addons").glob("*.cpp"):
-    s = f.read_text(errors="ignore")
-    bound |= set(re.findall(r'\{"([A-Za-z0-9_]+)"\s*,', s))
-    bound |= set(re.findall(r'lua_setglobal\(\s*L_?\s*,\s*"([A-Za-z0-9_]+)"', s))
-    for blob in re.findall(r'"([A-Za-z0-9_=,\\n ]{40,})"', s):
-        bound |= set(re.findall(r"([A-Za-z][A-Za-z0-9_]*)=1", blob))
+# One source of truth. This tool used to work it out from the C++ tables
+# alone, which is why it reported GetNumStationeries as unbound and reachable
+# from the mail frame — it had been answered by the bootstrap counting table
+# all along, and acting on the report made things worse.
+from framexml_provides import globals_provided, widget_methods_provided
+
+bound = globals_provided() | widget_methods_provided()
 
 # Every FrameXML function body, and the file it lives in.
 bodies, defined = {}, set()
