@@ -2552,8 +2552,22 @@ void registerUnitLuaAPI(lua_State* L) {
                 // different types and is therefore true — so every title would
                 // have counted as known. Latent today only because
                 // GetNumTitles answers zero and the loop never runs.
+                // IsTitleKnown(bit) — the client tracks these already, as a
+                // set of bits off the player's known-titles mask. Answering a
+                // constant zero meant the paperdoll's title dropdown listed
+                // nothing however many the character had earned.
+                //
+                // A number rather than a boolean, because paperdollframe.lua
+                // asks `IsTitleKnown(i) ~= 0` and false compares unequal to
+                // zero — which is the trap that made this a zero rather than a
+                // false in the first place.
                 {"IsTitleKnown",            [](lua_State* L) -> int {
-            lua_pushnumber(L, 0); return 1; }},
+            auto* gh = getGameHandler(L);
+            const int bit = static_cast<int>(luaL_optnumber(L, 1, -1));
+            const bool known = gh && bit >= 0 &&
+                               gh->getKnownTitleBits().count(static_cast<uint32_t>(bit)) > 0;
+            lua_pushnumber(L, known ? 1 : 0);
+            return 1; }},
                 {"GetCombatRatingBonus",    lua_ZeroPercent},
                 {"GetCritChanceFromAgility", lua_ZeroPercent},
                 {"GetSpellCritChanceFromIntellect", lua_ZeroPercent},

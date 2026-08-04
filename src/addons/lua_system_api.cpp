@@ -2416,7 +2416,14 @@ void registerSystemLuaAPI(lua_State* L) {
                 // there is genuinely nothing to count. They stop being zero
                 // when something starts reading that data, and the frames
                 // above will fill themselves in when it does.
-                {"GetNumTitles",             lua_ReturnZero},
+                // GetNumTitles() — how many title *bits* there are to ask
+                // about, not how many are owned. paperdollframe.lua walks
+                // 1..GetNumTitles() calling IsTitleKnown on each, so this is
+                // the size of the space: KNOWN_TITLES_SIZE * 64 in
+                // AzerothCore's Player.h, three uint64 fields.
+                {"GetNumTitles", [](lua_State* L) -> int {
+            lua_pushnumber(L, 192); return 1;
+        }},
                 {"GetNumCompanions",         lua_ReturnZero},
                 // The knowledge base is the server's FAQ, and there is no
                 // server here answering for it. Its category dropdown is
@@ -3025,8 +3032,17 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushstring(L, title.c_str());
             return 1;
         }},
+                // SetCurrentTitle(bit) — and the comment that used to sit here
+                // saying CMSG_SET_TITLE was not exposed was stale:
+                // sendSetTitle builds and sends it, and has for a while.
+                //
+                // The server validates it. HandleSetTitleOpcode refuses any bit
+                // the character does not own and silently sets none, so there
+                // is nothing to check here that the server does not check
+                // better.
                 {"SetCurrentTitle", [](lua_State* L) -> int {
-            (void)L; // Title changes require CMSG_SET_TITLE which we don't expose yet
+            auto* gh = getGameHandler(L);
+            if (gh) gh->sendSetTitle(static_cast<int32_t>(luaL_optnumber(L, 1, -1)));
             return 0;
         }},
                 {"GetInspectSpecialization", [](lua_State* L) -> int {
