@@ -80,12 +80,21 @@ const std::set<std::string>& requested() {
         // interface instead. Naming any element in the environment replaces
         // this list rather than adding to it, so a single element can still be
         // looked at on its own.
+        // The set a run gets when nothing is named. All of them are on screen
+        // the whole time, which is why they were promoted first: a fault shows
+        // immediately rather than waiting for the right NPC.
+        static const auto defaults = [] {
+            return std::set<std::string>{
+                "playerframe", "targetframe", "minimap",
+                "mainmenubar", "characterframe", "bags", "castbar",
+                "spellbook", "petframe", "focusframe", "buffs", "durability"};
+        }();
+
         if (!raw || !*raw) {
-            out = {"playerframe", "targetframe", "minimap",
-                   "mainmenubar", "characterframe", "bags", "castbar",
-                   "spellbook", "petframe", "focusframe", "buffs", "durability"};
+            out = defaults;
             LOG_WARNING("FrameXML is drawing the branch defaults; "
-                        "set WOWEE_FRAMEXML_UI to choose, or 'none' for this "
+                        "set WOWEE_FRAMEXML_UI to choose, 'candidates' to add "
+                        "the ones not yet seen drawing, or 'none' for this "
                         "client's own interface");
             return out;
         }
@@ -102,6 +111,30 @@ const std::set<std::string>& requested() {
             if (!one.empty()) out.insert(one);
             if (comma == std::string::npos) break;
             start = comma + 1;
+        }
+
+        // "candidates" — the defaults plus every element the readiness report
+        // finds clean on both counts: every global its code calls is answered,
+        // and every event its frames register for is either sent or verified as
+        // correctly absent.
+        //
+        // Clean is not the same as seen working. These are windows that open on
+        // an interaction rather than sitting on screen, so a fault in one waits
+        // for the right NPC and then blocks that NPC — which is exactly why
+        // they are behind a word instead of in the defaults. Naming this is how
+        // a run tests the batch without typing thirty names.
+        if (out.erase("candidates") > 0) {
+            out.insert(defaults.begin(), defaults.end());
+            for (const char* name : {
+                    "bagbar", "bank", "chat", "classtrainer", "gamemenu",
+                    "gossip", "guildbank", "inspect", "keybindings", "loot",
+                    "macro", "micromenu", "partyframes", "questgiver", "stable",
+                    "talents", "taxi", "timemanager", "totems", "tradeskill"}) {
+                out.insert(name);
+            }
+            LOG_WARNING("FrameXML: drawing the defaults plus every element the "
+                        "readiness report calls clean. Clean means no call "
+                        "raises, not that it has been seen drawing.");
         }
 
         if (out.count("all") == 0) {

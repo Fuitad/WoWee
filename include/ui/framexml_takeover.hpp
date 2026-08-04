@@ -12,7 +12,15 @@
 //
 //     WOWEE_FRAMEXML_UI=playerframe,targetframe
 //     WOWEE_FRAMEXML_UI=mainmenubar
+//     WOWEE_FRAMEXML_UI=candidates
 //     WOWEE_FRAMEXML_UI=all
+//
+// "candidates" is the defaults plus every element the readiness report finds
+// clean — every global its code calls answered, every event its frames want
+// either sent or verified absent. Clean is not the same as seen working, and
+// these are windows that open on an interaction, so a fault waits for the
+// right NPC and then blocks it. That is why they are behind a word rather
+// than in the defaults, and it is the batch to run when testing them.
 //
 // "mainmenubar" is one name for the whole bottom of the screen — the action
 // bar, the stance bar, the bags, the micro menu and the two thin bars above
