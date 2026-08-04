@@ -1895,6 +1895,100 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"ResurrectHasTimer", [](lua_State* L) -> int {
             lua_pushboolean(L, 0); return 1;
         }},
+
+                // ---- What chatframe.lua's slash commands call ----
+                //
+                // Forty-eight names in that file were unbound, and unlike the
+                // Battle.net set they sit behind no feature flag: each is a
+                // slash command handler, so each is a raise the moment someone
+                // types that command. That is what kept "chat" out of the
+                // candidate list, and binding them is what lets it back in.
+                //
+                // Implemented where this client can do the thing, answered
+                // safely where it cannot. A safe answer makes the command do
+                // nothing, which is the honest outcome for a feature that is
+                // not there; a missing name takes the chat frame down with it.
+
+                // The conditional parser every secure slash command runs its
+                // argument through: "/cast [mod:shift] A; B". With no
+                // conditional support the whole argument is the action and
+                // there is no target clause, which is what an unconditional
+                // command means anyway.
+                {"SecureCmdOptionParse", [](lua_State* L) -> int {
+            const char* msg = luaL_optstring(L, 1, "");
+            lua_pushstring(L, msg ? msg : "");
+            lua_pushnil(L);
+            return 2;
+        }},
+                {"GuildInfo", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->requestGuildInfo();
+            return 0;
+        }},
+                {"GuildSetLeader", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* name = luaL_optstring(L, 1, "");
+            if (gh && name && *name) gh->setGuildLeader(name);
+            return 0;
+        }},
+                // Not logging, and there is nothing to turn on — false is the
+                // true answer rather than a placeholder.
+                {"LoggingChat",   [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                {"LoggingCombat", [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                {"BNIsFriend",      [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                {"BNIsToonBlocked", [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                {"BNGetNumFriendInvites", [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
+                {"GetChatWindowChannels", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GetChatWindowMessages", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GetClickFrame",         [](lua_State* L) -> int { lua_pushnil(L); return 1; }},
+                // Pet autocast is left alone deliberately rather than wired to
+                // togglePetSpellAutocast: these two say enable and disable, the
+                // client can only toggle, and nothing reads back which state a
+                // pet spell is in — so "enable" on an already-autocasting spell
+                // would turn it off. Doing nothing beats doing the opposite.
+                {"EnableSpellAutocast",  [](lua_State* L) -> int { (void)L; return 0; }},
+                {"DisableSpellAutocast", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"PetAggressiveMode",    [](lua_State* L) -> int { (void)L; return 0; }},
+                // Channel moderation, arena teams, the addon list, the console
+                // and the rest: no client support behind any of them.
+                {"AddChatWindowChannel",     [](lua_State* L) -> int { (void)L; return 0; }},
+                {"RemoveChatWindowChannel",  [](lua_State* L) -> int { (void)L; return 0; }},
+                {"AddChatWindowMessages",    [](lua_State* L) -> int { (void)L; return 0; }},
+                {"RemoveChatWindowMessages", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ChannelInvite",            [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ChannelMute",              [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ChannelUnmute",            [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ChannelUnban",             [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ChannelToggleAnnouncements", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"DisplayChannelOwner",      [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ListChannels",             [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ListChannelByName",        [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SetChannelPassword",       [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ArenaTeamInviteByName",    [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ArenaTeamLeave",           [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ArenaTeamSetLeaderByName", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ArenaTeamUninviteByName",  [](lua_State* L) -> int { (void)L; return 0; }},
+                {"BNGetConversationInfo",    [](lua_State* L) -> int { (void)L; return 0; }},
+                {"BNInviteToConversation",   [](lua_State* L) -> int { (void)L; return 0; }},
+                {"BNLeaveConversation",      [](lua_State* L) -> int { (void)L; return 0; }},
+                {"BNListConversation",       [](lua_State* L) -> int { (void)L; return 0; }},
+                {"BNSendConversationMessage",[](lua_State* L) -> int { (void)L; return 0; }},
+                {"BNSendWhisper",            [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ConsoleExec",              [](lua_State* L) -> int { (void)L; return 0; }},
+                {"DisableAllAddOns",         [](lua_State* L) -> int { (void)L; return 0; }},
+                {"EnableAllAddOns",          [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SetTaxiBenchmarkMode",     [](lua_State* L) -> int { (void)L; return 0; }},
+                {"StopMacro",                [](lua_State* L) -> int { (void)L; return 0; }},
+                // The targeting variants this client has no equivalent for.
+                // targetEnemy and targetFriend do not filter to players, and
+                // one last-target is tracked rather than one per side — so
+                // wiring these to the nearest thing would target the wrong
+                // unit, which is worse than not answering the command.
+                {"TargetLastEnemy",           [](lua_State* L) -> int { (void)L; return 0; }},
+                {"TargetLastFriend",          [](lua_State* L) -> int { (void)L; return 0; }},
+                {"TargetNearestEnemyPlayer",  [](lua_State* L) -> int { (void)L; return 0; }},
+                {"TargetNearestFriendPlayer", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"TargetNearestPartyMember",  [](lua_State* L) -> int { (void)L; return 0; }},
+                {"TargetNearestRaidMember",   [](lua_State* L) -> int { (void)L; return 0; }},
                 {"StartDuel", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const char* unit = luaL_optstring(L, 1, "target");

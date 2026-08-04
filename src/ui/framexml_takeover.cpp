@@ -154,18 +154,19 @@ const std::set<std::string>& requested() {
         // over; making them real means adding an enum entry and a
         // frameXmlOwns guard around this client's own version first.
         //
-        // "chat" comes out for the same reason, and it is the worse of the
-        // two: forty-eight names in chatframe.lua are unbound, and unlike the
-        // Battle.net set they are not behind a feature flag. They are slash
-        // command handlers — /console, /stopmacro, /targetlastenemy, the
-        // channel and arena-team commands — so each is a raise the moment
-        // someone types the command, once FrameXML's edit box is the one
-        // taking input. It was on this list before either check existed.
+        // "chat" was out for a while and is back. It had forty-eight unbound
+        // names in chatframe.lua, and unlike the Battle.net set they sat
+        // behind no feature flag — each was a slash command handler, so each
+        // was a raise the moment someone typed that command. All forty-eight
+        // are bound now: implemented where this client can do the thing,
+        // answered safely where it cannot. A safe answer makes the command do
+        // nothing, which is honest for a feature that is not there; a missing
+        // name took the chat frame down with it.
         if (out.erase("candidates") > 0) {
             out.insert(defaults.begin(), defaults.end());
             for (const char* name : {
                     "achievements", "auctionhouse", "bagbar", "bank",
-                    "bgscore", "book", "classtrainer", "gamemenu",
+                    "bgscore", "book", "chat", "classtrainer", "gamemenu",
                     "gossip", "guildbank", "help", "inspect", "keybindings",
                     "loot", "merchant", "micromenu", "partyframes",
                     "questgiver", "stable", "talents", "taxi",
