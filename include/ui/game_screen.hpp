@@ -280,6 +280,8 @@ private:
 public:
     void openDungeonFinder() { socialPanel_.showDungeonFinder_ = true; }
     ToastManager& toastManager() { return toastManager_; }
+    /// Reached by the barber bindings, which need state this owns.
+    WindowManager& windowManager() { return windowManager_; }
 };
 
 } // namespace ui

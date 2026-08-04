@@ -135,6 +135,11 @@ const std::set<std::string>& requested() {
         // paste rather than editing by hand, or it drifts the first time an
         // element goes clean and nobody thinks to come here.
         //
+        // The report leaves the four held out below out of what it prints, so
+        // a regenerate-and-paste no longer puts them back. It used to print
+        // them, which is how "keybindings" survived the edit that removed its
+        // two neighbours.
+        //
         // One deliberate deviation: the report also calls "social" clean and it
         // is held out. Clean there means no name its own element list needs is
         // missing — it does not mean every global in friendsframe.lua is bound,
@@ -166,11 +171,11 @@ const std::set<std::string>& requested() {
             out.insert(defaults.begin(), defaults.end());
             for (const char* name : {
                     "achievements", "auctionhouse", "bagbar", "bank",
-                    "bgscore", "book", "chat", "classtrainer", "gamemenu",
-                    "gossip", "guildbank", "help", "inspect",
-                    "loot", "merchant", "micromenu", "partyframes",
-                    "questgiver", "stable", "talents", "taxi",
-                    "totems", "tradeskill"}) {
+                    "barbershop", "bgscore", "book", "chat", "classtrainer",
+                    "gamemenu", "gossip", "guildbank", "help", "inspect",
+                    "loot", "mail", "merchant", "micromenu", "partyframes",
+                    "questgiver", "stable", "talents", "taxi", "totems",
+                    "tradeskill"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "

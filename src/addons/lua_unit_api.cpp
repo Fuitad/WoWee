@@ -1475,6 +1475,68 @@ static int lua_CanAlterSkin(lua_State* L) {
     return 1;
 }
 
+// --- The barber's selectors, its price and its two exits ---
+//
+// The style lists and the originals used to be built inside this client's own
+// barber window, so with the panel handed over nothing had built them. They
+// come from WindowManager through LuaServices now, from a version that runs
+// whether or not this client is drawing the chair.
+
+/// GetBarberShopStyleInfo(selector) → name, category, cost, isCurrent
+///
+/// blizzard_barbershopui.lua reads the first and the fourth, and reads the
+/// fourth through select(4, ...) — so all four have to be there for the index
+/// to land on the right one.
+static int lua_GetBarberShopStyleInfo(lua_State* L) {
+    const int selector = static_cast<int>(luaL_optinteger(L, 1, 0));
+    auto* svc = getLuaServices(L);
+    std::string name;
+    bool isCurrent = false;
+    if (!svc || !svc->getBarberStyleInfo ||
+        !svc->getBarberStyleInfo(selector, name, isCurrent)) {
+        return 0;
+    }
+    lua_pushstring(L, name.c_str());
+    lua_pushstring(L, "");     // category, which this client does not name
+    lua_pushinteger(L, 0);     // per-selector cost; the total is the one asked for
+    lua_pushboolean(L, isCurrent ? 1 : 0);
+    return 4;
+}
+
+/// SetNextBarberShopStyle(selector, direction) — the arrows beside a selector.
+///
+/// The forward arrow passes 1 and the back arrow passes nothing at all
+/// (blizzard_barbershopui.xml:31 and :56), so an absent argument means back
+/// rather than a missing parameter.
+static int lua_SetNextBarberShopStyle(lua_State* L) {
+    const int selector = static_cast<int>(luaL_optinteger(L, 1, 0));
+    const int direction = lua_isnoneornil(L, 2) ? -1 : 1;
+    if (auto* svc = getLuaServices(L); svc && svc->setNextBarberStyle) {
+        svc->setNextBarberStyle(selector, direction);
+    }
+    return 0;
+}
+
+/// GetBarberShopTotalCost() → copper for everything currently changed.
+static int lua_GetBarberShopTotalCost(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    lua_pushinteger(L, svc && svc->getBarberTotalCost
+                           ? static_cast<lua_Integer>(svc->getBarberTotalCost()) : 0);
+    return 1;
+}
+
+/// BarberShopReset() — put every selector back to what the character wears.
+static int lua_BarberShopReset(lua_State* L) {
+    if (auto* svc = getLuaServices(L); svc && svc->barberReset) svc->barberReset();
+    return 0;
+}
+
+/// CancelBarberShop() — leave the chair without buying anything.
+static int lua_CancelBarberShop(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->closeBarberShop();
+    return 0;
+}
+
 /// Things this client does not model, answered false rather than left to the
 /// fallback — which would answer with an object, and an object is true.
 /// InRepairMode deciding yes would put a repair cursor on every item in the
@@ -2512,6 +2574,11 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetHairCustomization",       lua_GetHairCustomization},
                 {"GetFacialHairCustomization", lua_GetFacialHairCustomization},
                 {"CanAlterSkin",               lua_CanAlterSkin},
+                {"GetBarberShopStyleInfo",     lua_GetBarberShopStyleInfo},
+                {"SetNextBarberShopStyle",     lua_SetNextBarberShopStyle},
+                {"GetBarberShopTotalCost",     lua_GetBarberShopTotalCost},
+                {"BarberShopReset",            lua_BarberShopReset},
+                {"CancelBarberShop",           lua_CancelBarberShop},
                 // HasWandEquipped() — a wand in the ranged slot, which the
                 // character sheet needs because a wand's damage is read
                 // differently from a bow's: PaperDollFrame_SetRangedDamage

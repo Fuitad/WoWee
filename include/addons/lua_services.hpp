@@ -3,6 +3,7 @@
 #pragma once
 
 #include <functional>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -46,6 +47,18 @@ struct LuaServices {
     /// Whether the minimap turns with the camera, for rotateMinimap.
     std::function<bool()> getMinimapRotate;
     std::function<void(bool)> setMinimapRotate;
+
+    /// The barber shop's selectors, for the interface's own barber panel.
+    ///
+    /// Selector numbers are FrameXML's BarberShopFrameSelector IDs: 1 hair
+    /// style, 2 hair colour, 3 facial hair, 4 skin. The state behind them used
+    /// to be built inside this client's own barber window, so with the panel
+    /// handed over nothing had built it — these reach a version that does not
+    /// depend on who is drawing.
+    std::function<bool(int selector, std::string& name, bool& isCurrent)> getBarberStyleInfo;
+    std::function<void(int selector, int direction)> setNextBarberStyle;
+    std::function<uint32_t()> getBarberTotalCost;
+    std::function<void()> barberReset;
 
     /// Whether the camera is inside a WMO, for IsIndoors and IsOutdoors.
     ///

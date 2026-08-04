@@ -1952,6 +1952,258 @@ void WindowManager::renderEscapeMenu(SettingsPanel& settingsPanel) {
     ImGui::End();
 }
 
+// ---------------------------------------------------------------------------
+// Barber shop state
+//
+// Built once each time the chair opens, and kept out of the render function so
+// that the answers survive the panel being handed to FrameXML.
+// ---------------------------------------------------------------------------
+int WindowManager::barberFindAppearance(const std::vector<BarberStyleOption>& options,
+                                        uint8_t id) {
+    const auto it = std::find_if(options.begin(), options.end(),
+                                 [id](const auto& option) { return option.appearanceId == id; });
+    return it == options.end() ? -1 : static_cast<int>(std::distance(options.begin(), it));
+}
+
+uint8_t WindowManager::barberSelectedAppearance(const std::vector<BarberStyleOption>& options,
+                                                int index, uint8_t fallback) {
+    return index >= 0 && index < static_cast<int>(options.size())
+        ? options[static_cast<size_t>(index)].appearanceId : fallback;
+}
+
+void WindowManager::rebuildBarberHairColors(uint8_t hairStyle, uint8_t preferredColor,
+                                            uint32_t raceId, uint32_t sexId) {
+    barberHairColors_.clear();
+    if (services_.assetManager) {
+        auto dbc = services_.assetManager->loadDBC("CharSections.dbc");
+        if (dbc && dbc->isLoaded()) {
+            const auto* layout = pipeline::getActiveDBCLayout()
+                ? pipeline::getActiveDBCLayout()->getLayout("CharSections") : nullptr;
+            const auto fields = pipeline::detectCharSectionsFields(dbc.get(), layout);
+            for (uint32_t row = 0; row < dbc->getRecordCount(); ++row) {
+                if (dbc->getUInt32(row, fields.raceId) != raceId ||
+                    dbc->getUInt32(row, fields.sexId) != sexId ||
+                    dbc->getUInt32(row, fields.baseSection) != 3 ||
+                    dbc->getUInt32(row, fields.variationIndex) != hairStyle) {
+                    continue;
+                }
+                const uint32_t color = dbc->getUInt32(row, fields.colorIndex);
+                if (color <= 255) barberHairColors_.push_back(static_cast<uint8_t>(color));
+            }
+        }
+    }
+    std::sort(barberHairColors_.begin(), barberHairColors_.end());
+    barberHairColors_.erase(std::unique(barberHairColors_.begin(), barberHairColors_.end()),
+                            barberHairColors_.end());
+    const auto preferred = std::find(barberHairColors_.begin(), barberHairColors_.end(),
+                                     preferredColor);
+    barberHairColor_ = preferred == barberHairColors_.end()
+        ? (barberHairColors_.empty() ? -1 : 0)
+        : static_cast<int>(std::distance(barberHairColors_.begin(), preferred));
+    barberColorsForHairStyle_ = hairStyle;
+}
+
+void WindowManager::ensureBarberState(game::GameHandler& gameHandler) {
+    // Leaving the chair clears the state so the next visit rebuilds it against
+    // whatever the character wears by then. The render function used to do this
+    // on its early return, which stops happening the moment the panel is handed
+    // over — and stale originals would price a change against the wrong hair.
+    if (!gameHandler.isBarberShopOpen()) {
+        barberInitialized_ = false;
+        return;
+    }
+    if (barberInitialized_) return;
+    const auto* ch = gameHandler.getActiveCharacter();
+    if (!ch) return;
+
+    const uint32_t raceId = static_cast<uint32_t>(ch->race);
+    const uint32_t sexId = (ch->gender == game::Gender::FEMALE || ch->useFemaleModel) ? 1u : 0u;
+
+    // BarberShopStyle IDs, rather than the visible appearance numbers, are the
+    // wire values expected by a WotLK server. Build the race/sex-specific lists
+    // once each time the chair opens.
+    barberOrigSkinColor_ = static_cast<uint8_t>(ch->appearanceBytes & 0xFF);
+    barberOrigHairStyle_ = static_cast<uint8_t>((ch->appearanceBytes >> 16) & 0xFF);
+    barberOrigHairColor_ = static_cast<uint8_t>((ch->appearanceBytes >> 24) & 0xFF);
+    barberOrigFacialHair_ = ch->facialFeatures;
+    barberHairStyles_.clear();
+    barberFacialStyles_.clear();
+    barberSkinStyles_.clear();
+    // Entry zero tells the server to retain the existing skin.
+    barberSkinStyles_.push_back({0, barberOrigSkinColor_, "Current"});
+
+    if (services_.assetManager) {
+        auto dbc = services_.assetManager->loadDBC("BarberShopStyle.dbc");
+        if (dbc && dbc->isLoaded() && dbc->getFieldCount() >= 40) {
+            for (uint32_t row = 0; row < dbc->getRecordCount(); ++row) {
+                if (dbc->getUInt32(row, 37) != raceId || dbc->getUInt32(row, 38) != sexId)
+                    continue;
+                const uint32_t appearance = dbc->getUInt32(row, 39);
+                if (appearance > 255) continue;
+                std::string name;
+                for (uint32_t field = 2; field <= 17 && name.empty(); ++field)
+                    name = dbc->getString(row, field);
+                if (name.empty()) name = "Style " + std::to_string(appearance);
+                BarberStyleOption option{dbc->getUInt32(row, 0),
+                                         static_cast<uint8_t>(appearance), std::move(name)};
+                switch (dbc->getUInt32(row, 1)) {
+                    case 0: barberHairStyles_.push_back(std::move(option)); break;
+                    case 2: barberFacialStyles_.push_back(std::move(option)); break;
+                    case 3: barberSkinStyles_.push_back(std::move(option)); break;
+                    default: break;
+                }
+            }
+        } else {
+            LOG_WARNING("Barber Shop: WotLK BarberShopStyle.dbc is unavailable or malformed");
+        }
+
+        auto baseCost = services_.assetManager->loadDBC("gtBarberShopCostBase.dbc");
+        if (baseCost && baseCost->isLoaded() && baseCost->getRecordCount() > 0) {
+            const uint32_t level = std::max<uint32_t>(1, ch->level);
+            const uint32_t row = std::min(level, baseCost->getRecordCount()) - 1;
+            barberBaseCost_ = baseCost->getFloat(row, 0);
+        } else {
+            barberBaseCost_ = 0.0f;
+        }
+    }
+
+    auto normalizeOptions = [](std::vector<BarberStyleOption>& options) {
+        std::sort(options.begin(), options.end(), [](const auto& a, const auto& b) {
+            return a.appearanceId != b.appearanceId
+                ? a.appearanceId < b.appearanceId : a.entryId < b.entryId;
+        });
+        options.erase(std::unique(options.begin(), options.end(), [](const auto& a, const auto& b) {
+            return a.appearanceId == b.appearanceId;
+        }), options.end());
+    };
+    normalizeOptions(barberHairStyles_);
+    normalizeOptions(barberFacialStyles_);
+    if (barberSkinStyles_.size() > 1) {
+        std::sort(barberSkinStyles_.begin() + 1, barberSkinStyles_.end(),
+                  [](const auto& a, const auto& b) { return a.appearanceId < b.appearanceId; });
+        barberSkinStyles_.erase(std::unique(barberSkinStyles_.begin() + 1,
+                                            barberSkinStyles_.end(),
+                                            [](const auto& a, const auto& b) {
+                                                return a.appearanceId == b.appearanceId;
+                                            }), barberSkinStyles_.end());
+    }
+
+    barberHairStyle_ = barberFindAppearance(barberHairStyles_, barberOrigHairStyle_);
+    barberFacialHair_ = barberFindAppearance(barberFacialStyles_, barberOrigFacialHair_);
+    barberSkinColor_ = 0;
+    rebuildBarberHairColors(barberOrigHairStyle_, barberOrigHairColor_, raceId, sexId);
+    barberPreviewSkin_ = barberPreviewHairStyle_ = barberPreviewHairColor_ =
+        barberPreviewFacialHair_ = -1;
+    barberInitialized_ = true;
+}
+
+WindowManager::BarberSelection WindowManager::barberSelection(game::GameHandler& gameHandler) {
+    BarberSelection out;
+    ensureBarberState(gameHandler);
+    const auto* ch = gameHandler.getActiveCharacter();
+    if (!ch) return out;
+    const uint32_t raceId = static_cast<uint32_t>(ch->race);
+    const uint32_t sexId = (ch->gender == game::Gender::FEMALE || ch->useFemaleModel) ? 1u : 0u;
+
+    out.hairStyle = barberSelectedAppearance(barberHairStyles_, barberHairStyle_,
+                                             barberOrigHairStyle_);
+    // The colours on offer depend on the hair style, so a style change has to
+    // rebuild them before the colour selection can be read back.
+    if (out.hairStyle != barberColorsForHairStyle_) {
+        const uint8_t previousColor =
+            barberHairColor_ >= 0 && barberHairColor_ < static_cast<int>(barberHairColors_.size())
+                ? barberHairColors_[static_cast<size_t>(barberHairColor_)] : barberOrigHairColor_;
+        rebuildBarberHairColors(out.hairStyle, previousColor, raceId, sexId);
+    }
+    out.hairColor = barberHairColor_ >= 0 &&
+                    barberHairColor_ < static_cast<int>(barberHairColors_.size())
+        ? barberHairColors_[static_cast<size_t>(barberHairColor_)] : barberOrigHairColor_;
+    out.facialHair = barberSelectedAppearance(barberFacialStyles_, barberFacialHair_,
+                                              barberOrigFacialHair_);
+    out.skin = barberSelectedAppearance(barberSkinStyles_, barberSkinColor_,
+                                        barberOrigSkinColor_);
+    return out;
+}
+
+uint32_t WindowManager::barberTotalCostCopper(game::GameHandler& gameHandler) {
+    const BarberSelection sel = barberSelection(gameHandler);
+    float cost = 0.0f;
+    if (sel.hairStyle != barberOrigHairStyle_)      cost += barberBaseCost_;
+    else if (sel.hairColor != barberOrigHairColor_) cost += barberBaseCost_ * 0.5f;
+    if (sel.facialHair != barberOrigFacialHair_)    cost += barberBaseCost_ * 0.75f;
+    if (sel.skin != barberOrigSkinColor_)           cost += barberBaseCost_ * 0.75f;
+    return static_cast<uint32_t>(cost);
+}
+
+void WindowManager::barberResetSelections(game::GameHandler& gameHandler) {
+    ensureBarberState(gameHandler);
+    const auto* ch = gameHandler.getActiveCharacter();
+    if (!ch) return;
+    const uint32_t raceId = static_cast<uint32_t>(ch->race);
+    const uint32_t sexId = (ch->gender == game::Gender::FEMALE || ch->useFemaleModel) ? 1u : 0u;
+    barberHairStyle_ = barberFindAppearance(barberHairStyles_, barberOrigHairStyle_);
+    barberFacialHair_ = barberFindAppearance(barberFacialStyles_, barberOrigFacialHair_);
+    barberSkinColor_ = 0;
+    rebuildBarberHairColors(barberOrigHairStyle_, barberOrigHairColor_, raceId, sexId);
+}
+
+bool WindowManager::barberStyleInfo(game::GameHandler& gameHandler, int selector,
+                                    std::string& name, bool& isCurrent) {
+    ensureBarberState(gameHandler);
+    const BarberSelection sel = barberSelection(gameHandler);
+    switch (selector) {
+        case 1:
+            if (barberHairStyle_ < 0 ||
+                barberHairStyle_ >= static_cast<int>(barberHairStyles_.size())) return false;
+            name = barberHairStyles_[static_cast<size_t>(barberHairStyle_)].name;
+            isCurrent = sel.hairStyle == barberOrigHairStyle_;
+            return true;
+        case 2: {
+            if (barberHairColor_ < 0 ||
+                barberHairColor_ >= static_cast<int>(barberHairColors_.size())) return false;
+            // The colours have no names of their own in the data, so they are
+            // numbered the way the character creation screen numbers them.
+            name = "Color " + std::to_string(barberHairColor_ + 1);
+            isCurrent = sel.hairColor == barberOrigHairColor_;
+            return true;
+        }
+        case 3:
+            if (barberFacialHair_ < 0 ||
+                barberFacialHair_ >= static_cast<int>(barberFacialStyles_.size())) return false;
+            name = barberFacialStyles_[static_cast<size_t>(barberFacialHair_)].name;
+            isCurrent = sel.facialHair == barberOrigFacialHair_;
+            return true;
+        case 4:
+            if (barberSkinColor_ < 0 ||
+                barberSkinColor_ >= static_cast<int>(barberSkinStyles_.size())) return false;
+            name = barberSkinStyles_[static_cast<size_t>(barberSkinColor_)].name;
+            isCurrent = sel.skin == barberOrigSkinColor_;
+            return true;
+        default:
+            return false;
+    }
+}
+
+void WindowManager::barberCycleStyle(game::GameHandler& gameHandler, int selector,
+                                     int direction) {
+    ensureBarberState(gameHandler);
+    const int step = direction >= 0 ? 1 : -1;
+    auto advance = [step](int& index, size_t count) {
+        if (count == 0) { index = -1; return; }
+        const int n = static_cast<int>(count);
+        index = ((index < 0 ? 0 : index) + step % n + n) % n;
+    };
+    switch (selector) {
+        case 1: advance(barberHairStyle_, barberHairStyles_.size()); break;
+        case 2: advance(barberHairColor_, barberHairColors_.size()); break;
+        case 3: advance(barberFacialHair_, barberFacialStyles_.size()); break;
+        case 4: advance(barberSkinColor_, barberSkinStyles_.size()); break;
+        default: break;
+    }
+    // Re-resolve so a hair style change rebuilds the colours behind it.
+    barberSelection(gameHandler);
+}
+
 void WindowManager::renderBarberShopWindow(game::GameHandler& gameHandler) {
     if (!gameHandler.isBarberShopOpen()) {
         barberInitialized_ = false;
@@ -1961,132 +2213,14 @@ void WindowManager::renderBarberShopWindow(game::GameHandler& gameHandler) {
     const auto* ch = gameHandler.getActiveCharacter();
     if (!ch) return;
 
-    const uint32_t raceId = static_cast<uint32_t>(ch->race);
-    const uint32_t sexId = (ch->gender == game::Gender::FEMALE || ch->useFemaleModel) ? 1u : 0u;
-
-    auto selectedAppearance = [](const std::vector<BarberStyleOption>& options, int index,
-                                 uint8_t fallback) {
-        return index >= 0 && index < static_cast<int>(options.size())
-            ? options[static_cast<size_t>(index)].appearanceId : fallback;
-    };
     auto selectedEntry = [](const std::vector<BarberStyleOption>& options, int index) {
         return index >= 0 && index < static_cast<int>(options.size())
             ? options[static_cast<size_t>(index)].entryId : 0u;
     };
 
-    auto rebuildHairColors = [&](uint8_t hairStyle, uint8_t preferredColor) {
-        barberHairColors_.clear();
-        if (services_.assetManager) {
-            auto dbc = services_.assetManager->loadDBC("CharSections.dbc");
-            if (dbc && dbc->isLoaded()) {
-                const auto* layout = pipeline::getActiveDBCLayout()
-                    ? pipeline::getActiveDBCLayout()->getLayout("CharSections") : nullptr;
-                const auto fields = pipeline::detectCharSectionsFields(dbc.get(), layout);
-                for (uint32_t row = 0; row < dbc->getRecordCount(); ++row) {
-                    if (dbc->getUInt32(row, fields.raceId) != raceId ||
-                        dbc->getUInt32(row, fields.sexId) != sexId ||
-                        dbc->getUInt32(row, fields.baseSection) != 3 ||
-                        dbc->getUInt32(row, fields.variationIndex) != hairStyle) {
-                        continue;
-                    }
-                    const uint32_t color = dbc->getUInt32(row, fields.colorIndex);
-                    if (color <= 255) barberHairColors_.push_back(static_cast<uint8_t>(color));
-                }
-            }
-        }
-        std::sort(barberHairColors_.begin(), barberHairColors_.end());
-        barberHairColors_.erase(std::unique(barberHairColors_.begin(), barberHairColors_.end()),
-                                barberHairColors_.end());
-        const auto preferred = std::find(barberHairColors_.begin(), barberHairColors_.end(),
-                                         preferredColor);
-        barberHairColor_ = preferred == barberHairColors_.end()
-            ? (barberHairColors_.empty() ? -1 : 0)
-            : static_cast<int>(std::distance(barberHairColors_.begin(), preferred));
-        barberColorsForHairStyle_ = hairStyle;
-    };
-
-    // BarberShopStyle IDs, rather than the visible appearance numbers, are the
-    // wire values expected by a WotLK server. Build the race/sex-specific lists
-    // once each time the chair opens.
-    if (!barberInitialized_) {
-        barberOrigSkinColor_ = static_cast<uint8_t>(ch->appearanceBytes & 0xFF);
-        barberOrigHairStyle_ = static_cast<uint8_t>((ch->appearanceBytes >> 16) & 0xFF);
-        barberOrigHairColor_ = static_cast<uint8_t>((ch->appearanceBytes >> 24) & 0xFF);
-        barberOrigFacialHair_ = ch->facialFeatures;
-        barberHairStyles_.clear();
-        barberFacialStyles_.clear();
-        barberSkinStyles_.clear();
-        // Entry zero tells the server to retain the existing skin.
-        barberSkinStyles_.push_back({0, barberOrigSkinColor_, "Current"});
-
-        if (services_.assetManager) {
-            auto dbc = services_.assetManager->loadDBC("BarberShopStyle.dbc");
-            if (dbc && dbc->isLoaded() && dbc->getFieldCount() >= 40) {
-                for (uint32_t row = 0; row < dbc->getRecordCount(); ++row) {
-                    if (dbc->getUInt32(row, 37) != raceId || dbc->getUInt32(row, 38) != sexId)
-                        continue;
-                    const uint32_t appearance = dbc->getUInt32(row, 39);
-                    if (appearance > 255) continue;
-                    std::string name;
-                    for (uint32_t field = 2; field <= 17 && name.empty(); ++field)
-                        name = dbc->getString(row, field);
-                    if (name.empty()) name = "Style " + std::to_string(appearance);
-                    BarberStyleOption option{dbc->getUInt32(row, 0),
-                                             static_cast<uint8_t>(appearance), std::move(name)};
-                    switch (dbc->getUInt32(row, 1)) {
-                        case 0: barberHairStyles_.push_back(std::move(option)); break;
-                        case 2: barberFacialStyles_.push_back(std::move(option)); break;
-                        case 3: barberSkinStyles_.push_back(std::move(option)); break;
-                        default: break;
-                    }
-                }
-            } else {
-                LOG_WARNING("Barber Shop: WotLK BarberShopStyle.dbc is unavailable or malformed");
-            }
-
-            auto baseCost = services_.assetManager->loadDBC("gtBarberShopCostBase.dbc");
-            if (baseCost && baseCost->isLoaded() && baseCost->getRecordCount() > 0) {
-                const uint32_t level = std::max<uint32_t>(1, ch->level);
-                const uint32_t row = std::min(level, baseCost->getRecordCount()) - 1;
-                barberBaseCost_ = baseCost->getFloat(row, 0);
-            } else {
-                barberBaseCost_ = 0.0f;
-            }
-        }
-
-        auto normalizeOptions = [](std::vector<BarberStyleOption>& options) {
-            std::sort(options.begin(), options.end(), [](const auto& a, const auto& b) {
-                return a.appearanceId != b.appearanceId
-                    ? a.appearanceId < b.appearanceId : a.entryId < b.entryId;
-            });
-            options.erase(std::unique(options.begin(), options.end(), [](const auto& a, const auto& b) {
-                return a.appearanceId == b.appearanceId;
-            }), options.end());
-        };
-        normalizeOptions(barberHairStyles_);
-        normalizeOptions(barberFacialStyles_);
-        if (barberSkinStyles_.size() > 1) {
-            std::sort(barberSkinStyles_.begin() + 1, barberSkinStyles_.end(),
-                      [](const auto& a, const auto& b) { return a.appearanceId < b.appearanceId; });
-            barberSkinStyles_.erase(std::unique(barberSkinStyles_.begin() + 1,
-                                                barberSkinStyles_.end(),
-                                                [](const auto& a, const auto& b) {
-                                                    return a.appearanceId == b.appearanceId;
-                                                }), barberSkinStyles_.end());
-        }
-
-        auto findAppearance = [](const std::vector<BarberStyleOption>& options, uint8_t id) {
-            const auto it = std::find_if(options.begin(), options.end(),
-                                         [id](const auto& option) { return option.appearanceId == id; });
-            return it == options.end() ? -1 : static_cast<int>(std::distance(options.begin(), it));
-        };
-        barberHairStyle_ = findAppearance(barberHairStyles_, barberOrigHairStyle_);
-        barberFacialHair_ = findAppearance(barberFacialStyles_, barberOrigFacialHair_);
-        barberSkinColor_ = 0;
-        rebuildHairColors(barberOrigHairStyle_, barberOrigHairColor_);
-        barberPreviewSkin_ = barberPreviewHairStyle_ = barberPreviewHairColor_ =
-            barberPreviewFacialHair_ = -1;
-
+    const bool firstFrame = !barberInitialized_;
+    ensureBarberState(gameHandler);
+    if (firstFrame) {
         if (!barberPreview_ && services_.assetManager && services_.renderer) {
             barberPreview_ = std::make_unique<rendering::CharacterPreview>();
             if (barberPreview_->initialize(services_.assetManager)) {
@@ -2097,24 +2231,15 @@ void WindowManager::renderBarberShopWindow(game::GameHandler& gameHandler) {
                 barberPreview_.reset();
             }
         }
-        barberInitialized_ = true;
     }
 
-    const uint8_t hairStyle = selectedAppearance(barberHairStyles_, barberHairStyle_,
-                                                  barberOrigHairStyle_);
-    if (hairStyle != barberColorsForHairStyle_) {
-        const uint8_t previousColor = barberHairColor_ >= 0 &&
-                                      barberHairColor_ < static_cast<int>(barberHairColors_.size())
-            ? barberHairColors_[static_cast<size_t>(barberHairColor_)] : barberOrigHairColor_;
-        rebuildHairColors(hairStyle, previousColor);
-    }
-    const uint8_t hairColor = barberHairColor_ >= 0 &&
-                              barberHairColor_ < static_cast<int>(barberHairColors_.size())
-        ? barberHairColors_[static_cast<size_t>(barberHairColor_)] : barberOrigHairColor_;
-    const uint8_t facial = selectedAppearance(barberFacialStyles_, barberFacialHair_,
-                                               barberOrigFacialHair_);
-    const uint8_t skin = selectedAppearance(barberSkinStyles_, barberSkinColor_,
-                                             barberOrigSkinColor_);
+    // Resolves the selections and rebuilds the colour list when the hair style
+    // has moved, which is the same work the interface's own barber asks for.
+    const BarberSelection sel = barberSelection(gameHandler);
+    const uint8_t hairStyle = sel.hairStyle;
+    const uint8_t hairColor = sel.hairColor;
+    const uint8_t facial    = sel.facialHair;
+    const uint8_t skin      = sel.skin;
 
     if (barberPreview_ && (barberPreviewSkin_ != skin ||
                            barberPreviewHairStyle_ != hairStyle ||
@@ -2205,7 +2330,8 @@ void WindowManager::renderBarberShopWindow(game::GameHandler& gameHandler) {
             ImGui::EndCombo();
         }
 
-        const char* facialLabel = sexId == 1 ? "Piercings / Features" : "Facial Hair / Features";
+        const bool female = (ch->gender == game::Gender::FEMALE || ch->useFemaleModel);
+        const char* facialLabel = female ? "Piercings / Features" : "Facial Hair / Features";
         styleCombo(facialLabel, barberFacialHair_, barberFacialStyles_);
         if (barberSkinStyles_.size() > 1)
             styleCombo("Skin Color", barberSkinColor_, barberSkinStyles_);
@@ -2256,18 +2382,7 @@ void WindowManager::renderBarberShopWindow(game::GameHandler& gameHandler) {
         ImGui::SameLine();
         if (!changed) ImGui::BeginDisabled();
         if (ImGui::Button("Reset", ImVec2(btnW, 0))) {
-            auto findAppearance = [](const std::vector<BarberStyleOption>& options, uint8_t id) {
-                const auto it = std::find_if(options.begin(), options.end(),
-                                             [id](const auto& option) {
-                                                 return option.appearanceId == id;
-                                             });
-                return it == options.end() ? -1
-                    : static_cast<int>(std::distance(options.begin(), it));
-            };
-            barberHairStyle_ = findAppearance(barberHairStyles_, barberOrigHairStyle_);
-            barberFacialHair_ = findAppearance(barberFacialStyles_, barberOrigFacialHair_);
-            barberSkinColor_ = 0;
-            rebuildHairColors(barberOrigHairStyle_, barberOrigHairColor_);
+            barberResetSelections(gameHandler);
         }
         if (!changed) ImGui::EndDisabled();
 

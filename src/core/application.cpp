@@ -394,6 +394,25 @@ bool Application::initialize() {
         luaSvc.setNameplatesShown = [uim = uiManager.get()](bool shown) {
             if (uim) uim->getGameScreen().setShowNameplates(shown);
         };
+        luaSvc.getBarberStyleInfo = [uim = uiManager.get(), gh = gameHandler.get()](
+                int selector, std::string& name, bool& isCurrent) -> bool {
+            if (!uim || !gh) return false;
+            return uim->getGameScreen().windowManager()
+                      .barberStyleInfo(*gh, selector, name, isCurrent);
+        };
+        luaSvc.setNextBarberStyle = [uim = uiManager.get(), gh = gameHandler.get()](
+                int selector, int direction) {
+            if (uim && gh) {
+                uim->getGameScreen().windowManager().barberCycleStyle(*gh, selector, direction);
+            }
+        };
+        luaSvc.getBarberTotalCost = [uim = uiManager.get(), gh = gameHandler.get()]() -> uint32_t {
+            if (!uim || !gh) return 0;
+            return uim->getGameScreen().windowManager().barberTotalCostCopper(*gh);
+        };
+        luaSvc.barberReset = [uim = uiManager.get(), gh = gameHandler.get()]() {
+            if (uim && gh) uim->getGameScreen().windowManager().barberResetSelections(*gh);
+        };
         luaSvc.isPlayerIndoors = [r = renderer.get()]() -> bool {
             return r && r->isPlayerIndoors();
         };

@@ -461,6 +461,7 @@ def main():
         "mainmenubar":  "[checked] nine calls and five events are vehicles; CURRENCY_DISPLAY_UPDATE and UPDATE_BONUS_ACTIONBAR share fired branches, UPDATE_MULTI_CAST_ACTIONBAR shares one and has nil data besides",
         "minimap":      "[checked] four calls unreachable; zoom is widget state, movie recording absent, indoors redundant — MINIMAP_UPDATE_TRACKING was real and is fired now, from the player aura change — tracking is an aura, so that one site covers both routes",
         "bgscore":      "[fixed] GetWorldStateUIInfo and IsSubZonePVPPOI are bound, and GetNumWorldStateUI answers from the battleground table in game/bg_score_defs.hpp — the earlier note here cleared them as unreachable *because* that stub answered zero, which was the bug rather than the clearance: an empty answer had switched WorldStateAlwaysUpFrame off entirely",
+        "mail":         "[checked] both are the refund lock, which the C client raises when a still-refundable item is attached. The refund window is a per-item timer the server sends and this client does not keep — GetContainerItemPurchaseInfo answers nil for exactly that reason, and mailframe.lua only reaches the lock through it. Correctly absent rather than unfired: firing it would mean claiming a refund window that is not tracked",
         "questlog":     "[checked] every call is the world map API, absent because this client draws its own",
         "questtracker": "[checked] twelve are the same world map API through worldmapframe.lua; the other three are AchievementFrame internals, defined in blizzard_achievementui and absent only until it loads",
         "worldmap":     "[checked] map API is this client's; WORLD_MAP_NAME_UPDATE has no handler branch, CLOSE_WORLD_MAP needs the key to drive Lua",
@@ -500,7 +501,27 @@ def main():
     # through worldmapframe.lua; handing any of them over draws a second map
     # over the first, which is a decision already taken and not a candidate.
     CLIENT_OWNS_THE_DRAWING = {"worldmap", "questlog", "questtracker"}
-    tier = sorted((set(ready) | set(settled)) - DEFAULTS - CLIENT_OWNS_THE_DRAWING)
+    # Held out for reasons this report cannot see, and left out of the printed
+    # list so that regenerating and pasting does not put them back. The comment
+    # in framexml_takeover.cpp explains each; briefly:
+    #
+    #   social                          — clean here means no name its own
+    #                                     element list needs is missing, and
+    #                                     thirty Battle.net names in
+    #                                     friendsframe.lua still are
+    #   keybindings, macro, timemanager — scored because their FrameXML files
+    #                                     have no missing calls, but there is no
+    #                                     UiElement of any of those names, so
+    #                                     naming them only warns about itself
+    #
+    # This list existing at all is the point: the instruction beside the tier
+    # says regenerate and paste, and a printed list that disagrees with the
+    # source makes that instruction wrong. "keybindings" survived one such
+    # paste and warned on every candidates run until someone read the comment
+    # saying it had been removed.
+    HELD_OUT = {"social", "keybindings", "macro", "timemanager"}
+    tier = sorted((set(ready) | set(settled))
+                  - DEFAULTS - CLIENT_OWNS_THE_DRAWING - HELD_OUT)
     if tier:
         print()
         print(f'for WOWEE_FRAMEXML_UI=candidates in framexml_takeover.cpp ({len(tier)}):')

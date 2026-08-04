@@ -217,6 +217,35 @@ public:
     std::unique_ptr<rendering::CharacterPreview> barberPreview_;
     bool barberInitialized_ = false;
 
+    // Barber state, separated from the window that used to hold it.
+    //
+    // The style lists, the originals and the cost table were all built inside
+    // renderBarberShopWindow, so they existed only while this client drew the
+    // chair. FrameXML's barber asks the same questions through
+    // GetBarberShopStyleInfo and GetBarberShopTotalCost, and with the panel
+    // handed over that render never runs — the answers have to come from
+    // somewhere that does not depend on who is drawing.
+    void ensureBarberState(game::GameHandler& gameHandler);
+    void rebuildBarberHairColors(uint8_t hairStyle, uint8_t preferredColor,
+                                 uint32_t raceId, uint32_t sexId);
+    static int barberFindAppearance(const std::vector<BarberStyleOption>& options, uint8_t id);
+    static uint8_t barberSelectedAppearance(const std::vector<BarberStyleOption>& options,
+                                            int index, uint8_t fallback);
+    /// The four appearance values the current selections resolve to.
+    struct BarberSelection {
+        uint8_t hairStyle = 0, hairColor = 0, facialHair = 0, skin = 0;
+    };
+    BarberSelection barberSelection(game::GameHandler& gameHandler);
+
+    /// The interface's own barber panel reads these through LuaServices.
+    /// Selectors follow FrameXML's BarberShopFrameSelector IDs: 1 hair style,
+    /// 2 hair colour, 3 facial hair, 4 skin.
+    bool barberStyleInfo(game::GameHandler& gameHandler, int selector,
+                         std::string& name, bool& isCurrent);
+    void barberCycleStyle(game::GameHandler& gameHandler, int selector, int direction);
+    uint32_t barberTotalCostCopper(game::GameHandler& gameHandler);
+    void barberResetSelections(game::GameHandler& gameHandler);
+
     // Trainer
     char trainerSearchFilter_[128] = "";
 
