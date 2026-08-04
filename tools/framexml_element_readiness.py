@@ -404,31 +404,7 @@ def main():
     print()
     print(f"{len(ready)} of {total} with no known gaps: {' '.join(sorted(ready))}")
 
-    # The same list, shaped for framexml_takeover.cpp's "candidates" tier.
-    #
-    # That tier is a hardcoded array over there and this is where its contents
-    # come from, so the two drift the moment an element goes clean and nobody
-    # looks here. Printed rather than explained: paste it over the array and
-    # the drift is gone.
-    #
-    # The twelve defaults are left out — the tier adds to them rather than
-    # replacing them, and listing one twice reads as a mistake.
-    DEFAULTS = {"playerframe", "targetframe", "minimap", "mainmenubar",
-                "characterframe", "bags", "castbar", "spellbook", "petframe",
-                "focusframe", "buffs", "durability"}
-    tier = sorted(set(ready) - DEFAULTS)
-    if tier:
-        print()
-        print(f'for WOWEE_FRAMEXML_UI=candidates in framexml_takeover.cpp ({len(tier)}):')
-        line = "                    "
-        for name in tier:
-            piece = f'"{name}", '
-            if len(line) + len(piece) > 78:
-                print(line.rstrip())
-                line = "                    "
-            line += piece
-        if line.strip():
-            print(line.rstrip().rstrip(","))
+
 
     # Elements whose remaining names have each been read and found not to be
     # work. They still show a count above, because this cannot tell an absent
@@ -490,6 +466,42 @@ def main():
             print(f"  {e:<13} {settled[e]}")
         print()
         print(f"{len(ready) + len(also)} of {total} finished, on that reading.")
+
+    # The same list, shaped for framexml_takeover.cpp's "candidates" tier.
+    #
+    # That tier is a hardcoded array over there and this is where its contents
+    # come from, so the two drift the moment an element goes clean and nobody
+    # looks here. Printed rather than explained: paste it over the array and
+    # the drift is gone.
+    #
+    # The twelve defaults are left out — the tier adds to them rather than
+    # replacing them, and listing one twice reads as a mistake.
+    DEFAULTS = {"playerframe", "targetframe", "minimap", "mainmenubar",
+                "characterframe", "bags", "castbar", "spellbook", "petframe",
+                "focusframe", "buffs", "durability"}
+    # Settled elements belong here too. They show a count above because this
+    # cannot prove an absent feature is absent, but every name in them has been
+    # read and found unreachable, redundant, or a feature that does not exist —
+    # so nothing in them raises, which is what the tier is about.
+    #
+    # Except the three the client owns the drawing of. worldmap is this
+    # client's own map, and questlog and questtracker reach the same map API
+    # through worldmapframe.lua; handing any of them over draws a second map
+    # over the first, which is a decision already taken and not a candidate.
+    CLIENT_OWNS_THE_DRAWING = {"worldmap", "questlog", "questtracker"}
+    tier = sorted((set(ready) | set(settled)) - DEFAULTS - CLIENT_OWNS_THE_DRAWING)
+    if tier:
+        print()
+        print(f'for WOWEE_FRAMEXML_UI=candidates in framexml_takeover.cpp ({len(tier)}):')
+        line = "                    "
+        for name in tier:
+            piece = f'"{name}", '
+            if len(line) + len(piece) > 78:
+                print(line.rstrip())
+                line = "                    "
+            line += piece
+        if line.strip():
+            print(line.rstrip().rstrip(","))
     print()
     print("To try one, name it alongside the current defaults — the environment")
     print("replaces the list rather than adding to it:")

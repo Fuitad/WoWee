@@ -131,9 +131,10 @@ const std::set<std::string>& requested() {
         if (out.erase("candidates") > 0) {
             out.insert(defaults.begin(), defaults.end());
             for (const char* name : {
-                    "bagbar", "bank", "chat", "classtrainer", "gamemenu",
-                    "gossip", "guildbank", "inspect", "keybindings", "loot",
-                    "macro", "micromenu", "partyframes", "questgiver", "stable",
+                    "bagbar", "bank", "bgscore", "chat", "classtrainer",
+                    "gamemenu", "gossip", "guildbank", "help", "inspect",
+                    "keybindings", "loot", "macro", "mail", "merchant",
+                    "micromenu", "partyframes", "questgiver", "stable",
                     "talents", "taxi", "timemanager", "totems", "tradeskill"}) {
                 out.insert(name);
             }
