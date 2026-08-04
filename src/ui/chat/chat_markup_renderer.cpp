@@ -79,6 +79,23 @@ bool openExternalUrl(const std::string& url) {
 #endif
 }
 
+// Shift-click a link to put it back into the chat input. Was written out four
+// times, once per link type; a surface that has no raw input buffer of its own
+// -- the guild info text, for one -- supplies insertLink instead.
+void shiftClickInsert(const ChatSegment& seg, const MarkupRenderContext& ctx) {
+    if (!ImGui::IsItemClicked() || !ImGui::GetIO().KeyShift) return;
+    if (ctx.chatInputBuffer && ctx.moveCursorToEnd) {
+        size_t curLen = strlen(ctx.chatInputBuffer);
+        if (curLen + seg.rawLink.size() + 1 < ctx.chatInputBufSize) {
+            strncat(ctx.chatInputBuffer, seg.rawLink.c_str(),
+                    ctx.chatInputBufSize - curLen - 1);
+            *ctx.moveCursorToEnd = true;
+        }
+    } else if (ctx.insertLink) {
+        ctx.insertLink(seg.rawLink);
+    }
+}
+
 } // namespace
 
 // ---- Main segment renderer ----
@@ -143,14 +160,7 @@ void ChatMarkupRenderer::render(
                 }
             }
             // Shift-click: insert entire link back into chat input
-            if (ImGui::IsItemClicked() && ImGui::GetIO().KeyShift &&
-                ctx.chatInputBuffer && ctx.moveCursorToEnd) {
-                size_t curLen = strlen(ctx.chatInputBuffer);
-                if (curLen + seg.rawLink.size() + 1 < ctx.chatInputBufSize) {
-                    strncat(ctx.chatInputBuffer, seg.rawLink.c_str(), ctx.chatInputBufSize - curLen - 1);
-                    *ctx.moveCursorToEnd = true;
-                }
-            }
+            shiftClickInsert(seg, ctx);
             if (needSameLine) ImGui::SameLine(0, 0);
             break;
         }
@@ -178,14 +188,7 @@ void ChatMarkupRenderer::render(
                 ctx.spellbook->renderSpellInfoTooltip(seg.id, *ctx.gameHandler, ctx.assetMgr);
             }
             // Shift-click: insert link
-            if (ImGui::IsItemClicked() && ImGui::GetIO().KeyShift &&
-                ctx.chatInputBuffer && ctx.moveCursorToEnd) {
-                size_t curLen = strlen(ctx.chatInputBuffer);
-                if (curLen + seg.rawLink.size() + 1 < ctx.chatInputBufSize) {
-                    strncat(ctx.chatInputBuffer, seg.rawLink.c_str(), ctx.chatInputBufSize - curLen - 1);
-                    *ctx.moveCursorToEnd = true;
-                }
-            }
+            shiftClickInsert(seg, ctx);
             if (needSameLine) ImGui::SameLine(0, 0);
             break;
         }
@@ -210,14 +213,7 @@ void ChatMarkupRenderer::render(
                 ctx.questLog->openAndSelectQuest(seg.id);
             }
             // Shift-click: insert link
-            if (ImGui::IsItemClicked() && ImGui::GetIO().KeyShift &&
-                ctx.chatInputBuffer && ctx.moveCursorToEnd) {
-                size_t curLen = strlen(ctx.chatInputBuffer);
-                if (curLen + seg.rawLink.size() + 1 < ctx.chatInputBufSize) {
-                    strncat(ctx.chatInputBuffer, seg.rawLink.c_str(), ctx.chatInputBufSize - curLen - 1);
-                    *ctx.moveCursorToEnd = true;
-                }
-            }
+            shiftClickInsert(seg, ctx);
             if (needSameLine) ImGui::SameLine(0, 0);
             break;
         }
@@ -230,14 +226,7 @@ void ChatMarkupRenderer::render(
                 ImGui::SetTooltip("Achievement: %s", seg.text.c_str());
             }
             // Shift-click: insert link
-            if (ImGui::IsItemClicked() && ImGui::GetIO().KeyShift &&
-                ctx.chatInputBuffer && ctx.moveCursorToEnd) {
-                size_t curLen = strlen(ctx.chatInputBuffer);
-                if (curLen + seg.rawLink.size() + 1 < ctx.chatInputBufSize) {
-                    strncat(ctx.chatInputBuffer, seg.rawLink.c_str(), ctx.chatInputBufSize - curLen - 1);
-                    *ctx.moveCursorToEnd = true;
-                }
-            }
+            shiftClickInsert(seg, ctx);
             if (needSameLine) ImGui::SameLine(0, 0);
             break;
         }

@@ -32,6 +32,9 @@ struct MarkupRenderContext {
     char*   chatInputBuffer   = nullptr;
     size_t  chatInputBufSize  = 0;
     bool*   moveCursorToEnd   = nullptr;
+    // Used when there is no raw input buffer to append to — a surface outside
+    // the chat window still wants shift-click to reach the chat input.
+    std::function<void(const std::string&)> insertLink;
 };
 
 /**

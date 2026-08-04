@@ -512,7 +512,8 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         socialPanel_.renderBossFrames(gameHandler, spellbookScreen, spellIconFn);
     }
     dialogManager_.renderDialogs(gameHandler, inventoryScreen, chatPanel_);
-    socialPanel_.renderGuildRoster(gameHandler, chatPanel_);
+    socialPanel_.renderGuildRoster(gameHandler, chatPanel_, inventoryScreen,
+                                   spellbookScreen, questLogScreen, spellIconFn);
     if (!frameXmlOwns(UiElement::Social)) {
         socialPanel_.renderSocialFrame(gameHandler, chatPanel_);
     }

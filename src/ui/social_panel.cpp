@@ -5,6 +5,7 @@
 // who window, inspect window.
 // ============================================================
 #include "ui/social_panel.hpp"
+#include "ui/quest_log_screen.hpp"
 #include "ui/ui_raid_icons.hpp"
 #include "ui/chat_panel.hpp"
 #include "ui/spellbook_screen.hpp"
@@ -989,7 +990,11 @@ void SocialPanel::renderBossFrames(game::GameHandler& gameHandler,
 }
 
 void SocialPanel::renderGuildRoster(game::GameHandler& gameHandler,
-                                       ChatPanel& chatPanel) {
+                                       ChatPanel& chatPanel,
+                                       InventoryScreen& inventoryScreen,
+                                       SpellbookScreen& spellbookScreen,
+                                       QuestLogScreen& questLogScreen,
+                                       SpellIconFn getSpellIcon) {
     // Guild Roster toggle (customizable keybind)
     if (!chatPanel.isChatInputActive() && !ImGui::GetIO().WantTextInput &&
         !ImGui::GetIO().WantCaptureKeyboard &&
@@ -1327,10 +1332,28 @@ void SocialPanel::renderGuildRoster(game::GameHandler& gameHandler,
                 }
                 ImGui::Spacing();
 
+                // Both of these are free text the guild types, so they carry
+                // the same markup chat does — item, spell, quest and
+                // achievement links, colour codes and URLs. Drawn as plain
+                // text the markup showed as raw |H escapes and nothing was
+                // clickable, so they go through the chat renderer instead.
+                MarkupRenderContext markupCtx;
+                markupCtx.gameHandler  = &gameHandler;
+                markupCtx.inventory    = &inventoryScreen;
+                markupCtx.spellbook    = &spellbookScreen;
+                markupCtx.questLog     = &questLogScreen;
+                markupCtx.assetMgr     = services_.assetManager;
+                markupCtx.getSpellIcon = getSpellIcon;
+                markupCtx.insertLink   = [&chatPanel](const std::string& link) {
+                    chatPanel.insertChatLink(link);
+                };
+
                 // Guild description / info text
                 if (!roster.guildInfo.empty()) {
                     ImGui::TextColored(colors::kSilver, "Description:");
-                    ImGui::TextWrapped("%s", roster.guildInfo.c_str());
+                    guildMarkupRenderer_.render(
+                        guildMarkupParser_.parse(roster.guildInfo),
+                        ImGui::GetStyleColorVec4(ImGuiCol_Text), markupCtx);
                 }
                 ImGui::Spacing();
 
@@ -1338,7 +1361,9 @@ void SocialPanel::renderGuildRoster(game::GameHandler& gameHandler,
                 ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "MOTD:");
                 ImGui::SameLine();
                 if (!roster.motd.empty()) {
-                    ImGui::TextWrapped("%s", roster.motd.c_str());
+                    guildMarkupRenderer_.render(
+                        guildMarkupParser_.parse(roster.motd),
+                        ImGui::GetStyleColorVec4(ImGuiCol_Text), markupCtx);
                 } else {
                     ImGui::TextColored(kColorDarkGray, "(not set)");
                 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ui/ui_services.hpp"
+#include "ui/chat/chat_markup_renderer.hpp"
 #include <imgui.h>
 #include <vulkan/vulkan.h>
 #include <string>
@@ -16,6 +17,7 @@ namespace ui {
 class ChatPanel;
 class SpellbookScreen;
 class InventoryScreen;
+class QuestLogScreen;
 
 /**
  * Social panel manager (extracted from GameScreen)
@@ -62,8 +64,15 @@ public:
     void renderBossFrames(game::GameHandler& gameHandler,
                           SpellbookScreen& spellbookScreen,
                           SpellIconFn getSpellIcon);
+    // Takes the panels the markup renderer needs: the guild info text and the
+    // MOTD are server strings that carry item, spell, quest and achievement
+    // links, and rendering them as plain text left every link inert.
     void renderGuildRoster(game::GameHandler& gameHandler,
-                           ChatPanel& chatPanel);
+                           ChatPanel& chatPanel,
+                           InventoryScreen& inventoryScreen,
+                           SpellbookScreen& spellbookScreen,
+                           QuestLogScreen& questLogScreen,
+                           SpellIconFn getSpellIcon);
     void renderSocialFrame(game::GameHandler& gameHandler,
                            ChatPanel& chatPanel);
     void renderDungeonFinderWindow(game::GameHandler& gameHandler,
@@ -79,6 +88,9 @@ public:
 private:
     UIServices services_;
     uint64_t inspectWindowAutoRequestGuid_ = 0;
+    // Shared with chat: the guild info text and MOTD carry the same markup.
+    ChatMarkupParser   guildMarkupParser_;
+    ChatMarkupRenderer guildMarkupRenderer_;
 };
 
 } // namespace ui
