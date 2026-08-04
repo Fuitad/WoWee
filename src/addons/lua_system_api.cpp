@@ -1697,6 +1697,23 @@ static int lua_GetArenaTeam(lua_State* L) {
     return 22;
 }
 
+// IsInLFGDungeon() — standing inside a dungeon the finder put you in.
+//
+// The state is already tracked: SocialHandler keeps an LfgState and InDungeon
+// is one of its values. Nothing read it, so the minimap's dungeon button could
+// not tell inside from outside and offered the wrong direction.
+static int lua_IsInLFGDungeon(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushboolean(L, gh && gh->getLfgState() == game::LfgState::InDungeon ? 1 : 0);
+    return 1;
+}
+
+// LFGTeleport(out) — out to the dungeon's entrance, or back in.
+static int lua_LFGTeleport(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->lfgTeleport(lua_toboolean(L, 1) != 0);
+    return 0;
+}
+
 // Whether the world the player is standing in is an arena.
 //
 // From BattlemasterList.dbc, which names each row's maps and which this client
@@ -2260,6 +2277,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"IsVehicleAimAngleAdjustable",  lua_IsVehicleAimAngleAdjustable},
                 {"HasKey",                       lua_HasKey},
                 {"GetArenaTeam",             lua_GetArenaTeam},
+                {"IsInLFGDungeon",           lua_IsInLFGDungeon},
+                {"LFGTeleport",              lua_LFGTeleport},
                 {"IsBattlefieldArena",       lua_IsBattlefieldArena},
                 {"IsActiveBattlefieldArena", lua_IsActiveBattlefieldArena},
                 {"CanHearthAndResurrectFromArea", lua_CanHearthAndResurrectFromArea},
