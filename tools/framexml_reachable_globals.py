@@ -12,128 +12,53 @@ anything calling a carrier is a carrier. Report the ones a live file reaches,
 with the chain.
 """
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path("/home/k/Desktop/wowee")
 XML = ROOT / "Data/interface"
 
-# Built from the readiness tool's own element map plus the shared files
-# every panel goes through, rather than written out by hand — a hand-made
-# list of what is live is the mistake that hid the character sheet's other
-# four tabs from the stub sweep and the whole verb surface from another.
-# Derived, not hand-written: the elements handed over by default plus the
-# candidates tier, mapped to files through the readiness tool's own table,
-# and the shared files every panel goes through. A hand-made list of what is
-# live is the mistake that hid the character sheet's other four tabs from one
-# sweep and the whole verb surface from another — and listing *every* element
-# is the opposite error, reporting friendsframe when social is deliberately
-# not handed over.
-LIVE = {
-    "actionbutton.lua",
-    "bankframe.lua",
-    "bankframe.xml",
-    "blizzard_achievementui.lua",
-    "blizzard_achievementui.xml",
-    "blizzard_auctiondressup.lua",
-    "blizzard_auctiondressup.xml",
-    "blizzard_auctionui.lua",
-    "blizzard_auctionui.xml",
-    "blizzard_auctionuitemplates.xml",
-    "blizzard_bindingui.lua",
-    "blizzard_bindingui.xml",
-    "blizzard_guildbankui.lua",
-    "blizzard_guildbankui.xml",
-    "blizzard_inspectui.lua",
-    "blizzard_inspectui.xml",
-    "blizzard_talentui.lua",
-    "blizzard_talentui.xml",
-    "blizzard_tradeskillui.lua",
-    "blizzard_tradeskillui.xml",
-    "blizzard_trainerui.lua",
-    "blizzard_trainerui.xml",
-    "bonusactionbarframe.lua",
-    "buffframe.lua",
-    "buffframe.xml",
-    "castingbarframe.lua",
-    "castingbarframe.xml",
-    "characterframe.lua",
-    "chatconfigframe.lua",
-    "chatconfigframe.xml",
-    "chatframe.lua",
-    "chatframe.xml",
-    "containerframe.lua",
-    "containerframe.xml",
-    "durabilityframe.lua",
-    "durabilityframe.xml",
-    "floatingchatframe.lua",
-    "floatingchatframe.xml",
-    "focusframe.lua",
-    "focusframe.xml",
-    "gamemenuframe.xml",
-    "gametooltip.lua",
-    "gossipframe.lua",
-    "gossipframe.xml",
-    "helpframe.lua",
-    "helpframe.xml",
-    "inspecthonorframe.lua",
-    "inspecthonorframe.xml",
-    "inspectpaperdollframe.lua",
-    "inspectpaperdollframe.xml",
-    "inspectpvpframe.lua",
-    "inspectpvpframe.xml",
-    "inspecttalentframe.lua",
-    "inspecttalentframe.xml",
-    "itembuttontemplate.lua",
-    "itemtextframe.lua",
-    "itemtextframe.xml",
-    "localization.lua",
-    "lootframe.lua",
-    "lootframe.xml",
-    "mainmenubar.lua",
-    "mainmenubar.xml",
-    "mainmenubarbagbuttons.lua",
-    "mainmenubarbagbuttons.xml",
-    "mainmenubarmicrobuttons.lua",
-    "mainmenubarmicrobuttons.xml",
-    "merchantframe.lua",
-    "merchantframe.xml",
-    "minimap.lua",
-    "minimap.xml",
-    "mirrortimer.lua",
-    "paperdollframe.lua",
-    "paperdollframe.xml",
-    "partyframe.xml",
-    "partyframetemplates.xml",
-    "petactionbarframe.lua",
-    "petframe.lua",
-    "petframe.xml",
-    "petpaperdollframe.lua",
-    "petstable.lua",
-    "petstable.xml",
-    "playerframe.lua",
-    "playerframe.xml",
-    "questframe.lua",
-    "questframe.xml",
-    "reputationframe.lua",
-    "skillframe.lua",
-    "spellbookframe.lua",
-    "spellbookframe.xml",
-    "staticpopup.lua",
-    "targetframe.lua",
-    "targetframe.xml",
-    "taxiframe.lua",
-    "taxiframe.xml",
-    "tokenframe.lua",
-    "totemframe.lua",
-    "totemframe.xml",
-    "uidropdownmenu.lua",
-    "uiparent.lua",
-    "unitframe.lua",
-    "unitpopup.lua",
-    "worldstateframe.lua",
-    "worldstateframe.xml",
-    "zonetext.lua",
-}
+# The elements handed over by default plus the candidates tier, mapped to
+# files through the readiness tool's own table, and the shared files every
+# panel goes through. A hand-made list of what is live is the mistake that hid
+# the character sheet's other four tabs from one sweep and the whole verb
+# surface from another — and listing *every* element is the opposite error,
+# reporting friendsframe when social is deliberately not handed over.
+def _live_files():
+    """The FrameXML files that are actually drawn, derived rather than listed.
+
+    This was a frozen literal of sixty-nine names with a comment above it
+    claiming it was derived. It had been correct once. By the time mail and the
+    barber shop joined the candidates tier it was two elements out of date, and
+    a sweep that reports which live files reach an unbound global is worth
+    exactly as much as its idea of "live".
+
+    Reads the element lists from framexml_takeover.cpp and maps them to files
+    through the readiness tool's own tables, so adding an element to the
+    candidates tier brings its files here with no second edit.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import framexml_element_readiness as readiness
+
+    takeover = (ROOT / "src/ui/framexml_takeover.cpp").read_text(errors="ignore")
+    names = set()
+    # Both the defaults block and the candidates block are lists of bare string
+    # literals; every element name that appears in either is live.
+    for block in re.findall(r"for \(const char\* name : \{(.*?)\}\)", takeover, re.S):
+        names |= set(re.findall(r'"([a-z]+)"', block))
+
+    files = set(readiness.SHARED)
+    for name in names:
+        for f in readiness.ELEMENTS.get(name, ()):
+            files.add(f)
+        addon = readiness.ADDON_ELEMENTS.get(name)
+        if addon:
+            files.add(f"{addon}.lua")
+            files.add(f"{addon}.xml")
+    return files
+
+
+LIVE = _live_files()
 
 
 def strip(t):

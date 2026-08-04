@@ -968,8 +968,15 @@ void registerSocialLuaAPI(lua_State* L) {
             return 10;
         }},
                 // Stationery is the letterhead a mail is written on. The list
-                // is empty — GetNumStationeries answers zero — so the picker
-                // has no rows and these are the calls around it.
+                // is empty, so the picker has no rows and these are the calls
+                // around it.
+                //
+                // The zero below is the one the note here already claimed was
+                // being answered, while nothing bound it: StationeryPopupFrame
+                // opens on a button beside the recipient field and its update
+                // asks the count first, so the picker raised the moment it was
+                // opened. A comment describing a binding is not a binding.
+                {"GetNumStationeries", luaReturnZero},
                 {"GetStationeryInfo", [](lua_State* L) -> int { return luaReturnNil(L); }},
                 {"SelectStationery", [](lua_State* L) -> int { (void)L; return 0; }},
                 // Guarded with `if ( texture )` before being pasted into a
