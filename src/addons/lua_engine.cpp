@@ -805,7 +805,18 @@ int lua_CheckButton_SetChecked(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
         // No argument means checked, as in WoW, where SetChecked() with
         // nothing is how a box is ticked.
-        w->checked = lua_isnone(L, 2) ? true : (lua_toboolean(L, 2) != 0);
+        //
+        // A number is read as a number, because WoW's widget API takes 0 and 1
+        // here and seventy-seven places in this FrameXML write SetChecked(0).
+        // lua_toboolean answers true for 0 — only nil and false are false in
+        // Lua — so every one of those was setting the box rather than
+        // clearing it, and nothing that reported its state by unchecking ever
+        // turned off. BagSlotButton_UpdateChecked is one: it counts the open
+        // container frames and passes 0 or 1 straight in, so every bag button
+        // stayed lit whether or not its bag was open.
+        w->checked = lua_isnone(L, 2)    ? true
+                   : lua_isnumber(L, 2)  ? (lua_tonumber(L, 2) != 0)
+                                         : (lua_toboolean(L, 2) != 0);
     }
     return 0;
 }

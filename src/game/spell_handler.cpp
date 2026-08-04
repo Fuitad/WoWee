@@ -1420,13 +1420,26 @@ void SpellHandler::updateTimers(float dt) {
         }
     }
     // Tick down spell cooldowns
+    bool anyCooldownEnded = false;
     for (auto it = spellCooldowns_.begin(); it != spellCooldowns_.end(); ) {
         it->second -= dt;
         if (it->second <= 0.0f) {
             it = spellCooldowns_.erase(it);
+            anyCooldownEnded = true;
         } else {
             ++it;
         }
+    }
+    // A cooldown running out is the one thing that makes a spell usable again
+    // without the server saying anything, so nothing announced it and the
+    // button stayed dimmed until the next time mana happened to change — the
+    // only other place these two are fired from. Said once for the frame
+    // however many ended in it.
+    if (anyCooldownEnded && owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("ACTIONBAR_UPDATE_COOLDOWN", {});
+        owner_.addonEventCallbackRef()("ACTIONBAR_UPDATE_USABLE", {});
+        owner_.addonEventCallbackRef()("SPELL_UPDATE_USABLE", {});
+        owner_.addonEventCallbackRef()("SPELL_UPDATE_COOLDOWN", {});
     }
     // Tick down unit cast states
     for (auto it = unitCastStates_.begin(); it != unitCastStates_.end(); ) {
