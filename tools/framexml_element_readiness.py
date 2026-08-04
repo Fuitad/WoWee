@@ -457,6 +457,9 @@ def main():
         "questtracker": "[checked] twelve are the same world map API through worldmapframe.lua; the other three are AchievementFrame internals, defined in blizzard_achievementui and absent only until it loads",
         "worldmap":     "[checked] map API is this client's; WORLD_MAP_NAME_UPDATE has no handler branch, CLOSE_WORLD_MAP needs the key to drive Lua",
         "help":         "[checked] GMSURVEY_DISPLAY carries questions nothing parses; GMRESPONSE_RECEIVED is parsed and fired, and TicketMgr.cpp does send it",
+        "social":       "[checked] MUTELIST_UPDATE shares both its branches with IGNORELIST_UPDATE (friendsframe.lua:1224, partymemberframe.lua:341), which is fired from social_handler.cpp:2567; VOICE_CHAT_ENABLED_UPDATE is voice chat, which this client has none of",
+        "achievements": "[checked] all three are the achievement addon's own and exist once it loads — AchievementFrameTab_OnClick is assigned rather than declared (blizzard_achievementui.lua:63), which is why grepping for 'function' finds nothing. The one use in core FrameXML, alertframes.lua:260, compares ACHIEVEMENTUI_SELECTEDFILTER rather than calling it, and sits after ShowUIPanel(AchievementFrame) so the addon is loaded by then",
+        "auctionhouse": "[checked] DressUpItemLink_orig is a local capturing DressUpItemLink for a hook, and DressUpItemLink is a FrameXML Lua function (dressupframe.lua:2) rather than a C binding — so the capture gets the real one and nothing is missing",
     }
     also = [e for e in settled if e not in ready]
     if also:
