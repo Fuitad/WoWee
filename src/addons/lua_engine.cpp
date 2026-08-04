@@ -3429,6 +3429,14 @@ void LuaEngine::registerCoreAPI() {
         "function animMeta:SetToAlpha(a) self.toAlpha = a end\n"
         "function animMeta:SetOffset(x, y) self.offsetX, self.offsetY = x, y end\n"
         "function animMeta:GetOffset() return self.offsetX or 0, self.offsetY or 0 end\n"
+        // An animation carries scripts of its own, and OnFinished on the
+        // *animation* is how FrameXML hides a faded-out frame:
+        // alertframes.xml puts `self:GetRegionParent():Hide()` there. Only the
+        // group's OnFinished was ever called, so an achievement banner faded to
+        // nothing and stayed on screen forever.
+        "function animMeta:SetScript(k, f) self[k] = f end\n"
+        "function animMeta:GetScript(k) return self[k] end\n"
+        "function animMeta:GetRegionParent() return self.group and self.group.parent end\n"
         "function animMeta:SetOrder(o) self.order = o or 1 end\n"
         "function animMeta:GetOrder() return self.order or 1 end\n"
         "function animMeta:SetStartDelay(d) self.startDelay = d or 0 end\n"
@@ -3525,7 +3533,7 @@ void LuaEngine::registerCoreAPI() {
         "    self.isPlaying = true\n"
         "    self.reversed = false\n"
         "    self.baseAlpha = self.parent and self.parent:GetAlpha() or 1\n"
-        "    for _, a in ipairs(self.animations) do a.elapsed = 0 a.progress = 0 end\n"
+        "    for _, a in ipairs(self.animations) do a.elapsed = 0 a.progress = 0 a.finished = nil end\n"
         "    playing[self] = true\n"
         "    if self.OnPlay then self:OnPlay() end\n"
         "end\n"
@@ -3574,9 +3582,16 @@ void LuaEngine::registerCoreAPI() {
         "                    a.progress = 1\n"
         "                else\n"
         "                    local p = t / d\n"
-        "                    if p >= 1 then p = 1 else anyRunning = true end\n"
+        "                    local done = false\n"
+        "                    if p >= 1 then p = 1 done = true else anyRunning = true end\n"
         "                    if g.reversed then p = 1 - p end\n"
         "                    a.progress = p\n"
+        // Once per run, and before the group finishes, because the frame this
+        // hides is the one the group is still animating.
+        "                    if done and not a.finished then\n"
+        "                        a.finished = true\n"
+        "                        if a.OnFinished then a:OnFinished() end\n"
+        "                    end\n"
         "                    if a.kind == 'Alpha' then\n"
         "                        if a.fromAlpha and a.toAlpha then\n"
         "                            alpha = a.fromAlpha + (a.toAlpha - a.fromAlpha) * p\n"
@@ -3605,7 +3620,7 @@ void LuaEngine::registerCoreAPI() {
         // BOUNCE plays back the way it came; REPEAT starts over. Either way the
         // clocks reset, or the next round finishes instantly.
         "                    if mode == 'BOUNCE' then g.reversed = not g.reversed end\n"
-        "                    for _, a in ipairs(g.animations) do a.elapsed = 0 end\n"
+        "                    for _, a in ipairs(g.animations) do a.elapsed = 0 a.finished = nil end\n"
         "                    if g.OnLoop then g:OnLoop() end\n"
         "                else\n"
         "                    g:Finish()\n"

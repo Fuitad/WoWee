@@ -1975,6 +1975,62 @@ void registerSocialLuaAPI(lua_State* L) {
                 //
                 // False because this client plays no cinematics, and there is
                 // no state to read.
+                // ---- The death and release popup ----
+                //
+                // StaticPopupDialogs["DEATH"] is raised every time the player
+                // dies, and its OnShow calls HasSoulstone while its OnAccept
+                // calls RepopMe and CannotBeResurrected. All three were
+                // unbound, so the release popup raised in OnShow and never
+                // appeared — and releasing spirit from it was impossible even
+                // if it had.
+                {"RepopMe", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->releaseSpirit();
+            return 0;
+        }},
+                // The text for the second button, or nil for no button at all.
+                // This client knows the same thing as canSelfRes: the server
+                // sent SMSG_PRE_RESURRECT because a Reincarnation or Twisting
+                // Nether is up.
+                {"HasSoulstone", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (gh && gh->canSelfRes()) { lua_pushstring(L, "Use Soulstone"); return 1; }
+            lua_pushnil(L);
+            return 1;
+        }},
+                {"UseSoulstone", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->useSelfRes();
+            return 0;
+        }},
+                // False: the corpse is always recoverable here. Answering true
+                // would make the death popup close itself.
+                {"CannotBeResurrected", [](lua_State* L) -> int {
+            lua_pushboolean(L, 0); return 1;
+        }},
+                {"IsActiveBattlefieldArena", [](lua_State* L) -> int {
+            lua_pushboolean(L, 0); return 1;
+        }},
+                // Seconds before the corpse is released automatically. -1 is
+                // WoW's "no timer", which is the branch that prints the release
+                // prompt without a countdown — right for a client that does not
+                // run one.
+                {"GetReleaseTimeRemaining", [](lua_State* L) -> int {
+            lua_pushnumber(L, -1); return 1;
+        }},
+                // Both are asked from an OnUpdate, so they would raise on
+                // every frame the popup is up rather than once.
+                //
+                // IsOutOfBounds decides whether the death popup shows the
+                // falling-to-your-death variant. CheckTalentMasterDist hides
+                // the talent wipe confirmation when the player walks away from
+                // the trainer — true keeps it up, which is right for a client
+                // that does not track that distance and would otherwise close
+                // the dialog the instant it opened.
+                {"IsOutOfBounds", [](lua_State* L) -> int {
+            lua_pushboolean(L, 0); return 1;
+        }},
+                {"CheckTalentMasterDist", [](lua_State* L) -> int {
+            lua_pushboolean(L, 1); return 1;
+        }},
                 {"InCinematic", [](lua_State* L) -> int {
             lua_pushboolean(L, 0); return 1;
         }},

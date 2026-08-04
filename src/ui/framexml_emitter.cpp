@@ -751,6 +751,9 @@ struct Emitter {
                 if (const std::string* pk = group.attr("parentKey")) {
                     line(var + "." + *pk + " = " + gvar);
                 }
+                for (const XmlNode& gs : group.children) {
+                    if (gs.name == "Scripts") emitScripts(gs, gvar);
+                }
                 for (const XmlNode& a : group.children) {
                     if (a.name != "Alpha" && a.name != "Translation" &&
                         a.name != "Scale" && a.name != "Rotation" &&
@@ -777,6 +780,14 @@ struct Emitter {
                     }
                     if (const std::string* pk = a.attr("parentKey"))
                         line(var + "." + *pk + " = " + avar);
+                    // An animation's own <Scripts>. Dropping these cost the
+                    // alert banners: alertframes.xml hangs
+                    // `self:GetRegionParent():Hide()` off the fade's
+                    // OnFinished, so without it an achievement banner faded to
+                    // nothing and stayed there.
+                    for (const XmlNode& sc : a.children) {
+                        if (sc.name == "Scripts") emitScripts(sc, avar);
+                    }
                 }
             }
         }
