@@ -5203,6 +5203,18 @@ void LuaEngine::fireEvent(const std::string& eventName,
                             args.empty() ? "" : args[0], ") reached ",
                             frameCount, " frames");
             }
+            // Iterate a copy, because a handler is allowed to unregister while
+            // it runs and several do — answering an event by deciding you no
+            // longer want it is ordinary. UnregisterEvent shifts the tail down,
+            // so the frame that moved into the vacated index was stepped over
+            // and never heard that event at all. The list is a handful of
+            // entries, and this only copies references.
+            lua_createtable(L_, frameCount, 0);
+            for (int i = 1; i <= frameCount; ++i) {
+                lua_rawgeti(L_, -2, i);
+                lua_rawseti(L_, -2, i);
+            }
+            lua_remove(L_, -2);   // drop the live list; the copy stands in
             for (int i = 1; i <= frameCount; i++) {
                 lua_rawgeti(L_, -1, i);
                 if (!lua_istable(L_, -1)) { lua_pop(L_, 1); continue; }
