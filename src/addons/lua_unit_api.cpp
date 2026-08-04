@@ -2104,6 +2104,88 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushnumber(L, 0);                   // healingDone
             return 12;
         }},
+                // ---- The scoreboard's per-battleground columns ----
+                //
+                // Every battleground adds its own: flags captured in Warsong,
+                // bases assaulted in Arathi, towers defended in Alterac. The
+                // server names each one and sends a value per player, and this
+                // client has parsed both into BgPlayerScore::bgStats all along
+                // — nothing read them, and GetNumBattlefieldStats answered zero
+                // from the counting stub, so the scoreboard drew the common
+                // columns and stopped.
+                {"GetNumBattlefieldStats", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto* sb = gh ? gh->getBgScoreboard() : nullptr;
+            size_t columns = 0;
+            // The widest row rather than the first: a row that arrived short
+            // would otherwise decide the column count for the whole table.
+            if (sb) for (const auto& p : sb->players) columns = std::max(columns, p.bgStats.size());
+            lua_pushnumber(L, static_cast<double>(columns));
+            return 1;
+        }},
+                // GetBattlefieldStatInfo(index) → text, icon, tooltip
+                //
+                // The icon is "" rather than nil on purpose: the frame tests it
+                // with ~= "" and then concatenates the faction onto it, so nil
+                // passes the test and dies on the concatenation. This client
+                // has no artwork per column, and "" is how the frame is told so.
+                {"GetBattlefieldStatInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_checknumber(L, 1));
+            const auto* sb = gh ? gh->getBgScoreboard() : nullptr;
+            if (!sb || index < 1) return luaReturnNil(L);
+            for (const auto& p : sb->players) {
+                if (index <= static_cast<int>(p.bgStats.size())) {
+                    const std::string& name = p.bgStats[static_cast<size_t>(index - 1)].first;
+                    lua_pushstring(L, name.c_str());
+                    lua_pushstring(L, "");
+                    lua_pushstring(L, name.c_str());
+                    return 3;
+                }
+            }
+            return luaReturnNil(L);
+        }},
+                // GetBattlefieldStatData(playerIndex, statIndex) → the value.
+                //
+                // Always a number. The frame compares it against zero the line
+                // after it asks, so nil is not "no value" there, it is an error.
+                {"GetBattlefieldStatData", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int playerIndex = static_cast<int>(luaL_checknumber(L, 1));
+            const int statIndex   = static_cast<int>(luaL_checknumber(L, 2));
+            const auto* sb = gh ? gh->getBgScoreboard() : nullptr;
+            double value = 0.0;
+            if (sb && playerIndex >= 1 && playerIndex <= static_cast<int>(sb->players.size())) {
+                const auto& stats = sb->players[static_cast<size_t>(playerIndex - 1)].bgStats;
+                if (statIndex >= 1 && statIndex <= static_cast<int>(stats.size()))
+                    value = static_cast<double>(stats[static_cast<size_t>(statIndex - 1)].second);
+            }
+            lua_pushnumber(L, value);
+            return 1;
+        }},
+                // GetBattlefieldTeamInfo(faction) → name, rating, newRating, skill
+                //
+                // Arena only. The frame subtracts the two ratings to show the
+                // change, so the old one is derived from the new one and the
+                // change the server sent — which makes the subtraction come out
+                // as that change whichever way round the server means it.
+                //
+                // The matchmaker rating is not parsed, and nil is the right
+                // answer for it: the frame prints "-------" for a rating it was
+                // not given, where a zero would read as a real one.
+                {"GetBattlefieldTeamInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int faction = static_cast<int>(luaL_checknumber(L, 1));
+            const auto* sb = gh ? gh->getBgScoreboard() : nullptr;
+            if (!sb || !sb->isArena || faction < 0 || faction > 1) return luaReturnNil(L);
+            const auto& team = sb->arenaTeams[faction];
+            lua_pushstring(L, team.teamName.c_str());
+            lua_pushnumber(L, static_cast<double>(team.newRating) -
+                              static_cast<double>(team.ratingChange));
+            lua_pushnumber(L, static_cast<double>(team.newRating));
+            lua_pushnil(L);
+            return 4;
+        }},
                 {"GetBattlefieldWinner", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const auto* sb = gh ? gh->getBgScoreboard() : nullptr;
