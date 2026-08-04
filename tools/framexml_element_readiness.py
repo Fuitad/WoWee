@@ -343,7 +343,7 @@ def main():
         # Battle.net has no counterpart on a 3.3.5 server.
         dead = sorted(e for e in want if e not in fired and not e.startswith("BN_"))
 
-        listed = " ".join(sorted(missing)[:4] + dead[:3])
+        listed = " ".join(sorted(missing)[:12] + dead[:6])
         print(f"  {element:<13} {len(files):>3}   {len(missing):>4}   {len(dead):>4}  {listed}")
         if not missing and not dead:
             ready.append(element)
