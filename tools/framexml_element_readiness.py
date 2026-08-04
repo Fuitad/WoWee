@@ -411,10 +411,15 @@ def main():
     #
     # Every entry names why. Re-check one if its reason stops being true.
     #
-    # [checked] marks one re-verified since it was written. Eight have been,
-    # and four of those were wrong or ungrounded — three of the four were
-    # concealing a real gap. An unmarked entry reads exactly like a marked one
-    # and is, on this sample, about as likely to be wrong as right.
+    # [checked] marks one re-verified since it was written. All eleven now are.
+    # Five were wrong or incomplete, and three of those five were concealing a
+    # real gap — GMRESPONSE_RECEIVED and PLAYER_ROLES_ASSIGNED are fired now,
+    # MINIMAP_UPDATE_TRACKING is recorded with its trigger.
+    #
+    # Five in eleven is the number to remember when writing the next one. The
+    # five that held were each grepped while being written; the five that did
+    # not were carried forward from an earlier conclusion. Provenance predicted
+    # it better than confidence did, every time.
     #
     # And re-check them anyway. Three have been spot-checked since this list
     # was written and two were wrong: worldmap named one event of two, and help
@@ -432,8 +437,8 @@ def main():
     # it — which is also why each one names a file or a function rather than a
     # conclusion.
     settled = {
-        "bags":         "BAG_OPEN/CLOSED are for a C client opening bags; FrameXML does it in Lua",
-        "merchant":     "GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, which is fired",
+        "bags":         "[checked] BAG_OPEN/CLOSED are for a C client opening bags; ToggleBag, OpenBag and CloseBag are all Lua functions in containerframe.lua",
+        "merchant":     "[checked] GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, fired from inventory_handler and entity_controller",
         "playerframe":  "[checked] voice chat, vehicles and the playtime nag (PLAYER_ROLES_ASSIGNED was wrong here — roles are parsed and read, and it is fired now)",
         "mainmenubar":  "[checked] nine calls and five events are vehicles; CURRENCY_DISPLAY_UPDATE and UPDATE_BONUS_ACTIONBAR share fired branches, UPDATE_MULTI_CAST_ACTIONBAR shares one and has nil data besides",
         "minimap":      "[checked] four calls unreachable; zoom is widget state, movie recording absent, indoors redundant — but MINIMAP_UPDATE_TRACKING is REAL and unfired: MiniMapTracking_Update reads GetTrackingTexture, which walks the player's tracking spells and is not a stub",
