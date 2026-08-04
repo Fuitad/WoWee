@@ -372,7 +372,11 @@ def main():
         # Battle.net has no counterpart on a 3.3.5 server.
         dead = sorted(e for e in want if e not in fired and not e.startswith("BN_"))
 
-        listed = " ".join(sorted(missing)[:12] + dead[:6])
+        # Both caps generous, because a hidden name is worse than a long line:
+        # WHO_LIST_UPDATE was a real gap that sat unprinted as social's fourth
+        # event, and mainmenubar's seventh and eighth went unchecked while its
+        # settled entry claimed otherwise.
+        listed = " ".join(sorted(missing)[:16] + dead[:12])
         print(f"  {element:<13} {len(files):>3}   {len(missing):>4}   {len(dead):>4}  {listed}")
         if not missing and not dead:
             ready.append(element)
@@ -426,7 +430,7 @@ def main():
         "bags":         "BAG_OPEN/CLOSED are for a C client opening bags; FrameXML does it in Lua",
         "merchant":     "GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, which is fired",
         "playerframe":  "voice chat, vehicles and the playtime nag (PLAYER_ROLES_ASSIGNED was wrong here — roles are parsed and read, and it is fired now)",
-        "mainmenubar":  "nine of nine calls and four events are vehicles; the rest verified",
+        "mainmenubar":  "nine calls and five events are vehicles; CURRENCY_DISPLAY_UPDATE and UPDATE_BONUS_ACTIONBAR share fired branches, UPDATE_MULTI_CAST_ACTIONBAR shares one and has nil data besides",
         "minimap":      "four calls unreachable; tracking, zoom, movie recording, indoors all absent",
         "bgscore":      "both calls inside a loop over GetNumWorldStateUI, which answers zero",
         "questlog":     "every call is the world map API, absent because this client draws its own",
