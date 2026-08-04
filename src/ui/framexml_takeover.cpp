@@ -123,6 +123,11 @@ const std::set<std::string>& requested() {
         // for the right NPC and then blocks that NPC — which is exactly why
         // they are behind a word instead of in the defaults. Naming this is how
         // a run tests the batch without typing thirty names.
+        //
+        // The list below is generated: tools/framexml_element_readiness.py
+        // prints it in this exact shape at the end of its run. Regenerate and
+        // paste rather than editing by hand, or it drifts the first time an
+        // element goes clean and nobody thinks to come here.
         if (out.erase("candidates") > 0) {
             out.insert(defaults.begin(), defaults.end());
             for (const char* name : {

@@ -404,6 +404,32 @@ def main():
     print()
     print(f"{len(ready)} of {total} with no known gaps: {' '.join(sorted(ready))}")
 
+    # The same list, shaped for framexml_takeover.cpp's "candidates" tier.
+    #
+    # That tier is a hardcoded array over there and this is where its contents
+    # come from, so the two drift the moment an element goes clean and nobody
+    # looks here. Printed rather than explained: paste it over the array and
+    # the drift is gone.
+    #
+    # The twelve defaults are left out — the tier adds to them rather than
+    # replacing them, and listing one twice reads as a mistake.
+    DEFAULTS = {"playerframe", "targetframe", "minimap", "mainmenubar",
+                "characterframe", "bags", "castbar", "spellbook", "petframe",
+                "focusframe", "buffs", "durability"}
+    tier = sorted(set(ready) - DEFAULTS)
+    if tier:
+        print()
+        print(f'for WOWEE_FRAMEXML_UI=candidates in framexml_takeover.cpp ({len(tier)}):')
+        line = "                    "
+        for name in tier:
+            piece = f'"{name}", '
+            if len(line) + len(piece) > 78:
+                print(line.rstrip())
+                line = "                    "
+            line += piece
+        if line.strip():
+            print(line.rstrip().rstrip(","))
+
     # Elements whose remaining names have each been read and found not to be
     # work. They still show a count above, because this cannot tell an absent
     # feature from a gap — that is the judgement, and it is written down here
