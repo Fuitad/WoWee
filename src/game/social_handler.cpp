@@ -818,11 +818,28 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
     table[Opcode::SMSG_LFG_DISABLED] = [this](network::Packet& /*packet*/) {
         owner_.addSystemChatMessage("The Dungeon Finder is currently disabled.");
     };
-    table[Opcode::SMSG_LFG_OFFER_CONTINUE] = [this](network::Packet& /*packet*/) {
-        owner_.addSystemChatMessage("Dungeon Finder: You may continue your dungeon.");
-        // The offer to carry on is a dialog, not a chat line — the interface
-        // raises it on this and had only the message to go on.
-        if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("LFG_OFFER_CONTINUE", {});
+    table[Opcode::SMSG_LFG_OFFER_CONTINUE] = [this](network::Packet& packet) {
+        // uint32 dungeon entry, which the handler used to skip entirely — and
+        // then fired the event with nothing. lfgframe.lua opens with
+        // NORMAL_FONT_COLOR_CODE..displayName.."|r", and concatenating nil
+        // raises, so the offer took its own handler down every time.
+        //
+        // The entry packs both halves the way LFGDungeonData::Entry builds it:
+        // id in the low twenty-four bits, type in the top eight.
+        uint32_t dungeonId = 0, typeId = 0;
+        if (packet.hasRemaining(4)) {
+            const uint32_t entry = packet.readUInt32();
+            dungeonId = entry & 0x00FFFFFFu;
+            typeId    = (entry >> 24) & 0xFFu;
+        }
+        std::string name = owner_.getLfgDungeonName(dungeonId);
+        if (name.empty()) name = "your dungeon";
+        owner_.addSystemChatMessage("Dungeon Finder: You may continue " + name + ".");
+        if (owner_.addonEventCallbackRef()) {
+            owner_.addonEventCallbackRef()("LFG_OFFER_CONTINUE",
+                                           {name, std::to_string(dungeonId),
+                                            std::to_string(typeId)});
+        }
     };
     table[Opcode::SMSG_LFG_ROLE_CHOSEN] = [this](network::Packet& packet) {
         if (!packet.hasRemaining(13)) { packet.skipAll(); return; }
