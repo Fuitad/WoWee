@@ -2902,7 +2902,49 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushstring(L, gh->getPlayerClass() == kWarlock ? "DEMON" : "PET");
             return 2;
         }},
-                {"GetRuneType",              lua_ReturnNil},
+                // The death knight rune bar, which this client has tracked
+                // since it started parsing rune state and never answered for.
+                // runeframe.lua is reached through the player frame, handed
+                // over by default, so a death knight has been looking at six
+                // runes drawn from a nil type and no cooldown at all.
+                //
+                // RuneType here is Blood, Unholy, Frost, Death from zero;
+                // runeframe.lua numbers the same four from one.
+                {"GetRuneType", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int id = static_cast<int>(luaL_optinteger(L, 1, 0));
+            if (!gh || id < 1 || id > 6) { lua_pushnil(L); return 1; }
+            const auto& runes = gh->getPlayerRunes();
+            lua_pushinteger(L,
+                static_cast<lua_Integer>(runes[static_cast<size_t>(id) - 1].type) + 1);
+            return 1;
+        }},
+                // GetRuneCooldown(id) → start, duration, runeReady
+                //
+                // The server sends how far along a rune is rather than when it
+                // started, so the start is worked back from the fraction. It
+                // has to come off the same clock GetTime answers with, or the
+                // sweep is drawn against a different origin than it was
+                // measured on — CooldownFrame_SetTimer compares the two.
+                {"GetRuneCooldown", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int id = static_cast<int>(luaL_optinteger(L, 1, 0));
+            if (!gh || id < 1 || id > 6) return 0;
+            const auto& rune = gh->getPlayerRunes()[static_cast<size_t>(id) - 1];
+            if (rune.ready) {
+                lua_pushnumber(L, 0.0);
+                lua_pushnumber(L, 0.0);
+                lua_pushboolean(L, 1);
+                return 3;
+            }
+            constexpr double kRuneCooldownSec = 10.0;  // fixed in WotLK
+            const double elapsed = kRuneCooldownSec *
+                static_cast<double>(rune.readyFraction);
+            lua_pushnumber(L, luaGetTimeNow() - elapsed);
+            lua_pushnumber(L, kRuneCooldownSec);
+            lua_pushboolean(L, 0);
+            return 3;
+        }},
                 {"GetMasterLootCandidate",   lua_ReturnNil},
                 {"GetSelectedDisplayChannel", lua_ReturnNil},
                 {"GetWintergraspWaitTime",   lua_ReturnNil},
