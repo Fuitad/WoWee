@@ -1778,6 +1778,81 @@ void registerSocialLuaAPI(lua_State* L) {
                 // window to show it in — but it is bound rather than absent so
                 // that picking it does nothing instead of throwing.
                 {"InspectAchievements", [](lua_State* L) -> int { (void)L; return 0; }},
+
+                // ---- The rest of what the unit right-click menu calls ----
+                //
+                // UnitPopup_ShowMenu asks several of these while deciding which
+                // entries to show, so a missing one does not skip an entry — it
+                // throws part way through building the menu and there is no
+                // menu at all. Right-clicking the player's own frame reached
+                // GetPVPDesired that way.
+                //
+                // Everything here is either answered properly or answered
+                // safely. A conservative answer hides a menu entry; a missing
+                // global breaks the whole menu.
+                {"GetPVPDesired", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            bool on = false;
+            if (gh) {
+                if (auto e = gh->getEntityManager().getEntity(gh->getPlayerGuid())) {
+                    // UNIT_FIELD_FLAGS index 59, bit 0x1000 = UNIT_FLAG_PVP,
+                    // read the same way CombatHandler::togglePvp reads it.
+                    on = (e->getField(59) & 0x00001000u) != 0;
+                }
+            }
+            lua_pushnumber(L, on ? 1 : 0);   // the menu compares it against 1 and 0
+            return 1;
+        }},
+                {"SetPVP", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const bool want = lua_isnumber(L, 1) ? (lua_tonumber(L, 1) != 0)
+                                                 : (lua_toboolean(L, 1) != 0);
+            bool on = false;
+            if (auto e = gh->getEntityManager().getEntity(gh->getPlayerGuid())) {
+                on = (e->getField(59) & 0x00001000u) != 0;
+            }
+            // The client can only toggle, so only toggle when it would land on
+            // what was asked for — otherwise SetPVP(1) while already flagged
+            // would turn it off.
+            if (want != on) gh->togglePvp();
+            return 0;
+        }},
+                {"UnitIsInMyGuild", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* name = luaL_optstring(L, 1, "");
+            if (!gh || !name || !*name) { lua_pushboolean(L, 0); return 1; }
+            bool found = false;
+            for (const auto& m : gh->getGuildRoster().members) {
+                if (m.name == name) { found = true; break; }
+            }
+            lua_pushboolean(L, found);
+            return 1;
+        }},
+                // Answered no rather than left missing. Each hides one menu
+                // entry, which is what should happen for something this client
+                // cannot do — party promotion and demotion, channel moderation,
+                // granting levels, reporting chat, and the recruit-a-friend and
+                // Battle.net pieces have no client support behind them.
+                {"PetCanBeRenamed",           [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                {"CanGrantLevel",             [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                {"CanComplainChat",           [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                {"CanChangePlayerDifficulty", [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                {"IsSilenced",                [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                {"IsDisplayChannelModerator", [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                {"PromoteToLeader",           [](lua_State* L) -> int { (void)L; return 0; }},
+                {"PromoteToAssistant",        [](lua_State* L) -> int { (void)L; return 0; }},
+                {"DemoteAssistant",           [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GrantLevel",                [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SetOptOutOfLoot",           [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SetDungeonDifficulty",      [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SetRaidDifficulty",         [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ChannelBan",                [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ChannelKick",               [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ChannelModerator",          [](lua_State* L) -> int { (void)L; return 0; }},
+                {"ChannelUnmoderator",        [](lua_State* L) -> int { (void)L; return 0; }},
+                {"SetChannelOwner",           [](lua_State* L) -> int { (void)L; return 0; }},
+                {"BNSetToonBlocked",          [](lua_State* L) -> int { (void)L; return 0; }},
                 {"StartDuel", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const char* unit = luaL_optstring(L, 1, "target");
