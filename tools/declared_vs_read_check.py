@@ -95,6 +95,31 @@ def constants():
             if norm(boot[n]) != norm(fx[n])}
 
 
+def vocabulary(pattern, known_from):
+    """Names FrameXML asks for by string, and which the client never answers.
+
+    Case-folded on both sides, because the bindings fold too: uidropdownmenu
+    asks for "uiscale" where everything else says "uiScale", and an exact match
+    once answered "0" for it, which laid every dropdown out at SetScale(0).
+    """
+    want = {}
+    for path in list(FRAMEXML.rglob("*.lua")) + list(FRAMEXML.rglob("*.xml")):
+        text = re.sub(r"--[^\n]*", "", path.read_text(errors="ignore"))
+        for m in re.finditer(pattern, text):
+            want.setdefault(m.group(1).lower(), m.group(1))
+    known = set()
+    for path in known_from.rglob("*.cpp"):
+        text = path.read_text(errors="ignore")
+        # Comments stripped first. A comment explaining what a CVar does quotes
+        # its name, and counting that as an answer made removing the answer
+        # invisible — which is exactly the regression this is meant to catch.
+        text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+        text = re.sub(r"//[^\n]*", "", text)
+        known |= {s.lower() for s in
+                  re.findall(r'"([A-Za-z][A-Za-z0-9_]{2,})"', text)}
+    return want, sorted(want[n] for n in want if n not in known)
+
+
 def main():
     emitter = EMITTER.read_text(errors="ignore") if EMITTER.exists() else ""
     named = set(re.findall(r'"(\w+)"', emitter))
@@ -119,6 +144,28 @@ def main():
     for s in unfired:
         print(f"  {s}")
     if not unfired:
+        print("  (none)")
+
+    sounds, silent = vocabulary(r'PlaySound\(\s*"([A-Za-z0-9_]+)"', SRC)
+    print(f"\n{len(sounds)} sound names asked for, {len(silent)} with nothing "
+          f"behind them:\n")
+    for n in silent[:8]:
+        print(f"  {n}")
+    if len(silent) > 8:
+        print(f"  ... and {len(silent) - 8} more")
+    if not silent:
+        print("  (none)")
+
+    cvars, unanswered = vocabulary(
+        r'(?:GetCVar|GetCVarBool|SetCVar|RegisterCVar|GetCVarDefault)'
+        r'\(\s*"([A-Za-z0-9_]+)"', SRC)
+    print(f"\n{len(cvars)} CVars named, {len(unanswered)} the client never "
+          f"answers:\n")
+    for n in unanswered[:8]:
+        print(f"  {n}")
+    if len(unanswered) > 8:
+        print(f"  ... and {len(unanswered) - 8} more")
+    if not unanswered:
         print("  (none)")
 
     print(f"\n{len(differing)} constant(s) set in both places with different "
