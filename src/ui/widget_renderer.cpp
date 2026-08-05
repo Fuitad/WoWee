@@ -315,7 +315,8 @@ void WidgetRenderer::sizeTooltips(WidgetTree& tree) {
 void WidgetRenderer::drawMarkupText(ImDrawList* dl, ImFont* font, float size,
                                     ImVec2 at, uint32_t fallback, float alpha,
                                     const std::string& text, float wrapWidth,
-                                    bool nonSpaceWrap, const char* justifyH) {
+                                    bool nonSpaceWrap, const char* justifyH,
+                                    bool forceColor) {
     const auto lines = wrapText(parseMarkup(text), wrapWidth, nonSpaceWrap,
                                 [&](const std::string& piece) {
                                     return font->CalcTextSizeA(size, FLT_MAX, 0.0f,
@@ -337,7 +338,9 @@ void WidgetRenderer::drawMarkupText(ImDrawList* dl, ImFont* font, float size,
         }
         for (const TextRun& run : line) {
             uint32_t col = fallback;
-            if (run.hasColor) {
+            // The shadow and outline passes draw the same glyphs in one colour;
+            // a run's own colour would light them up.
+            if (run.hasColor && !forceColor) {
                 float rgba[4] = {run.rgba[0], run.rgba[1], run.rgba[2], run.rgba[3]};
                 col = packColor(rgba, alpha);
             }
@@ -1581,8 +1584,13 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                     {-d, -d}, {d, -d}, {-d, d}, {d, d},
                 };
                 for (const ImVec2& o : around) {
-                    dl->AddText(font, size, ImVec2(tx + o.x, ty + o.y), shadow,
-                                strippedText(w->text).c_str());
+                    // Through the same wrap as the text itself. Drawn straight
+                    // it was one long line behind a wrapped label — a second
+                    // copy of the words in a darker shade, out of line with
+                    // the ones on top of it.
+                    drawMarkupText(dl, font, size, ImVec2(tx + o.x, ty + o.y),
+                                   shadow, w->alpha, w->text, wrapW,
+                                   w->nonSpaceWrap, w->justifyH.c_str(), true);
                 }
             }
             // The shadow sits under the text and over the outline: it is a
@@ -1592,10 +1600,11 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             if (w->hasShadow) {
                 float sc[4] = {w->shadowColor[0], w->shadowColor[1],
                                w->shadowColor[2], w->shadowColor[3]};
-                dl->AddText(font, size,
-                            ImVec2(tx + w->shadowX * s, ty - w->shadowY * s),
-                            packColor(sc, w->alpha * w->shadowColor[3]),
-                            strippedText(w->text).c_str());
+                drawMarkupText(dl, font, size,
+                               ImVec2(tx + w->shadowX * s, ty - w->shadowY * s),
+                               packColor(sc, w->alpha * w->shadowColor[3]),
+                               w->alpha, w->text, wrapW, w->nonSpaceWrap,
+                               w->justifyH.c_str(), true);
             }
             // A button's label takes its colour from the button's state. The
             // colour lives on the parent because that is where the template
