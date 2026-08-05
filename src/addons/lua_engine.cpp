@@ -1914,6 +1914,33 @@ int lua_Tooltip_SetAuctionItem(lua_State* L) {
     return 1;
 }
 
+/// The temporary enchantment on one equipped item, as its own line.
+///
+/// A sharpening stone, an oil, a poison or a shaman's imbue live in the item's
+/// *temporary* enchantment slot rather than in any aura, so nothing that reads
+/// the player's buffs can see one. FrameXML's TemporaryEnchantFrame shows the
+/// weapon's own icon for it and asks GameTooltip:SetInventoryItem for the text
+/// — so without this the button came up describing the weapon's built-in
+/// chance-on-hit and said nothing about the stone that put it there, which is
+/// exactly how it was reported.
+///
+/// Green, and after the item's own lines, which is where the real client puts
+/// it. Nothing is added when there is no temporary enchant, so a plain weapon
+/// reads as it did.
+static void appendTemporaryEnchantLine(wowee::ui::Widget* w, game::GameHandler* gh,
+                                       uint64_t itemGuid) {
+    if (!w || !gh || itemGuid == 0) return;
+    const uint32_t tempEnchantId = gh->getItemEnchantIds(itemGuid).second;
+    if (tempEnchantId == 0) return;
+    std::string name = gh->getEnchantName(tempEnchantId);
+    if (name.empty()) return;
+    wowee::ui::Widget::TooltipLine line;
+    line.left = std::move(name);
+    line.lc[0] = 0.0f; line.lc[1] = 1.0f; line.lc[2] = 0.0f; line.lc[3] = 1.0f;
+    line.rc[0] = line.rc[1] = line.rc[2] = line.rc[3] = 1.0f;
+    w->tooltipLines.push_back(std::move(line));
+}
+
 /// SetInventoryItem(unit, slot) — the gear on the paperdoll.
 int lua_Tooltip_SetInventoryItem(lua_State* L) {
     auto* w = widgetOf(L, 1);
@@ -1942,6 +1969,7 @@ int lua_Tooltip_SetInventoryItem(lua_State* L) {
     // GetItemInfo has arrived for, and answering nothing there would be worse
     // than answering briefly.
     if (!fillItemTooltipById(L, gh, s.item.itemId)) fillItemTooltip(w, s.item, gh);
+    appendTemporaryEnchantLine(w, gh, gh->getEquipSlotGuid(slot - 1));
     lua_pushboolean(L, 1);
     return 1;
 }
