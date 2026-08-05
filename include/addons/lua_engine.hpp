@@ -223,6 +223,13 @@ private:
     /// The same, with a number. A handler that compares its argument against
     /// zero cannot be handed a numeric string.
     void callFrameScriptNumber(uint32_t wid, const char* script, double arg);
+    /// OnColorSelect, whose three arguments the handler names r, g and b.
+    void callFrameScriptColor(uint32_t wid, const char* script, const float rgb[3]);
+    /// Which part of a colour picker the held mouse button is dragging: the
+    /// wheel, the value bar, or nothing. Decided on the press and kept for the
+    /// whole drag, so sliding from one onto the other does not switch which is
+    /// being moved.
+    uint32_t pickerPart_ = 0;
     bool frameAcceptsClick(uint32_t wid, const char* button);
     /// The nearest frame at or above `wid` registered for this button, or `wid`
     /// itself when none is. A click lands on the topmost frame taking the

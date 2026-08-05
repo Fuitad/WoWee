@@ -503,6 +503,131 @@ void WidgetRenderer::drawStatusBar(ImDrawList* dl, const Widget& w,
     }
 }
 
+void WidgetRenderer::drawColorPicker(ImDrawList* dl, const WidgetTree& tree,
+                                     const Widget& w, const Widget& picker,
+                                     float screenH,
+                                     float x0, float y0, float x1, float y1) {
+    const float* hsv = picker.pickerHSV;
+
+    // Finds the wheel or the bar among the picker's children, which is how a
+    // thumb learns the rect it has to sit on. The thumbs carry no anchors in
+    // the XML at all — Blizzard's client moves them, and so does this.
+    auto sibling = [&](Widget::ColorRole role) -> const Widget* {
+        for (uint32_t id : picker.children) {
+            const Widget* c = tree.get(id);
+            if (c && c->colorRole == role) return c;
+        }
+        return nullptr;
+    };
+    // A widget's rect in screen pixels, flipped the same way the draw loop
+    // flips its own.
+    const float s = tree.uiScale();
+    auto rectOf = [&](const Widget& r, float& rx0, float& ry0,
+                      float& rx1, float& ry1) {
+        rx0 = r.left * s;
+        rx1 = (r.left + r.rectW) * s;
+        ry1 = screenH - r.bottom * s;
+        ry0 = ry1 - r.rectH * s;
+    };
+
+    switch (w.colorRole) {
+        case Widget::ColorRole::Wheel: {
+            // Hue around, saturation outward, at the brightness the bar is set
+            // to — so the wheel dims with the colour rather than showing a
+            // brightness that is not being chosen.
+            //
+            // Drawn as flat cells rather than a gradient mesh: a hundred and
+            // ninety-two of them across a 128-pixel disc is finer than the eye
+            // resolves, and it costs no vertex writing into a draw list whose
+            // texture binding belongs to someone else.
+            constexpr int kSectors = 48, kRings = 4;
+            const float cx = (x0 + x1) * 0.5f, cy = (y0 + y1) * 0.5f;
+            const float radius = std::min(x1 - x0, y1 - y0) * 0.5f;
+            for (int ring = 0; ring < kRings; ++ring) {
+                const float r0 = radius * static_cast<float>(ring) / kRings;
+                const float r1 = radius * static_cast<float>(ring + 1) / kRings;
+                const float sat = (static_cast<float>(ring) + 0.5f) / kRings;
+                for (int seg = 0; seg < kSectors; ++seg) {
+                    const float a0 = 6.2831853f * seg / kSectors;
+                    const float a1 = 6.2831853f * (seg + 1) / kSectors;
+                    const float cell[3] = {(seg + 0.5f) / kSectors, sat, hsv[2]};
+                    float rgb[3];
+                    hsvToRgb(cell, rgb);
+                    const ImU32 col = IM_COL32(int(rgb[0] * 255), int(rgb[1] * 255),
+                                               int(rgb[2] * 255), 255);
+                    // Screen y grows downward and the wheel's hue runs
+                    // anticlockwise, so the sine is negated to keep red at the
+                    // right and the order the same as the client's.
+                    dl->AddQuadFilled(
+                        ImVec2(cx + std::cos(a0) * r0, cy - std::sin(a0) * r0),
+                        ImVec2(cx + std::cos(a1) * r0, cy - std::sin(a1) * r0),
+                        ImVec2(cx + std::cos(a1) * r1, cy - std::sin(a1) * r1),
+                        ImVec2(cx + std::cos(a0) * r1, cy - std::sin(a0) * r1), col);
+                }
+            }
+            break;
+        }
+        case Widget::ColorRole::Value: {
+            // Full brightness at the top down to black, in the hue and
+            // saturation the wheel is showing.
+            const float top[3] = {hsv[0], hsv[1], 1.0f};
+            float rgb[3];
+            hsvToRgb(top, rgb);
+            const ImU32 hi = IM_COL32(int(rgb[0] * 255), int(rgb[1] * 255),
+                                      int(rgb[2] * 255), 255);
+            const ImU32 lo = IM_COL32(0, 0, 0, 255);
+            dl->AddRectFilledMultiColor(ImVec2(x0, y0), ImVec2(x1, y1),
+                                        hi, hi, lo, lo);
+            break;
+        }
+        case Widget::ColorRole::WheelThumb: {
+            const Widget* wheel = sibling(Widget::ColorRole::Wheel);
+            if (!wheel) break;
+            float wx0, wy0, wx1, wy1;
+            rectOf(*wheel, wx0, wy0, wx1, wy1);
+            const float cx = (wx0 + wx1) * 0.5f, cy = (wy0 + wy1) * 0.5f;
+            const float radius = std::min(wx1 - wx0, wy1 - wy0) * 0.5f;
+            const float angle = hsv[0] * 6.2831853f;
+            const float px = cx + std::cos(angle) * hsv[1] * radius;
+            const float py = cy - std::sin(angle) * hsv[1] * radius;
+            const float hw = (x1 - x0) * 0.5f, hh = (y1 - y0) * 0.5f;
+            drawThumb(dl, w, px - hw, py - hh, px + hw, py + hh);
+            break;
+        }
+        case Widget::ColorRole::ValueThumb: {
+            const Widget* bar = sibling(Widget::ColorRole::Value);
+            if (!bar) break;
+            float bx0, by0, bx1, by1;
+            rectOf(*bar, bx0, by0, bx1, by1);
+            // Value one at the top of the bar, zero at the bottom.
+            const float py = by0 + (1.0f - hsv[2]) * (by1 - by0);
+            const float hw = (x1 - x0) * 0.5f, hh = (y1 - y0) * 0.5f;
+            const float cx = (bx0 + bx1) * 0.5f;
+            drawThumb(dl, w, cx - hw, py - hh, cx + hw, py + hh);
+            break;
+        }
+        case Widget::ColorRole::None:
+            break;
+    }
+}
+
+/// A picker thumb: its own art if the file is resident, and a plain outline
+/// while it is not. The outline matters — the thumb is the only thing on the
+/// wheel that says where the current colour is, and a picker that will not say
+/// cannot be used at all.
+void WidgetRenderer::drawThumb(ImDrawList* dl, const Widget& w,
+                               float x0, float y0, float x1, float y1) {
+    VkDescriptorSet tex = resident(w.texturePath);
+    if (tex != VK_NULL_HANDLE && tex != kMissing) {
+        dl->AddImage(reinterpret_cast<ImTextureID>(tex), ImVec2(x0, y0), ImVec2(x1, y1),
+                     ImVec2(w.texCoord[0], w.texCoord[2]),
+                     ImVec2(w.texCoord[1], w.texCoord[3]));
+        return;
+    }
+    dl->AddRect(ImVec2(x0, y0), ImVec2(x1, y1), IM_COL32(255, 255, 255, 230), 0.0f, 0, 2.0f);
+    dl->AddRect(ImVec2(x0 - 1, y0 - 1), ImVec2(x1 + 1, y1 + 1), IM_COL32(0, 0, 0, 200));
+}
+
 void WidgetRenderer::drawSlider(ImDrawList* dl, const Widget& w,
                                 float x0, float y0, float x1, float y1) {
     VkDescriptorSet thumb = resident(w.thumbTexture);
@@ -1471,6 +1596,18 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
         if (dumpWidgets >= 4) {
             dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1),
                               IM_COL32(255, 0, 255, 255));
+            continue;
+        }
+
+        if (w->kind == WidgetKind::Texture &&
+            w->colorRole != Widget::ColorRole::None) {
+            // The colour picker's own art, which no file supplies: a wheel of
+            // every hue and a bar of every brightness, both of them a function
+            // of the colour the ColorSelect parent is holding rather than an
+            // image of anything.
+            const Widget* picker = tree.get(w->parent);
+            if (!picker) continue;
+            drawColorPicker(dl, tree, *w, *picker, screenH, x0, y0, x1, y1);
             continue;
         }
 

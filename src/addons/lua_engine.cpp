@@ -2928,6 +2928,15 @@ int lua_ColorSelect_SetColorRGB(lua_State* L) {
     w->pickerColor[0] = r;
     w->pickerColor[1] = g;
     w->pickerColor[2] = b;
+    // The wheel and the bar move in HSV, so a colour set from outside has to
+    // land there too — otherwise opening the picker on a colour puts both
+    // thumbs wherever the last colour left them.
+    const float hueBefore = w->pickerHSV[0];
+    wowee::ui::rgbToHsv(w->pickerColor, w->pickerHSV);
+    // Grey and black have no hue to report, and taking the zero rgbToHsv
+    // gives back would swing the wheel thumb to red every time the value bar
+    // reached the bottom.
+    if (w->pickerHSV[1] <= 0.0f) w->pickerHSV[0] = hueBefore;
     if (!changed) return 0;
 
     lua_getfield(L, 1, "__scripts");
@@ -3212,6 +3221,31 @@ int lua_Slider_GetValueStep(lua_State* L) {
 }
 /// The draggable part. Given a path rather than a texture here, the same way
 /// the button art setters take one.
+/// The four ColorSelect region setters, which do nothing but say what a region
+/// is for. The regions themselves are ordinary textures with ordinary anchors;
+/// what makes one a colour wheel is that the renderer draws every hue into it,
+/// and what makes one a thumb is that it is moved to wherever the current
+/// colour sits. Neither can be told from the XML alone — <ColorWheelTexture>
+/// carries no file, because the art is generated.
+static int setColorRole(lua_State* L, wowee::ui::Widget::ColorRole role) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    if (!tree) return 0;
+    if (auto* region = tree->get(widgetIdOf(L, 2))) region->colorRole = role;
+    return 0;
+}
+int lua_ColorSelect_SetWheelTexture(lua_State* L) {
+    return setColorRole(L, wowee::ui::Widget::ColorRole::Wheel);
+}
+int lua_ColorSelect_SetWheelThumbTexture(lua_State* L) {
+    return setColorRole(L, wowee::ui::Widget::ColorRole::WheelThumb);
+}
+int lua_ColorSelect_SetValueTexture(lua_State* L) {
+    return setColorRole(L, wowee::ui::Widget::ColorRole::Value);
+}
+int lua_ColorSelect_SetValueThumbTexture(lua_State* L) {
+    return setColorRole(L, wowee::ui::Widget::ColorRole::ValueThumb);
+}
+
 int lua_Slider_SetThumbTexture(lua_State* L) {
     auto* w = widgetOf(L, 1);
     if (!w) return 0;
@@ -3976,6 +4010,10 @@ void LuaEngine::registerCoreAPI() {
         {"SetValueStep",          lua_Slider_SetValueStep},
         {"GetValueStep",          lua_Slider_GetValueStep},
         {"SetThumbTexture",       lua_Slider_SetThumbTexture},
+        {"SetColorWheelTexture",      lua_ColorSelect_SetWheelTexture},
+        {"SetColorWheelThumbTexture", lua_ColorSelect_SetWheelThumbTexture},
+        {"SetColorValueTexture",      lua_ColorSelect_SetValueTexture},
+        {"SetColorValueThumbTexture", lua_ColorSelect_SetValueThumbTexture},
         {"SetCooldown",           lua_Cooldown_SetCooldown},
         {"GetNumber",             lua_EditBox_GetNumber},
         {"SetNumber",             lua_EditBox_SetNumber},
@@ -6275,6 +6313,35 @@ void LuaEngine::callFrameScriptNumber(uint32_t wid, const char* script, double a
     lua_pop(L_, 4);
 }
 
+void LuaEngine::callFrameScriptColor(uint32_t wid, const char* script,
+                                     const float rgb[3]) {
+    if (!L_ || wid == 0) return;
+    lua_getglobal(L_, "__WoweeFramesByWid");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
+    lua_pushinteger(L_, static_cast<lua_Integer>(wid));
+    lua_rawget(L_, -2);
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 2); return; }
+
+    lua_getfield(L_, -1, "__scripts");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 3); return; }
+    lua_pushcfunction(L_, luaTracebackHandler);
+    const int handlerIdx = lua_gettop(L_);
+    lua_getfield(L_, handlerIdx - 1, script);
+    if (!lua_isfunction(L_, -1)) { lua_pop(L_, 5); return; }
+
+    lua_pushvalue(L_, handlerIdx - 2);  // self
+    // r, g and b as three arguments, which is what OnColorSelect names them:
+    // colorpickerframe.xml's body is ColorSwatch:SetTexture(r, g, b).
+    for (int i = 0; i < 3; ++i) lua_pushnumber(L_, rgb[i]);
+    if (lua_pcall(L_, 4, 0, handlerIdx) != 0) {
+        const char* err = lua_tostring(L_, -1);
+        LOG_ERROR("LuaEngine: ", script, " error: ", err ? err : "?");
+        if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
+        lua_pop(L_, 1);
+    }
+    lua_pop(L_, 4);
+}
+
 void LuaEngine::installMissingApiFallback() {
     // Off unless asked for. With it on, every unknown global answers, so code
     // that checks whether a function exists before using it — which addons do
@@ -7264,6 +7331,50 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
                 }
             }
         }
+        // A colour picker follows the cursor the same way, and for the same
+        // reason: dragging off the wheel and letting go there should not throw
+        // the drag away. Which of the two it is tracking was decided on the
+        // press, so sliding from the wheel onto the bar does not switch.
+        if (auto* w = widgets_.get(pressedWid_[0]);
+            w && w->objectType == "ColorSelect" && pickerPart_ != 0) {
+            const wowee::ui::Widget* part = widgets_.get(pickerPart_);
+            if (part) {
+                float hsv[3] = {w->pickerHSV[0], w->pickerHSV[1], w->pickerHSV[2]};
+                if (part->colorRole == wowee::ui::Widget::ColorRole::Wheel) {
+                    // Hue is the angle and saturation the distance out, both
+                    // measured from the middle of the wheel. Past the rim is
+                    // fully saturated rather than nothing, so a drag that
+                    // leaves the disc keeps choosing a hue.
+                    const float cx = part->left + part->rectW * 0.5f;
+                    const float cy = part->bottom + part->rectH * 0.5f;
+                    const float radius = std::min(part->rectW, part->rectH) * 0.5f;
+                    const float dx = x - cx, dy = y - cy;
+                    if (radius > 0.0f) {
+                        float h = std::atan2(dy, dx) / 6.2831853f;
+                        hsv[0] = h - std::floor(h);
+                        hsv[1] = std::clamp(std::sqrt(dx * dx + dy * dy) / radius,
+                                            0.0f, 1.0f);
+                    }
+                } else if (part->colorRole == wowee::ui::Widget::ColorRole::Value) {
+                    const float extent = part->rectH;
+                    if (extent > 0.0f) {
+                        hsv[2] = std::clamp((y - part->bottom) / extent, 0.0f, 1.0f);
+                    }
+                }
+                if (hsv[0] != w->pickerHSV[0] || hsv[1] != w->pickerHSV[1] ||
+                    hsv[2] != w->pickerHSV[2]) {
+                    w->pickerHSV[0] = hsv[0];
+                    w->pickerHSV[1] = hsv[1];
+                    w->pickerHSV[2] = hsv[2];
+                    wowee::ui::hsvToRgb(hsv, w->pickerColor);
+                    // The same script SetColorRGB fires, because the swatch
+                    // and the caller's func hang off it and neither knows or
+                    // cares which end the colour came from.
+                    callFrameScriptColor(pressedWid_[0], "OnColorSelect",
+                                         w->pickerColor);
+                }
+            }
+        }
     }
 
     // The names WoW uses, in the order the state arrays are indexed.
@@ -7293,6 +7404,30 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
             }
             pressX_[i] = x;
             pressY_[i] = y;
+            // Which half of a colour picker this press landed on, decided once
+            // here. The wheel and the bar are textures, and a texture does not
+            // take the mouse — the press lands on the ColorSelect frame itself
+            // — so the only way to know is to ask which of its regions the
+            // cursor is inside.
+            if (i == 0) {
+                pickerPart_ = 0;
+                const auto* pw = pressedWid_[0] ? widgets_.get(pressedWid_[0]) : nullptr;
+                if (pw && pw->objectType == "ColorSelect") {
+                    for (uint32_t id : pw->children) {
+                        const auto* c = widgets_.get(id);
+                        if (!c) continue;
+                        const bool pickable =
+                            c->colorRole == wowee::ui::Widget::ColorRole::Wheel ||
+                            c->colorRole == wowee::ui::Widget::ColorRole::Value;
+                        if (!pickable) continue;
+                        if (x >= c->left && x <= c->left + c->rectW &&
+                            y >= c->bottom && y <= c->bottom + c->rectH) {
+                            pickerPart_ = id;
+                            break;
+                        }
+                    }
+                }
+            }
             // Clicking into an edit box takes focus; clicking anywhere else
             // gives it up, which is what makes a chat box stop eating keys.
             if (i == 0) {

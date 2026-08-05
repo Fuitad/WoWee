@@ -400,6 +400,19 @@ struct Widget {
     /// rather than the frame's tint: a colour picker draws its wheel in every
     /// colour and this is only the one being chosen.
     float pickerColor[3] = {1.0f, 1.0f, 1.0f};
+    /// The same colour as hue, saturation and value, which is what the wheel
+    /// and the bar actually move. Kept beside the RGB rather than derived from
+    /// it because the conversion is lossy in exactly the places a picker sits:
+    /// black has no hue and grey has no saturation, so dragging the value bar
+    /// down to zero and back would lose the colour that was being chosen.
+    float pickerHSV[3] = {0.0f, 0.0f, 1.0f};
+
+    /// Which part of a colour picker this region is, if any. The four are
+    /// declared in XML as their own elements rather than inside a Layer —
+    /// <ColorWheelTexture> and friends — and each is placed and drawn from the
+    /// colour its ColorSelect parent holds.
+    enum class ColorRole : uint8_t { None, Wheel, WheelThumb, Value, ValueThumb };
+    ColorRole colorRole = ColorRole::None;
 
     /// Which named font object this region's type settings came from, so
     /// GetFontObject can hand it back. The fields copied out of one do not add
@@ -657,6 +670,18 @@ private:
     uint32_t nextOrder_ = 1;
     std::vector<const Widget*> drawOrder_;
 };
+
+/// Hue-saturation-value to red-green-blue and back, with hue in turns rather
+/// than degrees because everything that reads it here is an angle around a
+/// wheel or a fraction of one.
+///
+/// Free functions beside the tree rather than inside the picker, because three
+/// places need them and they are the sort of arithmetic that gets written
+/// slightly differently each time it is written again: the binding converting
+/// a colour it was handed, the renderer drawing every hue into the wheel, and
+/// the input mapping a cursor back onto it.
+void hsvToRgb(const float hsv[3], float rgb[3]);
+void rgbToHsv(const float rgb[3], float hsv[3]);
 
 } // namespace ui
 } // namespace wowee

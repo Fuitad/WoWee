@@ -79,6 +79,16 @@ private:
                        float x0, float y0, float x1, float y1);
     void drawSlider(ImDrawList* dl, const Widget& w,
                     float x0, float y0, float x1, float y1);
+    /// One of a colour picker's four regions: the hue-saturation wheel, the
+    /// brightness bar, or either thumb. None of them has art on disk — the
+    /// wheel and the bar are generated from the colour `picker` holds, and the
+    /// thumbs are placed by it rather than anchored, since where they belong is
+    /// the answer rather than the question.
+    void drawColorPicker(ImDrawList* dl, const WidgetTree& tree, const Widget& w,
+                         const Widget& picker, float screenH,
+                         float x0, float y0, float x1, float y1);
+    void drawThumb(ImDrawList* dl, const Widget& w,
+                   float x0, float y0, float x1, float y1);
     void drawCooldown(ImDrawList* dl, const Widget& w,
                       float x0, float y0, float x1, float y1);
 

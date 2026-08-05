@@ -347,6 +347,15 @@ struct Emitter {
             {"ButtonText",             "SetFontString",             "OVERLAY",   false},
             // A slider's grip, which draws over the channel it runs in.
             {"ThumbTexture",           "SetThumbTexture",           "OVERLAY",   true},
+            // The colour picker's four parts. Declared like button art rather
+            // than inside a Layer, and dropped here for the same reason button
+            // art used to be: the emitter only walked Layers. ColorPickerWheel
+            // is a name FrameXML looks up, so losing the region lost the name
+            // as well as the art.
+            {"ColorWheelTexture",      "SetColorWheelTexture",      "ARTWORK",   true},
+            {"ColorWheelThumbTexture", "SetColorWheelThumbTexture", "OVERLAY",   true},
+            {"ColorValueTexture",      "SetColorValueTexture",      "ARTWORK",   true},
+            {"ColorValueThumbTexture", "SetColorValueThumbTexture", "OVERLAY",   true},
         };
         for (const Slot& slot : kSlots) {
             const XmlNode* child = node.child(slot.element);

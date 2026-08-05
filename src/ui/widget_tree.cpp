@@ -745,5 +745,48 @@ void WidgetTree::collectDrawOrder() {
               });
 }
 
+void hsvToRgb(const float hsv[3], float rgb[3]) {
+    const float h = hsv[0] - std::floor(hsv[0]);   // one turn, wrapped
+    const float s = std::clamp(hsv[1], 0.0f, 1.0f);
+    const float v = std::clamp(hsv[2], 0.0f, 1.0f);
+    // The wheel in six segments: within each, one channel is full, one is
+    // rising or falling across the segment, and one is at the saturation floor.
+    const float sector = h * 6.0f;
+    const int i = static_cast<int>(sector) % 6;
+    const float f = sector - std::floor(sector);
+    const float p = v * (1.0f - s);
+    const float q = v * (1.0f - s * f);
+    const float t = v * (1.0f - s * (1.0f - f));
+    switch (i) {
+        case 0: rgb[0] = v; rgb[1] = t; rgb[2] = p; break;
+        case 1: rgb[0] = q; rgb[1] = v; rgb[2] = p; break;
+        case 2: rgb[0] = p; rgb[1] = v; rgb[2] = t; break;
+        case 3: rgb[0] = p; rgb[1] = q; rgb[2] = v; break;
+        case 4: rgb[0] = t; rgb[1] = p; rgb[2] = v; break;
+        default: rgb[0] = v; rgb[1] = p; rgb[2] = q; break;
+    }
+}
+
+void rgbToHsv(const float rgb[3], float hsv[3]) {
+    const float r = rgb[0], g = rgb[1], b = rgb[2];
+    const float hi = std::max(r, std::max(g, b));
+    const float lo = std::min(r, std::min(g, b));
+    hsv[2] = hi;
+    const float span = hi - lo;
+    hsv[1] = (hi > 0.0f) ? span / hi : 0.0f;
+    if (span <= 0.0f) {
+        // Grey has no hue. Zero rather than anything cleverer, and the caller
+        // that cares keeps the hue it already had instead of asking.
+        hsv[0] = 0.0f;
+        return;
+    }
+    float h;
+    if (hi == r)      h = (g - b) / span;
+    else if (hi == g) h = 2.0f + (b - r) / span;
+    else              h = 4.0f + (r - g) / span;
+    h /= 6.0f;
+    hsv[0] = h - std::floor(h);
+}
+
 } // namespace ui
 } // namespace wowee

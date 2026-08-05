@@ -1708,3 +1708,59 @@ TEST_CASE("a hidden ancestor stops the chain as well as the drawing",
     CHECK_FALSE(tree.get(driver)->visibleChain);
     CHECK_FALSE(tree.get(driver)->visible);
 }
+
+// ── Colour picker arithmetic ────────────────────────────────────────────
+//
+// Pure conversion, and the one part of the picker that can be checked without
+// a device: the wheel, the bar and the drag all read hue-saturation-value and
+// every one of them has to agree on what that means.
+
+TEST_CASE("hsv and rgb round-trip through each other", "[widget_tree]") {
+    // The six corners of the cube plus a middling colour, because the sector
+    // arithmetic branches six ways and each boundary is where an off-by-one
+    // hides. Blizzard's own defaults live at these corners: chat channel
+    // colours are largely saturated primaries.
+    const float cases[][3] = {
+        {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f},
+        {0.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f, 1.0f},
+        {0.25f, 0.5f, 0.75f}, {0.6f, 0.6f, 0.6f},
+    };
+    for (const auto& rgb : cases) {
+        float hsv[3], back[3];
+        rgbToHsv(rgb, hsv);
+        hsvToRgb(hsv, back);
+        CHECK(back[0] == Catch::Approx(rgb[0]).margin(0.002));
+        CHECK(back[1] == Catch::Approx(rgb[1]).margin(0.002));
+        CHECK(back[2] == Catch::Approx(rgb[2]).margin(0.002));
+    }
+}
+
+TEST_CASE("grey reports no saturation and black no value", "[widget_tree]") {
+    // Why the picker keeps its own hue rather than reading it back: these two
+    // have no hue to report, and taking the zero would swing the wheel thumb
+    // to red every time the value bar reached the bottom.
+    float hsv[3];
+    const float grey[3] = {0.5f, 0.5f, 0.5f};
+    rgbToHsv(grey, hsv);
+    CHECK(hsv[1] == Catch::Approx(0.0f));
+    CHECK(hsv[2] == Catch::Approx(0.5f));
+
+    const float black[3] = {0.0f, 0.0f, 0.0f};
+    rgbToHsv(black, hsv);
+    CHECK(hsv[2] == Catch::Approx(0.0f));
+}
+
+TEST_CASE("hue wraps rather than running off either end", "[widget_tree]") {
+    // The drag computes hue from atan2, which answers in (-pi, pi] — half of
+    // the wheel is a negative turn. A hue outside [0,1) has to mean the same
+    // colour as the one inside it, or dragging through the six-o'clock
+    // position would jump the colour.
+    float below[3], above[3];
+    const float hsvBelow[3] = {-0.25f, 1.0f, 1.0f};
+    const float hsvAbove[3] = {0.75f, 1.0f, 1.0f};
+    hsvToRgb(hsvBelow, below);
+    hsvToRgb(hsvAbove, above);
+    CHECK(below[0] == Catch::Approx(above[0]).margin(0.002));
+    CHECK(below[1] == Catch::Approx(above[1]).margin(0.002));
+    CHECK(below[2] == Catch::Approx(above[2]).margin(0.002));
+}
