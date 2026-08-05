@@ -3039,7 +3039,10 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushboolean(L, 0);      // header — flat list, no categories
             lua_pushboolean(L, 0);      // collapsed
             lua_pushnumber(L, index);   // channelNumber
-            lua_pushnumber(L, 0);       // count — no roster is tracked
+            // The roster arrives with SMSG_CHANNEL_LIST, which the panel asks
+            // for by calling GetNumChannelMembers on the row it is drawing.
+            lua_pushnumber(L, static_cast<lua_Number>(
+                gh->getChannelRoster(joined[static_cast<size_t>(index) - 1]).size()));
             lua_pushboolean(L, 1);      // active
             lua_pushstring(L, "CHANNEL_CATEGORY_CUSTOM");
             lua_pushboolean(L, 0);      // voiceEnabled
@@ -3168,7 +3171,46 @@ void registerSystemLuaAPI(lua_State* L) {
                 // Who is in a channel. The server sends a roster only on
                 // request and this client never asks, so there is nobody to
                 // report; the count above is zero for the same reason.
-                {"GetChannelRosterInfo",     lua_ReturnNil},
+                // GetNumChannelMembers(channelIndex) — how many are in it, and
+                // the request that makes that true. The panel calls this in
+                // statement position when a channel row is clicked, which is
+                // the only thing that asks the server for a roster at all.
+                {"GetNumChannelMembers", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int channel = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh || channel < 1) { lua_pushnumber(L, 0); return 1; }
+            const auto& joined = gh->getJoinedChannels();
+            if (channel > static_cast<int>(joined.size())) { lua_pushnumber(L, 0); return 1; }
+            const auto& name = joined[static_cast<size_t>(channel) - 1];
+            gh->requestChannelList(name);
+            lua_pushnumber(L, static_cast<lua_Number>(gh->getChannelRoster(name).size()));
+            return 1;
+        }},
+                // GetChannelRosterInfo(channelIndex, rosterIndex) →
+                //   name, owner, moderator, muted, active, enabled
+                //
+                // The list was printed to chat and dropped, so the channel
+                // panel had nothing to draw and reported every channel as
+                // empty. The last two are about voice chat, which this client
+                // has none of.
+                {"GetChannelRosterInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int channel = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const int member = static_cast<int>(luaL_optnumber(L, 2, 0));
+            if (!gh || channel < 1 || member < 1) { return luaReturnNil(L); }
+            const auto& joined = gh->getJoinedChannels();
+            if (channel > static_cast<int>(joined.size())) { return luaReturnNil(L); }
+            const auto& roster = gh->getChannelRoster(joined[static_cast<size_t>(channel) - 1]);
+            if (member > static_cast<int>(roster.size())) { return luaReturnNil(L); }
+            const auto& m = roster[static_cast<size_t>(member) - 1];
+            lua_pushstring(L, m.name.c_str());          // 1: name
+            lua_pushboolean(L, m.owner ? 1 : 0);        // 2: owner
+            lua_pushboolean(L, m.moderator ? 1 : 0);    // 3: moderator
+            lua_pushboolean(L, m.muted ? 1 : 0);        // 4: muted
+            lua_pushboolean(L, 0);                      // 5: active (voice)
+            lua_pushboolean(L, 0);                      // 6: enabled (voice)
+            return 6;
+        }},
                 {"GetWintergraspWaitTime",   lua_ReturnNil},
                 {"GetNumWorldStateUI",       lua_GetNumWorldStateUI},
                 {"GetWorldStateUIInfo",      lua_GetWorldStateUIInfo},

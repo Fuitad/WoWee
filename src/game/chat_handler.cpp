@@ -721,6 +721,17 @@ void ChatHandler::joinChannel(const std::string& channelName, const std::string&
     LOG_INFO("Requesting to join channel: ", channelName);
 }
 
+void ChatHandler::requestChannelList(const std::string& channelName) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    // The channel name and nothing else. SMSG_CHANNEL_LIST was parsed all
+    // along and nothing ever asked for one, so the roster only existed in
+    // theory.
+    network::Packet packet(wireOpcode(Opcode::CMSG_CHANNEL_LIST));
+    packet.writeString(channelName);
+    owner_.getSocket()->send(packet);
+    LOG_INFO("Requesting member list for channel: ", channelName);
+}
+
 void ChatHandler::leaveChannel(const std::string& channelName) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     auto packet = owner_.getPacketParsers()
@@ -996,24 +1007,45 @@ void ChatHandler::handleChannelList(network::Packet& packet) {
     /*uint8_t chanFlags =*/ packet.readUInt8();
     uint32_t memberCount = packet.readUInt32();
     memberCount = std::min(memberCount, 200u);
+
+    // The server's own member flags. What was here read 0x01 as moderator and
+    // 0x02 as muted, so the channel's owner was announced as its moderator and
+    // its moderators as muted.
+    constexpr uint8_t kOwner = 0x01, kModerator = 0x02, kMuted = 0x08;
+
+    std::vector<ChannelMember> roster;
+    roster.reserve(memberCount);
     addSystemChatMessage(chanName + " has " + std::to_string(memberCount) + " member(s):");
     for (uint32_t i = 0; i < memberCount; ++i) {
         if (!packet.hasRemaining(9)) break;
-        uint64_t memberGuid = packet.readUInt64();
-        uint8_t memberFlags = packet.readUInt8();
-        std::string name;
-        auto entity = owner_.getEntityManager().getEntity(memberGuid);
+        ChannelMember m;
+        m.guid = packet.readUInt64();
+        const uint8_t memberFlags = packet.readUInt8();
+        m.owner     = (memberFlags & kOwner) != 0;
+        m.moderator = (memberFlags & kModerator) != 0;
+        m.muted     = (memberFlags & kMuted) != 0;
+
+        auto entity = owner_.getEntityManager().getEntity(m.guid);
         if (entity) {
             auto player = std::dynamic_pointer_cast<Player>(entity);
-            if (player && !player->getName().empty()) name = player->getName();
+            if (player && !player->getName().empty()) m.name = player->getName();
         }
-        if (name.empty()) name = owner_.lookupName(memberGuid);
-        if (name.empty()) name = "(unknown)";
-        std::string entry = "  " + name;
-        if (memberFlags & 0x01) entry += " [Moderator]";
-        if (memberFlags & 0x02) entry += " [Muted]";
+        if (m.name.empty()) m.name = owner_.lookupName(m.guid);
+        if (m.name.empty()) m.name = "(unknown)";
+
+        std::string entry = "  " + m.name;
+        if (m.owner)     entry += " [Owner]";
+        if (m.moderator) entry += " [Moderator]";
+        if (m.muted)     entry += " [Muted]";
         addSystemChatMessage(entry);
+        roster.push_back(std::move(m));
     }
+
+    channelRosters_[chanName] = std::move(roster);
+    // Both, because the panel redraws its member list on the first and its
+    // member count on the second, and it registers for each separately.
+    owner_.fireAddonEvent("CHANNEL_ROSTER_UPDATE", {chanName});
+    owner_.fireAddonEvent("CHANNEL_COUNT_UPDATE", {chanName});
 }
 
 // ============================================================

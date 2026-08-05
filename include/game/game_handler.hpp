@@ -267,7 +267,10 @@ public:
     void sendTextEmote(uint32_t textEmoteId, uint64_t targetGuid = 0);
     void joinChannel(const std::string& channelName, const std::string& password = "");
     void leaveChannel(const std::string& channelName);
+    void requestChannelList(const std::string& channelName);
     const std::vector<std::string>& getJoinedChannels() const;
+    /// The members of a chat channel, as of the last list requested for it.
+    const std::vector<ChannelMember>& getChannelRoster(const std::string& channel) const;
     std::string getChannelByIndex(int index) const;
     int getChannelIndex(const std::string& channelName) const;
 

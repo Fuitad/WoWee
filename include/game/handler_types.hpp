@@ -104,6 +104,15 @@ struct InspectResult {
     uint8_t classId = 0;
 };
 
+/// One member of a chat channel, as SMSG_CHANNEL_LIST describes them.
+struct ChannelMember {
+    uint64_t guid = 0;
+    std::string name;
+    bool owner = false;
+    bool moderator = false;
+    bool muted = false;
+};
+
 // ---- Who ----
 
 struct WhoEntry {

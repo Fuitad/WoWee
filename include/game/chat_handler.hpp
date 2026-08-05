@@ -32,9 +32,21 @@ public:
     void sendTextEmote(uint32_t textEmoteId, uint64_t targetGuid = 0);
     void joinChannel(const std::string& channelName, const std::string& password = "");
     void leaveChannel(const std::string& channelName);
+    /// Ask the server for a channel's members; the answer arrives as
+    /// SMSG_CHANNEL_LIST and fires CHANNEL_ROSTER_UPDATE.
+    void requestChannelList(const std::string& channelName);
     std::string getChannelByIndex(int index) const;
     int getChannelIndex(const std::string& channelName) const;
     const std::vector<std::string>& getJoinedChannels() const { return joinedChannels_; }
+
+    /// The roster of a channel by name, empty until a list is asked for. The
+    /// list used to be printed to chat and dropped, so the channel panel had
+    /// no members to show and reported every channel as having none.
+    const std::vector<ChannelMember>& getChannelRoster(const std::string& channel) const {
+        static const std::vector<ChannelMember> empty;
+        auto it = channelRosters_.find(channel);
+        return (it != channelRosters_.end()) ? it->second : empty;
+    }
     void autoJoinDefaultChannels();
     void addLocalChatMessage(const MessageChatData& msg);
     void addSystemChatMessage(const std::string& message);
@@ -80,6 +92,7 @@ private:
     size_t maxChatHistory_ = 100;
     uint64_t chatUidCounter_ = 0;  // monotonic uid for MessageChatData::uid
     std::vector<std::string> joinedChannels_;
+    std::unordered_map<std::string, std::vector<ChannelMember>> channelRosters_;
     bool chatLogEnabled_ = false;
     bool chatLogInitialized_ = false;
     std::string chatLogPath_;

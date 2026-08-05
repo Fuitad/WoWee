@@ -2705,6 +2705,16 @@ std::string GameHandler::getMapName(uint32_t mapId) const {
     return (it != mapNameCache_.end()) ? it->second : std::string{};
 }
 
+void GameHandler::requestChannelList(const std::string& channel) {
+    if (chatHandler_) chatHandler_->requestChannelList(channel);
+}
+
+const std::vector<ChannelMember>&
+GameHandler::getChannelRoster(const std::string& channel) const {
+    static const std::vector<ChannelMember> empty;
+    return chatHandler_ ? chatHandler_->getChannelRoster(channel) : empty;
+}
+
 uint64_t GameHandler::getEncounterUnitGuid(uint32_t slot) const {
     return socialHandler_ ? socialHandler_->getEncounterUnitGuid(slot) : 0;
 }
