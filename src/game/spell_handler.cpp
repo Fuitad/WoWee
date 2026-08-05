@@ -765,12 +765,25 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
         return;
     }
 
-    // Stop movement before casting — servers reject cast-time spells while moving
+    // A spell with a cast time cannot be started while moving, and the answer
+    // is to refuse it — not to stop the player.
+    //
+    // This used to clear the movement flags and send MSG_MOVE_STOP so the
+    // server would accept the cast, on the reading that a server rejecting a
+    // cast-time spell while moving was an obstacle. It is the rule: Spell::
+    // CheckCast answers SPELL_FAILED_MOVING for a cast-time spell from a moving
+    // player, and a mount aura carries AURA_INTERRUPT_FLAG_NOT_SEATED so it is
+    // refused as well. Stopping the player first meant a mount key pressed at a
+    // run halted them and mounted them, which no real client does — reported
+    // from play as being able to mount while running.
+    //
+    // Instant spells are unaffected, which is what keeps casting on the move
+    // working for everything that should.
     const uint32_t moveFlags = owner_.movementInfoRef().flags;
     const bool isMoving = (moveFlags & 0x0Fu) != 0; // FORWARD|BACKWARD|STRAFE_LEFT|STRAFE_RIGHT
-    if (isMoving) {
-        owner_.movementInfoRef().flags &= ~0x0Fu;
-        owner_.sendMovement(Opcode::MSG_MOVE_STOP);
+    if (isMoving && owner_.getSpellData(spellId).castTimeMs > 0) {
+        owner_.raiseUiError("Can't do that while moving");
+        return;
     }
 
     // Remembered so that, if this cast turns out to be what mounted the player,
