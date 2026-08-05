@@ -1836,6 +1836,40 @@ static int lua_GetQuestSpellLink(lua_State* L) {
 void registerQuestLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"GetNumQuestLogEntries",   lua_GetNumQuestLogEntries},
+                // Whether a quest has been finished, ever.
+                //
+                // The client asks the server for this list on entering the
+                // world — CMSG_QUERY_QUESTS_COMPLETED — parses the reply into
+                // completedQuests_ and keeps it there. Nothing could read it:
+                // the two names that ask, which every quest addon uses and
+                // which is how a quest giver knows to grey an offer out, were
+                // not bound at all.
+                {"IsQuestFlaggedCompleted", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            lua_pushboolean(L, (gh && id && gh->isQuestCompleted(id)) ? 1 : 0);
+            return 1;
+        }},
+                // GetQuestsCompleted([table]) — the whole set at once, keyed by
+                // quest id, which is the shape the caller indexes. Fills the
+                // table it is given, as WoW does, so a caller reusing one does
+                // not allocate per call.
+                {"GetQuestsCompleted", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!lua_istable(L, 1)) lua_newtable(L);
+            else                    lua_pushvalue(L, 1);
+            if (gh) {
+                const auto& done = gh->getCompletedQuests();
+                // Lua promises twenty free slots; this pushes two at a time and
+                // pops them, so the depth never grows with the set's size.
+                for (uint32_t id : done) {
+                    lua_pushnumber(L, static_cast<lua_Number>(id));
+                    lua_pushboolean(L, 1);
+                    lua_rawset(L, -3);
+                }
+            }
+            return 1;
+        }},
                 {"GetQuestLogTimeLeft",     lua_GetQuestLogTimeLeft},
                 {"IsCurrentQuestFailed",    lua_IsCurrentQuestFailed},
                 {"GetQuestLogRewardSpell",  lua_GetQuestRewardSpell},
