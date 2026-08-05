@@ -807,13 +807,35 @@ static int lua_GetPetFoodTypes(lua_State* L)  { return luaReturnNil(L); }
 
 /// SetPetStablePaperdoll(model) — put the selected pet in the preview frame.
 ///
-/// Defined and does nothing, which is deliberate and not the same as done. A
-/// model frame here shows an image this client renders for it, and it renders
-/// one for a player character; there is no path that puts an arbitrary
-/// creature in one. Leaving the name undefined would be worse than a blank
-/// preview — the call is unguarded, so it would take the stable window down
-/// on the click that selects a pet.
-static int lua_SetPetStablePaperdoll(lua_State* L) { (void)L; return 0; }
+/// This was a deliberate no-op on the reading that there was no path putting
+/// an arbitrary creature in a model frame. There is one now: the portraits
+/// needed it, so CharacterPreview will load any M2 by path and the display
+/// lookup turns a creature's display id into one.
+///
+/// The slot is the window's own state, held beside ClickStablePet, and the
+/// display id comes off the stabled-pet list the server sent. What is written
+/// here is that id; the render loop is where the model is built, because that
+/// is where the offscreen views live.
+static int lua_SetPetStablePaperdoll(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    auto* tree = getWidgetTree(L);
+    if (!gh || !tree || !lua_istable(L, 1)) return 0;
+    lua_getfield(L, 1, "__wid");
+    const uint32_t id = static_cast<uint32_t>(lua_tointeger(L, -1));
+    lua_pop(L, 1);
+    auto* w = tree->get(id);
+    if (!w) return 0;
+
+    // Slots count from one and the active pet is slot zero, which the stable
+    // list carries as its own entry rather than as a slot.
+    const int slot = selectedStableSlot();
+    const auto& pets = gh->getStabledPets();
+    w->modelDisplayId = 0;
+    if (slot >= 1 && slot <= static_cast<int>(pets.size())) {
+        w->modelDisplayId = pets[static_cast<size_t>(slot) - 1].displayId;
+    }
+    return 0;
+}
 
 /// PickupStablePet(slot) — start dragging a pet between stable slots.
 ///

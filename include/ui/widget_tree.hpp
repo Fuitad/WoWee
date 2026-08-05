@@ -404,6 +404,12 @@ struct Widget {
     struct TryOnItem { uint32_t displayInfoId; uint8_t inventoryType; };
     std::vector<TryOnItem> tryOnItems;
 
+    /// A creature this model frame has been told to show, by display id. Set
+    /// by whichever binding decides — the stable's paperdoll is told a slot
+    /// and resolves it — and read by the render loop, which is where the
+    /// model is actually built. Zero is "nothing chosen".
+    uint32_t modelDisplayId = 0;
+
     /// The colour a ColorSelect frame is showing, as r, g, b. Its own state
     /// rather than the frame's tint: a colour picker draws its wheel in every
     /// colour and this is only the one being chosen.

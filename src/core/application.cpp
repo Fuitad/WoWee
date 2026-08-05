@@ -1361,6 +1361,7 @@ void Application::shutdown() {
     dressUpModel_.shutdown(renderer.get());
     auctionDressUpModel_.shutdown(renderer.get());
     petModel_.shutdown(renderer.get());
+    stableModel_.shutdown(renderer.get());
     for (auto& p : partyPortraits_) p.shutdown(renderer.get());
     paperdollModel_.shutdown(renderer.get());
 
@@ -3368,6 +3369,35 @@ void Application::render() {
                     }
                     if (dressUp) {
                         dressUp->externalTexture = shown ? room.model->textureId() : 0;
+                    }
+                }
+
+                // The stable's preview: whichever pet the window has selected,
+                // which SetPetStablePaperdoll wrote onto the frame. Told rather
+                // than looked up, because the slot is the window's own state
+                // and only the binding beside ClickStablePet knows it.
+                {
+                    ui::Widget* stableModel = stableModelWidgetId_
+                        ? widgets.get(stableModelWidgetId_) : nullptr;
+                    if (!stableModel || stableModel->name != "PetStableModel") {
+                        stableModel = widgets.findByName("PetStableModel");
+                        stableModelWidgetId_ = stableModel ? stableModel->id : 0;
+                    }
+                    bool shown = false;
+                    if (stableModel && stableModel->visible &&
+                        stableModel->modelDisplayId != 0 && entitySpawner_) {
+                        const std::string modelPath =
+                            entitySpawner_->getModelPathForDisplayId(
+                                stableModel->modelDisplayId);
+                        if (!modelPath.empty()) {
+                            stableModel_.setFraming(ui::UnitPortrait::Framing::FullBody);
+                            stableModel_.updateCreature(modelPath, assetManager.get(),
+                                                        renderer.get(), io.DeltaTime);
+                            shown = true;
+                        }
+                    }
+                    if (stableModel) {
+                        stableModel->externalTexture = shown ? stableModel_.textureId() : 0;
                     }
                 }
 

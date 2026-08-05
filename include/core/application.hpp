@@ -188,6 +188,10 @@ private:
     /// The pet tab's figure. A creature by display id, like its portrait.
     ui::UnitPortrait petModel_;
     uint32_t petModelWidgetId_ = 0;
+    /// The stable's preview, which shows whichever slot the window selected
+    /// rather than the pet that is out.
+    ui::UnitPortrait stableModel_;
+    uint32_t stableModelWidgetId_ = 0;
     /// The inspect window's figure, and the frame it is drawn into. Whole
     /// body at the paperdoll's size, because that is what it is: someone
     /// else's paperdoll.
