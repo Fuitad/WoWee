@@ -31,6 +31,16 @@ not one a byte count can answer.
 
 WHAT IT FOUND, AND WHAT SURVIVED
 
+Seven more on 2026-08-05, once `data << guid` and GetPackGUID() stopped ending
+the prefix — coverage went from 76 opcodes to 117. SMSG_THREAT_UPDATE built its
+list from nothing, SMSG_LOOT_START_ROLL missed itemCount so the roll timer and
+the need/greed mask were both wrong, SMSG_MODIFY_COOLDOWN took half a player
+guid as the change in milliseconds, SMSG_SOCKET_GEMS_RESULT reported every
+socketing as failed because it read a result field the server does not send,
+and three read a guid in the wrong shape. The eighth was the sweep's own blind
+spot rather than a fault: a handler that decoded its packed guid with a byte
+loop written out in place, which now goes through readPackedGuid.
+
 Six on the first run, all real: SMSG_CHAR_RENAME read a four-byte result where
 the server writes one byte, SMSG_BATTLEFIELD_MGR_ENTERED read a guid the server
 does not send, SMSG_GMRESPONSE_STATUS_UPDATE read a ticket id that is not
