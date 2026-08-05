@@ -57,6 +57,23 @@ def without_comments_or_strings(text):
 
 _REFERENCE = re.compile(r'<(?:Script|Include)\s+file="([^"]+)"', re.I)
 
+#: An addon LoadAddOn answers "DISABLED" for. There is a second place a file
+#: can fail to load from, and it is not a manifest: lua_system_api's LoadAddOn
+#: refuses Blizzard_Calendar outright, because the calendar's own globals are
+#: unbound and letting the addon load turns the minimap's date button into a
+#: raise. Its files sit in an addon folder with a manifest of their own, so
+#: nothing about the folder says they never run.
+_REFUSED = re.compile(r'strcmp\(name,\s*"(\w+)"\)\s*==\s*0(?:(?!strcmp).){0,400}?"DISABLED"',
+                      re.S)
+
+
+def _refused_addons(root):
+    """Lowercased names of addons the client declines to load."""
+    source = pathlib.Path(root) / "src/addons/lua_system_api.cpp"
+    if not source.is_file():
+        return set()
+    return {m.lower() for m in _REFUSED.findall(source.read_text(errors="ignore"))}
+
 
 def loaded_files(interface):
     """Every .lua and .xml the loader reaches, as a set of Paths.
@@ -83,6 +100,8 @@ def loaded_files(interface):
     if not interface.is_dir():
         return out
 
+    refused = _refused_addons(interface.parent.parent)
+
     # Every folder with a manifest, at any depth — the bundled addons sit one
     # level further down, under addons/.
     #
@@ -92,7 +111,8 @@ def loaded_files(interface):
     # the unbound-globals report under "these raise as their panel opens",
     # and not one of them can raise, because none of those files ever run.
     directories = sorted({t.parent for t in interface.rglob("*.toc")
-                          if t.parent.name.lower() != "gluexml"})
+                          if t.parent.name.lower() != "gluexml"
+                          and t.parent.name.lower() not in refused})
     # An addon may reference a shared template out of FrameXML, so that folder
     # is searched as a fallback exactly as the loader searches it.
     shared = next((d for d in directories if d.name.lower() == "framexml"), None)
