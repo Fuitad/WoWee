@@ -297,26 +297,6 @@ inline game::Unit* resolveUnit(lua_State* L, const char* unitId) {
     return dynamic_cast<game::Unit*>(entity.get());
 }
 
-// Resolve a unit ID to a targeted game object, or null when it names anything else
-//
-// A GameObject and a Unit are siblings under Entity, so the dynamic_cast in
-// resolveUnit answers null for every object — and this client lets objects be
-// targeted, which the right-click path above relies on. Its own target frame
-// drew whatever was selected and coloured anything that was not a unit grey,
-// so a targeted mailbox had a frame; FrameXML's asks UnitExists first, and that
-// was false for all of them.
-inline game::GameObject* resolveGameObject(lua_State* L, const char* unitId) {
-    auto* gh = getGameHandler(L);
-    if (!gh || !unitId) return nullptr;
-    std::string uid(unitId);
-    toLowerInPlace(uid);
-    const uint64_t guid = resolveUnitGuid(gh, uid);
-    if (guid == 0) return nullptr;
-    auto entity = gh->getEntityManager().getEntity(guid);
-    if (!entity) return nullptr;
-    return dynamic_cast<game::GameObject*>(entity.get());
-}
-
 // Finish an armed item-target use on the item in a slot, if one is armed
 //
 // A sharpening stone, a weapon oil, an enchanting scroll and a disenchant all

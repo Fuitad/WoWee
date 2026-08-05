@@ -8,11 +8,11 @@ namespace wowee::addons {
 static int lua_UnitName(lua_State* L) {
     const char* uid = luaL_optstring(L, 1, "player");
     auto* unit = resolveUnit(L, uid);
+    // No game object branch here either, for the reason in UnitExists: a name
+    // is the one answer about an object that would have been right, and giving
+    // it while UnitExists says no is a unit that half exists.
     if (unit && !unit->getName().empty()) {
         lua_pushstring(L, unit->getName().c_str());
-    } else if (auto* go = resolveGameObject(L, uid); go && !go->getName().empty()) {
-        // The object's own name, which is the whole of what its frame shows.
-        lua_pushstring(L, go->getName().c_str());
     } else {
         // Fallback: party member name for out-of-range members
         auto* gh = getGameHandler(L);
@@ -118,13 +118,16 @@ static int lua_UnitLevel(lua_State* L) {
 static int lua_UnitExists(lua_State* L) {
     const char* uid = luaL_optstring(L, 1, "player");
     auto* unit = resolveUnit(L, uid);
+    // A game object is not a unit, and saying otherwise here does not stop at
+    // the name. This client targets objects because its right-click path reads
+    // the selection back, and its own target frame drew one greyed out and
+    // asked nothing further. FrameXML asks a great deal further — dead, level,
+    // classification, reaction — and every one of those reads the zero behind
+    // an object that has no such field, so a targeted mailbox came up dead, at
+    // skull level, with an attackable portrait. Retail never targets one at
+    // all; the selection stays for the interaction path, and the interface is
+    // told what it asked, which is that there is no unit here.
     if (unit) {
-        lua_pushboolean(L, 1);
-    } else if (resolveGameObject(L, uid)) {
-        // A targeted object exists as much as a targeted creature does. Every
-        // other answer about it stays the default — no health, no level, no
-        // reaction — which is what leaves the frame showing a name and nothing
-        // else, the way targeting a mailbox does.
         lua_pushboolean(L, 1);
     } else {
         // Party members in other zones don't have entities but still "exist"
