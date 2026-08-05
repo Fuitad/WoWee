@@ -31,6 +31,8 @@
 // than ignored, because a misspelling would otherwise look like a replacement
 // that silently did not happen.
 
+#include <cstdint>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -258,6 +260,27 @@ bool frameXmlDrawsCombatText();
 /// the main thread.
 void frameXmlSetCursorItem(const std::string& iconPath);
 const std::string& frameXmlCursorItem();
+
+/// Where the item on FrameXML's cursor came from, in the server's flat slot
+/// space, and how to put it down again.
+///
+/// This client's own windows and FrameXML's have separate cursors: the Lua
+/// bindings track theirs in lua_action_api, and InventoryScreen tracks its own
+/// held item. With the bags handed over and the bank, mail or trade window
+/// still this client's, a drag between them was picking an item up in one
+/// system and offering it to the other, which had never heard of it — which is
+/// what "cannot transfer from bags to bank" was.
+///
+/// Asked rather than mirrored. The cursor belongs to the bindings and this
+/// calls back into them, because a copy kept here would be a second answer to
+/// the same question and this repository's most common bug is exactly that.
+/// Both are null until the Lua API registers them, and null again after the
+/// state is torn down, so a caller must handle "no bridge" as "carrying
+/// nothing".
+void frameXmlSetCursorBridge(std::function<bool(uint8_t&, uint8_t&)> heldSlot,
+                             std::function<void()> putDown);
+bool frameXmlCursorWireSlot(uint8_t& bag, uint8_t& slot);
+void frameXmlPutCursorDown();
 
 /// Ask for the takeover check to be reported again on the next frame.
 ///

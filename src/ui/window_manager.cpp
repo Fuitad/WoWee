@@ -3341,6 +3341,19 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
             ImGui::InvisibleButton("slot", ImVec2(SLOT_SIZE, SLOT_SIZE));
             if (isHolding && ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
                 inventoryScreen.dropIntoBankSlot(gameHandler, dstBag, dstSlot);
+            } else if (!isHolding && ImGui::IsItemHovered() &&
+                       ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                // Dropped out of a handed-over bag. FrameXML picked it up, so
+                // InventoryScreen knows nothing about it — its own held item is
+                // empty and the branch above never runs. The source arrives in
+                // the same flat slot space dropIntoBankSlot converts to, so the
+                // swap is the same one.
+                uint8_t srcBag = 0, srcSlot = 0;
+                if (frameXmlCursorWireSlot(srcBag, srcSlot) &&
+                    !(srcBag == dstBag && srcSlot == dstSlot)) {
+                    gameHandler.swapContainerItems(srcBag, srcSlot, dstBag, dstSlot);
+                    frameXmlPutCursorDown();
+                }
             }
         } else {
             const auto& item = slot.item;

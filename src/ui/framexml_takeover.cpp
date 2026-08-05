@@ -353,6 +353,25 @@ std::string gCursorItem;
 void frameXmlSetCursorItem(const std::string& iconPath) { gCursorItem = iconPath; }
 const std::string& frameXmlCursorItem() { return gCursorItem; }
 
+namespace {
+std::function<bool(uint8_t&, uint8_t&)> gCursorHeldSlot;
+std::function<void()> gCursorPutDown;
+} // namespace
+
+void frameXmlSetCursorBridge(std::function<bool(uint8_t&, uint8_t&)> heldSlot,
+                             std::function<void()> putDown) {
+    gCursorHeldSlot = std::move(heldSlot);
+    gCursorPutDown = std::move(putDown);
+}
+
+bool frameXmlCursorWireSlot(uint8_t& bag, uint8_t& slot) {
+    return gCursorHeldSlot && gCursorHeldSlot(bag, slot);
+}
+
+void frameXmlPutCursorDown() {
+    if (gCursorPutDown) gCursorPutDown();
+}
+
 void frameXmlNoteMouseOwned(bool owned) {
     gMouseOwned.store(owned, std::memory_order_relaxed);
 }

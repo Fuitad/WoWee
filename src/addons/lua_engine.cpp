@@ -3710,6 +3710,10 @@ void LuaEngine::shutdown() {
     // a closed state and dereferenced it.
     if (L_) {
         reportMissingApi();
+        // Before the state goes: the cursor bridge holds this pointer so the
+        // client's own windows can ask what FrameXML is carrying, and calling
+        // through it after the close would be reading a freed state.
+        ui::frameXmlSetCursorBridge(nullptr, nullptr);
         lua_close(L_);
         L_ = nullptr;
         LOG_INFO("LuaEngine: shut down");

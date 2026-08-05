@@ -2053,6 +2053,19 @@ void registerActionLuaAPI(lua_State* L) {
         lua_pushcfunction(L, func);
         lua_setglobal(L, name);
     }
+
+    // The cursor, for this client's own windows to read. They keep a separate
+    // held item of their own, so a drag out of a handed-over bag into a window
+    // that is still this client's — the bank, the mailbox, a trade — had no way
+    // to know anything had been picked up.
+    //
+    // Registered here rather than mirrored into the ui layer because this is
+    // where the cursor is. Re-registered on every reload, which rebuilds the
+    // Lua state, so the captured pointer is the current one; LuaEngine::shutdown
+    // takes the bridge back down again.
+    ui::frameXmlSetCursorBridge(
+        [](uint8_t& bag, uint8_t& slot) { return cursorWireSlot(bag, slot); },
+        [L]() { clearCursorItem(L); });
 }
 
 } // namespace wowee::addons
