@@ -154,7 +154,12 @@ void ToastManager::renderEarlyToasts(float deltaTime, game::GameHandler& gameHan
 // ---------------------------------------------------------------------------
 void ToastManager::renderLateToasts(game::GameHandler& gameHandler) {
     renderDingEffect();
-    renderAchievementToast();
+    // FrameXML's AlertFrame answers ACHIEVEMENT_EARNED, which this client
+    // fires, and it is suppressed only while the achievements element is not
+    // owned. So with it owned both popups appeared, one over the other, on
+    // every achievement — the same shape the zone banner had before its own
+    // gate went in a few lines below.
+    if (!frameXmlOwns(UiElement::Achievements)) renderAchievementToast();
     renderDiscoveryToast();
     renderWhisperToasts();
     renderQuestProgressToasts();

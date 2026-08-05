@@ -158,8 +158,16 @@ def resolve(caller, receiver, callee):
     """Call site -> the qualified definitions it can reach.
 
     Ordered most specific first: a typed receiver names exactly one class; an
-    unqualified call is the caller's own class; only a receiver of unknown type
-    falls back to every class defining that name.
+    unqualified call is the caller's own class; a receiver of unknown type
+    falls back to the class defining that name — but only if exactly one does.
+
+    Only one, because linking a call to every class that happens to define the
+    name manufactures paths rather than finding them. `wm->render(...)` on a
+    world map facade, which is not a UI class and so has no declared type here,
+    was resolved to ChatPanel::render and CharacterScreen::render among others
+    — and both are gated at their real call site, so both were reported as
+    draw surfaces no handover could switch off. An edge that could go five
+    ways was never evidence of anything.
     """
     if receiver and receiver in VARS:
         target = f"{VARS[receiver]}::{callee}"
@@ -168,7 +176,8 @@ def resolve(caller, receiver, callee):
         own = f"{caller.split('::')[0]}::{callee}"
         if own in bodies:
             return [own]
-    return by_short.get(callee, [])
+    candidates = by_short.get(callee, [])
+    return candidates if len(candidates) == 1 else []
 
 
 draws = {n for n, es in bodies.items()
