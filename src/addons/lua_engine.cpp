@@ -5061,6 +5061,42 @@ void LuaEngine::registerCoreAPI() {
         "    _WoweePopulateItemTooltip(self, tonumber(id))\n"
         "    if count and count > 1 then self:AddLine('Count: '..count, 0.5, 0.5, 0.5) end\n"
         "end\n"
+        // The pet bar's tooltip. PetActionButton_OnEnter calls this for any
+        // button without its own tooltip text, which is every real ability the
+        // pet has — so hovering one showed nothing at all. It did not raise:
+        // an unknown method answers with a no-op, which is why an empty
+        // tooltip was the symptom rather than an error.
+        //
+        // GetPetActionInfo already answers everything needed. isToken says the
+        // name and subtext are global string keys rather than text, which is
+        // how the commands and stances are named — Attack, Follow, Passive —
+        // and printing the key instead of the string is what that flag exists
+        // to prevent.
+        "function __WoweeFrameMT:SetPetAction(slot)\n"
+        "    self:ClearLines()\n"
+        "    local name, subtext, _, isToken = GetPetActionInfo(slot)\n"
+        "    if not name then return end\n"
+        "    if isToken then\n"
+        "        name = _G[name] or name\n"
+        "        subtext = subtext and _G[subtext] or subtext\n"
+        "    end\n"
+        "    self:SetText(name, 1, 1, 1)\n"
+        "    if subtext and subtext ~= '' then\n"
+        "        self:AddLine(subtext, 0.5, 0.5, 0.5)\n"
+        "    end\n"
+        "end\n"
+        // The possess bar's tooltip. PossessButton_OnEnter calls this for
+        // every slot but the cancel one, so it is reachable the moment
+        // GetPossessInfo answers for a slot other than two — and a widget
+        // method that does not exist raises on hover rather than showing
+        // nothing. It is bound now so enabling that slot later is a change to
+        // one binding rather than two, and it answers from the same place the
+        // button's icon came from.
+        "function __WoweeFrameMT:SetPossession(slot)\n"
+        "    self:ClearLines()\n"
+        "    local _, name = GetPossessInfo(slot)\n"
+        "    if name then self:SetText(name, 1, 1, 1) end\n"
+        "end\n"
         "function __WoweeFrameMT:SetSpellByID(spellId)\n"
         "    self:ClearLines()\n"
         "    if not spellId or spellId == 0 then return end\n"
