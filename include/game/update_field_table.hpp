@@ -88,6 +88,15 @@ enum class UF : uint16_t {
     // this index, high word at the next). WotLK only — no earlier expansion
     // published it, and none has CMSG_DISMISS_CRITTER to act on it either.
     UNIT_FIELD_CRITTER,
+    // Who this unit is controlling, and who is controlling it. Both are guid
+    // pairs. WotLK only for now: the indices below were read off AzerothCore's
+    // UpdateFields.h and checked against UNIT_FIELD_CRITTER, which that header
+    // puts at OBJECT_END + 4 and this client's table already has at 10 — so
+    // OBJECT_END is 6 and the table holds absolute indices. No such check was
+    // possible for the other three expansions, and an update field index
+    // guessed is an arbitrary field read.
+    UNIT_FIELD_CHARM,
+    UNIT_FIELD_CHARMEDBY,
 
     // GameObject fields
     GAMEOBJECT_DISPLAYID,

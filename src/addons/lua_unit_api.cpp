@@ -933,17 +933,49 @@ static int lua_UnitInVehicle(lua_State* L) {
     return 1;
 }
 static int lua_UnitControllingVehicle(lua_State* L) { return luaReturnFalse(L); }
-static int lua_UnitIsPossessed(lua_State* L) { return luaReturnFalse(L); }
-/// Whether something else is driving this unit. No charm field is parsed, so
-/// false is the only answer that is not invented — the same position
-/// UnitIsPossessed above it is in.
+/// The guid held in a two-word unit field, or zero.
 ///
-/// Bound rather than left out because ToggleGameMenu reads it, and it survives
-/// there only by a short circuit: `ClearTarget() and (not UnitIsCharmed(...))`
-/// never reaches the second half because ClearTarget returns nothing. That is
-/// a fact about a neighbouring binding's return count, not about this one, and
-/// pressing Escape is not where anyone wants to find that out.
-static int lua_UnitIsCharmed(lua_State* L) { return luaReturnFalse(L); }
+/// Absent on an expansion whose table does not name the field, which is every
+/// one but WotLK for these two — an index that is not known is not guessed at.
+static uint64_t guidField(game::GameHandler* gh, uint64_t unitGuid, game::UF field) {
+    if (!gh) return 0;
+    const uint16_t idx = game::fieldIndex(field);
+    if (idx == 0xFFFF) return 0;
+    auto entity = gh->getEntityManager().getEntity(unitGuid);
+    if (!entity) return 0;
+    const uint64_t lo = entity->getField(idx);
+    const uint64_t hi = entity->getField(static_cast<uint16_t>(idx + 1));
+    return (hi << 32) | lo;
+}
+
+/// Whether this unit is driving something else.
+///
+/// UNIT_FIELD_CHARM names what it controls, and it was not read because the
+/// field was not in the table. Both these answered a flat false and said so.
+static int lua_UnitIsPossessed(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const char* uid = luaL_optstring(L, 1, "player");
+    const uint64_t guid = gh ? resolveUnitGuid(gh, uid) : 0;
+    lua_pushboolean(L, guidField(gh, guid, game::UF::UNIT_FIELD_CHARM) != 0);
+    return 1;
+}
+
+/// Whether something else is driving this unit — the other end of the same
+/// relationship, in UNIT_FIELD_CHARMEDBY.
+///
+/// Bound rather than left out because ToggleGameMenu reads it, and it used to
+/// survive there only by a short circuit: `ClearTarget() and (not
+/// UnitIsCharmed(...))` never reaches the second half because ClearTarget
+/// returns nothing. That is a fact about a neighbouring binding's return
+/// count, not about this one, and pressing Escape is not where anyone wants to
+/// find that out.
+static int lua_UnitIsCharmed(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const char* uid = luaL_optstring(L, 1, "player");
+    const uint64_t guid = gh ? resolveUnitGuid(gh, uid) : 0;
+    lua_pushboolean(L, guidField(gh, guid, game::UF::UNIT_FIELD_CHARMEDBY) != 0);
+    return 1;
+}
 static int lua_UnitIsTalking(lua_State* L) { return luaReturnFalse(L); }
 static int lua_UnitInBattleground(lua_State* L) { return luaReturnNil(L); }
 
