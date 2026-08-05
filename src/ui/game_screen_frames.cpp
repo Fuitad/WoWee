@@ -1143,7 +1143,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                     gameHandler.proposeDuel(tGuid);
                 if (ImGui::MenuItem("Inspect")) {
                     gameHandler.inspectTarget();
-                    socialPanel_.showInspectWindow_ = true;
+                    socialPanel_.openInspectWindow(gameHandler);
                 }
                 ImGui::Separator();
                 if (ImGui::MenuItem("Add Friend"))
@@ -1267,7 +1267,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                 }
                 if (ImGui::MenuItem("Inspect")) {
                     gameHandler.inspectTarget();
-                    socialPanel_.showInspectWindow_ = true;
+                    socialPanel_.openInspectWindow(gameHandler);
                 }
                 ImGui::Separator();
                 if (ImGui::MenuItem("Add Friend")) {
@@ -2079,7 +2079,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
                 if (ImGui::MenuItem("Inspect")) {
                     gameHandler.setTarget(focus->getGuid());
                     gameHandler.inspectTarget();
-                    socialPanel_.showInspectWindow_ = true;
+                    socialPanel_.openInspectWindow(gameHandler);
                 }
                 ImGui::Separator();
                 if (ImGui::MenuItem("Add Friend"))
@@ -2188,7 +2188,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
                 if (ImGui::MenuItem("Inspect")) {
                     gameHandler.setTarget(fGuid);
                     gameHandler.inspectTarget();
-                    socialPanel_.showInspectWindow_ = true;
+                    socialPanel_.openInspectWindow(gameHandler);
                 }
                 ImGui::Separator();
                 if (ImGui::MenuItem("Add Friend"))

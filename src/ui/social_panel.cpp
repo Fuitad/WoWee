@@ -4,6 +4,7 @@
 // boss frames, guild roster, social/friends frame, dungeon finder,
 // who window, inspect window.
 // ============================================================
+#include "ui/framexml_takeover.hpp"
 #include "ui/social_panel.hpp"
 #include "ui/quest_log_screen.hpp"
 #include "ui/ui_raid_icons.hpp"
@@ -334,7 +335,7 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
                         if (ImGui::MenuItem("Inspect")) {
                             gameHandler.setTarget(m.guid);
                             gameHandler.inspectTarget();
-                            showInspectWindow_ = true;
+                            openInspectWindow(gameHandler);
                         }
                         bool isLeader = (partyData.leaderGuid == gameHandler.getPlayerGuid());
                         if (isLeader) {
@@ -672,7 +673,7 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
                 if (ImGui::MenuItem("Inspect")) {
                     gameHandler.setTarget(member.guid);
                     gameHandler.inspectTarget();
-                    showInspectWindow_ = true;
+                    openInspectWindow(gameHandler);
                 }
                 ImGui::Separator();
                 if (!member.name.empty()) {
@@ -2465,6 +2466,16 @@ void SocialPanel::renderWhoWindow(game::GameHandler& gameHandler,
     }
 
     ImGui::End();
+}
+
+void SocialPanel::openInspectWindow(game::GameHandler& gameHandler) {
+    if (frameXmlOwns(UiElement::Inspect)) {
+        // Loads Blizzard_InspectUI and shows it. The inspect request itself is
+        // already on its way from the caller; this only puts a window up.
+        gameHandler.runInterfaceCommand("InspectUnit(\"target\")");
+    } else {
+        showInspectWindow_ = true;
+    }
 }
 
 void SocialPanel::renderInspectWindow(game::GameHandler& gameHandler,

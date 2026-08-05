@@ -460,10 +460,22 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         chatPanel_.render(gameHandler, inventoryScreen, spellbookScreen, questLogScreen);
         // Process slash commands that affect GameScreen state
         auto cmds = chatPanel_.consumeSlashCommands();
-        if (cmds.showInspect) socialPanel_.showInspectWindow_ = true;
+        if (cmds.showInspect) socialPanel_.openInspectWindow(gameHandler);
         if (cmds.toggleThreat) combatUI_.showThreatWindow_ = !combatUI_.showThreatWindow_;
-        if (cmds.showBgScore) combatUI_.showBgScoreboard_ = !combatUI_.showBgScoreboard_;
-        if (cmds.showGmTicket) windowManager_.showGmTicketWindow_ = true;
+        // Both windows are gated on their element, so with either handed over
+        // the slash command set a flag whose only reader is switched off.
+        if (cmds.showBgScore) {
+            if (frameXmlOwns(UiElement::BattlegroundScore))
+                gameHandler.runInterfaceCommand("ToggleWorldStateScoreFrame()");
+            else
+                combatUI_.showBgScoreboard_ = !combatUI_.showBgScoreboard_;
+        }
+        if (cmds.showGmTicket) {
+            if (frameXmlOwns(UiElement::Help))
+                gameHandler.runInterfaceCommand("ToggleHelpFrame()");
+            else
+                windowManager_.showGmTicketWindow_ = true;
+        }
         if (cmds.showWho) socialPanel_.showWhoWindow_ = true;
         if (cmds.toggleCombatLog) combatUI_.showCombatLog_ = !combatUI_.showCombatLog_;
         if (cmds.takeScreenshot) takeScreenshot();
