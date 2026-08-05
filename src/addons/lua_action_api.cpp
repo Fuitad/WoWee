@@ -1800,8 +1800,37 @@ void registerActionLuaAPI(lua_State* L) {
             lua_pushboolean(L, isAttack ? 1 : 0);
             return 1;
         }},
+                // GetPetActionCooldown(index) → start, duration, enable
+                //
+                // A flat zero, so a pet ability on cooldown was drawn ready and
+                // clickable. The client has tracked pet spell cooldowns all
+                // along — they arrive on the same packet as the player's.
+                //
+                // Only the remaining time is kept, not the original duration,
+                // so the cooldown is reported as starting now and lasting what
+                // is left. That draws exactly the remaining arc, which is the
+                // part anyone reads, and it is what the item cooldown beside it
+                // does for the same reason.
                 {"GetPetActionCooldown", [](lua_State* L) -> int {
-            lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 1);
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            // Enable is one, not zero: zero switches the sweep off entirely,
+            // and all three go straight into CooldownFrame_SetTimer.
+            if (!gh || index < 1 || index > game::GameHandler::PET_ACTION_BAR_SLOTS) {
+                lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 1);
+                return 3;
+            }
+            const uint32_t packed = gh->getPetActionSlot(index - 1);
+            // A command or a stance has no cooldown of its own.
+            const float remaining = game::pet::isPetSpellAction(packed)
+                ? gh->getSpellCooldown(game::pet::petActionId(packed)) : 0.0f;
+            if (remaining <= 0.01f) {
+                lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 1);
+                return 3;
+            }
+            lua_pushnumber(L, luaGetTimeNow());
+            lua_pushnumber(L, remaining);
+            lua_pushnumber(L, 1);
             return 3;
         }},
                 {"PetAttack", [](lua_State* L) -> int {
