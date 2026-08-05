@@ -2906,6 +2906,53 @@ int lua_StatusBar_SetValue(lua_State* L) {
     }
     return 0;
 }
+/// ColorSelect:SetColorRGB(r, g, b) — the colour the picker is showing.
+///
+/// Fires OnColorSelect the way a slider fires OnValueChanged, because that
+/// script is the whole contract: colorpickerframe.xml puts the swatch update
+/// and the caller's own `func` inside it, so a colour set without firing is a
+/// colour nothing hears about.
+///
+/// The pair was unanswered, and ten call sites read the getter — every
+/// ChangeChatColor from the chat colour menu, the arena tabard's three
+/// swatches, the chat config panel. They were handing nil to functions that
+/// take r, g, b, so accepting a colour set the colour to nothing.
+int lua_ColorSelect_SetColorRGB(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    const float r = static_cast<float>(luaL_optnumber(L, 2, 1.0));
+    const float g = static_cast<float>(luaL_optnumber(L, 3, 1.0));
+    const float b = static_cast<float>(luaL_optnumber(L, 4, 1.0));
+    const bool changed = (r != w->pickerColor[0] || g != w->pickerColor[1] ||
+                          b != w->pickerColor[2]);
+    w->pickerColor[0] = r;
+    w->pickerColor[1] = g;
+    w->pickerColor[2] = b;
+    if (!changed) return 0;
+
+    lua_getfield(L, 1, "__scripts");
+    if (lua_istable(L, -1)) {
+        lua_getfield(L, -1, "OnColorSelect");
+        if (lua_isfunction(L, -1)) {
+            lua_pushvalue(L, 1);
+            lua_pushnumber(L, r);
+            lua_pushnumber(L, g);
+            lua_pushnumber(L, b);
+            if (lua_pcall(L, 4, 0, 0) != 0) lua_pop(L, 1);
+        } else {
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+    return 0;
+}
+
+int lua_ColorSelect_GetColorRGB(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    for (int i = 0; i < 3; ++i) lua_pushnumber(L, w ? w->pickerColor[i] : 1.0);
+    return 3;
+}
+
 /// SetCooldown(start, duration) — both on GetTime's clock. A zero duration is
 /// how FrameXML clears one, and it must read as nothing running rather than as
 /// a sweep that never finishes.
@@ -3804,6 +3851,8 @@ void LuaEngine::registerCoreAPI() {
         {"GetFieldSize",    lua_Region_GetFieldSize},
         {"GetVertexColor",  lua_Region_GetVertexColor},
         {"GetInputLanguage", lua_EditBox_GetInputLanguage},
+        {"SetColorRGB",     lua_ColorSelect_SetColorRGB},
+        {"GetColorRGB",     lua_ColorSelect_GetColorRGB},
         {"GetFontObject",   lua_FontString_GetFontObject},
         {"SetMinimumWidth", lua_Frame_SetMinimumWidth},
         {"GetMinimumWidth", lua_Frame_GetMinimumWidth},
@@ -4496,7 +4545,7 @@ void LuaEngine::registerCoreAPI() {
         "Dress=1,Enable=1,EnableKeyboard=1,EnableMouse=1,EnableMouseWheel=1,\n"
         "EnableSubtitles=1,FadeOut=1,Free=1,GetAlpha=1,GetAnchorType=1,GetAttribute=1,\n"
         "GetBackdrop=1,GetBottom=1,GetButtonState=1,GetCenter=1,GetChecked=1,\n"
-        "GetCheckedTexture=1,GetChildList=1,GetChildren=1,GetColorRGB=1,\n"
+        "GetCheckedTexture=1,GetChildList=1,GetChildren=1,\n"
         "GetCursorPosition=1,GetDisabledCheckedTexture=1,\n"
         "GetDisabledTexture=1,GetDrawLayer=1,GetEffectiveAttribute=1,\n"
         "GetEffectiveScale=1,GetFileHeight=1,GetFileWidth=1,\n"
@@ -4533,7 +4582,7 @@ void LuaEngine::registerCoreAPI() {
         "SetBindingClick=1,SetBindingItem=1,SetBindingMacro=1,SetBindingSpell=1,\n"
         "SetBlendMode=1,SetBorderAlpha=1,SetBorderScalar=1,SetBorderTexture=1,\n"
         "SetButtonState=1,SetCamera=1,SetChecked=1,SetCheckedTexture=1,\n"
-        "SetClampedToScreen=1,SetColorRGB=1,SetCooldown=1,\n"
+        "SetClampedToScreen=1,SetCooldown=1,\n"
         "SetCreature=1,SetCursorPosition=1,SetDesaturated=1,SetDisabledCheckedTexture=1,\n"
         "SetDisabledFontObject=1,SetDisabledTexture=1,SetDrawLayer=1,\n"
         "SetEquipmentSet=1,SetFacing=1,SetFillAlpha=1,SetFillTexture=1,SetFocus=1,\n"

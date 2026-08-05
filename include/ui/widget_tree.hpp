@@ -396,6 +396,11 @@ struct Widget {
     // FontString regions.
     std::string text;
     float fontHeight = 12.0f;
+    /// The colour a ColorSelect frame is showing, as r, g, b. Its own state
+    /// rather than the frame's tint: a colour picker draws its wheel in every
+    /// colour and this is only the one being chosen.
+    float pickerColor[3] = {1.0f, 1.0f, 1.0f};
+
     /// Which named font object this region's type settings came from, so
     /// GetFontObject can hand it back. The fields copied out of one do not add
     /// up to the object itself, and FrameXML passes the object around — the
