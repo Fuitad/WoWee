@@ -279,6 +279,22 @@ struct Widget {
     bool  editMultiLine = false;
     int   editMaxLetters = 0;   ///< Zero is no limit, which is WoW's default.
 
+    /// Whether a label too long for its box breaks onto another line. On, as
+    /// WoW has it — a FontString given a width wraps inside it, and nothing
+    /// here did, so every one of them drew a single line straight out of its
+    /// own frame.
+    bool  wordWrap = true;
+    /// Break inside a word when a single word is wider than the box. Thirty-six
+    /// labels ask for it, all of them prose in a narrow column.
+    bool  nonSpaceWrap = false;
+    /// Lines the last wrap produced, so the height a wrapped label reports
+    /// matches what is drawn. FrameXML sizes panels from GetStringHeight.
+    ///
+    /// Mutable because it is a record of what the renderer did, not part of
+    /// what the frame is — the draw pass holds every widget const and this is
+    /// the one thing it learns.
+    mutable int wrappedLines = 1;
+
     bool  isCooldown = false;
     double cooldownStart = 0.0;
     double cooldownDuration = 0.0;

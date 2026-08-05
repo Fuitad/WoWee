@@ -554,7 +554,14 @@ int lua_Region_GetTextWidth(lua_State* L) {
 
 int lua_Region_GetTextHeight(lua_State* L) {
     const auto* w = textWidgetOf(L, 1);
-    lua_pushnumber(L, w ? (w->fontHeight > 0.0f ? w->fontHeight : 12.0f) : 0.0);
+    if (!w) { lua_pushnumber(L, 0.0); return 1; }
+    // Every line of it. This answered one line's height however many the label
+    // drew, and FrameXML sizes panels from it — a quest description or an
+    // options paragraph asked how tall it was, was told twelve, and the frame
+    // around it was built to fit one line of the several on screen.
+    const float line = (w->fontHeight > 0.0f) ? w->fontHeight : 12.0f;
+    const int lines = (w->wrappedLines > 0) ? w->wrappedLines : 1;
+    lua_pushnumber(L, line * 1.2 * lines);
     return 1;
 }
 
@@ -962,6 +969,22 @@ int lua_MessageFrame_AddMessage(lua_State* L) {
 /// Zero, the default, means for good, which is what a chat frame wants.
 /// UIErrorsFrame declares five and it was dropped, so every refusal the server
 /// sent stayed on screen until a hundred and twenty-eight had piled up.
+int lua_FontString_SetWordWrap(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (w) w->wordWrap = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+int lua_FontString_CanWordWrap(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushboolean(L, (w && w->wordWrap) ? 1 : 0);
+    return 1;
+}
+int lua_FontString_SetNonSpaceWrap(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (w) w->nonSpaceWrap = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+
 int lua_Cooldown_SetReverse(lua_State* L) {
     auto* w = widgetOf(L, 1);
     if (w) w->cooldownReverse = lua_toboolean(L, 2) != 0;
@@ -3519,6 +3542,9 @@ void LuaEngine::registerCoreAPI() {
         {"Clear",           lua_MessageFrame_Clear},
         {"GetNumMessages",  lua_MessageFrame_GetNumMessages},
         {"SetMaxLines",     lua_MessageFrame_SetMaxLines},
+        {"SetWordWrap",     lua_FontString_SetWordWrap},
+        {"CanWordWrap",     lua_FontString_CanWordWrap},
+        {"SetNonSpaceWrap", lua_FontString_SetNonSpaceWrap},
         {"SetReverse",      lua_Cooldown_SetReverse},
         {"SetDrawEdge",     lua_Cooldown_SetDrawEdge},
         {"SetTimeVisible",  lua_MessageFrame_SetTimeVisible},

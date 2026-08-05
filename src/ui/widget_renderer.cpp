@@ -54,6 +54,84 @@ struct TextRun {
     float rgba[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 };
 
+/// Break a run of markup into lines that fit a width.
+///
+/// Words, not characters, unless a single word is wider than the box and the
+/// label asked for nonspacewrap. Markup survives the break: a colour run split
+/// across two lines keeps its colour on both, which is why this works on runs
+/// rather than on the stripped string.
+///
+/// A wrapWidth of zero means no wrapping, which is what an auto-sized label
+/// wants — it is as wide as its text and there is nothing to break.
+std::vector<std::vector<TextRun>> wrapRuns(ImFont* font, float size,
+                                           float wrapWidth,
+                                           const std::vector<TextRun>& runs,
+                                           bool nonSpaceWrap) {
+    std::vector<std::vector<TextRun>> lines;
+    lines.emplace_back();
+    if (wrapWidth <= 0.0f || !font) {
+        lines.back() = runs;
+        return lines;
+    }
+    auto widthOf = [&](const std::string& s) {
+        return font->CalcTextSizeA(size, FLT_MAX, 0.0f, s.c_str()).x;
+    };
+    float x = 0.0f;
+    auto place = [&](const TextRun& style, const std::string& piece) {
+        if (!lines.back().empty() && lines.back().back().hasColor == style.hasColor &&
+            (!style.hasColor ||
+             std::equal(std::begin(style.rgba), std::end(style.rgba),
+                        std::begin(lines.back().back().rgba)))) {
+            lines.back().back().text += piece;
+        } else {
+            TextRun add = style;
+            add.text = piece;
+            lines.back().push_back(std::move(add));
+        }
+    };
+    for (const TextRun& run : runs) {
+        size_t at = 0;
+        while (at < run.text.size()) {
+            // A word plus the spaces that follow it, so a break falls between
+            // words and the trailing space goes with the line above.
+            size_t end = run.text.find(' ', at);
+            if (end == std::string::npos) end = run.text.size();
+            else while (end < run.text.size() && run.text[end] == ' ') ++end;
+            std::string word = run.text.substr(at, end - at);
+            at = end;
+
+            float w = widthOf(word);
+            if (x > 0.0f && x + w > wrapWidth) {
+                lines.emplace_back();
+                x = 0.0f;
+                // The break ate the space that separated them.
+                while (!word.empty() && word.front() == ' ') word.erase(0, 1);
+                w = widthOf(word);
+            }
+            if (w > wrapWidth && nonSpaceWrap) {
+                // One word wider than the whole box. Broken by character,
+                // which is the only thing left and what the attribute asks for.
+                std::string part;
+                for (char c : word) {
+                    const float cw = widthOf(part + c);
+                    if (!part.empty() && x + cw > wrapWidth) {
+                        place(run, part);
+                        lines.emplace_back();
+                        x = 0.0f;
+                        part.clear();
+                    }
+                    part += c;
+                }
+                if (!part.empty()) { place(run, part); x += widthOf(part); }
+                continue;
+            }
+            place(run, word);
+            x += w;
+        }
+    }
+    return lines;
+}
+
 std::vector<TextRun> parseMarkup(const std::string& in) {
     std::vector<TextRun> runs;
     TextRun cur;
@@ -276,16 +354,34 @@ void WidgetRenderer::sizeTooltips(WidgetTree& tree) {
 
 void WidgetRenderer::drawMarkupText(ImDrawList* dl, ImFont* font, float size,
                                     ImVec2 at, uint32_t fallback, float alpha,
-                                    const std::string& text) {
-    float x = at.x;
-    for (const TextRun& run : parseMarkup(text)) {
-        uint32_t col = fallback;
-        if (run.hasColor) {
-            float rgba[4] = {run.rgba[0], run.rgba[1], run.rgba[2], run.rgba[3]};
-            col = packColor(rgba, alpha);
+                                    const std::string& text, float wrapWidth,
+                                    bool nonSpaceWrap, const char* justifyH) {
+    const auto lines = wrapRuns(font, size, wrapWidth, parseMarkup(text),
+                                nonSpaceWrap);
+    const float lineH = size * 1.2f;
+    float y = at.y;
+    for (const auto& line : lines) {
+        float lineW = 0.0f;
+        for (const TextRun& run : line) {
+            lineW += font->CalcTextSizeA(size, FLT_MAX, 0.0f, run.text.c_str()).x;
         }
-        dl->AddText(font, size, ImVec2(x, at.y), col, run.text.c_str());
-        x += font->CalcTextSizeA(size, FLT_MAX, 0.0f, run.text.c_str()).x;
+        // Each line justifies inside the box on its own, which is what makes a
+        // centred paragraph look centred rather than ragged from one offset.
+        float x = at.x;
+        if (wrapWidth > 0.0f && justifyH) {
+            if (std::string(justifyH) == "CENTER") x = at.x + (wrapWidth - lineW) * 0.5f;
+            else if (std::string(justifyH) == "RIGHT") x = at.x + wrapWidth - lineW;
+        }
+        for (const TextRun& run : line) {
+            uint32_t col = fallback;
+            if (run.hasColor) {
+                float rgba[4] = {run.rgba[0], run.rgba[1], run.rgba[2], run.rgba[3]};
+                col = packColor(rgba, alpha);
+            }
+            dl->AddText(font, size, ImVec2(x, y), col, run.text.c_str());
+            x += font->CalcTextSizeA(size, FLT_MAX, 0.0f, run.text.c_str()).x;
+        }
+        y += lineH;
     }
 }
 
@@ -1439,9 +1535,24 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             const float base = ImGui::GetFontSize();
             const float size = ((w->fontHeight > 0.0f) ? w->fontHeight : base) * s;
             (void)base;
-            const ImVec2 extent =
+            // A label whose width came from its own text has nothing to wrap
+            // to; one given a width by its XML or by two anchors wraps inside
+            // it. Nothing wrapped before, so every label of the second kind
+            // drew one line straight out of its own frame.
+            const float wrapW = (!w->autoSized && w->wordWrap && (x1 - x0) > 0.0f)
+                ? (x1 - x0) : 0.0f;
+            ImVec2 extent =
                 font ? font->CalcTextSizeA(size, FLT_MAX, 0.0f, w->text.c_str())
                      : ImGui::CalcTextSize(w->text.c_str());
+            if (wrapW > 0.0f && font) {
+                const auto lines = wrapRuns(font, size, wrapW,
+                                            parseMarkup(w->text), w->nonSpaceWrap);
+                w->wrappedLines = static_cast<int>(lines.size());
+                extent.x = wrapW;
+                extent.y = size * 1.2f * static_cast<float>(lines.size());
+            } else {
+                w->wrappedLines = 1;
+            }
             // Against the box in pixels, not in interface units. rectW and
             // rectH are the widget's own units and extent comes back from a
             // font already scaled by s, so centring on the raw rect placed a
@@ -1465,8 +1576,10 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             }
             const float boxW = x1 - x0, boxH = y1 - y0;
             float tx = x0;
-            if (w->justifyH == "CENTER")     tx = x0 + (boxW - extent.x) * 0.5f;
-            else if (w->justifyH == "RIGHT") tx = x1 - extent.x;
+            if (wrapW <= 0.0f) {
+                if (w->justifyH == "CENTER")     tx = x0 + (boxW - extent.x) * 0.5f;
+                else if (w->justifyH == "RIGHT") tx = x1 - extent.x;
+            }
             float ty = y0 + (boxH - extent.y) * 0.5f;
             if (w->justifyV == "TOP")         ty = y0;
             else if (w->justifyV == "BOTTOM") ty = y1 - extent.y;
@@ -1515,7 +1628,8 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 }
             }
             drawMarkupText(dl, font, size, ImVec2(tx, ty),
-                           packColor(textColor, w->alpha), w->alpha, w->text);
+                           packColor(textColor, w->alpha), w->alpha, w->text,
+                           wrapW, w->nonSpaceWrap, w->justifyH.c_str());
         }
     }
 }

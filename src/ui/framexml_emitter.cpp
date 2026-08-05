@@ -685,6 +685,17 @@ struct Emitter {
             line(var + ":SetDrawEdge(" +
                  (node.attrBool("drawEdge") ? "true" : "false") + ")");
         }
+        // Whether a label too long for its box breaks, and whether it may break
+        // inside a word. Thirty-six ask for the second, all of them prose in a
+        // narrow column, and both were dropped along with the wrapping itself.
+        if (node.attr("wordwrap")) {
+            line(var + ":SetWordWrap(" +
+                 (node.attrBool("wordwrap") ? "true" : "false") + ")");
+        }
+        if (node.attr("nonspacewrap")) {
+            line(var + ":SetNonSpaceWrap(" +
+                 (node.attrBool("nonspacewrap") ? "true" : "false") + ")");
+        }
         // The keyboard, on the same principle as the mouse and the wheel: a
         // frame that declares OnKeyDown or OnKeyUp wants keys. Every one that
         // does in FrameXML is a dialog hidden until it is wanted, so nothing

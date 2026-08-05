@@ -67,8 +67,12 @@ private:
     void sizeTooltips(WidgetTree& tree);
 
     /// Draw a string that may carry WoW's inline colour markup, as runs.
+    /// wrapWidth of zero draws one line, which is what an auto-sized label
+    /// and a tooltip row want; a positive one breaks the text to fit.
     void drawMarkupText(ImDrawList* dl, ImFont* font, float size, ImVec2 at,
-                        uint32_t fallback, float alpha, const std::string& text);
+                        uint32_t fallback, float alpha, const std::string& text,
+                        float wrapWidth = 0.0f, bool nonSpaceWrap = false,
+                        const char* justifyH = nullptr);
     void drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
                       float x0, float y0, float x1, float y1);
     void drawStatusBar(ImDrawList* dl, const Widget& w,
