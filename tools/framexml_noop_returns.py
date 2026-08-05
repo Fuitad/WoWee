@@ -126,9 +126,27 @@ def main():
             # Everything on the line before the receiver, not before the call:
             # the receiver sits between the operator and the colon.
             head = text.rfind("\n", 0, m.start()) + 1
-            recv = m.start()
+            recv, depth = m.start(), 0
             while recv > head and (text[recv - 1].isalnum()
                                    or text[recv - 1] in RECEIVER):
+                ch = text[recv - 1]
+                # `.` belongs to a receiver (`a.b:Foo()`) but `..` does not,
+                # and a walk that cannot tell them apart steps over a
+                # concatenation into the assignment beyond it — which is how
+                # `_G["INPUT_"..self:GetInputLanguage()]` read as a value merely
+                # being kept rather than one being concatenated.
+                #
+                # Unless the `..` is inside brackets, where it builds the
+                # receiver's own name and has nothing to do with the call:
+                # `_G["Sparkle"..i.."Highlight"]:SetModelScale(...)` joins
+                # strings to find a frame. Both spellings are everywhere, and a
+                # depth-blind rule reports the second kind as the first.
+                if ch == "]":
+                    depth += 1
+                elif ch == "[":
+                    depth -= 1
+                elif depth == 0 and ch == "." and text[recv - 2:recv] == "..":
+                    break
                 recv -= 1
             before = text[head:recv]
             after = text[end:text.find("\n", end)]

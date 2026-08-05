@@ -2459,6 +2459,24 @@ int lua_FontString_GetFontObject(lua_State* L) {
     return 1;
 }
 
+/// EditBox:GetInputLanguage() → which input method the box is taking text
+/// from, as one of ROMAN, CHINESE, JAPANESE or KOREAN.
+///
+/// Always ROMAN here: this client has no IME, so there is nothing else it could
+/// truthfully be. The answer still has to be a string, because its one caller
+/// concatenates it —
+///
+///     local variable = _G["INPUT_"..self:GetInputLanguage()]
+///
+/// — and nil in a concatenation raises. Only reachable once
+/// OnInputLanguageChanged is fired, which nothing does yet, so this is the
+/// shape being closed rather than a fault being seen.
+int lua_EditBox_GetInputLanguage(lua_State* L) {
+    (void)L;
+    lua_pushstring(L, "ROMAN");
+    return 1;
+}
+
 /// Texture:GetVertexColor() → the tint SetVertexColor last applied.
 ///
 /// White until something says otherwise, which is what an untinted texture
@@ -3785,6 +3803,7 @@ void LuaEngine::registerCoreAPI() {
         {"GetStringHeight", lua_Region_GetTextHeight},
         {"GetFieldSize",    lua_Region_GetFieldSize},
         {"GetVertexColor",  lua_Region_GetVertexColor},
+        {"GetInputLanguage", lua_EditBox_GetInputLanguage},
         {"GetFontObject",   lua_FontString_GetFontObject},
         {"SetMinimumWidth", lua_Frame_SetMinimumWidth},
         {"GetMinimumWidth", lua_Frame_GetMinimumWidth},
@@ -4470,7 +4489,7 @@ void LuaEngine::registerCoreAPI() {
         "GetEffectiveScale=1,GetFileHeight=1,GetFileWidth=1,\n"
         "GetFontString=1,GetFrame=1,GetFrameLevel=1,GetFrameRef=1,\n"
         "GetFrameStrata=1,GetHeight=1,GetHighlightTexture=1,GetHorizontalScroll=1,\n"
-        "GetHorizontalScrollRange=1,GetID=1,GetInputLanguage=1,GetInventorySlot=1,\n"
+        "GetHorizontalScrollRange=1,GetID=1,GetInventorySlot=1,\n"
         "GetItem=1,GetLeft=1,GetLowerEmblemTexture=1,GetMessageInfo=1,\n"
         "GetMinMaxValues=1,GetMousePosition=1,GetName=1,GetNormalTexture=1,GetNumber=1,\n"
         "GetNumChildren=1,GetNumMessages=1,GetNumPoints=1,GetNumTooltips=1,\n"
