@@ -1,5 +1,6 @@
 // lua_unit_api.cpp — Unit query, stats, party/raid, and player state Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include "game/bg_score_defs.hpp"
 #include "addons/lua_api_helpers.hpp"
 
 namespace wowee::addons {
@@ -2433,16 +2434,22 @@ void registerUnitLuaAPI(lua_State* L) {
             const int index = static_cast<int>(luaL_checknumber(L, 1));
             const auto* sb = gh ? gh->getBgScoreboard() : nullptr;
             if (!sb || index < 1) return luaReturnNil(L);
-            for (const auto& p : sb->players) {
-                if (index <= static_cast<int>(p.bgStats.size())) {
-                    const std::string& name = p.bgStats[static_cast<size_t>(index - 1)].first;
-                    lua_pushstring(L, name.c_str());
-                    lua_pushstring(L, "");
-                    lua_pushstring(L, name.c_str());
-                    return 3;
-                }
-            }
-            return luaReturnNil(L);
+            // The label is this client's to supply. BuildObjectivesBlock
+            // sends a count and that many bare numbers, so the name this used
+            // to read out of the row was never on the wire — it was bytes of
+            // the value before it, read as a string.
+            //
+            // Which column is which follows from the map: Warsong sends flags
+            // captured and returned, Alterac Valley five graveyard and tower
+            // counts, Eye of the Storm one. The table is beside the world-state
+            // one it belongs with.
+            const char* label = game::bgObjectiveLabel(
+                gh->getCurrentMapId(), static_cast<size_t>(index - 1));
+            if (!label) return luaReturnNil(L);
+            lua_pushstring(L, label);
+            lua_pushstring(L, "");
+            lua_pushstring(L, label);
+            return 3;
         }},
                 // GetBattlefieldStatData(playerIndex, statIndex) → the value.
                 //
