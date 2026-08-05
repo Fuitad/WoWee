@@ -152,6 +152,15 @@ CHECKS = [
     ("framexml_script_args.py",
      r"^(\d+) body/signature disagreement", 2,
      "handler bodies reading an argument their signature does not carry"),
+    # A dozen things are driven by finding a FrameXML frame by name and
+    # handing it something — the minimap and world map are told where to be,
+    # every portrait and model frame is handed an image rendered for it. A name
+    # matching nothing answers null: no error, no warning, no picture, and a
+    # typo looks exactly like a frame that was never built. Zero, because there
+    # is no reason to look up a name the interface does not have.
+    ("framexml_lookup_names_check.py",
+     r"^(\d+) looked up that the interface does not declare", 0,
+     "frames this client looks up by a name the interface does not declare"),
     # Top-level FrameXML frames named nowhere in framexml_takeover.cpp —
     # neither handed over nor suppressed. Forty-four, and none of them is a
     # double: every name was checked against this client's own UI and none has
