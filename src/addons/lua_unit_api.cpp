@@ -2030,7 +2030,11 @@ filteredBgScores(const game::BgScoreboardData& sb) {
     rows.reserve(sb.players.size());
     const int want = battlefieldScoreFaction();
     for (const auto& p : sb.players) {
-        if (want < 0 || static_cast<int>(p.team) == want) rows.push_back(&p);
+        // A row with no team on the wire cannot be filtered out of a faction
+        // tab — a battleground sends none, so every row shows on both tabs
+        // rather than all of them landing on Horde because zero is Horde.
+        if (want < 0 || !p.hasTeam || static_cast<int>(p.team) == want)
+            rows.push_back(&p);
     }
 
     const std::string& column = battlefieldSortColumn();
@@ -2395,8 +2399,8 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushstring(L, "");                  // race
             lua_pushstring(L, "");                  // class
             lua_pushstring(L, "WARRIOR");           // classToken
-            lua_pushnumber(L, 0);                   // damageDone
-            lua_pushnumber(L, 0);                   // healingDone
+            lua_pushnumber(L, p.damageDone);        // damageDone
+            lua_pushnumber(L, p.healingDone);       // healingDone
             return 12;
         }},
                 // ---- The scoreboard's per-battleground columns ----

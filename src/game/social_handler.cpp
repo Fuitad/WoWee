@@ -3513,67 +3513,13 @@ void SocialHandler::handleArenaError(network::Packet& packet) {
 void SocialHandler::handlePvpLogData(network::Packet& packet) {
     auto remaining = [&]() { return packet.getRemainingSize(); };
     if (remaining() < 1) return;
-    // Diagnostic, once per session, because this parse is under suspicion and
-    // the question cannot be settled by reading either side.
+    // The layout is settled and the dump that asked about it is gone.
     //
-    // AzerothCore writes the per-player block as guid, then six uint32s
-    // (killing blows, honourable kills, deaths, bonus honour, damage, healing),
-    // then an objectives count and that many bare uint32s. This parser expects
-    // a team byte after the guid, no damage or healing, and a null-terminated
-    // name before each objective value — the shape of something written against
-    // a different core. Whichever is right, the other is badly wrong, so the
-    // bytes are dumped rather than guessed at.
-    //
-    // Read it as: 44 bytes for one player with two objectives on AzerothCore's
-    // layout (8 + 24 + 4 + 8), and the trailing values should look like scores
-    // rather than ASCII.
-    static bool dumpedPvpLog = false;
-    if (!dumpedPvpLog) {
-        dumpedPvpLog = true;
-        const size_t total = packet.getRemainingSize();
-        // Straight off the buffer at the current read position, so the parse
-        // below is untouched by the dump.
-        const auto& bytes = packet.getData();
-        const size_t at = packet.getReadPos();
-        std::string hex;
-        const size_t show = total < 64 ? total : 64;
-        for (size_t i = 0; i < show && at + i < bytes.size(); ++i) {
-            char buf[4];
-            std::snprintf(buf, sizeof(buf), "%02x ", bytes[at + i]);
-            hex += buf;
-        }
-        LOG_WARNING("MSG_PVP_LOG_DATA: ", total, " bytes, first ", show, ": ", hex);
-
-        // Decode the header the way AzerothCore writes it and say what player
-        // count that implies. A sane count is the answer: the layout below is
-        // wrong and the one in Battleground.cpp is right.
-        //
-        //   uint8 type, [arena blocks], uint8 ended, [uint8 winner], uint32 count
-        //
-        // Read off the buffer rather than the packet, so nothing is consumed.
-        if (at < bytes.size()) {
-            size_t p = at;
-            const uint8_t acType = bytes[p++];
-            if (acType) p += 2 * 20;              // two rating blocks, two team blocks
-            if (p < bytes.size()) {
-                const uint8_t ended = bytes[p++];
-                if (ended && p < bytes.size()) p++;   // winner
-            }
-            if (p + 4 <= bytes.size()) {
-                uint32_t acCount = 0;
-                for (int i = 3; i >= 0; --i) acCount = (acCount << 8) | bytes[p + i];
-                const size_t forPlayers = total - (p + 4 - at);
-                LOG_WARNING("  AzerothCore reading: type=", static_cast<int>(acType),
-                            " implies ", acCount, " players in ", forPlayers,
-                            " bytes = ", (acCount ? forPlayers / acCount : 0),
-                            " each. AzerothCore's layout is 36 + 4 per objective"
-                            " — 36 with none, 40 with one, 44 with two — so a"
-                            " figure in that family means it is the right one and"
-                            " there is no team byte. One byte more per player"
-                            " means there is.");
-            }
-        }
-    }
+    // The question it existed to answer — whether there is a team byte after
+    // the guid — is answered by the source rather than by a byte count, and the
+    // answer is "in an arena, yes; in a battleground, no". They are two
+    // different rows written by two different overrides, and the type byte at
+    // the top of this packet says which one follows.
     bgScoreboard_ = BgScoreboardData{};
     bgScoreboard_.isArena = (packet.readUInt8() != 0);
     if (bgScoreboard_.isArena) {
@@ -3585,30 +3531,67 @@ void SocialHandler::handlePvpLogData(network::Packet& packet) {
             bgScoreboard_.arenaTeams[t].teamName = remaining() > 0 ? packet.readString() : "";
         }
     }
+    // Ended, and the winner, BEFORE the player count. This was read after the
+    // players, where there is nothing left to read it from.
+    if (remaining() < 1) return;
+    bgScoreboard_.hasWinner = (packet.readUInt8() != 0);
+    if (bgScoreboard_.hasWinner) {
+        if (remaining() < 1) return;
+        bgScoreboard_.winner = packet.readUInt8();
+    }
+
     if (remaining() < 4) return;
     uint32_t playerCount = packet.readUInt32();
     bgScoreboard_.players.reserve(playerCount);
-    for (uint32_t i = 0; i < playerCount && remaining() >= 13; ++i) {
+    for (uint32_t i = 0; i < playerCount && remaining() >= 12; ++i) {
         BgPlayerScore ps;
-        ps.guid = packet.readUInt64(); ps.team = packet.readUInt8();
-        ps.killingBlows = packet.readUInt32(); ps.honorableKills = packet.readUInt32();
-        ps.deaths = packet.readUInt32(); ps.bonusHonor = packet.readUInt32();
+        ps.guid = packet.readUInt64();
+        // Two different rows, and the type byte at the top says which.
+        //
+        // BattlegroundScore::AppendToPacket — killing blows, honourable kills,
+        // deaths, bonus honour, damage, healing. No team.
+        // ArenaScore::AppendToPacket — killing blows, a team BYTE, damage,
+        // healing. No honourable kills, deaths or honour at all.
+        //
+        // This read one row that was neither: a team byte from the arena
+        // shape followed by the battleground's four counters, then a stat block
+        // with null-terminated names that no core writes. Everything after the
+        // guid was off by a byte, and damage and healing were skipped entirely
+        // — which is why GetBattlefieldScore answered zero for both.
+        ps.killingBlows = packet.readUInt32();
+        if (bgScoreboard_.isArena) {
+            if (remaining() < 1) { bgScoreboard_.players.push_back(std::move(ps)); break; }
+            ps.team = packet.readUInt8();
+            ps.hasTeam = true;
+        } else {
+            if (remaining() < 12) { bgScoreboard_.players.push_back(std::move(ps)); break; }
+            ps.honorableKills = packet.readUInt32();
+            ps.deaths         = packet.readUInt32();
+            ps.bonusHonor     = packet.readUInt32();
+            // No team on the wire for a battleground. The byte that used to
+            // fill this was the low byte of the killing blows, so the faction
+            // tabs were already filtering on nothing; leaving it unset is the
+            // same amount of information, honestly labelled.
+        }
+        if (remaining() < 8) { bgScoreboard_.players.push_back(std::move(ps)); break; }
+        ps.damageDone  = packet.readUInt32();
+        ps.healingDone = packet.readUInt32();
+
         { auto ent = owner_.getEntityManager().getEntity(ps.guid);
           if (ent && (ent->getType() == game::ObjectType::PLAYER || ent->getType() == game::ObjectType::UNIT))
               { auto u = std::static_pointer_cast<game::Unit>(ent); if (!u->getName().empty()) ps.name = u->getName(); } }
-        if (remaining() < 4) { bgScoreboard_.players.push_back(std::move(ps)); break; }
-        uint32_t statCount = packet.readUInt32();
-        for (uint32_t s = 0; s < statCount && remaining() >= 5; ++s) {
-            std::string fieldName;
-            while (remaining() > 0) { char c = static_cast<char>(packet.readUInt8()); if (c == '\0') break; fieldName += c; }
-            uint32_t val = (remaining() >= 4) ? packet.readUInt32() : 0;
-            ps.bgStats.emplace_back(std::move(fieldName), val);
+
+        // BuildObjectivesBlock: a count and that many bare values. The names
+        // this used to read are not on the wire — BattlegroundWS writes
+        // uint32(2) and two numbers — so every value past the first came from
+        // the wrong offset.
+        if (remaining() >= 4) {
+            uint32_t statCount = packet.readUInt32();
+            for (uint32_t st = 0; st < statCount && remaining() >= 4; ++st) {
+                ps.bgStats.emplace_back(std::string(), packet.readUInt32());
+            }
         }
         bgScoreboard_.players.push_back(std::move(ps));
-    }
-    if (remaining() >= 1) {
-        bgScoreboard_.hasWinner = (packet.readUInt8() != 0);
-        if (bgScoreboard_.hasWinner && remaining() >= 1) bgScoreboard_.winner = packet.readUInt8();
     }
     // The scoreboard is drawn from this and asked for it by name —
     // RequestBattlefieldScoreData sends the query, UPDATE_BATTLEFIELD_SCORE is
