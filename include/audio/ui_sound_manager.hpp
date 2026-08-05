@@ -35,6 +35,11 @@ public:
     /// the caller can fall back rather than going silent.
     bool playByName(const std::string& soundName);
 
+    /// Play a sound by path, which is what PlaySoundFile takes. Cached the
+    /// same way and by the same store: a path and a name are both just keys,
+    /// and nothing can be both.
+    bool playFile(const std::string& path);
+
     // Volume control
     void setVolumeScale(float scale);
     float getVolumeScale() const { return volumeScale_; }

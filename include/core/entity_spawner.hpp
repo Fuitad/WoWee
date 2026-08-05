@@ -5,6 +5,7 @@
 #include "pipeline/blp_loader.hpp"
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 #include <deque>
 #include <unordered_map>
@@ -114,6 +115,19 @@ public:
     bool areCreatureLookupsBuilt() const { return creatureLookupsBuilt_; }
     bool areGameObjectLookupsBuilt() const { return gameObjectLookupsBuilt_; }
     std::string getModelPathForDisplayId(uint32_t displayId) const;
+    /// The skin textures a creature display wears, by M2 texture type — 11,
+    /// 12 and 13 are skin1, skin2 and skin3 in CreatureDisplayInfo.dbc.
+    ///
+    /// A creature's M2 does not name these: the model declares the slots and
+    /// the display row fills them, which is how one model serves a dozen
+    /// recolours. Anything loading a creature model outside the spawner needs
+    /// them too, or it draws an untextured shape — which is what the target
+    /// frame's portrait did until this was shared.
+    ///
+    /// Paths are resolved against the model's own directory, and only ones the
+    /// install actually has are returned.
+    std::vector<std::pair<uint32_t, std::string>>
+    getCreatureSkinPaths(uint32_t displayId, const std::string& modelPath) const;
     std::string getGameObjectModelPathForDisplayId(uint32_t displayId) const;
 
     /// The hull a transport is drawn with, or "" to use the display lookup.

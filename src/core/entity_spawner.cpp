@@ -1043,6 +1043,65 @@ EntitySpawner::getOrLoadAttachmentModel(const std::vector<std::string>& candidat
     return CachedAttachmentModel{idIt->second, std::move(model)};
 }
 
+std::vector<std::pair<uint32_t, std::string>>
+EntitySpawner::getCreatureSkinPaths(uint32_t displayId,
+                                    const std::string& modelPath) const {
+    std::vector<std::pair<uint32_t, std::string>> out;
+    if (!assetManager_) return out;
+    auto it = displayDataMap_.find(displayId);
+    if (it == displayDataMap_.end()) return out;
+
+    std::string modelDir;
+    if (const size_t slash = modelPath.rfind('\\'); slash != std::string::npos) {
+        modelDir = modelPath.substr(0, slash + 1);
+    }
+
+    // Same resolution the spawner makes: the field may carry a directory or
+    // not, and may carry the extension or not.
+    auto resolve = [&](const std::string& skinField) -> std::string {
+        if (skinField.empty()) return "";
+        std::string raw = skinField;
+        std::replace(raw.begin(), raw.end(), '/', '\\');
+        auto isSpace = [](unsigned char c) { return std::isspace(c) != 0; };
+        raw.erase(raw.begin(), std::find_if(raw.begin(), raw.end(),
+                  [&](unsigned char c) { return !isSpace(c); }));
+        raw.erase(std::find_if(raw.rbegin(), raw.rend(),
+                  [&](unsigned char c) { return !isSpace(c); }).base(), raw.end());
+        if (raw.empty()) return "";
+
+        std::string lower = raw;
+        std::transform(lower.begin(), lower.end(), lower.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        const bool hasExt = lower.size() >= 4 &&
+                            lower.compare(lower.size() - 4, 4, ".blp") == 0;
+        const bool hasDir = raw.find('\\') != std::string::npos;
+
+        std::vector<std::string> candidates;
+        if (hasDir) {
+            candidates.push_back(raw);
+            if (!hasExt) candidates.push_back(raw + ".blp");
+        } else {
+            candidates.push_back(modelDir + raw);
+            if (!hasExt) candidates.push_back(modelDir + raw + ".blp");
+            candidates.push_back(raw);
+            if (!hasExt) candidates.push_back(raw + ".blp");
+        }
+        for (const std::string& c : candidates) {
+            if (assetManager_->fileExists(c)) return c;
+        }
+        return "";
+    };
+
+    const std::pair<uint32_t, const std::string*> kSkins[] = {
+        {11u, &it->second.skin1}, {12u, &it->second.skin2}, {13u, &it->second.skin3},
+    };
+    for (const auto& [texType, field] : kSkins) {
+        std::string path = resolve(*field);
+        if (!path.empty()) out.emplace_back(texType, std::move(path));
+    }
+    return out;
+}
+
 void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float x, float y, float z, float orientation, float scale) {
     if (!renderer_ || !renderer_->getCharacterRenderer() || !assetManager_) return;
 

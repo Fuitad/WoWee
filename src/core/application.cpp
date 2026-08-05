@@ -3426,8 +3426,10 @@ void Application::render() {
                             sizeFor(*cm.model, frame);
                             cm.model->setFraming(ui::UnitPortrait::Framing::FullBody);
                             shown = cm.model->updateCreature(
-                                modelPath, assetManager.get(), renderer.get(),
-                                io.DeltaTime);
+                                modelPath,
+                                entitySpawner_->getCreatureSkinPaths(
+                                    frame->modelDisplayId, modelPath),
+                                assetManager.get(), renderer.get(), io.DeltaTime);
                         }
                     }
                     if (frame) {
@@ -3447,12 +3449,13 @@ void Application::render() {
                     bool shown = false;
                     if (petModel && petModel->visible) {
                         std::string modelPath;
+                        uint32_t petDisplayId = 0;
                         if (const uint64_t petGuid = gameHandler->getPetGuid()) {
                             if (game::Unit* u = gameHandler->getUnitByGuid(petGuid)) {
-                                if (const uint32_t displayId = u->getDisplayId();
-                                    displayId != 0 && entitySpawner_) {
+                                petDisplayId = u->getDisplayId();
+                                if (petDisplayId != 0 && entitySpawner_) {
                                     modelPath =
-                                        entitySpawner_->getModelPathForDisplayId(displayId);
+                                        entitySpawner_->getModelPathForDisplayId(petDisplayId);
                                 }
                             }
                         }
@@ -3460,8 +3463,9 @@ void Application::render() {
                             sizeFor(petModel_, petModel);
                             petModel_.setFraming(ui::UnitPortrait::Framing::FullBody);
                             shown = petModel_.updateCreature(
-                                modelPath, assetManager.get(), renderer.get(),
-                                io.DeltaTime);
+                                modelPath,
+                                entitySpawner_->getCreatureSkinPaths(petDisplayId, modelPath),
+                                assetManager.get(), renderer.get(), io.DeltaTime);
                         }
                     }
                     if (petModel) {
@@ -3647,8 +3651,9 @@ void Application::render() {
                         }
                         if (!modelPath.empty()) {
                             built = face.portrait->updateCreature(
-                                modelPath, assetManager.get(), renderer.get(),
-                                io.DeltaTime);
+                                modelPath,
+                                entitySpawner_->getCreatureSkinPaths(displayId, modelPath),
+                                assetManager.get(), renderer.get(), io.DeltaTime);
                         }
                     }
                     const uint64_t drawn = built ? face.portrait->textureId() : 0;

@@ -180,7 +180,20 @@ static int lua_PlaySound(lua_State* L) {
 }
 
 // PlaySoundFile(path) — stub (file-based sounds not loaded from Lua)
-static int lua_PlaySoundFile(lua_State* L) { (void)L; return 0; }
+/// PlaySoundFile(path) — a sound named by where it lives rather than by a
+/// SoundEntries row.
+///
+/// One caller in the interface, on the login screen, and a great many in
+/// addons: it is how an addon ships a sound of its own. Reads and caches the
+/// same way PlaySound does, because a path and a name are both just keys.
+static int lua_PlaySoundFile(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    auto* ac = svc ? svc->audioCoordinator : nullptr;
+    auto* sfx = ac ? ac->getUiSoundManager() : nullptr;
+    const char* path = luaL_optstring(L, 1, "");
+    if (sfx && path && *path) sfx->playFile(path);
+    return 0;
+}
 
 static int lua_GetPlayerMapPosition(lua_State* L) {
     auto* gh = getGameHandler(L);

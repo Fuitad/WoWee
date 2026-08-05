@@ -7,6 +7,7 @@
 #include <memory>
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -41,7 +42,12 @@ public:
 
     /// Any model by path, with none of the appearance work — for a creature,
     /// whose M2 names its own textures and has no geosets to choose between.
-    bool loadCreature(const std::string& m2Path);
+    /// skins are (M2 texture type, path) pairs — a creature's model declares
+    /// texture slots and the display row fills them, so the M2 alone is an
+    /// untextured shape. EntitySpawner::getCreatureSkinPaths answers with
+    /// exactly this.
+    bool loadCreature(const std::string& m2Path,
+                      const std::vector<std::pair<uint32_t, std::string>>& skins = {});
 
     // Apply equipment overlays/geosets using SMSG_CHAR_ENUM equipment data (ItemDisplayInfo.dbc).
     bool applyEquipment(const std::vector<game::EquipmentItem>& equipment);

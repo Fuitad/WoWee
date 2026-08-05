@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace wowee {
@@ -71,7 +72,9 @@ public:
     /// functions sharing a name.
     ///
     /// Reloads only when the path changes, so this is safe every frame.
-    bool updateCreature(const std::string& m2Path, pipeline::AssetManager* assets,
+    bool updateCreature(const std::string& m2Path,
+                        const std::vector<std::pair<uint32_t, std::string>>& skins,
+                        pipeline::AssetManager* assets,
                         rendering::Renderer* renderer, float deltaTime);
 
     /// Set before the first update, since framing is applied when the model

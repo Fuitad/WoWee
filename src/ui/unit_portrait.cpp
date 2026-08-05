@@ -167,6 +167,7 @@ bool UnitPortrait::updatePlayer(uint8_t race, uint8_t gender,
 }
 
 bool UnitPortrait::updateCreature(const std::string& m2Path,
+                                  const std::vector<std::pair<uint32_t, std::string>>& skins,
                                   pipeline::AssetManager* assets,
                                   rendering::Renderer* renderer,
                                   float deltaTime) {
@@ -188,7 +189,7 @@ bool UnitPortrait::updateCreature(const std::string& m2Path,
         // Declared before the model loads, so the racial backdrop is never
         // built in the first place — the same order loadCharacter needs.
         preview_->setTransparentBackground(true);
-        if (preview_->loadCreature(m2Path)) {
+        if (preview_->loadCreature(m2Path, skins)) {
             if (framing_ == Framing::Face) {
                 preview_->setPortraitFraming();
             } else {

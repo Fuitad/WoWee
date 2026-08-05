@@ -1085,7 +1085,9 @@ bool CharacterPreview::applyEquipment(const std::vector<game::EquipmentItem>& eq
 ///
 /// The renderer is the one that already draws every unit in the world, so a
 /// creature model needs nothing here that the world does not already do.
-bool CharacterPreview::loadCreature(const std::string& m2Path) {
+bool CharacterPreview::loadCreature(
+        const std::string& m2Path,
+        const std::vector<std::pair<uint32_t, std::string>>& skins) {
     if (!charRenderer_ || !assetManager_ || !assetManager_->isInitialized()) {
         return false;
     }
@@ -1140,6 +1142,22 @@ bool CharacterPreview::loadCreature(const std::string& m2Path) {
     if (instanceId_ == 0) {
         LOG_WARNING("CharacterPreview: failed to create creature instance");
         return false;
+    }
+
+    // The display's skins, into the slots the model declared for them. Without
+    // this the geometry draws with no texture at all, which is what the target
+    // frame's portrait showed: a white shape in the right silhouette.
+    if (const auto* data = charRenderer_->getModelData(PREVIEW_MODEL_ID)) {
+        for (size_t ti = 0; ti < data->textures.size(); ++ti) {
+            for (const auto& [texType, path] : skins) {
+                if (data->textures[ti].type != texType) continue;
+                if (VkTexture* tex = charRenderer_->loadTexture(path)) {
+                    charRenderer_->setModelTexture(PREVIEW_MODEL_ID,
+                                                   static_cast<uint32_t>(ti), tex);
+                }
+                break;
+            }
+        }
     }
 
     // No geoset selection: a creature shows every submesh its skin declares,

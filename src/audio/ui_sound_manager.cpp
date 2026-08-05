@@ -263,6 +263,23 @@ bool UiSoundManager::playByName(const std::string& soundName) {
                                                0.7f * volumeScale_, 1.0f);
 }
 
+bool UiSoundManager::playFile(const std::string& path) {
+    if (!initialized_ || path.empty() || !assets_) return false;
+
+    auto cached = namedSamples_.find(path);
+    if (cached == namedSamples_.end()) {
+        UISample sample;
+        sample.loaded = false;
+        loadSound(path, sample, assets_);
+        // Remembered either way, so a path this install does not have is read
+        // for once rather than on every call.
+        cached = namedSamples_.emplace(path, std::move(sample)).first;
+    }
+    if (!cached->second.loaded) return false;
+    return AudioEngine::instance().playSound2D(cached->second.data,
+                                               0.7f * volumeScale_, 1.0f);
+}
+
 void UiSoundManager::playSound(const std::vector<UISample>& library) {
     if (!initialized_ || library.empty() || !library[0].loaded) return;
 
