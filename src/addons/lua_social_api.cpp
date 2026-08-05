@@ -978,6 +978,58 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"SignPetition",        lua_SignPetition},
                 {"OfferPetition",       lua_OfferPetition},
                 {"ClosePetition",       lua_ClosePetition},
+                // --- Arena team invitations, and disbanding one ---
+                //
+                // All three sit on a static popup's buttons, so each was a
+                // raise on the click rather than on the window: the invite
+                // arrived, the dialog appeared, and answering it took the
+                // interface down. Accept and decline carry no payload; the
+                // server answers from the invite it is already holding.
+                {"AcceptArenaTeam", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->acceptArenaTeamInvite();
+            return 0;
+        }},
+                {"DeclineArenaTeam", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->declineArenaTeamInvite();
+            return 0;
+        }},
+                {"ArenaTeamDisband", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L))
+                gh->disbandArenaTeam(static_cast<uint32_t>(luaL_optnumber(L, 1, 0)));
+            return 0;
+        }},
+                // DeclineInvite(name) — the group invite popup's Decline.
+                // The same refusal DeclineGroup sends; the name is which
+                // invite the dialog was showing, and this client only ever
+                // holds one.
+                {"DeclineInvite",       lua_DeclineGroup},
+                // ComplainInboxItem(index) — reporting a mail as spam.
+                //
+                // Type 0 is mail, and the three values after the sender are
+                // the ones the server logs and ignores: a zero, the mail's own
+                // id, and another zero.
+                {"ComplainInboxItem", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0)) - 1;
+            if (!gh) return 0;
+            const auto& inbox = gh->getMailInbox();
+            if (index < 0 || index >= static_cast<int>(inbox.size())) return 0;
+            gh->reportMailSpam(inbox[index].senderGuid, inbox[index].messageId);
+            return 0;
+        }},
+                // ComplainChat(lineID) — reporting a chat line as spam.
+                //
+                // The line id is a chat frame's own numbering for a message it
+                // is still holding, and this client keeps no such number: the
+                // report would have to name the sender, the language, the
+                // channel and the text, and none of that can be recovered from
+                // an id nothing recorded. Sending it with a zero guid would
+                // report nobody, which is worse than not sending — so this
+                // takes the click and does nothing, and the popup closes.
+                {"ComplainChat", [](lua_State* L) -> int {
+            (void)L;
+            return 0;
+        }},
                 // The petition *vendor* — the guild master or arena
                 // registrar offering a charter — as opposed to the charter
                 // itself, which ClosePetition above shuts. Both windows read

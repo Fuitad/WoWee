@@ -3232,6 +3232,13 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetLootSlotInfo",     lua_GetLootSlotInfo},
                 {"GetLootSlotLink",     lua_GetLootSlotLink},
                 {"LootSlot",            lua_LootSlot},
+                // ConfirmLootSlot(slot) — the Accept on "this will bind to
+                // you". The dialog is raised from LOOT_BIND_CONFIRM and its
+                // button asks for the same slot again; the server takes the
+                // repeat as the confirmation. Unbound, the prompt appeared and
+                // its Accept raised, so a bind-on-pickup item could be seen and
+                // not taken.
+                {"ConfirmLootSlot",     lua_LootSlot},
                 {"SplitContainerItem",  lua_SplitContainerItem},
                 {"BankButtonIDToInvSlotID", lua_BankButtonIDToInvSlotID},
                 {"CloseBankFrame",      lua_CloseBankFrame},

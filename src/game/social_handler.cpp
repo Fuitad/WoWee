@@ -1686,6 +1686,38 @@ void SocialHandler::declineGroupInvite() {
     owner_.getSocket()->send(packet);
 }
 
+void SocialHandler::acceptArenaTeamInvite() {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_ARENA_TEAM_ACCEPT));
+    owner_.getSocket()->send(packet);
+}
+
+void SocialHandler::declineArenaTeamInvite() {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_ARENA_TEAM_DECLINE));
+    owner_.getSocket()->send(packet);
+}
+
+void SocialHandler::disbandArenaTeam(uint32_t teamId) {
+    if (teamId == 0) return;
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_ARENA_TEAM_DISBAND));
+    packet.writeUInt32(teamId);
+    owner_.getSocket()->send(packet);
+}
+
+void SocialHandler::reportMailSpam(uint64_t senderGuid, uint32_t mailId) {
+    if (senderGuid == 0) return;
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_COMPLAIN));
+    packet.writeUInt8(0);              // 0 = mail, 1 = chat
+    packet.writeUInt64(senderGuid);
+    packet.writeUInt32(0);
+    packet.writeUInt32(mailId);
+    packet.writeUInt32(0);
+    owner_.getSocket()->send(packet);
+}
+
 void SocialHandler::leaveGroup() {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     auto packet = GroupDisbandPacket::build();

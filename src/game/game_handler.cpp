@@ -3246,6 +3246,30 @@ bool GameHandler::hasPetitionShowlist() const {
     return socialHandler_ ? socialHandler_->hasPetitionShowlist() : false;
 }
 
+void GameHandler::removeGlyphFromSocket(uint32_t slot) {
+    if (slot >= MAX_GLYPH_SLOTS) return;
+    if (getState() != WorldState::IN_WORLD || !getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_REMOVE_GLYPH));
+    packet.writeUInt32(slot);
+    getSocket()->send(packet);
+}
+
+void GameHandler::acceptArenaTeamInvite() {
+    if (socialHandler_) socialHandler_->acceptArenaTeamInvite();
+}
+
+void GameHandler::declineArenaTeamInvite() {
+    if (socialHandler_) socialHandler_->declineArenaTeamInvite();
+}
+
+void GameHandler::disbandArenaTeam(uint32_t teamId) {
+    if (socialHandler_) socialHandler_->disbandArenaTeam(teamId);
+}
+
+void GameHandler::reportMailSpam(uint64_t senderGuid, uint32_t mailId) {
+    if (socialHandler_) socialHandler_->reportMailSpam(senderGuid, mailId);
+}
+
 void GameHandler::closePetitionVendor() {
     if (socialHandler_) socialHandler_->closePetitionVendor();
 }

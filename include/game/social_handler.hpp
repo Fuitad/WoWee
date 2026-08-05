@@ -223,6 +223,16 @@ public:
     void inviteToGroup(const std::string& playerName);
     void acceptGroupInvite();
     void declineGroupInvite();
+
+    // ---- Arena team invitations ----
+    // Accept and decline carry no payload: the server answers from the invite
+    // it is already holding against this character.
+    void acceptArenaTeamInvite();
+    void declineArenaTeamInvite();
+    void disbandArenaTeam(uint32_t teamId);
+    /// Report a mail as spam. Type 0 of CMSG_COMPLAIN; the three values after
+    /// the sender are a zero, the mail's own id, and another zero.
+    void reportMailSpam(uint64_t senderGuid, uint32_t mailId);
     void leaveGroup();
     void convertToRaid();
     void sendSetLootMethod(uint32_t method, uint32_t threshold, uint64_t masterLooterGuid);

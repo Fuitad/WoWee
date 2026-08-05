@@ -731,6 +731,12 @@ public:
     bool hasGuildInfoData() const;
     bool hasPetitionShowlist() const;
     void closePetitionVendor();
+    void acceptArenaTeamInvite();
+    void declineArenaTeamInvite();
+    void disbandArenaTeam(uint32_t teamId);
+    void reportMailSpam(uint64_t senderGuid, uint32_t mailId);
+    /// Take the glyph out of a socket. Zero-based slot, as the server counts.
+    void removeGlyphFromSocket(uint32_t slot);
     void clearPetitionDialog() { showPetitionDialog_ = false; }
     uint32_t getPetitionCost() const;
     uint64_t getPetitionNpcGuid() const;

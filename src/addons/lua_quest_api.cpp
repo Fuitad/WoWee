@@ -2264,6 +2264,19 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"IsQuestCompletable",   lua_IsQuestCompletable},
                 {"GetQuestReward",       lua_GetQuestReward},
                 {"CloseQuest",           lua_CloseQuest},
+                // RemoveGlyphFromSocket(socket) — the Accept on the "remove
+                // this glyph?" popup, which is the only way to clear a socket.
+                // Unbound, the dialog appeared and answering it raised, so a
+                // glyph could be put in and never taken out.
+                //
+                // FrameXML counts sockets from one and the server from zero.
+                {"RemoveGlyphFromSocket", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int socket = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (gh && socket >= 1 && socket <= game::GameHandler::MAX_GLYPH_SLOTS)
+                gh->removeGlyphFromSocket(static_cast<uint32_t>(socket - 1));
+            return 0;
+        }},
                 {"GetNumGlyphSockets", [](lua_State* L) -> int {
             lua_pushnumber(L, game::GameHandler::MAX_GLYPH_SLOTS);
             return 1;
