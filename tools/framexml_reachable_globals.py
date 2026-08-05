@@ -80,10 +80,22 @@ bound = globals_provided() | widget_methods_provided()
 
 # Every FrameXML function body, and the file it lives in.
 bodies, defined = {}, set()
+# Names a file declares as its own locals, kept per file rather than pooled.
+# A local is not a global, and calling one is not a missing binding —
+# blizzard_auctiondressup opens with `local DressUpItemLink_orig =
+# DressUpItemLink` and calls it later, which read as a call to a global
+# nothing answers and was the last non-glue entry in a report headed "these
+# raise". Per file because a local in one is nothing in another, and pooling
+# them would hide a genuinely missing global that shares a name.
+locals_by_file = {}
 for p in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
     t = strip(p.read_text(errors="ignore"))
     defined |= set(re.findall(r"\bfunction\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", t))
     defined |= set(re.findall(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*", t, re.M))
+    mine = set(re.findall(r"\blocal\s+function\s+([A-Za-z_][A-Za-z0-9_]*)", t))
+    for group in re.findall(r"\blocal\s+([\w,\s]+?)\s*=", t):
+        mine |= {n.strip() for n in group.split(",") if n.strip()}
+    locals_by_file[p.name] = mine
     for m in re.finditer(r"\bfunction\s+([A-Za-z_][A-Za-z0-9_]*)\s*\((.*?)\nend", t, re.S):
         bodies[m.group(1)] = (p.name, m.group(2))
 
@@ -99,7 +111,8 @@ carriers = {}
 for fn, (fname, body) in bodies.items():
     for m in re.finditer(r"(?<![\w.:])([A-Z][A-Za-z0-9_]*)\s*\(", body):
         n = m.group(1)
-        if n not in bound and n not in defined and n not in LUA:
+        if (n not in bound and n not in defined and n not in LUA
+                and n not in locals_by_file.get(fname, ())):
             carriers.setdefault(fn, set()).add(n)
 
 # Who calls whom.
