@@ -467,22 +467,6 @@ static int lua_CancelDuel(lua_State* L) {
 // hated starts at -42000 and exalted at 42000, with the rest between.
 namespace {
 
-/// The standing a value falls in, as the interface wants it: the band's number
-/// and the ends of the bar drawn for it. The thresholds themselves live in
-/// game/reputation_standing.hpp, shared with the panel this client draws.
-struct Standing {
-    int id = 4;
-    int32_t barMin = 0;
-    int32_t barMax = 3000;
-};
-
-Standing standingFor(int32_t value) {
-    const auto& band = game::reputationStandingFor(value);
-    // The bar's top is one past the last value still at this standing, so a
-    // faction sitting at the ceiling reads as full rather than as over.
-    return {band.id, band.floor, band.ceiling + 1};
-}
-
 /// Which row the panel has selected. The client has no opinion — it is what
 /// the player last clicked — so it lives here rather than being invented.
 int& selectedFaction() {
@@ -1711,30 +1695,7 @@ void registerSocialLuaAPI(lua_State* L) {
             if (!gh || index < 1) { return luaReturnNil(L); }
             const auto& list = gh->getReputationList();
             if (index > static_cast<int>(list.size())) { return luaReturnNil(L); }
-            const auto& f = list[index - 1];
-
-            const int32_t value = gh->getFactionStanding(f.factionId);
-            const Standing s = standingFor(value);
-            const bool atWar = (f.flags & game::GameHandler::FACTION_FLAG_AT_WAR) != 0;
-            const bool peaceForced =
-                (f.flags & game::GameHandler::FACTION_FLAG_PEACE_FORCED) != 0;
-
-            lua_pushstring(L, f.name.c_str());
-            lua_pushstring(L, "");            // description: not in the data here
-            lua_pushnumber(L, s.id);
-            lua_pushnumber(L, s.barMin);
-            lua_pushnumber(L, s.barMax);
-            lua_pushnumber(L, value);
-            lua_pushboolean(L, atWar ? 1 : 0);
-            lua_pushboolean(L, peaceForced ? 0 : 1);   // canToggleAtWar
-            lua_pushboolean(L, 0);            // isHeader
-            lua_pushboolean(L, 0);            // isCollapsed
-            lua_pushboolean(L, 1);            // hasRep
-            // Was a flat zero while the client tracked the watched faction all
-            // along, so the reputation tab never marked the bar it is showing.
-            lua_pushboolean(L, f.factionId == gh->getWatchedFactionId() ? 1 : 0);
-            lua_pushboolean(L, 0);            // isChild
-            return 13;
+            return pushFactionInfo(L, gh, list[index - 1]);
         }},
                 // The reputation tab's controls. Every one of these has a verb
                 // on GameHandler and none had a binding, so the tab could show

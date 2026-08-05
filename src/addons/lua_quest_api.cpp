@@ -55,23 +55,20 @@ static int lua_GetQuestRewardTitle(lua_State* L) { (void)L; return luaReturnNil(
 static int lua_ProcessQuestLogRewardFactions(lua_State* L) { (void)L; return 0; }
 static int lua_GetQuestLogRewardFactionInfo(lua_State* L) { (void)L; return luaReturnNil(L); }
 
-// GetFactionInfoByID(id) → name, description, standingId, barMin, barMax, barValue
+// GetFactionInfoByID(id) — the same thirteen values GetFactionInfo gives by
+// position, found by faction id instead. The reputation list carries the id
+// already.
 //
-// The same answer GetFactionInfo gives by position, found by faction id
-// instead. The reputation list carries the id already.
+// This used to answer a name and five nils. The quest reward panel reads the
+// ninth and eleventh — isHeader and hasRep — to decide whether to print a
+// reputation line, and got nil for both; it survived only because `not nil` is
+// true and the test happens to fall the right way.
 static int lua_GetFactionInfoByID(lua_State* L) {
     auto* gh = getGameHandler(L);
     const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
     if (!gh || id == 0) return luaReturnNil(L);
     for (const auto& r : gh->getReputationList()) {
-        if (r.factionId != id) continue;
-        lua_pushstring(L, r.name.c_str());   // 1: name
-        lua_pushnil(L);                      // 2: description
-        lua_pushnil(L);                      // 3: standingId
-        lua_pushnil(L);                      // 4: barMin
-        lua_pushnil(L);                      // 5: barMax
-        lua_pushnil(L);                      // 6: barValue
-        return 6;
+        if (r.factionId == id) return pushFactionInfo(L, gh, r);
     }
     return luaReturnNil(L);
 }

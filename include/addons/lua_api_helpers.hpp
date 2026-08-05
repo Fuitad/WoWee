@@ -12,6 +12,7 @@
 #include "game/game_handler.hpp"
 #include "game/entity.hpp"
 #include "game/update_field_table.hpp"
+#include "game/reputation_standing.hpp"
 #include "core/logger.hpp"
 #include "core/app_clock.hpp"
 #include "ui/widget_tree.hpp"
@@ -238,6 +239,39 @@ inline QuestSpecialItem questSpecialItemAt(game::GameHandler* gh, int questIndex
         }
     }
     return found;
+}
+
+/// The thirteen values GetFactionInfo and GetFactionInfoByID both answer with.
+///
+/// Two bindings ask the same question — one by position in the reputation list,
+/// the other by faction id — and only the by-position one was answered in full.
+/// The by-id one pushed a name and five nils, which is the shape that goes
+/// unnoticed: a caller reading position nine or eleven gets nil, nil is falsy,
+/// and the branch it guards silently takes the other path.
+inline int pushFactionInfo(lua_State* L, game::GameHandler* gh,
+                           const game::GameHandler::ReputationEntry& f) {
+    const int32_t value = gh->getFactionStanding(f.factionId);
+    const auto& band = game::reputationStandingFor(value);
+    const bool atWar = (f.flags & game::GameHandler::FACTION_FLAG_AT_WAR) != 0;
+    const bool peaceForced =
+        (f.flags & game::GameHandler::FACTION_FLAG_PEACE_FORCED) != 0;
+
+    lua_pushstring(L, f.name.c_str());                          // 1: name
+    lua_pushstring(L, "");                                      // 2: description
+    lua_pushnumber(L, band.id);                                 // 3: standingId
+    lua_pushnumber(L, band.floor);                              // 4: barMin
+    // The bar's top is one past the last value still at this standing, so a
+    // faction sitting at the ceiling reads as full rather than as over.
+    lua_pushnumber(L, band.ceiling + 1);                        // 5: barMax
+    lua_pushnumber(L, value);                                   // 6: barValue
+    lua_pushboolean(L, atWar ? 1 : 0);                          // 7: atWarWith
+    lua_pushboolean(L, peaceForced ? 0 : 1);                    // 8: canToggleAtWar
+    lua_pushboolean(L, 0);                                      // 9: isHeader
+    lua_pushboolean(L, 0);                                      // 10: isCollapsed
+    lua_pushboolean(L, 1);                                      // 11: hasRep
+    lua_pushboolean(L, f.factionId == gh->getWatchedFactionId() ? 1 : 0);  // 12: isWatched
+    lua_pushboolean(L, 0);                                      // 13: isChild
+    return 13;
 }
 
 // Resolve unit IDs (player, target, focus, mouseover, pet, targettarget, etc.) to entity
