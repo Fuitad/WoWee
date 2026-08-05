@@ -1086,23 +1086,44 @@ void GameHandler::registerOpcodeHandlers() {
         (void)pendingMapId;
     };
     dispatchTable_[Opcode::SMSG_TRANSFER_ABORTED] = [this](network::Packet& packet) {
-        uint32_t mapId = packet.readUInt32();
-        uint8_t reason = (packet.hasData()) ? packet.readUInt8() : 0;
-        (void)mapId;
+        // uint32 mapId + uint8 reason, and a further uint8 for exactly three of
+        // them — the expansion level, the difficulty and the unique message.
+        //
+        // Every code from 0x01 on named the wrong failure. The table here was
+        // shifted against Player.h's own enum: 0x02 is a full instance and was
+        // read as a missing expansion, 0x06 is an encounter in progress and was
+        // read as a full instance, 0x07 is the missing expansion and was read
+        // as the encounter. Nothing above 0x09 was known at all, which
+        // includes the one a map refusing entry outright sends.
+        //
+        // So a refusal always said something, and what it said was not why.
+        if (!packet.hasRemaining(4)) { packet.skipAll(); return; }
+        /*uint32_t mapId =*/ packet.readUInt32();
+        const uint8_t reason = packet.hasRemaining(1) ? packet.readUInt8() : 0;
         const char* abortMsg = nullptr;
         switch (reason) {
-            case 0x01: abortMsg = "Transfer aborted: difficulty unavailable."; break;
-            case 0x02: abortMsg = "Transfer aborted: expansion required."; break;
+            case 0x01: abortMsg = "Transfer aborted: an error occurred."; break;
+            case 0x02: abortMsg = "Transfer aborted: instance is full."; break;
             case 0x03: abortMsg = "Transfer aborted: instance not found."; break;
-            case 0x04: abortMsg = "Transfer aborted: too many instances. Please wait before entering a new instance."; break;
-            case 0x06: abortMsg = "Transfer aborted: instance is full."; break;
-            case 0x07: abortMsg = "Transfer aborted: zone is in combat."; break;
-            case 0x08: abortMsg = "Transfer aborted: you are already in this instance."; break;
-            case 0x09: abortMsg = "Transfer aborted: not enough players."; break;
+            case 0x04: abortMsg = "You have entered too many instances recently."; break;
+            case 0x06: abortMsg = "Unable to zone in while an encounter is in progress."; break;
+            case 0x07: abortMsg = "You do not have the expansion required to enter this area."; break;
+            case 0x08: abortMsg = "That difficulty is not available for this instance."; break;
+            case 0x09: abortMsg = "You cannot leave this place yet."; break;
+            case 0x0A: abortMsg = "Additional instances cannot be launched. Please try again later."; break;
+            case 0x0B: abortMsg = "Transfer aborted: you must be in a group to enter."; break;
+            case 0x0C:
+            case 0x0D:
+            case 0x0E: abortMsg = "Transfer aborted: instance not found."; break;
+            case 0x0F: abortMsg = "Transfer aborted: everyone in the party must be on the same realm."; break;
+            case 0x10: abortMsg = "This map cannot be entered at this time."; break;
             default:   abortMsg = "Transfer aborted."; break;
         }
+        packet.skipAll();
         addUIError(abortMsg);
         addSystemChatMessage(abortMsg);
+        LOG_WARNING("SMSG_TRANSFER_ABORTED: reason 0x", std::hex,
+                    static_cast<int>(reason), std::dec, " — ", abortMsg);
     };
 
     // Taxi
