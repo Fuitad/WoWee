@@ -12,6 +12,7 @@
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_engine.hpp"
 #include "game/bg_score_defs.hpp"
+#include "game/pet_action.hpp"
 #include "audio/activity_sound_manager.hpp"
 #include "audio/ambient_sound_manager.hpp"
 #include "audio/audio_coordinator.hpp"
@@ -3535,12 +3536,49 @@ void registerSystemLuaAPI(lua_State* L) {
                 // client has no way to know which of its ten action slots that
                 // is — a wrong icon on a bar whose other button works is worse
                 // than one button.
+                // GetPossessInfo(slot) → texture, name, enabled.
+                //
+                // Two slots, and they are different things. Slot two is the
+                // way out: PossessButton_OnClick reads the name back and
+                // cancels that buff on the player, so it has to be the
+                // possessing aura's. Slot one is the possessed unit's own
+                // action, and its button does nothing when clicked — it is an
+                // icon and a tooltip.
+                //
+                // Which action was recorded as unknown and is not.
+                // Player::PossessSpellInitialize sends SMSG_PET_SPELLS built by
+                // CharmInfo::BuildActionBar, and InitPossessCreateSpells fills
+                // that bar by calling AddSpellToActionBar(spell, ACT_PASSIVE, i)
+                // for the creature's spells in order — pinned to index i, since
+                // that function skips every slot but the one it was given. So
+                // the possessed creature's first spell is bar slot zero, which
+                // is the slot this button is for.
                 {"GetPossessInfo", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
+            const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
             constexpr int kCancelSlot = 2;
-            if (!gh || static_cast<int>(luaL_optnumber(L, 1, 0)) != kCancelSlot) {
-                return luaReturnNil(L);
+            if (!gh) return luaReturnNil(L);
+            if (slot == 1) {
+                const uint32_t packed = gh->getPetActionSlot(0);
+                if (packed == 0) return luaReturnNil(L);
+                const auto type = game::pet::petActionType(packed);
+                // A command or a stance is not something to show here — an
+                // empty possess bar carries one of those in slot zero, and
+                // drawing its icon would put a Follow arrow where the
+                // creature's spell belongs.
+                if (type == game::pet::ActionType::Command ||
+                    type == game::pet::ActionType::Reaction) {
+                    return luaReturnNil(L);
+                }
+                const uint32_t spellId = game::pet::petActionId(packed);
+                if (spellId == 0) return luaReturnNil(L);
+                const std::string icon = gh->getSpellIconPath(spellId);
+                if (icon.empty()) lua_pushnil(L); else lua_pushstring(L, icon.c_str());
+                lua_pushstring(L, gh->getSpellName(spellId).c_str());
+                lua_pushboolean(L, 1);
+                return 3;
             }
+            if (slot != kCancelSlot) return luaReturnNil(L);
             const uint32_t spellId = possessAuraSpellId(gh);
             if (spellId == 0) return luaReturnNil(L);
             const std::string icon = gh->getSpellIconPath(spellId);
