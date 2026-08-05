@@ -231,7 +231,20 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
         const ImVec2 measured =
             font->CalcTextSizeA(size, FLT_MAX, 0.0f, strippedText(w->text).c_str());
         w->width = measured.x;
-        if (w->height <= 0.0f || w->autoSized) w->height = size * 1.2f;
+        // As tall as the lines it holds. A label sized by its own text can
+        // still be several lines: |n breaks one at any width, and giving it a
+        // single line's height put whatever anchors below it over the top of
+        // the rest.
+        const int rows = static_cast<int>(
+            wrapText(parseMarkup(w->text), 0.0f, false,
+                     [&](const std::string& piece) {
+                         return font->CalcTextSizeA(size, FLT_MAX, 0.0f,
+                                                    piece.c_str()).x;
+                     }).size());
+        w->wrappedLines = rows > 0 ? rows : 1;
+        if (w->height <= 0.0f || w->autoSized) {
+            w->height = size * 1.2f * static_cast<float>(w->wrappedLines);
+        }
         w->autoSized = true;
         w->measuredText = w->text;
     }
