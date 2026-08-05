@@ -181,6 +181,13 @@ private:
     /// has been tried on, which is the paperdoll with an overlay.
     ui::UnitPortrait dressUpModel_;
     uint32_t dressUpWidgetId_ = 0;
+    /// The auction house's own dressing room, which is a second frame with a
+    /// second try-on list rather than the same one reused.
+    ui::UnitPortrait auctionDressUpModel_;
+    uint32_t auctionDressUpWidgetId_ = 0;
+    /// The pet tab's figure. A creature by display id, like its portrait.
+    ui::UnitPortrait petModel_;
+    uint32_t petModelWidgetId_ = 0;
     /// The inspect window's figure, and the frame it is drawn into. Whole
     /// body at the paperdoll's size, because that is what it is: someone
     /// else's paperdoll.

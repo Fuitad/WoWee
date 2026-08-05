@@ -1359,6 +1359,8 @@ void Application::shutdown() {
     npcPortrait_.shutdown(renderer.get());
     inspectModel_.shutdown(renderer.get());
     dressUpModel_.shutdown(renderer.get());
+    auctionDressUpModel_.shutdown(renderer.get());
+    petModel_.shutdown(renderer.get());
     for (auto& p : partyPortraits_) p.shutdown(renderer.get());
     paperdollModel_.shutdown(renderer.get());
 
@@ -3305,12 +3307,26 @@ void Application::render() {
                 // The dressing room. The player as they are, plus whatever
                 // has been tried on — which is the player's own paperdoll with
                 // an overlay, so it is built from the same character record.
-                {
-                    ui::Widget* dressUp = dressUpWidgetId_
-                        ? widgets.get(dressUpWidgetId_) : nullptr;
-                    if (!dressUp || dressUp->name != "DressUpModel") {
-                        dressUp = widgets.findByName("DressUpModel");
-                        dressUpWidgetId_ = dressUp ? dressUp->id : 0;
+                //
+                // Two of them: the auction house has a dressing room of its
+                // own, with its own try-on list, and a view each rather than a
+                // shared one because sharing would let whichever drew last
+                // decide what the other showed.
+                struct DressUp {
+                    const char* name;
+                    ui::UnitPortrait* model;
+                    uint32_t* widgetId;
+                };
+                const DressUp kDressUps[] = {
+                    {"DressUpModel",        &dressUpModel_,        &dressUpWidgetId_},
+                    {"AuctionDressUpModel", &auctionDressUpModel_, &auctionDressUpWidgetId_},
+                };
+                for (const DressUp& room : kDressUps) {
+                    ui::Widget* dressUp = *room.widgetId
+                        ? widgets.get(*room.widgetId) : nullptr;
+                    if (!dressUp || dressUp->name != room.name) {
+                        dressUp = widgets.findByName(room.name);
+                        *room.widgetId = dressUp ? dressUp->id : 0;
                     }
                     bool shown = false;
                     if (dressUp && dressUp->visible) {
@@ -3341,17 +3357,50 @@ void Application::render() {
                                 (self->gender == game::Gender::FEMALE ||
                                  (self->gender == game::Gender::NONBINARY &&
                                   self->useFemaleModel)) ? 1 : 0;
-                            dressUpModel_.setFraming(ui::UnitPortrait::Framing::FullBody);
-                            dressUpModel_.updatePlayer(static_cast<uint8_t>(self->race),
-                                                       gender, self->appearanceBytes,
-                                                       self->facialFeatures, worn,
-                                                       assetManager.get(), renderer.get(),
-                                                       io.DeltaTime);
+                            room.model->setFraming(ui::UnitPortrait::Framing::FullBody);
+                            room.model->updatePlayer(static_cast<uint8_t>(self->race),
+                                                     gender, self->appearanceBytes,
+                                                     self->facialFeatures, worn,
+                                                     assetManager.get(), renderer.get(),
+                                                     io.DeltaTime);
                             shown = true;
                         }
                     }
                     if (dressUp) {
-                        dressUp->externalTexture = shown ? dressUpModel_.textureId() : 0;
+                        dressUp->externalTexture = shown ? room.model->textureId() : 0;
+                    }
+                }
+
+                // The pet tab's figure: the pet at full length, from the same
+                // display id its portrait is drawn from.
+                {
+                    ui::Widget* petModel = petModelWidgetId_
+                        ? widgets.get(petModelWidgetId_) : nullptr;
+                    if (!petModel || petModel->name != "PetModelFrame") {
+                        petModel = widgets.findByName("PetModelFrame");
+                        petModelWidgetId_ = petModel ? petModel->id : 0;
+                    }
+                    bool shown = false;
+                    if (petModel && petModel->visible) {
+                        std::string modelPath;
+                        if (const uint64_t petGuid = gameHandler->getPetGuid()) {
+                            if (game::Unit* u = gameHandler->getUnitByGuid(petGuid)) {
+                                if (const uint32_t displayId = u->getDisplayId();
+                                    displayId != 0 && entitySpawner_) {
+                                    modelPath =
+                                        entitySpawner_->getModelPathForDisplayId(displayId);
+                                }
+                            }
+                        }
+                        if (!modelPath.empty()) {
+                            petModel_.setFraming(ui::UnitPortrait::Framing::FullBody);
+                            petModel_.updateCreature(modelPath, assetManager.get(),
+                                                     renderer.get(), io.DeltaTime);
+                            shown = true;
+                        }
+                    }
+                    if (petModel) {
+                        petModel->externalTexture = shown ? petModel_.textureId() : 0;
                     }
                 }
 
