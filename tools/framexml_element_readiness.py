@@ -186,6 +186,7 @@ ELEMENTS = {
     "questtracker": ["watchframe.lua", "watchframe.xml"],
     "readycheck":   ["readycheck.lua", "readycheck.xml"],
     "trade":        ["tradeframe.lua", "tradeframe.xml"],
+    "raidwarning":  ["raidwarning.lua", "raidwarning.xml"],
     "help":         ["helpframe.lua", "helpframe.xml"],
     "social":       ["friendsframe.lua", "friendsframe.xml"],
     "partyframes":  ["partyframe.xml", "partyframetemplates.xml"],

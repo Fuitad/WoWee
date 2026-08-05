@@ -155,6 +155,11 @@ const std::set<std::string>& requested() {
         // nothing. tools/framexml_unbound_globals.py reports friendsframe
         // clean, which is the check this note used to ask for.
         //
+        // "raidwarning" joins them. Three files, no missing call, no unfired
+        // event: CHAT_MSG_RAID_WARNING and CHAT_MSG_RAID_BOSS_EMOTE are both
+        // sent. It sat outside both tiers on a note saying the first was not
+        // fired — see the suppression entry for why that note was wrong.
+        //
         // "trade" joins them. Its two unfired events are correctly unfired:
         // TRADE_PLAYER_ITEM_CHANGED and TRADE_TARGET_ITEM_CHANGED each carry
         // one slot, and this client never learns of one slot changing.
@@ -202,8 +207,9 @@ const std::set<std::string>& requested() {
                     "barbershop", "bgscore", "book", "chat", "classtrainer",
                     "gamemenu", "gossip", "guildbank", "help", "inspect",
                     "loot", "mail", "micromenu", "partyframes", "questgiver",
-                    "questlog", "readycheck", "social", "stable", "talents",
-                    "taxi", "totems", "trade", "tradeskill", "vendor"}) {
+                    "questlog", "raidwarning", "readycheck", "social",
+                    "stable", "talents", "taxi", "totems", "trade",
+                    "tradeskill", "vendor"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "
@@ -446,9 +452,17 @@ const Suppress kSuppress[] = {
         // was an element, so nothing in this list had an opinion about them.
         {UiElement::Trade,       "TradeFrame"},
         {UiElement::ReadyCheck,  "ReadyCheckFrame"},
-        // Not reachable yet — CHAT_MSG_RAID_WARNING is not fired — but this
-        // client draws raid warnings by scanning the chat history rather than
-        // from the event, so the two would not cancel out if it ever were.
+        // CHAT_MSG_RAID_WARNING and CHAT_MSG_RAID_BOSS_EMOTE are both fired,
+        // so this suppression is live rather than precautionary. The note here
+        // used to say the first was not fired; it is, and had been all along —
+        // the whole CHAT_MSG_ family is built by concatenating the chat type
+        // onto a prefix, so grepping the source for the literal name finds
+        // nothing and says nothing. combat_ui, which gates this client's own
+        // banner on the same element, had it right.
+        //
+        // This client draws its raid warnings by scanning the chat history
+        // rather than from the event, so the two do not cancel out: without
+        // this entry both banners appear.
         {UiElement::RaidWarning, "RaidWarningFrame RaidBossEmoteFrame"},
         // Symmetric with the four client dialogs gated on this element: a
         // run that hands the prompts back to this client hides FrameXML's,
