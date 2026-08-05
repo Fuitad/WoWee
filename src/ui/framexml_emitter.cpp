@@ -674,6 +674,17 @@ struct Emitter {
         if (const std::string* im = node.attr("insertMode"); im && !im->empty()) {
             line(var + ":SetInsertMode(" + quote(*im) + ")");
         }
+        // A cooldown that counts the other way, and the bright spoke along its
+        // sweeping edge. The target frame's aura timers and the totem bar ask
+        // for the first and were drawn backwards without it.
+        if (node.attr("reverse")) {
+            line(var + ":SetReverse(" +
+                 (node.attrBool("reverse") ? "true" : "false") + ")");
+        }
+        if (node.attr("drawEdge")) {
+            line(var + ":SetDrawEdge(" +
+                 (node.attrBool("drawEdge") ? "true" : "false") + ")");
+        }
         // The keyboard, on the same principle as the mouse and the wheel: a
         // frame that declares OnKeyDown or OnKeyUp wants keys. Every one that
         // does in FrameXML is a dialog hidden until it is wanted, so nothing

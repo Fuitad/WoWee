@@ -282,6 +282,14 @@ struct Widget {
     bool  isCooldown = false;
     double cooldownStart = 0.0;
     double cooldownDuration = 0.0;
+    /// The shaded wedge grows instead of shrinking. An ability's cooldown
+    /// shrinks as it becomes usable again; an aura's timer on a unit frame
+    /// grows as the aura runs out, and the target frame and the totem bar both
+    /// ask for that.
+    bool  cooldownReverse = false;
+    /// A bright line along the sweeping edge, which the target frame and the
+    /// rune bar ask for.
+    bool  cooldownDrawEdge = false;
     float sliderStep = 0.0f;
     std::string thumbTexture;
     float barMin = 0.0f, barMax = 1.0f, barValue = 0.0f;

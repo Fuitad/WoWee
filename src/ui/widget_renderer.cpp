@@ -467,8 +467,9 @@ void WidgetRenderer::drawCooldown(ImDrawList* dl, const Widget& w,
     if (w.cooldownDuration <= 0.0) return;
     const double elapsed = core::appTimeSeconds() - w.cooldownStart;
     if (elapsed < 0.0 || elapsed >= w.cooldownDuration) return;
-    const float remaining =
-        1.0f - static_cast<float>(elapsed / w.cooldownDuration);
+    const float done = static_cast<float>(elapsed / w.cooldownDuration);
+    // Reversed, the wedge covers what has passed rather than what is left.
+    const float remaining = w.cooldownReverse ? done : (1.0f - done);
 
     // A wedge from twelve o'clock, shrinking clockwise as the time runs out.
     // Drawn to the corners rather than to an inscribed circle — the thing being
@@ -492,6 +493,15 @@ void WidgetRenderer::drawCooldown(ImDrawList* dl, const Widget& w,
                               centre.y + std::sin(a) * radius));
     }
     dl->PathFillConvex(IM_COL32(0, 0, 0, 160));
+    if (w.cooldownDrawEdge) {
+        // One bright spoke along the leading edge, which is what makes a slow
+        // sweep readable at a glance.
+        const float edge = -kTwoPi * 0.25f + kTwoPi * remaining;
+        dl->AddLine(centre,
+                    ImVec2(centre.x + std::cos(edge) * radius,
+                           centre.y + std::sin(edge) * radius),
+                    IM_COL32(255, 255, 255, 180), 1.5f);
+    }
     dl->PopClipRect();
 }
 

@@ -962,6 +962,17 @@ int lua_MessageFrame_AddMessage(lua_State* L) {
 /// Zero, the default, means for good, which is what a chat frame wants.
 /// UIErrorsFrame declares five and it was dropped, so every refusal the server
 /// sent stayed on screen until a hundred and twenty-eight had piled up.
+int lua_Cooldown_SetReverse(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (w) w->cooldownReverse = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+int lua_Cooldown_SetDrawEdge(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (w) w->cooldownDrawEdge = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+
 int lua_MessageFrame_SetTimeVisible(lua_State* L) {
     auto* w = widgetOf(L, 1);
     if (w) w->messageDuration = static_cast<float>(luaL_optnumber(L, 2, 0.0));
@@ -3508,6 +3519,8 @@ void LuaEngine::registerCoreAPI() {
         {"Clear",           lua_MessageFrame_Clear},
         {"GetNumMessages",  lua_MessageFrame_GetNumMessages},
         {"SetMaxLines",     lua_MessageFrame_SetMaxLines},
+        {"SetReverse",      lua_Cooldown_SetReverse},
+        {"SetDrawEdge",     lua_Cooldown_SetDrawEdge},
         {"SetTimeVisible",  lua_MessageFrame_SetTimeVisible},
         {"GetTimeVisible",  lua_MessageFrame_GetTimeVisible},
         {"SetFadeDuration", lua_MessageFrame_SetFadeDuration},
