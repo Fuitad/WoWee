@@ -169,19 +169,23 @@ CHECKS = [
      r"^(\d+) looked up that the interface does not declare", 0,
      "frames this client looks up by a name the interface does not declare"),
     # Unit bindings that never look at the unit they were asked about and
-    # answer from the player. Three, and each is asked only about the player by
-    # anything that exists here: UnitDefense is called with a unit by
-    # PaperDollFrame_SetDefense and with "player" by its only other caller,
-    # while the pet tab has no defence line; UnitRangedAttack and
-    # UnitAttackBothHands are the player's sheet alone.
-    #
-    # A fourth means a number belonging to the wrong character, which is the
+    # answer from the player. A number belonging to the wrong character is the
     # hardest kind of wrong to see — nothing empty, nothing zero, nothing
-    # raised. UnitStat, UnitResistance and UnitArmor all sat here, listing a
-    # hunter's own figures as the pet's, and SetInventoryItem did the same on
-    # the inspect paperdoll.
+    # raised. UnitStat, UnitResistance, UnitArmor, UnitAttackPower, UnitDamage
+    # and UnitFactionGroup all sat here, listing a hunter's own figures as the
+    # pet's and putting an Alliance badge over a Horde target;
+    # SetInventoryItem did the same on the inspect paperdoll.
+    #
+    # Ten, each read once. Five are the player's sheet alone, the pet tab
+    # having no ranged or defence line — UnitDefense, UnitRangedAttack,
+    # UnitRangedAttackPower, UnitRangedDamage, UnitAttackBothHands. Two are
+    # asked only with "player": UnitControllingVehicle and UnitIsSameServer.
+    # GetUnitHealthModifier answers one for every unit, which is the true
+    # answer in 3.3.5. The last two are the check's own blind spots, named in
+    # its docstring: IsUnitOnQuest takes the unit second, and
+    # UnitPlayerOrPetInRaid delegates to a binding that does resolve.
     ("unit_argument_check.py",
-     r"^(\d+) unit binding\(s\) that never look at their unit", 3,
+     r"^(\d+) unit binding\(s\) that never look at their unit", 10,
      "unit bindings answering from the player whatever they were asked"),
     # Requests the server reads off the wire and throws away — an opcode
     # registered Handle_NULL. Two, and both are accounted for:

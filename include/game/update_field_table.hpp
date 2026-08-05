@@ -48,6 +48,8 @@ enum class UF : uint16_t {
     UNIT_END,
 
     // Unit combat fields (WotLK: PRIVATE+OWNER — only visible for the player character)
+    UNIT_FIELD_MINDAMAGE,            // Weapon damage low end (float bits)
+    UNIT_FIELD_MAXDAMAGE,            // ...and high end
     UNIT_FIELD_ATTACK_POWER,         // Melee attack power (int32)
     UNIT_FIELD_RANGED_ATTACK_POWER,  // Ranged attack power (int32)
 

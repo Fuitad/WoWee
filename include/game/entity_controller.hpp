@@ -199,6 +199,9 @@ private:
         /// through UnitStat("pet") and UnitResistance("pet"). Armor is
         /// resistances index 0.
         uint16_t stat0, resistances;
+        /// ...and what it hits for, which the pet tab's damage and
+        /// attack-power lines read.
+        uint16_t attackPower, minDamage, maxDamage;
         static UnitFieldIndices resolve();
     };
     struct PlayerFieldIndices {

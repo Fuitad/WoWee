@@ -1339,6 +1339,17 @@ static int lua_GetTimeToWellRested(lua_State* L) {
 /// gives the right total either way.
 static int lua_UnitAttackPower(lua_State* L) {
     auto* gh = getGameHandler(L);
+    // Whose. PaperDollFrame_SetAttackPower is shared and the pet tab calls it
+    // with "Pet", so the pet's line showed the hunter's attack power.
+    std::string who(luaL_optstring(L, 1, "player"));
+    toLowerInPlace(who);
+    if (who == "pet") {
+        const int32_t petAp = gh ? gh->getPetAttackPower() : 0;
+        lua_pushnumber(L, petAp > 0 ? petAp : 0);
+        lua_pushnumber(L, 0);
+        lua_pushnumber(L, 0);
+        return 3;
+    }
     const int32_t ap = gh ? gh->getMeleeAttackPower() : -1;
     lua_pushnumber(L, ap > 0 ? ap : 0);
     lua_pushnumber(L, 0);
@@ -1411,6 +1422,22 @@ static int lua_UnitAttackSpeed(lua_State* L) {
 /// attack power divided by fourteen is damage per second, times the speed.
 static int lua_UnitDamage(lua_State* L) {
     auto* gh = getGameHandler(L);
+    // The pet's damage comes off its own fields rather than from a weapon it
+    // does not carry, so it is answered before any of the equipment below.
+    std::string who(luaL_optstring(L, 1, "player"));
+    toLowerInPlace(who);
+    if (who == "pet") {
+        const double lo = gh ? gh->getPetMinDamage() : 0.0;
+        const double hi = gh ? gh->getPetMaxDamage() : 0.0;
+        lua_pushnumber(L, lo);   // minDamage
+        lua_pushnumber(L, hi);   // maxDamage
+        lua_pushnumber(L, 0.0);  // minOffHand
+        lua_pushnumber(L, 0.0);  // maxOffHand
+        lua_pushnumber(L, 0.0);  // physical bonus, positive
+        lua_pushnumber(L, 0.0);  // ...and negative
+        lua_pushnumber(L, 1.0);  // damage percent
+        return 7;
+    }
     const int32_t ap = gh ? gh->getMeleeAttackPower() : -1;
     double baseMin = 1.0, baseMax = 2.0;   // bare hands
     double speed = 2.0;

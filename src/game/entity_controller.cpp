@@ -692,7 +692,10 @@ EntityController::UnitFieldIndices EntityController::UnitFieldIndices::resolve()
         fieldIndex(UF::UNIT_FIELD_PETEXPERIENCE),
         fieldIndex(UF::UNIT_FIELD_PETNEXTLEVELEXP),
         fieldIndex(UF::UNIT_FIELD_STAT0),
-        fieldIndex(UF::UNIT_FIELD_RESISTANCES)
+        fieldIndex(UF::UNIT_FIELD_RESISTANCES),
+        fieldIndex(UF::UNIT_FIELD_ATTACK_POWER),
+        fieldIndex(UF::UNIT_FIELD_MINDAMAGE),
+        fieldIndex(UF::UNIT_FIELD_MAXDAMAGE)
     };
 }
 
@@ -1162,6 +1165,19 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
                 owner_.otherPlayerMountCallbackRef()(block.guid, val);
             }
             unit->setMountDisplayId(val);
+        } else if (ufi.attackPower != 0xFFFF && key == ufi.attackPower &&
+                   block.guid == owner_.petGuidRef()) {
+            owner_.petAttackPowerRef() = static_cast<int32_t>(val);
+            petStatsChanged = true;
+        } else if (ufi.minDamage != 0xFFFF && key == ufi.minDamage &&
+                   block.guid == owner_.petGuidRef()) {
+            // A float, sent as its bits like every other float field.
+            std::memcpy(&owner_.petMinDamageRef(), &val, 4);
+            petStatsChanged = true;
+        } else if (ufi.maxDamage != 0xFFFF && key == ufi.maxDamage &&
+                   block.guid == owner_.petGuidRef()) {
+            std::memcpy(&owner_.petMaxDamageRef(), &val, 4);
+            petStatsChanged = true;
         } else if (ufi.stat0 != 0xFFFF && key >= ufi.stat0 && key < ufi.stat0 + 5 &&
                    block.guid == owner_.petGuidRef()) {
             // The pet's own five, not the player's. The paperdoll's pet tab

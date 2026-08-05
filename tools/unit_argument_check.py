@@ -29,10 +29,19 @@ UnitCharacterPoints are asked about nothing else by anything here.
 
 WHAT IT CANNOT SEE
 
-A binding that resolves its unit and then uses the answer wrongly, and one that
-takes a unit somewhere other than the first argument. It also cannot tell a
-binding that *should* answer for one unit only from one that has simply not been
-asked yet; that judgement belongs in the commit that leaves it.
+A binding that resolves its unit and then uses the answer wrongly. It also
+cannot tell a binding that *should* answer for one unit only from one that has
+simply not been asked yet; that judgement belongs in the commit that leaves it.
+
+Two shapes report as faults and are not:
+
+  * the unit is not the first argument — IsUnitOnQuest takes a quest index
+    first, so nothing is read at position one;
+  * the binding hands L straight to another that does resolve —
+    UnitPlayerOrPetInRaid delegates to UnitPlayerOrPetInParty.
+
+Both are cheap to recognise by eye and expensive to encode, so they are left in
+the count and named here.
 """
 import re
 import sys
@@ -45,7 +54,13 @@ ADDONS = ROOT / "src/addons"
 LOOKS = re.compile(r"resolveUnit|resolveUnitGuid"
                    r"|luaL_(?:opt|check)string\(\s*L\s*,\s*1")
 #: State that belongs to the player and nobody else.
-PLAYER_ONLY = re.compile(r"getPlayer\w*\(|playerGuid|getArmorRating|getResistance")
+#:
+#: An accessor taking no argument cannot be answering about an arbitrary unit —
+#: there is nowhere to say which one — so `gh->getSomething()` with empty
+#: parentheses is the general form of the fault. Naming individual getters
+#: instead is what let UnitAttackPower through: it reads getMeleeAttackPower(),
+#: which no list of names written in advance happened to contain.
+PLAYER_ONLY = re.compile(r"\bgh->get\w+\(\s*\)|playerGuid")
 
 
 def bindings(text):

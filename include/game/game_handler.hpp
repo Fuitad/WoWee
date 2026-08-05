@@ -930,6 +930,14 @@ public:
     std::array<int32_t, 5>& petStatsRef() { return petStats_; }
     std::array<int32_t, 7>& petResistancesRef() { return petResistances_; }
 
+    // What the pet hits for, and with how much attack power.
+    int32_t getPetAttackPower() const { return petAttackPower_; }
+    float getPetMinDamage() const { return petMinDamage_; }
+    float getPetMaxDamage() const { return petMaxDamage_; }
+    int32_t& petAttackPowerRef() { return petAttackPower_; }
+    float& petMinDamageRef() { return petMinDamage_; }
+    float& petMaxDamageRef() { return petMaxDamage_; }
+
     // A hunter pet's experience, off the pet unit's own fields.
     uint32_t getPetExperience() const { return petExperience_; }
     uint32_t getPetNextLevelExp() const { return petNextLevelExp_; }
@@ -3875,6 +3883,9 @@ private:
     std::vector<uint32_t> petSpellList_; // known pet spells
     std::unordered_set<uint32_t> petAutocastSpells_;  // spells with autocast on
     std::array<int32_t, 5> petStats_{};
+    int32_t petAttackPower_ = 0;
+    float petMinDamage_ = 0.0f;
+    float petMaxDamage_ = 0.0f;
     std::array<int32_t, 7> petResistances_{};
     uint32_t petExperience_ = 0;
     uint32_t petNextLevelExp_ = 0;
