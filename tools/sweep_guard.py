@@ -168,6 +168,17 @@ CHECKS = [
     ("framexml_lookup_names_check.py",
      r"^(\d+) looked up that the interface does not declare", 0,
      "frames this client looks up by a name the interface does not declare"),
+    # Update-field indices against the server's own UpdateFields.h. Zero, and it
+    # has to stay zero: a wrong index reads whatever sits at that slot and the
+    # value is simply wrong forever, with no error anywhere. Five were wrong
+    # when this was written — UNIT_FIELD_BYTES_1 and UNIT_DYNAMIC_FLAGS at 137
+    # and 147, which are inside the unit block and so look right, against the
+    # server's 74 and 79; and the chosen title and both PvP currencies past
+    # PLAYER_END, where nothing can arrive. WotLK only: it is the only server
+    # here, and the other expansions' files are unverifiable from it.
+    ("update_field_check.py",
+     r"^(\d+) disagree with the server's own header", 0,
+     "update-field indices disagreeing with the server's header"),
     # DBC field indices naming a column the file does not have. One:
     # CharacterFacialHairStyles.Geoset200 = 8. The layouts describe the stock
     # nine-column file, which is a real shape and the right thing for them to
