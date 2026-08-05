@@ -285,6 +285,16 @@ public:
      */
     bool isHoleAt(float glX, float glY) const;
 
+    /**
+     * The chunk under a world position, plus the offsets within it that
+     * getHeightAt samples and isHoleAt reads a quad from. Shared so those two
+     * cannot drift: the first copy of this search that was written by hand
+     * omitted the full-scan fallback and answered "no hole" for chunks the
+     * index guess missed.
+     */
+    const pipeline::MapChunk* findChunkAt(float glX, float glY,
+                                          float& fracX, float& fracY) const;
+
     /** Get the precise MCNK AreaTable ID at a world position. */
     std::optional<uint32_t> getAreaIdAt(float glX, float glY) const;
 

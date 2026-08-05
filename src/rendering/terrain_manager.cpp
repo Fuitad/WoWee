@@ -2388,164 +2388,123 @@ void TerrainManager::generateGroundClutterPlacements(std::shared_ptr<PendingTile
     }
 }
 
-std::optional<float> TerrainManager::getHeightAt(float glX, float glY) const {
-    // Terrain mesh vertices use chunk.position directly (WoW coordinates)
-    // But camera is in GL coordinates. We query using the mesh coordinates directly
-    // since terrain is rendered without model transformation.
+const pipeline::MapChunk* TerrainManager::findChunkAt(float glX, float glY,
+                                                      float& fracX, float& fracY) const {
+    // Terrain mesh vertices use chunk.position directly (WoW coordinates) and
+    // the terrain is rendered without a model transform, so the camera's own
+    // coordinates index it unchanged. A chunk spans
+    //   X: [position[0] - 8 * unitSize, position[0]]
+    //   Y: [position[1] - 8 * unitSize, position[1]]
+    // and the two fractions handed back are the offsets within it, in the same
+    // order the mesh builder walks its grid: fracY down the 17-stride rows,
+    // fracX across.
     //
-    // The terrain mesh generation puts vertices at:
-    //   vertex.position[0] = chunk.position[0] - (offsetY * unitSize)
-    //   vertex.position[1] = chunk.position[1] - (offsetX * unitSize)
-    //   vertex.position[2] = chunk.position[2] + height
-    //
-    // So chunk spans:
-    //   X: [chunk.position[0] - 8*unitSize, chunk.position[0]]
-    //   Y: [chunk.position[1] - 8*unitSize, chunk.position[1]]
-
+    // One finder for everyone who needs "which chunk is under this point".
+    // isHoleAt used to carry its own copy and the copy was missing the full
+    // scan below, so a chunk the guess did not land on read as no-hole rather
+    // than as look-harder — which is every hole whose tile is indexed a little
+    // differently from the guess. That is the whole reason the Gadgetzan
+    // stairwell still reported hole=0 with 0x1000 sitting in its MCNK header.
     const float unitSize = CHUNK_SIZE / 8.0f;
 
-    auto sampleTileHeight = [&](const TerrainTile* tile) -> std::optional<float> {
-        if (!tile || !tile->loaded) return std::nullopt;
+    auto inChunk = [&](const TerrainTile* tile, int cx, int cy) -> const pipeline::MapChunk* {
+        if (!tile || cx < 0 || cx >= 16 || cy < 0 || cy >= 16) return nullptr;
+        const auto& chunk = tile->terrain.getChunk(cx, cy);
+        if (!chunk.hasHeightMap()) return nullptr;
 
-        auto sampleChunk = [&](int cx, int cy) -> std::optional<float> {
-            if (cx < 0 || cx >= 16 || cy < 0 || cy >= 16) return std::nullopt;
-            const auto& chunk = tile->terrain.getChunk(cx, cy);
-            if (!chunk.hasHeightMap()) return std::nullopt;
+        const float chunkMaxX = chunk.position[0];
+        const float chunkMinX = chunk.position[0] - 8.0f * unitSize;
+        const float chunkMaxY = chunk.position[1];
+        const float chunkMinY = chunk.position[1] - 8.0f * unitSize;
+        if (glX < chunkMinX || glX > chunkMaxX ||
+            glY < chunkMinY || glY > chunkMaxY) {
+            return nullptr;
+        }
 
-            float chunkMaxX = chunk.position[0];
-            float chunkMinX = chunk.position[0] - 8.0f * unitSize;
-            float chunkMaxY = chunk.position[1];
-            float chunkMinY = chunk.position[1] - 8.0f * unitSize;
+        fracY = glm::clamp((chunk.position[0] - glX) / unitSize, 0.0f, 8.0f);
+        fracX = glm::clamp((chunk.position[1] - glY) / unitSize, 0.0f, 8.0f);
+        return &chunk;
+    };
 
-            if (glX < chunkMinX || glX > chunkMaxX ||
-                glY < chunkMinY || glY > chunkMaxY) {
-                return std::nullopt;
-            }
+    auto inTile = [&](const TerrainTile* tile) -> const pipeline::MapChunk* {
+        if (!tile || !tile->loaded) return nullptr;
 
-            // Fractional position within chunk (0-8 range)
-            float fracY = (chunk.position[0] - glX) / unitSize;  // maps to offsetY
-            float fracX = (chunk.position[1] - glY) / unitSize;  // maps to offsetX
-
-            fracX = glm::clamp(fracX, 0.0f, 8.0f);
-            fracY = glm::clamp(fracY, 0.0f, 8.0f);
-
-            // Bilinear interpolation on 9x9 outer grid
-            int gx0 = static_cast<int>(std::floor(fracX));
-            int gy0 = static_cast<int>(std::floor(fracY));
-            int gx1 = std::min(gx0 + 1, 8);
-            int gy1 = std::min(gy0 + 1, 8);
-
-            float tx = fracX - gx0;
-            float ty = fracY - gy0;
-
-            float h00 = chunk.heightMap.heights[gy0 * 17 + gx0];
-            float h10 = chunk.heightMap.heights[gy0 * 17 + gx1];
-            float h01 = chunk.heightMap.heights[gy1 * 17 + gx0];
-            float h11 = chunk.heightMap.heights[gy1 * 17 + gx1];
-
-            float h = h00 * (1 - tx) * (1 - ty) +
-                      h10 * tx * (1 - ty) +
-                      h01 * (1 - tx) * ty +
-                      h11 * tx * ty;
-
-            return chunk.position[2] + h;
-        };
-
-        // Fast path: infer likely chunk index and probe 3x3 neighborhood.
-        int guessCy = glm::clamp(static_cast<int>(std::floor((tile->maxX - glX) / CHUNK_SIZE)), 0, 15);
-        int guessCx = glm::clamp(static_cast<int>(std::floor((tile->maxY - glY) / CHUNK_SIZE)), 0, 15);
+        // Fast path: infer the likely chunk index and probe a 3x3 neighbourhood.
+        const int guessCy = glm::clamp(
+            static_cast<int>(std::floor((tile->maxX - glX) / CHUNK_SIZE)), 0, 15);
+        const int guessCx = glm::clamp(
+            static_cast<int>(std::floor((tile->maxY - glY) / CHUNK_SIZE)), 0, 15);
         for (int dy = -1; dy <= 1; dy++) {
             for (int dx = -1; dx <= 1; dx++) {
-                auto h = sampleChunk(guessCx + dx, guessCy + dy);
-                if (h) return h;
+                if (auto* c = inChunk(tile, guessCx + dx, guessCy + dy)) return c;
             }
         }
 
         // Fallback full scan for robustness at seams/unusual coords.
         for (int cy = 0; cy < 16; cy++) {
             for (int cx = 0; cx < 16; cx++) {
-                auto h = sampleChunk(cx, cy);
-                if (h) {
-                    return h;
-                }
+                if (auto* c = inChunk(tile, cx, cy)) return c;
             }
         }
-        return std::nullopt;
+        return nullptr;
     };
 
-    // Fast path: sample the expected containing tile first.
-    TileCoord tc = worldToTile(glX, glY);
-    auto it = loadedTiles.find(tc);
-    if (it != loadedTiles.end()) {
-        auto h = sampleTileHeight(it->second.get());
-        if (h) return h;
-    }
-
-    // Fallback: check all loaded tiles (handles seam/edge coordinate ambiguity).
-    for (const auto& [coord, tile] : loadedTiles) {
-        if (coord == tc) continue;
-        auto h = sampleTileHeight(tile.get());
-        if (h) return h;
-    }
-
-    return std::nullopt;
-}
-
-bool TerrainManager::isHoleAt(float glX, float glY) const {
-    const float unitSize = CHUNK_SIZE / 8.0f;
-
-    auto tileHole = [&](const TerrainTile* tile) -> std::optional<bool> {
-        if (!tile || !tile->loaded) return std::nullopt;
-
-        auto chunkHole = [&](int cx, int cy) -> std::optional<bool> {
-            if (cx < 0 || cx >= 16 || cy < 0 || cy >= 16) return std::nullopt;
-            const auto& chunk = tile->terrain.getChunk(cx, cy);
-            if (!chunk.hasHeightMap()) return std::nullopt;
-
-            const float chunkMaxX = chunk.position[0];
-            const float chunkMinX = chunk.position[0] - 8.0f * unitSize;
-            const float chunkMaxY = chunk.position[1];
-            const float chunkMinY = chunk.position[1] - 8.0f * unitSize;
-            if (glX < chunkMinX || glX > chunkMaxX ||
-                glY < chunkMinY || glY > chunkMaxY) {
-                return std::nullopt;
-            }
-            if (chunk.holes == 0) return false;
-
-            // The same two fractions getHeightAt derives its height from, and
-            // the same order the mesh builder passes to isHole — it walks
-            // `for y { for x { if (chunk.isHole(y, x)) continue; ... } }` over
-            // vertices at `y * 17 + x`, which is the grid getHeightAt samples
-            // as `heights[gy * 17 + gx]`. Answering the quad from the same two
-            // numbers is what keeps the surface the player stands on and the
-            // surface drawn from disagreeing about which quads exist.
-            const float fracY = (chunk.position[0] - glX) / unitSize;
-            const float fracX = (chunk.position[1] - glY) / unitSize;
-            const int qy = glm::clamp(static_cast<int>(std::floor(fracY)), 0, 7);
-            const int qx = glm::clamp(static_cast<int>(std::floor(fracX)), 0, 7);
-            return chunk.isHole(qy, qx);
-        };
-
-        int guessCy = glm::clamp(static_cast<int>(std::floor((tile->maxX - glX) / CHUNK_SIZE)), 0, 15);
-        int guessCx = glm::clamp(static_cast<int>(std::floor((tile->maxY - glY) / CHUNK_SIZE)), 0, 15);
-        for (int dy = -1; dy <= 1; dy++) {
-            for (int dx = -1; dx <= 1; dx++) {
-                if (auto r = chunkHole(guessCx + dx, guessCy + dy)) return r;
-            }
-        }
-        return std::nullopt;
-    };
-
+    // Fast path: the expected containing tile first.
     const TileCoord tc = worldToTile(glX, glY);
     auto it = loadedTiles.find(tc);
     if (it != loadedTiles.end()) {
-        if (auto r = tileHole(it->second.get())) return *r;
+        if (auto* c = inTile(it->second.get())) return c;
     }
+
+    // Fallback: every loaded tile (handles seam/edge coordinate ambiguity).
     for (const auto& [coord, tile] : loadedTiles) {
         if (coord == tc) continue;
-        if (auto r = tileHole(tile.get())) return *r;
+        if (auto* c = inTile(tile.get())) return c;
     }
-    return false;
+    return nullptr;
+}
+
+std::optional<float> TerrainManager::getHeightAt(float glX, float glY) const {
+    float fracX = 0.0f, fracY = 0.0f;
+    const pipeline::MapChunk* chunk = findChunkAt(glX, glY, fracX, fracY);
+    if (!chunk) return std::nullopt;
+
+    // Bilinear interpolation on the 9x9 outer grid.
+    const int gx0 = static_cast<int>(std::floor(fracX));
+    const int gy0 = static_cast<int>(std::floor(fracY));
+    const int gx1 = std::min(gx0 + 1, 8);
+    const int gy1 = std::min(gy0 + 1, 8);
+
+    const float tx = fracX - gx0;
+    const float ty = fracY - gy0;
+
+    const float h00 = chunk->heightMap.heights[gy0 * 17 + gx0];
+    const float h10 = chunk->heightMap.heights[gy0 * 17 + gx1];
+    const float h01 = chunk->heightMap.heights[gy1 * 17 + gx0];
+    const float h11 = chunk->heightMap.heights[gy1 * 17 + gx1];
+
+    const float h = h00 * (1 - tx) * (1 - ty) +
+                    h10 * tx * (1 - ty) +
+                    h01 * (1 - tx) * ty +
+                    h11 * tx * ty;
+
+    return chunk->position[2] + h;
+}
+
+bool TerrainManager::isHoleAt(float glX, float glY) const {
+    float fracX = 0.0f, fracY = 0.0f;
+    const pipeline::MapChunk* chunk = findChunkAt(glX, glY, fracX, fracY);
+    if (!chunk || chunk->holes == 0) return false;
+
+    // The quad, in the order the mesh builder passes to isHole: it walks
+    // `for y { for x { if (chunk.isHole(y, x)) continue; ... } }` over vertices
+    // at `y * 17 + x`, which is the grid getHeightAt samples as
+    // `heights[gy * 17 + gx]`. Reading the quad from the same two fractions is
+    // what keeps the surface stood on and the surface drawn agreeing about
+    // which quads are there.
+    const int qy = glm::clamp(static_cast<int>(std::floor(fracY)), 0, 7);
+    const int qx = glm::clamp(static_cast<int>(std::floor(fracX)), 0, 7);
+    return chunk->isHole(qy, qx);
 }
 
 bool TerrainManager::chunkHasHoles(float glX, float glY) const {
