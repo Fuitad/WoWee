@@ -4718,6 +4718,21 @@ void LuaEngine::registerCoreAPI() {
         "UpdateUIPanelPositions=1,\n"
         "}\n"
     );
+    // WOWEE_WIDGET_TRACE=1 asks the missing-API report to say which object
+    // reached a method as well as which method it was. Set before the chunk
+    // that reads it, and only there: the report's whole value is being read
+    // after a session, and a session run for that reason can afford the cost.
+    {
+        const char* trace = std::getenv("WOWEE_WIDGET_TRACE");
+        const bool on = trace && *trace && std::string(trace) != "0";
+        lua_pushboolean(L_, on ? 1 : 0);
+        lua_setglobal(L_, "__WoweeWidgetTrace");
+        if (on) {
+            LOG_WARNING("WOWEE_WIDGET_TRACE is on: every widget method lookup "
+                        "goes through Lua, and the missing-API report will name "
+                        "the object as well as the method");
+        }
+    }
     bootstrap(
         "local mt = __WoweeFrameMT\n"
         "local methods = mt\n"
@@ -4756,12 +4771,40 @@ void LuaEngine::registerCoreAPI() {
         // only fell through here when a chat *frame* asked for its own font.
         // Reading the method name alone sent me to WatchFrame, which reads its
         // font off a font string and was never affected.
+        //
+        // WOWEE_WIDGET_TRACE=1 gets the answer for the no-op family without
+        // paying that: see the branch below, which records at call time rather
+        // than at lookup time. It cannot help the family below that, which
+        // answers nil — a nil cannot record anything, and the caller raises on
+        // the next line and names itself in the traceback.
         "    if known[key] then\n"
         "        if not seen[key] then\n"
         "            seen[key] = true\n"
         "            if __WoweeRecordMissingApi then __WoweeRecordMissingApi('noop:' .. key) end\n"
         "        end\n"
-        "        return noop\n"
+        // Which object asked, where a run has said it wants to know.
+        //
+        // Not by making __index a function: FrameXML reaches through it —
+        // getmetatable(slider).__index.Enable(slider) — and indexing a function
+        // raises, which is the fault the comment above this metatable exists to
+        // record. The instance arrives anyway, one step later: `frame:Method()`
+        // calls whatever the lookup returned with the frame as its first
+        // argument. So the no-op is what learns the name, at call time, and the
+        // lookup stays a rawget.
+        "        if not __WoweeWidgetTrace then return noop end\n"
+        "        return function(self, ...)\n"
+        "            local who = '?'\n"
+        "            if type(self) == 'table' then\n"
+        "                local kind = rawget(methods, 'GetObjectType')\n"
+        "                who = (rawget(self, '__name') or '(unnamed)') .. ':' ..\n"
+        "                      (kind and kind(self) or '?')\n"
+        "            end\n"
+        "            local at = 'noop:' .. key .. ' on ' .. who\n"
+        "            if not seen[at] then\n"
+        "                seen[at] = true\n"
+        "                if __WoweeRecordMissingApi then __WoweeRecordMissingApi(at) end\n"
+        "            end\n"
+        "        end\n"
         "    end\n"
         // Recorded once so a method missing from the set is visible rather
         // than silently answering nil, which is the failure this trades for.
