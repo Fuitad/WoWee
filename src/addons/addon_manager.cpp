@@ -556,9 +556,29 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
     // Script element says MovieFrame.lua and the file on disk is
     // movieframe.lua, so joining the two naively fails — which took out most of
     // FrameXML on the first attempt, one referenced script at a time.
-    auto sibling = [&](const std::string& name) {
-        const fs::path p = resolvePath(dir, name);
-        return p.empty() ? (dir / name) : p;
+    auto sibling = [&](const std::string& rawName) {
+        // Windows separators, because the interface is written with them. On
+        // anything else a backslash is an ordinary character in a filename, so
+        // "..\\..\\FrameXML\\UIPanelTemplates.xml" resolved to nothing and the
+        // include silently failed — which failed the file that asked for it,
+        // and the guild bank's own XML is one of the two that do.
+        std::string name = rawName;
+        std::replace(name.begin(), name.end(), '\\', '/');
+
+        // Relative to the file that named it first.
+        if (fs::path p = resolvePath(dir, name); !p.empty()) return p;
+
+        // Then FrameXML itself. An addon includes a shared template by bare
+        // name — inspectpvpframe.xml asks for PVPFrameTemplates.xml — and by a
+        // path back out of its own folder, and both mean the same place.
+        const fs::path base = fs::path(frameXmlDir_);
+        if (!base.empty()) {
+            if (fs::path p = resolvePath(base, fs::path(name).filename().string());
+                !p.empty()) {
+                return p;
+            }
+        }
+        return dir / name;
     };
 
     // Order matters and is not the order the emitter reports things in. Includes
