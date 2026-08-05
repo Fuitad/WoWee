@@ -1935,7 +1935,16 @@ static int lua_CloseBattlefield(lua_State* L) { (void)L; return 0; }
 
 // Leaving a vehicle, and whether its aim can be raised or lowered. Vehicles
 // are not modelled here, so neither is possible.
-static int lua_CanExitVehicle(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+// CanExitVehicle() — whether the player is riding something they can get off.
+//
+// False always, so the leave-vehicle button on the main bar stayed hidden and
+// the unit menu's Leave Vehicle entry was removed from the menu every time it
+// was built. The state behind it has been tracked the whole time.
+static int lua_CanExitVehicle(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushboolean(L, gh && gh->isInVehicle() ? 1 : 0);
+    return 1;
+}
 static int lua_IsVehicleAimAngleAdjustable(lua_State* L) { lua_pushboolean(L, 0); return 1; }
 
 // HasKey() — whether the player carries a key ring at all. The keyring exists
@@ -2755,7 +2764,15 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"VehicleAimUpStop",         lua_ReturnNothing},
                 {"VehicleAimDownStart",      lua_ReturnNothing},
                 {"VehicleAimDownStop",       lua_ReturnNothing},
-                {"VehicleExit",              lua_ReturnNothing},
+                // The button and the slash command both end here, and it did
+                // nothing — so /leavevehicle, the main bar's button and the
+                // unit menu's entry were three ways of not getting off.
+                // CMSG_REQUEST_VEHICLE_EXIT was already written and had no
+                // caller outside this client's own bar.
+                {"VehicleExit", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->sendRequestVehicleExit();
+            return 0;
+        }},
                 {"VehicleAimGetNormAngle",   lua_ReturnZero},
                 {"VehicleAimGetNormPower",   lua_ReturnZero},
                 {"GetMapInfo",               lua_GetMapInfo},

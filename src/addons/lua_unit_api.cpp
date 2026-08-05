@@ -917,7 +917,21 @@ static int lua_UnitHasVehicleUI(lua_State* L) {
     (void)L;
     return luaReturnFalse(L);
 }
-static int lua_UnitInVehicle(lua_State* L) { return luaReturnFalse(L); }
+/// Whether that unit is riding a vehicle. Only the player's own state is
+/// known — no per-unit vehicle field is parsed — so everyone else answers
+/// false, which is what this answered for the player too.
+///
+/// UnitHasVehicleUI beside it stays false deliberately. Turning it on hands
+/// the action bar to VehicleMenuBar, whose own readers — GetVehicleUIIndicator,
+/// UnitVehicleSeatInfo, CanEjectPassengerFromSeat — are not bound, so the bar
+/// would raise where it now simply does not appear.
+static int lua_UnitInVehicle(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const char* unit = lua_tostring(L, 1);
+    const bool isPlayer = unit && (std::strcmp(unit, "player") == 0);
+    lua_pushboolean(L, (isPlayer && gh && gh->isInVehicle()) ? 1 : 0);
+    return 1;
+}
 static int lua_UnitControllingVehicle(lua_State* L) { return luaReturnFalse(L); }
 static int lua_UnitIsPossessed(lua_State* L) { return luaReturnFalse(L); }
 /// Whether something else is driving this unit. No charm field is parsed, so

@@ -1648,8 +1648,16 @@ void GameHandler::registerOpcodeHandlers() {
         bool wasInVehicle = vehicleId_ != 0;
         bool nowInVehicle = newVehicleId != 0;
         vehicleId_ = newVehicleId;
-        if (wasInVehicle != nowInVehicle && vehicleStateCallback_) {
-            vehicleStateCallback_(nowInVehicle, newVehicleId);
+        if (wasInVehicle != nowInVehicle) {
+            if (vehicleStateCallback_) vehicleStateCallback_(nowInVehicle, newVehicleId);
+            // Announced as well as stored. The state was kept and handed to
+            // this client's own bar, and the interface heard nothing — so the
+            // leave-vehicle button, which redraws on VEHICLE_UPDATE, never
+            // learned there was a vehicle to leave.
+            fireAddonEvent("VEHICLE_UPDATE", {});
+            fireAddonEvent(nowInVehicle ? "UNIT_ENTERED_VEHICLE"
+                                        : "UNIT_EXITED_VEHICLE", {"player"});
+            fireAddonEvent("UPDATE_BONUS_ACTIONBAR", {});
         }
     };
     // guid(8) + status(1): status 1 = NPC has available/new routes for this player
@@ -2500,9 +2508,15 @@ void GameHandler::registerOpcodeHandlers() {
                  " achievements=", inspectedPlayerAchievements_[inspectedGuid].size());
     };
     dispatchTable_[Opcode::SMSG_ON_CANCEL_EXPECTED_RIDE_VEHICLE_AURA] = [this](network::Packet& packet) {
+        const bool wasRiding = vehicleId_ != 0;
         vehicleId_ = 0;  // Vehicle ride cancelled; clear UI
         if (vehicleStateCallback_) {
             vehicleStateCallback_(false, 0);
+        }
+        if (wasRiding) {
+            fireAddonEvent("VEHICLE_UPDATE", {});
+            fireAddonEvent("UNIT_EXITED_VEHICLE", {"player"});
+            fireAddonEvent("UPDATE_BONUS_ACTIONBAR", {});
         }
         packet.skipAll();
     };
