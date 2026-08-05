@@ -1589,6 +1589,21 @@ int lua_Tooltip_SetInventoryItem(lua_State* L) {
     auto* gh = wowee::addons::getGameHandler(L);
     const int slot = static_cast<int>(luaL_optnumber(L, 3, 0));
     if (!w || !gh || slot < 1 || slot > 19) { lua_pushboolean(L, 0); return 1; }
+
+    // The unit argument was ignored, so every slot of the inspect paperdoll
+    // showed whatever the player themselves had in that slot — the wrong item
+    // rather than none, which is the harder kind to notice.
+    std::string uid(luaL_optstring(L, 2, "player"));
+    wowee::addons::toLowerInPlace(uid);
+    if (uid != "player") {
+        const uint64_t guid = wowee::addons::resolveUnitGuid(gh, uid);
+        auto& cache = gh->inspectedPlayerItemEntriesRef();
+        auto it = guid ? cache.find(guid) : cache.end();
+        const uint32_t entry = (it != cache.end()) ? it->second[static_cast<size_t>(slot - 1)] : 0;
+        lua_pushboolean(L, fillItemTooltipById(w, gh, entry) ? 1 : 0);
+        return 1;
+    }
+
     const auto& s = gh->getInventory().getEquipSlot(static_cast<game::EquipSlot>(slot - 1));
     if (s.empty()) { lua_pushboolean(L, 0); return 1; }
     fillItemTooltip(w, s.item, gh);

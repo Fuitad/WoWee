@@ -2118,6 +2118,30 @@ static int lua_GetInventoryItemCount(lua_State* L) {
     return 1;
 }
 
+/// The item entry worn in an equipment slot by a unit that is not the player.
+///
+/// Everything about another player's gear arrives through inspect, and it
+/// arrives as bare item entries with no inventory behind them. The three
+/// GetInventoryItem* bindings answered nil for any unit but "player", which the
+/// interface reads as an empty slot — so the inspect paperdoll drew every
+/// square blank however well equipped the target was.
+///
+/// Zero when there is nothing cached for that unit, which is the honest answer
+/// before the inspect response arrives.
+static uint32_t inspectedItemEntry(game::GameHandler* gh, const std::string& uid, int slotId) {
+    if (!gh || slotId < 1 || slotId > 19) return 0;
+    const uint64_t guid = resolveUnitGuid(gh, uid);
+    if (!guid) return 0;
+    auto& cache = gh->inspectedPlayerItemEntriesRef();
+    auto it = cache.find(guid);
+    if (it == cache.end()) return 0;
+    const uint32_t entry = it->second[static_cast<size_t>(slotId - 1)];
+    // The name and icon come from the item cache, which will not have an entry
+    // this client has never seen; asking queues the query.
+    if (entry) gh->ensureItemInfo(entry);
+    return entry;
+}
+
 static int lua_GetInventoryItemLink(lua_State* L) {
     auto* gh = getGameHandler(L);
     const char* uid = luaL_optstring(L, 1, "player");
@@ -2125,20 +2149,30 @@ static int lua_GetInventoryItemLink(lua_State* L) {
     if (!gh || slotId < 1 || slotId > 19) { return luaReturnNil(L); }
     std::string uidStr(uid);
     toLowerInPlace(uidStr);
-    if (uidStr != "player") { return luaReturnNil(L); }
-
-    const auto& inv = gh->getInventory();
-    const auto& slot = inv.getEquipSlot(static_cast<game::EquipSlot>(slotId - 1));
-    if (slot.empty()) { return luaReturnNil(L); }
-
-    const auto* info = gh->getItemInfo(slot.item.itemId);
-    std::string name = info ? info->name : slot.item.name;
-    uint32_t q = info ? info->quality : static_cast<uint32_t>(slot.item.quality);
+    uint32_t itemId = 0;
+    std::string name;
+    uint32_t q = 1;
+    if (uidStr == "player") {
+        const auto& inv = gh->getInventory();
+        const auto& slot = inv.getEquipSlot(static_cast<game::EquipSlot>(slotId - 1));
+        if (slot.empty()) { return luaReturnNil(L); }
+        itemId = slot.item.itemId;
+        const auto* info = gh->getItemInfo(itemId);
+        name = info ? info->name : slot.item.name;
+        q = info ? info->quality : static_cast<uint32_t>(slot.item.quality);
+    } else {
+        itemId = inspectedItemEntry(gh, uidStr, slotId);
+        if (!itemId) { return luaReturnNil(L); }
+        const auto* info = gh->getItemInfo(itemId);
+        if (!info) { return luaReturnNil(L); }
+        name = info->name;
+        q = info->quality;
+    }
 
     uint32_t qi = q < 8 ? q : 1u;
     char link[256];
     snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHexNoAlpha[qi], slot.item.itemId, name.c_str());
+             kQualHexNoAlpha[qi], itemId, name.c_str());
     lua_pushstring(L, link);
     return 1;
 }
@@ -2150,7 +2184,12 @@ static int lua_GetInventoryItemID(lua_State* L) {
     if (!gh || slotId < 1 || slotId > 19) { return luaReturnNil(L); }
     std::string uidStr(uid);
     toLowerInPlace(uidStr);
-    if (uidStr != "player") { return luaReturnNil(L); }
+    if (uidStr != "player") {
+        const uint32_t entry = inspectedItemEntry(gh, uidStr, slotId);
+        if (!entry) { return luaReturnNil(L); }
+        lua_pushnumber(L, entry);
+        return 1;
+    }
 
     const auto& inv = gh->getInventory();
     const auto& slot = inv.getEquipSlot(static_cast<game::EquipSlot>(slotId - 1));
@@ -2170,7 +2209,15 @@ static int lua_GetInventoryItemTexture(lua_State* L) {
     if (!gh || slotId < 1 || slotId > kNumSlots) { return luaReturnNil(L); }
     std::string uidStr(uid);
     toLowerInPlace(uidStr);
-    if (uidStr != "player") { return luaReturnNil(L); }
+    if (uidStr != "player") {
+        const uint32_t entry = inspectedItemEntry(gh, uidStr, slotId);
+        const auto* info = entry ? gh->getItemInfo(entry) : nullptr;
+        if (!info || !info->displayInfoId) { return luaReturnNil(L); }
+        const std::string path = gh->getItemIconPath(info->displayInfoId);
+        lua_pushstring(L, path.empty() ? "Interface\\Icons\\INV_Misc_QuestionMark"
+                                       : path.c_str());
+        return 1;
+    }
 
     const auto& inv = gh->getInventory();
     const auto& slot = inv.getEquipSlot(static_cast<game::EquipSlot>(slotId - 1));
