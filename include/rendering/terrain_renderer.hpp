@@ -176,9 +176,15 @@ private:
     VkBuffer shadowParamsUBO_ = VK_NULL_HANDLE;
     VmaAllocation shadowParamsAlloc_ = VK_NULL_HANDLE;
 
-    // Descriptor pool for material sets
+    // Descriptor pool for material sets. One set per terrain chunk, 256 chunks
+    // to a tile, so this is a tile budget: 65536 covered 256 tiles, and tiles
+    // are held to the *unload* radius, not the load radius — 8 loading and 11
+    // unloading is 23×23 = 529 resident. Every tile past the 256th arrived
+    // with no descriptor set and, before the retry in loadTerrainIncremental,
+    // was dropped for good: terrain that simply was not there, in whichever
+    // direction the player had travelled furthest.
     VkDescriptorPool materialDescPool = VK_NULL_HANDLE;
-    static constexpr uint32_t MAX_MATERIAL_SETS = 65536;
+    static constexpr uint32_t MAX_MATERIAL_SETS = 160 * 1024;  // 640 tiles
 
     // Loaded terrain chunks
     std::vector<TerrainChunkGPU> chunks;

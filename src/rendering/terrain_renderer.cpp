@@ -582,9 +582,11 @@ bool TerrainRenderer::loadTerrainIncremental(const pipeline::TerrainMesh& mesh,
         VmaAllocationInfo mapInfo{};
         if (vmaCreateBuffer(vkCtx->getAllocator(), &bufCI, &allocCI,
                             &gpuChunk.paramsUBO, &gpuChunk.paramsAlloc, &mapInfo) != VK_SUCCESS) {
-            LOG_WARNING("Terrain chunk UBO allocation failed (incremental) — skipping chunk");
+            LOG_WARNING("Terrain[", tileX, ",", tileY, "] chunk UBO allocation failed"
+                        " — retrying next frame");
             destroyChunkGPU(gpuChunk);
-            continue;
+            chunkIndex--;
+            break;
         }
         if (mapInfo.pMappedData) {
             std::memcpy(mapInfo.pMappedData, &params, sizeof(params));
@@ -593,7 +595,17 @@ bool TerrainRenderer::loadTerrainIncremental(const pipeline::TerrainMesh& mesh,
         gpuChunk.materialSet = allocateMaterialSet();
         if (!gpuChunk.materialSet) {
             destroyChunkGPU(gpuChunk);
-            continue;
+            // Give the chunk back rather than dropping it. Both failures above
+            // are pressure, not corruption: the descriptor pool is shared by
+            // every resident tile and its sets come back only through
+            // deferAfterAllFrameFences, so a tile arriving while an unloaded
+            // one is still in flight can find the pool momentarily full. A
+            // dropped chunk was never retried — the tile counted as loaded
+            // with a hole in it, and the hole stayed for the rest of the
+            // session. Stepping the index back and leaving means the caller
+            // sees "not finished" and comes back once the frees have landed.
+            chunkIndex--;
+            break;
         }
         writeMaterialDescriptors(gpuChunk.materialSet, gpuChunk);
 
