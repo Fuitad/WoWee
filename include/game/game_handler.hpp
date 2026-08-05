@@ -253,6 +253,13 @@ public:
     /**
      * Get entity manager (for accessing entities in view)
      */
+    /// What another player is visibly wearing, by ItemDisplayInfo id and
+    /// inventory type, indexed by equipment slot. False when nothing is known
+    /// yet — which is not the same as wearing nothing.
+    bool getOtherPlayerEquipment(uint64_t guid,
+                                 std::array<uint32_t, 19>& displayIds,
+                                 std::array<uint8_t, 19>& invTypes) const;
+
     /// How a player in the world looks: race, gender, the packed appearance
     /// bytes and the facial-feature byte. False for anything that is not a
     /// player, or a player whose fields have not arrived.

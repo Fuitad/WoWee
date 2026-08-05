@@ -3367,9 +3367,23 @@ void Application::render() {
                     if (face.guid != 0 &&
                         gameHandler->getPlayerAppearance(face.guid, race, gender,
                                                          appearance, facial)) {
+                        // What they are visibly wearing, where it is known.
+                        // Empty means the item queries have not come back, and
+                        // the portrait leaves the model dressed as it was
+                        // rather than stripping it.
+                        std::vector<game::EquipmentItem> worn;
+                        std::array<uint32_t, 19> displayIds{};
+                        std::array<uint8_t, 19> invTypes{};
+                        if (gameHandler->getOtherPlayerEquipment(face.guid, displayIds,
+                                                                 invTypes)) {
+                            for (size_t slot = 0; slot < displayIds.size(); ++slot) {
+                                if (displayIds[slot] == 0) continue;
+                                worn.push_back({displayIds[slot], invTypes[slot], 0u});
+                            }
+                        }
                         face.portrait->updatePlayer(race, gender, appearance, facial,
-                                                    assetManager.get(), renderer.get(),
-                                                    io.DeltaTime);
+                                                    worn, assetManager.get(),
+                                                    renderer.get(), io.DeltaTime);
                         built = true;
                     } else {
                         uint32_t displayId = 0;

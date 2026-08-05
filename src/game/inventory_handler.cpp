@@ -4406,6 +4406,50 @@ void InventoryHandler::cacheInspectedPlayerEquipment(uint64_t guid, const std::a
     }
 }
 
+/// What another player is visibly wearing, without announcing it.
+///
+/// emitOtherPlayerEquipment pushes this to whoever registered the callback,
+/// which suits the world — a spawn happens and the model is dressed. A
+/// portrait asks the other way round: it is drawn for whichever unit a frame
+/// has claimed, at a moment nothing has just changed. Same resolution, so it
+/// is the same code rather than a second reading of the same two layouts.
+///
+/// False when nothing is known yet, which is different from "wearing nothing"
+/// — the difference between leaving a model as it is and stripping it.
+bool InventoryHandler::resolveOtherPlayerEquipment(
+        uint64_t guid, std::array<uint32_t, 19>& displayIds,
+        std::array<uint8_t, 19>& invTypes) const {
+    displayIds = {};
+    invTypes = {};
+    auto it = owner_.otherPlayerVisibleItemEntriesRef().find(guid);
+    if (it == owner_.otherPlayerVisibleItemEntriesRef().end()) return false;
+
+    if (usesVisibleItemDisplayIds()) {
+        displayIds = it->second;
+        invTypes = inferredVisibleInventoryTypes();
+        for (uint32_t displayId : displayIds) {
+            if (displayId != 0) return true;
+        }
+        return false;
+    }
+
+    bool anyEntry = false;
+    int resolved = 0;
+    for (int s = 0; s < 19; s++) {
+        const uint32_t entry = it->second[s];
+        if (entry == 0) continue;
+        anyEntry = true;
+        auto infoIt = owner_.itemInfoCacheRef().find(entry);
+        if (infoIt == owner_.itemInfoCacheRef().end()) continue;
+        displayIds[s] = infoIt->second.displayInfoId;
+        invTypes[s] = static_cast<uint8_t>(infoIt->second.inventoryType);
+        resolved++;
+    }
+    // Entries with nothing resolved is "the item queries have not come back",
+    // not "bare". Answering true there would dress the model in nothing.
+    return !anyEntry || resolved > 0;
+}
+
 void InventoryHandler::emitOtherPlayerEquipment(uint64_t guid) {
     if (!owner_.playerEquipmentCallbackRef()) return;
     auto it = owner_.otherPlayerVisibleItemEntriesRef().find(guid);

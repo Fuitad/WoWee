@@ -1928,6 +1928,14 @@ bool GameHandler::applyInventoryFields(const FlatFieldMap& fields) {
     return inventoryHandler_ ? inventoryHandler_->applyInventoryFields(fields) : false;
 }
 
+bool GameHandler::getOtherPlayerEquipment(uint64_t guid,
+                                          std::array<uint32_t, 19>& displayIds,
+                                          std::array<uint8_t, 19>& invTypes) const {
+    return inventoryHandler_
+        ? inventoryHandler_->resolveOtherPlayerEquipment(guid, displayIds, invTypes)
+        : false;
+}
+
 void GameHandler::extractContainerFields(uint64_t containerGuid, const FlatFieldMap& fields) {
     if (inventoryHandler_) inventoryHandler_->extractContainerFields(containerGuid, fields);
 }

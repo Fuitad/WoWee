@@ -7,15 +7,19 @@
 // already frames a face when zoomed all the way in, so this is that pass kept
 // running while in the world, at a size a portrait needs.
 //
-// One unit for now — the player. Target and party portraits want the same
-// thing and differ only in whose appearance is loaded.
+// Four units: the player, the target, the pet and the focus. They differ only
+// in whose appearance is loaded — a player from race, appearance bytes and
+// what they are visibly wearing, anything else from the model its display id
+// names. The party frames want the same thing and are left out on cost: each
+// of these is a 640x800 offscreen target and a character pass every frame.
 
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace wowee {
-namespace game { class GameHandler; }
+namespace game { class GameHandler; struct EquipmentItem; }
 namespace pipeline { class AssetManager; }
 namespace rendering { class CharacterPreview; class Renderer; }
 
@@ -41,13 +45,15 @@ public:
     /// Show another player, from the appearance the world already reads for
     /// them: race, gender, the packed appearance bytes and facial features.
     ///
-    /// No equipment. The world dresses other players from their visible-item
-    /// fields and this does not yet, so a targeted player is shown in the
-    /// underwear the character-select screen would show — which is the same
-    /// face, the same hair and the same skin, and wrong only below the neck.
-    /// For a portrait framed on the head that is the whole picture.
+    /// Dressed in what they are visibly wearing, which for a portrait framed
+    /// on the head is the helm and the shoulders — the two pieces that change
+    /// a face most. An empty list leaves the model as it is rather than
+    /// stripping it, because "nothing known yet" and "wearing nothing" arrive
+    /// looking the same and only one of them should undress anybody.
     void updatePlayer(uint8_t race, uint8_t gender, uint32_t appearanceBytes,
-                      uint8_t facialFeatures, pipeline::AssetManager* assets,
+                      uint8_t facialFeatures,
+                      const std::vector<game::EquipmentItem>& equipment,
+                      pipeline::AssetManager* assets,
                       rendering::Renderer* renderer, float deltaTime);
 
     /// Show a creature instead, by the model its display id names.

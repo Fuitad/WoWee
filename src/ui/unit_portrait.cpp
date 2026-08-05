@@ -106,6 +106,7 @@ void UnitPortrait::update(game::GameHandler& gameHandler,
 
 void UnitPortrait::updatePlayer(uint8_t race, uint8_t gender,
                                 uint32_t appearanceBytes, uint8_t facialFeatures,
+                                const std::vector<game::EquipmentItem>& equipment,
                                 pipeline::AssetManager* assets,
                                 rendering::Renderer* renderer, float deltaTime) {
     if (!assets || !renderer) return;
@@ -124,9 +125,11 @@ void UnitPortrait::updatePlayer(uint8_t race, uint8_t gender,
 
     // The same three keys the player's own portrait compares, minus the guid —
     // this is asked per unit and the caller has already decided which.
+    const size_t equipHash = hashEquipment(equipment);
     const bool changed = (loadedAppearance_ != appearanceBytes) ||
                          (loadedFacialFeatures_ != facialFeatures) ||
                          (loadedRace_ != race) || (loadedGender_ != gender) ||
+                         (loadedEquipHash_ != equipHash) ||
                          !loadedCreaturePath_.empty();
     if (changed) {
         const uint8_t skin      =  appearanceBytes        & 0xFF;
@@ -139,6 +142,10 @@ void UnitPortrait::updatePlayer(uint8_t race, uint8_t gender,
                                     static_cast<game::Gender>(gender),
                                     skin, face, hairStyle, hairColor,
                                     facialFeatures, gender == 1)) {
+            // After the model, because applyEquipment reads its geosets, and
+            // only where there is something to apply — an empty list is
+            // "nothing known yet", and dressing a model in it strips it.
+            if (!equipment.empty()) preview_->applyEquipment(equipment);
             if (framing_ == Framing::Face) preview_->setPortraitFraming();
             else                           preview_->resetView();
         }
@@ -150,7 +157,7 @@ void UnitPortrait::updatePlayer(uint8_t race, uint8_t gender,
         loadedGender_ = gender;
         loadedAppearance_ = appearanceBytes;
         loadedFacialFeatures_ = facialFeatures;
-        loadedEquipHash_ = 0;
+        loadedEquipHash_ = equipHash;
     }
 
     preview_->update(deltaTime);

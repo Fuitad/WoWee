@@ -333,6 +333,11 @@ public:
     void updateOtherPlayerVisibleItems(uint64_t guid, const FlatFieldMap& fields);
     void cacheInspectedPlayerEquipment(uint64_t guid, const std::array<uint32_t, 19>& itemEntries);
     void emitOtherPlayerEquipment(uint64_t guid);
+    /// The same resolution, answered rather than announced — see the
+    /// definition for why both shapes exist.
+    bool resolveOtherPlayerEquipment(uint64_t guid,
+                                     std::array<uint32_t, 19>& displayIds,
+                                     std::array<uint8_t, 19>& invTypes) const;
     void emitAllOtherPlayerEquipment();
     void handleItemQueryResponse(network::Packet& packet);
 
