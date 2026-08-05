@@ -80,7 +80,12 @@ def main():
     bound = bound_names()
     popups = ROOT / "Data/interface/framexml/staticpopup.lua"
     text = popups.read_text(errors="ignore")
+    # Line comments as well as block ones. Blizzard leaves dead calls in
+    # these hooks with a note beside them — CAMP's OnAccept carries
+    # `--ForceLogout();` under a line saying forced logout is not
+    # finished — and counting those reported names nothing calls.
     text = re.sub(r"--\[\[.*?\]\]", "", text, flags=re.S)
+    text = re.sub(r"--[^\n]*", "", text)
     blocks = re.findall(r'StaticPopupDialogs\["(\w+)"\]\s*=\s*\{(.*?)\n\};',
                         text, re.S)
 

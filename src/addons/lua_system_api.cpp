@@ -2764,6 +2764,29 @@ static int lua_Quit(lua_State* L) {
     return 0;
 }
 
+/// ForceQuit() / ForceLogout() — leave now rather than after the timer.
+///
+/// QUIT's OnAccept calls the first, and the popup exists to offer exactly this:
+/// the server has imposed a countdown and the player would rather not wait.
+/// There is no message that shortens it — the server owns the timer — so what
+/// this can honestly do is ask again, which is what the real client's button
+/// amounts to once the timer is already running.
+///
+/// Bound together because CAMP carries the same pair and it would be strange
+/// for one to answer and not the other, even though Blizzard has that call
+/// commented out with a note saying forced logout is unfinished.
+static int lua_ForceQuit(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (gh) gh->requestLogout(/*exitAfterLogout=*/true);
+    return 0;
+}
+
+static int lua_ForceLogout(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (gh) gh->requestLogout(/*exitAfterLogout=*/false);
+    return 0;
+}
+
 // ReloadUI() — rebuild the interface, as /reload does.
 //
 // Only asks. The reload shuts this Lua state down and builds a new one, and
@@ -3107,6 +3130,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"RunMacro",                 lua_RunMacro},
                 {"TriggerTutorial",          lua_TriggerTutorial},
                 {"Quit",                     lua_Quit},
+                {"ForceQuit",                lua_ForceQuit},
+                {"ForceLogout",              lua_ForceLogout},
                 {"ReloadUI",                 lua_ReloadUI},
                 {"GetGamma",                 lua_GetGamma},
                 {"GetTerrainMip",            lua_GetTerrainMip},

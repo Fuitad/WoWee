@@ -2748,7 +2748,22 @@ void SocialHandler::handleLogoutResponse(network::Packet& packet) {
     if (data.result == 0) {
         if (data.instant) { owner_.addSystemChatMessage("Logging out..."); logoutCountdown_ = 0.0f; }
         else { owner_.addSystemChatMessage("Logging out in 20 seconds..."); logoutCountdown_ = 20.0f; }
-        if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("PLAYER_LOGOUT", {});
+        if (owner_.addonEventCallbackRef()) {
+            owner_.addonEventCallbackRef()("PLAYER_LOGOUT", {});
+            // The timer the server just imposed, announced so the interface can
+            // show it. UIParent answers PLAYER_CAMPING with the CAMP popup and
+            // PLAYER_QUITING with QUIT, both of which count down and offer to
+            // cancel — and it already answers LOGOUT_CANCEL by hiding them, so
+            // half of this conversation was wired and the half that starts it
+            // was not. Nothing could show the twenty seconds but a line of chat.
+            //
+            // Which of the two is the difference between /logout and /quit,
+            // which this handler already keeps in exitAfterLogout_.
+            if (!data.instant) {
+                owner_.addonEventCallbackRef()(
+                    exitAfterLogout_ ? "PLAYER_QUITING" : "PLAYER_CAMPING", {});
+            }
+        }
     } else {
         owner_.raiseUiError("Cannot logout right now.");
         loggingOut_ = false; exitAfterLogout_ = false; logoutCountdown_ = 0.0f;
