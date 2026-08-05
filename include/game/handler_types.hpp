@@ -294,6 +294,8 @@ struct LfgDungeon {
     uint32_t expansion = 0;
     uint32_t orderIndex = 0;
     uint32_t groupId = 0;       // 0 means it belongs under no header
+    std::string description;    // the blurb the random/holiday panel prints
+    bool isHoliday = false;     // group 11, the four seasonal bosses
 };
 
 /// What LFGDungeons.dbc calls each kind of row.

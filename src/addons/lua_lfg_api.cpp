@@ -553,7 +553,14 @@ void registerLfgLuaAPI(lua_State* L) {
             lua_pushstring(L, d.texture.c_str());
             lua_pushinteger(L, static_cast<lua_Integer>(d.difficulty));
             lua_pushinteger(L, maxPlayersFor(d));
-            return 12;
+            // Fourteen, not twelve. LFG_RETURN_VALUES names the first dozen and
+            // stops, but LFDQueueFrameRandom_UpdateFrame reads two more off the
+            // end — and it is the last of them that decides whether a dungeon
+            // is drawn as a holiday at all, so without it the seasonal bosses
+            // were listed as ordinary random dungeons with the wrong artwork.
+            lua_pushstring(L, d.description.c_str());   // 13: description
+            lua_pushboolean(L, d.isHoliday ? 1 : 0);    // 14: isHoliday
+            return 14;
         }
         return luaReturnNil(L);
     }},

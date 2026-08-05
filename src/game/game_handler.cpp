@@ -2789,6 +2789,13 @@ void GameHandler::loadLfgDungeonDbc() const {
     constexpr uint32_t kTargetMin = 21, kTargetMax = 22, kMapId = 23;
     constexpr uint32_t kDifficulty = 24, kTypeId = 26, kFaction = 27;
     constexpr uint32_t kTexture = 28, kExpansion = 29, kOrderIndex = 30, kGroupId = 31;
+    // 32 through 48 are the description in each locale. Only the holiday rows
+    // and a handful of others carry one.
+    constexpr uint32_t kDescription = 32;
+    // Group 11 is the four seasonal bosses — the Headless Horseman, Ahune,
+    // Coren Direbrew and the Crown Chemical Co. — and nothing else. The file
+    // has no holiday flag of its own; the group is the flag.
+    constexpr uint32_t kHolidayGroup = 11;
     const bool wideEnough = dbc->getFieldCount() > kGroupId;
     if (!wideEnough) {
         LOG_WARNING("LFGDungeons.dbc has only ", dbc->getFieldCount(),
@@ -2819,6 +2826,10 @@ void GameHandler::loadLfgDungeonDbc() const {
         d.expansion   = dbc->getUInt32(i, kExpansion);
         d.orderIndex  = dbc->getUInt32(i, kOrderIndex);
         d.groupId     = dbc->getUInt32(i, kGroupId);
+        d.isHoliday   = (d.groupId == kHolidayGroup);
+        if (dbc->getFieldCount() > kDescription) {
+            d.description = dbc->getString(i, kDescription);
+        }
         lfgDungeons_.push_back(std::move(d));
     }
     // The order the picker lists them in: by group, then by the level the
