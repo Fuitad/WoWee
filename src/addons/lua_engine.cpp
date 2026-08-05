@@ -3998,6 +3998,19 @@ void LuaEngine::registerCoreAPI() {
         // through to the no-op list keeps it out of a report whose whole
         // purpose is naming things that are genuinely absent.
         "function mt:UpdateScrollChildRect() end\n"
+        // ItemButton:GetInventorySlot() — which equipment slot this button
+        // stands for. Every caller in FrameXML is a bank button, and the answer
+        // is the arithmetic BankButtonIDToInvSlotID already does: the general
+        // slots follow the equipment, the bank bags follow those, and `isBag`
+        // — set by the button's own OnLoad — says which.
+        //
+        // It answered nil, and BankFrameItemButton_Update reads it straight
+        // into GetInventoryItemTexture, so every bank slot came back with no
+        // texture and no item. The bank drew as an empty bank however full it
+        // was. The tooltip, the pick-up and the bag click all read it too.
+        "function mt:GetInventorySlot()\n"
+        "    return BankButtonIDToInvSlotID(self:GetID(), self.isBag)\n"
+        "end\n"
         // Message frames here do not scroll: every line is drawn and the frame
         // is always showing its newest, which is what AtBottom asks. Answering
         // false would have the interface offer a scroll-to-bottom button that
@@ -4489,7 +4502,7 @@ void LuaEngine::registerCoreAPI() {
         "GetEffectiveScale=1,GetFileHeight=1,GetFileWidth=1,\n"
         "GetFontString=1,GetFrame=1,GetFrameLevel=1,GetFrameRef=1,\n"
         "GetFrameStrata=1,GetHeight=1,GetHighlightTexture=1,GetHorizontalScroll=1,\n"
-        "GetHorizontalScrollRange=1,GetID=1,GetInventorySlot=1,\n"
+        "GetHorizontalScrollRange=1,GetID=1,\n"
         "GetItem=1,GetLeft=1,GetLowerEmblemTexture=1,GetMessageInfo=1,\n"
         "GetMinMaxValues=1,GetMousePosition=1,GetName=1,GetNormalTexture=1,GetNumber=1,\n"
         "GetNumChildren=1,GetNumMessages=1,GetNumPoints=1,GetNumTooltips=1,\n"
