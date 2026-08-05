@@ -141,15 +141,19 @@ const std::set<std::string>& requested() {
         // them, which is how "keybindings" survived the edit that removed its
         // two neighbours.
         //
-        // One deliberate deviation: the report also calls "social" clean and it
-        // is held out. Clean there means no name its own element list needs is
-        // missing — it does not mean every global in friendsframe.lua is bound,
-        // and thirty Battle.net names are not. They sit behind
-        // BNFeaturesEnabled(), which answers false, so they are probably never
-        // reached; "probably" is not enough to promote on, and each one is a
-        // raise rather than a blank if the guard turns out to have a gap.
-        // Run tools/framexml_unbound_globals.py against friendsframe before
-        // adding it.
+        // "social" was held out for thirty unbound Battle.net names, on the
+        // reading that they sit behind BNFeaturesEnabled() and so are probably
+        // never reached. They do not, and the caution was right to distrust
+        // "probably": IgnoreList_Update opens with GetNumIgnores,
+        // BNGetNumBlocked and BNGetNumBlockedToons on three consecutive lines
+        // with nothing between them, so the ignore tab raised on the second of
+        // the three. FriendsFrameTooltip_Show and FriendsFriendsList_Update are
+        // unguarded the same way.
+        //
+        // All thirty are bound now, and answer what a client with no
+        // Battle.net has: no friends, no blocks, nil rows, and verbs that do
+        // nothing. tools/framexml_unbound_globals.py reports friendsframe
+        // clean, which is the check this note used to ask for.
         //
         // "keybindings", "macro" and "timemanager" also come out, for a
         // duller reason: they are not elements. The readiness report scores
@@ -174,6 +178,7 @@ const std::set<std::string>& requested() {
                     "achievements", "auctionhouse", "bagbar", "bank",
                     "barbershop", "bgscore", "book", "chat", "classtrainer",
                     "gamemenu", "gossip", "guildbank", "help", "inspect",
+                    "social",
                     "loot", "mail", "vendor", "micromenu", "partyframes",
                     "questgiver", "stable", "talents", "taxi", "totems",
                     "tradeskill"}) {

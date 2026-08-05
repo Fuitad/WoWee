@@ -320,6 +320,49 @@ static int lua_GetIgnoreName(lua_State* L) {
 /// Battle.net friends: none, and none online. Two values, because FriendsFrame
 /// reads them together and does arithmetic on the second the line it is read —
 /// numBNetTotal - numBNetOnline.
+// ── Battle.net, which this client has none of ──────────────────────────────
+//
+// Answering rather than omitting. An unbound name is a raise, and these are
+// not all behind BNFeaturesEnabled the way the takeover notes assumed:
+// IgnoreList_Update opens with GetNumIgnores, BNGetNumBlocked and
+// BNGetNumBlockedToons on three consecutive lines with no guard between them,
+// so the ignore tab died on the second of the three. FriendsFrameTooltip_Show
+// and FriendsFriendsList_Update are unguarded in the same way.
+//
+// Zero friends, zero blocks and nil rows is what a client with no Battle.net
+// honestly has, and every reader above them treats that as an empty list.
+static int lua_BNZero(lua_State* L)  { lua_pushnumber(L, 0.0); return 1; }
+static int lua_BNFalse(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+static int lua_BNNothing(lua_State* L) { (void)L; return 0; }
+
+/// n nils, for the row readers. Each is asked for a row of a list that is
+/// empty, so the count of values matters and none of them does.
+template <int N>
+static int lua_BNNilRow(lua_State* L) {
+    for (int i = 0; i < N; ++i) lua_pushnil(L);
+    return N;
+}
+
+/// BNGetNumFOF() → total, online. Two, because both are read.
+static int lua_BNTwoZeros(lua_State* L) {
+    lua_pushnumber(L, 0.0);
+    lua_pushnumber(L, 0.0);
+    return 2;
+}
+
+/// BNGetCustomMessageTable(t) → t, online broadcasts, offline broadcasts.
+///
+/// The two counts go straight into the scroll height arithmetic, so they have
+/// to be numbers rather than nil. The table is handed back as it came: the
+/// caller keeps it between calls and replaces it with a fresh one on nil.
+static int lua_BNCustomMessageTable(lua_State* L) {
+    if (lua_istable(L, 1)) lua_pushvalue(L, 1);
+    else                   lua_newtable(L);
+    lua_pushnumber(L, 0.0);
+    lua_pushnumber(L, 0.0);
+    return 3;
+}
+
 static int lua_BNGetNumFriends(lua_State* L) {
     lua_pushnumber(L, 0.0);
     lua_pushnumber(L, 0.0);
@@ -793,6 +836,40 @@ static int lua_GetGuildEventInfo(lua_State* L) {
 void registerSocialLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"BNGetNumFriends",     lua_BNGetNumFriends},
+                {"BNConnected",              lua_BNFalse},
+                {"BNIsSelf",                 lua_BNFalse},
+                {"BNGetMatureLanguageFilter", lua_BNFalse},
+                {"BNGetNumBlocked",          lua_BNZero},
+                {"BNGetNumBlockedToons",     lua_BNZero},
+                {"BNGetNumFriendToons",      lua_BNZero},
+                {"BNGetSelectedFriend",      lua_BNZero},
+                {"BNGetSelectedBlock",       lua_BNZero},
+                {"BNGetSelectedToonBlock",   lua_BNZero},
+                {"BNGetNumFOF",              lua_BNTwoZeros},
+                {"BNGetBlockedInfo",         lua_BNNilRow<2>},
+                {"BNGetBlockedToonInfo",     lua_BNNilRow<2>},
+                {"BNGetFOFInfo",             lua_BNNilRow<4>},
+                {"BNGetInfo",                lua_BNNilRow<5>},
+                {"BNGetFriendToonInfo",      lua_BNNilRow<12>},
+                {"BNGetCustomMessageTable",  lua_BNCustomMessageTable},
+                // The verbs. Nothing to send them to, and a name that is not
+                // there raises where a verb that does nothing simply does
+                // nothing — which is the truth for a client with no
+                // Battle.net.
+                {"BNSetSelectedFriend",      lua_BNNothing},
+                {"BNSetSelectedBlock",       lua_BNNothing},
+                {"BNSetSelectedToonBlock",   lua_BNNothing},
+                {"BNSetBlocked",             lua_BNNothing},
+                {"BNSetCustomMessage",       lua_BNNothing},
+                {"BNSetFriendNote",          lua_BNNothing},
+                {"BNSetAFK",                 lua_BNNothing},
+                {"BNSetDND",                 lua_BNNothing},
+                {"BNSendFriendInvite",       lua_BNNothing},
+                {"BNSendFriendInviteByID",   lua_BNNothing},
+                {"BNDeclineFriendInvite",    lua_BNNothing},
+                {"BNRemoveFriend",           lua_BNNothing},
+                {"BNReportPlayer",           lua_BNNothing},
+                {"BNCreateConversation",     lua_BNNothing},
                 {"GetGMTicket",         lua_GetGMTicket},
                 // UpdateGMTicket(text) — rewrite the ticket already open.
                 // Creating one carries the player's position because a new
