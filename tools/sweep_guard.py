@@ -177,6 +177,17 @@ CHECKS = [
     ("window_flag_check.py",
      r"^(\d+) write\(s\) to one of those flags with no ownership check", 0,
      "window flags written without asking which interface owns the window"),
+    # "Owned or suppressed" applied to dialogs one at a time. Seven were drawn
+    # twice on 2026-08-05, three of them under the plain defaults. The five
+    # left are read and deliberate: the duel countdown has no FrameXML
+    # counterpart, the pet talent-wipe confirmation is driven by client state
+    # rather than an event, and the shared quest, battleground invite and
+    # battlefield-manager invite all need an event nothing here fires — which
+    # is a thinner reason than the others and stops holding the day one of
+    # those is wired.
+    ("dialog_gate_check.py",
+     r"^(\d+) with no ownership check", 5,
+     "dialogs drawn without asking whether FrameXML draws them too"),
     ("api_shadowing_check.py",
      r"^\s*(\d+) to look at", 10,
      "names whose winner depends on load order"),

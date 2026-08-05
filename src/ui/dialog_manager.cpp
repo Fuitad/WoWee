@@ -110,7 +110,10 @@ void DialogManager::renderLateDialogs(game::GameHandler& gameHandler) {
     if (!frameXmlOwns(UiElement::Dialogs)) {
         // ShowResurrectRequest, from UIParent's RESURRECT_REQUEST handler.
     if (!frameXmlOwns(UiElement::Dialogs)) renderResurrectDialog(gameHandler);
-        renderTalentWipeConfirmDialog(gameHandler);
+        // uiparent.lua answers CONFIRM_TALENT_WIPE with StaticPopup_Show for the
+    // same name, and this client fires that event — the binding for the
+    // popup's own accept button says so in as many words.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderTalentWipeConfirmDialog(gameHandler);
     }
     renderPetUnlearnConfirmDialog(gameHandler);
 }
