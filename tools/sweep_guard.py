@@ -181,12 +181,11 @@ CHECKS = [
     # twice on 2026-08-05, three of them under the plain defaults. The five
     # left are read and deliberate: the duel countdown has no FrameXML
     # counterpart, the pet talent-wipe confirmation is driven by client state
-    # rather than an event, and the shared quest, battleground invite and
-    # battlefield-manager invite all need an event nothing here fires — which
-    # is a thinner reason than the others and stops holding the day one of
-    # those is wired.
+    # rather than an event, and the shared quest and battleground invite need
+    # an event nothing here fires — which is a thinner reason than the others
+    # and stops holding the day either is wired.
     ("dialog_gate_check.py",
-     r"^(\d+) with no ownership check", 5,
+     r"^(\d+) with no ownership check", 4,
      "dialogs drawn without asking whether FrameXML draws them too"),
     ("api_shadowing_check.py",
      r"^\s*(\d+) to look at", 10,

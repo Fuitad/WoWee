@@ -32,6 +32,9 @@ import pathlib
 import re
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from ownership_walk import gated
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 MANAGER = ROOT / "src/ui/dialog_manager.cpp"
 DISPATCH = ("renderDialogs", "renderLateDialogs")
@@ -64,18 +67,7 @@ def main():
             if not CALL.search(line):
                 continue
             total += 1
-            # Same line, or an `if (...)` on the line above with nothing else
-            # on it — the shape a wrapped call hangs from.
-            #
-            # Not "the line above contains frameXmlOwns", which is what this
-            # tried first: these calls sit in a run, so an ungated one directly
-            # under a gated one borrows its neighbour's check and reports
-            # covered. Five of the six were hidden that way, including two the
-            # last commit had deliberately left ungated.
-            if "frameXmlOwns" in line:
-                continue
-            above = lines[i - 1].strip() if i else ""
-            if re.fullmatch(r"if\s*\(.*frameXmlOwns.*\)", above):
+            if gated(lines, i):
                 continue
             rows.append((method, first + i, line.strip()[:66]))
 

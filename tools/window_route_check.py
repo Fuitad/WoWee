@@ -38,65 +38,14 @@ import pathlib
 import re
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from ownership_walk import OWNERSHIP, gated
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 UI = ROOT / "src/ui"
 
 VERBS = ("toggleCharacter", "toggleBackpack", "toggleBag", "openAllBags",
          "toggleSpellbook", "toggle")
-# The literal call, and any helper named for the same question.
-OWNERSHIP = ("frameXmlOwns", "AreFrameXml", "IsFrameXml", "frameXmlChat")
-# No context window at all. See gated_by() below.
-
-
-def gated_by(lines, i):
-    """Whether the call on line i sits in an if/else chain that tests ownership.
-
-    Proximity does not work here and reading a window of lines is what made an
-    earlier version of this report clean while a control was dead. These calls
-    sit in runs — eleven micro-menu buttons one after another — so any window
-    wide enough to reach a wrapped gate also reaches the *previous button's*
-    gate, and an unrouted call borrows its neighbour's check.
-
-    So walk the chain instead, upwards from the call, through exactly the shapes
-    a branch is made of:
-
-        if (frameXmlOwns(X)) <call>;          gate on the call's own line
-        else                 <call>;          gate on the line above
-        if (frameXmlOwns(X))                  gate two or more lines up, with
-            <other>;                          the if-branch body between
-        else
-            <call>;
-
-    and stop at the first line that is none of those — which for an unrouted
-    button is `if (button(...)) {`, the control itself.
-    """
-    budget = 12
-    for j in range(i - 1, -1, -1):
-        line = lines[j].strip()
-        # Comments cost nothing: these branches carry long ones, and a bound
-        # that counts them stops short of the gate they are explaining.
-        if not line or line.startswith("//") or line.startswith("/*") or line.startswith("*"):
-            continue
-        budget -= 1
-        if budget < 0:
-            return False
-        # `else if (...)` is both: it opens another branch and is not the gate
-        # for the ones below it, so keep walking to the chain's first `if`.
-        if line.startswith("else if") or line.startswith("} else if"):
-            continue
-        if line in ("else", "else {", "} else {") or line.startswith("} else"):
-            continue
-        if line.startswith("if (") or line.startswith("if("):
-            return any(word in line for word in OWNERSHIP)
-        # Any statement: a branch body can be several lines, and the walk stops
-        # at the first `if` regardless, which is what keeps a neighbour's gate
-        # from being borrowed.
-        if line.endswith(";") or line.endswith("{"):
-            continue
-        return False
-    return False
-
-
 def main():
     call = re.compile(r"\b\w+\.(" + "|".join(VERBS) + r")\s*\(")
     rows = []
@@ -105,7 +54,7 @@ def main():
         for i, line in enumerate(lines):
             if not call.search(line):
                 continue
-            if gated_by(lines, i):
+            if gated(lines, i):
                 continue
             rows.append((path.name, i + 1, line.strip()[:72]))
 

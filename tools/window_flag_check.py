@@ -36,15 +36,11 @@ import pathlib
 import re
 import sys
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from ownership_walk import gated
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 UI = ROOT / "src/ui"
-OWNERSHIP = ("frameXmlOwns", "AreFrameXml", "IsFrameXml")
-# Deliberately tight. These writes cluster — a run of slash-command branches
-# sits together, and a window wide enough to clear one branch's comment reaches
-# into its neighbour's ownership check and calls the unrouted one covered. Six
-# lines is enough for `if (owns) ... else <write>` and not enough to borrow the
-# branch above. Verified by taking the who list's routing back out.
-BEFORE, AFTER = 6, 2
 
 
 def sources():
@@ -94,11 +90,11 @@ def guard_flags(src):
 
 def main():
     src = sources()
-    gated = gated_renders(src)
+    gated_by_element = gated_renders(src)
     guards = guard_flags(src)
 
     watched = {}
-    for render, elements in gated.items():
+    for render, elements in gated_by_element.items():
         if render in guards:
             flag, owner_file, first, last = guards[render]
             watched[flag] = (sorted(elements), owner_file, first, last)
@@ -113,13 +109,12 @@ def main():
                     continue
                 if not re.search(r"\b" + re.escape(flag) + r"\s*=(?!=)", line):
                     continue
-                context = "\n".join(lines[max(0, i - BEFORE):i + AFTER])
-                if any(word in context for word in OWNERSHIP):
+                if gated(lines, i):
                     continue
                 rows.append((path.name, i + 1, flag, ", ".join(elements),
                              line.strip()[:64]))
 
-    print(f"{len(gated)} gated render(s), {len(watched)} of them guarded by a "
+    print(f"{len(gated_by_element)} gated render(s), {len(watched)} of them guarded by a "
           f"show-flag\n")
     print(f"{len(rows)} write(s) to one of those flags with no ownership "
           f"check:\n")
