@@ -78,6 +78,11 @@ static int lua_PickupPetAction(lua_State* L) { (void)L; return 0; }
 ///
 /// Only on an actual change: several of these run on every click of an empty
 /// slot, setting NONE over NONE, and the interface would redraw for each.
+/// Defined below, beside the rest of the cursor state it clears. Declared here
+/// because the sites that put the cursor down come first in the file, and each
+/// of them used to clear only part of what a pickup sets.
+static void clearCursorItem(lua_State* L);
+
 static void setCursorType(lua_State* L, CursorType type) {
     if (s_cursorType == type) return;
     s_cursorType = type;
@@ -368,11 +373,14 @@ static int lua_UseAction(lua_State* L) {
 
 
 static int lua_ClearCursor(lua_State* L) {
-    (void)L;
-    setCursorType(L, CursorType::NONE);
-    s_cursorId = 0;
-    s_cursorSlot = 0;
-    s_cursorBag = -1;
+    // Everything a pickup set, including the icon drawn on the pointer.
+    //
+    // This cleared the type, the id, the slot and the bag and left the icon,
+    // which is a separate piece of state that only clearCursorItem touches. So
+    // cancelling a pickup — Escape, a right-click, a click on nothing, all of
+    // which reach this — put the item back and left its picture stuck to the
+    // cursor for the rest of the session.
+    clearCursorItem(L);
     return 0;
 }
 
@@ -429,8 +437,7 @@ static int lua_PickupAction(lua_State* L) {
         // Empty slot — if cursor has something, place it
         if (s_cursorType == CursorType::SPELL && s_cursorId != 0) {
             gh->setActionBarSlot(slot - 1, game::ActionBarSlot::SPELL, s_cursorId);
-            setCursorType(L, CursorType::NONE);
-            s_cursorId = 0;
+            clearCursorItem(L);
         }
     } else {
         // Pick up existing action
@@ -456,8 +463,7 @@ static int lua_PlaceAction(lua_State* L) {
     } else if (s_cursorType == CursorType::MACRO && s_cursorId != 0) {
         gh->setActionBarSlot(slot - 1, game::ActionBarSlot::MACRO, s_cursorId);
     }
-    setCursorType(L, CursorType::NONE);
-    s_cursorId = 0;
+    clearCursorItem(L);
     return 0;
 }
 
@@ -827,8 +833,7 @@ static int lua_AutoEquipCursorItem(lua_State* L) {
     if (gh && s_cursorType == CursorType::ITEM && s_cursorId != 0) {
         gh->useItemById(s_cursorId);
     }
-    setCursorType(L, CursorType::NONE);
-    s_cursorId = 0;
+    clearCursorItem(L);
     return 0;
 }
 
@@ -1014,9 +1019,7 @@ static int lua_ClickTradeButton(lua_State* L) {
         gh->setTradeItem(static_cast<uint8_t>(i - 1),
                          static_cast<uint8_t>(s_cursorBag),
                          static_cast<uint8_t>(s_cursorSlot));
-        setCursorType(L, CursorType::NONE);
-        s_cursorId = 0;
-        s_cursorBag = -1;
+        clearCursorItem(L);
     } else {
         gh->clearTradeItem(static_cast<uint8_t>(i - 1));
     }
