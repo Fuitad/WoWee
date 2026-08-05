@@ -178,10 +178,9 @@ const std::set<std::string>& requested() {
                     "achievements", "auctionhouse", "bagbar", "bank",
                     "barbershop", "bgscore", "book", "chat", "classtrainer",
                     "gamemenu", "gossip", "guildbank", "help", "inspect",
-                    "social",
-                    "loot", "mail", "vendor", "micromenu", "partyframes",
-                    "questgiver", "stable", "talents", "taxi", "totems",
-                    "tradeskill"}) {
+                    "loot", "mail", "micromenu", "partyframes", "questgiver",
+                    "social", "stable", "talents", "taxi", "totems",
+                    "tradeskill", "vendor"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "

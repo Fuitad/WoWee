@@ -539,11 +539,13 @@ def main():
     # looks here. Printed rather than explained: paste it over the array and
     # the drift is gone.
     #
-    # The twelve defaults are left out — the tier adds to them rather than
-    # replacing them, and listing one twice reads as a mistake.
+    # The defaults are left out — the tier adds to them rather than replacing
+    # them, and listing one twice reads as a mistake. Keep this in step with
+    # the set in framexml_takeover.cpp: zonetext and dialogs joined it and this
+    # copy did not follow, which is the drift the printed list exists to stop.
     DEFAULTS = {"playerframe", "targetframe", "minimap", "mainmenubar",
                 "characterframe", "bags", "castbar", "spellbook", "petframe",
-                "focusframe", "buffs", "durability"}
+                "focusframe", "buffs", "durability", "zonetext", "dialogs"}
     # Settled elements belong here too. They show a count above because this
     # cannot prove an absent feature is absent, but every name in them has been
     # read and found unreachable, redundant, or a feature that does not exist —
@@ -553,15 +555,18 @@ def main():
     # client's own map, and questlog and questtracker reach the same map API
     # through worldmapframe.lua; handing any of them over draws a second map
     # over the first, which is a decision already taken and not a candidate.
+    #
+    # Worth revisiting for worldmap, deliberately rather than by regenerating
+    # this list: WorldMapFacade::setFrameRect exists now, and application.cpp
+    # already positions this client's map inside FrameXML's WorldMapDetailFrame
+    # when FrameXML owns it — one map in FrameXML's panel rather than two maps.
+    # The reason written here predates that plumbing. questlog reports no
+    # missing call and no unfired event at all.
     CLIENT_OWNS_THE_DRAWING = {"worldmap", "questlog", "questtracker"}
     # Held out for reasons this report cannot see, and left out of the printed
     # list so that regenerating and pasting does not put them back. The comment
     # in framexml_takeover.cpp explains each; briefly:
     #
-    #   social                          — clean here means no name its own
-    #                                     element list needs is missing, and
-    #                                     thirty Battle.net names in
-    #                                     friendsframe.lua still are
     #   keybindings, macro, timemanager — scored because their FrameXML files
     #                                     have no missing calls, but there is no
     #                                     UiElement of any of those names, so
@@ -572,7 +577,7 @@ def main():
     # source makes that instruction wrong. "keybindings" survived one such
     # paste and warned on every candidates run until someone read the comment
     # saying it had been removed.
-    HELD_OUT = {"social", "keybindings", "macro", "timemanager"}
+    HELD_OUT = {"keybindings", "macro", "timemanager"}
     tier = sorted((set(ready) | set(settled))
                   - DEFAULTS - CLIENT_OWNS_THE_DRAWING - HELD_OUT)
     if tier:
