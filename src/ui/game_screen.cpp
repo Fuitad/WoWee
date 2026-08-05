@@ -1222,12 +1222,27 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
 
     // If the user is typing (or about to focus chat this frame), do not allow
     // A-Z or 1-0 shortcuts to fire.
+    // Enter and slash open the chat box. Which chat box depends on who owns it.
+    //
+    // These reached this client's panel unconditionally, and its render is
+    // gated on the same ownership — so with the chat handed over they set a
+    // focus flag on a panel that is never drawn, and the interface's own edit
+    // box stayed shut. There was no other way in: FrameXML's OPENCHAT and
+    // OPENCHATSLASH bindings are not in this client's route table, so with the
+    // chat owned there was no key at all that opened it.
+    //
+    // Nothing needs to guard the keystrokes that follow. Once FrameXML's box
+    // has focus the application's key loop hands it every press and stops
+    // there, which is why typing into it does not also walk the character.
+    const bool frameXmlChat = frameXmlOwns(UiElement::Chat);
     if (!io.WantTextInput && !chatPanel_.isChatInputActive() && input.isKeyJustPressed(SDL_SCANCODE_SLASH)) {
-        chatPanel_.activateSlashInput();
+        if (frameXmlChat) gameHandler.runInterfaceCommand("ChatFrame_OpenChat(\"/\")");
+        else              chatPanel_.activateSlashInput();
     }
     if (!io.WantTextInput && !chatPanel_.isChatInputActive() &&
         KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_CHAT, false)) {
-        chatPanel_.activateInput();
+        if (frameXmlChat) gameHandler.runInterfaceCommand("ChatFrame_OpenChat(\"\")");
+        else              chatPanel_.activateInput();
     }
 
     const bool textFocus = chatPanel_.isChatInputActive() || io.WantTextInput;
