@@ -124,6 +124,17 @@ target_link_libraries(test_inventory_slots PRIVATE catch2_main)
 add_test(NAME inventory_slots COMMAND test_inventory_slots)
 register_test_target(test_inventory_slots)
 
+# ── sweep_guard ──────────────────────────────────────────────────
+# The fast interface sweeps, run as a test so they stop depending on someone
+# remembering. Each fault they catch raises nothing, logs nothing and fails no
+# other test: a panel drawn twice, a binding answering short, a manifest entry
+# resolving to no file, bootstrap Lua replacing the binding beneath it. Under
+# three seconds for all of them; the slower reports stay manual.
+if(Python3_Interpreter_FOUND)
+    add_test(NAME sweep_guard
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/sweep_guard.py)
+endif()
+
 # ── test_chat_types ─────────────────────────────────────────────
 # A chat type is a byte off the wire and the event name is built from it, so a
 # value missing from the enum is a line of chat that never appears — no error,

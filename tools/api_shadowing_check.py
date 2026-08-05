@@ -195,7 +195,11 @@ def main():
 # targeting and right-click menus with nothing to say why.
 import collections as _collections
 import pathlib as _pathlib
-_src = _pathlib.Path("src/addons/lua_engine.cpp").read_text()
+# Resolved from this file rather than the working directory. Both of the
+# paths below were relative to it, so the report crashed anywhere but the
+# repository root — which is where anything running it from a build
+# directory finds out, and only then.
+_src = (ADDONS / "lua_engine.cpp").read_text()
 _defs = _collections.Counter(
     re.findall(r'"function\s+[\w.]*[Mm][Tt]\w*\s*:\s*(\w+)', _src))
 _dupes = sorted(n for n, c in _defs.items() if c > 1)
@@ -216,7 +220,7 @@ else:
 # ChangeActionBarPage did exactly that, and the six FrameXML frames registered
 # for ACTIONBAR_PAGE_CHANGED — including the one that redraws every action
 # button — never heard it. The page number changed and the icons did not.
-_here = _pathlib.Path("src/addons")
+_here = ADDONS
 _offenders = []
 for _f in sorted(_here.glob("*.cpp")):
     if _f.name == "lua_engine.cpp":
