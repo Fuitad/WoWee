@@ -94,6 +94,35 @@ struct CharSectionsFields {
 CharSectionsFields detectCharSectionsFields(const DBCFile* dbc, const DBCFieldMap* csL);
 
 /**
+ * Which columns of CharacterFacialHairStyles.dbc hold the geoset numbers.
+ *
+ * Two shapes ship. The stock 3.3.5a file has nine columns with three unused
+ * ones after the variation, so the geosets are at 6, 7, 8. The eight-column
+ * file — which is what both installs on this machine carry — puts them at
+ * 3, 4, 5 and fills 6 and 7 with zero or 0xCCCCCCCC.
+ *
+ * Reading the wrong pair is silent: the geosets come out zero, so a beard, a
+ * moustache, a pair of sideburns or a draenei's face tendrils simply are not
+ * drawn, and nothing anywhere reports it. Index 8 does not even exist in the
+ * shorter file.
+ *
+ * The order within the triple is the documented quirk and is the same in both:
+ * the first column is geoset group 100, the second 300, the third 200.
+ */
+struct FacialHairFields {
+    uint32_t geoset100 = 6;
+    uint32_t geoset300 = 7;
+    uint32_t geoset200 = 8;
+};
+
+/**
+ * Detect the actual CharacterFacialHairStyles.dbc geoset columns.
+ * @param dbc  Loaded CharacterFacialHairStyles.dbc (may be null).
+ * @param fhL  JSON-derived field map (may be null — defaults used).
+ */
+FacialHairFields detectFacialHairFields(const DBCFile* dbc, const DBCFieldMap* fhL);
+
+/**
  * Resolve the SpellItemEnchantment.dbc name (description) field index.
  *
  * The record grew across expansions, so the name sits at a different column in

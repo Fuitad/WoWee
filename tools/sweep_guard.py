@@ -168,6 +168,17 @@ CHECKS = [
     ("framexml_lookup_names_check.py",
      r"^(\d+) looked up that the interface does not declare", 0,
      "frames this client looks up by a name the interface does not declare"),
+    # DBC field indices naming a column the file does not have. Four, and all
+    # four are one field: CharacterFacialHairStyles.Geoset200 = 8, repeated once
+    # per expansion. The layouts describe the stock nine-column file, which is a
+    # real shape and the right thing for them to describe; the eight-column file
+    # both installs here carry is handled by detectFacialHairFields, which picks
+    # 3-5 on the field count. Lower this only by making that decision somewhere
+    # the JSON can express, and read a new row as a column being read from
+    # padding — that one was drawing no facial hair at all and saying nothing.
+    ("dbc_layout_check.py",
+     r"^(\d+) field\(s\) naming a column the file does not have", 4,
+     "DBC field indices naming a column the file does not have"),
     # Packet handlers that change this client's own model, tell the player in
     # chat, and tell the interface nothing — the shape that produces a bug
     # correct after a relog and wrong until then. Twenty, each read once: what

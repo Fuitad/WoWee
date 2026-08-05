@@ -100,6 +100,7 @@ void CharacterPreview::ensureAppearanceGeosetsLoaded() {
     if (auto cfh = assetManager_->loadDBC("CharacterFacialHairStyles.dbc"); cfh && cfh->isLoaded()) {
         const auto* cfhL = pipeline::getActiveDBCLayout()
             ? pipeline::getActiveDBCLayout()->getLayout("CharacterFacialHairStyles") : nullptr;
+        const auto fhF = pipeline::detectFacialHairFields(cfh.get(), cfhL);
         for (uint32_t i = 0; i < cfh->getRecordCount(); i++) {
             uint32_t raceId = cfh->getUInt32(i, cfhL ? (*cfhL)["RaceID"] : 0);
             uint32_t sexId = cfh->getUInt32(i, cfhL ? (*cfhL)["SexID"] : 1);
@@ -107,10 +108,11 @@ void CharacterPreview::ensureAppearanceGeosetsLoaded() {
             uint32_t key = (raceId << 16) | (sexId << 8) | variation;
 
             FacialHairGeosets geosets;
-            // Columns 6-8, not 3-5 — see the same read in EntitySpawner.
-            geosets.geoset100 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset100"] : 6));
-            geosets.geoset300 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset300"] : 7));
-            geosets.geoset200 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset200"] : 8));
+            // Whichever columns this copy of the DBC keeps them in — see
+            // detectFacialHairFields, and the same read in EntitySpawner.
+            geosets.geoset100 = static_cast<uint16_t>(cfh->getUInt32(i, fhF.geoset100));
+            geosets.geoset300 = static_cast<uint16_t>(cfh->getUInt32(i, fhF.geoset300));
+            geosets.geoset200 = static_cast<uint16_t>(cfh->getUInt32(i, fhF.geoset200));
             facialHairGeosetMap_[key] = geosets;
         }
         LOG_INFO("CharacterPreview: loaded ", facialHairGeosetMap_.size(), " facial hair geoset mappings");

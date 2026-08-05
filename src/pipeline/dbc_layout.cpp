@@ -96,6 +96,30 @@ const DBCFieldMap* DBCLayout::getLayout(const std::string& dbcName) const {
     return (it != layouts_.end()) ? &it->second : nullptr;
 }
 
+FacialHairFields detectFacialHairFields(const DBCFile* dbc, const DBCFieldMap* fhL) {
+    static const DBCFile* s_cached = nullptr;
+    static FacialHairFields s_cachedResult;
+    if (dbc && dbc == s_cached) return s_cachedResult;
+
+    FacialHairFields f;
+    f.geoset100 = fhL ? (*fhL)["Geoset100"] : 6;
+    f.geoset300 = fhL ? (*fhL)["Geoset300"] : 7;
+    f.geoset200 = fhL ? (*fhL)["Geoset200"] : 8;
+    if (!dbc || dbc->getRecordCount() == 0) return f;
+
+    // The field count decides it, and decides it exactly: the nine-column file
+    // is the only one where column 8 exists at all. Asked this way there is
+    // nothing to probe and nothing to get wrong on an unusual row.
+    if (dbc->getFieldCount() < 9) {
+        f.geoset100 = 3;
+        f.geoset300 = 4;
+        f.geoset200 = 5;
+    }
+    s_cached = dbc;
+    s_cachedResult = f;
+    return f;
+}
+
 CharSectionsFields detectCharSectionsFields(const DBCFile* dbc, const DBCFieldMap* csL) {
     // Cache: avoid re-probing the same DBC on every call.
     static const DBCFile* s_cachedDbc = nullptr;

@@ -758,19 +758,22 @@ void EntitySpawner::buildCreatureDisplayLookups() {
     // Col 3: Geoset100, Col 4: Geoset300, Col 5: Geoset200
     if (auto cfh = assetManager_->loadDBC("CharacterFacialHairStyles.dbc"); cfh && cfh->isLoaded()) {
         const auto* cfhL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("CharacterFacialHairStyles") : nullptr;
+        const auto fhF = pipeline::detectFacialHairFields(cfh.get(), cfhL);
         for (uint32_t i = 0; i < cfh->getRecordCount(); i++) {
             uint32_t raceId = cfh->getUInt32(i, cfhL ? (*cfhL)["RaceID"] : 0);
             uint32_t sexId = cfh->getUInt32(i, cfhL ? (*cfhL)["SexID"] : 1);
             uint32_t variation = cfh->getUInt32(i, cfhL ? (*cfhL)["Variation"] : 2);
             uint32_t key = (raceId << 16) | (sexId << 8) | variation;
             FacialHairGeosets fhg;
-            // Columns 3-5 are not the geosets: they hold a constant per race in
-            // every copy of this DBC that ships here, and reading them gave
-            // values like 2010429269 that no model has. The variant numbers are
-            // at 6-8, which is where a Draenei female's face tendrils live.
-            fhg.geoset100 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset100"] : 6));
-            fhg.geoset300 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset300"] : 7));
-            fhg.geoset200 = static_cast<uint16_t>(cfh->getUInt32(i, cfhL ? (*cfhL)["Geoset200"] : 8));
+            // Which columns those are depends on the copy of the DBC. The
+            // nine-column file keeps them at 6-8 with three unused columns
+            // before them; the eight-column file — which is what ships here —
+            // keeps them at 3-5 and fills 6 and 7 with zero or 0xCCCCCCCC.
+            // detectFacialHairFields decides on the field count, since column 8
+            // exists only in the longer one.
+            fhg.geoset100 = static_cast<uint16_t>(cfh->getUInt32(i, fhF.geoset100));
+            fhg.geoset300 = static_cast<uint16_t>(cfh->getUInt32(i, fhF.geoset300));
+            fhg.geoset200 = static_cast<uint16_t>(cfh->getUInt32(i, fhF.geoset200));
             facialHairGeosetMap_[key] = fhg;
         }
         LOG_INFO("Loaded ", facialHairGeosetMap_.size(), " facial hair geoset mappings from CharacterFacialHairStyles.dbc");
