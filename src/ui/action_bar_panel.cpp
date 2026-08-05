@@ -1370,9 +1370,13 @@ namespace {
 /// Where a bag-bar click goes when FrameXML owns the bags.
 ///
 /// renderBagBar is gated on the BagBar element and these buttons open the
-/// *bags*, which is a different element and handed over by default — so with
-/// nobody opting into anything, this client drew its own bag bar and every
-/// button on it toggled a window FrameXML draws and this client does not.
+/// *bags*, which is a different element — so wherever the two are owned
+/// differently, this client drew its own bag bar and every button on it
+/// toggled a window FrameXML draws and this client does not.
+///
+/// That needs a hand-picked WOWEE_FRAMEXML_UI. The defaults and "candidates"
+/// both name mainmenubar, which covers BagBar as well as the action bar and
+/// the micro menu, so this bar is not drawn in either.
 ///
 /// The container ids are WoW's: zero is the backpack and one to four are the
 /// equipped bags, where this client indexes those four from zero.

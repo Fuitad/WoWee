@@ -1050,8 +1050,15 @@ void GameScreen::renderMicroMenu(game::GameHandler& gameHandler) {
         // Each of these toggles a window whose draw is gated on the same
         // ownership, so a button for a handed-over panel set a flag nothing
         // read. Only Social asked; the rest are the same shape and were
-        // missing it — with the defaults alone that is the character sheet,
-        // the bags and the spellbook, three of the first four buttons.
+        // missing it.
+        //
+        // Reachable only from a hand-picked WOWEE_FRAMEXML_UI that names one
+        // of these panels without naming mainmenubar. Both the defaults and
+        // "candidates" include mainmenubar, which covers MicroMenu — so this
+        // whole menu is gated off there and none of these buttons is drawn at
+        // all. I claimed otherwise when writing this and was wrong: the group
+        // cover in coveredByGroup is easy to read past, and "bags is a default
+        // element" is true without meaning what it looks like it means.
         if (button("C##MicroCharacter", "Character", inventoryScreen.isCharacterOpen())) {
             if (frameXmlOwns(UiElement::CharacterFrame)) {
                 gameHandler.runInterfaceCommand("ToggleCharacter(\"PaperDollFrame\")");
