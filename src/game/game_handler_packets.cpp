@@ -616,21 +616,39 @@ void GameHandler::registerOpcodeHandlers() {
     //                movement/speed/flags, attack, spells, group ----
 
     dispatchTable_[Opcode::MSG_CORPSE_QUERY] = [this](network::Packet& packet) {
+        // found(1) + travelMapId(4) + x,y,z(12) + corpseMapId(4) + unk(4).
+        //
+        // Two map ids, and they are not the same question. The first is where
+        // the coordinates are: for a corpse left in a dungeon the server
+        // answers with the instance's *entrance* on the outdoor map, because
+        // that is where a ghost has to walk to. The second is the map the
+        // corpse is actually lying on.
+        //
+        // This paired the coordinates with the second, and everything that
+        // reads corpseMapId_ compares it against the map the player is
+        // standing on — every other writer sets it to exactly that. So a
+        // corpse in a dungeon gave a position on the outdoor map filed under
+        // the dungeon's id, and the check `currentMapId_ != corpseMapId_`
+        // refused to show it precisely where it would have been useful.
         if (!packet.hasRemaining(1)) return;
-        uint8_t found = packet.readUInt8();
-        if (found && packet.hasRemaining(20)) {
-            /*uint32_t mapId =*/ packet.readUInt32();
-            float cx = packet.readFloat();
-            float cy = packet.readFloat();
-            float cz = packet.readFloat();
-            uint32_t corpseMapId = packet.readUInt32();
-            corpseX_ = cx;
-            corpseY_ = cy;
-            corpseZ_ = cz;
-            corpseMapId_ = corpseMapId;
-            corpsePositionValid_ = true;
-            LOG_INFO("MSG_CORPSE_QUERY: corpse at (", cx, ",", cy, ",", cz, ") map=", corpseMapId);
-        }
+        const uint8_t found = packet.readUInt8();
+        if (!found || !packet.hasRemaining(20)) return;
+        const uint32_t travelMapId = packet.readUInt32();
+        const float cx = packet.readFloat();
+        const float cy = packet.readFloat();
+        const float cz = packet.readFloat();
+        const uint32_t corpseMapId = packet.readUInt32();
+
+        corpseX_ = cx;
+        corpseY_ = cy;
+        corpseZ_ = cz;
+        corpseMapId_ = travelMapId;
+        corpsePositionValid_ = true;
+        LOG_INFO("MSG_CORPSE_QUERY: walk to (", cx, ",", cy, ",", cz,
+                 ") on map ", travelMapId,
+                 corpseMapId != travelMapId
+                     ? " (the corpse itself is inside map " + std::to_string(corpseMapId) + ")"
+                     : "");
     };
     dispatchTable_[Opcode::SMSG_FEIGN_DEATH_RESISTED] = [this](network::Packet& /*packet*/) {
         addUIError("Your Feign Death was resisted.");
