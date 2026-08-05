@@ -4010,7 +4010,17 @@ void LuaEngine::registerCoreAPI() {
         "end\n"
         "function mt:SetMinResize(...) end\n"
         "function mt:SetMaxResize(...) end\n"
-        "function mt:IsMouseOver() return false end\n"
+        // IsMouseOver is not here. It was, answering a flat false, and it sat
+        // among these no-ops as though it were one — but there is a real
+        // implementation of it in C, registered earlier and therefore losing.
+        // That one tests the cursor against the frame's own rect, and
+        // dispatchMouse keeps sLastMouseX_ in interface units for no other
+        // reason than to feed it.
+        //
+        // Sixteen files ask. WorldMapFrame_OnUpdate gates the area label under
+        // the cursor on it, so the map never named the zone being pointed at;
+        // the consolidated buff tooltip never knew the mouse had left it; and
+        // the hybrid scroll frames could not tell they were being hovered.
     );
 
     // Button art, which XML declares as <NormalTexture>, <HighlightTexture>,
