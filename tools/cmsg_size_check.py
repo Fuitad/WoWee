@@ -32,6 +32,14 @@ writeString or a writePackedGuid ends the sum, since neither has a width here
 either — and a request that opens with one cannot be compared at all and is
 skipped rather than guessed at.
 
+TWO QUESTIONS, NOT ONE
+
+Length, and then shape. A request of the right length whose fields are in the
+wrong order is read without complaint and acted on with the wrong numbers,
+which is quieter than being dropped and harder to see. CMSG_SET_TRADE_GOLD was
+that: eight bytes where the server reads four, working only because
+little-endian puts the value in the low half.
+
 VALIDATED AGAINST THE BUG IT WAS WRITTEN FOR
 
 As acceptBfMgrInvite stood before the fix — one writeUInt8 straight after the
@@ -93,7 +101,7 @@ def handler_for_opcode(server_root):
 
 
 def server_reads(server_root, handlers):
-    """CMSG name -> bytes the server reads before it can branch."""
+    """CMSG name -> the widths it reads, in order, before it can branch."""
     wanted = {name: op for op, name in handlers.items()}
     out = {}
     for path in Path(server_root).rglob("*.cpp"):
@@ -119,18 +127,18 @@ def server_reads(server_root, handlers):
             chain = re.search(re.escape(arg) + r"\s*>>\s*([^;]+);", body)
             if not chain:
                 continue
-            total = 0
+            widths = []
             for name in [n.strip() for n in chain.group(1).split(">>")]:
                 if name not in types:
                     break          # a string, a guid, or declared elsewhere
-                total += WIDTH[types[name]]
-            if total:
-                out[wanted[method]] = total
+                widths.append(WIDTH[types[name]])
+            if widths:
+                out[wanted[method]] = widths
     return out
 
 
 def client_writes():
-    """CMSG name -> (bytes written, whether the size is exact)."""
+    """CMSG name -> (the widths written in order, whether the size is exact)."""
     out = {}
     for path in list((ROOT / "src/game").rglob("*.cpp")) + \
                 list((ROOT / "src/addons").rglob("*.cpp")):
@@ -140,7 +148,7 @@ def client_writes():
                 src):
             var, opcode = m.group(1), m.group(2)
             body = src[m.end():m.end() + 1500]
-            total, exact = 0, True
+            widths, exact = [], True
             for line in body.split("\n")[1:40]:
                 s = line.strip()
                 if not s or s.startswith("//"):
@@ -156,7 +164,7 @@ def client_writes():
                 if calls:
                     for call in calls:
                         if call in CLIENT_WIDTH:
-                            total += CLIENT_WIDTH[call]
+                            widths.append(CLIENT_WIDTH[call])
                         else:
                             # writeString, writePackedGuid: no width here.
                             exact = False
@@ -169,10 +177,10 @@ def client_writes():
                 # Anything else in the middle — a loop, a branch — ends it.
                 exact = False
                 break
-            if total or not exact:
+            if widths or not exact:
                 prev = out.get(opcode)
-                if prev is None or total > prev[0]:
-                    out[opcode] = (total, exact)
+                if prev is None or sum(widths) > sum(prev[0]):
+                    out[opcode] = (widths, exact)
     return out
 
 
@@ -198,17 +206,37 @@ def main():
 
     rows = []
     for op in shared:
-        sent, exact = writes[op]
+        widths, exact = writes[op]
         # Only when the client's size is exact. A request that ends in a string
         # or a guid has more to come and cannot be short on this evidence.
-        if exact and sent < reads[op]:
-            rows.append((op, sent, reads[op]))
+        if exact and sum(widths) < sum(reads[op]):
+            rows.append((op, sum(widths), sum(reads[op])))
 
     print(f"{len(rows)} request(s) shorter than the server reads — these are "
           f"dropped, silently:\n")
     for op, sent, needs in rows:
         print(f"  {op:52} sends {sent}, server reads {needs}")
     if not rows:
+        print("  (none)")
+
+    # The same question the incoming layout sweep asks, pointed outward: a
+    # request of the right length whose fields are in the wrong order. The
+    # server reads it without complaint and acts on the wrong numbers, which
+    # is quieter than being dropped and harder to see.
+    shapes = []
+    for op in shared:
+        widths, _ = writes[op]
+        n = min(len(widths), len(reads[op]))
+        if n and widths[:n] != reads[op][:n]:
+            shapes.append((op, reads[op][:n], widths[:n]))
+
+    print(f"\n{len(shapes)} request(s) written in a different shape from the "
+          f"one the server reads:\n")
+    for op, srv, cli in shapes:
+        print(f"  {op}")
+        print(f"      server reads  {srv}")
+        print(f"      client writes {cli}")
+    if not shapes:
         print("  (none)")
     return 0
 

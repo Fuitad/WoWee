@@ -1239,7 +1239,13 @@ network::Packet ClearTradeItemPacket::build(uint8_t tradeSlot) {
 
 network::Packet SetTradeGoldPacket::build(uint64_t copper) {
     network::Packet packet(wireOpcode(Opcode::CMSG_SET_TRADE_GOLD));
-    packet.writeUInt64(copper);
+    // HandleSetTradeGoldOpcode reads a uint32. This wrote eight bytes, and it
+    // worked only because little-endian puts the value in the low four — the
+    // other four went along as trailing rubbish the server logs and ignores.
+    // Money is a uint32 of copper everywhere in 3.3.5, so nothing is lost by
+    // saying so; the clamp is there to say it rather than to rely on it.
+    packet.writeUInt32(static_cast<uint32_t>(
+        std::min<uint64_t>(copper, 0xFFFFFFFFull)));
     LOG_DEBUG("Built CMSG_SET_TRADE_GOLD copper=", copper);
     return packet;
 }
