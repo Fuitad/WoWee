@@ -416,6 +416,17 @@ static int lua_GetCVar(lua_State* L) {
     // icons. On, it goes through GameTooltip_SetDefaultAnchor to the
     // bottom-right corner, clear of the bar, which is where WoW puts it.
     else if (n == "ubertooltips") lua_pushstring(L, "1");
+    // The target's cast bar, which a stock client shows. targetframe.lua tests
+    // this as `if ( GetCVar("showTargetCastbar") == "0" )` and sets
+    // showCastbar false — and an unrecognised name answers exactly "0" here,
+    // so that branch was taken every time and the target frame is one of the
+    // elements FrameXML draws by default. Nothing about it looked broken: the
+    // bar was switched off by a setting nobody had touched.
+    else if (n == "showtargetcastbar") lua_pushstring(L, "1");
+    // Quest markers on the world map, on in a stock WotLK client. The
+    // objectives checkbox reads this for its initial state, so "0" started it
+    // unchecked and the markers off.
+    else if (n == "questpoi") lua_pushstring(L, "1");
     // The aggro warning on the unit frames. Three is "always", which is what
     // the Display panel lists first and what a stock WotLK client ships with;
     // one is "in an instance", two "in a party", zero never. Falling through
