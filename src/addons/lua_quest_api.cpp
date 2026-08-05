@@ -2826,7 +2826,9 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushnumber(L, shown);                          // 4: quantity
             lua_pushnumber(L, c.quantity);                     // 5: reqQuantity
             lua_pushnil(L);                                    // 6: charName
-            lua_pushnumber(L, 0);                              // 7: flags
+            // The panel reads bit one of this to decide between a progress
+            // bar and a tick, so zero drew every counted criterion as a tick.
+            lua_pushnumber(L, c.flags);                        // 7: flags
             lua_pushnumber(L, c.assetId);                      // 8: assetID
             lua_pushstring(L, std::to_string(shown).c_str());  // 9: quantityString
             lua_pushnumber(L, c.id);                           // 10: criteriaID

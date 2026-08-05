@@ -2280,6 +2280,11 @@ public:
         /// against 1200. That agreement is how field 29 was identified; it is
         /// not in dbc_layouts.json.
         uint32_t    timeLimit = 0;
+        /// Achievement_Criteria.dbc field 26. Bit one is
+        /// ACHIEVEMENT_CRITERIA_PROGRESS_BAR, which is what makes the panel
+        /// draw a bar instead of a tick — "Complete 2000 quests" carries it,
+        /// "Axes" at four hundred does not, which is how WoW draws those two.
+        uint32_t    flags = 0;
     };
 
     /// Where a criteria lives, by its own id. SMSG_CRITERIA_UPDATE names a

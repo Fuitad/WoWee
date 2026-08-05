@@ -2424,6 +2424,13 @@ void GameHandler::ensureAchievementCriteriaLoaded() {
     // 60 against "Kill 100 Risen Zombies in 1 minute". No other field in the
     // record agrees with the text that way.
     const uint32_t limitField = fieldOr("TimeLimit", 29);
+    // Field 26, identified the same way field 29 was: the hundred and sixty
+    // rows with bit one set are the "Complete N quests" family that WoW draws
+    // as bars, and the large-quantity rows without it — weapon skills at four
+    // hundred, reputations at forty-two thousand — are the ones it draws as
+    // text. Fields 9 to 25 are the sixteen locale strings and their mask, so
+    // this is the first word past them.
+    const uint32_t flagsField = fieldOr("Flags", 26);
     const uint32_t fieldCount = dbc->getFieldCount();
 
     for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
@@ -2436,6 +2443,7 @@ void GameHandler::ensureAchievementCriteriaLoaded() {
         if (qtyField  < fieldCount) c.quantity    = dbc->getUInt32(i, qtyField);
         if (descField < fieldCount) c.description = dbc->getString(i, descField);
         if (limitField < fieldCount) c.timeLimit = dbc->getUInt32(i, limitField);
+        if (flagsField < fieldCount) c.flags = dbc->getUInt32(i, flagsField);
         achievementCriterionById_[c.id] = {achId, c.timeLimit};
         achievementCriteria_[achId].push_back(std::move(c));
     }
