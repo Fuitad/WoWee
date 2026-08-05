@@ -186,6 +186,9 @@ public:
     void destroyItem(uint8_t bag, uint8_t slot, uint8_t count = 1);
     void splitItem(uint8_t srcBag, uint8_t srcSlot, uint8_t count);
     void swapContainerItems(uint8_t srcBag, uint8_t srcSlot, uint8_t dstBag, uint8_t dstSlot);
+    /// Read and write a model slot by the wire's flat numbering.
+    bool readWireSlot(uint8_t container, uint8_t slot, game::ItemDef& out) const;
+    bool writeWireSlot(uint8_t container, uint8_t slot, const game::ItemDef& item);
     void swapBagSlots(int srcBagIndex, int dstBagIndex);
     void unequipToBackpack(EquipSlot equipSlot);
     void useItemById(uint32_t itemId);

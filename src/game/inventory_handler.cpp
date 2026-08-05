@@ -1,4 +1,5 @@
 #include "game/inventory_handler.hpp"
+#include "game/inventory_slots.hpp"
 #include "core/app_clock.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
@@ -1700,12 +1701,67 @@ void InventoryHandler::fireBagUpdates() {
     }
 }
 
+/// Read and write a model slot by the wire's numbering.
+///
+/// The wire keeps everything in one flat space — the backpack is slots 23
+/// upward inside container 0xFF, a worn bag is container 19 upward with its own
+/// slots from zero — and the model keeps the two apart. False for a pair that
+/// names neither, which is every bank and keyring slot: those have their own
+/// paths and a swap should leave them alone rather than guess.
+bool InventoryHandler::readWireSlot(uint8_t container, uint8_t slot,
+                                    ItemDef& out) const {
+    const auto& inv = owner_.inventoryRef();
+    if (container == slots::kNoContainer) {
+        const int index = static_cast<int>(slot) - slots::kBackpackFirst;
+        if (index < 0 || index >= inv.getBackpackSize()) return false;
+        out = inv.getBackpackSlot(index).item;
+        return true;
+    }
+    const int bagIndex = static_cast<int>(container) - slots::kWornBagFirst;
+    if (bagIndex < 0 || bagIndex >= Inventory::NUM_BAG_SLOTS) return false;
+    if (static_cast<int>(slot) >= inv.getBagSize(bagIndex)) return false;
+    out = inv.getBagSlot(bagIndex, static_cast<int>(slot)).item;
+    return true;
+}
+
+bool InventoryHandler::writeWireSlot(uint8_t container, uint8_t slot,
+                                     const ItemDef& item) {
+    auto& inv = owner_.inventoryRef();
+    if (container == slots::kNoContainer) {
+        const int index = static_cast<int>(slot) - slots::kBackpackFirst;
+        if (index < 0 || index >= inv.getBackpackSize()) return false;
+        return inv.setBackpackSlot(index, item);
+    }
+    const int bagIndex = static_cast<int>(container) - slots::kWornBagFirst;
+    if (bagIndex < 0 || bagIndex >= Inventory::NUM_BAG_SLOTS) return false;
+    if (static_cast<int>(slot) >= inv.getBagSize(bagIndex)) return false;
+    return inv.setBagSlot(bagIndex, static_cast<int>(slot), item);
+}
+
 void InventoryHandler::swapContainerItems(uint8_t srcBag, uint8_t srcSlot, uint8_t dstBag, uint8_t dstSlot) {
     if (!owner_.getSocket() || !owner_.getSocket()->isConnected()) return;
     LOG_INFO("swapContainerItems: src(bag=", (int)srcBag, " slot=", (int)srcSlot,
              ") -> dst(bag=", (int)dstBag, " slot=", (int)dstSlot, ")");
     auto packet = SwapItemPacket::build(dstBag, dstSlot, srcBag, srcSlot);
     owner_.getSocket()->send(packet);
+
+    // Moved here as well as sent, which swapBagSlots directly below has always
+    // done and this never did. Nothing else moved the item: the bags redrew
+    // only if the server's answer happened to change a field the update path
+    // watches, and a swap between two slots of one bag changes none of the
+    // item's own fields — it changes which slot holds which guid.
+    //
+    // So an item dragged across a bag stayed where it was drawn until
+    // something unrelated forced a rebuild.
+    //
+    // Both sides are read before either is written, or a move into an
+    // unreachable slot would empty the one it came from.
+    ItemDef from, to;
+    if (readWireSlot(srcBag, srcSlot, from) && readWireSlot(dstBag, dstSlot, to)) {
+        writeWireSlot(srcBag, srcSlot, to);
+        writeWireSlot(dstBag, dstSlot, from);
+        fireBagUpdates();
+    }
 }
 
 void InventoryHandler::swapBagSlots(int srcBagIndex, int dstBagIndex) {
