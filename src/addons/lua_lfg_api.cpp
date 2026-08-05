@@ -21,6 +21,7 @@
 // here guards, and a fabricated reward or lock reads as fact.
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_engine.hpp"
+#include "game/game_utils.hpp"
 
 #include <algorithm>
 #include <string>
@@ -485,6 +486,51 @@ void registerLfgLuaAPI(lua_State* L) {
     // The caller guards the texture with "we may be waiting on the item data
     // to come from the server", which is exactly this client's position before
     // an item query answers.
+    // The four the dungeon finder calls and nothing answered.
+    //
+    // Two of them run on their own: LFDDungeonReadyPopup asks for both lock
+    // infos in its OnShow, and suppressing that popup does not stop its
+    // handlers — a hidden frame still runs them — so with LFG_PROPOSAL_SHOW
+    // fired, forming a group raised on a nil global whether or not this
+    // element had been handed over.
+    // Sorting the raid browser's result list by a column. The browser itself is
+    // not built here — the SearchLFG family it belongs to is deliberately
+    // unfinished — but this one is an OnClick on a column header, so leaving it
+    // unbound meant clicking a header raised instead of doing nothing.
+    {"SearchLFGSort", [](lua_State* L) -> int { (void)L; return 0; }},
+    {"LeaveLFG", [](lua_State* L) -> int {
+        if (auto* gh = getGameHandler(L)) gh->lfgLeave();
+        return 0;
+    }},
+    {"RequestLFDPlayerLockInfo", [](lua_State* L) -> int {
+        if (auto* gh = getGameHandler(L)) gh->requestLfgPlayerLockInfo();
+        return 0;
+    }},
+    {"RequestLFDPartyLockInfo", [](lua_State* L) -> int {
+        if (auto* gh = getGameHandler(L)) gh->requestLfgPartyLockInfo();
+        return 0;
+    }},
+    // GetLFGDungeonRewardLink(dungeonID, index) → the item link for a reward,
+    // which shift-clicking a reward icon puts in chat. Same row
+    // GetLFGDungeonRewardInfo below reads, said as a link.
+    {"GetLFGDungeonRewardLink", [](lua_State* L) -> int {
+        auto* gh = getGameHandler(L);
+        const uint32_t dungeonId = static_cast<uint32_t>(luaL_optinteger(L, 1, 0));
+        const int index = static_cast<int>(luaL_optinteger(L, 2, 0));
+        if (!gh || index < 1) return luaReturnNil(L);
+        for (const auto& e : gh->getLfgRewards()) {
+            if (e.dungeonId != dungeonId) continue;
+            if (index > static_cast<int>(e.items.size())) return luaReturnNil(L);
+            const auto& item = e.items[static_cast<size_t>(index) - 1];
+            gh->ensureItemInfo(item.itemId);
+            const auto* info = gh->getItemInfo(item.itemId);
+            if (!info || !info->valid) return luaReturnNil(L);
+            lua_pushstring(L, game::buildItemLink(item.itemId, info->quality,
+                                                  info->name).c_str());
+            return 1;
+        }
+        return luaReturnNil(L);
+    }},
     {"GetLFGDungeonRewardInfo", [](lua_State* L) -> int {
         auto* gh = getGameHandler(L);
         const uint32_t dungeonId = static_cast<uint32_t>(luaL_optinteger(L, 1, 0));

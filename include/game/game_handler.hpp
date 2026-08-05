@@ -1658,6 +1658,10 @@ public:
     // roles bitmask: 0x02=tank, 0x04=healer, 0x08=dps; pass LFGDungeonEntry ID
     void lfgJoin(uint32_t dungeonId, uint8_t roles);
     void lfgLeave();
+    /// Ask the server to re-send which dungeons are locked and what they pay.
+    /// The ready popup asks for both as it opens.
+    void requestLfgPlayerLockInfo();
+    void requestLfgPartyLockInfo();
     void lfgSetRoles(uint8_t roles);
     void lfgAcceptProposal(uint32_t proposalId, bool accept);
     void lfgSetBootVote(bool vote);

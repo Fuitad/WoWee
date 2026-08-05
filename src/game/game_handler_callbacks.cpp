@@ -2159,6 +2159,20 @@ void GameHandler::lfgLeave() {
     if (socialHandler_) socialHandler_->lfgLeave();
 }
 
+void GameHandler::requestLfgPlayerLockInfo() {
+    if (state != WorldState::IN_WORLD || !socket) return;
+    // Payload-free requests. The dungeon finder's ready popup asks for both in
+    // its OnShow, so the rewards it is about to draw are the current ones.
+    network::Packet pkt(wireOpcode(Opcode::CMSG_LFD_PLAYER_LOCK_INFO_REQUEST));
+    socket->send(pkt);
+}
+
+void GameHandler::requestLfgPartyLockInfo() {
+    if (state != WorldState::IN_WORLD || !socket) return;
+    network::Packet pkt(wireOpcode(Opcode::CMSG_LFD_PARTY_LOCK_INFO_REQUEST));
+    socket->send(pkt);
+}
+
 void GameHandler::lfgSetRoles(uint8_t roles) {
     if (socialHandler_) socialHandler_->lfgSetRoles(roles);
 }
