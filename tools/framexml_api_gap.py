@@ -14,6 +14,9 @@ Reports the size of the gap and the most-used names in it, so the work can be
 ordered by what FrameXML actually leans on rather than by guesswork.
 """
 import sys
+from pathlib import Path as _Path
+sys.path.insert(0, str(_Path(__file__).resolve().parent))
+from framexml_source import without_comments_or_strings
 
 import re, os, collections
 #!/usr/bin/env python3
@@ -49,16 +52,39 @@ have |= set(re.findall(r'"(\w+)\s*=', eng))
 have |= set(re.findall(r'"function (\w+)\(', eng))
 
 # What FrameXML itself defines — these are not gaps.
+#
+# The addon directory counts as "itself". Blizzard ships a dozen of its own
+# addons and they define plenty of what framexml calls — the achievement UI,
+# the combat log and the combat text between them held five of the ten
+# most-called "missing" names, every one of them defined a directory away.
+# Loaded on demand is still loaded.
 defined, calls = set(), collections.Counter()
-for fn in sorted(os.listdir(fx)):
+_lua = [os.path.join(fx, f) for f in sorted(os.listdir(fx)) if f.endswith(".lua")]
+_addons = os.path.join(os.path.dirname(fx.rstrip("/")), "addons")
+if os.path.isdir(_addons):
+    for root, _dirs, files in os.walk(_addons):
+        _lua += [os.path.join(root, f) for f in sorted(files) if f.endswith(".lua")]
+for fn in _lua:
     if not fn.endswith(".lua"): continue
-    src = open(os.path.join(fx,fn), errors="ignore").read()
+    # Comments and the insides of strings blanked, from the one place that has
+    # both rules. Without it the fifteen most-called "missing" names included
+    # Flanagan, Stephens, Master and TOP — the credits file and a handful of
+    # anchor points, read as calls because a string is full of parentheses.
+    src = without_comments_or_strings(open(fn, errors="ignore").read())
     # `local function` too. Anchoring on `function` alone missed every
     # file-local helper, and FrameXML declares plenty of them — GetHandleFrame
     # and GetUIPanelWindowInfo between them accounted for the two most-called
     # "gaps" in the report, neither of which was missing at all.
     defined |= set(re.findall(r'^\s*(?:local\s+)?function\s+([A-Za-z_][\w]*)\s*\(', src, re.M))
     defined |= set(re.findall(r'^\s*(?:local\s+)?([A-Za-z_][\w]*)\s*=\s*function', src, re.M))
+    # ...and assigned from something else that already is one.
+    # AchievementFrameTab_OnClick is `= AchievementFrameBaseTab_OnClick`, and
+    # the achievement UI swaps it between two implementations as its tabs
+    # change. An assignment defines the global whatever is on the right of it,
+    # which is the only question here.
+    defined |= set(re.findall(
+        r'^\s*(?:local\s+)?([A-Za-z_][\w]*)\s*=\s*[A-Za-z_][\w.]*\s*;?\s*$',
+        src, re.M))
     for m in re.finditer(r'(?<![\w.:])([A-Z][A-Za-z0-9_]{2,})\s*\(', src):
         calls[m.group(1)] += 1
 
