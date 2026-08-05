@@ -116,6 +116,15 @@ CHECKS = [
     ("widget_field_check.py",
      r"^(\d+) method\(s\) touch only a Lua field", 6,
      "frame methods writing a Lua field where the widget is what is read"),
+    # Nineteen, none of them reachable: the login splash, the tic-tac-toe
+    # minigame, and one talent-frame background behind a branch that cannot run
+    # — SELECTEDSPEC_DISPLAYTYPE is "GOLD_INSIDE" and the texture is only asked
+    # for by the two "PUSHED_OUT" spellings. The ceiling is for the twentieth. A
+    # missing texture raises nothing: the frame is built, laid out and drawn,
+    # and the part that should have art is simply absent.
+    ("framexml_art_check.py",
+     r"^(\d+) not in this install", 19,
+     "art the interface asks for that this install does not have"),
     ("api_shadowing_check.py",
      r"^\s*(\d+) to look at", 10,
      "names whose winner depends on load order"),
