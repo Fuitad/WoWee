@@ -519,7 +519,7 @@ def main():
         "playerframe":  "[checked] voice chat, vehicles and the playtime nag (PLAYER_ROLES_ASSIGNED was wrong here — roles are parsed and read, and it is fired now)",
         "mainmenubar":  "[checked] nine calls and five events are vehicles; CURRENCY_DISPLAY_UPDATE and UPDATE_BONUS_ACTIONBAR share fired branches, UPDATE_MULTI_CAST_ACTIONBAR shares one and has nil data besides",
         "minimap":      "[checked] four calls unreachable; zoom is widget state, movie recording absent, indoors redundant — MINIMAP_UPDATE_TRACKING was real and is fired now, from the player aura change — tracking is an aura, so that one site covers both routes",
-        "bgscore":      "[fixed] GetWorldStateUIInfo and IsSubZonePVPPOI are bound, and GetNumWorldStateUI answers from the battleground table in game/bg_score_defs.hpp — the earlier note here cleared them as unreachable *because* that stub answered zero, which was the bug rather than the clearance: an empty answer had switched WorldStateAlwaysUpFrame off entirely",
+        "bgscore":      "[fixed] GetWorldStateUIInfo and IsSubZonePVPPOI are bound, and GetNumWorldStateUI answers from the battleground table in game/bg_score_defs.hpp — the earlier note here cleared them as unreachable *because* that stub answered zero, which was the bug rather than the clearance: an empty answer had switched WorldStateAlwaysUpFrame off entirely. IsSubZonePVPPOI still answers false and the check below still names it: it sits behind `uiType ~= 1`, which short-circuits true for every entry that table holds, so it is unreached rather than answered — and it would matter the day a uiType 1 entry appears",
         "mail":         "[checked] both are the refund lock, which the C client raises when a still-refundable item is attached. The refund window is a per-item timer the server sends and this client does not keep — GetContainerItemPurchaseInfo answers nil for exactly that reason, and mailframe.lua only reaches the lock through it. Correctly absent rather than unfired: firing it would mean claiming a refund window that is not tracked",
         "questlog":     "[checked] every call is the world map API, absent because this client draws its own",
         "dungeonfinder": "[checked] four of the five are correctly absent. LFG_OPEN_FROM_GOSSIP's source, SMSG_OPEN_LFG_DUNGEON_FINDER, is STATUS_NEVER in AzerothCore and never sent. UPDATE_LFG_LIST is the raid browser, whose three search packets are read and dropped here by decision — this client's own browser is as empty as FrameXML's would be. LFG_ROLE_UPDATE refreshes role checkboxes, which are client state. VOTE_KICK_REASON_NEEDED needs a message this client is not sent. The fifth, LFG_QUEUE_STATUS_UPDATE, was a real gap and is fired now",
@@ -540,6 +540,42 @@ def main():
             print(f"  {e:<13} {settled[e]}")
         print()
         print(f"{len(ready) + len(also)} of {total} finished, on that reading.")
+
+    # A settled entry that rests on a stub.
+    #
+    # There are two questions to ask of one of these, not one: did anyone look,
+    # and does the reason rest on a placeholder. The second cost a real gap —
+    # bgscore was cleared because "both calls sit in a loop over
+    # GetNumWorldStateUI, which answers zero", which was true and was not
+    # evidence. The zero was lua_ReturnZero. It was not that the feature was
+    # absent; it was how the feature had been switched off, and
+    # WorldStateAlwaysUpFrame had been live and empty the whole time.
+    #
+    # So every binding an entry names by way of explanation is checked against
+    # the stub list. A hit is not a fault by itself — the reason may hold for
+    # other reasons too — but it is the shape that reads as settled and is not.
+    stubs = ("lua_ReturnZero", "lua_ReturnNil", "lua_ReturnFalse",
+             "lua_ReturnNothing", "lua_ReturnTrue", "lua_ContainerFalse",
+             "lua_ContainerNoOp", "lua_GetZeroMoney")
+    addon_src = ""
+    for name in sorted(glob.glob(os.path.join(ROOT, "src/addons", "*.cpp"))):
+        with open(name, errors="ignore") as fh:
+            addon_src += fh.read()
+    named = set()
+    for entry in settled.values():
+        named |= set(re.findall(r"\b(?:Get|Is|Can|Has)[A-Z]\w+", entry))
+    resting = []
+    for name in sorted(named):
+        hit = re.search(r'\{\s*"' + name + r'"\s*,\s*(\w+)\s*\}', addon_src)
+        if hit and hit.group(1) in stubs:
+            owner = [e for e, t in settled.items() if name in t]
+            resting.append((name, hit.group(1), owner))
+    print()
+    print(f"{len(resting)} settled entry reason(s) resting on a stub:")
+    for name, stub, owner in resting:
+        print(f"  {name:30} {stub:20} named by {', '.join(owner)}")
+    if not resting:
+        print("  (none)")
 
     # The same list, shaped for framexml_takeover.cpp's "candidates" tier.
     #
