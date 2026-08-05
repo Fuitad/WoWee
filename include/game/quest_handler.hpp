@@ -100,6 +100,10 @@ public:
             uint32_t required = 0;
         };
         std::array<ItemObjective, 6> itemObjectives{};
+        // The quest's start item — "SrcItemId" on the wire — which is the
+        // usable item some quests hand you and the watch frame draws a button
+        // for. Zero when the quest has none, which is most of them.
+        uint32_t sourceItemId = 0;
         int32_t  rewardMoney = 0;
         std::array<QuestRewardItem, 4> rewardItems{};
         std::array<QuestRewardItem, 6> rewardChoiceItems{};

@@ -1611,6 +1611,20 @@ int lua_Tooltip_SetInventoryItem(lua_State* L) {
     return 1;
 }
 
+/// SetQuestLogSpecialItem(questLogIndex) — the usable item on the watch frame.
+///
+/// This sat in the method allowlist, which means it was answered with a no-op:
+/// the button existed, hovering it did nothing, and nothing raised to say so.
+int lua_Tooltip_SetQuestLogSpecialItem(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (!w || !gh) { lua_pushboolean(L, 0); return 1; }
+    const auto item = wowee::addons::questSpecialItemAt(gh, index);
+    lua_pushboolean(L, fillItemTooltipById(w, gh, item.itemId) ? 1 : 0);
+    return 1;
+}
+
 /// SetBagItem(bag, slot) — the same for something in the bags.
 int lua_Tooltip_SetBagItem(lua_State* L) {
     auto* w = widgetOf(L, 1);
@@ -3395,6 +3409,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetAction",       lua_Tooltip_SetAction},
         {"SetInventoryItem", lua_Tooltip_SetInventoryItem},
         {"SetBagItem",      lua_Tooltip_SetBagItem},
+        {"SetQuestLogSpecialItem", lua_Tooltip_SetQuestLogSpecialItem},
         {"SetGuildBankItem", lua_Tooltip_SetGuildBankItem},
         {"SetSpellByID",    lua_Tooltip_SetSpellByID},
         {"SetTalent",       lua_Tooltip_SetTalent},
@@ -4058,7 +4073,7 @@ void LuaEngine::registerCoreAPI() {
         "SetNumber=1,SetNumeric=1,SetOwner=1,SetParent=1,SetPetAction=1,\n"
         "SetPlayerTextureHeight=1,SetPlayerTextureWidth=1,SetPoint=1,SetPosition=1,\n"
         "SetPossession=1,SetPropagateKeyboardInput=1,SetPushedTexture=1,SetQuestItem=1,\n"
-        "SetQuestLogRewardSpell=1,SetQuestLogSpecialItem=1,\n"
+        "SetQuestLogRewardSpell=1,\n"
         "SetResizable=1,SetRotation=1,SetScale=1,SetScript=1,\n"
         "SetScrollChild=1,SetSelection=1,SetSequence=1,\n"
         "SetSequenceTime=1,SetShadowOffset=1,SetShapeshift=1,SetShown=1,SetSize=1,\n"

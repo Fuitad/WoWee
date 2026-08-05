@@ -1221,8 +1221,17 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
     //   WotLK    (AzerothCore GossipDef):  money=abs13, pairs at abs26, choice abs34
     const size_t base = 8;
     size_t moneyField, rewardPairsField, choicePairsField;
+    // The quest's start item. Counted from the same base, at abs19 for WotLK:
+    // money(13), maxLevel(14), rewSpell(15), rewSpellCast(16), honorAddition(17),
+    // honorMultiplier(18), srcItemId(19) — which is 24 minus the four fields
+    // between it and the reward pairs, and lands exactly where the pairs start
+    // counting from. Left at zero for the earlier layouts: their field order
+    // between the money and the pairs has not been read off a serializer here,
+    // and a guess would put an arbitrary item on the watch frame.
+    size_t sourceItemField = 0;
     if (questLogStride >= 5) {        // WotLK
         moneyField = 11; rewardPairsField = 24; choicePairsField = 32;
+        sourceItemField = 17;
     } else if (questLogStride == 4) { // TBC
         moneyField = 9;  rewardPairsField = 17; choicePairsField = 25;
     } else {                          // Classic / Turtle
@@ -1254,6 +1263,12 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
         if (out.itemId[i] > 0x00FFFFFFu || out.itemCount[i] > 0xFFFFu) return {};
     for (size_t i = 0; i < 6; ++i)
         if (out.choiceItemId[i] > 0x00FFFFFFu || out.choiceItemCount[i] > 0xFFFFu) return {};
+    if (sourceItemField) {
+        const uint32_t srcItem = readU32At(base + sourceItemField * 4u);
+        // Same plausibility gate the rewards use: a layout mismatch lands in a
+        // float or a string and reads as an enormous item id.
+        if (srcItem <= 0x00FFFFFFu) out.sourceItemId = srcItem;
+    }
     out.valid = true;
     return out;
 }

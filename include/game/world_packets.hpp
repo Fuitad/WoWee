@@ -2453,6 +2453,9 @@ struct QuestQueryRewardsData {
     std::array<uint32_t, 4> itemCount{};
     std::array<uint32_t, 6> choiceItemId{};
     std::array<uint32_t, 6> choiceItemCount{};
+    /// The quest's start item, zero when it has none or when the layout for
+    /// this expansion has not been verified against a server serializer.
+    uint32_t sourceItemId = 0;
     bool valid = false;
 };
 

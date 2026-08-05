@@ -1014,6 +1014,9 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
             // Store reward data and pre-fetch item info for icons.
             if (rwds.valid) {
                 q.rewardMoney = rwds.rewardMoney;
+                q.sourceItemId = rwds.sourceItemId;
+                // The watch frame needs its name and icon to draw a button.
+                if (q.sourceItemId != 0) owner_.queryItemInfo(q.sourceItemId, 0);
                 for (int i = 0; i < 4; ++i) {
                     q.rewardItems[i].itemId = rwds.itemId[i];
                     q.rewardItems[i].count  = (rwds.itemId[i] != 0) ? rwds.itemCount[i] : 0;

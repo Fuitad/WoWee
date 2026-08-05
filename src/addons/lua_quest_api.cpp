@@ -118,11 +118,17 @@ static int lua_GetQuestSortIndex(lua_State* L) { (void)L; return luaReturnNil(L)
 
 // ---- Quest log special items ----
 //
-// The usable item some quests carry. GetQuestLogSpecialItemInfo answers nil, so
-// no item button is built and none of these is reached — they are defined so
-// that stays true if it ever starts answering.
+// Whether the quest item's target is close enough to use it on. Nothing here
+// knows an item's range, and nil is the answer that hides the range indicator
+// rather than colouring it wrongly — WatchFrameItem_OnUpdate takes the third
+// branch and hides the count text.
 static int lua_IsQuestLogSpecialItemInRange(lua_State* L) { (void)L; return luaReturnNil(L); }
-static int lua_UseQuestLogSpecialItem(lua_State* L) { (void)L; return 0; }
+
+// UseQuestLogSpecialItem(questLogIndex) — clicking that button.
+//
+// By slot rather than by item id, for the same reason UseContainerItem is:
+// searching by id can find a different stack of the same thing.
+static int lua_UseQuestLogSpecialItem(lua_State* L);
 
 // GetQuestLogSpecialItemCooldown(index) → start, duration, enable.
 // Enable is one, not zero: zero means the cooldown swipe is switched off, and
@@ -581,8 +587,49 @@ static int lua_GetQuestLogLeaderBoard(lua_State* L) {
 static int lua_ExpandQuestHeader(lua_State* L) { (void)L; return 0; }
 static int lua_CollapseQuestHeader(lua_State* L) { (void)L; return 0; }
 
-// GetQuestLogSpecialItemInfo(questLogIndex) — returns nil (no special items)
-static int lua_GetQuestLogSpecialItemInfo(lua_State* L) { (void)L; lua_pushnil(L); return 1; }
+// GetQuestLogSpecialItemInfo(questLogIndex) -> link, texture, charges
+//
+// Answering nil meant no button was ever built, so a quest that gives you
+// something to use looked like one that does not.
+static int lua_GetQuestLogSpecialItemInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const QuestSpecialItem item = questSpecialItemAt(gh, index);
+    if (!item.itemId) { return luaReturnNil(L); }
+
+    const auto* info = gh->getItemInfo(item.itemId);
+    // The name is what goes in the link, and without it there is no link to
+    // return. The query was sent when the quest was read; until it answers,
+    // there is honestly nothing to draw.
+    if (!info || info->name.empty()) { return luaReturnNil(L); }
+
+    const uint32_t quality = info->quality < 8 ? info->quality : 1u;
+    char link[256];
+    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+             kQualHexNoAlpha[quality], item.itemId, info->name.c_str());
+    lua_pushstring(L, link);                                        // 1: link
+
+    // A nil texture is an empty slot to the interface, and the button draws
+    // its background art instead of the item.
+    const std::string icon = info->displayInfoId
+        ? gh->getItemIconPath(info->displayInfoId) : std::string();
+    lua_pushstring(L, icon.empty() ? "Interface\\Icons\\INV_Misc_QuestionMark"
+                                   : icon.c_str());                 // 2: texture
+    // WatchFrameItem_OnUpdate compares this against the count it drew with and
+    // rebuilds the whole frame when it changes, so it has to be stable.
+    lua_pushnumber(L, item.count > 0 ? item.count : 1);             // 3: charges
+    return 3;
+}
+
+static int lua_UseQuestLogSpecialItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const QuestSpecialItem item = questSpecialItemAt(gh, index);
+    if (!item.itemId) return 0;
+    if (item.bag == 0) gh->useItemBySlot(item.slot - 1);
+    else               gh->useItemInBag(item.bag - 1, item.slot - 1);
+    return 0;
+}
 
 /// The player's skills in the order the list shows them: by name.
 ///

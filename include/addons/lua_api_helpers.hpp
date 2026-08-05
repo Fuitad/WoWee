@@ -196,6 +196,50 @@ inline uint64_t resolveUnitGuid(game::GameHandler* gh, const std::string& uid) {
     return 0;
 }
 
+/// Where the quest's usable item is sitting, if the player is carrying it.
+///
+/// Some quests hand you an item to use — a horn, a lantern, a disguise — and
+/// the watch frame draws a button for it beside the tracked objective. The item
+/// is the quest's start item, which arrives in SMSG_QUEST_QUERY_RESPONSE.
+///
+/// The bags are searched rather than trusted, because the button should
+/// disappear along with the item if it is dropped or used up. An itemId of zero
+/// means either that the quest has no such item or that it is no longer held,
+/// and the caller cannot usefully tell those apart.
+struct QuestSpecialItem {
+    int bag = -1;          ///< 0 for the backpack, 1-4 for a worn bag
+    int slot = 0;          ///< 1-based within that bag
+    uint32_t itemId = 0;
+    uint32_t count = 0;
+};
+
+inline QuestSpecialItem questSpecialItemAt(game::GameHandler* gh, int questIndex) {
+    QuestSpecialItem found;
+    if (!gh || questIndex < 1) return found;
+    const auto& ql = gh->getQuestLog();
+    if (questIndex > static_cast<int>(ql.size())) return found;
+    const uint32_t itemId = ql[questIndex - 1].sourceItemId;
+    if (itemId == 0) return found;
+
+    const auto& inv = gh->getInventory();
+    for (int i = 0; i < inv.getBackpackSize(); ++i) {
+        const auto& slot = inv.getBackpackSlot(i);
+        if (!slot.empty() && slot.item.itemId == itemId) {
+            return {0, i + 1, itemId, slot.item.stackCount};
+        }
+    }
+    for (int bag = 0; bag < 4; ++bag) {
+        const int size = inv.getBagSize(bag);
+        for (int i = 0; i < size; ++i) {
+            const auto& slot = inv.getBagSlot(bag, i);
+            if (!slot.empty() && slot.item.itemId == itemId) {
+                return {bag + 1, i + 1, itemId, slot.item.stackCount};
+            }
+        }
+    }
+    return found;
+}
+
 // Resolve unit IDs (player, target, focus, mouseover, pet, targettarget, etc.) to entity
 inline game::Unit* resolveUnit(lua_State* L, const char* unitId) {
     auto* gh = getGameHandler(L);
