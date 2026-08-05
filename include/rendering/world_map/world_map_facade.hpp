@@ -60,6 +60,10 @@ public:
     /// than to a window underneath it. Unset, nothing changes.
     void setFrameRect(float x, float y, float w, float h);
     void clearFrameRect();
+    /// Whether a frame rect is set — which, when FrameXML owns the map, is how
+    /// the client knows FrameXML has its map panel on screen and wants the map
+    /// drawn into it.
+    bool hasFrameRect() const;
     /// Nearby rare/rare-elite creatures currently spawned near the player.
     void setRares(std::vector<RareMark> rares);
     /// Nearby chest-type game objects currently spawned near the player.

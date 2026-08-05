@@ -55,6 +55,7 @@
 #include <limits>
 
 #include <unordered_set>
+#include "ui/framexml_takeover.hpp"
 
 namespace {
     using namespace wowee::ui::colors;
@@ -473,7 +474,15 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
         wm->closeTaxiMap();
     }
 
-    if (!showWorldMap_ && !wm->isTaxiMapOpen()) return;
+    // Who says the map is wanted depends on who owns it. FrameXML's world map
+    // is a frame it shows and hides, and application.cpp gives this one that
+    // frame's rect while it is visible — so a rect being set is the same
+    // statement as showWorldMap_ is for this client's own window.
+    const bool frameXmlDrivesMap = frameXmlOwns(UiElement::WorldMap);
+    const bool wanted = frameXmlDrivesMap
+        ? (wm->hasFrameRect() || wm->isTaxiMapOpen())
+        : (showWorldMap_ || wm->isTaxiMapOpen());
+    if (!wanted) return;
 
     // Keep map name in sync with minimap's map name
     auto* minimap = renderer->getMinimap();
@@ -711,7 +720,9 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
     wm->render(playerPos, screenW, screenH, playerYaw);
 
     // Sync showWorldMap_ if the map closed itself (e.g. ESC key inside the overlay).
-    if (!wm->isOpen()) showWorldMap_ = false;
+    // Only where that flag is what opened it: under FrameXML the frame's own
+    // visibility is the state, and clearing this would say nothing.
+    if (!frameXmlDrivesMap && !wm->isOpen()) showWorldMap_ = false;
 }
 
 // ============================================================

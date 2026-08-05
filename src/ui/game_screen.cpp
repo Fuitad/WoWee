@@ -640,9 +640,14 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     toastManager_.renderLateToasts(gameHandler);
     renderWeatherOverlay(gameHandler);
 
-    if (!frameXmlOwns(UiElement::WorldMap)) {
-        renderWorldMap(gameHandler);
-    }
+    // Always, because this is the only thing that feeds the map its data and
+    // the only thing that draws it. Skipping it when FrameXML owns the map
+    // left the panel FrameXML drew with nothing in it — the half of that
+    // handover that positions the map inside WorldMapDetailFrame was built and
+    // the half that renders it was not. renderWorldMap decides for itself
+    // whether the map is wanted; under FrameXML that is FrameXML's frame being
+    // on screen rather than this client's own flag.
+    renderWorldMap(gameHandler);
 
     if (!frameXmlOwns(UiElement::QuestLog)) {
         questLogScreen.render(gameHandler, inventoryScreen);

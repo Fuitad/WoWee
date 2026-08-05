@@ -795,6 +795,7 @@ void WorldMapFacade::setFrameRect(float x, float y, float w, float h) {
 }
 
 void WorldMapFacade::clearFrameRect() { impl_->hasFrameRect = false; }
+bool WorldMapFacade::hasFrameRect() const { return impl_->hasFrameRect; }
 
 void WorldMapFacade::setCorpsePos(bool hasCorpse, glm::vec3 renderPos) {
     if (impl_->corpseMarkerLayer)

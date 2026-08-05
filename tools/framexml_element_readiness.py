@@ -556,12 +556,18 @@ def main():
     # through worldmapframe.lua; handing any of them over draws a second map
     # over the first, which is a decision already taken and not a candidate.
     #
-    # Worth revisiting for worldmap, deliberately rather than by regenerating
-    # this list: WorldMapFacade::setFrameRect exists now, and application.cpp
-    # already positions this client's map inside FrameXML's WorldMapDetailFrame
-    # when FrameXML owns it — one map in FrameXML's panel rather than two maps.
-    # The reason written here predates that plumbing. questlog reports no
-    # missing call and no unfired event at all.
+    # worldmap's other half is built now and it is still held here, because
+    # held-out means "not seen drawing" and it has not been. renderWorldMap is
+    # the only thing that feeds the map and the only thing that draws it, and
+    # it used to be skipped entirely when FrameXML owned the map — so handing
+    # it over gave no map at all rather than two, which is not what the reason
+    # above says. It now runs either way and takes FrameXML's frame being on
+    # screen as the statement that the map is wanted.
+    #
+    # Try it by name before promoting it here:
+    #   WOWEE_FRAMEXML_UI=candidates,worldmap
+    #
+    # questlog reports no missing call and no unfired event at all.
     CLIENT_OWNS_THE_DRAWING = {"worldmap", "questlog", "questtracker"}
     # Held out for reasons this report cannot see, and left out of the printed
     # list so that regenerating and pasting does not put them back. The comment
