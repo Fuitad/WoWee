@@ -15,7 +15,14 @@ static int lua_GetNumQuestLogEntries(lua_State* L) {
     if (!gh) { lua_pushnumber(L, 0); lua_pushnumber(L, 0); return 2; }
     const auto& ql = gh->getQuestLog();
     lua_pushnumber(L, ql.size());  // numEntries
-    lua_pushnumber(L, 0);          // numQuests (headers not tracked)
+    // numQuests is the entries that are not headers, and this log has none —
+    // GetQuestLogTitle answers false for isHeader on every row. Zero was
+    // costing two visible things: QuestLog_UpdateQuestCount prints it against
+    // MAX_QUESTLOG_QUESTS, so the header read "0/25" whatever was in the log,
+    // and QuestLogFrame only picks a first selection when it is above zero, so
+    // opening the log with nothing selected listed the quests and showed the
+    // details of none of them.
+    lua_pushnumber(L, ql.size());  // numQuests
     return 2;
 }
 
