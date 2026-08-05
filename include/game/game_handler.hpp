@@ -274,6 +274,8 @@ public:
     void queryAreaSpiritHealer(uint64_t guid);
     /// Join that resurrection. Nothing happens without it.
     void queueAreaSpiritHeal();
+    bool resurrectHasSickness() const { return resurrectHasSickness_; }
+    bool resurrectHasTimer() const { return resurrectHasTimer_; }
     /// Seconds until the next one, and the healer it belongs to.
     float getAreaSpiritHealerTime() const { return areaSpiritHealerSeconds_; }
     uint64_t getAreaSpiritHealerGuid() const { return areaSpiritHealerGuid_; }
@@ -4403,6 +4405,11 @@ private:
     /// handler in the battlefield group opens `local battleID = ...` and passes
     /// it back when the player answers, so the two must not be confused.
     uint32_t    bfMgrBattleId_      = 0;
+    /// What the resurrect offer said about itself: whether accepting brings
+    /// resurrection sickness, and whether a reclaim delay applies. Both decide
+    /// which of the three dialogs the interface raises.
+    bool        resurrectHasSickness_ = false;
+    bool        resurrectHasTimer_ = true;
     uint64_t    areaSpiritHealerGuid_ = 0;
     float       areaSpiritHealerSeconds_ = 0.0f;
 

@@ -2164,11 +2164,21 @@ void registerSocialLuaAPI(lua_State* L) {
                 // right one for a player casting a resurrect — sickness and the
                 // release timer belong to the spirit healer path, which this
                 // client answers itself.
+                // Which of the three resurrect dialogs is raised. Both
+                // answered false, so ShowResurrectRequest always took the last
+                // branch and offered the no-timer one — the variant that does
+                // not warn about sickness and does not run out. The flag that
+                // decides has been on the wire the whole time, four bytes past
+                // where this client was reading.
                 {"ResurrectHasSickness", [](lua_State* L) -> int {
-            lua_pushboolean(L, 0); return 1;
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L, (gh && gh->resurrectHasSickness()) ? 1 : 0);
+            return 1;
         }},
                 {"ResurrectHasTimer", [](lua_State* L) -> int {
-            lua_pushboolean(L, 0); return 1;
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L, (gh && gh->resurrectHasTimer()) ? 1 : 0);
+            return 1;
         }},
                 // StaticPopup_Show calls this on *every* popup, before it does
                 // anything else: `if ( InCinematic() and not

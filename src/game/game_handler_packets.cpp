@@ -887,22 +887,41 @@ void GameHandler::registerOpcodeHandlers() {
         }
     };
     dispatchTable_[Opcode::SMSG_RESURRECT_REQUEST] = [this](network::Packet& packet) {
-        if (!packet.hasRemaining(8)) return;
-        uint64_t casterGuid = packet.readUInt64();
-        std::string casterName;
-        if (packet.hasData())
-            casterName = packet.readString();
-        if (casterGuid) {
-            resurrectCasterGuid_ = casterGuid;
-            resurrectIsSpiritHealer_ = false;
-            if (!casterName.empty()) {
-                resurrectCasterName_ = casterName;
-            } else {
-                resurrectCasterName_ = lookupName(casterGuid);
-            }
-            resurrectRequestPending_ = true;
-                            fireAddonEvent("RESURRECT_REQUEST", {resurrectCasterName_});
-        }
+        // Spell::SendResurrectRequest writes:
+        //
+        //   uint64 casterGuid
+        //   uint32 nameLength      (the name plus its terminator)
+        //   char[] name            with that terminator
+        //   uint8  0               a second one, written explicitly
+        //   uint8  sickness        1 from a creature, 0 from a player
+        //   uint32 0               only when the spell overrides the timer
+        //
+        // The length was never read, so readString took the first byte of it
+        // as the whole name — a control character, for any name shorter than
+        // two hundred and fifty-five — and the dialog was raised offering a
+        // resurrection from that. Everything after it was out of step too, so
+        // the sickness flag was never read at all.
+        if (!packet.hasRemaining(12)) { packet.skipAll(); return; }
+        const uint64_t casterGuid = packet.readUInt64();
+        /*uint32_t nameLength =*/ packet.readUInt32();
+        std::string casterName = packet.readString();
+        if (packet.hasRemaining(1)) packet.readUInt8();   // the second terminator
+        const bool sickness = packet.hasRemaining(1) && packet.readUInt8() != 0;
+        // The trailing word is present only when the spell waives the reclaim
+        // delay, so having one means there is no timer to wait out.
+        const bool hasTimer = !packet.hasRemaining(4);
+        packet.skipAll();
+
+        if (!casterGuid) return;
+        resurrectCasterGuid_ = casterGuid;
+        // A creature offering this is a spirit healer, and that is what the
+        // sickness flag says — it is set for every non-player caster.
+        resurrectIsSpiritHealer_ = false;
+        resurrectHasSickness_ = sickness;
+        resurrectHasTimer_ = hasTimer;
+        resurrectCasterName_ = casterName.empty() ? lookupName(casterGuid) : casterName;
+        resurrectRequestPending_ = true;
+        fireAddonEvent("RESURRECT_REQUEST", {resurrectCasterName_});
     };
 
     // Time sync
