@@ -2381,14 +2381,21 @@ void GameHandler::registerOpcodeHandlers() {
     };
     // uint64 battlefieldGuid + uint32 zoneId + uint64 expireUnixTime (seconds)
     dispatchTable_[Opcode::SMSG_BATTLEFIELD_MGR_ENTRY_INVITE] = [this](network::Packet& packet) {
-        // uint64 battlefieldGuid + uint32 zoneId + uint64 expireUnixTime (seconds)
-        if (!packet.hasRemaining(20)) {
+        // uint32 battleId + uint32 zoneId + uint32 acceptTime — twelve bytes.
+        //
+        // This required twenty and read a 64-bit guid and a 64-bit time that
+        // the server does not send, so it returned on the length check every
+        // time and the handler never ran once. The event was written down as
+        // never fired, which was true and was the symptom rather than the
+        // cause.
+        if (!packet.hasRemaining(12)) {
             packet.skipAll(); return;
         }
-        uint64_t bfGuid    = packet.readUInt64();
-        uint32_t bfZoneId  = packet.readUInt32();
-        uint64_t expireTime = packet.readUInt64();
-        (void)bfGuid; (void)expireTime;
+        const uint32_t bfBattleId = packet.readUInt32();
+        const uint32_t bfZoneId   = packet.readUInt32();
+        const uint32_t expireTime = packet.readUInt32();
+        (void)expireTime;
+        bfMgrBattleId_ = bfBattleId;
         // Store the invitation so the UI can show a prompt
         bfMgrInvitePending_ = true;
         bfMgrZoneId_        = bfZoneId;
@@ -2408,7 +2415,7 @@ void GameHandler::registerOpcodeHandlers() {
         // opens `local battleID = ...` and passes it back when the player
         // answers, so a bare fire would answer for no battlefield.
         if (addonEventCallback_)
-            addonEventCallback_("BATTLEFIELD_MGR_ENTRY_INVITE", {std::to_string(bfZoneId)});
+            addonEventCallback_("BATTLEFIELD_MGR_ENTRY_INVITE", {std::to_string(bfBattleId)});
         LOG_INFO("SMSG_BATTLEFIELD_MGR_ENTRY_INVITE: zoneId=", bfZoneId);
     };
     // uint64 battlefieldGuid + uint8 isSafe (1=pvp zones enabled) + uint8 onQueue
@@ -2432,14 +2439,15 @@ void GameHandler::registerOpcodeHandlers() {
     };
     // uint64 battlefieldGuid + uint32 battlefieldId + uint64 expireTime
     dispatchTable_[Opcode::SMSG_BATTLEFIELD_MGR_QUEUE_INVITE] = [this](network::Packet& packet) {
-        // uint64 battlefieldGuid + uint32 battlefieldId + uint64 expireTime
-        if (!packet.hasRemaining(20)) {
+        // uint32 battleId + uint8 warmup — five bytes, and this required
+        // twenty. Same shape as the entry invite above: never ran, and the
+        // event it fires was recorded as one the server never sends.
+        if (!packet.hasRemaining(5)) {
             packet.skipAll(); return;
         }
-        uint64_t bfGuid3   = packet.readUInt64();
-        uint32_t bfId      = packet.readUInt32();
-        uint64_t expTime   = packet.readUInt64();
-        (void)bfGuid3; (void)expTime;
+        const uint32_t bfId = packet.readUInt32();
+        packet.readUInt8();   // warmup
+        bfMgrBattleId_ = bfId;
         bfMgrInvitePending_ = true;
         bfMgrZoneId_        = bfId;
         char buf[128];

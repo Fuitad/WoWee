@@ -604,6 +604,7 @@ public:
     bool hasBfMgrInvite()  const { return bfMgrInvitePending_; }
     bool isInBfMgrZone()   const { return bfMgrActive_; }
     uint32_t getBfMgrZoneId() const { return bfMgrZoneId_; }
+    uint32_t getBfMgrBattleId() const { return bfMgrBattleId_; }
     void acceptBfMgrInvite();
     void declineBfMgrInvite();
 
@@ -4376,6 +4377,10 @@ private:
     bool        bfMgrInvitePending_ = false; ///< True when an entry/queue invite is pending acceptance
     bool        bfMgrActive_        = false; ///< True while the player is inside an outdoor battlefield
     uint32_t    bfMgrZoneId_        = 0;     ///< Zone ID of the pending/active battlefield
+    /// The battle the invite is for, which is not the zone it is in. Every
+    /// handler in the battlefield group opens `local battleID = ...` and passes
+    /// it back when the player answers, so the two must not be confused.
+    uint32_t    bfMgrBattleId_      = 0;
 
     // ---- WotLK Calendar: pending invite counter ----
     uint32_t    calendarPendingInvites_ = 0; ///< Unacknowledged calendar invites (SMSG_CALENDAR_SEND_NUM_PENDING)
