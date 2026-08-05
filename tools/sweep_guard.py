@@ -60,7 +60,7 @@ CHECKS = [
      r"sound names asked for, (\d+) with nothing behind them", 24,
      "UI sounds FrameXML asks for with nothing behind them"),
     ("declared_vs_read_check.py",
-     r"CVars named, (\d+) the client never answers", 52,
+     r"CVars named, (\d+) the client never answers", 51,
      "CVars the client never answers, so they read as off"),
     ("declared_vs_read_check.py",
      r"^(\d+) constant\(s\) set in both places", 1,
