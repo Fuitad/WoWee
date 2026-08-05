@@ -2690,6 +2690,31 @@ int lua_EditBox_GetText(lua_State* L) {
     lua_pushstring(L, w ? w->editText.c_str() : "");
     return 1;
 }
+/// SetNumber(n) — the counterpart to GetNumber, which reads the same field.
+///
+/// Absent, so it fell to the no-op catch-all and the box kept whatever it had.
+/// MoneyInputFrame_SetCopper is built on this: it compares GetNumber against
+/// the value it wants and calls SetNumber where they differ, so with the
+/// setter doing nothing the comparison stayed false forever. Opening a trade
+/// runs MoneyInputFrame_SetCopper(TradePlayerInputMoneyFrame, 0) to clear the
+/// three fields, and they held the last amount instead.
+///
+/// Whole numbers are written without a decimal tail: these are copper, silver
+/// and gold counts, and a money box does not show "12.000000".
+int lua_EditBox_SetNumber(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    const double value = luaL_optnumber(L, 2, 0.0);
+    char buf[32];
+    if (value == std::floor(value) && std::fabs(value) < 1e15) {
+        snprintf(buf, sizeof(buf), "%lld", static_cast<long long>(value));
+    } else {
+        snprintf(buf, sizeof(buf), "%g", value);
+    }
+    w->editText = buf;
+    w->cursorPos = w->editText.size();
+    return 0;
+}
 int lua_EditBox_GetNumber(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     lua_pushnumber(L, w ? std::atof(w->editText.c_str()) : 0.0);
@@ -3638,6 +3663,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetThumbTexture",       lua_Slider_SetThumbTexture},
         {"SetCooldown",           lua_Cooldown_SetCooldown},
         {"GetNumber",             lua_EditBox_GetNumber},
+        {"SetNumber",             lua_EditBox_SetNumber},
         {"Insert",                lua_EditBox_Insert},
         {"SetMaxLetters",         lua_EditBox_SetMaxLetters},        // The limit here is applied against the text's size in bytes, which is
         // what SetMaxBytes asks for; SetMaxLetters is the same field because
