@@ -2,6 +2,7 @@
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include <array>
 #include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -524,6 +525,56 @@ static int lua_GetCVarBool(lua_State* L) {
     return 1;
 }
 
+/// What CVAR_UPDATE carries as its first argument: the CVar's *label*, not its
+/// name. The two are different spellings of the same setting, and FrameXML uses
+/// both within two lines of each other —
+///
+///     if ( (event == "CVAR_UPDATE") and (arg1 == "SHOW_TARGET_CASTBAR") ) then
+///         if ( GetCVar("showTargetCastbar") == "0") then
+///
+/// — so there is no ambiguity about which belongs where. Firing the name meant
+/// every consumer in the interface compared a camelCase name against an
+/// upper-case label and took the other branch, silently: the health and mana
+/// numbers on unit frames never appeared or disappeared, the free-bag-slots
+/// count never switched on, and the target and focus cast bars never followed
+/// their setting.
+///
+/// Mostly the label is the name in upper snake case, and where it is not,
+/// FrameXML states the pair itself: the status-text bars set self.cvar and
+/// self.cvarLabel on consecutive lines of their OnLoad, and the rest are named
+/// in the comparisons that read them. The real client keeps this mapping in a
+/// CVar registry inside the binary, which is not something this client has, so
+/// what is written here is what the interface itself says.
+static std::string cvarLabelFor(const std::string& name) {
+    // The ones the transform below would get wrong. Every entry is a pair
+    // FrameXML writes down somewhere.
+    static const std::pair<const char*, const char*> kNamed[] = {
+        {"playerstatustext",     "STATUS_TEXT_PLAYER"},
+        {"partystatustext",      "STATUS_TEXT_PARTY"},
+        {"petstatustext",        "STATUS_TEXT_PET"},
+        {"targetstatustext",     "STATUS_TEXT_TARGET"},
+        {"statustextpercentage", "STATUS_TEXT_PERCENT"},
+        {"showcastabledebuffs",  "SHOW_CASTABLE_DEBUFFS_TEXT"},
+        {"showarenaenemyframes", "SHOW_ARENA_ENEMY_FRAMES_TEXT"},
+    };
+    std::string key(name);
+    toLowerInPlace(key);
+    for (const auto& [cvar, label] : kNamed) {
+        if (key == cvar) return label;
+    }
+    // showTargetCastbar → SHOW_TARGET_CASTBAR, displayFreeBagSlots →
+    // DISPLAY_FREE_BAG_SLOTS, xpBarText → XP_BAR_TEXT.
+    std::string out;
+    for (size_t i = 0; i < name.size(); ++i) {
+        const unsigned char c = static_cast<unsigned char>(name[i]);
+        if (i > 0 && std::isupper(c) && !std::isupper(static_cast<unsigned char>(name[i - 1]))) {
+            out += '_';
+        }
+        out += static_cast<char>(std::toupper(c));
+    }
+    return out;
+}
+
 // SetCVar(name, value [, scriptCVar])
 static int lua_SetCVar(lua_State* L) {
     const char* name = lua_isstring(L, 1) ? lua_tostring(L, 1) : nullptr;
@@ -567,7 +618,7 @@ static int lua_SetCVar(lua_State* L) {
     lua_getfield(L, LUA_REGISTRYINDEX, "wowee_lua_engine");
     auto* engine = static_cast<LuaEngine*>(lua_touserdata(L, -1));
     lua_pop(L, 1);
-    if (engine) engine->fireEvent("CVAR_UPDATE", {name, value});
+    if (engine) engine->fireEvent("CVAR_UPDATE", {cvarLabelFor(name), value});
     return 0;
 }
 

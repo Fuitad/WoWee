@@ -131,6 +131,13 @@ CHECKS = [
     ("framexml_art_check.py",
      r"^(\d+) not in this install", 19,
      "art the interface asks for that this install does not have"),
+    # CVAR_UPDATE carries the CVar's label, not its name, and the two are
+    # different spellings — so a mapping that cannot produce a label the
+    # interface tests for is a branch that can never be taken. Silently: a
+    # string that is not equal to another string is not an error.
+    ("framexml_cvar_label_check.py",
+     r"^(\d+) that no CVar name here would produce", 1,
+     "CVAR_UPDATE labels the interface tests for that nothing can produce"),
     # The same question the event-arity sweeps ask, one layer down: an inline
     # <OnX> body is a function whose parameter list the emitter decides from
     # the script's name, and a body naming something that list does not carry
