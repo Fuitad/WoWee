@@ -1008,6 +1008,11 @@ void GameHandler::addSystemChatMessage(const std::string& message) {
     if (chatHandler_) chatHandler_->addSystemChatMessage(message);
 }
 
+void GameHandler::raiseUiError(const std::string& message) {
+    addSystemChatMessage(message);
+    fireAddonEvent("UI_ERROR_MESSAGE", {message});
+}
+
 // ============================================================
 // Taxi / Flight Path Handlers
 // ============================================================

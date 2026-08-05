@@ -64,7 +64,7 @@ void CombatHandler::registerOpcodes(DispatchTable& table) {
     table[Opcode::SMSG_ATTACKSWING_NOTINRANGE] = [this](network::Packet& /*packet*/) {
         autoAttackOutOfRange_ = true;
         if (autoAttackRangeWarnCooldown_ <= 0.0f) {
-            owner_.addSystemChatMessage("Target is too far away.");
+            owner_.raiseUiError("Target is too far away.");
             autoAttackRangeWarnCooldown_ = 1.25f;
         }
     };
@@ -94,7 +94,7 @@ void CombatHandler::registerOpcodes(DispatchTable& table) {
     table[Opcode::SMSG_ATTACKSWING_CANT_ATTACK] = [this](network::Packet& /*packet*/) {
         stopAutoAttack();
         if (autoAttackRangeWarnCooldown_ <= 0.0f) {
-            owner_.addSystemChatMessage("You can't attack that.");
+            owner_.raiseUiError("You can't attack that.");
             autoAttackRangeWarnCooldown_ = 1.25f;
         }
     };
@@ -224,7 +224,7 @@ void CombatHandler::startAutoAttack(uint64_t targetGuid) {
         float maxRange = hasRangedWeapon ? 40.0f : 8.0f;
         if (dist3d > maxRange) {
             if (autoAttackRangeWarnCooldown_ <= 0.0f) {
-                owner_.addSystemChatMessage("Target is too far away.");
+                owner_.raiseUiError("Target is too far away.");
                 autoAttackRangeWarnCooldown_ = 1.25f;
             }
             return;
@@ -720,14 +720,14 @@ void CombatHandler::updateAutoAttack(float deltaTime) {
                     autoAttackOutOfRange_ = true;
                     autoAttackOutOfRangeTime_ += deltaTime;
                     if (autoAttackRangeWarnCooldown_ <= 0.0f) {
-                        owner_.addSystemChatMessage("Target is too far away.");
+                        owner_.raiseUiError("Target is too far away.");
                         owner_.addUIError("Target is too far away.");
                         autoAttackRangeWarnCooldown_ = 1.25f;
                     }
                     // Stop chasing stale swings when the target remains out of range.
                     if (autoAttackOutOfRangeTime_ > 2.0f && dist3d > 9.0f) {
                         stopAutoAttack();
-                        owner_.addSystemChatMessage("Auto-attack stopped: target out of range.");
+                        owner_.raiseUiError("Auto-attack stopped: target out of range.");
                         allowResync = false;
                     }
                 } else {
@@ -1554,7 +1554,7 @@ void CombatHandler::assistTarget() {
 
     auto target = getTarget();
     if (!target) {
-        owner_.addSystemChatMessage("Invalid target.");
+        owner_.raiseUiError("Invalid target.");
         return;
     }
 

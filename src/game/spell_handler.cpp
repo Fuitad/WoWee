@@ -773,16 +773,16 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
     if (spellId == 100 || spellId == 6178 || spellId == 11578) {
         // Charge is an opener: it cannot be used once the fight has started.
         if (owner_.isInCombat()) {
-            owner_.addSystemChatMessage("You can't do that while in combat.");
+            owner_.raiseUiError("You can't do that while in combat.");
             return;
         }
         if (target == 0) {
-            owner_.addSystemChatMessage("You have no target.");
+            owner_.raiseUiError("You have no target.");
             return;
         }
         auto entity = owner_.getEntityManager().getEntity(target);
         if (!entity) {
-            owner_.addSystemChatMessage("You have no target.");
+            owner_.raiseUiError("You have no target.");
             return;
         }
         // Charge needs an attackable unit. Game objects (mining nodes, herb nodes,
@@ -792,12 +792,12 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
         auto unit = std::dynamic_pointer_cast<Unit>(entity);
         const ObjectType targetType = entity->getType();
         if (!unit || (targetType != ObjectType::UNIT && targetType != ObjectType::PLAYER)) {
-            owner_.addSystemChatMessage("You cannot attack that target.");
+            owner_.raiseUiError("You cannot attack that target.");
             return;
         }
         // Corpses cannot be charged.
         if (unit->getHealth() == 0) {
-            owner_.addSystemChatMessage("You cannot attack that target.");
+            owner_.raiseUiError("You cannot attack that target.");
             return;
         }
         if (targetType == ObjectType::UNIT) {
@@ -817,7 +817,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
                 unit->isHostile() || owner_.isAggressiveTowardPlayer(target);
             const bool clearlyFriendly = unit->isInteractable() && !hostileOrAggressive;
             if (clearlyFriendly || (unit->getUnitFlags() & kBlockedChargeFlags) != 0) {
-                owner_.addSystemChatMessage("You cannot attack that target.");
+                owner_.raiseUiError("You cannot attack that target.");
                 return;
             }
         }
@@ -831,7 +831,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
             return;
         }
         if (dist > 25.0f) {
-            owner_.addSystemChatMessage("Out of range.");
+            owner_.raiseUiError("Out of range.");
             return;
         }
         float yaw = std::atan2(-dy, dx);
@@ -860,7 +860,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
                 float dz = entity->getZ() - owner_.movementInfoRef().z;
                 float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
                 if (dist > 8.0f) {
-                    owner_.addSystemChatMessage("Out of range.");
+                    owner_.raiseUiError("Out of range.");
                     return;
                 }
                 owner_.faceCanonicalYaw(std::atan2(-dy, dx));
@@ -1137,7 +1137,7 @@ void SpellHandler::useItemBySlot(int backpackIndex) {
             : UseItemPacket::build(0xFF, static_cast<uint8_t>(Inventory::NUM_EQUIP_SLOTS + backpackIndex), itemGuid, useSpellId, targetGuid);
         owner_.getSocket()->send(packet);
     } else if (itemGuid == 0) {
-        owner_.addSystemChatMessage("Cannot use that item right now.");
+        owner_.raiseUiError("Cannot use that item right now.");
     }
 }
 
@@ -1175,7 +1175,7 @@ void SpellHandler::useItemInBag(int bagIndex, int slotIndex) {
         owner_.getSocket()->send(packet);
     } else if (itemGuid == 0) {
         LOG_WARNING("Use item in bag failed: missing item GUID for bag ", bagIndex, " slot ", slotIndex);
-        owner_.addSystemChatMessage("Cannot use that item right now.");
+        owner_.raiseUiError("Cannot use that item right now.");
     }
 }
 

@@ -3129,6 +3129,16 @@ public:
                        uint64_t srcGuid = 0, uint64_t dstGuid = 0);
     bool shouldLogSpellstealAura(uint64_t casterGuid, uint64_t victimGuid, uint32_t spellId);
     void addSystemChatMessage(const std::string& message);
+
+    /// An error the player should see: "Target is too far away", "You have no
+    /// target", and their kind.
+    ///
+    /// Goes to the chat window as before *and* raises UI_ERROR_MESSAGE, which
+    /// is where the real client puts these — UIErrorsFrame is the red text
+    /// above the middle of the screen, and addons watch that event to catch
+    /// failures. Nothing fired it, so FrameXML's error frame had nothing to
+    /// say and every one of these was chat-only.
+    void raiseUiError(const std::string& message);
     void sendPing();
     void setTransportAttachment(uint64_t childGuid, ObjectType type,
                                 uint64_t transportGuid, const glm::vec3& localOffset,
