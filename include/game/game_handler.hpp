@@ -737,6 +737,9 @@ public:
     void reportMailSpam(uint64_t senderGuid, uint32_t mailId);
     /// Take the glyph out of a socket. Zero-based slot, as the server counts.
     void removeGlyphFromSocket(uint32_t slot);
+    /// Rename a charter the player is carrying. The petition is an item, so it
+    /// is named by its item guid.
+    void renamePetition(uint64_t petitionGuid, const std::string& newName);
     void clearPetitionDialog() { showPetitionDialog_ = false; }
     uint32_t getPetitionCost() const;
     uint64_t getPetitionNpcGuid() const;

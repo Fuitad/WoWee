@@ -978,6 +978,18 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"SignPetition",        lua_SignPetition},
                 {"OfferPetition",       lua_OfferPetition},
                 {"ClosePetition",       lua_ClosePetition},
+                // RenamePetition(name) — the Accept on the rename dialog,
+                // which is how a charter gets the guild or team name it will
+                // be turned in under. The petition being renamed is the one
+                // whose window is open.
+                {"RenamePetition", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* newName = luaL_optstring(L, 1, "");
+            if (gh && newName && *newName) {
+                gh->renamePetition(gh->getPetitionInfo().petitionGuid, newName);
+            }
+            return 0;
+        }},
                 // --- Arena team invitations, and disbanding one ---
                 //
                 // All three sit on a static popup's buttons, so each was a

@@ -3246,6 +3246,17 @@ bool GameHandler::hasPetitionShowlist() const {
     return socialHandler_ ? socialHandler_->hasPetitionShowlist() : false;
 }
 
+void GameHandler::renamePetition(uint64_t petitionGuid, const std::string& newName) {
+    if (petitionGuid == 0 || newName.empty()) return;
+    if (getState() != WorldState::IN_WORLD || !getSocket()) return;
+    // MSG_, not CMSG_: the server answers on the same opcode with the name it
+    // accepted, which is why the interface does not redraw from its own text.
+    network::Packet packet(wireOpcode(Opcode::MSG_PETITION_RENAME));
+    packet.writeUInt64(petitionGuid);
+    packet.writeString(newName);
+    getSocket()->send(packet);
+}
+
 void GameHandler::removeGlyphFromSocket(uint32_t slot) {
     if (slot >= MAX_GLYPH_SLOTS) return;
     if (getState() != WorldState::IN_WORLD || !getSocket()) return;
