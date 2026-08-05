@@ -3124,7 +3124,6 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushboolean(L, repeating);
             return 1;
         }},
-                {"IsPetAttackAction",        lua_ReturnFalse},
                 {"IsMacClient",              lua_ReturnFalse},
                 // IsPartyLeader() — whether *this* player leads the group.
                 //
