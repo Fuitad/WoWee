@@ -1647,6 +1647,26 @@ static int lua_UseContainerItem(lua_State* L) {
         return 0;
     }
 
+    // With the bank open it is a deposit, for the same reason and by the same
+    // route: the real client reads UseContainerItem that way and there is no
+    // separate call for containerframe.lua to make. Without this, right-clicking
+    // an item to bank it ran on to the branches below and *used* it — and the
+    // client's own window is where the distinction was drawn, so handing the
+    // bags over left depositItem with no caller at all.
+    //
+    // Bank bags are not container ids here: depositItem sends
+    // CMSG_AUTOBANK_ITEM, which asks the server to find the first free slot
+    // across the main bank and every purchased bank bag.
+    if (gh->isBankOpen()) {
+        if (bag == 0)
+            gh->depositItem(0xFF, static_cast<uint8_t>(
+                                      game::slots::backpackWireSlot(slot - 1)));
+        else
+            gh->depositItem(static_cast<uint8_t>(game::slots::wornBagContainer(bag - 1)),
+                            static_cast<uint8_t>(slot - 1));
+        return 0;
+    }
+
     // Something with an equip slot is equipped by a right-click, not used.
     // That is a different message — CMSG_AUTOEQUIP_ITEM rather than
     // CMSG_USE_ITEM — and this only ever sent the second, so right-clicking
