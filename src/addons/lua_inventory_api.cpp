@@ -2927,7 +2927,34 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"SocketInventoryItem",   lua_ContainerFalse},
                 {"SocketContainerItem",   lua_ContainerFalse},
                 {"SpellCanTargetItem",    lua_SpellCanTargetItem},
-                {"CanGuildBankRepair",    lua_ContainerFalse},
+                // CanGuildBankRepair() — whether the guild-repair button
+                // appears beside the merchant's own.
+                //
+                // Answered false while the rank rights were being read wrongly;
+                // everything it needs has been here since. The right is
+                // GR_RIGHT_WITHDRAW_REPAIR from AzerothCore's GuildRankRights,
+                // held by the player's own rank, and the bank has to have
+                // something in it — the button offers to spend guild money, and
+                // offering to spend none is offering nothing.
+                //
+                // RepairAllItems already sends the guild flag, so this gate was
+                // the whole of what was missing.
+                {"CanGuildBankRepair", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh || gh->getGuildBankData().money == 0) { return luaReturnFalse(L); }
+            const auto& roster = gh->getGuildRoster();
+            const uint64_t self = gh->getPlayerGuid();
+            for (const auto& m : roster.members) {
+                if (m.guid != self) continue;
+                if (m.rankIndex >= roster.ranks.size()) break;
+                constexpr uint32_t kWithdrawRepair = 0x00040000u;
+                const bool may =
+                    (roster.ranks[m.rankIndex].rights & kWithdrawRepair) != 0;
+                lua_pushboolean(L, may ? 1 : 0);
+                return 1;
+            }
+            return luaReturnFalse(L);
+        }},
                 {"GetBuybackItemInfo",      lua_GetBuybackItemInfo},
                 {"GetBuybackItemLink",      lua_GetBuybackItemLink},
                 {"BuybackItem",             lua_BuybackItem},
