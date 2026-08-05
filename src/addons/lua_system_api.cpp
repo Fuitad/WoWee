@@ -580,7 +580,21 @@ static int lua_GetCurrentMapAreaID(lua_State* L) {
 static int lua_GetZoneText(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { lua_pushstring(L, ""); return 1; }
-    uint32_t zoneId = gh->getWorldStateZoneId();
+    // The terrain under the player first, and the server's zone only as a
+    // fallback.
+    //
+    // It was the other way round, and the server's zone reaches us on
+    // SMSG_INIT_WORLD_STATES alone — sent when the server notices a zone
+    // change, and not otherwise. So the name stayed on the last zone the
+    // server announced while the player walked out of it, which is what
+    // "Silverpine Forest" over Hillsbrad Foothills is. The real client works
+    // this out from its own map data for that reason, and this one already
+    // does the same work every frame for weather and music.
+    uint32_t zoneId = 0;
+    if (auto* svc = getLuaServices(L)) {
+        if (svc->getLiveZoneId) zoneId = svc->getLiveZoneId();
+    }
+    if (zoneId == 0) zoneId = gh->getWorldStateZoneId();
     if (zoneId != 0) {
         std::string name = gh->getWhoAreaName(zoneId);
         if (!name.empty()) { lua_pushstring(L, name.c_str()); return 1; }

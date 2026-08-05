@@ -464,6 +464,9 @@ bool Application::initialize() {
         luaSvc.setMapWorldAreaId = [r = renderer.get()](uint32_t id) {
             if (auto* wmap = r ? r->getWorldMap() : nullptr) wmap->showWorldMapArea(id);
         };
+        luaSvc.getLiveZoneId = [r = renderer.get()]() -> uint32_t {
+            return r ? r->getCurrentZoneId() : 0u;
+        };
         luaSvc.takeScreenshot = [uim = uiManager.get()]() {
             if (uim) uim->getGameScreen().takeScreenshot();
         };

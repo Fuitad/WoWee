@@ -86,6 +86,16 @@ struct LuaServices {
     std::function<uint32_t()> getMapWorldAreaId;
     std::function<void(uint32_t)> setMapWorldAreaId;
 
+    /// The zone the player is standing in, worked out from the terrain under
+    /// them and refreshed every frame.
+    ///
+    /// The server's zone is only told to us on SMSG_INIT_WORLD_STATES, which
+    /// arrives when the server notices a zone change and not otherwise — so
+    /// reading that alone leaves the name stale, naming the last zone the
+    /// server announced rather than the one being walked through. The real
+    /// client works this out locally for exactly that reason.
+    std::function<uint32_t()> getLiveZoneId;
+
     /// Nameplates over hostile and neutral units, for nameplateShowEnemies.
     ///
     /// There is no counterpart for nameplateShowFriends: this client always
