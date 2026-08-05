@@ -542,6 +542,24 @@ static int lua_WoweeTryOn(lua_State* L) {
     return 0;
 }
 
+/// __WoweeSetModelCreature(frame, displayId) — what a model frame is showing.
+///
+/// The companion preview and the stable's paperdoll both name a creature this
+/// way. The id is written onto the frame rather than acted on here, because
+/// building the model needs the offscreen view and those live in the render
+/// loop; zero clears it.
+static int lua_WoweeSetModelCreature(lua_State* L) {
+    auto* tree = getWidgetTree(L);
+    if (!tree || !lua_istable(L, 1)) return 0;
+    lua_getfield(L, 1, "__wid");
+    const uint32_t id = static_cast<uint32_t>(lua_tointeger(L, -1));
+    lua_pop(L, 1);
+    if (auto* w = tree->get(id)) {
+        w->modelDisplayId = static_cast<uint32_t>(luaL_optnumber(L, 2, 0));
+    }
+    return 0;
+}
+
 /// __WoweeUndress(frame) — take everything tried on back off.
 static int lua_WoweeUndress(lua_State* L) {
     auto* tree = getWidgetTree(L);
@@ -2920,6 +2938,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetMerchantItemCostItem", lua_GetMerchantItemCostItem},
                 {"GetItemInfo",       lua_GetItemInfo},
                 {"__WoweeTryOn",   lua_WoweeTryOn},
+                {"__WoweeSetModelCreature", lua_WoweeSetModelCreature},
                 {"__WoweeUndress", lua_WoweeUndress},
                 {"IsDressableItem",   lua_IsDressableItem},
                 {"GetItemQualityColor", lua_GetItemQualityColor},

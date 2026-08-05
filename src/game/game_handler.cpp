@@ -2976,11 +2976,26 @@ void GameHandler::rebuildCompanions() const {
             const std::string idx = std::to_string(i);
             if (dbc->getUInt32(row, (*layout)["EffectApplyAuraName" + idx]) == kAuraMounted) {
                 mount = true;
+                // SPELL_AURA_MOUNTED's misc value is the display id the player
+                // is put on — AzerothCore hands it straight to Player::Mount,
+                // which writes it to UNIT_FIELD_MOUNTDISPLAYID. So a mount's
+                // creature id is already the thing a model frame wants.
+                c.creatureId = dbc->getUInt32(row, (*layout)["EffectMiscValue" + idx]);
             } else if (dbc->getUInt32(row, (*layout)["Effect" + idx]) == kEffectSummon &&
                        dbc->getUInt32(row, (*layout)["EffectMiscValueB" + idx]) ==
                            kCritterSummonProperties) {
                 critter = true;
-                c.creatureId = dbc->getUInt32(row, (*layout)["EffectMiscValue" + idx]);
+                // A summon's misc value is a creature *entry*, not a display
+                // id, and the model frame takes a display id. Resolved where
+                // the entry is known and left as the entry where it is not —
+                // the query fills the cache and the next rebuild catches it.
+                const uint32_t entry =
+                    dbc->getUInt32(row, (*layout)["EffectMiscValue" + idx]);
+                c.creatureId = entry;
+                const auto& creatures = getCreatureInfoCache();
+                if (auto cit = creatures.find(entry); cit != creatures.end()) {
+                    if (cit->second.displayId[0] != 0) c.creatureId = cit->second.displayId[0];
+                }
             }
         }
         if (!mount && !critter) continue;

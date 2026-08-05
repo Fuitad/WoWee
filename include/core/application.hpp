@@ -192,6 +192,9 @@ private:
     /// rather than the pet that is out.
     ui::UnitPortrait stableModel_;
     uint32_t stableModelWidgetId_ = 0;
+    /// The mount or critter the companion tab has selected.
+    ui::UnitPortrait companionModel_;
+    uint32_t companionModelWidgetId_ = 0;
     /// The inspect window's figure, and the frame it is drawn into. Whole
     /// body at the paperdoll's size, because that is what it is: someone
     /// else's paperdoll.

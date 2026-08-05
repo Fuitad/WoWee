@@ -4139,6 +4139,11 @@ void LuaEngine::registerCoreAPI() {
         // frame is driven by name from the render loop — the paperdoll, the
         // inspect window and the dressing room each have their own — so what
         // these have to do is answer rather than raise.
+        // Model:SetCreature(displayId) — what a companion, a stabled pet or
+        // any other creature preview is told to show. Written onto the frame
+        // and built by the render loop, which is where the offscreen views
+        // are; zero clears it.
+        "function mt:SetCreature(id) __WoweeSetModelCreature(self, id) end\n"
         "function mt:RefreshUnit() end\n"
         "function mt:GetInventorySlot()\n"
         "    return BankButtonIDToInvSlotID(self:GetID(), self.isBag)\n"
@@ -4666,7 +4671,7 @@ void LuaEngine::registerCoreAPI() {
         "SetBlendMode=1,SetBorderAlpha=1,SetBorderScalar=1,SetBorderTexture=1,\n"
         "SetButtonState=1,SetCamera=1,SetChecked=1,SetCheckedTexture=1,\n"
         "SetClampedToScreen=1,SetCooldown=1,\n"
-        "SetCreature=1,SetCursorPosition=1,SetDesaturated=1,SetDisabledCheckedTexture=1,\n"
+        "SetCursorPosition=1,SetDesaturated=1,SetDisabledCheckedTexture=1,\n"
         "SetDisabledFontObject=1,SetDisabledTexture=1,SetDrawLayer=1,\n"
         "SetEquipmentSet=1,SetFacing=1,SetFillAlpha=1,SetFillTexture=1,SetFocus=1,\n"
         "SetFontObject=1,SetFontString=1,SetFormattedText=1,SetFrameLevel=1,\n"

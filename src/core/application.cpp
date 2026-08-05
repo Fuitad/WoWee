@@ -1362,6 +1362,7 @@ void Application::shutdown() {
     auctionDressUpModel_.shutdown(renderer.get());
     petModel_.shutdown(renderer.get());
     stableModel_.shutdown(renderer.get());
+    companionModel_.shutdown(renderer.get());
     for (auto& p : partyPortraits_) p.shutdown(renderer.get());
     paperdollModel_.shutdown(renderer.get());
 
@@ -3372,32 +3373,40 @@ void Application::render() {
                     }
                 }
 
-                // The stable's preview: whichever pet the window has selected,
-                // which SetPetStablePaperdoll wrote onto the frame. Told rather
-                // than looked up, because the slot is the window's own state
-                // and only the binding beside ClickStablePet knows it.
-                {
-                    ui::Widget* stableModel = stableModelWidgetId_
-                        ? widgets.get(stableModelWidgetId_) : nullptr;
-                    if (!stableModel || stableModel->name != "PetStableModel") {
-                        stableModel = widgets.findByName("PetStableModel");
-                        stableModelWidgetId_ = stableModel ? stableModel->id : 0;
+                // Frames that have been *told* which creature to show, rather
+                // than frames that can work it out. The stable's paperdoll is
+                // told a slot and the companion preview a mount or critter, and
+                // in both cases only the binding knows which — so the id is
+                // written onto the frame and this builds whatever it finds.
+                struct CreatureModel {
+                    const char* name;
+                    ui::UnitPortrait* model;
+                    uint32_t* widgetId;
+                };
+                const CreatureModel kCreatureModels[] = {
+                    {"PetStableModel",      &stableModel_,    &stableModelWidgetId_},
+                    {"CompanionModelFrame", &companionModel_, &companionModelWidgetId_},
+                };
+                for (const CreatureModel& cm : kCreatureModels) {
+                    ui::Widget* frame = *cm.widgetId ? widgets.get(*cm.widgetId) : nullptr;
+                    if (!frame || frame->name != cm.name) {
+                        frame = widgets.findByName(cm.name);
+                        *cm.widgetId = frame ? frame->id : 0;
                     }
                     bool shown = false;
-                    if (stableModel && stableModel->visible &&
-                        stableModel->modelDisplayId != 0 && entitySpawner_) {
+                    if (frame && frame->visible && frame->modelDisplayId != 0 &&
+                        entitySpawner_) {
                         const std::string modelPath =
-                            entitySpawner_->getModelPathForDisplayId(
-                                stableModel->modelDisplayId);
+                            entitySpawner_->getModelPathForDisplayId(frame->modelDisplayId);
                         if (!modelPath.empty()) {
-                            stableModel_.setFraming(ui::UnitPortrait::Framing::FullBody);
-                            stableModel_.updateCreature(modelPath, assetManager.get(),
-                                                        renderer.get(), io.DeltaTime);
+                            cm.model->setFraming(ui::UnitPortrait::Framing::FullBody);
+                            cm.model->updateCreature(modelPath, assetManager.get(),
+                                                     renderer.get(), io.DeltaTime);
                             shown = true;
                         }
                     }
-                    if (stableModel) {
-                        stableModel->externalTexture = shown ? stableModel_.textureId() : 0;
+                    if (frame) {
+                        frame->externalTexture = shown ? cm.model->textureId() : 0;
                     }
                 }
 
