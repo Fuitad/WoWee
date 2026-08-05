@@ -1361,6 +1361,7 @@ static std::array<bool, 4>& actionBarToggles() {
     return shown;
 }
 
+
 /// A cooldown that is not running: start and duration both zero. Two values,
 /// because the caller adds them together on the next line —
 /// local start, duration = GetSummonFriendCooldown(); start + duration — and
@@ -1444,11 +1445,124 @@ static std::array<ChatWindowSettings, kNumChatWindows>& chatWindows() {
     return windows;
 }
 
+/// Where the chat layout and the action-bar toggles live between runs.
+///
+/// The CVars got their own file first and these two stores were left in memory,
+/// which is the same defect twice: a player who moves a chat window, renames a
+/// tab, sends whispers to their own window or turns on the right-hand action
+/// bars finds all of it back to default on the next login. Nothing about that
+/// looks like a bug — it looks like the setting never took.
+///
+/// One file for both, because they are the same kind of thing: interface state
+/// the real client keeps in account data this one has no equivalent of.
+static std::string interfaceStatePath() {
+    return core::getConfigRoot() + "/interface_state.cfg";
+}
+
+static void saveInterfaceState();
+
 /// The window a one-based index names, or nullptr if it names none.
 static ChatWindowSettings* chatWindow(lua_State* L, int argIndex) {
     const int id = static_cast<int>(luaL_optnumber(L, argIndex, 0));
     if (id < 1 || id > kNumChatWindows) return nullptr;
     return &chatWindows()[static_cast<size_t>(id - 1)];
+}
+
+/// Write the chat layout and the bar toggles out.
+///
+/// Sorted and one key per line, the same shape as the CVar file beside it, so
+/// the two read alike and a diff shows a settings change rather than hash order
+/// moving. A name with a newline in it is dropped rather than written, since it
+/// would come back as two broken lines.
+static void saveInterfaceState() {
+    const std::string path = interfaceStatePath();
+    std::error_code ec;
+    std::filesystem::create_directories(
+        std::filesystem::path(path).parent_path(), ec);
+    std::ofstream out(path);
+    if (!out.is_open()) {
+        LOG_WARNING("Could not save interface state to ", path);
+        return;
+    }
+    const auto& bars = actionBarToggles();
+    for (size_t i = 0; i < bars.size(); ++i)
+        out << "bar." << (i + 1) << "=" << (bars[i] ? 1 : 0) << "\n";
+    const auto& windows = chatWindows();
+    for (size_t i = 0; i < windows.size(); ++i) {
+        const auto& w = windows[i];
+        const std::string k = "chat." + std::to_string(i + 1) + ".";
+        if (w.name.find('\n') == std::string::npos)
+            out << k << "name=" << w.name << "\n";
+        out << k << "shown="   << (w.shown ? 1 : 0) << "\n";
+        out << k << "locked="  << (w.locked ? 1 : 0) << "\n";
+        out << k << "docked="  << w.docked << "\n";
+        out << k << "uninteractable=" << (w.uninteractable ? 1 : 0) << "\n";
+        out << k << "fontSize=" << w.fontSize << "\n";
+        out << k << "colour=" << w.r << "," << w.g << "," << w.b << "," << w.alpha << "\n";
+        // Position and dimensions only once something has saved them. Absent is
+        // not zero: FCF_RestorePositionAndDimensions restores what it is given,
+        // and a zero width is a window with no width.
+        if (w.hasPosition)
+            out << k << "position=" << w.point << "," << w.xOffset << "," << w.yOffset << "\n";
+        if (w.hasDimensions)
+            out << k << "size=" << w.width << "," << w.height << "\n";
+    }
+}
+
+/// Read them back, before the interface loads: a chat window is built from
+/// these as it is created, and a value arriving later leaves the window
+/// disagreeing with the setting.
+static void loadInterfaceState() {
+    std::ifstream in(interfaceStatePath());
+    if (!in.is_open()) return;
+    auto& bars = actionBarToggles();
+    auto& windows = chatWindows();
+    std::string line;
+    size_t loaded = 0;
+    while (std::getline(in, line)) {
+        const size_t eq = line.find('=');
+        if (eq == std::string::npos || eq == 0) continue;
+        const std::string key = line.substr(0, eq);
+        const std::string value = line.substr(eq + 1);
+        auto num = [&value] {
+            try { return std::stof(value); } catch (const std::exception&) { return 0.0f; }
+        };
+        if (key.rfind("bar.", 0) == 0) {
+            const int idx = std::atoi(key.c_str() + 4);
+            if (idx >= 1 && idx <= static_cast<int>(bars.size()))
+                bars[static_cast<size_t>(idx - 1)] = (value == "1");
+            ++loaded;
+            continue;
+        }
+        if (key.rfind("chat.", 0) != 0) continue;
+        const size_t dot = key.find('.', 5);
+        if (dot == std::string::npos) continue;
+        const int idx = std::atoi(key.substr(5, dot - 5).c_str());
+        if (idx < 1 || idx > kNumChatWindows) continue;
+        auto& w = windows[static_cast<size_t>(idx - 1)];
+        const std::string field = key.substr(dot + 1);
+        if      (field == "name")     w.name = value;
+        else if (field == "shown")    w.shown = (value == "1");
+        else if (field == "locked")   w.locked = (value == "1");
+        else if (field == "docked")   w.docked = std::atoi(value.c_str());
+        else if (field == "uninteractable") w.uninteractable = (value == "1");
+        else if (field == "fontSize") w.fontSize = num();
+        else if (field == "colour") {
+            std::sscanf(value.c_str(), "%f,%f,%f,%f", &w.r, &w.g, &w.b, &w.alpha);
+        } else if (field == "position") {
+            char pt[32] = {0};
+            if (std::sscanf(value.c_str(), "%31[^,],%f,%f", pt, &w.xOffset, &w.yOffset) == 3) {
+                w.point = pt;
+                w.hasPosition = true;
+            }
+        } else if (field == "size") {
+            if (std::sscanf(value.c_str(), "%f,%f", &w.width, &w.height) == 2)
+                w.hasDimensions = true;
+        } else continue;
+        ++loaded;
+    }
+    LOG_INFO("Interface state: loaded ", loaded, " value(s) from ",
+             interfaceStatePath());
 }
 
 /// A chat window's saved settings. FCF_SetWindowAlpha takes the alpha from
@@ -1498,10 +1612,12 @@ static int lua_GetChatWindowSavedDimensions(lua_State* L) {
 
 static int lua_SetChatWindowName(lua_State* L) {
     if (auto* w = chatWindow(L, 1)) w->name = luaL_optstring(L, 2, "");
+    saveInterfaceState();
     return 0;
 }
 static int lua_SetChatWindowSize(lua_State* L) {
     if (auto* w = chatWindow(L, 1)) w->fontSize = static_cast<float>(luaL_optnumber(L, 2, 14.0));
+    saveInterfaceState();
     return 0;
 }
 static int lua_SetChatWindowColor(lua_State* L) {
@@ -1510,18 +1626,22 @@ static int lua_SetChatWindowColor(lua_State* L) {
         w->g = static_cast<float>(luaL_optnumber(L, 3, 1.0));
         w->b = static_cast<float>(luaL_optnumber(L, 4, 1.0));
     }
+    saveInterfaceState();
     return 0;
 }
 static int lua_SetChatWindowAlpha(lua_State* L) {
     if (auto* w = chatWindow(L, 1)) w->alpha = static_cast<float>(luaL_optnumber(L, 2, 1.0));
+    saveInterfaceState();
     return 0;
 }
 static int lua_SetChatWindowShown(lua_State* L) {
     if (auto* w = chatWindow(L, 1)) w->shown = lua_toboolean(L, 2) != 0;
+    saveInterfaceState();
     return 0;
 }
 static int lua_SetChatWindowLocked(lua_State* L) {
     if (auto* w = chatWindow(L, 1)) w->locked = lua_toboolean(L, 2) != 0;
+    saveInterfaceState();
     return 0;
 }
 /// The dock position, which is a number and not a flag — see GetChatWindowInfo.
@@ -1531,10 +1651,12 @@ static int lua_SetChatWindowDocked(lua_State* L) {
         if (lua_isnumber(L, 2)) w->docked = static_cast<int>(lua_tonumber(L, 2));
         else w->docked = lua_toboolean(L, 2) ? 1 : 0;
     }
+    saveInterfaceState();
     return 0;
 }
 static int lua_SetChatWindowUninteractable(lua_State* L) {
     if (auto* w = chatWindow(L, 1)) w->uninteractable = lua_toboolean(L, 2) != 0;
+    saveInterfaceState();
     return 0;
 }
 static int lua_SetChatWindowSavedPosition(lua_State* L) {
@@ -1542,20 +1664,22 @@ static int lua_SetChatWindowSavedPosition(lua_State* L) {
     if (!w) return 0;
     // Called with nil to forget the position, which is how a window that has
     // been re-docked stops being restored to where it floated.
-    if (lua_isnoneornil(L, 2)) { w->hasPosition = false; return 0; }
+    if (lua_isnoneornil(L, 2)) { w->hasPosition = false; saveInterfaceState(); return 0; }
     w->point   = luaL_optstring(L, 2, "TOPLEFT");
     w->xOffset = static_cast<float>(luaL_optnumber(L, 3, 0.0));
     w->yOffset = static_cast<float>(luaL_optnumber(L, 4, 0.0));
     w->hasPosition = true;
+    saveInterfaceState();
     return 0;
 }
 static int lua_SetChatWindowSavedDimensions(lua_State* L) {
     auto* w = chatWindow(L, 1);
     if (!w) return 0;
-    if (lua_isnoneornil(L, 2)) { w->hasDimensions = false; return 0; }
+    if (lua_isnoneornil(L, 2)) { w->hasDimensions = false; saveInterfaceState(); return 0; }
     w->width  = static_cast<float>(luaL_optnumber(L, 2, 0.0));
     w->height = static_cast<float>(luaL_optnumber(L, 3, 0.0));
     w->hasDimensions = true;
+    saveInterfaceState();
     return 0;
 }
 
@@ -1576,6 +1700,7 @@ static int lua_ResetChatWindows(lua_State* L) {
     auto* engine = static_cast<LuaEngine*>(lua_touserdata(L, -1));
     lua_pop(L, 1);
     if (engine) engine->fireEvent("UPDATE_FLOATING_CHAT_WINDOWS", {});
+    saveInterfaceState();
     return 0;
 }
 
@@ -2839,6 +2964,7 @@ void registerSystemLuaAPI(lua_State* L) {
     // Before any binding is registered, so the first GetCVar of the run — which
     // happens while a panel is being built — sees what the player last set.
     loadStoredCVars();
+    loadInterfaceState();
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"Screenshot",               lua_Screenshot},
                 {"HasLFGRestrictions",       lua_HasLFGRestrictions},
@@ -3053,6 +3179,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"SetActionBarToggles", [](lua_State* L) -> int {
             auto& shown = actionBarToggles();
             for (int i = 0; i < 4; ++i) shown[static_cast<size_t>(i)] = lua_toboolean(L, i + 1) != 0;
+            saveInterfaceState();
             return 0;
         }},
                 {"GetActionBarToggles", [](lua_State* L) -> int {
