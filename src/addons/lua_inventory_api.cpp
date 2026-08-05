@@ -3044,12 +3044,13 @@ void registerInventoryLuaAPI(lua_State* L) {
             pickupMerchantItem(L, static_cast<int>(luaL_optnumber(L, 1, 0)));
             return 0;
         }},
-                // Opening the socketing panel on an equipped item. Answers
-                // false as SocketContainerItem beside it does: the panel needs
-                // per-item socket contents, which are not tracked, so it is not
-                // opened rather than opened empty.
-                {"SocketInventoryItem",   lua_ContainerFalse},
-                {"SocketContainerItem",   lua_ContainerFalse},
+                // SocketInventoryItem and SocketContainerItem used to answer
+                // false here, on the reading that per-item socket contents were
+                // not tracked so the panel was better left shut than opened
+                // empty. They are tracked — the item's enchantment fields carry
+                // them — and both live in lua_socket_api.cpp now with the rest
+                // of the socketing surface. Two registrations of one name would
+                // be settled by load order.
                 {"SpellCanTargetItem",    lua_SpellCanTargetItem},
                 // CanGuildBankRepair() — whether the guild-repair button
                 // appears beside the merchant's own.

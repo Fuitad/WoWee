@@ -2680,6 +2680,18 @@ public:
     static network::Packet build(uint64_t guid);
 };
 
+/** CMSG_SOCKET_GEMS packet builder.
+ *
+ * The item, then one guid per socket — three of them, always, with zero for a
+ * socket nothing is being put into. The server refuses the whole request if any
+ * two non-zero guids match, so the caller must not offer one gem twice.
+ */
+class SocketGemsPacket {
+public:
+    static network::Packet build(uint64_t itemGuid,
+                                 const std::array<uint64_t, 3>& gemGuids);
+};
+
 /** CMSG_REPOP_REQUEST packet builder */
 class RepopRequestPacket {
 public:

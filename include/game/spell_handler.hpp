@@ -245,6 +245,12 @@ public:
     const std::string& getSpellRank(uint32_t spellId) const;
     const std::string& getSpellDescription(uint32_t spellId) const;
     std::string getEnchantName(uint32_t enchantId) const;
+    /// The gem item an enchantment came out of (SpellItemEnchantment.Src_ItemID).
+    /// Zero when the enchantment is not a gem, or on a file with no such column.
+    /// This is the only route from an enchantment sitting in an item's socket
+    /// back to the gem that is in the socket — the item fields carry the
+    /// enchantment id and nothing else.
+    uint32_t getEnchantGemItem(uint32_t enchantId) const;
     uint8_t getSpellDispelType(uint32_t spellId) const;
     bool isSpellInterruptible(uint32_t spellId) const;
     bool isSpellPassive(uint32_t spellId) const;

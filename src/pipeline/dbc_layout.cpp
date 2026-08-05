@@ -224,6 +224,33 @@ uint32_t detectEnchantmentItemVisualField(const DBCFile* dbc, const DBCFieldMap*
     return visualField;
 }
 
+uint32_t detectEnchantmentGemItemField(const DBCFile* dbc, const DBCFieldMap* sieL) {
+    if (!dbc || dbc->getRecordCount() == 0) return 0;
+
+    const uint32_t fieldCount = dbc->getFieldCount();
+
+    // Src_ItemID: the gem this enchantment came out of, and the only route from
+    // an enchantment sitting in a socket back to what is in the socket. It
+    // trails the localized name block like ItemVisual and Flags do, so it moves
+    // with them between the two shapes — WotLK 38 fields, TBC 34.
+    //
+    // Verified against the files rather than counted off a wiki page: field 33
+    // of the WotLK file has 617 non-zero values and every one is in item-id
+    // range, and field 32 of the TBC file has 260 that are. Vanilla has 24
+    // fields and no gems to name, so there is nothing to point at.
+    uint32_t gemField;
+    if (fieldCount >= 38)      gemField = 33;  // WotLK 3.3.5a
+    else if (fieldCount >= 34) gemField = 32;  // TBC 2.4.3
+    else                       return 0;       // Vanilla 1.12 / Turtle: no gems
+
+    if (sieL) {
+        uint32_t f = sieL->field("SrcItemID");
+        if (f != 0xFFFFFFFF && f < fieldCount) gemField = f;
+    }
+    if (gemField >= fieldCount) return 0;
+    return gemField;
+}
+
 std::array<std::string, 5> resolveItemVisualModels(uint32_t itemVisualId,
                                                    const DBCFile* itemVisuals,
                                                    const DBCFile* itemVisualEffects) {

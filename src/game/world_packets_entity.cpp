@@ -337,6 +337,14 @@ const char* getItemSubclassName(uint32_t itemClass, uint32_t subClass) {
     return "";
 }
 
+network::Packet SocketGemsPacket::build(uint64_t itemGuid,
+                                        const std::array<uint64_t, 3>& gemGuids) {
+    network::Packet packet(wireOpcode(Opcode::CMSG_SOCKET_GEMS));
+    packet.writeUInt64(itemGuid);
+    for (uint64_t guid : gemGuids) packet.writeUInt64(guid);
+    return packet;
+}
+
 bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseData& data) {
     // Validate minimum packet size: entry(4) + item not found check
     if (packet.getSize() < 4) {

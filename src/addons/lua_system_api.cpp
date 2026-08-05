@@ -3520,7 +3520,8 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, (w > 0.0f) ? (h / w) : 0.5625);
             return 1;
         }},
-                {"GetNumSockets",               lua_ReturnZero},
+                // GetNumSockets answered zero here, which said every item has
+                // no sockets. It is real now, and in lua_socket_api.cpp.
                 {"GetPreviousArenaSeason",      lua_ReturnZero},
                 {"GetComparisonCategoryNumAchievements", lua_ReturnZero},
                 {"GetMultiCastTotemSpells",  lua_ReturnNil},

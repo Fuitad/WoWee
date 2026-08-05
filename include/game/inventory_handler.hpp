@@ -239,6 +239,32 @@ public:
     void mailMarkAsRead(uint32_t mailId);
     void refreshMailList();
 
+    // ---- Item socketing ----
+    //
+    // A gem is not put into an item one at a time: the player fills the sockets
+    // on screen and then commits all three at once, and until they press the
+    // button nothing has happened on the server. So the pending gems are this
+    // client's own state, exactly like the mail attachment slots above.
+    struct SocketSession {
+        bool     open     = false;
+        uint64_t itemGuid = 0;   ///< the item whose sockets are on screen
+        uint32_t itemId   = 0;   ///< its template, for colours and the portrait
+        /// Gems placed but not yet committed, per socket. Guid is what the
+        /// server is told; the item id is what the panel draws.
+        std::array<uint64_t, 3> newGemGuid{};
+        std::array<uint32_t, 3> newGemItemId{};
+    };
+    const SocketSession& getSocketSession() const { return socketSession_; }
+    /// Opens the panel on an item the player owns, wherever it is.
+    void openSocketing(uint64_t itemGuid);
+    void closeSocketing();
+    /// Puts a gem in a socket, or takes back what is in one when guid is zero.
+    /// Refuses a gem already sitting in another socket — the server drops the
+    /// whole request when two sockets name the same guid.
+    bool setSocketGem(int index, uint64_t gemGuid, uint32_t gemItemId);
+    /// Commits every pending gem. Nothing is sent when none are pending.
+    void acceptSockets();
+
     // ---- Bank ----
     void openBank(uint64_t guid);
     void closeBank();
@@ -467,6 +493,7 @@ private:
     void reconcileBuybackSlots();
 
     // ---- Mail state ----
+    SocketSession socketSession_;
     bool mailboxOpen_ = false;
     uint64_t mailboxGuid_ = 0;
     std::vector<MailMessage> mailInbox_;

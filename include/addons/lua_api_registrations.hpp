@@ -12,6 +12,7 @@ void registerSpellLuaAPI(lua_State* L);
 void registerInventoryLuaAPI(lua_State* L);
 void registerQuestLuaAPI(lua_State* L);
 void registerLfgLuaAPI(lua_State* L);
+void registerSocketLuaAPI(lua_State* L);
 void registerSocialLuaAPI(lua_State* L);
 void registerSystemLuaAPI(lua_State* L);
 void registerActionLuaAPI(lua_State* L);

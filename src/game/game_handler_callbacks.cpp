@@ -1257,6 +1257,44 @@ uint64_t GameHandler::getVendorGuid() const {
 }
 
 // Mail
+bool GameHandler::isSocketingOpen() const {
+    return inventoryHandler_ && inventoryHandler_->getSocketSession().open;
+}
+
+uint64_t GameHandler::getSocketItemGuid() const {
+    return inventoryHandler_ ? inventoryHandler_->getSocketSession().itemGuid : 0;
+}
+
+uint32_t GameHandler::getSocketItemId() const {
+    return inventoryHandler_ ? inventoryHandler_->getSocketSession().itemId : 0;
+}
+
+uint64_t GameHandler::getSocketPendingGemGuid(int index) const {
+    if (!inventoryHandler_ || index < 0 || index > 2) return 0;
+    return inventoryHandler_->getSocketSession().newGemGuid[index];
+}
+
+uint32_t GameHandler::getSocketPendingGemItemId(int index) const {
+    if (!inventoryHandler_ || index < 0 || index > 2) return 0;
+    return inventoryHandler_->getSocketSession().newGemItemId[index];
+}
+
+void GameHandler::openSocketing(uint64_t itemGuid) {
+    if (inventoryHandler_) inventoryHandler_->openSocketing(itemGuid);
+}
+
+void GameHandler::closeSocketing() {
+    if (inventoryHandler_) inventoryHandler_->closeSocketing();
+}
+
+bool GameHandler::setSocketGem(int index, uint64_t gemGuid, uint32_t gemItemId) {
+    return inventoryHandler_ && inventoryHandler_->setSocketGem(index, gemGuid, gemItemId);
+}
+
+void GameHandler::acceptSockets() {
+    if (inventoryHandler_) inventoryHandler_->acceptSockets();
+}
+
 bool GameHandler::isMailboxOpen() const {
     return inventoryHandler_ ? inventoryHandler_->isMailboxOpen() : mailboxOpen_;
 }
@@ -3545,6 +3583,11 @@ const std::string& GameHandler::getTotemCategoryName(uint32_t categoryId) const 
 std::string GameHandler::getEnchantName(uint32_t enchantId) const {
     if (spellHandler_) return spellHandler_->getEnchantName(enchantId);
     return {};
+}
+
+uint32_t GameHandler::getEnchantGemItem(uint32_t enchantId) const {
+    if (spellHandler_) return spellHandler_->getEnchantGemItem(enchantId);
+    return 0;
 }
 
 uint8_t GameHandler::getSpellDispelType(uint32_t spellId) const {

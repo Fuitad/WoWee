@@ -2713,6 +2713,19 @@ public:
     void setVendorCanRepair(bool v);
 
     // Mail
+    // ---- Item socketing ----
+    // Flat accessors rather than the session struct: InventoryHandler is only
+    // forward-declared here, and a nested type cannot cross that.
+    bool isSocketingOpen() const;
+    uint64_t getSocketItemGuid() const;
+    uint32_t getSocketItemId() const;
+    uint64_t getSocketPendingGemGuid(int index) const;
+    uint32_t getSocketPendingGemItemId(int index) const;
+    void openSocketing(uint64_t itemGuid);
+    void closeSocketing();
+    bool setSocketGem(int index, uint64_t gemGuid, uint32_t gemItemId);
+    void acceptSockets();
+
     bool isMailboxOpen() const;
     const std::vector<MailMessage>& getMailInbox() const;
     std::string getMailDisplaySubject(const MailMessage& mail);
@@ -2855,6 +2868,14 @@ public:
     const int32_t* getSpellEffectBasePoints(uint32_t spellId) const;
     float getSpellDuration(uint32_t spellId) const;
     std::string getEnchantName(uint32_t enchantId) const;
+    /// The gem item an enchantment came out of; 0 when it is not a gem.
+    uint32_t getEnchantGemItem(uint32_t enchantId) const;
+    /// The template entry of an item this client is holding, by guid. Zero when
+    /// the guid names nothing in the player's own inventory or bank.
+    uint32_t getItemEntryByGuid(uint64_t guid) const {
+        auto it = onlineItems_.find(guid);
+        return (it != onlineItems_.end()) ? it->second.entry : 0;
+    }
     const std::string& getSkillLineName(uint32_t spellId) const;
     /// Returns the DispelType for a spell (0=none,1=magic,2=curse,3=disease,4=poison,5+=other)
     uint8_t getSpellDispelType(uint32_t spellId) const;

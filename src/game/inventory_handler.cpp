@@ -2072,6 +2072,75 @@ void InventoryHandler::categorizeTrainerSpells() {
 }
 
 // ============================================================
+// Item socketing
+// ============================================================
+
+void InventoryHandler::openSocketing(uint64_t itemGuid) {
+    if (itemGuid == 0) return;
+    socketSession_ = SocketSession{};
+    socketSession_.open = true;
+    socketSession_.itemGuid = itemGuid;
+
+    // The template is what carries the socket colours and the bonus. Ask for it
+    // if it has not been seen — the panel redraws on the next SOCKET_INFO_UPDATE
+    // and an item nobody has queried yet would otherwise show no sockets at all.
+    const auto& online = owner_.onlineItemsRef();
+    auto it = online.find(itemGuid);
+    if (it != online.end()) {
+        socketSession_.itemId = it->second.entry;
+        owner_.ensureItemInfo(socketSession_.itemId);
+    }
+
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("SOCKET_INFO_UPDATE", {});
+}
+
+void InventoryHandler::closeSocketing() {
+    if (!socketSession_.open) return;
+    socketSession_ = SocketSession{};
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("SOCKET_INFO_CLOSE", {});
+}
+
+bool InventoryHandler::setSocketGem(int index, uint64_t gemGuid, uint32_t gemItemId) {
+    if (!socketSession_.open || index < 0 || index > 2) return false;
+
+    // The server drops the whole request when two sockets name one guid, so a
+    // gem already placed cannot be placed again — it moves instead.
+    if (gemGuid != 0) {
+        for (int i = 0; i < 3; ++i) {
+            if (i != index && socketSession_.newGemGuid[i] == gemGuid) {
+                socketSession_.newGemGuid[i] = 0;
+                socketSession_.newGemItemId[i] = 0;
+            }
+        }
+    }
+    socketSession_.newGemGuid[index] = gemGuid;
+    socketSession_.newGemItemId[index] = gemItemId;
+
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("SOCKET_INFO_UPDATE", {});
+    return true;
+}
+
+void InventoryHandler::acceptSockets() {
+    if (!socketSession_.open || socketSession_.itemGuid == 0) return;
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+
+    const bool anyPending = socketSession_.newGemGuid[0] || socketSession_.newGemGuid[1] ||
+                            socketSession_.newGemGuid[2];
+    if (!anyPending) return;
+
+    auto packet = SocketGemsPacket::build(socketSession_.itemGuid, socketSession_.newGemGuid);
+    owner_.getSocket()->send(packet);
+
+    // The gems are gone from this client's hands the moment the request leaves.
+    // What comes back is the item's new enchantment fields, which is where the
+    // panel reads a socketed gem from — so clear the pending set and let the
+    // update redraw it as an existing gem rather than a waiting one.
+    socketSession_.newGemGuid = {};
+    socketSession_.newGemItemId = {};
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("SOCKET_INFO_UPDATE", {});
+}
+
+// ============================================================
 // Mail
 // ============================================================
 

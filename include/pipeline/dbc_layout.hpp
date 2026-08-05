@@ -142,6 +142,10 @@ uint32_t detectEnchantmentNameField(const DBCFile* dbc, const DBCFieldMap* sieL)
  */
 uint32_t detectEnchantmentItemVisualField(const DBCFile* dbc, const DBCFieldMap* sieL);
 
+/// SpellItemEnchantment's Src_ItemID column — the gem an enchantment came from.
+/// Zero when the file has no such column, which is every pre-TBC shape.
+uint32_t detectEnchantmentGemItemField(const DBCFile* dbc, const DBCFieldMap* sieL);
+
 /**
  * Model paths for the effect an enchant puts on the item it is applied to — the
  * glint on a freshly sharpened blade.
