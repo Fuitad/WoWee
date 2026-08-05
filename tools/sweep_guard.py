@@ -161,6 +161,14 @@ CHECKS = [
     ("framexml_lookup_names_check.py",
      r"^(\d+) looked up that the interface does not declare", 0,
      "frames this client looks up by a name the interface does not declare"),
+    # Packet handlers that change this client's own model, tell the player in
+    # chat, and tell the interface nothing — the shape that produces a bug
+    # correct after a relog and wrong until then. Fourteen, each read once:
+    # what they write is bookkeeping nothing draws. The two that were not are
+    # fixed: the equipment manager's new set, and the withdrawn summon dialog.
+    ("handler_announce_check.py",
+     r"^(\d+) that tell the player and not the interface", 14,
+     "handlers that change state and announce nothing"),
     # Top-level FrameXML frames named nowhere in framexml_takeover.cpp —
     # neither handed over nor suppressed. Forty-four, and none of them is a
     # double: every name was checked against this client's own UI and none has

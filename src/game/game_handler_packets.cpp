@@ -861,6 +861,10 @@ void GameHandler::registerOpcodeHandlers() {
     registerHandler(Opcode::SMSG_SUMMON_REQUEST, &GameHandler::handleSummonRequest);
     dispatchTable_[Opcode::SMSG_SUMMON_CANCEL] = [this](network::Packet& /*packet*/) {
         pendingSummonRequest_ = false;
+        // social_handler raised the prompt with CONFIRM_SUMMON; uiparent.lua
+        // takes this one down again. Told only in chat, the dialog stays on
+        // screen offering a summon the server has already withdrawn.
+        fireAddonEvent("CANCEL_SUMMON", {});
         addSystemChatMessage("Summon cancelled.");
     };
 

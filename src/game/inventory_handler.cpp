@@ -822,6 +822,11 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
         owner_.addSystemChatMessage(setName.empty()
             ? std::string("Equipment set saved.")
             : "Equipment set \"" + setName + "\" saved.");
+        // The set list just gained a row, or an existing row gained the guid
+        // the server knows it by. The equipment manager rebuilds its list only
+        // on this event, so without it a set saved this session is missing
+        // from the frame until the next login.
+        owner_.addonEventCallbackRef()("EQUIPMENT_SETS_CHANGED", {});
     };
 
     table[Opcode::SMSG_EQUIPMENT_SET_USE_RESULT] = [this](network::Packet& packet) {
