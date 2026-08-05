@@ -64,6 +64,12 @@ CHECKS = [
      "CVars the client never answers, so they read as off"),
     ("declared_vs_read_check.py",
      r"^(\d+) constant\(s\) set in both places", 1,
+     # The one left is DEFAULT_CHAT_FRAME, and it is not a disagreement: the
+     # bootstrap's table is a placeholder for before the interface loads, and
+     # FrameXML replaces it with ChatFrame1 on purpose. What that cost — every
+     # message FrameXML writes going to a hidden frame when this client owns
+     # the chat — is handled by the redirect in AddonManager::loadFrameXml
+     # rather than by making the two agree. It will not go to zero.
      "constants the bootstrap and the interface disagree about"),
     # The one remaining is correct and will not go to zero: readycheck.lua reads
     # a `preempted` flag off READY_CHECK_FINISHED, and AzerothCore's

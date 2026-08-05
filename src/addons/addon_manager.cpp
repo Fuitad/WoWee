@@ -452,6 +452,36 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         "  ToggleGameMenu = function() __WoweeOpenClientSettings() end\n"
         "end\n");
 
+    // Where FrameXML's own chat output goes when this client owns the chat.
+    //
+    // Twenty-nine places write through DEFAULT_CHAT_FRAME:AddMessage — the
+    // ready check's "you were away", the battleground countdowns, the world
+    // state warnings, uiparent's four. That name is ChatFrame1: chatframe.lua
+    // assigns it at file scope and ChatFrame1's own OnLoad assigns it again,
+    // and suppression only stops the frame being drawn, so every one of those
+    // lines was being stored on a hidden frame and never seen.
+    //
+    // Redirected rather than replaced. A bare table would raise the moment
+    // something asked for GetID, GetWidth, GetFont, SetPoint or
+    // IsUserPlaced — all of which FrameXML calls on this — so the frames stay
+    // frames and only AddMessage is pointed elsewhere. A field on the table
+    // wins over the metatable's method, which is what makes that work.
+    //
+    // All ten windows, not only the first: ChatFrame_MessageEventHandler
+    // writes to whichever window a message type is registered on.
+    luaEngine_.executeString(
+        std::string("__WoweeOwnsChat = ") +
+        (ui::frameXmlOwns(ui::UiElement::Chat) ? "true" : "false") + "\n");
+    luaEngine_.executeString(
+        "if not __WoweeOwnsChat and __WoweeClientChatAddMessage then\n"
+        "  for i = 1, 10 do\n"
+        "    local f = _G['ChatFrame' .. i]\n"
+        "    if type(f) == 'table' then\n"
+        "      f.AddMessage = __WoweeClientChatAddMessage\n"
+        "    end\n"
+        "  end\n"
+        "end\n");
+
 
     luaEngine_.executeString(
         "if UIParent and UIParent.SetAttribute then\n"

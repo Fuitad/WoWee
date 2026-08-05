@@ -4568,6 +4568,10 @@ void LuaEngine::registerCoreAPI() {
         "    end\n"
         "end\n"
         "ChatFrame1 = DEFAULT_CHAT_FRAME\n"
+        // Kept under a name FrameXML will not take, because chatframe.lua and
+        // ChatFrame1's own OnLoad both reassign DEFAULT_CHAT_FRAME. See the
+        // redirect in AddonManager::loadFrameXml for what it is kept for.
+        "__WoweeClientChatAddMessage = DEFAULT_CHAT_FRAME.AddMessage\n"
     );
 
     // hooksecurefunc — hook a function to run additional code after it
