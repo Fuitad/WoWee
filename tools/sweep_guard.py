@@ -131,6 +131,17 @@ CHECKS = [
     ("framexml_art_check.py",
      r"^(\d+) not in this install", 19,
      "art the interface asks for that this install does not have"),
+    # The blind spot both widget-method sweeps had: they count the no-op
+    # allowlist as answered, which is right for "does the call raise here" and
+    # wrong for a caller that reads what comes back. A no-op returns nil, and
+    # nil in a comparison raises one line later, inside a function that looks
+    # unrelated. GetFieldSize sat in the allowlist while its one caller
+    # compared a byte count against it, so the guild event log came out blank
+    # whenever it had events to show. Zero, because there is no such thing as
+    # a deliberate one: if a caller reads the answer, the method is not a no-op.
+    ("framexml_noop_returns.py",
+     r"^(\d+) whose answer is used where nil raises", 0,
+     "no-op widget methods whose nil answer reaches a comparison"),
     # dispatchSlashCommand stops at the first handler and reports success even
     # when that handler errors, so any command FrameXML defines wins whether it
     # works or not. Zero is the honest ceiling for a handler that can do nothing

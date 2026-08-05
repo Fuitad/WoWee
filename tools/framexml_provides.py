@@ -86,6 +86,51 @@ def counting_table():
     return set(re.findall(r"'(\w+)'", m.group(1))) if m else set()
 
 
+def noop_widget_methods():
+    """Method names answered only by the no-op — which returns nothing.
+
+    The distinction the other sweeps do not draw. `widget_methods_provided`
+    folds the allowlist in with the real ones, because for "does this raise
+    outright" they are the same. They are not the same for a caller that reads
+    the return: a no-op answers nil, and nil in a comparison raises just as an
+    absent method does. GetFieldSize sat in the allowlist and so counted as
+    answered, while its one caller compared a byte count against it and the
+    guild event log came out blank.
+    """
+    src = ENGINE.read_text(encoding="utf-8", errors="ignore")
+    real = set(re.findall(r'\{"([A-Za-z_]\w*)",\s*lua_', src))
+    real |= set(re.findall(r'set\("([A-Za-z_]\w*)"', src))
+    real |= set(re.findall(r'function\s+\w+\s*:\s*(\w+)\s*\(', src))
+    real |= _loop_built(src)
+    allowlist = set(re.findall(r"\b([A-Za-z]\w*)=1", src))
+    return allowlist - real
+
+
+def _loop_built(src):
+    """Method names the bootstrap assembles rather than writes out.
+
+    The button art block is the reason: it loops a list of slot names and
+    assigns `mt['Set' .. slot]` and `mt['Get' .. slot]`, so twelve real methods
+    appear nowhere as a literal. Reading only literals put GetNormalTexture,
+    GetCheckedTexture and their neighbours in the no-op set, which is the
+    opposite of true — they are singled out for a real implementation *because*
+    the no-op was wrong for them, and the comment above the loop says so.
+
+    Cross-product rather than exact: every affix used with a loop variable
+    against every name in every list. Wider than the truth, and wide is the
+    safe direction here — a name wrongly called provided drops a row from a
+    report, a name wrongly called missing sends someone to implement what
+    already works.
+    """
+    items = set()
+    for lst in re.findall(r"ipairs\(\{(.*?)\}\)", src, re.S):
+        items |= set(re.findall(r"'([A-Za-z_]\w*)'", lst))
+    affixes = set(re.findall(r"\w+\[\s*'([A-Za-z_]\w*)'\s*\.\.", src))
+    affixes |= set(re.findall(r"\.\.\s*'([A-Za-z_]\w*)'\s*\]", src))
+    return {a + i for a in affixes for i in items} | \
+           {i + a for a in affixes for i in items}
+
+
 if __name__ == "__main__":
     g, w, c = globals_provided(), widget_methods_provided(), counting_table()
     print(f"{len(g)} globals provided")

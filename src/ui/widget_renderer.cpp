@@ -306,7 +306,12 @@ void WidgetRenderer::sizeTooltips(WidgetTree& tree) {
             rows += line.lines;
         }
 
-        w->width  = std::max(widest, wrapW) + kPad * 2.0f;
+        // The floor SetMinimumWidth asked for, applied to the finished width
+        // rather than to the text box, because that is what FrameXML measures
+        // against: it compares the money frame's width to GetMinimumWidth and
+        // widens the tooltip to hold it.
+        w->width  = std::max(std::max(widest, wrapW) + kPad * 2.0f,
+                             w->tooltipMinWidth);
         w->height = lineH * static_cast<float>(rows) + kPad * 2.0f;
     }
 }

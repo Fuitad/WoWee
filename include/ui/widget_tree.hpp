@@ -386,6 +386,12 @@ struct Widget {
         mutable int lines = 1;
     };
     std::vector<TooltipLine> tooltipLines;
+    /// A floor on the width the sizing pass may settle on, from
+    /// SetMinimumWidth. FrameXML uses it to keep a money frame from being
+    /// clipped by a tooltip narrower than the coins it is about to draw:
+    /// SetTooltipMoney measures the money frame, asks the tooltip whether it is
+    /// already that wide, and widens it if not.
+    float tooltipMinWidth = 0.0f;
 
     // FontString regions.
     std::string text;

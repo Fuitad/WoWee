@@ -600,6 +600,34 @@ int lua_Region_GetTextWidth(lua_State* L) {
     return 1;
 }
 
+// GameTooltip:SetMinimumWidth(width) / :GetMinimumWidth() — a floor on how
+// narrow the tooltip may size itself.
+//
+// The pair has to be real together. SetTooltipMoney reads the getter first:
+//
+//     if ( frame:GetMinimumWidth() < moneyFrameWidth ) then
+//
+// and the no-op answered nil, so every caller of SetTooltipMoney raised on
+// that line — the taxi node's flight cost, the mail money and COD lines, the
+// repair-all cost, a dungeon's reward money. The tooltip drew whatever it had
+// managed before the raise and the money was never added.
+//
+// The second argument to the setter is a "force" flag the real client uses to
+// apply the width immediately rather than at the next layout. Ours sizes
+// tooltips every frame, so there is nothing for it to force.
+int lua_Frame_SetMinimumWidth(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->tooltipMinWidth = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+    }
+    return 0;
+}
+
+int lua_Frame_GetMinimumWidth(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->tooltipMinWidth : 0.0);
+    return 1;
+}
+
 // FontString:GetFieldSize() → how many bytes of text this string will hold.
 //
 // One caller in all of FrameXML, and it is not asking out of curiosity:
@@ -3717,6 +3745,8 @@ void LuaEngine::registerCoreAPI() {
         {"GetTextHeight",   lua_Region_GetTextHeight},
         {"GetStringHeight", lua_Region_GetTextHeight},
         {"GetFieldSize",    lua_Region_GetFieldSize},
+        {"SetMinimumWidth", lua_Frame_SetMinimumWidth},
+        {"GetMinimumWidth", lua_Frame_GetMinimumWidth},
         {"GetHeight",       lua_Region_GetHeight},
         {"GetLeft",         lua_Region_GetLeft},
         {"GetRight",        lua_Region_GetRight},
@@ -4400,7 +4430,7 @@ void LuaEngine::registerCoreAPI() {
         "GetFontObject=1,GetFontString=1,GetFrame=1,GetFrameLevel=1,GetFrameRef=1,\n"
         "GetFrameStrata=1,GetHeight=1,GetHighlightTexture=1,GetHorizontalScroll=1,\n"
         "GetHorizontalScrollRange=1,GetID=1,GetInputLanguage=1,GetInventorySlot=1,\n"
-        "GetItem=1,GetLeft=1,GetLowerEmblemTexture=1,GetMessageInfo=1,GetMinimumWidth=1,\n"
+        "GetItem=1,GetLeft=1,GetLowerEmblemTexture=1,GetMessageInfo=1,\n"
         "GetMinMaxValues=1,GetMousePosition=1,GetName=1,GetNormalTexture=1,GetNumber=1,\n"
         "GetNumChildren=1,GetNumMessages=1,GetNumPoints=1,GetNumTooltips=1,\n"
         "GetObjectType=1,GetParent=1,GetPoint=1,GetPushedTexture=1,GetRect=1,\n"
@@ -4441,7 +4471,7 @@ void LuaEngine::registerCoreAPI() {
         "SetInventoryItem=1,SetJustifyH=1,SetJustifyV=1,SetLFGCompletionReward=1,\n"
         "SetLFGDungeonReward=1,SetLight=1,SetMaxBytes=1,\n"
         "SetMaxLetters=1,SetMerchantCostItem=1,\n"
-        "SetMinimumWidth=1,SetMinMaxValues=1,SetModel=1,SetModelScale=1,\n"
+        "SetMinMaxValues=1,SetModel=1,SetModelScale=1,\n"
         "SetMovable=1,SetMultiLine=1,SetNormalFontObject=1,SetNormalTexture=1,\n"
         "SetNumber=1,SetNumeric=1,SetOwner=1,SetParent=1,SetPetAction=1,\n"
         "SetPlayerTextureHeight=1,SetPlayerTextureWidth=1,SetPoint=1,SetPosition=1,\n"
