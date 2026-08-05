@@ -2272,7 +2272,44 @@ static const game::AuctionListResult& auctionListFor(game::GameHandler* gh,
 /// The panel's own state: which row is selected, and which bag slot is sitting
 /// in the sell box. Neither is anything the client has an opinion about.
 static int& auctionSelection() { static int sel = 0; return sel; }
-static int& auctionSellSlot()  { static int slot = -1; return slot; }
+
+/// The item sitting in the sell box, as the flat (container, slot) pair the
+/// cursor speaks in. Kept in that form rather than as a backpack index so a
+/// worn bag can hold the item too — the send takes a guid, and every container
+/// can produce one.
+struct AuctionSellSlot {
+    bool    held = false;
+    uint8_t bag  = 0;
+    uint8_t slot = 0;
+};
+static AuctionSellSlot& auctionSellSlot() { static AuctionSellSlot s; return s; }
+
+/// The item a wire (container, slot) pair names, and its guid. Null when the
+/// pair names nothing this client is holding.
+static const game::ItemSlot* auctionSellItemSlot(game::GameHandler* gh,
+                                                 uint64_t* guidOut = nullptr) {
+    if (guidOut) *guidOut = 0;
+    const AuctionSellSlot& sel = auctionSellSlot();
+    if (!gh || !sel.held) return nullptr;
+    const auto& inv = gh->getInventory();
+    if (sel.bag == 0xFF) {
+        const int index = static_cast<int>(sel.slot) - game::slots::backpackWireSlot(0);
+        if (index < 0 || index >= inv.getBackpackSize()) return nullptr;
+        const auto& s = inv.getBackpackSlot(index);
+        if (s.empty()) return nullptr;
+        if (guidOut) *guidOut = gh->getBackpackItemGuid(index);
+        return &s;
+    }
+    for (int b = 0; b < game::Inventory::NUM_BAG_SLOTS; ++b) {
+        if (sel.bag != static_cast<uint8_t>(game::slots::wornBagContainer(b))) continue;
+        if (sel.slot >= inv.getBagSize(b)) return nullptr;
+        const auto& s = inv.getBagSlot(b, sel.slot);
+        if (s.empty()) return nullptr;
+        if (guidOut) *guidOut = gh->getBagItemGuid(b, sel.slot);
+        return &s;
+    }
+    return nullptr;
+}
 
 /// GetInventoryItemCount(unit, slot) → how many are in that equipped slot.
 ///
@@ -3649,9 +3686,17 @@ void registerInventoryLuaAPI(lua_State* L) {
             const uint32_t bid = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
             const uint32_t buy = static_cast<uint32_t>(luaL_optnumber(L, 2, 0));
             const uint32_t dur = static_cast<uint32_t>(luaL_optnumber(L, 3, 720));
-            if (!gh || auctionSellSlot() < 0) return 0;
-            gh->auctionSellItem(auctionSellSlot(), bid, buy, dur);
-            auctionSellSlot() = -1;
+            uint64_t guid = 0;
+            const auto* item = auctionSellItemSlot(gh, &guid);
+            if (!item || guid == 0) return 0;
+            // The fourth argument is the size of one stack; the fifth is how
+            // many such stacks to post, which this sends one of — the request
+            // builder writes a single item and posting several would be a
+            // several-item list.
+            const uint32_t stack = static_cast<uint32_t>(
+                luaL_optnumber(L, 4, item->item.stackCount ? item->item.stackCount : 1));
+            gh->auctionSellItemByGuid(guid, stack, bid, buy, dur);
+            auctionSellSlot() = AuctionSellSlot{};
             return 0;
         }},
                 // The sell slot: the item the player dropped on it, held here
@@ -3664,28 +3709,27 @@ void registerInventoryLuaAPI(lua_State* L) {
             // is one — the item the player is carrying is exactly what a click
             // on this button is offering.
             //
-            // Backpack only. auctionSellItem addresses the item by backpack
-            // index, and answering for a worn bag would mean sending an index
-            // into the wrong container; retail lets either be dropped here, so
-            // this is a narrowing worth removing when the send takes a guid.
             uint8_t bag = 0, slot = 0;
             if (!wowee::ui::frameXmlCursorWireSlot(bag, slot)) {
                 // Nothing carried: a click takes the item back out.
-                auctionSellSlot() = -1;
+                auctionSellSlot() = AuctionSellSlot{};
                 return 0;
             }
-            const int first = game::slots::backpackWireSlot(0);
-            const int index = static_cast<int>(slot) - first;
-            if (bag != 0xFF || index < 0 ||
-                index >= game::Inventory::BACKPACK_SLOTS) {
+            auto* gh = getGameHandler(L);
+            AuctionSellSlot candidate{true, bag, slot};
+            AuctionSellSlot previous = auctionSellSlot();
+            auctionSellSlot() = candidate;
+            // Only if it names something. Equipment and the bank produce wire
+            // pairs too, and neither can be auctioned from here.
+            if (!auctionSellItemSlot(gh)) {
+                auctionSellSlot() = previous;
                 return 0;
             }
-            auctionSellSlot() = index;
             wowee::ui::frameXmlPutCursorDown();
             return 0;
         }},
                 {"CancelSell", [](lua_State* L) -> int {
-            auctionSellSlot() = -1;
+            auctionSellSlot() = AuctionSellSlot{};
             (void)L;
             return 0;
         }},
@@ -3693,9 +3737,9 @@ void registerInventoryLuaAPI(lua_State* L) {
             // name, texture, count, quality, canUse, price — what the sell tab
             // draws in its slot and what its deposit is figured from.
             auto* gh = getGameHandler(L);
-            if (!gh || auctionSellSlot() < 0) return luaReturnNil(L);
-            const auto& s = gh->getInventory().getBackpackSlot(auctionSellSlot());
-            if (s.empty()) { auctionSellSlot() = -1; return luaReturnNil(L); }
+            const auto* held = auctionSellItemSlot(gh);
+            if (!held) { auctionSellSlot() = AuctionSellSlot{}; return luaReturnNil(L); }
+            const auto& s = *held;
             const auto* info = gh->getItemInfo(s.item.itemId);
             lua_pushstring(L, (info && info->valid && !info->name.empty())
                                   ? info->name.c_str() : s.item.name.c_str());
@@ -3743,12 +3787,13 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"CalculateAuctionDeposit", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const double minutes = luaL_optnumber(L, 1, 720);
-            if (!gh || auctionSellSlot() < 0 || minutes <= 0) {
+            const auto* held = auctionSellItemSlot(gh);
+            if (!held || minutes <= 0) {
                 lua_pushnumber(L, 0);
                 return 1;
             }
-            const auto& s = gh->getInventory().getBackpackSlot(auctionSellSlot());
-            const auto* info = s.empty() ? nullptr : gh->getItemInfo(s.item.itemId);
+            const auto& s = *held;
+            const auto* info = gh->getItemInfo(s.item.itemId);
             const double sellPrice = (info && info->valid) ? info->sellPrice : 0.0;
             constexpr double kMinimumDeposit = 100.0;
             if (sellPrice <= 0.0) {
