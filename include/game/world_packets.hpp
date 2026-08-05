@@ -2614,11 +2614,6 @@ public:
 };
 
 /** CMSG_SET_ACTIVE_TALENT_GROUP_OBSOLETE (0x4C3) — switch dual-spec talent group */
-class ActivateTalentGroupPacket {
-public:
-    /** @param group  0 = primary spec, 1 = secondary spec */
-    static network::Packet build(uint32_t group);
-};
 
 // ============================================================
 // Taxi / Flight Paths

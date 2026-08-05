@@ -1078,9 +1078,18 @@ network::Packet ReadyCheckPacket::build() {
 }
 
 network::Packet ReadyCheckConfirmPacket::build(bool ready) {
-    network::Packet packet(wireOpcode(Opcode::MSG_RAID_READY_CHECK_CONFIRM));
+    // The answer goes back on MSG_RAID_READY_CHECK, the same opcode that asked.
+    // HandleRaidReadyCheckOpcode reads an empty body as "start a ready check"
+    // and a body as "this is my answer", and broadcasts the state it finds.
+    //
+    // MSG_RAID_READY_CHECK_CONFIRM is a real opcode number and the server
+    // registers it Handle_NULL — read and discarded — so answering a ready
+    // check reached nobody. What made that hard to see is that this client
+    // shows its own dialog and clears it on the click, so the answer looked
+    // taken; only the rest of the group could tell it never arrived.
+    network::Packet packet(wireOpcode(Opcode::MSG_RAID_READY_CHECK));
     packet.writeUInt8(ready ? 1 : 0);
-    LOG_DEBUG("Built MSG_RAID_READY_CHECK_CONFIRM: ready=", ready);
+    LOG_DEBUG("Built MSG_RAID_READY_CHECK answer: ready=", ready);
     return packet;
 }
 

@@ -1485,14 +1485,6 @@ network::Packet TalentWipeConfirmPacket::build(bool accept) {
     return packet;
 }
 
-network::Packet ActivateTalentGroupPacket::build(uint32_t group) {
-    // CMSG_SET_ACTIVE_TALENT_GROUP_OBSOLETE (0x4C3 in WotLK 3.3.5a)
-    // Payload: uint32 group (0 = primary, 1 = secondary)
-    network::Packet packet(wireOpcode(Opcode::CMSG_SET_ACTIVE_TALENT_GROUP_OBSOLETE));
-    packet.writeUInt32(group);
-    return packet;
-}
-
 // ============================================================
 // Death/Respawn
 // ============================================================

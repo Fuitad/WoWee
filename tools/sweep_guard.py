@@ -168,6 +168,18 @@ CHECKS = [
     ("framexml_lookup_names_check.py",
      r"^(\d+) looked up that the interface does not declare", 0,
      "frames this client looks up by a name the interface does not declare"),
+    # Requests the server reads off the wire and throws away — an opcode
+    # registered Handle_NULL. Two, and both are accounted for:
+    # CMSG_SUSPEND_COMMS_ACK is an acknowledgement the server has no use for,
+    # and CMSG_PET_UNLEARN_TALENTS has no live opcode to replace it — a pet
+    # talent wipe is a spell, the way the player's spec switch turned out to
+    # be. A third row means a request that leaves and changes nothing, which
+    # is the quietest failure a request has: nothing malformed, nothing
+    # logged, no size or layout check disturbed. The difficulty change and the
+    # ready-check answer both sat here.
+    ("discarded_request_check.py",
+     r"^(\d+) that the server reads and discards", 2,
+     "requests the server reads and discards"),
     # Update-field indices against the server's own UpdateFields.h. Zero, and it
     # has to stay zero: a wrong index reads whatever sits at that slot and the
     # value is simply wrong forever, with no error anywhere. Five were wrong
