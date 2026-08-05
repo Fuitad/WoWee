@@ -177,6 +177,11 @@ private:
     ui::UnitPortrait targetPortrait_;
     /// And the focus, which is deliberate enough to be worth its own pass.
     ui::UnitPortrait focusPortrait_;
+    /// The inspect window's figure, and the frame it is drawn into. Whole
+    /// body at the paperdoll's size, because that is what it is: someone
+    /// else's paperdoll.
+    ui::UnitPortrait inspectModel_;
+    uint32_t inspectModelWidgetId_ = 0;
     /// And whoever this client is dealing with — the face in the gossip,
     /// quest, merchant, flight master and trade panels. One view for all of
     /// them because only one such window is open at a time.

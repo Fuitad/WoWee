@@ -1357,6 +1357,7 @@ void Application::shutdown() {
     petPortrait_.shutdown(renderer.get());
     focusPortrait_.shutdown(renderer.get());
     npcPortrait_.shutdown(renderer.get());
+    inspectModel_.shutdown(renderer.get());
     for (auto& p : partyPortraits_) p.shutdown(renderer.get());
     paperdollModel_.shutdown(renderer.get());
 
@@ -3298,6 +3299,49 @@ void Application::render() {
                     doll->externalTexture = paperdollModel_.textureId();
                 } else if (doll) {
                     doll->externalTexture = 0;
+                }
+
+                // The inspect window's figure, on the same terms as the
+                // paperdoll's — a whole model rather than a face, and only
+                // while the frame is up. Whoever was inspected rather than
+                // whoever is targeted: the interface keeps showing the player
+                // it was opened on while the target moves on, and the inspect
+                // result is where that guid already lives.
+                {
+                    ui::Widget* inspectModel = inspectModelWidgetId_
+                        ? widgets.get(inspectModelWidgetId_) : nullptr;
+                    if (!inspectModel || inspectModel->name != "InspectModelFrame") {
+                        inspectModel = widgets.findByName("InspectModelFrame");
+                        inspectModelWidgetId_ = inspectModel ? inspectModel->id : 0;
+                    }
+                    bool shown = false;
+                    if (inspectModel && inspectModel->visible) {
+                        const auto* result = gameHandler->getInspectResult();
+                        uint8_t race = 0, gender = 0, facial = 0;
+                        uint32_t appearance = 0;
+                        if (result && result->guid != 0 &&
+                            gameHandler->getPlayerAppearance(result->guid, race, gender,
+                                                             appearance, facial)) {
+                            std::vector<game::EquipmentItem> worn;
+                            std::array<uint32_t, 19> displayIds{};
+                            std::array<uint8_t, 19> invTypes{};
+                            if (gameHandler->getOtherPlayerEquipment(result->guid, displayIds,
+                                                                     invTypes)) {
+                                for (size_t slot = 0; slot < displayIds.size(); ++slot) {
+                                    if (displayIds[slot] == 0) continue;
+                                    worn.push_back({displayIds[slot], invTypes[slot], 0u});
+                                }
+                            }
+                            inspectModel_.setFraming(ui::UnitPortrait::Framing::FullBody);
+                            inspectModel_.updatePlayer(race, gender, appearance, facial, worn,
+                                                       assetManager.get(), renderer.get(),
+                                                       io.DeltaTime);
+                            shown = true;
+                        }
+                    }
+                    if (inspectModel) {
+                        inspectModel->externalTexture = shown ? inspectModel_.textureId() : 0;
+                    }
                 }
 
                 if (portrait) {
