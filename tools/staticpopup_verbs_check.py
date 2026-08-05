@@ -92,7 +92,16 @@ def main():
     missing = {}
     for name, body in blocks:
         for hook_name, hook_body in hooks(body):
+            # Names the hook declares for itself are not globals it is
+            # missing. INSTANCE_LOCK's OnUpdate reads its own OnCancel out of
+            # the popup table and then calls it — `local OnCancel =
+            # StaticPopupDialogs["INSTANCE_LOCK"].OnCancel` — which read as a
+            # call to a global nothing answers.
+            local = set(re.findall(r"\blocal\s+([\w,\s]+?)\s*=", hook_body))
+            local = {n.strip() for group in local for n in group.split(",")}
             for call in CALL.findall(hook_body):
+                if call in local:
+                    continue
                 if call not in bound:
                     missing.setdefault(call, set()).add(f"{name}.{hook_name}")
 

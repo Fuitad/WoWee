@@ -103,7 +103,7 @@ CHECKS = [
     # those events starts being fired: a popup that can open with an unbound
     # accept is a player pressing a button and getting an error.
     ("staticpopup_verbs_check.py",
-     r"^(\d+) name\(s\) a popup button calls and nothing answers", 28,
+     r"^(\d+) name\(s\) a popup button calls and nothing answers", 27,
      "names a static popup's buttons call that nothing answers"),
     # The three wire-shape checks. Each is a fault that no test catches: a
     # request the server drops on the floor, a reply read at the wrong offsets,
