@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 
 namespace wowee {
 namespace game { class GameHandler; }
@@ -37,6 +38,18 @@ public:
     void update(game::GameHandler& gameHandler, pipeline::AssetManager* assets,
                 rendering::Renderer* renderer, float deltaTime);
 
+    /// Show a creature instead, by the model its display id names.
+    ///
+    /// Kept apart from update() rather than folded into it: a player is built
+    /// from race, appearance bytes and equipment, and a creature is a path and
+    /// nothing else. The two share the offscreen view and the framing and
+    /// agree on nothing else, so one function taking both would be two
+    /// functions sharing a name.
+    ///
+    /// Reloads only when the path changes, so this is safe every frame.
+    void updateCreature(const std::string& m2Path, pipeline::AssetManager* assets,
+                        rendering::Renderer* renderer, float deltaTime);
+
     /// Set before the first update, since framing is applied when the model
     /// loads and the model loads once.
     void setFraming(Framing framing) { framing_ = framing; }
@@ -60,6 +73,11 @@ private:
 
     // What the loaded model was built from, so a reload happens only on a real
     // change rather than every frame.
+    /// The creature model currently loaded, empty while a player is loaded.
+    /// Also the guard against reloading: a portrait rebuilt every frame looks
+    /// like one that flickers, and the two are indistinguishable from outside.
+    std::string loadedCreaturePath_;
+
     uint64_t loadedGuid_ = 0;
     uint32_t loadedAppearance_ = 0;
     uint8_t  loadedFacialFeatures_ = 0;

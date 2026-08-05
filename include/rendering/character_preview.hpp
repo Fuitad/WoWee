@@ -34,6 +34,10 @@ public:
                        uint8_t hairStyle, uint8_t hairColor,
                        uint8_t facialHair, bool useFemaleModel = false);
 
+    /// Any model by path, with none of the appearance work — for a creature,
+    /// whose M2 names its own textures and has no geosets to choose between.
+    bool loadCreature(const std::string& m2Path);
+
     // Apply equipment overlays/geosets using SMSG_CHAR_ENUM equipment data (ItemDisplayInfo.dbc).
     bool applyEquipment(const std::vector<game::EquipmentItem>& equipment);
 

@@ -170,6 +170,15 @@ private:
     /// interface owns it. WorldMapDetailFrame rather than WorldMapFrame: the
     /// first is the map area, the second is the panel around it.
     uint32_t worldMapWidgetId_ = 0;
+    /// The target's face, on the same terms as the player's. A third offscreen
+    /// pass because all three are on screen at once and each holds a different
+    /// model — the alternative is reloading a model per frame, which is what a
+    /// shared view would amount to.
+    ui::UnitPortrait targetPortrait_;
+    /// The display id the target portrait was last built for, so a target that
+    /// has not changed does not rebuild. Zero means nothing is loaded.
+    uint32_t targetPortraitDisplayId_ = 0;
+
     /// The paperdoll's model view, and the frame it is drawn into. A second
     /// offscreen pass rather than a shared one: the portrait shows the face
     /// and this shows the whole figure, and they are on screen together.

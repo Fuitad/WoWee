@@ -1790,3 +1790,35 @@ TEST_CASE("a texture the client renders into is drawn without a file",
     for (const Widget* w : tree.drawOrder()) drawn |= (w->id == live);
     CHECK(drawn);
 }
+
+TEST_CASE("a portrait belongs to one unit at a time", "[widget_tree]") {
+    // TargetFrame's portrait is asked for "target" and for "player" in turn,
+    // as the player targets themselves and then something else. A frame left
+    // on both lists is handed two faces a frame and keeps whichever was
+    // written last, which is how a portrait shows the wrong unit.
+    WidgetTree tree;
+    const uint32_t tex = tree.create(WidgetKind::Texture, tree.root(), "TargetFramePortrait");
+
+    tree.markTargetPortrait(tex);
+    CHECK(tree.targetPortraits().size() == 1);
+    CHECK(tree.playerPortraits().empty());
+
+    // Handing it over clears the handle as well as the claim: dropping off the
+    // list only stops the updates, and the last face would stay on screen.
+    tree.get(tex)->externalTexture = 0x1234;
+    tree.unmarkTargetPortrait(tex);
+    CHECK(tree.targetPortraits().empty());
+    CHECK(tree.get(tex)->externalTexture == 0);
+
+    tree.markPlayerPortrait(tex);
+    CHECK(tree.playerPortraits().size() == 1);
+    CHECK(tree.targetPortraits().empty());
+}
+
+TEST_CASE("marking the same portrait twice claims it once", "[widget_tree]") {
+    WidgetTree tree;
+    const uint32_t tex = tree.create(WidgetKind::Texture, tree.root(), "P");
+    tree.markTargetPortrait(tex);
+    tree.markTargetPortrait(tex);
+    CHECK(tree.targetPortraits().size() == 1);
+}

@@ -1069,6 +1069,80 @@ bool CharacterPreview::applyEquipment(const std::vector<game::EquipmentItem>& eq
     return true;
 }
 
+/// Any model, by path, with none of the appearance work.
+///
+/// loadCharacter builds a player: a race model, a composited skin, geosets
+/// chosen from hair and facial hair, underwear. A creature is none of that —
+/// its M2 names its own textures and has no geoset choices to make — so this
+/// is the same three steps with the middle two thirds left out: read the M2,
+/// frame the camera on its bounds, hand it to the renderer and stand it up.
+///
+/// The renderer is the one that already draws every unit in the world, so a
+/// creature model needs nothing here that the world does not already do.
+bool CharacterPreview::loadCreature(const std::string& m2Path) {
+    if (!charRenderer_ || !assetManager_ || !assetManager_->isInitialized()) {
+        return false;
+    }
+    if (m2Path.empty()) return false;
+
+    if (instanceId_ > 0) {
+        charRenderer_->removeInstance(instanceId_);
+        instanceId_ = 0;
+    }
+
+    pipeline::M2Model model;
+    if (!loadPreviewM2(m2Path, model)) {
+        LOG_WARNING("CharacterPreview: could not read creature model: ", m2Path);
+        return false;
+    }
+
+    if (camera_) {
+        // The declared bounds where there are any, and the vertices where
+        // there are not — the same choice loadCharacter makes, and for the
+        // same reason: a model whose header bounds are wrong frames wrong.
+        glm::vec3 frameMin = model.boundMin;
+        glm::vec3 frameMax = model.boundMax;
+        if (!model.vertices.empty()) {
+            glm::vec3 tightMin(std::numeric_limits<float>::max());
+            glm::vec3 tightMax(-std::numeric_limits<float>::max());
+            for (const auto& v : model.vertices) {
+                if (!isFiniteVec3(v.position)) continue;
+                tightMin = glm::min(tightMin, v.position);
+                tightMax = glm::max(tightMax, v.position);
+            }
+            if (tightMin.x <= tightMax.x && tightMin.y <= tightMax.y &&
+                tightMin.z <= tightMax.z) {
+                frameMin = tightMin;
+                frameMax = tightMax;
+            }
+        }
+        frameCameraForModelBounds(*camera_, frameMin, frameMax);
+        modelBoundMinZ_ = frameMin.z;
+        modelBoundMaxZ_ = frameMax.z;
+        fullBodyDistance_ = camera_->getPosition().y;
+    }
+
+    if (!charRenderer_->loadModel(model, PREVIEW_MODEL_ID)) {
+        LOG_WARNING("CharacterPreview: failed to upload creature model");
+        return false;
+    }
+
+    instanceId_ = charRenderer_->createInstance(PREVIEW_MODEL_ID,
+        glm::vec3(0.0f, 0.0f, 0.0f),
+        glm::vec3(0.0f, 0.0f, modelYaw_),
+        1.0f);
+    if (instanceId_ == 0) {
+        LOG_WARNING("CharacterPreview: failed to create creature instance");
+        return false;
+    }
+
+    // No geoset selection: a creature shows every submesh its skin declares,
+    // which is what leaving the active set alone means.
+    charRenderer_->playAnimation(instanceId_, rendering::anim::STAND, true);
+    modelLoaded_ = true;
+    return true;
+}
+
 bool CharacterPreview::loadPreviewM2(const std::string& m2Path, pipeline::M2Model& outModel) {
     if (!assetManager_) return false;
 

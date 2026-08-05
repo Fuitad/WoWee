@@ -152,6 +152,26 @@ void WidgetTree::unmarkPlayerPortrait(uint32_t id) {
     }
 }
 
+void WidgetTree::markTargetPortrait(uint32_t id) {
+    if (id == 0) return;
+    for (uint32_t existing : targetPortraits_) {
+        if (existing == id) return;
+    }
+    targetPortraits_.push_back(id);
+}
+
+void WidgetTree::unmarkTargetPortrait(uint32_t id) {
+    // Same reasoning as the player's: dropping off the list stops the updates
+    // and leaves the last face behind, so the handle is cleared here.
+    if (auto* w = get(id)) w->externalTexture = 0;
+    for (size_t i = 0; i < targetPortraits_.size(); ++i) {
+        if (targetPortraits_[i] != id) continue;
+        targetPortraits_[i] = targetPortraits_.back();
+        targetPortraits_.pop_back();
+        return;
+    }
+}
+
 Widget* WidgetTree::findByName(std::string_view name) {
     if (name.empty()) return nullptr;
     // Backwards, so the last frame to take the name is the one found — the

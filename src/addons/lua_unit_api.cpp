@@ -1452,10 +1452,10 @@ static int lua_GetInventoryItemCooldown(lua_State* L) {
 
 // SetPortraitTexture(texture, unit) — put a unit's face in a texture.
 //
-// Only the player's, because the player's is the only one this client renders
-// to an offscreen image. Asking for anyone else leaves the texture as it was
-// and clears any earlier claim on it, so a portrait frame reused for an NPC
-// does not keep showing the player.
+// The player's and the target's, each rendered to an offscreen image of its
+// own. Any other unit leaves the texture as it was and clears every claim on
+// it, so a portrait frame reused for a party member does not keep showing
+// whichever of the two it last held.
 //
 // The texture is remembered rather than filled here: the handle is rebuilt
 // whenever the portrait's render target is, so it has to be assigned every
@@ -1472,10 +1472,19 @@ static int lua_SetPortraitTexture(lua_State* L) {
 
     std::string unit(luaL_optstring(L, 2, ""));
     toLowerInPlace(unit);
+    // Exactly one list at a time. A frame reused for a different unit — and
+    // TargetFrame is asked for "target" and "player" in turn as the player
+    // targets themselves and then something else — has to come off the list it
+    // was on, or it keeps being handed the wrong face.
     if (unit == "player") {
+        tree->unmarkTargetPortrait(id);
         tree->markPlayerPortrait(id);
+    } else if (unit == "target") {
+        tree->unmarkPlayerPortrait(id);
+        tree->markTargetPortrait(id);
     } else {
         tree->unmarkPlayerPortrait(id);
+        tree->unmarkTargetPortrait(id);
     }
     return 0;
 }

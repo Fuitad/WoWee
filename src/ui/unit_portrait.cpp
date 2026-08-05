@@ -92,10 +92,56 @@ void UnitPortrait::update(game::GameHandler& gameHandler,
         // that flickers, and the two are indistinguishable from outside.
         LOG_INFO("UnitPortrait: rebuilt for guid ", self->guid,
                  " appearance ", self->appearanceBytes);
+        loadedCreaturePath_.clear();
         loadedGuid_ = self->guid;
         loadedAppearance_ = self->appearanceBytes;
         loadedFacialFeatures_ = self->facialFeatures;
         loadedEquipHash_ = equipHash;
+    }
+
+    preview_->update(deltaTime);
+    preview_->render();
+    preview_->requestComposite();
+}
+
+void UnitPortrait::updateCreature(const std::string& m2Path,
+                                  pipeline::AssetManager* assets,
+                                  rendering::Renderer* renderer,
+                                  float deltaTime) {
+    if (!assets || !renderer || m2Path.empty()) return;
+
+    if (!preview_) {
+        preview_ = std::make_unique<rendering::CharacterPreview>();
+        initialized_ = preview_->initialize(assets);
+        if (!initialized_) {
+            LOG_WARNING("UnitPortrait: could not build the offscreen view");
+            preview_.reset();
+            return;
+        }
+        renderer->registerPreview(preview_.get());
+        registered_ = true;
+    }
+
+    if (loadedCreaturePath_ != m2Path) {
+        // Declared before the model loads, so the racial backdrop is never
+        // built in the first place — the same order loadCharacter needs.
+        preview_->setTransparentBackground(true);
+        if (preview_->loadCreature(m2Path)) {
+            if (framing_ == Framing::Face) {
+                preview_->setPortraitFraming();
+            } else {
+                preview_->resetView();
+            }
+        }
+        LOG_INFO("UnitPortrait: rebuilt for creature ", m2Path);
+        loadedCreaturePath_ = m2Path;
+        // A player and a creature share one preview, so loading either has to
+        // forget what the other was, or switching back would find nothing
+        // changed and keep drawing the wrong one.
+        loadedGuid_ = 0;
+        loadedAppearance_ = 0;
+        loadedFacialFeatures_ = 0;
+        loadedEquipHash_ = 0;
     }
 
     preview_->update(deltaTime);

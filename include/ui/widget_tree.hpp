@@ -607,6 +607,13 @@ public:
     void markPlayerPortrait(uint32_t id);
     void unmarkPlayerPortrait(uint32_t id);
 
+    /// The same, for the target. A second list rather than a map keyed by unit
+    /// because there are two of them and a map would be a lookup per frame to
+    /// answer a question with two possible answers. The day a third unit gets
+    /// a portrait is the day this becomes a map.
+    void markTargetPortrait(uint32_t id);
+    void unmarkTargetPortrait(uint32_t id);
+
     /// What the mouse is doing, so state art can be chosen. The engine owns
     /// this — it is the only thing that knows what is under the cursor and
     /// what is being held — and the tree needs it to decide which of a
@@ -625,6 +632,7 @@ public:
     uint32_t hoveredWidget() const { return hoveredId_; }
     const std::vector<uint32_t>& scrollFrames() const { return scrollFrames_; }
     const std::vector<uint32_t>& playerPortraits() const { return playerPortraits_; }
+    const std::vector<uint32_t>& targetPortraits() const { return targetPortraits_; }
 
     /// The widget published under this name, or null. Names are unique in
     /// FrameXML by convention, and the last one to claim a name wins, which is
@@ -657,6 +665,7 @@ private:
     float uiScale_ = 1.0f;
     std::vector<uint32_t> scrollFrames_;
     std::vector<uint32_t> playerPortraits_;
+    std::vector<uint32_t> targetPortraits_;
     uint32_t hoveredId_ = 0;
     uint32_t pressedId_ = 0;
 
