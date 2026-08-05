@@ -274,6 +274,15 @@ inline int pushFactionInfo(lua_State* L, game::GameHandler* gh,
     return 13;
 }
 
+/// The item behind a row of the currency list, or zero for no such row.
+///
+/// A currency is an item held in the bags — 3.3.5 has no separate store for
+/// them — so its name, icon and tooltip are all the item's. Declared here
+/// because the tooltip methods live with the widget code and the list is built
+/// with the inventory bindings, and building it twice is how two answers to one
+/// question start to disagree.
+uint32_t currencyListItemId(lua_State* L, int index);
+
 // Resolve unit IDs (player, target, focus, mouseover, pet, targettarget, etc.) to entity
 inline game::Unit* resolveUnit(lua_State* L, const char* unitId) {
     auto* gh = getGameHandler(L);

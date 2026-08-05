@@ -750,6 +750,12 @@ std::vector<CurrencyRow> buildCurrencyList(lua_State* L) {
 
 }  // namespace
 
+uint32_t currencyListItemId(lua_State* L, int index) {
+    const auto rows = buildCurrencyList(L);
+    if (index < 1 || index > static_cast<int>(rows.size())) return 0;
+    return rows[static_cast<size_t>(index) - 1].itemId;
+}
+
 static int lua_GetItemCount(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnZero(L); }
@@ -2833,6 +2839,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // GetCurrencyListInfo(index) → name, isHeader, isExpanded,
                 //   isUnused, isWatched, count, extraCurrencyType, icon, itemID
                 {"GetCurrencyListInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
             const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));
             const auto rows = buildCurrencyList(L);
             if (idx < 1 || idx > static_cast<int>(rows.size())) return luaReturnNil(L);
@@ -2844,7 +2851,15 @@ void registerInventoryLuaAPI(lua_State* L) {
             lua_pushboolean(L, 0);               // 5: isWatched
             lua_pushnumber(L, r.count);          // 6: count
             lua_pushnumber(L, 0);                // 7: extraCurrencyType
-            lua_pushnil(L);                      // 8: icon — read from the item
+            // A nil texture is an empty slot to the interface, and
+            // TokenFrame_Update draws the row's icon from this — so every
+            // currency was listed with a blank square beside its name. The
+            // icon is the item's, which is where a currency's art lives.
+            const auto* info = gh ? gh->getItemInfo(r.itemId) : nullptr;
+            const std::string icon = (info && info->displayInfoId)
+                ? gh->getItemIconPath(info->displayInfoId) : std::string();
+            if (icon.empty()) lua_pushstring(L, "Interface\\Icons\\INV_Misc_QuestionMark");
+            else              lua_pushstring(L, icon.c_str());   // 8: icon
             lua_pushnumber(L, r.itemId);         // 9: itemID
             return 9;
         }},

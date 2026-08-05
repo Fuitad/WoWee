@@ -1625,6 +1625,24 @@ int lua_Tooltip_SetQuestLogSpecialItem(lua_State* L) {
     return 1;
 }
 
+/// SetCurrencyToken(index) — a row of the currency list.
+/// SetBackpackToken(index) — the same for one pinned under the bags.
+///
+/// Both were unbound, so hovering a currency called nil and took the token
+/// frame's OnEnter with it. A currency is an item held in the bags, so its
+/// tooltip is the item's.
+int lua_Tooltip_ReturnFalse(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+
+int lua_Tooltip_SetCurrencyToken(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (!w || !gh) { lua_pushboolean(L, 0); return 1; }
+    const uint32_t itemId = wowee::addons::currencyListItemId(L, index);
+    lua_pushboolean(L, fillItemTooltipById(w, gh, itemId) ? 1 : 0);
+    return 1;
+}
+
 /// SetBagItem(bag, slot) — the same for something in the bags.
 int lua_Tooltip_SetBagItem(lua_State* L) {
     auto* w = widgetOf(L, 1);
@@ -3422,6 +3440,11 @@ void LuaEngine::registerCoreAPI() {
         {"SetInventoryItem", lua_Tooltip_SetInventoryItem},
         {"SetBagItem",      lua_Tooltip_SetBagItem},
         {"SetQuestLogSpecialItem", lua_Tooltip_SetQuestLogSpecialItem},
+        {"SetCurrencyToken", lua_Tooltip_SetCurrencyToken},
+        // Nothing is pinned under the bags — that is a saved choice this
+        // client does not keep — so this answers false rather than
+        // describing an arbitrary row.
+        {"SetBackpackToken", lua_Tooltip_ReturnFalse},
         {"SetGuildBankItem", lua_Tooltip_SetGuildBankItem},
         {"SetSpellByID",    lua_Tooltip_SetSpellByID},
         {"SetTalent",       lua_Tooltip_SetTalent},
