@@ -208,7 +208,7 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
     };
     table[Opcode::SMSG_READ_ITEM_FAILED] = [this](network::Packet& packet) {
         owner_.addUIError("You cannot read this item.");
-        owner_.addSystemChatMessage("You cannot read this item.");
+        owner_.raiseUiError("You cannot read this item.");
         packet.skipAll();
     };
 
@@ -1208,7 +1208,7 @@ void InventoryHandler::sellItemBySlot(int backpackIndex) {
         }
     }
     if (sellPrice == 0) {
-        owner_.addSystemChatMessage("Cannot sell: this item has no vendor value.");
+        owner_.raiseUiError("Cannot sell: this item has no vendor value.");
         return;
     }
 
@@ -1228,10 +1228,10 @@ void InventoryHandler::sellItemBySlot(int backpackIndex) {
         buybackItems_.push_back(sold);
         sellItem(currentVendorItems_.vendorGuid, itemGuid, 1);
     } else if (itemGuid == 0) {
-        owner_.addSystemChatMessage("Cannot sell: item not found in inventory.");
+        owner_.raiseUiError("Cannot sell: item not found in inventory.");
         LOG_WARNING("Sell failed: missing item GUID for slot ", backpackIndex);
     } else {
-        owner_.addSystemChatMessage("Cannot sell: no vendor.");
+        owner_.raiseUiError("Cannot sell: no vendor.");
     }
 }
 
@@ -1248,7 +1248,7 @@ void InventoryHandler::sellItemInBag(int bagIndex, int slotIndex) {
         }
     }
     if (sellPrice == 0) {
-        owner_.addSystemChatMessage("Cannot sell: this item has no vendor value.");
+        owner_.raiseUiError("Cannot sell: this item has no vendor value.");
         return;
     }
 
@@ -1273,9 +1273,9 @@ void InventoryHandler::sellItemInBag(int bagIndex, int slotIndex) {
         buybackItems_.push_back(sold);
         sellItem(currentVendorItems_.vendorGuid, itemGuid, 1);
     } else if (itemGuid == 0) {
-        owner_.addSystemChatMessage("Cannot sell: item not found.");
+        owner_.raiseUiError("Cannot sell: item not found.");
     } else {
-        owner_.addSystemChatMessage("Cannot sell: no vendor.");
+        owner_.raiseUiError("Cannot sell: no vendor.");
     }
 }
 
@@ -1406,7 +1406,7 @@ void InventoryHandler::dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t
     if (itemGuid == 0) {
         LOG_WARNING("useItem: itemGuid=0 for item='", item.name, "' entry=", item.itemId,
                     " — cannot use");
-        owner_.addSystemChatMessage("Cannot use that item right now.");
+        owner_.raiseUiError("Cannot use that item right now.");
         return;
     }
 
@@ -1494,7 +1494,7 @@ void InventoryHandler::completeItemUseOnItem(uint64_t targetItemGuid) {
     pendingItemTarget_.reset();
 
     if (targetItemGuid == 0 || !owner_.getSocket()) {
-        owner_.addSystemChatMessage("That is not a valid target.");
+        owner_.raiseUiError("That is not a valid target.");
         return;
     }
 
@@ -1674,7 +1674,7 @@ void InventoryHandler::splitItem(uint8_t srcBag, uint8_t srcSlot, uint8_t count)
             }
         }
     }
-    owner_.addSystemChatMessage("Cannot split: no free inventory slots.");
+    owner_.raiseUiError("Cannot split: no free inventory slots.");
 }
 
 void InventoryHandler::fireBagUpdates() {
@@ -1791,7 +1791,7 @@ void InventoryHandler::unequipToBackpack(EquipSlot equipSlot) {
 
     int freeSlot = owner_.inventoryRef().findFreeBackpackSlot();
     if (freeSlot < 0) {
-        owner_.addSystemChatMessage("Cannot unequip: no free backpack slots.");
+        owner_.raiseUiError("Cannot unequip: no free backpack slots.");
         return;
     }
 
@@ -2880,7 +2880,7 @@ void InventoryHandler::handleTradeStatus(network::Packet& packet) {
             if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("TRADE_ACCEPT_UPDATE", {});
             break;
         case 5: // TRADE_STATUS_ALREADY_TRADING
-            owner_.addSystemChatMessage("You are already trading.");
+            owner_.raiseUiError("You are already trading.");
             break;
         case 7: // TRADE_STATUS_COMPLETE
             // Don't reset immediately — TRADE_STATUS_EXTENDED may arrive in the same
@@ -2907,10 +2907,10 @@ void InventoryHandler::handleTradeStatus(network::Packet& packet) {
             if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("TRADE_ACCEPT_UPDATE", {});
             break;
         case 17: // TRADE_STATUS_PETITION
-            owner_.addSystemChatMessage("You cannot trade while petition is active.");
+            owner_.raiseUiError("You cannot trade while petition is active.");
             break;
         case 18: // TRADE_STATUS_PLAYER_IGNORED
-            owner_.addSystemChatMessage("That player is ignoring you.");
+            owner_.raiseUiError("That player is ignoring you.");
             break;
         default:
             LOG_DEBUG("Unhandled SMSG_TRADE_STATUS: ", status);
@@ -4432,7 +4432,7 @@ void InventoryHandler::initiateTrade(uint64_t targetGuid) {
     }
 
     if (targetGuid == 0) {
-        owner_.addSystemChatMessage("You must target a player to trade with.");
+        owner_.raiseUiError("You must target a player to trade with.");
         return;
     }
 

@@ -1010,7 +1010,12 @@ void GameHandler::addSystemChatMessage(const std::string& message) {
 
 void GameHandler::raiseUiError(const std::string& message) {
     addSystemChatMessage(message);
-    fireAddonEvent("UI_ERROR_MESSAGE", {message});
+    // Through addUIError rather than firing the event again here. That already
+    // existed and already raises UI_ERROR_MESSAGE, and it also reaches this
+    // client's own on-screen error line through uiErrorCallback_ — which a
+    // second copy of the event would have missed. Adding one was how this file
+    // grew a second answer to a question already answered two headers away.
+    addUIError(message);
 }
 
 // ============================================================

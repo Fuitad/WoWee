@@ -827,7 +827,7 @@ void SpellHandler::castSpell(uint32_t spellId, uint64_t targetGuid) {
         float dz = tz - owner_.movementInfoRef().z;
         float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
         if (dist < 8.0f) {
-            owner_.addSystemChatMessage("Target is too close.");
+            owner_.raiseUiError("Target is too close.");
             return;
         }
         if (dist > 25.0f) {
@@ -1066,7 +1066,7 @@ void SpellHandler::switchTalentSpec(uint8_t newSpec) {
     // means the character has only the single spec.
     if (!knownSpells_.count(spellId)) {
         owner_.addUIError("You have not learned Dual Talent Specialization.");
-        owner_.addSystemChatMessage("You have not learned Dual Talent Specialization.");
+        owner_.raiseUiError("You have not learned Dual Talent Specialization.");
         return;
     }
 
@@ -4824,7 +4824,7 @@ void SpellHandler::requestStabledPetList() {
 void SpellHandler::stablePet(uint8_t slot) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() || owner_.stableMasterGuidRef() == 0) return;
     if (owner_.petGuidRef() == 0) {
-        owner_.addSystemChatMessage("You do not have an active pet to stable.");
+        owner_.raiseUiError("You do not have an active pet to stable.");
         return;
     }
     auto pkt = StablePetPacket::build(owner_.stableMasterGuidRef(), slot);

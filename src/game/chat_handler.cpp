@@ -218,15 +218,15 @@ void ChatHandler::registerOpcodes(DispatchTable& table) {
     };
     table[Opcode::SMSG_CHAT_WRONG_FACTION] = [this](network::Packet& /*packet*/) {
         owner_.addUIError("You cannot send messages to members of that faction.");
-        addSystemChatMessage("You cannot send messages to members of that faction.");
+        owner_.raiseUiError("You cannot send messages to members of that faction.");
     };
     table[Opcode::SMSG_CHAT_NOT_IN_PARTY] = [this](network::Packet& /*packet*/) {
         owner_.addUIError("You are not in a party.");
-        addSystemChatMessage("You are not in a party.");
+        owner_.raiseUiError("You are not in a party.");
     };
     table[Opcode::SMSG_CHAT_RESTRICTED] = [this](network::Packet& /*packet*/) {
         owner_.addUIError("You cannot send chat messages in this area.");
-        addSystemChatMessage("You cannot send chat messages in this area.");
+        owner_.raiseUiError("You cannot send chat messages in this area.");
     };
 
     // ---- Channel list ----
@@ -988,7 +988,7 @@ void ChatHandler::replyToLastWhisper(const std::string& message) {
     }
 
     if (message.empty()) {
-        addSystemChatMessage("You must specify a message to send.");
+        owner_.raiseUiError("You must specify a message to send.");
         return;
     }
 

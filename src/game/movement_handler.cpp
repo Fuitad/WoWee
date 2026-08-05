@@ -2836,7 +2836,7 @@ void MovementHandler::handleActivateTaxiReply(network::Packet& packet) {
             return;
         }
         LOG_WARNING("Taxi activation failed, result=", data.result);
-        owner_.addSystemChatMessage("Cannot take that flight path.");
+        owner_.raiseUiError("Cannot take that flight path.");
         taxiActivatePending_ = false;
         taxiActivateTimer_ = 0.0f;
         // Clear the pending path data built speculatively by activateTaxi() -
@@ -3462,13 +3462,13 @@ void MovementHandler::followTarget() {
     }
 
     if (owner_.getTargetGuid() == 0) {
-        owner_.addSystemChatMessage("You must target someone to follow.");
+        owner_.raiseUiError("You must target someone to follow.");
         return;
     }
 
     auto target = owner_.getTarget();
     if (!target) {
-        owner_.addSystemChatMessage("Invalid target.");
+        owner_.raiseUiError("Invalid target.");
         return;
     }
 

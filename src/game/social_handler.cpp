@@ -587,7 +587,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
     table[Opcode::SMSG_DUEL_WINNER] = [this](network::Packet& packet) { handleDuelWinner(packet); };
     table[Opcode::SMSG_DUEL_OUTOFBOUNDS] = [this](network::Packet& /*packet*/) {
         owner_.addUIError("You are out of the duel area!");
-        owner_.addSystemChatMessage("You are out of the duel area!");
+        owner_.raiseUiError("You are out of the duel area!");
         // The interface runs the ten-second countdown to a forfeit off this
         // pair; the message alone says it once and never counts.
         if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("DUEL_OUTOFBOUNDS", {});
@@ -640,7 +640,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
             uint32_t err = packet.readUInt32();
             if (err == 1) owner_.addSystemChatMessage("Player is already in a guild.");
             else if (err == 2) owner_.addSystemChatMessage("Player already has a petition.");
-            else owner_.addSystemChatMessage("Cannot offer petition to that player.");
+            else owner_.raiseUiError("Cannot offer petition to that player.");
         }
     };
     table[Opcode::MSG_GUILD_EVENT_LOG_QUERY] = [this](network::Packet& packet) { handleGuildEventLog(packet); };
@@ -738,7 +738,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
             if (result == 0)
                 owner_.addSystemChatMessage("AFK report submitted.");
             else
-                owner_.addSystemChatMessage("Cannot report that player as AFK right now.");
+                owner_.raiseUiError("Cannot report that player as AFK right now.");
         }
         packet.skipAll();
     };
@@ -956,7 +956,7 @@ void SocialHandler::inspectUnit(uint64_t guid) {
         return;
     }
     if (guid == 0) {
-        owner_.addSystemChatMessage("You must target a player to inspect.");
+        owner_.raiseUiError("You must target a player to inspect.");
         return;
     }
     auto entity = owner_.getEntityManager().getEntity(guid);
@@ -1256,7 +1256,7 @@ void SocialHandler::queryWho(const std::string& playerName) {
 
 void SocialHandler::addFriend(const std::string& playerName, const std::string& note) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    if (playerName.empty()) { owner_.addSystemChatMessage("You must specify a player name."); return; }
+    if (playerName.empty()) { owner_.raiseUiError("You must specify a player name."); return; }
     auto packet = AddFriendPacket::build(playerName, note);
     owner_.getSocket()->send(packet);
     owner_.addSystemChatMessage("Sending friend request to " + playerName + "...");
@@ -1265,7 +1265,7 @@ void SocialHandler::addFriend(const std::string& playerName, const std::string& 
 
 void SocialHandler::removeFriend(const std::string& playerName) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    if (playerName.empty()) { owner_.addSystemChatMessage("You must specify a player name."); return; }
+    if (playerName.empty()) { owner_.raiseUiError("You must specify a player name."); return; }
     auto it = owner_.friendsCacheRef().find(playerName);
     if (it == owner_.friendsCacheRef().end()) {
         owner_.addSystemChatMessage(playerName + " is not in your friends list.");
@@ -1279,7 +1279,7 @@ void SocialHandler::removeFriend(const std::string& playerName) {
 
 void SocialHandler::setFriendNote(const std::string& playerName, const std::string& note) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    if (playerName.empty()) { owner_.addSystemChatMessage("You must specify a player name."); return; }
+    if (playerName.empty()) { owner_.raiseUiError("You must specify a player name."); return; }
     auto it = owner_.friendsCacheRef().find(playerName);
     if (it == owner_.friendsCacheRef().end()) {
         owner_.addSystemChatMessage(playerName + " is not in your friends list.");
@@ -1293,7 +1293,7 @@ void SocialHandler::setFriendNote(const std::string& playerName, const std::stri
 
 void SocialHandler::addIgnore(const std::string& playerName) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    if (playerName.empty()) { owner_.addSystemChatMessage("You must specify a player name."); return; }
+    if (playerName.empty()) { owner_.raiseUiError("You must specify a player name."); return; }
     auto packet = AddIgnorePacket::build(playerName);
     owner_.getSocket()->send(packet);
     owner_.addSystemChatMessage("Adding " + playerName + " to ignore list...");
@@ -1302,7 +1302,7 @@ void SocialHandler::addIgnore(const std::string& playerName) {
 
 void SocialHandler::removeIgnore(const std::string& playerName) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    if (playerName.empty()) { owner_.addSystemChatMessage("You must specify a player name."); return; }
+    if (playerName.empty()) { owner_.raiseUiError("You must specify a player name."); return; }
     auto it = owner_.ignoreCacheRef().find(playerName);
     if (it == owner_.ignoreCacheRef().end()) {
         owner_.addSystemChatMessage(playerName + " is not in your ignore list.");
@@ -1400,7 +1400,7 @@ void SocialHandler::setGuildMotd(const std::string& motd) {
 
 void SocialHandler::promoteGuildMember(const std::string& playerName) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    if (playerName.empty()) { owner_.addSystemChatMessage("You must specify a player name."); return; }
+    if (playerName.empty()) { owner_.raiseUiError("You must specify a player name."); return; }
     auto packet = GuildPromotePacket::build(playerName);
     owner_.getSocket()->send(packet);
     owner_.addSystemChatMessage("Promoting " + playerName + "...");
@@ -1408,7 +1408,7 @@ void SocialHandler::promoteGuildMember(const std::string& playerName) {
 
 void SocialHandler::demoteGuildMember(const std::string& playerName) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    if (playerName.empty()) { owner_.addSystemChatMessage("You must specify a player name."); return; }
+    if (playerName.empty()) { owner_.raiseUiError("You must specify a player name."); return; }
     auto packet = GuildDemotePacket::build(playerName);
     owner_.getSocket()->send(packet);
     owner_.addSystemChatMessage("Demoting " + playerName + "...");
@@ -1423,7 +1423,7 @@ void SocialHandler::leaveGuild() {
 
 void SocialHandler::inviteToGuild(const std::string& playerName) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    if (playerName.empty()) { owner_.addSystemChatMessage("You must specify a player name."); return; }
+    if (playerName.empty()) { owner_.raiseUiError("You must specify a player name."); return; }
     auto packet = GuildInvitePacket::build(playerName);
     owner_.getSocket()->send(packet);
     owner_.addSystemChatMessage("Inviting " + playerName + " to guild...");
@@ -1547,7 +1547,7 @@ void SocialHandler::offerPetition(uint64_t petitionGuid, uint64_t targetGuid) {
 
 void SocialHandler::initiateReadyCheck() {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    if (!isInGroup()) { owner_.addSystemChatMessage("You must be in a group to initiate a ready check."); return; }
+    if (!isInGroup()) { owner_.raiseUiError("You must be in a group to initiate a ready check."); return; }
     auto packet = ReadyCheckPacket::build();
     owner_.getSocket()->send(packet);
     owner_.addSystemChatMessage("Ready check initiated.");
@@ -1582,7 +1582,7 @@ void SocialHandler::forfeitDuel() {
 
 void SocialHandler::proposeDuel(uint64_t targetGuid) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    if (targetGuid == 0) { owner_.addSystemChatMessage("You must target a player to challenge to a duel."); return; }
+    if (targetGuid == 0) { owner_.raiseUiError("You must target a player to challenge to a duel."); return; }
     auto packet = DuelProposedPacket::build(targetGuid);
     owner_.getSocket()->send(packet);
     owner_.addSystemChatMessage("You have challenged your target to a duel.");
@@ -1591,7 +1591,7 @@ void SocialHandler::proposeDuel(uint64_t targetGuid) {
 void SocialHandler::reportPlayer(uint64_t targetGuid, const std::string& reason) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     if (targetGuid == 0) {
-        owner_.addSystemChatMessage("You must target a player to report.");
+        owner_.raiseUiError("You must target a player to report.");
         return;
     }
     auto packet = ComplainPacket::build(targetGuid, reason);
@@ -1684,15 +1684,15 @@ void SocialHandler::leaveGroup() {
 void SocialHandler::convertToRaid() {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     if (!isInGroup()) {
-        owner_.addSystemChatMessage("You are not in a group.");
+        owner_.raiseUiError("You are not in a group.");
         return;
     }
     if (partyData.leaderGuid != owner_.getPlayerGuid()) {
-        owner_.addSystemChatMessage("You must be the party leader to convert to raid.");
+        owner_.raiseUiError("You must be the party leader to convert to raid.");
         return;
     }
     if (partyData.groupType == 1) {
-        owner_.addSystemChatMessage("You are already in a raid group.");
+        owner_.raiseUiError("You are already in a raid group.");
         return;
     }
     auto packet = GroupRaidConvertPacket::build();
@@ -1732,7 +1732,7 @@ void SocialHandler::promoteToLeader(uint64_t guid) {
 
 void SocialHandler::uninvitePlayer(const std::string& playerName) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    if (playerName.empty()) { owner_.addSystemChatMessage("You must specify a player name to uninvite."); return; }
+    if (playerName.empty()) { owner_.raiseUiError("You must specify a player name to uninvite."); return; }
     auto packet = GroupUninvitePacket::build(playerName);
     owner_.getSocket()->send(packet);
     owner_.addSystemChatMessage("Removed " + playerName + " from the group.");
@@ -1804,7 +1804,7 @@ void SocialHandler::leaveParty() {
 
 void SocialHandler::setMainTank(uint64_t targetGuid) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    if (targetGuid == 0) { owner_.addSystemChatMessage("You must have a target selected."); return; }
+    if (targetGuid == 0) { owner_.raiseUiError("You must have a target selected."); return; }
     auto packet = RaidTargetUpdatePacket::build(0, targetGuid);
     owner_.getSocket()->send(packet);
     owner_.addSystemChatMessage("Main tank set.");
@@ -1812,7 +1812,7 @@ void SocialHandler::setMainTank(uint64_t targetGuid) {
 
 void SocialHandler::setMainAssist(uint64_t targetGuid) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    if (targetGuid == 0) { owner_.addSystemChatMessage("You must have a target selected."); return; }
+    if (targetGuid == 0) { owner_.raiseUiError("You must have a target selected."); return; }
     auto packet = RaidTargetUpdatePacket::build(1, targetGuid);
     owner_.getSocket()->send(packet);
     owner_.addSystemChatMessage("Main assist set.");
@@ -2466,9 +2466,9 @@ void SocialHandler::handlePetitionSignResults(network::Packet& packet) {
                 petitionInfo_.signatures.push_back(sig);
             }
             break;
-        case 1: owner_.addSystemChatMessage("You have already signed that petition."); break;
-        case 2: owner_.addSystemChatMessage("You are already in a guild."); break;
-        case 3: owner_.addSystemChatMessage("You cannot sign your own petition."); break;
+        case 1: owner_.raiseUiError("You have already signed that petition."); break;
+        case 2: owner_.raiseUiError("You are already in a guild."); break;
+        case 3: owner_.raiseUiError("You cannot sign your own petition."); break;
         default: owner_.addSystemChatMessage("Cannot sign petition (error " + std::to_string(result) + ")."); break;
     }
 }
@@ -2530,7 +2530,7 @@ void SocialHandler::handleWho(network::Packet& packet) {
     uint32_t onlineCount = packet.readUInt32();
     whoResults_.clear();
     whoOnlineCount_ = onlineCount;
-    if (displayCount == 0) { owner_.addSystemChatMessage("No players found."); return; }
+    if (displayCount == 0) { owner_.raiseUiError("No players found."); return; }
     for (uint32_t i = 0; i < displayCount; ++i) {
         if (packet.getReadPos() >= packet.getSize()) break;
         std::string playerName = packet.readString();
@@ -2712,7 +2712,7 @@ void SocialHandler::handleLogoutResponse(network::Packet& packet) {
         else { owner_.addSystemChatMessage("Logging out in 20 seconds..."); logoutCountdown_ = 20.0f; }
         if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("PLAYER_LOGOUT", {});
     } else {
-        owner_.addSystemChatMessage("Cannot logout right now.");
+        owner_.raiseUiError("Cannot logout right now.");
         loggingOut_ = false; exitAfterLogout_ = false; logoutCountdown_ = 0.0f;
     }
 }

@@ -1368,7 +1368,7 @@ void QuestHandler::closeGossip() {
 void QuestHandler::offerQuestFromItem(uint64_t itemGuid, uint32_t questId) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     if (itemGuid == 0 || questId == 0) {
-        owner_.addSystemChatMessage("Cannot start quest right now.");
+        owner_.raiseUiError("Cannot start quest right now.");
         return;
     }
     // Send CMSG_QUESTGIVER_QUERY_QUEST with the item GUID as the "questgiver."
@@ -1494,11 +1494,11 @@ void QuestHandler::abandonQuest(uint32_t questId) {
 
 void QuestHandler::shareQuestWithParty(uint32_t questId) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) {
-        owner_.addSystemChatMessage("Cannot share quest: not in world.");
+        owner_.raiseUiError("Cannot share quest: not in world.");
         return;
     }
     if (!owner_.isInGroup()) {
-        owner_.addSystemChatMessage("You must be in a group to share a quest.");
+        owner_.raiseUiError("You must be in a group to share a quest.");
         return;
     }
     network::Packet pkt(wireOpcode(Opcode::CMSG_PUSHQUESTTOPARTY));

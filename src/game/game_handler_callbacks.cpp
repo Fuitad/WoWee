@@ -2729,7 +2729,7 @@ void GameHandler::performGameObjectInteractionNow(uint64_t guid) {
         // Only the owned bobber whose bite we observed gets the extended range.
         const float maxInteractDistance = (guid == hookedFishingBobberGuid_) ? 30.0f : 10.0f;
         if (dist3d > maxInteractDistance) {
-            addSystemChatMessage("Too far away.");
+            raiseUiError("Too far away.");
             return;
         }
         // Stop movement before interacting — servers may reject GO use or

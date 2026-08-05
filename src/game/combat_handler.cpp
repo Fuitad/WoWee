@@ -87,7 +87,7 @@ void CombatHandler::registerOpcodes(DispatchTable& table) {
         autoAttackOutOfRange_ = false;
         autoAttackOutOfRangeTime_ = 0.0f;
         if (autoAttackRangeWarnCooldown_ <= 0.0f) {
-            owner_.addSystemChatMessage("You need to stand up to fight.");
+            owner_.raiseUiError("You need to stand up to fight.");
             autoAttackRangeWarnCooldown_ = 1.25f;
         }
     };
@@ -1548,7 +1548,7 @@ void CombatHandler::assistTarget() {
     }
 
     if (owner_.getTargetGuid() == 0) {
-        owner_.addSystemChatMessage("You must target someone to assist.");
+        owner_.raiseUiError("You must target someone to assist.");
         return;
     }
 

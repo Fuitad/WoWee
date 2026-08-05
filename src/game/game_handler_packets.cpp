@@ -477,7 +477,7 @@ void GameHandler::registerOpcodeHandlers() {
         if (packet.hasRemaining(4)) {
             uint32_t result = packet.readUInt32();
             if (result == 0) addSystemChatMessage("Your home is now set to this location.");
-            else { addUIError("You are too far from the innkeeper."); addSystemChatMessage("You are too far from the innkeeper."); }
+            else { raiseUiError("You are too far from the innkeeper."); }
         }
     };
     dispatchTable_[Opcode::SMSG_CHANGEPLAYER_DIFFICULTY_RESULT] = [this](network::Packet& packet) {
@@ -828,7 +828,7 @@ void GameHandler::registerOpcodeHandlers() {
         uint32_t result = packet.readUInt32();
         if (result != 0) {
             addUIError("Cannot dismount here.");
-            addSystemChatMessage("Cannot dismount here.");
+            raiseUiError("Cannot dismount here.");
         }
     };
 
@@ -2221,7 +2221,7 @@ void GameHandler::registerOpcodeHandlers() {
     };
     dispatchTable_[Opcode::SMSG_RAID_GROUP_ONLY] = [this](network::Packet& packet) {
         addUIError("You must be in a raid group to enter this instance.");
-        addSystemChatMessage("You must be in a raid group to enter this instance.");
+        raiseUiError("You must be in a raid group to enter this instance.");
         packet.skipAll();
     };
     dispatchTable_[Opcode::SMSG_RAID_READY_CHECK_ERROR] = [this](network::Packet& packet) {
@@ -2234,7 +2234,7 @@ void GameHandler::registerOpcodeHandlers() {
     };
     dispatchTable_[Opcode::SMSG_RESET_FAILED_NOTIFY] = [this](network::Packet& packet) {
         addUIError("Cannot reset instance: another player is still inside.");
-        addSystemChatMessage("Cannot reset instance: another player is still inside.");
+        raiseUiError("Cannot reset instance: another player is still inside.");
         packet.skipAll();
     };
     // uint32 splitType + uint32 deferTime + string realmName
@@ -2329,7 +2329,7 @@ void GameHandler::registerOpcodeHandlers() {
     // SMSG_QUERY_QUESTS_COMPLETED_RESPONSE — moved to QuestHandler::registerOpcodes
     dispatchTable_[Opcode::SMSG_NPC_WONT_TALK] = [this](network::Packet& packet) {
         addUIError("That creature can't talk to you right now.");
-        addSystemChatMessage("That creature can't talk to you right now.");
+        raiseUiError("That creature can't talk to you right now.");
         packet.skipAll();
     };
 
@@ -2354,7 +2354,7 @@ void GameHandler::registerOpcodeHandlers() {
     };
     dispatchTable_[Opcode::SMSG_PET_NAME_INVALID] = [this](network::Packet& packet) {
         addUIError("That pet name is invalid. Please choose a different name.");
-        addSystemChatMessage("That pet name is invalid. Please choose a different name.");
+        raiseUiError("That pet name is invalid. Please choose a different name.");
         packet.skipAll();
     };
     // Classic 1.12: PackedGUID + 19×uint32 itemEntries (EQUIPMENT_SLOT_END=19)
@@ -2747,7 +2747,7 @@ void GameHandler::registerOpcodeHandlers() {
         const bool lowLevel = (reason & kLowLevel) != 0;
 
         if (lowLevel) {
-            addSystemChatMessage("You are not high enough level for this battlefield.");
+            raiseUiError("You are not high enough level for this battlefield.");
         } else if (reason & kClose) {
             addSystemChatMessage("The battlefield has closed.");
         } else if (exited) {
