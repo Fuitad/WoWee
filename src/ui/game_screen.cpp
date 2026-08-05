@@ -1286,14 +1286,19 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 // FrameXML draws the window left the key doing nothing
                 // visible at all.
                 if (frameXmlOwns(UiElement::CharacterFrame)) {
-                    // Reported three times as doing nothing, and every link in
-                    // ToggleCharacter's chain reads correct from here. This
-                    // says what the frame did, which is the one thing the
-                    // outside cannot tell: never built, built and not shown,
-                    // or shown and laid out to nothing.
-                    gameHandler.runInterfaceCommand(
-                        "ToggleCharacter(\"PaperDollFrame\") "
-                        "__WoweeReportFrame(\"CharacterFrame\")");
+                    // Nothing, deliberately: the handover route table in
+                    // application.cpp already calls ToggleCharacter for this
+                    // key. Calling it here as well was the whole of the bug
+                    // reported three times. IsKeyPressed does not consume, so
+                    // both sites saw the same press and toggled in the same
+                    // frame — open, then shut, and nothing on screen. Every
+                    // link in the chain read correct because the chain was;
+                    // it simply ran twice.
+                    //
+                    // The other two handovers written here hid the same fault
+                    // by being broken: ToggleAllBags and ToggleWorldMap do not
+                    // exist in 3.3.5, so those calls did nothing and the route
+                    // table's single call was left to work.
                 } else {
                     inventoryScreen.toggleCharacter();
                 }
@@ -1302,7 +1307,11 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
 
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_INVENTORY)) {
                 if (frameXmlOwns(UiElement::Bags)) {
-                    gameHandler.runInterfaceCommand("ToggleAllBags()");
+                    // ToggleAllBags is a later addition and is not in this
+                    // FrameXML, so this key did nothing at all once the bags
+                    // were handed over. OpenAllBags is 3.3.5's own name for
+                    // it, and it toggles rather than only opening.
+                    gameHandler.runInterfaceCommand("OpenAllBags()");
                 } else {
                     inventoryScreen.toggle();
                 }
@@ -1317,7 +1326,10 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
 
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_WORLD_MAP)) {
                 if (frameXmlOwns(UiElement::WorldMap)) {
-                    gameHandler.runInterfaceCommand("ToggleWorldMap()");
+                    // Nothing: the route table owns this key too. The call
+                    // written here named ToggleWorldMap, which 3.3.5 does not
+                    // have, so it silently did nothing and left the map
+                    // working on the route table's single toggle.
                 } else {
                     showWorldMap_ = !showWorldMap_;
                 }
