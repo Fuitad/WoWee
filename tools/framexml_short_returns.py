@@ -11,12 +11,7 @@ body against the largest left-hand side in FrameXML. Both are upper bounds, so
 a hit means "worth reading", not "wrong". Prints its own parse counts so a zero
 can be told from a silent failure.
 
-Two false-positive shapes, both seen and both worth knowing before acting:
-
-  * **Two calls on one right-hand side.** `local a, b = GetX(), GetY()` counts
-    two names on the left and credits both to GetX. blizzard_talentui does this
-    with GetActiveTalentGroup and GetNumTalentGroups on one line, and mainmenubar
-    does it with two GetCVarBool calls.
+One false-positive shape, seen and worth knowing before acting:
 
   * **A widget method sharing a global's name.** The binding tables hold both
     globals and widget methods, and this cannot tell them apart.
@@ -72,20 +67,59 @@ def strip_comments(text: str) -> str:
     return re.sub(r"--\[\[.*?\]\]|--[^\n]*", "", text, flags=re.S)
 
 
+def top_level_split(rhs):
+    """The right-hand side split at commas outside brackets, strings and calls.
+
+    A comma inside an argument list separates arguments, not expressions, and
+    counting it as one made every multi-argument call look like several.
+    """
+    parts, depth, quote, start = [], 0, None, 0
+    for i, c in enumerate(rhs):
+        if quote:
+            if c == quote and rhs[i - 1] != "\\":
+                quote = None
+        elif c in "\"'":
+            quote = c
+        elif c in "([{":
+            depth += 1
+        elif c in ")]}":
+            depth -= 1
+            if depth < 0:  # the statement ended inside an enclosing call
+                break
+        elif c == "," and depth == 0:
+            parts.append(rhs[start:i])
+            start = i + 1
+    parts.append(rhs[start:i + 1 if depth < 0 else len(rhs)])
+    return parts
+
+
 # FrameXML: max destructured count per call
 unpack = {}
 for path in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
     t = strip_comments(path.read_text(errors="ignore"))
-    for m in re.finditer(r"(?:local\s+)?([A-Za-z_][\w., \t]*?)\s*=\s*([A-Z][A-Za-z0-9_]*)\s*\(", t):
-        lhs, fn = m.group(1), m.group(2)
+    for m in re.finditer(r"(?:local\s+)?([A-Za-z_][\w., \t]*?)\s*=\s*([^\n]+)", t):
+        lhs, rhs = m.group(1), m.group(2)
         if "." in lhs or "[" in lhs:
             continue
-        n = len([p for p in lhs.split(",") if p.strip()])
-        if n <= 1:
+        names = [p for p in lhs.split(",") if p.strip()]
+        if len(names) <= 1:
             continue
-        prev = unpack.get(fn)
-        if not prev or n > prev[0]:
-            unpack[fn] = (n, f"{path.name}: {m.group(0).strip()[:70]}")
+        exprs = top_level_split(rhs)
+        # Lua adjusts every expression but the last to exactly one value, so
+        # only the last one can absorb more than a single name. Two calls on a
+        # line used to credit the whole left-hand side to the first of them.
+        for i, expr in enumerate(exprs):
+            call = re.fullmatch(r"\s*([A-Z][A-Za-z0-9_]*)\s*\((.*)", expr, re.S)
+            if not call:
+                continue
+            fn = call.group(1)
+            n = 1 if i < len(exprs) - 1 else len(names) - (len(exprs) - 1)
+            if n <= 1:
+                continue
+            prev = unpack.get(fn)
+            if not prev or n > prev[0]:
+                site = f"{lhs.strip()} = {rhs.strip()}"
+                unpack[fn] = (n, f"{path.name}: {site[:70]}")
 
 print(f"parsed {len(bound)} bindings, {len(pushes)} bodies, "
       f"{len(unpack)} destructured call sites\n")
