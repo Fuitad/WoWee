@@ -551,8 +551,6 @@ static int lua_GetSpellAutocast(lua_State* L) {
     lua_pushboolean(L, 0);
     return 2;
 }
-static int lua_ToggleSpellAutocast(lua_State* L) { (void)L; return 0; }
-
 /// GetKnownSlotFromHighestRankSlot(slot) → the slot actually known. The book
 /// shows the highest rank and this maps back; with one entry per spell here
 /// the two are the same slot.
@@ -718,16 +716,25 @@ static int lua_TargetLastTarget(lua_State* L) {
 }
 
 // TargetNearestEnemy() — tab-target nearest enemy
+// The argument is the direction, and it was being thrown away. Bindings.xml
+// binds two keys to each of these — `TargetNearestEnemy()` forwards and
+// `TargetNearestEnemy(1)` backwards, with a comment on that line saying so —
+// so cycling backwards through targets went forwards instead, and the second
+// key of every such pair did what the first did.
+static bool wantsReverse(lua_State* L) {
+    return lua_toboolean(L, 1) != 0;
+}
+
 static int lua_TargetNearestEnemy(lua_State* L) {
     auto* gh = getGameHandler(L);
-    if (gh) gh->targetEnemy(false);
+    if (gh) gh->targetEnemy(wantsReverse(L));
     return 0;
 }
 
-// TargetNearestFriend() — target nearest friendly unit
+// TargetNearestFriend([reverse]) — target nearest friendly unit
 static int lua_TargetNearestFriend(lua_State* L) {
     auto* gh = getGameHandler(L);
-    if (gh) gh->targetFriend(false);
+    if (gh) gh->targetFriend(wantsReverse(L));
     return 0;
 }
 
@@ -1011,7 +1018,6 @@ void registerSpellLuaAPI(lua_State* L) {
                 {"IsPassiveSpell",    lua_IsPassiveSpell},
                 {"IsSelectedSpell",   lua_IsSelectedSpell},
                 {"GetSpellAutocast",  lua_GetSpellAutocast},
-                {"ToggleSpellAutocast", lua_ToggleSpellAutocast},
                 {"GetKnownSlotFromHighestRankSlot", lua_GetKnownSlotFromHighestRankSlot},
                 {"UpdateSpells",      lua_UpdateSpells},
                 {"GetSpellCooldown",  lua_GetSpellCooldown},

@@ -891,6 +891,34 @@ static int lua_GetGuildEventInfo(lua_State* L) {
     return 8;
 }
 
+namespace {
+
+/// The pet spell a name refers to, or zero. Named rather than numbered because
+/// the autocast slash commands pass what the player typed.
+uint32_t petSpellByName(game::GameHandler* gh, const char* name) {
+    if (!gh || !name || !*name) return 0;
+    std::string want(name);
+    toLowerInPlace(want);
+    for (uint32_t id : gh->getPetSpells()) {
+        std::string have = gh->getSpellName(id);
+        toLowerInPlace(have);
+        if (have == want) return id;
+    }
+    return 0;
+}
+
+/// Put a pet spell's autocast into a definite state.
+int setPetAutocastByName(lua_State* L, bool on) {
+    auto* gh = getGameHandler(L);
+    const uint32_t id = petSpellByName(gh, luaL_optstring(L, 1, ""));
+    if (gh && id != 0 && gh->isPetSpellAutocast(id) != on) {
+        gh->togglePetSpellAutocast(id);
+    }
+    return 0;
+}
+
+}  // namespace
+
 void registerSocialLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"BNGetNumFriends",     lua_BNGetNumFriends},
@@ -2548,8 +2576,27 @@ void registerSocialLuaAPI(lua_State* L) {
                 // client can only toggle, and nothing reads back which state a
                 // pet spell is in — so "enable" on an already-autocasting spell
                 // would turn it off. Doing nothing beats doing the opposite.
-                {"EnableSpellAutocast",  [](lua_State* L) -> int { (void)L; return 0; }},
-                {"DisableSpellAutocast", [](lua_State* L) -> int { (void)L; return 0; }},
+                // The three pet-autocast slash commands. They pass the spell by
+                // *name*, since that is what the player typed and what
+                // SecureCmdOptionParse hands back — the pet bar's own toggle
+                // takes a slot and is bound separately.
+                //
+                // Only sent when the state would actually change: the wire has
+                // a toggle and nothing else, so asking to enable something
+                // already on would turn it off, which is the opposite of what
+                // was typed.
+                {"EnableSpellAutocast",  [](lua_State* L) -> int {
+            return setPetAutocastByName(L, true);
+        }},
+                {"DisableSpellAutocast", [](lua_State* L) -> int {
+            return setPetAutocastByName(L, false);
+        }},
+                {"ToggleSpellAutocast",  [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t id = petSpellByName(gh, luaL_optstring(L, 1, ""));
+            if (gh && id != 0) gh->togglePetSpellAutocast(id);
+            return 0;
+        }},
                 {"PetAggressiveMode",    [](lua_State* L) -> int { (void)L; return 0; }},
                 // Channel moderation, arena teams, the addon list, the console
                 // and the rest: no client support behind any of them.
