@@ -24,6 +24,7 @@ Both blank in place rather than deleting, so every line number and index is
 where it was. A report that sends you to the wrong line costs more than it
 saves, and two of these sweeps did exactly that before they were caught.
 """
+import pathlib
 import re
 
 _XML_COMMENT = re.compile(r"<!--.*?-->", re.S)
@@ -50,3 +51,77 @@ def without_comments_or_strings(text):
     text = without_comments(text)
     return _STRING.sub(lambda m: m.group(0)[0] + " " * (len(m.group(0)) - 2)
                        + m.group(0)[-1], text)
+
+
+# ── Which files the loader actually reaches ──────────────────────────────────
+
+_REFERENCE = re.compile(r'<(?:Script|Include)\s+file="([^"]+)"', re.I)
+
+
+def loaded_files(interface):
+    """Every .lua and .xml the loader reaches, as a set of Paths.
+
+    A file sitting in the folder is not a file that loads. Blizzard's glue
+    screens ship in the same directory as FrameXML and are listed in no
+    manifest here, because this client has its own login and character select
+    and never loads them: accountlogin, characterselect, charactercreate,
+    realmlist, realmwizard, glueparent, movieframe. Sixty of the seventy-five
+    names framexml_unbound_globals called "these raise as their panel opens"
+    came out of those files, which cannot raise because they never run.
+
+    Derived from the manifests and the <Script>/<Include> graph rather than
+    from a list written here — a hand-written file list is what crippled every
+    per-element sweep before this, and the loader's own answer does not go
+    stale when a file is added.
+
+    Case-insensitively, because the loader resolves that way and the interface
+    is not consistent: manifests carry Blizzard's capitalisation and the files
+    on disk are lowercase.
+    """
+    interface = pathlib.Path(interface)
+    out = set()
+    if not interface.is_dir():
+        return out
+
+    # Every folder with a manifest, at any depth — the bundled addons sit one
+    # level further down, under addons/.
+    #
+    # Except gluexml, which AddonManager refuses by name: the login and
+    # character-select screens are this client's own, and FrameXML's have
+    # exactly one way in that this is not. Counting them put sixty names in
+    # the unbound-globals report under "these raise as their panel opens",
+    # and not one of them can raise, because none of those files ever run.
+    directories = sorted({t.parent for t in interface.rglob("*.toc")
+                          if t.parent.name.lower() != "gluexml"})
+    # An addon may reference a shared template out of FrameXML, so that folder
+    # is searched as a fallback exactly as the loader searches it.
+    shared = next((d for d in directories if d.name.lower() == "framexml"), None)
+    spare = ({p.name.lower(): p for p in shared.iterdir() if p.is_file()}
+             if shared else {})
+
+    for directory in directories:
+        have = {p.name.lower(): p for p in directory.iterdir() if p.is_file()}
+
+        pending = []
+        for toc in directory.glob("*.toc"):
+            for line in toc.read_text(errors="ignore").splitlines():
+                entry = line.strip()
+                if entry and not entry.startswith("#") and \
+                        entry.lower().endswith((".xml", ".lua")):
+                    pending.append(entry)
+
+        seen = set()
+        while pending:
+            ref = pending.pop().replace("\\", "/").rsplit("/", 1)[-1].lower()
+            if ref in seen:
+                continue
+            seen.add(ref)
+            path = have.get(ref) or spare.get(ref)
+            if not path:
+                continue
+            out.add(path)
+            if path.suffix.lower() == ".xml":
+                text = without_comments(path.read_text(errors="ignore"))
+                pending.extend(_REFERENCE.findall(text))
+
+    return out

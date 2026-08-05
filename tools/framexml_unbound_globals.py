@@ -18,10 +18,21 @@ from pathlib import Path
 
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).resolve().parent))
-from framexml_source import without_comments_or_strings
+from framexml_source import without_comments_or_strings, loaded_files
 
 ROOT = Path("/home/k/Desktop/wowee")
 XML = ROOT / "Data/interface"
+
+# Only the files the loader actually reaches.
+#
+# Still file-agnostic in the sense that matters — nothing here names a panel or
+# maps a name to an element. What it does refuse to read is a file that never
+# runs, and the loader's own manifests say which those are. Fifty-six of them
+# are GlueXML: Blizzard's login, character select and character create, which
+# AddonManager refuses by name because this client has its own. They put sixty
+# names under "these raise as their panel opens", and not one of them can
+# raise, because none of those files ever load.
+SOURCES = sorted(loaded_files(XML))
 
 # Bound on the C++ side.
 # One source of truth — see framexml_provides. Working this out per tool is
@@ -32,7 +43,7 @@ bound = globals_provided() | widget_methods_provided()
 
 # Defined in FrameXML itself, as a function or assigned one.
 defined = set()
-for path in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
+for path in SOURCES:
     t = path.read_text(errors="ignore")
     defined |= set(re.findall(r"\bfunction\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", t))
     defined |= set(re.findall(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*", t, re.M))
@@ -75,12 +86,12 @@ def strip_comments(text: str) -> str:
 # with SortBGList sitting in the middle: called from PVPBattlegroundFrame_OnShow,
 # so the battleground panel raised as it opened.
 AUTORUN = set()
-for path in list(XML.rglob("*.xml")):
+for path in [p for p in SOURCES if p.suffix.lower() == ".xml"]:
     t = strip_comments(path.read_text(errors="ignore"))
     AUTORUN |= set(re.findall(r'<On(?:Load|Show|Event|Update)\s+function="([A-Za-z_]\w*)"', t))
     for body in re.findall(r"<On(?:Load|Show|Event|Update)[^>]*>(.*?)</On\w+>", t, re.S):
         AUTORUN |= set(re.findall(r"(?<![\w.:])([A-Z][A-Za-z0-9_]*)\s*\(", body))
-for path in list(XML.rglob("*.lua")):
+for path in [p for p in SOURCES if p.suffix.lower() == ".lua"]:
     t = strip_comments(path.read_text(errors="ignore"))
     AUTORUN |= set(re.findall(
         r'SetScript\s*\(\s*"On(?:Load|Show|Event|Update)"\s*,\s*([A-Za-z_]\w*)', t))
@@ -99,7 +110,7 @@ def enclosing(text, pos):
 
 calls = {}
 autorun_hits = {}
-for path in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
+for path in SOURCES:
     t = strip_comments(path.read_text(errors="ignore"))
     for m in re.finditer(r"(?<![\w.:])([A-Z][A-Za-z0-9_]*)\s*\(", t):
         calls.setdefault(m.group(1), set()).add(path.name)
