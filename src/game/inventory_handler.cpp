@@ -2812,7 +2812,11 @@ void InventoryHandler::fireTradeAcceptUpdate() {
 }
 
 void InventoryHandler::acceptTrade() {
-    if (tradeStatus_ != TradeStatus::Open) return;
+    // Open *or* Accepted. The status becomes Accepted the moment the partner
+    // presses accept, and requiring Open meant that whoever pressed second
+    // could not press at all — the trade sat with one acceptance in it and no
+    // way to add the other.
+    if (!isTradeOpen()) return;
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     auto packet = AcceptTradePacket::build();
     owner_.getSocket()->send(packet);
@@ -2821,10 +2825,11 @@ void InventoryHandler::acceptTrade() {
 }
 
 void InventoryHandler::unacceptTrade() {
-    // Only from Accepted: the request means "take my acceptance back", and
-    // sending it before there is one to take back is a message the server has
-    // no answer for.
-    if (tradeStatus_ != TradeStatus::Accepted) return;
+    // Only where there is one of *ours* to take back. The status says the
+    // trade has an acceptance in it, and TradeStatus::Accepted is set when the
+    // partner accepts — gating on that let the player withdraw an acceptance
+    // they had never made, and stopped them withdrawing one they had.
+    if (!tradeSelfAccepted_) return;
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     auto packet = UnacceptTradePacket::build();
     owner_.getSocket()->send(packet);
