@@ -3196,6 +3196,11 @@ const std::unordered_map<uint32_t, uint32_t>& GameHandler::getLfgLocks() const {
     return socialHandler_ ? socialHandler_->getLfgLocks() : empty;
 }
 
+const std::vector<LfgReward>& GameHandler::getLfgRewards() const {
+    static const std::vector<LfgReward> empty;
+    return socialHandler_ ? socialHandler_->getLfgRewards() : empty;
+}
+
 int32_t GameHandler::getLfgAvgWaitSec() const {
     return socialHandler_ ? socialHandler_->getLfgAvgWaitSec() : -1;
 }

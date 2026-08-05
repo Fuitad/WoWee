@@ -452,12 +452,87 @@ void registerLfgLuaAPI(lua_State* L) {
     // The boot vote. getLfgBootVotes and friends have the counts; the name of
     // who is being voted on and the reason given are not parsed.
     {"GetLFGBootProposal",      [](lua_State* L) -> int { return luaReturnNil(L); }},
-    // What a random dungeon pays out the first time each day. Needs the
-    // reward block of SMSG_LFG_PLAYER_INFO, which is not read.
-    {"GetLFGDungeonRewards",     [](lua_State* L) -> int { return luaReturnNil(L); }},
-    {"GetLFGDungeonRewardInfo",  [](lua_State* L) -> int { return luaReturnNil(L); }},
-    {"GetLFGRandomDungeonInfo",  [](lua_State* L) -> int { return luaReturnNil(L); }},
-    {"GetRandomDungeonBestChoice", luaReturnZero},
+    // GetLFGDungeonRewards(dungeonID) → doneToday, moneyBase, moneyVar,
+    //                                    experienceBase, experienceVar, numRewards
+    //
+    // Numbers, not nil, and that matters more than the values:
+    // LFDDungeonReadyDialog_UpdateRewards does
+    // `moneyBase + moneyVar * numRandoms` on the line after asking, so a nil
+    // raises — and it runs from the same branch of the ready dialog that draws
+    // the rest, which is the branch a fresh pop opens in.
+    //
+    // The server sends one money and one experience figure with the variable
+    // parts zeroed, so the totals come out right either way.
+    {"GetLFGDungeonRewards", [](lua_State* L) -> int {
+        auto* gh = getGameHandler(L);
+        const uint32_t dungeonId = static_cast<uint32_t>(luaL_optinteger(L, 1, 0));
+        const game::LfgReward* r = nullptr;
+        if (gh) {
+            for (const auto& e : gh->getLfgRewards()) {
+                if (e.dungeonId == dungeonId) { r = &e; break; }
+            }
+        }
+        lua_pushboolean(L, r && r->done ? 1 : 0);                    // doneToday
+        lua_pushnumber(L, r ? r->money : 0);                         // moneyBase
+        lua_pushnumber(L, 0);                                        // moneyVar
+        lua_pushnumber(L, r ? r->experience : 0);                    // experienceBase
+        lua_pushnumber(L, 0);                                        // experienceVar
+        lua_pushnumber(L, r ? static_cast<double>(r->items.size()) : 0);  // numRewards
+        return 6;
+    }},
+    // GetLFGDungeonRewardInfo(dungeonID, index) → name, texturePath, quantity
+    //
+    // The caller guards the texture with "we may be waiting on the item data
+    // to come from the server", which is exactly this client's position before
+    // an item query answers.
+    {"GetLFGDungeonRewardInfo", [](lua_State* L) -> int {
+        auto* gh = getGameHandler(L);
+        const uint32_t dungeonId = static_cast<uint32_t>(luaL_optinteger(L, 1, 0));
+        const int index = static_cast<int>(luaL_optinteger(L, 2, 0));
+        if (!gh || index < 1) return luaReturnNil(L);
+        for (const auto& e : gh->getLfgRewards()) {
+            if (e.dungeonId != dungeonId) continue;
+            if (index > static_cast<int>(e.items.size())) return luaReturnNil(L);
+            const auto& item = e.items[static_cast<size_t>(index) - 1];
+            gh->ensureItemInfo(item.itemId);
+            const auto* info = gh->getItemInfo(item.itemId);
+            lua_pushstring(L, info ? info->name.c_str() : "");
+            const std::string icon = gh->getItemIconPath(item.displayInfoId);
+            if (icon.empty()) lua_pushnil(L); else lua_pushstring(L, icon.c_str());
+            lua_pushnumber(L, item.count);
+            return 3;
+        }
+        return luaReturnNil(L);
+    }},
+    // The random dungeon the picker opens on. The first one offered that is
+    // not locked, which is what "best choice" means with nothing better to
+    // rank by; nil rather than zero when there is none, because the caller
+    // tests it and falls back to the specific-dungeon list.
+    {"GetRandomDungeonBestChoice", [](lua_State* L) -> int {
+        auto* gh = getGameHandler(L);
+        if (!gh) return luaReturnNil(L);
+        const auto& locks = gh->getLfgLocks();
+        for (const auto& r : gh->getLfgRewards()) {
+            auto it = locks.find(r.dungeonId);
+            if (it != locks.end() && it->second != 0) continue;
+            lua_pushinteger(L, static_cast<lua_Integer>(r.dungeonId));
+            return 1;
+        }
+        return luaReturnNil(L);
+    }},
+    // The random dungeon's own row, which the picker shows above the list.
+    {"GetLFGRandomDungeonInfo", [](lua_State* L) -> int {
+        auto* gh = getGameHandler(L);
+        const uint32_t dungeonId = static_cast<uint32_t>(luaL_optinteger(L, 1, 0));
+        if (!gh || dungeonId == 0) return luaReturnNil(L);
+        for (const auto& d : gh->getLfgDungeons()) {
+            if (d.id != dungeonId) continue;
+            lua_pushstring(L, d.name.c_str());
+            lua_pushinteger(L, static_cast<lua_Integer>(d.typeId));
+            return 2;
+        }
+        return luaReturnNil(L);
+    }},
     // GetLFGDungeonInfo(id) — the same twelve values as a row of the info
     // table, asked one at a time. Answered from the same catalogue.
     {"GetLFGDungeonInfo", [](lua_State* L) -> int {

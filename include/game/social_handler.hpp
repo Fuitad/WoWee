@@ -252,6 +252,7 @@ public:
     uint8_t  getLfgNeedDps() const    { return lfgNeedDps_; }
     uint64_t getLfgBootVictimGuid() const { return lfgBootVictimGuid_; }
     const std::unordered_map<uint32_t, uint32_t>& getLfgLocks() const { return lfgLocks_; }
+    const std::vector<LfgReward>& getLfgRewards() const { return lfgRewards_; }
     void handleLfgPlayerInfo(network::Packet& packet);
     const std::vector<LfgProposalMember>& getLfgProposalMembers() const {
         return lfgProposalMembers_;
@@ -522,6 +523,7 @@ private:
     /// while SMSG_LFG_PLAYER_INFO was being skipped — the difference is that
     /// now it is an answer rather than an absence.
     std::unordered_map<uint32_t, uint32_t> lfgLocks_;
+    std::vector<LfgReward> lfgRewards_;
     /// The group a proposal is offering, in the order the server lists it.
     std::vector<LfgProposalMember> lfgProposalMembers_;
     int32_t  lfgAvgWaitSec_   = -1;

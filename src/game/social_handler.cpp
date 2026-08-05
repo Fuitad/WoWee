@@ -3002,21 +3002,26 @@ void SocialHandler::handleLfgJoinResult(network::Packet& packet) {
 void SocialHandler::handleLfgPlayerInfo(network::Packet& packet) {
     if (!packet.hasRemaining(1)) { packet.skipAll(); return; }
     const uint8_t randomCount = packet.readUInt8();
+    lfgRewards_.clear();
     for (uint8_t i = 0; i < randomCount; ++i) {
         if (!packet.hasRemaining(4 + 1 + 4 * 4 + 1)) { packet.skipAll(); return; }
-        packet.readUInt32();          // dungeon entry
-        packet.readUInt8();           // already done today
-        packet.readUInt32();          // money
-        packet.readUInt32();          // experience
-        packet.readUInt32();
-        packet.readUInt32();
+        LfgReward r;
+        r.dungeonId  = packet.readUInt32() & 0x00FFFFFFu;
+        r.done       = packet.readUInt8() != 0;
+        r.money      = packet.readUInt32();
+        r.experience = packet.readUInt32();
+        packet.readUInt32();          // the variable parts, which the server
+        packet.readUInt32();          // sends as zero
         const uint8_t items = packet.readUInt8();
         for (uint8_t j = 0; j < items; ++j) {
             if (!packet.hasRemaining(12)) { packet.skipAll(); return; }
-            packet.readUInt32();      // item id
-            packet.readUInt32();      // display info
-            packet.readUInt32();      // count
+            LfgRewardItem item;
+            item.itemId        = packet.readUInt32();
+            item.displayInfoId = packet.readUInt32();
+            item.count         = packet.readUInt32();
+            r.items.push_back(item);
         }
+        lfgRewards_.push_back(std::move(r));
     }
 
     if (!packet.hasRemaining(4)) { packet.skipAll(); return; }

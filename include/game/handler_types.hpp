@@ -228,6 +228,20 @@ struct GossipPoi {
 
 // ---- Instance lockouts ----
 
+/// What a random dungeon pays out the first time it is run each day.
+struct LfgRewardItem {
+    uint32_t itemId = 0;
+    uint32_t displayInfoId = 0;
+    uint32_t count = 0;
+};
+struct LfgReward {
+    uint32_t dungeonId = 0;
+    bool done = false;          // already claimed today
+    uint32_t money = 0;
+    uint32_t experience = 0;
+    std::vector<LfgRewardItem> items;
+};
+
 /// One row of the dungeon-ready dialog: who the proposal is offering, and
 /// whether they have answered it yet.
 ///
