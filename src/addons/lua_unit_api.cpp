@@ -2799,7 +2799,15 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 0);
             return 3;
         }},
-                {"GetExpertisePercent",     lua_ZeroPercent},
+                // Two, for the same reason and under the same guard, four
+                // lines below the call above: the character sheet formats the
+                // off-hand percentage whenever an off-hand is equipped, and
+                // format("%.2f", nil) raises. Fixing GetExpertise alone left
+                // every dual-wielder's stat panel broken on the next line.
+                {"GetExpertisePercent", [](lua_State* L) -> int {
+            lua_pushnumber(L, 0); lua_pushnumber(L, 0);
+            return 2;
+        }},
                 {"GetArmorPenetration",     lua_ZeroPercent},
                 {"GetSpellPenetration",     lua_ZeroPercent},
                 {"GetShieldBlock",          lua_ZeroPercent},

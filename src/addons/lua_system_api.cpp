@@ -2072,7 +2072,8 @@ static int lua_PlayerIsPVPInactive(lua_State* L) { lua_pushboolean(L, 0); return
 
 // ---- The battlemaster's battleground list ----
 //
-// GetBattlefieldInfo() → mapName, mapDescription, maxGroup
+// GetBattlefieldInfo() → mapName, mapDescription, maxGroup, canEnter,
+//                        isHoliday, isRandom
 //
 // About the battleground the battlemaster being spoken to offers, which is
 // what the last SMSG_BATTLEFIELD_LIST described. The frame returns early on a
@@ -2087,10 +2088,22 @@ static int lua_GetBattlefieldInfo(lua_State* L) {
     if (bgs.empty()) return luaReturnNil(L);
     const auto* info = gh->getBattlemasterInfo(bgs.back().bgTypeId);
     if (!info || info->name.empty()) return luaReturnNil(L);
+    const auto& bg = bgs.back();
     lua_pushstring(L, info->name.c_str());   // 1: mapName
     lua_pushnil(L);                          // 2: mapDescription
     lua_pushnumber(L, info->maxGroupSize);   // 3: maxGroup
-    return 3;
+    // Three more, all of which the panel reads. Whether the player is inside
+    // the level bracket the server sent, whether this is the week's call to
+    // arms, and whether it is the random battleground rather than a named one
+    // — type 32, which is what BattlefieldFrame keys the rewards block on.
+    const uint32_t level = gh->getPlayerLevel();
+    const bool inBracket = (bg.minLevel == 0 || level >= bg.minLevel) &&
+                           (bg.maxLevel == 0 || level <= bg.maxLevel);
+    constexpr uint32_t kRandomBattleground = 32;
+    lua_pushboolean(L, inBracket ? 1 : 0);                        // 4: canEnter
+    lua_pushboolean(L, bg.isHoliday ? 1 : 0);                     // 5: isHoliday
+    lua_pushboolean(L, bg.bgTypeId == kRandomBattleground ? 1 : 0); // 6: isRandom
+    return 6;
 }
 
 // GetNumBattlegroundTypes() → how many battlegrounds there are to queue for.
