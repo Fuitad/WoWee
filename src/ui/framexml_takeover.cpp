@@ -15,7 +15,7 @@ namespace {
 struct Entry { UiElement element; std::string_view name; };
 
 // One row per element, and the only place a name is written down.
-constexpr std::array<Entry, 50> kElements{{
+constexpr std::array<Entry, 51> kElements{{
     {UiElement::PlayerFrame,  "playerframe"},
     {UiElement::TargetFrame,  "targetframe"},
     {UiElement::PetFrame,     "petframe"},
@@ -48,6 +48,7 @@ constexpr std::array<Entry, 50> kElements{{
     {UiElement::AuctionHouse, "auctionhouse"},
     {UiElement::GuildBank,    "guildbank"},
     {UiElement::Inspect,      "inspect"},
+    {UiElement::DungeonFinder, "dungeonfinder"},
     {UiElement::Buffs,        "buffs"},
     {UiElement::Durability,   "durability"},
     {UiElement::ZoneText,     "zonetext"},
@@ -366,6 +367,12 @@ const Suppress kSuppress[] = {
         {UiElement::QuestGiver, "QuestFrame"},
         {UiElement::Gossip,     "GossipFrame"},
         {UiElement::Mail,       "MailFrame OpenMailFrame"},
+        // The dungeon finder's three top-level frames. The ready popup is the
+        // live duplicate — LFG_PROPOSAL_SHOW is fired, so FrameXML raised it
+        // beside this client's own on every group that formed. The role-check
+        // popup could not appear because LFG_ROLE_CHECK_SHOW was never fired,
+        // and the browser only from a micro button this branch has taken over.
+        {UiElement::DungeonFinder, "LFDParentFrame LFDDungeonReadyPopup LFDRoleCheckPopup"},
         // Every one of these has a working window in this client and a
         // FrameXML twin that shows on the same event. The client fires
         // MERCHANT_SHOW, LOOT_OPENED, BANKFRAME_OPENED, PARTY_MEMBERS_CHANGED
@@ -431,6 +438,7 @@ const Suppress kSuppress[] = {
         {UiElement::AuctionHouse, "AuctionFrame", true},
         {UiElement::GuildBank,    "GuildBankFrame", true},
         {UiElement::Inspect,      "InspectFrame", true},
+        {UiElement::DungeonFinder, "LFDParentFrame", true},
         // BARBER_SHOP_OPEN is fired and the achievements micro button belongs
         // to the bar this branch has taken over, so both of these can open
         // beside the client's own.

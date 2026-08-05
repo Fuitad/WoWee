@@ -3168,7 +3168,20 @@ void SocialHandler::handleLfgRoleCheckUpdate(network::Packet& packet) {
     else if (roleCheckState == 3) { lfgState_ = LfgState::None; owner_.addUIError("Dungeon Finder: Role check failed — missing required role."); owner_.addSystemChatMessage("Dungeon Finder: Role check failed — missing required role."); }
     else if (roleCheckState == 2) { lfgState_ = LfgState::RoleCheck; owner_.addSystemChatMessage("Dungeon Finder: Performing role check..."); }
     // Likewise GetLFGRoleUpdate, which reports the check in progress.
-    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("LFG_ROLE_CHECK_UPDATE", {});
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("LFG_ROLE_CHECK_UPDATE", {});
+        // The role-check popup shows on one event and hides on another, and
+        // neither was ever fired — so the interface's own popup could not
+        // appear at all, whichever side is drawing it.
+        //
+        // State 2 is LFG_ROLECHECK_INITIALITING, where the check begins.
+        // Everything else is an ending: finished, missing a role, the wrong
+        // roles between them, aborted, or someone picking none.
+        constexpr uint32_t kRoleCheckBeginning = 2;
+        owner_.addonEventCallbackRef()(
+            roleCheckState == kRoleCheckBeginning ? "LFG_ROLE_CHECK_SHOW"
+                                                  : "LFG_ROLE_CHECK_HIDE", {});
+    }
 }
 
 void SocialHandler::handleLfgUpdatePlayer(network::Packet& packet) {

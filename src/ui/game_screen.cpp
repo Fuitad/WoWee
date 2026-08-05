@@ -584,7 +584,9 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     if (!frameXmlOwns(UiElement::AuctionHouse)) {
         windowManager_.renderAuctionHouseWindow(gameHandler, inventoryScreen, chatPanel_);
     }
-    socialPanel_.renderDungeonFinderWindow(gameHandler, chatPanel_);
+    if (!frameXmlOwns(UiElement::DungeonFinder)) {
+        socialPanel_.renderDungeonFinderWindow(gameHandler, chatPanel_);
+    }
     windowManager_.renderInstanceLockouts(gameHandler);
     socialPanel_.renderWhoWindow(gameHandler, chatPanel_);
     combatUI_.renderCombatLog(gameHandler, spellbookScreen);

@@ -141,6 +141,13 @@ enum class UiElement {
     Totems,
     Talents,
     UiErrors,
+    /// The dungeon finder. Found by the ungated-draw sweep: this client draws
+    /// a proposal popup, a role-check popup and a browser window, none of them
+    /// behind a gate, and FrameXML has all three.
+    ///
+    /// LFG_PROPOSAL_SHOW is fired, so LFDDungeonReadyPopup was already being
+    /// raised beside this client's own every time a group formed.
+    DungeonFinder,
 };
 
 /// True when FrameXML is drawing this instead, so the client should not.

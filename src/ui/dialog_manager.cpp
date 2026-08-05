@@ -78,8 +78,10 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
     if (!frameXmlOwns(UiElement::ReadyCheck)) renderReadyCheckPopup(gameHandler);
     renderBgInvitePopup(gameHandler);
     renderBfMgrInvitePopup(gameHandler);
-    renderLfgProposalPopup(gameHandler);
-    renderLfgRoleCheckPopup(gameHandler);
+    if (!frameXmlOwns(UiElement::DungeonFinder)) {
+        renderLfgProposalPopup(gameHandler);
+        renderLfgRoleCheckPopup(gameHandler);
+    }
 }
 
 // ---------------------------------------------------------------------------
