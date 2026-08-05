@@ -2972,6 +2972,15 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetItemCount",      lua_GetItemCount},
                 {"UseContainerItem",  lua_UseContainerItem},
                 {"GetContainerNumSlots",    lua_GetContainerNumSlots},
+                // PurchaseSlot() — buying the next bank bag slot, which the
+                // confirmation dialog's Okay calls. Unbound, so the dialog
+                // asked, took the answer and bought nothing. GetBankSlotCost
+                // and GetNumBankSlots beside it were both already bound, which
+                // is what let the dialog price the slot it could not buy.
+                {"PurchaseSlot", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->buyBankSlot();
+            return 0;
+        }},
                 {"ContainerIDToInventoryID", lua_ContainerIDToInventoryID},
                 {"PutItemInBackpack",       lua_PutItemInBackpack},
                 {"GetBagName",              lua_GetBagName},

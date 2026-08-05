@@ -170,17 +170,25 @@ static int lua_GetNumFriends(lua_State* L) {
     return 2;
 }
 
-// GetFriendInfo(index) → name, level, class, area, connected, status, note
+// GetFriendInfo(index or name) → name, level, class, area, connected, status, note
+//
+// A name as well as a row, because both are passed. The friends list asks by
+// row; the right-click menu's Set Note stores the name in FriendsFrame.NotesID
+// and the note dialog reads it back through here — and an index-only reading
+// through luaL_checknumber raises on a name rather than answering it, which
+// took the dialog down as it opened.
 static int lua_GetFriendInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
-    int index = static_cast<int>(luaL_checknumber(L, 1));
-    if (!gh || index < 1) {
+    const bool byName = lua_isstring(L, 1) && !lua_isnumber(L, 1);
+    const std::string wanted = byName ? lua_tostring(L, 1) : std::string();
+    const int index = byName ? 0 : static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || (!byName && index < 1)) {
         return luaReturnNil(L);
     }
     int found = 0;
     for (const auto& c : gh->getContacts()) {
         if (!c.isFriend()) continue;
-        if (++found == index) {
+        if (byName ? (c.name == wanted) : (++found == index)) {
             lua_pushstring(L, c.name.c_str());      // 1: name
             lua_pushnumber(L, c.level);              // 2: level
 
@@ -1440,6 +1448,28 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetGuildRosterMOTD",      lua_GetGuildRosterMOTD},
                 {"GetNumFriends",           lua_GetNumFriends},
                 {"GetFriendInfo",           lua_GetFriendInfo},
+                // SetFriendNotes(index or name, note) — the note dialog's
+                // accept. Unbound, so typing a note and pressing Okay did
+                // nothing and the old note came back on the next roster
+                // update.
+                {"SetFriendNotes", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* note = lua_tostring(L, 2);
+            if (!gh || !note) return 0;
+            std::string name;
+            if (lua_isstring(L, 1) && !lua_isnumber(L, 1)) {
+                name = lua_tostring(L, 1);
+            } else {
+                const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));
+                int found = 0;
+                for (const auto& c : gh->getContacts()) {
+                    if (!c.isFriend()) continue;
+                    if (++found == idx) { name = c.name; break; }
+                }
+            }
+            if (!name.empty()) gh->setFriendNote(name, note);
+            return 0;
+        }},
                 {"GetNumIgnores",           lua_GetNumIgnores},
                 {"GetIgnoreName",           lua_GetIgnoreName},
                 {"GuildInvite", [](lua_State* L) -> int {
