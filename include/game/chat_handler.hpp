@@ -82,6 +82,10 @@ private:
     void handleTextEmote(network::Packet& packet);
     void handleChannelNotify(network::Packet& packet);
     void handleChannelList(network::Packet& packet);
+    void handleUserlistAdd(network::Packet& packet);
+    void handleUserlistRemove(network::Packet& packet);
+    void applyUserlistChange(const std::string& chanName, uint64_t guid,
+                             uint8_t memberFlags, bool removing);
     void initializeChatLog();
     void logChatMessage(const MessageChatData& msg, const char* source);
 

@@ -277,6 +277,11 @@ void ChatHandler::registerOpcodes(DispatchTable& table) {
     };
 
     table[Opcode::SMSG_CHANNEL_LIST] = [this](network::Packet& p) { handleChannelList(p); };
+    // Add and update carry the same fields and mean the same thing to a
+    // roster that keys on the guid.
+    table[Opcode::SMSG_USERLIST_ADD] = [this](network::Packet& p) { handleUserlistAdd(p); };
+    table[Opcode::SMSG_USERLIST_UPDATE] = [this](network::Packet& p) { handleUserlistAdd(p); };
+    table[Opcode::SMSG_USERLIST_REMOVE] = [this](network::Packet& p) { handleUserlistRemove(p); };
 }
 
 void ChatHandler::sendChatMessage(ChatType type, const std::string& message, const std::string& target) {
@@ -1074,6 +1079,75 @@ void ChatHandler::handleChannelList(network::Packet& packet) {
         owner_.fireAddonEvent("CHANNEL_COUNT_UPDATE",
                               {idx, std::to_string(channelRosters_[chanName].size())});
     }
+}
+
+
+/// SMSG_USERLIST_ADD / _REMOVE / _UPDATE — one member of a channel changing.
+///
+/// The full roster comes on SMSG_CHANNEL_LIST and is asked for; these arrive
+/// unasked as people join, leave and are promoted, and without them the roster
+/// is only ever as fresh as the last time somebody opened the list.
+///
+/// Two readers rather than one with a branch, because the three layouts are
+/// not quite the same — remove carries no player flags — and a handler that
+/// reads its fields under an `if` cannot be checked against the server by
+/// tools/packet_layout_check.py, which reads the run of widths a body asks
+/// for. It flagged the first version of this, correctly by its own lights.
+///
+///   ADD, UPDATE  guid(8) playerFlags(1) channelFlags(1) count(4) name
+///   REMOVE       guid(8)                channelFlags(1) count(4) name
+void ChatHandler::applyUserlistChange(const std::string& chanName, uint64_t guid,
+                                      uint8_t memberFlags, bool removing) {
+    if (chanName.empty()) return;
+    // The same bits the full list reads, and the same trap: 0x01 is the owner
+    // and 0x02 the moderator, not the other way round.
+    constexpr uint8_t kOwner = 0x01, kModerator = 0x02, kMuted = 0x08;
+    auto& roster = channelRosters_[chanName];
+    auto it = std::find_if(roster.begin(), roster.end(),
+                           [&](const ChannelMember& m) { return m.guid == guid; });
+
+    if (removing) {
+        if (it != roster.end()) roster.erase(it);
+    } else {
+        if (it == roster.end()) {
+            ChannelMember m;
+            m.guid = guid;
+            m.name = owner_.lookupName(guid);
+            if (m.name.empty()) m.name = "(unknown)";
+            roster.push_back(std::move(m));
+            it = roster.end() - 1;
+        }
+        it->owner     = (memberFlags & kOwner) != 0;
+        it->moderator = (memberFlags & kModerator) != 0;
+        it->muted     = (memberFlags & kMuted) != 0;
+    }
+
+    // By display index, for the reason spelled out in handleChannelList: both
+    // of these take a position in the channel list, not a name.
+    const int displayIndex = getChannelIndex(chanName);
+    if (displayIndex > 0) {
+        const std::string idx = std::to_string(displayIndex);
+        owner_.fireAddonEvent("CHANNEL_ROSTER_UPDATE", {idx});
+        owner_.fireAddonEvent("CHANNEL_COUNT_UPDATE",
+                              {idx, std::to_string(roster.size())});
+    }
+}
+
+void ChatHandler::handleUserlistAdd(network::Packet& packet) {
+    if (!packet.hasRemaining(14)) return;
+    const uint64_t guid = packet.readUInt64();
+    const uint8_t memberFlags = packet.readUInt8();
+    packet.readUInt8();    // the channel's own flags
+    packet.readUInt32();   // how many are in it now
+    applyUserlistChange(packet.readString(), guid, memberFlags, /*removing=*/false);
+}
+
+void ChatHandler::handleUserlistRemove(network::Packet& packet) {
+    if (!packet.hasRemaining(13)) return;
+    const uint64_t guid = packet.readUInt64();
+    packet.readUInt8();    // the channel's own flags
+    packet.readUInt32();   // how many are in it now
+    applyUserlistChange(packet.readString(), guid, 0, /*removing=*/true);
 }
 
 // ============================================================
