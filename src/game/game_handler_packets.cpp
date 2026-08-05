@@ -709,8 +709,11 @@ void GameHandler::registerOpcodeHandlers() {
 
     // Combat clearing
     dispatchTable_[Opcode::SMSG_BREAK_TARGET] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(8)) {
-            uint64_t bGuid = packet.readUInt64();
+        // Packed, not plain: Unit::BreakTarget sizes the packet with
+        // GetPackGUID().size() and writes GetPackGUID(). Read as a uint64 the
+        // guid never matched the target, so the target was never dropped.
+        if (packet.hasRemaining(1)) {
+            uint64_t bGuid = packet.readPackedGuid();
             if (bGuid == targetGuid) targetGuid = 0;
         }
     };
@@ -1207,11 +1210,16 @@ void GameHandler::registerOpcodeHandlers() {
         }
     };
     dispatchTable_[Opcode::SMSG_SOCKET_GEMS_RESULT] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(4)) {
-            uint32_t result = packet.readUInt32();
-            if (result == 0) addSystemChatMessage("Gems socketed successfully.");
-            else addSystemChatMessage("Failed to socket gems.");
-        }
+        // There is no result field. Item::SendUpdateSockets writes the item's
+        // guid and then the four enchantment ids now in its sockets, and sends
+        // it only when the sockets were actually changed — so arriving *is* the
+        // success. This read a uint32 at offset zero and called it the result,
+        // which is the low half of the item's guid: never zero, so socketing a
+        // gem always reported that it had failed.
+        if (!packet.hasRemaining(8)) return;
+        const uint64_t itemGuid = packet.readUInt64();
+        addSystemChatMessage("Gems socketed successfully.");
+        LOG_DEBUG("SMSG_SOCKET_GEMS_RESULT: itemGuid=0x", std::hex, itemGuid, std::dec);
     };
     dispatchTable_[Opcode::SMSG_ITEM_TIME_UPDATE] = [](network::Packet& packet) {
         if (packet.hasRemaining(12)) {
@@ -1749,7 +1757,11 @@ void GameHandler::registerOpcodeHandlers() {
         }
         packet.skipAll();
     };
-    dispatchTable_[Opcode::SMSG_MOUNTSPECIAL_ANIM] = [](network::Packet& packet) { (void)packet.readPackedGuid(); };
+    // A plain guid: Unit::SendMountSpecialAnim writes GetGUID(), not the
+    // packed form, so reading it packed consumed the wrong number of bytes.
+    dispatchTable_[Opcode::SMSG_MOUNTSPECIAL_ANIM] = [](network::Packet& packet) {
+        if (packet.hasRemaining(8)) (void)packet.readUInt64();
+    };
     dispatchTable_[Opcode::SMSG_CHAR_CUSTOMIZE] = [this](network::Packet& packet) {
         if (packet.hasRemaining(1)) {
             uint8_t result = packet.readUInt8();
@@ -2508,9 +2520,10 @@ void GameHandler::registerOpcodeHandlers() {
     };
     // Recruit-A-Friend: a mentor is offering to grant you a level
     dispatchTable_[Opcode::SMSG_PROPOSE_LEVEL_GRANT] = [this](network::Packet& packet) {
-        // Recruit-A-Friend: a mentor is offering to grant you a level
-        if (packet.hasRemaining(8)) {
-            uint64_t mentorGuid = packet.readUInt64();
+        // Recruit-A-Friend: a mentor is offering to grant you a level.
+        // HandleGrantLevel writes GetPackGUID(), so this is packed.
+        if (packet.hasRemaining(1)) {
+            uint64_t mentorGuid = packet.readPackedGuid();
             std::string mentorName;
             auto ent = entityController_->getEntityManager().getEntity(mentorGuid);
             if (auto* unit = dynamic_cast<Unit*>(ent.get())) mentorName = unit->getName();

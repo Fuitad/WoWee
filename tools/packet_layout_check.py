@@ -56,7 +56,15 @@ WHAT IT CANNOT SEE
 
   * Anything after the first variable-width field. Most packets have one early,
     which is why the compared prefix is often short. The run prints how many
-    opcodes had a prefix worth comparing at all.
+    opcodes had a prefix worth comparing at all, and how many of those are two
+    fields or fewer — the zero means nothing without that number beside it.
+
+    This is not theoretical. MSG_LIST_STABLED_PETS is written as
+    uint32/uint32/uint32/name/uint8 and was read as
+    uint32/uint32/uint32/name/uint32/uint8, so the display id it invented
+    swallowed the flag and three bytes of the next pet, every pet after the
+    first was read at the wrong offset, and the last was dropped. The prefix
+    this compares ends at the name, three fields before any of that.
   * A handler that reads through a helper or a parser class rather than
     directly. Those are the larger packets, and they are the ones where a
     misparse is hardest to spot by eye — a real gap in this, not a small one.
@@ -99,8 +107,20 @@ def server_layouts(server_root):
                 # stop. Most packets carry one early, and stopping at it left
                 # everything after the guid uncompared.
                 if re.match(r"[*]?" + re.escape(var) + r"\s*<<\s*[\w>.\[\]()-]*"
-                            r"WriteAsPacked\(\)", s):
+                            r"(?:WriteAsPacked|GetPackGUID)\(\)", s):
                     widths.append("P")
+                    continue
+                # A plain ObjectGuid is eight bytes, not a variable field:
+                # operator<<(ByteBuffer&, ObjectGuid const&) writes
+                # uint64(guid.GetRawValue()). It was ending the prefix anyway,
+                # and it is what ends it most often by a wide margin — fifty-odd
+                # opcodes stopped at `data << guid` or `<< x->GetGUID()` with
+                # everything after them uncompared. Checked after the packed
+                # spelling above, which is a different shape.
+                if re.match(r"[*]?" + re.escape(var) +
+                            r"\s*<<\s*[\w>.\[\]()-]*(?:[Gg][Uu][Ii][Dd]|GUID)"
+                            r"(?:\(\))?\s*;", s):
+                    widths.append(8)
                     continue
                 break
             # The longest reading wins: several call sites build the same
@@ -218,7 +238,16 @@ def main():
     shared = sorted(set(server) & set(client))
 
     print(f"{len(server)} server writers with a fixed prefix, "
-          f"{len(client)} client readers, {len(shared)} in both\n")
+          f"{len(client)} client readers, {len(shared)} in both")
+    # What the comparison could not reach. A prefix that ends after one or two
+    # fields is a comparison that has barely started, and the zero below should
+    # be read against how much of each packet it actually covers — otherwise it
+    # reads as "every packet lines up", which is a much larger claim than this
+    # sweep can make. MSG_LIST_STABLED_PETS was misread from the field after
+    # its name string, three fields past where the prefix ends.
+    short = sum(1 for op in shared if min(len(server[op]), len(client[op])) <= 2)
+    print(f"{short} of those compare two fields or fewer before a "
+          f"variable-width field ends the prefix\n")
 
     rows = []
     for op in shared:

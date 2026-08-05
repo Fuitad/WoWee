@@ -321,27 +321,23 @@ void MovementHandler::registerOpcodes(DispatchTable& table) {
 // ============================================================
 
 void MovementHandler::handleClientControlUpdate(network::Packet& packet) {
-    // Minimal parse: PackedGuid + uint8 allowMovement.
-    if (!packet.hasRemaining(2)) {
-        LOG_WARNING("SMSG_CLIENT_CONTROL_UPDATE too short: ", packet.getSize(), " bytes");
-        return;
-    }
-    uint8_t guidMask = packet.readUInt8();
-    size_t guidBytes = 0;
-    uint64_t controlGuid = 0;
-    for (int i = 0; i < 8; ++i) {
-        if (guidMask & (1u << i)) ++guidBytes;
-    }
-    if (!packet.hasRemaining(guidBytes + 1)) {
+    // PackedGuid + uint8 allowMovement.
+    //
+    // Through readPackedGuid rather than the byte loop that used to be written
+    // out here. It decoded correctly, but it was a second copy of the packed
+    // guid rule, and the layout sweep — which reads the widths a handler asks
+    // for — saw a handler taking a uint8 where the server writes a guid and
+    // called it a misparse. A second copy of a wire rule costs that twice
+    // over: it can drift, and it hides the handler from the check.
+    if (!packet.hasFullPackedGuid()) {
         LOG_WARNING("SMSG_CLIENT_CONTROL_UPDATE malformed (truncated packed guid)");
         packet.skipAll();
         return;
     }
-    for (int i = 0; i < 8; ++i) {
-        if (guidMask & (1u << i)) {
-            uint8_t b = packet.readUInt8();
-            controlGuid |= (static_cast<uint64_t>(b) << (i * 8));
-        }
+    const uint64_t controlGuid = packet.readPackedGuid();
+    if (!packet.hasRemaining(1)) {
+        LOG_WARNING("SMSG_CLIENT_CONTROL_UPDATE too short: ", packet.getSize(), " bytes");
+        return;
     }
     bool allowMovement = (packet.readUInt8() != 0);
     if (controlGuid == 0 || controlGuid == owner_.getPlayerGuid()) {

@@ -3701,8 +3701,12 @@ void SpellHandler::handleClearCooldown(network::Packet& packet) {
 }
 
 void SpellHandler::handleModifyCooldown(network::Packet& packet) {
-    if (packet.hasRemaining(8)) {
+    // uint32 spellId, uint64 playerGuid, int32 cooldownMod — the guid was not
+    // read, so the change in milliseconds came from its low half and the
+    // cooldown moved by whatever that happened to be.
+    if (packet.hasRemaining(16)) {
         uint32_t spellId = packet.readUInt32();
+        (void)packet.readUInt64();  // the player it applies to, always this one
         int32_t  diffMs  = static_cast<int32_t>(packet.readUInt32());
         float diffSec = diffMs / 1000.0f;
         auto it = spellCooldowns_.find(spellId);

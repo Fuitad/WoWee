@@ -138,16 +138,24 @@ void CombatHandler::registerOpcodes(DispatchTable& table) {
     };
 
     // ---- Threat updates ----
+    // The two do NOT share a format, though this read them as if they did.
+    // Unit::SendThreatListUpdate writes the unit's packed guid and then the
+    // count; SendChangeCurrentVictimOpcode writes the unit, *then the new
+    // highest-threat target's packed guid*, and then the count. Reading the
+    // second guid from both meant the plain update consumed its count as a
+    // guid and then read the first victim's guid as the count, so the common
+    // one of the two — the one sent on every threat change — produced a list
+    // built from nothing.
     for (auto op : {Opcode::SMSG_HIGHEST_THREAT_UPDATE,
                     Opcode::SMSG_THREAT_UPDATE}) {
-        table[op] = [this](network::Packet& packet) {
-            // Both packets share the same format:
-            // packed_guid (unit) + packed_guid (highest-threat target or target, unused here)
-            // + uint32 count + count × (packed_guid victim + uint32 threat)
+        const bool hasVictimGuid = (op == Opcode::SMSG_HIGHEST_THREAT_UPDATE);
+        table[op] = [this, hasVictimGuid](network::Packet& packet) {
             if (!packet.hasRemaining(1)) return;
             uint64_t unitGuid = packet.readPackedGuid();
-            if (!packet.hasRemaining(1)) return;
-            (void)packet.readPackedGuid(); // highest-threat / current target
+            if (hasVictimGuid) {
+                if (!packet.hasRemaining(1)) return;
+                (void)packet.readPackedGuid();  // the new highest-threat target
+            }
             if (!packet.hasRemaining(4)) return;
             uint32_t cnt = packet.readUInt32();
             if (cnt > 100) { packet.skipAll(); return; } // sanity

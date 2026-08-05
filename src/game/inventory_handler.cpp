@@ -214,17 +214,29 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
 
     // ---- Loot roll start / notifications ----
     table[Opcode::SMSG_LOOT_START_ROLL] = [this](network::Packet& packet) {
-        // objectGuid(8) + mapId(4) (WotLK) + lootSlot(4) + itemId(4) + randSuffix(4) +
-        // randProp(4) + countdown(4) + voteMask(1)
+        // objectGuid(8) + mapId(4) (WotLK) + lootSlot(4) + itemId(4) +
+        // randSuffix(4) + randProp(4) + itemCount(4) + countdown(4) + voteMask(1)
+        //
+        // itemCount — "items in stack" — was missing, so the countdown was read
+        // from it and the vote mask from the countdown's first byte. The
+        // countdown drives the bar that times the roll out and the mask decides
+        // which of need, greed and disenchant are even offered.
+        //
+        // Chosen by the length rather than by the expansion: WotLK is verified
+        // against Group::SendLootStartRoll, and rather than guess whether a
+        // pre-WotLK realm sends the field, take it when the packet is long
+        // enough to hold it.
         const bool hasMapId = isActiveExpansion("wotlk");
-        const size_t minSz = hasMapId ? 33 : 29;
-        if (packet.getRemainingSize() < minSz) return;
+        const size_t baseSz = hasMapId ? 33 : 29;
+        if (packet.getRemainingSize() < baseSz) return;
+        const bool hasItemCount = packet.getRemainingSize() >= baseSz + 4;
         uint64_t objectGuid = packet.readUInt64();
         if (hasMapId) packet.readUInt32(); // mapId
         uint32_t lootSlot = packet.readUInt32();
         uint32_t itemId   = packet.readUInt32();
         /*uint32_t randSuffix =*/ packet.readUInt32();
         (void)packet.readUInt32(); // random property
+        if (hasItemCount) (void)packet.readUInt32(); // items in stack
         uint32_t countdown = packet.readUInt32();
         uint8_t  voteMask  = packet.readUInt8();
 
