@@ -2745,6 +2745,14 @@ void EntityController::handleCreatureQueryResponse(network::Packet& packet) {
                 }
             }
         }
+        // A companion may have been waiting on exactly this. A critter's
+        // creature id is a template entry and the model frame needs a display
+        // id, so GetCompanionInfo answers zero until the query comes back —
+        // and the tab only re-reads when told. Without this the model appeared
+        // on the next login and not before.
+        if (owner_.isCompanionCreature(data.entry) && owner_.addonEventCallbackRef()) {
+            owner_.addonEventCallbackRef()("COMPANION_UPDATE", {"CRITTER"});
+        }
     }
 }
 

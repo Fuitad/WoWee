@@ -3332,7 +3332,22 @@ void registerSystemLuaAPI(lua_State* L) {
             const auto& list = gh->getCompanions(mounts);
             if (index > static_cast<int>(list.size())) return luaReturnNil(L);
             const auto& c = list[static_cast<size_t>(index) - 1];
-            lua_pushnumber(L, c.creatureId);
+            // A display id, whichever kind this is. A mount's is the mounted
+            // aura's misc value, which is already one; a critter's is the
+            // summon's misc value, which is a creature *template entry* and has
+            // to be asked about. rebuildCompanions resolves it only if the
+            // cache happens to be warm and nothing ever asked, so most critters
+            // reached CompanionModelFrame:SetCreature as an entry — a number
+            // that names a real CreatureDisplayInfo row belonging to something
+            // else, which is the wrong model wearing another creature's skins
+            // or none.
+            //
+            // Zero until the answer arrives, which draws nothing for a round
+            // trip rather than drawing the wrong thing; COMPANION_UPDATE brings
+            // the tab back when it lands.
+            uint32_t displayId = c.creatureId;
+            if (!mounts) displayId = gh->getCreatureDisplayIdForEntry(c.creatureId);
+            lua_pushnumber(L, displayId);
             lua_pushstring(L, c.name.c_str());
             lua_pushnumber(L, c.spellId);
             lua_pushstring(L, gh->getSpellIconPath(c.spellId).c_str());

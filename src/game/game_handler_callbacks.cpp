@@ -1892,6 +1892,23 @@ void GameHandler::queryCreatureInfo(uint32_t entry, uint64_t guid) {
     if (entityController_) entityController_->queryCreatureInfo(entry, guid);
 }
 
+uint32_t GameHandler::getCreatureDisplayIdForEntry(uint32_t entry) {
+    if (entry == 0) return 0;
+    const auto& cache = getCreatureInfoCache();
+    if (auto it = cache.find(entry); it != cache.end()) {
+        // The first non-zero of the four. A template may carry several models
+        // and the server picks between them per spawn; for a preview any of
+        // them is the creature, and the first is what it looks like by default.
+        for (uint32_t id : it->second.displayId)
+            if (id != 0) return id;
+        return 0;
+    }
+    // Guid zero: this is not about any one spawn. queryCreatureInfo drops a
+    // repeat while one is in flight, so calling every frame sends one query.
+    queryCreatureInfo(entry, 0);
+    return 0;
+}
+
 void GameHandler::queryGameObjectInfo(uint32_t entry, uint64_t guid) {
     if (entityController_) entityController_->queryGameObjectInfo(entry, guid);
 }

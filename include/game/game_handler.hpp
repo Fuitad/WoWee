@@ -820,6 +820,18 @@ public:
     /// the mail type. Resolved on demand so a late name query still shows.
     std::string getMailSenderName(const MailMessage& mail) const;
     void queryCreatureInfo(uint32_t entry, uint64_t guid);
+    /// A creature template entry turned into something that can be drawn, by
+    /// asking the server if it has not already.
+    ///
+    /// Model:SetCreature is handed an *entry* — a summon spell's EffectMiscValue
+    /// for a companion, which is what GetCompanionInfo answers with — and every
+    /// model path in this client is found by CreatureDisplayInfo id. The two are
+    /// separate number spaces, and treating one as the other looks up a real row
+    /// belonging to something else: a wrong model, wearing the skins of a third
+    /// creature or none at all. Only the server knows the mapping, so this
+    /// answers zero the first time and the query fills the cache for the next
+    /// frame to find.
+    uint32_t getCreatureDisplayIdForEntry(uint32_t entry);
     void queryGameObjectInfo(uint32_t entry, uint64_t guid);
     const GameObjectQueryResponseData* getCachedGameObjectInfo(uint32_t entry) const {
         return entityController_->getCachedGameObjectInfo(entry);
@@ -3257,6 +3269,9 @@ public:
     /// summons with SummonProperties 41. Rebuilt when the spellbook changes,
     /// because that is the only thing that can change the answer.
     const std::vector<Companion>& getCompanions(bool mounts) const;
+    /// Whether a creature template entry is one a known critter spell summons,
+    /// so a query answer about it is worth telling the companion tab about.
+    bool isCompanionCreature(uint32_t entry) const;
     /// Fire COMPANION_UPDATE if a mount or critter has come out or gone away.
     ///
     /// Called from every place the player's auras change, and it has to filter:

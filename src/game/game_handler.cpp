@@ -2986,16 +2986,17 @@ void GameHandler::rebuildCompanions() const {
                            kCritterSummonProperties) {
                 critter = true;
                 // A summon's misc value is a creature *entry*, not a display
-                // id, and the model frame takes a display id. Resolved where
-                // the entry is known and left as the entry where it is not —
-                // the query fills the cache and the next rebuild catches it.
-                const uint32_t entry =
-                    dbc->getUInt32(row, (*layout)["EffectMiscValue" + idx]);
-                c.creatureId = entry;
-                const auto& creatures = getCreatureInfoCache();
-                if (auto cit = creatures.find(entry); cit != creatures.end()) {
-                    if (cit->second.displayId[0] != 0) c.creatureId = cit->second.displayId[0];
-                }
+                // id, and the model frame takes a display id. Left as the entry
+                // and resolved in GetCompanionInfo, which is the only reader
+                // and knows which kind it was asked for.
+                //
+                // It used to resolve here when the cache happened to be warm
+                // and leave the entry when it did not, on the reading that a
+                // later rebuild would catch it — but nothing rebuilds on a
+                // query answer and nothing sent the query, so the field meant a
+                // display id or an entry depending on what had been near the
+                // player. One number space, decided in one place.
+                c.creatureId = dbc->getUInt32(row, (*layout)["EffectMiscValue" + idx]);
             }
         }
         if (!mount && !critter) continue;
@@ -3058,6 +3059,15 @@ void GameHandler::announceCompanionChange() {
 const std::vector<Companion>& GameHandler::getCompanions(bool mounts) const {
     rebuildCompanions();
     return mounts ? mountSpells_ : critterSpells_;
+}
+
+bool GameHandler::isCompanionCreature(uint32_t entry) const {
+    if (entry == 0) return false;
+    // Critters only. A mount's creature id is already a display id and is never
+    // an entry, so asking about one here would be comparing two number spaces.
+    for (const Companion& c : getCompanions(/*mounts=*/false))
+        if (c.creatureId == entry) return true;
+    return false;
 }
 
 std::string GameHandler::getLfgDungeonName(uint32_t dungeonId) const {
