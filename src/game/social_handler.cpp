@@ -2202,7 +2202,13 @@ void SocialHandler::handleGuildRoster(network::Packet& packet) {
     if (!owner_.getPacketParsers()->parseGuildRoster(packet, data)) return;
     guildRoster_ = std::move(data);
     hasGuildRoster_ = true;
-    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("GUILD_ROSTER_UPDATE", {});
+    // False: the roster in hand is the fresh one, so nothing should ask again.
+    // The argument is "you may request a roster", and every reader answers it
+    // with `if arg1 then GuildRoster() end` — friendsframe, the guild bank and
+    // the calendar all do exactly that. Sending true here would have each of
+    // them request a roster, whose reply would fire this again, forever.
+    if (owner_.addonEventCallbackRef())
+        owner_.addonEventCallbackRef()("GUILD_ROSTER_UPDATE", {eventBool(false)});
 }
 
 // CMSG_GUILD_RANK rewrites the rank whole: id, rights, name, gold per day, then
@@ -2351,7 +2357,14 @@ void SocialHandler::handleGuildEvent(network::Packet& packet) {
             case GuildEvent::JOINED: case GuildEvent::LEFT:
             case GuildEvent::REMOVED: case GuildEvent::LEADER_CHANGED:
             case GuildEvent::DISBANDED:
-                owner_.addonEventCallbackRef()("GUILD_ROSTER_UPDATE", {});
+                // True: somebody joined, left, was promoted or signed on, and
+                // the roster this client holds no longer says so. The server
+                // sends the event and not a new roster, so the request has to
+                // come from here — which is what the argument is for, and what
+                // nobody could do while it was absent. Every guild panel
+                // redrew from the stale copy instead: a member who had just
+                // signed on stayed grey until something else asked.
+                owner_.addonEventCallbackRef()("GUILD_ROSTER_UPDATE", {eventBool(true)});
                 break;
             default: break;
         }
