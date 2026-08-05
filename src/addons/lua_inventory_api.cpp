@@ -3239,6 +3239,26 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // its Accept raised, so a bind-on-pickup item could be seen and
                 // not taken.
                 {"ConfirmLootSlot",     lua_LootSlot},
+                // The answer to "this item will bind to you".
+                //
+                // Both dialogs — EQUIP_BIND for a drop onto a slot,
+                // AUTOEQUIP_BIND for a right-click — call these two, and both
+                // pass the slot the event carried. Only one equip can be
+                // waiting at a time (FrameXML's dialog is exclusive and this
+                // client's is modal), so the held request is enough on its own
+                // and the slot is not read back.
+                //
+                // OnHide calls CancelPendingEquip as well as OnCancel, so
+                // cancelling twice has to be harmless — it is: the second
+                // clears an already-empty request.
+                {"EquipPendingItem", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->equipPendingItem();
+            return 0;
+        }},
+                {"CancelPendingEquip", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->cancelPendingEquip();
+            return 0;
+        }},
                 {"SplitContainerItem",  lua_SplitContainerItem},
                 {"BankButtonIDToInvSlotID", lua_BankButtonIDToInvSlotID},
                 {"CloseBankFrame",      lua_CloseBankFrame},

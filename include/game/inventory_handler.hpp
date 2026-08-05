@@ -162,8 +162,32 @@ public:
     void repairAll(uint64_t vendorGuid, bool useGuildBank = false);
     uint32_t estimateRepairAllCost() const;
     const std::deque<BuybackItem>& getBuybackItems() const { return buybackItems_; }
-    void autoEquipItemBySlot(int backpackIndex);
-    void autoEquipItemInBag(int bagIndex, int slotIndex);
+    // ---- Equipping, and the prompt before something binds ----
+    //
+    // `confirmed` is how a caller says the player has already been asked. Both
+    // interfaces ask — this client's own popup and FrameXML's EQUIP_BIND — and
+    // both come back through here, so without it the answer to the prompt
+    // raises the prompt again.
+    void autoEquipItemBySlot(int backpackIndex, bool confirmed = false);
+    void autoEquipItemInBag(int bagIndex, int slotIndex, bool confirmed = false);
+
+    /// Whether equipping what is in a slot would bind it — ItemDef carries
+    /// the rule; these two just find the item.
+    bool equipWouldBindFromBackpack(int backpackIndex) const;
+    bool equipWouldBindFromBag(int bagIndex, int slotIndex) const;
+
+    /// The equip held back waiting for an answer. One at a time — FrameXML's
+    /// dialog is exclusive and this client's is modal, so a second cannot be
+    /// raised while the first is up.
+    struct PendingEquip {
+        bool    active  = false;
+        bool    fromBag = false;
+        int     bag     = 0;
+        int     slot    = 0;
+        uint8_t wireSlot = 0;   ///< what the event carried, for the reply
+    };
+    void equipPendingItem();
+    void cancelPendingEquip();
     void useItemBySlot(int backpackIndex);
     void useItemInBag(int bagIndex, int slotIndex);
 
@@ -494,6 +518,7 @@ private:
 
     // ---- Mail state ----
     SocketSession socketSession_;
+    PendingEquip pendingEquip_;
     bool mailboxOpen_ = false;
     uint64_t mailboxGuid_ = 0;
     std::vector<MailMessage> mailInbox_;

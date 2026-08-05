@@ -699,8 +699,9 @@ void InventoryScreen::placeInEquipment(game::Inventory& inv, game::EquipSlot slo
     if (!holdingItem) return;
 
     // Only prompt for a BoE item that has not already bound. Once soulbound, re-equipping
-    // (slot swaps, unequip/re-equip) must not ask again.
-    if (heldItem.bindType == 2 && !heldItem.soulbound && !equipConfirmOpen_) {
+    // (slot swaps, unequip/re-equip) must not ask again. The rule itself lives on
+    // InventoryHandler, where the path FrameXML takes can reach it too.
+    if (heldItem.wouldBindOnEquip() && !equipConfirmOpen_) {
         equipConfirmOpen_ = true;
         equipConfirmAuto_ = false;
         equipConfirmSlot_ = slot;
@@ -1214,10 +1215,12 @@ void InventoryScreen::renderEquipConfirmationPopup(game::Inventory& inventory) {
         ImGui::Spacing();
         if (ImGui::Button("Equip", ImVec2(85, 0))) {
             if (equipConfirmAuto_ && gameHandler_) {
+                // Already asked, so say so: the handler prompts too, and
+                // without this the answer to the prompt raises it again.
                 if (equipConfirmBag_ == 0xFF)
-                    gameHandler_->autoEquipItemBySlot(static_cast<int>(equipConfirmSourceSlot_ - game::Inventory::NUM_EQUIP_SLOTS));
+                    gameHandler_->autoEquipItemBySlot(static_cast<int>(equipConfirmSourceSlot_ - game::Inventory::NUM_EQUIP_SLOTS), true);
                 else
-                    gameHandler_->autoEquipItemInBag(equipConfirmBag_, equipConfirmSourceSlot_);
+                    gameHandler_->autoEquipItemInBag(equipConfirmBag_, equipConfirmSourceSlot_, true);
             } else if (holdingItem) {
                 equipConfirmOpen_ = true;
                 placeInEquipment(inventory, equipConfirmSlot_);
@@ -3027,7 +3030,7 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
                     uint64_t iGuid = gameHandler_->getBackpackItemGuid(backpackIndex);
                     gameHandler_->offerQuestFromItem(iGuid, item.startQuestId);
                 } else if (item.inventoryType > 0) {
-                    if (item.bindType == 2 && !item.soulbound) {
+                    if (gameHandler_->equipWouldBindFromBackpack(backpackIndex)) {
                         equipConfirmOpen_ = true;
                         equipConfirmAuto_ = true;
                         equipConfirmBag_ = 0xFF;
@@ -3060,7 +3063,7 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
                     uint64_t iGuid = gameHandler_->getBagItemGuid(bagIndex, bagSlotIndex);
                     gameHandler_->offerQuestFromItem(iGuid, item.startQuestId);
                 } else if (item.inventoryType > 0) {
-                    if (item.bindType == 2 && !item.soulbound) {
+                    if (gameHandler_->equipWouldBindFromBag(bagIndex, bagSlotIndex)) {
                         equipConfirmOpen_ = true;
                         equipConfirmAuto_ = true;
                         equipConfirmBag_ = static_cast<uint8_t>(bagIndex);

@@ -90,6 +90,17 @@ struct ItemDef {
     // A BoE item is bindType==2 but only prompts on equip while this is false; once the
     // server sets the soulbound bit (on equip), it is already bound and must not prompt.
     bool soulbound = false;
+
+    /// Would equipping this bind it to the player?
+    ///
+    /// Bind-on-equip and not yet bound. Once the server sets the soulbound
+    /// bit, moving the same piece between slots must not ask again.
+    ///
+    /// Here rather than on a handler because it is a fact about the item, and
+    /// because it had been written out three times in inventory_screen.cpp and
+    /// nowhere on the path FrameXML takes — so equipping through the interface
+    /// bound the item with no prompt at all.
+    bool wouldBindOnEquip() const { return bindType == 2 && !soulbound; }
     // Per-instance ITEM_FIELD_RANDOM_PROPERTIES_ID: >0 → ItemRandomProperties.dbc (prefix),
     // <0 → ItemRandomSuffix.dbc (e.g. "of the Bear"). 0 means no random property rolled.
     int32_t randomPropertyId = 0;

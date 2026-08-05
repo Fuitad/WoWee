@@ -2693,8 +2693,14 @@ public:
     void repairAll(uint64_t vendorGuid, bool useGuildBank = false);
     uint32_t estimateRepairAllCost() const;
     const std::deque<BuybackItem>& getBuybackItems() const;
-    void autoEquipItemBySlot(int backpackIndex);
-    void autoEquipItemInBag(int bagIndex, int slotIndex);
+    void autoEquipItemBySlot(int backpackIndex, bool confirmed = false);
+    void autoEquipItemInBag(int bagIndex, int slotIndex, bool confirmed = false);
+    /// Would equipping this bind it? Asked by both interfaces before they put
+    /// their own prompt up.
+    bool equipWouldBindFromBackpack(int backpackIndex) const;
+    bool equipWouldBindFromBag(int bagIndex, int slotIndex) const;
+    void equipPendingItem();
+    void cancelPendingEquip();
     void useItemBySlot(int backpackIndex);
     void useItemInBag(int bagIndex, int slotIndex);
 

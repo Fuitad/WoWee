@@ -1402,26 +1402,75 @@ void InventoryHandler::repairAll(uint64_t vendorGuid, bool useGuildBank) {
     }
 }
 
-void InventoryHandler::autoEquipItemBySlot(int backpackIndex) {
+bool InventoryHandler::equipWouldBindFromBackpack(int backpackIndex) const {
+    const auto& inv = owner_.getInventory();
+    if (backpackIndex < 0 || backpackIndex >= inv.getBackpackSize()) return false;
+    const auto& slot = inv.getBackpackSlot(backpackIndex);
+    return !slot.empty() && slot.item.wouldBindOnEquip();
+}
+
+bool InventoryHandler::equipWouldBindFromBag(int bagIndex, int slotIndex) const {
+    const auto& inv = owner_.getInventory();
+    if (bagIndex < 0 || bagIndex >= Inventory::NUM_BAG_SLOTS) return false;
+    if (slotIndex < 0 || slotIndex >= inv.getBagSize(bagIndex)) return false;
+    const auto& slot = inv.getBagSlot(bagIndex, slotIndex);
+    return !slot.empty() && slot.item.wouldBindOnEquip();
+}
+
+void InventoryHandler::autoEquipItemBySlot(int backpackIndex, bool confirmed) {
     if (backpackIndex < 0 || backpackIndex >= owner_.inventoryRef().getBackpackSize()) return;
     const auto& slot = owner_.inventoryRef().getBackpackSlot(backpackIndex);
     if (slot.empty()) return;
 
+    const uint8_t wireSlot = static_cast<uint8_t>(Inventory::NUM_EQUIP_SLOTS + backpackIndex);
+    if (!confirmed && slot.item.wouldBindOnEquip()) {
+        pendingEquip_ = PendingEquip{true, false, 0, backpackIndex, wireSlot};
+        // The auto-equip form of the prompt: right-clicking an item rather
+        // than dropping it on a slot. FrameXML hides whichever of the two is
+        // already up before showing the other, so firing the wrong one leaves
+        // both on screen.
+        if (owner_.addonEventCallbackRef())
+            owner_.addonEventCallbackRef()("AUTOEQUIP_BIND_CONFIRM",
+                                           {std::to_string(wireSlot)});
+        return;
+    }
+
     if (owner_.getState() == WorldState::IN_WORLD && owner_.getSocket()) {
-        auto packet = AutoEquipItemPacket::build(0xFF, static_cast<uint8_t>(Inventory::NUM_EQUIP_SLOTS + backpackIndex));
+        auto packet = AutoEquipItemPacket::build(0xFF, wireSlot);
         owner_.getSocket()->send(packet);
     }
 }
 
-void InventoryHandler::autoEquipItemInBag(int bagIndex, int slotIndex) {
+void InventoryHandler::autoEquipItemInBag(int bagIndex, int slotIndex, bool confirmed) {
     if (bagIndex < 0 || bagIndex >= owner_.inventoryRef().NUM_BAG_SLOTS) return;
     if (slotIndex < 0 || slotIndex >= owner_.inventoryRef().getBagSize(bagIndex)) return;
+
+    if (!confirmed && equipWouldBindFromBag(bagIndex, slotIndex)) {
+        pendingEquip_ = PendingEquip{true, true, bagIndex, slotIndex,
+                                     static_cast<uint8_t>(slotIndex)};
+        if (owner_.addonEventCallbackRef())
+            owner_.addonEventCallbackRef()("AUTOEQUIP_BIND_CONFIRM",
+                                           {std::to_string(slotIndex)});
+        return;
+    }
 
     if (owner_.getState() == WorldState::IN_WORLD && owner_.getSocket()) {
         auto packet = AutoEquipItemPacket::build(
             static_cast<uint8_t>(Inventory::FIRST_BAG_EQUIP_SLOT + bagIndex), static_cast<uint8_t>(slotIndex));
         owner_.getSocket()->send(packet);
     }
+}
+
+void InventoryHandler::equipPendingItem() {
+    const PendingEquip pending = pendingEquip_;
+    pendingEquip_ = PendingEquip{};
+    if (!pending.active) return;
+    if (pending.fromBag) autoEquipItemInBag(pending.bag, pending.slot, true);
+    else                 autoEquipItemBySlot(pending.slot, true);
+}
+
+void InventoryHandler::cancelPendingEquip() {
+    pendingEquip_ = PendingEquip{};
 }
 
 // Dispatches CMSG_USE_ITEM for an item already located at (wowBag, wowSlot).

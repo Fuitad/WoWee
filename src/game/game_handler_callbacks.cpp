@@ -3192,12 +3192,28 @@ void GameHandler::sellItemBySlot(int backpackIndex) {
     if (inventoryHandler_) inventoryHandler_->sellItemBySlot(backpackIndex);
 }
 
-void GameHandler::autoEquipItemBySlot(int backpackIndex) {
-    if (inventoryHandler_) inventoryHandler_->autoEquipItemBySlot(backpackIndex);
+void GameHandler::autoEquipItemBySlot(int backpackIndex, bool confirmed) {
+    if (inventoryHandler_) inventoryHandler_->autoEquipItemBySlot(backpackIndex, confirmed);
 }
 
-void GameHandler::autoEquipItemInBag(int bagIndex, int slotIndex) {
-    if (inventoryHandler_) inventoryHandler_->autoEquipItemInBag(bagIndex, slotIndex);
+bool GameHandler::equipWouldBindFromBackpack(int backpackIndex) const {
+    return inventoryHandler_ && inventoryHandler_->equipWouldBindFromBackpack(backpackIndex);
+}
+
+bool GameHandler::equipWouldBindFromBag(int bagIndex, int slotIndex) const {
+    return inventoryHandler_ && inventoryHandler_->equipWouldBindFromBag(bagIndex, slotIndex);
+}
+
+void GameHandler::equipPendingItem() {
+    if (inventoryHandler_) inventoryHandler_->equipPendingItem();
+}
+
+void GameHandler::cancelPendingEquip() {
+    if (inventoryHandler_) inventoryHandler_->cancelPendingEquip();
+}
+
+void GameHandler::autoEquipItemInBag(int bagIndex, int slotIndex, bool confirmed) {
+    if (inventoryHandler_) inventoryHandler_->autoEquipItemInBag(bagIndex, slotIndex, confirmed);
 }
 
 void GameHandler::sellItemInBag(int bagIndex, int slotIndex) {
