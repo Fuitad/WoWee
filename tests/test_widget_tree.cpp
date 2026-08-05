@@ -1793,32 +1793,41 @@ TEST_CASE("a texture the client renders into is drawn without a file",
 
 TEST_CASE("a portrait belongs to one unit at a time", "[widget_tree]") {
     // TargetFrame's portrait is asked for "target" and for "player" in turn,
-    // as the player targets themselves and then something else. A frame left
-    // on both lists is handed two faces a frame and keeps whichever was
+    // as the player targets themselves and then something else. A texture left
+    // claimed by both is handed two faces a frame and keeps whichever was
     // written last, which is how a portrait shows the wrong unit.
     WidgetTree tree;
     const uint32_t tex = tree.create(WidgetKind::Texture, tree.root(), "TargetFramePortrait");
 
-    tree.markTargetPortrait(tex);
-    CHECK(tree.targetPortraits().size() == 1);
-    CHECK(tree.playerPortraits().empty());
+    tree.setPortraitUnit(tex, "target");
+    CHECK(tree.portraitsFor("target").size() == 1);
+    CHECK(tree.portraitsFor("player").empty());
 
-    // Handing it over clears the handle as well as the claim: dropping off the
-    // list only stops the updates, and the last face would stay on screen.
+    // Claiming it for someone else releases it from the first, and clears the
+    // handle with it: dropping the claim alone would leave the last face on
+    // screen until something overwrote it.
     tree.get(tex)->externalTexture = 0x1234;
-    tree.unmarkTargetPortrait(tex);
-    CHECK(tree.targetPortraits().empty());
+    tree.setPortraitUnit(tex, "player");
+    CHECK(tree.portraitsFor("target").empty());
+    CHECK(tree.portraitsFor("player").size() == 1);
     CHECK(tree.get(tex)->externalTexture == 0);
 
-    tree.markPlayerPortrait(tex);
-    CHECK(tree.playerPortraits().size() == 1);
-    CHECK(tree.targetPortraits().empty());
+    // An empty unit releases it outright.
+    tree.get(tex)->externalTexture = 0x5678;
+    tree.setPortraitUnit(tex, "");
+    CHECK(tree.portraitsFor("player").empty());
+    CHECK(tree.get(tex)->externalTexture == 0);
 }
 
-TEST_CASE("marking the same portrait twice claims it once", "[widget_tree]") {
+TEST_CASE("claiming the same portrait twice claims it once", "[widget_tree]") {
+    // And does not clear the handle on the way, which a release-then-claim
+    // would: the draw loop writes the handle once a frame and a claim that
+    // zeroed it in between would flicker.
     WidgetTree tree;
     const uint32_t tex = tree.create(WidgetKind::Texture, tree.root(), "P");
-    tree.markTargetPortrait(tex);
-    tree.markTargetPortrait(tex);
-    CHECK(tree.targetPortraits().size() == 1);
+    tree.setPortraitUnit(tex, "pet");
+    tree.get(tex)->externalTexture = 0x99;
+    tree.setPortraitUnit(tex, "pet");
+    CHECK(tree.portraitsFor("pet").size() == 1);
+    CHECK(tree.get(tex)->externalTexture == 0x99);
 }

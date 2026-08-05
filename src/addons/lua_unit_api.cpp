@@ -1472,20 +1472,11 @@ static int lua_SetPortraitTexture(lua_State* L) {
 
     std::string unit(luaL_optstring(L, 2, ""));
     toLowerInPlace(unit);
-    // Exactly one list at a time. A frame reused for a different unit — and
-    // TargetFrame is asked for "target" and "player" in turn as the player
-    // targets themselves and then something else — has to come off the list it
-    // was on, or it keeps being handed the wrong face.
-    if (unit == "player") {
-        tree->unmarkTargetPortrait(id);
-        tree->markPlayerPortrait(id);
-    } else if (unit == "target") {
-        tree->unmarkPlayerPortrait(id);
-        tree->markTargetPortrait(id);
-    } else {
-        tree->unmarkPlayerPortrait(id);
-        tree->unmarkTargetPortrait(id);
-    }
+    // Only the units this client can build a face for. Anything else releases
+    // the texture rather than claiming it, so a portrait frame reused for a
+    // unit with no picture does not keep the last one it had.
+    const bool answerable = (unit == "player" || unit == "target" || unit == "pet");
+    tree->setPortraitUnit(id, answerable ? unit : std::string());
     return 0;
 }
 

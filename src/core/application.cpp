@@ -1354,6 +1354,7 @@ void Application::shutdown() {
     // already gone.
     unitPortrait_.shutdown(renderer.get());
     targetPortrait_.shutdown(renderer.get());
+    petPortrait_.shutdown(renderer.get());
     paperdollModel_.shutdown(renderer.get());
 
     // Explicitly shut down the renderer before destroying it — this ensures
@@ -3321,25 +3322,37 @@ void Application::render() {
                     }
                 }
 
-                // The target's face, on the same terms, and only while a frame
-                // is asking for it — this is a whole offscreen model pass and
-                // running it for a portrait nothing draws costs a render and a
-                // composite every frame to produce a picture nobody sees.
+                // The target's face and the pet's, on the same terms as the
+                // player's, and only while a frame is asking for one — each is
+                // a whole offscreen model pass, and running it for a portrait
+                // nothing draws costs a render and a composite every frame to
+                // produce a picture nobody sees.
                 //
-                // A creature model by display id, which is what the target
-                // usually is. A targeted *player* is not built from a display
-                // id at all — their look comes from race, appearance bytes and
-                // worn items, none of which this client has for anyone but
-                // itself — so those keep an empty portrait rather than a wrong
-                // one, and say so once rather than every frame.
-                if (!widgets.targetPortraits().empty()) {
-                    const uint64_t targetGuid = gameHandler->getTargetGuid();
+                // A creature model by display id, which is what both usually
+                // are. A targeted *player* is not built from a display id at
+                // all — their look comes from race, appearance bytes and worn
+                // items, none of which this client has for anyone but itself —
+                // so those keep an empty portrait rather than a wrong one. The
+                // naked race model would be worse than nothing.
+                struct UnitFace {
+                    const char* unit;
+                    ui::UnitPortrait* portrait;
+                    uint64_t guid;
+                };
+                const UnitFace kFaces[] = {
+                    {"target", &targetPortrait_, gameHandler->getTargetGuid()},
+                    {"pet",    &petPortrait_,    gameHandler->getPetGuid()},
+                };
+                for (const UnitFace& face : kFaces) {
+                    const auto& claimed = widgets.portraitsFor(face.unit);
+                    if (claimed.empty()) continue;
+
                     uint32_t displayId = 0;
-                    if (targetGuid != 0) {
+                    if (face.guid != 0) {
                         // A unit, not any entity: the display id lives on Unit
                         // and on GameObject, and a targeted game object has no
                         // portrait in the interface to put one in.
-                        if (game::Unit* u = gameHandler->getUnitByGuid(targetGuid)) {
+                        if (game::Unit* u = gameHandler->getUnitByGuid(face.guid)) {
                             displayId = u->getDisplayId();
                         }
                     }
@@ -3348,19 +3361,14 @@ void Application::render() {
                         modelPath = entitySpawner_->getModelPathForDisplayId(displayId);
                     }
                     if (!modelPath.empty()) {
-                        targetPortrait_.setFraming(ui::UnitPortrait::Framing::Face);
-                        targetPortrait_.updateCreature(modelPath, assetManager.get(),
-                                                       renderer.get(), io.DeltaTime);
-                        targetPortraitDisplayId_ = displayId;
-                    } else {
-                        targetPortraitDisplayId_ = 0;
+                        face.portrait->setFraming(ui::UnitPortrait::Framing::Face);
+                        face.portrait->updateCreature(modelPath, assetManager.get(),
+                                                      renderer.get(), io.DeltaTime);
                     }
-                    const uint64_t targetFace = modelPath.empty()
-                        ? 0 : targetPortrait_.textureId();
-                    for (uint32_t id : widgets.targetPortraits()) {
-                        if (ui::Widget* w = widgets.get(id)) {
-                            w->externalTexture = targetFace;
-                        }
+                    const uint64_t drawn = modelPath.empty()
+                        ? 0 : face.portrait->textureId();
+                    for (uint32_t id : claimed) {
+                        if (ui::Widget* w = widgets.get(id)) w->externalTexture = drawn;
                     }
                 }
             }

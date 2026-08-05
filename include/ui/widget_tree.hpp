@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <map>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -604,15 +605,17 @@ public:
     /// so the assignment has to happen every frame rather than once here. A
     /// list, for the same reason scroll frames are a list: the alternative is
     /// scanning every widget in the tree for a flag, every frame.
-    void markPlayerPortrait(uint32_t id);
-    void unmarkPlayerPortrait(uint32_t id);
-
-    /// The same, for the target. A second list rather than a map keyed by unit
-    /// because there are two of them and a map would be a lookup per frame to
-    /// answer a question with two possible answers. The day a third unit gets
-    /// a portrait is the day this becomes a map.
-    void markTargetPortrait(uint32_t id);
-    void unmarkTargetPortrait(uint32_t id);
+    /// Claim this texture for a unit, dropping any claim another unit had on
+    /// it. One at a time is the whole point: TargetFrame's portrait is asked
+    /// for "target" and for "player" in turn, as the player targets themselves
+    /// and then something else, and a texture left on two lists is handed two
+    /// faces a frame and keeps whichever was written last.
+    ///
+    /// An empty unit releases it. Releasing clears the handle too — dropping
+    /// off a list only stops the updates, and the last face would stay.
+    void setPortraitUnit(uint32_t id, const std::string& unit);
+    /// Every texture claimed for this unit, or an empty list.
+    const std::vector<uint32_t>& portraitsFor(const std::string& unit) const;
 
     /// What the mouse is doing, so state art can be chosen. The engine owns
     /// this — it is the only thing that knows what is under the cursor and
@@ -631,8 +634,7 @@ public:
     /// the template names rather than a colour the renderer invents.
     uint32_t hoveredWidget() const { return hoveredId_; }
     const std::vector<uint32_t>& scrollFrames() const { return scrollFrames_; }
-    const std::vector<uint32_t>& playerPortraits() const { return playerPortraits_; }
-    const std::vector<uint32_t>& targetPortraits() const { return targetPortraits_; }
+    const std::vector<uint32_t>& playerPortraits() const { return portraitsFor("player"); }
 
     /// The widget published under this name, or null. Names are unique in
     /// FrameXML by convention, and the last one to claim a name wins, which is
@@ -664,8 +666,12 @@ private:
     /// references valid when it grows, which is the guarantee this needs.
     float uiScale_ = 1.0f;
     std::vector<uint32_t> scrollFrames_;
-    std::vector<uint32_t> playerPortraits_;
-    std::vector<uint32_t> targetPortraits_;
+    /// Which unit each portrait texture is showing, and the reverse. Two maps
+    /// rather than one because both questions are asked every frame: the draw
+    /// loop wants every texture for a unit, and a claim wants the unit a
+    /// texture already had so it can be released from it.
+    std::map<std::string, std::vector<uint32_t>> portraitsByUnit_;
+    std::map<uint32_t, std::string> portraitUnitOf_;
     uint32_t hoveredId_ = 0;
     uint32_t pressedId_ = 0;
 

@@ -126,50 +126,37 @@ void WidgetTree::markScrollFrame(uint32_t id) {
     scrollFrames_.push_back(id);
 }
 
-void WidgetTree::markPlayerPortrait(uint32_t id) {
+void WidgetTree::setPortraitUnit(uint32_t id, const std::string& unit) {
     if (id == 0) return;
-    for (uint32_t existing : playerPortraits_) {
-        if (existing == id) return;
+
+    auto had = portraitUnitOf_.find(id);
+    if (had != portraitUnitOf_.end()) {
+        if (had->second == unit) return;          // already this unit's
+        auto& list = portraitsByUnit_[had->second];
+        for (size_t i = 0; i < list.size(); ++i) {
+            if (list[i] != id) continue;
+            list[i] = list.back();
+            list.pop_back();
+            break;
+        }
+        portraitUnitOf_.erase(had);
+        // The handle as well as the claim. Dropping off the list only stops
+        // the updates, so the face it was last given would stay on screen —
+        // which is how the next target wore the player's face, and a game
+        // object made it obvious by having no portrait of its own to overwrite
+        // it with.
+        if (auto* w = get(id)) w->externalTexture = 0;
     }
-    playerPortraits_.push_back(id);
+
+    if (unit.empty()) return;
+    portraitsByUnit_[unit].push_back(id);
+    portraitUnitOf_[id] = unit;
 }
 
-void WidgetTree::unmarkPlayerPortrait(uint32_t id) {
-    // Put the frame's own art back. The player's face is pushed into
-    // externalTexture every frame for as long as the id is on this list, and
-    // dropping it off the list only stops the updates — the last face stays.
-    //
-    // The target frame is the one that shows: SetPortraitTexture marks it while
-    // the player is targeting themselves and unmarks it for anything else, so
-    // the next target wore the player's face. A game object made that obvious,
-    // having no portrait of its own to overwrite it with.
-    if (auto* w = get(id)) w->externalTexture = 0;
-    for (size_t i = 0; i < playerPortraits_.size(); ++i) {
-        if (playerPortraits_[i] != id) continue;
-        playerPortraits_[i] = playerPortraits_.back();
-        playerPortraits_.pop_back();
-        return;
-    }
-}
-
-void WidgetTree::markTargetPortrait(uint32_t id) {
-    if (id == 0) return;
-    for (uint32_t existing : targetPortraits_) {
-        if (existing == id) return;
-    }
-    targetPortraits_.push_back(id);
-}
-
-void WidgetTree::unmarkTargetPortrait(uint32_t id) {
-    // Same reasoning as the player's: dropping off the list stops the updates
-    // and leaves the last face behind, so the handle is cleared here.
-    if (auto* w = get(id)) w->externalTexture = 0;
-    for (size_t i = 0; i < targetPortraits_.size(); ++i) {
-        if (targetPortraits_[i] != id) continue;
-        targetPortraits_[i] = targetPortraits_.back();
-        targetPortraits_.pop_back();
-        return;
-    }
+const std::vector<uint32_t>& WidgetTree::portraitsFor(const std::string& unit) const {
+    static const std::vector<uint32_t> kNone;
+    auto it = portraitsByUnit_.find(unit);
+    return (it == portraitsByUnit_.end()) ? kNone : it->second;
 }
 
 Widget* WidgetTree::findByName(std::string_view name) {

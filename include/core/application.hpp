@@ -175,9 +175,8 @@ private:
     /// model — the alternative is reloading a model per frame, which is what a
     /// shared view would amount to.
     ui::UnitPortrait targetPortrait_;
-    /// The display id the target portrait was last built for, so a target that
-    /// has not changed does not rebuild. Zero means nothing is loaded.
-    uint32_t targetPortraitDisplayId_ = 0;
+    /// And the pet's, which is always a creature and so always has one.
+    ui::UnitPortrait petPortrait_;
 
     /// The paperdoll's model view, and the frame it is drawn into. A second
     /// offscreen pass rather than a shared one: the portrait shows the face
