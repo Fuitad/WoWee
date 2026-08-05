@@ -73,6 +73,12 @@ private:
     LuaServices luaServices_;
     std::string addonsPath_;
 
+    /// Every global the load-on-demand addons on disk define, read out of their
+    /// own files. This is the source of truth for which names must answer as
+    /// absent before their addon loads; the literal list in the Lua bootstrap
+    /// is a floor for an install with no addons extracted.
+    std::vector<std::string> deferredAddonGlobals() const;
+
     bool loadAddon(const TocFile& addon);
     std::string getSavedVariablesPath(const TocFile& addon) const;
     std::string getSavedVariablesPerCharacterPath(const TocFile& addon) const;

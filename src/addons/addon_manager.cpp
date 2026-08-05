@@ -1,10 +1,12 @@
 #include "addons/addon_manager.hpp"
+#include "addons/addon_globals.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "core/logger.hpp"
 #include "core/config_paths.hpp"
 #include <sstream>
 #include "ui/xml_parser.hpp"
 #include "ui/framexml_emitter.hpp"
+#include <cctype>
 #include <algorithm>
 #include <set>
 #include <optional>
@@ -218,6 +220,30 @@ void AddonManager::scanAddons(const std::string& addonsPath) {
     loadEnabledState();
 }
 
+std::vector<std::string> AddonManager::deferredAddonGlobals() const {
+    std::vector<std::string> names;
+    for (const TocFile& addon : lodAddons_) {
+        // A disabled addon is never going to load, so its names stay absent —
+        // which is the same answer, arrived at for a different reason.
+        for (const std::string& rel : addon.files) {
+            const fs::path file = resolvePath(fs::path(addon.basePath), rel);
+            if (file.empty()) continue;
+            std::ifstream in(file, std::ios::binary);
+            if (!in) continue;
+            const std::string text((std::istreambuf_iterator<char>(in)),
+                                   std::istreambuf_iterator<char>());
+            const std::string ext = file.extension().string();
+            if (ext == ".lua" || ext == ".Lua" || ext == ".LUA")
+                collectLuaGlobals(text, names);
+            else
+                collectXmlNames(text, names);
+        }
+    }
+    std::sort(names.begin(), names.end());
+    names.erase(std::unique(names.begin(), names.end()), names.end());
+    return names;
+}
+
 void AddonManager::loadAllAddons() {
     // The original interface, when asked for. Before any addon, because addons
     // are written against a world where FrameXML has already defined its frames
@@ -227,6 +253,13 @@ void AddonManager::loadAllAddons() {
     // it has taken over are the ones being worked on, and needing a flag to
     // see them means every test run starts by remembering the flag.
     // WOWEE_LOAD_FRAMEXML=0 turns it off; master leaves it off unless asked.
+    // Before any of it runs: what the addons that have *not* loaded will define
+    // once they do. FrameXML asks for those names to decide whether to load the
+    // panel behind them, and the missing-API fallback answering with a truthy
+    // no-op turns every one of those tests into "already loaded" — the panel is
+    // never asked for and the branch runs against a stand-in.
+    luaEngine_.declareDeferredGlobals(deferredAddonGlobals());
+
     const char* wantFrameXml = std::getenv("WOWEE_LOAD_FRAMEXML");
     const bool loadIt = wantFrameXml ? (std::string(wantFrameXml) != "0") : true;
     if (loadIt && !frameXmlDir_.empty()) {

@@ -251,6 +251,13 @@ private:
 public:
     static float lastMouseX() { return sLastMouseX_; }
     static float lastMouseY() { return sLastMouseY_; }
+
+    /// Names an unloaded load-on-demand addon will define, which must read as
+    /// absent until it does. FrameXML decides whether to load a panel by asking
+    /// for it — `if ( not AchievementFrame ) then AchievementFrame_LoadUI()` —
+    /// and the missing-API fallback answering those with a truthy no-op makes
+    /// every one of those guards read as "already loaded".
+    void declareDeferredGlobals(const std::vector<std::string>& names);
 private:
 
     uint32_t hoverWid_ = 0;
@@ -286,7 +293,7 @@ private:
 
     /// Make unknown globals answer with a no-op instead of erroring, so a large
     /// body of Lua can be brought up and the names it actually needs collected
-    /// from a run. Opt-in through WOWEE_LUA_API_FALLBACK.
+    /// from a run. Installed unconditionally, at the end of initialize().
     void installMissingApiFallback();
     /// Log the names collected, once, at shutdown.
     void reportMissingApi() const;

@@ -6595,6 +6595,13 @@ void LuaEngine::installMissingApiFallback() {
         // watchframe goes straight on to `AchievementFrame:IsShown()`, which
         // answered a no-op too, so tracking an achievement did nothing at all.
         //
+        // These ten are a floor, for an install with no Blizzard addons
+        // extracted at all. The list that does the work is built by
+        // declareDeferredGlobals from what the addons on disk actually define,
+        // which reproduces all ten and found five more the hand list had
+        // missed — the combat-text options among them, whose whole purpose is
+        // the `else` branch that loads Blizzard_CombatText.
+        //
         // A list rather than a rule about the shape of the name, because the
         // shape does not separate them: PlayerArrowEffectFrame and
         // WorldMapBlobFrame are addressed with no guard at all, and answering
@@ -6614,6 +6621,26 @@ void LuaEngine::installMissingApiFallback() {
 
     LOG_WARNING("LuaEngine: missing-API fallback is ON — unknown globals answer "
                 "with a no-op, so feature detection will read as present");
+}
+
+void LuaEngine::declareDeferredGlobals(const std::vector<std::string>& names) {
+    if (!L_ || names.empty()) return;
+    lua_getglobal(L_, "__WoweeLoadOnDemandFrames");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
+    int added = 0;
+    for (const auto& name : names) {
+        if (name.empty()) continue;
+        lua_getfield(L_, -1, name.c_str());
+        const bool already = !lua_isnil(L_, -1);
+        lua_pop(L_, 1);
+        if (already) continue;
+        lua_pushboolean(L_, 1);
+        lua_setfield(L_, -2, name.c_str());
+        ++added;
+    }
+    lua_pop(L_, 1);
+    LOG_INFO("LuaEngine: ", added, " name(s) an unloaded addon defines will "
+             "read as absent until it loads");
 }
 
 void LuaEngine::reportMissingApi() const {

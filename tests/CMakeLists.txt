@@ -166,6 +166,15 @@ target_link_libraries(test_widget_tree PRIVATE catch2_main)
 add_test(NAME widget_tree COMMAND test_widget_tree)
 register_test_target(test_widget_tree)
 
+# ── test_addon_globals ──────────────────────────────────────
+add_executable(test_addon_globals
+    test_addon_globals.cpp
+)
+target_include_directories(test_addon_globals PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_addon_globals SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+add_test(NAME addon_globals COMMAND test_addon_globals)
+register_test_target(test_addon_globals)
+
 # ── test_packet ──────────────────────────────────────────────
 add_executable(test_packet
     test_packet.cpp
