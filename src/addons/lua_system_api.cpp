@@ -469,14 +469,22 @@ static int lua_GetAddOnInfo(lua_State* L) {
     lua_rawgeti(L, -1, idx);
     if (!lua_istable(L, -1)) { lua_pop(L, 2); lua_pushnil(L); return 1; }
 
+    // name, title, notes, url, loadable, reason, security, newVersion.
+    //
+    // Five were returned and the fourth was not url, so everything from there
+    // shifted: the loadable flag landed in url's place, the security string in
+    // loadable's — truthy, so addons read as loadable by accident — and the
+    // last three came back nil. addonlist.lua reads security seventh.
     lua_getfield(L, -1, "name");
     lua_getfield(L, -2, "title");
     lua_getfield(L, -3, "notes");
-    lua_pushboolean(L, 1); // loadable (always true for now)
-    lua_pushstring(L, "INSECURE"); // security
-    lua_pop(L, 1); // pop addon info entry (keep others)
-    // Return: name, title, notes, loadable, reason, security
-    return 5;
+    lua_pushnil(L);                 // 4: url — not in a 3.3.5 manifest
+    lua_pushboolean(L, 1);          // 5: loadable
+    lua_pushnil(L);                 // 6: reason it is not, and it is
+    lua_pushstring(L, "INSECURE");  // 7: security
+    lua_pushnil(L);                 // 8: newVersion
+    lua_pop(L, 1); // the addon info entry; the eight above stay
+    return 8;
 }
 
 // GetAddOnMetadata(addonNameOrIndex, key) → value
@@ -710,7 +718,13 @@ static int lua_GetMapLandmarkInfo(lua_State* L) {
     // A landmark that leads to another map. Nothing here links one to another,
     // and nil is what a plain point of interest answers.
     lua_pushnil(L);                             // 6: mapLinkID
-    return 6;
+    // Whether the battlefield minimap shows it too. Seven values, not six:
+    // blizzard_battlefieldminimap.lua gates every pin on this one, so a nil
+    // here is a battle map with no points of interest on it at all. AreaPOI
+    // carries no such flag, and a landmark worth drawing on the world map is
+    // worth drawing on the smaller one.
+    lua_pushboolean(L, 1);                      // 7: showInBattleMap
+    return 7;
 }
 
 /// GetNumMapOverlays() / GetMapOverlayInfo(i)
