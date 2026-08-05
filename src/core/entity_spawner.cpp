@@ -1043,6 +1043,56 @@ EntitySpawner::getOrLoadAttachmentModel(const std::vector<std::string>& candidat
     return CachedAttachmentModel{idIt->second, std::move(model)};
 }
 
+bool EntitySpawner::getHumanoidAppearance(uint32_t displayId, uint8_t& race,
+                                          uint8_t& sex, uint32_t& appearanceBytes,
+                                          uint8_t& facialHair) const {
+    auto disp = displayDataMap_.find(displayId);
+    if (disp == displayDataMap_.end() || disp->second.extraDisplayId == 0) return false;
+    auto extra = humanoidExtraMap_.find(disp->second.extraDisplayId);
+    if (extra == humanoidExtraMap_.end()) return false;
+
+    race = extra->second.raceId;
+    sex = extra->second.sexId;
+    facialHair = extra->second.facialHairId;
+    appearanceBytes = static_cast<uint32_t>(extra->second.skinId)
+                    | (static_cast<uint32_t>(extra->second.faceId) << 8)
+                    | (static_cast<uint32_t>(extra->second.hairStyleId) << 16)
+                    | (static_cast<uint32_t>(extra->second.hairColorId) << 24);
+    return race != 0;
+}
+
+std::vector<std::pair<uint32_t, uint8_t>>
+EntitySpawner::getHumanoidEquipment(uint32_t displayId) const {
+    std::vector<std::pair<uint32_t, uint8_t>> out;
+    auto disp = displayDataMap_.find(displayId);
+    if (disp == displayDataMap_.end() || disp->second.extraDisplayId == 0) return out;
+    auto extra = humanoidExtraMap_.find(disp->second.extraDisplayId);
+    if (extra == humanoidExtraMap_.end()) return out;
+
+    // CreatureDisplayInfoExtra's slot order, against the inventory types
+    // applyEquipment matches on. The order is the dbc's and the numbers are
+    // WoW's INVTYPE_*, and the two have nothing to do with each other — which
+    // is why this is written out rather than computed.
+    static constexpr uint8_t kInvType[11] = {
+        1,   // 0  helm      INVTYPE_HEAD
+        3,   // 1  shoulder  INVTYPE_SHOULDER
+        4,   // 2  shirt     INVTYPE_BODY
+        5,   // 3  chest     INVTYPE_CHEST
+        6,   // 4  belt      INVTYPE_WAIST
+        7,   // 5  legs      INVTYPE_LEGS
+        8,   // 6  feet      INVTYPE_FEET
+        9,   // 7  wrist     INVTYPE_WRIST
+        10,  // 8  hands     INVTYPE_HAND
+        19,  // 9  tabard    INVTYPE_TABARD
+        16,  // 10 cape      INVTYPE_CLOAK
+    };
+    for (int slot = 0; slot < 11; ++slot) {
+        const uint32_t did = extra->second.equipDisplayId[slot];
+        if (did != 0) out.emplace_back(did, kInvType[slot]);
+    }
+    return out;
+}
+
 std::vector<std::pair<uint32_t, std::string>>
 EntitySpawner::getCreatureSkinPaths(uint32_t displayId,
                                     const std::string& modelPath) const {

@@ -3645,8 +3645,31 @@ void Application::render() {
                                 displayId = u->getDisplayId();
                             }
                         }
+                        // A humanoid NPC — a guard, a questgiver, an innkeeper —
+                        // is drawn the way a character is, from a race and the
+                        // same skin, face and hair choices a player has.
+                        // CreatureDisplayInfo leaves the skin fields empty for
+                        // these, so loading one as a creature gives a shape with
+                        // nothing on it. Tried first for that reason.
+                        uint8_t nRace = 0, nSex = 0, nFacial = 0;
+                        uint32_t nBytes = 0;
+                        if (displayId != 0 && entitySpawner_ &&
+                            entitySpawner_->getHumanoidAppearance(displayId, nRace, nSex,
+                                                                  nBytes, nFacial)) {
+                            // Dressed, from the same row. A questgiver's helm
+                            // and shoulders are most of what a portrait framed
+                            // on the head can show of them.
+                            std::vector<game::EquipmentItem> npcWorn;
+                            for (const auto& [did, invType] :
+                                     entitySpawner_->getHumanoidEquipment(displayId)) {
+                                npcWorn.push_back({did, invType, 0u});
+                            }
+                            built = face.portrait->updatePlayer(
+                                nRace, nSex, nBytes, nFacial, npcWorn,
+                                assetManager.get(), renderer.get(), io.DeltaTime);
+                        }
                         std::string modelPath;
-                        if (displayId != 0 && entitySpawner_) {
+                        if (!built && displayId != 0 && entitySpawner_) {
                             modelPath = entitySpawner_->getModelPathForDisplayId(displayId);
                         }
                         if (!modelPath.empty()) {

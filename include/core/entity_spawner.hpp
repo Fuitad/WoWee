@@ -128,6 +128,27 @@ public:
     /// install actually has are returned.
     std::vector<std::pair<uint32_t, std::string>>
     getCreatureSkinPaths(uint32_t displayId, const std::string& modelPath) const;
+
+    /// A humanoid creature's appearance, if this display is one.
+    ///
+    /// Most NPCs worth looking at are: a guard, a questgiver, an innkeeper.
+    /// CreatureDisplayInfoExtra gives them a race, a sex and the same skin,
+    /// face, hair and facial-hair choices a player character has — so the way
+    /// to draw one is the way a character is drawn, not the way a creature is.
+    /// A creature's skin fields are empty for these, which is why loading one
+    /// as a creature gives an untextured shape.
+    ///
+    /// The appearance bytes are packed as a character's are: skin, face, hair
+    /// style and hair colour, one byte each from the bottom up.
+    bool getHumanoidAppearance(uint32_t displayId, uint8_t& race, uint8_t& sex,
+                               uint32_t& appearanceBytes, uint8_t& facialHair) const;
+
+    /// What that humanoid is wearing, as (ItemDisplayInfo id, inventory type)
+    /// pairs — the shape applyEquipment reads. CreatureDisplayInfoExtra holds
+    /// eleven slots in its own order, and this is that order translated into
+    /// the inventory types the rest of the client speaks.
+    std::vector<std::pair<uint32_t, uint8_t>>
+    getHumanoidEquipment(uint32_t displayId) const;
     std::string getGameObjectModelPathForDisplayId(uint32_t displayId) const;
 
     /// The hull a transport is drawn with, or "" to use the display lookup.
