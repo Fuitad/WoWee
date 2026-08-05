@@ -409,10 +409,20 @@ void GameHandler::registerOpcodeHandlers() {
         LOG_DEBUG("SMSG_LEARNED_DANCE_MOVES: ignored (size=", packet.getSize(), ")");
     };
     dispatchTable_[Opcode::SMSG_CHAR_RENAME] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(13)) {
-            uint32_t result = packet.readUInt32();
-            /*uint64_t guid =*/ packet.readUInt64();
-            std::string newName = packet.readString();
+        // uint8 result, and the guid and the new name only when it succeeded.
+        //
+        // This read a four-byte result and required thirteen bytes. A refusal
+        // is one byte, so no rename error was ever shown; a success carries the
+        // name, so it usually cleared the guard and then took three bytes of
+        // the guid as part of the result — which read as an enormous number,
+        // fell past the error table and reported the rename as failed.
+        if (packet.hasRemaining(1)) {
+            const uint8_t result = packet.readUInt8();
+            std::string newName;
+            if (result == 0 && packet.hasRemaining(9)) {
+                /*uint64_t guid =*/ packet.readUInt64();
+                newName = packet.readString();
+            }
             if (result == 0) {
                 addSystemChatMessage("Character name changed to: " + newName);
             } else {
@@ -425,7 +435,8 @@ void GameHandler::registerOpcodeHandlers() {
                 std::string renameErr = errMsg ? std::string("Rename failed: ") + errMsg : "Character rename failed.";
                 addUIError(renameErr); addSystemChatMessage(renameErr);
             }
-            LOG_INFO("SMSG_CHAR_RENAME: result=", result, " newName=", newName);
+            LOG_INFO("SMSG_CHAR_RENAME: result=", static_cast<int>(result),
+                     " newName=", newName);
         }
     };
 
@@ -1775,25 +1786,34 @@ void GameHandler::registerOpcodeHandlers() {
         LOG_DEBUG("SMSG_MEETINGSTONE_LEAVE");
         packet.skipAll();
     };
+    // All three of these carry a uint32 from the same enum, and all three read
+    // a single byte of it. Little-endian kept the comparison working for the
+    // delete, whose value is nine, and broke the other two outright: creating a
+    // ticket answers 2 and updating one answers 4, and both were compared
+    // against 1 — so a ticket that went through reported that it had not.
+    constexpr uint32_t kTicketAlreadyExists = 1, kTicketCreated = 2,
+                       kTicketUpdated = 4, kTicketDeleted = 9;
     dispatchTable_[Opcode::SMSG_GMTICKET_CREATE] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(1)) {
-            uint8_t res = packet.readUInt8();
-            addSystemChatMessage(res == 1 ? "GM ticket submitted."
-                                          : "Failed to submit GM ticket.");
+        if (packet.hasRemaining(4)) {
+            const uint32_t res = packet.readUInt32();
+            addSystemChatMessage(
+                res == kTicketCreated       ? "GM ticket submitted."
+              : res == kTicketAlreadyExists ? "You already have a GM ticket open."
+                                            : "Failed to submit GM ticket.");
         }
     };
     dispatchTable_[Opcode::SMSG_GMTICKET_UPDATETEXT] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(1)) {
-            uint8_t res = packet.readUInt8();
-            addSystemChatMessage(res == 1 ? "GM ticket updated."
-                                          : "Failed to update GM ticket.");
+        if (packet.hasRemaining(4)) {
+            const uint32_t res = packet.readUInt32();
+            addSystemChatMessage(res == kTicketUpdated ? "GM ticket updated."
+                                                       : "Failed to update GM ticket.");
         }
     };
     dispatchTable_[Opcode::SMSG_GMTICKET_DELETETICKET] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(1)) {
-            uint8_t res = packet.readUInt8();
-            addSystemChatMessage(res == 9 ? "GM ticket deleted."
-                                          : "No ticket to delete.");
+        if (packet.hasRemaining(4)) {
+            const uint32_t res = packet.readUInt32();
+            addSystemChatMessage(res == kTicketDeleted ? "GM ticket deleted."
+                                                       : "No ticket to delete.");
         }
     };
     // WotLK 3.3.5a format:
@@ -2523,14 +2543,16 @@ void GameHandler::registerOpcodeHandlers() {
             addonEventCallback_("BATTLEFIELD_MGR_ENTRY_INVITE", {std::to_string(bfBattleId)});
         LOG_INFO("SMSG_BATTLEFIELD_MGR_ENTRY_INVITE: zoneId=", bfZoneId);
     };
-    // uint64 battlefieldGuid + uint8 isSafe (1=pvp zones enabled) + uint8 onQueue
     dispatchTable_[Opcode::SMSG_BATTLEFIELD_MGR_ENTERED] = [this](network::Packet& packet) {
-        // uint64 battlefieldGuid + uint8 isSafe (1=pvp zones enabled) + uint8 onQueue
-        if (packet.hasRemaining(8)) {
-            uint64_t bfGuid2 = packet.readUInt64();
-            (void)bfGuid2;
-            uint8_t isSafe  = (packet.hasRemaining(1)) ? packet.readUInt8() : 0;
-            uint8_t onQueue = (packet.hasRemaining(1)) ? packet.readUInt8() : 0;
+        // uint32 battleId, then three flags — seven bytes. This read a 64-bit
+        // guid the server does not send and guarded eight, so on a seven-byte
+        // packet it never ran: entering Wintergrasp announced nothing.
+        if (packet.hasRemaining(7)) {
+            const uint32_t bfBattleId = packet.readUInt32();
+            bfMgrBattleId_ = bfBattleId;
+            packet.readUInt8();   // unk, always one
+            uint8_t isSafe  = packet.readUInt8();
+            uint8_t onQueue = packet.readUInt8();
             bfMgrInvitePending_ = false;
             bfMgrActive_        = true;
             addSystemChatMessage(isSafe ? "You are in the battlefield zone (safe area)."
@@ -2956,12 +2978,14 @@ void GameHandler::registerOpcodeHandlers() {
         LOG_INFO("SMSG_GMRESPONSE_RECEIVED: ticketId=", ticketId,
                  " subject='", subject, "'");
     };
-    // uint32 ticketId + uint8 status (1=open, 2=surveyed, 3=need_more_help)
     dispatchTable_[Opcode::SMSG_GMRESPONSE_STATUS_UPDATE] = [this](network::Packet& packet) {
-        // uint32 ticketId + uint8 status (1=open, 2=surveyed, 3=need_more_help)
-        if (packet.hasRemaining(5)) {
-            uint32_t ticketId = packet.readUInt32();
-            uint8_t  status   = packet.readUInt8();
+        // One byte, and it is not a status: SendGMResponse writes
+        // uint8(getSurvey), which asks whether to offer the survey now that the
+        // ticket is answered. This read a four-byte ticket id and a status
+        // across five bytes, so it never ran once.
+        if (packet.hasRemaining(1)) {
+            const uint32_t ticketId = 0;
+            const uint8_t  status   = packet.readUInt8() ? 2u : 1u;
             const char* statusStr = (status == 1) ? "open"
                                   : (status == 2) ? "answered"
                                   : (status == 3) ? "needs more info"
