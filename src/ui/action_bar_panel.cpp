@@ -3,6 +3,7 @@
 // Owns all action bar rendering: main bar, stance bar, bag bar,
 // XP bar, reputation bar, macro resolution.
 // ============================================================
+#include "ui/framexml_takeover.hpp"
 #include "ui/action_bar_panel.hpp"
 #include "ui/chat_panel.hpp"
 #include "ui/settings_panel.hpp"
@@ -1365,6 +1366,19 @@ void ActionBarPanel::renderStanceBar(game::GameHandler& gameHandler,
     ImGui::PopStyleVar(4);
 }
 
+namespace {
+/// Where a bag-bar click goes when FrameXML owns the bags.
+///
+/// renderBagBar is gated on the BagBar element and these buttons open the
+/// *bags*, which is a different element and handed over by default — so with
+/// nobody opting into anything, this client drew its own bag bar and every
+/// button on it toggled a window FrameXML draws and this client does not.
+///
+/// The container ids are WoW's: zero is the backpack and one to four are the
+/// equipped bags, where this client indexes those four from zero.
+bool bagsAreFrameXml() { return wowee::ui::frameXmlOwns(wowee::ui::UiElement::Bags); }
+}  // namespace
+
 bool ActionBarPanel::renderBagBar(game::GameHandler& gameHandler,
                          SettingsPanel& settingsPanel,
                          InventoryScreen& inventoryScreen) {
@@ -1506,7 +1520,9 @@ bool ActionBarPanel::renderBagBar(game::GameHandler& gameHandler,
                     ImGui::Separator();
                     bool isOpen = inventoryScreen.isSeparateBags() && inventoryScreen.isBagOpen(i);
                     if (ImGui::MenuItem(isOpen ? "Close Bag" : "Open Bag")) {
-                        if (inventoryScreen.isSeparateBags())
+                        if (bagsAreFrameXml())
+                            gameHandler.runInterfaceCommand("ToggleBag(" + std::to_string(i + 1) + ")");
+                        else if (inventoryScreen.isSeparateBags())
                             inventoryScreen.toggleBag(i);
                         else
                             inventoryScreen.toggle();
@@ -1594,14 +1610,18 @@ bool ActionBarPanel::renderBagBar(game::GameHandler& gameHandler,
                                    ImVec2(0, 0), ImVec2(1, 1),
                                    ImVec4(0.1f, 0.1f, 0.1f, 0.9f),
                                    colors::kWhite)) {
-                if (inventoryScreen.isSeparateBags())
+                if (bagsAreFrameXml())
+                    gameHandler.runInterfaceCommand("ToggleBackpack()");
+                else if (inventoryScreen.isSeparateBags())
                     inventoryScreen.toggleBackpack();
                 else
                     inventoryScreen.toggle();
             }
         } else {
             if (ImGui::Button("B", ImVec2(slotSize, slotSize))) {
-                if (inventoryScreen.isSeparateBags())
+                if (bagsAreFrameXml())
+                    gameHandler.runInterfaceCommand("ToggleBackpack()");
+                else if (inventoryScreen.isSeparateBags())
                     inventoryScreen.toggleBackpack();
                 else
                     inventoryScreen.toggle();
@@ -1614,14 +1634,17 @@ bool ActionBarPanel::renderBagBar(game::GameHandler& gameHandler,
         if (ImGui::BeginPopupContextItem("##backpackCtx")) {
             bool isOpen = inventoryScreen.isSeparateBags() && inventoryScreen.isBackpackOpen();
             if (ImGui::MenuItem(isOpen ? "Close Backpack" : "Open Backpack")) {
-                if (inventoryScreen.isSeparateBags())
+                if (bagsAreFrameXml())
+                    gameHandler.runInterfaceCommand("ToggleBackpack()");
+                else if (inventoryScreen.isSeparateBags())
                     inventoryScreen.toggleBackpack();
                 else
                     inventoryScreen.toggle();
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Open All Bags")) {
-                inventoryScreen.openAllBags();
+                if (bagsAreFrameXml()) gameHandler.runInterfaceCommand("OpenAllBags()");
+                else                   inventoryScreen.openAllBags();
             }
             if (ImGui::MenuItem("Close All Bags")) {
                 inventoryScreen.closeAllBags();
