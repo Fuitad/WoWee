@@ -2579,36 +2579,26 @@ void SpellHandler::handleAchievementEarned(network::Packet& packet) {
         if (owner_.achievementEarnedCallbackRef()) {
             owner_.achievementEarnedCallbackRef()(achievementId, achName);
         }
-    } else {
-        std::string senderName;
-        auto entity = owner_.getEntityManager().getEntity(guid);
-        if (auto* unit = dynamic_cast<Unit*>(entity.get())) {
-            senderName = unit->getName();
-        }
-        if (senderName.empty()) {
-            auto nit = owner_.getPlayerNameCache().find(guid);
-            if (nit != owner_.getPlayerNameCache().end())
-                senderName = nit->second;
-        }
-        if (senderName.empty()) {
-            char tmp[32];
-            std::snprintf(tmp, sizeof(tmp), "0x%llX",
-                          static_cast<unsigned long long>(guid));
-            senderName = tmp;
-        }
-        // Use std::string instead of fixed char[256] — achievement names can be
-        // long and combined with senderName could exceed 256 bytes, silently truncating.
-        std::string msg = senderName + (!achName.empty()
-            ? " has earned the achievement: " + achName
-            : " has earned an achievement! (ID " + std::to_string(achievementId) + ")");
-        owner_.addSystemChatMessage(msg);
+        // Inside the branch, not after it. ACHIEVEMENT_EARNED is what raises
+        // FrameXML's badge, and it is about the player who is reading it —
+        // somebody else's is CHAT_MSG_ACHIEVEMENT, which the server sends
+        // separately and this client already handles. Fired for everyone, a
+        // stranger turning in a quest nearby put their achievement badge on
+        // this player's screen.
+        if (owner_.addonEventCallbackRef())
+            owner_.addonEventCallbackRef()("ACHIEVEMENT_EARNED",
+                                           {std::to_string(achievementId)});
     }
+    // No line for somebody else's, because the server has already sent one.
+    // AchievementMgr::SendAchievementEarned puts a CHAT_MSG_ACHIEVEMENT through
+    // the say range and then sends this packet through the same range, so both
+    // arrive together — and this client parses that chat type, substitutes the
+    // achievement link into it, gives it a tab and fires CHAT_MSG_ACHIEVEMENT.
+    // Writing one here as well was the third copy of the same news.
 
     LOG_INFO("SMSG_ACHIEVEMENT_EARNED: guid=0x", std::hex, guid, std::dec,
              " achievementId=", achievementId, " self=", isSelf,
              achName.empty() ? "" : " name=", achName);
-    if (owner_.addonEventCallbackRef())
-        owner_.addonEventCallbackRef()("ACHIEVEMENT_EARNED", {std::to_string(achievementId)});
 }
 
 // SMSG_EQUIPMENT_SET_LIST — moved to InventoryHandler
