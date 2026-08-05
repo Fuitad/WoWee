@@ -1974,6 +1974,48 @@ int lua_Tooltip_SetInventoryItem(lua_State* L) {
     return 1;
 }
 
+/// The three socketing-panel tooltips.
+///
+/// Hovering a socket asks for one of these, and unbound they fell to the no-op
+/// path: the sockets drew, the gems drew, and hovering any of them produced
+/// nothing at all with nothing raised to say why. The panel's own hover handler
+/// picks between the first two — the gem waiting to go in, or the one already
+/// there — and shows both side by side when a click would replace one with the
+/// other.
+int lua_Tooltip_SetSocketGem(lua_State* L) {
+    auto* gh = wowee::addons::getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 2, 1)) - 1;
+    if (!widgetOf(L, 1) || !gh || index < 0 || index > 2) { lua_pushboolean(L, 0); return 1; }
+    const uint32_t gemId = gh->getSocketPendingGemItemId(index);
+    lua_pushboolean(L, fillItemTooltipById(L, gh, gemId) ? 1 : 0);
+    return 1;
+}
+
+/// SetExistingSocketGem(index, [comparison]) — the gem already in the socket.
+///
+/// The second argument means "this is the comparison window", which is how the
+/// panel shows what a click would throw away. It changes nothing about which
+/// item is described, so it is read and not used rather than silently ignored:
+/// the shopping tooltip it fills is positioned by the caller.
+int lua_Tooltip_SetExistingSocketGem(lua_State* L) {
+    auto* gh = wowee::addons::getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 2, 1)) - 1;
+    if (!widgetOf(L, 1) || !gh || index < 0 || index > 2) { lua_pushboolean(L, 0); return 1; }
+    const auto enchants = gh->getItemSocketEnchantIds(gh->getSocketItemGuid());
+    const uint32_t gemId = gh->getEnchantGemItem(enchants[static_cast<size_t>(index)]);
+    lua_pushboolean(L, fillItemTooltipById(L, gh, gemId) ? 1 : 0);
+    return 1;
+}
+
+/// SetSocketedItem() — the item whose sockets are on screen, which the panel
+/// keeps below the sockets as its description pane.
+int lua_Tooltip_SetSocketedItem(lua_State* L) {
+    auto* gh = wowee::addons::getGameHandler(L);
+    if (!widgetOf(L, 1) || !gh) { lua_pushboolean(L, 0); return 1; }
+    lua_pushboolean(L, fillItemTooltipById(L, gh, gh->getSocketItemId()) ? 1 : 0);
+    return 1;
+}
+
 /// SetQuestLogSpecialItem(questLogIndex) — the usable item on the watch frame.
 ///
 /// This sat in the method allowlist, which means it was answered with a no-op:
@@ -4017,6 +4059,9 @@ void LuaEngine::registerCoreAPI() {
         {"SetInventoryItem", lua_Tooltip_SetInventoryItem},
         {"SetBagItem",      lua_Tooltip_SetBagItem},
         {"SetQuestLogSpecialItem", lua_Tooltip_SetQuestLogSpecialItem},
+        {"SetSocketGem",          lua_Tooltip_SetSocketGem},
+        {"SetExistingSocketGem",  lua_Tooltip_SetExistingSocketGem},
+        {"SetSocketedItem",       lua_Tooltip_SetSocketedItem},
         {"SetCurrencyToken", lua_Tooltip_SetCurrencyToken},
         // Nothing is pinned under the bags — that is a saved choice this
         // client does not keep — so this answers false rather than
