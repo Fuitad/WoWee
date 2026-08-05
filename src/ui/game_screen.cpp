@@ -221,15 +221,18 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     // Set up UI error frame callback (once)
     if (!uiErrorCallbackSet_) {
         gameHandler.setUIErrorCallback([this](const std::string& msg) {
+            // The sound first, and outside the gate. It belongs to no
+            // element — the error is the same error whoever draws the text —
+            // and it sat after the return, so handing the errors over would
+            // have taken the sound with them.
+            if (auto* ac = services_.audioCoordinator) {
+                if (auto* sfx = ac->getUiSoundManager()) sfx->playError();
+            }
             // Both interfaces show these, and the event that carries them
             // reaches whichever is drawing.
             if (frameXmlOwns(UiElement::UiErrors)) return;
             uiErrors_.push_back({msg, 0.0f});
             if (uiErrors_.size() > 5) uiErrors_.erase(uiErrors_.begin());
-            // Play error sound for each new error (rate-limited by deque cap of 5)
-            if (auto* ac = services_.audioCoordinator) {
-                if (auto* sfx = ac->getUiSoundManager()) sfx->playError();
-            }
         });
         uiErrorCallbackSet_ = true;
     }

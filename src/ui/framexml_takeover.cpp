@@ -155,6 +155,13 @@ const std::set<std::string>& requested() {
         // nothing. tools/framexml_unbound_globals.py reports friendsframe
         // clean, which is the check this note used to ask for.
         //
+        // "uierrors" joins them. Its one unfired event is SYSMSG, which
+        // nothing backs — no opcode here produces one. What the frame is
+        // actually for is UI_ERROR_MESSAGE, and addUIError raises that from
+        // eighty sites now that the refusals in the social, inventory, spell,
+        // quest, chat, combat and movement handlers go through it instead of
+        // writing to chat alone.
+        //
         // "raidwarning" joins them. Three files, no missing call, no unfired
         // event: CHAT_MSG_RAID_WARNING and CHAT_MSG_RAID_BOSS_EMOTE are both
         // sent. It sat outside both tiers on a note saying the first was not
@@ -209,7 +216,7 @@ const std::set<std::string>& requested() {
                     "loot", "mail", "micromenu", "partyframes", "questgiver",
                     "questlog", "raidwarning", "readycheck", "social",
                     "stable", "talents", "taxi", "totems", "trade",
-                    "tradeskill", "vendor"}) {
+                    "tradeskill", "uierrors", "vendor"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "
