@@ -600,6 +600,25 @@ int lua_Region_GetTextWidth(lua_State* L) {
     return 1;
 }
 
+// FontString:GetFieldSize() → how many bytes of text this string will hold.
+//
+// One caller in all of FrameXML, and it is not asking out of curiosity:
+// GuildEventLog_Update reads it into `max` and then compares a running byte
+// count against it. Answering nil — which is what the no-op did, because
+// nothing here defined the name — raises "attempt to compare number with nil"
+// on the first event with a message, and the SetText at the end of the
+// function never runs. The guild event log was blank whenever there was
+// anything to put in it, and empty when there was not, so it looked consistent.
+//
+// Our font strings hold a std::string and truncate at nothing, so the true
+// answer is "more than you have". Kept finite anyway, because the caller uses
+// it as a number and a sentinel like HUGE_VAL would read oddly in arithmetic.
+int lua_Region_GetFieldSize(lua_State* L) {
+    (void)L;
+    lua_pushnumber(L, 1 << 20);
+    return 1;
+}
+
 int lua_Region_GetTextHeight(lua_State* L) {
     const auto* w = textWidgetOf(L, 1);
     if (!w) { lua_pushnumber(L, 0.0); return 1; }
@@ -2422,6 +2441,7 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     set("GetStringWidth", lua_Region_GetTextWidth);
     set("GetTextHeight", lua_Region_GetTextHeight);
     set("GetStringHeight", lua_Region_GetTextHeight);
+    set("GetFieldSize", lua_Region_GetFieldSize);
     set("GetHeight", lua_Region_GetHeight);
     set("GetLeft", lua_Region_GetLeft);
     set("GetRight", lua_Region_GetRight);
@@ -3696,6 +3716,7 @@ void LuaEngine::registerCoreAPI() {
         {"GetStringWidth",  lua_Region_GetTextWidth},
         {"GetTextHeight",   lua_Region_GetTextHeight},
         {"GetStringHeight", lua_Region_GetTextHeight},
+        {"GetFieldSize",    lua_Region_GetFieldSize},
         {"GetHeight",       lua_Region_GetHeight},
         {"GetLeft",         lua_Region_GetLeft},
         {"GetRight",        lua_Region_GetRight},
@@ -4375,7 +4396,7 @@ void LuaEngine::registerCoreAPI() {
         "GetCheckedTexture=1,GetChildList=1,GetChildren=1,GetColorRGB=1,\n"
         "GetCursorPosition=1,GetDisabledCheckedTexture=1,\n"
         "GetDisabledTexture=1,GetDrawLayer=1,GetEffectiveAttribute=1,\n"
-        "GetEffectiveScale=1,GetFieldSize=1,GetFileHeight=1,GetFileWidth=1,\n"
+        "GetEffectiveScale=1,GetFileHeight=1,GetFileWidth=1,\n"
         "GetFontObject=1,GetFontString=1,GetFrame=1,GetFrameLevel=1,GetFrameRef=1,\n"
         "GetFrameStrata=1,GetHeight=1,GetHighlightTexture=1,GetHorizontalScroll=1,\n"
         "GetHorizontalScrollRange=1,GetID=1,GetInputLanguage=1,GetInventorySlot=1,\n"
