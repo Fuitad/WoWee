@@ -95,6 +95,17 @@ static int lua_PlaySound(lua_State* L) {
         }
     } else {
         const char* name = luaL_optstring(L, 1, "");
+        // The real sound first. These names are SoundEntries.dbc rows — the
+        // interface is naming one, and the row names the files — so looking it
+        // up plays what WoW plays rather than the nearest thing this client had
+        // already loaded, and it covers all sixty-eight rather than the
+        // forty-four below.
+        //
+        // The table below stays as the fallback: an install without the sound,
+        // or without the dbc, still gets something for the names it can be
+        // approximated for.
+        if (sfx->playByName(name)) return 0;
+
         sound = name;
         for (char& c : sound) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <unordered_map>
 #include <vector>
 #include <memory>
 #include <string>
@@ -20,6 +21,19 @@ public:
     // Initialization
     bool initialize(pipeline::AssetManager* assets);
     void shutdown();
+
+    /// Play a sound by the name FrameXML asks for — PlaySound("igQuestFailed")
+    /// and its sixty-seven siblings.
+    ///
+    /// Resolved through SoundEntries.dbc, which is where those names come
+    /// from: the interface is naming a row, and the row names the files. That
+    /// is the real sound rather than the nearest one this client had already
+    /// loaded, and it covers every name rather than the forty-four somebody
+    /// mapped by hand.
+    ///
+    /// False when the name is not in the table or its file will not load, so
+    /// the caller can fall back rather than going silent.
+    bool playByName(const std::string& soundName);
 
     // Volume control
     void setVolumeScale(float scale);
@@ -141,6 +155,17 @@ private:
 
     // Helper methods
     bool loadSound(const std::string& path, UISample& sample, pipeline::AssetManager* assets);
+    /// SoundEntries rows by upper-cased name, built on the first playByName.
+    /// Empty after a build that found no table, which is also how the build is
+    /// stopped from being attempted on every click.
+    void ensureSoundEntriesLoaded();
+    bool soundEntriesBuilt_ = false;
+    std::unordered_map<std::string, std::vector<std::string>> soundPathsByName_;
+    /// Samples loaded on demand by name. Kept because a UI sound is played
+    /// again and again, and reading it from the archive each time is the one
+    /// cost this has that the preloaded libraries do not.
+    std::unordered_map<std::string, UISample> namedSamples_;
+    pipeline::AssetManager* assets_ = nullptr;
     void playSound(const std::vector<UISample>& library);
 };
 

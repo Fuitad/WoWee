@@ -150,8 +150,14 @@ def main():
         print("  (none)")
 
     sounds, silent = vocabulary(r'PlaySound\(\s*"([A-Za-z0-9_]+)"', SRC)
-    print(f"\n{len(sounds)} sound names asked for, {len(silent)} with nothing "
-          f"behind them:\n")
+    # "No hand-written mapping", not "silent". PlaySound resolves the name
+    # through SoundEntries.dbc first — the interface is naming a row in that
+    # table — and 102 of the 103 names it asks for are in it. The mapping below
+    # is the fallback for an install missing the sound or the table, so a name
+    # here is one that has no approximation to fall back *to*, not one that
+    # makes no noise.
+    print(f"\n{len(sounds)} sound names asked for, {len(silent)} with no "
+          f"hand-written mapping behind them:\n")
     for n in silent[:8]:
         print(f"  {n}")
     if len(silent) > 8:

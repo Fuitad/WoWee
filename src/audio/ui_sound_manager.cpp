@@ -12,6 +12,7 @@ bool UiSoundManager::initialize(pipeline::AssetManager* assets) {
         return false;
     }
 
+    assets_ = assets;
     LOG_INFO("UISoundManager: Initializing...");
 
     // Load window sounds
@@ -187,6 +188,79 @@ bool UiSoundManager::loadSound(const std::string& path, UISample& sample, pipeli
     }
 
     return false;
+}
+
+void UiSoundManager::ensureSoundEntriesLoaded() {
+    if (soundEntriesBuilt_) return;
+    soundEntriesBuilt_ = true;          // once, whether or not it works
+    if (!assets_) return;
+
+    auto dbc = assets_->loadDBC("SoundEntries.dbc");
+    if (!dbc || !dbc->isLoaded()) {
+        LOG_WARNING("UISoundManager: SoundEntries.dbc not available; "
+                    "PlaySound falls back to the names mapped by hand");
+        return;
+    }
+    // 3.3.5a layout: 0 ID, 1 SoundType, 2 Name, 3..12 File[0..9],
+    // 13..22 Freq[0..9], 23 DirectoryBase. The same reading zone_manager and
+    // npc_voice_manager already make of this table.
+    if (dbc->getFieldCount() < 24) {
+        LOG_WARNING("UISoundManager: SoundEntries.dbc has ", dbc->getFieldCount(),
+                    " fields, expected at least 24");
+        return;
+    }
+    for (uint32_t row = 0; row < dbc->getRecordCount(); ++row) {
+        std::string name = dbc->getString(row, 2);
+        if (name.empty()) continue;
+        for (char& ch : name) {
+            ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+        }
+        const std::string dir = dbc->getString(row, 23);
+        std::vector<std::string> paths;
+        for (uint32_t f = 3; f <= 12; ++f) {
+            const std::string file = dbc->getString(row, f);
+            if (file.empty()) continue;
+            paths.push_back(dir.empty() ? file : dir + "\\" + file);
+        }
+        // The first row wins. Names repeat in this table and the later rows
+        // are variants; a UI click wants one sound, not a different one each
+        // time.
+        if (!paths.empty()) soundPathsByName_.emplace(name, std::move(paths));
+    }
+    LOG_INFO("UISoundManager: ", soundPathsByName_.size(),
+             " sound names from SoundEntries.dbc");
+}
+
+bool UiSoundManager::playByName(const std::string& soundName) {
+    if (!initialized_ || soundName.empty()) return false;
+    ensureSoundEntriesLoaded();
+
+    std::string key = soundName;
+    for (char& ch : key) {
+        ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+    }
+
+    auto cached = namedSamples_.find(key);
+    if (cached == namedSamples_.end()) {
+        auto it = soundPathsByName_.find(key);
+        if (it == soundPathsByName_.end()) return false;
+        UISample sample;
+        sample.loaded = false;
+        for (const std::string& path : it->second) {
+            if (loadSound(path, sample, assets_)) break;
+        }
+        // Remembered even when nothing loaded, so a name whose file this
+        // install does not have is looked for once rather than on every click.
+        cached = namedSamples_.emplace(key, std::move(sample)).first;
+    }
+    if (!cached->second.loaded) return false;
+
+    // What happened, not what was attempted. playSound2D decodes WAV and
+    // answers false for anything else, and SoundEntries lists a couple of
+    // thousand mp3s among its wavs — claiming success for one of those would
+    // skip the fallback below this and play nothing at all.
+    return AudioEngine::instance().playSound2D(cached->second.data,
+                                               0.7f * volumeScale_, 1.0f);
 }
 
 void UiSoundManager::playSound(const std::vector<UISample>& library) {
