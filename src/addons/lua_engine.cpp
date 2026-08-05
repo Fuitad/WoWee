@@ -260,19 +260,6 @@ static int lua_Frame_GetName(lua_State* L) {
     return 1;
 }
 
-// Frame method: frame:Show() / frame:Hide() / frame:IsShown() / frame:IsVisible()
-static int lua_Frame_Show(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    lua_pushboolean(L, 1);
-    lua_setfield(L, 1, "__visible");
-    return 0;
-}
-static int lua_Frame_Hide(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    lua_pushboolean(L, 0);
-    lua_setfield(L, 1, "__visible");
-    return 0;
-}
 
 
 // ── Widget-backed regions ───────────────────────────────────────────────────
@@ -664,6 +651,23 @@ int lua_Region_GetLeft(lua_State* L) {
     lua_pushnumber(L, w ? w->left : 0.0);
     return 1;
 }
+/// GetCenter() — the middle of the frame, in the same screen units GetLeft and
+/// GetBottom report.
+///
+/// There was a version of this that read __xOfs and __yOfs, fields written only
+/// by a SetPoint that was defined beside it and registered nowhere. So it
+/// answered the frame's anchor offsets when it answered anything, and zero for
+/// every frame in the interface — which is what the minimap uses to turn a
+/// click into a ping position, and what the world map uses to place its
+/// markers.
+int lua_Region_GetCenter(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    if (!w) { lua_pushnil(L); lua_pushnil(L); return 2; }
+    lua_pushnumber(L, w->left + w->rectW * 0.5f);
+    lua_pushnumber(L, w->bottom + w->rectH * 0.5f);
+    return 2;
+}
+
 int lua_Region_GetRight(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     lua_pushnumber(L, w ? (w->left + w->rectW) : 0.0);
@@ -3155,74 +3159,6 @@ static int lua_GetScreenHeight(lua_State* L) {
 
 // Modifier key state queries using ImGui IO
 
-static int lua_Frame_SetPoint(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    const char* point = luaL_optstring(L, 2, "CENTER");
-    // Store point info in frame table
-    lua_pushstring(L, point);
-    lua_setfield(L, 1, "__point");
-    // Optional x/y offsets (args 4,5 if relativeTo is given, or 3,4 if not)
-    double xOfs = 0, yOfs = 0;
-    if (lua_isnumber(L, 4)) { xOfs = lua_tonumber(L, 4); yOfs = lua_tonumber(L, 5); }
-    else if (lua_isnumber(L, 3)) { xOfs = lua_tonumber(L, 3); yOfs = lua_tonumber(L, 4); }
-    lua_pushnumber(L, xOfs);
-    lua_setfield(L, 1, "__xOfs");
-    lua_pushnumber(L, yOfs);
-    lua_setfield(L, 1, "__yOfs");
-    return 0;
-}
-
-static int lua_Frame_SetSize(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    double w = luaL_optnumber(L, 2, 0);
-    double h = luaL_optnumber(L, 3, 0);
-    lua_pushnumber(L, w);
-    lua_setfield(L, 1, "__width");
-    lua_pushnumber(L, h);
-    lua_setfield(L, 1, "__height");
-    return 0;
-}
-
-static int lua_Frame_SetWidth(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    lua_pushnumber(L, luaL_checknumber(L, 2));
-    lua_setfield(L, 1, "__width");
-    return 0;
-}
-
-static int lua_Frame_SetHeight(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    lua_pushnumber(L, luaL_checknumber(L, 2));
-    lua_setfield(L, 1, "__height");
-    return 0;
-}
-
-static int lua_Frame_GetWidth(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    lua_getfield(L, 1, "__width");
-    if (lua_isnil(L, -1)) { lua_pop(L, 1); lua_pushnumber(L, 0); }
-    return 1;
-}
-
-static int lua_Frame_GetHeight(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    lua_getfield(L, 1, "__height");
-    if (lua_isnil(L, -1)) { lua_pop(L, 1); lua_pushnumber(L, 0); }
-    return 1;
-}
-
-static int lua_Frame_GetCenter(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    lua_getfield(L, 1, "__xOfs");
-    double x = lua_isnumber(L, -1) ? lua_tonumber(L, -1) : 0;
-    lua_pop(L, 1);
-    lua_getfield(L, 1, "__yOfs");
-    double y = lua_isnumber(L, -1) ? lua_tonumber(L, -1) : 0;
-    lua_pop(L, 1);
-    lua_pushnumber(L, x);
-    lua_pushnumber(L, y);
-    return 2;
-}
 
 // SetAlpha and GetAlpha are lua_Region_SetAlpha and lua_Region_GetAlpha, which
 // is what both registrations name. A second pair here kept the value in a
@@ -3759,7 +3695,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetZoom",         lua_Minimap_SetZoom},
         {"GetZoom",         lua_Minimap_GetZoom},
         {"GetZoomLevels",   lua_Minimap_GetZoomLevels},
-        {"GetCenter",       lua_Frame_GetCenter},
+        {"GetCenter",       lua_Region_GetCenter},
         {"SetAlpha",        lua_Region_SetAlpha},
         {"GetAlpha",        lua_Region_GetAlpha},
         {"EnableMouse",     lua_Frame_EnableMouse},
