@@ -804,6 +804,24 @@ static int lua_ClosePetition(lua_State* L) {
 // log entry reads "3 days ago" rather than a calendar date.
 static int lua_GetNumGuildEvents(lua_State* L) {
     auto* gh = getGameHandler(L);
+    // Asked for the first time it is wanted, because nothing else asks.
+    //
+    // The whole chain is here — MSG_GUILD_EVENT_LOG_QUERY goes out,
+    // handleGuildEventLog reads the reply and fires GUILD_EVENT_LOG_UPDATE,
+    // and friendsframe registers for it — with one link missing at each end.
+    // FrameXML would have made the request from ToggleGuildEventLog, and
+    // Blizzard commented that line out, so opening the tab asked nobody for
+    // anything and drew an empty log.
+    //
+    // GuildEventLog_Update calls this first, so the tab opening is what sends
+    // it: empty log, request, reply, event, and the update runs again with
+    // entries. Once per session, so a guild with genuinely no events does not
+    // ask again every time the tab is drawn.
+    static bool asked = false;
+    if (gh && !asked && gh->getGuildEventLog().empty() && gh->isInGuild()) {
+        asked = true;
+        gh->requestGuildEventLog();
+    }
     lua_pushnumber(L, gh ? static_cast<double>(gh->getGuildEventLog().size()) : 0.0);
     return 1;
 }
@@ -970,9 +988,12 @@ void registerSocialLuaAPI(lua_State* L) {
             lua_pushnumber(L, static_cast<int>((days - totalDays) * 24.0f)); // hours
             return 4;
         }},
-                // The guild event log is a separate request this client never
-                // makes, so there are no entries to describe.
-                {"GetGuildEventInfo", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                // GetGuildEventInfo is registered once, further up, with the
+                // implementation that reads the log. A second entry here
+                // answered nil and, being later, won — so the reader above it
+                // could never run and the tab was empty whatever arrived. The
+                // note that stood here said the request is never made, which
+                // was true of the request and not of the reader.
                 // One realm, so everyone is on it.
                 {"UnitIsSameServer", [](lua_State* L) -> int { lua_pushboolean(L, 1); return 1; }},
                 // Recruit-a-Friend summoning, which needs a linked account.

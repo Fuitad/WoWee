@@ -3246,7 +3246,15 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"CancelSkillUps",           lua_ReturnNothing},
                 {"ConvertToRaid",            lua_ReturnNothing},
                 {"FillLocalizedClassList",   lua_ReturnNothing},
-                {"QueryGuildEventLog",       lua_ReturnNothing},
+                // Sends the request rather than doing nothing. The reply is
+                // parsed, fires GUILD_EVENT_LOG_UPDATE and friendsframe
+                // listens for it, so answering nothing here was the one link
+                // missing at this end — and FrameXML's own call to it is
+                // commented out, which is the link missing at the other.
+                {"QueryGuildEventLog", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->requestGuildEventLog();
+            return 0;
+        }},
                 {"RegisterForSave",          lua_ReturnNothing},
                 {"RegisterStaticConstants",  lua_ReturnNothing},
                 {"SetChatWindowName",        lua_SetChatWindowName},
