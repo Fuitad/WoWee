@@ -3231,8 +3231,22 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"VehicleAimGetNormPower",   lua_ReturnZero},
                 {"GetMapInfo",               lua_GetMapInfo},
                 {"GetExpansionLevel",        lua_GetExpansionLevel},
-                {"GetDungeonDifficulty",     lua_ReturnOne},
-                {"GetRaidDifficulty",        lua_ReturnOne},
+                // The difficulty the player is set to, which this client is
+                // told by SMSG_INSTANCE_DIFFICULTY and kept answering as one.
+                // A dropdown reading a constant shows the wrong tick and, worse,
+                // sends a change nobody asked for when the menu is opened.
+                {"GetDungeonDifficulty", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t d = gh ? gh->getInstanceDifficulty() : 0;
+            lua_pushnumber(L, d ? d : 1);
+            return 1;
+        }},
+                {"GetRaidDifficulty", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t d = gh ? gh->getInstanceDifficulty() : 0;
+            lua_pushnumber(L, d ? d : 1);
+            return 1;
+        }},
                 {"GetChatTypeIndex",         lua_ReturnOne},
                 {"GetDefaultLanguage",       lua_GetDefaultLanguage},
                 {"GetWeaponEnchantInfo",     lua_GetWeaponEnchantInfo},

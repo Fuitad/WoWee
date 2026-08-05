@@ -1613,8 +1613,8 @@ void GameHandler::cancelLogout() {
     if (socialHandler_) socialHandler_->cancelLogout();
 }
 
-void GameHandler::sendSetDifficulty(uint32_t difficulty) {
-    if (socialHandler_) socialHandler_->sendSetDifficulty(difficulty);
+void GameHandler::sendSetDifficulty(uint32_t difficulty, bool raid) {
+    if (socialHandler_) socialHandler_->sendSetDifficulty(difficulty, raid);
 }
 
 void GameHandler::setStandState(uint8_t standState) {

@@ -612,7 +612,7 @@ public:
     void cancelLogout();
 
     // Instance difficulty
-    void sendSetDifficulty(uint32_t difficulty);
+    void sendSetDifficulty(uint32_t difficulty, bool raid = false);
     bool  isLoggingOut() const;
     float getLogoutCountdown() const;
 

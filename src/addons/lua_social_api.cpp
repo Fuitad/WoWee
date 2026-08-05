@@ -2321,8 +2321,21 @@ void registerSocialLuaAPI(lua_State* L) {
             lua_pushboolean(L, optOutOfLoot() ? 1 : 0);
             return 1;
         }},
-                {"SetDungeonDifficulty",      [](lua_State* L) -> int { (void)L; return 0; }},
-                {"SetRaidDifficulty",         [](lua_State* L) -> int { (void)L; return 0; }},
+                // Both send a real opcode now; sendSetDifficulty used to write
+                // CMSG_CHANGEPLAYER_DIFFICULTY, which the server reads off the
+                // wire and throws away.
+                {"SetDungeonDifficulty", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t mode = static_cast<uint32_t>(luaL_optnumber(L, 1, 1));
+            if (gh) gh->sendSetDifficulty(mode, /*raid=*/false);
+            return 0;
+        }},
+                {"SetRaidDifficulty", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t mode = static_cast<uint32_t>(luaL_optnumber(L, 1, 1));
+            if (gh) gh->sendSetDifficulty(mode, /*raid=*/true);
+            return 0;
+        }},
                                 {"ChannelBan", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const char* ch = luaL_optstring(L, 1, "");

@@ -3950,16 +3950,24 @@ void SocialHandler::requestCalendar() {
 // Methods moved from GameHandler
 // ============================================================
 
-void SocialHandler::sendSetDifficulty(uint32_t difficulty) {
+void SocialHandler::sendSetDifficulty(uint32_t difficulty, bool raid) {
     if (!owner_.isInWorld()) {
         LOG_WARNING("Cannot change difficulty: not in world");
         return;
     }
 
-    network::Packet packet(wireOpcode(Opcode::CMSG_CHANGEPLAYER_DIFFICULTY));
+    // MSG_SET_DUNGEON_DIFFICULTY, not CMSG_CHANGEPLAYER_DIFFICULTY. The latter
+    // is a real opcode number and the server registers it with Handle_NULL and
+    // STATUS_NEVER — it is read off the wire and discarded — so every
+    // difficulty change ever sent from here went nowhere. Both of the real ones
+    // carry a single uint32 mode.
+    const Opcode op = raid ? Opcode::MSG_SET_RAID_DIFFICULTY
+                           : Opcode::MSG_SET_DUNGEON_DIFFICULTY;
+    network::Packet packet(wireOpcode(op));
     packet.writeUInt32(difficulty);
     owner_.getSocket()->send(packet);
-    LOG_INFO("CMSG_CHANGEPLAYER_DIFFICULTY sent: difficulty=", difficulty);
+    LOG_INFO(raid ? "MSG_SET_RAID_DIFFICULTY sent: difficulty="
+                  : "MSG_SET_DUNGEON_DIFFICULTY sent: difficulty=", difficulty);
 }
 
 void SocialHandler::toggleHelm() {

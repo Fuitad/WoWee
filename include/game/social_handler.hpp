@@ -294,7 +294,7 @@ public:
     void requestCalendar();
 
     // ---- Methods moved from GameHandler ----
-    void sendSetDifficulty(uint32_t difficulty);
+    void sendSetDifficulty(uint32_t difficulty, bool raid = false);
     void toggleHelm();
     void toggleCloak();
     void setStandState(uint8_t standState);
