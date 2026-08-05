@@ -848,53 +848,101 @@ static bool ctrlHeld()  { return (SDL_GetModState() & KMOD_CTRL)  != 0; }
 static bool altHeld()   { return (SDL_GetModState() & KMOD_ALT)   != 0; }
 
 
+/// What bindings.xml declares for a modified-click action, or empty.
+///
+/// One list, read once. The emitter keeps every <ModifiedClick action= default=>
+/// in __WoweeModifiedClick, which is the same file the key bindings panel is
+/// built from — so this cannot drift from what the interface believes.
+///
+/// It had drifted. A table written out by hand here answered ALT for FOCUSCAST,
+/// which bindings.xml declares as NONE, so alt-clicking a spell tried to cast
+/// it at the focus when nothing had asked for that; and both flyout actions are
+/// declared ALT and fell through to a shift default.
+static std::string modifiedClickBinding(lua_State* L, const std::string& action) {
+    lua_getglobal(L, "__WoweeModifiedClick");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); return {}; }
+    lua_getfield(L, -1, action.c_str());
+    const char* value = lua_tostring(L, -1);
+    std::string out = value ? value : "";
+    lua_pop(L, 2);
+    return out;
+}
+
+/// Whether the modifiers a binding names are all held.
+///
+/// A binding is a dash-separated list ending in an optional button —
+/// "SHIFT-BUTTON1", "CTRL", "NONE". The button half is the caller's business:
+/// it already knows which button was pressed, and every caller here is inside
+/// a handler for one.
+static bool modifiersHeldFor(const std::string& binding) {
+    if (binding.empty() || binding == "NONE") return false;
+    bool wantShift = false, wantCtrl = false, wantAlt = false;
+    size_t at = 0;
+    while (at <= binding.size()) {
+        const size_t dash = binding.find('-', at);
+        const std::string part = binding.substr(
+            at, dash == std::string::npos ? std::string::npos : dash - at);
+        if (part == "SHIFT") wantShift = true;
+        else if (part == "CTRL") wantCtrl = true;
+        else if (part == "ALT") wantAlt = true;
+        if (dash == std::string::npos) break;
+        at = dash + 1;
+    }
+    if (!wantShift && !wantCtrl && !wantAlt) return false;
+    return (!wantShift || shiftHeld()) && (!wantCtrl || ctrlHeld()) &&
+           (!wantAlt || altHeld());
+}
+
 // IsModifiedClick(action) → boolean
-// Checks if a modifier key combo matches a named click action.
-// Common actions: "CHATLINK" (shift-click), "DRESSUP" (ctrl-click),
-//                 "SPLITSTACK" (shift-click), "SELFCAST" (alt-click)
 static int lua_IsModifiedClick(lua_State* L) {
     const char* action = luaL_optstring(L, 1, "");
     std::string act(action);
     for (char& c : act) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-    bool result = false;
     if (act.empty()) {
         // No action named means "is this click modified at all", which is how
         // the paperdoll and the bags branch: IsModifiedClick() picks between
         // OnModifiedClick and the plain OnClick. Answering with shift alone
         // sent every ctrl-click down the plain path, so ctrl-clicking a worn
         // item picked it up instead of putting it in the dressing room.
-        result = shiftHeld() || ctrlHeld() || altHeld();
+        lua_pushboolean(L, (shiftHeld() || ctrlHeld() || altHeld()) ? 1 : 0);
+        return 1;
     }
-    else if (act == "CHATLINK" || act == "SPLITSTACK")
-        result = shiftHeld();
-    else if (act == "DRESSUP" || act == "COMPAREITEMS")
-        result = ctrlHeld();
-    else if (act == "SELFCAST" || act == "FOCUSCAST")
-        result = altHeld();
-    else if (act == "STICKYCAMERA")
-        result = ctrlHeld();
-    else
-        result = shiftHeld(); // Default: shift for unknown actions
-    lua_pushboolean(L, result ? 1 : 0);
+    const std::string binding = modifiedClickBinding(L, act);
+    // An action bindings.xml has never heard of. Shift is what the interface's
+    // own unbound actions use, and answering false would make a modified click
+    // on one unreachable rather than merely bound elsewhere.
+    lua_pushboolean(L, (binding.empty() ? shiftHeld() : modifiersHeldFor(binding)) ? 1 : 0);
     return 1;
 }
 
-// GetModifiedClick(action) → key name ("SHIFT", "CTRL", "ALT", "NONE")
+// GetModifiedClick(action) → the binding it is on ("SHIFT", "CTRL-BUTTON1", "NONE")
 static int lua_GetModifiedClick(lua_State* L) {
     const char* action = luaL_optstring(L, 1, "");
     std::string act(action);
     for (char& c : act) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-    if (act == "CHATLINK" || act == "SPLITSTACK")
-        lua_pushstring(L, "SHIFT");
-    else if (act == "DRESSUP" || act == "COMPAREITEMS")
-        lua_pushstring(L, "CTRL");
-    else if (act == "SELFCAST" || act == "FOCUSCAST")
-        lua_pushstring(L, "ALT");
-    else
-        lua_pushstring(L, "SHIFT");
+    const std::string binding = modifiedClickBinding(L, act);
+    lua_pushstring(L, binding.empty() ? "SHIFT" : binding.c_str());
     return 1;
 }
-static int lua_SetModifiedClick(lua_State* L) { (void)L; return 0; }
+
+// SetModifiedClick(action, binding) — rebinding one from the options panel.
+//
+// It wrote nowhere, so the panel accepted a change and the next question about
+// that action answered the old value. The table the emitter fills is the same
+// one read above, so writing to it is the whole of it.
+static int lua_SetModifiedClick(lua_State* L) {
+    const char* action = luaL_optstring(L, 1, "");
+    const char* binding = luaL_optstring(L, 2, "NONE");
+    if (!action || !*action) return 0;
+    std::string act(action);
+    for (char& c : act) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+    lua_getglobal(L, "__WoweeModifiedClick");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); return 0; }
+    lua_pushstring(L, binding);
+    lua_setfield(L, -2, act.c_str());
+    lua_pop(L, 1);
+    return 0;
+}
 
 
 // --- Trading ---

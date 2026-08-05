@@ -1139,8 +1139,22 @@ void canonicaliseNames(XmlNode& node) {
 /// RunBinding has to be able to call one.
 void emitBindings(Emitter& e, const XmlNode& root) {
     e.line("__WoweeBindings = __WoweeBindings or {}");
+    // <ModifiedClick action="CHATLINK" default="SHIFT-BUTTON1"/> and fifteen
+    // more. Nothing is drawn for these either, and they were dropped — while
+    // IsModifiedClick answered from a table written out by hand beside them.
+    // Two readings of one list, and they disagreed: FOCUSCAST is declared NONE
+    // here and answered ALT there, and the two flyout actions are declared ALT
+    // and fell through to a shift default.
+    e.line("__WoweeModifiedClick = __WoweeModifiedClick or {}");
     e.line("__WoweeBindingScripts = __WoweeBindingScripts or {}");
     e.line("__WoweeBindingRunOnUp = __WoweeBindingRunOnUp or {}");
+    for (const XmlNode& m : root.children) {
+        if (m.name != "ModifiedClick") continue;
+        const std::string action = m.attrOr("action", "");
+        if (action.empty()) continue;
+        e.line("__WoweeModifiedClick[" + quote(action) + "] = " +
+               quote(m.attrOr("default", "NONE")));
+    }
     for (const XmlNode& b : root.children) {
         if (b.name != "Binding") continue;
         const std::string name = b.attrOr("name", "");
