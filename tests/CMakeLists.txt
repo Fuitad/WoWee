@@ -166,12 +166,23 @@ target_link_libraries(test_widget_tree PRIVATE catch2_main)
 add_test(NAME widget_tree COMMAND test_widget_tree)
 register_test_target(test_widget_tree)
 
+# ── test_water_mask ─────────────────────────────────────────
+add_executable(test_water_mask
+    test_water_mask.cpp
+)
+target_include_directories(test_water_mask PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_water_mask SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_water_mask PRIVATE catch2_main)
+add_test(NAME water_mask COMMAND test_water_mask)
+register_test_target(test_water_mask)
+
 # ── test_addon_globals ──────────────────────────────────────
 add_executable(test_addon_globals
     test_addon_globals.cpp
 )
 target_include_directories(test_addon_globals PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_addon_globals SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_addon_globals PRIVATE catch2_main)
 add_test(NAME addon_globals COMMAND test_addon_globals)
 register_test_target(test_addon_globals)
 

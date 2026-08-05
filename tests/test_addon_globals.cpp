@@ -6,10 +6,10 @@
 // so a global FrameXML needs is gone. Every case below is one of the second
 // kind except where marked.
 
+#include <catch_amalgamated.hpp>
+
 #include "addons/addon_globals.hpp"
 
-#include <cassert>
-#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -23,7 +23,7 @@ bool has(const std::vector<std::string>& v, const std::string& name) {
     return false;
 }
 
-void testLuaFunctions() {
+TEST_CASE("a lua function declaration is a global") {
     std::vector<std::string> out;
     collectLuaGlobals(
         "function CombatText_UpdateDisplayedMessages()\n"
@@ -33,12 +33,12 @@ void testLuaFunctions() {
         "function TimeManagerClockButton_OnLoad(self)\n"
         "end\n",
         out);
-    assert(has(out, "CombatText_UpdateDisplayedMessages"));
-    assert(has(out, "IndentedStillGlobal"));
-    assert(has(out, "TimeManagerClockButton_OnLoad"));
+    REQUIRE(has(out, "CombatText_UpdateDisplayedMessages"));
+    REQUIRE(has(out, "IndentedStillGlobal"));
+    REQUIRE(has(out, "TimeManagerClockButton_OnLoad"));
 }
 
-void testLuaLocalsAreNotGlobals() {
+TEST_CASE("locals and indented assignments are not claimed") {
     std::vector<std::string> out;
     collectLuaGlobals(
         "local function HelperNobodyElseSees()\n"
@@ -48,32 +48,32 @@ void testLuaLocalsAreNotGlobals() {
         "if Something == Other then\n"  // a comparison, not an assignment
         "end\n",
         out);
-    assert(!has(out, "HelperNobodyElseSees"));
-    assert(!has(out, "NotAGlobal"));
-    assert(!has(out, "IndentedAssignment"));
-    assert(!has(out, "Something"));
+    REQUIRE(!has(out, "HelperNobodyElseSees"));
+    REQUIRE(!has(out, "NotAGlobal"));
+    REQUIRE(!has(out, "IndentedAssignment"));
+    REQUIRE(!has(out, "Something"));
 }
 
-void testLuaFileScopeAssignment() {
+TEST_CASE("a file-scope assignment is a global") {
     std::vector<std::string> out;
     collectLuaGlobals("MAX_ARENA_TEAM_MEMBERS = 10;\n"
                       "ArenaEnemyFrames = nil\n",
                       out);
-    assert(has(out, "MAX_ARENA_TEAM_MEMBERS"));
-    assert(has(out, "ArenaEnemyFrames"));
+    REQUIRE(has(out, "MAX_ARENA_TEAM_MEMBERS"));
+    REQUIRE(has(out, "ArenaEnemyFrames"));
 }
 
-void testXmlNames() {
+TEST_CASE("a named xml frame is a global") {
     std::vector<std::string> out;
     collectXmlNames(
         "<Frame name=\"AchievementFrame\" parent=\"UIParent\">\n"
         "<Button name=\"TimeManagerClockButton\" inherits=\"X\">\n",
         out);
-    assert(has(out, "AchievementFrame"));
-    assert(has(out, "TimeManagerClockButton"));
+    REQUIRE(has(out, "AchievementFrame"));
+    REQUIRE(has(out, "TimeManagerClockButton"));
 }
 
-void testXmlSkipsTemplatesAndBuiltNames() {
+TEST_CASE("templates and built names are not claimed") {
     std::vector<std::string> out;
     collectXmlNames(
         // A template's name never becomes a global.
@@ -84,19 +84,10 @@ void testXmlSkipsTemplatesAndBuiltNames() {
         // Built from the parent's name at runtime, so it is not this literal.
         "<Texture name=\"$parentIcon\">\n",
         out);
-    assert(!has(out, "MacroButtonTemplate"));
-    assert(!has(out, "AnotherTemplate"));
-    assert(out.empty());
+    REQUIRE(!has(out, "MacroButtonTemplate"));
+    REQUIRE(!has(out, "AnotherTemplate"));
+    REQUIRE(out.empty());
 }
 
 }  // namespace
 
-int main() {
-    testLuaFunctions();
-    testLuaLocalsAreNotGlobals();
-    testLuaFileScopeAssignment();
-    testXmlNames();
-    testXmlSkipsTemplatesAndBuiltNames();
-    std::printf("addon_globals: all tests passed\n");
-    return 0;
-}

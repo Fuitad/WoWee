@@ -1,4 +1,5 @@
 #include "rendering/water_renderer.hpp"
+#include "rendering/water_mask.hpp"
 #include "rendering/vk_context.hpp"
 #include "rendering/vk_pipeline.hpp"
 #include "rendering/vk_shader.hpp"
@@ -853,45 +854,21 @@ void WaterRenderer::loadFromTerrain(const pipeline::ADTTerrain& terrain, bool ap
                 }
             }
 
-            // An ocean chunk covers itself completely — all sixty-four
-            // sub-tiles, not only the layer's sub-rect — which is what the
-            // tile-wide seed was really for.
-            if (isOcean) {
-                for (int a = 0; a < 8; a++) {
-                    for (int b = 0; b < 8; b++) {
-                        int mx = baseGx + a;
-                        int my = baseGy + b;
-                        if (mx >= MERGED_W || my >= MERGED_W) continue;
-                        int idx = my * MERGED_W + mx;
-                        surface.mask[idx / 8] |= static_cast<uint8_t>(1 << (idx % 8));
-                    }
-                }
-            }
-
-            // Copy mask — mark contributing sub-tiles as renderable.
-            // layer.mask is the canonical chunk-wide 8x8 mask (row*8+col, LSB).
-            for (int ly = 0; ly < layer.height; ly++) {
-                for (int lx = 0; lx < layer.width; lx++) {
-                    bool render = true;
-                    if (!layer.mask.empty()) {
-                        int origTileIdx = (layer.y + ly) * 8 + (layer.x + lx);
-                        int origByte = origTileIdx / 8;
-                        int origBit = origTileIdx % 8;
-                        if (origByte < static_cast<int>(layer.mask.size())) {
-                            render = (layer.mask[origByte] & (1 << origBit)) != 0;
-                        }
-                    }
-
-                    if (render) {
-                        int mx = baseGx + layer.y + ly;
-                        int my = baseGy + layer.x + lx;
-                        if (mx >= MERGED_W || my >= MERGED_W) continue;
-
-                        int mergedTileIdx = my * MERGED_W + mx;
-                        int byteIdx = mergedTileIdx / 8;
-                        int bitIdx = mergedTileIdx % 8;
-                        surface.mask[byteIdx] |= static_cast<uint8_t>(1 << bitIdx);
-                    }
+            // Which of this chunk's sixty-four sub-tiles are drawn. The rule
+            // lives in water_mask.hpp so it can be checked without a device;
+            // this places the answer, in the chunk-row-to-render-X order the
+            // merged grid uses.
+            const uint64_t chunkMask = chunkWaterMask(
+                layer.mask, layer.x, layer.y, layer.width, layer.height, isOcean);
+            for (int row = 0; row < 8; row++) {
+                for (int col = 0; col < 8; col++) {
+                    if (!(chunkMask & (uint64_t{1} << (row * 8 + col)))) continue;
+                    const int mx = baseGx + row;
+                    const int my = baseGy + col;
+                    if (mx >= MERGED_W || my >= MERGED_W) continue;
+                    const int mergedTileIdx = my * MERGED_W + mx;
+                    surface.mask[mergedTileIdx / 8] |=
+                        static_cast<uint8_t>(1 << (mergedTileIdx % 8));
                 }
             }
         }
