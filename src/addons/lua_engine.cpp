@@ -1736,9 +1736,18 @@ static void fillItemTooltip(wowee::ui::Widget* w, const game::ItemDef& item,
 ///
 /// The name and its quality colour were the whole of the tooltip, which reads
 /// as a tooltip that works right up until someone wants to know whether the
-/// sword is better than the one they are holding. This client's own bag window
-/// has always shown the rest; the bags are handed over, so this is the only
-/// tooltip left and it has to say the same things.
+/// sword is better than the one they are holding.
+///
+/// **This is not the only item tooltip.** It used to say it was. The bootstrap
+/// Lua defines a second builder, _WoweePopulateItemTooltip, and defines
+/// SetBagItem and SetAction on the frame metatable *after* the C bindings are
+/// registered onto that same table — so a bag item and an action-bar item go
+/// through the Lua one and this serves the guild bank, the currency tokens and
+/// the quest-log special item. Two builders, and which one describes an item
+/// depends on where it was hovered, which is the fault the SetAction comment
+/// above believes it fixed. Consolidating them is open work; until then, a line
+/// added here appears in some tooltips and not others.
+/// tools/api_shadowing_check.py lists the names this affects.
 ///
 /// Ordered as WoW orders it: binding, then what it is and where it goes, then
 /// the numbers, then the requirements, then the flavour text last.
@@ -5537,16 +5546,16 @@ void LuaEngine::registerCoreAPI() {
         "    self.__itemId = itemId\n"
         "    return true\n"
         "end\n"
-        "function __WoweeFrameMT:SetInventoryItem(unit, slot)\n"
-        "    self:ClearLines()\n"
-        "    if unit ~= 'player' then return false, false, 0 end\n"
-        "    local link = GetInventoryItemLink(unit, slot)\n"
-        "    if not link then return false, false, 0 end\n"
-        "    local id = link:match('item:(%d+)')\n"
-        "    if not id then return false, false, 0 end\n"
-        "    local ok = _WoweePopulateItemTooltip(self, tonumber(id))\n"
-        "    return ok or false, false, 0\n"
-        "end\n"
+        // No SetInventoryItem here. It was written on this metatable and won,
+        // because the bootstrap runs after the C bindings are registered onto
+        // the same table — and it answered false for any unit but the player,
+        // so every slot of the inspect paperdoll showed nothing. The C binding
+        // it was hiding resolves the unit and reads that player's inspected
+        // item entries, and carries a comment about an earlier bug where the
+        // unit was ignored and the *player's* own item was shown in its place.
+        // Two implementations of one method, and the weaker one was winning by
+        // load order alone. Found by tools/api_shadowing_check.py, which calls
+        // this shape a fault and was right.
         "function __WoweeFrameMT:SetBagItem(bag, slot)\n"
         "    self:ClearLines()\n"
         "    local tex, count, locked, quality, readable, lootable, link = GetContainerItemInfo(bag, slot)\n"
