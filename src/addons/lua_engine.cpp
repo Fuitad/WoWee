@@ -2683,6 +2683,9 @@ int lua_EditBox_SetText(lua_State* L) {
     if (!w) return 0;
     w->editText = luaL_optstring(L, 2, "");
     w->cursorPos = w->editText.size();
+    // The text no longer came from the history, so the arrows start again from
+    // the newest line rather than resuming from the middle of a walk.
+    w->editHistoryPos = -1;
     return 0;
 }
 int lua_EditBox_GetText(lua_State* L) {
@@ -2715,6 +2718,31 @@ int lua_EditBox_SetNumber(lua_State* L) {
     w->cursorPos = w->editText.size();
     return 0;
 }
+/// AddHistoryLine(text) — remember a line that was sent from this box.
+///
+/// FrameXML calls this from every place a chat line is submitted and then
+/// leaves the walking of it to the client, which is why nothing happened:
+/// the method fell to the no-op catch-all, so the history was always empty
+/// and the up arrow had nothing to recall.
+///
+/// A repeat of the line already at the top is not stored again — sending the
+/// same thing twice should not need two presses to step past — and the list is
+/// capped the way WoW's is, oldest dropped first.
+int lua_EditBox_AddHistoryLine(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    const char* text = luaL_optstring(L, 2, "");
+    if (!w || !text || !*text) return 0;
+    constexpr size_t kMaxHistory = 20;
+    if (w->editHistory.empty() || w->editHistory.back() != text) {
+        w->editHistory.emplace_back(text);
+        if (w->editHistory.size() > kMaxHistory) {
+            w->editHistory.erase(w->editHistory.begin());
+        }
+    }
+    w->editHistoryPos = -1;
+    return 0;
+}
+
 int lua_EditBox_GetNumber(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     lua_pushnumber(L, w ? std::atof(w->editText.c_str()) : 0.0);
@@ -3664,6 +3692,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetCooldown",           lua_Cooldown_SetCooldown},
         {"GetNumber",             lua_EditBox_GetNumber},
         {"SetNumber",             lua_EditBox_SetNumber},
+        {"AddHistoryLine",        lua_EditBox_AddHistoryLine},
         {"Insert",                lua_EditBox_Insert},
         {"SetMaxLetters",         lua_EditBox_SetMaxLetters},        // The limit here is applied against the text's size in bytes, which is
         // what SetMaxBytes asks for; SetMaxLetters is the same field because
@@ -6273,6 +6302,8 @@ void LuaEngine::dispatchText(const char* utf8) {
 
     std::string add(utf8);
     if (add.empty()) return;
+    // Typing leaves the history, for the same reason SetText does.
+    w->editHistoryPos = -1;
     // A numeric box takes digits and nothing else, which is what stops a
     // quantity field filling with letters.
     if (w->editNumeric) {
@@ -6381,6 +6412,9 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
     constexpr int kHome      = 0x4000004A;
     constexpr int kEnd       = 0x4000004D;
     constexpr int kTab       = '\t';
+    // Same convention as the four above: SDL's scancode with its keycode bit.
+    constexpr int kUp        = 0x40000052;
+    constexpr int kDown      = 0x40000051;
 
     const size_t len = w->editText.size();
     switch (sdlKeycode) {
@@ -6394,6 +6428,33 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
         case kDelete:
             if (w->cursorPos < len) {
                 w->editText.erase(w->cursorPos, 1);
+                callFrameScript(focusedWid_, "OnTextChanged");
+            }
+            break;
+        // Back and forward through what was typed here before. Stepping off
+        // the newest end empties the box rather than sticking on the last
+        // line, which is what leaving the history means.
+        case kUp:
+            if (!w->editHistory.empty()) {
+                const int last = static_cast<int>(w->editHistory.size()) - 1;
+                w->editHistoryPos = (w->editHistoryPos < 0)
+                    ? last : std::max(0, w->editHistoryPos - 1);
+                w->editText = w->editHistory[static_cast<size_t>(w->editHistoryPos)];
+                w->cursorPos = w->editText.size();
+                callFrameScript(focusedWid_, "OnTextChanged");
+            }
+            break;
+        case kDown:
+            if (w->editHistoryPos >= 0) {
+                const int last = static_cast<int>(w->editHistory.size()) - 1;
+                if (w->editHistoryPos >= last) {
+                    w->editHistoryPos = -1;
+                    w->editText.clear();
+                } else {
+                    ++w->editHistoryPos;
+                    w->editText = w->editHistory[static_cast<size_t>(w->editHistoryPos)];
+                }
+                w->cursorPos = w->editText.size();
                 callFrameScript(focusedWid_, "OnTextChanged");
             }
             break;

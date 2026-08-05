@@ -274,6 +274,15 @@ struct Widget {
     float textInsetTop = 0.0f, textInsetBottom = 0.0f;
     std::string editText;
     size_t cursorPos = 0;
+    /// What has been typed into this box before, oldest first, and where the
+    /// arrow keys are in it.
+    ///
+    /// FrameXML hands each sent line to AddHistoryLine and then leaves the
+    /// walking of it to the client, which is why the chat box recalls what you
+    /// typed in the real game and did nothing here. -1 means "not in the
+    /// history", which is the state the box returns to at the end of it.
+    std::vector<std::string> editHistory;
+    int editHistoryPos = -1;
     bool  editFocused = false;
     bool  editNumeric = false;
     bool  editMultiLine = false;
