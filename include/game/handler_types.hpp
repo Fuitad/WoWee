@@ -394,6 +394,11 @@ struct ArenaTeamMember {
     uint64_t    guid            = 0;
     std::string name;
     bool        online          = false;
+    /// The three the roster carries between the name and the record. They were
+    /// on the wire all along and read as part of the games played.
+    bool        isCaptain       = false;
+    uint8_t     level           = 0;
+    uint8_t     classId         = 0;
     uint32_t    weekGames       = 0;
     uint32_t    weekWins        = 0;
     uint32_t    seasonGames     = 0;

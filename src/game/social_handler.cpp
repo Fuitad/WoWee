@@ -3446,7 +3446,9 @@ void SocialHandler::handleArenaTeamRoster(network::Packet& packet) {
     // enough either way.
     if (!packet.hasRemaining(13)) return;
     const uint32_t teamId = packet.readUInt32();
-    packet.readUInt8();                       // 3.0.8 added this; structure only
+    // 3.0.8 added this, and it does more than mark a version: the server writes
+    // the two trailing floats per member only when it is set.
+    const bool hasTrailingFloats = packet.readUInt8() != 0;
     const uint32_t memberCount = std::min(packet.readUInt32(), 100u);
     /*uint32_t teamType =*/ packet.readUInt32();
     ArenaTeamRoster roster; roster.teamId = teamId; roster.members.reserve(memberCount);
@@ -3454,10 +3456,23 @@ void SocialHandler::handleArenaTeamRoster(network::Packet& packet) {
         if (!packet.hasRemaining(12)) break;
         ArenaTeamMember m;
         m.guid = packet.readUInt64(); m.online = (packet.readUInt8() != 0); m.name = packet.readString();
+        // Captain flag, level and class sit between the name and the record —
+        // six bytes this went straight past, so the games played were the
+        // captain flag, the wins were the level and class with two bytes of the
+        // real figure behind them, and so on down the row.
+        if (!packet.hasRemaining(6)) break;
+        m.isCaptain = (packet.readUInt32() == 0);   // 0 captain, 1 member
+        m.level     = packet.readUInt8();
+        m.classId   = packet.readUInt8();
         if (!packet.hasRemaining(20)) break;
         m.weekGames = packet.readUInt32(); m.weekWins = packet.readUInt32();
         m.seasonGames = packet.readUInt32(); m.seasonWins = packet.readUInt32(); m.personalRating = packet.readUInt32();
-        if (packet.hasRemaining(8)) { packet.readFloat(); packet.readFloat(); }
+        // Only when the header said so. Taking them whenever eight bytes were
+        // left ate the next member's guid on every roster of more than one.
+        if (hasTrailingFloats) {
+            if (!packet.hasRemaining(8)) break;
+            packet.readFloat(); packet.readFloat();
+        }
         roster.members.push_back(std::move(m));
     }
     for (auto& r : arenaTeamRosters_) { if (r.teamId == teamId) { r = std::move(roster); return; } }
