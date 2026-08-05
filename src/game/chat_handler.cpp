@@ -1044,8 +1044,20 @@ void ChatHandler::handleChannelList(network::Packet& packet) {
     channelRosters_[chanName] = std::move(roster);
     // Both, because the panel redraws its member list on the first and its
     // member count on the second, and it registers for each separately.
-    owner_.fireAddonEvent("CHANNEL_ROSTER_UPDATE", {chanName});
-    owner_.fireAddonEvent("CHANNEL_COUNT_UPDATE", {chanName});
+    //
+    // By display index, not by name. ChannelRoster_Update and
+    // ChannelList_CountUpdate both take a position in the channel list —
+    // _G["ChannelButton"..id] is how the second finds its row, and the first is
+    // called elsewhere with GetSelectedDisplayChannel(), which is an index. A
+    // name built "ChannelButtonGeneral", which is nothing, so neither the
+    // roster nor the count ever redrew.
+    const int displayIndex = getChannelIndex(chanName);
+    if (displayIndex > 0) {
+        const std::string idx = std::to_string(displayIndex);
+        owner_.fireAddonEvent("CHANNEL_ROSTER_UPDATE", {idx});
+        owner_.fireAddonEvent("CHANNEL_COUNT_UPDATE",
+                              {idx, std::to_string(channelRosters_[chanName].size())});
+    }
 }
 
 // ============================================================

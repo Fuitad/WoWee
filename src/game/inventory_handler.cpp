@@ -2798,11 +2798,26 @@ void InventoryHandler::declineTradeRequest() {
     resetTradeState();
 }
 
+/// TRADE_ACCEPT_UPDATE(playerState, targetState) — 1 for accepted, 0 for not.
+///
+/// TradeFrame_SetAcceptState reads both: the first decides whether the player's
+/// half is highlighted and whether the trade button is enabled, the second does
+/// the same for the target's. Fired with neither, both read nil, the highlights
+/// stayed off and the trade button stayed enabled after accepting.
+void InventoryHandler::fireTradeAcceptUpdate() {
+    if (!owner_.addonEventCallbackRef()) return;
+    owner_.addonEventCallbackRef()("TRADE_ACCEPT_UPDATE",
+                                   {tradeSelfAccepted_ ? "1" : "0",
+                                    tradePartnerAccepted_ ? "1" : "0"});
+}
+
 void InventoryHandler::acceptTrade() {
     if (tradeStatus_ != TradeStatus::Open) return;
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     auto packet = AcceptTradePacket::build();
     owner_.getSocket()->send(packet);
+    tradeSelfAccepted_ = true;
+    fireTradeAcceptUpdate();
 }
 
 void InventoryHandler::unacceptTrade() {
@@ -2813,6 +2828,8 @@ void InventoryHandler::unacceptTrade() {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     auto packet = UnacceptTradePacket::build();
     owner_.getSocket()->send(packet);
+    tradeSelfAccepted_ = false;
+    fireTradeAcceptUpdate();
 }
 
 void InventoryHandler::cancelTrade() {
@@ -2853,6 +2870,8 @@ void InventoryHandler::resetTradeState() {
     peerTradeSlots_ = {};
     myTradeGold_ = 0;
     peerTradeGold_ = 0;
+    tradeSelfAccepted_ = false;
+    tradePartnerAccepted_ = false;
 }
 
 void InventoryHandler::handleTradeStatus(network::Packet& packet) {
@@ -2860,11 +2879,20 @@ void InventoryHandler::handleTradeStatus(network::Packet& packet) {
     uint32_t status = packet.readUInt32();
     LOG_WARNING("SMSG_TRADE_STATUS: status=", status, " size=", packet.getSize());
     switch (status) {
-        case 0: // TRADE_STATUS_PLAYER_BUSY
+        // The codes are AzerothCore's TradeStatus enum, checked against
+        // SharedDefines.h rather than against the names that used to be here.
+        // Two of those names were on the wrong cases and they were the two that
+        // matter: 7 is BACK_TO_TRADE, the trade returning to editing because
+        // somebody took their acceptance back, and 8 is TRADE_COMPLETE. Read
+        // the other way round, every finished trade left the window open with
+        // stale bags and no money update, and a partner un-accepting closed the
+        // window announcing "Trade complete".
+        case 0:   // BUSY
+        case 5:   // BUSY_2
             resetTradeState();
             owner_.addSystemChatMessage("Trade failed: player is busy.");
             break;
-        case 1: { // TRADE_STATUS_PROPOSED
+        case 1: { // BEGIN_TRADE — someone is asking
             if (packet.hasRemaining(8))
                 tradePeerGuid_ = packet.readUInt64();
             tradeStatus_ = TradeStatus::PendingIncoming;
@@ -2876,28 +2904,41 @@ void InventoryHandler::handleTradeStatus(network::Packet& packet) {
             if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("TRADE_REQUEST", {tradePeerName_});
             break;
         }
-        case 2: // TRADE_STATUS_INITIATED
+        case 2:   // OPEN_WINDOW
             tradeStatus_ = TradeStatus::Open;
+            tradeSelfAccepted_ = false;
+            tradePartnerAccepted_ = false;
             owner_.addSystemChatMessage("Trade opened.");
             if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("TRADE_SHOW", {});
             break;
-        case 3: // TRADE_STATUS_CANCELLED
+        case 3:   // TRADE_CANCELED
             resetTradeState();
             owner_.addSystemChatMessage("Trade cancelled.");
             if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("TRADE_CLOSED", {});
             break;
-        case 4: // TRADE_STATUS_ACCEPTED
+        case 4:   // TRADE_ACCEPT — the other side pressed accept
             tradeStatus_ = TradeStatus::Accepted;
+            tradePartnerAccepted_ = true;
             owner_.addSystemChatMessage("Trade partner accepted.");
-            if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("TRADE_ACCEPT_UPDATE", {});
+            fireTradeAcceptUpdate();
             break;
-        case 5: // TRADE_STATUS_ALREADY_TRADING
-            owner_.raiseUiError("You are already trading.");
+        case 6:   // NO_TARGET
+            resetTradeState();
+            owner_.raiseUiError("You have no target.");
             break;
-        case 7: // TRADE_STATUS_COMPLETE
-            // Don't reset immediately — TRADE_STATUS_EXTENDED may arrive in the same
-            // packet batch and needs the trade state to store final item/gold data.
+        case 7:   // BACK_TO_TRADE — an acceptance was taken back
+            tradeStatus_ = TradeStatus::Open;
+            tradeSelfAccepted_ = false;
+            tradePartnerAccepted_ = false;
+            fireTradeAcceptUpdate();
+            break;
+        case 8:   // TRADE_COMPLETE
+            // Not reset immediately — SMSG_TRADE_STATUS_EXTENDED may arrive in
+            // the same batch and needs the trade state to read the final items
+            // and gold from.
             tradeStatus_ = TradeStatus::None;
+            tradeSelfAccepted_ = false;
+            tradePartnerAccepted_ = false;
             owner_.addSystemChatMessage("Trade complete.");
             if (owner_.addonEventCallbackRef()) {
                 owner_.addonEventCallbackRef()("TRADE_CLOSED", {});
@@ -2905,24 +2946,46 @@ void InventoryHandler::handleTradeStatus(network::Packet& packet) {
                 owner_.addonEventCallbackRef()("PLAYER_MONEY", {});
             }
             break;
-        case 9: // TRADE_STATUS_TARGET_TO_FAR
+        case 9:   // TRADE_REJECTED
+            resetTradeState();
+            owner_.addSystemChatMessage("Trade declined.");
+            if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("TRADE_CLOSED", {});
+            break;
+        case 10:  // TARGET_TO_FAR
             resetTradeState();
             owner_.addSystemChatMessage("Trade failed: target is too far away.");
             break;
-        case 13: // TRADE_STATUS_FAILED
+        case 11:  // WRONG_FACTION
             resetTradeState();
-            owner_.addSystemChatMessage("Trade failed.");
+            owner_.raiseUiError("You cannot trade with the enemy.");
+            break;
+        case 12:  // CLOSE_WINDOW
+            resetTradeState();
             if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("TRADE_CLOSED", {});
             break;
-        case 8: // TRADE_STATUS_UNACCEPT
-            tradeStatus_ = TradeStatus::Open;
-            if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("TRADE_ACCEPT_UPDATE", {});
-            break;
-        case 17: // TRADE_STATUS_PETITION
-            owner_.raiseUiError("You cannot trade while petition is active.");
-            break;
-        case 18: // TRADE_STATUS_PLAYER_IGNORED
+        case 14:  // IGNORE_YOU
+            resetTradeState();
             owner_.raiseUiError("That player is ignoring you.");
+            break;
+        case 15:  // YOU_STUNNED
+            owner_.raiseUiError("You are stunned.");
+            break;
+        case 16:  // TARGET_STUNNED
+            owner_.raiseUiError("That player is stunned.");
+            break;
+        case 17:  // YOU_DEAD
+            owner_.raiseUiError("You are dead.");
+            break;
+        case 18:  // TARGET_DEAD
+            owner_.raiseUiError("That player is dead.");
+            break;
+        case 19:  // YOU_LOGOUT
+        case 20:  // TARGET_LOGOUT
+            resetTradeState();
+            owner_.addSystemChatMessage("Trade failed: logging out.");
+            break;
+        case 23:  // NOT_ON_TAPLIST
+            owner_.raiseUiError("You do not have permission to loot that item.");
             break;
         default:
             LOG_DEBUG("Unhandled SMSG_TRADE_STATUS: ", status);

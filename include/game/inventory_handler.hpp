@@ -410,6 +410,14 @@ private:
 
     // ---- Trade state ----
     TradeStatus tradeStatus_  = TradeStatus::None;
+    /// Which side has pressed accept, kept apart because TRADE_ACCEPT_UPDATE
+    /// carries both and tradeStatus_ can only say one thing at a time. Ours is
+    /// set when the accept goes out — the server echoes an acceptance to the
+    /// other player, not back to the one who made it, so there is nothing else
+    /// to learn it from.
+    bool tradeSelfAccepted_ = false;
+    bool tradePartnerAccepted_ = false;
+    void fireTradeAcceptUpdate();
     uint64_t    tradePeerGuid_= 0;
     std::string tradePeerName_;
     std::array<TradeSlot, TRADE_SLOT_COUNT> myTradeSlots_{};

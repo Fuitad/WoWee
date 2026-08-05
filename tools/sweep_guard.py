@@ -76,17 +76,14 @@ CHECKS = [
     # HandleRaidReadyCheckFinishedOpcode broadcasts that message with an empty
     # body. There is no flag on the wire to send, and nil reads as false, which
     # is what "not preempted" wants. Lower this only if that stops being true.
-    # Four, each read and each left for a reason. READY_CHECK_FINISHED's
-    # `preempted` says the check was cut short rather than answered, and this
-    # client is never told which. PLAYER_FOCUS_CHANGED has no argument in this
-    # version at all — focusframe unpacks `local arg1 = ...` once at the top of
-    # a chain of six events and only one of them carries anything, which is the
-    # ambiguity this sweep documents rather than resolves. TRADE_ACCEPT_UPDATE
-    # wants both sides' accept state and this client tracks one status for the
-    # whole trade, and CHANNEL_COUNT_UPDATE wants the channel's display index
-    # where this sends its name. The last two are gaps, not decisions.
+    # Two, both decisions rather than gaps. READY_CHECK_FINISHED's `preempted`
+    # says the check was cut short rather than answered, and this client is
+    # never told which. PLAYER_FOCUS_CHANGED has no argument in this version at
+    # all — focusframe unpacks `local arg1 = ...` once at the top of a chain of
+    # six events and only one of them carries anything, which is the ambiguity
+    # this sweep documents rather than resolves.
     ("framexml_event_arity.py",
-     r"^(\d+) fired with fewer arguments than a handler reads", 4,
+     r"^(\d+) fired with fewer arguments than a handler reads", 2,
      "events fired with fewer arguments than a handler reads"),
     # Four, and all four deliberate: ITEM_LOCK_CHANGED and RUNE_POWER_UPDATE
     # both use the absence of the second argument as the signal ("not arg2" is
