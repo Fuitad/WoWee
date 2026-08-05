@@ -128,9 +128,25 @@ static int lua_IsQuestLogSpecialItemInRange(lua_State* L) { (void)L; return luaR
 static int lua_UseQuestLogSpecialItem(lua_State* L);
 
 // GetQuestLogSpecialItemCooldown(index) → start, duration, enable.
+//
 // Enable is one, not zero: zero means the cooldown swipe is switched off, and
 // the caller feeds all three straight to CooldownFrame_SetTimer.
+//
+// The item's cooldown is its on-use spell's, the same relationship the bag
+// buttons read. This answered a flat zero, so a quest item just used was drawn
+// ready again — and WatchFrameItem_UpdateCooldown runs on every
+// BAG_UPDATE_COOLDOWN, so it had something to ask and nothing to hear.
 static int lua_GetQuestLogSpecialItemCooldown(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const auto item = questSpecialItemAt(gh, index);
+    double start = 0.0, duration = 0.0;
+    if (item.itemId && itemUseCooldown(gh, item.itemId, start, duration)) {
+        lua_pushnumber(L, start);
+        lua_pushnumber(L, duration);
+        lua_pushnumber(L, 1);
+        return 3;
+    }
     lua_pushnumber(L, 0);
     lua_pushnumber(L, 0);
     lua_pushnumber(L, 1);
