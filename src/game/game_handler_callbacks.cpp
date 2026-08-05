@@ -1928,6 +1928,18 @@ bool GameHandler::applyInventoryFields(const FlatFieldMap& fields) {
     return inventoryHandler_ ? inventoryHandler_->applyInventoryFields(fields) : false;
 }
 
+uint64_t GameHandler::getInteractNpcGuid() const {
+    if (inventoryHandler_) {
+        if (const uint64_t peer = inventoryHandler_->getTradePeerGuid()) return peer;
+        if (const uint64_t vendor = getVendorGuid()) return vendor;
+    }
+    if (taxiNpcGuid_ != 0 && taxiWindowOpen_) return taxiNpcGuid_;
+    if (questHandler_) {
+        if (const uint64_t gossip = questHandler_->getCurrentGossip().npcGuid) return gossip;
+    }
+    return 0;
+}
+
 bool GameHandler::getOtherPlayerEquipment(uint64_t guid,
                                           std::array<uint32_t, 19>& displayIds,
                                           std::array<uint8_t, 19>& invTypes) const {

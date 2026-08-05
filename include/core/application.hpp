@@ -177,6 +177,10 @@ private:
     ui::UnitPortrait targetPortrait_;
     /// And the focus, which is deliberate enough to be worth its own pass.
     ui::UnitPortrait focusPortrait_;
+    /// And whoever this client is dealing with — the face in the gossip,
+    /// quest, merchant, flight master and trade panels. One view for all of
+    /// them because only one such window is open at a time.
+    ui::UnitPortrait npcPortrait_;
     /// And the four party members. Affordable now that a portrait is sized for
     /// the circle it is drawn into rather than for the paperdoll: at 160x200 a
     /// party face is a sixteenth of the pixels the paperdoll's target is, and

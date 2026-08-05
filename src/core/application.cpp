@@ -1356,6 +1356,7 @@ void Application::shutdown() {
     targetPortrait_.shutdown(renderer.get());
     petPortrait_.shutdown(renderer.get());
     focusPortrait_.shutdown(renderer.get());
+    npcPortrait_.shutdown(renderer.get());
     for (auto& p : partyPortraits_) p.shutdown(renderer.get());
     paperdollModel_.shutdown(renderer.get());
 
@@ -3342,6 +3343,11 @@ void Application::render() {
                     const char* unit;
                     ui::UnitPortrait* portrait;
                     uint64_t guid;
+                    /// A second name for the same unit, drawn from the same
+                    /// view. "npc" and "questnpc" are one face under two names,
+                    /// and giving each its own row would render it twice a
+                    /// frame to produce the same picture.
+                    const char* alias = nullptr;
                 };
                 // Party guids in the interface's order, which excludes the
                 // player — party1 is the first other member.
@@ -3354,7 +3360,13 @@ void Application::render() {
                         partyGuids[static_cast<size_t>(found++)] = m.guid;
                     }
                 }
+                const uint64_t npcGuid = gameHandler->getInteractNpcGuid();
                 const UnitFace kFaces[] = {
+                    // "npc" and "questnpc" are the same unit under two names —
+                    // whoever the open window belongs to. The interface uses
+                    // the second only in questframe and means nothing different
+                    // by it.
+                    {"npc", &npcPortrait_, npcGuid, "questnpc"},
                     {"target", &targetPortrait_,   gameHandler->getTargetGuid()},
                     {"pet",    &petPortrait_,      gameHandler->getPetGuid()},
                     {"focus",  &focusPortrait_,    gameHandler->getFocusGuid()},
@@ -3364,8 +3376,11 @@ void Application::render() {
                     {"party4", &partyPortraits_[3], partyGuids[3]},
                 };
                 for (const UnitFace& face : kFaces) {
+                    static const std::vector<uint32_t> kNoAlias;
                     const auto& claimed = widgets.portraitsFor(face.unit);
-                    if (claimed.empty()) continue;
+                    const auto& alsoClaimed = face.alias
+                        ? widgets.portraitsFor(face.alias) : kNoAlias;
+                    if (claimed.empty() && alsoClaimed.empty()) continue;
 
                     bool built = false;
                     face.portrait->setFraming(ui::UnitPortrait::Framing::Face);
@@ -3424,6 +3439,9 @@ void Application::render() {
                     }
                     const uint64_t drawn = built ? face.portrait->textureId() : 0;
                     for (uint32_t id : claimed) {
+                        if (ui::Widget* w = widgets.get(id)) w->externalTexture = drawn;
+                    }
+                    for (uint32_t id : alsoClaimed) {
                         if (ui::Widget* w = widgets.get(id)) w->externalTexture = drawn;
                     }
                 }

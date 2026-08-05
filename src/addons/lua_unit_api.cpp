@@ -1477,7 +1477,7 @@ static int lua_SetPortraitTexture(lua_State* L) {
     // unit with no picture does not keep the last one it had.
     const bool answerable =
         (unit == "player" || unit == "target" || unit == "pet" ||
-         unit == "focus" ||
+         unit == "focus" || unit == "npc" || unit == "questnpc" ||
          (unit.rfind("party", 0) == 0 && unit.size() == 6 &&
           unit[5] >= '1' && unit[5] <= '4'));
     tree->setPortraitUnit(id, answerable ? unit : std::string());

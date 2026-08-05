@@ -67,6 +67,7 @@ public:
     bool hasPendingTradeRequest() const { return tradeStatus_ == TradeStatus::PendingIncoming; }
     bool isTradeOpen() const { return tradeStatus_ == TradeStatus::Open || tradeStatus_ == TradeStatus::Accepted; }
     const std::string& getTradePeerName() const { return tradePeerName_; }
+    uint64_t getTradePeerGuid() const { return tradePeerGuid_; }
     const std::array<TradeSlot, TRADE_SLOT_COUNT>& getMyTradeSlots() const { return myTradeSlots_; }
     const std::array<TradeSlot, TRADE_SLOT_COUNT>& getPeerTradeSlots() const { return peerTradeSlots_; }
     uint64_t getMyTradeGold() const { return myTradeGold_; }

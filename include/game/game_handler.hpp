@@ -253,6 +253,18 @@ public:
     /**
      * Get entity manager (for accessing entities in view)
      */
+    /// Whoever this client is dealing with right now — the unit behind an open
+    /// window. The interface calls it "npc" and "questnpc" and puts its face in
+    /// the panel's portrait: the gossip frame, the quest frame, the merchant,
+    /// the flight master, the trainer, the trade partner.
+    ///
+    /// Answered from the windows that are open rather than from a guid tracked
+    /// on the side. Every one of these already knows who it is talking to, and
+    /// a separate record of the same fact is one more thing to leave stale.
+    /// The order is the order a window would cover another: a trade or a
+    /// merchant is more specific than the gossip that opened it.
+    uint64_t getInteractNpcGuid() const;
+
     /// What another player is visibly wearing, by ItemDisplayInfo id and
     /// inventory type, indexed by equipment slot. False when nothing is known
     /// yet — which is not the same as wearing nothing.
