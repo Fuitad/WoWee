@@ -2743,10 +2743,18 @@ void SpellHandler::handleListStabledPets(network::Packet& packet) {
         pet.entry     = packet.readUInt32();
         pet.level     = packet.readUInt32();
         pet.name      = packet.readString();
-        // displayId(4) + isActive(1) = 5 bytes after the name string
-        if (!packet.hasRemaining(5)) break;
-        pet.displayId = packet.readUInt32();
-        pet.isActive  = (packet.readUInt8() != 0);
+        // One byte after the name, and one only: SendStablePet writes
+        // uint32 PetNumber, uint32 CreatureId, uint32 Level, the name, then
+        // `uint8(1)` for the pet that is out and `uint8(2)` for one in a stable
+        // slot. There is no display id on the wire.
+        //
+        // This read four bytes for one and then a fifth for the flag, so the
+        // display id swallowed the flag plus three bytes of the next pet's
+        // number, the flag came from that number's fourth byte, and every pet
+        // after the first was read at the wrong offset — with the last dropped
+        // for want of five bytes that were never there.
+        if (!packet.hasRemaining(1)) break;
+        pet.isActive  = (packet.readUInt8() == 1);
         owner_.stabledPetsRef().push_back(std::move(pet));
     }
 
@@ -2755,8 +2763,7 @@ void SpellHandler::handleListStabledPets(network::Packet& packet) {
              " petCount=", static_cast<int>(petCount), " numSlots=", static_cast<int>(owner_.stableNumSlotsRef()));
     for (const auto& p : owner_.stabledPetsRef()) {
         LOG_DEBUG("  Pet: number=", p.petNumber, " entry=", p.entry,
-                  " level=", p.level, " name='", p.name, "' displayId=", p.displayId,
-                  " active=", p.isActive);
+                  " level=", p.level, " name='", p.name, "' active=", p.isActive);
     }
     // This packet both opens the stable window and is the only thing that
     // refreshes it, so it carries both events. Neither was fired, which is why

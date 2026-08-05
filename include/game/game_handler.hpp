@@ -948,8 +948,11 @@ public:
         uint32_t entry      = 0;   // creature entry ID
         uint32_t level      = 0;
         std::string name;
-        uint32_t displayId  = 0;
-        bool     isActive   = false;  // true = currently summoned/active slot
+        // No display id: MSG_LIST_STABLED_PETS carries only the entry, and a
+        // model frame wants a display id. SetPetStablePaperdoll resolves it
+        // from `entry` at the moment it draws, so a query still in flight
+        // answers on the next read rather than being frozen at zero.
+        bool     isActive   = false;  // true = the pet that is out, not stabled
     };
     bool isStableWindowOpen() const { return stableWindowOpen_; }
     void closeStableWindow() {

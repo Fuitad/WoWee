@@ -812,10 +812,14 @@ static int lua_GetPetFoodTypes(lua_State* L)  { return luaReturnNil(L); }
 /// needed it, so CharacterPreview will load any M2 by path and the display
 /// lookup turns a creature's display id into one.
 ///
-/// The slot is the window's own state, held beside ClickStablePet, and the
-/// display id comes off the stabled-pet list the server sent. What is written
-/// here is that id; the render loop is where the model is built, because that
-/// is where the offscreen views live.
+/// The slot is the window's own state, held beside ClickStablePet. The list the
+/// server sent carries a creature *template entry* — there is no display id on
+/// that wire at all — so it is resolved here, at the read, rather than stored
+/// converted: the resolution asks the server the first time and answers zero
+/// until the reply lands, and a value frozen at parse time would keep that zero
+/// for the life of the window. What is written is the display id; the render
+/// loop is where the model is built, because that is where the offscreen views
+/// live.
 static int lua_SetPetStablePaperdoll(lua_State* L) {
     auto* gh = getGameHandler(L);
     auto* tree = getWidgetTree(L);
@@ -832,7 +836,8 @@ static int lua_SetPetStablePaperdoll(lua_State* L) {
     const auto& pets = gh->getStabledPets();
     w->modelDisplayId = 0;
     if (slot >= 1 && slot <= static_cast<int>(pets.size())) {
-        w->modelDisplayId = pets[static_cast<size_t>(slot) - 1].displayId;
+        w->modelDisplayId = gh->getCreatureDisplayIdForEntry(
+            pets[static_cast<size_t>(slot) - 1].entry);
     }
     return 0;
 }
