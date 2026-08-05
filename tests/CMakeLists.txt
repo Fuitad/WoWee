@@ -124,6 +124,17 @@ target_link_libraries(test_inventory_slots PRIVATE catch2_main)
 add_test(NAME inventory_slots COMMAND test_inventory_slots)
 register_test_target(test_inventory_slots)
 
+# ── test_chat_types ─────────────────────────────────────────────
+# A chat type is a byte off the wire and the event name is built from it, so a
+# value missing from the enum is a line of chat that never appears — no error,
+# no log. The whole run between LOOT and the battleground block was absent once.
+add_executable(test_chat_types test_chat_types.cpp)
+target_include_directories(test_chat_types PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_chat_types SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_chat_types PRIVATE catch2_main)
+add_test(NAME chat_types COMMAND test_chat_types)
+register_test_target(test_chat_types)
+
 # ── test_reputation_standing ────────────────────────────────
 # Header-only and constexpr, so this needs nothing linked: the point is that the
 # thresholds have one home now and stay put.
