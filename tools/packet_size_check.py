@@ -79,8 +79,13 @@ def client_checks():
         # handler and pick up a guard belonging to something else, which
         # reported SMSG_TIME_SYNC_REQ — correctly guarding four — as guarding
         # eight.
+        # An opcode with no letter before MSG_ — MSG_RAID_READY_CHECK,
+        # MSG_MOVE_* and the rest — has to end a region too. It did not, so a
+        # region ran straight through the next handler and credited its reads
+        # here: SMSG_PARTY_MEMBER_STATS_FULL was reported reading a guid that
+        # belongs to the ready check below it.
         marks = [(m.start(), m.group(1)) for m in
-                 re.finditer(r"Opcode::([A-Z]MSG_\w+)", src)]
+                 re.finditer(r"Opcode::([A-Z]*MSG_\w+)", src)]
         for i, (at, opcode) in enumerate(marks):
             if not opcode.startswith("SMSG_"):
                 continue

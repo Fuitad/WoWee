@@ -45,10 +45,12 @@ of them matter:
     two uint32s. Every field after it therefore lands on the same offset it
     would have anyway, and the item entry, which is what this handler is for,
     is read correctly at offset twenty.
-  * SMSG_PARTY_MEMBER_STATS_FULL — an artifact of how the client side is
-    measured. Its handler is a one-line registration that delegates, so the
-    reads found between this opcode and the next belong to a neighbour. The
-    real parser reads the leading uint8 and then a packed guid, which matches.
+  * SMSG_PARTY_MEMBER_STATS_FULL — was an artifact, and the artifact turned
+    out to be worth fixing rather than annotating. A region ended at the next
+    opcode, and the pattern that found opcodes required a letter in front of
+    MSG_ — so MSG_RAID_READY_CHECK did not end one, the region ran through its
+    handler, and the guid that ready check reads was credited here. Both this
+    and packet_size_check.py had it; two entries came off that report as well.
 
 WHAT IT CANNOT SEE
 
@@ -90,6 +92,15 @@ def server_layouts(server_root):
                 w = re.match(r"[*]?" + re.escape(var) + r"\s*<<\s*(\w+)\s*\(", s)
                 if w and w.group(1) in SERVER_WIDTH:
                     widths.append(SERVER_WIDTH[w.group(1)])
+                    continue
+                # A packed guid has no fixed width, but it is unambiguous on
+                # both sides — WriteAsPacked here, readPackedGuid there — so it
+                # is a token the sequences can be lined up on rather than a
+                # stop. Most packets carry one early, and stopping at it left
+                # everything after the guid uncompared.
+                if re.match(r"[*]?" + re.escape(var) + r"\s*<<\s*[\w>.\[\]()-]*"
+                            r"WriteAsPacked\(\)", s):
+                    widths.append("P")
                     continue
                 break
             # The longest reading wins: several call sites build the same
@@ -154,6 +165,8 @@ def _widths_in(body, var):
             break
         if call in CLIENT_WIDTH:
             widths.append(CLIENT_WIDTH[call])
+        elif call == "readPackedGuid":
+            widths.append("P")
         elif call.startswith("read") or call in ("skipAll",):
             break
     return widths
@@ -165,8 +178,13 @@ def client_layouts():
     out = {}
     for path in (ROOT / "src/game").rglob("*.cpp"):
         src = path.read_text(errors="ignore")
+        # An opcode with no letter before MSG_ — MSG_RAID_READY_CHECK,
+        # MSG_MOVE_* and the rest — has to end a region too. It did not, so a
+        # region ran straight through the next handler and credited its reads
+        # here: SMSG_PARTY_MEMBER_STATS_FULL was reported reading a guid that
+        # belongs to the ready check below it.
         marks = [(m.start(), m.group(1)) for m in
-                 re.finditer(r"Opcode::([A-Z]MSG_\w+)", src)]
+                 re.finditer(r"Opcode::([A-Z]*MSG_\w+)", src)]
         for i, (at, opcode) in enumerate(marks):
             if not opcode.startswith("SMSG_"):
                 continue
