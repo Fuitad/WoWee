@@ -155,6 +155,14 @@ const std::set<std::string>& requested() {
         // nothing. tools/framexml_unbound_globals.py reports friendsframe
         // clean, which is the check this note used to ask for.
         //
+        // "trade" joins them. Its two unfired events are correctly unfired:
+        // TRADE_PLAYER_ITEM_CHANGED and TRADE_TARGET_ITEM_CHANGED each carry
+        // one slot, and this client never learns of one slot changing.
+        // SMSG_TRADE_STATUS_EXTENDED carries a whole side at once, TRADE_UPDATE
+        // is fired from it, and that branch calls TradeFrame_Update — a redraw
+        // of every slot. The third, TRADE_POTENTIAL_BIND_ENCHANT, has a
+        // commented-out body in FrameXML itself.
+        //
         // "readycheck" joins them too, on a smaller footing: two files, no
         // missing call, and READY_CHECK, READY_CHECK_CONFIRM and
         // READY_CHECK_FINISHED are all fired. Its window is behind a gate in
@@ -195,7 +203,7 @@ const std::set<std::string>& requested() {
                     "gamemenu", "gossip", "guildbank", "help", "inspect",
                     "loot", "mail", "micromenu", "partyframes", "questgiver",
                     "questlog", "readycheck", "social", "stable", "talents",
-                    "taxi", "totems", "tradeskill", "vendor"}) {
+                    "taxi", "totems", "trade", "tradeskill", "vendor"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "
