@@ -1650,6 +1650,28 @@ static int lua_LoadAddOn(lua_State* L) {
         lua_pushstring(L, "MISSING");
         return 2;
     }
+    // Blizzard_Calendar is refused, and refusing it is what keeps the calendar
+    // button working rather than raising.
+    //
+    // Seventy-nine of the calendar's own globals are unbound, because this
+    // client has no calendar. GameTimeFrame_OnClick — the date button on the
+    // minimap, which FrameXML draws — calls Calendar_LoadUI and then the
+    // addon's CalendarFrame_OnShow calls OpenCalendar, so one click raised.
+    // FrameXML guards the step after: ToggleCalendar tests `if (Calendar_Toggle)`
+    // before calling it, and Calendar_Toggle only exists once the addon has
+    // loaded. Saying no here therefore makes the button do nothing, which is
+    // the truth, instead of half-opening a window whose every verb is missing.
+    //
+    // Binding the seventy-nine instead would need each one's arity right —
+    // CalendarGetMonth answers four values that go straight into arithmetic —
+    // and getting one wrong moves the raise rather than removing it. This
+    // comes out when there is a calendar behind it.
+    if (std::strcmp(name, "Blizzard_Calendar") == 0) {
+        lua_pushboolean(L, 0);
+        lua_pushstring(L, "DISABLED");
+        return 2;
+    }
+
     std::string reason;
     const bool ok = svc->loadAddOn(name, reason);
     lua_pushboolean(L, ok ? 1 : 0);
