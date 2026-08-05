@@ -163,6 +163,14 @@ CHECKS = [
     ("keybinding_route_check.py",
      r"^(\d+) that would stop working when the panel is handed over", 0,
      "keys that stop working when their panel is handed over"),
+    # A window gated on frameXmlOwns has to be opened through FrameXML once its
+    # element is handed over, and the controls that open it are scattered — a
+    # key, a micro-menu button, a bag icon, a context menu, the click half of a
+    # drag handler, the code that puts the bags up for a vendor. Five separate
+    # lists were found this way, three by hand before this existed.
+    ("window_route_check.py",
+     r"^(\d+) window-opening call\(s\) with no ownership check", 0,
+     "controls opening a window without asking which interface owns it"),
     ("api_shadowing_check.py",
      r"^\s*(\d+) to look at", 10,
      "names whose winner depends on load order"),

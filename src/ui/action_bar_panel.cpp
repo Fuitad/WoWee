@@ -1591,7 +1591,12 @@ bool ActionBarPanel::renderBagBar(game::GameHandler& gameHandler,
                     int slot = bagBarDragSource_;
                     auto equip = static_cast<game::EquipSlot>(static_cast<int>(game::EquipSlot::BAG1) + slot);
                     if (!inv.getEquipSlot(equip).empty()) {
-                        if (inventoryScreen.isSeparateBags())
+                        // The plain-click path, as opposed to the icon button
+                        // and the context menu above. Same routing, and easy to
+                        // miss because it lives in the drag handler.
+                        if (bagsAreFrameXml())
+                            gameHandler.runInterfaceCommand("ToggleBag(" + std::to_string(slot + 1) + ")");
+                        else if (inventoryScreen.isSeparateBags())
                             inventoryScreen.toggleBag(slot);
                         else
                             inventoryScreen.toggle();

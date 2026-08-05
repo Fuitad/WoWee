@@ -702,7 +702,13 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     if (gameHandler.isVendorWindowOpen()) {
         if (!windowManager_.vendorBagsOpened_) {
             windowManager_.vendorBagsOpened_ = true;
-            if (inventoryScreen.isSeparateBags()) {
+            // Opening a vendor or the guild bank puts the bags up so items
+            // can be dragged or right-clicked across. With the bags handed
+            // over that has to be FrameXML's, or the vendor opens beside
+            // nothing.
+            if (frameXmlOwns(UiElement::Bags)) {
+                gameHandler.runInterfaceCommand("OpenAllBags()");
+            } else if (inventoryScreen.isSeparateBags()) {
                 inventoryScreen.openAllBags();
             } else if (!inventoryScreen.isOpen()) {
                 inventoryScreen.setOpen(true);
@@ -717,7 +723,13 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     if (gameHandler.isGuildBankOpen()) {
         if (!windowManager_.guildBankBagsOpened_) {
             windowManager_.guildBankBagsOpened_ = true;
-            if (inventoryScreen.isSeparateBags()) {
+            // Opening a vendor or the guild bank puts the bags up so items
+            // can be dragged or right-clicked across. With the bags handed
+            // over that has to be FrameXML's, or the vendor opens beside
+            // nothing.
+            if (frameXmlOwns(UiElement::Bags)) {
+                gameHandler.runInterfaceCommand("OpenAllBags()");
+            } else if (inventoryScreen.isSeparateBags()) {
                 inventoryScreen.openAllBags();
             } else if (!inventoryScreen.isOpen()) {
                 inventoryScreen.setOpen(true);
