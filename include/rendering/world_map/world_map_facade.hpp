@@ -107,6 +107,22 @@ public:
     /// The area id the map is showing, or zero at continent and cosmic level.
     uint32_t currentAreaId() const;
 
+    /// The zone under a point on the map being shown, in [0,1] map space, or
+    /// -1. Continent view only: a zone's own map has no child zones to name.
+    ///
+    /// The same ZMP lookup the hover highlight does, and pulled out of it so
+    /// the interface can ask about a point rather than about the mouse.
+    int zoneAtMapPoint(float u, float v) const;
+
+    /// The name of that zone, or empty.
+    std::string zoneNameAtMapPoint(float u, float v) const;
+
+    /// Drill into the zone under that point, as clicking it would.
+    bool clickMapPoint(float u, float v);
+
+    /// Step out one level: zone to continent, continent to world.
+    void zoomOutOneLevel();
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

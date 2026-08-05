@@ -646,6 +646,71 @@ void WorldMapFacade::setServerExplorationMask(const std::vector<uint32_t>& masks
     impl_->exploration.setServerMask(masks, hasData);
 }
 
+int WorldMapFacade::zoneAtMapPoint(float u, float v) const {
+    if (u < 0.0f || u > 1.0f || v < 0.0f || v > 1.0f) return -1;
+    auto& d = *impl_;
+    if (!d.data.hasZmpData()) return -1;
+
+    const int continentIdx = d.viewState.continentIdx();
+    if (continentIdx < 0) return -1;
+
+    // The point is on the continent map, so it turns into world coordinates
+    // through that continent's own projection bounds.
+    float left = 0, right = 0, top = 0, bottom = 0;
+    if (!getContinentProjectionBounds(d.data.zones(), continentIdx,
+                                      left, right, top, bottom)) {
+        return -1;
+    }
+    const float denomU = left - right;
+    const float denomV = top - bottom;
+    if (std::abs(denomU) < 0.001f || std::abs(denomV) < 0.001f) return -1;
+
+    const float wowX = left - u * denomU;
+    const float wowY = top  - v * denomV;
+
+    // World coordinates into the ZMP's own grid, which covers 64 by 64 ADTs
+    // with the world's centre at its middle.
+    constexpr float kWorldSize = 64.0f * 533.333f;
+    const float zmpX = 0.5f - wowX / kWorldSize;
+    const float zmpY = 0.5f - wowY / kWorldSize;
+    if (zmpX < 0.0f || zmpX > 1.0f || zmpY < 0.0f || zmpY > 1.0f) return -1;
+
+    const int col = std::clamp(static_cast<int>(zmpX * 128.0f), 0, 127);
+    const int row = std::clamp(static_cast<int>(zmpY * 128.0f), 0, 127);
+    const uint32_t areaId = d.data.zmpGrid()[static_cast<size_t>(row) * 128 + col];
+    if (areaId == 0) return -1;
+
+    const int zoneIdx = d.data.zoneIndexForAreaId(areaId);
+    if (zoneIdx < 0) return -1;
+    // A point can land on a zone of a different continent at the edges.
+    if (!zoneBelongsToContinent(d.data.zones(), zoneIdx, continentIdx)) return -1;
+    return zoneIdx;
+}
+
+std::string WorldMapFacade::zoneNameAtMapPoint(float u, float v) const {
+    const int idx = zoneAtMapPoint(u, v);
+    const auto& zones = impl_->data.zones();
+    if (idx < 0 || idx >= static_cast<int>(zones.size())) return {};
+    const uint32_t areaId = zones[static_cast<size_t>(idx)].areaID;
+    const auto& names = impl_->data.areaNameByAreaId();
+    auto it = names.find(areaId);
+    // The DBC's own area name, not the texture folder the zone is keyed by —
+    // those differ, and the folder is not what anyone wants to read.
+    if (it != names.end()) return it->second;
+    return zones[static_cast<size_t>(idx)].areaName;
+}
+
+bool WorldMapFacade::clickMapPoint(float u, float v) {
+    const int idx = zoneAtMapPoint(u, v);
+    if (idx < 0) return false;
+    impl_->viewState.zoomIn(idx, /*playerZoneIdx=*/-1);
+    return true;
+}
+
+void WorldMapFacade::zoomOutOneLevel() {
+    impl_->viewState.zoomOut();
+}
+
 std::vector<OverlayEntry> WorldMapFacade::currentOverlays() const {
     const int idx = impl_->viewState.currentZoneIdx();
     const auto& zones = impl_->data.zones();

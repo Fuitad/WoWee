@@ -57,6 +57,14 @@ struct LuaServices {
     };
     std::function<std::vector<MapLandmark>()> getMapLandmarks;
 
+    /// The zone under a point on the map, in [0,1] map space, or empty. This
+    /// is what names the label under the cursor.
+    std::function<std::string(float, float)> getMapZoneNameAt;
+    /// Drill into that zone, as clicking it does. False when there is none.
+    std::function<bool(float, float)> clickMapPoint;
+    /// Step out one level: zone to continent, continent to world.
+    std::function<void()> zoomMapOut;
+
     /// Nameplates over hostile and neutral units, for nameplateShowEnemies.
     ///
     /// There is no counterpart for nameplateShowFriends: this client always

@@ -3393,20 +3393,52 @@ void registerSystemLuaAPI(lua_State* L) {
                 // Nothing under the cursor: eight values, and the first is the
                 // area name the label is set from. Nil leaves it blank, which
                 // is what a cursor over no zone should do.
+                // UpdateMapHighlight(x, y) →
+                //   name, fileName, texPercentageX, texPercentageY,
+                //   textureX, textureY, scrollChildX, scrollChildY
+                //
+                // Asked on every frame the cursor is over the map, and only
+                // the first value is read for anything this client can answer:
+                // WorldMapFrame_OnUpdate sets the area label from it. The
+                // other seven place a highlight *texture* over the zone, which
+                // needs the per-zone highlight art the client's own map layer
+                // loads on demand — nil leaves the label named and the glow
+                // off, which is the honest half.
                 {"UpdateMapHighlight", [](lua_State* L) -> int {
-            (void)L;
-            for (int i = 0; i < 8; ++i) lua_pushnil(L);
+            auto* svc = getLuaServices(L);
+            const float u = static_cast<float>(luaL_optnumber(L, 1, -1.0));
+            const float v = static_cast<float>(luaL_optnumber(L, 2, -1.0));
+            std::string name;
+            if (svc && svc->getMapZoneNameAt) name = svc->getMapZoneNameAt(u, v);
+            if (name.empty()) lua_pushnil(L);
+            else              lua_pushstring(L, name.c_str());
+            for (int i = 0; i < 7; ++i) lua_pushnil(L);
             return 8;
         }},
                 // Clicking a continent drills into the zone under the point.
                 // Doing nothing leaves the map where it was, which is a map
                 // that does not zoom rather than one that zooms wrongly.
-                {"ProcessMapClick",     lua_ReturnNothing},
+                // Clicking a continent drills into the zone under the point,
+                // which is the same ZMP lookup the hover uses.
+                {"ProcessMapClick", [](lua_State* L) -> int {
+            auto* svc = getLuaServices(L);
+            if (svc && svc->clickMapPoint) {
+                svc->clickMapPoint(static_cast<float>(luaL_optnumber(L, 1, -1.0)),
+                                   static_cast<float>(luaL_optnumber(L, 2, -1.0)));
+            }
+            fireWorldMapUpdate(L);
+            return 0;
+        }},
                 // Zoom out one step. SetMapZoom answers the continent and
                 // cosmic cases beside it; this is the dungeon-floor and cosmic
                 // step, and neither is reachable while GetNumDungeonMapLevels
                 // answers none.
-                {"ZoomOut",             lua_ReturnNothing},
+                {"ZoomOut", [](lua_State* L) -> int {
+            auto* svc = getLuaServices(L);
+            if (svc && svc->zoomMapOut) svc->zoomMapOut();
+            fireWorldMapUpdate(L);
+            return 0;
+        }},
                 {"SetMapByID",          lua_ReturnNothing},
                 {"SetDungeonMapLevel",  lua_ReturnNothing},
                 {"ClickLandmark",       lua_ReturnNothing},

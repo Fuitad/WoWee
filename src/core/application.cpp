@@ -420,6 +420,17 @@ bool Application::initialize() {
             }
             return out;
         };
+        luaSvc.getMapZoneNameAt = [r = renderer.get()](float u, float v) -> std::string {
+            auto* wmap = r ? r->getWorldMap() : nullptr;
+            return wmap ? wmap->zoneNameAtMapPoint(u, v) : std::string();
+        };
+        luaSvc.clickMapPoint = [r = renderer.get()](float u, float v) -> bool {
+            auto* wmap = r ? r->getWorldMap() : nullptr;
+            return wmap ? wmap->clickMapPoint(u, v) : false;
+        };
+        luaSvc.zoomMapOut = [r = renderer.get()]() {
+            if (auto* wmap = r ? r->getWorldMap() : nullptr) wmap->zoomOutOneLevel();
+        };
         luaSvc.takeScreenshot = [uim = uiManager.get()]() {
             if (uim) uim->getGameScreen().takeScreenshot();
         };
