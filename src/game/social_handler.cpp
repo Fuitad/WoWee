@@ -783,25 +783,30 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         owner_.addSystemChatMessage("Cannot reset " + mapLabel + ": " + reasonMsg);
     };
     table[Opcode::SMSG_INSTANCE_LOCK_WARNING_QUERY] = [this](network::Packet& packet) {
-        if (!owner_.getSocket() || !packet.hasRemaining(17)) return;
-        uint32_t ilMapId    = packet.readUInt32();
-        uint32_t ilDiff     = packet.readUInt32();
-        uint32_t ilTimeLeft = packet.readUInt32();
-        packet.readUInt32(); // unk
-        uint8_t  ilLocked   = packet.readUInt8();
-        std::string ilName = owner_.getMapName(ilMapId);
-        if (ilName.empty()) ilName = "instance #" + std::to_string(ilMapId);
-        static const char* kDiff[] = {"Normal","Heroic","25-Man","25-Man Heroic"};
-        std::string ilMsg = "Entering " + ilName;
-        if (ilDiff < 4) ilMsg += std::string(" (") + kDiff[ilDiff] + ")";
-        if (ilLocked && ilTimeLeft > 0)
-            ilMsg += " — " + std::to_string(ilTimeLeft / 60) + " min remaining.";
-        else
-            ilMsg += ".";
-        owner_.addSystemChatMessage(ilMsg);
-        network::Packet resp(wireOpcode(Opcode::CMSG_INSTANCE_LOCK_RESPONSE));
-        resp.writeUInt8(1);
-        owner_.getSocket()->send(resp);
+        // Nine bytes: a countdown in milliseconds, the mask of encounters
+        // already completed in this instance, and whether the player was
+        // previously saved to it.
+        //
+        // What was here read a map id, a difficulty, a time and a flag across
+        // seventeen bytes, so the guard alone kept the handler from ever
+        // running against the nine the server sends. It also answered on the
+        // player's behalf — always accept — which is the one thing this packet
+        // is asking them.
+        if (!packet.hasRemaining(9)) { packet.skipAll(); return; }
+        const uint32_t timerMs = packet.readUInt32();
+        const uint32_t completedMask = packet.readUInt32();
+        const uint8_t previouslySaved = packet.readUInt8();
+
+        instanceLock_.active = true;
+        instanceLock_.secondsLeft = static_cast<float>(timerMs) / 1000.0f;
+        instanceLock_.previouslySaved = (previouslySaved != 0);
+        instanceLock_.completedEncounterMask = completedMask;
+
+        LOG_INFO("SMSG_INSTANCE_LOCK_WARNING_QUERY: ", timerMs / 1000,
+                 "s to decide, completed mask 0x", std::hex, completedMask, std::dec,
+                 previouslySaved ? ", previously saved" : "");
+
+        owner_.fireAddonEvent("INSTANCE_LOCK_START", {});
     };
 
     // ---- LFG ----
@@ -3543,9 +3548,35 @@ void SocialHandler::updateLogoutCountdown(float deltaTime) {
         logoutCountdown_ -= deltaTime;
         if (logoutCountdown_ < 0.0f) logoutCountdown_ = 0.0f;
     }
+    // The bind prompt expires on its own; the server stops asking and the
+    // pending bind lapses, so the dialog has to stop offering an answer.
+    if (instanceLock_.active) {
+        instanceLock_.secondsLeft -= deltaTime;
+        if (instanceLock_.secondsLeft <= 0.0f) {
+            instanceLock_.secondsLeft = 0.0f;
+            instanceLock_.active = false;
+            owner_.fireAddonEvent("INSTANCE_LOCK_STOP", {});
+        }
+    }
+}
+
+void SocialHandler::respondInstanceLock(bool accept) {
+    // Accepting saves the player to the instance; declining sends them to the
+    // graveyard. The server acts on whichever arrives and clears the pending
+    // bind, so sending twice is worse than not sending at all.
+    if (!instanceLock_.active || !owner_.getSocket()) return;
+    instanceLock_.active = false;
+
+    network::Packet resp(wireOpcode(Opcode::CMSG_INSTANCE_LOCK_RESPONSE));
+    resp.writeUInt8(accept ? 1 : 0);
+    owner_.getSocket()->send(resp);
+
+    LOG_INFO("CMSG_INSTANCE_LOCK_RESPONSE: ", accept ? "accepted" : "declined");
+    owner_.fireAddonEvent("INSTANCE_LOCK_STOP", {});
 }
 
 void SocialHandler::resetTransferState() {
+    instanceLock_ = InstanceLockPrompt{};
     encounterUnitGuids_.fill(0);
     raidTargetGuids_.fill(0);
 }

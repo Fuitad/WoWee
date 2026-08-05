@@ -560,6 +560,39 @@ void registerLfgLuaAPI(lua_State* L) {
     // Per-boss lockouts inside a raid the character is saved to. The saved
     // instance list has no encounter breakdown in it.
     {"GetInstanceLockTimeRemainingEncounter", [](lua_State* L) -> int { return luaReturnNil(L); }},
+    // The countdown on the bind-or-leave dialog, read every frame by its
+    // OnUpdate. A zero closes the dialog, which is what should happen when
+    // there is nothing pending.
+    {"GetInstanceLockTimeRemaining", [](lua_State* L) -> int {
+        auto* gh = getGameHandler(L);
+        float secondsLeft = 0.0f;
+        bool previouslySaved = false;
+        uint32_t completedMask = 0;
+        if (!gh || !gh->getInstanceLockPrompt(secondsLeft, previouslySaved, completedMask)) {
+            lua_pushnumber(L, 0);
+            lua_pushboolean(L, 0);
+            lua_pushinteger(L, 0);
+            lua_pushinteger(L, 0);
+            return 4;
+        }
+        // The mask says which encounters are done; its population count is how
+        // many, and the total comes from the map's own encounter list.
+        uint32_t complete = 0;
+        for (uint32_t bit = completedMask; bit; bit &= bit - 1) ++complete;
+        const uint32_t total = gh->getDungeonEncounterCount(gh->getCurrentMapId(),
+                                                            gh->getInstanceDifficulty());
+        lua_pushnumber(L, secondsLeft);
+        lua_pushboolean(L, previouslySaved ? 1 : 0);
+        lua_pushinteger(L, static_cast<lua_Integer>(total));
+        lua_pushinteger(L, static_cast<lua_Integer>(complete));
+        return 4;
+    }},
+    // Accept and be saved to the instance, or decline and go to the graveyard.
+    // The server does neither until one of the two arrives.
+    {"RespondInstanceLock", [](lua_State* L) -> int {
+        if (auto* gh = getGameHandler(L)) gh->respondInstanceLock(lua_toboolean(L, 1) != 0);
+        return 0;
+    }},
     // Whether the character is sitting out a deserter or random-dungeon
     // cooldown. Both are auras; this client does not check for them, and
     // answering yes would grey out a queue the server would have allowed.

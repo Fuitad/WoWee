@@ -305,6 +305,20 @@ public:
         if (slot < kMaxEncounterSlots) encounterUnitGuids_[slot] = guid;
     }
 
+    // The bind-or-leave question the server asks on entering an instance that
+    // is already under way. It carries a countdown, and the answer is the
+    // player's: accept and be saved, decline and go to the graveyard. Nothing
+    // happens until one of the two is sent, so this is held rather than
+    // answered here.
+    struct InstanceLockPrompt {
+        bool active = false;
+        float secondsLeft = 0.0f;
+        bool previouslySaved = false;
+        uint32_t completedEncounterMask = 0;
+    };
+    const InstanceLockPrompt& getInstanceLockPrompt() const { return instanceLock_; }
+    void respondInstanceLock(bool accept);
+
     // Encounter unit tracking
     static constexpr uint32_t kMaxEncounterSlots = 5;
     uint64_t getEncounterUnitGuid(uint32_t slot) const {
@@ -489,6 +503,7 @@ private:
 
     // Encounter units
     std::array<uint64_t, kMaxEncounterSlots> encounterUnitGuids_ = {};
+    InstanceLockPrompt instanceLock_;
 
     // Arena
     std::vector<ArenaTeamStats>  arenaTeamStats_;

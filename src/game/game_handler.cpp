@@ -2705,6 +2705,54 @@ std::string GameHandler::getMapName(uint32_t mapId) const {
     return (it != mapNameCache_.end()) ? it->second : std::string{};
 }
 
+bool GameHandler::getInstanceLockPrompt(float& secondsLeft, bool& previouslySaved,
+                                        uint32_t& completedMask) const {
+    if (!socialHandler_) return false;
+    const auto& prompt = socialHandler_->getInstanceLockPrompt();
+    if (!prompt.active) return false;
+    secondsLeft = prompt.secondsLeft;
+    previouslySaved = prompt.previouslySaved;
+    completedMask = prompt.completedEncounterMask;
+    return true;
+}
+
+void GameHandler::respondInstanceLock(bool accept) {
+    if (socialHandler_) socialHandler_->respondInstanceLock(accept);
+}
+
+uint32_t GameHandler::getDungeonEncounterCount(uint32_t mapId, uint32_t difficulty) const {
+    if (!dungeonEncounterCacheLoaded_) {
+        auto* am = services_.assetManager;
+        // Not an attempt: the assets are not there to read yet, and a caller
+        // can reach this before they are.
+        if (!am || !am->isInitialized()) return 0;
+        dungeonEncounterCacheLoaded_ = true;
+
+        auto dbc = am->loadDBC("DungeonEncounter.dbc");
+        if (dbc && dbc->isLoaded()) {
+            // ID, MapID, Difficulty, OrderIndex, Bit, Name[17], SpellIconID.
+            // Verified against record 0: id 464, map 33 (Shadowfang Keep),
+            // difficulty 0, order 0, bit 0.
+            constexpr uint32_t kMapField = 1, kDiffField = 2;
+            for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+                const uint64_t map = dbc->getUInt32(i, kMapField);
+                const uint64_t diff = dbc->getUInt32(i, kDiffField);
+                dungeonEncounterCounts_[(map << 32) | diff]++;
+                // Most instances list their bosses once, under difficulty 0,
+                // and apply to every difficulty. Keeping a per-map total means
+                // a heroic run still has a number to show.
+                dungeonEncounterCounts_[(map << 32) | 0xFFFFFFFFull]++;
+            }
+        }
+        LOG_INFO("DungeonEncounter.dbc: ", dungeonEncounterCounts_.size(), " map/difficulty pairs");
+    }
+
+    auto it = dungeonEncounterCounts_.find((static_cast<uint64_t>(mapId) << 32) | difficulty);
+    if (it != dungeonEncounterCounts_.end()) return it->second;
+    it = dungeonEncounterCounts_.find((static_cast<uint64_t>(mapId) << 32) | 0xFFFFFFFFull);
+    return (it != dungeonEncounterCounts_.end()) ? it->second : 0;
+}
+
 // ---------------------------------------------------------------------------
 // LFG dungeon name cache (WotLK: LFGDungeons.dbc)
 // ---------------------------------------------------------------------------

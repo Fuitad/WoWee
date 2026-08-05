@@ -1464,6 +1464,13 @@ public:
 
     // Instance difficulty (0=5N, 1=5H, 2=25N, 3=25H for WotLK)
     uint32_t getInstanceDifficulty() const;
+
+    /// The bind-or-leave prompt raised on entering an instance in progress.
+    /// False when nothing is pending, in which case the out-params are
+    /// untouched.
+    bool getInstanceLockPrompt(float& secondsLeft, bool& previouslySaved,
+                               uint32_t& completedMask) const;
+    void respondInstanceLock(bool accept);
     bool isInstanceHeroic() const;
     bool isInInstance() const;
 
@@ -1626,6 +1633,11 @@ public:
     uint32_t getLfgDungeonId() const;
     std::string getCurrentLfgDungeonName() const;
     std::string getMapName(uint32_t mapId) const;
+
+    /// How many boss encounters a map has, for the "%d of %d bosses" line.
+    /// Counted from DungeonEncounter.dbc, which is the only place the total
+    /// lives — the server sends which are done and never how many there are.
+    uint32_t getDungeonEncounterCount(uint32_t mapId, uint32_t difficulty) const;
     uint32_t getLfgProposalId() const;
     uint8_t  getLfgOfferedRoles() const;
     const std::vector<LfgProposalMember>& getLfgProposalMembers() const;
@@ -4110,6 +4122,10 @@ private:
     mutable std::unordered_map<uint32_t, std::string> mapNameCache_;
     mutable std::unordered_map<uint32_t, uint32_t> mapInstanceTypeCache_;
     mutable bool mapNameCacheLoaded_ = false;
+    // (mapId, difficulty) -> encounter count, and the same map with no
+    // difficulty-specific rows under a difficulty of 0xFFFFFFFF.
+    mutable std::unordered_map<uint64_t, uint32_t> dungeonEncounterCounts_;
+    mutable bool dungeonEncounterCacheLoaded_ = false;
     void loadMapNameCache() const;
 
     // LFG dungeon name cache (lazy-loaded from LFGDungeons.dbc; WotLK only)
