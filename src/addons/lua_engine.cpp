@@ -1190,6 +1190,23 @@ int lua_Tooltip_AddLine(lua_State* L) {
 ///     wrong size says so without anything else being opened.
 ///
 /// Ordered outermost first, so the last line is what the cursor is really on.
+/// GameTooltip:AppendText(text) — add to the end of the tooltip's first line.
+///
+/// The title line, not the last one added: the real client appends to the line
+/// the tooltip was named with, which is what its one caller in the interface
+/// wants — the bag buttons put the key that opens each bag in brackets after
+/// the bag's own name.
+///
+/// A no-op answered it, so the tooltip was correct and the key was missing,
+/// which is the kind of absence nobody reports.
+int lua_Tooltip_AppendText(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    const char* text = luaL_optstring(L, 2, "");
+    if (!w || !text || !*text || w->tooltipLines.empty()) return 0;
+    w->tooltipLines.front().left += text;
+    return 0;
+}
+
 int lua_Tooltip_SetFrameStack(lua_State* L) {
     auto* w = widgetOf(L, 1);
     auto* tree = wowee::addons::getWidgetTree(L);
@@ -3931,6 +3948,7 @@ void LuaEngine::registerCoreAPI() {
         {"AddDoubleLine",   lua_Tooltip_AddDoubleLine},
         {"ClearLines",      lua_Tooltip_ClearLines},
         {"SetFrameStack",   lua_Tooltip_SetFrameStack},
+        {"AppendText",      lua_Tooltip_AppendText},
         {"NumLines",        lua_Tooltip_NumLines},
         {"Clear",           lua_MessageFrame_Clear},
         {"GetNumMessages",  lua_MessageFrame_GetNumMessages},
@@ -4095,6 +4113,23 @@ void LuaEngine::registerCoreAPI() {
         // into GetInventoryItemTexture, so every bank slot came back with no
         // texture and no item. The bank drew as an empty bank however full it
         // was. The tooltip, the pick-up and the bag click all read it too.
+        // GameTooltip:SetTracking() — what the minimap's tracking button is
+        // hunting for. Written here rather than in C because everything it
+        // needs is already answered: GetNumTrackingTypes and GetTrackingInfo
+        // read the player's known tracking spells and which one is running.
+        //
+        // The button is on the minimap, which is drawn by FrameXML on the
+        // default tier, so the empty tooltip a no-op left was on screen for
+        // anyone who hovered it.
+        "function mt:SetTracking()\n"
+        "    local active\n"
+        "    for i = 1, GetNumTrackingTypes() do\n"
+        "        local name, _, on = GetTrackingInfo(i)\n"
+        "        if on then active = name break end\n"
+        "    end\n"
+        "    self:SetText(active or MINIMAP_TRACKING or 'Tracking')\n"
+        "    self:Show()\n"
+        "end\n"
         "function mt:GetInventorySlot()\n"
         "    return BankButtonIDToInvSlotID(self:GetID(), self.isBag)\n"
         "end\n"
@@ -4575,7 +4610,7 @@ void LuaEngine::registerCoreAPI() {
     bootstrap(
         "__WoweeWidgetMethods = {\n"
         "AddDoubleLine=1,AddHistoryLine=1,AddLine=1,AddMessage=1,AddTexture=1,\n"
-        "AddToAutoHide=1,AllowAttributeChanges=1,Animate=1,AppendText=1,\n"
+        "AddToAutoHide=1,AllowAttributeChanges=1,Animate=1,\n"
         "CallMethod=1,CanSaveTabardNow=1,ChildUpdate=1,Clear=1,ClearAllPoints=1,\n"
         "ClearBinding=1,ClearBindings=1,ClearFocus=1,ClearHistory=1,ClearLines=1,\n"
         "ClearModel=1,CreateFontString=1,CreatePlayerArrowFrame=1,\n"
@@ -4656,7 +4691,7 @@ void LuaEngine::registerCoreAPI() {
         "SetGlyph=1,SetSocketGem=1,SetSocketedItem=1,SetExistingSocketGem=1,\n"
         "SetScrollOffset=1,RegisterAllEvents=1,\n"
         "SetStatusBarTexture=1,SetTexCoord=1,SetText=1,SetTextHeight=1,\n"
-        "SetTexture=1,SetToplevel=1,SetTracking=1,\n"
+        "SetTexture=1,SetToplevel=1,\n"
         "SetTradeTargetItem=1,SetUIPanel=1,SetUnit=1,\n"
         "SetUnitBuff=1,SetUnitDebuff=1,SetValue=1,SetValueStep=1,\n"
         "SetVertexColor=1,SetVerticalScroll=1,SetWidth=1,SetZoom=1,Show=1,ShowUIPanel=1,\n"
