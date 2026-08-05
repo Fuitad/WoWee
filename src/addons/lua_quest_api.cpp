@@ -2641,8 +2641,14 @@ void registerQuestLuaAPI(lua_State* L) {
                 // window that calls nothing undefined is the measure of
                 // whether it can be handed over.
                 {"ShowMerchantSellCursor", [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ShowRepairCursor",       [](lua_State* L) -> int { (void)L; return 0; }},
-                {"HideRepairCursor",       [](lua_State* L) -> int { (void)L; return 0; }},
+                // The merchant's repair-an-item button toggles between these
+                // two and reads the state back through InRepairMode. All three
+                // were stubs, so the button never latched and the per-item
+                // repair the bags and the paperdoll gate on it was dead.
+                {"ShowRepairCursor",       [](lua_State* L) -> int {
+            (void)L; repairCursorUp() = true; return 0; }},
+                {"HideRepairCursor",       [](lua_State* L) -> int {
+            (void)L; repairCursorUp() = false; return 0; }},
                 // GetNumCompletedAchievements() → total, completed.
                 //
                 // Two values, and the total comes first. This returned one —

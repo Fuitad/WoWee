@@ -561,6 +561,11 @@ static int lua_PickupContainerItem(lua_State* L) {
     // be applied to is that choice, not a pickup.
     if (completedItemTarget(L, containerSlotGuid(gh, bag, slot))) return 0;
 
+    // With the repair cursor up, a click on an item is the repair. The real
+    // client consumes the click in C for the same reason, which is why
+    // containerframe.lua has no branch of its own for it.
+    if (repairedHeldItem(gh, containerSlotGuid(gh, bag, slot))) return 0;
+
     // A bag click while the cursor holds a vendor's item is the purchase.
     // containerframe.lua routes it here after checking GetCursorInfo.
     if (boughtHeldMerchantItem(L)) return 0;
@@ -747,6 +752,10 @@ static int lua_PickupInventoryItem(lua_State* L) {
     // of its own — a left-click on a worn weapon always arrives here, and while
     // a stone or an oil is waiting for a target that click is the target.
     if (slot <= 19 && completedItemTarget(L, gh->getEquipSlotGuid(slot - 1))) return 0;
+
+    // Worn gear is what usually needs repairing, and the paperdoll has no
+    // branch of its own for it either.
+    if (slot <= 19 && repairedHeldItem(gh, gh->getEquipSlotGuid(slot - 1))) return 0;
 
     // Carrying something: equip it here, which is the other half of the drag.
     uint8_t srcBag = 0, srcSlot = 0;

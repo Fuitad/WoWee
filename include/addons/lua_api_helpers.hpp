@@ -338,6 +338,33 @@ inline bool completedItemTarget(lua_State* L, uint64_t targetGuid) {
 
 // The GUID of the item in a FrameXML container slot: bag 0 is the backpack,
 // 1-4 are the worn bags, and both are 1-based on the slot.
+/// Whether the repair cursor is up at a vendor.
+///
+/// Three calls asked and answered this and none of them agreed:
+/// ShowRepairCursor and HideRepairCursor were no-ops and InRepairMode was a
+/// flat false. So the merchant's repair button never latched — every click
+/// took the "not in repair mode" branch and showed the cursor again — and the
+/// per-item repair the bags and the paperdoll gate on it was unreachable.
+inline bool& repairCursorUp() {
+    static bool up = false;
+    return up;
+}
+
+/// The repair click, when there is one: true when this item was repaired here
+/// and the caller should do nothing else with it.
+///
+/// The vendor being open is required rather than assumed. HideRepairCursor is
+/// only called from the button itself, so closing the window while the cursor
+/// is up leaves the flag set — and a left-click in the bags afterwards would
+/// otherwise try to repair against a vendor that is no longer there.
+inline bool repairedHeldItem(game::GameHandler* gh, uint64_t itemGuid) {
+    if (!gh || !repairCursorUp() || !itemGuid) return false;
+    const uint64_t vendor = gh->getVendorGuid();
+    if (!vendor || !gh->isVendorWindowOpen()) return false;
+    gh->repairItem(vendor, itemGuid);
+    return true;
+}
+
 inline uint64_t containerSlotGuid(game::GameHandler* gh, int bag, int slot) {
     if (!gh || slot < 1) return 0;
     if (bag == 0) return gh->getBackpackItemGuid(slot - 1);

@@ -2623,7 +2623,16 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushboolean(L, c == 2 || c == 6 || c == 7 || c == 11);
             return 1;
         }},
-                {"InRepairMode",            lua_ReturnFalse},
+                // Whether the repair cursor is up. A flat false meant the
+                // merchant's repair button re-armed on every click instead of
+                // toggling, and neither the bag nor the paperdoll tooltip ever
+                // showed an item's repair cost.
+                {"InRepairMode", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const bool active = repairCursorUp() && gh && gh->isVendorWindowOpen();
+            lua_pushboolean(L, active ? 1 : 0);
+            return 1;
+        }},
                 // IsInventoryItemLocked(slot) — that slot's item is on the
                 // cursor, so the paperdoll greys it while it is in the air.
                 // Answering no meant a picked-up item stayed drawn in the slot
