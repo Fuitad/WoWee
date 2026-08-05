@@ -2715,6 +2715,21 @@ void GameHandler::sendOptOutOfLoot(bool optOut) {
     LOG_INFO("CMSG_OPT_OUT_OF_LOOT: ", optOut ? "opting out" : "opting in");
 }
 
+void GameHandler::runInterfaceCommand(const std::string& lua) const {
+    if (!interfaceCommand_) {
+        // A key reaching here before the interface is up does nothing, and does
+        // it silently. Said out loud, because "the window did not open" is
+        // otherwise indistinguishable from a key that never arrived.
+        LOG_WARNING("interface command dropped, no interface yet: ", lua);
+        return;
+    }
+    // At warning level, because the file log filters info out by default and
+    // this is the line that separates "the key never arrived" from "the key
+    // arrived and the interface did nothing with it".
+    LOG_WARNING("interface command: ", lua);
+    interfaceCommand_(lua);
+}
+
 void GameHandler::requestGuildBankLog(uint8_t tab) {
     if (socialHandler_) socialHandler_->requestGuildBankLog(tab);
 }

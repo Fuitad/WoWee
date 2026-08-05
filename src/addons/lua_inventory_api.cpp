@@ -1585,17 +1585,29 @@ static int lua_UseContainerItem(lua_State* L) {
         return 0;
     }
 
+    // Something with an equip slot is equipped by a right-click, not used.
+    // That is a different message — CMSG_AUTOEQUIP_ITEM rather than
+    // CMSG_USE_ITEM — and this only ever sent the second, so right-clicking
+    // gear in a bag did nothing at all. It holds for a trinket too: one in a
+    // bag is equipped, and only one already worn is used.
+    //
+    // A lockbox and its kind have no equip slot, so they still open; a bag has
+    // one, so it goes into a bag slot the way it should.
+    const bool equippable = info && info->valid && info->inventoryType != 0;
+
     // By slot rather than by item id: the id searches the bags for a match and
     // can find a different stack of the same thing than the one clicked.
     if (bag == 0) {
         const int idx = slot - 1;
-        if (readable)      gh->readItemBySlot(idx);
-        else if (openable) gh->openItemBySlot(idx);
-        else               gh->useItemBySlot(idx);
+        if (readable)         gh->readItemBySlot(idx);
+        else if (equippable)  gh->autoEquipItemBySlot(idx);
+        else if (openable)    gh->openItemBySlot(idx);
+        else                  gh->useItemBySlot(idx);
     } else {
-        if (readable)      gh->readItemInBag(bag - 1, slot - 1);
-        else if (openable) gh->openItemInBag(bag - 1, slot - 1);
-        else               gh->useItemInBag(bag - 1, slot - 1);
+        if (readable)         gh->readItemInBag(bag - 1, slot - 1);
+        else if (equippable)  gh->autoEquipItemInBag(bag - 1, slot - 1);
+        else if (openable)    gh->openItemInBag(bag - 1, slot - 1);
+        else                  gh->useItemInBag(bag - 1, slot - 1);
     }
     return 0;
 }

@@ -318,9 +318,7 @@ public:
     void setInterfaceCommandCallback(InterfaceCommand cb) {
         interfaceCommand_ = std::move(cb);
     }
-    void runInterfaceCommand(const std::string& lua) const {
-        if (interfaceCommand_) interfaceCommand_(lua);
-    }
+    void runInterfaceCommand(const std::string& lua) const;
 
     // Spell icon path resolver: spellId -> texture path string (e.g., "Interface\\Icons\\Spell_Fire_Fireball01")
     using SpellIconPathResolver = std::function<std::string(uint32_t)>;
