@@ -90,7 +90,9 @@ public:
                                   ChatPanel& chatPanel);
 
     // ---- Popup / overlay windows ----
-    void renderEscapeMenu(SettingsPanel& settingsPanel);
+    /// The game handler is only for the Help button, which has to reach
+    /// FrameXML's help frame when that element is handed over.
+    void renderEscapeMenu(SettingsPanel& settingsPanel, game::GameHandler& gameHandler);
     void renderLogoutCountdown(game::GameHandler& gameHandler);
     void renderDeathScreen(game::GameHandler& gameHandler);
     void renderReclaimCorpseButton(game::GameHandler& gameHandler);

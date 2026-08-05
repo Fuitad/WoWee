@@ -654,7 +654,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     dialogManager_.renderLateDialogs(gameHandler);
     chatPanel_.renderBubbles(gameHandler);
     if (!frameXmlOwns(UiElement::GameMenu)) {
-        windowManager_.renderEscapeMenu(settingsPanel_);
+        windowManager_.renderEscapeMenu(settingsPanel_, gameHandler);
     }
     if (!frameXmlOwns(UiElement::GameMenu)) {
         settingsPanel_.renderSettingsWindow(inventoryScreen, chatPanel_, [this]() { saveSettings(); });

@@ -63,15 +63,32 @@ def gated_renders(src):
 
 
 def guard_flags(src):
-    """render method -> the show-flag it returns early on, and its file."""
+    """render method -> its flag, and the line span of its own body.
+
+    The span, rather than the file. A control can live in the same file as the
+    window it opens — the escape menu's Help button sits a few thousand lines
+    above the render it belongs to — and excluding the whole file to skip the
+    render's own `showFoo_ = false` hid it completely. Only the render's body is
+    its own bookkeeping.
+    """
     out = {}
     for path, text in src.items():
         for m in re.finditer(
-                r"void\s+\w+::(render\w+)\s*\([^)]*\)\s*\{(.{0,400})", text, re.S):
-            g = re.search(r"if\s*\(\s*!\s*(\w*[Ss]how\w*_)\s*\)\s*(?:\{\s*)?return",
-                          m.group(2))
-            if g:
-                out[m.group(1)] = (g.group(1), path.name)
+                r"void\s+\w+::(render\w+)\s*\([^)]*\)\s*\{", text):
+            head = text[m.end():m.end() + 400]
+            g = re.search(r"if\s*\(\s*!\s*(\w*[Ss]how\w*_)\s*\)\s*(?:\{\s*)?return", head)
+            if not g:
+                continue
+            depth, i = 1, m.end()
+            while i < len(text) and depth:
+                if text[i] == "{":
+                    depth += 1
+                elif text[i] == "}":
+                    depth -= 1
+                i += 1
+            first = text.count("\n", 0, m.start()) + 1
+            last = text.count("\n", 0, i) + 1
+            out[m.group(1)] = (g.group(1), path.name, first, last)
     return out
 
 
@@ -83,17 +100,16 @@ def main():
     watched = {}
     for render, elements in gated.items():
         if render in guards:
-            flag, owner_file = guards[render]
-            watched[flag] = (sorted(elements), owner_file)
+            flag, owner_file, first, last = guards[render]
+            watched[flag] = (sorted(elements), owner_file, first, last)
 
     rows = []
     for path, text in src.items():
         lines = text.split("\n")
         for i, line in enumerate(lines):
-            for flag, (elements, owner_file) in watched.items():
-                # A write inside the window's own file is the render closing
-                # itself, not a control opening it.
-                if path.name == owner_file:
+            for flag, (elements, owner_file, first, last) in watched.items():
+                # A write inside the render's own body is it closing itself.
+                if path.name == owner_file and first <= i + 1 <= last:
                     continue
                 if not re.search(r"\b" + re.escape(flag) + r"\s*=(?!=)", line):
                     continue

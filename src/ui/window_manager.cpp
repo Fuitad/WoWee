@@ -1890,7 +1890,8 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
     }
 }
 
-void WindowManager::renderEscapeMenu(SettingsPanel& settingsPanel) {
+void WindowManager::renderEscapeMenu(SettingsPanel& settingsPanel,
+                                     game::GameHandler& gameHandler) {
     if (!showEscapeMenu) return;
 
     ImGuiIO& io = ImGui::GetIO();
@@ -1938,7 +1939,12 @@ void WindowManager::renderEscapeMenu(SettingsPanel& settingsPanel) {
             showEscapeMenu = false;
         }
         if (ImGui::Button("Help / GM Ticket", ImVec2(-1, 0))) {
-            showGmTicketWindow_ = true;
+            // This menu is this client's own, and the panel behind the button
+            // may not be. The same routing as the slash command that opens it.
+            if (frameXmlOwns(UiElement::Help))
+                gameHandler.runInterfaceCommand("ToggleHelpFrame()");
+            else
+                showGmTicketWindow_ = true;
             showEscapeMenu = false;
         }
 
