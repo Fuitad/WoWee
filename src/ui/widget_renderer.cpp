@@ -93,6 +93,10 @@ std::vector<TextRun> parseMarkup(const std::string& in) {
             }
         }
         if (tag == 'r' || tag == 'R') { flush(); cur.hasColor = false; i += 2; continue; }
+        // |n is WoW's line break, and it was not handled at all — so every one
+        // of them drew as a literal bar and an n. globalstrings.lua alone has a
+        // hundred and thirty-eight.
+        if (tag == 'n' || tag == 'N') { cur.text += '\n'; i += 2; continue; }
         if (tag == 'H' || tag == 'h') {
             // |Hitem:...|h[Name]|h — the part between the markers is the text.
             const size_t end = in.find('|', i + 2);
@@ -278,9 +282,10 @@ void WidgetRenderer::sizeTooltips(WidgetTree& tree) {
 
         int rows = 0;
         for (const auto& line : w->tooltipLines) {
-            if (!line.wrap) { line.lines = 1; ++rows; continue; }
+            // Every line, wrapping or not: one carrying |n is two rows tall
+            // whether or not it is also being broken to fit.
             line.lines = static_cast<int>(
-                wrapText(parseMarkup(line.left), wrapW, false,
+                wrapText(parseMarkup(line.left), line.wrap ? wrapW : 0.0f, false,
                          [&](const std::string& piece) {
                              return font->CalcTextSizeA(size, FLT_MAX, 0.0f,
                                                         piece.c_str()).x;
@@ -1500,7 +1505,10 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             ImVec2 extent =
                 font ? font->CalcTextSizeA(size, FLT_MAX, 0.0f, w->text.c_str())
                      : ImGui::CalcTextSize(w->text.c_str());
-            if (wrapW > 0.0f && font) {
+            // Counted even when nothing wraps: |n is a line break at any
+            // width, so a label with one in it is two lines tall whether or
+            // not it is also being broken to fit.
+            if (font) {
                 const auto lines = wrapText(
                     parseMarkup(w->text), wrapW, w->nonSpaceWrap,
                     [&](const std::string& piece) {
@@ -1508,8 +1516,10 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                                                    piece.c_str()).x;
                     });
                 w->wrappedLines = static_cast<int>(lines.size());
-                extent.x = wrapW;
-                extent.y = size * 1.2f * static_cast<float>(lines.size());
+                if (wrapW > 0.0f) {
+                    extent.x = wrapW;
+                    extent.y = size * 1.2f * static_cast<float>(lines.size());
+                }
             } else {
                 w->wrappedLines = 1;
             }

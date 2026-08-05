@@ -35,9 +35,11 @@ inline bool sameStyle(const WrapRun& a, const WrapRun& b) {
 
 /// Break runs into lines no wider than wrapWidth.
 ///
-/// `measure` answers the width of a string. A wrapWidth of zero means no
-/// wrapping, which is what an auto-sized label wants — it is as wide as its
-/// text and there is nothing to break.
+/// `measure` answers the width of a string. A wrapWidth of zero means no soft
+/// wrapping, which is what an auto-sized label wants — it is as wide as its own
+/// text. A newline still breaks the line at any width: |n is WoW's spelling of
+/// one, and a label with an explicit break gets one whether or not anything is
+/// wrapping.
 ///
 /// Words, not characters, unless a single word is wider than the whole box and
 /// nonSpaceWrap says it may be broken. Thirty-six labels in FrameXML ask for
@@ -48,11 +50,6 @@ std::vector<std::vector<WrapRun>> wrapText(const std::vector<WrapRun>& runs,
                                            Measure measure) {
     std::vector<std::vector<WrapRun>> lines;
     lines.emplace_back();
-    if (wrapWidth <= 0.0f) {
-        lines.back() = runs;
-        return lines;
-    }
-
     float x = 0.0f;
     auto place = [&](const WrapRun& style, const std::string& piece) {
         if (!lines.back().empty() && sameStyle(lines.back().back(), style)) {
@@ -67,11 +64,31 @@ std::vector<std::vector<WrapRun>> wrapText(const std::vector<WrapRun>& runs,
     for (const WrapRun& run : runs) {
         size_t at = 0;
         while (at < run.text.size()) {
+            // A newline breaks the line whatever the width is. |n is WoW's
+            // spelling of one and the markup parser turns it into this, so a
+            // label with an explicit break gets one even when nothing is
+            // wrapping.
+            if (run.text[at] == '\n') {
+                lines.emplace_back();
+                x = 0.0f;
+                ++at;
+                continue;
+            }
+            if (wrapWidth <= 0.0f) {
+                // No soft wrapping: take everything up to the next hard break.
+                const size_t stop = run.text.find('\n', at);
+                place(run, run.text.substr(at, stop == std::string::npos
+                                                   ? std::string::npos : stop - at));
+                at = (stop == std::string::npos) ? run.text.size() : stop;
+                continue;
+            }
             // A word and the spaces that follow it, so a break falls between
             // words and the trailing space stays with the line above.
-            size_t end = run.text.find(' ', at);
+            size_t end = run.text.find_first_of(" \n", at);
             if (end == std::string::npos) {
                 end = run.text.size();
+            } else if (run.text[end] == '\n') {
+                // Stop before it; the branch above takes the break itself.
             } else {
                 while (end < run.text.size() && run.text[end] == ' ') ++end;
             }

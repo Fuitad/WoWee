@@ -157,6 +157,39 @@ TEST_CASE("a break between two runs does not merge their styles",
     REQUIRE(out[0][1].hasColor);
 }
 
+TEST_CASE("a newline breaks the line even with no wrapping", "[text_wrap]") {
+    // |n is WoW's spelling of one and the markup parser turns it into this, so
+    // a label with an explicit break gets one whether or not anything wraps.
+    const auto out = lines("first\nsecond", 0.0f);
+    REQUIRE(out.size() == 2);
+    REQUIRE(out[0] == "first");
+    REQUIRE(out[1] == "second");
+}
+
+TEST_CASE("two newlines leave a blank line between", "[text_wrap]") {
+    // INSTANCE_LOCK_SEPARATOR is "%s|n|n%s", which is a paragraph break.
+    const auto out = lines("a\n\nb", 0.0f);
+    REQUIRE(out.size() == 3);
+    REQUIRE(out[0] == "a");
+    REQUIRE(out[1].empty());
+    REQUIRE(out[2] == "b");
+}
+
+TEST_CASE("a hard break wins over a soft one", "[text_wrap]") {
+    // The word before the break must not be carried onto the wrapped line.
+    const auto out = lines("ab\ncd ef gh", 5.0f);
+    REQUIRE(out.size() >= 2);
+    REQUIRE(out[0] == "ab");
+    REQUIRE(out[1].substr(0, 2) == "cd");
+}
+
+TEST_CASE("a word is not carried across a hard break", "[text_wrap]") {
+    const auto out = lines("alpha\nbeta", 40.0f);
+    REQUIRE(out.size() == 2);
+    REQUIRE(out[0] == "alpha");
+    REQUIRE(out[1] == "beta");
+}
+
 TEST_CASE("an empty string produces one empty line", "[text_wrap]") {
     const auto out = wrapText(plain(""), 10.0f, false, charWidth);
     REQUIRE(out.size() == 1);
