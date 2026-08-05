@@ -521,14 +521,40 @@ void registerLfgLuaAPI(lua_State* L) {
         return luaReturnNil(L);
     }},
     // The random dungeon's own row, which the picker shows above the list.
+    // GetNumRandomDungeons() — how many of the catalogue are the random kind.
+    //
+    // Unbound, so opening the dungeon finder's type dropdown called a nil
+    // global and raised. Type 6 is random, which is the same field
+    // GetLFGRandomDungeonInfo below reports.
+    {"GetNumRandomDungeons", [](lua_State* L) -> int {
+        auto* gh = getGameHandler(L);
+        int n = 0;
+        if (gh) {
+            for (const auto& d : gh->getLfgDungeons()) {
+                if (d.typeId == 6) ++n;
+            }
+        }
+        lua_pushinteger(L, n);
+        return 1;
+    }},
+    // GetLFGRandomDungeonInfo(index) → id, name
+    //
+    // An index into the random dungeons, counted the same way as the call
+    // above, and the id first. This took a dungeon id and answered name and
+    // type — so the one caller, which walks 1..GetNumRandomDungeons and reads
+    // id and name, looked up dungeon 1, then dungeon 2, and put the name into
+    // the id and the type into the name. IsLFGDungeonJoinable was then asked
+    // about a string.
     {"GetLFGRandomDungeonInfo", [](lua_State* L) -> int {
         auto* gh = getGameHandler(L);
-        const uint32_t dungeonId = static_cast<uint32_t>(luaL_optinteger(L, 1, 0));
-        if (!gh || dungeonId == 0) return luaReturnNil(L);
+        const int index = static_cast<int>(luaL_optinteger(L, 1, 0));
+        if (!gh || index < 1) return luaReturnNil(L);
+        int n = 0;
         for (const auto& d : gh->getLfgDungeons()) {
-            if (d.id != dungeonId) continue;
+            if (d.typeId != 6) continue;
+            if (++n != index) continue;
+            lua_pushinteger(L, static_cast<lua_Integer>(d.id));
             lua_pushstring(L, d.name.c_str());
-            lua_pushinteger(L, static_cast<lua_Integer>(d.typeId));
             return 2;
         }
         return luaReturnNil(L);

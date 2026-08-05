@@ -2643,6 +2643,18 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetPVPRankProgress",       lua_GetPVPRankProgress},
                 {"ArenaTeamRoster",              lua_ArenaTeamRoster},
                 {"GetArenaTeamRosterInfo",       lua_GetArenaTeamRosterInfo},
+                // How many rows that reader has. Unbound, so opening a team's
+                // details called a nil global and raised before the first row
+                // was read — the reader beside it worked the whole time.
+                {"GetNumArenaTeamMembers", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t teamId =
+                arenaTeamIdAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            const auto* roster = (gh && teamId) ? gh->getArenaTeamRoster(teamId) : nullptr;
+            lua_pushnumber(L, roster
+                ? static_cast<lua_Number>(roster->members.size()) : 0);
+            return 1;
+        }},
                 {"GetArenaTeamRosterSelection",  lua_GetArenaTeamRosterSelection},
                 {"SetArenaTeamRosterSelection",  lua_SetArenaTeamRosterSelection},
                 {"CloseArenaTeamRoster",         lua_CloseArenaTeamRoster},
@@ -2656,6 +2668,19 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetHolidayBGHonorCurrencyBonuses", lua_BattlegroundHonorBonusesNone},
                 {"GetBattlefieldInstanceInfo",       lua_GetBattlefieldInstanceInfo},
                 {"GetNumBattlefields",       lua_GetNumBattlefields},
+                // Sorting the battleground list. This client sorts its own, so
+                // there is nothing to do — but the name has to exist, because
+                // PVPBattlegroundFrame_OnShow calls it and a nil global raises
+                // as the panel opens.
+                {"SortBGList",               lua_ReturnNothing},
+                // Stationery for a letter. None is carried, and the picker
+                // draws the default when the count is zero — which it could
+                // not do while the count raised.
+                {"GetNumStationeries",       lua_ReturnZero},
+                // Voice mutes, which this client has no voice chat to keep.
+                // Read while the ignore list is drawn, so a nil global took
+                // the whole ignore tab with it.
+                {"GetNumMutes",              lua_ReturnZero},
                 {"IsInLFGDungeon",           lua_IsInLFGDungeon},
                 {"LFGTeleport",              lua_LFGTeleport},
                 {"IsBattlefieldArena",       lua_IsBattlefieldArena},
