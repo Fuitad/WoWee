@@ -3203,6 +3203,21 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"IsHelpfulItem",            lua_ReturnFalse},
                 {"IsHarmfulSpell",           lua_ReturnFalse},
                 {"IsHelpfulSpell",           lua_ReturnFalse},
+                // False on purpose, and not for want of the state: the
+                // player's UNIT_FIELD_CHARM says whether they are possessing
+                // something, and the possessed unit's bar does arrive — 
+                // Player::PossessSpellInitialize sends SMSG_PET_SPELLS with
+                // charmInfo->BuildActionBar, which lands in petActionSlots_.
+                //
+                // What is missing is the second slot's contract.
+                // POSSESS_CANCEL_SLOT is 2 and PossessButton_OnClick does
+                // `local _, name = GetPossessInfo(id); CancelUnitBuff("player",
+                // name)` — so that slot must name the possessing aura, because
+                // it is how someone escapes a mind control. A pet action's name
+                // there cancels the wrong buff or nothing.
+                //
+                // Turning this on without that gives an empty bar and no way
+                // out, since a nil from GetPossessInfo hides both buttons.
                 {"IsPossessBarVisible",      lua_ReturnFalse},
                 // IsRaidOfficer() — whether this player is an assistant.
                 //
