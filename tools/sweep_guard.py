@@ -152,6 +152,17 @@ CHECKS = [
     ("framexml_script_args.py",
      r"^(\d+) body/signature disagreement", 2,
      "handler bodies reading an argument their signature does not carry"),
+    # Top-level FrameXML frames named nowhere in framexml_takeover.cpp —
+    # neither handed over nor suppressed. Forty-four, and none of them is a
+    # double: every name was checked against this client's own UI and none has
+    # a counterpart there, so FrameXML drawing them is the only version there
+    # is. That is a decision about forty-four particular frames, though, not a
+    # rule — the forty-fifth is the one to look at, which is what the ceiling
+    # is for. The tool's own blind spot is frames built by CreateFrame, which
+    # its docstring measures and lists.
+    ("framexml_unaccounted_frames.py",
+     r"^\d+ top-level frames, (\d+) unaccounted", 44,
+     "FrameXML frames neither handed over nor suppressed"),
     # The blind spot both widget-method sweeps had: they count the no-op
     # allowlist as answered, which is right for "does the call raise here" and
     # wrong for a caller that reads what comes back. A no-op returns nil, and
