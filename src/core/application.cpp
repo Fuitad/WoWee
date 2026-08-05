@@ -3386,7 +3386,20 @@ void Application::render() {
                     // — the binding is still called TOGGLELFGPARENT, which is
                     // the old name kept so nobody's key was reset.
                     {UiElement::Talents,        K::Action::TOGGLE_TALENTS,          "ToggleTalentFrame()"},
-                    {UiElement::Social,         K::Action::TOGGLE_GUILD_ROSTER,     "ToggleFriendsFrame(3)"},
+                    // ToggleFriendsFrame with no tab, which is what this key
+                    // is: bindings.xml gives TOGGLESOCIAL — O by default, and
+                    // the action here is O — the body ToggleFriendsFrame(),
+                    // while ToggleFriendsFrame(3) belongs to TOGGLEGUILDTAB on
+                    // a key of its own.
+                    //
+                    // The difference is not cosmetic. The tab form has two
+                    // paths that do not close: it returns without doing
+                    // anything at all when the player is in no guild, and when
+                    // the selected tab is not the one asked for it re-shows on
+                    // that tab rather than hiding. The plain form is what its
+                    // name says — shown becomes hidden, hidden becomes shown —
+                    // so the key stopped closing the window it had opened.
+                    {UiElement::Social,         K::Action::TOGGLE_GUILD_ROSTER,     "ToggleFriendsFrame()"},
                     {UiElement::DungeonFinder,  K::Action::TOGGLE_DUNGEON_FINDER,   "ToggleLFDParentFrame()"},
                 };
                 for (const Route& r : kRoutes) {

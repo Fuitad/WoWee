@@ -216,6 +216,23 @@ const std::set<std::string>& requested() {
         // over; making them real means adding an enum entry and a
         // frameXmlOwns guard around this client's own version first.
         //
+        // "worldmap" joins them, and it was the last element outside both
+        // tiers. It was held back on the reading that handing it over would
+        // draw a second map over this client's own, which is the same reason
+        // the quest log and the quest tracker were held and wrong for the same
+        // reason: nothing here draws a map twice. This client's map renderer is
+        // a Vulkan pass told where to be, not a picture the widget tree places,
+        // and application.cpp already hands it WorldMapDetailFrame's rect while
+        // that frame is visible. game_screen_hud takes the presence of that
+        // rect as the statement that the map is wanted, in place of its own
+        // flag, and both the M key and the micro-menu button already route to
+        // ToggleFrame(WorldMapFrame) when the element is owned.
+        //
+        // Its two unfired events are accounted for: WORLD_MAP_NAME_UPDATE is
+        // registered with no branch to handle it, and CLOSE_WORLD_MAP is the
+        // server telling the map to shut, which nothing here sends — the key
+        // closes it through the same toggle that opens it.
+        //
         // "chat" was out for a while and is back. It had forty-eight unbound
         // names in chatframe.lua, and unlike the Battle.net set they sat
         // behind no feature flag — each was a slash command handler, so each
@@ -234,7 +251,7 @@ const std::set<std::string>& requested() {
                     "partyframes", "questgiver", "questlog", "questtracker",
                     "raidwarning", "readycheck", "social", "stable",
                     "talents", "taxi", "totems", "trade", "tradeskill",
-                    "uierrors", "vendor"}) {
+                    "uierrors", "vendor", "worldmap"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "
