@@ -1243,6 +1243,8 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
     bool statsChanged = false;
     bool ratingsChanged = false;
     bool powerChanged = false;
+    bool resistancesChanged = false;
+    bool spellBonusChanged = false;
     for (const auto& [key, val] : fields) {
         if (key == pfi.xp) {
             owner_.playerXpRef() = val;
@@ -1282,11 +1284,18 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
             LOG_DEBUG("Arena points ", isCreate ? "from update fields: " : "updated: ", val);
         }
         else if (pfi.armor != 0xFFFF && key == pfi.armor) {
-            owner_.playerArmorRatingRef() = static_cast<int32_t>(val);
+            const int32_t armorVal = static_cast<int32_t>(val);
+            if (owner_.playerArmorRatingRef() != armorVal) resistancesChanged = true;
+            owner_.playerArmorRatingRef() = armorVal;
             if (isCreate) LOG_DEBUG("Armor rating from update fields: ", owner_.playerArmorRatingRef());
         }
         else if (pfi.armor != 0xFFFF && key > pfi.armor && key <= pfi.armor + 6) {
-            owner_.playerResistancesArr()[key - pfi.armor - 1] = static_cast<int32_t>(val);
+            const int32_t resVal = static_cast<int32_t>(val);
+            // Armor is the first of the seven — pfi.armor is
+            // UNIT_FIELD_RESISTANCES and the six schools follow it — which is
+            // why one event covers the block.
+            if (owner_.playerResistancesArr()[key - pfi.armor - 1] != resVal) resistancesChanged = true;
+            owner_.playerResistancesArr()[key - pfi.armor - 1] = resVal;
         }
         else if (pfi.pBytes2 != 0xFFFF && key == pfi.pBytes2) {
             uint8_t bankBagSlots = static_cast<uint8_t>((val >> 16) & 0xFF);
@@ -1395,9 +1404,16 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
             owner_.playerRangedAPRef() = ap;
         }
         else if (pfi.spDmg1   != 0xFFFF && key >= pfi.spDmg1 && key < pfi.spDmg1 + 7) {
-            owner_.playerSpellDmgBonusArr()[key - pfi.spDmg1] = static_cast<int32_t>(val);
+            const int32_t dmgVal = static_cast<int32_t>(val);
+            if (owner_.playerSpellDmgBonusArr()[key - pfi.spDmg1] != dmgVal)
+                spellBonusChanged = true;
+            owner_.playerSpellDmgBonusArr()[key - pfi.spDmg1] = dmgVal;
         }
-        else if (pfi.healBonus != 0xFFFF && key == pfi.healBonus) { owner_.playerHealBonusRef() = static_cast<int32_t>(val); }
+        else if (pfi.healBonus != 0xFFFF && key == pfi.healBonus) {
+            const int32_t healVal = static_cast<int32_t>(val);
+            if (owner_.playerHealBonusRef() != healVal) spellBonusChanged = true;
+            owner_.playerHealBonusRef() = healVal;
+        }
         // Percentage stats are stored as IEEE 754 floats packed into uint32 update fields.
         // memcpy reinterprets the bits; clamp to [0..100] to guard against NaN/Inf from
         // corrupted packets reaching the UI (display-only, no gameplay logic depends on these).
@@ -1441,6 +1457,15 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
         if (statsChanged)   pendingEvents_.emit("UNIT_STATS", {"player"});
         if (ratingsChanged) pendingEvents_.emit("COMBAT_RATING_UPDATE", {});
         if (powerChanged)   pendingEvents_.emit("UNIT_ATTACK_POWER", {"player"});
+        // Armor with the six resistances behind it, and the spell power and
+        // healing bonus. The paperdoll refreshes its resistance panel from
+        // UNIT_RESISTANCES alone — UNIT_DEFENSE is the *pet* sheet's event, not
+        // this one — and its spell-power panel shares a branch with UNIT_STATS,
+        // which only fires when one of the five base stats moves. So a spell
+        // power buff that touched no stat, or a resistance aura, left the old
+        // number on the sheet until the next login.
+        if (resistancesChanged) pendingEvents_.emit("UNIT_RESISTANCES", {"player"});
+        if (spellBonusChanged)  pendingEvents_.emit("PLAYER_DAMAGE_DONE_MODS", {"player"});
     }
     return slotsChanged;
 }
