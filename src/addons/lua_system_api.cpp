@@ -2019,8 +2019,29 @@ static int lua_LoadAddOn(lua_State* L) {
     std::string reason;
     const bool ok = svc->loadAddOn(name, reason);
     lua_pushboolean(L, ok ? 1 : 0);
-    if (ok) lua_pushnil(L);
-    else    lua_pushstring(L, reason.empty() ? "MISSING" : reason.c_str());
+    if (ok) { lua_pushnil(L); return 2; }
+    // Only a reason the interface has a string for. UIParentLoadAddOn does
+    //
+    //     message(format(ADDON_LOAD_FAILED, name, _G["ADDON_"..reason]))
+    //
+    // so a token globalstrings does not define makes that lookup nil and
+    // format raise — the report of a failed load failing, inside whichever
+    // panel was being opened. Every load-on-demand panel opens this way.
+    //
+    // The list is globalstrings' own ADDON_* names, which is where the far
+    // side reads them from. Anything else is answered as CORRUPT, which is
+    // what the real client says when an addon is there and will not run.
+    static const char* kKnown[] = {
+        "BANNED", "CORRUPT", "DEMAND_LOADED", "DEP_BANNED", "DEP_CORRUPT",
+        "DEP_DEMAND_LOADED", "DEP_DISABLED", "DEP_INCOMPATIBLE",
+        "DEP_INSECURE", "DEP_INTERFACE_VERSION", "DEP_MISSING", "DISABLED",
+        "INCOMPATIBLE", "INSECURE", "INTERFACE_VERSION", "MISSING",
+    };
+    bool known = false;
+    for (const char* k : kKnown) {
+        if (reason == k) { known = true; break; }
+    }
+    lua_pushstring(L, known ? reason.c_str() : "CORRUPT");
     return 2;
 }
 

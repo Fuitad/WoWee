@@ -741,7 +741,12 @@ bool AddonManager::loadAddOnByName(const std::string& name, std::string& reason)
     lodLoaded_.insert(key);
     LOG_INFO("AddonManager: loading on demand: ", found->addonName);
     if (!loadAddon(*found)) {
-        reason = "LOAD_ON_DEMAND_ERROR";
+        // CORRUPT, not a token of our own. UIParentLoadAddOn builds a
+        // global name out of whatever comes back — _G["ADDON_"..reason] —
+        // and hands it to format, so a reason globalstrings does not have
+        // makes the report raise instead of reporting. See lua_LoadAddOn,
+        // which will not let an unknown one through either.
+        reason = "CORRUPT";
         LOG_WARNING("AddonManager: '", found->addonName, "' failed to load on demand");
         // Left in the loaded set deliberately. A half-run addon has already
         // built frames and set globals, and running its files a second time
