@@ -1419,6 +1419,61 @@ int lua_Tooltip_SetAction(lua_State* L) {
 
 /// The same for a spell asked for by id, which is how the spellbook and the
 /// stance bar fill theirs.
+/// SetHyperlink(link) — fill the tooltip from a link, as a chat link or an
+/// item reference carries it.
+///
+/// There was a Lua version of this on the frame metatable and it worked; what
+/// it did not do was answer. Nine callers are written as
+///
+///     if ( GameTooltip:SetHyperlink("spell:"..self.spellID) ) then
+///
+/// or `return self:SetHyperlink(link)`, and it returned nothing, so every one
+/// of them read nil. CompanionButton_OnEnter takes that as failure and clears
+/// its own UpdateTooltip, so a mount's tooltip was drawn once and then never
+/// refreshed; the eight bootstrap tooltip methods that route through a link —
+/// loot, loot roll, merchant, buyback, mail, quest reward, quest log, trade —
+/// each hand the same nil back to whatever asked them.
+///
+/// Here rather than in Lua so that an item link fills from the same code every
+/// other item tooltip uses. Two builders for one tooltip is how the two drift,
+/// which is what happened to the item tooltips once already.
+///
+/// A link is "kind:id:more:fields", and only the kind and the first number are
+/// needed to fill one. A whole "|cff...|Hitem:1234:...|h[Name]|h|r" is accepted
+/// too, because that is the shape a link pulled out of chat arrives in.
+int lua_Tooltip_SetHyperlink(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    std::string link = luaL_optstring(L, 2, "");
+    if (!w || !gh || link.empty()) { lua_pushboolean(L, 0); return 1; }
+
+    // Take what is between |H and |h if the wrapper is there.
+    if (const size_t at = link.find("|H"); at != std::string::npos) {
+        link = link.substr(at + 2);
+        if (const size_t end = link.find("|h"); end != std::string::npos)
+            link = link.substr(0, end);
+    }
+
+    const size_t colon = link.find(':');
+    if (colon == std::string::npos) { lua_pushboolean(L, 0); return 1; }
+    const std::string kind = link.substr(0, colon);
+    uint32_t id = 0;
+    for (size_t i = colon + 1; i < link.size() && link[i] >= '0' && link[i] <= '9'; ++i)
+        id = id * 10 + static_cast<uint32_t>(link[i] - '0');
+    if (id == 0) { lua_pushboolean(L, 0); return 1; }
+
+    bool filled = false;
+    if (kind == "spell" || kind == "enchant" || kind == "talent")
+        filled = fillSpellTooltip(w, gh, id);
+    else if (kind == "item")
+        filled = fillItemTooltipById(w, gh, id);
+    // "quest" carries no text this client keeps beyond the title, and a
+    // tooltip holding only a name is worse than the caller knowing it failed:
+    // the tracker uses the answer to decide whether to keep refreshing.
+    lua_pushboolean(L, filled ? 1 : 0);
+    return 1;
+}
+
 int lua_Tooltip_SetSpellByID(lua_State* L) {
     auto* w = widgetOf(L, 1);
     auto* gh = wowee::addons::getGameHandler(L);
@@ -3662,6 +3717,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetBackpackToken", lua_Tooltip_ReturnFalse},
         {"SetGuildBankItem", lua_Tooltip_SetGuildBankItem},
         {"SetSpellByID",    lua_Tooltip_SetSpellByID},
+        {"SetHyperlink",    lua_Tooltip_SetHyperlink},
         {"SetTalent",       lua_Tooltip_SetTalent},
         {"SetAuctionItem",  lua_Tooltip_SetAuctionItem},
         {"SetTradeSkillItem", lua_Tooltip_SetTradeSkillItem},
@@ -4347,7 +4403,7 @@ void LuaEngine::registerCoreAPI() {
         "SetEquipmentSet=1,SetFacing=1,SetFillAlpha=1,SetFillTexture=1,SetFocus=1,\n"
         "SetFont=1,SetFontObject=1,SetFontString=1,SetFormattedText=1,SetFrameLevel=1,\n"
         "SetFrameRate=1,SetFrameStrata=1,SetHeight=1,SetHighlightFontObject=1,\n"
-        "SetHighlightTexture=1,SetHitRectInsets=1,SetHorizontalScroll=1,SetHyperlink=1,\n"
+        "SetHighlightTexture=1,SetHitRectInsets=1,SetHorizontalScroll=1,\n"
         "SetHyperlinkCompareItem=1,SetHyperlinksEnabled=1,SetID=1,\n"
         "SetInventoryItem=1,SetJustifyH=1,SetJustifyV=1,SetLFGCompletionReward=1,\n"
         "SetLFGDungeonReward=1,SetLight=1,SetMaxBytes=1,\n"
@@ -5020,20 +5076,6 @@ void LuaEngine::registerCoreAPI() {
         "        self:SetText(name, 1, 0, 0)\n"
         "        if debuffType then self:AddLine(debuffType, 0.5, 0.5, 0.5) end\n"
         "        self.__spellId = spellId\n"
-        "    end\n"
-        "end\n"
-        "function __WoweeFrameMT:SetHyperlink(link)\n"
-        "    self:ClearLines()\n"
-        "    if not link then return end\n"
-        "    local id = link:match('item:(%d+)')\n"
-        "    if id then\n"
-        "        _WoweePopulateItemTooltip(self, tonumber(id))\n"
-        "        return\n"
-        "    end\n"
-        "    id = link:match('spell:(%d+)')\n"
-        "    if id then\n"
-        "        self:SetSpellByID(tonumber(id))\n"
-        "        return\n"
         "    end\n"
         "end\n"
         // Shared item tooltip builder using GetItemInfo return values
