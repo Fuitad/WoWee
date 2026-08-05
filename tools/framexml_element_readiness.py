@@ -557,10 +557,13 @@ def main():
     # read and found unreachable, redundant, or a feature that does not exist —
     # so nothing in them raises, which is what the tier is about.
     #
-    # Except the two the client owns the drawing of. worldmap is this client's
-    # own map, and questtracker reaches the same map API through
-    # worldmapframe.lua; handing either over draws a second map over the first,
-    # which is a decision already taken and not a candidate.
+    # Except worldmap, which is this client's own map.
+    #
+    # questtracker was held here too, on the reading that it reaches the same
+    # map API through worldmapframe.lua and so would draw a second map. It
+    # draws no map: it calls the quest POI part of that API to place markers,
+    # and every one of those calls is answered now. Every event WatchFrame
+    # registers is fired and its whole quest-watch API is bound.
     #
     # questlog was here on the same reasoning and does not belong to it. It
     # draws no map. What it did was call the world map API, which was not bound
@@ -580,7 +583,7 @@ def main():
     #   WOWEE_FRAMEXML_UI=candidates,worldmap
     #
     # questlog reports no missing call and no unfired event at all.
-    CLIENT_OWNS_THE_DRAWING = {"worldmap", "questtracker"}
+    CLIENT_OWNS_THE_DRAWING = {"worldmap"}
     # Held out for reasons this report cannot see, and left out of the printed
     # list so that regenerating and pasting does not put them back. The comment
     # in framexml_takeover.cpp explains each; briefly:

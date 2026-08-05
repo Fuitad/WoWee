@@ -155,6 +155,14 @@ const std::set<std::string>& requested() {
         // nothing. tools/framexml_unbound_globals.py reports friendsframe
         // clean, which is the check this note used to ask for.
         //
+        // "questtracker" joins them, and with it the last of the three held
+        // out for drawing a second map. WatchFrame draws no map: it calls the
+        // quest POI part of that API to place markers, and every one of those
+        // is answered now. Every event it registers is fired, its whole
+        // quest-watch API is bound, and its two unbound names are achievement
+        // addon internals that exist once that addon loads — the same two
+        // already settled under "achievements".
+        //
         // "uierrors" joins them. Its one unfired event is SYSMSG, which
         // nothing backs — no opcode here produces one. What the frame is
         // actually for is UI_ERROR_MESSAGE, and addUIError raises that from
@@ -214,8 +222,8 @@ const std::set<std::string>& requested() {
                     "barbershop", "bgscore", "book", "chat", "classtrainer",
                     "gamemenu", "gossip", "guildbank", "help", "inspect",
                     "loot", "mail", "micromenu", "partyframes", "questgiver",
-                    "questlog", "raidwarning", "readycheck", "social",
-                    "stable", "talents", "taxi", "totems", "trade",
+                    "questlog", "questtracker", "raidwarning", "readycheck",
+                    "social", "stable", "talents", "taxi", "totems", "trade",
                     "tradeskill", "uierrors", "vendor"}) {
                 out.insert(name);
             }
