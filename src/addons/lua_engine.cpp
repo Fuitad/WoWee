@@ -4480,6 +4480,21 @@ void LuaEngine::registerCoreAPI() {
         // works. SetFormattedText sat in this set unimplemented while 114
         // labels across FrameXML kept their XML placeholder text, and nothing
         // anywhere said so.
+        //
+        // What is NOT recorded, and cannot be from here, is which object
+        // asked. This is the metatable's own __index, so the arguments are the
+        // method table and the key — the frame that started the lookup is not
+        // passed and there is no way to reach it. Recording it would mean
+        // making every frame's __index a function instead of `mt.__index = mt`,
+        // which puts a Lua call in front of every method lookup in the
+        // interface.
+        //
+        // Worth knowing because the omission costs real time: the report says
+        // "GetFont" and not which kind of object reached it, and GetFont
+        // answered correctly on font strings for as long as it has existed. It
+        // only fell through here when a chat *frame* asked for its own font.
+        // Reading the method name alone sent me to WatchFrame, which reads its
+        // font off a font string and was never affected.
         "    if known[key] then\n"
         "        if not seen[key] then\n"
         "            seen[key] = true\n"
