@@ -1788,6 +1788,12 @@ int lua_Tooltip_SetGuildBankItem(lua_State* L) {
 
 int lua_Tooltip_ClearLines(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->tooltipLines.clear();
+    // GameTooltip declares OnTooltipCleared and nothing fired it. What it runs
+    // is GameTooltip_ClearMoney, so a tooltip that had shown a price kept its
+    // money line when it was next filled with something that has none — the
+    // lines are cleared here and the money frames are not, because they are
+    // frames rather than lines.
+    callScriptOnTable(L, 1, "OnTooltipCleared", 0);
     return 0;
 }
 int lua_Tooltip_NumLines(lua_State* L) {
@@ -2686,6 +2692,22 @@ int lua_EditBox_SetText(lua_State* L) {
     // The text no longer came from the history, so the arrows start again from
     // the newest line rather than resuming from the middle of a walk.
     w->editHistoryPos = -1;
+    // OnTextSet is the counterpart to OnTextChanged for a text set from code,
+    // and nothing fired it. The chat box declares it and runs
+    // ChatEdit_ParseText, which is what reads a leading /w or /g and switches
+    // the box's channel — so a message put into the box by anything but typing
+    // went out on whatever channel was already selected.
+    //
+    // Guarded, because a handler is free to set the text again and this is
+    // called from inside one. The only handler in this interface does not, but
+    // an addon's may, and a Lua loop that feeds itself takes the process with
+    // it rather than raising.
+    static bool inSetText = false;
+    if (!inSetText) {
+        inSetText = true;
+        callScriptOnTable(L, 1, "OnTextSet", 0);
+        inSetText = false;
+    }
     return 0;
 }
 int lua_EditBox_GetText(lua_State* L) {
