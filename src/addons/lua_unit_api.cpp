@@ -362,6 +362,33 @@ static int lua_UnitThreatSituation(lua_State* L) {
         toLowerInPlace(mStr);
         mobGuid = resolveUnitGuid(gh, mStr);
     }
+    // The mob's own threat list first, which is what the server actually sent.
+    // It is sorted highest first, so being at its head is tanking; being on it
+    // at all is threat without tanking. This used to go straight to the guess
+    // below because the list was built from a misread packet and was never
+    // worth consulting — SMSG_THREAT_UPDATE was read as though it carried the
+    // second guid that only SMSG_HIGHEST_THREAT_UPDATE has.
+    if (mobGuid != 0) {
+        if (const auto* list = gh->getThreatList(mobGuid); list && !list->empty()) {
+            for (size_t i = 0; i < list->size(); ++i) {
+                if ((*list)[i].victimGuid != playerUnitGuid) continue;
+                // Securely tanking only when the lead is clear. WoW's own rule
+                // is a percentage margin over the runner-up; at the head with
+                // someone close behind it answers "insecurely", which is what
+                // turns the indicator amber before it turns red.
+                if (i != 0) { lua_pushnumber(L, 1); return 1; }
+                if (list->size() == 1) { lua_pushnumber(L, 3); return 1; }
+                const uint32_t lead = (*list)[0].threat;
+                const uint32_t next = (*list)[1].threat;
+                lua_pushnumber(L, (next * 11 >= lead * 10) ? 2 : 3);
+                return 1;
+            }
+            // On no part of the list, and the list is the whole truth about
+            // this mob: nothing to tank it for.
+            lua_pushnumber(L, 0);
+            return 1;
+        }
+    }
     // Approximate threat: check if the mob is targeting this unit
     if (mobGuid != 0) {
         auto mobEntity = gh->getEntityManager().getEntity(mobGuid);

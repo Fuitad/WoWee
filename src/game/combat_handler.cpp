@@ -173,8 +173,27 @@ void CombatHandler::registerOpcodes(DispatchTable& table) {
             std::sort(list.begin(), list.end(),
                 [](const ThreatEntry& a, const ThreatEntry& b){ return a.threat > b.threat; });
             threatLists_[unitGuid] = std::move(list);
-            if (owner_.addonEventCallbackRef())
-                owner_.addonEventCallbackRef()("UNIT_THREAT_LIST_UPDATE", {});
+            if (!owner_.addonEventCallbackRef()) return;
+            auto fire = owner_.addonEventCallbackRef();
+            // The list changed, and separately: whether each unit on it is
+            // tanking. They are different events and unit frames read the
+            // second one — UnitFrameThreatIndicator_OnEvent is registered for
+            // UNIT_THREAT_SITUATION_UPDATE alone, and it is what puts the aggro
+            // border on a frame. It was never fired, so no frame ever showed
+            // one, and the list it would have been read from was misparsed
+            // anyway.
+            fire("UNIT_THREAT_LIST_UPDATE", {owner_.guidToUnitId(unitGuid)});
+            // Named per unit, because the indicator compares the argument
+            // against its own frame's unit and ignores anything else. Every
+            // unit on the list that the interface has a token for, plus the mob
+            // itself — a target frame's indicator is fed by the player's
+            // situation against the target, so both ends have to be told.
+            for (const ThreatEntry& e : threatLists_[unitGuid]) {
+                const std::string who = owner_.guidToUnitId(e.victimGuid);
+                if (!who.empty()) fire("UNIT_THREAT_SITUATION_UPDATE", {who});
+            }
+            if (const std::string mob = owner_.guidToUnitId(unitGuid); !mob.empty())
+                fire("UNIT_THREAT_SITUATION_UPDATE", {mob});
         };
     }
 
