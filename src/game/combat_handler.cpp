@@ -1086,6 +1086,13 @@ void CombatHandler::handlePetBroken(network::Packet& packet) {
     owner_.petAutocastSpellsRef().clear();
     memset(owner_.petActionSlotsRef(), 0, sizeof(owner_.petActionSlotsRef()));
     owner_.addSystemChatMessage("Your pet has died.");
+    // The same pair SMSG_PET_SPELLS fires, because the same two things have to
+    // be redrawn — the pet frame and the pet action bar. Losing the pet
+    // outright announced nothing while *learning one spell* announced
+    // PET_BAR_UPDATE, so a dead pet's frame and its whole ability bar stayed on
+    // screen until the next login.
+    owner_.fireAddonEvent("UNIT_PET", {"player"});
+    owner_.fireAddonEvent("PET_UI_UPDATE", {});
     LOG_INFO("SMSG_PET_BROKEN: pet bond broken");
     packet.skipAll();
 }

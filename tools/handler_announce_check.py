@@ -69,13 +69,27 @@ WRITES_STATE = re.compile(
 #: helpers that exist so the several events one change needs are fired from a
 #: single place. Matching the whole family rather than naming them keeps the
 #: next one from arriving as a false positive; announceLootRollClosed did.
-TELLS_INTERFACE = ("fireAddonEvent", "addonEventCallbackRef()(",
+#: addonEventCallbackRef() without the call after it: a handler firing several
+#: events takes the callback into a local first — `auto fire = ...; fire(...)`
+#: — and requiring the immediate call reported the whole dungeon-finder
+#: proposal path, which fires four.
+TELLS_INTERFACE = ("fireAddonEvent", "addonEventCallbackRef()",
                    "pendingEvents_.emit")
 ANNOUNCES = re.compile(r"\bannounce[A-Z]\w*\(")
 
 #: `table[Opcode::X] = [this](...) { … };` and the dispatchTable_ spelling.
 HANDLER = re.compile(
     r"(?:table|dispatchTable_)\[Opcode::(\w+)\]\s*=\s*\[[^\]]*\]\s*\([^)]*\)\s*\{")
+
+#: The other half. A dispatch entry is often one line — `= [this](Packet& p) {
+#: handleFoo(p); }` — with the work in a named method somewhere else in the
+#: file, and reading only the lambda sees a body that calls one function.
+#: SMSG_QUEST_CONFIRM_ACCEPT was exactly that: it set the pending share, told
+#: the player in chat and fired nothing, and this check walked straight past it
+#: while a walk of ungated draw surfaces found it from the other end.
+NAMED = re.compile(
+    r"^[A-Za-z_][\w:<>, ]*\s(\w+::handle\w+)\([^)]*network::Packet\s*&[^)]*\)\s*\{",
+    re.M)
 
 
 def body_after(text, start):
@@ -95,8 +109,10 @@ def main():
     total = 0
     for path in sorted(GAME.glob("*.cpp")):
         text = without_comments(path.read_text(errors="ignore"))
-        for m in HANDLER.finditer(text):
-            body = body_after(text, m.end())
+        found = [(m.group(1), m.end()) for m in HANDLER.finditer(text)]
+        found += [(m.group(1), m.end()) for m in NAMED.finditer(text)]
+        for name, at in found:
+            body = body_after(text, at)
             total += 1
             if not any(t in body for t in TELLS_PLAYER):
                 continue
@@ -111,10 +127,10 @@ def main():
             # the tracker showing the quest as unfinished until the next login.
             if not WRITES_STATE.search(body):
                 continue
-            line = text.count("\n", 0, m.start()) + 1
-            rows.append((m.group(1), f"{path.name}:{line}"))
+            line = text.count("\n", 0, at) + 1
+            rows.append((name, f"{path.name}:{line}"))
 
-    print(f"{total} inline packet handler(s) read\n")
+    print(f"{total} packet handler(s) read, inline and named\n")
     print(f"{len(rows)} that tell the player and not the interface:\n")
     for opcode, where in sorted(rows):
         print(f"  {opcode:44} {where}")

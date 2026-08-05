@@ -2817,7 +2817,15 @@ void MovementHandler::handleActivateTaxiReply(network::Packet& packet) {
         onTaxiFlight_ = true;
         taxiStartGrace_ = std::max(taxiStartGrace_, 2.0f);
         sanitizeMovementForTaxi();
+        // Closed here rather than through closeTaxi, which would clear the taxi
+        // mount that is about to be applied — but the event has to be sent all
+        // the same, with closeTaxi's own guard: the flight map hides on this,
+        // and setting the flag alone left FrameXML's open for the whole flight.
+        const bool taxiWasOpen = taxiWindowOpen_;
         taxiWindowOpen_ = false;
+        if (taxiWasOpen && owner_.addonEventCallbackRef()) {
+            owner_.addonEventCallbackRef()("TAXIMAP_CLOSED", {});
+        }
         taxiActivatePending_ = false;
         taxiActivateTimer_ = 0.0f;
         applyTaxiMountForCurrentNode();

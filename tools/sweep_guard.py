@@ -163,11 +163,17 @@ CHECKS = [
      "frames this client looks up by a name the interface does not declare"),
     # Packet handlers that change this client's own model, tell the player in
     # chat, and tell the interface nothing — the shape that produces a bug
-    # correct after a relog and wrong until then. Fourteen, each read once:
-    # what they write is bookkeeping nothing draws. The two that were not are
-    # fixed: the equipment manager's new set, and the withdrawn summon dialog.
+    # correct after a relog and wrong until then. Twenty, each read once: what
+    # they write is bookkeeping nothing draws.
+    #
+    # The count rose from fourteen when the sweep learned to read named handler
+    # methods as well as inline lambdas — a dispatch entry is often one line
+    # calling handleFoo, and reading only the lambda sees a body that calls one
+    # function. Four real ones have been fixed: the equipment manager's new
+    # set, the withdrawn summon dialog, a dead pet's frame and ability bar, and
+    # the flight map left open for the whole flight.
     ("handler_announce_check.py",
-     r"^(\d+) that tell the player and not the interface", 14,
+     r"^(\d+) that tell the player and not the interface", 20,
      "handlers that change state and announce nothing"),
     # Top-level FrameXML frames named nowhere in framexml_takeover.cpp —
     # neither handed over nor suppressed. Forty-four, and none of them is a
