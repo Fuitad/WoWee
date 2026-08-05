@@ -2822,9 +2822,21 @@ static int lua_GetFramerate(lua_State* L) {
 // back mirrored and anything positioned from it landed as far from the bottom
 // as the cursor was from the top.
 static int lua_GetCursorPosition(lua_State* L) {
+    // Interface units with y growing upward — the same conversion the input
+    // path and GetMouseFocus make, and the space every frame coordinate is in.
+    //
+    // This alone answered in raw pixels. Callers divide by GetEffectiveScale
+    // and then use the result as a frame position, and effective scale at the
+    // root is one, so the pixels went straight through: on a 1080-tall window
+    // every such position was out by forty percent, and on a 4K one by nearly
+    // three times. The loot window opened under the mouse landed well off it.
     const auto& io = ImGui::GetIO();
-    lua_pushnumber(L, io.MousePos.x);
-    lua_pushnumber(L, io.DisplaySize.y - io.MousePos.y);
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const float s = tree ? tree->uiScale() : 1.0f;
+    const float px = io.MousePos.x;
+    const float py = io.DisplaySize.y - io.MousePos.y;
+    lua_pushnumber(L, (s > 0.0f) ? px / s : px);
+    lua_pushnumber(L, (s > 0.0f) ? py / s : py);
     return 2;
 }
 
