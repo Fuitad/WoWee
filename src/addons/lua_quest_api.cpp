@@ -880,11 +880,40 @@ static int lua_GetSkillLineInfo(lua_State* L) {
 // --- Friends/Ignore API ---
 
 
+/// Whose talents a talent binding is being asked about.
+///
+/// Every talent binding takes an `inspect` flag that this client ignored, so
+/// the inspect talent tab enumerated the viewer's own class tabs and read the
+/// viewer's own ranks — the wrong tree under the target's name, rather than an
+/// empty one. Zero means the inspect result has no class yet, in which case
+/// falling back to the player's is the only thing left to do.
+static uint8_t talentClassId(game::GameHandler* gh, bool inspect) {
+    if (inspect && gh) {
+        if (const auto* r = gh->getInspectResult()) {
+            if (r->classId) return r->classId;
+        }
+    }
+    return gh ? gh->getPlayerClass() : 0;
+}
+
+/// The rank a talent is at, for whoever is being asked about.
+static int talentRankFor(game::GameHandler* gh, bool inspect, uint32_t talentId) {
+    if (!gh) return 0;
+    if (inspect) {
+        if (const auto* r = gh->getInspectResult()) {
+            auto it = r->talentRanks.find(talentId);
+            return (it != r->talentRanks.end()) ? it->second : 0;
+        }
+        return 0;
+    }
+    return gh->getTalentRank(talentId);
+}
+
 static int lua_GetNumTalentTabs(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnZero(L); }
-    // Count tabs matching the player's class
-    uint8_t classId = gh->getPlayerClass();
+    // Count tabs matching the class in question
+    uint8_t classId = talentClassId(gh, lua_toboolean(L, 1) != 0);
     uint32_t classMask = (classId > 0) ? (1u << (classId - 1)) : 0;
     int count = 0;
     for (const auto& [tabId, tab] : gh->getAllTalentTabs()) {
@@ -905,7 +934,8 @@ static int lua_GetTalentTabInfo(lua_State* L) {
     if (!gh || tabIndex < 1) {
         return luaReturnNil(L);
     }
-    uint8_t classId = gh->getPlayerClass();
+    const bool inspect = lua_toboolean(L, 2) != 0;
+    uint8_t classId = talentClassId(gh, inspect);
     uint32_t classMask = (classId > 0) ? (1u << (classId - 1)) : 0;
     // Find the Nth tab for this class (sorted by orderIndex)
     std::vector<const game::GameHandler::TalentTabEntry*> classTabs;
@@ -920,7 +950,11 @@ static int lua_GetTalentTabInfo(lua_State* L) {
     const auto* tab = classTabs[tabIndex - 1];
     // Count points spent in this tab
     int pointsSpent = 0;
-    const auto& learned = gh->getLearnedTalents();
+    static const std::unordered_map<uint32_t, uint8_t> kNoTalents;
+    const auto* inspectResult = inspect ? gh->getInspectResult() : nullptr;
+    const auto& learned = inspect
+        ? (inspectResult ? inspectResult->talentRanks : kNoTalents)
+        : gh->getLearnedTalents();
     for (const auto& [talentId, rank] : learned) {
         const auto* entry = gh->getTalentEntry(talentId);
         if (entry && entry->tabId == tab->tabId) pointsSpent += rank;
@@ -930,10 +964,14 @@ static int lua_GetTalentTabInfo(lua_State* L) {
     //     local displayPointsSpent = pointsSpent + previewPointsSpent;
     // — in a loop over every tab, so leaving it out took the whole frame down
     // as it opened rather than merely showing the wrong total.
+    // Staged points are the viewer part-way through spending their own; they
+    // have no meaning on someone else's tree.
     int previewSpent = 0;
-    for (const auto& [talentId, staged] : previewPoints()) {
-        const auto* entry = gh->getTalentEntry(talentId);
-        if (entry && entry->tabId == tab->tabId) previewSpent += staged;
+    if (!inspect) {
+        for (const auto& [talentId, staged] : previewPoints()) {
+            const auto* entry = gh->getTalentEntry(talentId);
+            if (entry && entry->tabId == tab->tabId) previewSpent += staged;
+        }
     }
 
     lua_pushstring(L, tab->name.c_str());              // 1: name
@@ -949,7 +987,7 @@ static int lua_GetNumTalents(lua_State* L) {
     auto* gh = getGameHandler(L);
     int tabIndex = static_cast<int>(luaL_checknumber(L, 1));
     if (!gh || tabIndex < 1) { return luaReturnZero(L); }
-    uint8_t classId = gh->getPlayerClass();
+    uint8_t classId = talentClassId(gh, lua_toboolean(L, 2) != 0);
     uint32_t classMask = (classId > 0) ? (1u << (classId - 1)) : 0;
     std::vector<const game::GameHandler::TalentTabEntry*> classTabs;
     for (const auto& [tabId, tab] : gh->getAllTalentTabs()) {
@@ -992,9 +1030,10 @@ static uint32_t& pendingAbandonQuest() {
 // the one under the cursor. Declared in lua_api_helpers.hpp.
 
 const game::TalentEntry* talentAt(game::GameHandler* gh,
-                                  int tabIndex, int talentIndex) {
+                                  int tabIndex, int talentIndex,
+                                  uint8_t classIdOverride) {
     if (!gh || tabIndex < 1 || talentIndex < 1) return nullptr;
-    const uint8_t classId = gh->getPlayerClass();
+    const uint8_t classId = classIdOverride ? classIdOverride : gh->getPlayerClass();
     const uint32_t classMask = (classId > 0) ? (1u << (classId - 1)) : 0;
 
     std::vector<const game::GameHandler::TalentTabEntry*> classTabs;
@@ -1044,7 +1083,8 @@ static int lua_GetTalentInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int tabIndex = static_cast<int>(luaL_checknumber(L, 1));
     const int talentIndex = static_cast<int>(luaL_checknumber(L, 2));
-    const auto* talent = talentAt(gh, tabIndex, talentIndex);
+    const bool inspect = lua_toboolean(L, 3) != 0;
+    const auto* talent = talentAt(gh, tabIndex, talentIndex, talentClassId(gh, inspect));
     // Ten values, not eight. The frame reads previewRank into the rank it
     // displays and then compares it against maxRank — as nil that is an error
     // rather than a blank, and it happens the moment points are staged, which
@@ -1053,10 +1093,11 @@ static int lua_GetTalentInfo(lua_State* L) {
         for (int i = 0; i < 10; i++) lua_pushnil(L);
         return 10;
     }
-    const int rank = gh->getTalentRank(talent->talentId);
+    const int rank = talentRankFor(gh, inspect, talent->talentId);
     const auto staged = previewPoints().find(talent->talentId);
-    const int previewRank =
-        rank + (staged == previewPoints().end() ? 0 : staged->second);
+    const int previewRank = inspect
+        ? rank
+        : rank + (staged == previewPoints().end() ? 0 : staged->second);
 
     std::string name = gh->getSpellName(talent->rankSpells[0]);
     if (name.empty()) name = "Talent " + std::to_string(talent->talentId);
@@ -1266,6 +1307,15 @@ static int lua_GetNumTalentGroups(lua_State* L) {
     // Two only once the second is actually bought: the frame draws a spec tab
     // per group, and reporting two unconditionally offers one that is not there.
     int groups = 1;
+    if (gh && lua_toboolean(L, 1)) {
+        // The inspected player's spec count comes with their talents; the
+        // viewer's own says nothing about how many specs the target bought.
+        if (const auto* r = gh->getInspectResult()) {
+            if (r->talentGroups > 0) groups = r->talentGroups;
+        }
+        lua_pushnumber(L, groups);
+        return 1;
+    }
     if (gh && gh->getUnspentTalentPoints(1) > 0) groups = 2;
     if (gh && !gh->getLearnedTalents(1).empty()) groups = 2;
     lua_pushnumber(L, groups);
@@ -1303,6 +1353,14 @@ static int lua_GetTalentLink(lua_State* L) {
 
 static int lua_GetActiveTalentGroup(lua_State* L) {
     auto* gh = getGameHandler(L);
+    if (gh && lua_toboolean(L, 1)) {
+        // Which of the target's specs the talents just read belong to. The
+        // inspect frame keeps this as its talentGroup and passes it back into
+        // every other talent call.
+        const auto* r = gh->getInspectResult();
+        lua_pushnumber(L, r ? (r->activeTalentGroup + 1) : 1);
+        return 1;
+    }
     lua_pushnumber(L, gh ? (gh->getActiveTalentSpec() + 1) : 1);
     return 1;
 }

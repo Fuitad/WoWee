@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace wowee {
@@ -96,6 +97,11 @@ struct InspectResult {
     std::array<uint32_t, 19> itemEntries{};
     std::array<uint16_t, 19> enchantIds{};
     std::vector<InspectArenaTeam> arenaTeams;
+    /// The inspected player's own talents, as talent id -> rank, for their
+    /// active spec. The inspect talent tab draws from these; without them it
+    /// fell back to the viewer's own tree and attributed it to the target.
+    std::unordered_map<uint32_t, uint8_t> talentRanks;
+    uint8_t classId = 0;
 };
 
 // ---- Who ----

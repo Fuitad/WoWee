@@ -1126,6 +1126,7 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
     // Every spec is sent. Counting all of them reported a dual-spec character
     // as having spent roughly twice what they have.
     uint32_t totalTalents = 0;
+    std::unordered_map<uint32_t, uint8_t> inspectTalents;
     for (uint8_t g = 0; g < talentGroupCount && g < 2; ++g) {
         bytesLeft = packet.getRemainingSize();
         if (bytesLeft < 1) break;
@@ -1133,9 +1134,16 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
         for (uint8_t t = 0; t < talentCount; ++t) {
             bytesLeft = packet.getRemainingSize();
             if (bytesLeft < 5) break;
-            packet.readUInt32();
-            packet.readUInt8();
-            if (g == activeTalentGroup) totalTalents++;
+            const uint32_t talentId = packet.readUInt32();
+            const uint8_t rank = packet.readUInt8();
+            if (g == activeTalentGroup) {
+                // Rank is zero-based on the wire, as it is for the player's own
+                // talents. The inspect talent tab was counting these and
+                // throwing them away, so it drew the viewer's own tree with the
+                // target's name over it.
+                inspectTalents[talentId] = static_cast<uint8_t>(rank + 1u);
+                totalTalents++;
+            }
         }
         bytesLeft = packet.getRemainingSize();
         if (bytesLeft < 1) break;
@@ -1188,6 +1196,8 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
     inspectResult_.talentGroups      = talentGroupCount;
     inspectResult_.activeTalentGroup = activeTalentGroup;
     inspectResult_.enchantIds        = enchantIds;
+    inspectResult_.talentRanks       = std::move(inspectTalents);
+    inspectResult_.classId           = owner_.lookupPlayerClass(guid);
 
     // The gear is in this packet. It used to be looked up from the cache that
     // Classic's SMSG_INSPECT and TBC's SMSG_INSPECT_RESULTS_UPDATE fill, and

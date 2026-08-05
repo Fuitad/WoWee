@@ -302,7 +302,10 @@ inline const game::GroupMember* findPartyMember(game::GameHandler* gh, uint64_t 
 /// this", and the pair would agree only for as long as nobody touched either —
 /// the tab ordering and the row/column sort both have to match exactly or the
 /// tooltip describes a different talent from the one under the cursor.
-const game::TalentEntry* talentAt(game::GameHandler* gh, int tabIndex, int talentIndex);
+/// The talent at a position in a class's tree. classIdOverride is zero for the
+/// player's own class, or the inspected player's when their tree is being drawn.
+const game::TalentEntry* talentAt(game::GameHandler* gh, int tabIndex, int talentIndex,
+                                  uint8_t classIdOverride = 0);
 
 /// The item id the cursor is carrying, or zero for anything else.
 ///
