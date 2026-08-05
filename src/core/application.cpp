@@ -3280,6 +3280,30 @@ void Application::render() {
                     }
                 }
 
+                // How big to build a model view, from the frame it will be
+                // drawn into.
+                //
+                // The aspect is the point. Every one of these was built at
+                // 640x800 and stretched to fill a frame with a different shape:
+                // the paperdoll's is 233x215, so the character was drawn a
+                // third too wide, and the companion preview's is 288x160, so a
+                // mount was more than twice too wide. Only the inspect frame
+                // happened to match.
+                //
+                // In pixels, so a larger interface scale gets a larger image
+                // rather than a blurrier one, and bounded either way: nothing
+                // smaller than is worth compositing, nothing larger than the
+                // paperdoll ever needed.
+                auto sizeFor = [&widgets](ui::UnitPortrait& view, const ui::Widget* frame) {
+                    if (!frame || frame->rectW <= 0.0f || frame->rectH <= 0.0f) return;
+                    const float scale = widgets.uiScale();
+                    const auto clampDim = [](float v) {
+                        return static_cast<int>(std::clamp(v, 64.0f, 800.0f));
+                    };
+                    view.setTargetSize(clampDim(frame->rectW * scale),
+                                       clampDim(frame->rectH * scale));
+                };
+
                 // The paperdoll's figure, on the same terms as the portrait:
                 // rendered only while a frame is there to show it, and told to
                 // the widget every frame because the render target is rebuilt
@@ -3291,6 +3315,7 @@ void Application::render() {
                     paperdollWidgetId_ = doll ? doll->id : 0;
                 }
                 if (doll && doll->visible) {
+                    sizeFor(paperdollModel_, doll);
                     paperdollModel_.setFraming(ui::UnitPortrait::Framing::FullBody);
                     // The rotate buttons keep their own running total and set
                     // it as an absolute facing, so the turn to apply is the
@@ -3359,6 +3384,7 @@ void Application::render() {
                                 (self->gender == game::Gender::FEMALE ||
                                  (self->gender == game::Gender::NONBINARY &&
                                   self->useFemaleModel)) ? 1 : 0;
+                            sizeFor(*room.model, dressUp);
                             room.model->setFraming(ui::UnitPortrait::Framing::FullBody);
                             shown = room.model->updatePlayer(
                                 static_cast<uint8_t>(self->race), gender,
@@ -3397,6 +3423,7 @@ void Application::render() {
                         const std::string modelPath =
                             entitySpawner_->getModelPathForDisplayId(frame->modelDisplayId);
                         if (!modelPath.empty()) {
+                            sizeFor(*cm.model, frame);
                             cm.model->setFraming(ui::UnitPortrait::Framing::FullBody);
                             shown = cm.model->updateCreature(
                                 modelPath, assetManager.get(), renderer.get(),
@@ -3430,6 +3457,7 @@ void Application::render() {
                             }
                         }
                         if (!modelPath.empty()) {
+                            sizeFor(petModel_, petModel);
                             petModel_.setFraming(ui::UnitPortrait::Framing::FullBody);
                             shown = petModel_.updateCreature(
                                 modelPath, assetManager.get(), renderer.get(),
@@ -3472,6 +3500,7 @@ void Application::render() {
                                     worn.push_back({displayIds[slot], invTypes[slot], 0u});
                                 }
                             }
+                            sizeFor(inspectModel_, inspectModel);
                             inspectModel_.setFraming(ui::UnitPortrait::Framing::FullBody);
                             shown = inspectModel_.updatePlayer(
                                 race, gender, appearance, facial, worn,
@@ -3484,10 +3513,7 @@ void Application::render() {
                 }
 
                 if (portrait) {
-                    // The same size as the other faces: this is drawn into the
-                    // same circle, and the paperdoll's target is sixteen times
-                    // the pixels a portrait can show.
-                    unitPortrait_.setTargetSize(160, 200);
+                    sizeFor(unitPortrait_, portrait);
                     unitPortrait_.update(*gameHandler, assetManager.get(),
                                          renderer.get(), io.DeltaTime);
                     // Assigned every frame including when it is zero. Keeping
@@ -3568,9 +3594,11 @@ void Application::render() {
                     bool built = false;
                     face.portrait->setFraming(ui::UnitPortrait::Framing::Face);
                     // Sized for the circle it is drawn into rather than for the
-                    // paperdoll. Read only when the view is first built, so
-                    // setting it every frame costs a pair of stores.
-                    face.portrait->setTargetSize(160, 200);
+                    // paperdoll — the shape as much as the scale, since a
+                    // portrait frame is square and the old target was not.
+                    sizeFor(*face.portrait,
+                            widgets.get(claimed.empty() ? alsoClaimed.front()
+                                                        : claimed.front()));
 
                     // A player first, because a player has a display id too and
                     // it is the wrong thing to draw them from: it names the
