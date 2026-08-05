@@ -953,6 +953,16 @@ struct Emitter {
         if (const std::string* letters = node.attr("letters"); letters && !letters->empty()) {
             line(var + ":SetMaxLetters(" + std::to_string(static_cast<int>(node.attrFloat("letters", 0.0f))) + ")");
         }
+        // Which layer a region draws in, which the tree sorts the draw order
+        // by. StatusBar is the only element that declares it here, and
+        // CastingBarFrameTemplate is one of them — so the cast bar's fill was
+        // coming out in the default layer rather than the BORDER it asked for.
+        // SetDrawLayer is a region method, so this is emitted for whatever
+        // declares the attribute rather than for status bars alone.
+        if (const std::string* layer = node.attr("drawLayer");
+            layer && !layer->empty()) {
+            line(var + ":SetDrawLayer(" + quote(*layer) + ")");
+        }
         if (node.attr("multiLine")) {
             line(var + ":SetMultiLine(" + (node.attrBool("multiLine") ? "true" : "false") + ")");
         }
