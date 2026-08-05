@@ -2895,6 +2895,19 @@ void EntityController::handlePageTextQueryResponse(network::Packet& packet) {
             owner_.getSocket()->send(req);
         }
     }
+    // Tell the interface, which is otherwise never told about a book at all.
+    // The mail path fires these two from InventoryHandler and FrameXML's
+    // ItemTextFrame is wired to them; a book arrives on a different opcode and
+    // fired nothing, so with the Book element handed over there was nothing to
+    // read. BEGIN on the first page — the frame clears itself and picks its
+    // material on that — and READY on every page, since each one that lands is
+    // another the reader can turn to.
+    if (owner_.addonEventCallbackRef()) {
+        if (owner_.bookPagesRef().size() == 1) {
+            owner_.addonEventCallbackRef()("ITEM_TEXT_BEGIN", {});
+        }
+        owner_.addonEventCallbackRef()("ITEM_TEXT_READY", {});
+    }
     LOG_DEBUG("handlePageTextQueryResponse: pageId=", data.pageId,
               " nextPage=", data.nextPageId,
               " totalPages=", owner_.bookPagesRef().size());

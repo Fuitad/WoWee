@@ -196,6 +196,18 @@ static int lua_GetQuestIndexForTimer(lua_State* L) {
     return luaReturnNil(L);
 }
 
+/// Which page of an open book is being read, zero-based.
+///
+/// The reader's own state, not the client's: every page is already in hand by
+/// the time the frame draws one, so turning a page moves this and nothing else.
+/// Reset when a book is closed, which is the only moment it can be stale.
+static int& bookPage() { static int page = 0; return page; }
+
+/// Tell the frame to redraw from whatever the page bindings now answer.
+static void fireItemTextReady(lua_State* L) {
+    if (auto* gh = getGameHandler(L)) gh->fireAddonEvent("ITEM_TEXT_READY", {});
+}
+
 static int lua_GetQuestLogTitle(lua_State* L) {
     auto* gh = getGameHandler(L);
     // optnumber, not checknumber: FrameXML walks the quest log with an index
@@ -1968,7 +1980,20 @@ void registerQuestLuaAPI(lua_State* L) {
                 // whole window down rather than leaving it empty.
                 {"ItemTextGetText", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            lua_pushstring(L, gh ? gh->getItemText().c_str() : "");
+            if (!gh) { lua_pushstring(L, ""); return 1; }
+            // Two things arrive on this frame and they come by different
+            // opcodes: a letter's body, which is one page, and a book, which
+            // chains through nextPageId and is collected whole before anyone
+            // reads it. A book wins while one is open, because a letter cannot
+            // be open at the same time.
+            const auto& pages = gh->getBookPages();
+            if (!pages.empty()) {
+                const size_t page = static_cast<size_t>(bookPage());
+                lua_pushstring(L, page < pages.size() ? pages[page].text.c_str()
+                                                      : pages.back().text.c_str());
+                return 1;
+            }
+            lua_pushstring(L, gh->getItemText().c_str());
             return 1;
         }},
                 // What the wire does not carry. The frame guards all three —
@@ -1979,23 +2004,45 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"ItemTextGetItem",     [](lua_State* L) -> int { return luaReturnNil(L); }},
                 {"ItemTextGetCreator",  [](lua_State* L) -> int { return luaReturnNil(L); }},
                 {"ItemTextGetMaterial", [](lua_State* L) -> int { return luaReturnNil(L); }},
-                // One page. The response carries a single body of text with no
-                // pagination, so the turn-page buttons have nowhere to go and
-                // the frame hides them when told there is no next page.
+                // A letter is one page and its buttons stay hidden. A book is
+                // as many as its chain has, all of them already fetched, so
+                // turning one is a move through what is in hand rather than a
+                // request — and the frame redraws on ITEM_TEXT_READY, which is
+                // what makes the move visible.
                 {"ItemTextGetPage", [](lua_State* L) -> int {
-            lua_pushnumber(L, 1);
+            lua_pushnumber(L, bookPage() + 1);
             return 1;
         }},
                 {"ItemTextHasNextPage", [](lua_State* L) -> int {
-            lua_pushboolean(L, 0);
+            auto* gh = getGameHandler(L);
+            const size_t pages = gh ? gh->getBookPages().size() : 0;
+            lua_pushboolean(L, static_cast<size_t>(bookPage() + 1) < pages ? 1 : 0);
             return 1;
         }},
-                {"ItemTextPrevPage", [](lua_State*) -> int { return 0; }},
-                {"ItemTextNextPage", [](lua_State*) -> int { return 0; }},
+                {"ItemTextPrevPage", [](lua_State* L) -> int {
+            if (bookPage() > 0) { --bookPage(); fireItemTextReady(L); }
+            return 0;
+        }},
+                {"ItemTextNextPage", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const size_t pages = gh ? gh->getBookPages().size() : 0;
+            if (static_cast<size_t>(bookPage() + 1) < pages) {
+                ++bookPage();
+                fireItemTextReady(L);
+            }
+            return 0;
+        }},
                 // Closing is a state change this client owns, and the frame
                 // calls it on hide as well as from its close button.
                 {"CloseItemText", [](lua_State* L) -> int {
-            if (auto* gh = getGameHandler(L)) gh->closeItemText();
+            if (auto* gh = getGameHandler(L)) {
+                gh->closeItemText();
+                // The pages go with the book, and so does the place in it —
+                // left behind, the next book opens at whatever page the last
+                // one was left on and shows nothing until it is paged back.
+                gh->clearBook();
+            }
+            bookPage() = 0;
             return 0;
         }},
                 {"IsQuestComplete",         lua_IsQuestComplete},
