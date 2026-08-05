@@ -959,6 +959,22 @@ struct Emitter {
         if (node.attr("numeric")) {
             line(var + ":SetNumeric(" + (node.attrBool("numeric") ? "true" : "false") + ")");
         }
+        // How many sent lines the box keeps, which the client walks with the
+        // arrow keys. The chat box asks for thirty-two; the money fields, the
+        // mail recipient and the knowledge base ask for none, and a box told to
+        // keep none should not quietly keep twenty.
+        if (const std::string* hist = node.attr("historyLines"); hist && !hist->empty()) {
+            line(var + ":SetHistoryLines(" +
+                 std::to_string(static_cast<int>(node.attrFloat("historyLines", 0.0f))) + ")");
+        }
+        // A box that declares this does not take the left and right arrows for
+        // its cursor — they reach the game, which is how a player turns while
+        // the chat box is open. Up and down still walk the history; that is
+        // what the real client does with the same flag.
+        if (node.attr("ignoreArrows")) {
+            line(var + ":SetIgnoreArrows(" +
+                 (node.attrBool("ignoreArrows") ? "true" : "false") + ")");
+        }
         // Declared false on nearly every box in FrameXML, which is the whole
         // point of it: a box that takes focus when it appears swallows the
         // keyboard from whatever the player was doing.

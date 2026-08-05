@@ -283,6 +283,12 @@ struct Widget {
     /// history", which is the state the box returns to at the end of it.
     std::vector<std::string> editHistory;
     int editHistoryPos = -1;
+    /// How many the box was declared to keep, from historyLines. Zero means
+    /// none, which several boxes ask for outright.
+    int editHistoryLines = 0;
+    /// Declared with ignoreArrows: left and right do not move the cursor, so
+    /// they reach the game instead and a player can turn while typing.
+    bool editIgnoreArrows = false;
     bool  editFocused = false;
     bool  editNumeric = false;
     bool  editMultiLine = false;

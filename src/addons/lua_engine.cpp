@@ -2728,14 +2728,37 @@ int lua_EditBox_SetNumber(lua_State* L) {
 /// A repeat of the line already at the top is not stored again — sending the
 /// same thing twice should not need two presses to step past — and the list is
 /// capped the way WoW's is, oldest dropped first.
+int lua_EditBox_SetHistoryLines(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    w->editHistoryLines = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (static_cast<int>(w->editHistory.size()) > w->editHistoryLines) {
+        w->editHistory.resize(static_cast<size_t>(std::max(0, w->editHistoryLines)));
+    }
+    return 0;
+}
+int lua_EditBox_GetHistoryLines(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->editHistoryLines : 0);
+    return 1;
+}
+int lua_EditBox_SetIgnoreArrows(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (w) w->editIgnoreArrows = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+
 int lua_EditBox_AddHistoryLine(lua_State* L) {
     auto* w = widgetOf(L, 1);
     const char* text = luaL_optstring(L, 2, "");
     if (!w || !text || !*text) return 0;
-    constexpr size_t kMaxHistory = 20;
+    // What the box was declared to keep. Several ask for none outright — the
+    // money fields, the mail recipient — and a hardcoded number here kept
+    // history in boxes that said not to.
+    if (w->editHistoryLines <= 0) return 0;
     if (w->editHistory.empty() || w->editHistory.back() != text) {
         w->editHistory.emplace_back(text);
-        if (w->editHistory.size() > kMaxHistory) {
+        while (static_cast<int>(w->editHistory.size()) > w->editHistoryLines) {
             w->editHistory.erase(w->editHistory.begin());
         }
     }
@@ -3693,6 +3716,9 @@ void LuaEngine::registerCoreAPI() {
         {"GetNumber",             lua_EditBox_GetNumber},
         {"SetNumber",             lua_EditBox_SetNumber},
         {"AddHistoryLine",        lua_EditBox_AddHistoryLine},
+        {"SetHistoryLines",       lua_EditBox_SetHistoryLines},
+        {"GetHistoryLines",       lua_EditBox_GetHistoryLines},
+        {"SetIgnoreArrows",       lua_EditBox_SetIgnoreArrows},
         {"Insert",                lua_EditBox_Insert},
         {"SetMaxLetters",         lua_EditBox_SetMaxLetters},        // The limit here is applied against the text's size in bytes, which is
         // what SetMaxBytes asks for; SetMaxLetters is the same field because
@@ -6458,8 +6484,14 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
                 callFrameScript(focusedWid_, "OnTextChanged");
             }
             break;
-        case kLeft:  if (w->cursorPos > 0) --w->cursorPos; break;
-        case kRight: if (w->cursorPos < len) ++w->cursorPos; break;
+        // Declared ignoreArrows means these belong to the game rather than to
+        // the cursor, which is how someone turns while the chat box is open.
+        case kLeft:
+            if (!w->editIgnoreArrows && w->cursorPos > 0) --w->cursorPos;
+            break;
+        case kRight:
+            if (!w->editIgnoreArrows && w->cursorPos < len) ++w->cursorPos;
+            break;
         case kHome:  w->cursorPos = 0; break;
         case kEnd:   w->cursorPos = len; break;
         case kReturn:
