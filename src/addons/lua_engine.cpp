@@ -985,6 +985,27 @@ int lua_FontString_SetNonSpaceWrap(lua_State* L) {
     return 0;
 }
 
+/// __WoweeReportFrame(name) — say what a frame is doing, into the client log.
+///
+/// Not a WoW call. It exists because "the window did not open" is one symptom
+/// with three causes that look identical from outside: the frame was never
+/// built, it was built and never shown, or it was shown and laid out to
+/// nothing. Only this side can tell them apart.
+int lua_WoweeReportFrame(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const char* name = luaL_optstring(L, 1, "");
+    if (!tree || !name || !*name) return 0;
+    const auto* w = tree->findByName(name);
+    if (!w) {
+        LOG_WARNING("frame '", name, "' was never built");
+        return 0;
+    }
+    LOG_WARNING("frame '", name, "' shown=", w->shown, " visible=", w->visible,
+                " rect=", w->rectW, "x", w->rectH,
+                " at (", w->left, ",", w->bottom, ") alpha=", w->alpha);
+    return 0;
+}
+
 int lua_Cooldown_SetReverse(lua_State* L) {
     auto* w = widgetOf(L, 1);
     if (w) w->cooldownReverse = lua_toboolean(L, 2) != 0;
@@ -4331,6 +4352,8 @@ void LuaEngine::registerCoreAPI() {
     // Cursor/screen/FPS functions
     lua_pushcfunction(L_, lua_GetCursorPosition);
     lua_setglobal(L_, "GetCursorPosition");
+    lua_pushcfunction(L_, lua_WoweeReportFrame);
+    lua_setglobal(L_, "__WoweeReportFrame");
     lua_pushcfunction(L_, lua_GetScreenWidth);
     lua_setglobal(L_, "GetScreenWidth");
     lua_pushcfunction(L_, lua_GetScreenHeight);

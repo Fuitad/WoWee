@@ -1286,7 +1286,14 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 // FrameXML draws the window left the key doing nothing
                 // visible at all.
                 if (frameXmlOwns(UiElement::CharacterFrame)) {
-                    gameHandler.runInterfaceCommand("ToggleCharacter(\"PaperDollFrame\")");
+                    // Reported three times as doing nothing, and every link in
+                    // ToggleCharacter's chain reads correct from here. This
+                    // says what the frame did, which is the one thing the
+                    // outside cannot tell: never built, built and not shown,
+                    // or shown and laid out to nothing.
+                    gameHandler.runInterfaceCommand(
+                        "ToggleCharacter(\"PaperDollFrame\") "
+                        "__WoweeReportFrame(\"CharacterFrame\")");
                 } else {
                     inventoryScreen.toggleCharacter();
                 }

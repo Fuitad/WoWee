@@ -32,6 +32,7 @@ public:
     /// cost the keypress, not the frame.
     void runInterfaceCommand(const std::string& lua);
 
+
     void fireEvent(const std::string& event, const std::vector<std::string>& args = {});
     void update(float deltaTime);
     void shutdown();
