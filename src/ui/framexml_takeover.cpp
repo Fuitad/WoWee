@@ -438,6 +438,13 @@ const Suppress kSuppress[] = {
         {UiElement::AuctionHouse, "AuctionFrame", true},
         {UiElement::GuildBank,    "GuildBankFrame", true},
         {UiElement::Inspect,      "InspectFrame", true},
+        // The vendor had no check entry at all, because the candidates list
+        // named it "merchant" and so never handed it over — there was nothing
+        // to report on. MerchantItem1 is the first of the ten wares and
+        // MerchantMoneyFrame the purse beneath them, which is where a window
+        // that opened but laid out to nothing shows itself.
+        {UiElement::Vendor,       "MerchantFrame MerchantItem1 MerchantMoneyFrame "
+                                  "MerchantNextPageButton"},
         {UiElement::DungeonFinder, "LFDParentFrame", true},
         // BARBER_SHOP_OPEN is fired and the achievements micro button belongs
         // to the bar this branch has taken over, so both of these can open
