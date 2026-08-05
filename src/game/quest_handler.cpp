@@ -846,7 +846,12 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
         } else if (rem >= 4) {
             uint32_t questId = packet.readUInt32();
             clearPendingQuestAccept(questId);
-            LOG_INFO("Quest objectives completed: questId=", questId);
+            // Visible at the default log level. This is the answer to "I did
+            // the thing and nothing happened": it separates a server that
+            // never credited from a server that did and an interface that did
+            // not show it, and there is no other way to tell those apart from
+            // outside. One line per objective completed, which is rare.
+            LOG_WARNING("Quest objectives completed: questId=", questId);
 
             for (auto& quest : questLog_) {
                 if (quest.questId == questId) {

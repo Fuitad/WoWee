@@ -130,6 +130,7 @@ bool UnitPortrait::updatePlayer(uint8_t race, uint8_t gender,
                          (loadedFacialFeatures_ != facialFeatures) ||
                          (loadedRace_ != race) || (loadedGender_ != gender) ||
                          (loadedEquipHash_ != equipHash) ||
+                         (loadedBake_ != pendingBake_) ||
                          !loadedCreaturePath_.empty();
     if (changed) {
         const uint8_t skin      =  appearanceBytes        & 0xFF;
@@ -146,6 +147,10 @@ bool UnitPortrait::updatePlayer(uint8_t race, uint8_t gender,
             // only where there is something to apply — an empty list is
             // "nothing known yet", and dressing a model in it strips it.
             if (!equipment.empty()) preview_->applyEquipment(equipment);
+            // After the equipment, because both write the skin slot and the
+            // bake is the more complete answer: it already has the armour on
+            // it, which is the half applyEquipment cannot composite for an NPC.
+            if (!pendingBake_.empty()) preview_->setBakedSkin(pendingBake_);
             if (framing_ == Framing::Face) preview_->setPortraitFraming();
             else                           preview_->resetView();
         }
@@ -158,6 +163,7 @@ bool UnitPortrait::updatePlayer(uint8_t race, uint8_t gender,
         loadedAppearance_ = appearanceBytes;
         loadedFacialFeatures_ = facialFeatures;
         loadedEquipHash_ = equipHash;
+        loadedBake_ = pendingBake_;
     }
 
     preview_->update(deltaTime);

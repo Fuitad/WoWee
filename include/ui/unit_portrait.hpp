@@ -77,6 +77,15 @@ public:
                         pipeline::AssetManager* assets,
                         rendering::Renderer* renderer, float deltaTime);
 
+    /// A pre-composited skin to put on the character once it is built,
+    /// replacing the one made from CharSections.
+    ///
+    /// CreateDisplayInfoExtra carries one for nearly every humanoid NPC, and
+    /// it is the whole appearance already baked — skin, face, hair and the
+    /// armour they wear. Set before the update that should use it; it is part
+    /// of what decides a rebuild, so changing it is enough to apply it.
+    void setBakedSkin(const std::string& path) { pendingBake_ = path; }
+
     /// Set before the first update, since framing is applied when the model
     /// loads and the model loads once.
     void setFraming(Framing framing) { framing_ = framing; }
@@ -117,6 +126,9 @@ private:
     /// Also the guard against reloading: a portrait rebuilt every frame looks
     /// like one that flickers, and the two are indistinguishable from outside.
     std::string loadedCreaturePath_;
+    /// The bake asked for, and the one already on the model.
+    std::string pendingBake_;
+    std::string loadedBake_;
 
     uint64_t loadedGuid_ = 0;
     /// Race and gender as well, because another player is identified by these

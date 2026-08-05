@@ -3618,6 +3618,8 @@ void Application::render() {
                         // Empty means the item queries have not come back, and
                         // the portrait leaves the model dressed as it was
                         // rather than stripping it.
+                        // A real player composites their own skin; no bake.
+                        face.portrait->setBakedSkin("");
                         std::vector<game::EquipmentItem> worn;
                         std::array<uint32_t, 19> displayIds{};
                         std::array<uint8_t, 19> invTypes{};
@@ -3664,6 +3666,14 @@ void Application::render() {
                                      entitySpawner_->getHumanoidEquipment(displayId)) {
                                 npcWorn.push_back({did, invType, 0u});
                             }
+                            // The bake, where there is one — nearly always.
+                            // It is the whole appearance already composited,
+                            // armour included, which is the half this client
+                            // cannot build for an NPC. The equipment above
+                            // still matters: it decides the geosets, and the
+                            // bake only paints what they draw.
+                            face.portrait->setBakedSkin(
+                                entitySpawner_->getHumanoidBakePath(displayId));
                             built = face.portrait->updatePlayer(
                                 nRace, nSex, nBytes, nFacial, npcWorn,
                                 assetManager.get(), renderer.get(), io.DeltaTime);
