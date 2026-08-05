@@ -7250,10 +7250,31 @@ void LuaEngine::dispatchOnUpdate(float elapsed) {
         lua_rawgeti(L_, -1, i);
         if (!lua_istable(L_, -1)) { lua_pop(L_, 1); continue; }
 
-        // Check if frame is visible
-        lua_getfield(L_, -1, "__visible");
-        bool visible = lua_toboolean(L_, -1);
-        lua_pop(L_, 1);
+        // Visible, meaning shown with every ancestor shown too — which is what
+        // decides whether WoW runs an OnUpdate at all.
+        //
+        // This read __visible, a field beside the frame that Show and Hide
+        // write, so it answered whether the frame itself had been shown and
+        // said nothing about its parents. Alt-Z hides UIParent and the movie
+        // frame hides it too; with the UI off, all hundred and ten of
+        // FrameXML's OnUpdate handlers went on running every frame, doing work
+        // for a screen nobody could see and advancing timers that should have
+        // stopped.
+        //
+        // The widget already carries the answer: layout() resolves `visible`
+        // for the whole tree each frame, so this costs a lookup rather than a
+        // walk up the parents.
+        // A frame with no widget behind it falls back to the field, so
+        // anything built outside the tree keeps working rather than going
+        // silently still.
+        bool visible;
+        if (const auto* uw = widgetOf(L_, lua_gettop(L_))) {
+            visible = uw->visible;
+        } else {
+            lua_getfield(L_, -1, "__visible");
+            visible = lua_toboolean(L_, -1);
+            lua_pop(L_, 1);
+        }
         if (!visible) { lua_pop(L_, 1); continue; }
 
         // Get OnUpdate script
