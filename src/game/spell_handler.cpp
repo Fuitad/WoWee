@@ -472,6 +472,36 @@ static std::string formatSpellNameList(GameHandler& handler,
 SpellHandler::SpellHandler(GameHandler& owner)
     : owner_(owner) {}
 
+// The five values FrameXML unpacks from any UNIT_SPELLCAST_* event:
+//   unit, spell name, rank, cast id, spell id
+//
+// Every one of these was fired as the unit and the spell id alone, which put
+// the id where the name belongs and left the cast id absent. Two things went
+// wrong with that.
+//
+// The cast bar takes its own cast id from UnitCastingInfo — which answers the
+// spell id for it — and then, on STOP, compares `select(4, ...)` against it
+// before finishing the bar. That argument was nil, so the comparison was false
+// every time and the branch that flashes the bar, fills it and clears
+// self.casting never ran. UNIT_SPELLCAST_FAILED and _INTERRUPTED check the
+// same argument the same way.
+//
+// And CastRandomManager_OnEvent reads `local unit, name, rank = ...` then calls
+// strlower on both, so a /castsequence or /castrandom macro raised on a nil
+// rank the first time any spell of the player's succeeded.
+//
+// The cast id is the spell id here, which is what UnitCastingInfo reports, so
+// the two agree. It is not what the server calls a cast id — this client does
+// not keep the counter — but nothing compares it to anything else.
+std::vector<std::string> SpellHandler::spellcastArgs(const std::string& unitId,
+                                                     uint32_t spellId) const {
+    const std::string& name = owner_.getSpellName(spellId);
+    const std::string& rank = owner_.getSpellRank(spellId);
+    // A name that is not cached yet would be empty, and an empty string is a
+    // string — which is what the readers want. Nil would raise in strlower.
+    return {unitId, name, rank, std::to_string(spellId), std::to_string(spellId)};
+}
+
 void SpellHandler::requestPetName(uint64_t petGuid) {
     if (petGuid == 0 || !owner_.getSocket()) return;
     if (owner_.getState() != WorldState::IN_WORLD) return;
@@ -1766,8 +1796,8 @@ void SpellHandler::handleCastFailed(network::Packet& packet) {
     }
 
     if (owner_.addonEventCallbackRef()) {
-        owner_.addonEventCallbackRef()("UNIT_SPELLCAST_FAILED", {"player", std::to_string(data.spellId)});
-        owner_.addonEventCallbackRef()("UNIT_SPELLCAST_STOP", {"player", std::to_string(data.spellId)});
+        owner_.addonEventCallbackRef()("UNIT_SPELLCAST_FAILED", spellcastArgs("player", data.spellId));
+        owner_.addonEventCallbackRef()("UNIT_SPELLCAST_STOP", spellcastArgs("player", data.spellId));
     }
     if (owner_.spellCastFailedCallbackRef()) owner_.spellCastFailedCallbackRef()(data.spellId);
 }
@@ -1853,7 +1883,7 @@ void SpellHandler::handleSpellStart(network::Packet& packet) {
     if (owner_.addonEventCallbackRef() && !rangedWeaponAttack) {
         std::string unitId = owner_.guidToUnitId(data.casterUnit);
         if (!unitId.empty()) {
-            owner_.addonEventCallbackRef()("UNIT_SPELLCAST_START", {unitId, std::to_string(data.spellId)});
+            owner_.addonEventCallbackRef()("UNIT_SPELLCAST_START", spellcastArgs(unitId, data.spellId));
             // Whether the cast can be kicked, which the cast bar draws as a
             // shield around itself. This client already worked it out for the
             // cast it is tracking and kept it — so a boss casting something
@@ -1989,7 +2019,7 @@ void SpellHandler::handleSpellGo(network::Packet& packet) {
         }
 
         if (owner_.addonEventCallbackRef() && !rangedWeaponAttack)
-            owner_.addonEventCallbackRef()("UNIT_SPELLCAST_STOP", {"player", std::to_string(data.spellId)});
+            owner_.addonEventCallbackRef()("UNIT_SPELLCAST_STOP", spellcastArgs("player", data.spellId));
 
         // Craft queue: re-cast if more crafts remaining
         if (craftQueueRemaining_ > 0 && craftQueueSpellId_ == data.spellId) {
@@ -2065,7 +2095,7 @@ void SpellHandler::handleSpellGo(network::Packet& packet) {
     if (owner_.addonEventCallbackRef()) {
         std::string unitId = owner_.guidToUnitId(data.casterUnit);
         if (!unitId.empty())
-            owner_.addonEventCallbackRef()("UNIT_SPELLCAST_SUCCEEDED", {unitId, std::to_string(data.spellId)});
+            owner_.addonEventCallbackRef()("UNIT_SPELLCAST_SUCCEEDED", spellcastArgs(unitId, data.spellId));
     }
 
     if ((playerIsHit || playerHitEnemy) && !rangedWeaponAttack)
@@ -3620,8 +3650,8 @@ void SpellHandler::handleCastResult(network::Packet& packet) {
             }
             owner_.addUIError(errMsg);
             if (owner_.spellCastFailedCallbackRef()) owner_.spellCastFailedCallbackRef()(castResultSpellId);
-                owner_.fireAddonEvent("UNIT_SPELLCAST_FAILED", {"player", std::to_string(castResultSpellId)});
-                owner_.fireAddonEvent("UNIT_SPELLCAST_STOP",   {"player", std::to_string(castResultSpellId)});
+                owner_.fireAddonEvent("UNIT_SPELLCAST_FAILED", spellcastArgs("player", castResultSpellId));
+                owner_.fireAddonEvent("UNIT_SPELLCAST_STOP",   spellcastArgs("player", castResultSpellId));
             MessageChatData msg;
             msg.type     = ChatType::SYSTEM;
             msg.language = ChatLanguage::UNIVERSAL;
@@ -3637,14 +3667,19 @@ void SpellHandler::handleSpellFailedOther(network::Packet& packet) {
         ? (packet.hasRemaining(8) ? packet.readUInt64() : 0)
         : packet.readPackedGuid();
     if (failOtherGuid != 0 && failOtherGuid != owner_.getPlayerGuid()) {
+        // Which spell it was, before the state that says so is dropped: the
+        // cast bar matches the id on a stop against the one it started with,
+        // and there is nowhere else to read it from once this is erased.
+        uint32_t failedSpellId = 0;
+        if (const auto* st = getUnitCastState(failOtherGuid)) failedSpellId = st->spellId;
         unitCastStates_.erase(failOtherGuid);
         if (owner_.addonEventCallbackRef()) {
             std::string unitId;
             if (failOtherGuid == owner_.getTargetGuid())     unitId = "target";
             else if (failOtherGuid == owner_.focusGuidRef()) unitId = "focus";
             if (!unitId.empty()) {
-                owner_.fireAddonEvent("UNIT_SPELLCAST_FAILED", {unitId});
-                owner_.fireAddonEvent("UNIT_SPELLCAST_STOP",   {unitId});
+                owner_.fireAddonEvent("UNIT_SPELLCAST_FAILED", spellcastArgs(unitId, failedSpellId));
+                owner_.fireAddonEvent("UNIT_SPELLCAST_STOP",   spellcastArgs(unitId, failedSpellId));
             }
         }
     }
@@ -3876,8 +3911,10 @@ void SpellHandler::handleSpellFailure(network::Packet& packet) {
     if (owner_.addonEventCallbackRef()) {
         auto unitId = (failGuid == 0) ? std::string("player") : owner_.guidToUnitId(failGuid);
         if (!unitId.empty()) {
-            owner_.fireAddonEvent("UNIT_SPELLCAST_INTERRUPTED", {unitId});
-            owner_.fireAddonEvent("UNIT_SPELLCAST_STOP", {unitId});
+            uint32_t spellId = 0;
+            if (const auto* st = getUnitCastState(failGuid)) spellId = st->spellId;
+            owner_.fireAddonEvent("UNIT_SPELLCAST_INTERRUPTED", spellcastArgs(unitId, spellId));
+            owner_.fireAddonEvent("UNIT_SPELLCAST_STOP", spellcastArgs(unitId, spellId));
         }
     }
     if (failGuid == owner_.getPlayerGuid() || failGuid == 0) {
@@ -4817,7 +4854,7 @@ void SpellHandler::handleChannelStart(network::Packet& packet) {
         if (owner_.addonEventCallbackRef()) {
             auto unitId = owner_.guidToUnitId(chanCaster);
             if (!unitId.empty())
-                owner_.fireAddonEvent("UNIT_SPELLCAST_CHANNEL_START", {unitId, std::to_string(chanSpellId)});
+                owner_.fireAddonEvent("UNIT_SPELLCAST_CHANNEL_START", spellcastArgs(unitId, chanSpellId));
         }
     }
 }

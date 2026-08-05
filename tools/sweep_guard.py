@@ -139,6 +139,12 @@ CHECKS = [
     ("framexml_slash_shadowing.py",
      r"^(\d+) client command\(s\) whose handler has no live call", 0,
      "slash commands FrameXML takes over with a handler that cannot act"),
+    # The blind spot the other arity sweep has by design: it skips handlers
+    # that unpack at the top, because one handler usually serves many events.
+    # Where a handler serves exactly one, that unpack IS the signature.
+    ("framexml_handler_arity.py",
+     r"^(\d+) single-event handler\(s\) unpacking more at the top", 0,
+     "single-event handlers unpacking more than the client fires"),
     ("api_shadowing_check.py",
      r"^\s*(\d+) to look at", 10,
      "names whose winner depends on load order"),

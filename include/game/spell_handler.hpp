@@ -314,6 +314,14 @@ public:
     /// Give a hunter's pet up for good. The interface asks first — this is the
     /// other side of the ABANDON_PET dialog, whose accept called an unbound
     /// name and raised.
+    /// The five values every UNIT_SPELLCAST_* event carries.
+    ///
+    /// unit, spell name, rank, cast id, spell id — in that order, which is what
+    /// FrameXML unpacks. These were being fired as just the unit and the spell
+    /// id, so the id sat where the name belongs and the cast id was absent.
+    std::vector<std::string> spellcastArgs(const std::string& unitId,
+                                           uint32_t spellId) const;
+
     void abandonPet();
 
     /// Buy the next stable slot from the stable master currently open.
