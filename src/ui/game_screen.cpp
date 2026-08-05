@@ -1282,7 +1282,15 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             } else if (gameHandler.isTradeOpen()) {
                 gameHandler.cancelTrade();
             } else if (gameHandler.askInterface(
-                           "CloseAllWindows and CloseAllWindows() and true or false")) {
+                           // In ToggleGameMenu's order, and stopping at the
+                           // first that answers. A dropdown open over a panel
+                           // has to go before the panel does, or Escape closes
+                           // the window out from under the menu; the special
+                           // windows are the list addons add themselves to, and
+                           // nothing has ever walked it.
+                           "(CloseMenus and CloseMenus()) or "
+                           "(CloseSpecialWindows and CloseSpecialWindows()) or "
+                           "(CloseAllWindows and CloseAllWindows()) or false")) {
                 // FrameXML had a panel open and closed it. Everything above
                 // this line is a window the *server* knows about, and each of
                 // those has to go through the client so the closing packet is
