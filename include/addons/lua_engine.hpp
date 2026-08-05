@@ -47,6 +47,8 @@ public:
 
     // Call OnUpdate scripts on all frames that have one.
     void dispatchOnUpdate(float elapsed);
+    /// Age message-frame lines and drop the expired ones.
+    void expireMessages(float elapsed);
 
     /// Feed the mouse to the widget tree: hover changes fire OnEnter/OnLeave,
     /// and a press and release on the same frame is a click. Coordinates are

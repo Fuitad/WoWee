@@ -302,8 +302,17 @@ struct Widget {
     /// string: chat is a list that grows at one end and falls off the other,
     /// and the frame draws as many as fit from the bottom up.
     bool  isMessageFrame = false;
-    struct Message { std::string text; float color[4]; };
+    struct Message { std::string text; float color[4]; float age = 0.0f; };
     std::deque<Message> messages;
+    /// How long a message stays before it fades out, in seconds, and how long
+    /// the fade itself takes. Zero means it never goes — which is what a chat
+    /// frame wants and what UIErrorsFrame very much does not: it declares
+    /// displayDuration="5" and every error was staying on screen for good.
+    float messageDuration = 0.0f;
+    float messageFadeDuration = 3.0f;
+    /// Whether a new message goes above the ones already there. UIErrorsFrame
+    /// asks for insertMode="TOP"; a chat frame does not.
+    bool  messagesInsertTop = false;
     /// Extra space between message lines, which SetPadding sets. WoW's default
     /// is none; the 15% used here is the leading a line already carries.
     float messagePadding = 0.0f;

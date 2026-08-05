@@ -944,13 +944,46 @@ int lua_MessageFrame_AddMessage(lua_State* L) {
     m.color[2] = static_cast<float>(luaL_optnumber(L, 5, w->color[2]));
     m.color[3] = 1.0f;
     w->isMessageFrame = true;
-    w->messages.push_back(std::move(m));
-    while (w->messages.size() > w->maxMessages) w->messages.pop_front();
+    // UIErrorsFrame asks for insertMode="TOP", which puts a new line above the
+    // ones already there rather than below them.
+    if (w->messagesInsertTop) w->messages.push_front(std::move(m));
+    else                      w->messages.push_back(std::move(m));
+    while (w->messages.size() > w->maxMessages) {
+        if (w->messagesInsertTop) w->messages.pop_back();
+        else                      w->messages.pop_front();
+    }
     // A new line at the bottom means the view follows it, which is what a
     // chat frame does unless someone has scrolled up.
     if (w->messageScroll > 0) ++w->messageScroll;
     return 0;
 }
+/// SetTimeVisible(seconds) — how long a line stays before it fades.
+///
+/// Zero, the default, means for good, which is what a chat frame wants.
+/// UIErrorsFrame declares five and it was dropped, so every refusal the server
+/// sent stayed on screen until a hundred and twenty-eight had piled up.
+int lua_MessageFrame_SetTimeVisible(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (w) w->messageDuration = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+    return 0;
+}
+int lua_MessageFrame_GetTimeVisible(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushnumber(L, w ? w->messageDuration : 0.0);
+    return 1;
+}
+int lua_MessageFrame_SetFadeDuration(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (w) w->messageFadeDuration = static_cast<float>(luaL_optnumber(L, 2, 3.0));
+    return 0;
+}
+int lua_MessageFrame_SetInsertMode(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    const char* mode = luaL_optstring(L, 2, "BOTTOM");
+    if (w) w->messagesInsertTop = (mode && std::string(mode) == "TOP");
+    return 0;
+}
+
 // ── Tooltips ───────────────────────────────────────────────────────────────
 //
 // AddLine was a name in the method list and nothing else, so every tooltip in
@@ -3475,6 +3508,10 @@ void LuaEngine::registerCoreAPI() {
         {"Clear",           lua_MessageFrame_Clear},
         {"GetNumMessages",  lua_MessageFrame_GetNumMessages},
         {"SetMaxLines",     lua_MessageFrame_SetMaxLines},
+        {"SetTimeVisible",  lua_MessageFrame_SetTimeVisible},
+        {"GetTimeVisible",  lua_MessageFrame_GetTimeVisible},
+        {"SetFadeDuration", lua_MessageFrame_SetFadeDuration},
+        {"SetInsertMode",   lua_MessageFrame_SetInsertMode},
         {"ScrollUp",        lua_MessageFrame_ScrollUp},
         {"ScrollDown",      lua_MessageFrame_ScrollDown},
         {"ScrollToBottom",  lua_MessageFrame_ScrollToBottom},
@@ -6758,10 +6795,41 @@ void LuaEngine::runInterfaceProbe() {
     if (!ok) LOG_WARNING("interface probe did not run: ", lastError());
 }
 
+/// Age every message frame's lines and fade the ones whose time is up.
+///
+/// A frame with no declared duration keeps its lines lit for good. Two declare
+/// one: UIErrorsFrame at five seconds, and the chat template at a hundred and
+/// twenty. Both attributes were dropped, so every server refusal stayed on
+/// screen until a hundred and twenty-eight had piled up behind it.
+///
+/// Faded rather than removed. A chat line that has gone quiet is still in the
+/// history and comes back when the frame is scrolled, which is why nothing is
+/// erased here and why scrolling lights everything again — the player reading
+/// back wants what was said, not what is still fresh.
+void LuaEngine::expireMessages(float elapsed) {
+    for (size_t id = 1; id < widgets_.size(); ++id) {
+        auto* w = widgets_.get(static_cast<uint32_t>(id));
+        if (!w || !w->isMessageFrame || w->messageDuration <= 0.0f) continue;
+        const bool readingBack = w->messageScroll > 0;
+        const float life = w->messageDuration;
+        const float fade = w->messageFadeDuration > 0.0f ? w->messageFadeDuration : 0.0f;
+        for (auto& m : w->messages) {
+            m.age += elapsed;
+            if (readingBack) { m.color[3] = 1.0f; continue; }
+            const float left = life - m.age;
+            m.color[3] = (left <= 0.0f) ? 0.0f
+                       : (fade > 0.0f && left < fade) ? (left / fade)
+                       : 1.0f;
+        }
+    }
+}
+
 void LuaEngine::dispatchOnUpdate(float elapsed) {
     // Asked for by the check, and answered here because only this side can ask
     // the interface anything.
     if (ui::frameXmlTakeProbeRequest()) runInterfaceProbe();
+
+    expireMessages(elapsed);
 
     if (!L_) return;
 

@@ -661,6 +661,19 @@ struct Emitter {
         if (const std::string* ml = node.attr("maxLines"); ml && !ml->empty()) {
             line(var + ":SetMaxLines(" + *ml + ")");
         }
+        // How long a line stays, and which end a new one goes on. UIErrorsFrame
+        // declares displayDuration="5" and insertMode="TOP"; both were dropped,
+        // so every server refusal stayed on screen for good and they stacked
+        // upward from the wrong end.
+        if (const std::string* dd = node.attr("displayDuration"); dd && !dd->empty()) {
+            line(var + ":SetTimeVisible(" + *dd + ")");
+        }
+        if (const std::string* fd = node.attr("fadeDuration"); fd && !fd->empty()) {
+            line(var + ":SetFadeDuration(" + *fd + ")");
+        }
+        if (const std::string* im = node.attr("insertMode"); im && !im->empty()) {
+            line(var + ":SetInsertMode(" + quote(*im) + ")");
+        }
         // The keyboard, on the same principle as the mouse and the wheel: a
         // frame that declares OnKeyDown or OnKeyUp wants keys. Every one that
         // does in FrameXML is a dialog hidden until it is wanted, so nothing

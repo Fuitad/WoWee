@@ -1295,6 +1295,10 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 for (int i = static_cast<int>(w->messages.size()) - 1 - scroll;
                      i >= 0 && y >= y0 - lineH; --i) {
                     const auto& m = w->messages[static_cast<size_t>(i)];
+                    // A line whose time is up is still in the history — it
+                    // comes back when the frame is scrolled — but it takes no
+                    // room on screen, so the ones still lit pack together.
+                    if (m.color[3] <= 0.0f) continue;
                     float rgba[4] = {m.color[0], m.color[1], m.color[2], m.color[3]};
                     dl->AddText(font, size, ImVec2(x0, y), packColor(rgba, w->alpha),
                                 m.text.c_str());
