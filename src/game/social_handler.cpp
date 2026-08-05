@@ -864,6 +864,22 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
             if (auto u = std::dynamic_pointer_cast<Unit>(e))
                 pName = u->getName();
         if (ready) owner_.addSystemChatMessage(pName + " has chosen: " + roleName);
+        // Announced as well as written to chat. The role-check window lists
+        // who has picked what as they pick it, and it learns that from this
+        // event alone — parsed here since the chat line needed the same three
+        // bits, and never fired, so the list stayed blank while the chat
+        // filled up beside it.
+        //
+        // Booleans through eventBool: "0" is a number and true in Lua, so a
+        // false argument in front of a true one cannot be spelled as text.
+        if (owner_.addonEventCallbackRef()) {
+            owner_.addonEventCallbackRef()("LFG_ROLE_CHECK_ROLE_CHOSEN", {
+                pName,
+                eventBool((roles & 0x02) != 0),
+                eventBool((roles & 0x04) != 0),
+                eventBool((roles & 0x08) != 0)
+            });
+        }
         packet.skipAll();
     };
     // The one that carries the locks. Skipped wholesale until now, which is
