@@ -1,5 +1,6 @@
 // lua_social_api.cpp — Chat, guild, friends, ignore, gossip, party management, and emotes Lua API bindings.
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
+#include <iterator>
 #include <vector>
 #include "addons/lua_api_helpers.hpp"
 #include "game/reputation_standing.hpp"
@@ -14,6 +15,45 @@ namespace wowee::addons {
 // ids are fixed across every expansion this client speaks, and the dbc adds
 // nothing but a localised name we do not have a table for.
 struct LanguageEntry { const char* name; int id; };
+
+// The right each guild control permission checkbox stands for, in the panel's
+// order rather than the mask's.
+//
+// The two orders are not the same and must not be confused: the panel lists
+// Promote and Demote fifth and sixth while their bits are 0x80 and 0x100, above
+// Invite's 0x10 and Remove's 0x20 — so walking the mask in order would tick the
+// wrong four boxes. The names come from GUILDCONTROL_OPTION1..17, which is what
+// GuildControlPopupFrame_OnLoad labels each checkbox with; the bits from
+// AzerothCore's GuildRankRights.
+//
+// Seventeen entries, of which the fourteenth has no checkbox — its option
+// string exists but the frame was never given the button, and FrameXML's update
+// loop skips the gap with a comment saying the flag is deprecated. The slot is
+// filled anyway because everything after it is found by counting: drop it and
+// the two guild bank rights land on the wrong boxes.
+//
+// One table for the getter and the setter both. They are inverses over the same
+// order, so two copies of it is two chances to renumber only one.
+static constexpr uint32_t kGuildRankFlagBits[] = {
+    0x00000001u,  // 1  Guildchat Listen
+    0x00000002u,  // 2  Guildchat Speak
+    0x00000004u,  // 3  Officerchat Listen
+    0x00000008u,  // 4  Officerchat Speak
+    0x00000080u,  // 5  Promote
+    0x00000100u,  // 6  Demote
+    0x00000010u,  // 7  Invite Member
+    0x00000020u,  // 8  Remove Member
+    0x00001000u,  // 9  Set MOTD
+    0x00002000u,  // 10 Edit Public Note
+    0x00004000u,  // 11 View Officer Note
+    0x00008000u,  // 12 Edit Officer Note
+    0x00010000u,  // 13 Modify Guild Info
+    0u,           // 14 deprecated, no checkbox
+    0x00040000u,  // 15 Repair — GR_RIGHT_WITHDRAW_REPAIR
+    0x00080000u,  // 16 Gold — GR_RIGHT_WITHDRAW_GOLD
+    0x00100000u,  // 17 Create Guild Event
+};
+static constexpr size_t kGuildRankFlagCount = std::size(kGuildRankFlagBits);
 
 static void collectKnownLanguages(uint8_t raceId, std::vector<LanguageEntry>& out) {
     const bool horde = (raceId == 2 || raceId == 5 || raceId == 6 ||
@@ -1196,19 +1236,15 @@ void registerSocialLuaAPI(lua_State* L) {
             return 0;
         }},
                 // GuildControlGetRankFlags() → one boolean per permission
-                // checkbox, in the panel's order.
+                // checkbox, in the panel's order. See kGuildRankFlagBits for
+                // what that order is and why it is not the mask's.
                 //
-                // That order is not the bit order and the two must not be
-                // confused: the panel lists Promote and Demote fifth and sixth
-                // while their bits are 0x80 and 0x100, above Invite's 0x10 and
-                // Remove's 0x20 — so walking the mask in order would tick the
-                // wrong four boxes.
-                //
-                // Thirteen, not seventeen. Fourteen through seventeen are guild
-                // event and guild bank rights carried in a mask this client
-                // does not parse, and the consumer loops select('#', ...), so a
-                // short answer leaves those boxes untouched rather than
-                // claiming they are clear.
+                // All seventeen, because the consumer loops select('#', ...)
+                // and finds each checkbox by counting: an answer thirteen long
+                // never reaches boxes 15 and 16, the guild bank's repair and
+                // withdraw-gold rights, and WithdrawGoldEditBox_Update enables
+                // itself off their checked state. Stopping short does not leave
+                // those two clear, it leaves them showing the previous rank's.
                 {"GuildControlGetRankFlags", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (!gh) return 0;
@@ -1216,23 +1252,8 @@ void registerSocialLuaAPI(lua_State* L) {
             const int sel = gh->getSelectedGuildRank();
             if (sel < 1 || sel > static_cast<int>(roster.ranks.size())) return 0;
             const uint32_t rights = roster.ranks[static_cast<size_t>(sel) - 1].rights;
-            static constexpr uint32_t kOrder[13] = {
-                0x00000001u,  // 1  Guildchat Listen
-                0x00000002u,  // 2  Guildchat Speak
-                0x00000004u,  // 3  Officerchat Listen
-                0x00000008u,  // 4  Officerchat Speak
-                0x00000080u,  // 5  Promote
-                0x00000100u,  // 6  Demote
-                0x00000010u,  // 7  Invite Member
-                0x00000020u,  // 8  Remove Member
-                0x00001000u,  // 9  Set MOTD
-                0x00002000u,  // 10 Edit Public Note
-                0x00004000u,  // 11 View Officer Note
-                0x00008000u,  // 12 Edit Officer Note
-                0x00010000u,  // 13 Modify Guild Info
-            };
-            for (uint32_t bit : kOrder) lua_pushboolean(L, (rights & bit) ? 1 : 0);
-            return 13;
+            for (uint32_t bit : kGuildRankFlagBits) lua_pushboolean(L, (rights & bit) ? 1 : 0);
+            return static_cast<int>(kGuildRankFlagCount);
         }},
                 // CONFIRM_BUY_GUILDBANK_TAB's accept, from the guild bank's
                 // "purchase tab" button. Same story: the packet builder and
@@ -1262,20 +1283,20 @@ void registerSocialLuaAPI(lua_State* L) {
                 // permission. Called from the checkbox's own OnClick in the
                 // XML, which is why it never appeared in a scan of the Lua.
                 //
-                // Same order as GuildControlGetRankFlags reads them, and for
-                // the same reason: the panel's order is not the bit order.
+                // Same order as GuildControlGetRankFlags reads them, off the
+                // same table, and for the same reason: the panel's order is not
+                // the bit order.
                 {"GuildControlSetRankFlag", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));
             const bool on = lua_toboolean(L, 2) != 0;
-            if (!gh || idx < 1 || idx > 13) return 0;
-            static constexpr uint32_t kOrder[13] = {
-                0x00000001u, 0x00000002u, 0x00000004u, 0x00000008u,
-                0x00000080u, 0x00000100u, 0x00000010u, 0x00000020u,
-                0x00001000u, 0x00002000u, 0x00004000u, 0x00008000u,
-                0x00010000u,
-            };
-            const uint32_t bit = kOrder[static_cast<size_t>(idx) - 1];
+            if (!gh || idx < 1 || idx > static_cast<int>(kGuildRankFlagCount)) return 0;
+            const uint32_t bit = kGuildRankFlagBits[static_cast<size_t>(idx) - 1];
+            // Slot 14 has no bit to set. Nothing calls it — the checkbox that
+            // would is not in the frame — but a zero bit here would clear
+            // nothing on the way in and revoke nothing on the way out, so the
+            // early return keeps that accident from ever being silent.
+            if (bit == 0) return 0;
             auto& p = gh->pendingGuildRankRef();
             if (on) p.rights |= bit; else p.rights &= ~bit;
             return 0;
