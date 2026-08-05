@@ -2662,6 +2662,33 @@ static int lua_GiveMasterLoot(lua_State* L) {
     return 0;
 }
 
+// GetMasterLootCandidate(index) → the name of whoever can be given this loot.
+//
+// The list the server sends with the loot, which GiveMasterLoot has been
+// reading all along — only the call that *builds* the menu from it was a stub.
+// So a master looter got an empty "Give loot" submenu over a list the client
+// had, and the function that would have acted on a choice was finished and
+// unreachable.
+//
+// Nil for an index past the end, which is how GroupLootDropDown_Initialize
+// stops: it walks five at a time and adds a button only `if ( candidate )`.
+static int lua_GetMasterLootCandidate(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || index < 1) return luaReturnNil(L);
+    const auto& candidates = gh->getMasterLootCandidates();
+    if (index > static_cast<int>(candidates.size())) return luaReturnNil(L);
+
+    const uint64_t guid = candidates[static_cast<size_t>(index) - 1];
+    std::string name = gh->lookupName(guid);
+    // A name this client has not learned yet would come back empty, and an
+    // empty string is true in Lua — the menu would show a blank row that gives
+    // the item to someone unnamed. Nil skips the row instead.
+    if (name.empty()) return luaReturnNil(L);
+    lua_pushstring(L, name.c_str());
+    return 1;
+}
+
 // GetLootMethod() → "freeforall"|"roundrobin"|"master"|"group"|"needbeforegreed", partyLoot, raidLoot
 static int lua_GetLootMethod(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -2962,6 +2989,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetLootRollTimeLeft", lua_GetLootRollTimeLeft},
                 {"RollOnLoot",          lua_RollOnLoot},
                 {"GetLootMethod",       lua_GetLootMethod},
+                {"GetMasterLootCandidate", lua_GetMasterLootCandidate},
                 {"GetLootThreshold",    lua_GetLootThreshold},
                 {"GetTabardCreationCost", lua_GetTabardCreationCost},
                 {"GetSendMailPrice",    lua_GetSendMailPrice},

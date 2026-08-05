@@ -3204,7 +3204,6 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushboolean(L, 0);
             return 3;
         }},
-                {"GetMasterLootCandidate",   lua_ReturnNil},
                 // The selection is the panel's own state and nothing else
                 // reads it, so it lives here and round-trips. Answering nil
                 // for the getter meant the highlight never moved.
