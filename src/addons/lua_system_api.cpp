@@ -359,6 +359,12 @@ static int lua_GetCVar(lua_State* L) {
     // icons. On, it goes through GameTooltip_SetDefaultAnchor to the
     // bottom-right corner, clear of the bar, which is where WoW puts it.
     else if (n == "ubertooltips") lua_pushstring(L, "1");
+    // The aggro warning on the unit frames. Three is "always", which is what
+    // the Display panel lists first and what a stock WotLK client ships with;
+    // one is "in an instance", two "in a party", zero never. Falling through
+    // to the "0" below would have left the indicator off with the option
+    // reading Never, which is a preference nobody chose.
+    else if (n == "threatwarning") lua_pushstring(L, "3");
     // The social options panel branches on this and raises on anything it does
     // not recognise, so "0" — what an unknown CVar answers — took its whole
     // update down. "classic" is the stock setting.
@@ -3103,7 +3109,26 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushboolean(L, 0);      // voiceActive
             return 9;
         }},
-                {"IsThreatWarningEnabled",   lua_ReturnFalse},
+                // Whether the unit frames should draw their threat
+                // indicator, which is the threatWarning CVar read against
+                // where the player is. A flat false meant the Display panel's
+                // aggro-warning dropdown set a value nothing ever looked at.
+                {"IsThreatWarningEnabled", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            int setting = 3;
+            if (auto it = cvarStore().find("threatwarning"); it != cvarStore().end()) {
+                try { setting = std::stoi(it->second); } catch (const std::exception&) {}
+            }
+            bool on = false;
+            switch (setting) {
+                case 1: on = gh && gh->isInInstance(); break;
+                case 2: on = gh && !gh->getPartyData().members.empty(); break;
+                case 3: on = true; break;
+                default: on = false; break;   // 0, and anything unrecognised
+            }
+            lua_pushboolean(L, on ? 1 : 0);
+            return 1;
+        }},
                 // IsAutoRepeatAction(slot) — the button flashes for as long as
                 // an auto-repeat is running. There are exactly two in 3.3.5,
                 // Auto Shot and the wand's Shoot, which is how IsAttackAction
