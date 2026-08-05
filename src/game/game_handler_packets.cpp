@@ -133,6 +133,24 @@ constexpr size_t kMaxQueuedInboundPackets = 4096;
 
 } // end anonymous namespace
 
+// The rune bar draws itself from these two events and from nothing else. All
+// three rune packets stored their state and announced none of it, so a death
+// knight's runes were drawn once at login and then stood still.
+//
+// "usable" is sent as a present argument or no argument at all rather than as
+// one and zero, because zero is true in Lua: an argument saying the rune is on
+// cooldown would read as one saying it is ready.
+void GameHandler::fireRuneUpdate(uint32_t index) {
+    if (index >= playerRunes_.size()) return;
+    const std::string oneBased = std::to_string(index + 1);
+    fireAddonEvent("RUNE_TYPE_UPDATE", {oneBased});
+    if (playerRunes_[index].ready) {
+        fireAddonEvent("RUNE_POWER_UPDATE", {oneBased, "1"});
+    } else {
+        fireAddonEvent("RUNE_POWER_UPDATE", {oneBased});
+    }
+}
+
 void GameHandler::registerOpcodeHandlers() {
     // -----------------------------------------------------------------------
     // Auth / session / pre-world handshake
@@ -1891,7 +1909,13 @@ void GameHandler::registerOpcodeHandlers() {
         }
         uint8_t idx  = packet.readUInt8();
         uint8_t type = packet.readUInt8();
-        if (idx < 6) playerRunes_[idx].type = static_cast<RuneType>(type & 0x3);
+        if (idx < 6) {
+            playerRunes_[idx].type = static_cast<RuneType>(type & 0x3);
+            // Stored and never announced: the rune bar redraws a rune on this
+            // event and on nothing else, so a rune converted to Death kept the
+            // colour it was drawn with at login.
+            fireAddonEvent("RUNE_TYPE_UPDATE", {std::to_string(idx + 1)});
+        }
     };
     // uint32 count, then per rune: uint8 type, uint8 elapsed.
     //
@@ -1920,6 +1944,7 @@ void GameHandler::registerOpcodeHandlers() {
             playerRunes_[i].type = static_cast<RuneType>(type & 0x3);
             playerRunes_[i].readyFraction = elapsed / 255.0f;
             playerRunes_[i].ready = (elapsed >= 255);
+            fireRuneUpdate(i);
         }
         packet.skipAll();
     };
@@ -1935,6 +1960,7 @@ void GameHandler::registerOpcodeHandlers() {
             if (runeMask & (1u << i)) {
                 playerRunes_[i].ready = true;
                 playerRunes_[i].readyFraction = 1.0f;
+                fireRuneUpdate(static_cast<uint32_t>(i));
             }
         }
     };

@@ -268,6 +268,8 @@ public:
     void joinChannel(const std::string& channelName, const std::string& password = "");
     void leaveChannel(const std::string& channelName);
     void requestChannelList(const std::string& channelName);
+    /// Announce a rune's type and readiness to the interface.
+    void fireRuneUpdate(uint32_t index);
     const std::vector<std::string>& getJoinedChannels() const;
     /// The members of a chat channel, as of the last list requested for it.
     const std::vector<ChannelMember>& getChannelRoster(const std::string& channel) const;
