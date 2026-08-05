@@ -2008,8 +2008,31 @@ static int lua_BattlegroundHonorBonusesNone(lua_State* L) {
 // selection means. The server numbers instances only for a client that asks to
 // pick one, and nothing here does.
 static int lua_GetBattlefieldInstanceInfo(lua_State* L) {
-    (void)L;
-    lua_pushnumber(L, 0);
+    // The instance number of the i-th battleground instance on offer, counting
+    // from one. A flat zero before, so every row in the list read "Warsong
+    // Gulch 0" — and the count beside it, GetNumBattlefields, was not bound at
+    // all, so the list never got that far: it raised on a nil global.
+    //
+    // SMSG_BATTLEFIELD_LIST carries these and they were parsed into
+    // AvailableBgInfo::instanceIds all along.
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || index < 1) { lua_pushnumber(L, 0); return 1; }
+    const auto& bgs = gh->getAvailableBgs();
+    if (bgs.empty()) { lua_pushnumber(L, 0); return 1; }
+    const auto& ids = bgs.back().instanceIds;
+    if (index > static_cast<int>(ids.size())) { lua_pushnumber(L, 0); return 1; }
+    lua_pushnumber(L, ids[static_cast<size_t>(index) - 1]);
+    return 1;
+}
+
+// GetNumBattlefields() — how many instances of it there are to choose between.
+static int lua_GetNumBattlefields(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) { lua_pushnumber(L, 0); return 1; }
+    const auto& bgs = gh->getAvailableBgs();
+    lua_pushnumber(L, bgs.empty()
+        ? 0 : static_cast<lua_Number>(bgs.back().instanceIds.size()));
     return 1;
 }
 
@@ -2632,6 +2655,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetRandomBGHonorCurrencyBonuses",  lua_BattlegroundHonorBonusesNone},
                 {"GetHolidayBGHonorCurrencyBonuses", lua_BattlegroundHonorBonusesNone},
                 {"GetBattlefieldInstanceInfo",       lua_GetBattlefieldInstanceInfo},
+                {"GetNumBattlefields",       lua_GetNumBattlefields},
                 {"IsInLFGDungeon",           lua_IsInLFGDungeon},
                 {"LFGTeleport",              lua_LFGTeleport},
                 {"IsBattlefieldArena",       lua_IsBattlefieldArena},
@@ -3565,6 +3589,12 @@ void registerSystemLuaAPI(lua_State* L) {
                 // with a quest it cannot place.
                 {"GetQuestWorldMapAreaID", lua_ReturnNil},
                 {"GetQuestLogItemDrop",    lua_ReturnNil},
+                // How many of those there are. Unbound, so the world map's
+                // quest tooltip called a nil global and raised — the guard
+                // beneath it reads the count and would have taken the right
+                // branch, but the call never got that far. Zero, matching the
+                // reader above, which has no item drops to describe.
+                {"GetNumQuestItemDrops",   lua_ReturnZero},
                 // Two debug readers, for the zone-map overlay Blizzard ships
                 // switched off. Nothing here has a debug zone map at all.
                 {"GetDebugZoneMap",        lua_ReturnNil},
