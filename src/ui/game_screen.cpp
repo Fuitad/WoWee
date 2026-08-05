@@ -1016,30 +1016,53 @@ void GameScreen::renderMicroMenu(game::GameHandler& gameHandler) {
             return clicked;
         };
 
+        // Each of these toggles a window whose draw is gated on the same
+        // ownership, so a button for a handed-over panel set a flag nothing
+        // read. Only Social asked; the rest are the same shape and were
+        // missing it — with the defaults alone that is the character sheet,
+        // the bags and the spellbook, three of the first four buttons.
         if (button("C##MicroCharacter", "Character", inventoryScreen.isCharacterOpen())) {
-            const bool wasOpen = inventoryScreen.isCharacterOpen();
-            inventoryScreen.toggleCharacter();
-            if (!wasOpen && gameHandler.isConnected()) gameHandler.requestPlayedTime();
+            if (frameXmlOwns(UiElement::CharacterFrame)) {
+                gameHandler.runInterfaceCommand("ToggleCharacter(\"PaperDollFrame\")");
+            } else {
+                const bool wasOpen = inventoryScreen.isCharacterOpen();
+                inventoryScreen.toggleCharacter();
+                if (!wasOpen && gameHandler.isConnected()) gameHandler.requestPlayedTime();
+            }
         }
         ImGui::SameLine();
         if (button("B##MicroBags", "Backpack", inventoryScreen.isBackpackOpen())) {
-            inventoryScreen.toggleBackpack();
+            if (frameXmlOwns(UiElement::Bags)) gameHandler.runInterfaceCommand("ToggleBackpack()");
+            else                               inventoryScreen.toggleBackpack();
         }
         ImGui::SameLine();
         if (button("P##MicroSpellbook", "Spellbook", spellbookScreen.isOpen())) {
-            spellbookScreen.toggle();
+            if (frameXmlOwns(UiElement::Spellbook))
+                gameHandler.runInterfaceCommand("ToggleSpellBook(BOOKTYPE_SPELL)");
+            else
+                spellbookScreen.toggle();
         }
         ImGui::SameLine();
         if (button("N##MicroTalents", "Talents", talentScreen.isOpen())) {
-            talentScreen.toggle();
+            if (frameXmlOwns(UiElement::Talents)) gameHandler.runInterfaceCommand("ToggleTalentFrame()");
+            else                                  talentScreen.toggle();
         }
         ImGui::SameLine();
         if (button("L##MicroQuests", "Quest Log", questLogScreen.isOpen())) {
-            questLogScreen.toggle();
+            if (frameXmlOwns(UiElement::QuestLog))
+                gameHandler.runInterfaceCommand("ToggleFrame(QuestLogFrame)");
+            else
+                questLogScreen.toggle();
         }
         ImGui::SameLine();
+        // Same as the K key does, which already routes: in FrameXML the skills
+        // list is a tab of the character sheet rather than a window of its own.
+        // The key and the button opened two different things.
         if (button("K##MicroSkills", "Skills", windowManager_.showSkillsWindow_)) {
-            windowManager_.showSkillsWindow_ = !windowManager_.showSkillsWindow_;
+            if (frameXmlOwns(UiElement::CharacterFrame))
+                gameHandler.runInterfaceCommand("ToggleCharacter(\"SkillFrame\")");
+            else
+                windowManager_.showSkillsWindow_ = !windowManager_.showSkillsWindow_;
         }
         ImGui::SameLine();
         if (button("O##MicroSocial", "Social", socialPanel_.showSocialFrame_)) {
@@ -1050,12 +1073,21 @@ void GameScreen::renderMicroMenu(game::GameHandler& gameHandler) {
             }
         }
         ImGui::SameLine();
+        // Not routed, and there is nothing to route it to: FrameXML has no
+        // toggle for party frames, which simply appear while there is a party.
+        // With that element handed over this flips a flag whose only reader is
+        // gated off, which is a button that does nothing — but calling
+        // something that does not exist would be worse, and the frames are
+        // already on screen at that point.
         if (button("G##MicroGroup", "Party/Raid Frames", socialPanel_.showRaidFrames_)) {
             socialPanel_.showRaidFrames_ = !socialPanel_.showRaidFrames_;
         }
         ImGui::SameLine();
         if (button("M##MicroMap", "World Map", showWorldMap_)) {
-            showWorldMap_ = !showWorldMap_;
+            if (frameXmlOwns(UiElement::WorldMap))
+                gameHandler.runInterfaceCommand("ToggleFrame(WorldMapFrame)");
+            else
+                showWorldMap_ = !showWorldMap_;
         }
         ImGui::SameLine();
         if (button("GM##MicroGM", "GM Commands", windowManager_.showGmCommandScreen_)) {
