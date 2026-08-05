@@ -57,17 +57,70 @@ def strip_comments(text: str) -> str:
     return re.sub(r"--\[\[.*?\]\]|--[^\n]*", "", text, flags=re.S)
 
 
+# Every function this interface hangs off a script handler, by name. A call
+# inside one of these runs on its own the moment its panel loads, shows or
+# hears an event; a call inside a dialog's OnAccept — or an OnClick, which is
+# why those four events and no others are counted here — waits for someone to
+# press a button that may never appear.
+#
+# This is the whole difference between the rows worth reading and the rest. The
+# list below stood at four hundred and thirty-eight and was ignored for it,
+# with SortBGList sitting in the middle: called from PVPBattlegroundFrame_OnShow,
+# so the battleground panel raised as it opened.
+AUTORUN = set()
+for path in list(XML.rglob("*.xml")):
+    t = strip_comments(path.read_text(errors="ignore"))
+    AUTORUN |= set(re.findall(r'<On(?:Load|Show|Event|Update)\s+function="([A-Za-z_]\w*)"', t))
+    for body in re.findall(r"<On(?:Load|Show|Event|Update)[^>]*>(.*?)</On\w+>", t, re.S):
+        AUTORUN |= set(re.findall(r"(?<![\w.:])([A-Z][A-Za-z0-9_]*)\s*\(", body))
+for path in list(XML.rglob("*.lua")):
+    t = strip_comments(path.read_text(errors="ignore"))
+    AUTORUN |= set(re.findall(
+        r'SetScript\s*\(\s*"On(?:Load|Show|Event|Update)"\s*,\s*([A-Za-z_]\w*)', t))
+
+
+def enclosing(text, pos):
+    """The Lua function a position sits in, or None."""
+    head = text.rfind("\nfunction ", 0, pos)
+    local = text.rfind("\nlocal function ", 0, pos)
+    start = max(head, local)
+    if start < 0:
+        return None
+    m = re.match(r"\n(?:local )?function\s+([\w:.]+)", text[start:])
+    return m.group(1) if m else None
+
+
 calls = {}
+autorun_hits = {}
 for path in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
     t = strip_comments(path.read_text(errors="ignore"))
     for m in re.finditer(r"(?<![\w.:])([A-Z][A-Za-z0-9_]*)\s*\(", t):
         calls.setdefault(m.group(1), set()).add(path.name)
+        fn = enclosing(t, m.start())
+        # A handler named directly, or one whose own name says what runs it.
+        if fn and (fn in AUTORUN or re.search(r"_On(Load|Show|Event|Update)$", fn)):
+            autorun_hits.setdefault(m.group(1), set()).add(f"{path.name}:{fn}")
 
 missing = {n: f for n, f in calls.items()
            if n not in bound and n not in defined and n not in LUA}
 
 print(f"{len(calls)} distinct globals called, {len(bound)} bound, "
       f"{len(defined)} defined in FrameXML\n")
-print(f"{len(missing)} called and nowhere defined:\n")
-for n in sorted(missing, key=lambda k: (-len(missing[k]), k)):
-    print(f"  {n:<36} {', '.join(sorted(missing[n])[:3])}")
+print(f"{len(missing)} called and nowhere defined.\n")
+
+# Split rather than sorted, because the two halves want different reactions.
+live = {n: autorun_hits[n] for n in missing if n in autorun_hits}
+print(f"{len(live)} of them from a function that runs on its own — these raise "
+      f"as their panel opens:\n")
+for n in sorted(live):
+    print(f"  {n:<36} {', '.join(sorted(live[n])[:2])}")
+if not live:
+    print("  (none)")
+
+rest = {n: f for n, f in missing.items() if n not in autorun_hits}
+print(f"\n{len(rest)} reached only from something a player has to do first "
+      f"(a dialog's accept, a menu click), or not reached at all:\n")
+for n in sorted(rest, key=lambda k: (-len(rest[k]), k))[:25]:
+    print(f"  {n:<36} {', '.join(sorted(rest[n])[:3])}")
+if len(rest) > 25:
+    print(f"  ... and {len(rest) - 25} more")
