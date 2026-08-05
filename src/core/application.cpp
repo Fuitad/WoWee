@@ -386,6 +386,40 @@ bool Application::initialize() {
         luaSvc.setGamma = [uim = uiManager.get()](float g) {
             if (uim) uim->getGameScreen().setGamma(g);
         };
+        // The world map's own data, for the interface's map. The client keeps
+        // the zones, their overlays and the area POIs and drew them only
+        // itself; FrameXML's map has readers for exactly these and had nothing
+        // behind them.
+        luaSvc.getMapOverlays = [r = renderer.get()]() {
+            std::vector<addons::LuaServices::MapOverlay> out;
+            auto* wmap = r ? r->getWorldMap() : nullptr;
+            if (!wmap) return out;
+            for (const auto& o : wmap->currentOverlays()) {
+                addons::LuaServices::MapOverlay m;
+                m.texture = o.textureName;
+                m.width = o.texWidth;
+                m.height = o.texHeight;
+                m.offsetX = o.offsetX;
+                m.offsetY = o.offsetY;
+                out.push_back(std::move(m));
+            }
+            return out;
+        };
+        luaSvc.getMapLandmarks = [r = renderer.get()]() {
+            std::vector<addons::LuaServices::MapLandmark> out;
+            auto* wmap = r ? r->getWorldMap() : nullptr;
+            if (!wmap) return out;
+            for (const auto& l : wmap->currentLandmarks()) {
+                addons::LuaServices::MapLandmark m;
+                m.name = l.name;
+                m.description = l.description;
+                m.icon = static_cast<int>(l.iconType);
+                m.x = l.x;
+                m.y = l.y;
+                out.push_back(std::move(m));
+            }
+            return out;
+        };
         luaSvc.takeScreenshot = [uim = uiManager.get()]() {
             if (uim) uim->getGameScreen().takeScreenshot();
         };

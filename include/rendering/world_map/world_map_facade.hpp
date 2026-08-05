@@ -81,6 +81,32 @@ public:
     void closeTaxiMap();
     bool isTaxiMapOpen() const;
 
+    // ── What the interface needs to draw the same map itself ─────────
+    //
+    // The client keeps all of this and drew it only from here. FrameXML's
+    // world map asks for the same two things through GetMapOverlayInfo and
+    // GetMapLandmarkInfo, and had no way to reach them — the facade's whole
+    // public surface was setters.
+
+    /// The overlays for whatever the map is showing, in draw order. Empty at
+    /// continent and cosmic level, which have no per-zone art.
+    std::vector<OverlayEntry> currentOverlays() const;
+
+    /// One area POI, already projected into the [0,1] map space the interface
+    /// places its pins in.
+    struct Landmark {
+        std::string name;
+        std::string description;
+        uint32_t iconType = 0;
+        float x = 0.0f, y = 0.0f;
+    };
+    /// The POIs on the shown map. Only those belonging to it, and only those
+    /// that project inside it.
+    std::vector<Landmark> currentLandmarks() const;
+
+    /// The area id the map is showing, or zero at continent and cosmic level.
+    uint32_t currentAreaId() const;
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

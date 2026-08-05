@@ -36,6 +36,27 @@ struct LuaServices {
     std::function<float()> getGamma;
     std::function<void(float)> setGamma;
 
+    /// What the world map is showing, for the interface's own map.
+    ///
+    /// Callbacks and plain structs rather than the facade, on the same
+    /// principle as the gamma pair above: this header stays off the rendering
+    /// ones. The client keeps every one of these and drew them only itself, so
+    /// FrameXML's map had a full set of readers and nothing to read.
+    struct MapOverlay {
+        std::string texture;   ///< texture prefix; the tiles are texture1..N
+        int width = 0, height = 0;
+        int offsetX = 0, offsetY = 0;
+    };
+    std::function<std::vector<MapOverlay>()> getMapOverlays;
+
+    struct MapLandmark {
+        std::string name;
+        std::string description;
+        int   icon = 0;
+        float x = 0.0f, y = 0.0f;   ///< [0,1] across the map being shown
+    };
+    std::function<std::vector<MapLandmark>()> getMapLandmarks;
+
     /// Nameplates over hostile and neutral units, for nameplateShowEnemies.
     ///
     /// There is no counterpart for nameplateShowFriends: this client always

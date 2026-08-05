@@ -7,6 +7,7 @@
 #include "rendering/world_map/exploration_state.hpp"
 #include "rendering/world_map/zone_metadata.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
+#include "core/coordinates.hpp"
 #include "rendering/world_map/map_resolver.hpp"
 #include "rendering/world_map/overlay_renderer.hpp"
 #include "rendering/world_map/input_handler.hpp"
@@ -643,6 +644,52 @@ void WorldMapFacade::setMapName(const std::string& name) {
 
 void WorldMapFacade::setServerExplorationMask(const std::vector<uint32_t>& masks, bool hasData) {
     impl_->exploration.setServerMask(masks, hasData);
+}
+
+std::vector<OverlayEntry> WorldMapFacade::currentOverlays() const {
+    const int idx = impl_->viewState.currentZoneIdx();
+    const auto& zones = impl_->data.zones();
+    if (idx < 0 || idx >= static_cast<int>(zones.size())) return {};
+    // A continent has no overlay art of its own; its detail is the child
+    // zones' maps, which the interface reaches by drilling in.
+    if (zones[static_cast<size_t>(idx)].areaID == 0) return {};
+    return zones[static_cast<size_t>(idx)].overlays;
+}
+
+uint32_t WorldMapFacade::currentAreaId() const {
+    const int idx = impl_->viewState.currentZoneIdx();
+    const auto& zones = impl_->data.zones();
+    if (idx < 0 || idx >= static_cast<int>(zones.size())) return 0;
+    return zones[static_cast<size_t>(idx)].areaID;
+}
+
+std::vector<WorldMapFacade::Landmark> WorldMapFacade::currentLandmarks() const {
+    const int idx = impl_->viewState.currentZoneIdx();
+    const auto& zones = impl_->data.zones();
+    if (idx < 0 || idx >= static_cast<int>(zones.size())) return {};
+    const Zone& zone = zones[static_cast<size_t>(idx)];
+    const bool isContinent = (zone.areaID == 0);
+
+    std::vector<Landmark> out;
+    for (const POI& poi : impl_->data.poiMarkers()) {
+        if (poi.mapId != zone.mapID) continue;
+        // The POI carries canonical WoW coordinates and the projection wants
+        // render space, which is the same swap every other caller makes.
+        const glm::vec2 uv = renderPosToMapUV(
+            core::coords::canonicalToRender(glm::vec3(poi.wowX, poi.wowY, poi.wowZ)),
+            zone.bounds, isContinent);
+        // Outside the map it is on some other part of the continent, and a pin
+        // clamped to the edge is worse than no pin.
+        if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) continue;
+        Landmark mark;
+        mark.name = poi.name;
+        mark.description = poi.description;
+        mark.iconType = poi.iconType;
+        mark.x = uv.x;
+        mark.y = uv.y;
+        out.push_back(std::move(mark));
+    }
+    return out;
 }
 
 void WorldMapFacade::setPlayerZoneId(uint32_t zoneId) {

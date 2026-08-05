@@ -681,8 +681,71 @@ static int lua_GetMapZones(lua_State* L) {
 
 // GetNumMapLandmarks() → 0 (no landmark data exposed yet)
 static int lua_GetNumMapLandmarks(lua_State* L) {
-    lua_pushnumber(L, 0);
+    auto* svc = getLuaServices(L);
+    lua_pushnumber(L, (svc && svc->getMapLandmarks)
+        ? static_cast<lua_Number>(svc->getMapLandmarks().size()) : 0);
     return 1;
+}
+
+/// GetMapLandmarkInfo(i) → name, description, textureIndex, x, y, mapLinkID
+///
+/// The area POIs on whatever the map is showing. Answered zero of them while
+/// the client had them loaded from AreaPOI.dbc and was drawing them on its own
+/// map, so FrameXML's map came up with no pins on it at all.
+static int lua_GetMapLandmarkInfo(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!svc || !svc->getMapLandmarks || index < 1) return luaReturnNil(L);
+    const auto marks = svc->getMapLandmarks();
+    if (index > static_cast<int>(marks.size())) return luaReturnNil(L);
+    const auto& m = marks[static_cast<size_t>(index) - 1];
+
+    lua_pushstring(L, m.name.c_str());          // 1: name
+    lua_pushstring(L, m.description.c_str());   // 2: description
+    // Which cell of the POI icon atlas to draw. AreaPOI's icon type is that
+    // index in the client's own drawing too.
+    lua_pushnumber(L, m.icon);                  // 3: textureIndex
+    lua_pushnumber(L, m.x);                     // 4: x across the map
+    lua_pushnumber(L, m.y);                     // 5: y down the map
+    // A landmark that leads to another map. Nothing here links one to another,
+    // and nil is what a plain point of interest answers.
+    lua_pushnil(L);                             // 6: mapLinkID
+    return 6;
+}
+
+/// GetNumMapOverlays() / GetMapOverlayInfo(i)
+///
+/// The explored-area art: one entry per overlay, each a texture prefix and the
+/// pixel rectangle it occupies on the zone map. The interface slices it into
+/// 256-pixel tiles named prefix1, prefix2 and so on, which is the same
+/// arrangement the client's own map renderer reads.
+///
+/// The count answered zero, so the loop that builds them never ran once and
+/// the map was drawn with nothing on it but its background.
+static int lua_GetNumMapOverlays(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    lua_pushnumber(L, (svc && svc->getMapOverlays)
+        ? static_cast<lua_Number>(svc->getMapOverlays().size()) : 0);
+    return 1;
+}
+
+static int lua_GetMapOverlayInfo(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!svc || !svc->getMapOverlays || index < 1) return luaReturnNil(L);
+    const auto overlays = svc->getMapOverlays();
+    if (index > static_cast<int>(overlays.size())) return luaReturnNil(L);
+    const auto& o = overlays[static_cast<size_t>(index) - 1];
+
+    lua_pushstring(L, o.texture.c_str());   // 1: texture prefix
+    lua_pushnumber(L, o.width);             // 2: width in pixels
+    lua_pushnumber(L, o.height);            // 3: height in pixels
+    lua_pushnumber(L, o.offsetX);           // 4: x offset on the zone map
+    lua_pushnumber(L, o.offsetY);           // 5: y offset
+    // The "map point" pair, which WorldMapFrame_Update reads and never uses.
+    lua_pushnumber(L, 0);                   // 6
+    lua_pushnumber(L, 0);                   // 7
+    return 7;
 }
 
 /// GetTrackingTexture() → the icon for what the minimap is tracking, or nil.
@@ -3011,7 +3074,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, gh ? static_cast<double>(gh->getJoinedChannels().size()) : 0.0);
             return 1;
         }},
-                {"GetNumMapOverlays",        lua_ReturnZero},
+                {"GetNumMapOverlays",        lua_GetNumMapOverlays},
                 {"GetNumMapDebugObjects",    lua_ReturnZero},
                 {"GetNumBattlefieldPositions", lua_ReturnZero},
                 {"GetBattlefieldPosition",   lua_GetBattlefieldPosition},
@@ -3349,8 +3412,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"ClickLandmark",       lua_ReturnNothing},
                 // Landmark rows, which GetNumMapLandmarks already reports none
                 // of. Bound so that stays true if it ever reports some.
-                {"GetMapLandmarkInfo",  lua_ReturnNil},
-                {"GetMapOverlayInfo",   lua_ReturnNil},
+                {"GetMapLandmarkInfo",  lua_GetMapLandmarkInfo},
+                {"GetMapOverlayInfo",   lua_GetMapOverlayInfo},
                 // Which map a quest's objectives are on, and what a quest item
                 // drops from. Both are read while building the map's quest
                 // list; nil is "not on this map", which is what the list does
