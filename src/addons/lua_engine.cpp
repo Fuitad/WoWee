@@ -6743,6 +6743,25 @@ void LuaEngine::updateVisibility() {
     if (!L_) return;
     // By index and re-fetched each time: a handler is free to create frames,
     // and OnShow very often does.
+    // `visible` here and `visibleChain` in the OnUpdate pump, which is a
+    // deliberate difference rather than an oversight.
+    //
+    // WoW fires OnShow on becoming shown-with-ancestors-shown, with no regard
+    // for anchors, so visibleChain is the faithful answer. Using it would mean
+    // frames that are never drawn start running their OnShow and OnHide, and
+    // those handlers do real work — LootFrame_OnHide calls CloseLoot, which
+    // releases the loot on the server, and UIParent's OnShow calls
+    // CloseAllWindows.
+    //
+    // What that faithfulness would buy was measured rather than guessed: six
+    // frames in the whole interface declare an OnShow with no anchors and no
+    // setAllPoints — KnowledgeBaseFrameCancel, ChannelListDropDown,
+    // HelpFrameOpenTicketEditBox, the two calendar context menus and
+    // GMSurveyFrameComment — and not one of them is anchored from Lua either,
+    // anywhere. None can ever be drawn or used, so none of their OnShow
+    // handlers is worth the risk of waking the rest.
+    //
+    // (UIParent looks like a seventh and is not: it carries setAllPoints.)
     for (uint32_t id = 1; id < widgets_.size(); ++id) {
         auto* w = widgets_.get(id);
         if (!w || w->id == 0) continue;
