@@ -468,7 +468,10 @@ void GameHandler::registerOpcodeHandlers() {
     // a popup accepts, and the reply goes back.
     dispatchTable_[Opcode::SMSG_BINDER_CONFIRM] = [this](network::Packet& packet) {
         binderGuid_ = packet.hasRemaining(8) ? packet.readUInt64() : 0;
-        fireAddonEvent("CONFIRM_BINDER", {});
+        // Who is asking. StaticPopup_Show("CONFIRM_BINDER", arg1) puts the name
+        // into "Do you want to make <name> your new home?" — without it the
+        // question had a hole where the innkeeper should be.
+        fireAddonEvent("CONFIRM_BINDER", {lookupName(binderGuid_)});
     };
     registerSkipHandler(Opcode::SMSG_SET_PHASE_SHIFT);
     dispatchTable_[Opcode::SMSG_TOGGLE_XP_GAIN] = [this](network::Packet& packet) {
@@ -1381,7 +1384,11 @@ void GameHandler::registerOpcodeHandlers() {
             }
         }
         LOG_INFO("SMSG_ACTION_BUTTONS: populated action bar from server");
-        fireAddonEvent("ACTIONBAR_SLOT_CHANGED", {});
+        // Zero means every slot, which is what the whole bar arriving at
+        // once is. Sent with no argument the buttons compared nil against
+        // zero and against their own action, matched neither, and the bar
+        // the server had just sent drew nothing.
+        fireAddonEvent("ACTIONBAR_SLOT_CHANGED", {"0"});
         packet.skipAll();
     };
 

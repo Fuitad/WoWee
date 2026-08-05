@@ -2437,7 +2437,13 @@ void SpellHandler::handleSupercededSpell(network::Packet& packet) {
     }
     if (barChanged) {
         owner_.saveCharacterConfig();
-        if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("ACTIONBAR_SLOT_CHANGED", {});
+        // Zero, not nothing. The slot is the argument, and zero is how the
+        // event says "all of them" — ActionButton_OnEvent reads
+        // `arg1 == 0 or arg1 == tonumber(self.action)`, so an absent one
+        // matches neither and not a single button redraws. Which slots a
+        // rank upgrade touched is not tracked here, and every slot is the
+        // honest answer as well as the working one.
+        if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("ACTIONBAR_SLOT_CHANGED", {"0"});
     }
 
     if (!newSpellAlreadyAnnounced) {

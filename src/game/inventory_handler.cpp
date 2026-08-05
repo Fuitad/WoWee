@@ -252,8 +252,13 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
         // fired without it, the roll window opened with a nil id and could not
         // find out what it was asking about.
         if (owner_.addonEventCallbackRef()) {
+            // ...and the time to roll in, which the packet carried all along
+            // and this read past. GroupLootFrame_OpenNewFrame takes it as the
+            // second argument and sizes the countdown bar from it; without one
+            // the bar had no length and the window could not time out.
             owner_.addonEventCallbackRef()("START_LOOT_ROLL",
-                                           {std::to_string(lootSlot + 1)});
+                                           {std::to_string(lootSlot + 1),
+                                            std::to_string(countdown)});
         }
     };
 

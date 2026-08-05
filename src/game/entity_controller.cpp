@@ -1348,7 +1348,11 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
                 pendingEvents_.emit("PLAYER_ALIVE", {});
                 if (owner_.ghostStateCallbackRef()) owner_.ghostStateCallbackRef()(false);
             }
-            pendingEvents_.emit("PLAYER_FLAGS_CHANGED", {});
+            // Which unit's flags, because that is the only thing the
+            // handlers do with it: TargetFrame compares arg1 against its
+            // own unit before redrawing the away and busy markers, so an
+            // absent one matched no frame and none of them ever redrew.
+            pendingEvents_.emit("PLAYER_FLAGS_CHANGED", {"player"});
           }
         }
         else if (pfi.meleeAP  != 0xFFFF && key == pfi.meleeAP)  {

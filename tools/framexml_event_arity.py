@@ -78,6 +78,13 @@ for path in SRC.rglob("*.cpp"):
 BRANCH = re.compile(
     r'\(\s*event\s*==\s*"(\w+)"\s*\)\s*then(.*?)(?=\belseif\b|\bend\b)', re.S)
 UNPACK = re.compile(r"local\s+([\w\s,]+?)\s*=\s*\.\.\.")
+# The other spelling, and the commoner one: a body that names arg1 and arg2
+# directly instead of unpacking them. Reading only `= ...` saw sixty-nine
+# branches and missed several hundred, ActionButton_OnEvent among them —
+# ACTIONBAR_SLOT_CHANGED was fired with no argument at all from two of its
+# three sites, and the button compares `arg1 == 0 or arg1 == tonumber(self.action)`,
+# so nil matched neither and not one button on the bar redrew.
+ARGN = re.compile(r"\barg([1-9])\b")
 
 wanted = {}
 for path in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
@@ -85,14 +92,24 @@ for path in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
     for m in BRANCH.finditer(text):
         name, body = m.group(1), m.group(2)
         u = UNPACK.search(body)
-        if not u:
+        names = []
+        if u:
+            names = [n.strip() for n in u.group(1).split(",") if n.strip()]
+        # However the body gets at them, the count it needs is the highest
+        # position it reads — unless the function unpacked at the top, where
+        # the names belong to whichever of its several events carries them and
+        # attributing them to this one invents a shortfall. That is the same
+        # exclusion the docstring makes for `local a, b = ...` at the top, and
+        # reading argN put it back: focusframe opens with `local arg1 = ...`
+        # ahead of a chain of six events, only one of which has an argument.
+        highest = max((int(d) for d in ARGN.findall(body)), default=0)
+        need = max(len(names), highest)
+        if need == 0:
             continue
-        names = [n.strip() for n in u.group(1).split(",") if n.strip()]
-        if not names:
-            continue
+        shown = ", ".join(names) if len(names) >= need else f"arg1..arg{need}"
         prev = wanted.get(name)
-        entry = (len(names), path.name, ", ".join(names))
-        if prev is None or len(names) > prev[0]:
+        entry = (need, path.name, shown)
+        if prev is None or need > prev[0]:
             wanted[name] = entry
 
 rows = []
@@ -108,7 +125,7 @@ print(f"{len(fired)} events fired with a known argument count, "
 print(f"{len(rows)} fired with fewer arguments than a handler reads:\n")
 for short, name, have, need, where, names in sorted(rows, reverse=True):
     print(f"  {name:34} fires {have}, reads {need}   [{where}]")
-    print(f"      local {names} = ...")
+    print(f"      reads {names}")
 if not rows:
     print("  (none)")
 

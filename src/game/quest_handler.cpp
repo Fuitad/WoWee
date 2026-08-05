@@ -33,6 +33,10 @@ void QuestHandler::reconcileItemObjectivesFromInventory(
     const std::unordered_map<uint32_t, uint32_t>& carriedCounts) {
     bool changedAny = false;
     bool maybeCompletedObjective = false;
+    // Which quests moved, so QUEST_WATCH_UPDATE can name each of them. The
+    // event carries one log index and the interface auto-watches that quest;
+    // firing it once with nothing named watched nothing at all.
+    std::vector<uint32_t> movedQuests;
     for (auto& quest : questLog_) {
         if (quest.complete) continue;
         for (const auto& obj : quest.itemObjectives) {
@@ -50,6 +54,10 @@ void QuestHandler::reconcileItemObjectivesFromInventory(
             const bool wasComplete = tracked >= obj.required;
             tracked = newCount;
             changedAny = true;
+            if (std::find(movedQuests.begin(), movedQuests.end(), quest.questId)
+                    == movedQuests.end()) {
+                movedQuests.push_back(quest.questId);
+            }
             if (!wasComplete && newCount >= obj.required)
                 maybeCompletedObjective = true;
 
@@ -68,7 +76,13 @@ void QuestHandler::reconcileItemObjectivesFromInventory(
     }
 
     if (changedAny && owner_.addonEventCallbackRef()) {
-        owner_.addonEventCallbackRef()("QUEST_WATCH_UPDATE", {});
+        for (uint32_t moved : movedQuests) {
+            const int index = questLogIndexOf(moved);
+            if (index > 0) {
+                owner_.addonEventCallbackRef()("QUEST_WATCH_UPDATE",
+                                               {std::to_string(index)});
+            }
+        }
         owner_.addonEventCallbackRef()("QUEST_LOG_UPDATE", {});
         owner_.addonEventCallbackRef()("UNIT_QUEST_LOG_CHANGED", {"player"});
     }
@@ -676,7 +690,13 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
                         owner_.questProgressCallbackRef()(quest.title, creatureName, count, reqCount);
                     }
                     if (owner_.addonEventCallbackRef()) {
-                        owner_.addonEventCallbackRef()("QUEST_WATCH_UPDATE", {std::to_string(questId)});
+                        // The log INDEX, not the quest id. QuestLog_OnEvent
+                        // hands arg1 straight to GetNumQuestLeaderBoards and
+                        // AddQuestWatch, both of which count positions in the
+                        // log — so a quest id addressed whichever quest
+                        // happened to sit at that position, or none.
+                        owner_.addonEventCallbackRef()("QUEST_WATCH_UPDATE",
+                            {std::to_string(questLogIndexOf(questId))});
                         owner_.addonEventCallbackRef()("QUEST_LOG_UPDATE", {});
                         owner_.addonEventCallbackRef()("UNIT_QUEST_LOG_CHANGED", {"player"});
                     }
@@ -778,7 +798,18 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
             }
 
             if (owner_.addonEventCallbackRef() && updatedAny) {
-                owner_.addonEventCallbackRef()("QUEST_WATCH_UPDATE", {});
+                // Once per quest this item counts towards, each named by its
+                // position in the log — which is what the interface auto-watches
+                // from, and what it could not do with no argument at all.
+                for (const auto& quest : questLog_) {
+                    if (quest.complete) continue;
+                    if (quest.itemCounts.count(itemId) == 0) continue;
+                    const int index = questLogIndexOf(quest.questId);
+                    if (index > 0) {
+                        owner_.addonEventCallbackRef()("QUEST_WATCH_UPDATE",
+                                                       {std::to_string(index)});
+                    }
+                }
                 owner_.addonEventCallbackRef()("QUEST_LOG_UPDATE", {});
                 owner_.addonEventCallbackRef()("UNIT_QUEST_LOG_CHANGED", {"player"});
             }
