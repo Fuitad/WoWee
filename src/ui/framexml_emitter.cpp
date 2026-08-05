@@ -63,6 +63,20 @@ bool readDimension(const XmlNode& node, float& x, float& y) {
 }
 
 
+/// Two tag names the same but for case. XML element names are matched exactly
+/// everywhere else here, which is right — this exists for the one place where
+/// FrameXML's own spelling cannot be trusted.
+bool equalsIgnoreCase(const std::string& a, const char* b) {
+    size_t i = 0;
+    for (; i < a.size() && b[i]; ++i) {
+        if (std::tolower(static_cast<unsigned char>(a[i])) !=
+            std::tolower(static_cast<unsigned char>(b[i]))) {
+            return false;
+        }
+    }
+    return i == a.size() && b[i] == '\0';
+}
+
 /// The argument names a handler's body expects to find in scope. Blizzard's
 /// inline scripts use them without declaring them, so they have to be the
 /// function's parameters.
@@ -1014,9 +1028,18 @@ struct Emitter {
                 if (layer.name != "Layer") continue;
                 const std::string level = layer.attrOr("level", "ARTWORK");
                 for (const XmlNode& region : layer.children) {
-                    if (region.name == "Texture" || region.name == "FontString")
-                        emitRegion(region, var, name, level,
-                                   region.name == "Texture", anchor);
+                    // Case-insensitively, because FrameXML misspells one of
+                    // them. floatingchatframe.xml declares FriendsMicroButton's
+                    // count label as <Fontstring>, and an exact match dropped
+                    // it — so FriendsMicroButtonCount did not exist, and that
+                    // button's own OnLoad calls SetText on it two lines later.
+                    // The name is read from three places, one of them
+                    // FriendsFrame_Update, so it raised on load and again on
+                    // every friends-list refresh.
+                    const bool isTexture = equalsIgnoreCase(region.name, "Texture");
+                    const bool isFontString = equalsIgnoreCase(region.name, "FontString");
+                    if (isTexture || isFontString)
+                        emitRegion(region, var, name, level, isTexture, anchor);
                 }
             }
         }
