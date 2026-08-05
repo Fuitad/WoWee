@@ -171,6 +171,12 @@ CHECKS = [
     ("window_route_check.py",
      r"^(\d+) window-opening call\(s\) with no ownership check", 0,
      "controls opening a window without asking which interface owns it"),
+    # The other half of the same seam: a window opened by writing its flag
+    # rather than by calling a verb. Only the flags whose render is gated
+    # matter — nine of thirty-two — which is what makes the list readable.
+    ("window_flag_check.py",
+     r"^(\d+) write\(s\) to one of those flags with no ownership check", 0,
+     "window flags written without asking which interface owns the window"),
     ("api_shadowing_check.py",
      r"^\s*(\d+) to look at", 10,
      "names whose winner depends on load order"),

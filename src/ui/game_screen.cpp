@@ -476,7 +476,14 @@ void GameScreen::render(game::GameHandler& gameHandler) {
             else
                 windowManager_.showGmTicketWindow_ = true;
         }
-        if (cmds.showWho) socialPanel_.showWhoWindow_ = true;
+        // Tab two is the who list. The client's own who window is gated on
+        // the social element like the rest of that panel's windows.
+        if (cmds.showWho) {
+            if (frameXmlOwns(UiElement::Social))
+                gameHandler.runInterfaceCommand("ToggleFriendsFrame(2)");
+            else
+                socialPanel_.showWhoWindow_ = true;
+        }
         if (cmds.toggleCombatLog) combatUI_.showCombatLog_ = !combatUI_.showCombatLog_;
         if (cmds.takeScreenshot) takeScreenshot();
     }

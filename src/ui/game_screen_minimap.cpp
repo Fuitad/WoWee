@@ -1262,14 +1262,15 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             ImVec2 p = ImGui::GetCursorScreenPos();
             ImVec2 sz(20.0f, 20.0f);
             if (ImGui::InvisibleButton("##FriendsBtnInv", sz)) {
+                // One branch, not two nested. The same routing was applied to
+                // this button twice at some point and the second copy landed
+                // inside the first's else, where the condition it tests is
+                // already known false — dead, and it read as though the two
+                // halves disagreed.
                 if (frameXmlOwns(UiElement::Social)) {
                     gameHandler.runInterfaceCommand("ToggleFriendsFrame(1)");
                 } else {
-                    if (frameXmlOwns(UiElement::Social)) {
-                gameHandler.runInterfaceCommand("ToggleFriendsFrame(1)");
-            } else {
-                socialPanel_.showSocialFrame_ = !socialPanel_.showSocialFrame_;
-            }
+                    socialPanel_.showSocialFrame_ = !socialPanel_.showSocialFrame_;
                 }
             }
             bool hovered = ImGui::IsItemHovered();
