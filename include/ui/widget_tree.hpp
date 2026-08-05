@@ -348,7 +348,19 @@ struct Widget {
     /// sizes itself to fit them — which is the part a chat frame does not do,
     /// because a tooltip has no size of its own until it has something to say.
     bool  isTooltip = false;
-    struct TooltipLine { std::string left, right; float lc[4]; float rc[4]; };
+    struct TooltipLine {
+        std::string left, right;
+        float lc[4]; float rc[4];
+        /// Whether this line breaks to fit rather than making the whole
+        /// tooltip as wide as itself. FrameXML asks for it on every line of
+        /// prose — an item's flavour text, a spell's description, a newbie
+        /// tip — and the flag was read off the call and dropped, so one long
+        /// sentence stretched the tooltip across the screen.
+        bool wrap = false;
+        /// Lines the wrap produced, filled by the sizing pass so the draw and
+        /// the height agree on how tall this line is.
+        mutable int lines = 1;
+    };
     std::vector<TooltipLine> tooltipLines;
 
     // FontString regions.

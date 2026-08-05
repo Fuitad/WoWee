@@ -255,8 +255,14 @@ void WidgetRenderer::sizeTooltips(WidgetTree& tree) {
         // Ten units of padding a side, which is what the tooltip backdrop's
         // own insets come to.
         constexpr float kPad = 10.0f;
+        // A wrapped line breaks to fit rather than setting the width, so the
+        // width comes from the lines that cannot break. Bounded either way: a
+        // tooltip of one long sentence used to stretch across the screen, and
+        // one of nothing but short lines should not force prose into a column.
+        constexpr float kMinWrap = 180.0f, kMaxWrap = 320.0f;
         float widest = 0.0f;
         for (const auto& line : w->tooltipLines) {
+            if (line.wrap) continue;
             float wide = font->CalcTextSizeA(size, FLT_MAX, 0.0f,
                                              strippedText(line.left).c_str()).x;
             if (!line.right.empty()) {
@@ -267,8 +273,23 @@ void WidgetRenderer::sizeTooltips(WidgetTree& tree) {
             }
             if (wide > widest) widest = wide;
         }
-        w->width  = widest + kPad * 2.0f;
-        w->height = lineH * static_cast<float>(w->tooltipLines.size()) + kPad * 2.0f;
+        const float wrapW = std::clamp(widest > 0.0f ? widest : kMinWrap,
+                                       kMinWrap, kMaxWrap);
+
+        int rows = 0;
+        for (const auto& line : w->tooltipLines) {
+            if (!line.wrap) { line.lines = 1; ++rows; continue; }
+            line.lines = static_cast<int>(
+                wrapText(parseMarkup(line.left), wrapW, false,
+                         [&](const std::string& piece) {
+                             return font->CalcTextSizeA(size, FLT_MAX, 0.0f,
+                                                        piece.c_str()).x;
+                         }).size());
+            rows += line.lines;
+        }
+
+        w->width  = std::max(widest, wrapW) + kPad * 2.0f;
+        w->height = lineH * static_cast<float>(rows) + kPad * 2.0f;
     }
 }
 
@@ -1294,10 +1315,12 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 const float lineH = size * 1.2f;
                 const float pad = 10.0f * s;
                 float y = y0 + pad;
+                const float textW = (x1 - x0) - pad * 2.0f;
                 for (const auto& line : w->tooltipLines) {
                     float lc[4] = {line.lc[0], line.lc[1], line.lc[2], line.lc[3]};
                     drawMarkupText(dl, font, size, ImVec2(x0 + pad, y),
-                                   packColor(lc, w->alpha), w->alpha, line.left);
+                                   packColor(lc, w->alpha), w->alpha, line.left,
+                                   line.wrap ? textW : 0.0f);
                     if (!line.right.empty()) {
                         float rc[4] = {line.rc[0], line.rc[1], line.rc[2], line.rc[3]};
                         const float rw = font->CalcTextSizeA(
@@ -1305,7 +1328,10 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                         drawMarkupText(dl, font, size, ImVec2(x1 - pad - rw, y),
                                        packColor(rc, w->alpha), w->alpha, line.right);
                     }
-                    y += lineH;
+                    // A wrapped line is as tall as the rows it produced, which
+                    // the sizing pass counted — otherwise the next line draws
+                    // over the middle of this one.
+                    y += lineH * static_cast<float>(line.lines > 0 ? line.lines : 1);
                 }
             }
 

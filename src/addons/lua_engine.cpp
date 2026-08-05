@@ -1033,6 +1033,9 @@ int lua_Tooltip_AddLine(lua_State* L) {
     line.lc[2] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
     line.lc[3] = 1.0f;
     line.rc[0] = line.rc[1] = line.rc[2] = line.rc[3] = 1.0f;
+    // AddLine(text, r, g, b, wrapText). The sixth argument was read off the
+    // call and dropped, and FrameXML passes it on every line of prose.
+    line.wrap = lua_toboolean(L, 6) != 0;
     w->isTooltip = true;
     w->tooltipLines.push_back(std::move(line));
     return 0;
@@ -1226,6 +1229,9 @@ int lua_Tooltip_SetText(lua_State* L) {
     line.lc[2] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
     line.lc[3] = 1.0f;
     line.rc[0] = line.rc[1] = line.rc[2] = line.rc[3] = 1.0f;
+    // SetText(text, r, g, b, a, textWrap) — the seventh here, since alpha sits
+    // between the colour and the flag.
+    line.wrap = lua_toboolean(L, 7) != 0;
     w->tooltipLines.push_back(std::move(line));
     w->shown = true;
     lua_pushboolean(L, 1);
