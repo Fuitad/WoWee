@@ -2,7 +2,9 @@
 #include "ui/framexml_takeover.hpp"
 #include "rendering/movement_limits.hpp"
 #include <algorithm>
+#include <cstdlib>
 #include <future>
+#include <string>
 #include "core/thread_pool.hpp"
 #include <imgui.h>
 #include "rendering/terrain_manager.hpp"
@@ -1631,6 +1633,44 @@ void CameraController::update(float deltaTime) {
                 }
             } else {
                 terrainRescueActive_ = false;
+            }
+
+            // WOWEE_FLOOR_DEBUG=1 — what every floor query answered and which
+            // one won, four times a second.
+            //
+            // Two fixes for one report of not being able to walk down a
+            // staircase were both aimed at the wrong thing, because from the
+            // outside "standing on nothing" looks the same whether the floor
+            // below was never found, was found and rejected, or was found and
+            // lost a selection. Those are different bugs in different places
+            // and this is the line that tells them apart.
+            {
+                static const bool kFloorDebug = [] {
+                    const char* v = std::getenv("WOWEE_FLOOR_DEBUG");
+                    return v && v[0] && v[0] != '0';
+                }();
+                if (kFloorDebug) {
+                    floorDebugTimer_ += deltaTime;
+                    if (floorDebugTimer_ >= 0.25f) {
+                        floorDebugTimer_ = 0.0f;
+                        auto say = [](const std::optional<float>& v) {
+                            return v ? std::to_string(*v) : std::string("-");
+                        };
+                        LOG_WARNING(
+                            "FLOOR at (", targetPos.x, ", ", targetPos.y, ", ", targetPos.z,
+                            ") terrain=", say(centerTerrainH),
+                            " wmo=", say(centerWmoH),
+                            " m2=", say(centerM2H),
+                            " chose=", say(groundH),
+                            " hole=", (terrainManager &&
+                                       terrainManager->isHoleAt(targetPos.x, targetPos.y)),
+                            " insideWMO=", cachedInsideWMO,
+                            " insideInterior=", cachedInsideInteriorWMO,
+                            " grounded=", grounded,
+                            " vz=", verticalVelocity,
+                            " lastGroundZ=", lastGroundZ);
+                    }
+                }
             }
 
             if (groundH) {

@@ -457,6 +457,8 @@ private:
     // frame of a steep climb, and the interesting event is that it started —
     // above all if it ever starts somewhere it should not, like a crypt.
     bool terrainRescueActive_ = false;
+    /// Throttle for the WOWEE_FLOOR_DEBUG trace.
+    float floorDebugTimer_ = 0.0f;
     static constexpr float NO_GROUND_GRACE = 0.5f; // 500ms grace for terrain streaming
 
     // Continuous fall time (for auto-unstuck detection)
