@@ -1652,10 +1652,6 @@ static int lua_HasFullControl(lua_State* L) {
 // player could be told they had died and be unable to do anything about it.
 
 // RepopMe() — release the spirit and run back
-static int lua_RepopMe(lua_State* L) {
-    if (auto* gh = getGameHandler(L)) gh->releaseSpirit();
-    return 0;
-}
 
 // RetrieveCorpse() — resurrect where the body is
 static int lua_RetrieveCorpse(lua_State* L) {
@@ -1694,10 +1690,6 @@ static int lua_StopAttack(lua_State* L) {
 // absent answer is an error on every death rather than a popup that does not
 // appear. Nothing here counts down to a forced release, and -1 is the game's
 // own way of saying so.
-static int lua_GetReleaseTimeRemaining(lua_State* L) {
-    lua_pushnumber(L, -1);
-    return 1;
-}
 
 static int lua_GetNumRaidMembers(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -2534,10 +2526,8 @@ void registerUnitLuaAPI(lua_State* L) {
                 // rather than a zero.
                 {"GetRealNumRaidMembers",  lua_GetNumRaidMembers},
                 {"GetRealNumPartyMembers", lua_GetNumPartyMembers},
-                {"GetReleaseTimeRemaining", lua_GetReleaseTimeRemaining},
                 {"HasFullControl",      lua_HasFullControl},
                 {"GetPetSpellBonusDamage", lua_GetPetSpellBonusDamage},
-                {"RepopMe",             lua_RepopMe},
                 {"RetrieveCorpse",      lua_RetrieveCorpse},
                 {"Dismount",            lua_Dismount},
                 {"StartAttack",         lua_StartAttack},

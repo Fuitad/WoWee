@@ -48,7 +48,7 @@ CHECKS = [
      r"^(\d+) binding\(s\) may return short", 16,
      "bindings answering fewer values than the interface unpacks"),
     ("api_shadowing_check.py",
-     r"^\s*(\d+) to look at", 13,
+     r"^\s*(\d+) to look at", 10,
      "names whose winner depends on load order"),
 ]
 

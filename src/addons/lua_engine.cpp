@@ -3065,19 +3065,11 @@ static int lua_Frame_GetCenter(lua_State* L) {
     return 2;
 }
 
-static int lua_Frame_SetAlpha(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    lua_pushnumber(L, luaL_checknumber(L, 2));
-    lua_setfield(L, 1, "__alpha");
-    return 0;
-}
-
-static int lua_Frame_GetAlpha(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    lua_getfield(L, 1, "__alpha");
-    if (lua_isnil(L, -1)) { lua_pop(L, 1); lua_pushnumber(L, 1.0); }
-    return 1;
-}
+// SetAlpha and GetAlpha are lua_Region_SetAlpha and lua_Region_GetAlpha, which
+// is what both registrations name. A second pair here kept the value in a
+// __alpha field on the frame table instead of on the widget, was bound to
+// nothing, and stood as an alternative implementation for anyone reading —
+// the shape where a later fix lands on the copy nothing calls.
 
 static int lua_Frame_SetParent(lua_State* L) {
     luaL_checktype(L, 1, LUA_TTABLE);

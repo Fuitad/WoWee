@@ -2357,9 +2357,12 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"CannotBeResurrected", [](lua_State* L) -> int {
             lua_pushboolean(L, 0); return 1;
         }},
-                {"IsActiveBattlefieldArena", [](lua_State* L) -> int {
-            lua_pushboolean(L, 0); return 1;
-        }},
+                // IsActiveBattlefieldArena is not here. lua_system_api has the
+                // one that answers it — whether the current map is an arena,
+                // in the two values the caller unpacks — and registers after
+                // this file, so it was already the one in use. This copy was a
+                // flat false in a single value, dead and one value short of
+                // the contract if it had ever won.
                 // Seconds before the corpse is released automatically. -1 is
                 // WoW's "no timer", which is the branch that prints the release
                 // prompt without a countdown — right for a client that does not
