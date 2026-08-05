@@ -114,6 +114,35 @@ def bootstrap_globals():
     return names
 
 
+CALL_RE_CACHE = {}
+
+
+def is_called(name):
+    """Does anything invoke this name, rather than read or store it?
+
+    `Foo(` and `:Foo(` both count; `= Foo` and `["Foo"]` do not. A name that is
+    only ever assigned to a field or passed as an argument cannot raise, which
+    is what separates a leftover from a gap.
+    """
+    if name in CALL_RE_CACHE:
+        return CALL_RE_CACHE[name]
+    pat = re.compile(r"(?<![\w.:])" + re.escape(name) + r"\s*\(")
+    found = False
+    for path, _ in interface_files():
+        try:
+            text = pathlib.Path(path).read_text(errors="ignore")
+        except OSError:
+            continue
+        if name not in text:
+            continue
+        text = re.sub(r"--[^\n]*", "", text)
+        if pat.search(text):
+            found = True
+            break
+    CALL_RE_CACHE[name] = found
+    return found
+
+
 def main():
     path = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_REPORT
     if not os.path.exists(path):
@@ -153,7 +182,15 @@ def main():
                 (bare, [f for f, _ in where]))
         else:
             callers = sorted(mentions.get(bare, ()))[:2]
-            buckets["defined nowhere in this interface"].append((bare, callers))
+            # Whether anything ever *calls* it, as opposed to reading it or
+            # storing it somewhere. A name that is never called cannot raise:
+            # the four in this group on 2026-08-05 were a key in a table, a
+            # field nothing reads back, an argument the binding ignores, and a
+            # table entry with no consumer. Deciding that took an hour by hand
+            # and is one grep.
+            called = is_called(bare)
+            buckets["defined nowhere in this interface"].append(
+                (bare, callers + (["CALLED"] if called else ["never called"])))
 
     print(f"{path}\n{len(names)} names in the real-gaps section\n")
     for label, rows in buckets.items():
@@ -168,9 +205,11 @@ def main():
     print(f"{real} worth reading." if real else
           "Nothing left that is a gap in this client. Read the callers of the")
     if not real:
-        print("'defined nowhere' group before believing that — a frame defined")
-        print("in an addon's own XML has been read as missing here more than")
-        print("once, and a Blizzard leftover looks the same as a real gap.")
+        print("'defined nowhere' group marked CALLED before believing that —")
+        print("one marked 'never called' is only ever assigned or passed, and")
+        print("cannot raise. A frame defined in an addon's own XML has been")
+        print("read as missing here more than once, and a Blizzard leftover")
+        print("looks the same as a real gap.")
     return 0
 
 
