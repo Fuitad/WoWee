@@ -2417,6 +2417,13 @@ void GameHandler::ensureAchievementCriteriaLoaded() {
     const uint32_t achField  = fieldOr("AchievementID", 1);
     const uint32_t qtyField  = fieldOr("Quantity", 4);
     const uint32_t descField = fieldOr("Description", 9);
+    // Field 29 holds the timer, where there is one. Fifty-nine criteria have a
+    // non-zero value and every one is a round number of seconds that the
+    // criteria's own description states in words — 420 against "Win Warsong
+    // Gulch in under 7 minutes", 1200 against "Kill Maexxna within 20 minutes",
+    // 60 against "Kill 100 Risen Zombies in 1 minute". No other field in the
+    // record agrees with the text that way.
+    const uint32_t limitField = fieldOr("TimeLimit", 29);
     const uint32_t fieldCount = dbc->getFieldCount();
 
     for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
@@ -2428,6 +2435,8 @@ void GameHandler::ensureAchievementCriteriaLoaded() {
         if (fieldCount > 3) c.assetId = dbc->getUInt32(i, 3);
         if (qtyField  < fieldCount) c.quantity    = dbc->getUInt32(i, qtyField);
         if (descField < fieldCount) c.description = dbc->getString(i, descField);
+        if (limitField < fieldCount) c.timeLimit = dbc->getUInt32(i, limitField);
+        achievementCriterionById_[c.id] = {achId, c.timeLimit};
         achievementCriteria_[achId].push_back(std::move(c));
     }
     LOG_INFO("Achievement: criteria for ", achievementCriteria_.size(), " achievements");

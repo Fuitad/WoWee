@@ -65,6 +65,24 @@ CHECKS = [
     ("declared_vs_read_check.py",
      r"^(\d+) constant\(s\) set in both places", 1,
      "constants the bootstrap and the interface disagree about"),
+    # The one remaining is correct and will not go to zero: readycheck.lua reads
+    # a `preempted` flag off READY_CHECK_FINISHED, and AzerothCore's
+    # HandleRaidReadyCheckFinishedOpcode broadcasts that message with an empty
+    # body. There is no flag on the wire to send, and nil reads as false, which
+    # is what "not preempted" wants. Lower this only if that stops being true.
+    ("framexml_event_arity.py",
+     r"^(\d+) fired with fewer arguments than a handler reads", 1,
+     "events fired with fewer arguments than a handler unpacks"),
+    # Four, and all four deliberate: ITEM_LOCK_CHANGED and RUNE_POWER_UPDATE
+    # both use the absence of the second argument as the signal ("not arg2" is
+    # how the paperdoll knows an equipment slot from a bag slot, "not usable" is
+    # how a rune knows it is spent), UPDATE_TICKET fires empty to say there is
+    # no ticket, and TRACKED_ACHIEVEMENT_UPDATE carries a timer from the packet
+    # and only an id from the tracking toggle, which the tracker guards for.
+    # The ceiling is here for the fifth, which will be an accident.
+    ("framexml_event_arity.py",
+     r"^(\d+) fired from several places with differing counts", 4,
+     "events whose argument count depends on which path fired them"),
     ("api_shadowing_check.py",
      r"^\s*(\d+) to look at", 10,
      "names whose winner depends on load order"),

@@ -2251,6 +2251,21 @@ public:
         uint32_t    type = 0;
         uint32_t    assetId = 0;
         uint32_t    quantity = 0;
+        /// Seconds the player has, once the criteria's timer starts. Zero for
+        /// all but fifty-nine of the seven and a half thousand criteria — the
+        /// ones whose own description names the limit, "Win Warsong Gulch in
+        /// under 7 minutes" against 420 and "Kill Maexxna within 20 minutes"
+        /// against 1200. That agreement is how field 29 was identified; it is
+        /// not in dbc_layouts.json.
+        uint32_t    timeLimit = 0;
+    };
+
+    /// Where a criteria lives, by its own id. SMSG_CRITERIA_UPDATE names a
+    /// criteria and nothing else, and everything about it — which achievement
+    /// it belongs to, whether it is timed — is in the DBC under that id.
+    struct AchievementCriterionIndex {
+        uint32_t achievementId = 0;
+        uint32_t timeLimit = 0;
     };
 
     // ---- Battlegrounds (BattlemasterList.dbc) ----
@@ -2320,6 +2335,13 @@ public:
     const std::unordered_map<uint32_t, std::vector<AchievementCriterion>>& getAchievementCriteriaMap() const {
         return achievementCriteria_;
     }
+    /// The achievement a criteria belongs to and its time limit, or nulls if
+    /// the DBC has no such criteria.
+    AchievementCriterionIndex getAchievementCriterionIndex(uint32_t criteriaId) const {
+        auto it = achievementCriterionById_.find(criteriaId);
+        return it != achievementCriterionById_.end() ? it->second : AchievementCriterionIndex{};
+    }
+
     const std::vector<AchievementCriterion>& getAchievementCriteria(uint32_t achievementId) const {
         auto it = achievementCriteria_.find(achievementId);
         static const std::vector<AchievementCriterion> kEmpty;
@@ -4134,6 +4156,7 @@ private:
     std::vector<uint32_t> achievementCategoryOrder_;
     bool achievementCategoriesLoaded_ = false;
     std::unordered_map<uint32_t, std::vector<AchievementCriterion>> achievementCriteria_;
+    std::unordered_map<uint32_t, AchievementCriterionIndex> achievementCriterionById_;
     bool achievementCriteriaLoaded_ = false;
     // Client-side, like the quest tracker's set — nothing is sent for it.
     std::unordered_set<uint32_t> trackedAchievements_;

@@ -1484,6 +1484,28 @@ void GameHandler::registerOpcodeHandlers() {
                 // Fire addon event for achievement tracking addons
                 if (progress != oldProgress)
                     fireAddonEvent("CRITERIA_UPDATE", {std::to_string(criteriaId), std::to_string(progress)});
+
+                // A timed criteria also drives the tracker's countdown. The
+                // message says how far into the window the player is; how long
+                // the window is comes from the DBC, so the two have to be put
+                // together here — the interface reads the pair and works out a
+                // start time from them.
+                //
+                // Fired for any timed criteria rather than only tracked ones.
+                // The tracker stores what it is told and draws a timer only
+                // inside its tracked-achievement loop, so entries for the rest
+                // cost a table row and show nothing; the gain is that tracking
+                // an achievement part-way through its timer still shows the
+                // right countdown, instead of nothing until the next update.
+                ensureAchievementCriteriaLoaded();
+                const auto idx = getAchievementCriterionIndex(criteriaId);
+                if (idx.timeLimit != 0 && idx.achievementId != 0) {
+                    fireAddonEvent("TRACKED_ACHIEVEMENT_UPDATE",
+                                   {std::to_string(idx.achievementId),
+                                    std::to_string(criteriaId),
+                                    std::to_string(rec.timeElapsed),
+                                    std::to_string(idx.timeLimit)});
+                }
             }
         }
     };

@@ -41,6 +41,7 @@ FIRE = re.compile(
     re.S)
 
 fired = {}
+sites = {}
 for path in SRC.rglob("*.cpp"):
     text = path.read_text(errors="ignore")
     for m in FIRE.finditer(text):
@@ -65,6 +66,8 @@ for path in SRC.rglob("*.cpp"):
         # A name fired from several places takes the largest, since the handler
         # only needs one path to carry what it reads.
         fired[name] = count if prev is None else max(prev, count)
+        sites.setdefault(name, []).append(
+            (count, f"{path.relative_to(ROOT)}:{text.count(chr(10), 0, m.start()) + 1}"))
 
 # ---- What the handlers unpack, inside the branch that names the event ----
 # One event per branch. A condition naming several — battlefieldframe.lua has
@@ -106,5 +109,23 @@ print(f"{len(rows)} fired with fewer arguments than a handler reads:\n")
 for short, name, have, need, where, names in sorted(rows, reverse=True):
     print(f"  {name:34} fires {have}, reads {need}   [{where}]")
     print(f"      local {names} = ...")
+if not rows:
+    print("  (none)")
+
+# Taking the largest hides the case where one path carries the argument and
+# another does not. That is not a shortfall in the count above and it is still a
+# fault, because the argument usually means something different per path rather
+# than being optional: GUILD_ROSTER_UPDATE's says "you may ask for a roster",
+# false where the roster just arrived and true where a member changed and no new
+# roster is coming. Fixing one site and not the other leaves the count clean and
+# half the behaviour missing, which is what this section is for.
+uneven = {n: v for n, v in sites.items()
+          if len({c for c, _ in v}) > 1 and n in wanted}
+print(f"\n{len(uneven)} fired from several places with differing counts:\n")
+for name in sorted(uneven):
+    counts = ", ".join(f"{c} at {w}" for c, w in sorted(uneven[name]))
+    print(f"  {name:34} reads {wanted[name][0]}   [{counts}]")
+if not uneven:
+    print("  (none)")
 
 sys.exit(0)
