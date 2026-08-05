@@ -192,6 +192,9 @@ private:
         uint16_t level, faction, flags, dynFlags, auraState;
         uint16_t displayId, mountDisplayId, npcFlags, npcEmoteState;
         uint16_t bytes0, bytes1;
+        /// A hunter pet carries its own experience, on the pet's unit rather
+        /// than on the player's.
+        uint16_t petXp, petNextLevelXp;
         static UnitFieldIndices resolve();
     };
     struct PlayerFieldIndices {

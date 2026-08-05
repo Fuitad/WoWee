@@ -688,7 +688,9 @@ EntityController::UnitFieldIndices EntityController::UnitFieldIndices::resolve()
         fieldIndex(UF::UNIT_NPC_FLAGS),
         fieldIndex(UF::UNIT_NPC_EMOTESTATE),
         fieldIndex(UF::UNIT_FIELD_BYTES_0),
-        fieldIndex(UF::UNIT_FIELD_BYTES_1)
+        fieldIndex(UF::UNIT_FIELD_BYTES_1),
+        fieldIndex(UF::UNIT_FIELD_PETEXPERIENCE),
+        fieldIndex(UF::UNIT_FIELD_PETNEXTLEVELEXP)
     };
 }
 
@@ -965,6 +967,7 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
     UnitFieldUpdateResult result;
     result.oldDisplayId = unit->getDisplayId();
     uint32_t oldHealth = unit->getHealth();
+    bool petExperienceChanged = false;
     for (const auto& [key, val] : block.fields) {
         if (key == ufi.health) {
             unit->setHealth(val);
@@ -1156,6 +1159,20 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
                 owner_.otherPlayerMountCallbackRef()(block.guid, val);
             }
             unit->setMountDisplayId(val);
+        } else if (ufi.petXp != 0xFFFF && key == ufi.petXp &&
+                   block.guid == owner_.petGuidRef()) {
+            // Only the player's own pet. Every unit carries these fields and
+            // only one of them has an experience bar to draw.
+            if (owner_.petExperienceRef() != val) {
+                owner_.petExperienceRef() = val;
+                petExperienceChanged = true;
+            }
+        } else if (ufi.petNextLevelXp != 0xFFFF && key == ufi.petNextLevelXp &&
+                   block.guid == owner_.petGuidRef()) {
+            if (owner_.petNextLevelExpRef() != val) {
+                owner_.petNextLevelExpRef() = val;
+                petExperienceChanged = true;
+            }
         } else if (key == ufi.npcFlags) { unit->setNpcFlags(val); }
         else if (key == ufi.npcEmoteState) {
             uint32_t oldEmote = unit->getNpcEmoteState();
@@ -1225,6 +1242,13 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
     // Fire player health callback for wounded-idle animation
     if (result.healthChanged && block.guid == owner_.getPlayerGuid() && owner_.playerHealthCallbackRef()) {
         owner_.playerHealthCallbackRef()(unit->getHealth(), unit->getMaxHealth());
+    }
+
+    // The pet frame's experience bar reads GetPetExperience and redraws on
+    // this; without it the bar was filled once when the pet was summoned and
+    // never moved again.
+    if (petExperienceChanged && owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("UNIT_PET_EXPERIENCE", {"pet"});
     }
 
     return result;

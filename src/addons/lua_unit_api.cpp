@@ -2873,8 +2873,13 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushnumber(L, 1.0); return 1; }},
                 {"GetUnitPowerModifier",    [](lua_State* L) -> int {
             lua_pushnumber(L, 1.0); return 1; }},
-                {"GetPetExperience",        [](lua_State* L) -> int {
-            lua_pushnumber(L, 0); lua_pushnumber(L, 0); return 2; }},
+                {"GetPetExperience", [](lua_State* L) -> int {
+            // currXP, nextXP — off the pet unit's own fields, not the player's.
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? gh->getPetExperience() : 0);
+            lua_pushnumber(L, gh ? gh->getPetNextLevelExp() : 0);
+            return 2;
+        }},
                 // Companions and mounts, which this client does not enumerate
                 // — the tab lists nothing, and these are what its buttons
                 // would call if it did.

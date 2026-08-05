@@ -923,6 +923,12 @@ public:
     // Pet command/react state from SMSG_PET_MODE or SMSG_PET_SPELLS
     uint8_t getPetCommand() const { return petCommand_; }   // 0=stay,1=follow,2=attack,3=dismiss
     uint8_t getPetReact()   const { return petReact_; }     // 0=passive,1=defensive,2=aggressive
+    // A hunter pet's experience, off the pet unit's own fields.
+    uint32_t getPetExperience() const { return petExperience_; }
+    uint32_t getPetNextLevelExp() const { return petNextLevelExp_; }
+    uint32_t& petExperienceRef() { return petExperience_; }
+    uint32_t& petNextLevelExpRef() { return petNextLevelExp_; }
+
     // Spells the pet knows (from SMSG_PET_SPELLS spell list)
     const std::vector<uint32_t>& getPetSpells() const { return petSpellList_; }
     // Pet autocast set (spellIds that have autocast enabled)
@@ -3861,6 +3867,8 @@ private:
     bool     petRenameablePending_ = false;  // set by SMSG_PET_RENAMEABLE, consumed by UI
     std::vector<uint32_t> petSpellList_; // known pet spells
     std::unordered_set<uint32_t> petAutocastSpells_;  // spells with autocast on
+    uint32_t petExperience_ = 0;
+    uint32_t petNextLevelExp_ = 0;
 
     // ---- Pet Stable ----
     bool stableWindowOpen_    = false;
