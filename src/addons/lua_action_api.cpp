@@ -760,6 +760,12 @@ static int lua_PickupBagFromSlot(lua_State* L) {
     }
     wowee::ui::frameXmlSetCursorItem(
         displayId ? gh->getItemIconPath(displayId) : std::string());
+    // And say the slot is locked, as the equipped pickup below does.
+    // IsInventoryItemLocked already answers true for it — cursorEquipSlot
+    // reads the same s_cursorSlot this just set — but nothing asks again
+    // without this, so the square greyed only on the next unrelated redraw.
+    // One argument, because the paperdoll's handler tests `not arg2`.
+    gh->fireAddonEvent("ITEM_LOCK_CHANGED", {std::to_string(slot)});
     return 0;
 }
 
