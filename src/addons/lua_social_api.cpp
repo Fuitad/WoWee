@@ -1361,6 +1361,31 @@ void registerSocialLuaAPI(lua_State* L) {
             (void)L; // Sorting is client-side display only
             return 0;
         }},
+                // The three answers to a battlefield manager prompt. All were
+                // unbound, so FrameXML's BFMGR dialogs raised on accept — and
+                // the client fires the events that put them on screen.
+                {"BattlefieldMgrEntryInviteResponse", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            if (lua_toboolean(L, 2)) gh->acceptBfMgrInvite();
+            else                     gh->declineBfMgrInvite();
+            return 0;
+        }},
+                {"BattlefieldMgrQueueInviteResponse", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const auto battleId = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            gh->respondBfMgrQueueInvite(battleId ? battleId : gh->getBfMgrBattleId(),
+                                        lua_toboolean(L, 2) != 0);
+            return 0;
+        }},
+                {"BattlefieldMgrExitRequest", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const auto battleId = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            gh->requestBfMgrExit(battleId ? battleId : gh->getBfMgrBattleId());
+            return 0;
+        }},
                 {"GetGuildRosterInfo",      lua_GetGuildRosterInfo},
                 {"SetGuildRosterSelection", [](lua_State* L) -> int {
             selectedGuildRosterRow() = static_cast<int>(luaL_optnumber(L, 1, 0));

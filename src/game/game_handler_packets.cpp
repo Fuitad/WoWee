@@ -2551,7 +2551,7 @@ void GameHandler::registerOpcodeHandlers() {
             packet.skipAll(); return;
         }
         const uint32_t bfId = packet.readUInt32();
-        packet.readUInt8();   // warmup
+        const bool warmup = packet.readUInt8() != 0;
         bfMgrBattleId_ = bfId;
         bfMgrInvitePending_ = true;
         bfMgrZoneId_        = bfId;
@@ -2560,7 +2560,10 @@ void GameHandler::registerOpcodeHandlers() {
             "A spot has opened in the battlefield queue (battlefield %u).", bfId);
         addSystemChatMessage(buf);
         if (addonEventCallback_)
-            addonEventCallback_("BATTLEFIELD_MGR_QUEUE_INVITE", {std::to_string(bfId)});
+            // The warmup flag picks between two dialogs and was read off the
+            // wire and thrown away, so the warmup one could never appear.
+            addonEventCallback_("BATTLEFIELD_MGR_QUEUE_INVITE",
+                                {std::to_string(bfId), eventBool(warmup)});
         LOG_INFO("SMSG_BATTLEFIELD_MGR_QUEUE_INVITE: bfId=", bfId);
     };
     // uint32 battlefieldId + uint32 teamId + uint8 accepted + uint8 loggingEnabled + uint8 result

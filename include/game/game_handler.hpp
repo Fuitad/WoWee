@@ -614,6 +614,8 @@ public:
     uint32_t getBfMgrBattleId() const { return bfMgrBattleId_; }
     void acceptBfMgrInvite();
     void declineBfMgrInvite();
+    void respondBfMgrQueueInvite(uint32_t battleId, bool accept);
+    void requestBfMgrExit(uint32_t battleId);
 
     // WotLK Calendar
     uint32_t getCalendarPendingInvites() const { return calendarPendingInvites_; }

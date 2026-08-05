@@ -77,7 +77,11 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
     renderGuildInvitePopup(gameHandler);
     if (!frameXmlOwns(UiElement::ReadyCheck)) renderReadyCheckPopup(gameHandler);
     renderBgInvitePopup(gameHandler);
-    renderBfMgrInvitePopup(gameHandler);
+    // FrameXML answers the same three invitations from staticpopup.lua, and
+    // this client fires every event that raises them — so both were on screen.
+    if (!frameXmlOwns(UiElement::Dialogs)) {
+        renderBfMgrInvitePopup(gameHandler);
+    }
     if (!frameXmlOwns(UiElement::DungeonFinder)) {
         renderLfgProposalPopup(gameHandler);
         renderLfgRoleCheckPopup(gameHandler);

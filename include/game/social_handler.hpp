@@ -277,6 +277,8 @@ public:
     // Battlefield Manager
     void acceptBfMgrInvite();
     void declineBfMgrInvite();
+    void respondBfMgrQueueInvite(uint32_t battleId, bool accept);
+    void requestBfMgrExit(uint32_t battleId);
 
     // Calendar
     void requestCalendar();
@@ -371,6 +373,7 @@ public:
 private:
     // ---- Packet handlers ----
     void handleInspectResults(network::Packet& packet);
+    void sendBfMgrResponse(Opcode op, uint32_t battleId, bool accept, bool withFlag);
     void handleQueryTimeResponse(network::Packet& packet);
     void handlePlayedTime(network::Packet& packet);
     void handleWho(network::Packet& packet);

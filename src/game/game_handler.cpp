@@ -3023,6 +3023,14 @@ void GameHandler::declineBfMgrInvite() {
     if (socialHandler_) socialHandler_->declineBfMgrInvite();
 }
 
+void GameHandler::respondBfMgrQueueInvite(uint32_t battleId, bool accept) {
+    if (socialHandler_) socialHandler_->respondBfMgrQueueInvite(battleId, accept);
+}
+
+void GameHandler::requestBfMgrExit(uint32_t battleId) {
+    if (socialHandler_) socialHandler_->requestBfMgrExit(battleId);
+}
+
 // ---- WotLK Calendar ----
 
 void GameHandler::requestCalendar() {

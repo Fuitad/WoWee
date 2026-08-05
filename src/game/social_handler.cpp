@@ -3796,24 +3796,50 @@ void SocialHandler::declineSummon() {
 // Battlefield Manager
 // ============================================================
 
-void SocialHandler::acceptBfMgrInvite() {
-    if (!owner_.bfMgrInvitePendingRef() || owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    // CMSG_BATTLEFIELD_MGR_ENTRY_INVITE_RESPONSE: uint8 accepted = 1
-    network::Packet pkt(wireOpcode(Opcode::CMSG_BATTLEFIELD_MGR_ENTRY_INVITE_RESPONSE));
-    pkt.writeUInt8(1);  // accepted
+/// All three battlefield answers carry the battle id first.
+///
+/// HandleBfEntryInviteResponse reads `uint32 BattleId >> uint8 Accepted` and
+/// the exit request reads a battle id alone. Both answers used to be a single
+/// byte, so the server read the accept flag as the low byte of a battle id,
+/// ran out of buffer and dropped the packet — accepting a Wintergrasp
+/// invitation had never once reached it.
+void SocialHandler::sendBfMgrResponse(Opcode op, uint32_t battleId, bool accept,
+                                      bool withFlag) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet pkt(wireOpcode(op));
+    pkt.writeUInt32(battleId);
+    if (withFlag) pkt.writeUInt8(accept ? 1 : 0);
     owner_.getSocket()->send(pkt);
+}
+
+void SocialHandler::acceptBfMgrInvite() {
+    if (!owner_.bfMgrInvitePendingRef()) return;
+    sendBfMgrResponse(Opcode::CMSG_BATTLEFIELD_MGR_ENTRY_INVITE_RESPONSE,
+                      owner_.getBfMgrBattleId(), true, true);
     owner_.bfMgrInvitePendingRef() = false;
-    LOG_INFO("acceptBfMgrInvite: sent CMSG_BATTLEFIELD_MGR_ENTRY_INVITE_RESPONSE accepted=1");
+    LOG_INFO("acceptBfMgrInvite: battle ", owner_.getBfMgrBattleId());
 }
 
 void SocialHandler::declineBfMgrInvite() {
-    if (!owner_.bfMgrInvitePendingRef() || owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    // CMSG_BATTLEFIELD_MGR_ENTRY_INVITE_RESPONSE: uint8 accepted = 0
-    network::Packet pkt(wireOpcode(Opcode::CMSG_BATTLEFIELD_MGR_ENTRY_INVITE_RESPONSE));
-    pkt.writeUInt8(0);  // declined
-    owner_.getSocket()->send(pkt);
+    if (!owner_.bfMgrInvitePendingRef()) return;
+    sendBfMgrResponse(Opcode::CMSG_BATTLEFIELD_MGR_ENTRY_INVITE_RESPONSE,
+                      owner_.getBfMgrBattleId(), false, true);
     owner_.bfMgrInvitePendingRef() = false;
-    LOG_INFO("declineBfMgrInvite: sent CMSG_BATTLEFIELD_MGR_ENTRY_INVITE_RESPONSE accepted=0");
+    LOG_INFO("declineBfMgrInvite: battle ", owner_.getBfMgrBattleId());
+}
+
+void SocialHandler::respondBfMgrQueueInvite(uint32_t battleId, bool accept) {
+    sendBfMgrResponse(Opcode::CMSG_BATTLEFIELD_MGR_QUEUE_INVITE_RESPONSE,
+                      battleId, accept, true);
+    owner_.bfMgrInvitePendingRef() = false;
+    LOG_INFO("respondBfMgrQueueInvite: battle ", battleId,
+             accept ? " accepted" : " declined");
+}
+
+void SocialHandler::requestBfMgrExit(uint32_t battleId) {
+    sendBfMgrResponse(Opcode::CMSG_BATTLEFIELD_MGR_EXIT_REQUEST,
+                      battleId, false, false);
+    LOG_INFO("requestBfMgrExit: battle ", battleId);
 }
 
 // ============================================================
