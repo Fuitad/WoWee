@@ -891,23 +891,7 @@ static int lua_UnitRace(lua_State* L) {
     std::string uid(luaL_optstring(L, 1, "player"));
     toLowerInPlace(uid);
 
-    uint8_t raceId = 0;
-    if (uid == "player") {
-        raceId = gh->getPlayerRace();
-    } else {
-        // Read race from UNIT_FIELD_BYTES_0 (race is byte 0)
-        uint64_t guid = resolveUnitGuid(gh, uid);
-        if (guid != 0) {
-            auto entity = gh->getEntityManager().getEntity(guid);
-            if (entity) {
-                uint32_t bytes0 = entity->getField(
-                    game::fieldIndex(game::UF::UNIT_FIELD_BYTES_0));
-                raceId = static_cast<uint8_t>(bytes0 & 0xFF);
-            }
-            // Fallback: name query class/race cache
-            if (raceId == 0) raceId = gh->lookupPlayerRace(guid);
-        }
-    }
+    const uint8_t raceId = unitRaceOf(gh, uid);
     const char* name = (raceId > 0 && raceId < 12) ? kLuaRaces[raceId] : "Unknown";
     lua_pushstring(L, name);      // 1: localized race
     lua_pushstring(L, name);      // 2: English race
@@ -2223,7 +2207,16 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"UnitClass",     lua_UnitClass},
                 {"UnitArmor",     [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            int32_t armor = gh ? gh->getArmorRating() : 0;
+            // Whose armour. PaperDollFrame_SetArmor is shared between the two
+            // sheets and the pet tab calls it with "Pet" — capitalised, which
+            // is why this compares lowered.
+            std::string who(luaL_optstring(L, 1, "player"));
+            toLowerInPlace(who);
+            int32_t armor = 0;
+            if (gh) {
+                armor = (who == "pet") ? gh->getPetResistances()[0]
+                      : (who == "player") ? gh->getArmorRating() : 0;
+            }
             if (armor < 0) armor = 0;
             lua_pushnumber(L, armor); // base
             lua_pushnumber(L, armor); // effective

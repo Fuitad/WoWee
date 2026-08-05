@@ -297,6 +297,27 @@ inline game::Unit* resolveUnit(lua_State* L, const char* unitId) {
     return dynamic_cast<game::Unit*>(entity.get());
 }
 
+/// A unit's race, whoever the unit is.
+///
+/// The player's is known outright; anyone else's is byte zero of
+/// UNIT_FIELD_BYTES_0, with the name-query cache behind it for a unit whose
+/// fields have not arrived. Shared because two bindings need it and a second
+/// copy of "where a race comes from" is how they drift.
+inline uint8_t unitRaceOf(game::GameHandler* gh, const std::string& lowerUid) {
+    if (!gh) return 0;
+    if (lowerUid == "player") return gh->getPlayerRace();
+    const uint64_t guid = resolveUnitGuid(gh, lowerUid);
+    if (guid == 0) return 0;
+    uint8_t raceId = 0;
+    if (auto entity = gh->getEntityManager().getEntity(guid)) {
+        const uint32_t bytes0 =
+            entity->getField(game::fieldIndex(game::UF::UNIT_FIELD_BYTES_0));
+        raceId = static_cast<uint8_t>(bytes0 & 0xFF);
+    }
+    if (raceId == 0) raceId = gh->lookupPlayerRace(guid);
+    return raceId;
+}
+
 // Finish an armed item-target use on the item in a slot, if one is armed
 //
 // A sharpening stone, a weapon oil, an enchanting scroll and a disenchant all

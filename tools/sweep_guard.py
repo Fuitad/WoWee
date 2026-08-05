@@ -168,6 +168,21 @@ CHECKS = [
     ("framexml_lookup_names_check.py",
      r"^(\d+) looked up that the interface does not declare", 0,
      "frames this client looks up by a name the interface does not declare"),
+    # Unit bindings that never look at the unit they were asked about and
+    # answer from the player. Three, and each is asked only about the player by
+    # anything that exists here: UnitDefense is called with a unit by
+    # PaperDollFrame_SetDefense and with "player" by its only other caller,
+    # while the pet tab has no defence line; UnitRangedAttack and
+    # UnitAttackBothHands are the player's sheet alone.
+    #
+    # A fourth means a number belonging to the wrong character, which is the
+    # hardest kind of wrong to see — nothing empty, nothing zero, nothing
+    # raised. UnitStat, UnitResistance and UnitArmor all sat here, listing a
+    # hunter's own figures as the pet's, and SetInventoryItem did the same on
+    # the inspect paperdoll.
+    ("unit_argument_check.py",
+     r"^(\d+) unit binding\(s\) that never look at their unit", 3,
+     "unit bindings answering from the player whatever they were asked"),
     # Requests the server reads off the wire and throws away — an opcode
     # registered Handle_NULL. Two, and both are accounted for:
     # CMSG_SUSPEND_COMMS_ACK is an acknowledgement the server has no use for,
