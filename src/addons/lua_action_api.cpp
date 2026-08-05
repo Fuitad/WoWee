@@ -478,6 +478,10 @@ static int lua_PickupSpell(lua_State* L) {
         if (idx <= static_cast<int>(tab.spellIds.size())) {
             setCursorType(L, CursorType::SPELL);
             s_cursorId = tab.spellIds[idx - 1];
+            // On the pointer as well as in the state, the way every other
+            // pickup here does it. Dragging a spell out of the book carried
+            // nothing visible, so the drag read as not having started.
+            wowee::ui::frameXmlSetCursorItem(gh->getSpellIconPath(s_cursorId));
             return 0;
         }
         idx -= static_cast<int>(tab.spellIds.size());
@@ -745,6 +749,17 @@ static int lua_PickupBagFromSlot(lua_State* L) {
     s_cursorId = held.item.itemId;
     s_cursorSlot = slot;
     s_cursorBag = -1;
+    // Same omission as the spell above: a bag dragged off its slot was held
+    // invisibly. The display id falls back to the item's own, which is where
+    // the equipped-item pickup below reads it from when the slot has none.
+    uint32_t displayId = held.item.displayInfoId;
+    if (displayId == 0) {
+        if (const auto* info = gh->getItemInfo(held.item.itemId)) {
+            displayId = info->displayInfoId;
+        }
+    }
+    wowee::ui::frameXmlSetCursorItem(
+        displayId ? gh->getItemIconPath(displayId) : std::string());
     return 0;
 }
 
