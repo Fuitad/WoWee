@@ -184,6 +184,7 @@ ELEMENTS = {
     "vendor":       ["merchantframe.lua", "merchantframe.xml"],
     "bank":         ["bankframe.lua", "bankframe.xml"],
     "questtracker": ["watchframe.lua", "watchframe.xml"],
+    "readycheck":   ["readycheck.lua", "readycheck.xml"],
     "help":         ["helpframe.lua", "helpframe.xml"],
     "social":       ["friendsframe.lua", "friendsframe.xml"],
     "partyframes":  ["partyframe.xml", "partyframetemplates.xml"],

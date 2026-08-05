@@ -155,6 +155,12 @@ const std::set<std::string>& requested() {
         // nothing. tools/framexml_unbound_globals.py reports friendsframe
         // clean, which is the check this note used to ask for.
         //
+        // "readycheck" joins them too, on a smaller footing: two files, no
+        // missing call, and READY_CHECK, READY_CHECK_CONFIRM and
+        // READY_CHECK_FINISHED are all fired. Its window is behind a gate in
+        // dialog_manager and ReadyCheckFrame is suppressed until the element is
+        // owned, so the swap is the whole change.
+        //
         // "questlog" joins them. It was held back with the world map and the
         // quest tracker, on the reading that handing any of the three over
         // draws a second map over this client's own — and it draws no map. What
@@ -188,8 +194,8 @@ const std::set<std::string>& requested() {
                     "barbershop", "bgscore", "book", "chat", "classtrainer",
                     "gamemenu", "gossip", "guildbank", "help", "inspect",
                     "loot", "mail", "micromenu", "partyframes", "questgiver",
-                    "questlog", "social", "stable", "talents", "taxi",
-                    "totems", "tradeskill", "vendor"}) {
+                    "questlog", "readycheck", "social", "stable", "talents",
+                    "taxi", "totems", "tradeskill", "vendor"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "
