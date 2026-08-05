@@ -104,12 +104,12 @@ void UnitPortrait::update(game::GameHandler& gameHandler,
     preview_->requestComposite();
 }
 
-void UnitPortrait::updatePlayer(uint8_t race, uint8_t gender,
+bool UnitPortrait::updatePlayer(uint8_t race, uint8_t gender,
                                 uint32_t appearanceBytes, uint8_t facialFeatures,
                                 const std::vector<game::EquipmentItem>& equipment,
                                 pipeline::AssetManager* assets,
                                 rendering::Renderer* renderer, float deltaTime) {
-    if (!assets || !renderer) return;
+    if (!assets || !renderer) return false;
 
     if (!preview_) {
         preview_ = std::make_unique<rendering::CharacterPreview>();
@@ -117,7 +117,7 @@ void UnitPortrait::updatePlayer(uint8_t race, uint8_t gender,
         if (!initialized_) {
             LOG_WARNING("UnitPortrait: could not build the offscreen view");
             preview_.reset();
-            return;
+            return false;
         }
         renderer->registerPreview(preview_.get());
         registered_ = true;
@@ -163,13 +163,14 @@ void UnitPortrait::updatePlayer(uint8_t race, uint8_t gender,
     preview_->update(deltaTime);
     preview_->render();
     preview_->requestComposite();
+    return preview_->isModelLoaded();
 }
 
-void UnitPortrait::updateCreature(const std::string& m2Path,
+bool UnitPortrait::updateCreature(const std::string& m2Path,
                                   pipeline::AssetManager* assets,
                                   rendering::Renderer* renderer,
                                   float deltaTime) {
-    if (!assets || !renderer || m2Path.empty()) return;
+    if (!assets || !renderer || m2Path.empty()) return false;
 
     if (!preview_) {
         preview_ = std::make_unique<rendering::CharacterPreview>();
@@ -177,7 +178,7 @@ void UnitPortrait::updateCreature(const std::string& m2Path,
         if (!initialized_) {
             LOG_WARNING("UnitPortrait: could not build the offscreen view");
             preview_.reset();
-            return;
+            return false;
         }
         renderer->registerPreview(preview_.get());
         registered_ = true;
@@ -208,6 +209,7 @@ void UnitPortrait::updateCreature(const std::string& m2Path,
     preview_->update(deltaTime);
     preview_->render();
     preview_->requestComposite();
+    return preview_->isModelLoaded();
 }
 
 uint64_t UnitPortrait::textureId() const {

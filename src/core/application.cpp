@@ -3360,12 +3360,10 @@ void Application::render() {
                                  (self->gender == game::Gender::NONBINARY &&
                                   self->useFemaleModel)) ? 1 : 0;
                             room.model->setFraming(ui::UnitPortrait::Framing::FullBody);
-                            room.model->updatePlayer(static_cast<uint8_t>(self->race),
-                                                     gender, self->appearanceBytes,
-                                                     self->facialFeatures, worn,
-                                                     assetManager.get(), renderer.get(),
-                                                     io.DeltaTime);
-                            shown = true;
+                            shown = room.model->updatePlayer(
+                                static_cast<uint8_t>(self->race), gender,
+                                self->appearanceBytes, self->facialFeatures, worn,
+                                assetManager.get(), renderer.get(), io.DeltaTime);
                         }
                     }
                     if (dressUp) {
@@ -3400,9 +3398,9 @@ void Application::render() {
                             entitySpawner_->getModelPathForDisplayId(frame->modelDisplayId);
                         if (!modelPath.empty()) {
                             cm.model->setFraming(ui::UnitPortrait::Framing::FullBody);
-                            cm.model->updateCreature(modelPath, assetManager.get(),
-                                                     renderer.get(), io.DeltaTime);
-                            shown = true;
+                            shown = cm.model->updateCreature(
+                                modelPath, assetManager.get(), renderer.get(),
+                                io.DeltaTime);
                         }
                     }
                     if (frame) {
@@ -3433,9 +3431,9 @@ void Application::render() {
                         }
                         if (!modelPath.empty()) {
                             petModel_.setFraming(ui::UnitPortrait::Framing::FullBody);
-                            petModel_.updateCreature(modelPath, assetManager.get(),
-                                                     renderer.get(), io.DeltaTime);
-                            shown = true;
+                            shown = petModel_.updateCreature(
+                                modelPath, assetManager.get(), renderer.get(),
+                                io.DeltaTime);
                         }
                     }
                     if (petModel) {
@@ -3475,10 +3473,9 @@ void Application::render() {
                                 }
                             }
                             inspectModel_.setFraming(ui::UnitPortrait::Framing::FullBody);
-                            inspectModel_.updatePlayer(race, gender, appearance, facial, worn,
-                                                       assetManager.get(), renderer.get(),
-                                                       io.DeltaTime);
-                            shown = true;
+                            shown = inspectModel_.updatePlayer(
+                                race, gender, appearance, facial, worn,
+                                assetManager.get(), renderer.get(), io.DeltaTime);
                         }
                     }
                     if (inspectModel) {
@@ -3599,10 +3596,13 @@ void Application::render() {
                                 worn.push_back({displayIds[slot], invTypes[slot], 0u});
                             }
                         }
-                        face.portrait->updatePlayer(race, gender, appearance, facial,
-                                                    worn, assetManager.get(),
-                                                    renderer.get(), io.DeltaTime);
-                        built = true;
+                        // Whether a model actually loaded, not whether one was
+                        // asked for. A failed load leaves the view holding the
+                        // last unit's face, and a frame that has just changed
+                        // unit would go on showing it.
+                        built = face.portrait->updatePlayer(
+                            race, gender, appearance, facial, worn,
+                            assetManager.get(), renderer.get(), io.DeltaTime);
                     } else {
                         uint32_t displayId = 0;
                         if (face.guid != 0) {
@@ -3618,9 +3618,9 @@ void Application::render() {
                             modelPath = entitySpawner_->getModelPathForDisplayId(displayId);
                         }
                         if (!modelPath.empty()) {
-                            face.portrait->updateCreature(modelPath, assetManager.get(),
-                                                          renderer.get(), io.DeltaTime);
-                            built = true;
+                            built = face.portrait->updateCreature(
+                                modelPath, assetManager.get(), renderer.get(),
+                                io.DeltaTime);
                         }
                     }
                     const uint64_t drawn = built ? face.portrait->textureId() : 0;

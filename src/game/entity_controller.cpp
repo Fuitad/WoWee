@@ -297,6 +297,16 @@ bool EntityController::getPlayerAppearance(uint64_t guid, uint8_t& outRace,
                                            uint8_t& outFacial) const {
     auto entity = const_cast<EntityController*>(this)->getEntityManager().getEntity(guid);
     if (!entity) return false;
+    // Players only, and this is not a formality. extractPlayerAppearance falls
+    // back to scanning the fields for something that *looks* like packed
+    // appearance when the named ones are absent, and the test is loose — any
+    // field whose four bytes are small enough. On a creature it matches almost
+    // immediately, and the answer is race zero with somebody's health for hair.
+    //
+    // That fallback is safe where it was written, because the spawn path only
+    // reaches it after deciding the object is a player. This is a second
+    // caller, and it has to decide the same thing for itself.
+    if (entity->getType() != ObjectType::PLAYER) return false;
     return extractPlayerAppearance(entity->getFields(), outRace, outGender,
                                    outAppearanceBytes, outFacial);
 }

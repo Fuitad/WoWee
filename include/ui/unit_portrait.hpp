@@ -42,6 +42,12 @@ public:
     void update(game::GameHandler& gameHandler, pipeline::AssetManager* assets,
                 rendering::Renderer* renderer, float deltaTime);
 
+    /// Answers whether there is actually a model to show. A load can fail —
+    /// a race this client has no model path for, an M2 the install is missing
+    /// — and the view then keeps whatever it had, which for a frame that has
+    /// just changed unit means the previous one's face. The caller blanks the
+    /// texture instead.
+    ///
     /// Show another player, from the appearance the world already reads for
     /// them: race, gender, the packed appearance bytes and facial features.
     ///
@@ -50,7 +56,7 @@ public:
     /// a face most. An empty list leaves the model as it is rather than
     /// stripping it, because "nothing known yet" and "wearing nothing" arrive
     /// looking the same and only one of them should undress anybody.
-    void updatePlayer(uint8_t race, uint8_t gender, uint32_t appearanceBytes,
+    bool updatePlayer(uint8_t race, uint8_t gender, uint32_t appearanceBytes,
                       uint8_t facialFeatures,
                       const std::vector<game::EquipmentItem>& equipment,
                       pipeline::AssetManager* assets,
@@ -65,7 +71,7 @@ public:
     /// functions sharing a name.
     ///
     /// Reloads only when the path changes, so this is safe every frame.
-    void updateCreature(const std::string& m2Path, pipeline::AssetManager* assets,
+    bool updateCreature(const std::string& m2Path, pipeline::AssetManager* assets,
                         rendering::Renderer* renderer, float deltaTime);
 
     /// Set before the first update, since framing is applied when the model
