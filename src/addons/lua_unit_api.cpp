@@ -920,6 +920,16 @@ static int lua_UnitHasVehicleUI(lua_State* L) {
 static int lua_UnitInVehicle(lua_State* L) { return luaReturnFalse(L); }
 static int lua_UnitControllingVehicle(lua_State* L) { return luaReturnFalse(L); }
 static int lua_UnitIsPossessed(lua_State* L) { return luaReturnFalse(L); }
+/// Whether something else is driving this unit. No charm field is parsed, so
+/// false is the only answer that is not invented — the same position
+/// UnitIsPossessed above it is in.
+///
+/// Bound rather than left out because ToggleGameMenu reads it, and it survives
+/// there only by a short circuit: `ClearTarget() and (not UnitIsCharmed(...))`
+/// never reaches the second half because ClearTarget returns nothing. That is
+/// a fact about a neighbouring binding's return count, not about this one, and
+/// pressing Escape is not where anyone wants to find that out.
+static int lua_UnitIsCharmed(lua_State* L) { return luaReturnFalse(L); }
 static int lua_UnitIsTalking(lua_State* L) { return luaReturnFalse(L); }
 static int lua_UnitInBattleground(lua_State* L) { return luaReturnNil(L); }
 
@@ -2532,6 +2542,7 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"UnitInVehicle",       lua_UnitInVehicle},
                 {"UnitControllingVehicle", lua_UnitControllingVehicle},
                 {"UnitIsPossessed",     lua_UnitIsPossessed},
+                {"UnitIsCharmed",       lua_UnitIsCharmed},
                 {"UnitIsTalking",       lua_UnitIsTalking},
                 {"UnitInBattleground",  lua_UnitInBattleground},
                 {"UnitPlayerOrPetInParty", lua_UnitPlayerOrPetInParty},
