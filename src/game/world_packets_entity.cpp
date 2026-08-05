@@ -605,16 +605,25 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
         data.itemSetId = packet.readUInt32(); // ItemSet(6)
         // MaxDurability(7), Area(8), Map(9), BagFamily(10), TotemCategory(11)
         for (size_t i = 0; i < 5; ++i) packet.readUInt32();
-        // 3 socket slots: socketColor (4 bytes each)
-        data.socketColor[0] = packet.readUInt32();
-        data.socketColor[1] = packet.readUInt32();
-        data.socketColor[2] = packet.readUInt32();
-        // 3 socket content (gem enchantment IDs — skip, not currently displayed)
-        packet.readUInt32();
-        packet.readUInt32();
-        packet.readUInt32();
+        // The three sockets, colour and content together, one socket at a
+        // time — `for (s) { << Socket[s].Color; << Socket[s].Content; }`.
+        // Read as three colours followed by three contents this took the
+        // first socket's *content* as the second socket's colour, and a
+        // template's sockets are empty, so that is zero: an item with three
+        // sockets showed one, and a two-socket item showed its second colour
+        // in the third position. The bonus that landed after them was right
+        // only because six reads is six reads either way.
+        for (size_t i = 0; i < 3; ++i) {
+            data.socketColor[i]   = packet.readUInt32();
+            data.socketContent[i] = packet.readUInt32();
+        }
         // socketBonus (enchantmentId)
         data.socketBonus = packet.readUInt32();
+        // GemProperties.dbc id — non-zero when this item *is* a gem, and how
+        // its colour is known. An item carries no socket colour of its own.
+        if (packet.hasRemaining(4)) {
+            data.gemProperties = packet.readUInt32();
+        }
     }
 
     data.valid = !data.name.empty();

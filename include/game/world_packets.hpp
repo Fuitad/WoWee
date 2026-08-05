@@ -1755,7 +1755,14 @@ struct ItemQueryResponseData {
     uint32_t startQuestId = 0;  // Non-zero: item begins a quest
     // Gem socket slots (WotLK/TBC): 0=no socket; color mask: 1=Meta,2=Red,4=Yellow,8=Blue
     std::array<uint32_t, 3> socketColor{};
+    // What the *template* ships in each socket. Almost always empty — a gem an
+    // owner put in lives in the item's enchantment fields, not here.
+    std::array<uint32_t, 3> socketContent{};
     uint32_t socketBonus = 0;   // enchantmentId of socket bonus; 0=none
+    // GemProperties.dbc id: non-zero when this item is itself a gem. An item's
+    // socket has a colour mask; a gem does not, and this is where its colour
+    // has to be looked up from.
+    uint32_t gemProperties = 0;
     uint32_t itemSetId   = 0;   // ItemSet.dbc entry; 0=not part of a set
     // Requirement fields
     uint32_t requiredSkill = 0;       // SkillLine.dbc ID (0 = no skill required)
