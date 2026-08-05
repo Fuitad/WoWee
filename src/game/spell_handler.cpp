@@ -2640,15 +2640,31 @@ void SpellHandler::handlePetSpells(network::Packet& packet) {
         return;
     }
 
-    // Parse optional pet fields — bail on truncated packets but always log+fire below.
+    // Verified against AzerothCore's Player::PetSpellInitialize, which writes
+    //   guid(8) family(2) duration(4) react(1) command(1) flags(2)
+    // and then one uint32 per action-bar slot, a uint8 spell count, and one
+    // packed uint32 per spell.
+    //
+    // This read the duration as a uint16 and never read the flags, so the
+    // action bar started four bytes early: every slot held the one before it,
+    // the first held the react and command bytes, and the last was lost. The
+    // react and command themselves came out of the duration's upper half —
+    // zero for a permanent pet, which is why they looked plausible.
+    //
+    // The family field is what a WotLK server sends for pet talents. Before
+    // that the packet is the same one without it.
     do {
+        if (!isPreWotlk()) {
+            if (!packet.hasRemaining(2)) break;
+            packet.readUInt16();  // creature family
+        }
         if (!packet.hasRemaining(4)) break;
-        /*uint16_t dur =*/ packet.readUInt16();
-        /*uint16_t timer =*/ packet.readUInt16();
+        packet.readUInt32();      // duration in ms; zero for a permanent pet
 
-        if (!packet.hasRemaining(2)) break;
+        if (!packet.hasRemaining(4)) break;
         owner_.petReactRef()   = packet.readUInt8();
         owner_.petCommandRef() = packet.readUInt8();
+        packet.readUInt16();      // flags, unused by the server too
 
         if (!packet.hasRemaining(GameHandler::PET_ACTION_BAR_SLOTS * 4u)) break;
         for (int i = 0; i < GameHandler::PET_ACTION_BAR_SLOTS; ++i) {
@@ -2660,11 +2676,21 @@ void SpellHandler::handlePetSpells(network::Packet& packet) {
         owner_.petSpellListRef().clear();
         owner_.petAutocastSpellsRef().clear();
         for (uint8_t i = 0; i < spellCount; ++i) {
-            if (!packet.hasRemaining(6)) break;
-            uint32_t spellId = packet.readUInt32();
-            uint16_t activeFlags = packet.readUInt16();
+            // One uint32, not six bytes: MAKE_UNIT_ACTION_BUTTON puts the spell
+            // in the low twenty-four bits and the state in the top byte, the
+            // same packing the action-bar slots above use and that
+            // GetPetActionInfo already masks for. Read as four plus two, the
+            // spell id carried the state and the autocast flag was two bytes of
+            // the next spell — and every spell after the first was misaligned.
+            if (!packet.hasRemaining(4)) break;
+            const uint32_t packed  = packet.readUInt32();
+            const uint32_t spellId = packed & 0x00FFFFFFu;
+            const uint8_t  state   = static_cast<uint8_t>(packed >> 24);
+            if (spellId == 0) continue;
             owner_.petSpellListRef().push_back(spellId);
-            if (activeFlags & 0x0001) {
+            // ACT_ENABLED is 0xC1 and ACT_DISABLED 0x81 — 0x40 is the autocast
+            // bit. The old test was & 0x0001, which is ACT_PASSIVE's bit.
+            if (state & 0x40) {
                 owner_.petAutocastSpellsRef().insert(spellId);
             }
         }
