@@ -22,6 +22,10 @@ One false-positive shape, seen and worth knowing before acting:
 import re
 from pathlib import Path
 
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).resolve().parent))
+from framexml_source import without_comments
+
 ROOT = Path("/home/k/Desktop/wowee")
 ADDONS = ROOT / "src/addons"
 XML = ROOT / "Data/interface"
@@ -64,7 +68,7 @@ def strip_comments(text: str) -> str:
     against a line nothing runs.
     """
     text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
-    return re.sub(r"--\[\[.*?\]\]|--[^\n]*", "", text, flags=re.S)
+    return without_comments(text)
 
 
 def top_level_split(rhs):

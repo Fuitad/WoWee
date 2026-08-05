@@ -29,6 +29,10 @@ import re
 import sys
 from pathlib import Path
 
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).resolve().parent))
+from framexml_source import without_comments
+
 ROOT = Path(__file__).resolve().parent.parent
 FRAMEXML = ROOT / "Data" / "interface" / "framexml"
 ADDONS = ROOT / "Data" / "interface" / "addons"
@@ -46,7 +50,7 @@ def luaSources():
 
 def stripComments(text):
     text = re.sub(r"--\[(=*)\[.*?\]\1\]", "", text, flags=re.S)
-    return re.sub(r"--[^\n]*", "", text)
+    return without_comments(text)
 
 
 def bodyFrom(text, start):

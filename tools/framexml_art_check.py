@@ -39,6 +39,9 @@ are both in the list below and neither can appear.
 import pathlib
 import re
 import sys
+import pathlib as _pathlib
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+from framexml_source import without_comments
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA = ROOT / "Data"
@@ -99,7 +102,7 @@ def references():
         for m in xml_pat.finditer(text):
             refs.setdefault(normalise(m.group(1)), set()).add(path.name)
     for path in INTERFACE.rglob("*.lua"):
-        text = re.sub(r"--[^\n]*", "", path.read_text(errors="ignore"))
+        text = without_comments(path.read_text(errors="ignore"))
         for m in lua_pat.finditer(text):
             # A colour or a blend mode rather than a path.
             if "/" not in m.group(1) and "\\" not in m.group(1):

@@ -36,6 +36,9 @@ acting.
 import pathlib
 import re
 import sys
+import pathlib as _pathlib
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+from framexml_source import without_comments
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FRAMEXML = ROOT / "Data/interface/framexml"
@@ -65,7 +68,7 @@ def script_types():
         text = strip_xml_comments(path.read_text(errors="ignore"))
         out |= set(re.findall(r"<(On[A-Z]\w*)", text))
     for path in FRAMEXML.rglob("*.lua"):
-        text = re.sub(r"--[^\n]*", "", path.read_text(errors="ignore"))
+        text = without_comments(path.read_text(errors="ignore"))
         out |= set(re.findall(r'SetScript\(\s*"(On\w+)"', text))
     return out
 
@@ -79,7 +82,7 @@ def constants():
             boot[m.group(1)] = m.group(2).strip()
     fx = {}
     for path in FRAMEXML.rglob("*.lua"):
-        text = re.sub(r"--[^\n]*", "", path.read_text(errors="ignore"))
+        text = without_comments(path.read_text(errors="ignore"))
         for m in re.finditer(r"^([A-Z][A-Z0-9_]{2,})\s*=\s*([^\n;]{1,40})",
                              text, re.M):
             fx.setdefault(m.group(1), m.group(2).strip())
@@ -104,7 +107,7 @@ def vocabulary(pattern, known_from):
     """
     want = {}
     for path in list(FRAMEXML.rglob("*.lua")) + list(FRAMEXML.rglob("*.xml")):
-        text = re.sub(r"--[^\n]*", "", path.read_text(errors="ignore"))
+        text = without_comments(path.read_text(errors="ignore"))
         for m in re.finditer(pattern, text):
             want.setdefault(m.group(1).lower(), m.group(1))
     known = set()

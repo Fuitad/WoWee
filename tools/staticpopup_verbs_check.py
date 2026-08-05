@@ -35,6 +35,9 @@ Nor a call inside a helper the hook calls. This reads the hook bodies only.
 import pathlib
 import re
 import sys
+import pathlib as _pathlib
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+from framexml_source import without_comments
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 XML = ROOT / "Data/interface"
@@ -85,7 +88,7 @@ def main():
     # `--ForceLogout();` under a line saying forced logout is not
     # finished — and counting those reported names nothing calls.
     text = re.sub(r"--\[\[.*?\]\]", "", text, flags=re.S)
-    text = re.sub(r"--[^\n]*", "", text)
+    text = without_comments(text)
     blocks = re.findall(r'StaticPopupDialogs\["(\w+)"\]\s*=\s*\{(.*?)\n\};',
                         text, re.S)
 

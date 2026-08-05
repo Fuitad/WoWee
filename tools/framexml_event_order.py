@@ -35,6 +35,9 @@ nothing reads exactly like a clean tree, and the first draft of this did.
 import pathlib
 import re
 import sys
+import pathlib as _pathlib
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+from framexml_source import without_comments
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 XML = ROOT / "Data/interface"
@@ -97,8 +100,7 @@ def unpacked():
     """Event -> [(the names it unpacks, the file)]."""
     out = {}
     for path in XML.rglob("*.lua"):
-        text = re.sub(r"--\[\[.*?\]\]|--[^\n]*", "",
-                      path.read_text(errors="ignore"), flags=re.S)
+        text = without_comments(path.read_text(errors="ignore"))
         # A handler serving exactly one event: the unpack at its top is that
         # event's signature.
         for m in re.finditer(

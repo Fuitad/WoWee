@@ -16,6 +16,10 @@ from pathlib import Path as _ToolPath
 sys.path.insert(0, str(_ToolPath(__file__).resolve().parent))
 from pathlib import Path
 
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).resolve().parent))
+from framexml_source import without_comments_or_strings
+
 ROOT = Path("/home/k/Desktop/wowee")
 XML = ROOT / "Data/interface"
 
@@ -46,22 +50,18 @@ LUA = {"assert","collectgarbage","dofile","error","getfenv","getmetatable","ipai
        "time","difftime","abs","ceil","floor","max","min","mod","random","sqrt","bit"}
 
 def strip_comments(text: str) -> str:
-    """Drop Lua line comments, XML comments and the insides of string literals.
+    """Comments and the insides of string literals, from the one place that
+    has both rules.
 
     Not cosmetic: two of the six names this flagged on the candidate elements
     were commented-out calls — --FCFDock_ForceTabSort and
     --GuildBankItemButton_OnUpdate — which read exactly like missing bindings
-    and are not called at all.
-
-    Strings for the same reason, and the case is worse: a Lua pattern is a
+    and are not called at all. Strings for a worse reason: a Lua pattern is a
     string full of parentheses, so `strmatch(name, "DropDownList(%d+)")` read
-    as a call to a global named DropDownList. That put "every dropdown in the
-    interface raises as it opens" at the top of a report, which is alarming and
-    wrong. Quotes are kept so the token still ends where it did.
+    as a call to a global named DropDownList, and put "every dropdown in the
+    interface raises as it opens" at the top of this report.
     """
-    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
-    text = re.sub(r"--\[\[.*?\]\]|--[^\n]*", "", text, flags=re.S)
-    return re.sub(r"'[^'\n]*'|\"[^\"\n]*\"", '""', text)
+    return without_comments_or_strings(text)
 
 
 # Every function this interface hangs off a script handler, by name. A call

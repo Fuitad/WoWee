@@ -15,6 +15,10 @@ import re
 import sys
 from pathlib import Path
 
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).resolve().parent))
+from framexml_source import without_comments_or_strings
+
 ROOT = Path("/home/k/Desktop/wowee")
 XML = ROOT / "Data/interface"
 
@@ -63,7 +67,7 @@ LIVE = _live_files()
 
 def strip(t):
     t = re.sub(r"<!--.*?-->", "", t, flags=re.S)
-    return re.sub(r"--\[\[.*?\]\]|--[^\n]*", "", t, flags=re.S)
+    return without_comments_or_strings(t)
 
 
 # One source of truth. This tool used to work it out from the C++ tables

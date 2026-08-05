@@ -38,6 +38,9 @@ were read, and the second was the wrong one. Arity is a floor, not a contract.
 import pathlib
 import re
 import sys
+import pathlib as _pathlib
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+from framexml_source import without_comments
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 XML = ROOT / "Data/interface"
@@ -81,8 +84,7 @@ def main():
     have = fired()
     rows = []
     for path in XML.rglob("*.lua"):
-        text = re.sub(r"--\[\[.*?\]\]|--[^\n]*", "",
-                      path.read_text(errors="ignore"), flags=re.S)
+        text = without_comments(path.read_text(errors="ignore"))
         for m in HANDLER.finditer(text):
             fn, body = m.group(1), m.group(2)
             u = UNPACK.search(body[:400])

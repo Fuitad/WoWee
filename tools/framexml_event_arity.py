@@ -27,6 +27,10 @@ import re
 import sys
 from pathlib import Path
 
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).resolve().parent))
+from framexml_source import without_comments
+
 ROOT = Path(__file__).resolve().parent.parent
 XML = ROOT / "Data/interface"
 SRC = ROOT / "src"
@@ -88,7 +92,7 @@ ARGN = re.compile(r"\barg([1-9])\b")
 
 wanted = {}
 for path in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
-    text = re.sub(r"--\[\[.*?\]\]|--[^\n]*", "", path.read_text(errors="ignore"), flags=re.S)
+    text = without_comments(path.read_text(errors="ignore"))
     for m in BRANCH.finditer(text):
         name, body = m.group(1), m.group(2)
         u = UNPACK.search(body)

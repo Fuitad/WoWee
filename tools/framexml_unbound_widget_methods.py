@@ -38,9 +38,10 @@ ENGINE = ROOT / "src/addons/lua_engine.cpp"
 
 
 def strip(text, is_xml):
-    if is_xml:
-        text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
-    return re.sub(r"--\[\[.*?\]\]|--[^\n]*", "", text, flags=re.S)
+    """Both rules, from the one place that has them. A method call is syntax,
+    so the insides of strings go too."""
+    del is_xml   # both rules apply to both kinds of file
+    return without_comments_or_strings(text)
 
 
 # What the engine answers for — asked of the one place that decides rather
@@ -51,6 +52,7 @@ def strip(text, is_xml):
 # since it was written. One fact in two places, drifting.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from framexml_provides import widget_methods_provided  # noqa: E402
+from framexml_source import without_comments_or_strings  # noqa: E402
 
 answered_by_engine = widget_methods_provided()
 

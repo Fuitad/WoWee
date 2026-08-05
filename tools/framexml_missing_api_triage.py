@@ -46,6 +46,9 @@ import os
 import pathlib
 import re
 import sys
+import pathlib as _pathlib
+sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
+from framexml_source import without_comments
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 INTERFACE = os.path.join(ROOT, "Data", "interface")
@@ -135,7 +138,7 @@ def is_called(name):
             continue
         if name not in text:
             continue
-        text = re.sub(r"--[^\n]*", "", text)
+        text = without_comments(text)
         if pat.search(text):
             found = True
             break

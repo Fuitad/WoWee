@@ -65,6 +65,7 @@ ADDONS = ROOT / "src/addons"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from framexml_provides import globals_provided
+from framexml_source import without_comments_or_strings
 
 def _balanced(src, open_at):
     """The braced block starting at open_at, so a body ends where it ends.
@@ -170,7 +171,7 @@ CALL = re.compile(r"local\s+([\w\s,]+?)\s*=\s*([A-Z]\w*)\s*\(")
 
 rows = []
 for path in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
-    text = re.sub(r"--\[\[.*?\]\]|--[^\n]*", "", path.read_text(errors="ignore"), flags=re.S)
+    text = without_comments_or_strings(path.read_text(errors="ignore"))
     for fn in FUNC.finditer(text):
         body = fn.group(1)
         for call in CALL.finditer(body):
