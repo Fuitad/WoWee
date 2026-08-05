@@ -156,6 +156,13 @@ CHECKS = [
     ("framexml_return_order.py",
      r"^(\d+) return value\(s\) in the wrong position", 0,
      "binding return values of the wrong kind for their position"),
+    # A panel that polls its own keybinding from inside its own draw stops
+    # answering that key the moment the draw is gated off — which is what
+    # handing the element over does. Three were live on 2026-08-05: the talent
+    # frame, the guild roster and the dungeon finder.
+    ("keybinding_route_check.py",
+     r"^(\d+) that would stop working when the panel is handed over", 0,
+     "keys that stop working when their panel is handed over"),
     ("api_shadowing_check.py",
      r"^\s*(\d+) to look at", 10,
      "names whose winner depends on load order"),

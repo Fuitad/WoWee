@@ -3371,6 +3371,23 @@ void Application::render() {
                     {UiElement::QuestLog,       K::Action::TOGGLE_QUESTS,           "ToggleFrame(QuestLogFrame)"},
                     {UiElement::CharacterFrame, K::Action::TOGGLE_CHARACTER_SCREEN, "ToggleCharacter(\"PaperDollFrame\")"},
                     {UiElement::WorldMap,       K::Action::TOGGLE_WORLD_MAP,        "ToggleFrame(WorldMapFrame)"},
+                    // Three more panels that poll their own key from inside
+                    // their own draw, found by asking which of this client's
+                    // windows do that and which of those are gated. Every one
+                    // that is gated and not listed here is a key that stops
+                    // working the moment its element is handed over — the
+                    // talent frame on N, the guild roster and the dungeon
+                    // finder on theirs.
+                    //
+                    // Names checked against this FrameXML, as the note above
+                    // says to: ToggleTalentFrame is in uiparent.lua,
+                    // ToggleFriendsFrame takes a tab number and three is the
+                    // guild one, and the dungeon finder is ToggleLFDParentFrame
+                    // — the binding is still called TOGGLELFGPARENT, which is
+                    // the old name kept so nobody's key was reset.
+                    {UiElement::Talents,        K::Action::TOGGLE_TALENTS,          "ToggleTalentFrame()"},
+                    {UiElement::Social,         K::Action::TOGGLE_GUILD_ROSTER,     "ToggleFriendsFrame(3)"},
+                    {UiElement::DungeonFinder,  K::Action::TOGGLE_DUNGEON_FINDER,   "ToggleLFDParentFrame()"},
                 };
                 for (const Route& r : kRoutes) {
                     if (!ui::frameXmlOwns(r.element)) continue;
