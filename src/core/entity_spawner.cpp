@@ -1058,7 +1058,13 @@ bool EntitySpawner::getHumanoidAppearance(uint32_t displayId, uint8_t& race,
                     | (static_cast<uint32_t>(extra->second.faceId) << 8)
                     | (static_cast<uint32_t>(extra->second.hairStyleId) << 16)
                     | (static_cast<uint32_t>(extra->second.hairColorId) << 24);
-    return race != 0;
+    // Only where there is a character model to load. This table gives naga,
+    // broken, skeletons and a dozen other NPC-only races the same skin-and-face
+    // columns a character has — about one row in fourteen — and the character
+    // path answers HumanMale for every one of them. A human standing in the
+    // target frame where a naga is standing is worse than the naga's own model
+    // with no texture on it, which is what the creature path will give.
+    return race != 0 && game::hasPlayerModel(static_cast<game::Race>(race));
 }
 
 std::vector<std::pair<uint32_t, uint8_t>>
