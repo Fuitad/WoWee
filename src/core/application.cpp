@@ -1358,6 +1358,7 @@ void Application::shutdown() {
     focusPortrait_.shutdown(renderer.get());
     npcPortrait_.shutdown(renderer.get());
     inspectModel_.shutdown(renderer.get());
+    dressUpModel_.shutdown(renderer.get());
     for (auto& p : partyPortraits_) p.shutdown(renderer.get());
     paperdollModel_.shutdown(renderer.get());
 
@@ -3299,6 +3300,59 @@ void Application::render() {
                     doll->externalTexture = paperdollModel_.textureId();
                 } else if (doll) {
                     doll->externalTexture = 0;
+                }
+
+                // The dressing room. The player as they are, plus whatever
+                // has been tried on — which is the player's own paperdoll with
+                // an overlay, so it is built from the same character record.
+                {
+                    ui::Widget* dressUp = dressUpWidgetId_
+                        ? widgets.get(dressUpWidgetId_) : nullptr;
+                    if (!dressUp || dressUp->name != "DressUpModel") {
+                        dressUp = widgets.findByName("DressUpModel");
+                        dressUpWidgetId_ = dressUp ? dressUp->id : 0;
+                    }
+                    bool shown = false;
+                    if (dressUp && dressUp->visible) {
+                        const game::Character* self = nullptr;
+                        for (const auto& c : gameHandler->getCharacters()) {
+                            if (c.guid == gameHandler->getPlayerGuid()) { self = &c; break; }
+                        }
+                        if (self) {
+                            // What they are wearing, with a tried-on piece
+                            // standing in for the slot it belongs to. Replaced
+                            // rather than appended: wearing two chests is
+                            // wearing the second.
+                            std::vector<game::EquipmentItem> worn = self->equipment;
+                            for (const auto& tried : dressUp->tryOnItems) {
+                                bool replaced = false;
+                                for (auto& item : worn) {
+                                    if (item.inventoryType != tried.inventoryType) continue;
+                                    item.displayModel = tried.displayInfoId;
+                                    replaced = true;
+                                    break;
+                                }
+                                if (!replaced) {
+                                    worn.push_back({tried.displayInfoId,
+                                                    tried.inventoryType, 0u});
+                                }
+                            }
+                            const uint8_t gender =
+                                (self->gender == game::Gender::FEMALE ||
+                                 (self->gender == game::Gender::NONBINARY &&
+                                  self->useFemaleModel)) ? 1 : 0;
+                            dressUpModel_.setFraming(ui::UnitPortrait::Framing::FullBody);
+                            dressUpModel_.updatePlayer(static_cast<uint8_t>(self->race),
+                                                       gender, self->appearanceBytes,
+                                                       self->facialFeatures, worn,
+                                                       assetManager.get(), renderer.get(),
+                                                       io.DeltaTime);
+                            shown = true;
+                        }
+                    }
+                    if (dressUp) {
+                        dressUp->externalTexture = shown ? dressUpModel_.textureId() : 0;
+                    }
                 }
 
                 // The inspect window's figure, on the same terms as the

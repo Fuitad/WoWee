@@ -397,6 +397,13 @@ struct Widget {
     // FontString regions.
     std::string text;
     float fontHeight = 12.0f;
+    /// Items a model frame has been asked to try on, as ItemDisplayInfo id
+    /// and inventory type. The dressing room's contents belong to the frame
+    /// rather than to the application: a second one would have its own, and
+    /// closing this one is what empties it.
+    struct TryOnItem { uint32_t displayInfoId; uint8_t inventoryType; };
+    std::vector<TryOnItem> tryOnItems;
+
     /// The colour a ColorSelect frame is showing, as r, g, b. Its own state
     /// rather than the frame's tint: a colour picker draws its wheel in every
     /// colour and this is only the one being chosen.

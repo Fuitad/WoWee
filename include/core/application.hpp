@@ -177,6 +177,10 @@ private:
     ui::UnitPortrait targetPortrait_;
     /// And the focus, which is deliberate enough to be worth its own pass.
     ui::UnitPortrait focusPortrait_;
+    /// The dressing room's figure, and its frame. The player plus whatever
+    /// has been tried on, which is the paperdoll with an overlay.
+    ui::UnitPortrait dressUpModel_;
+    uint32_t dressUpWidgetId_ = 0;
     /// The inspect window's figure, and the frame it is drawn into. Whole
     /// body at the paperdoll's size, because that is what it is: someone
     /// else's paperdoll.

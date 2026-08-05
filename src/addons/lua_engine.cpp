@@ -4130,6 +4130,16 @@ void LuaEngine::registerCoreAPI() {
         "    self:SetText(active or MINIMAP_TRACKING or 'Tracking')\n"
         "    self:Show()\n"
         "end\n"
+        // A model frame's dressing room. Written here because the two verbs
+        // it forwards to live where item links are already parsed, and the
+        // alternative was a third copy of that parser.
+        "function mt:TryOn(link) __WoweeTryOn(self, link) end\n"
+        "function mt:Undress() __WoweeUndress(self) end\n"
+        // SetUnit and RefreshUnit are what a model frame is told to show. The
+        // frame is driven by name from the render loop — the paperdoll, the
+        // inspect window and the dressing room each have their own — so what
+        // these have to do is answer rather than raise.
+        "function mt:RefreshUnit() end\n"
         "function mt:GetInventorySlot()\n"
         "    return BankButtonIDToInvSlotID(self:GetID(), self.isBag)\n"
         "end\n"
@@ -4645,7 +4655,7 @@ void LuaEngine::registerCoreAPI() {
         "IsObjectType=1,IsProtected=1,IsShown=1,IsUnderMouse=1,\n"
         "IsUnit=1,IsVisible=1,LockHighlight=1,Lower=1,MoveUIPanel=1,\n"
         "New=1,NumLines=1,OnFinished=1,OnUpdate=1,PageDown=1,PageUp=1,PingLocation=1,\n"
-        "Play=1,Raise=1,RefreshUnit=1,RefreshValue=1,RegisterAutoHide=1,RegisterEvent=1,\n"
+        "Play=1,Raise=1,RefreshValue=1,RegisterAutoHide=1,RegisterEvent=1,\n"
         "RegisterForClicks=1,RegisterForDrag=1,ReleaseFrame=1,\n"
         "RemoveMessagesByAccessID=1,ReplaceIconTexture=1,Reset=1,Reuse=1,Run=1,\n"
         "RunAttribute=1,RunFor=1,Save=1,ScrollDown=1,ScrollToBottom=1,ScrollUp=1,\n"
@@ -4696,7 +4706,7 @@ void LuaEngine::registerCoreAPI() {
         "SetUnitBuff=1,SetUnitDebuff=1,SetValue=1,SetValueStep=1,\n"
         "SetVertexColor=1,SetVerticalScroll=1,SetWidth=1,SetZoom=1,Show=1,ShowUIPanel=1,\n"
         "ShowUIPanelFailed=1,StartMovie=1,StartMoving=1,Stop=1,\n"
-        "StopMovie=1,StopMovingOrSizing=1,ToggleInputLanguage=1,TryOn=1,\n"
+        "StopMovie=1,StopMovingOrSizing=1,ToggleInputLanguage=1,\n"
         "UIParentManageFramePositions=1,UnlockHighlight=1,UnregisterAllEvents=1,\n"
         "UnregisterAutoHide=1,UnregisterEvent=1,UpdateColorByID=1,\n"
         "UpdateMouseOverTooltip=1,UpdateTooltip=1,\n"

@@ -1831,3 +1831,20 @@ TEST_CASE("claiming the same portrait twice claims it once", "[widget_tree]") {
     CHECK(tree.portraitsFor("pet").size() == 1);
     CHECK(tree.get(tex)->externalTexture == 0x99);
 }
+
+TEST_CASE("a model frame carries what it has been asked to try on",
+          "[widget_tree]") {
+    // The dressing room's contents belong to the frame, not to the
+    // application: a second one would have its own, and closing this one is
+    // what empties it.
+    WidgetTree tree;
+    const uint32_t model = tree.create(WidgetKind::Frame, tree.root(), "DressUpModel");
+    CHECK(tree.get(model)->tryOnItems.empty());
+
+    tree.get(model)->tryOnItems.push_back({1234u, 5u});
+    tree.get(model)->tryOnItems.push_back({5678u, 1u});
+    CHECK(tree.get(model)->tryOnItems.size() == 2);
+
+    tree.get(model)->tryOnItems.clear();
+    CHECK(tree.get(model)->tryOnItems.empty());
+}

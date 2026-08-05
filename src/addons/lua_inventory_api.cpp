@@ -509,6 +509,50 @@ static uint32_t itemIdFromArg(lua_State* L, int index) {
 //
 // Armour and weapons only: everything else has no display slot, and the frame
 // opens an empty preview for anything that answers yes.
+/// __WoweeTryOn(frame, itemLinkOrId) — put an item on a model frame.
+///
+/// DressUpModel:TryOn(link) is the "try on" every item link and auction row
+/// offers. The list belongs to the frame rather than to the application: a
+/// second dressing room would have its own, and closing one is what empties it.
+///
+/// An item already on the same inventory slot is replaced, because trying on
+/// two chests means wearing the second.
+static int lua_WoweeTryOn(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    auto* tree = getWidgetTree(L);
+    if (!gh || !tree || !lua_istable(L, 1)) return 0;
+    lua_getfield(L, 1, "__wid");
+    const uint32_t id = static_cast<uint32_t>(lua_tointeger(L, -1));
+    lua_pop(L, 1);
+    auto* w = tree->get(id);
+    if (!w) return 0;
+
+    const uint32_t itemId = itemIdFromArg(L, 2);
+    const auto* info = itemId ? gh->getItemInfo(itemId) : nullptr;
+    if (!info || info->displayInfoId == 0) return 0;
+
+    const uint8_t slot = static_cast<uint8_t>(info->inventoryType);
+    for (auto& worn : w->tryOnItems) {
+        if (worn.inventoryType == slot) {
+            worn.displayInfoId = info->displayInfoId;
+            return 0;
+        }
+    }
+    w->tryOnItems.push_back({info->displayInfoId, slot});
+    return 0;
+}
+
+/// __WoweeUndress(frame) — take everything tried on back off.
+static int lua_WoweeUndress(lua_State* L) {
+    auto* tree = getWidgetTree(L);
+    if (!tree || !lua_istable(L, 1)) return 0;
+    lua_getfield(L, 1, "__wid");
+    const uint32_t id = static_cast<uint32_t>(lua_tointeger(L, -1));
+    lua_pop(L, 1);
+    if (auto* w = tree->get(id)) w->tryOnItems.clear();
+    return 0;
+}
+
 static int lua_IsDressableItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     const uint32_t itemId = itemIdFromArg(L, 1);
@@ -2875,6 +2919,8 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetMerchantItemCostInfo", lua_GetMerchantItemCostInfo},
                 {"GetMerchantItemCostItem", lua_GetMerchantItemCostItem},
                 {"GetItemInfo",       lua_GetItemInfo},
+                {"__WoweeTryOn",   lua_WoweeTryOn},
+                {"__WoweeUndress", lua_WoweeUndress},
                 {"IsDressableItem",   lua_IsDressableItem},
                 {"GetItemQualityColor", lua_GetItemQualityColor},
                 {"_GetItemTooltipData", lua_GetItemTooltipData},
