@@ -1697,6 +1697,21 @@ static int lua_UseContainerItem(lua_State* L) {
     // one, so it goes into a bag slot the way it should.
     const bool equippable = info && info->valid && info->inventoryType != 0;
 
+    // An item that begins a quest offers it, and that is not a use at all.
+    // AzerothCore starts an item quest from CMSG_QUESTGIVER_QUERY_QUEST naming
+    // the *item's* guid — HandleQuestgiverQueryQuestOpcode accepts TYPEMASK_ITEM
+    // — and does nothing with CMSG_USE_ITEM for one. This client's own bag
+    // window checked it first for that reason and was the only caller, so with
+    // the bags handed over a quest item answered a right-click with nothing at
+    // all.
+    if (itemSlot->item.startQuestId != 0) {
+        const uint64_t itemGuid = containerSlotGuid(gh, bag, slot);
+        if (itemGuid != 0) {
+            gh->offerQuestFromItem(itemGuid, itemSlot->item.startQuestId);
+            return 0;
+        }
+    }
+
     // By slot rather than by item id: the id searches the bags for a match and
     // can find a different stack of the same thing than the one clicked.
     if (bag == 0) {
