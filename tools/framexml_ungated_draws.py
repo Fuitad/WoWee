@@ -81,7 +81,14 @@ for p in sorted(UI.rglob("*.cpp")):
     for name, entries in functions(text, p).items():
         bodies.setdefault(name, []).extend(entries)
 
-# A call is gated when frameXmlOwns appears in the same `if` -- either guarding
+# A gate is not always an element. A load-on-demand addon arrives mid-run
+# because the player asked for the feature, so what it draws cannot be chosen
+# before the run starts and no UiElement can describe it — frameXmlDrawsCombatText
+# is that shape, and reading only frameXmlOwns calls the surface behind it
+# ungated when it stands down correctly.
+GATES = ("frameXmlOwns", "frameXmlDraws")
+
+# A call is gated when a gate appears in the same `if` -- either guarding
 # the statement on that line, or opening the block the call sits in. Track the
 # brace depth at which each gate opened so the block's extent is known.
 # Exclude only namespace-qualified names (`ImGui::Begin`), by refusing a `:`
@@ -124,7 +131,7 @@ def edges(body):
     # statement. This is how renderQuestObjectiveTracker was first misreported.
     pending = False
     for line in body.split("\n"):
-        gate_here = "frameXmlOwns" in line
+        gate_here = any(g in line for g in GATES)
         for m in CALL.finditer(line):
             receiver, callee = m.group(1), m.group(2)
             if callee in ("if", "for", "while", "switch", "return", "sizeof"):
@@ -137,7 +144,14 @@ def edges(body):
             gate_depths.append(depth)
             pending = False
         elif gate_here:
-            pending = True
+            # ...unless the guarded statement is on this line already. A
+            # one-line `if (!gate()) draw();` needs no carry, and carrying it
+            # anyway gates whatever is written next: adding one such line to
+            # game_screen.cpp took the DPS meter out of this report, and the
+            # DPS meter has no gate at all.
+            pending = not any(
+                m.group(2) not in ("if", "for", "while", "switch", "return", "sizeof")
+                for m in CALL.finditer(line.split(")", 1)[-1]))
         elif line.strip():
             pending = False
         depth += opened - closed
@@ -187,7 +201,7 @@ draws = {n for n, es in bodies.items()
 # than a check at the call site. Both forms mean the same thing at runtime, so
 # both have to count -- reading only call sites reports these as ungated.
 self_gated = {n for n, es in bodies.items()
-              if any("frameXmlOwns" in b for _, b in es)}
+              if any(any(g in b for g in GATES) for _, b in es)}
 
 # Walk from the roots, refusing to cross a gated edge. Anything drawing that is
 # still reachable cannot be switched off.

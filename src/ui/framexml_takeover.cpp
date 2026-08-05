@@ -358,6 +358,26 @@ void frameXmlNoteMouseOwned(bool owned) {
 }
 bool frameXmlOwnsMouse() { return gMouseOwned.load(std::memory_order_relaxed); }
 
+namespace { std::atomic<bool> gCombatTextAddOn{false}; }
+
+void frameXmlNoteAddOnLoaded(const std::string& addOnName) {
+    // Matched without regard to case, because the interface asks for
+    // "Blizzard_CombatText" and the directory is blizzard_combattext.
+    std::string lower;
+    lower.reserve(addOnName.size());
+    for (char c : addOnName)
+        lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    if (lower == "blizzard_combattext") {
+        gCombatTextAddOn.store(true, std::memory_order_relaxed);
+        LOG_INFO("FrameXML: Blizzard_CombatText loaded; this client's floating "
+                 "combat text stands down");
+    }
+}
+
+bool frameXmlDrawsCombatText() {
+    return gCombatTextAddOn.load(std::memory_order_relaxed);
+}
+
 void frameXmlNoteWorldEntry() { gWorldEntered.store(true, std::memory_order_relaxed); }
 bool frameXmlWorldEntered() { return gWorldEntered.load(std::memory_order_relaxed); }
 

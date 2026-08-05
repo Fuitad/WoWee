@@ -518,7 +518,11 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     renderNameplates(gameHandler);  // player names always shown; NPC plates gated by showNameplates_
     combatUI_.renderBattlegroundScore(gameHandler);
     combatUI_.renderRaidWarningOverlay(gameHandler);
-    combatUI_.renderCombatText(gameHandler);
+    // Blizzard_CombatText draws its own once it is loaded, which happens the
+    // moment the player touches the float-mode dropdown in the interface
+    // options. Not an element gate: the addon arrives mid-run, so this has to
+    // keep drawing until it does and then stand down.
+    if (!frameXmlDrawsCombatText()) combatUI_.renderCombatText(gameHandler);
     combatUI_.renderDPSMeter(gameHandler, settingsPanel_, lastTargetFrameBottom_);
     if (!frameXmlOwns(UiElement::Durability)) {
         renderDurabilityWarning(gameHandler);

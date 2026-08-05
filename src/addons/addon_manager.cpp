@@ -787,6 +787,9 @@ bool AddonManager::loadAddOnByName(const std::string& name, std::string& reason)
         // out of its way to avoid.
         return false;
     }
+    // What it draws is on screen from here, which for some of them is a second
+    // copy of something this client is already drawing.
+    ui::frameXmlNoteAddOnLoaded(found->addonName);
     return true;
 }
 
