@@ -114,6 +114,36 @@ def sent():
     return names
 
 
+def chat_family():
+    """The CHAT_MSG_ family, which neither half of the scan above can see.
+
+    The client builds these names by concatenating the chat type onto a prefix,
+    and FrameXML registers them by walking its ChatTypeGroup tables — so a
+    literal-name match finds nothing on either side and the family is absent
+    from the report rather than wrong in it. A zero above says nothing about
+    chat.
+
+    Read from the two places that do name them literally: the switch that turns
+    a wire chat type into its name, and the tables FrameXML registers from.
+    That comparison found ten types the client could not name — loot money,
+    experience, honour, reputation, tradeskills, pet info and the rest of the
+    run between LOOT and the battleground block — each of which fell to the
+    default, was named UNKNOWN, and was dropped by FrameXML's chat.
+    """
+    names = os.path.join(SRC, "game", "world_packets_social.cpp")
+    if not os.path.exists(names):
+        return set(), set()
+    src = open(names, encoding="utf-8", errors="ignore").read()
+    ours = {"CHAT_MSG_" + n for n in re.findall(
+        r'case ChatType::\w+:\s*return\s+"([A-Z_0-9]+)"', src)}
+    chat = os.path.join(INTERFACE, "framexml", "chatframe.lua")
+    if not os.path.exists(chat):
+        return ours, set()
+    theirs = set(re.findall(
+        r'"(CHAT_MSG_\w+)"', open(chat, encoding="utf-8", errors="ignore").read()))
+    return ours, theirs
+
+
 def handled_opcodes():
     """SMSG names this client has a handler for, and which of those only skip.
 
@@ -195,6 +225,20 @@ def main():
               "which is\na decision rather than a gap:")
         for event, opcode in onlySkipped:
             print(f"  {event:<38} {opcode}")
+
+    ours, theirs = chat_family()
+    unnamed = sorted(theirs - ours)
+    print()
+    print(f"Chat family, read separately because neither half above can see it "
+          f"—\nthe client names {len(ours)} wire chat types, FrameXML names "
+          f"{len(theirs)}:")
+    if unnamed:
+        print(f"  {len(unnamed)} FrameXML names that the client cannot, so each "
+              f"falls to the\n  default, is called UNKNOWN, and is dropped:")
+        for name in unnamed:
+            print(f"    {name}")
+    else:
+        print("  every one of FrameXML's is named here")
 
 
 if __name__ == "__main__":
