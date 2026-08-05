@@ -1023,6 +1023,18 @@ static int lua_ReturnNothing(lua_State*) { return 0; }
 /// counterpart in the game, kept here so the getter and setter agree.
 static int& selectedDisplayChannel() { static int selected = 0; return selected; }
 
+/// Which of the four extra action bars are switched on: bottom-left,
+/// bottom-right, right and the second right, in that order.
+///
+/// The real client mirrors these from the server's account data. Here they are
+/// a preference with nowhere else to live, so they are kept beside the pair of
+/// calls that read and write them — the setter used to accept them and forget,
+/// which left the getter with nothing to answer.
+static std::array<bool, 4>& actionBarToggles() {
+    static std::array<bool, 4> shown{};
+    return shown;
+}
+
 /// A cooldown that is not running: start and duration both zero. Two values,
 /// because the caller adds them together on the next line —
 /// local start, duration = GetSummonFriendCooldown(); start + duration — and
@@ -2213,6 +2225,29 @@ static int lua_SetGamma(lua_State* L) {
 // maxAnisotropy is the one real number, and sixteen is the ceiling every
 // device this client will start on supports; the options panel uses it only to
 // bound its own dropdown.
+/// Terrain texture detail, as the video panel's TerrainDetail slider sets it.
+///
+/// Both halves were missing, and the slider reads its own value on every
+/// refresh of the panel — `self.GetCurrentValue = function (self) return
+/// GetTerrainMip(); end` — so opening Video Options called nil, and moving the
+/// slider called nil again.
+///
+/// Held rather than applied: nothing in the terrain renderer takes a mip bias
+/// yet. The slider works and remembers where it was put, which is the whole of
+/// what the panel can observe, and a value is here for the renderer to read
+/// when it grows one.
+static int& terrainMip() { static int level = 1; return level; }
+
+static int lua_GetTerrainMip(lua_State* L) {
+    lua_pushnumber(L, terrainMip());
+    return 1;
+}
+
+static int lua_SetTerrainMip(lua_State* L) {
+    terrainMip() = static_cast<int>(luaL_optnumber(L, 1, 1));
+    return 0;
+}
+
 static int lua_GetVideoCaps(lua_State* L) {
     lua_pushboolean(L, 1);   // 1: anisotropic
     lua_pushboolean(L, 1);   // 2: pixelShaders
@@ -2469,6 +2504,8 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"Quit",                     lua_Quit},
                 {"ReloadUI",                 lua_ReloadUI},
                 {"GetGamma",                 lua_GetGamma},
+                {"GetTerrainMip",            lua_GetTerrainMip},
+                {"SetTerrainMip",            lua_SetTerrainMip},
                 {"SetGamma",                 lua_SetGamma},
                 {"GetVideoCaps",             lua_GetVideoCaps},
                 {"GetCVarMin",               lua_GetCVarMin},
@@ -2569,7 +2606,24 @@ void registerSystemLuaAPI(lua_State* L) {
                 // and MultiActionBar_Update decides from the SHOW_MULTI_ACTIONBAR_*
                 // globals, which are CVars and persist on their own — so the
                 // C-side toggle this mirrors has nothing left to do here.
-                {"SetActionBarToggles",      lua_ReturnNothing},
+                // Set/GetActionBarToggles — which of the four extra action
+                // bars are shown.
+                //
+                // The setter was a no-op and the getter was not bound at all.
+                // Each of the four checkboxes in Interface Options reads its
+                // own state with
+                //     self.value or ((select(n, GetActionBarToggles()) ...
+                // and self.value is nil until something sets it, so opening
+                // that panel called nil four times.
+                {"SetActionBarToggles", [](lua_State* L) -> int {
+            auto& shown = actionBarToggles();
+            for (int i = 0; i < 4; ++i) shown[static_cast<size_t>(i)] = lua_toboolean(L, i + 1) != 0;
+            return 0;
+        }},
+                {"GetActionBarToggles", [](lua_State* L) -> int {
+            for (bool on : actionBarToggles()) lua_pushboolean(L, on ? 1 : 0);
+            return 4;
+        }},
                 // Voice chat, which this client has none of. The enumerations
                 // hand back lists, so they answer with nothing rather than with
                 // a zero; IsVoiceChatEnabled already answers false beside them.
