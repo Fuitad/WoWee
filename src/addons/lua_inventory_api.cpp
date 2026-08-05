@@ -1635,35 +1635,55 @@ static int lua_UseContainerItem(lua_State* L) {
                           ((info->itemFlags & kItemFlagOpenable) != 0 ||
                            info->itemClass == 1);
 
-    // With a merchant open, a right-click in a bag is a sale — the real client
-    // reads UseContainerItem that way and containerframe.lua relies on it,
-    // having already returned early for the buyback tab and for anything
-    // needing a price confirmation. There is no separate sell call for it to
-    // make; SellContainerItem is this client's own invention and FrameXML has
-    // never heard of it, so the sell verbs sat behind a name nothing calls.
-    if (gh->isVendorWindowOpen()) {
-        if (bag == 0) gh->sellItemBySlot(slot - 1);
-        else          gh->sellItemInBag(bag - 1, slot - 1);
+    // What an open window makes a right-click mean, in the order this client's
+    // own bag window decided it — mail, bank, guild bank, merchant — because
+    // that window is the specification and it is the one being suppressed. The
+    // real client reads UseContainerItem the same way and containerframe.lua
+    // has no branch for any of them: line 733 routes every right-click here and
+    // the C function decides.
+    //
+    // Each of these verbs had exactly one caller, in the window handed over, so
+    // handing the bags to FrameXML left no way to attach mail, bank an item or
+    // stock a guild bank at all — and a right-click ran on to the branches
+    // below and *used* the item instead.
+    //
+    // Trade is deliberately not here. setTradeItem needs a slot to put the item
+    // in and this client's own window has never offered a right-click for it,
+    // so a branch would be inventing behaviour rather than restoring it; a
+    // trade is made by dragging, which the cursor bridge carries.
+    const int wireSlot = (bag == 0)
+                             ? game::slots::backpackWireSlot(slot - 1)
+                             : (slot - 1);
+    const uint8_t wireBag =
+        (bag == 0) ? 0xFF
+                   : static_cast<uint8_t>(game::slots::wornBagContainer(bag - 1));
+
+    if (gh->isMailComposeOpen()) {
+        if (bag == 0) gh->attachItemFromBackpack(slot - 1);
+        else          gh->attachItemFromBag(bag - 1, slot - 1);
         return 0;
     }
 
-    // With the bank open it is a deposit, for the same reason and by the same
-    // route: the real client reads UseContainerItem that way and there is no
-    // separate call for containerframe.lua to make. Without this, right-clicking
-    // an item to bank it ran on to the branches below and *used* it — and the
-    // client's own window is where the distinction was drawn, so handing the
-    // bags over left depositItem with no caller at all.
-    //
-    // Bank bags are not container ids here: depositItem sends
-    // CMSG_AUTOBANK_ITEM, which asks the server to find the first free slot
-    // across the main bank and every purchased bank bag.
+    // depositItem sends CMSG_AUTOBANK_ITEM, so the server finds the first free
+    // slot across the main bank and every purchased bank bag rather than this
+    // choosing one.
     if (gh->isBankOpen()) {
-        if (bag == 0)
-            gh->depositItem(0xFF, static_cast<uint8_t>(
-                                      game::slots::backpackWireSlot(slot - 1)));
-        else
-            gh->depositItem(static_cast<uint8_t>(game::slots::wornBagContainer(bag - 1)),
-                            static_cast<uint8_t>(slot - 1));
+        gh->depositItem(wireBag, static_cast<uint8_t>(wireSlot));
+        return 0;
+    }
+
+    if (gh->isGuildBankOpen()) {
+        gh->guildBankDepositFromInventory(wireBag, static_cast<uint8_t>(wireSlot));
+        return 0;
+    }
+
+    // SellContainerItem is this client's own invention and FrameXML has never
+    // heard of it, so the sell verbs sat behind a name nothing calls.
+    // containerframe.lua has already returned early for the buyback tab and for
+    // anything needing a price confirmation before it reaches here.
+    if (gh->isVendorWindowOpen()) {
+        if (bag == 0) gh->sellItemBySlot(slot - 1);
+        else          gh->sellItemInBag(bag - 1, slot - 1);
         return 0;
     }
 
