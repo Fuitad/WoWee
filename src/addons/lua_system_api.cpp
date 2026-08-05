@@ -92,16 +92,73 @@ static int lua_PlaySound(lua_State* L) {
         const char* name = luaL_optstring(L, 1, "");
         sound = name;
         for (char& c : sound) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-        if (sound == "IGMAINMENUOPTION" || sound == "IGMAINMENUOPTIONCHECKBOXON")
-            sfx->playButtonClick();
-        else if (sound == "IGQUESTLISTOPEN") sfx->playQuestActivate();
-        else if (sound == "IGQUESTLISTCOMPLETE") sfx->playQuestComplete();
-        else if (sound == "IGBACKPACKOPEN") sfx->playBagOpen();
-        else if (sound == "IGBACKPACKCLOSE") sfx->playBagClose();
-        else if (sound == "LEVELUPSOUND") sfx->playLevelUp();
-        else if (sound == "IGPLAYERINVITEACCEPTED") sfx->playButtonClick();
-        else if (sound == "TALENTSCREENOPEN") sfx->playCharacterSheetOpen();
-        else if (sound == "TALENTSCREENCLOSE") sfx->playCharacterSheetClose();
+
+        // FrameXML asks for sixty-eight names and nine of them were answered,
+        // so nearly every panel this branch has handed over opened, closed and
+        // was clicked in silence. The sound manager already had most of these
+        // under its own names; only the mapping was missing.
+        //
+        // Mapped where the client has the sound the name asks for, and left
+        // alone where it does not. Substituting something that merely exists
+        // is worse than silence: a wrong sound is a wrong sound forever, while
+        // a missing one is a gap someone can still hear.
+        struct Mapping { const char* name; void (audio::UiSoundManager::*play)(); };
+        static const Mapping kMappings[] = {
+            // A click is a click, and these are all buttons.
+            {"IGMAINMENUOPTION",            &audio::UiSoundManager::playButtonClick},
+            {"IGMAINMENUOPTIONCHECKBOXON",  &audio::UiSoundManager::playButtonClick},
+            {"IGMAINMENUOPTIONCHECKBOXOFF", &audio::UiSoundManager::playButtonClick},
+            {"IGPLAYERINVITEACCEPTED",      &audio::UiSoundManager::playButtonClick},
+            {"IGCHARACTERINFOTAB",          &audio::UiSoundManager::playButtonClick},
+            {"UCHATSCROLLBUTTON",           &audio::UiSoundManager::playButtonClick},
+            {"IGCHATSCROLLUP",              &audio::UiSoundManager::playButtonClick},
+            {"IGCHATSCROLLDOWN",            &audio::UiSoundManager::playButtonClick},
+            {"IGCHATBOTTOM",                &audio::UiSoundManager::playButtonClick},
+            {"IGMAINMENUOPEN",              &audio::UiSoundManager::playMenuButtonClick},
+            {"IGMAINMENUCLOSE",             &audio::UiSoundManager::playMenuButtonClick},
+            {"IGMAINMENUCONTINUE",          &audio::UiSoundManager::playMenuButtonClick},
+            {"GSTITLEOPTIONOK",             &audio::UiSoundManager::playButtonClick},
+            {"GSTITLEOPTIONEXIT",           &audio::UiSoundManager::playButtonClick},
+            // The panels, each of which has its own pair here already.
+            {"IGCHARACTERINFOOPEN",         &audio::UiSoundManager::playCharacterSheetOpen},
+            {"IGCHARACTERINFOCLOSE",        &audio::UiSoundManager::playCharacterSheetClose},
+            {"TALENTSCREENOPEN",            &audio::UiSoundManager::playCharacterSheetOpen},
+            {"TALENTSCREENCLOSE",           &audio::UiSoundManager::playCharacterSheetClose},
+            {"IGBACKPACKOPEN",              &audio::UiSoundManager::playBagOpen},
+            {"IGBACKPACKCLOSE",             &audio::UiSoundManager::playBagClose},
+            {"KEYRINGOPEN",                 &audio::UiSoundManager::playBagOpen},
+            {"KEYRINGCLOSE",                &audio::UiSoundManager::playBagClose},
+            {"IGQUESTLOGOPEN",              &audio::UiSoundManager::playQuestLogOpen},
+            {"IGQUESTLOGCLOSE",             &audio::UiSoundManager::playQuestLogClose},
+            {"IGQUESTLISTOPEN",             &audio::UiSoundManager::playQuestActivate},
+            {"IGQUESTLISTCOMPLETE",         &audio::UiSoundManager::playQuestComplete},
+            {"IGQUESTLOGABANDONQUEST",      &audio::UiSoundManager::playQuestFailed},
+            {"IGQUESTCANCEL",               &audio::UiSoundManager::playQuestFailed},
+            {"WRITEQUEST",                  &audio::UiSoundManager::playQuestUpdate},
+            {"IGSPELLBOOKOPEN",             &audio::UiSoundManager::playPickupBook},
+            {"IGSPELLBOOKCLOSE",            &audio::UiSoundManager::playPickupBook},
+            {"IGABILITYOPEN",               &audio::UiSoundManager::playPickupBook},
+            {"IGABILITYCLOSE",              &audio::UiSoundManager::playPickupBook},
+            {"IGABILIITYPAGETURN",          &audio::UiSoundManager::playPickupBook},
+            {"AUCTIONWINDOWOPEN",           &audio::UiSoundManager::playAuctionHouseOpen},
+            {"AUCTIONWINDOWCLOSE",          &audio::UiSoundManager::playAuctionHouseClose},
+            // The rest, each with an exact counterpart.
+            {"LEVELUPSOUND",                &audio::UiSoundManager::playLevelUp},
+            {"MAPPING",                     &audio::UiSoundManager::playMinimapPing},
+            {"TELLMESSAGE",                 &audio::UiSoundManager::playWhisperReceived},
+            {"IGCHARACTERNPCSELECT",        &audio::UiSoundManager::playTargetSelect},
+            {"IGCREATUREAGGROSELECT",       &audio::UiSoundManager::playTargetSelect},
+            {"IGCREATURENEUTRALSELECT",     &audio::UiSoundManager::playTargetSelect},
+            {"INTERFACESOUND_LOSTTARGETUNIT", &audio::UiSoundManager::playTargetDeselect},
+            {"IGBACKPACKCOINSELECT",        &audio::UiSoundManager::playLootCoinSmall},
+            {"IGBACKPACKCOINOK",            &audio::UiSoundManager::playLootCoinSmall},
+            {"LOOTWINDOWOPENEMPTY",         &audio::UiSoundManager::playError},
+            {"LFG_DENIED",                  &audio::UiSoundManager::playError},
+            {"LFG_REWARDS",                 &audio::UiSoundManager::playQuestComplete},
+        };
+        for (const Mapping& m : kMappings) {
+            if (sound == m.name) { (sfx->*m.play)(); break; }
+        }
     }
     return 0;
 }
