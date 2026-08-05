@@ -4594,8 +4594,26 @@ void LuaEngine::registerCoreAPI() {
         // which needs a model rendered to a texture. The coordinates come from
         // FrameXML's own CLASS_ICON_TCOORDS, read when called so it does not
         // matter that this is defined before that table exists.
+        // Captured before being replaced, and called rather than discarded.
+        //
+        // This bootstrap runs after the bindings are registered, so defining
+        // the name here won and the binding underneath it never ran again.
+        // That binding is not a stub: it marks the frame as one to fill with
+        // the player's rendered face, which application.cpp does every frame
+        // from widgets.playerPortraits(). The list stayed empty, so the five
+        // frames in FrameXML that name the player wore a class circle while
+        // the code that would have given them a face had nothing to iterate.
+        //
+        // PlayerPortrait itself was never affected — that one is found by name
+        // and filled directly — which is why the circle looked deliberate
+        // everywhere it appeared.
+        "local markPortrait = SetPortraitTexture\n"
         "function SetPortraitTexture(texture, unit)\n"
         "    if type(texture) ~= 'table' then return end\n"
+        "    if markPortrait then markPortrait(texture, unit) end\n"
+        // The player's face is a real render and is assigned every frame, so
+        // stamping a class circle over it would only fight that assignment.
+        "    if unit and strlower(unit) == 'player' then return end\n"
         "    local _, class = UnitClass(unit or 'player')\n"
         "    local coords = class and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[class]\n"
         "    if coords then\n"

@@ -63,18 +63,40 @@ def scan():
             metatable_methods.add(name)
 
         # Globals the bootstrap Lua defines: "function Name(" and "Name = function".
+        #
+        # Except where the chunk captures the binding first —
+        #     local markPortrait = SetPortraitTexture
+        #     function SetPortraitTexture(texture, unit) ... markPortrait(...)
+        # — which composes with it rather than replacing it. Redefining a name
+        # is only a fault when what was underneath stops running, and that is
+        # the difference between the two shapes.
+        captured = set(re.findall(r'"local\s+\w+\s*=\s*([A-Z]\w*)\\n"', text))
         for name in re.findall(r'"function\s+([A-Za-z_]\w*)\s*\(', text):
+            if name in captured:
+                continue
             bootstrap_globals.setdefault(name, []).append(path.name)
         for name in re.findall(r'"([A-Za-z_]\w*)\s*=\s*function', text):
             bootstrap_globals.setdefault(name, []).append(path.name)
 
         # The counting stubs, defined by looping over a list of names rather
-        # than one at a time. They are bootstrap Lua like any other, so one that
-        # shares a name with a C binding wins and answers zero forever —
+        # than one at a time. They were bootstrap Lua like any other, so one
+        # that shared a name with a C binding won and answered zero forever —
         # GetNumMacroIcons did exactly that, leaving the icon picker empty
         # beside a working GetMacroIconInfo.
-        for block in re.findall(r"local counting = \{(.*?)\}", text, re.S):
-            for name in re.findall(r"'(\w+)'", block):
+        #
+        # That loop is guarded now: `if rawget(_G, name) == nil then`, so a
+        # name a binding already defines is skipped and the stub is installed
+        # only where there is nothing. Reading the list without reading the
+        # guard reported twenty-three bindings as shadowed when none was —
+        # including four bound the same day, which read as though the day's
+        # work had been overwritten. So the guard is what decides whether the
+        # list counts, and it is looked for here.
+        for block in re.findall(
+                r"local counting = \{(.*?)\}(.*?)\bend\\n", text, re.S):
+            names, body = block
+            if "rawget(_G, name) == nil" in body:
+                continue   # installed only where nothing is defined
+            for name in re.findall(r"'(\w+)'", names):
                 counting_stubs.add(name)
 
         # Methods hung directly on a named global's table.
