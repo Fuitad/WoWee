@@ -35,6 +35,12 @@ ROOT = Path(__file__).resolve().parent.parent
 WIDTH = {"uint8": 1, "int8": 1, "uint16": 2, "int16": 2, "uint32": 4, "int32": 4,
          "uint64": 8, "int64": 8, "float": 4, "double": 8}
 
+# A variable written bare that is an ObjectGuid: `data << bidder;` is eight
+# bytes. Named rather than typed, because the declaration is usually in the
+# signature rather than the body. GetPackGUID() and appendPackGUID are variable
+# and do not match this — they are a call, not a bare name.
+GUIDISH = re.compile(r"(?i)guid$|^guid|^bidder$|^owner$|^target$|^player$")
+
 
 def server_minimums(server_root):
     """opcode -> (lower bound in bytes, whether the bound is exact)."""
@@ -54,9 +60,22 @@ def server_minimums(server_root):
                 # The whole type name. An optional uint|int prefix here eats
                 # half of it — "uint32(" captured as "32" — and every writer
                 # measured as zero.
-                w = re.match(r"\w+\s*<<\s*(\w+)\s*\(", s)
-                if w and w.group(1) in WIDTH:
-                    total += WIDTH[w.group(1)]
+                # Every term of the line, not just the first. A writer that
+                # says `data << uint8(a) << uint32(b);` on one line was being
+                # measured as one byte, and SMSG_SET_PROFICIENCY — which is
+                # exactly that line — came out as "guards 5, packet is at least
+                # 1" when the guard was right and the packet is five.
+                terms = re.findall(r"<<\s*(\w+)\s*\(", s)
+                if terms and all(t in WIDTH for t in terms):
+                    total += sum(WIDTH[t] for t in terms)
+                    continue
+                # A bare `data << name;` of a known guid variable is eight.
+                # Treating it as unmeasurable stopped the count at the guid,
+                # which is usually near the front, and turned two correct
+                # handlers into "guards more than the packet holds".
+                bare = re.match(r"\w+\s*<<\s*(\w+)\s*;\s*$", s)
+                if bare and GUIDISH.search(bare.group(1)):
+                    total += 8
                     continue
                 # Anything else ends the measurable prefix: a bare `data << x`
                 # of unknown type, a string, a guid, a loop, a branch.
@@ -117,13 +136,28 @@ def main():
     print(f"{len(server)} server writers measured, {len(client)} client guards, "
           f"{len(shared)} opcodes in both\n")
 
+    # Only an exact measurement is evidence. Where the writer ends in a string,
+    # a guid or a loop the figure is a lower bound, and a guard above a lower
+    # bound says nothing — the packet has more to come.
+    # SMSG_CALENDAR_EVENT_INVITE_ALERT was reported for years on that basis: it
+    # writes a uint64 and then a title, so the bound is eight and the guard of
+    # nine is right. Reporting it made the whole list something to dismiss.
     rows = [(op, client[op], server[op][0], server[op][1])
-            for op in shared if client[op] > server[op][0]]
-    print(f"{len(rows)} guard(s) longer than the packet — these handlers never run:\n")
+            for op in shared if client[op] > server[op][0] and server[op][1]]
+    print(f"{len(rows)} guard(s) longer than the packet — these handlers never "
+          f"run:\n")
     for op, guard, bound, exact in rows:
-        qualifier = "exactly" if exact else "at least"
-        print(f"  {op:44} guards {guard}, packet is {qualifier} {bound}")
+        print(f"  {op:44} guards {guard}, packet is exactly {bound}")
     if not rows:
+        print("  (none)")
+
+    loose = [(op, client[op], server[op][0])
+             for op in shared if client[op] > server[op][0] and not server[op][1]]
+    print(f"\n{len(loose)} guard(s) above a lower bound — not evidence, listed "
+          f"so the number is not zero by omission:\n")
+    for op, guard, bound in loose:
+        print(f"  {op:44} guards {guard}, packet is at least {bound}")
+    if not loose:
         print("  (none)")
     return 0
 

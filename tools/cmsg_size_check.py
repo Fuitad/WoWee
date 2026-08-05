@@ -78,7 +78,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 WIDTH = {"uint8": 1, "int8": 1, "uint16": 2, "int16": 2, "uint32": 4, "int32": 4,
-         "uint64": 8, "int64": 8, "float": 4, "double": 8, "bool": 1}
+         "uint64": 8, "int64": 8, "float": 4, "double": 8, "bool": 1,
+         # A plain `recvData >> guid` is eight bytes, the same as a uint64.
+         # Leaving it out did not make the tool cautious, it made it blind: a
+         # guid is usually the *first* field, so the chain broke before it
+         # measured anything and the whole handler was skipped rather than
+         # compared. CMSG_SUMMON_RESPONSE went that way — the client sent one
+         # byte where the server reads a guid and a bool, so accepting a summon
+         # never reached it, and this report said nothing.
+         #
+         # Only the plain read is eight. A packed one is variable, and those are
+         # excluded below by name rather than by type.
+         "ObjectGuid": 8}
 
 # writeUInt32 -> 4, and the same for the rest of the client's spellings.
 CLIENT_WIDTH = {"writeUInt8": 1, "writeInt8": 1, "writeUInt16": 2, "writeInt16": 2,
@@ -126,6 +137,12 @@ def server_reads(server_root, handlers):
                         types[name] = decl.group(1)
             chain = re.search(re.escape(arg) + r"\s*>>\s*([^;]+);", body)
             if not chain:
+                continue
+            # A packed guid has no fixed width, so anything measured past one
+            # would be wrong. Stop before it rather than guessing eight.
+            if "ReadAsPacked" in chain.group(1):
+                continue
+            if "readPackGUID" in body[:chain.start()]:
                 continue
             widths = []
             for name in [n.strip() for n in chain.group(1).split(">>")]:
