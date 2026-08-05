@@ -2451,6 +2451,8 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
         set("GetBlendMode", lua_Texture_GetBlendMode);
     }
     if (isFontString) {
+        set("GetFont", lua_FontString_GetFont);
+        set("SetFont", lua_FontString_SetFont);
         set("SetText", lua_FontString_SetText);
         set("SetFormattedText", lua_FontString_SetFormattedText);
         set("GetText", lua_FontString_GetText);
@@ -3718,6 +3720,16 @@ void LuaEngine::registerCoreAPI() {
         {"SetGuildBankItem", lua_Tooltip_SetGuildBankItem},
         {"SetSpellByID",    lua_Tooltip_SetSpellByID},
         {"SetHyperlink",    lua_Tooltip_SetHyperlink},
+        // On frames as well as on font strings, where these were already
+        // registered. A chat frame is asked for its own font — not a label's —
+        // by FCF_SetChatWindowFontSize, which reads the face and flags off the
+        // frame, puts the chosen size between them and sets it back. With the
+        // pair answering only on font strings, that read fell through to the
+        // no-op, the size went nowhere, and the font-size menu did nothing.
+        // A message frame draws its lines at the widget's own fontHeight, so
+        // setting it is all that was missing.
+        {"GetFont",         lua_FontString_GetFont},
+        {"SetFont",         lua_FontString_SetFont},
         {"SetTalent",       lua_Tooltip_SetTalent},
         {"SetAuctionItem",  lua_Tooltip_SetAuctionItem},
         {"SetTradeSkillItem", lua_Tooltip_SetTradeSkillItem},
@@ -4363,7 +4375,7 @@ void LuaEngine::registerCoreAPI() {
         "GetCheckedTexture=1,GetChildList=1,GetChildren=1,GetColorRGB=1,\n"
         "GetCursorPosition=1,GetDisabledCheckedTexture=1,\n"
         "GetDisabledTexture=1,GetDrawLayer=1,GetEffectiveAttribute=1,\n"
-        "GetEffectiveScale=1,GetFieldSize=1,GetFileHeight=1,GetFileWidth=1,GetFont=1,\n"
+        "GetEffectiveScale=1,GetFieldSize=1,GetFileHeight=1,GetFileWidth=1,\n"
         "GetFontObject=1,GetFontString=1,GetFrame=1,GetFrameLevel=1,GetFrameRef=1,\n"
         "GetFrameStrata=1,GetHeight=1,GetHighlightTexture=1,GetHorizontalScroll=1,\n"
         "GetHorizontalScrollRange=1,GetID=1,GetInputLanguage=1,GetInventorySlot=1,\n"
@@ -4401,7 +4413,7 @@ void LuaEngine::registerCoreAPI() {
         "SetCreature=1,SetCursorPosition=1,SetDesaturated=1,SetDisabledCheckedTexture=1,\n"
         "SetDisabledFontObject=1,SetDisabledTexture=1,SetDrawLayer=1,\n"
         "SetEquipmentSet=1,SetFacing=1,SetFillAlpha=1,SetFillTexture=1,SetFocus=1,\n"
-        "SetFont=1,SetFontObject=1,SetFontString=1,SetFormattedText=1,SetFrameLevel=1,\n"
+        "SetFontObject=1,SetFontString=1,SetFormattedText=1,SetFrameLevel=1,\n"
         "SetFrameRate=1,SetFrameStrata=1,SetHeight=1,SetHighlightFontObject=1,\n"
         "SetHighlightTexture=1,SetHitRectInsets=1,SetHorizontalScroll=1,\n"
         "SetHyperlinkCompareItem=1,SetHyperlinksEnabled=1,SetID=1,\n"
