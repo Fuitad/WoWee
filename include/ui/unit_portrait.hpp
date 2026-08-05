@@ -72,6 +72,17 @@ public:
     /// loads and the model loads once.
     void setFraming(Framing framing) { framing_ = framing; }
 
+    /// How big the offscreen image is, in pixels. Set before the first update,
+    /// because the view is built once and keeps the size it was built at.
+    ///
+    /// Worth setting: this is a full character pass every frame, and the
+    /// paperdoll's 640x800 is enormously oversized for a face drawn into a
+    /// circle fifty pixels across.
+    void setTargetSize(int width, int height) {
+        targetWidth_ = width;
+        targetHeight_ = height;
+    }
+
     /// Turn the figure by this much, in radians. What the paperdoll's rotate
     /// buttons drive.
     void rotate(float yawDelta);
@@ -87,6 +98,8 @@ private:
     std::unique_ptr<rendering::CharacterPreview> preview_;
     bool initialized_ = false;
     Framing framing_ = Framing::Face;
+    int targetWidth_ = 640;
+    int targetHeight_ = 800;
     bool registered_ = false;
 
     // What the loaded model was built from, so a reload happens only on a real

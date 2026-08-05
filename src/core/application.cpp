@@ -1356,6 +1356,7 @@ void Application::shutdown() {
     targetPortrait_.shutdown(renderer.get());
     petPortrait_.shutdown(renderer.get());
     focusPortrait_.shutdown(renderer.get());
+    for (auto& p : partyPortraits_) p.shutdown(renderer.get());
     paperdollModel_.shutdown(renderer.get());
 
     // Explicitly shut down the renderer before destroying it — this ensures
@@ -3299,6 +3300,10 @@ void Application::render() {
                 }
 
                 if (portrait) {
+                    // The same size as the other faces: this is drawn into the
+                    // same circle, and the paperdoll's target is sixteen times
+                    // the pixels a portrait can show.
+                    unitPortrait_.setTargetSize(160, 200);
                     unitPortrait_.update(*gameHandler, assetManager.get(),
                                          renderer.get(), io.DeltaTime);
                     // Assigned every frame including when it is zero. Keeping
@@ -3338,24 +3343,36 @@ void Application::render() {
                     ui::UnitPortrait* portrait;
                     uint64_t guid;
                 };
+                // Party guids in the interface's order, which excludes the
+                // player — party1 is the first other member.
+                std::array<uint64_t, 4> partyGuids{};
+                {
+                    int found = 0;
+                    for (const auto& m : gameHandler->getPartyData().members) {
+                        if (m.guid == gameHandler->getPlayerGuid()) continue;
+                        if (found >= 4) break;
+                        partyGuids[static_cast<size_t>(found++)] = m.guid;
+                    }
+                }
                 const UnitFace kFaces[] = {
-                    {"target", &targetPortrait_, gameHandler->getTargetGuid()},
-                    {"pet",    &petPortrait_,    gameHandler->getPetGuid()},
-                    {"focus",  &focusPortrait_,  gameHandler->getFocusGuid()},
+                    {"target", &targetPortrait_,   gameHandler->getTargetGuid()},
+                    {"pet",    &petPortrait_,      gameHandler->getPetGuid()},
+                    {"focus",  &focusPortrait_,    gameHandler->getFocusGuid()},
+                    {"party1", &partyPortraits_[0], partyGuids[0]},
+                    {"party2", &partyPortraits_[1], partyGuids[1]},
+                    {"party3", &partyPortraits_[2], partyGuids[2]},
+                    {"party4", &partyPortraits_[3], partyGuids[3]},
                 };
-                // Three, and the party frames deliberately not among them. Each
-                // of these is a 640x800 offscreen target and a character render
-                // pass every frame; four more of those, for circles fifty
-                // pixels across, is a worse trade than an empty circle. They
-                // would work — a party member is a player like any other — and
-                // the way to have them is a smaller target for small portraits,
-                // not five more of this size.
                 for (const UnitFace& face : kFaces) {
                     const auto& claimed = widgets.portraitsFor(face.unit);
                     if (claimed.empty()) continue;
 
                     bool built = false;
                     face.portrait->setFraming(ui::UnitPortrait::Framing::Face);
+                    // Sized for the circle it is drawn into rather than for the
+                    // paperdoll. Read only when the view is first built, so
+                    // setting it every frame costs a pair of stores.
+                    face.portrait->setTargetSize(160, 200);
 
                     // A player first, because a player has a display id too and
                     // it is the wrong thing to draw them from: it names the

@@ -26,7 +26,12 @@ public:
     CharacterPreview();
     ~CharacterPreview();
 
-    bool initialize(pipeline::AssetManager* am);
+    /// Build the offscreen view. The size is the render target's, in pixels,
+    /// and it is worth choosing: this is a full character pass every frame,
+    /// and the paperdoll's 640x800 is enormously oversized for a portrait
+    /// drawn into a circle fifty pixels across. Defaults to the paperdoll's,
+    /// which is what every caller wanted before there was a choice.
+    bool initialize(pipeline::AssetManager* am, int width = 640, int height = 800);
     void shutdown();
 
     bool loadCharacter(game::Race race, game::Gender gender,
@@ -130,8 +135,8 @@ private:
     // 4:5 portrait aspect ratio — taller than wide to show full character body
     // from head to feet in the character creation/selection screen. Rendered at
     // roughly the size it is displayed at, so the larger panel is not upscaled mush.
-    static constexpr int fboWidth_ = 640;
-    static constexpr int fboHeight_ = 800;
+    int fboWidth_ = 640;
+    int fboHeight_ = 800;
 
     static constexpr uint32_t PREVIEW_MODEL_ID = 9999;
     static constexpr uint32_t PREVIEW_BACKDROP_MODEL_ID = 9996;

@@ -177,6 +177,11 @@ private:
     ui::UnitPortrait targetPortrait_;
     /// And the focus, which is deliberate enough to be worth its own pass.
     ui::UnitPortrait focusPortrait_;
+    /// And the four party members. Affordable now that a portrait is sized for
+    /// the circle it is drawn into rather than for the paperdoll: at 160x200 a
+    /// party face is a sixteenth of the pixels the paperdoll's target is, and
+    /// four of them together cost a quarter of one of it.
+    std::array<ui::UnitPortrait, 4> partyPortraits_;
     /// And the pet's, which is always a creature and so always has one.
     ui::UnitPortrait petPortrait_;
 

@@ -1475,8 +1475,11 @@ static int lua_SetPortraitTexture(lua_State* L) {
     // Only the units this client can build a face for. Anything else releases
     // the texture rather than claiming it, so a portrait frame reused for a
     // unit with no picture does not keep the last one it had.
-    const bool answerable = (unit == "player" || unit == "target" ||
-                             unit == "pet" || unit == "focus");
+    const bool answerable =
+        (unit == "player" || unit == "target" || unit == "pet" ||
+         unit == "focus" ||
+         (unit.rfind("party", 0) == 0 && unit.size() == 6 &&
+          unit[5] >= '1' && unit[5] <= '4'));
     tree->setPortraitUnit(id, answerable ? unit : std::string());
     return 0;
 }

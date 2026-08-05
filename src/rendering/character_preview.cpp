@@ -172,9 +172,8 @@ std::unordered_set<uint16_t> CharacterPreview::buildBaseGeosets() {
     return activeGeosets;
 }
 
-bool CharacterPreview::initialize(pipeline::AssetManager* am) {
+bool CharacterPreview::initialize(pipeline::AssetManager* am, int width, int height) {
     assetManager_ = am;
-
     // If already initialized with valid resources, reuse them.
     // This avoids destroying GPU resources that may still be referenced by
     // an in-flight command buffer (compositePass recorded earlier this frame).
@@ -183,6 +182,13 @@ bool CharacterPreview::initialize(pipeline::AssetManager* am) {
         modelLoaded_ = false;
         return true;
     }
+
+    // Only where the view is actually being built. The render target, the
+    // camera's aspect ratio and the composite are all sized from these, so
+    // taking a new size while keeping a target built at the old one would put
+    // every one of the three out of step with the image they are drawing into.
+    if (width > 0) fboWidth_ = width;
+    if (height > 0) fboHeight_ = height;
 
     auto* appRenderer = core::Application::getInstance().getRenderer();
     vkCtx_ = appRenderer ? appRenderer->getVkContext() : nullptr;
