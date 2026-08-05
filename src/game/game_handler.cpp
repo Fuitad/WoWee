@@ -2715,6 +2715,15 @@ void GameHandler::sendOptOutOfLoot(bool optOut) {
     LOG_INFO("CMSG_OPT_OUT_OF_LOOT: ", optOut ? "opting out" : "opting in");
 }
 
+void GameHandler::requestGuildBankLog(uint8_t tab) {
+    if (socialHandler_) socialHandler_->requestGuildBankLog(tab);
+}
+
+const std::vector<GuildBankLogEntry>& GameHandler::getGuildBankLog(uint8_t tab) const {
+    static const std::vector<GuildBankLogEntry> empty;
+    return socialHandler_ ? socialHandler_->getGuildBankLog(tab) : empty;
+}
+
 void GameHandler::requestChannelList(const std::string& channel) {
     if (chatHandler_) chatHandler_->requestChannelList(channel);
 }

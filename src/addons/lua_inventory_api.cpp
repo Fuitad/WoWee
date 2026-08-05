@@ -750,6 +750,52 @@ std::vector<CurrencyRow> buildCurrencyList(lua_State* L) {
 
 }  // namespace
 
+namespace {
+
+/// FrameXML's name for a bank log line, which is what its own branches compare
+/// against. AzerothCore's GuildBankEventLogTypes on one side, and the four
+/// strings blizzard_guildbankui.lua tests for on the other.
+const char* bankLogTypeName(uint8_t type) {
+    switch (type) {
+        case 1: case 4: return "deposit";
+        case 2: case 5: return "withdraw";
+        case 3: case 7: return "move";
+        case 6:         return "repair";
+        case 9:         return "buytab";
+        default:        return "deposit";
+    }
+}
+
+/// An item link for the log line, or nil when the entry carries no item —
+/// which is every money line, and nil is what the format string skips.
+void pushItemLinkOrNil(lua_State* L, game::GameHandler* gh, uint32_t itemId) {
+    const auto* info = itemId ? gh->getItemInfo(itemId) : nullptr;
+    if (!info || info->name.empty()) { lua_pushnil(L); return; }
+    const uint32_t quality = info->quality < 8 ? info->quality : 1u;
+    char link[256];
+    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+             kQualHexNoAlpha[quality], itemId, info->name.c_str());
+    lua_pushstring(L, link);
+}
+
+/// years, months, days, hours — each counted *ago*, which is how
+/// RecentTimeDate reads them: it takes the largest that is not zero and says
+/// "N days ago". The server sends one number of seconds, so they are derived
+/// from it rather than from a calendar.
+void pushTimeAgo(lua_State* L, uint32_t secondsAgo) {
+    constexpr uint32_t kHour = 3600, kDay = 24 * kHour;
+    constexpr uint32_t kMonth = 30 * kDay, kYear = 365 * kDay;
+    lua_pushnumber(L, secondsAgo / kYear);
+    lua_pushnumber(L, (secondsAgo % kYear) / kMonth);
+    lua_pushnumber(L, (secondsAgo % kMonth) / kDay);
+    lua_pushnumber(L, (secondsAgo % kDay) / kHour);
+}
+
+/// Where the money log lives, matching SocialHandler's own numbering.
+constexpr uint8_t kGuildBankMoneyTab = 6;
+
+}  // namespace
+
 uint32_t currencyListItemId(lua_State* L, int index) {
     const auto rows = buildCurrencyList(L);
     if (index < 1 || index > static_cast<int>(rows.size())) return 0;
@@ -3236,7 +3282,16 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // The transaction log, the tab text and the tabard are not in
                 // what this client parses. Each answers empty rather than
                 // inventing a history nobody made.
-                {"QueryGuildBankLog",   [](lua_State* L) -> int { (void)L; return 0; }},
+                // The log tab asks for a tab's history and then walks it.
+                // This accepted the ask and sent nothing, so the walk below
+                // always found none — an empty page over a log the server
+                // keeps. Tab seven in FrameXML's numbering is the money log.
+                {"QueryGuildBankLog", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int tab = static_cast<int>(luaL_optnumber(L, 1, 1));
+            if (gh && tab >= 1) gh->requestGuildBankLog(static_cast<uint8_t>(tab - 1));
+            return 0;
+        }},
                 {"QueryGuildBankText",  [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GetGuildBankText",    [](lua_State* L) -> int { lua_pushstring(L, ""); return 1; }},
                 // SetGuildBankText(tab, text) — the info panel on a guild
@@ -3252,10 +3307,55 @@ void registerInventoryLuaAPI(lua_State* L) {
                 gh->setGuildBankTabText(static_cast<uint8_t>(tab - 1), text ? text : "");
             return 0;
         }},
-                {"GetNumGuildBankTransactions",      [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
-                {"GetNumGuildBankMoneyTransactions", [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
-                {"GetGuildBankTransaction",          [](lua_State* L) -> int { (void)L; return 0; }},
-                {"GetGuildBankMoneyTransaction",     [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GetNumGuildBankTransactions", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int tab = static_cast<int>(luaL_optnumber(L, 1, 1));
+            lua_pushnumber(L, (gh && tab >= 1)
+                ? static_cast<lua_Number>(gh->getGuildBankLog(static_cast<uint8_t>(tab - 1)).size())
+                : 0);
+            return 1;
+        }},
+                {"GetNumGuildBankMoneyTransactions", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh
+                ? static_cast<lua_Number>(gh->getGuildBankLog(kGuildBankMoneyTab).size())
+                : 0);
+            return 1;
+        }},
+                // type, name, itemLink, count, tab1, tab2, year, month, day, hour
+                {"GetGuildBankTransaction", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int tab = static_cast<int>(luaL_optnumber(L, 1, 1));
+            const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+            if (!gh || tab < 1 || index < 1) return 0;
+            const auto& log = gh->getGuildBankLog(static_cast<uint8_t>(tab - 1));
+            if (index > static_cast<int>(log.size())) return 0;
+            const auto& e = log[static_cast<size_t>(index) - 1];
+
+            lua_pushstring(L, bankLogTypeName(e.type));
+            lua_pushstring(L, gh->lookupName(e.playerGuid).c_str());
+            pushItemLinkOrNil(L, gh, e.itemId);
+            lua_pushnumber(L, e.count);
+            lua_pushnumber(L, tab);                  // the tab it happened on
+            lua_pushnumber(L, e.otherTab + 1);       // and the one it moved to
+            pushTimeAgo(L, e.secondsAgo);
+            return 10;
+        }},
+                // type, name, amount, year, month, day, hour
+                {"GetGuildBankMoneyTransaction", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh || index < 1) return 0;
+            const auto& log = gh->getGuildBankLog(kGuildBankMoneyTab);
+            if (index > static_cast<int>(log.size())) return 0;
+            const auto& e = log[static_cast<size_t>(index) - 1];
+
+            lua_pushstring(L, bankLogTypeName(e.type));
+            lua_pushstring(L, gh->lookupName(e.playerGuid).c_str());
+            lua_pushnumber(L, e.count);              // copper
+            pushTimeAgo(L, e.secondsAgo);
+            return 7;
+        }},
                 {"GetGuildTabardFileNames",          [](lua_State* L) -> int { (void)L; return 0; }},
                 {"CanEditGuildTabInfo",              [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 {"SetGuildBankTabInfo",              [](lua_State* L) -> int { (void)L; return 0; }},

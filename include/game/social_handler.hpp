@@ -125,6 +125,14 @@ public:
     void requestGuildRoster();
     /// Ask for the guild's event log. The reply is the same opcode.
     void requestGuildEventLog();
+    /// Ask for one bank tab's log. Tab six is the money log, which is what the
+    /// server means by GUILD_BANK_MAX_TABS.
+    void requestGuildBankLog(uint8_t tab);
+    static constexpr uint8_t kGuildBankMoneyTab = 6;
+    const std::vector<GuildBankLogEntry>& getGuildBankLog(uint8_t tab) const {
+        static const std::vector<GuildBankLogEntry> empty;
+        return (tab < guildBankLogs_.size()) ? guildBankLogs_[tab] : empty;
+    }
     const std::vector<GuildEventLogEntry>& getGuildEventLog() const { return guildEventLog_; }
     void setGuildInfoText(const std::string& text);
     void takeInboxTextItem(uint32_t mailId);
@@ -373,6 +381,7 @@ public:
 private:
     // ---- Packet handlers ----
     void handleInspectResults(network::Packet& packet);
+    void handleGuildBankLog(network::Packet& packet);
     void sendBfMgrResponse(Opcode op, uint32_t battleId, bool accept, bool withFlag);
     void handleQueryTimeResponse(network::Packet& packet);
     void handlePlayedTime(network::Packet& packet);
@@ -497,6 +506,8 @@ private:
     // Instance
     std::vector<InstanceLockout> instanceLockouts_;
     std::vector<GuildEventLogEntry> guildEventLog_;
+    /// Six item tabs and the money log after them.
+    std::array<std::vector<GuildBankLogEntry>, 7> guildBankLogs_;
     uint32_t instanceDifficulty_ = 0;
     bool instanceIsHeroic_ = false;
     bool inInstance_ = false;

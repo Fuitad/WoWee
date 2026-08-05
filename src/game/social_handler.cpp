@@ -644,6 +644,7 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
         }
     };
     table[Opcode::MSG_GUILD_EVENT_LOG_QUERY] = [this](network::Packet& packet) { handleGuildEventLog(packet); };
+    table[Opcode::MSG_GUILD_BANK_LOG_QUERY] = [this](network::Packet& packet) { handleGuildBankLog(packet); };
     table[Opcode::SMSG_PETITION_QUERY_RESPONSE] = [this](network::Packet& packet) { handlePetitionQueryResponse(packet); };
     table[Opcode::SMSG_PETITION_SHOW_SIGNATURES] = [this](network::Packet& packet) { handlePetitionShowSignatures(packet); };
     table[Opcode::SMSG_PETITION_SIGN_RESULTS] = [this](network::Packet& packet) { handlePetitionSignResults(packet); };
@@ -3954,6 +3955,72 @@ void SocialHandler::deleteGmTicket() {
 
 // MSG_GUILD_EVENT_LOG_QUERY: ask, with no payload. The reply is the same
 // opcode and is parsed below.
+void SocialHandler::requestGuildBankLog(uint8_t tab) {
+    if (!owner_.isInWorld() || !owner_.getSocket()) return;
+    network::Packet pkt(wireOpcode(Opcode::MSG_GUILD_BANK_LOG_QUERY));
+    pkt.writeUInt8(tab);
+    owner_.getSocket()->send(pkt);
+    LOG_INFO("MSG_GUILD_BANK_LOG_QUERY: tab ", static_cast<int>(tab));
+}
+
+// The reply, which shares its opcode with the request.
+//
+//   uint8 tab
+//   uint8 count
+//   per entry:
+//     int8   type
+//     uint64 playerGuid
+//     the payload the type calls for — an item and a count, those plus a
+//     destination tab for a move, or a sum of money for everything else
+//     uint32 secondsAgo
+//
+// Nothing sent the query, so nothing ever arrived to parse: the guild bank's
+// log tab counted zero transactions and drew an empty page over a log the
+// server keeps.
+void SocialHandler::handleGuildBankLog(network::Packet& packet) {
+    if (!packet.hasRemaining(2)) { packet.skipAll(); return; }
+    const uint8_t tab = packet.readUInt8();
+    const uint8_t count = packet.readUInt8();
+    if (tab >= guildBankLogs_.size()) { packet.skipAll(); return; }
+
+    auto& log = guildBankLogs_[tab];
+    log.clear();
+    log.reserve(count);
+    for (uint8_t i = 0; i < count; ++i) {
+        if (!packet.hasRemaining(9)) break;
+        GuildBankLogEntry e;
+        e.type = packet.readUInt8();
+        e.playerGuid = packet.readUInt64();
+        switch (e.type) {
+            case 1: case 2:                 // deposit / withdraw an item
+                if (!packet.hasRemaining(8)) { packet.skipAll(); return; }
+                e.itemId = packet.readUInt32();
+                e.count  = packet.readUInt32();
+                break;
+            case 3: case 7:                 // moved between tabs
+                if (!packet.hasRemaining(9)) { packet.skipAll(); return; }
+                e.itemId   = packet.readUInt32();
+                e.count    = packet.readUInt32();
+                e.otherTab = packet.readUInt8();
+                break;
+            default:                        // money, in copper
+                if (!packet.hasRemaining(4)) { packet.skipAll(); return; }
+                e.count = packet.readUInt32();
+                break;
+        }
+        if (!packet.hasRemaining(4)) break;
+        e.secondsAgo = packet.readUInt32();
+        if (e.itemId) owner_.ensureItemInfo(e.itemId);
+        log.push_back(e);
+    }
+    packet.skipAll();
+    LOG_INFO("MSG_GUILD_BANK_LOG_QUERY reply: tab ", static_cast<int>(tab),
+             ", ", log.size(), " entries");
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("GUILDBANKLOG_UPDATE", {});
+    }
+}
+
 void SocialHandler::requestGuildEventLog() {
     if (!owner_.isInWorld()) return;
     network::Packet pkt(wireOpcode(Opcode::MSG_GUILD_EVENT_LOG_QUERY));

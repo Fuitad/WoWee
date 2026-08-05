@@ -268,6 +268,9 @@ public:
     void joinChannel(const std::string& channelName, const std::string& password = "");
     void leaveChannel(const std::string& channelName);
     void requestChannelList(const std::string& channelName);
+    /// One guild bank tab's log; tab six is the money log.
+    void requestGuildBankLog(uint8_t tab);
+    const std::vector<GuildBankLogEntry>& getGuildBankLog(uint8_t tab) const;
     /// Tell the server whether to pass on every loot roll for us.
     void sendOptOutOfLoot(bool optOut);
     /// Ask an area spirit healer when the next mass resurrection is.
