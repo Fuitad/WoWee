@@ -501,7 +501,13 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     if (!frameXmlOwns(UiElement::Durability)) {
         renderDurabilityWarning(gameHandler);
     }
-    renderUIErrors(gameHandler, ImGui::GetIO().DeltaTime);
+    // Half of this handover was in place: UIErrorsFrame is suppressed when
+    // this client owns the errors, and this client kept drawing its own when
+    // FrameXML owned them. So every refusal the server sent was still shown
+    // twice, in the one direction the suppression could not reach.
+    if (!frameXmlOwns(UiElement::UiErrors)) {
+        renderUIErrors(gameHandler, ImGui::GetIO().DeltaTime);
+    }
     toastManager_.renderEarlyToasts(ImGui::GetIO().DeltaTime, gameHandler);
     if (socialPanel_.showRaidFrames_) {
         if (!frameXmlOwns(UiElement::PartyFrames)) {
@@ -512,8 +518,14 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         socialPanel_.renderBossFrames(gameHandler, spellbookScreen, spellIconFn);
     }
     dialogManager_.renderDialogs(gameHandler, inventoryScreen, chatPanel_);
-    socialPanel_.renderGuildRoster(gameHandler, chatPanel_, inventoryScreen,
-                                   spellbookScreen, questLogScreen, spellIconFn);
+    // FriendsFrame is what "social" suppresses, and its tabs are the friends
+    // list, the who list and the guild roster. Only the friends list was gated
+    // on this side, so handing social over left two of this client's three
+    // windows drawing beside FrameXML's tabs.
+    if (!frameXmlOwns(UiElement::Social)) {
+        socialPanel_.renderGuildRoster(gameHandler, chatPanel_, inventoryScreen,
+                                       spellbookScreen, questLogScreen, spellIconFn);
+    }
     if (!frameXmlOwns(UiElement::Social)) {
         socialPanel_.renderSocialFrame(gameHandler, chatPanel_);
     }
@@ -588,7 +600,9 @@ void GameScreen::render(game::GameHandler& gameHandler) {
         socialPanel_.renderDungeonFinderWindow(gameHandler, chatPanel_);
     }
     windowManager_.renderInstanceLockouts(gameHandler);
-    socialPanel_.renderWhoWindow(gameHandler, chatPanel_);
+    if (!frameXmlOwns(UiElement::Social)) {
+        socialPanel_.renderWhoWindow(gameHandler, chatPanel_);
+    }
     combatUI_.renderCombatLog(gameHandler, spellbookScreen);
     if (!frameXmlOwns(UiElement::Achievements)) {
         windowManager_.renderAchievementWindow(gameHandler);
