@@ -2581,8 +2581,43 @@ void GameHandler::lootMasterGive(uint8_t lootSlot, uint64_t targetGuid) {
 
 void GameHandler::interactWithNpc(uint64_t guid) {
     if (!isInWorld()) return;
+    // A dead player at an area spirit healer is a different conversation. The
+    // battleground ones do not answer a gossip hello at all — they answer
+    // CMSG_AREA_SPIRIT_HEALER_QUERY with the seconds to the next mass
+    // resurrection, and the client has to ask. Nothing here ever asked, so the
+    // reply never came, the countdown never appeared, and the queue that
+    // actually resurrects anyone was never joined.
+    if (isPlayerDead() || isPlayerGhost()) {
+        auto entity = getEntityManager().getEntity(guid);
+        if (auto* unit = dynamic_cast<Unit*>(entity.get())) {
+            constexpr uint32_t kSpiritFlags = NPC_FLAG_SPIRIT_GUIDE | NPC_FLAG_SPIRIT_HEALER;
+            if (unit->getNpcFlags() & kSpiritFlags) {
+                queryAreaSpiritHealer(guid);
+            }
+        }
+    }
     auto packet = GossipHelloPacket::build(guid);
     socket->send(packet);
+}
+
+void GameHandler::queryAreaSpiritHealer(uint64_t guid) {
+    if (!isInWorld() || !socket) return;
+    areaSpiritHealerGuid_ = guid;
+    network::Packet packet(wireOpcode(Opcode::CMSG_AREA_SPIRIT_HEALER_QUERY));
+    packet.writeUInt64(guid);
+    socket->send(packet);
+    LOG_INFO("CMSG_AREA_SPIRIT_HEALER_QUERY: 0x", std::hex, guid, std::dec);
+}
+
+void GameHandler::queueAreaSpiritHeal() {
+    // Joining the queue is what resurrects; the query only asks when the next
+    // one is. AzerothCore has no way to be told to leave it again, which is
+    // why CancelAreaSpiritHeal answers with nothing.
+    if (!isInWorld() || !socket || !areaSpiritHealerGuid_) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_AREA_SPIRIT_HEALER_QUEUE));
+    packet.writeUInt64(areaSpiritHealerGuid_);
+    socket->send(packet);
+    LOG_INFO("CMSG_AREA_SPIRIT_HEALER_QUEUE: 0x", std::hex, areaSpiritHealerGuid_, std::dec);
 }
 
 void GameHandler::interactWithGameObject(uint64_t guid) {

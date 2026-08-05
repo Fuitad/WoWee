@@ -1386,6 +1386,24 @@ void registerSocialLuaAPI(lua_State* L) {
             gh->requestBfMgrExit(battleId ? battleId : gh->getBfMgrBattleId());
             return 0;
         }},
+                // The area spirit healer, which is how anyone gets up again
+                // in a battleground. None of the three existed, and
+                // UIParent_OnEvent calls the first of them the moment the
+                // healer is in range.
+                {"AcceptAreaSpiritHeal", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->queueAreaSpiritHeal();
+            return 0;
+        }},
+                // There is no opcode for leaving the queue — AzerothCore drops
+                // a player from it when they leave the battleground and at no
+                // other time — so this accepts the click and does nothing,
+                // which is the honest answer rather than a raise.
+                {"CancelAreaSpiritHeal", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GetAreaSpiritHealerTime", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? gh->getAreaSpiritHealerTime() : 0.0f);
+            return 1;
+        }},
                 {"GetGuildRosterInfo",      lua_GetGuildRosterInfo},
                 {"SetGuildRosterSelection", [](lua_State* L) -> int {
             selectedGuildRosterRow() = static_cast<int>(luaL_optnumber(L, 1, 0));

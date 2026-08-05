@@ -969,14 +969,23 @@ void GameHandler::registerOpcodeHandlers() {
 
     // Spirit healer time / durability
     dispatchTable_[Opcode::SMSG_AREA_SPIRIT_HEALER_TIME] = [this](network::Packet& packet) {
-        if (packet.hasRemaining(12)) {
-            /*uint64_t guid =*/ packet.readUInt64();
-            uint32_t timeMs = packet.readUInt32();
-            uint32_t secs = timeMs / 1000;
-            char buf[128];
-            std::snprintf(buf, sizeof(buf), "You will be able to resurrect in %u seconds.", secs);
-            addSystemChatMessage(buf);
-        }
+        if (!packet.hasRemaining(12)) { packet.skipAll(); return; }
+        const uint64_t guid = packet.readUInt64();
+        const uint32_t timeMs = packet.readUInt32();
+        areaSpiritHealerGuid_ = guid;
+        areaSpiritHealerSeconds_ = static_cast<float>(timeMs) / 1000.0f;
+
+        char buf[128];
+        std::snprintf(buf, sizeof(buf), "You will be able to resurrect in %u seconds.",
+                      timeMs / 1000);
+        addSystemChatMessage(buf);
+
+        // Parsed and said in chat and announced to nobody. UIParent_OnEvent
+        // answers this by joining the queue and raising the countdown dialog,
+        // and it was never told — so the reply arrived, the line was printed,
+        // and the resurrection it was counting down to was one this player had
+        // not joined.
+        fireAddonEvent("AREA_SPIRIT_HEALER_IN_RANGE", {});
     };
     dispatchTable_[Opcode::SMSG_DURABILITY_DAMAGE_DEATH] = [this](network::Packet& packet) {
         if (packet.hasRemaining(4)) {

@@ -270,6 +270,13 @@ public:
     void requestChannelList(const std::string& channelName);
     /// Tell the server whether to pass on every loot roll for us.
     void sendOptOutOfLoot(bool optOut);
+    /// Ask an area spirit healer when the next mass resurrection is.
+    void queryAreaSpiritHealer(uint64_t guid);
+    /// Join that resurrection. Nothing happens without it.
+    void queueAreaSpiritHeal();
+    /// Seconds until the next one, and the healer it belongs to.
+    float getAreaSpiritHealerTime() const { return areaSpiritHealerSeconds_; }
+    uint64_t getAreaSpiritHealerGuid() const { return areaSpiritHealerGuid_; }
     /// Announce a rune's type and readiness to the interface.
     void fireRuneUpdate(uint32_t index);
     const std::vector<std::string>& getJoinedChannels() const;
@@ -4396,6 +4403,8 @@ private:
     /// handler in the battlefield group opens `local battleID = ...` and passes
     /// it back when the player answers, so the two must not be confused.
     uint32_t    bfMgrBattleId_      = 0;
+    uint64_t    areaSpiritHealerGuid_ = 0;
+    float       areaSpiritHealerSeconds_ = 0.0f;
 
     // ---- WotLK Calendar: pending invite counter ----
     uint32_t    calendarPendingInvites_ = 0; ///< Unacknowledged calendar invites (SMSG_CALENDAR_SEND_NUM_PENDING)
