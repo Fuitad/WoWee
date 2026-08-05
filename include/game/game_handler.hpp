@@ -911,6 +911,14 @@ public:
     void requestStabledPetList();          // CMSG MSG_LIST_STABLED_PETS
     void stablePet(uint8_t slot);          // CMSG_STABLE_PET (store active pet in slot)
     void unstablePet(uint32_t petNumber);  // CMSG_UNSTABLE_PET (retrieve to active)
+    void buyStableSlot();                  // CMSG_BUY_STABLE_SLOT (next slot from the open stable master)
+    void abandonPet();                     // CMSG_PET_ABANDON (give a hunter pet up for good)
+    /// Forget a primary profession. The server refuses anything that is not
+    /// one, so the skill panel's unlearn button is the only sensible caller.
+    void unlearnSkill(uint32_t skillId);
+    /// Reset every instance this player, or their group, is saved to. The
+    /// server does the whole set at once; there is nothing to name.
+    void resetInstances();
 
     // Player proficiency bitmasks (from SMSG_SET_PROFICIENCY)
     // itemClass 2 = Weapon (subClassMask bits: 0=Axe1H,1=Axe2H,2=Bow,3=Gun,4=Mace1H,5=Mace2H,6=Polearm,7=Sword1H,8=Sword2H,10=Staff,13=Fist,14=Misc,15=Dagger,16=Thrown,17=Crossbow,18=Wand,19=Fishing)

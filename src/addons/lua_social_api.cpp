@@ -1234,6 +1234,19 @@ void registerSocialLuaAPI(lua_State* L) {
             for (uint32_t bit : kOrder) lua_pushboolean(L, (rights & bit) ? 1 : 0);
             return 13;
         }},
+                // CONFIRM_BUY_GUILDBANK_TAB's accept, from the guild bank's
+                // "purchase tab" button. Same story: the packet builder and
+                // the handler verb were both here already.
+                {"BuyGuildBankTab", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->buyGuildBankTab();
+            return 0;
+        }},
+                // CONFIRM_GUILD_DISBAND's accept. The verb has existed the
+                // whole time; nothing named it.
+                {"GuildDisband", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->disbandGuild();
+            return 0;
+        }},
                 {"GuildControlAddRank", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const char* name = luaL_optstring(L, 1, "");

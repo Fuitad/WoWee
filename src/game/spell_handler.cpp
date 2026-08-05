@@ -4885,6 +4885,32 @@ void SpellHandler::stablePet(uint8_t slot) {
     LOG_INFO("Sent CMSG_STABLE_PET: slot=", static_cast<int>(slot));
 }
 
+// The stable master sells a fourth, fifth and sixth slot; the panel's buy
+// button asks for one at a time and the server bills for whichever is next.
+// CMSG_BUY_STABLE_SLOT carries nothing but who is being asked — HandleBuyStableSlot
+// reads a guid and checks it is a stable master, and works the price out itself.
+void SpellHandler::buyStableSlot() {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() ||
+        owner_.stableMasterGuidRef() == 0) return;
+    network::Packet pkt(wireOpcode(Opcode::CMSG_BUY_STABLE_SLOT));
+    pkt.writeUInt64(owner_.stableMasterGuidRef());
+    owner_.getSocket()->send(pkt);
+    LOG_INFO("Sent CMSG_BUY_STABLE_SLOT to npc=0x", std::hex,
+             owner_.stableMasterGuidRef(), std::dec);
+}
+
+// Abandoning is not dismissing. Dismiss puts a hunter's pet away and it can be
+// called back; abandon gives it up for good, which is why the interface asks
+// first and why this is its own message rather than another pet action.
+void SpellHandler::abandonPet() {
+    if (owner_.petGuidRef() == 0 || owner_.getState() != WorldState::IN_WORLD ||
+        !owner_.getSocket()) return;
+    network::Packet pkt(wireOpcode(Opcode::CMSG_PET_ABANDON));
+    pkt.writeUInt64(owner_.petGuidRef());
+    owner_.getSocket()->send(pkt);
+    LOG_INFO("Sent CMSG_PET_ABANDON for pet=0x", std::hex, owner_.petGuidRef(), std::dec);
+}
+
 void SpellHandler::unstablePet(uint32_t petNumber) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() || owner_.stableMasterGuidRef() == 0 || petNumber == 0) return;
     auto pkt = UnstablePetPacket::build(owner_.stableMasterGuidRef(), petNumber);

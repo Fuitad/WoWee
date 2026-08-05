@@ -83,6 +83,16 @@ CHECKS = [
     ("framexml_event_arity.py",
      r"^(\d+) fired from several places with differing counts", 4,
      "events whose argument count depends on which path fired them"),
+    # Thirty, and most are correctly absent: their dialog is shown by a message
+    # this client is never sent — the bind-confirmation family needs
+    # LOOT_BIND_CONFIRM and its three siblings, none of which any opcode here
+    # produces, and the arena and socketing ones need features that are not
+    # here at all. The ceiling is for a regression, and for the day one of
+    # those events starts being fired: a popup that can open with an unbound
+    # accept is a player pressing a button and getting an error.
+    ("staticpopup_verbs_check.py",
+     r"^(\d+) name\(s\) a popup button calls and nothing answers", 30,
+     "names a static popup's buttons call that nothing answers"),
     ("api_shadowing_check.py",
      r"^\s*(\d+) to look at", 10,
      "names whose winner depends on load order"),

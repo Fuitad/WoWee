@@ -1962,6 +1962,46 @@ void registerActionLuaAPI(lua_State* L) {
                     game::pet::packPetAction(game::pet::ActionType::Command, game::pet::kAbandon), 0);
             return 0;
         }},
+                // The other end of the ABANDON_PET dialog, which the pet's
+                // unit menu opens. It was built, shown, and raised on accept.
+                //
+                // Not the same as PetDismiss above, which sends the pet away
+                // and can be undone by calling it back. Abandon is permanent,
+                // which is what the dialog in front of it is for.
+                {"PetAbandon", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (gh && gh->hasPet()) gh->abandonPet();
+            return 0;
+        }},
+                // CONFIRM_BUY_STABLE_SLOT's accept, from the stable panel.
+                {"BuyStableSlot", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->buyStableSlot();
+            return 0;
+        }},
+                // VOTE_BOOT_PLAYER's two buttons. The dialog is shown from
+                // LFG_BOOT_PROPOSAL_UPDATE, which is fired, so a vote to kick
+                // reached the player and neither answer went anywhere.
+                //
+                // Both buttons matter here: declining is a vote, not a
+                // dismissal, and OnCancel sends it.
+                {"SetLFGBootVote", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->lfgSetBootVote(lua_toboolean(L, 1) != 0);
+            return 0;
+        }},
+                // CONFIRM_RESET_INSTANCES' accept, from /resetinstances and
+                // the party menu.
+                {"ResetInstances", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->resetInstances();
+            return 0;
+        }},
+                // UNLEARN_SKILL's accept, from the skill panel's unlearn
+                // button. The skill line comes from the button's own row.
+                {"AbandonSkill", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto skillId = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (gh && skillId) gh->unlearnSkill(skillId);
+            return 0;
+        }},
                 {"IsPetAttackActive", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             lua_pushboolean(L, gh && gh->getPetCommand() == 2 ? 1 : 0); // 2=attack

@@ -311,6 +311,14 @@ public:
     /// the pet it asked about, which is what the field would have been for.
     void requestPetName(uint64_t petGuid);
 
+    /// Give a hunter's pet up for good. The interface asks first — this is the
+    /// other side of the ABANDON_PET dialog, whose accept called an unbound
+    /// name and raised.
+    void abandonPet();
+
+    /// Buy the next stable slot from the stable master currently open.
+    void buyStableSlot();
+
 private:
     std::unordered_map<uint32_t, uint64_t> pendingPetNameQueries_;
     uint32_t nextPetNameQueryKey_ = 1;

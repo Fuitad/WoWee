@@ -2273,6 +2273,35 @@ void GameHandler::stablePet(uint8_t slot) {
     if (spellHandler_) spellHandler_->stablePet(slot);
 }
 
+void GameHandler::buyStableSlot() {
+    if (spellHandler_) spellHandler_->buyStableSlot();
+}
+
+void GameHandler::abandonPet() {
+    if (spellHandler_) spellHandler_->abandonPet();
+}
+
+// CMSG_UNLEARN_SKILL carries the skill line and nothing else.
+// HandleUnlearnSkillOpcode drops anything that is not a primary profession, so
+// a mistaken call costs nothing, but the confirmation dialog in front of it is
+// there because forgetting one is expensive to undo.
+void GameHandler::unlearnSkill(uint32_t skillId) {
+    if (skillId == 0 || getState() != WorldState::IN_WORLD || !getSocket()) return;
+    network::Packet pkt(wireOpcode(Opcode::CMSG_UNLEARN_SKILL));
+    pkt.writeUInt32(skillId);
+    getSocket()->send(pkt);
+    LOG_INFO("Sent CMSG_UNLEARN_SKILL: skill=", skillId);
+}
+
+// An empty message. The server resets everything the player is saved to, or
+// everything the group is if they lead one, and reads no body at all.
+void GameHandler::resetInstances() {
+    if (getState() != WorldState::IN_WORLD || !getSocket()) return;
+    network::Packet pkt(wireOpcode(Opcode::CMSG_RESET_INSTANCES));
+    getSocket()->send(pkt);
+    LOG_INFO("Sent CMSG_RESET_INSTANCES");
+}
+
 void GameHandler::unstablePet(uint32_t petNumber) {
     if (spellHandler_) spellHandler_->unstablePet(petNumber);
 }
