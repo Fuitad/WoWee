@@ -3,8 +3,11 @@
 #include <array>
 #include <algorithm>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <set>
 #include <vector>
+#include "core/config_paths.hpp"
 #include "imgui.h"
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_engine.hpp"
@@ -205,6 +208,67 @@ static int lua_GetPlayerFacing(lua_State* L) {
 static std::unordered_map<std::string, std::string>& cvarStore() {
     static std::unordered_map<std::string, std::string> store;
     return store;
+}
+
+/// Where the CVars live between runs.
+///
+/// Its own file rather than settings.cfg, which this client's own panel writes
+/// whole from its own fields: a CVar written into that file would be dropped
+/// the next time that panel saved.
+static std::string cvarStorePath() {
+    return core::getConfigRoot() + "/cvars.cfg";
+}
+
+/// Read the stored CVars back. Called once, before the interface loads,
+/// because a panel reads its checkbox out of the CVar as it is built and
+/// anything arriving later leaves the box disagreeing with the setting.
+///
+/// Storing them in memory alone made every interface option last exactly one
+/// session. That is not a small thing: the equipment manager is off until its
+/// box is ticked, the box writes equipmentManager, and the paperdoll reads that
+/// on VARIABLES_LOADED — so it came back off on every login, and so did every
+/// other option the player had set.
+static void loadStoredCVars() {
+    std::ifstream in(cvarStorePath());
+    if (!in.is_open()) return;
+    std::string line;
+    size_t loaded = 0;
+    while (std::getline(in, line)) {
+        const size_t eq = line.find('=');
+        if (eq == std::string::npos || eq == 0) continue;
+        std::string key = line.substr(0, eq);
+        toLowerInPlace(key);
+        cvarStore()[key] = line.substr(eq + 1);
+        ++loaded;
+    }
+    LOG_INFO("CVars: loaded ", loaded, " from ", cvarStorePath());
+}
+
+/// Write them back. Called on every change rather than at shutdown: the file is
+/// a few hundred bytes, and a setting that survives only a clean exit is not
+/// one a player can rely on.
+static void saveStoredCVars() {
+    const std::string path = cvarStorePath();
+    std::error_code ec;
+    std::filesystem::create_directories(
+        std::filesystem::path(path).parent_path(), ec);
+    std::ofstream out(path);
+    if (!out.is_open()) {
+        LOG_WARNING("Could not save CVars to ", path);
+        return;
+    }
+    // Sorted, so a diff of the file reads as a change of settings rather than
+    // as the hash order moving underneath it.
+    std::vector<const std::pair<const std::string, std::string>*> rows;
+    rows.reserve(cvarStore().size());
+    for (const auto& kv : cvarStore()) rows.push_back(&kv);
+    std::sort(rows.begin(), rows.end(),
+              [](const auto* a, const auto* b) { return a->first < b->first; });
+    for (const auto* kv : rows) {
+        // A value with a newline in it would come back as two broken lines.
+        if (kv->second.find('\n') != std::string::npos) continue;
+        out << kv->first << '=' << kv->second << '\n';
+    }
 }
 
 /// A sound CVar's value, or the stock client's default for it.
@@ -474,7 +538,12 @@ static int lua_SetCVar(lua_State* L) {
     // would be invisible to a read of "uiscale".
     std::string key(name);
     toLowerInPlace(key);
+    const auto existing = cvarStore().find(key);
+    const bool changed = (existing == cvarStore().end() || existing->second != value);
     cvarStore()[key] = value;
+    // Only on a real change. A slider drag calls SetCVar on every frame it
+    // moves, and most of those calls set the value it already has.
+    if (changed) saveStoredCVars();
     // A sound CVar is a setting, not a note. Without this the interface's
     // volume keys and its Sound options both wrote to a map nobody read, so
     // turning music off left it playing.
@@ -2767,6 +2836,9 @@ static std::vector<uint32_t>& taxiRouteShown() {
 }
 
 void registerSystemLuaAPI(lua_State* L) {
+    // Before any binding is registered, so the first GetCVar of the run — which
+    // happens while a panel is being built — sees what the player last set.
+    loadStoredCVars();
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"Screenshot",               lua_Screenshot},
                 {"HasLFGRestrictions",       lua_HasLFGRestrictions},
