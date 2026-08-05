@@ -74,7 +74,12 @@ def registered():
                 continue
             src = open(os.path.join(dirpath, name), encoding="utf-8",
                        errors="ignore").read()
-            for pattern in (r'RegisterEvent\(\s*' + EVENT,
+            # The closing paren matters: alternatepowerbar.lua registers
+            # RegisterEvent("UNIT_"..self.powerName), and without it the
+            # literal half of that concatenation was read as an event called
+            # "UNIT_" — a name nothing can ever send, reported as a gap on
+            # every run. A computed name cannot be checked from here at all.
+            for pattern in (r'RegisterEvent\(\s*' + EVENT + r'\s*\)',
                             r'<Event\s+name=' + EVENT):
                 for match in re.finditer(pattern, src):
                     where.setdefault(match.group(1), set()).add(name)
@@ -110,19 +115,43 @@ def sent():
 
 
 def handled_opcodes():
-    """SMSG names this client has a handler for."""
-    names = set()
+    """SMSG names this client has a handler for, and which of those only skip.
+
+    A skipped opcode is named in the dispatch table and read to the end without
+    being parsed — the deliberate answer for a feature this client does not
+    have. Counting one as handled put SMSG_UPDATE_LFG_LIST at the top of the
+    "read these first" list, where it stayed: the raid browser is not
+    implemented, so an event backed by it is exactly as absent as one with no
+    handler at all, and pointing at it every run made the list look answered
+    when it was not.
+    """
+    names, skipped = set(), set()
     for dirpath, _, filenames in os.walk(os.path.join(SRC, "game")):
         for name in filenames:
-            if name.endswith(".cpp"):
-                src = open(os.path.join(dirpath, name), encoding="utf-8",
-                           errors="ignore").read()
-                names |= set(re.findall(r"Opcode::(SMSG_[A-Z0-9_]+)", src))
-    return names
+            if not name.endswith(".cpp"):
+                continue
+            src = open(os.path.join(dirpath, name), encoding="utf-8",
+                       errors="ignore").read()
+            names |= set(re.findall(r"Opcode::(SMSG_[A-Z0-9_]+)", src))
+            # registerSkipHandler(Opcode::X), and the lambda spelling of the
+            # same thing — a body that reads to the end and does nothing else,
+            # whether written once or shared by a list of opcodes.
+            skipped |= set(re.findall(
+                r"registerSkipHandler\(\s*Opcode::(SMSG_[A-Z0-9_]+)", src))
+            for block in re.finditer(
+                    r"for\s*\(\s*auto\s+\w+\s*:\s*\{([^}]*)\}\s*\)\s*\{"
+                    r"\s*table\[\w+\]\s*=\s*\[\]\([^)]*\)\s*\{"
+                    r"\s*packet\.skipAll\(\);\s*\};", src):
+                skipped |= set(re.findall(r"Opcode::(SMSG_[A-Z0-9_]+)", block.group(1)))
+            skipped |= set(re.findall(
+                r"table\[Opcode::(SMSG_[A-Z0-9_]+)\]\s*=\s*\[\]\([^)]*\)\s*\{"
+                r"\s*packet\.skipAll\(\);\s*\};", src))
+    return names - skipped, skipped
 
 
 def main():
-    where, fired, opcodes = registered(), sent(), handled_opcodes()
+    where, fired = registered(), sent()
+    opcodes, skipped = handled_opcodes()
 
     # Battle.net has no counterpart on a 3.3.5 server.
     gap = sorted(e for e in where if e not in fired and not e.startswith("BN_"))
@@ -148,6 +177,24 @@ def main():
     print()
     print(f"{len(backed)} of {len(gap)} have a handler already. The rest are")
     print("features this client does not have, and are correctly silent.")
+
+    # Told apart rather than hidden. An opcode that is only skipped is a
+    # decision on record — the packet arrives, is read to the end and nothing
+    # is done with it — and an event behind one is as absent as an event behind
+    # no handler at all. Worth seeing, and worth not being told to read first.
+    onlySkipped = []
+    for event in gap:
+        for opcode in skipped:
+            body = opcode[len("SMSG_"):]
+            if squash(body) == squash(event) or squash(event) in squash(body):
+                onlySkipped.append((event, opcode))
+                break
+    if onlySkipped:
+        print()
+        print("Backed only by a skip handler — the packet is read and dropped, "
+              "which is\na decision rather than a gap:")
+        for event, opcode in onlySkipped:
+            print(f"  {event:<38} {opcode}")
 
 
 if __name__ == "__main__":
