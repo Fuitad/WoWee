@@ -794,11 +794,21 @@ void WaterRenderer::loadFromTerrain(const pipeline::ADTTerrain& terrain, bool ap
         // Initialize mask (128×128 sub-tiles)
         // Mask uses LSB bit order: tileIndex = row * 128 + col
         const int maskBytes = (MERGED_W * MERGED_W + 7) / 8;
-        // For ocean water (basicType 1) at sea level, fill the entire tile.
-        // Depth testing against terrain handles land occlusion naturally.
+        // Ocean water (basicType 1) at sea level fills each chunk that declares
+        // it, whatever its own bitmap says — an ocean layer's sub-rect is often
+        // sparse and the gaps read as holes in open sea.
+        //
+        // Each chunk that declares it, not the whole tile. This used to seed
+        // the entire 128×128 mask, on the reading that depth testing against
+        // the terrain would hide the water wherever there was land. That holds
+        // only for land *above* sea level. Somewhere the ground drops below it
+        // the water is drawn over the top with nothing to occlude it, and a
+        // chunk that declares no liquid at all got a surface anyway: the
+        // Caverns of Time, a hole in a coastal tile in Tanaris, was roofed with
+        // ocean. Any cave below sea level on an ocean tile had the same.
         uint8_t basicType = (key.liquidType == 0) ? 0 : ((key.liquidType - 1) % 4);
         bool isOcean = (basicType == 1) && (std::abs(groupHeight) < 1.0f);
-        surface.mask.resize(maskBytes, isOcean ? 0xFF : 0x00);
+        surface.mask.resize(maskBytes, 0x00);
 
         // ── Fill from each contributing chunk ──
         for (const auto& info : chunkLayers) {
@@ -840,6 +850,21 @@ void WaterRenderer::loadFromTerrain(const pipeline::ADTTerrain& terrain, bool ap
                     surface.heights[mgy * gridW + mgx] = h;
                     if (h < surface.minHeight) surface.minHeight = h;
                     if (h > surface.maxHeight) surface.maxHeight = h;
+                }
+            }
+
+            // An ocean chunk covers itself completely — all sixty-four
+            // sub-tiles, not only the layer's sub-rect — which is what the
+            // tile-wide seed was really for.
+            if (isOcean) {
+                for (int a = 0; a < 8; a++) {
+                    for (int b = 0; b < 8; b++) {
+                        int mx = baseGx + a;
+                        int my = baseGy + b;
+                        if (mx >= MERGED_W || my >= MERGED_W) continue;
+                        int idx = my * MERGED_W + mx;
+                        surface.mask[idx / 8] |= static_cast<uint8_t>(1 << (idx % 8));
+                    }
                 }
             }
 
