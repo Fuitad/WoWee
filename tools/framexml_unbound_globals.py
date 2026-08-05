@@ -46,15 +46,22 @@ LUA = {"assert","collectgarbage","dofile","error","getfenv","getmetatable","ipai
        "time","difftime","abs","ceil","floor","max","min","mod","random","sqrt","bit"}
 
 def strip_comments(text: str) -> str:
-    """Drop Lua line comments and XML comments.
+    """Drop Lua line comments, XML comments and the insides of string literals.
 
     Not cosmetic: two of the six names this flagged on the candidate elements
     were commented-out calls — --FCFDock_ForceTabSort and
     --GuildBankItemButton_OnUpdate — which read exactly like missing bindings
     and are not called at all.
+
+    Strings for the same reason, and the case is worse: a Lua pattern is a
+    string full of parentheses, so `strmatch(name, "DropDownList(%d+)")` read
+    as a call to a global named DropDownList. That put "every dropdown in the
+    interface raises as it opens" at the top of a report, which is alarming and
+    wrong. Quotes are kept so the token still ends where it did.
     """
     text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
-    return re.sub(r"--\[\[.*?\]\]|--[^\n]*", "", text, flags=re.S)
+    text = re.sub(r"--\[\[.*?\]\]|--[^\n]*", "", text, flags=re.S)
+    return re.sub(r"'[^'\n]*'|\"[^\"\n]*\"", '""', text)
 
 
 # Every function this interface hangs off a script handler, by name. A call
