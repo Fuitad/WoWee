@@ -2705,6 +2705,16 @@ std::string GameHandler::getMapName(uint32_t mapId) const {
     return (it != mapNameCache_.end()) ? it->second : std::string{};
 }
 
+void GameHandler::sendOptOutOfLoot(bool optOut) {
+    if (!isInWorld() || !getSocket()) return;
+    // One uint32, one or zero. The server keeps the state and never sends it
+    // back, which is why the interface remembers its own copy.
+    network::Packet packet(wireOpcode(Opcode::CMSG_OPT_OUT_OF_LOOT));
+    packet.writeUInt32(optOut ? 1u : 0u);
+    getSocket()->send(packet);
+    LOG_INFO("CMSG_OPT_OUT_OF_LOOT: ", optOut ? "opting out" : "opting in");
+}
+
 void GameHandler::requestChannelList(const std::string& channel) {
     if (chatHandler_) chatHandler_->requestChannelList(channel);
 }

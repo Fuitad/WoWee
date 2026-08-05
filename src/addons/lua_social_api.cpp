@@ -467,6 +467,11 @@ static int lua_CancelDuel(lua_State* L) {
 // hated starts at -42000 and exalted at 42000, with the rest between.
 namespace {
 
+/// Whether the player has opted out of loot rolls. The server is told and
+/// keeps the real state; nothing sends it back, so it is remembered here for
+/// the menu that shows a tick beside it.
+bool& optOutOfLoot() { static bool out = false; return out; }
+
 /// Which row the panel has selected. The client has no opinion — it is what
 /// the player last clicked — so it lives here rather than being invented.
 int& selectedFaction() {
@@ -1988,7 +1993,20 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"PromoteToAssistant",        [](lua_State* L) -> int { (void)L; return 0; }},
                 {"DemoteAssistant",           [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GrantLevel",                [](lua_State* L) -> int { (void)L; return 0; }},
-                {"SetOptOutOfLoot",           [](lua_State* L) -> int { (void)L; return 0; }},
+                // Whether the player passes on every loot roll. The setter
+                // accepted and forgot, and the getter beside it answered a
+                // flat false — so the unit menu's "Opt out of loot" entry
+                // never showed a tick and never turned itself off again.
+                {"SetOptOutOfLoot", [](lua_State* L) -> int {
+            const bool out = lua_toboolean(L, 1) != 0;
+            optOutOfLoot() = out;
+            if (auto* gh = getGameHandler(L)) gh->sendOptOutOfLoot(out);
+            return 0;
+        }},
+                {"GetOptOutOfLoot", [](lua_State* L) -> int {
+            lua_pushboolean(L, optOutOfLoot() ? 1 : 0);
+            return 1;
+        }},
                 {"SetDungeonDifficulty",      [](lua_State* L) -> int { (void)L; return 0; }},
                 {"SetRaidDifficulty",         [](lua_State* L) -> int { (void)L; return 0; }},
                                 {"ChannelBan", [](lua_State* L) -> int {

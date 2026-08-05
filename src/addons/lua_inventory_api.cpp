@@ -2780,7 +2780,16 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetContainerItemQuestInfo", lua_GetContainerItemQuestInfo},
                 {"KeyRingButtonIDToInvSlotID", lua_KeyRingButtonIDToInvSlotID},
                 {"SetPortraitToTexture",  lua_SetPortraitToTexture},
-                {"NotWhileDeadError",     lua_ContainerNoOp},
+                // The "you can't do that when you're dead" line, which
+                // containerframe.lua and uiparent.lua raise when a panel is
+                // asked for while dead. A no-op meant the bags simply refused
+                // to open with nothing said about why.
+                {"NotWhileDeadError", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) {
+                gh->addUIError("You can't do that when you're dead.");
+            }
+            return 0;
+        }},
                 {"ShowContainerSellCursor", lua_ContainerNoOp},
                 {"ShowBuybackSellCursor", lua_ContainerNoOp},
                 // A left-click on a vendor's item goes here, and it was a

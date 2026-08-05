@@ -2815,7 +2815,6 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetMuteStatus",            lua_ReturnFalse},
                 {"GetActiveVoiceChannel",    lua_ReturnNil},
                 {"GetVoiceCurrentSessionID", lua_ReturnNil},
-                {"GetOptOutOfLoot",          lua_ReturnFalse},
                 {"GetPartyMember",           lua_ReturnFalse},
                 // GetZonePVPInfo() → pvpType, isSubZonePvP, factionName
                 //

@@ -268,6 +268,8 @@ public:
     void joinChannel(const std::string& channelName, const std::string& password = "");
     void leaveChannel(const std::string& channelName);
     void requestChannelList(const std::string& channelName);
+    /// Tell the server whether to pass on every loot roll for us.
+    void sendOptOutOfLoot(bool optOut);
     /// Announce a rune's type and readiness to the interface.
     void fireRuneUpdate(uint32_t index);
     const std::vector<std::string>& getJoinedChannels() const;
