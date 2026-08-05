@@ -2809,6 +2809,38 @@ static int lua_GetLootRollTimeLeft(lua_State* L) {
 // expects.
 static int lua_RollOnLoot(lua_State* L) {
     auto* gh = getGameHandler(L);
+    const int rollId = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const auto* roll = rollFor(gh, rollId);
+    if (!roll) return 0;
+    const int type = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (type < 0 || type > 3) return 0;
+
+    // Rolling for something that will bind asks first. CONFIRM_LOOT_ROLL is
+    // raised by the client rather than the server — uiparent.lua answers it
+    // with the popup whose OK calls ConfirmLootRoll(id, rollType) — so nothing
+    // raised it here and Need on a bind-on-pickup item bound it with no
+    // warning at all, which is the one place this differs from the real client
+    // in a way a player pays for.
+    //
+    // Need and Greed only. Both hand the item over and bind it; disenchant
+    // yields the shard and passing yields nothing, so neither asks.
+    if (type == 1 || type == 2) {
+        const auto* info = gh->getItemInfo(roll->itemId);
+        if (info && info->valid && info->bindType == 1) {
+            gh->fireAddonEvent("CONFIRM_LOOT_ROLL",
+                               {std::to_string(rollId), std::to_string(type)});
+            return 0;
+        }
+    }
+
+    gh->sendLootRoll(roll->objectGuid, roll->slot, static_cast<uint8_t>(type));
+    return 0;
+}
+
+// ConfirmLootRoll(rollId, rollType) — the answer to the popup above, which is
+// the only caller. Sends without asking again, because this *is* the asking.
+static int lua_ConfirmLootRoll(lua_State* L) {
+    auto* gh = getGameHandler(L);
     const auto* roll = rollFor(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
     if (!roll) return 0;
     const int type = static_cast<int>(luaL_optnumber(L, 2, 0));
@@ -3211,6 +3243,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetLootRollItemLink", lua_GetLootRollItemLink},
                 {"GetLootRollTimeLeft", lua_GetLootRollTimeLeft},
                 {"RollOnLoot",          lua_RollOnLoot},
+                {"ConfirmLootRoll",     lua_ConfirmLootRoll},
                 {"GetLootMethod",       lua_GetLootMethod},
                 {"GetMasterLootCandidate", lua_GetMasterLootCandidate},
                 {"GetLootThreshold",    lua_GetLootThreshold},

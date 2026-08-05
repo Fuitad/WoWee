@@ -95,15 +95,22 @@ CHECKS = [
     ("framexml_event_arity.py",
      r"^(\d+) fired from several places with differing counts", 4,
      "events whose argument count depends on which path fired them"),
-    # Thirty, and most are correctly absent: their dialog is shown by a message
-    # this client is never sent — the bind-confirmation family needs
+    # Twenty-five, and most are correctly absent: their dialog is shown by a
+    # message this client is never sent — the bind-confirmation family needs
     # LOOT_BIND_CONFIRM and its three siblings, none of which any opcode here
     # produces, and the arena and socketing ones need features that are not
     # here at all. The ceiling is for a regression, and for the day one of
     # those events starts being fired: a popup that can open with an unbound
     # accept is a player pressing a button and getting an error.
+    #
+    # That day came for CONFIRM_LOOT_ROLL on 2026-08-05, and in the useful
+    # direction: it is raised by the *client*, not the server, so nothing here
+    # raised it and Need on a bind-on-pickup item bound it with no warning.
+    # RollOnLoot raises it now and ConfirmLootRoll answers it. Checking whether
+    # a popup is reachable means asking which event shows it and whether this
+    # client fires that event — not whether the verb is bound.
     ("staticpopup_verbs_check.py",
-     r"^(\d+) name\(s\) a popup button calls and nothing answers", 27,
+     r"^(\d+) name\(s\) a popup button calls and nothing answers", 25,
      "names a static popup's buttons call that nothing answers"),
     # The three wire-shape checks. Each is a fault that no test catches: a
     # request the server drops on the floor, a reply read at the wrong offsets,
