@@ -3,7 +3,9 @@
 #include "rendering/movement_limits.hpp"
 #include <algorithm>
 #include <cstdlib>
+#include <fstream>
 #include <future>
+#include <sstream>
 #include <string>
 #include "core/thread_pool.hpp"
 #include <imgui.h>
@@ -1645,6 +1647,7 @@ void CameraController::update(float deltaTime) {
             // lost a selection. Those are different bugs in different places
             // and this is the line that tells them apart.
             {
+                static constexpr const char* kFloorDebugPath = "/tmp/wowee_floor.log";
                 static const bool kFloorDebug = [] {
                     const char* v = std::getenv("WOWEE_FLOOR_DEBUG");
                     return v && v[0] && v[0] != '0';
@@ -1656,19 +1659,29 @@ void CameraController::update(float deltaTime) {
                         auto say = [](const std::optional<float>& v) {
                             return v ? std::to_string(*v) : std::string("-");
                         };
-                        LOG_WARNING(
-                            "FLOOR at (", targetPos.x, ", ", targetPos.y, ", ", targetPos.z,
-                            ") terrain=", say(centerTerrainH),
-                            " wmo=", say(centerWmoH),
-                            " m2=", say(centerM2H),
-                            " chose=", say(groundH),
-                            " hole=", (terrainManager &&
-                                       terrainManager->isHoleAt(targetPos.x, targetPos.y)),
-                            " insideWMO=", cachedInsideWMO,
-                            " insideInterior=", cachedInsideInteriorWMO,
-                            " grounded=", grounded,
-                            " vz=", verticalVelocity,
-                            " lastGroundZ=", lastGroundZ);
+                        std::ostringstream line;
+                        line << "FLOOR at (" << targetPos.x << ", " << targetPos.y
+                             << ", " << targetPos.z << ")"
+                             << " terrain=" << say(centerTerrainH)
+                             << " wmo="     << say(centerWmoH)
+                             << " m2="      << say(centerM2H)
+                             << " chose="   << say(groundH)
+                             << " hole="    << (terrainManager &&
+                                    terrainManager->isHoleAt(targetPos.x, targetPos.y))
+                             << " insideWMO="      << cachedInsideWMO
+                             << " insideInterior=" << cachedInsideInteriorWMO
+                             << " grounded="       << grounded
+                             << " vz="             << verticalVelocity
+                             << " lastGroundZ="    << lastGroundZ;
+                        LOG_WARNING(line.str());
+                        // Also to a file. The console is where this used to go
+                        // and it scrolled past — asking someone to reproduce a
+                        // bug and then hand back terminal scrollback is asking
+                        // twice. Truncated on the first line of a run so the
+                        // file is always this session's.
+                        static std::ofstream trace(kFloorDebugPath,
+                                                   std::ios::out | std::ios::trunc);
+                        if (trace) trace << line.str() << '\n' << std::flush;
                     }
                 }
             }
