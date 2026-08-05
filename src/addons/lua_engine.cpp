@@ -5061,6 +5061,29 @@ void LuaEngine::registerCoreAPI() {
         "    _WoweePopulateItemTooltip(self, tonumber(id))\n"
         "    if count and count > 1 then self:AddLine('Count: '..count, 0.5, 0.5, 0.5) end\n"
         "end\n"
+        // The spellbook's tooltip. SpellButton_OnEnter calls this and nothing
+        // answered it, so hovering any spell in the book showed nothing —
+        // silently, because an unknown method gets a no-op rather than an
+        // error. The spellbook is one of the default elements.
+        //
+        // The argument is a book slot, not a spell id, which is what
+        // GetSpellBookItemInfo turns into one; SetSpellByID below already
+        // builds the tooltip from there. Returning true matters: the caller is
+        // `if ( GameTooltip:SetSpell(...) ) then self.UpdateTooltip = ... end`,
+        // so a tooltip that draws but answers nothing never refreshes.
+        //
+        // The pet book is declined rather than guessed at. Its slots index the
+        // pet's own spells and GetSpellBookItemInfo walks the player's tabs, so
+        // answering from it would name the wrong spell; false sends the caller
+        // down the branch it takes when there is nothing to show.
+        "function __WoweeFrameMT:SetSpell(slot, bookType)\n"
+        "    self:ClearLines()\n"
+        "    if bookType == BOOKTYPE_PET then return false end\n"
+        "    local _, spellId = GetSpellBookItemInfo(slot)\n"
+        "    if not spellId or spellId == 0 then return false end\n"
+        "    self:SetSpellByID(spellId)\n"
+        "    return true\n"
+        "end\n"
         // The pet bar's tooltip. PetActionButton_OnEnter calls this for any
         // button without its own tooltip text, which is every real ability the
         // pet has — so hovering one showed nothing at all. It did not raise:
