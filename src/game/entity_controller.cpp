@@ -690,7 +690,9 @@ EntityController::UnitFieldIndices EntityController::UnitFieldIndices::resolve()
         fieldIndex(UF::UNIT_FIELD_BYTES_0),
         fieldIndex(UF::UNIT_FIELD_BYTES_1),
         fieldIndex(UF::UNIT_FIELD_PETEXPERIENCE),
-        fieldIndex(UF::UNIT_FIELD_PETNEXTLEVELEXP)
+        fieldIndex(UF::UNIT_FIELD_PETNEXTLEVELEXP),
+        fieldIndex(UF::UNIT_FIELD_STAT0),
+        fieldIndex(UF::UNIT_FIELD_RESISTANCES)
     };
 }
 
@@ -968,6 +970,7 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
     result.oldDisplayId = unit->getDisplayId();
     uint32_t oldHealth = unit->getHealth();
     bool petExperienceChanged = false;
+    bool petStatsChanged = false;
     for (const auto& [key, val] : block.fields) {
         if (key == ufi.health) {
             unit->setHealth(val);
@@ -1159,6 +1162,19 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
                 owner_.otherPlayerMountCallbackRef()(block.guid, val);
             }
             unit->setMountDisplayId(val);
+        } else if (ufi.stat0 != 0xFFFF && key >= ufi.stat0 && key < ufi.stat0 + 5 &&
+                   block.guid == owner_.petGuidRef()) {
+            // The pet's own five, not the player's. The paperdoll's pet tab
+            // reads them through UnitStat("pet"), which used to answer from the
+            // player — so a hunter's pet listed its owner's Strength.
+            owner_.petStatsRef()[key - ufi.stat0] = static_cast<int32_t>(val);
+            petStatsChanged = true;
+        } else if (ufi.resistances != 0xFFFF && key >= ufi.resistances &&
+                   key < ufi.resistances + 7 && block.guid == owner_.petGuidRef()) {
+            // Armor is index zero and the six schools follow it, the same shape
+            // as the player's.
+            owner_.petResistancesRef()[key - ufi.resistances] = static_cast<int32_t>(val);
+            petStatsChanged = true;
         } else if (ufi.petXp != 0xFFFF && key == ufi.petXp &&
                    block.guid == owner_.petGuidRef()) {
             // Only the player's own pet. Every unit carries these fields and
@@ -1249,6 +1265,11 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
     // never moved again.
     if (petExperienceChanged && owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("UNIT_PET_EXPERIENCE", {"pet"});
+    }
+    // The pet tab redraws its stat block on these, named for the pet.
+    if (petStatsChanged && owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("UNIT_STATS", {"pet"});
+        owner_.addonEventCallbackRef()("UNIT_RESISTANCES", {"pet"});
     }
 
     return result;

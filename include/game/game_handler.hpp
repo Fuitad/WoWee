@@ -923,6 +923,13 @@ public:
     // Pet command/react state from SMSG_PET_MODE or SMSG_PET_SPELLS
     uint8_t getPetCommand() const { return petCommand_; }   // 0=stay,1=follow,2=attack,3=dismiss
     uint8_t getPetReact()   const { return petReact_; }     // 0=passive,1=defensive,2=aggressive
+    // A pet's own stats and resistances, off the pet unit's fields. Armor is
+    // resistance index 0, as it is for the player.
+    const std::array<int32_t, 5>& getPetStats() const { return petStats_; }
+    const std::array<int32_t, 7>& getPetResistances() const { return petResistances_; }
+    std::array<int32_t, 5>& petStatsRef() { return petStats_; }
+    std::array<int32_t, 7>& petResistancesRef() { return petResistances_; }
+
     // A hunter pet's experience, off the pet unit's own fields.
     uint32_t getPetExperience() const { return petExperience_; }
     uint32_t getPetNextLevelExp() const { return petNextLevelExp_; }
@@ -3867,6 +3874,8 @@ private:
     bool     petRenameablePending_ = false;  // set by SMSG_PET_RENAMEABLE, consumed by UI
     std::vector<uint32_t> petSpellList_; // known pet spells
     std::unordered_set<uint32_t> petAutocastSpells_;  // spells with autocast on
+    std::array<int32_t, 5> petStats_{};
+    std::array<int32_t, 7> petResistances_{};
     uint32_t petExperience_ = 0;
     uint32_t petNextLevelExp_ = 0;
 

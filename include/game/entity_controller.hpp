@@ -195,6 +195,10 @@ private:
         /// A hunter pet carries its own experience, on the pet's unit rather
         /// than on the player's.
         uint16_t petXp, petNextLevelXp;
+        /// ...and its own stats and resistances, which the pet paperdoll reads
+        /// through UnitStat("pet") and UnitResistance("pet"). Armor is
+        /// resistances index 0.
+        uint16_t stat0, resistances;
         static UnitFieldIndices resolve();
     };
     struct PlayerFieldIndices {

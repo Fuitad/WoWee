@@ -754,7 +754,16 @@ static int lua_UnitStat(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 0); return 4; }
     int statIdx = static_cast<int>(luaL_checknumber(L, 2)) - 1; // WoW API is 1-indexed
-    int32_t val = gh->getPlayerStat(statIdx);
+    // Whose stat. This ignored the unit and answered from the player, so the
+    // paperdoll's pet tab listed the hunter's own Strength as the pet's.
+    std::string who(luaL_optstring(L, 1, "player"));
+    toLowerInPlace(who);
+    int32_t val = 0;
+    if (who == "pet") {
+        if (statIdx >= 0 && statIdx < 5) val = gh->getPetStats()[static_cast<size_t>(statIdx)];
+    } else if (who == "player") {
+        val = gh->getPlayerStat(statIdx);
+    }
     if (val < 0) val = 0;
     // We only have the effective value from the server; report base=effective, no buffs
     lua_pushnumber(L, val); // base (approximate — server only sends effective)
@@ -2227,9 +2236,16 @@ void registerUnitLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             int school = static_cast<int>(luaL_optnumber(L, 2, 0));
             int32_t val = 0;
-            if (gh) {
-                if (school == 0) val = gh->getArmorRating(); // physical = armor
-                else if (school >= 1 && school <= 6) val = gh->getResistance(school);
+            // Whose resistance, for the same reason as UnitStat above.
+            std::string who(luaL_optstring(L, 1, "player"));
+            toLowerInPlace(who);
+            if (gh && school >= 0 && school <= 6) {
+                if (who == "pet") {
+                    val = gh->getPetResistances()[static_cast<size_t>(school)];
+                } else if (who == "player") {
+                    // Physical is armor, and it is index zero of the same block.
+                    val = (school == 0) ? gh->getArmorRating() : gh->getResistance(school);
+                }
             }
             if (val < 0) val = 0;
             lua_pushnumber(L, val); // base
