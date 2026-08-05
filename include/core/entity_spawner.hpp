@@ -140,6 +140,13 @@ public:
     ///
     /// The appearance bytes are packed as a character's are: skin, face, hair
     /// style and hair colour, one byte each from the bottom up.
+    /// The pre-composited skin for a humanoid display, or empty.
+    ///
+    /// This is the whole appearance already baked — skin, face, hair and the
+    /// armour the NPC wears — which is how the game draws them and how this
+    /// client can, without compositing anything.
+    std::string getHumanoidBakePath(uint32_t displayId) const;
+
     bool getHumanoidAppearance(uint32_t displayId, uint8_t& race, uint8_t& sex,
                                uint32_t& appearanceBytes, uint8_t& facialHair) const;
 

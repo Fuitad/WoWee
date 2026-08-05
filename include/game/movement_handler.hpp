@@ -7,6 +7,7 @@
 #include <chrono>
 #include <deque>
 #include <functional>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -326,6 +327,8 @@ private:
     bool taxiWindowOpen_ = false;
     ShowTaxiNodesData currentTaxiData_;
     uint64_t taxiNpcGuid_ = 0;
+    /// Triggers already reported as a near miss, so the log says it once.
+    std::set<uint32_t> nearMissLogged_;
     bool onTaxiFlight_ = false;
     std::string taxiDestName_;
     // Set in activateTaxi(); used by finishClientTaxiFlight() to snap to the

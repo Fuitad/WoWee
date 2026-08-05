@@ -42,6 +42,17 @@ public:
 
     /// Any model by path, with none of the appearance work — for a creature,
     /// whose M2 names its own textures and has no geosets to choose between.
+    /// Put a pre-composited skin on the loaded character, replacing the one
+    /// built from CharSections.
+    ///
+    /// CreatureDisplayInfoExtra carries one of these for nearly every humanoid
+    /// NPC — 15,453 of 15,475 rows here — and it is the whole appearance
+    /// already baked: skin, face, hair and the armour they are wearing. The
+    /// client cannot composite an NPC's armour, and does not have to.
+    ///
+    /// After loadCharacter, because it overrides the slot that one fills.
+    bool setBakedSkin(const std::string& bakePath);
+
     /// skins are (M2 texture type, path) pairs — a creature's model declares
     /// texture slots and the display row fills them, so the M2 alone is an
     /// untextured shape. EntitySpawner::getCreatureSkinPaths answers with

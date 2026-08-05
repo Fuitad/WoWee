@@ -1085,6 +1085,15 @@ bool CharacterPreview::applyEquipment(const std::vector<game::EquipmentItem>& eq
 ///
 /// The renderer is the one that already draws every unit in the world, so a
 /// creature model needs nothing here that the world does not already do.
+bool CharacterPreview::setBakedSkin(const std::string& bakePath) {
+    if (!charRenderer_ || instanceId_ == 0 || bakePath.empty()) return false;
+    VkTexture* tex = charRenderer_->loadTexture(bakePath);
+    if (!tex) return false;
+    charRenderer_->setTextureSlotOverride(
+        instanceId_, static_cast<uint16_t>(skinTextureSlotIndex_), tex);
+    return true;
+}
+
 bool CharacterPreview::loadCreature(
         const std::string& m2Path,
         const std::vector<std::pair<uint32_t, std::string>>& skins) {

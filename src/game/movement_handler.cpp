@@ -3230,6 +3230,29 @@ void MovementHandler::checkAreaTriggers() {
             inside = insideTrigger(sweepSamples[s].x, sweepSamples[s].y, sweepSamples[s].z);
         }
 
+        // Near misses, once per trigger. A trigger that does not fire looks
+        // exactly like a trigger that is not there, and the difference is a
+        // number nobody can see: the sphere test is three-dimensional, so
+        // standing on top of something with the right x and y and the wrong z
+        // is outside it. Quest objectives that complete by walking somewhere
+        // fail this way and say nothing at all.
+        if (!inside && !nearMissLogged_.count(at.id)) {
+            const float dx = checkedPx - at.x;
+            const float dy = checkedPy - at.y;
+            const float dz = checkedPz - at.z;
+            const float flat = std::sqrt(dx * dx + dy * dy);
+            const float extent = (at.radius > 0.0f)
+                ? at.radius
+                : std::max(at.boxLength, at.boxWidth) * 0.5f;
+            if (extent > 0.0f && flat <= extent) {
+                nearMissLogged_.insert(at.id);
+                LOG_WARNING("AreaTrigger near miss: AT", at.id,
+                            " flat=", flat, " within extent=", extent,
+                            " but dz=", dz,
+                            " (player z=", checkedPz, ", trigger z=", at.z, ")");
+            }
+        }
+
         if (inside) {
             if (owner_.activeAreaTriggersRef().count(at.id) == 0) {
                 const bool suppressCurrentTrigger =

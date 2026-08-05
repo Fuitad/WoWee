@@ -1043,6 +1043,18 @@ EntitySpawner::getOrLoadAttachmentModel(const std::vector<std::string>& candidat
     return CachedAttachmentModel{idIt->second, std::move(model)};
 }
 
+std::string EntitySpawner::getHumanoidBakePath(uint32_t displayId) const {
+    if (!assetManager_) return "";
+    auto disp = displayDataMap_.find(displayId);
+    if (disp == displayDataMap_.end() || disp->second.extraDisplayId == 0) return "";
+    auto extra = humanoidExtraMap_.find(disp->second.extraDisplayId);
+    if (extra == humanoidExtraMap_.end() || extra->second.bakeName.empty()) return "";
+
+    // The bakes live in one directory and the dbc names only the file.
+    const std::string path = "Creature\\Baked\\" + extra->second.bakeName;
+    return assetManager_->fileExists(path) ? path : std::string();
+}
+
 bool EntitySpawner::getHumanoidAppearance(uint32_t displayId, uint8_t& race,
                                           uint8_t& sex, uint32_t& appearanceBytes,
                                           uint8_t& facialHair) const {

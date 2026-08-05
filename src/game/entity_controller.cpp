@@ -1346,7 +1346,13 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
               owner_.isRestingRef() = nowResting;
               pendingEvents_.emit("PLAYER_UPDATE_RESTING", {});
           }
-          if (!isCreate) {
+          {
+            // Not gated on !isCreate, and that is the whole of a bug: logging
+            // in already dead delivers the player as a CREATE block, so the
+            // ghost flag it carries was never read. releasedSpirit_ stayed
+            // false, canReclaimCorpse refused, and a player who logged in
+            // standing on their own corpse could not take it back — the one
+            // case where the flag arrives without a transition to notice.
             constexpr uint32_t PLAYER_FLAGS_GHOST = 0x00000010;
             bool wasGhost = owner_.releasedSpiritRef();
             bool nowGhost = (val & PLAYER_FLAGS_GHOST) != 0;
@@ -1372,7 +1378,10 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
             // handlers do with it: TargetFrame compares arg1 against its
             // own unit before redrawing the away and busy markers, so an
             // absent one matched no frame and none of them ever redrew.
-            pendingEvents_.emit("PLAYER_FLAGS_CHANGED", {"player"});
+            // The event only where something changed. A create block is the
+            // interface being told what is, not what moved, and every frame
+            // reads the current values when it is built.
+            if (!isCreate) pendingEvents_.emit("PLAYER_FLAGS_CHANGED", {"player"});
           }
         }
         else if (pfi.meleeAP  != 0xFFFF && key == pfi.meleeAP)  {
