@@ -188,6 +188,10 @@ public:
     /// are dead: every reader forwards here. So a character switch left the
     /// previous character's quest log and quest-giver marks in place until the
     /// server happened to overwrite them.
+    /// Tell the interface a quest moved — see the definition for why the
+    /// three events go together.
+    void announceQuestLogChanged(uint32_t questId);
+
     void clearQuestStateForCharacterSwitch() {
         questLog_.clear();
         pendingQuestQueryIds_.clear();

@@ -91,6 +91,28 @@ void QuestHandler::reconcileItemObjectivesFromInventory(
     if (maybeCompletedObjective) requeryNearbyQuestGiverStatus();
 }
 
+/// Say that a quest moved, to everything that draws one.
+///
+/// The quest log this client keeps and the quest log the interface draws are
+/// two different things, and only an event joins them. Marking a quest
+/// complete and telling nobody is why an objective the server credited —
+/// searching the Altar of Zul, and every other explore objective — appeared
+/// only after a relog: the state was right the whole time, and nothing had
+/// asked the tracker to look at it again.
+///
+/// The same three every other quest-progress path fires, by the same rules:
+/// the watch update carries the quest's position in the log, because that is
+/// what the interface auto-watches from.
+void QuestHandler::announceQuestLogChanged(uint32_t questId) {
+    if (!owner_.addonEventCallbackRef()) return;
+    const int index = questLogIndexOf(questId);
+    if (index > 0) {
+        owner_.addonEventCallbackRef()("QUEST_WATCH_UPDATE", {std::to_string(index)});
+    }
+    owner_.addonEventCallbackRef()("QUEST_LOG_UPDATE", {});
+    owner_.addonEventCallbackRef()("UNIT_QUEST_LOG_CHANGED", {"player"});
+}
+
 void QuestHandler::requeryNearbyQuestGiverStatus() {
     if (questGiverRequeryCooldown_ > 0.0f) {
         questGiverRequeryPending_ = true;
@@ -509,6 +531,9 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
                 if (q.questId == questId && !q.title.empty()) { questTitle = q.title; break; }
             owner_.addSystemChatMessage(questTitle.empty() ? std::string("Quest failed!")
                                                            : ('"' + questTitle + "\" failed!"));
+            // Same omission as the complete handler had: a line of chat is not
+            // a redraw, and a failed quest goes on looking fine in the log.
+            announceQuestLogChanged(questId);
         }
     };
 
@@ -521,6 +546,7 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
                 if (q.questId == questId && !q.title.empty()) { questTitle = q.title; break; }
             owner_.addSystemChatMessage(questTitle.empty() ? std::string("Quest timed out!")
                                                            : ('"' + questTitle + "\" has timed out."));
+            announceQuestLogChanged(questId);
         }
     };
 
@@ -840,6 +866,7 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
                     quest.killCounts[entry] = {count, reqCount};
                     owner_.addSystemChatMessage(quest.title + ": " + std::to_string(count) +
                                                  "/" + std::to_string(reqCount));
+                    announceQuestLogChanged(questId);
                     break;
                 }
             }
@@ -858,6 +885,7 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
                     quest.complete = true;
                     owner_.addSystemChatMessage("Quest Complete: " + quest.title);
                     LOG_INFO("Marked quest ", questId, " as complete");
+                    announceQuestLogChanged(questId);
                     break;
                 }
             }

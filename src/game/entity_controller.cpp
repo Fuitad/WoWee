@@ -1981,7 +1981,16 @@ void EntityController::onCreateItem(const UpdateBlock& block, bool& newItemCreat
 void EntityController::onCreateCorpse(const UpdateBlock& block) {
     // Detect player's own corpse object so we have the position even when
     // SMSG_DEATH_RELEASE_LOC hasn't been received (e.g. login as ghost).
-    if (block.hasMovement) {
+    //
+    // Not gated on hasMovement, and that gate was a bug of its own: a corpse
+    // is a stationary object and its create block need not carry a movement
+    // block at all. What reclaiming needs from here is the *guid* —
+    // CMSG_RECLAIM_CORPSE names it, and canReclaimCorpse refuses while it is
+    // zero — and the position can come from MSG_CORPSE_QUERY, which the
+    // login-as-ghost path already sends. Gating the guid on the position
+    // meant a ghost who walked back to a corpse that arrived without one
+    // could never take it, however close they stood.
+    {
         // CORPSE_FIELD_OWNER is at index 6 (uint64, low word at 6, high at 7)
         uint16_t ownerLowIdx = 6;
         auto ownerLowIt = block.fields.find(ownerLowIdx);
@@ -1990,13 +1999,18 @@ void EntityController::onCreateCorpse(const UpdateBlock& block) {
         uint32_t ownerHigh = (ownerHighIt != block.fields.end()) ? ownerHighIt->second : 0;
         uint64_t ownerGuid = (static_cast<uint64_t>(ownerHigh) << 32) | ownerLow;
         if (ownerGuid == owner_.getPlayerGuid() || ownerLow == static_cast<uint32_t>(owner_.getPlayerGuid())) {
-            // Server coords from movement block
             owner_.corpseGuidRef()  = block.guid;
-            owner_.corpseXRef()     = block.x;
-            owner_.corpseYRef()     = block.y;
-            owner_.corpseZRef()     = block.z;
-            owner_.corpseMapIdRef() = owner_.currentMapIdRef();
-            owner_.corpsePositionValidRef() = true;
+            // The position only where the block actually carried one; a
+            // stationary create may not, and overwriting a good answer from
+            // MSG_CORPSE_QUERY with three zeroes would put the corpse at the
+            // map origin and refuse the reclaim on distance instead.
+            if (block.hasMovement) {
+                owner_.corpseXRef()     = block.x;
+                owner_.corpseYRef()     = block.y;
+                owner_.corpseZRef()     = block.z;
+                owner_.corpseMapIdRef() = owner_.currentMapIdRef();
+                owner_.corpsePositionValidRef() = true;
+            }
 
             // Corpse objects carry ownership and position but not a standalone
             // render model. Reuse the owning character's appearance and equipment
