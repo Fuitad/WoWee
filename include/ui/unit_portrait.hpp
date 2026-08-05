@@ -38,6 +38,18 @@ public:
     void update(game::GameHandler& gameHandler, pipeline::AssetManager* assets,
                 rendering::Renderer* renderer, float deltaTime);
 
+    /// Show another player, from the appearance the world already reads for
+    /// them: race, gender, the packed appearance bytes and facial features.
+    ///
+    /// No equipment. The world dresses other players from their visible-item
+    /// fields and this does not yet, so a targeted player is shown in the
+    /// underwear the character-select screen would show — which is the same
+    /// face, the same hair and the same skin, and wrong only below the neck.
+    /// For a portrait framed on the head that is the whole picture.
+    void updatePlayer(uint8_t race, uint8_t gender, uint32_t appearanceBytes,
+                      uint8_t facialFeatures, pipeline::AssetManager* assets,
+                      rendering::Renderer* renderer, float deltaTime);
+
     /// Show a creature instead, by the model its display id names.
     ///
     /// Kept apart from update() rather than folded into it: a player is built
@@ -79,6 +91,10 @@ private:
     std::string loadedCreaturePath_;
 
     uint64_t loadedGuid_ = 0;
+    /// Race and gender as well, because another player is identified by these
+    /// rather than by a guid that this only ever sees one of at a time.
+    uint8_t  loadedRace_ = 0xFF;
+    uint8_t  loadedGender_ = 0xFF;
     uint32_t loadedAppearance_ = 0;
     uint8_t  loadedFacialFeatures_ = 0;
     size_t   loadedEquipHash_ = 0;

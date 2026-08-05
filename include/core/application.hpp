@@ -175,6 +175,8 @@ private:
     /// model — the alternative is reloading a model per frame, which is what a
     /// shared view would amount to.
     ui::UnitPortrait targetPortrait_;
+    /// And the focus, which is deliberate enough to be worth its own pass.
+    ui::UnitPortrait focusPortrait_;
     /// And the pet's, which is always a creature and so always has one.
     ui::UnitPortrait petPortrait_;
 

@@ -104,6 +104,60 @@ void UnitPortrait::update(game::GameHandler& gameHandler,
     preview_->requestComposite();
 }
 
+void UnitPortrait::updatePlayer(uint8_t race, uint8_t gender,
+                                uint32_t appearanceBytes, uint8_t facialFeatures,
+                                pipeline::AssetManager* assets,
+                                rendering::Renderer* renderer, float deltaTime) {
+    if (!assets || !renderer) return;
+
+    if (!preview_) {
+        preview_ = std::make_unique<rendering::CharacterPreview>();
+        initialized_ = preview_->initialize(assets);
+        if (!initialized_) {
+            LOG_WARNING("UnitPortrait: could not build the offscreen view");
+            preview_.reset();
+            return;
+        }
+        renderer->registerPreview(preview_.get());
+        registered_ = true;
+    }
+
+    // The same three keys the player's own portrait compares, minus the guid —
+    // this is asked per unit and the caller has already decided which.
+    const bool changed = (loadedAppearance_ != appearanceBytes) ||
+                         (loadedFacialFeatures_ != facialFeatures) ||
+                         (loadedRace_ != race) || (loadedGender_ != gender) ||
+                         !loadedCreaturePath_.empty();
+    if (changed) {
+        const uint8_t skin      =  appearanceBytes        & 0xFF;
+        const uint8_t face      = (appearanceBytes >> 8)  & 0xFF;
+        const uint8_t hairStyle = (appearanceBytes >> 16) & 0xFF;
+        const uint8_t hairColor = (appearanceBytes >> 24) & 0xFF;
+
+        preview_->setTransparentBackground(true);
+        if (preview_->loadCharacter(static_cast<game::Race>(race),
+                                    static_cast<game::Gender>(gender),
+                                    skin, face, hairStyle, hairColor,
+                                    facialFeatures, gender == 1)) {
+            if (framing_ == Framing::Face) preview_->setPortraitFraming();
+            else                           preview_->resetView();
+        }
+        LOG_INFO("UnitPortrait: rebuilt for player race ", static_cast<int>(race),
+                 " appearance ", appearanceBytes);
+        loadedCreaturePath_.clear();
+        loadedGuid_ = 0;
+        loadedRace_ = race;
+        loadedGender_ = gender;
+        loadedAppearance_ = appearanceBytes;
+        loadedFacialFeatures_ = facialFeatures;
+        loadedEquipHash_ = 0;
+    }
+
+    preview_->update(deltaTime);
+    preview_->render();
+    preview_->requestComposite();
+}
+
 void UnitPortrait::updateCreature(const std::string& m2Path,
                                   pipeline::AssetManager* assets,
                                   rendering::Renderer* renderer,

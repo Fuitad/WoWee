@@ -1355,6 +1355,7 @@ void Application::shutdown() {
     unitPortrait_.shutdown(renderer.get());
     targetPortrait_.shutdown(renderer.get());
     petPortrait_.shutdown(renderer.get());
+    focusPortrait_.shutdown(renderer.get());
     paperdollModel_.shutdown(renderer.get());
 
     // Explicitly shut down the renderer before destroying it — this ensures
@@ -3328,12 +3329,10 @@ void Application::render() {
                 // nothing draws costs a render and a composite every frame to
                 // produce a picture nobody sees.
                 //
-                // A creature model by display id, which is what both usually
-                // are. A targeted *player* is not built from a display id at
-                // all — their look comes from race, appearance bytes and worn
-                // items, none of which this client has for anyone but itself —
-                // so those keep an empty portrait rather than a wrong one. The
-                // naked race model would be worse than nothing.
+                // A player from their appearance and anything else from its
+                // display id. Both are read from what the world already has:
+                // a creature is a model path, and a player's skin, face and
+                // hair come off the update fields their spawn was built from.
                 struct UnitFace {
                     const char* unit;
                     ui::UnitPortrait* portrait;
@@ -3342,31 +3341,57 @@ void Application::render() {
                 const UnitFace kFaces[] = {
                     {"target", &targetPortrait_, gameHandler->getTargetGuid()},
                     {"pet",    &petPortrait_,    gameHandler->getPetGuid()},
+                    {"focus",  &focusPortrait_,  gameHandler->getFocusGuid()},
                 };
+                // Three, and the party frames deliberately not among them. Each
+                // of these is a 640x800 offscreen target and a character render
+                // pass every frame; four more of those, for circles fifty
+                // pixels across, is a worse trade than an empty circle. They
+                // would work — a party member is a player like any other — and
+                // the way to have them is a smaller target for small portraits,
+                // not five more of this size.
                 for (const UnitFace& face : kFaces) {
                     const auto& claimed = widgets.portraitsFor(face.unit);
                     if (claimed.empty()) continue;
 
-                    uint32_t displayId = 0;
-                    if (face.guid != 0) {
-                        // A unit, not any entity: the display id lives on Unit
-                        // and on GameObject, and a targeted game object has no
-                        // portrait in the interface to put one in.
-                        if (game::Unit* u = gameHandler->getUnitByGuid(face.guid)) {
-                            displayId = u->getDisplayId();
+                    bool built = false;
+                    face.portrait->setFraming(ui::UnitPortrait::Framing::Face);
+
+                    // A player first, because a player has a display id too and
+                    // it is the wrong thing to draw them from: it names the
+                    // naked race model, with none of their skin, face or hair.
+                    // The world already reads all three off their update
+                    // fields, and now so does this.
+                    uint8_t race = 0, gender = 0, facial = 0;
+                    uint32_t appearance = 0;
+                    if (face.guid != 0 &&
+                        gameHandler->getPlayerAppearance(face.guid, race, gender,
+                                                         appearance, facial)) {
+                        face.portrait->updatePlayer(race, gender, appearance, facial,
+                                                    assetManager.get(), renderer.get(),
+                                                    io.DeltaTime);
+                        built = true;
+                    } else {
+                        uint32_t displayId = 0;
+                        if (face.guid != 0) {
+                            // A unit, not any entity: the display id lives on
+                            // Unit and on GameObject, and a targeted game
+                            // object has no portrait to put one in.
+                            if (game::Unit* u = gameHandler->getUnitByGuid(face.guid)) {
+                                displayId = u->getDisplayId();
+                            }
+                        }
+                        std::string modelPath;
+                        if (displayId != 0 && entitySpawner_) {
+                            modelPath = entitySpawner_->getModelPathForDisplayId(displayId);
+                        }
+                        if (!modelPath.empty()) {
+                            face.portrait->updateCreature(modelPath, assetManager.get(),
+                                                          renderer.get(), io.DeltaTime);
+                            built = true;
                         }
                     }
-                    std::string modelPath;
-                    if (displayId != 0 && entitySpawner_) {
-                        modelPath = entitySpawner_->getModelPathForDisplayId(displayId);
-                    }
-                    if (!modelPath.empty()) {
-                        face.portrait->setFraming(ui::UnitPortrait::Framing::Face);
-                        face.portrait->updateCreature(modelPath, assetManager.get(),
-                                                      renderer.get(), io.DeltaTime);
-                    }
-                    const uint64_t drawn = modelPath.empty()
-                        ? 0 : face.portrait->textureId();
+                    const uint64_t drawn = built ? face.portrait->textureId() : 0;
                     for (uint32_t id : claimed) {
                         if (ui::Widget* w = widgets.get(id)) w->externalTexture = drawn;
                     }

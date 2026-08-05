@@ -291,6 +291,16 @@ void EntityController::processOutOfRangeObjects(const std::vector<uint64_t>& gui
 // Extracted helper methods
 // ============================================================
 
+bool EntityController::getPlayerAppearance(uint64_t guid, uint8_t& outRace,
+                                           uint8_t& outGender,
+                                           uint32_t& outAppearanceBytes,
+                                           uint8_t& outFacial) const {
+    auto entity = const_cast<EntityController*>(this)->getEntityManager().getEntity(guid);
+    if (!entity) return false;
+    return extractPlayerAppearance(entity->getFields(), outRace, outGender,
+                                   outAppearanceBytes, outFacial);
+}
+
 bool EntityController::extractPlayerAppearance(const FlatFieldMap& fields,
                                                uint8_t& outRace,
                                                uint8_t& outGender,

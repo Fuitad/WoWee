@@ -147,6 +147,16 @@ private:
     bool extractPlayerAppearance(const FlatFieldMap& fields,
                                  uint8_t& outRace, uint8_t& outGender,
                                  uint32_t& outAppearanceBytes, uint8_t& outFacial) const;
+
+public:
+    /// The same, for a player already in the world, read from the fields the
+    /// entity is still holding. The spawn path takes this once and hands it to
+    /// a callback; anything wanting it later — a portrait, an inspect window —
+    /// has nowhere to ask, and the fields are right there.
+    bool getPlayerAppearance(uint64_t guid, uint8_t& outRace, uint8_t& outGender,
+                             uint32_t& outAppearanceBytes, uint8_t& outFacial) const;
+
+private:
     void maybeDetectCoinageIndex(const FlatFieldMap& oldFields,
                                  const FlatFieldMap& newFields);
 

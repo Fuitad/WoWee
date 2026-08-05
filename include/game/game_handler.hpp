@@ -253,6 +253,14 @@ public:
     /**
      * Get entity manager (for accessing entities in view)
      */
+    /// How a player in the world looks: race, gender, the packed appearance
+    /// bytes and the facial-feature byte. False for anything that is not a
+    /// player, or a player whose fields have not arrived.
+    bool getPlayerAppearance(uint64_t guid, uint8_t& race, uint8_t& gender,
+                             uint32_t& appearanceBytes, uint8_t& facial) const {
+        return entityController_->getPlayerAppearance(guid, race, gender,
+                                                      appearanceBytes, facial);
+    }
     EntityManager& getEntityManager() { return entityController_->getEntityManager(); }
     const EntityManager& getEntityManager() const { return entityController_->getEntityManager(); }
 
