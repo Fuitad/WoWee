@@ -145,6 +145,12 @@ CHECKS = [
     ("framexml_handler_arity.py",
      r"^(\d+) single-event handler\(s\) unpacking more at the top", 0,
      "single-event handlers unpacking more than the client fires"),
+    # What the two arity sweeps structurally cannot see: the count being right
+    # while the values are in the wrong places. That is what the spellcast
+    # events did — two fired where two were read, the second one wrong.
+    ("framexml_event_order.py",
+     r"^(\d+) argument\(s\) in the wrong position", 0,
+     "event arguments of the wrong kind for the position they are in"),
     ("api_shadowing_check.py",
      r"^\s*(\d+) to look at", 10,
      "names whose winner depends on load order"),
