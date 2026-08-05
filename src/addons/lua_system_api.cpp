@@ -3315,6 +3315,52 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetMapContinents",    lua_GetMapContinents},
                 {"GetMapZones",         lua_GetMapZones},
                 {"GetNumMapLandmarks",  lua_GetNumMapLandmarks},
+                // The rest of the world map's own calls. None of them was
+                // bound, and two run on every open: WorldMapFrame_OnUpdate
+                // asks UpdateMapHighlight for whatever is under the cursor on
+                // every frame the mouse is over the map, and the zoom-out
+                // button reaches ZoomOut whenever the map is not a continent.
+                //
+                // Answered rather than filled in. This client draws its own
+                // world map and keeps its zones, overlays and area POIs in
+                // rendering/world_map, which no callback reaches from here yet
+                // — so these say "nothing there" honestly instead of raising,
+                // and the map opens empty rather than not at all.
+                //
+                // Nothing under the cursor: eight values, and the first is the
+                // area name the label is set from. Nil leaves it blank, which
+                // is what a cursor over no zone should do.
+                {"UpdateMapHighlight", [](lua_State* L) -> int {
+            (void)L;
+            for (int i = 0; i < 8; ++i) lua_pushnil(L);
+            return 8;
+        }},
+                // Clicking a continent drills into the zone under the point.
+                // Doing nothing leaves the map where it was, which is a map
+                // that does not zoom rather than one that zooms wrongly.
+                {"ProcessMapClick",     lua_ReturnNothing},
+                // Zoom out one step. SetMapZoom answers the continent and
+                // cosmic cases beside it; this is the dungeon-floor and cosmic
+                // step, and neither is reachable while GetNumDungeonMapLevels
+                // answers none.
+                {"ZoomOut",             lua_ReturnNothing},
+                {"SetMapByID",          lua_ReturnNothing},
+                {"SetDungeonMapLevel",  lua_ReturnNothing},
+                {"ClickLandmark",       lua_ReturnNothing},
+                // Landmark rows, which GetNumMapLandmarks already reports none
+                // of. Bound so that stays true if it ever reports some.
+                {"GetMapLandmarkInfo",  lua_ReturnNil},
+                {"GetMapOverlayInfo",   lua_ReturnNil},
+                // Which map a quest's objectives are on, and what a quest item
+                // drops from. Both are read while building the map's quest
+                // list; nil is "not on this map", which is what the list does
+                // with a quest it cannot place.
+                {"GetQuestWorldMapAreaID", lua_ReturnNil},
+                {"GetQuestLogItemDrop",    lua_ReturnNil},
+                // Two debug readers, for the zone-map overlay Blizzard ships
+                // switched off. Nothing here has a debug zone map at all.
+                {"GetDebugZoneMap",        lua_ReturnNil},
+                {"GetMapDebugObjectInfo",  lua_ReturnNil},
                 {"GetTrackingTexture",  lua_GetTrackingTexture},
                 {"GetNumTrackingTypes", lua_GetNumTrackingTypes},
                 {"GetTrackingInfo",     lua_GetTrackingInfo},
