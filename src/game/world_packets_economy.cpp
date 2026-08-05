@@ -493,7 +493,11 @@ bool GuildBankListParser::parse(network::Packet& packet, GuildBankData& data) {
     data.withdrawAmount = static_cast<int32_t>(packet.readUInt32());
     uint8_t fullUpdate = packet.readUInt8();
 
-    if (fullUpdate) {
+    // Tab zero only. GuildBankQueryResults::Write sends the tab list under
+    // `if (!Tab && FullUpdate)`, so a full update of any other tab carries no
+    // names — and reading a count there took the item count as a tab count and
+    // the items as tab names.
+    if (fullUpdate && data.tabId == 0) {
         if (!packet.hasRemaining(1)) {
             LOG_WARNING("GuildBankListParser: truncated before tabCount");
             data.tabs.clear();
@@ -539,37 +543,44 @@ bool GuildBankListParser::parse(network::Packet& packet, GuildBankData& data) {
         slot.slotId = packet.readUInt8();
         slot.itemEntry = packet.readUInt32();
         if (slot.itemEntry != 0) {
-            // Validate before reading enchant mask
-            if (!packet.hasRemaining(4)) break;
-            // Enchant info
-            uint32_t enchantMask = packet.readUInt32();
-            for (int bit = 0; bit < 10; ++bit) {
-                if (enchantMask & (1u << bit)) {
-                    if (!packet.hasRemaining(12)) {
-                        LOG_WARNING("GuildBankListParser: truncated enchant data");
-                        break;
-                    }
-                    uint32_t enchId = packet.readUInt32();
-                    uint32_t enchDur = packet.readUInt32();
-                    uint32_t enchCharges = packet.readUInt32();
-                    if (bit == 0) slot.enchantId = enchId;
-                    (void)enchDur; (void)enchCharges;
-                }
-            }
-            // Validate before reading remaining item fields
-            if (!packet.hasRemaining(12)) {
+            // Flags, then the random property and — only when that is non-zero
+            // — its seed; then the stack, the permanent enchantment, the
+            // charges, and a socket list counted in a byte.
+            //
+            // This used to read a uint32 "enchant mask" and up to ten twelve-byte
+            // enchant records, then a stack, a spare word and a random property.
+            // None of that is on the wire. The first item came out with its
+            // flags read as a mask — so a flags value with low bits set invented
+            // enchant records — and every slot after it was read at whatever
+            // offset that left.
+            if (!packet.hasRemaining(8)) {
                 LOG_WARNING("GuildBankListParser: truncated item fields");
                 break;
             }
-            slot.stackCount = packet.readUInt32();
-            /*spare=*/ packet.readUInt32();
+            /*flags=*/ packet.readUInt32();
             slot.randomPropertyId = packet.readUInt32();
             if (slot.randomPropertyId) {
                 if (!packet.hasRemaining(4)) {
-                    LOG_WARNING("GuildBankListParser: truncated suffix factor");
+                    LOG_WARNING("GuildBankListParser: truncated property seed");
                     break;
                 }
-                /*suffixFactor=*/ packet.readUInt32();
+                /*seed=*/ packet.readUInt32();
+            }
+            if (!packet.hasRemaining(10)) {
+                LOG_WARNING("GuildBankListParser: truncated item body");
+                break;
+            }
+            slot.stackCount = packet.readUInt32();
+            slot.enchantId  = packet.readUInt32();
+            /*charges=*/ packet.readUInt8();
+            const uint8_t socketCount = packet.readUInt8();
+            for (uint8_t sock = 0; sock < socketCount; ++sock) {
+                if (!packet.hasRemaining(5)) {
+                    LOG_WARNING("GuildBankListParser: truncated socket list");
+                    break;
+                }
+                packet.readUInt8();   // socket index
+                packet.readUInt32();  // socket enchantment
             }
         }
         data.tabItems.push_back(slot);
