@@ -1036,10 +1036,16 @@ static int lua_ClickTradeButton(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
     if (!gh || i < 1 || i > game::GameHandler::TRADE_SLOT_COUNT) return 0;
-    if (s_cursorType == CursorType::ITEM && s_cursorBag >= 0) {
-        gh->setTradeItem(static_cast<uint8_t>(i - 1),
-                         static_cast<uint8_t>(s_cursorBag),
-                         static_cast<uint8_t>(s_cursorSlot));
+    uint8_t srcBag = 0, srcSlot = 0;
+    // Through the same translation as every other send. This passed FrameXML's
+    // own numbering straight to the server — bags counted 0 to 4 and slots from
+    // one — where the wire wants the flat space GetItemByPos reads: container
+    // 255 with an absolute slot, or a worn bag's equipment slot with a 0-based
+    // index inside it. The server finds no item at the slot it was given and
+    // answers TRADE_STATUS_TRADE_CANCELED, so offering an item ended the trade.
+    if (s_cursorType == CursorType::ITEM && s_cursorBag >= 0 &&
+        cursorWireSlot(srcBag, srcSlot)) {
+        gh->setTradeItem(static_cast<uint8_t>(i - 1), srcBag, srcSlot);
         clearCursorItem(L);
     } else {
         gh->clearTradeItem(static_cast<uint8_t>(i - 1));

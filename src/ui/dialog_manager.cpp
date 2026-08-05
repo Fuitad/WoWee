@@ -1,4 +1,5 @@
 #include "ui/dialog_manager.hpp"
+#include "game/inventory_slots.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "ui/inventory_screen.hpp"
 #include "ui/chat_panel.hpp"
@@ -428,6 +429,20 @@ void DialogManager::renderTradeWindow(game::GameHandler& gameHandler,
                     if (isMine && ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
                         ImGui::OpenPopup(addItemId);
                     }
+
+                    // Dropped out of a handed-over bag. The popup below lists
+                    // the backpack only, so with the bags drawn by FrameXML a
+                    // drag was the natural way to offer something and there was
+                    // nothing here to catch it — and anything in one of the four
+                    // worn bags could not be traded at all.
+                    if (isMine && ImGui::IsItemHovered() &&
+                        ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                        uint8_t srcBag = 0, srcSlot = 0;
+                        if (frameXmlCursorWireSlot(srcBag, srcSlot)) {
+                            gameHandler.setTradeItem(static_cast<uint8_t>(i), srcBag, srcSlot);
+                            frameXmlPutCursorDown();
+                        }
+                    }
                 }
 
                 if (isMine) {
@@ -446,9 +461,15 @@ void DialogManager::renderTradeWindow(game::GameHandler& gameHandler,
                                 : (!slot.item.name.empty() ? slot.item.name
                                    : ("Item " + std::to_string(slot.item.itemId)));
                             if (ImGui::Selectable(iname.c_str())) {
-                                // bag=255 = main backpack
-                                gameHandler.setTradeItem(static_cast<uint8_t>(i), 255u,
-                                                         static_cast<uint8_t>(si));
+                                // Container 255 is the flat space the server
+                                // reads with GetItemByPos, where the backpack
+                                // starts after the equipment — not at zero.
+                                // Sending the backpack index raw named an
+                                // equipment slot, and an offer the server finds
+                                // no item for cancels the trade outright.
+                                gameHandler.setTradeItem(
+                                    static_cast<uint8_t>(i), 255u,
+                                    static_cast<uint8_t>(game::slots::backpackWireSlot(si)));
                                 ImGui::CloseCurrentPopup();
                             }
                         }
