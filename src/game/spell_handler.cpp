@@ -2277,10 +2277,21 @@ void SpellHandler::handleRemovedSpell(network::Packet& packet) {
     knownSpells_.erase(spellId);
     syncPreWotlkTalentsFromKnownSpells();
     LOG_INFO("Removed spell: ", spellId);
-    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("SPELLS_CHANGED", {});
+    // Braced. The two lines below were indented as though they sat inside the
+    // check above and did not — the first if has no body braces — so the
+    // crafting refresh called the callback without testing it, and a null one
+    // throws rather than doing nothing.
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("SPELLS_CHANGED", {});
+        // The mirror of COMPANION_LEARNED on the other side of this file. The
+        // mounts and critters list is built from the spellbook, so losing a
+        // spell can take one off it, and the pet tab refreshes on this and on
+        // nothing else.
+        owner_.addonEventCallbackRef()("COMPANION_UNLEARNED", {});
         // A crafting window's recipes are the spells that just changed, and
         // it refreshes on its own event rather than on that one.
         if (craftingWindowOpen_) owner_.addonEventCallbackRef()("TRADE_SKILL_UPDATE", {});
+    }
 
     // Learning a new talent rank legitimately removes/replaces its internal
     // talent spell. That is rank bookkeeping, not the player unlearning the
