@@ -2705,6 +2705,10 @@ std::string GameHandler::getMapName(uint32_t mapId) const {
     return (it != mapNameCache_.end()) ? it->second : std::string{};
 }
 
+uint64_t GameHandler::getEncounterUnitGuid(uint32_t slot) const {
+    return socialHandler_ ? socialHandler_->getEncounterUnitGuid(slot) : 0;
+}
+
 bool GameHandler::getInstanceLockPrompt(float& secondsLeft, bool& previouslySaved,
                                         uint32_t& completedMask) const {
     if (!socialHandler_) return false;

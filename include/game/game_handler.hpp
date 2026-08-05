@@ -1600,10 +1600,11 @@ public:
 
     // Boss encounter unit tracking (SMSG_UPDATE_INSTANCE_ENCOUNTER_UNIT)
     static constexpr uint32_t kMaxEncounterSlots = 5;
-    // Returns boss unit guid for the given encounter slot (0 if none)
-    uint64_t getEncounterUnitGuid(uint32_t slot) const {
-        return (slot < kMaxEncounterSlots) ? encounterUnitGuids_[slot] : 0;
-    }
+    // Returns boss unit guid for the given encounter slot (0 if none).
+    // The slots live on SocialHandler, which is what the packet writes to; the
+    // array that used to sit here was never written and answered zero for
+    // every slot, so the boss frames drawn from it were always empty.
+    uint64_t getEncounterUnitGuid(uint32_t slot) const;
 
     // Raid target markers (MSG_RAID_TARGET_UPDATE)
     // Icon indices 0-7: Star, Circle, Diamond, Triangle, Moon, Square, Cross, Skull
@@ -3765,7 +3766,6 @@ private:
     std::vector<BgPlayerPosition> bgPlayerPositions_;
 
     // Instance encounter boss units (slots 0-4 from SMSG_UPDATE_INSTANCE_ENCOUNTER_UNIT)
-    std::array<uint64_t, kMaxEncounterSlots> encounterUnitGuids_ = {};  // 0 = empty slot
 
     // LFG / Dungeon Finder state
     LfgState lfgState_        = LfgState::None;

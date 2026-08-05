@@ -1953,23 +1953,89 @@ void GameHandler::registerOpcodeHandlers() {
     };
     // uint32 slot + packed_guid unit (0 packed = clear slot)
     dispatchTable_[Opcode::SMSG_UPDATE_INSTANCE_ENCOUNTER_UNIT] = [this](network::Packet& packet) {
-        // uint32 slot + packed_guid unit (0 packed = clear slot)
-        if (!packet.hasRemaining(5)) {
+        // uint32 type, then a body that depends on it. The first three types
+        // carry a packed guid and a one-byte frame priority; the objective and
+        // timer types carry one or two bytes; a refresh carries nothing and is
+        // four bytes on the wire.
+        //
+        // What was here read the type as a slot index and the rest as a guid,
+        // which put every engaging boss in slot zero — the value of
+        // ENCOUNTER_FRAME_ENGAGE — and wrote a disengaging one into slot one
+        // instead of clearing it. The five-byte guard also dropped a refresh
+        // outright.
+        enum : uint32_t {
+            kEngage = 0, kDisengage = 1, kUpdatePriority = 2,
+            kAddTimer = 3, kEnableObjective = 4, kUpdateObjective = 5,
+            kDisableObjective = 6, kRefreshFrames = 7,
+        };
+        if (!packet.hasRemaining(4)) { packet.skipAll(); return; }
+        const uint32_t type = packet.readUInt32();
+        if (!socialHandler_) { packet.skipAll(); return; }
+
+        const uint32_t kSlots = game::SocialHandler::kMaxEncounterSlots;
+
+        switch (type) {
+        case kEngage:
+        case kDisengage:
+        case kUpdatePriority: {
+            if (!packet.hasRemaining(1)) { packet.skipAll(); return; }
+            const uint64_t unit = packet.readPackedGuid();
+            // Non-zero means the encounter wants this unit in a particular
+            // frame — Halion's two bodies ask for one and two. Zero, which is
+            // the default and what most scripts send, means anywhere.
+            const uint8_t priority = packet.hasRemaining(1) ? packet.readUInt8() : 0;
+            if (!unit) break;
+
+            uint32_t existing = kSlots;
+            uint32_t firstFree = kSlots;
+            for (uint32_t i = 0; i < kSlots; ++i) {
+                const uint64_t held = socialHandler_->getEncounterUnitGuid(i);
+                if (held == unit) existing = i;
+                else if (!held && firstFree == kSlots) firstFree = i;
+            }
+
+            if (type == kDisengage) {
+                if (existing < kSlots) socialHandler_->setEncounterUnitGuid(existing, 0);
+                break;
+            }
+
+            uint32_t slot = existing;
+            if (priority >= 1 && priority <= kSlots) {
+                slot = priority - 1u;
+            } else if (slot == kSlots) {
+                slot = firstFree;
+            }
+            if (slot >= kSlots) break;   // all five frames already taken
+            if (existing < kSlots && existing != slot) {
+                socialHandler_->setEncounterUnitGuid(existing, 0);
+            }
+            socialHandler_->setEncounterUnitGuid(slot, unit);
+            LOG_DEBUG("SMSG_UPDATE_INSTANCE_ENCOUNTER_UNIT: ",
+                      type == kEngage ? "engage" : "priority",
+                      " slot=", slot, " guid=0x", std::hex, unit, std::dec);
+            break;
+        }
+        case kRefreshFrames:
+            // Nothing changed; the frames are asked to draw themselves again
+            // after a unit was destroyed client-side, so the event below is
+            // the whole of it.
+            break;
+        case kAddTimer:
+        case kEnableObjective:
+        case kDisableObjective:
+        case kUpdateObjective:
+            // Encounter objective and timer widgets, which nothing draws yet.
+            packet.skipAll();
+            return;
+        default:
             packet.skipAll();
             return;
         }
-        uint32_t slot = packet.readUInt32();
-        uint64_t unit = packet.readPackedGuid();
-        if (socialHandler_) {
-            socialHandler_->setEncounterUnitGuid(slot, unit);
-            LOG_DEBUG("SMSG_UPDATE_INSTANCE_ENCOUNTER_UNIT: slot=", slot,
-                      " guid=0x", std::hex, unit, std::dec);
-            // The boss frames are drawn from these slots and redraw all of
-            // them on this event, which is why it carries no argument. Stored
-            // and never announced, so an encounter filled its slots and no
-            // boss frame appeared.
-            fireAddonEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT", {});
-        }
+
+        // The boss frames redraw all five slots on this event, which is why it
+        // carries no argument. Stored and never announced, so an encounter
+        // filled its slots and no boss frame appeared.
+        fireAddonEvent("INSTANCE_ENCOUNTER_ENGAGE_UNIT", {});
     };
     // charName (cstring) + guid (uint64) + achievementId (uint32) + ...
     dispatchTable_[Opcode::SMSG_SERVER_FIRST_ACHIEVEMENT] = [this](network::Packet& packet) {
