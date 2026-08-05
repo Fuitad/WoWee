@@ -45,7 +45,9 @@ std::filesystem::path guildNameCachePath() {
 // LFG join result codes from LFGJoinResult enum (WotLK 3.3.5a).
 // Case 0 = success (no error message needed), returns nullptr so the caller
 // knows not to display an error string.
-static const char* lfgJoinResultString(uint8_t result) {
+// A uint32 on the wire, so a uint32 here — narrowing it to a byte would
+// wrap a large value into a case that means something else.
+static const char* lfgJoinResultString(uint32_t result) {
     switch (result) {
         case 0:  return nullptr;  // LFG_JOIN_OK
         case 1:  return "Role check failed.";
@@ -68,7 +70,7 @@ static const char* lfgJoinResultString(uint8_t result) {
     }
 }
 
-static const char* lfgTeleportDeniedString(uint8_t reason) {
+static const char* lfgTeleportDeniedString(uint32_t reason) {
     switch (reason) {
         case 0:  return "You are not in a LFG group.";
         case 1:  return "You are not in the dungeon.";
@@ -2978,9 +2980,14 @@ void SocialHandler::handleInstanceDifficulty(network::Packet& packet) {
 // ============================================================
 
 void SocialHandler::handleLfgJoinResult(network::Packet& packet) {
-    if (!packet.hasRemaining(2)) return;
-    uint8_t result = packet.readUInt8();
-    uint8_t state  = packet.readUInt8();
+    // Two uint32s, not two bytes. Reading a byte each left the result right by
+    // accident — every value in that enum fits in one — and the state wrong
+    // always: it came from the second byte of the result, which is zero. So a
+    // queue joined successfully set the state to None, and the dungeon finder
+    // never knew it was in a queue.
+    if (!packet.hasRemaining(8)) return;
+    const uint32_t result = packet.readUInt32();
+    const uint32_t state  = packet.readUInt32();
     if (result == 0) {
         lfgState_ = static_cast<LfgState>(state);
         std::string dName = owner_.getLfgDungeonName(lfgDungeonId_);
@@ -3281,8 +3288,11 @@ void SocialHandler::handleLfgBootProposalUpdate(network::Packet& packet) {
 }
 
 void SocialHandler::handleLfgTeleportDenied(network::Packet& packet) {
-    if (!packet.hasRemaining(1)) return;
-    uint8_t reason = packet.readUInt8();
+    // A uint32, read as a byte. Little-endian kept it working — every reason
+    // is a small number — but the read was the wrong width and the next edit
+    // to this handler would have inherited it.
+    if (!packet.hasRemaining(4)) return;
+    const uint32_t reason = packet.readUInt32();
     owner_.addSystemChatMessage(std::string("Dungeon Finder: ") + lfgTeleportDeniedString(reason));
 }
 
@@ -3366,10 +3376,18 @@ void SocialHandler::handleArenaTeamQueryResponse(network::Packet& packet) {
 }
 
 void SocialHandler::handleArenaTeamRoster(network::Packet& packet) {
-    if (!packet.hasRemaining(9)) return;
-    uint32_t teamId = packet.readUInt32();
-    packet.readUInt8();
-    uint32_t memberCount = std::min(packet.readUInt32(), 100u);
+    // teamId(4) + unk308(1) + memberCount(4) + teamType(4), then the members.
+    //
+    // The team type was never read, so the first member's guid was taken from
+    // four bytes earlier — the type plus the guid's low half — and every
+    // member after it followed from there. The roster was wrong from its first
+    // row, and nothing about it looked like a length fault: the packet is long
+    // enough either way.
+    if (!packet.hasRemaining(13)) return;
+    const uint32_t teamId = packet.readUInt32();
+    packet.readUInt8();                       // 3.0.8 added this; structure only
+    const uint32_t memberCount = std::min(packet.readUInt32(), 100u);
+    /*uint32_t teamType =*/ packet.readUInt32();
     ArenaTeamRoster roster; roster.teamId = teamId; roster.members.reserve(memberCount);
     for (uint32_t i = 0; i < memberCount; ++i) {
         if (!packet.hasRemaining(12)) break;

@@ -2863,37 +2863,74 @@ void InventoryHandler::handleTradeStatus(network::Packet& packet) {
 }
 
 void InventoryHandler::handleTradeStatusExtended(network::Packet& packet) {
-    LOG_WARNING("SMSG_TRADE_STATUS_EXTENDED: size=", packet.getSize(),
-                " readPos=", packet.getReadPos());
-    // WotLK format: whichPlayer(4) + tradeCount(4) + N items × (slot(1)+64bytes) + gold(4)
-    // Total for empty trade: 8 + 8×65 + 4 = 532 (matches observed packet size)
-    if (!packet.hasRemaining(8)) return;
-    uint32_t whichPlayer = packet.readUInt32();   // 0=self, 1=peer (uint32 not uint8!)
-    uint32_t tradeCount = packet.readUInt32();
-    auto& slots = (whichPlayer == 0) ? myTradeSlots_ : peerTradeSlots_;
-    if (tradeCount > TRADE_SLOT_COUNT) tradeCount = TRADE_SLOT_COUNT;  // 6 traded + 1 non-traded slot
-    LOG_WARNING("  whichPlayer=", whichPlayer, " tradeCount=", tradeCount);
+    // SendUpdateTrade writes:
+    //
+    //   uint8  traderData     1 = the other player's offer, 0 = your own
+    //   uint32 tradeId
+    //   uint32 slotCount      seven, twice
+    //   uint32 slotCount
+    //   uint32 gold           the *header* carries it, not the tail
+    //   uint32 spell          cast on the lowest slot's item
+    //   per slot (seven of them):
+    //     uint8  slotIndex
+    //     uint32 entry, displayId, stackCount, wrapped
+    //     uint64 giftCreator
+    //     uint32 permEnchant, gem1, gem2, gem3
+    //     uint64 creator
+    //     uint32 charges, suffixFactor
+    //     int32  randomPropertyId
+    //     uint32 lockId, maxDurability, durability
+    //
+    // An empty slot writes eighteen zeroed uint32s, which is the same
+    // seventy-two bytes, so the stride never changes.
+    //
+    // What was here read a four-byte "whichPlayer" and a four-byte count and
+    // then walked slots of sixty-five bytes from offset eight. Every one of
+    // those is wrong: the discriminator is one byte, the item block starts at
+    // twenty-one, and a slot is seventy-three.
+    //
+    // It went unnoticed because the arithmetic came out right. The note above
+    // it read "8 + 8x65 + 4 = 532 (matches observed packet size)", and 532 is
+    // the true size — 21 + 7x73. A total that agrees says nothing about where
+    // the fields are, and every item in the trade window was read from the
+    // wrong offset with the wrong stride.
+    constexpr size_t kHeaderBytes = 1 + 4 * 5;
+    constexpr size_t kSlotBytes = 1 + 4 * 4 + 8 + 4 * 4 + 8 + 4 * 6;
+    if (!packet.hasRemaining(kHeaderBytes)) { packet.skipAll(); return; }
 
-    for (uint32_t i = 0; i < tradeCount; ++i) {
-        if (!packet.hasRemaining(1)) break;
-        uint8_t slotNum = packet.readUInt8();
-        // Per-slot: 4(item)+4(display)+4(stack)+4(wrapped)+8(creator)
-        //           +4(enchant)+3×4(gems)+4(maxDur)+4(dur)+4(spellCharges)
-        //           +4(suffixFactor)+4(randomPropId)+4(lockId) = 64 bytes
-        if (!packet.hasRemaining(64)) { packet.skipAll(); return; }
-        uint32_t itemId    = packet.readUInt32();
-        uint32_t displayId = packet.readUInt32();
-        uint32_t stackCnt  = packet.readUInt32();
-        /*uint32_t wrapped =*/ packet.readUInt32();
+    const uint8_t traderData = packet.readUInt8();
+    /*uint32_t tradeId    =*/ packet.readUInt32();
+    const uint32_t slotCount = packet.readUInt32();
+    /*uint32_t slotCount2 =*/ packet.readUInt32();
+    const uint32_t gold = packet.readUInt32();
+    /*uint32_t spell     =*/ packet.readUInt32();
+
+    // Zero is this player's own offer, which is the side myTradeSlots_ holds.
+    const bool ownSide = (traderData == 0);
+    auto& slots = ownSide ? myTradeSlots_ : peerTradeSlots_;
+
+    uint32_t count = slotCount;
+    if (count > TRADE_SLOT_COUNT) count = TRADE_SLOT_COUNT;
+    LOG_DEBUG("SMSG_TRADE_STATUS_EXTENDED: ", ownSide ? "own" : "trader",
+              " slots=", count, " gold=", gold);
+
+    for (uint32_t i = 0; i < count; ++i) {
+        if (!packet.hasRemaining(kSlotBytes)) { packet.skipAll(); break; }
+        const uint8_t slotNum = packet.readUInt8();
+        const uint32_t itemId    = packet.readUInt32();
+        const uint32_t displayId = packet.readUInt32();
+        const uint32_t stackCnt  = packet.readUInt32();
+        /*uint32_t wrapped     =*/ packet.readUInt32();
         /*uint64_t giftCreator =*/ packet.readUInt64();
-        /*uint32_t enchant =*/ packet.readUInt32();
-        for (int g = 0; g < 3; ++g) packet.readUInt32(); // socket enchant IDs
-        /*uint32_t maxDur =*/ packet.readUInt32();
-        /*uint32_t curDur =*/ packet.readUInt32();
-        /*uint32_t spellCharges =*/ packet.readUInt32();
-        /*uint32_t suffixFactor =*/ packet.readUInt32();
-        /*uint32_t randomPropId =*/ packet.readUInt32();
-        /*uint32_t lockId =*/ packet.readUInt32();
+        /*uint32_t permEnchant =*/ packet.readUInt32();
+        for (int g = 0; g < 3; ++g) packet.readUInt32();   // socket enchants
+        /*uint64_t creator     =*/ packet.readUInt64();
+        /*uint32_t charges     =*/ packet.readUInt32();
+        /*uint32_t suffixFactor=*/ packet.readUInt32();
+        /*int32_t randomProp   =*/ packet.readUInt32();
+        /*uint32_t lockId      =*/ packet.readUInt32();
+        /*uint32_t maxDur      =*/ packet.readUInt32();
+        /*uint32_t durability  =*/ packet.readUInt32();
 
         if (slotNum < TRADE_SLOT_COUNT) {
             slots[slotNum].itemId = itemId;
@@ -2902,15 +2939,11 @@ void InventoryHandler::handleTradeStatusExtended(network::Packet& packet) {
         }
         if (itemId != 0) owner_.ensureItemInfo(itemId);
     }
+    packet.skipAll();
 
-    // Gold
-    bool goldChanged = false;
-    if (packet.hasRemaining(4)) {
-        uint32_t gold = packet.readUInt32();
-        uint64_t& side = (whichPlayer == 0) ? myTradeGold_ : peerTradeGold_;
-        goldChanged = (side != gold);
-        side = gold;
-    }
+    uint64_t& side = ownSide ? myTradeGold_ : peerTradeGold_;
+    const bool goldChanged = (side != gold);
+    side = gold;
 
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("TRADE_UPDATE", {});
@@ -2927,7 +2960,7 @@ void InventoryHandler::handleTradeStatusExtended(network::Packet& packet) {
         // amount *this* player had put down never appeared.
         if (goldChanged) {
             owner_.addonEventCallbackRef()(
-                whichPlayer == 0 ? "PLAYER_TRADE_MONEY" : "TRADE_MONEY_CHANGED", {});
+                ownSide ? "PLAYER_TRADE_MONEY" : "TRADE_MONEY_CHANGED", {});
         }
     }
 }

@@ -99,8 +99,69 @@ def server_layouts(server_root):
     return out
 
 
+def _balanced(src, open_at):
+    """The braced block starting at open_at, so a function body ends where it does."""
+    depth, i = 0, open_at
+    while i < len(src):
+        if src[i] == "{":
+            depth += 1
+        elif src[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return src[open_at:i + 1]
+        i += 1
+    return src[open_at:]
+
+
+def _handler_bodies():
+    """Named handler -> (body, the name its packet argument goes by).
+
+    A hundred and fifty of this client's registrations are one line that calls
+    a handler by name, and those are the large packets — the quest, guild and
+    auction replies, where a misparse is hardest to see by eye. Reading only
+    the registration measured them as reading nothing.
+    """
+    out = {}
+    for path in (ROOT / "src/game").rglob("*.cpp"):
+        src = path.read_text(errors="ignore")
+        for m in re.finditer(
+                r"void\s+\w+::(\w+)\s*\(\s*network::Packet\s*&\s*(\w+)"
+                r"[^)]*\)\s*\{", src):
+            out[m.group(1)] = (_balanced(src, m.end() - 1), m.group(2))
+    return out
+
+
+def _widths_in(body, var):
+    """The fixed-width reads at the head of a body, in order."""
+    widths = []
+    # A guard or a log line between two reads is not a field and does not end
+    # the run; anything that consumes bytes and is not a plain integer does.
+    #
+    # A read inside a conditional expression ends the run rather than being
+    # counted. This client picks its width by expansion in places —
+    #
+    #     spellId = classicSpellId ? packet.readUInt16() : packet.readUInt32();
+    #
+    # — and taking the first branch reported four packets as misread when the
+    # WotLK branch beside it was right. Which arm runs is not knowable here, so
+    # the honest answer is to stop rather than to guess.
+    for m in re.finditer(r"\b" + re.escape(var) + r"\.(\w+)\s*\(", body):
+        call = m.group(1)
+        line_start = body.rfind("\n", 0, m.start()) + 1
+        line_end = body.find("\n", m.start())
+        line = body[line_start:line_end if line_end != -1 else len(body)]
+        if "?" in line and ":" in line:
+            break
+        if call in CLIENT_WIDTH:
+            widths.append(CLIENT_WIDTH[call])
+        elif call.startswith("read") or call in ("skipAll",):
+            break
+    return widths
+
+
 def client_layouts():
     """SMSG name -> the widths this client reads, up to the first variable one."""
+    handlers = _handler_bodies()
     out = {}
     for path in (ROOT / "src/game").rglob("*.cpp"):
         src = path.read_text(errors="ignore")
@@ -111,17 +172,16 @@ def client_layouts():
                 continue
             end = marks[i + 1][0] if i + 1 < len(marks) else len(src)
             body = src[at:end]
-            widths = []
-            # Reads in the order they appear, stopping at the first one whose
-            # width is not fixed. A guard or a log line between two reads is
-            # not a field and does not end the run; anything that consumes
-            # bytes and is not a plain integer does.
-            for m in re.finditer(r"\bpacket\.(\w+)\s*\(", body):
-                call = m.group(1)
-                if call in CLIENT_WIDTH:
-                    widths.append(CLIENT_WIDTH[call])
-                elif call.startswith("read") or call in ("skipAll",):
-                    break
+            widths = _widths_in(body, "packet")
+            # A registration that only hands the packet to a named handler
+            # reads nothing itself. Follow it, once — a handler that delegates
+            # again is not chased, because the second hop is where a wrong
+            # guess starts costing more than the answer is worth.
+            if not widths:
+                call = re.search(r"\b(\w+)\s*\(\s*\w+\s*[,)]", body)
+                if call and call.group(1) in handlers:
+                    inner, var = handlers[call.group(1)]
+                    widths = _widths_in(inner, var)
             if widths and len(widths) > len(out.get(opcode, [])):
                 out[opcode] = widths
     return out
