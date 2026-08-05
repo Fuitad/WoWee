@@ -151,6 +151,11 @@ CHECKS = [
     ("framexml_event_order.py",
      r"^(\d+) argument\(s\) in the wrong position", 0,
      "event arguments of the wrong kind for the position they are in"),
+    # The same question as framexml_event_order, asked of bindings instead of
+    # events: the count is right and the values are in the wrong slots.
+    ("framexml_return_order.py",
+     r"^(\d+) return value\(s\) in the wrong position", 0,
+     "binding return values of the wrong kind for their position"),
     ("api_shadowing_check.py",
      r"^\s*(\d+) to look at", 10,
      "names whose winner depends on load order"),
