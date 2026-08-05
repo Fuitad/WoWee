@@ -181,7 +181,7 @@ ELEMENTS = {
     "mail":         ["mailframe.lua", "mailframe.xml"],
     "taxi":         ["taxiframe.lua", "taxiframe.xml"],
     "loot":         ["lootframe.lua", "lootframe.xml"],
-    "merchant":     ["merchantframe.lua", "merchantframe.xml"],
+    "vendor":       ["merchantframe.lua", "merchantframe.xml"],
     "bank":         ["bankframe.lua", "bankframe.xml"],
     "questtracker": ["watchframe.lua", "watchframe.xml"],
     "help":         ["helpframe.lua", "helpframe.xml"],
@@ -259,6 +259,35 @@ ADDON_ELEMENTS = {
 # A handler body in XML is Lua, and holds calls that appear nowhere in any .lua.
 # GuildControlSetRankFlag and TakeInboxTextItem are both only ever called from
 # one, and a scan of the Lua alone reported their frames complete.
+# The element names here have to be the ones WOWEE_FRAMEXML_UI accepts, and
+# there is nothing but this check to keep them so. They drifted once: this file
+# called the vendor "merchant" after the frame, framexml_takeover.cpp calls it
+# "vendor" after the element, and the candidates list was written from a
+# reading of this report — so "merchant" went into that list, resolved to no
+# element, and the vendor window was never handed over by it. The run said so
+# every time, in one warning line among many.
+#
+# Names checked against the takeover rather than restated, because restating is
+# how the two came apart.
+def _flag_names():
+    path = os.path.join(ROOT, "src", "ui", "framexml_takeover.cpp")
+    with open(path, errors="ignore") as fh:
+        src = fh.read()
+    # "mainmenubar" is a group covering the action bar and the strips around
+    # it, handled separately in coveredByGroup rather than in the element table.
+    return set(re.findall(r'\{UiElement::\w+,\s*"([a-z]+)"\}', src)) | {"mainmenubar"}
+
+
+def check_element_names():
+    """Names in this file that WOWEE_FRAMEXML_UI would not recognise."""
+    known = _flag_names()
+    # Four are deliberately not elements: the keybinding, macro and clock
+    # panels have no counterpart this client draws, so there is nothing to hand
+    # over and nothing to suppress. They are read for gaps all the same.
+    tool_only = {"keybindings", "macro", "timemanager"}
+    return sorted((set(ELEMENTS) | set(ADDON_ELEMENTS)) - known - tool_only)
+
+
 SCRIPT_BODY = re.compile(r"<(On[A-Za-z]+)>(.*?)</\1>", re.S)
 SCRIPT_ATTR = re.compile(r'<On[A-Za-z]+\s+function="([A-Za-z_][\w]*)"')
 CALL = re.compile(r"(?<![\w.:])([A-Z][A-Za-z0-9_]*)\s*\(")
@@ -480,7 +509,7 @@ def main():
         "characterframe": "[checked] the paperdoll's own are the stat branch shared with UNIT_STATS, which is fired, plus SHOW_COMPARE_TOOLTIP — absent by design, the C client fires it on a shift-hover to open a comparison tooltip and this client has no item comparison at all. The rest arrived with the other four tabs, which this entry did not cover until their files were added: the three COMPANION_* and the two PET_* belong to the companions and mounts list on the pet tab, which needs mount and critter classification out of Spell.dbc and is the one real gap here; DISABLE/ENABLE_XP_GAIN is the WotLK experience-lock NPC, which this client has no path to; PLAYER_PVP_RANK_CHANGED is the vanilla honor rank, gone by 3.3.5. The four remaining calls are AddSkillUp, RemoveSkillUp and BuySkillTier — the skill-point purchase panel, unreachable because GetSkillLineInfo answers nil for stepCost and rankCost — and GetText, which is a widget method rather than a global",
         "book":         "[checked] ITEM_TEXT_TRANSLATION carries a translation timer nothing derives; the text itself does arrive — ItemHandler.cpp builds SMSG_ITEM_TEXT_QUERY_RESPONSE",
         "bags":         "[checked] BAG_OPEN/CLOSED are for a C client opening bags; ToggleBag, OpenBag and CloseBag are all Lua functions in containerframe.lua",
-        "merchant":     "[checked] GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, fired from inventory_handler and entity_controller",
+        "vendor":       "[checked] GUILDBANK_UPDATE_MONEY shares its branch with PLAYER_MONEY, fired from inventory_handler and entity_controller",
         "playerframe":  "[checked] voice chat, vehicles and the playtime nag (PLAYER_ROLES_ASSIGNED was wrong here — roles are parsed and read, and it is fired now)",
         "mainmenubar":  "[checked] nine calls and five events are vehicles; CURRENCY_DISPLAY_UPDATE and UPDATE_BONUS_ACTIONBAR share fired branches, UPDATE_MULTI_CAST_ACTIONBAR shares one and has nil data besides",
         "minimap":      "[checked] four calls unreachable; zoom is widget state, movie recording absent, indoors redundant — MINIMAP_UPDATE_TRACKING was real and is fired now, from the player aura change — tracking is an aura, so that one site covers both routes",
@@ -567,4 +596,14 @@ def main():
 
 
 if __name__ == "__main__":
+    # Before anything else, because every name below is one a person will type
+    # into WOWEE_FRAMEXML_UI or paste into the candidates list, and a name the
+    # flag does not know silently hands nothing over.
+    unknown = check_element_names()
+    if unknown:
+        print("These element names are not ones WOWEE_FRAMEXML_UI accepts, so "
+              "naming them hands nothing over:")
+        for name in unknown:
+            print(f"  {name}")
+        print()
     main()

@@ -174,7 +174,7 @@ const std::set<std::string>& requested() {
                     "achievements", "auctionhouse", "bagbar", "bank",
                     "barbershop", "bgscore", "book", "chat", "classtrainer",
                     "gamemenu", "gossip", "guildbank", "help", "inspect",
-                    "loot", "mail", "merchant", "micromenu", "partyframes",
+                    "loot", "mail", "vendor", "micromenu", "partyframes",
                     "questgiver", "stable", "talents", "taxi", "totems",
                     "tradeskill"}) {
                 out.insert(name);
