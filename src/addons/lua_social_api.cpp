@@ -1167,6 +1167,13 @@ void registerSocialLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             if (!gh) return 0;
             const auto& joined = gh->getJoinedChannels();
+            // Three values per channel against Lua's guaranteed twenty free
+            // slots, so seven channels already runs past the end — and the
+            // default set plus a couple of custom ones is more than that.
+            if (!joined.empty() &&
+                !lua_checkstack(L, static_cast<int>(joined.size() * 3))) {
+                return 0;
+            }
             for (size_t i = 0; i < joined.size(); ++i) {
                 lua_pushnumber(L, static_cast<lua_Number>(i + 1));
                 lua_pushstring(L, joined[i].c_str());

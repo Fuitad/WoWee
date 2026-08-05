@@ -627,6 +627,17 @@ static int lua_SetMapToCurrentZone(lua_State* L) {
 
 // GetCurrentMapContinent() → continentId (1=Kalimdor, 2=EK, 3=Outland, 4=Northrend)
 static int lua_GetCurrentMapContinent(lua_State* L) {
+    // What the map is showing, asked of the map. This kept a static of its
+    // own instead, set from the player's position on first use and from
+    // SetMapZoom after that, and the map itself was never consulted or told —
+    // so the two dropdowns and the zoom-out button moved a number no one drew
+    // from while the map stayed where it was.
+    if (auto* svc = getLuaServices(L)) {
+        if (svc->getMapContinentIndex) {
+            lua_pushnumber(L, svc->getMapContinentIndex());
+            return 1;
+        }
+    }
     if (s_mapContinent == 0) {
         auto* gh = getGameHandler(L);
         if (gh) s_mapContinent = mapIdToContinent(gh->getCurrentMapId());
@@ -637,6 +648,17 @@ static int lua_GetCurrentMapContinent(lua_State* L) {
 
 // GetCurrentMapZone() → zoneId
 static int lua_GetCurrentMapZone(lua_State* L) {
+    // A row in the zone dropdown, not an area id. The fallback below answered
+    // the area id — a number in the thousands where the dropdown wanted a
+    // position in a list of a few dozen — so the selected row was never the
+    // one being shown. SetMapZoom, meanwhile, wrote a row number into the same
+    // static, and the two meanings sat in one variable.
+    if (auto* svc = getLuaServices(L)) {
+        if (svc->getMapZoneIndex) {
+            lua_pushnumber(L, svc->getMapZoneIndex());
+            return 1;
+        }
+    }
     if (s_mapZone == 0) {
         auto* gh = getGameHandler(L);
         if (gh) s_mapZone = static_cast<int>(gh->getWorldStateZoneId());
@@ -649,12 +671,29 @@ static int lua_GetCurrentMapZone(lua_State* L) {
 static int lua_SetMapZoom(lua_State* L) {
     s_mapContinent = static_cast<int>(luaL_checknumber(L, 1));
     s_mapZone = static_cast<int>(luaL_optnumber(L, 2, 0));
+    // Tell the map, which this never did. Every route out of a zone map runs
+    // through here — the zone dropdown, the continent dropdown, and four of
+    // the zoom-out button's six branches — so none of them changed what was
+    // drawn.
+    if (auto* svc = getLuaServices(L)) {
+        if (svc->setMapByIndex) svc->setMapByIndex(s_mapContinent, s_mapZone);
+    }
     fireWorldMapUpdate(L);
     return 0;
 }
 
 // GetMapContinents() → "Kalimdor", "Eastern Kingdoms", ...
 static int lua_GetMapContinents(lua_State* L) {
+    if (auto* svc = getLuaServices(L)) {
+        if (svc->getMapContinentNames) {
+            const auto names = svc->getMapContinentNames();
+            if (!names.empty() &&
+                lua_checkstack(L, static_cast<int>(names.size()))) {
+                for (const auto& n : names) lua_pushstring(L, n.c_str());
+                return static_cast<int>(names.size());
+            }
+        }
+    }
     lua_pushstring(L, "Kalimdor");
     lua_pushstring(L, "Eastern Kingdoms");
     lua_pushstring(L, "Outland");
@@ -662,29 +701,29 @@ static int lua_GetMapContinents(lua_State* L) {
     return 4;
 }
 
-// GetMapZones(continent) → zone names for that continent
-// Returns a basic list; addons mainly need this to not error
+// GetMapZones(continent) → the zones on that continent, in dropdown order
+//
+// Four made-up names per continent before this — "a minimal representative
+// set", which is a list nobody's zone is on. The row picked from it was then
+// handed to SetMapZoom as the zone to show, so the dropdown offered four
+// zones out of dozens and choosing one of them did nothing anyway.
 static int lua_GetMapZones(lua_State* L) {
-    int cont = static_cast<int>(luaL_checknumber(L, 1));
-    // Return a minimal representative set per continent
-    switch (cont) {
-        case 1: // Kalimdor
-            lua_pushstring(L, "Durotar"); lua_pushstring(L, "Mulgore");
-            lua_pushstring(L, "The Barrens"); lua_pushstring(L, "Teldrassil");
-            return 4;
-        case 2: // Eastern Kingdoms
-            lua_pushstring(L, "Elwynn Forest"); lua_pushstring(L, "Westfall");
-            lua_pushstring(L, "Dun Morogh"); lua_pushstring(L, "Tirisfal Glades");
-            return 4;
-        case 3: // Outland
-            lua_pushstring(L, "Hellfire Peninsula"); lua_pushstring(L, "Zangarmarsh");
-            return 2;
-        case 4: // Northrend
-            lua_pushstring(L, "Borean Tundra"); lua_pushstring(L, "Howling Fjord");
-            return 2;
-        default:
-            return 0;
+    const int cont = static_cast<int>(luaL_checknumber(L, 1));
+    if (auto* svc = getLuaServices(L)) {
+        if (svc->getMapZoneNames) {
+            const auto names = svc->getMapZoneNames(cont);
+            // Lua promises a C function twenty free slots and no more. Four
+            // hard-coded names never came near it; a continent's real zone
+            // list is dozens, and pushing them unasked writes past the stack.
+            if (!names.empty() &&
+                !lua_checkstack(L, static_cast<int>(names.size()))) {
+                return 0;
+            }
+            for (const auto& n : names) lua_pushstring(L, n.c_str());
+            return static_cast<int>(names.size());
+        }
     }
+    return 0;
 }
 
 // GetNumMapLandmarks() → 0 (no landmark data exposed yet)
@@ -1782,6 +1821,11 @@ static int lua_GetTrackedAchievements(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
     const auto& tracked = gh->getTrackedAchievements();
+    // The watch frame shows ten, but nothing here enforces that, and Lua
+    // guarantees twenty free slots.
+    if (!tracked.empty() && !lua_checkstack(L, static_cast<int>(tracked.size()))) {
+        return 0;
+    }
     for (uint32_t id : tracked) lua_pushnumber(L, id);
     return static_cast<int>(tracked.size());
 }
@@ -3062,7 +3106,16 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"IsReferAFriendLinked",     lua_ReturnFalse},
                 {"IsStereoVideoAvailable",   lua_ReturnFalse},
                 {"IsVoiceChatEnabled",       lua_ReturnFalse},
-                {"IsZoomOutAvailable",       lua_ReturnFalse},
+                // False always, which is what disabled the zoom-out button at
+                // every level of the map. The only way back out of a zone was
+                // the right-click that reaches the same handler without
+                // asking this first.
+                {"IsZoomOutAvailable", [](lua_State* L) -> int {
+            auto* svc = getLuaServices(L);
+            const bool can = svc && svc->canZoomMapOut && svc->canZoomMapOut();
+            lua_pushboolean(L, can ? 1 : 0);
+            return 1;
+        }},
                 {"HasDebugZoneMap",          lua_ReturnFalse},
                 {"CanQueueForWintergrasp",   lua_ReturnFalse},
                 {"CancelSkillUps",           lua_ReturnNothing},

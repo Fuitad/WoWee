@@ -164,6 +164,11 @@ static int lua_GetQuestTimers(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
     const auto timers = gh->getQuestTimers();
+    // One per timed quest, against Lua's twenty guaranteed slots. A log holds
+    // twenty-five.
+    if (!timers.empty() && !lua_checkstack(L, static_cast<int>(timers.size()))) {
+        return 0;
+    }
     for (const auto& t : timers) lua_pushnumber(L, t.second);
     return static_cast<int>(timers.size());
 }

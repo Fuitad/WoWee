@@ -431,6 +431,29 @@ bool Application::initialize() {
         luaSvc.zoomMapOut = [r = renderer.get()]() {
             if (auto* wmap = r ? r->getWorldMap() : nullptr) wmap->zoomOutOneLevel();
         };
+        luaSvc.getMapContinentNames = [r = renderer.get()]() -> std::vector<std::string> {
+            auto* wmap = r ? r->getWorldMap() : nullptr;
+            return wmap ? wmap->continentNames() : std::vector<std::string>();
+        };
+        luaSvc.getMapZoneNames = [r = renderer.get()](int continent) -> std::vector<std::string> {
+            auto* wmap = r ? r->getWorldMap() : nullptr;
+            return wmap ? wmap->zoneNames(continent) : std::vector<std::string>();
+        };
+        luaSvc.setMapByIndex = [r = renderer.get()](int continent, int zone) {
+            if (auto* wmap = r ? r->getWorldMap() : nullptr) wmap->showMap(continent, zone);
+        };
+        luaSvc.getMapContinentIndex = [r = renderer.get()]() -> int {
+            auto* wmap = r ? r->getWorldMap() : nullptr;
+            return wmap ? wmap->currentContinentIndex() : 0;
+        };
+        luaSvc.getMapZoneIndex = [r = renderer.get()]() -> int {
+            auto* wmap = r ? r->getWorldMap() : nullptr;
+            return wmap ? wmap->currentZoneIndex() : 0;
+        };
+        luaSvc.canZoomMapOut = [r = renderer.get()]() -> bool {
+            auto* wmap = r ? r->getWorldMap() : nullptr;
+            return wmap && wmap->canZoomOut();
+        };
         luaSvc.takeScreenshot = [uim = uiManager.get()]() {
             if (uim) uim->getGameScreen().takeScreenshot();
         };

@@ -123,6 +123,34 @@ public:
     /// Step out one level: zone to continent, continent to world.
     void zoomOutOneLevel();
 
+    // ── Navigating by name, the way the interface's dropdowns do ─────
+    //
+    // The interface offers a continent list and a zone list and sets the map
+    // from a pair of indices into them. Only clicking the map itself reached
+    // this before, so the two dropdowns and the zoom-out button drove nothing.
+
+    /// The continents, in the order 3.3.5 indexes them: Kalimdor, Eastern
+    /// Kingdoms, Outland, Northrend. Fixed rather than discovered, because the
+    /// index is what the interface passes back and addons hard-code it.
+    std::vector<std::string> continentNames() const;
+
+    /// The zones on that continent by their display names, alphabetically.
+    /// One-based continent index; empty for anything else.
+    std::vector<std::string> zoneNames(int continentIndex) const;
+
+    /// Show a continent, or one zone on it. Both indices one-based, as the
+    /// interface counts; zone zero means the continent itself. Continent zero
+    /// means the world.
+    bool showMap(int continentIndex, int zoneIndex);
+
+    /// What is being shown, in those same one-based indices. Zero for the
+    /// world, and zero zone for a continent.
+    int currentContinentIndex() const;
+    int currentZoneIndex() const;
+
+    /// Whether there is a level above this one to step out to.
+    bool canZoomOut() const;
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

@@ -65,6 +65,19 @@ struct LuaServices {
     /// Step out one level: zone to continent, continent to world.
     std::function<void()> zoomMapOut;
 
+    /// The map's two dropdowns and its zoom-out button, which set the map from
+    /// a continent index and a zone index rather than from a point on it.
+    /// Both one-based, as the interface counts them; zone zero is the
+    /// continent itself and continent zero is the world.
+    std::function<std::vector<std::string>()> getMapContinentNames;
+    std::function<std::vector<std::string>(int)> getMapZoneNames;
+    std::function<void(int, int)> setMapByIndex;
+    /// What is shown now, in those same indices, and whether there is a level
+    /// above it. The button that asks the last of these was disabled always.
+    std::function<int()> getMapContinentIndex;
+    std::function<int()> getMapZoneIndex;
+    std::function<bool()> canZoomMapOut;
+
     /// Nameplates over hostile and neutral units, for nameplateShowEnemies.
     ///
     /// There is no counterpart for nameplateShowFriends: this client always

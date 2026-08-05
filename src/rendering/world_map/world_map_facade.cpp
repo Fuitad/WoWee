@@ -1410,6 +1410,144 @@ void WorldMapFacade::Impl::renderImGuiOverlay(const glm::vec3& playerRenderPos,
     ImGui::PopStyleVar(3);  // WindowPadding + ItemSpacing + WindowBorderSize
 }
 
+// ── Navigating by name ─────────────────────────────────────────────────────
+
+namespace {
+
+/// The four continents 3.3.5 lists, and the map each one is. Fixed, and in
+/// that order, because the interface passes the position in this list straight
+/// back as the continent to show — a list discovered from the data would
+/// reorder itself with the data and silently point every saved index at a
+/// different continent.
+struct ContinentEntry { uint32_t mapId; const char* name; };
+const ContinentEntry kContinents[] = {
+    {   1, "Kalimdor"         },
+    {   0, "Eastern Kingdoms" },
+    { 530, "Outland"          },
+    { 571, "Northrend"        },
+};
+constexpr int kContinentCount = static_cast<int>(std::size(kContinents));
+
+/// The zone-list index of a continent, or -1. A continent is the zone with no
+/// area of its own on that map.
+int continentZoneIdx(const std::vector<Zone>& zones, uint32_t mapId) {
+    for (size_t i = 0; i < zones.size(); ++i) {
+        if (zones[i].mapID == mapId && zones[i].areaID == 0 &&
+            isLeafContinent(zones, static_cast<int>(i))) {
+            return static_cast<int>(i);
+        }
+    }
+    return -1;
+}
+
+} // namespace
+
+std::vector<std::string> WorldMapFacade::continentNames() const {
+    std::vector<std::string> out;
+    out.reserve(kContinentCount);
+    for (const ContinentEntry& c : kContinents) out.emplace_back(c.name);
+    return out;
+}
+
+/// The zones on a continent as (display name, zone index), alphabetically.
+/// Both the name list and the navigation need this and would drift apart if
+/// each worked it out for itself — the index the interface hands back has to
+/// mean the same row it was shown.
+static std::vector<std::pair<std::string, int>> zonesOnContinent(
+        const std::vector<Zone>& zones,
+        const std::unordered_map<uint32_t, std::string>& names,
+        int contIdx) {
+    std::vector<std::pair<std::string, int>> out;
+    if (contIdx < 0) return out;
+    for (size_t i = 0; i < zones.size(); ++i) {
+        if (zones[i].areaID == 0) continue;
+        if (!zoneBelongsToContinent(zones, static_cast<int>(i), contIdx)) continue;
+        auto it = names.find(zones[i].areaID);
+        // The DBC's own area name rather than the texture folder, which is
+        // what the folder-keyed areaName holds and is not readable.
+        std::string name = (it != names.end()) ? it->second : zones[i].areaName;
+        if (name.empty()) continue;
+        out.emplace_back(std::move(name), static_cast<int>(i));
+    }
+    std::sort(out.begin(), out.end(),
+              [](const auto& a, const auto& b) { return a.first < b.first; });
+    return out;
+}
+
+std::vector<std::string> WorldMapFacade::zoneNames(int continentIndex) const {
+    std::vector<std::string> out;
+    if (continentIndex < 1 || continentIndex > kContinentCount) return out;
+    const auto& zones = impl_->data.zones();
+    const int contIdx = continentZoneIdx(
+        zones, kContinents[continentIndex - 1].mapId);
+    for (auto& row : zonesOnContinent(zones, impl_->data.areaNameByAreaId(), contIdx)) {
+        out.push_back(std::move(row.first));
+    }
+    return out;
+}
+
+bool WorldMapFacade::showMap(int continentIndex, int zoneIndex) {
+    // Continent zero is the world, which is what the zoom-out button asks for
+    // from a continent.
+    if (continentIndex <= 0) {
+        impl_->viewState.enterWorldView();
+        return true;
+    }
+    if (continentIndex > kContinentCount) return false;
+    const auto& zones = impl_->data.zones();
+    const int contIdx = continentZoneIdx(
+        zones, kContinents[continentIndex - 1].mapId);
+    if (contIdx < 0) return false;
+
+    if (zoneIndex <= 0) {
+        impl_->viewState.setContinentIdx(contIdx);
+        impl_->viewState.setCurrentZoneIdx(contIdx);
+        impl_->viewState.setLevel(ViewLevel::CONTINENT);
+        return true;
+    }
+    const auto rows = zonesOnContinent(zones, impl_->data.areaNameByAreaId(), contIdx);
+    if (zoneIndex > static_cast<int>(rows.size())) return false;
+    impl_->viewState.setContinentIdx(contIdx);
+    impl_->viewState.enterZone(rows[static_cast<size_t>(zoneIndex) - 1].second);
+    return true;
+}
+
+int WorldMapFacade::currentContinentIndex() const {
+    const auto& zones = impl_->data.zones();
+    const int contIdx = impl_->viewState.continentIdx();
+    if (contIdx < 0 || contIdx >= static_cast<int>(zones.size())) return 0;
+    if (impl_->viewState.currentLevel() == ViewLevel::WORLD ||
+        impl_->viewState.currentLevel() == ViewLevel::COSMIC) {
+        return 0;
+    }
+    const uint32_t mapId = zones[static_cast<size_t>(contIdx)].mapID;
+    for (int i = 0; i < kContinentCount; ++i) {
+        if (kContinents[i].mapId == mapId) return i + 1;
+    }
+    return 0;
+}
+
+int WorldMapFacade::currentZoneIndex() const {
+    if (impl_->viewState.currentLevel() != ViewLevel::ZONE) return 0;
+    const int contIdx = impl_->viewState.continentIdx();
+    const int zoneIdx = impl_->viewState.currentZoneIdx();
+    const auto rows = zonesOnContinent(
+        impl_->data.zones(), impl_->data.areaNameByAreaId(), contIdx);
+    for (size_t i = 0; i < rows.size(); ++i) {
+        if (rows[i].second == zoneIdx) return static_cast<int>(i) + 1;
+    }
+    return 0;
+}
+
+bool WorldMapFacade::canZoomOut() const {
+    // Everything but the outermost view has somewhere to go. The button that
+    // asks this was disabled at all times, so the only way out of a zone map
+    // was the right-click the same handler also answers.
+    const ViewLevel level = impl_->viewState.currentLevel();
+    return level == ViewLevel::ZONE || level == ViewLevel::CONTINENT ||
+           (level == ViewLevel::WORLD && impl_->viewState.cosmicEnabled());
+}
+
 } // namespace world_map
 } // namespace rendering
 } // namespace wowee
