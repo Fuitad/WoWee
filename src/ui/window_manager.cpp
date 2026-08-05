@@ -5210,6 +5210,12 @@ void WindowManager::renderTitlesWindow(game::GameHandler& gameHandler) {
 }
 
 // ─── Equipment Set Manager Window ─────────────────────────────────────────────
+// Nothing sets showEquipSetWindow_ true, anywhere — this window has no way to
+// be opened and never draws. Left rather than removed because the equipment-set
+// packets it reads were repaired this week and FrameXML's GearManagerDialog is
+// the path that reaches them now: the manager is behind the equipmentManager
+// CVar, which the interface options can set and which persists since cvars.cfg
+// exists. If this client ever wants its own again, the window is here.
 void WindowManager::renderEquipSetWindow(game::GameHandler& gameHandler) {
     if (!showEquipSetWindow_) return;
 

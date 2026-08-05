@@ -357,6 +357,17 @@ void CombatUI::renderRaidWarningOverlay(game::GameHandler& gameHandler) {
 // Floating Combat Text
 // ============================================================
 
+// Not gated, and there is no element to gate it on.
+//
+// FrameXML's own floating combat text lives in Blizzard_CombatText, which is
+// load-on-demand and reached from exactly one place: the float-mode dropdown in
+// the Interface Options combat panel, which calls UIParentLoadAddOn for it. So
+// it is absent until a player touches that setting, and drawing beside it after
+// that is a latent double rather than a live one.
+//
+// Left alone deliberately. Covering it means a new UiElement and a suppression
+// entry, which is a decision about what this interface owns rather than a fix
+// to something broken — and the client's combat text is the one on screen today.
 void CombatUI::renderCombatText(game::GameHandler& gameHandler) {
     const auto& entries = gameHandler.getCombatText();
     if (entries.empty()) return;
