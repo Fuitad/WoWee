@@ -3658,7 +3658,30 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // because it is the panel's own state until StartAuction sends
                 // it.
                 {"ClickAuctionSellItemButton", [](lua_State* L) -> int {
-            (void)L;
+            // The slot had state and StartAuction read it, but nothing ever
+            // set it: this was a no-op, so no item could be put up for auction
+            // at all. What it needed was a drop target, and the cursor bridge
+            // is one — the item the player is carrying is exactly what a click
+            // on this button is offering.
+            //
+            // Backpack only. auctionSellItem addresses the item by backpack
+            // index, and answering for a worn bag would mean sending an index
+            // into the wrong container; retail lets either be dropped here, so
+            // this is a narrowing worth removing when the send takes a guid.
+            uint8_t bag = 0, slot = 0;
+            if (!wowee::ui::frameXmlCursorWireSlot(bag, slot)) {
+                // Nothing carried: a click takes the item back out.
+                auctionSellSlot() = -1;
+                return 0;
+            }
+            const int first = game::slots::backpackWireSlot(0);
+            const int index = static_cast<int>(slot) - first;
+            if (bag != 0xFF || index < 0 ||
+                index >= game::Inventory::BACKPACK_SLOTS) {
+                return 0;
+            }
+            auctionSellSlot() = index;
+            wowee::ui::frameXmlPutCursorDown();
             return 0;
         }},
                 {"CancelSell", [](lua_State* L) -> int {
@@ -3667,9 +3690,22 @@ void registerInventoryLuaAPI(lua_State* L) {
             return 0;
         }},
                 {"GetAuctionSellItemInfo", [](lua_State* L) -> int {
-            // Nothing in the slot until the sell flow is wired to the cursor,
-            // which needs a drop target this panel does not reach yet.
-            return luaReturnNil(L);
+            // name, texture, count, quality, canUse, price — what the sell tab
+            // draws in its slot and what its deposit is figured from.
+            auto* gh = getGameHandler(L);
+            if (!gh || auctionSellSlot() < 0) return luaReturnNil(L);
+            const auto& s = gh->getInventory().getBackpackSlot(auctionSellSlot());
+            if (s.empty()) { auctionSellSlot() = -1; return luaReturnNil(L); }
+            const auto* info = gh->getItemInfo(s.item.itemId);
+            lua_pushstring(L, (info && info->valid && !info->name.empty())
+                                  ? info->name.c_str() : s.item.name.c_str());
+            lua_pushstring(L, gh->getItemIconPath(s.item.displayInfoId).c_str());
+            lua_pushnumber(L, s.item.stackCount ? s.item.stackCount : 1);
+            lua_pushnumber(L, info && info->valid ? info->quality
+                                  : static_cast<uint32_t>(s.item.quality));
+            lua_pushboolean(L, 1);
+            lua_pushnumber(L, info && info->valid ? info->sellPrice : 0);
+            return 6;
         }},
                 {"CloseAuctionHouse", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->closeAuctionHouse();
@@ -3689,14 +3725,46 @@ void registerInventoryLuaAPI(lua_State* L) {
             lua_pushnumber(L, auctionSelection());
             return 1;
         }},
-                // CalculateAuctionDeposit(duration) → copper
+                // CalculateAuctionDeposit(minutes [, count]) → copper
                 //
-                // The real figure is a share of the item's vendor price scaled
-                // by the run length, and the vendor price is not to hand here,
-                // so it reports zero rather than a number that would be wrong
-                // in a way the player only discovers after posting.
+                // AuctionHouseMgr::GetAuctionDeposit, which is what the server
+                // will actually charge:
+                //
+                //   deposit = depositPercent * 3 / 100 * sellPrice * count
+                //             * (minutes / 720)
+                //
+                // floored at a hundred copper. depositPercent comes from
+                // AuctionHouse.dbc — five for a faction house, twenty-five for
+                // the neutral one — and the twelve-hour block is the unit, so
+                // the three durations multiply by one, two and four.
+                //
+                // It reported zero before, which was honest while the sell slot
+                // could not hold anything. It can now.
                 {"CalculateAuctionDeposit", [](lua_State* L) -> int {
-            lua_pushnumber(L, 0);
+            auto* gh = getGameHandler(L);
+            const double minutes = luaL_optnumber(L, 1, 720);
+            if (!gh || auctionSellSlot() < 0 || minutes <= 0) {
+                lua_pushnumber(L, 0);
+                return 1;
+            }
+            const auto& s = gh->getInventory().getBackpackSlot(auctionSellSlot());
+            const auto* info = s.empty() ? nullptr : gh->getItemInfo(s.item.itemId);
+            const double sellPrice = (info && info->valid) ? info->sellPrice : 0.0;
+            constexpr double kMinimumDeposit = 100.0;
+            if (sellPrice <= 0.0) {
+                lua_pushnumber(L, kMinimumDeposit);
+                return 1;
+            }
+            const double count = luaL_optnumber(L, 2, s.item.stackCount ? s.item.stackCount : 1);
+            // Faction houses take five percent, the neutral one twenty-five.
+            // Which one this is is not tracked, so the cheaper is assumed —
+            // understating a deposit is the kinder way to be wrong, and it is
+            // right at every auctioneer but Booty Bay's.
+            constexpr double kDepositPercent = 5.0;
+            const double blocks = std::floor(minutes / 720.0);
+            const double deposit = (kDepositPercent * 3.0 / 100.0) * sellPrice
+                                   * count * blocks;
+            lua_pushnumber(L, deposit < kMinimumDeposit ? kMinimumDeposit : deposit);
             return 1;
         }},
                 // Sorting is the panel's own, applied to what the server sent.
