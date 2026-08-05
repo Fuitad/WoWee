@@ -1667,3 +1667,44 @@ TEST_CASE("a frame that asks for a size and resolves to none is distinguishable"
     CHECK(tree.get(bare)->width == Catch::Approx(0.0f));
     CHECK(tree.get(bare)->height == Catch::Approx(0.0f));
 }
+
+TEST_CASE("an unanchored frame is not drawn and is still running",
+          "[widget_tree]") {
+    // Two questions that look like one. WoW does not draw a frame with no
+    // anchors — that is why a stray panel does not land in the middle of the
+    // screen — but such a frame is still shown, and its OnUpdate still runs.
+    // Eight of FrameXML's drivers are exactly that shape: a CreateFrame that
+    // is never positioned and carries nothing but an OnUpdate.
+    // frameFadeManager drives every fade in the interface, frameFlashManager
+    // every flash, AnimUpdateFrame the animation system.
+    //
+    // Asking `visible` — which means "would be drawn" — stops all of them.
+    WidgetTree tree;
+    const uint32_t driver = tree.create(WidgetKind::Frame, tree.root(), "Driver");
+    tree.layout(kScreenW, kScreenH);
+
+    const Widget* w = tree.get(driver);
+    CHECK(w->visibleChain);        // shown, and the root is shown
+    CHECK_FALSE(w->visible);       // but nowhere to be drawn
+}
+
+TEST_CASE("a hidden ancestor stops the chain as well as the drawing",
+          "[widget_tree]") {
+    // The half that must keep working: hiding a window has to stop what is
+    // inside it, driver frame or not.
+    WidgetTree tree;
+    const uint32_t window = tree.create(WidgetKind::Frame, tree.root(), "Window");
+    Anchor a; a.point = "BOTTOMLEFT"; a.relativePoint = "BOTTOMLEFT";
+    tree.addPoint(window, a);
+    tree.setWidth(window, 100.0f);
+    tree.setHeight(window, 100.0f);
+    const uint32_t driver = tree.create(WidgetKind::Frame, window, "InnerDriver");
+
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(driver)->visibleChain);
+
+    tree.get(window)->shown = false;
+    tree.layout(kScreenW, kScreenH);
+    CHECK_FALSE(tree.get(driver)->visibleChain);
+    CHECK_FALSE(tree.get(driver)->visible);
+}

@@ -7290,7 +7290,13 @@ void LuaEngine::dispatchOnUpdate(float elapsed) {
         // silently still.
         bool visible;
         if (const auto* uw = widgetOf(L_, lua_gettop(L_))) {
-            visible = uw->visible;
+            // The chain, not `visible`: an unanchored frame is not drawn and is
+            // still running, which is exactly what FrameXML's driver frames
+            // are. frameFadeManager, frameFlashManager and AnimUpdateFrame are
+            // each a CreateFrame that is never positioned and carries nothing
+            // but an OnUpdate — asking whether they would be drawn stops every
+            // fade, flash and animation in the interface.
+            visible = uw->visibleChain;
         } else {
             lua_getfield(L_, -1, "__visible");
             visible = lua_toboolean(L_, -1);

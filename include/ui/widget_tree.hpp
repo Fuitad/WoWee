@@ -424,7 +424,19 @@ struct Widget {
 
     // Filled in by layout(). Screen rect in WoW coordinates: origin bottom-left.
     float left = 0.0f, bottom = 0.0f, rectW = 0.0f, rectH = 0.0f;
-    bool  visible = false;      ///< shown, and every ancestor shown too
+    /// Shown, with every ancestor shown. This is what WoW's IsVisible answers
+    /// and what decides whether an OnUpdate runs.
+    ///
+    /// Distinct from `visible` below, which is this AND has somewhere to be
+    /// drawn. A frame with no anchors is not drawn — that is WoW's rule and
+    /// the reason a stray unanchored panel does not land in the middle of the
+    /// screen — but it is still running. Eight of FrameXML's driver frames are
+    /// exactly that: created by CreateFrame, never positioned, existing only
+    /// to carry an OnUpdate. frameFadeManager drives every fade in the
+    /// interface, frameFlashManager every flash, AnimUpdateFrame the whole
+    /// animation system.
+    bool  visibleChain = false;
+    bool  visible = false;      ///< visibleChain, and anchored somewhere
     /// Whether the interface has been told this is on screen. Visibility is
     /// not a property a frame sets — it is shown, and every ancestor shown too
     /// — so becoming visible has to be noticed rather than announced at the

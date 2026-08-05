@@ -443,6 +443,7 @@ void WidgetTree::layout(float pixelW, float pixelH) {
     rootW.bottom = 0.0f;
     rootW.rectW = screenW;
     rootW.rectH = screenH;
+    rootW.visibleChain = rootW.shown;
     rootW.visible = rootW.shown;
     rootW.effStrata = rootW.strata;
     rootW.effLevel = 0;
@@ -468,6 +469,15 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
     // to.
     const bool unanchoredFrame = (w->kind == WidgetKind::Frame) &&
                                  w->anchors.empty() && id != rootId_;
+    // Two questions, and they are not the same one. Running is shown with
+    // every ancestor shown; drawing additionally needs somewhere to be drawn.
+    // Inherited from the parent's chain rather than its `visible`, or a child
+    // of an unanchored driver frame would stop running too.
+    w->visibleChain = w->shown && (!parent || parent->visibleChain);
+    // Drawing inherits from the parent's *drawing*, not from the chain: an
+    // anchored child of an unanchored frame has nowhere to be either, because
+    // the thing it is anchored to has no position. Deriving this from the
+    // chain instead put those children back on screen.
     w->visible = w->shown && (!parent || parent->visible) && !unanchoredFrame;
     // Clipping is inherited: anything under a scroll frame is bounded by it,
     // however deep, because a scroll child holds frames of its own.
