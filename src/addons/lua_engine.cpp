@@ -6050,7 +6050,7 @@ void LuaEngine::installMissingApiFallback() {
         "  'GetNumTitles','GetNumTooltips','GetNumTrackingTypes',\n"
         "  'GetNumVoiceSessionMembersBySessionID',\n"
         "  'GetNumDungeonMapLevels','GetNumMapOverlays','GetNumVoiceSessions',\n"
-        "  'GuildControlGetNumRanks','BNGetNumConversationMembers','GetKeyRingSize',\n"
+        "  'BNGetNumConversationMembers','GetKeyRingSize',\n"
         // The ignore list asks for all three of these before it draws a row,
         // and compares each against zero without checking. There is no
         // Battle.net here, so none of them is an unknown quantity being guessed

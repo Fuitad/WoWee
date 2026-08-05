@@ -1144,6 +1144,38 @@ void registerSocialLuaAPI(lua_State* L) {
         }},
 
                 // ---- Guild rank editing ----
+                // GuildControlGetNumRanks() — how many ranks the guild has.
+                //
+                // This answered zero, and every other verb in this block
+                // worked. The panel builds its rank dropdown with
+                // `for i = 1, GuildControlGetNumRanks()`, so the loop never ran
+                // once: an empty dropdown, no rank to select, and therefore no
+                // rank to edit, promote to or demote to. friendsframe also
+                // takes `GuildControlGetNumRanks() - 1` as the lowest rank
+                // index, which was minus one.
+                //
+                // Counted from the roster's ranks rather than the ten name
+                // slots in the guild query, because that is where
+                // GuildControlGetRankFlags reads rights from — a rank listed
+                // here whose flags come back empty is worse than one not
+                // listed. The query's names fill in before any roster has
+                // arrived, and it pads to ten with empty strings, so those are
+                // counted only up to the last one that has a name.
+                {"GuildControlGetNumRanks", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return luaReturnZero(L);
+            const auto& ranks = gh->getGuildRoster().ranks;
+            if (!ranks.empty()) {
+                lua_pushnumber(L, static_cast<double>(ranks.size()));
+                return 1;
+            }
+            const auto& names = gh->getGuildRankNames();
+            size_t named = 0;
+            for (size_t i = 0; i < names.size(); ++i)
+                if (!names[i].empty()) named = i + 1;
+            lua_pushnumber(L, static_cast<double>(named));
+            return 1;
+        }},
                 {"GuildControlGetRankName", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));

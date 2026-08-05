@@ -3455,7 +3455,6 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetChatWindowInfo",        lua_GetChatWindowInfo},
                 {"GetNumBattlefieldFlagPositions", lua_ReturnZero},
                 {"GetBattlefieldFlagPosition",     lua_GetBattlefieldPosition},
-                {"GuildControlGetNumRanks",  lua_ReturnZero},
                 // Time left on a loot roll that is not running, which
                 // GroupLootFrame compares against a bar range at once.
                 {"GetNumDungeonMapLevels",   lua_ReturnZero},
