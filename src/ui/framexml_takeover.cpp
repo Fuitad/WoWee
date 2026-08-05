@@ -155,6 +155,15 @@ const std::set<std::string>& requested() {
         // nothing. tools/framexml_unbound_globals.py reports friendsframe
         // clean, which is the check this note used to ask for.
         //
+        // "dungeonfinder" joins them. No missing call, and four of its five
+        // unfired events are correctly absent: the source of
+        // LFG_OPEN_FROM_GOSSIP is STATUS_NEVER in AzerothCore and never sent,
+        // UPDATE_LFG_LIST belongs to the raid browser whose three search
+        // packets are read and dropped here by decision — so this client's own
+        // browser is as empty as FrameXML's would be — LFG_ROLE_UPDATE
+        // refreshes role checkboxes that are client state, and
+        // VOTE_KICK_REASON_NEEDED needs a message this client is not sent.
+        //
         // "questtracker" joins them, and with it the last of the three held
         // out for drawing a second map. WatchFrame draws no map: it calls the
         // quest POI part of that API to place markers, and every one of those
@@ -220,11 +229,12 @@ const std::set<std::string>& requested() {
             for (const char* name : {
                     "achievements", "auctionhouse", "bagbar", "bank",
                     "barbershop", "bgscore", "book", "chat", "classtrainer",
-                    "gamemenu", "gossip", "guildbank", "help", "inspect",
-                    "loot", "mail", "micromenu", "partyframes", "questgiver",
-                    "questlog", "questtracker", "raidwarning", "readycheck",
-                    "social", "stable", "talents", "taxi", "totems", "trade",
-                    "tradeskill", "uierrors", "vendor"}) {
+                    "dungeonfinder", "gamemenu", "gossip", "guildbank",
+                    "help", "inspect", "loot", "mail", "micromenu",
+                    "partyframes", "questgiver", "questlog", "questtracker",
+                    "raidwarning", "readycheck", "social", "stable",
+                    "talents", "taxi", "totems", "trade", "tradeskill",
+                    "uierrors", "vendor"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "

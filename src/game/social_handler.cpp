@@ -3091,6 +3091,13 @@ void SocialHandler::handleLfgQueueStatus(network::Packet& packet) {
     lfgTimeInQueueMs_ = packet.readUInt32();
     lfgAvgWaitSec_ = (waitTime >= 0) ? (waitTime / 1000) : (avgWait / 1000);
     lfgState_ = LfgState::Queued;
+    // Read and then kept to itself. The wait time is what the queue window
+    // counts up, and LFDSearchStatus_Update is reached from this event and no
+    // other — so the numbers above changed every few seconds and the display
+    // built on them never moved.
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("LFG_QUEUE_STATUS_UPDATE", {});
+    }
 }
 
 void SocialHandler::handleLfgProposalUpdate(network::Packet& packet) {
