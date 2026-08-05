@@ -3,6 +3,8 @@
 #include "ui/xml_parser.hpp"
 #include "ui/framexml_emitter.hpp"
 
+#include <fstream>
+#include <iterator>
 #include <string>
 
 using namespace wowee::ui;
@@ -81,6 +83,60 @@ TEST_CASE("A frame emits CreateFrame with its type and parent", "[framexml][emit
     XmlNode root = parseOrFail("<Ui><Button name=\"MyButton\" parent=\"UIParent\"/></Ui>");
     const EmitResult r = emitFrameXml(root);
     REQUIRE(has(r.lua, "CreateFrame(\"Button\", \"MyButton\", UIParent)"));
+}
+
+// ── The real files ──────────────────────────────────────────────────────────
+//
+// The cases above emit XML written for them, which proves the emitter handles a
+// shape and nothing about whether it handles Blizzard's. characterframe.xml has
+// been reported three times as a window that will not open, and every link in
+// ToggleCharacter's chain reads correct — so the question worth asking here is
+// the one that can be answered without the game: does the frame get built at
+// all, and does its first tab get the id ToggleCharacter reads?
+
+namespace {
+/// A FrameXML file as shipped, or an empty node when it is not there — the
+/// tests using it skip rather than fail, since the interface is data and a
+/// checkout without it is not a broken emitter.
+XmlNode parseShippedFile(const std::string& name) {
+    XmlNode root;
+    // Anchored to the source tree rather than the working directory. ctest runs
+    // from the build directory, where a relative path finds nothing and the
+    // test passes by skipping — which is worse than not having it.
+    std::ifstream in(std::string(WOWEE_SOURCE_DIR) +
+                     "/Data/interface/framexml/" + name);
+    if (!in) return root;
+    std::string src((std::istreambuf_iterator<char>(in)),
+                    std::istreambuf_iterator<char>());
+    std::string err;
+    parseXml(src, root, err);
+    return root;
+}
+}  // namespace
+
+TEST_CASE("characterframe.xml builds the frame the C key opens",
+          "[framexml][emit][shipped]") {
+    XmlNode root = parseShippedFile("characterframe.xml");
+    if (root.children.empty()) return;   // interface data not present
+    const EmitResult r = emitFrameXml(root);
+
+    REQUIRE(has(r.lua, "CreateFrame(\"Frame\", \"CharacterFrame\", UIParent)"));
+    // Hidden in its XML, which is what makes ToggleCharacter take the show
+    // branch rather than the hide one on the first press.
+    REQUIRE(has(r.lua, ":Hide()"));
+}
+
+TEST_CASE("paperdollframe.xml builds the tab and gives it its id",
+          "[framexml][emit][shipped]") {
+    XmlNode root = parseShippedFile("paperdollframe.xml");
+    if (root.children.empty()) return;
+    const EmitResult r = emitFrameXml(root);
+
+    REQUIRE(has(r.lua, "\"PaperDollFrame\""));
+    // ToggleCharacter reads subFrame:GetID() and hands it to
+    // PanelTemplates_SetTab. The XML says id="1"; without it the tab is zero
+    // and the wrong one is selected.
+    REQUIRE(has(r.lua, ":SetID(1)"));
 }
 
 TEST_CASE("A message frame keeps as many lines as it asks for",

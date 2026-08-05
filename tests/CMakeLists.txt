@@ -70,6 +70,8 @@ add_executable(test_framexml
 )
 target_include_directories(test_framexml PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_framexml SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_framexml PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(test_framexml PRIVATE catch2_main)
 add_test(NAME framexml COMMAND test_framexml)
 register_test_target(test_framexml)
