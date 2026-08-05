@@ -2062,6 +2062,15 @@ void registerQuestLuaAPI(lua_State* L) {
             if (gh) gh->declineQuest();
             return 0;
         }},
+                // The other party member's quest, not the one on the table.
+                // StaticPopup "QUEST_ACCEPT" calls this from OnAccept, so it
+                // has to exist before QUEST_ACCEPT_CONFIRM is fired at all:
+                // the popup would come up and raise on the yes.
+                {"ConfirmAcceptQuest", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (gh) gh->acceptSharedQuest();
+            return 0;
+        }},
                 {"CompleteQuest", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (gh) gh->completeQuest();

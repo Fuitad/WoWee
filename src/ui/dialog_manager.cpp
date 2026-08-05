@@ -80,7 +80,11 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
         renderTradeWindow(gameHandler, inventoryScreen, chatPanel);
     }
     if (!frameXmlOwns(UiElement::Dialogs)) renderSummonRequestPopup(gameHandler);
-    renderSharedQuestPopup(gameHandler);
+    // Beside the summon popup now that QUEST_ACCEPT_CONFIRM is fired.
+    // uiparent.lua raises "QUEST_ACCEPT" — or "QUEST_ACCEPT_LOG_FULL", which
+    // this client's version has no equivalent of — so leaving this ungated
+    // asks the same question twice.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderSharedQuestPopup(gameHandler);
     // ItemTextFrame answers ITEM_TEXT_BEGIN, which this client fires. The
     // client's other page-text surface, WindowManager::renderBookWindow, was
     // already gated on Book; this one reads different state and was not.

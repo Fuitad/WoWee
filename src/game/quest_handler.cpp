@@ -2324,6 +2324,12 @@ void QuestHandler::handleQuestConfirmAccept(network::Packet& packet) {
     pendingSharedQuest_ = true;
     owner_.addSystemChatMessage(sharedQuestSharerName_ + " has shared the quest \"" +
                                 sharedQuestTitle_ + "\" with you.");
+    // Who and what, in that order: uiparent.lua hands both straight to
+    // StaticPopup_Show, whose text is "%s is starting %s". It picks between
+    // two popups on whether the log is full, and answers the yes with
+    // ConfirmAcceptQuest.
+    owner_.fireAddonEvent("QUEST_ACCEPT_CONFIRM",
+                          {sharedQuestSharerName_, sharedQuestTitle_});
     LOG_INFO("SMSG_QUEST_CONFIRM_ACCEPT: questId=", sharedQuestId_,
              " title=", sharedQuestTitle_, " sharer=", sharedQuestSharerName_);
 }
