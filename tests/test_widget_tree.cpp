@@ -1764,3 +1764,29 @@ TEST_CASE("hue wraps rather than running off either end", "[widget_tree]") {
     CHECK(below[1] == Catch::Approx(above[1]).margin(0.002));
     CHECK(below[2] == Catch::Approx(above[2]).margin(0.002));
 }
+
+TEST_CASE("a texture the client renders into is drawn without a file",
+          "[widget_tree]") {
+    // The player's portrait is a Texture declared with no file, because the
+    // picture is a character rendered offscreen and handed over as a live
+    // handle. Both halves of the draw path have to agree that "no file" is not
+    // "nothing to draw" — the renderer's own copy of this test was the missing
+    // half, and the portrait was discarded every frame for four days.
+    WidgetTree tree;
+    const uint32_t live = tree.create(WidgetKind::Texture, tree.root(), "PlayerPortrait");
+    Anchor a; a.point = "CENTER"; a.relativePoint = "CENTER";
+    tree.addPoint(live, a);
+    tree.setWidth(live, 60.0f);
+    tree.setHeight(live, 60.0f);
+
+    tree.layout(kScreenW, kScreenH);
+    bool drawn = false;
+    for (const Widget* w : tree.drawOrder()) drawn |= (w->id == live);
+    CHECK_FALSE(drawn);            // no file and no handle: nothing to draw
+
+    tree.get(live)->externalTexture = 0xABCD;
+    tree.layout(kScreenW, kScreenH);
+    drawn = false;
+    for (const Widget* w : tree.drawOrder()) drawn |= (w->id == live);
+    CHECK(drawn);
+}

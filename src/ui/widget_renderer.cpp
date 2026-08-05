@@ -1621,7 +1621,15 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                                   packColor(w->color, w->alpha));
                 continue;
             }
-            if (w->texturePath.empty()) continue;
+            // A texture the client renders into has no file and does not need
+            // one, so the "nothing to draw" test has to come after that and not
+            // before it. Ahead of it, the player's portrait was discarded every
+            // frame: PlayerPortrait is declared in playerframe.xml with no file
+            // because the picture is a character rendered offscreen, which is
+            // exactly what an undecided texture looks like from here. The
+            // paperdoll survived only because CharacterModelFrame is a Frame
+            // rather than a Texture and takes a different branch.
+            if (w->texturePath.empty() && w->externalTexture == 0) continue;
             VkDescriptorSet tex = VK_NULL_HANDLE;
             if (w->externalTexture != 0) {
                 // Supplied by the client, and only valid for as long as it says

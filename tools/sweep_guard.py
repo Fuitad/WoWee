@@ -131,6 +131,14 @@ CHECKS = [
     ("framexml_art_check.py",
      r"^(\d+) not in this install", 19,
      "art the interface asks for that this install does not have"),
+    # The same question the event-arity sweeps ask, one layer down: an inline
+    # <OnX> body is a function whose parameter list the emitter decides from
+    # the script's name, and a body naming something that list does not carry
+    # reads a global, finds nothing and carries on with nil. Two remain and
+    # both are Blizzard's own deliberate nil, guarded on the far side.
+    ("framexml_script_args.py",
+     r"^(\d+) body/signature disagreement", 2,
+     "handler bodies reading an argument their signature does not carry"),
     # The blind spot both widget-method sweeps had: they count the no-op
     # allowlist as answered, which is right for "does the call raise here" and
     # wrong for a caller that reads what comes back. A no-op returns nil, and
