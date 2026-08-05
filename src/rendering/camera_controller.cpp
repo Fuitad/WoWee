@@ -1288,7 +1288,19 @@ void CameraController::update(float deltaTime) {
                 // Extra seam guard: outside interior groups, avoid accepting floors that
                 // are far below nearby terrain. Keeps shark-mouth transitions from
                 // following erroneous WMO ramps into void.
-                if (centerTerrainH) {
+                // Not while standing inside a building. Terrain is the ground
+                // *outside*, and a staircase descending below it — Gadgetzan's
+                // auction house, any cellar — is a legitimate floor far under
+                // nearby terrain, which is exactly what this refuses. The
+                // player hovered over the steps and sank at the clamp's rate
+                // instead of walking down them.
+                //
+                // The interior test above is not enough on its own: it wants
+                // the point a metre over the player's head inside a group
+                // flagged 0x2000, and at the top of a stairwell that group's
+                // box has not started yet. Being inside the WMO at all is the
+                // question this guard should have asked.
+                if (centerTerrainH && !cachedInsideWMO) {
                     // Never let terrain-based seam guard push floor above current feet;
                     // it should only prevent excessive downward drops.
                     float terrainGuard = std::min(*centerTerrainH - 1.0f, targetPos.z - 0.15f);
