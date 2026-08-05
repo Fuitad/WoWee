@@ -467,9 +467,17 @@ void CombatHandler::handleAttackStart(network::Packet& packet) {
     if (!AttackStartParser::parse(packet, data)) return;
 
     // CREEP is a client presentation flag, not an instruction to keep a unit
-    // translucent after it has openly engaged. Some legacy realms do not send
-    // a matching UNIT_FIELD_BYTES_1 update when an NPC breaks stealth, but the
-    // stock client reveals both combatants at ATTACKSTART. Clear the cached
+    // translucent after it has openly engaged. The stock client reveals both
+    // combatants at ATTACKSTART.
+    //
+    // The reason recorded here used to be that "some legacy realms do not send
+    // a matching UNIT_FIELD_BYTES_1 update when an NPC breaks stealth". That
+    // was almost certainly this client's own fault: UNIT_FIELD_BYTES_1 was
+    // being read from field 137 where the server writes 74, so the update
+    // arrived and was taken from the wrong slot. Fixed 2026-08-05. This is
+    // kept because the stock client does it anyway, but if a stealth-break
+    // ever needs looking at again, start by checking whether the field now
+    // arrives — the premise behind this workaround is gone. Clear the cached
     // presentation state here so the normal creature visual sync restores full
     // opacity instead of leaving an invisible monster in melee.
     auto revealCombatant = [this](uint64_t guid) {
@@ -1197,11 +1205,19 @@ void CombatHandler::handleResurrectFailed(network::Packet& packet) {
 bool CombatHandler::isSelectableUnit(uint64_t /*guid*/) const {
     // Everything the player clicks is selectable; the server arbitrates whether a
     // corpse actually holds loot when we send CMSG_LOOT. We deliberately do NOT
-    // gate dead creature corpses on UNIT_DYNFLAG_LOOTABLE: that bit is computed
-    // per-viewer by the server and the client's cached copy goes stale across a
-    // death/resurrect cycle (you kill something, die in the same fight, and on
-    // return the corpse's loot bit was last evaluated while you were a ghost).
-    // Gating on it left a genuinely lootable corpse permanently unclickable.
+    // gate dead creature corpses on UNIT_DYNFLAG_LOOTABLE.
+    //
+    // The reason given here was that the bit is computed per-viewer and goes
+    // stale across a death/resurrect cycle, and that gating on it left a
+    // genuinely lootable corpse permanently unclickable. The symptom was real;
+    // the explanation was not the whole of it. UNIT_DYNAMIC_FLAGS was being
+    // read from field 147 — which is UNIT_FIELD_PADDING — where the server
+    // writes 79, so the bit was never right in the first place. Fixed
+    // 2026-08-05.
+    //
+    // Not re-gated here, because that would be trading a working behaviour for
+    // a theory. Anyone who wants the gate back should first confirm against a
+    // live corpse that the flag now reads what it should.
     // Empty, fully-looted corpses are already removed locally by the
     // lootableCleared -> despawnCreatureLocally path (see
     // EntityController::onValuesUpdateUnit), so they don't return as click targets.
