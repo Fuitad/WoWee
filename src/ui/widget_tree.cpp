@@ -93,6 +93,32 @@ uint32_t WidgetTree::create(WidgetKind kind, uint32_t parent, const std::string&
     return id;
 }
 
+void WidgetTree::setParent(uint32_t id, uint32_t newParent) {
+    Widget* w = get(id);
+    if (!w || id == rootId_) return;
+    // Nothing named, or the root's own rule: a frame with no parent hangs off
+    // the screen, which is what UIParent is.
+    if (newParent == 0) newParent = rootId_;
+    if (newParent == w->parent) return;
+    if (!get(newParent)) return;
+
+    // A frame cannot be put inside itself or inside anything it contains —
+    // layout walks children and would never come back.
+    for (uint32_t up = newParent; up != 0;) {
+        if (up == id) return;
+        const Widget* p = get(up);
+        if (!p) break;
+        up = p->parent;
+    }
+
+    if (Widget* old = get(w->parent)) {
+        auto& kids = old->children;
+        kids.erase(std::remove(kids.begin(), kids.end(), id), kids.end());
+    }
+    w->parent = newParent;
+    get(newParent)->children.push_back(id);
+}
+
 void WidgetTree::markScrollFrame(uint32_t id) {
     Widget* w = get(id);
     if (!w || w->isScrollFrame) return;

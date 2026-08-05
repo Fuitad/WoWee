@@ -1555,3 +1555,74 @@ TEST_CASE("An edge and a centre do not resize a frame", "[widget][layout]") {
     // Width spans indent to right edge, which is what the two x anchors mean.
     REQUIRE(w->rectW == Catch::Approx(300.0f - 44.0f - 8.0f));
 }
+
+TEST_CASE("SetParent moves the frame, not just the answer to GetParent",
+          "[widget_tree]") {
+    // SetParent used to write a field on the Lua table and nothing else, so a
+    // reparented frame kept being laid out, clipped and shown or hidden by the
+    // parent it had left. QuestInfo reparents every element of a quest into
+    // either the quest giver's panel or the quest log's scroll child each time
+    // it displays one, so the quest text was being anchored into a window it
+    // did not belong to.
+    WidgetTree tree;
+    const uint32_t giver = tree.create(WidgetKind::Frame, tree.root(), "Giver");
+    const uint32_t log   = tree.create(WidgetKind::Frame, tree.root(), "Log");
+    const uint32_t text  = tree.create(WidgetKind::Frame, giver, "QuestText");
+
+    REQUIRE(tree.get(text)->parent == giver);
+    REQUIRE(tree.get(giver)->children.size() == 1u);
+
+    tree.setParent(text, log);
+    CHECK(tree.get(text)->parent == log);
+    // Exactly one parent holds it, or layout draws it twice or not at all.
+    CHECK(tree.get(giver)->children.empty());
+    CHECK(tree.get(log)->children.size() == 1u);
+}
+
+TEST_CASE("a reparented frame inherits the new parent's visibility",
+          "[widget_tree]") {
+    // The half that made this worth more than tidiness. Visibility is resolved
+    // down the parent chain at layout, so a frame moved into a hidden window
+    // must go with it — and one moved out of a hidden window must come back.
+    WidgetTree tree;
+    const uint32_t shown  = tree.create(WidgetKind::Frame, tree.root(), "Shown");
+    const uint32_t hidden = tree.create(WidgetKind::Frame, tree.root(), "Hidden");
+    for (uint32_t f : {shown, hidden}) {
+        Anchor a; a.point = "BOTTOMLEFT"; a.relativePoint = "BOTTOMLEFT";
+        tree.addPoint(f, a);
+        tree.setWidth(f, 100.0f);
+        tree.setHeight(f, 100.0f);
+    }
+    tree.get(hidden)->shown = false;
+
+    const uint32_t child = tree.create(WidgetKind::Frame, shown, "Child");
+    Anchor ca; ca.point = "BOTTOMLEFT"; ca.relativeTo = shown;
+    ca.relativePoint = "BOTTOMLEFT";
+    tree.addPoint(child, ca);
+    tree.setWidth(child, 10.0f);
+    tree.setHeight(child, 10.0f);
+
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(child)->visible);
+
+    tree.setParent(child, hidden);
+    tree.layout(kScreenW, kScreenH);
+    CHECK_FALSE(tree.get(child)->visible);
+
+    tree.setParent(child, shown);
+    tree.layout(kScreenW, kScreenH);
+    CHECK(tree.get(child)->visible);
+}
+
+TEST_CASE("a frame cannot be put inside itself", "[widget_tree]") {
+    // Layout walks children, so a cycle never returns. Refused rather than
+    // clamped: there is no sensible parent to fall back to.
+    WidgetTree tree;
+    const uint32_t outer = tree.create(WidgetKind::Frame, tree.root(), "Outer");
+    const uint32_t inner = tree.create(WidgetKind::Frame, outer, "Inner");
+
+    tree.setParent(outer, inner);
+    CHECK(tree.get(outer)->parent == tree.root());
+    tree.setParent(outer, outer);
+    CHECK(tree.get(outer)->parent == tree.root());
+}

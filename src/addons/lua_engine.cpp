@@ -3168,9 +3168,21 @@ static int lua_GetScreenHeight(lua_State* L) {
 
 static int lua_Frame_SetParent(lua_State* L) {
     luaL_checktype(L, 1, LUA_TTABLE);
-    if (lua_istable(L, 2) || lua_isnil(L, 2)) {
-        lua_pushvalue(L, 2);
-        lua_setfield(L, 1, "__parent");
+    // A name is as good as a table here, and FrameXML passes both.
+    if (lua_isstring(L, 2) && !lua_isnumber(L, 2)) {
+        lua_getglobal(L, lua_tostring(L, 2));
+        lua_replace(L, 2);
+    }
+    if (!lua_istable(L, 2) && !lua_isnil(L, 2)) return 0;
+    lua_pushvalue(L, 2);
+    lua_setfield(L, 1, "__parent");
+    // And the widget, which is what everything inherited actually follows.
+    // Writing only the field left GetParent answering the new parent while the
+    // frame stayed laid out, clipped and shown by the old one.
+    if (auto* tree = wowee::addons::getWidgetTree(L)) {
+        const uint32_t id = widgetIdOf(L, 1);
+        const uint32_t np = lua_istable(L, 2) ? widgetIdOf(L, 2) : 0;
+        if (id != 0) tree->setParent(id, np);
     }
     return 0;
 }

@@ -538,6 +538,21 @@ public:
     /// Records a frame as a scroll frame, and keeps the list of them. Walking
     /// every widget each frame to find a handful is the kind of cost that does
     /// not show up until the interface is large, which it now is.
+    /// Move a frame under a different parent.
+    ///
+    /// SetParent wrote a field on the Lua table and nothing else, so GetParent
+    /// answered the new parent while the frame went on being laid out, clipped
+    /// and shown or hidden by the old one. QuestInfo reparents every element of
+    /// a quest into either the quest giver's panel or the quest log's scroll
+    /// child on each display, and the consolidated buff container moves buffs
+    /// in and out of itself, so both were placing frames that stayed where they
+    /// were.
+    ///
+    /// Everything inherited — visibility, clipping, strata, level, scale — is
+    /// resolved from the parent during layout, so this only has to fix the link
+    /// and the two children lists.
+    void setParent(uint32_t id, uint32_t newParent);
+
     void markScrollFrame(uint32_t id);
 
     /// Remember that a texture is meant to show the player's portrait.
