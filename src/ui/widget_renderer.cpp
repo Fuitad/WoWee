@@ -1,5 +1,6 @@
 #include <cstring>
 #include "ui/widget_renderer.hpp"
+#include "ui/text_wrap.hpp"
 #include <set>
 
 #include "ui/widget_tree.hpp"
@@ -48,89 +49,9 @@ uint32_t packColor(const float rgba[4], float alpha) {
 /// Also dropped here: |H...|h link markers, which wrap the display text of an
 /// item or spell link, and |T...|t inline textures, which name a file this has
 /// no way to place mid-line. "||" is a literal bar.
-struct TextRun {
-    std::string text;
-    bool  hasColor = false;
-    float rgba[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-};
-
-/// Break a run of markup into lines that fit a width.
-///
-/// Words, not characters, unless a single word is wider than the box and the
-/// label asked for nonspacewrap. Markup survives the break: a colour run split
-/// across two lines keeps its colour on both, which is why this works on runs
-/// rather than on the stripped string.
-///
-/// A wrapWidth of zero means no wrapping, which is what an auto-sized label
-/// wants — it is as wide as its text and there is nothing to break.
-std::vector<std::vector<TextRun>> wrapRuns(ImFont* font, float size,
-                                           float wrapWidth,
-                                           const std::vector<TextRun>& runs,
-                                           bool nonSpaceWrap) {
-    std::vector<std::vector<TextRun>> lines;
-    lines.emplace_back();
-    if (wrapWidth <= 0.0f || !font) {
-        lines.back() = runs;
-        return lines;
-    }
-    auto widthOf = [&](const std::string& s) {
-        return font->CalcTextSizeA(size, FLT_MAX, 0.0f, s.c_str()).x;
-    };
-    float x = 0.0f;
-    auto place = [&](const TextRun& style, const std::string& piece) {
-        if (!lines.back().empty() && lines.back().back().hasColor == style.hasColor &&
-            (!style.hasColor ||
-             std::equal(std::begin(style.rgba), std::end(style.rgba),
-                        std::begin(lines.back().back().rgba)))) {
-            lines.back().back().text += piece;
-        } else {
-            TextRun add = style;
-            add.text = piece;
-            lines.back().push_back(std::move(add));
-        }
-    };
-    for (const TextRun& run : runs) {
-        size_t at = 0;
-        while (at < run.text.size()) {
-            // A word plus the spaces that follow it, so a break falls between
-            // words and the trailing space goes with the line above.
-            size_t end = run.text.find(' ', at);
-            if (end == std::string::npos) end = run.text.size();
-            else while (end < run.text.size() && run.text[end] == ' ') ++end;
-            std::string word = run.text.substr(at, end - at);
-            at = end;
-
-            float w = widthOf(word);
-            if (x > 0.0f && x + w > wrapWidth) {
-                lines.emplace_back();
-                x = 0.0f;
-                // The break ate the space that separated them.
-                while (!word.empty() && word.front() == ' ') word.erase(0, 1);
-                w = widthOf(word);
-            }
-            if (w > wrapWidth && nonSpaceWrap) {
-                // One word wider than the whole box. Broken by character,
-                // which is the only thing left and what the attribute asks for.
-                std::string part;
-                for (char c : word) {
-                    const float cw = widthOf(part + c);
-                    if (!part.empty() && x + cw > wrapWidth) {
-                        place(run, part);
-                        lines.emplace_back();
-                        x = 0.0f;
-                        part.clear();
-                    }
-                    part += c;
-                }
-                if (!part.empty()) { place(run, part); x += widthOf(part); }
-                continue;
-            }
-            place(run, word);
-            x += w;
-        }
-    }
-    return lines;
-}
+// The wrap works on these too, so there is one definition rather than two
+// that have to agree — see ui/text_wrap.hpp.
+using TextRun = wowee::ui::WrapRun;
 
 std::vector<TextRun> parseMarkup(const std::string& in) {
     std::vector<TextRun> runs;
@@ -356,8 +277,11 @@ void WidgetRenderer::drawMarkupText(ImDrawList* dl, ImFont* font, float size,
                                     ImVec2 at, uint32_t fallback, float alpha,
                                     const std::string& text, float wrapWidth,
                                     bool nonSpaceWrap, const char* justifyH) {
-    const auto lines = wrapRuns(font, size, wrapWidth, parseMarkup(text),
-                                nonSpaceWrap);
+    const auto lines = wrapText(parseMarkup(text), wrapWidth, nonSpaceWrap,
+                                [&](const std::string& piece) {
+                                    return font->CalcTextSizeA(size, FLT_MAX, 0.0f,
+                                                               piece.c_str()).x;
+                                });
     const float lineH = size * 1.2f;
     float y = at.y;
     for (const auto& line : lines) {
@@ -1539,14 +1463,24 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             // to; one given a width by its XML or by two anchors wraps inside
             // it. Nothing wrapped before, so every label of the second kind
             // drew one line straight out of its own frame.
-            const float wrapW = (!w->autoSized && w->wordWrap && (x1 - x0) > 0.0f)
-                ? (x1 - x0) : 0.0f;
+            // Wider than one glyph, not merely positive. A label whose rect
+            // has not been laid out yet reports a box a fraction of a pixel
+            // wide, and wrapping to that puts one word on every line and makes
+            // the label a hundred lines tall — worse than the overflow this
+            // exists to stop.
+            const float boxWidth = x1 - x0;
+            const float wrapW = (!w->autoSized && w->wordWrap && boxWidth > size)
+                ? boxWidth : 0.0f;
             ImVec2 extent =
                 font ? font->CalcTextSizeA(size, FLT_MAX, 0.0f, w->text.c_str())
                      : ImGui::CalcTextSize(w->text.c_str());
             if (wrapW > 0.0f && font) {
-                const auto lines = wrapRuns(font, size, wrapW,
-                                            parseMarkup(w->text), w->nonSpaceWrap);
+                const auto lines = wrapText(
+                    parseMarkup(w->text), wrapW, w->nonSpaceWrap,
+                    [&](const std::string& piece) {
+                        return font->CalcTextSizeA(size, FLT_MAX, 0.0f,
+                                                   piece.c_str()).x;
+                    });
                 w->wrappedLines = static_cast<int>(lines.size());
                 extent.x = wrapW;
                 extent.y = size * 1.2f * static_cast<float>(lines.size());

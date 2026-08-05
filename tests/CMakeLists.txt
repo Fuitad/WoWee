@@ -620,6 +620,18 @@ endif()
 add_test(NAME world_map_zone_metadata COMMAND test_world_map_zone_metadata)
 register_test_target(test_world_map_zone_metadata)
 
+# ── test_text_wrap ───────────────────────────────────────────
+add_executable(test_text_wrap
+    test_text_wrap.cpp
+)
+target_include_directories(test_text_wrap PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_text_wrap SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS}
+)
+target_link_libraries(test_text_wrap PRIVATE catch2_main)
+add_test(NAME text_wrap COMMAND test_text_wrap)
+register_test_target(test_text_wrap)
+
 # ── test_chat_markup_parser ──────────────────────────────────
 add_executable(test_chat_markup_parser
     test_chat_markup_parser.cpp
