@@ -1893,22 +1893,35 @@ void GameHandler::registerOpcodeHandlers() {
         uint8_t type = packet.readUInt8();
         if (idx < 6) playerRunes_[idx].type = static_cast<RuneType>(type & 0x3);
     };
-    // uint8 runeReadyMask (bit i=1 → rune i is ready)
-    // uint8[6] cooldowns (0=ready, 255=just used → readyFraction = 1 - val/255)
+    // uint32 count, then per rune: uint8 type, uint8 elapsed.
+    //
+    // This read a one-byte "ready mask" and six cooldowns, which is neither the
+    // shape nor the meaning. Player::ResyncRunes writes a count first, so the
+    // mask was the low byte of that count and every cooldown after it was
+    // half a type and half an elapsed value.
+    //
+    // The polarity was inverted as well. The server sends
+    // 255 - cooldown * 51, so 255 means the cooldown has fully elapsed and the
+    // rune is ready, and 0 means it was just spent — the opposite of what
+    // `1 - cd/255` computed.
+    //
+    // The type is in here too and was never read, so a rune converted to Death
+    // kept whatever it was at login.
     dispatchTable_[Opcode::SMSG_RESYNC_RUNES] = [this](network::Packet& packet) {
-        // uint8 runeReadyMask (bit i=1 → rune i is ready)
-        // uint8[6] cooldowns (0=ready, 255=just used → readyFraction = 1 - val/255)
-        if (!packet.hasRemaining(7)) {
+        if (!packet.hasRemaining(4)) {
             packet.skipAll();
             return;
         }
-        uint8_t readyMask = packet.readUInt8();
-        for (int i = 0; i < 6; i++) {
-            uint8_t cd = packet.readUInt8();
-            playerRunes_[i].ready = (readyMask & (1u << i)) != 0;
-            playerRunes_[i].readyFraction = 1.0f - cd / 255.0f;
-            if (playerRunes_[i].ready) playerRunes_[i].readyFraction = 1.0f;
+        const uint32_t count = packet.readUInt32();
+        for (uint32_t i = 0; i < count && i < playerRunes_.size(); ++i) {
+            if (!packet.hasRemaining(2)) break;
+            const uint8_t type    = packet.readUInt8();
+            const uint8_t elapsed = packet.readUInt8();
+            playerRunes_[i].type = static_cast<RuneType>(type & 0x3);
+            playerRunes_[i].readyFraction = elapsed / 255.0f;
+            playerRunes_[i].ready = (elapsed >= 255);
         }
+        packet.skipAll();
     };
     // uint32 runeMask (bit i=1 → rune i just became ready)
     dispatchTable_[Opcode::SMSG_ADD_RUNE_POWER] = [this](network::Packet& packet) {
