@@ -5411,6 +5411,10 @@ namespace {
 /// message. Only a plain integer converts, so a name, a unit id and a hex guid
 /// all stay strings.
 void pushEventArg(lua_State* L, const std::string& arg) {
+    // The one argument that is not text: see kEventNil. A false boolean has no
+    // spelling as a string, and Lua treats every string and every number as
+    // true, so without this an event could not carry one.
+    if (arg == wowee::game::kEventNil) { lua_pushnil(L); return; }
     if (!arg.empty() && arg.size() < 12) {
         size_t at = (arg[0] == '-') ? 1 : 0;
         if (at < arg.size()) {

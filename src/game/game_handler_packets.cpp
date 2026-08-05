@@ -2603,40 +2603,70 @@ void GameHandler::registerOpcodeHandlers() {
     };
     // uint64 battlefieldGuid + uint8 remove
     dispatchTable_[Opcode::SMSG_BATTLEFIELD_MGR_EJECT_PENDING] = [this](network::Packet& packet) {
-        // uint64 battlefieldGuid + uint8 remove
-        if (packet.hasRemaining(9)) {
-            uint64_t bfGuid4 = packet.readUInt64();
-            uint8_t  remove  = packet.readUInt8();
-            (void)bfGuid4;
-            if (remove) {
-                addSystemChatMessage("You will be removed from the battlefield shortly.");
-            }
-            LOG_INFO("SMSG_BATTLEFIELD_MGR_EJECT_PENDING: remove=", static_cast<int>(remove));
-        }
+        // A battle id and nothing else. This read a packed pair of a guid and a
+        // flag across nine bytes, so the guard alone kept it from running.
+        //
+        // AzerothCore declares this opcode and never sends it, so nothing here
+        // has been exercised — but a wrong reading is worse than an untested
+        // one, and the frame that answers it is live.
+        if (!packet.hasRemaining(4)) { packet.skipAll(); return; }
+        const uint32_t battleId = packet.readUInt32();
         packet.skipAll();
+
+        addSystemChatMessage("You will be removed from the battlefield shortly.");
+        LOG_INFO("SMSG_BATTLEFIELD_MGR_EJECT_PENDING: battle ", battleId);
+        // The second argument picks between two dialogs and nothing here knows
+        // which; nil is the local one, which is what a player being ejected
+        // from the battlefield they are standing in should see.
+        fireAddonEvent("BATTLEFIELD_MGR_EJECT_PENDING",
+                       {std::to_string(battleId), kEventNil});
     };
     // uint64 battlefieldGuid + uint32 reason + uint32 battleStatus + uint8 relocated
     dispatchTable_[Opcode::SMSG_BATTLEFIELD_MGR_EJECTED] = [this](network::Packet& packet) {
-        // uint64 battlefieldGuid + uint32 reason + uint32 battleStatus + uint8 relocated
-        if (packet.hasRemaining(17)) {
-            uint64_t bfGuid5    = packet.readUInt64();
-            uint32_t reason     = packet.readUInt32();
-            /*uint32_t status  =*/ packet.readUInt32();
-            uint8_t relocated   = packet.readUInt8();
-            (void)bfGuid5;
-            static const char* kEjectReasons[] = {
-                "Removed from battlefield.", "Transported from battlefield.",
-                "Left battlefield voluntarily.", "Offline.",
-            };
-            const char* msg = (reason < 4) ? kEjectReasons[reason]
-                                           : "You have been ejected from the battlefield.";
-            addSystemChatMessage(msg);
-            if (relocated) addSystemChatMessage("You have been relocated outside the battlefield.");
-            LOG_INFO("SMSG_BATTLEFIELD_MGR_EJECTED: reason=", reason, " relocated=", static_cast<int>(relocated));
+        // Seven bytes: a battle id, then three single bytes. SendBfLeaveMessage
+        // writes exactly that.
+        //
+        // This guarded seventeen and read a guid, two thirty-two-bit fields and
+        // a flag, so it never ran once — and the reason it treated as a small
+        // enum is a bit mask, which would have named the wrong thing if it had.
+        if (!packet.hasRemaining(7)) { packet.skipAll(); return; }
+        const uint32_t battleId = packet.readUInt32();
+        const uint8_t reason = packet.readUInt8();
+        const uint8_t battleStatus = packet.readUInt8();
+        const uint8_t relocated = packet.readUInt8();
+        packet.skipAll();
+
+        constexpr uint8_t kClose = 0x01, kExited = 0x08, kLowLevel = 0x10;
+        const bool exited = (reason & kExited) != 0;
+        const bool lowLevel = (reason & kLowLevel) != 0;
+
+        if (lowLevel) {
+            addSystemChatMessage("You are not high enough level for this battlefield.");
+        } else if (reason & kClose) {
+            addSystemChatMessage("The battlefield has closed.");
+        } else if (exited) {
+            addSystemChatMessage("You have left the battlefield.");
+        } else {
+            addSystemChatMessage("You have been removed from the battlefield.");
         }
+
+        LOG_INFO("SMSG_BATTLEFIELD_MGR_EJECTED: battle ", battleId,
+                 " reason 0x", std::hex, static_cast<int>(reason), std::dec,
+                 " status ", static_cast<int>(battleStatus),
+                 relocated ? " (relocated)" : "");
+
         bfMgrActive_        = false;
         bfMgrInvitePending_ = false;
-        packet.skipAll();
+
+        // battleID, playerExited, relocated, battleActive, lowLevel. The four
+        // flags are booleans in the middle of the list, so they go through
+        // eventBool — a zero here would read as true and pick the wrong dialog.
+        fireAddonEvent("BATTLEFIELD_MGR_EJECTED",
+                       {std::to_string(battleId),
+                        eventBool(exited),
+                        eventBool(relocated != 0),
+                        eventBool(battleStatus != 0),
+                        eventBool(lowLevel)});
     };
     // uint32 oldState + uint32 newState
     // States: 0=Waiting, 1=Starting, 2=InProgress, 3=Ending, 4=Cooldown

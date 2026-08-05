@@ -96,6 +96,16 @@ def sent():
             names |= set(re.findall(
                 r'addonEventCallback[A-Za-z_]*(?:\(\))?\(\s*' + EVENT, src))
             names |= set(re.findall(r'fireAddonEvent\(\s*' + EVENT, src))
+            # An event fired through a local alias:
+            #     auto fire = owner_.addonEventCallbackRef();
+            #     fire("LFG_PROPOSAL_UPDATE", {});
+            # Neither pattern above sees that call, so every event sent this
+            # way read as never sent — LFG_PROPOSAL_UPDATE was reported as a
+            # gap while sitting two lines under its own alias.
+            for alias in set(re.findall(
+                    r'auto\s+(\w+)\s*=\s*[\w_.>()-]*addonEventCallback\w*\(\)', src)):
+                names |= set(re.findall(
+                    r'(?<![\w.])' + re.escape(alias) + r'\(\s*' + EVENT, src))
     return names
 
 

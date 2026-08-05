@@ -104,6 +104,20 @@ struct InspectResult {
     uint8_t classId = 0;
 };
 
+/// An event argument that should arrive in Lua as nil rather than as text.
+///
+/// Every argument crosses this boundary as a string, and Lua has exactly two
+/// false values — nil and false. Neither can be spelled as a string: "0" is a
+/// number and true, "" is a string and true. So an event with a *false*
+/// argument in front of a true one had no way to be fired correctly at all.
+///
+/// A start-of-heading byte, because it cannot appear in a name, a guid or any
+/// game text that also crosses here.
+inline constexpr const char* kEventNil = "\x01";
+
+/// A boolean event argument: present when true, nil when false.
+inline const char* eventBool(bool value) { return value ? "1" : kEventNil; }
+
 /// One member of a chat channel, as SMSG_CHANNEL_LIST describes them.
 struct ChannelMember {
     uint64_t guid = 0;
