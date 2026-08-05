@@ -1626,3 +1626,44 @@ TEST_CASE("a frame cannot be put inside itself", "[widget_tree]") {
     tree.setParent(outer, outer);
     CHECK(tree.get(outer)->parent == tree.root());
 }
+
+TEST_CASE("a frame that asks for a size and resolves to none is distinguishable",
+          "[widget_tree]") {
+    // The signature the takeover check looks for, pinned here because the
+    // check itself only runs in a live client. A zero anywhere up the scale
+    // chain leaves a frame laid out, shown, and occupying nothing — which is
+    // what a CVar read answering "0" for uiScale did to every dropdown in the
+    // interface: built, drawn, invisible.
+    //
+    // The distinction that keeps the check quiet is between a frame that never
+    // asked for a size and one whose size did not survive. Only the second is
+    // a fault.
+    WidgetTree tree;
+    const uint32_t sized = tree.create(WidgetKind::Frame, tree.root(), "Sized");
+    Anchor a; a.point = "BOTTOMLEFT"; a.relativePoint = "BOTTOMLEFT";
+    tree.addPoint(sized, a);
+    tree.setWidth(sized, 200.0f);
+    tree.setHeight(sized, 100.0f);
+
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(tree.get(sized)->rectW > 0.0f);
+    REQUIRE(tree.get(sized)->rectH > 0.0f);
+
+    // Scaled to nothing: still shown, still asking for 200x100, resolving to
+    // nothing at all.
+    tree.get(sized)->scale = 0.0f;
+    tree.layout(kScreenW, kScreenH);
+    const Widget* w = tree.get(sized);
+    CHECK(w->visible);
+    CHECK(w->width == Catch::Approx(200.0f));
+    CHECK(w->rectW == Catch::Approx(0.0f));
+
+    // A frame that never asked for a size must not look the same, or the
+    // check reports a page of them every run.
+    const uint32_t bare = tree.create(WidgetKind::Frame, tree.root(), "Bare");
+    Anchor b; b.point = "BOTTOMLEFT"; b.relativePoint = "BOTTOMLEFT";
+    tree.addPoint(bare, b);
+    tree.layout(kScreenW, kScreenH);
+    CHECK(tree.get(bare)->width == Catch::Approx(0.0f));
+    CHECK(tree.get(bare)->height == Catch::Approx(0.0f));
+}

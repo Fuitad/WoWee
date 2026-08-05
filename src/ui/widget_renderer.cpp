@@ -890,6 +890,41 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             }
             if (offscreen > 12) LOG_WARNING("  ... and more");
 
+            // Shown, and no size to be shown at.
+            //
+            // The off-screen scan above skips these deliberately — a rect of
+            // zero is not off screen — so a frame that is laid out, told to
+            // draw, and occupies nothing has been the one shape this check
+            // could not see. It is a real signature rather than a curiosity:
+            // uidropdownmenu asks for "uiscale", an exact-match CVar read
+            // answered "0" for it, and every dropdown in the interface opened
+            // at SetScale(0) — built, shown, and drawing nothing. Anything
+            // that multiplies into a size can do that.
+            //
+            // Only where a size was ASKED FOR and did not survive. A frame
+            // declared with no size of its own is sized by its anchors or not
+            // at all, and plenty are deliberately sizeless — reporting those
+            // would print a page every run, which trains the reader to skip
+            // the whole check, the way the three shared UIParents would have.
+            //
+            // Declared non-zero and resolved to zero is unambiguous. The rect
+            // carries the effective scale, so a zero anywhere up the scale
+            // chain lands here and nowhere else.
+            {
+                int flat = 0;
+                for (size_t id = 1; id < tree.size(); ++id) {
+                    const Widget* w = tree.get(static_cast<uint32_t>(id));
+                    if (!w || !w->visible || w->name.empty()) continue;
+                    if (w->width <= 0.0f && w->height <= 0.0f) continue;
+                    if (w->rectW > 0.0f && w->rectH > 0.0f) continue;
+                    if (++flat > 10) break;
+                    LOG_WARNING("  NO SIZE ", w->name, " asks for ", w->width,
+                                "x", w->height, " and resolves to ", w->rectW,
+                                "x", w->rectH, " (scale ", w->effScale, ")");
+                }
+                if (flat > 10) LOG_WARNING("  ... and more");
+            }
+
             // Visible, named, and anchored to nothing.
             //
             // An unanchored frame falls to the centre of its parent, so this
