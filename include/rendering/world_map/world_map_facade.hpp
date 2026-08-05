@@ -151,6 +151,20 @@ public:
     /// Whether there is a level above this one to step out to.
     bool canZoomOut() const;
 
+    /// Show the zone the player is standing in. The interface asks for this
+    /// every time the map is shown, and used to reach nothing.
+    void showPlayerZone();
+
+    /// The WorldMapArea id of the zone being shown, or zero when the map is
+    /// not showing one. This is the id the interface passes back to
+    /// showWorldMapArea — not the AreaTable id, and not the physical map the
+    /// terrain came from.
+    uint32_t currentWorldMapAreaId() const;
+
+    /// Show the zone or continent with that WorldMapArea id. False if the map
+    /// data has no such area.
+    bool showWorldMapArea(uint32_t worldMapAreaId);
+
 private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

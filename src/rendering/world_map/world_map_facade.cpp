@@ -115,6 +115,11 @@ struct WorldMapFacade::Impl {
     bool virtualMapOverride = false;
     std::string pendingMapName;   // stored by external setMapName while in world/cosmic view
     bool userMapOverride = false; // true when user manually navigated to world/cosmic view
+    // Set the map back to where the player is standing, on the next render.
+    // The interface asks for this every time the map is shown, and the flow
+    // that works it out is the one the first open already runs — so this
+    // re-enters that rather than keeping a second copy of it here.
+    bool recenterOnPlayer = false;
 
     DataRepository data;
     ViewStateMachine viewState;
@@ -407,9 +412,11 @@ void WorldMapFacade::render(const glm::vec3& playerRenderPos,
         }
     }
 
-    // First-time open or zones lost after map change
-    if (!d.open || d.data.zones().empty()) {
+    // First-time open, zones lost after a map change, or the interface asking
+    // to go back to the player's own zone
+    if (!d.open || d.data.zones().empty() || d.recenterOnPlayer) {
         d.open = true;
+        d.recenterOnPlayer = false;
         if (d.data.zones().empty()) {
             d.data.loadZones(d.mapName, *d.assetManager);
             d.zoneMetadata.initialize();
@@ -1537,6 +1544,43 @@ int WorldMapFacade::currentZoneIndex() const {
         if (rows[i].second == zoneIdx) return static_cast<int>(i) + 1;
     }
     return 0;
+}
+
+void WorldMapFacade::showPlayerZone() {
+    impl_->userMapOverride = false;
+    impl_->recenterOnPlayer = true;
+}
+
+uint32_t WorldMapFacade::currentWorldMapAreaId() const {
+    // Zero unless a zone is being shown. The interface branches on exactly
+    // that: a continent has no area of its own to name, and the caller falls
+    // back to asking which continent instead.
+    if (impl_->viewState.currentLevel() != ViewLevel::ZONE) return 0;
+    const int idx = impl_->viewState.currentZoneIdx();
+    const auto& zones = impl_->data.zones();
+    if (idx < 0 || idx >= static_cast<int>(zones.size())) return 0;
+    if (zones[static_cast<size_t>(idx)].areaID == 0) return 0;
+    return zones[static_cast<size_t>(idx)].wmaID;
+}
+
+bool WorldMapFacade::showWorldMapArea(uint32_t worldMapAreaId) {
+    if (worldMapAreaId == 0) return false;
+    const auto& zones = impl_->data.zones();
+    for (size_t i = 0; i < zones.size(); ++i) {
+        if (zones[i].wmaID != worldMapAreaId) continue;
+        // A continent is a zone with no area of its own, and entering one as
+        // if it were a zone would show its overview at zone level.
+        if (zones[i].areaID == 0) {
+            impl_->viewState.setContinentIdx(static_cast<int>(i));
+            impl_->viewState.setCurrentZoneIdx(static_cast<int>(i));
+            impl_->viewState.setLevel(ViewLevel::CONTINENT);
+        } else {
+            impl_->viewState.enterZone(static_cast<int>(i));
+        }
+        impl_->userMapOverride = true;
+        return true;
+    }
+    return false;
 }
 
 bool WorldMapFacade::canZoomOut() const {

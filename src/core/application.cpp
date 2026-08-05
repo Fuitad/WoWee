@@ -454,6 +454,16 @@ bool Application::initialize() {
             auto* wmap = r ? r->getWorldMap() : nullptr;
             return wmap && wmap->canZoomOut();
         };
+        luaSvc.showPlayerMapZone = [r = renderer.get()]() {
+            if (auto* wmap = r ? r->getWorldMap() : nullptr) wmap->showPlayerZone();
+        };
+        luaSvc.getMapWorldAreaId = [r = renderer.get()]() -> uint32_t {
+            auto* wmap = r ? r->getWorldMap() : nullptr;
+            return wmap ? wmap->currentWorldMapAreaId() : 0u;
+        };
+        luaSvc.setMapWorldAreaId = [r = renderer.get()](uint32_t id) {
+            if (auto* wmap = r ? r->getWorldMap() : nullptr) wmap->showWorldMapArea(id);
+        };
         luaSvc.takeScreenshot = [uim = uiManager.get()]() {
             if (uim) uim->getGameScreen().takeScreenshot();
         };

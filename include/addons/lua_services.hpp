@@ -77,6 +77,14 @@ struct LuaServices {
     std::function<int()> getMapContinentIndex;
     std::function<int()> getMapZoneIndex;
     std::function<bool()> canZoomMapOut;
+    /// Back to the zone the player is standing in, which the interface asks
+    /// for every time it shows the map.
+    std::function<void()> showPlayerMapZone;
+    /// The WorldMapArea id being shown, and setting the map from one. Zero
+    /// when a continent rather than a zone is shown, which is the branch the
+    /// interface takes to ask about continents instead.
+    std::function<uint32_t()> getMapWorldAreaId;
+    std::function<void(uint32_t)> setMapWorldAreaId;
 
     /// Nameplates over hostile and neutral units, for nameplateShowEnemies.
     ///

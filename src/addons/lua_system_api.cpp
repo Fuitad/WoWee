@@ -554,6 +554,23 @@ static int lua_GetBuildInfo(lua_State* L) {
 }
 
 static int lua_GetCurrentMapAreaID(lua_State* L) {
+    // One past the WorldMapArea id, which is what 3.3.5 answers here. The
+    // interface's own arithmetic says so and is the authority: it takes this
+    // minus one and hands the result to SetMapByID, and treats a negative
+    // result as "no zone, ask which continent instead". So zero means a
+    // continent is showing, and every other value is an id plus one.
+    //
+    // The physical map id was answered instead — 0 for Eastern Kingdoms, 571
+    // for Northrend — which is a different number in a different space. It
+    // made the Wintergrasp check (area 502) never true, and the windowed-size
+    // toggle reopen the map somewhere else.
+    if (auto* svc = getLuaServices(L)) {
+        if (svc->getMapWorldAreaId) {
+            const uint32_t wma = svc->getMapWorldAreaId();
+            lua_pushnumber(L, wma == 0 ? 0 : static_cast<lua_Number>(wma + 1));
+            return 1;
+        }
+    }
     auto* gh = getGameHandler(L);
     lua_pushnumber(L, gh ? gh->getCurrentMapId() : 0);
     return 1;
@@ -616,6 +633,12 @@ static void fireWorldMapUpdate(lua_State* L) {
 
 // SetMapToCurrentZone() — sets map view to the player's current zone
 static int lua_SetMapToCurrentZone(lua_State* L) {
+    // Called every time the map is shown. It set two statics that nothing
+    // reads any more and never told the map, so a map left on another zone
+    // stayed there when reopened.
+    if (auto* svc = getLuaServices(L)) {
+        if (svc->showPlayerMapZone) svc->showPlayerMapZone();
+    }
     auto* gh = getGameHandler(L);
     if (gh) {
         s_mapContinent = mapIdToContinent(gh->getCurrentMapId());
@@ -3519,7 +3542,17 @@ void registerSystemLuaAPI(lua_State* L) {
             fireWorldMapUpdate(L);
             return 0;
         }},
-                {"SetMapByID",          lua_ReturnNothing},
+                // Show a zone by its WorldMapArea id. Nothing at all before,
+                // which is how the quest log's "show on map" and the map's own
+                // windowed-size toggle both landed wherever the map already
+                // was.
+                {"SetMapByID", [](lua_State* L) -> int {
+            auto* svc = getLuaServices(L);
+            const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (svc && svc->setMapWorldAreaId && id != 0) svc->setMapWorldAreaId(id);
+            fireWorldMapUpdate(L);
+            return 0;
+        }},
                 {"SetDungeonMapLevel",  lua_ReturnNothing},
                 {"ClickLandmark",       lua_ReturnNothing},
                 // Landmark rows, which GetNumMapLandmarks already reports none
