@@ -155,6 +155,15 @@ const std::set<std::string>& requested() {
         // nothing. tools/framexml_unbound_globals.py reports friendsframe
         // clean, which is the check this note used to ask for.
         //
+        // "questlog" joins them. It was held back with the world map and the
+        // quest tracker, on the reading that handing any of the three over
+        // draws a second map over this client's own — and it draws no map. What
+        // it did was call the world map API, which was unbound then and is
+        // bound now, and the readiness report finds nothing missing in
+        // questlogframe at all. Its own window is already gated, its
+        // suppression entry lifts itself the moment the element is owned, and
+        // the L key reaches ToggleFrame(QuestLogFrame) through the route table.
+        //
         // "keybindings", "macro" and "timemanager" also come out, for a
         // duller reason: they are not elements. The readiness report scores
         // them because their FrameXML files have no missing calls, but there
@@ -179,8 +188,8 @@ const std::set<std::string>& requested() {
                     "barbershop", "bgscore", "book", "chat", "classtrainer",
                     "gamemenu", "gossip", "guildbank", "help", "inspect",
                     "loot", "mail", "micromenu", "partyframes", "questgiver",
-                    "social", "stable", "talents", "taxi", "totems",
-                    "tradeskill", "vendor"}) {
+                    "questlog", "social", "stable", "talents", "taxi",
+                    "totems", "tradeskill", "vendor"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "
