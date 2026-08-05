@@ -2918,11 +2918,6 @@ public:
     auto& spellToSkillLineRef() { return spellToSkillLine_; }
 
     // ── Spells & Talents ─────────────────────────────────────────────
-    auto& activeTalentSpecRef() { return activeTalentSpec_; }
-    auto* unspentTalentPointsArr() { return unspentTalentPoints_; }
-    auto* learnedTalentsArr() { return learnedTalents_; }
-    auto& learnedGlyphsRef() { return learnedGlyphs_; }
-    auto& talentsInitializedRef() { return talentsInitialized_; }
     auto& spellFlatModsRef() { return spellFlatMods_; }
     auto& spellPctModsRef() { return spellPctMods_; }
     auto& spellNameCacheRef() { return spellNameCache_; }
@@ -3688,14 +3683,9 @@ private:
     uint64_t hookedFishingBobberGuid_ = 0;
 
     // Talents (dual-spec support)
-    uint8_t activeTalentSpec_ = 0;                              // Currently active spec (0 or 1)
-    uint8_t unspentTalentPoints_[2] = {0, 0};                   // Unspent points per spec
-    std::unordered_map<uint32_t, uint8_t> learnedTalents_[2];  // Learned talents per spec
-    std::array<std::array<uint16_t, MAX_GLYPH_SLOTS>, 2> learnedGlyphs_{};  // Glyphs per spec
     std::unordered_map<uint32_t, TalentEntry> talentCache_;      // talentId -> entry
     std::unordered_map<uint32_t, TalentTabEntry> talentTabCache_; // tabId -> entry
     bool talentDbcLoaded_ = false;
-    bool talentsInitialized_ = false;                           // Reset on world entry; guards first-spec selection
 
     // ---- Area trigger detection ----
     bool areaTriggerDbcLoaded_ = false;

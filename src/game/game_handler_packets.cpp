@@ -2693,9 +2693,15 @@ void GameHandler::registerOpcodeHandlers() {
     //                   eventType(1) + dungeonId(4) + inviteId(8) + status(1) + rank(1) +
     //                   isGuildEvent(1) + inviterGuid(8)
     dispatchTable_[Opcode::SMSG_CALENDAR_EVENT_INVITE_ALERT] = [this](network::Packet& packet) {
-        // Rich notification: eventId(8) + title(cstring) + eventTime(8) + flags(4) +
-        //                   eventType(1) + dungeonId(4) + inviteId(8) + status(1) + rank(1) +
-        //                   isGuildEvent(1) + inviterGuid(8)
+        // eventId(8) + title(cstring) + eventTime(4, packed) + flags(4) +
+        // eventType(4) + dungeonId(4, signed) + inviteId(8) + status(1) +
+        // rank(1) + creatorGuid(packed) + senderGuid(packed).
+        //
+        // Only the id and the title are read; the rest is skipped. The widths
+        // written here before were a different shape — an eight-byte time, a
+        // one-byte type, an isGuildEvent that is not sent, and two full guids
+        // where the wire has packed ones — which would misread everything past
+        // the title for whoever went to use it.
         if (!packet.hasRemaining(9)) {
             packet.skipAll(); return;
         }

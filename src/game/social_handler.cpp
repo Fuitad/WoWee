@@ -1084,55 +1084,15 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
         return;
     }
 
-    if (!packet.hasRemaining(1)) return;
-    uint8_t talentType = packet.readUInt8();
-
-    if (talentType == 0) {
-        // Own talent info
-        if (!packet.hasRemaining(6)) {
-            LOG_DEBUG("SMSG_TALENTS_INFO type=0: too short");
-            return;
-        }
-        uint32_t unspentTalents    = packet.readUInt32();
-        uint8_t  talentGroupCount  = packet.readUInt8();
-        uint8_t  activeTalentGroup = packet.readUInt8();
-        if (activeTalentGroup > 1) activeTalentGroup = 0;
-        owner_.activeTalentSpecRef() = activeTalentGroup;
-        for (uint8_t g = 0; g < talentGroupCount && g < 2; ++g) {
-            if (!packet.hasRemaining(1)) break;
-            uint8_t talentCount = packet.readUInt8();
-            owner_.learnedTalentsArr()[g].clear();
-            for (uint8_t t = 0; t < talentCount; ++t) {
-                if (!packet.hasRemaining(5)) break;
-                uint32_t talentId = packet.readUInt32();
-                uint8_t  rank     = packet.readUInt8();
-                owner_.learnedTalentsArr()[g][talentId] = rank + 1u;
-            }
-            if (!packet.hasRemaining(1)) break;
-            owner_.learnedGlyphsRef()[g].fill(0);
-            uint8_t glyphCount = packet.readUInt8();
-            for (uint8_t gl = 0; gl < glyphCount; ++gl) {
-                if (!packet.hasRemaining(2)) break;
-                uint16_t glyphId = packet.readUInt16();
-                if (gl < GameHandler::MAX_GLYPH_SLOTS) owner_.learnedGlyphsRef()[g][gl] = glyphId;
-            }
-        }
-        owner_.unspentTalentPointsArr()[activeTalentGroup] = static_cast<uint8_t>(
-            unspentTalents > 255 ? 255 : unspentTalents);
-        if (!owner_.talentsInitializedRef()) {
-            owner_.talentsInitializedRef() = true;
-            if (unspentTalents > 0) {
-                owner_.addSystemChatMessage("You have " + std::to_string(unspentTalents)
-                    + " unspent talent point" + (unspentTalents != 1 ? "s" : "") + ".");
-            }
-        }
-        LOG_INFO("SMSG_TALENTS_INFO type=0: unspent=", unspentTalents,
-                 " groups=", (int)talentGroupCount, " active=", (int)activeTalentGroup,
-                 " learned=", owner_.learnedTalentsArr()[activeTalentGroup].size());
-        return;
-    }
-
-    // talentType == 1: inspect result
+    // SMSG_INSPECT_TALENT (WotLK) is a packed guid, then
+    // BuildPlayerTalentsInfoData and BuildEnchantmentsInfoData. There is no
+    // leading discriminator, and reading one ate the packed guid's mask byte
+    // and put everything after it a byte out.
+    //
+    // The branch that used to sit behind that byte re-parsed the player's own
+    // talents into a second set of members on GameHandler. Nothing read them —
+    // SpellHandler keeps the ones the talent frame draws from — and this
+    // opcode never carries them anyway.
     const bool talentTbc = isPreWotlk();
     if (packet.getRemainingSize() < (talentTbc ? 8u : 2u)) return;
     uint64_t guid = talentTbc
@@ -1163,6 +1123,8 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
         if (player && !player->getName().empty()) playerName = player->getName();
     }
 
+    // Every spec is sent. Counting all of them reported a dual-spec character
+    // as having spent roughly twice what they have.
     uint32_t totalTalents = 0;
     for (uint8_t g = 0; g < talentGroupCount && g < 2; ++g) {
         bytesLeft = packet.getRemainingSize();
@@ -1173,7 +1135,7 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
             if (bytesLeft < 5) break;
             packet.readUInt32();
             packet.readUInt8();
-            totalTalents++;
+            if (g == activeTalentGroup) totalTalents++;
         }
         bytesLeft = packet.getRemainingSize();
         if (bytesLeft < 1) break;
@@ -1185,15 +1147,33 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
         }
     }
 
+    // BuildEnchantmentsInfoData: a mask of which of the nineteen equipment
+    // slots are filled, then per filled slot the item's entry, a mask of which
+    // of its twelve enchantment slots are used, and an id per set bit.
+    //
+    // What was here read the slot mask and then one bare uint16 per set bit,
+    // so it took the low half of the first item's entry as that slot's enchant
+    // and drifted further out of step with every item after it.
+    constexpr int kEquipmentSlots = 19;
+    constexpr int kEnchantmentSlots = 12;
+    std::array<uint32_t, 19> itemEntries{};
     std::array<uint16_t, 19> enchantIds{};
-    bytesLeft = packet.getRemainingSize();
-    if (bytesLeft >= 4) {
-        uint32_t slotMask = packet.readUInt32();
-        for (int slot = 0; slot < 19; ++slot) {
-            if (slotMask & (1u << slot)) {
-                bytesLeft = packet.getRemainingSize();
-                if (bytesLeft < 2) break;
-                enchantIds[slot] = packet.readUInt16();
+    bool sawGear = false;
+    if (packet.hasRemaining(4)) {
+        const uint32_t slotMask = packet.readUInt32();
+        for (int slot = 0; slot < kEquipmentSlots; ++slot) {
+            if (!(slotMask & (1u << slot))) continue;
+            if (!packet.hasRemaining(6)) break;
+            itemEntries[slot] = packet.readUInt32();
+            sawGear = true;
+            const uint16_t enchantMask = packet.readUInt16();
+            for (int e = 0; e < kEnchantmentSlots; ++e) {
+                if (!(enchantMask & (1u << e))) continue;
+                if (!packet.hasRemaining(2)) break;
+                const uint16_t enchId = packet.readUInt16();
+                // Slot zero is the permanent enchant, which is the one the
+                // paperdoll names.
+                if (e == 0) enchantIds[slot] = enchId;
             }
         }
     }
@@ -1209,11 +1189,18 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
     inspectResult_.activeTalentGroup = activeTalentGroup;
     inspectResult_.enchantIds        = enchantIds;
 
-    auto gearIt = owner_.inspectedPlayerItemEntriesRef().find(guid);
-    if (gearIt != owner_.inspectedPlayerItemEntriesRef().end()) {
-        inspectResult_.itemEntries = gearIt->second;
+    // The gear is in this packet. It used to be looked up from the cache that
+    // Classic's SMSG_INSPECT and TBC's SMSG_INSPECT_RESULTS_UPDATE fill, and
+    // nothing filled it on WotLK, so inspecting anyone showed an empty
+    // paperdoll however well equipped they were.
+    if (sawGear) {
+        inspectResult_.itemEntries = itemEntries;
+        owner_.cacheInspectedPlayerEquipment(guid, itemEntries);
     } else {
-        inspectResult_.itemEntries = {};
+        auto gearIt = owner_.inspectedPlayerItemEntriesRef().find(guid);
+        inspectResult_.itemEntries =
+            (gearIt != owner_.inspectedPlayerItemEntriesRef().end()) ? gearIt->second
+                                                                     : std::array<uint32_t, 19>{};
     }
 
     LOG_INFO("Inspect results for ", playerName, ": ", totalTalents, " talents, ",
