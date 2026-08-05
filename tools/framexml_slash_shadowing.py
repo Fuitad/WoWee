@@ -13,13 +13,21 @@ Reports only where both sides claim the same command AND FrameXML's handler
 bottoms out in a stub or a missing global — that is the pairing that loses a
 working feature.
 
-KNOWN FALSE POSITIVE: a handler whose *first* branch is a Battle.net call but
-whose else is real. /ignore reads BNet_GetPresenceID, which resolves to
-GetAutoCompletePresenceID answering nil here, and falls through to
-AddOrDelIgnore; /leave gates BNLeaveConversation behind
-`nameNum > MAX_WOW_CHAT_CHANNELS` and otherwise calls LeaveChannelByName. Both
-are bound and both work. Read the whole handler before believing a shadow —
-this sweep sees the first call, not the branch that runs.
+Split into two lists, because a dead call is worth very different amounts
+depending on what is beside it. A handler with NO live call cannot do anything
+at all. A handler with a dead call beside a live one usually has the dead one on
+a branch that never runs: /ignore reads BNet_GetPresenceID, which resolves to
+GetAutoCompletePresenceID answering nil here and falls through to AddOrDelIgnore,
+and /leave gates BNLeaveConversation behind a channel number above ten and
+otherwise calls LeaveChannelByName. Both commands work.
+
+Filtering the second list away was tried and is wrong: an IGNORE handler whose
+only real call was replaced by a name nothing binds still had UnitIsPlayer and
+SendSystemMessage in it, so "has a live call" stayed true and the fault
+vanished from the report. Listing both is the honest arrangement.
+
+This sweep sees which names a handler mentions, never which branch runs — so
+read the whole handler before believing a hit, and before dismissing one.
 """
 import re
 from pathlib import Path
@@ -93,10 +101,35 @@ for name, cmds in sorted(slash.items()):
     calls = set(re.findall(r"(?<![\w.:])([A-Z][A-Za-z0-9_]*)\s*\(", body))
     dead = sorted(c for c in calls
                   if c in noop or (c not in bound and c not in defined))
+    live = sorted(c for c in calls
+                  if c not in noop and (c in bound or c in defined))
+    # A dead call somewhere in the handler is not a shadow. Both entries this
+    # ever reported were a Battle.net branch in front of a working one:
+    # /ignore reads BNet_GetPresenceID, which answers nil here and falls
+    # through to AddOrDelIgnore, and /leave gates BNLeaveConversation behind
+    # a channel number above ten. The question is whether *every* path is
+    # dead, so a handler with any live call is not reported.
+    #
+    # What that gives up: a handler whose live call is on the branch that
+    # never runs. Rarer, and the note below says to read the whole handler
+    # before believing a hit — which is advice worth taking either way.
     if dead:
-        rows.append((name, overlap, dead, client[overlap[0]]))
+        rows.append((name, overlap, dead, client[overlap[0]], bool(live)))
 
-print(f"{len(rows)} client command(s) shadowed by a handler that does nothing:\n")
-for name, cmds, dead, where in rows:
+hard = [r for r in rows if not r[4]]
+soft = [r for r in rows if r[4]]
+
+print(f"{len(hard)} client command(s) whose handler has no live call at all:\n")
+for name, cmds, dead, where, _ in hard:
     print(f"  {' '.join(cmds):<26} SlashCmdList[{name}] -> {', '.join(dead)}")
     print(f"      client has it in {where}")
+if not hard:
+    print("  (none)")
+
+print(f"\n{len(soft)} with a dead call beside a live one — usually a branch "
+      f"that cannot run, read each:\n")
+for name, cmds, dead, where, _ in soft:
+    print(f"  {' '.join(cmds):<26} SlashCmdList[{name}] -> {', '.join(dead)}")
+    print(f"      client has it in {where}")
+if not soft:
+    print("  (none)")

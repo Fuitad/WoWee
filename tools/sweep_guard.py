@@ -131,6 +131,14 @@ CHECKS = [
     ("framexml_art_check.py",
      r"^(\d+) not in this install", 19,
      "art the interface asks for that this install does not have"),
+    # dispatchSlashCommand stops at the first handler and reports success even
+    # when that handler errors, so any command FrameXML defines wins whether it
+    # works or not. Zero is the honest ceiling for a handler that can do nothing
+    # at all; the tool's second list — a dead call beside a live one — is two
+    # Battle.net branches that cannot run and is not guarded.
+    ("framexml_slash_shadowing.py",
+     r"^(\d+) client command\(s\) whose handler has no live call", 0,
+     "slash commands FrameXML takes over with a handler that cannot act"),
     ("api_shadowing_check.py",
      r"^\s*(\d+) to look at", 10,
      "names whose winner depends on load order"),
