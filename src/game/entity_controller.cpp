@@ -219,7 +219,21 @@ void EntityController::handleUpdateObject(network::Packet& packet) {
 
 void EntityController::processOutOfRangeObjects(const std::vector<uint64_t>& guids) {
     // Process out-of-range objects first
+    bool inventoryChanged = false;
     for (uint64_t guid : guids) {
+        // An item leaving is how the server says it is gone. Selling one, or
+        // handing it to a quest, takes it out of range rather than destroying
+        // it, and handleDestroyObject is the only path that was clearing the
+        // online item tracking — so a sold item stayed in the picture the bags
+        // are drawn from and went on being drawn in the slot it left.
+        //
+        // Before the entity check, because an item need not be in the entity
+        // manager at all: the partial updates that carry them are tracked in
+        // onlineItems_ alone, which is why the values path has a branch for
+        // exactly that case.
+        owner_.containerContentsRef().erase(guid);
+        if (owner_.onlineItemsRef().erase(guid)) inventoryChanged = true;
+
         auto entity = entityManager.getEntity(guid);
         if (!entity) continue;
 
@@ -267,6 +281,10 @@ void EntityController::processOutOfRangeObjects(const std::vector<uint64_t>& gui
         entityManager.removeEntity(guid);
     }
 
+    // Once, after the whole batch: a vendor sale can take several items out of
+    // range together, and rebuilding per item would redraw the bags as many
+    // times for one answer.
+    if (inventoryChanged) owner_.rebuildOnlineInventory();
 }
 
 // ============================================================
