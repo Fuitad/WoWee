@@ -2676,6 +2676,23 @@ int lua_EditBox_GetCursorPosition(lua_State* L) {
     return 1;
 }
 
+/// GetNumLetters() — how many characters the box holds, not how many bytes.
+///
+/// The macro editor writes its "%d/255 Characters Used" counter from this on
+/// every keystroke. Unanswered it was nil, and a nil through string.format is
+/// the counter reading back its own format string.
+int lua_EditBox_GetNumLetters(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    if (!w) { lua_pushnumber(L, 0); return 1; }
+    int chars = 0;
+    for (char c : w->editText) {
+        // A continuation byte is 10xxxxxx; every other byte opens a character.
+        if ((static_cast<unsigned char>(c) & 0xC0) != 0x80) ++chars;
+    }
+    lua_pushnumber(L, chars);
+    return 1;
+}
+
 /// How many *characters* precede the cursor, where GetCursorPosition counts
 /// bytes. The two agree for plain ASCII and diverge the moment anything
 /// accented is typed, which is why the interface asks for this one by name
@@ -3542,6 +3559,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetAutoFocus",          lua_EditBox_SetAutoFocus},
         {"SetCursorPosition",     lua_EditBox_SetCursorPosition},
         {"GetCursorPosition",     lua_EditBox_GetCursorPosition},
+        {"GetNumLetters",         lua_EditBox_GetNumLetters},
         {"GetUTF8CursorPosition", lua_EditBox_GetUTF8CursorPosition},
         {"SetFocus",              lua_EditBox_SetFocus},
         {"ClearFocus",            lua_EditBox_ClearFocus},
@@ -3759,6 +3777,18 @@ void LuaEngine::registerCoreAPI() {
         "end\n"
         "function groupMeta:Pause() self.paused = true end\n"
         "function groupMeta:Resume() self.paused = nil end\n"
+
+        // Stop every group on this frame at once. A frame method rather than a
+        // group one, and the only animation call FrameXML makes without
+        // holding the group: blizzard_glyphui.lua does sparkle:StopAnimating()
+        // whenever a glyph slot empties, which is every time the glyph tab is
+        // opened on a character with a free socket. Missing, that raised and
+        // took GlyphFrame_UpdateGlyphSlot with it.
+        "function mt:StopAnimating()\n"
+        "    if self.__animGroups then\n"
+        "        for _, g in ipairs(self.__animGroups) do g:Stop() end\n"
+        "    end\n"
+        "end\n"
 
         "function mt:CreateAnimationGroup(name)\n"
         "    local g = setmetatable({parent = self, animations = {}}, groupMeta)\n"

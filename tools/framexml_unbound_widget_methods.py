@@ -43,15 +43,16 @@ def strip(text, is_xml):
     return re.sub(r"--\[\[.*?\]\]|--[^\n]*", "", text, flags=re.S)
 
 
-src = ENGINE.read_text(errors="ignore")
+# What the engine answers for — asked of the one place that decides rather
+# than worked out again here. This file had its own copy of that regex, and it
+# matched only `mt:`, so every method the bootstrap defines on animMeta or
+# groupMeta read as unanswered: IsPlaying, SetDuration and SetOffset were all
+# reported against the glyph frame when the animation system has provided them
+# since it was written. One fact in two places, drifting.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from framexml_provides import widget_methods_provided  # noqa: E402
 
-# What the engine answers for.
-method_table = set(re.findall(r'\{"([A-Za-z_]\w*)",\s*lua_', src))
-shims = set(re.findall(r'(?:__WoweeFrameMT|mt)\s*:\s*(\w+)\s*\(', src))
-# Several names per string literal — "SetMovable=1,SetNormalTexture=1,\n" —
-# so anchoring on the opening quote finds only the first of each. That single
-# mistake had this reporting SetTexCoord, in forty-eight files, as unhandled.
-allowlist = set(re.findall(r"\b([A-Za-z]\w*)=1", src))
+answered_by_engine = widget_methods_provided()
 
 # Methods FrameXML defines itself, on frames or on its own tables.
 defined = set()
@@ -65,15 +66,15 @@ for p in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
 
 # Uppercase-initial only: WoW widget methods are PascalCase, and the fallback
 # itself only records those. On* are script handler names read as fields.
-answered = method_table | shims | allowlist | defined
+answered = answered_by_engine | defined
 missing = {
     name: files
     for name, files in called.items()
     if name[:1].isupper() and not name.startswith("On") and name not in answered
 }
 
-print(f"{len(method_table)} in the method table, {len(shims)} shimmed, "
-      f"{len(allowlist)} allowlisted, {len(defined)} defined by FrameXML\n")
+print(f"{len(answered_by_engine)} answered by the engine, "
+      f"{len(defined)} defined by FrameXML\n")
 print(f"{len(missing)} widget methods called that answer nil:\n")
 for name, files in sorted(missing.items(), key=lambda kv: (-len(kv[1]), kv[0])):
     where = " ".join(sorted(files)[:3])

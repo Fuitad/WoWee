@@ -62,7 +62,11 @@ def widget_methods_provided():
     """
     src = ENGINE.read_text(encoding="utf-8", errors="ignore")
     table = set(re.findall(r'\{"([A-Za-z_]\w*)",\s*lua_', src))
-    shims = set(re.findall(r'(?:__WoweeFrameMT|mt)\s*:\s*(\w+)\s*\(', src))
+    # Every method the bootstrap defines on anything, not only on the frame
+    # metatable. Matching `mt:` alone missed animMeta and groupMeta, so
+    # IsPlaying, SetDuration and SetOffset were reported as answering nil when
+    # the animation system has provided all three since it was written.
+    shims = set(re.findall(r'function\s+\w+\s*:\s*(\w+)\s*\(', src))
     # Several names per string literal — "SetMovable=1,SetNormalTexture=1,\n" —
     # so anchoring on the opening quote finds only the first of each and
     # under-counts the allowlist by four to one.
