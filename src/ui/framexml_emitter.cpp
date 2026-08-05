@@ -114,7 +114,34 @@ std::string scriptParameters(const std::string& script) {
 /// merely leave the values behind — it fails to compile, taking the whole
 /// template with it.
 std::string scriptSignature(const std::string& script) {
+    // OnEvent alone takes its arguments through the varargs rather than by
+    // name. Both spellings are in the interface — plenty of bodies say `arg1`,
+    // and fifty-three hand `...` straight on to a Lua function — and a named
+    // parameter list serves only the first: `function(self, event, arg1, ...,
+    // arg9, ...)` binds every value that arrives to a name, leaving `...`
+    // empty for the body that forwards it.
+    //
+    // ContainerFrame is the one that shows: its whole OnEvent body is
+    // ContainerFrame_OnEvent(self, event, ...), which opens with
+    // `local arg1, arg2 = ...` and compares arg1 against the bag's own id. With
+    // nothing in the varargs that comparison was false for every bag on every
+    // BAG_UPDATE, so a bag never redrew while it was open — an item moved
+    // within one, or out of it, stayed on screen where it had been.
+    //
+    // The names are bound inside instead, off the varargs, which serves both.
+    if (script == "OnEvent") return "self, event, ...";
     return scriptParameters(script) + ", ...";
+}
+
+/// Statements to run before an inline body, or empty.
+///
+/// Only OnEvent has any: its argN names are locals taken off the varargs
+/// rather than parameters, so that a body forwarding `...` still has something
+/// to forward. Nine because that is how many the client's dispatcher will
+/// send, and the same nine scriptParameters used to name.
+std::string scriptPrelude(const std::string& script) {
+    if (script != "OnEvent") return std::string();
+    return "local arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 = ...; ";
 }
 
 struct Emitter {
@@ -178,7 +205,8 @@ struct Emitter {
             // moment it touched its own argument — arithmetic on a nil elapsed
             // being the loudest of them.
             line(var + ":SetScript(" + quote(s.name) +
-                 ", function(" + scriptSignature(s.name) + ") " + body + " end)");
+                 ", function(" + scriptSignature(s.name) + ") " +
+                 scriptPrelude(s.name) + body + " end)");
         }
     }
 

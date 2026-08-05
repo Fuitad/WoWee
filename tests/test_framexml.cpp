@@ -1138,3 +1138,36 @@ TEST_CASE("A button gets its font string before its text", "[framexml][emit]") {
     // create it, or the tab has a named region no button knows about.
     REQUIRE(has(lua, ":SetFontString("));
 }
+
+TEST_CASE("OnEvent takes its arguments through the varargs, not by name",
+          "[framexml][emit]") {
+    // Both spellings are in the interface and both have to work. A body that
+    // says `arg1` needs the name; a body that hands `...` to a Lua function
+    // needs the varargs — and fifty-three of them do, ContainerFrame among
+    // them. Naming arg1..arg9 as parameters served only the first, because
+    // every value that arrived was bound to a name and `...` came out empty:
+    // ContainerFrame_OnEvent compared a nil arg1 against the bag's own id, so
+    // no open bag ever redrew on BAG_UPDATE.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"F\"><Scripts>"
+        "<OnEvent><![CDATA[ Handler(self, event, ...) ]]></OnEvent>"
+        "</Scripts></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, ":SetScript(\"OnEvent\", function(self, event, ...)"));
+    // ...and the names still exist, bound off those same varargs.
+    REQUIRE(has(r.lua, "local arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 = ...;"));
+    REQUIRE(has(r.lua, "Handler(self, event, ...)"));
+}
+
+TEST_CASE("every other handler keeps its named arguments", "[framexml][emit]") {
+    // OnEvent is the exception, not the new rule. An OnUpdate body says
+    // `elapsed` and does arithmetic with it, and a prelude would be dead
+    // weight in front of every one of them.
+    XmlNode root = parseOrFail(
+        "<Ui><Frame name=\"F\"><Scripts>"
+        "<OnUpdate><![CDATA[ self.t = self.t + elapsed ]]></OnUpdate>"
+        "</Scripts></Frame></Ui>");
+    const EmitResult r = emitFrameXml(root);
+    REQUIRE(has(r.lua, ":SetScript(\"OnUpdate\", function(self, elapsed, ...)"));
+    REQUIRE_FALSE(has(r.lua, "local arg1"));
+}
