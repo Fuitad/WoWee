@@ -297,6 +297,41 @@ static void saveStoredCVars() {
     }
 }
 
+/// Tutorials the player has already been shown.
+///
+/// The stock client keeps these in account data, which this client is not
+/// sent, so they ride in the CVar file beside everything else that has to
+/// survive a login — one row, the ids comma separated. An in-memory set would
+/// look finished and re-show every tutorial on the next login, which is the
+/// shape this repository keeps producing.
+///
+/// TutorialFrame_NewTutorial refuses to queue a tutorial that is already
+/// flagged, so an answer of "no" here means every tutorial fires again on
+/// every login, and an unanswered call raises inside TutorialFrame_Update.
+static const char* kTutorialCVar = "wowee_tutorialsFlagged";
+
+static bool tutorialFlagged(int id) {
+    const std::string& all = cvarStore()[kTutorialCVar];
+    const std::string needle = std::to_string(id);
+    size_t at = 0;
+    while ((at = all.find(needle, at)) != std::string::npos) {
+        const bool startOk = (at == 0) || all[at - 1] == ',';
+        const size_t end = at + needle.size();
+        const bool endOk = (end == all.size()) || all[end] == ',';
+        if (startOk && endOk) return true;
+        at = end;
+    }
+    return false;
+}
+
+static void flagTutorial(int id) {
+    if (id <= 0 || tutorialFlagged(id)) return;
+    std::string& all = cvarStore()[kTutorialCVar];
+    if (!all.empty()) all += ',';
+    all += std::to_string(id);
+    saveStoredCVars();
+}
+
 /// A sound CVar's value, or the stock client's default for it.
 ///
 /// The defaults matter as much as the store does. Sound_MasterVolumeUp reads
@@ -3523,6 +3558,54 @@ void registerSystemLuaAPI(lua_State* L) {
                 // GetNumSockets answered zero here, which said every item has
                 // no sockets. It is real now, and in lua_socket_api.cpp.
                 {"GetPreviousArenaSeason",      lua_ReturnZero},
+                // The tutorial popups. Both raise where they are called —
+                // FlagTutorial from TutorialFrame_Update as a tutorial is
+                // shown, IsTutorialFlagged from TutorialFrame_NewTutorial
+                // before one is queued.
+                {"FlagTutorial", [](lua_State* L) -> int {
+            flagTutorial(static_cast<int>(luaL_optnumber(L, 1, 0)));
+            return 0;
+        }},
+                {"IsTutorialFlagged", [](lua_State* L) -> int {
+            lua_pushboolean(L, tutorialFlagged(
+                static_cast<int>(luaL_optnumber(L, 1, 0))) ? 1 : 0);
+            return 1;
+        }},
+                // GetDebugStats() fills the debug stats overlay, which is one
+                // SetText of whatever string this hands back. Framerate is the
+                // part of it this client actually knows.
+                {"GetDebugStats", [](lua_State* L) -> int {
+            const double fps = static_cast<double>(ImGui::GetIO().Framerate);
+            char line[64];
+            std::snprintf(line, sizeof(line), "%.1f fps", fps);
+            lua_pushstring(L, line);
+            return 1;
+        }},
+                // The GM survey. Four DBCs describe one, but a survey is
+                // something a game master sends and no opcode here delivers,
+                // so there is never one in progress: nil questions means the
+                // frame counts zero of them and draws empty, which is what an
+                // account with no survey pending should see.
+                {"GMSurveyQuestion",            lua_ReturnNil},
+                {"GMSurveyAnswer",              lua_ReturnNil},
+                // Movie recording, which is a Mac client feature this build
+                // does not have. Its siblings above already answer; these are
+                // the ones MacOptionsFrame reaches as it loads, so each one
+                // was a raise on opening the Mac options panel.
+                {"MovieRecording_IsSupported",  lua_ReturnFalse},
+                {"MovieRecording_IsCursorRecordingSupported", lua_ReturnFalse},
+                {"MovieRecording_DataRate",     lua_ReturnZero},
+                {"MovieRecording_MaxLength",    lua_ReturnZero},
+                {"MovieRecording_GetMovieFullPath", [](lua_State* L) -> int {
+            lua_pushstring(L, "");
+            return 1;
+        }},
+                {"MovieRecording_GetViewportWidth", [](lua_State* L) -> int {
+            auto* svc = getLuaServices(L);
+            auto* win = svc ? svc->window : nullptr;
+            lua_pushnumber(L, win ? win->getWidth() : 1920);
+            return 1;
+        }},
                 {"GetComparisonCategoryNumAchievements", lua_ReturnZero},
                 {"GetMultiCastTotemSpells",  lua_ReturnNil},
                 {"GetVoiceStatus",           lua_ReturnFalse},

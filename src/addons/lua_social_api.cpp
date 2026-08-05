@@ -978,6 +978,58 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"SignPetition",        lua_SignPetition},
                 {"OfferPetition",       lua_OfferPetition},
                 {"ClosePetition",       lua_ClosePetition},
+                // The petition *vendor* — the guild master or arena
+                // registrar offering a charter — as opposed to the charter
+                // itself, which ClosePetition above shuts. Both windows read
+                // different state, so closing one has to close the other.
+                {"ClosePetitionVendor", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->closePetitionVendor();
+            return 0;
+        }},
+                // HasFilledPetition() gates the arena registrar's turn-in
+                // buttons. Whether a charter has *enough* signatures is not
+                // something this client is told — SMSG_PETITION_SHOW_SIGNATURES
+                // carries a count, but only for the charter whose window is
+                // open, and the required number lives in the server's own
+                // config. What can be answered is whether the player is
+                // carrying a charter at all, which is the question that
+                // decides whether those buttons could ever do anything: an
+                // unfilled one is refused by the server with its own error,
+                // where hiding the button leaves no way to find out.
+                {"HasFilledPetition", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            // Guild Charter, then the 2v2, 3v3 and 5v5 arena charters. Fixed
+            // ids in every expansion that has them.
+            static const uint32_t kCharters[] = {5863, 23560, 23561, 23562};
+            bool carrying = false;
+            if (gh) {
+                const auto& inv = gh->getInventory();
+                for (uint32_t id : kCharters) {
+                    for (int i = 0; i < inv.getBackpackSize() && !carrying; ++i)
+                        carrying = inv.getBackpackSlot(i).item.itemId == id;
+                    for (int b = 0; b < game::Inventory::NUM_BAG_SLOTS && !carrying; ++b)
+                        for (int sl = 0; sl < inv.getBagSize(b) && !carrying; ++sl)
+                            carrying = inv.getBagSlot(b, sl).item.itemId == id;
+                    if (carrying) break;
+                }
+            }
+            lua_pushboolean(L, carrying ? 1 : 0);
+            return 1;
+        }},
+                // CloseTabardCreation() — the tabard designer shutting itself
+                // when ShowUIPanel could not put it on screen.
+                //
+                // Nothing to close. This client has no tabard window and no
+                // tabard session: MSG_TABARDVENDOR_ACTIVATE is not handled and
+                // OPEN_TABARD_FRAME is never fired, so TabardFrame is only
+                // reachable through its own close path — which is this, and
+                // which raised. A no-op is the honest shape of that until the
+                // vendor side exists; answering it wrongly would be inventing
+                // a session to end.
+                {"CloseTabardCreation", [](lua_State* L) -> int {
+            (void)L;
+            return 0;
+        }},
                 // The guild bank tab dialog picks from the same icons under a
                 // name of its own.
                 {"GetNumMacroItemIcons", lua_GetNumMacroIcons},

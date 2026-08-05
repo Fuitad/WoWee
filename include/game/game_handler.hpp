@@ -730,6 +730,7 @@ public:
     const GuildQueryResponseData& getGuildQueryData() const;
     bool hasGuildInfoData() const;
     bool hasPetitionShowlist() const;
+    void closePetitionVendor();
     void clearPetitionDialog() { showPetitionDialog_ = false; }
     uint32_t getPetitionCost() const;
     uint64_t getPetitionNpcGuid() const;

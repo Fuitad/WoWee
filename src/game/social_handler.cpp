@@ -2451,6 +2451,18 @@ void SocialHandler::handlePetitionShowlist(network::Packet& packet) {
     petitionNpcGuid_ = data.npcGuid;
     petitionCost_ = data.cost;
     showPetitionDialog_ = true;
+    // The vendor panel opens on this. showPetitionDialog_ is what this
+    // client's own dialog reads, and the interface's version was told
+    // nothing, so walking up to a guild master or an arena registrar opened
+    // one of the two windows and never the other.
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("PETITION_VENDOR_SHOW", {});
+}
+
+void SocialHandler::closePetitionVendor() {
+    if (!showPetitionDialog_) return;
+    showPetitionDialog_ = false;
+    petitionNpcGuid_ = 0;
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("PETITION_VENDOR_CLOSED", {});
 }
 
 void SocialHandler::handlePetitionQueryResponse(network::Packet& packet) {

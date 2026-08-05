@@ -179,6 +179,9 @@ public:
     // Petition
     bool hasPetitionShowlist() const { return showPetitionDialog_; }
     void clearPetitionDialog() { showPetitionDialog_ = false; }
+    /// Shuts the vendor session and tells the interface. Both windows read a
+    /// different thing, so closing one has to close the other.
+    void closePetitionVendor();
     uint32_t getPetitionCost() const { return petitionCost_; }
     uint64_t getPetitionNpcGuid() const { return petitionNpcGuid_; }
     const PetitionInfo& getPetitionInfo() const { return petitionInfo_; }

@@ -3246,6 +3246,10 @@ bool GameHandler::hasPetitionShowlist() const {
     return socialHandler_ ? socialHandler_->hasPetitionShowlist() : false;
 }
 
+void GameHandler::closePetitionVendor() {
+    if (socialHandler_) socialHandler_->closePetitionVendor();
+}
+
 uint32_t GameHandler::getPetitionCost() const {
     return socialHandler_ ? socialHandler_->getPetitionCost() : 0;
 }
