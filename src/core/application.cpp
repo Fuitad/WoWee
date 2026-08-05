@@ -524,6 +524,13 @@ bool Application::initialize() {
                     addonManager_->fireEvent(event, args);
                 }
             });
+            // How a keybinding reaches the frame that replaced this client's own
+            // window. Without it, a key toggled a window nothing draws.
+            gameHandler->setInterfaceCommandCallback([this](const std::string& lua) {
+                if (addonManager_ && addonsLoaded_) {
+                    addonManager_->runInterfaceCommand(lua);
+                }
+            });
             // Wire spell icon path resolver for Lua API (GetSpellInfo, UnitBuff icon, etc.)
             {
                 auto spellIconPaths  = std::make_shared<std::unordered_map<uint32_t, std::string>>();

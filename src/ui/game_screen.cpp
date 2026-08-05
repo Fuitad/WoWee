@@ -1035,7 +1035,11 @@ void GameScreen::renderMicroMenu(game::GameHandler& gameHandler) {
         }
         ImGui::SameLine();
         if (button("O##MicroSocial", "Social", socialPanel_.showSocialFrame_)) {
-            socialPanel_.showSocialFrame_ = !socialPanel_.showSocialFrame_;
+            if (frameXmlOwns(UiElement::Social)) {
+                gameHandler.runInterfaceCommand("ToggleFriendsFrame(1)");
+            } else {
+                socialPanel_.showSocialFrame_ = !socialPanel_.showSocialFrame_;
+            }
         }
         ImGui::SameLine();
         if (button("G##MicroGroup", "Party/Raid Frames", socialPanel_.showRaidFrames_)) {
@@ -1277,15 +1281,24 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
         if (!textFocus) {
             // Toggle character screen (C) and inventory/bags (I)
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_CHARACTER_SCREEN)) {
-                const bool wasOpen = inventoryScreen.isCharacterOpen();
-                inventoryScreen.toggleCharacter();
-                if (!wasOpen && gameHandler.isConnected()) {
-                    gameHandler.requestPlayedTime();
+                // Whichever interface owns the character sheet is the one the
+                // key has to reach. Toggling this client's own state while
+                // FrameXML draws the window left the key doing nothing
+                // visible at all.
+                if (frameXmlOwns(UiElement::CharacterFrame)) {
+                    gameHandler.runInterfaceCommand("ToggleCharacter(\"PaperDollFrame\")");
+                } else {
+                    inventoryScreen.toggleCharacter();
                 }
+                if (gameHandler.isConnected()) gameHandler.requestPlayedTime();
             }
 
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_INVENTORY)) {
-                inventoryScreen.toggle();
+                if (frameXmlOwns(UiElement::Bags)) {
+                    gameHandler.runInterfaceCommand("ToggleAllBags()");
+                } else {
+                    inventoryScreen.toggle();
+                }
             }
 
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_NAMEPLATES)) {
@@ -1296,7 +1309,11 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             }
 
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_WORLD_MAP)) {
-                showWorldMap_ = !showWorldMap_;
+                if (frameXmlOwns(UiElement::WorldMap)) {
+                    gameHandler.runInterfaceCommand("ToggleWorldMap()");
+                } else {
+                    showWorldMap_ = !showWorldMap_;
+                }
             }
 
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_MINIMAP)) {
@@ -1308,10 +1325,20 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             }
 
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_ACHIEVEMENTS)) {
-                windowManager_.showAchievementWindow_ = !windowManager_.showAchievementWindow_;
+                if (frameXmlOwns(UiElement::Achievements)) {
+                    gameHandler.runInterfaceCommand("ToggleAchievementFrame()");
+                } else {
+                    windowManager_.showAchievementWindow_ = !windowManager_.showAchievementWindow_;
+                }
             }
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_SKILLS)) {
-                windowManager_.showSkillsWindow_ = !windowManager_.showSkillsWindow_;
+                // The skills list is a tab of the character sheet in FrameXML
+                // rather than a window of its own.
+                if (frameXmlOwns(UiElement::CharacterFrame)) {
+                    gameHandler.runInterfaceCommand("ToggleCharacter(\"SkillFrame\")");
+                } else {
+                    windowManager_.showSkillsWindow_ = !windowManager_.showSkillsWindow_;
+                }
             }
 
             // Toggle Titles window with H (hero/title screen — no conflicting keybinding)

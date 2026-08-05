@@ -307,6 +307,21 @@ public:
     using AddonEventCallback = std::function<void(const std::string&, const std::vector<std::string>&)>;
     void setAddonEventCallback(AddonEventCallback cb) { addonEventCallback_ = std::move(cb); }
 
+    /// Run a line of the interface's own Lua.
+    ///
+    /// The keys this client binds are its own, and the windows they open are
+    /// its own too — so with an element handed over the key toggled a window
+    /// that is no longer drawn and FrameXML never heard about it. Pressing C
+    /// with the character sheet handed over did nothing at all for that
+    /// reason. This is how a key reaches the frame that replaced it.
+    using InterfaceCommand = std::function<void(const std::string&)>;
+    void setInterfaceCommandCallback(InterfaceCommand cb) {
+        interfaceCommand_ = std::move(cb);
+    }
+    void runInterfaceCommand(const std::string& lua) const {
+        if (interfaceCommand_) interfaceCommand_(lua);
+    }
+
     // Spell icon path resolver: spellId -> texture path string (e.g., "Interface\\Icons\\Spell_Fire_Fireball01")
     using SpellIconPathResolver = std::function<std::string(uint32_t)>;
     void setSpellIconPathResolver(SpellIconPathResolver r) { spellIconPathResolver_ = std::move(r); }
@@ -3505,6 +3520,7 @@ private:
     ChatBubbleCallback chatBubbleCallback_;
     AddonChatCallback addonChatCallback_;
     AddonEventCallback addonEventCallback_;
+    InterfaceCommand   interfaceCommand_;
     SpellIconPathResolver spellIconPathResolver_;
     IconPathResolver iconPathResolver_;
     ItemIconPathResolver itemIconPathResolver_;

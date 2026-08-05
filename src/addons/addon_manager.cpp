@@ -706,6 +706,13 @@ bool AddonManager::runScript(const std::string& code) {
     return luaEngine_.executeString(code);
 }
 
+void AddonManager::runInterfaceCommand(const std::string& lua) {
+    if (lua.empty()) return;
+    if (!luaEngine_.executeString(lua)) {
+        LOG_WARNING("interface command failed: ", lua);
+    }
+}
+
 void AddonManager::fireEvent(const std::string& event, const std::vector<std::string>& args) {
     luaEngine_.fireEvent(event, args);
 }

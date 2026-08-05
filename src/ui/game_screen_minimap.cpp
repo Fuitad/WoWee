@@ -1,4 +1,5 @@
 #include "ui/game_screen.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "ui/ui_raid_icons.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/ui_helpers.hpp"
@@ -1236,7 +1237,15 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             ImVec2 p = ImGui::GetCursorScreenPos();
             ImVec2 sz(20.0f, 20.0f);
             if (ImGui::InvisibleButton("##FriendsBtnInv", sz)) {
+                if (frameXmlOwns(UiElement::Social)) {
+                    gameHandler.runInterfaceCommand("ToggleFriendsFrame(1)");
+                } else {
+                    if (frameXmlOwns(UiElement::Social)) {
+                gameHandler.runInterfaceCommand("ToggleFriendsFrame(1)");
+            } else {
                 socialPanel_.showSocialFrame_ = !socialPanel_.showSocialFrame_;
+            }
+                }
             }
             bool hovered = ImGui::IsItemHovered();
             ImU32 bg = socialPanel_.showSocialFrame_

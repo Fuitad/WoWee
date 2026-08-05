@@ -27,6 +27,11 @@ public:
     /// Where FrameXML lives, remembered at scan time so the loader can find it.
     void setFrameXmlDir(const std::string& dir) { frameXmlDir_ = dir; }
     bool runScript(const std::string& code);
+    /// Run one line of interface Lua, for a keybinding whose window FrameXML
+    /// now owns. Errors are logged rather than thrown: a bad line here should
+    /// cost the keypress, not the frame.
+    void runInterfaceCommand(const std::string& lua);
+
     void fireEvent(const std::string& event, const std::vector<std::string>& args = {});
     void update(float deltaTime);
     void shutdown();
