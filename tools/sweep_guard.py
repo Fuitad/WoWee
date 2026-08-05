@@ -108,6 +108,14 @@ CHECKS = [
     ("packet_size_check.py",
      r"^(\d+) guard\(s\) longer than the packet", 0,
      "guards longer than the packet, so the handler never runs"),
+    # Six, and five of them are right: scripts and registered events live on
+    # the Lua table and always will, and GetName reads a name set once at
+    # creation. The ceiling is for the seventh. SetParent sat in this list
+    # writing __parent while layout went on using the widget's, and GetCenter
+    # read a field that only a dead SetPoint had ever written.
+    ("widget_field_check.py",
+     r"^(\d+) method\(s\) touch only a Lua field", 6,
+     "frame methods writing a Lua field where the widget is what is read"),
     ("api_shadowing_check.py",
      r"^\s*(\d+) to look at", 10,
      "names whose winner depends on load order"),
