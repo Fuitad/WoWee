@@ -396,6 +396,12 @@ struct Widget {
     // FontString regions.
     std::string text;
     float fontHeight = 12.0f;
+    /// Which named font object this region's type settings came from, so
+    /// GetFontObject can hand it back. The fields copied out of one do not add
+    /// up to the object itself, and FrameXML passes the object around — the
+    /// options panels read a control's font object to get the colour to put a
+    /// label back to when the control is re-enabled.
+    std::string fontObjectName;
     /// Drawn added to what is under it rather than over it. Art authored for
     /// this has no alpha channel at all — it is a glow on black, and black is
     /// what adds nothing. Drawn the ordinary way it is a black slab instead,

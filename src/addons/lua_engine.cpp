@@ -2366,6 +2366,12 @@ int lua_FontString_SetSpacing(lua_State* L) {
 static void applyFontObject(lua_State* L, int fontIndex, wowee::ui::Widget* w) {
     if (!w) return;
     if (lua_isstring(L, fontIndex)) {       // by name
+        // Remembered, not only unpacked. GetFontObject has to hand the object
+        // back, and the fields copied out of it cannot be reassembled into the
+        // one it came from. A name covers the path that matters: every
+        // `inherits="GameFontNormal"` in the XML emits SetFontObject with the
+        // name as a string.
+        w->fontObjectName = lua_tostring(L, fontIndex);
         lua_getglobal(L, lua_tostring(L, fontIndex));
     } else {
         lua_pushvalue(L, fontIndex);
@@ -2433,6 +2439,37 @@ int lua_FontString_SetFontObject(lua_State* L) {
     return 0;
 }
 
+/// FontString:GetFontObject() → the font object its settings came from.
+///
+/// Nil until now, and the caller that wanted it does not check:
+///
+///     local fontObject = text:GetFontObject()
+///     text:SetTextColor(fontObject:GetTextColor())
+///
+/// which is how every options-panel control puts its label back to full colour
+/// when it is re-enabled — so enabling a checkbox raised instead.
+///
+/// Answers the shared global by name. A region whose font was set field by
+/// field rather than from an object has no object to name, and nil is the right
+/// answer there: it is what the real client says too.
+int lua_FontString_GetFontObject(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    if (!w || w->fontObjectName.empty()) { lua_pushnil(L); return 1; }
+    lua_getglobal(L, w->fontObjectName.c_str());
+    return 1;
+}
+
+/// Texture:GetVertexColor() → the tint SetVertexColor last applied.
+///
+/// White until something says otherwise, which is what an untinted texture
+/// draws at. The tabard designer reads all three of its swatches back this way
+/// to seed the colour picker.
+int lua_Region_GetVertexColor(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    for (int i = 0; i < 4; ++i) lua_pushnumber(L, w ? w->color[i] : 1.0);
+    return 4;
+}
+
 /// Button:SetNormalFontObject(font) — the font its label is drawn in.
 ///
 /// FrameXML declares this as <NormalFont style="GameFontNormal"/> on 71 button
@@ -2490,6 +2527,8 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     set("SetAlpha", lua_Region_SetAlpha);
     set("GetAlpha", lua_Region_GetAlpha);
     set("SetVertexColor", lua_Region_SetVertexColor);
+    set("GetVertexColor", lua_Region_GetVertexColor);
+    set("GetFontObject", lua_FontString_GetFontObject);
     set("SetDrawLayer", lua_Region_SetDrawLayer);
     if (isTexture) {
         set("SetTexture", lua_Texture_SetTexture);
@@ -3745,6 +3784,8 @@ void LuaEngine::registerCoreAPI() {
         {"GetTextHeight",   lua_Region_GetTextHeight},
         {"GetStringHeight", lua_Region_GetTextHeight},
         {"GetFieldSize",    lua_Region_GetFieldSize},
+        {"GetVertexColor",  lua_Region_GetVertexColor},
+        {"GetFontObject",   lua_FontString_GetFontObject},
         {"SetMinimumWidth", lua_Frame_SetMinimumWidth},
         {"GetMinimumWidth", lua_Frame_GetMinimumWidth},
         {"GetHeight",       lua_Region_GetHeight},
@@ -4427,7 +4468,7 @@ void LuaEngine::registerCoreAPI() {
         "GetCursorPosition=1,GetDisabledCheckedTexture=1,\n"
         "GetDisabledTexture=1,GetDrawLayer=1,GetEffectiveAttribute=1,\n"
         "GetEffectiveScale=1,GetFileHeight=1,GetFileWidth=1,\n"
-        "GetFontObject=1,GetFontString=1,GetFrame=1,GetFrameLevel=1,GetFrameRef=1,\n"
+        "GetFontString=1,GetFrame=1,GetFrameLevel=1,GetFrameRef=1,\n"
         "GetFrameStrata=1,GetHeight=1,GetHighlightTexture=1,GetHorizontalScroll=1,\n"
         "GetHorizontalScrollRange=1,GetID=1,GetInputLanguage=1,GetInventorySlot=1,\n"
         "GetItem=1,GetLeft=1,GetLowerEmblemTexture=1,GetMessageInfo=1,\n"
@@ -4443,7 +4484,7 @@ void LuaEngine::registerCoreAPI() {
         // claim that nothing implements it, and autocomplete's arithmetic is
         // the reason it could not stay a no-op.
         "GetUIPanel=1,GetUpperEmblemTexture=1,GetValue=1,\n"
-        "GetVertexColor=1,GetVerticalScroll=1,GetVerticalScrollRange=1,GetWidth=1,\n"
+        "GetVerticalScroll=1,GetVerticalScrollRange=1,GetWidth=1,\n"
         "GetZoom=1,GetZoomLevels=1,HasFocus=1,HasScript=1,Hide=1,HideUIPanel=1,\n"
         "HighlightText=1,HookScript=1,IgnoreDepth=1,InitializeTabardColors=1,Insert=1,\n"
         "IsEnabled=1,IsEquippedItem=1,IsEventRegistered=1,IsMouseEnabled=1,\n"
@@ -5606,7 +5647,41 @@ void LuaEngine::registerCoreAPI() {
         //
         // The colours are Blizzard's: normal is the familiar gold, highlight is
         // white, disabled grey, and the quest fonts near-black on parchment.
-        "local function font(h, r, g, b) return { height = h, r = r, g = g, b = b, a = 1 } end\n"
+        // ...and carrying the methods a font object answers, because FrameXML
+        // asks a font object questions rather than reading its fields. The
+        // options panels do it on every control they enable:
+        //
+        //     local fontObject = text:GetFontObject()
+        //     text:SetTextColor(fontObject:GetTextColor())
+        //
+        // A bare table has no GetTextColor, so that indexes nil and the enable
+        // path raises — for every checkbox, slider and dropdown in the options
+        // panels, which is where a control most needs to come back to life.
+        "local fontMT = { __index = {\n"
+        "    GetTextColor = function(self) return self.r, self.g, self.b, self.a end,\n"
+        "    SetTextColor = function(self, r, g, b, a)\n"
+        "        self.r, self.g, self.b, self.a = r, g, b, a or 1\n"
+        "    end,\n"
+        "    GetFont = function(self)\n"
+        "        return self.font or 'Fonts\\\\FRIZQT__.TTF', self.height, self.outline or ''\n"
+        "    end,\n"
+        "    SetFont = function(self, f, h, flags)\n"
+        "        self.font, self.height, self.outline = f, h, flags\n"
+        "    end,\n"
+        "    GetFontHeight = function(self) return self.height end,\n"
+        "    GetShadowColor = function(self) return 0, 0, 0, 1 end,\n"
+        "    GetShadowOffset = function(self) return 0, 0 end,\n"
+        "    GetSpacing = function(self) return 0 end,\n"
+        "    GetJustifyH = function(self) return self.justifyH or 'LEFT' end,\n"
+        "    GetJustifyV = function(self) return self.justifyV or 'MIDDLE' end,\n"
+        "    GetObjectType = function(self) return 'Font' end,\n"
+        // A font object is its own font object, which is what SetFontObject
+        // being handed one relies on.
+        "    GetFontObject = function(self) return self end,\n"
+        "} }\n"
+        "local function font(h, r, g, b)\n"
+        "    return setmetatable({ height = h, r = r, g = g, b = b, a = 1 }, fontMT)\n"
+        "end\n"
         "GameFontNormal            = font(12, 1.00, 0.82, 0.00)\n"
         "GameFontNormalSmall       = font(10, 1.00, 0.82, 0.00)\n"
         "GameFontNormalLarge       = font(16, 1.00, 0.82, 0.00)\n"
