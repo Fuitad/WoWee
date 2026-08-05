@@ -29,6 +29,31 @@ probing values, and what a person does by checking a row they recognise.
 
 It also only reads the DBCs present under Data/db. A layout for a file this
 install does not carry is skipped and counted, not assumed correct.
+
+ONE EXPANSION AT A TIME
+
+There is one set of DBCs here and four sets of layouts, and a layout only means
+anything against the files it was written for — Faction.Name is field 19 in the
+Classic file and something else entirely in the WotLK one. Checking all four
+against one set of files reported three expansions' worth of noise on the first
+run, and the noise looked exactly like findings.
+
+So the layouts are scored against the files and the best-fitting one is the only
+one checked. The score is content, not range: a field called Name, Title or
+Description has to hold an offset into the file's own string block, and the
+layout written for this data is the one whose string fields land there. On the
+WotLK files here that separates the four cleanly — the Classic layout puts
+Faction.Name at field 19, where the WotLK file keeps something that is not an
+offset at all.
+
+Range alone does not separate them. All four layouts have exactly one
+out-of-range field, so scoring on that picked whichever sorted first.
+
+The fit does not separate everything either, and the run prints every score so
+that is visible rather than implied: TBC and WotLK agree on the string fields
+checked here and both reach 100%, while Classic and Turtle fall behind. Where
+two tie, the violations reported are the same ones — the layouts differ in the
+columns this cannot score, not in the ones it can.
 """
 import json
 import re
@@ -51,6 +76,18 @@ def field_count(path):
     return fields
 
 
+#: Fields whose value must be an offset into the string block.
+STRINGY = re.compile(r"(Name|Title|Description|SubName|Text)$")
+
+
+def records(path, count):
+    """Every record as a tuple of uint32, plus the string block's size."""
+    data = path.read_bytes()
+    rc, fc, rs, ss = struct.unpack_from("<IIII", data, 4)
+    rows = [struct.unpack_from(f"<{fc}I", data, 20 + i * rs) for i in range(rc)]
+    return rows, ss
+
+
 def dbc_for(name):
     """Data/db is lower case on this install and the layouts are CamelCase."""
     for candidate in (name, name.lower(),
@@ -66,11 +103,33 @@ def main():
         print(f"no DBCs at {DB}")
         return 0
 
-    rows, checked, absent = [], 0, 0
-    for layout_file in sorted(EXPANSIONS.glob("*/dbc_layouts.json")):
-        expansion = layout_file.parent.name
-        layouts = json.loads(layout_file.read_text())
-        for dbc_name, fields in sorted(layouts.items()):
+    def string_fit(layout_file):
+        """How often this layout's string-named fields hold string offsets."""
+        good = total = 0
+        for dbc_name, fields in json.loads(layout_file.read_text()).items():
+            path = dbc_for(dbc_name)
+            if not path:
+                continue
+            count = field_count(path)
+            if count is None:
+                continue
+            named = [i for f, i in fields.items()
+                     if isinstance(i, int) and i < count and STRINGY.search(f)]
+            if not named:
+                continue
+            rows, strings = records(path, count)
+            for index in named:
+                values = [r[index] for r in rows if r[index] != 0]
+                if not values:
+                    continue
+                total += len(values)
+                good += sum(1 for v in values if 0 < v < strings)
+        return (good / total) if total else 0.0
+
+    def violations(layout_file):
+        """Out-of-range fields for one expansion's layouts, and how many fit."""
+        found, checked, absent = [], 0, 0
+        for dbc_name, fields in sorted(json.loads(layout_file.read_text()).items()):
             path = dbc_for(dbc_name)
             if not path:
                 absent += 1
@@ -81,12 +140,28 @@ def main():
             checked += 1
             for field, index in sorted(fields.items()):
                 if isinstance(index, int) and index >= count:
-                    rows.append((expansion, dbc_name, field, index, count))
+                    found.append((dbc_name, field, index, count))
+        return found, checked, absent
 
-    print(f"{checked} layout(s) checked against a file, {absent} with no file here\n")
+    scored = []
+    for layout_file in sorted(EXPANSIONS.glob("*/dbc_layouts.json")):
+        found, checked, absent = violations(layout_file)
+        scored.append((string_fit(layout_file), layout_file.parent.name,
+                       found, checked, absent))
+    if not scored:
+        print("no layouts found")
+        return 0
+
+    scored.sort(reverse=True)
+    fit, expansion, rows, checked, absent = scored[0]
+    others = ", ".join(f"{name} {f:.0%}" for f, name, *_ in scored[1:])
+    print(f"data under Data/db best matches the {expansion} layouts — "
+          f"{fit:.0%} of its string fields land in the string block "
+          f"({checked} checked, {absent} with no file here)")
+    print(f"the rest fit worse and are not this data's: {others}\n")
     print(f"{len(rows)} field(s) naming a column the file does not have:\n")
-    for expansion, dbc, field, index, count in rows:
-        print(f"  {expansion}/{dbc}.{field} = {index}, "
+    for dbc, field, index, count in rows:
+        print(f"  {dbc}.{field} = {index}, "
               f"but the file has {count} fields (0-{count - 1})")
     if not rows:
         print("  (none)")

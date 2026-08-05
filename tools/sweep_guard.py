@@ -168,16 +168,21 @@ CHECKS = [
     ("framexml_lookup_names_check.py",
      r"^(\d+) looked up that the interface does not declare", 0,
      "frames this client looks up by a name the interface does not declare"),
-    # DBC field indices naming a column the file does not have. Four, and all
-    # four are one field: CharacterFacialHairStyles.Geoset200 = 8, repeated once
-    # per expansion. The layouts describe the stock nine-column file, which is a
-    # real shape and the right thing for them to describe; the eight-column file
-    # both installs here carry is handled by detectFacialHairFields, which picks
-    # 3-5 on the field count. Lower this only by making that decision somewhere
-    # the JSON can express, and read a new row as a column being read from
-    # padding — that one was drawing no facial hair at all and saying nothing.
+    # DBC field indices naming a column the file does not have. One:
+    # CharacterFacialHairStyles.Geoset200 = 8. The layouts describe the stock
+    # nine-column file, which is a real shape and the right thing for them to
+    # describe; the eight-column file both installs here carry is handled by
+    # detectFacialHairFields, which picks 3-5 on the field count. Lower this
+    # only by making that decision somewhere the JSON can express, and read a
+    # new row as a column being read from padding — that one was drawing no
+    # facial hair at all and saying nothing.
+    #
+    # One rather than four because the check now scores the four layouts
+    # against the files and reads only the best-fitting one. There is a single
+    # set of DBCs here; checking a Classic layout against WotLK data reported
+    # three expansions' worth of noise that looked exactly like findings.
     ("dbc_layout_check.py",
-     r"^(\d+) field\(s\) naming a column the file does not have", 4,
+     r"^(\d+) field\(s\) naming a column the file does not have", 1,
      "DBC field indices naming a column the file does not have"),
     # Packet handlers that change this client's own model, tell the player in
     # chat, and tell the interface nothing — the shape that produces a bug
