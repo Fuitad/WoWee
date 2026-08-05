@@ -1394,6 +1394,8 @@ int lua_Tooltip_SetText(lua_State* L) {
 /// every action button fell to its "no tooltip" branch.
 static bool fillItemTooltipById(wowee::ui::Widget* w, game::GameHandler* gh,
                                 uint32_t itemId);
+static bool fillItemTooltipById(lua_State* L, game::GameHandler* gh,
+                                uint32_t itemId);
 
 /// One spell tooltip, for every path that shows one.
 ///
@@ -1468,7 +1470,7 @@ int lua_Tooltip_SetAction(lua_State* L) {
     // Naming it and stopping meant the same potion described itself two
     // different ways depending on where it was hovered.
     if (action.type == game::ActionBarSlot::ITEM) {
-        lua_pushboolean(L, fillItemTooltipById(w, gh, action.id) ? 1 : 0);
+        lua_pushboolean(L, fillItemTooltipById(L, gh, action.id) ? 1 : 0);
         return 1;
     }
     if (action.type == game::ActionBarSlot::SPELL) {
@@ -1530,7 +1532,7 @@ int lua_Tooltip_SetHyperlink(lua_State* L) {
     if (kind == "spell" || kind == "enchant" || kind == "talent")
         filled = fillSpellTooltip(w, gh, id);
     else if (kind == "item")
-        filled = fillItemTooltipById(w, gh, id);
+        filled = fillItemTooltipById(L, gh, id);
     // "quest" carries no text this client keeps beyond the title, and a
     // tooltip holding only a name is worse than the caller knowing it failed:
     // the tracker uses the answer to decide whether to keep refreshing.
@@ -1738,16 +1740,12 @@ static void fillItemTooltip(wowee::ui::Widget* w, const game::ItemDef& item,
 /// as a tooltip that works right up until someone wants to know whether the
 /// sword is better than the one they are holding.
 ///
-/// **This is not the only item tooltip.** It used to say it was. The bootstrap
-/// Lua defines a second builder, _WoweePopulateItemTooltip, and defines
-/// SetBagItem and SetAction on the frame metatable *after* the C bindings are
-/// registered onto that same table — so a bag item and an action-bar item go
-/// through the Lua one and this serves the guild bank, the currency tokens and
-/// the quest-log special item. Two builders, and which one describes an item
-/// depends on where it was hovered, which is the fault the SetAction comment
-/// above believes it fixed. Consolidating them is open work; until then, a line
-/// added here appears in some tooltips and not others.
-/// tools/api_shadowing_check.py lists the names this affects.
+/// **This is the fallback, not the tooltip.** The bootstrap Lua's
+/// _WoweePopulateItemTooltip is the builder every item path now goes through —
+/// see fillItemTooltipById(lua_State*, ...) for why that direction — and this
+/// runs only when it answers false, which means the interface has no
+/// GetItemInfo for the entry yet. Anything added here is therefore seen rarely
+/// and briefly; the line to add is almost always the Lua one.
 ///
 /// Ordered as WoW orders it: binding, then what it is and where it goes, then
 /// the numbers, then the requirements, then the flavour text last.
@@ -1845,6 +1843,52 @@ static bool fillItemTooltipById(wowee::ui::Widget* w, game::GameHandler* gh,
     return true;
 }
 
+/// The same, through the bootstrap's builder — which is the fuller of the two.
+///
+/// There were two item tooltips. The bootstrap Lua defines
+/// _WoweePopulateItemTooltip and puts SetBagItem and SetAction on the frame
+/// metatable after the C bindings are registered onto it, so a bag item went
+/// through the Lua one while the guild bank, the currency tokens, the auction
+/// rows and the quest log's special item went through the C one — and the two
+/// do not say the same things. The Lua builder adds the item level, the
+/// equip-slot and subclass line, the sell price, the heroic tag and the whole
+/// table of rating names; the C builder has none of those. So the same sword
+/// described itself two ways depending on where it was hovered, which is the
+/// fault the SetAction comment above believed it had fixed.
+///
+/// Consolidated towards the fuller one rather than away from it. Every C setter
+/// tries this first and keeps the C builder as its fallback, for an item the
+/// interface has no GetItemInfo for yet — the Lua builder answers false there,
+/// and false must not mean "no tooltip" when the client knows the name.
+///
+/// isTooltip is set before the call because SetText refuses a frame that is not
+/// one, and the builder opens with SetText.
+static bool fillItemTooltipById(lua_State* L, game::GameHandler* gh,
+                                uint32_t itemId) {
+    auto* w = widgetOf(L, 1);
+    if (!w || !gh || itemId == 0) return false;
+    const int top = lua_gettop(L);
+    lua_getglobal(L, "_WoweePopulateItemTooltip");
+    if (lua_isfunction(L, -1)) {
+        w->isTooltip = true;
+        w->tooltipLines.clear();
+        lua_pushvalue(L, 1);                                  // self
+        lua_pushnumber(L, static_cast<lua_Number>(itemId));
+        if (lua_pcall(L, 2, 1, 0) == 0) {
+            const bool ok = lua_toboolean(L, -1) != 0;
+            lua_settop(L, top);
+            if (ok) { w->shown = true; return true; }
+            // Nothing written, so leave the frame as the fallback finds it.
+            w->tooltipLines.clear();
+        } else {
+            lua_settop(L, top);
+        }
+    } else {
+        lua_settop(L, top);
+    }
+    return fillItemTooltipById(w, gh, itemId);
+}
+
 /// SetAuctionItem(list, index) — the item on an auction row.
 ///
 /// The three lists are the browse results, the player's own auctions and the
@@ -1865,7 +1909,7 @@ int lua_Tooltip_SetAuctionItem(lua_State* L) {
         return 1;
     }
     const bool filled =
-        fillItemTooltipById(w, gh, results.auctions[index - 1].itemEntry);
+        fillItemTooltipById(L, gh, results.auctions[index - 1].itemEntry);
     lua_pushboolean(L, filled ? 1 : 0);
     return 1;
 }
@@ -1887,13 +1931,17 @@ int lua_Tooltip_SetInventoryItem(lua_State* L) {
         auto& cache = gh->inspectedPlayerItemEntriesRef();
         auto it = guid ? cache.find(guid) : cache.end();
         const uint32_t entry = (it != cache.end()) ? it->second[static_cast<size_t>(slot - 1)] : 0;
-        lua_pushboolean(L, fillItemTooltipById(w, gh, entry) ? 1 : 0);
+        lua_pushboolean(L, fillItemTooltipById(L, gh, entry) ? 1 : 0);
         return 1;
     }
 
     const auto& s = gh->getInventory().getEquipSlot(static_cast<game::EquipSlot>(slot - 1));
     if (s.empty()) { lua_pushboolean(L, 0); return 1; }
-    fillItemTooltip(w, s.item, gh);
+    // Through the fuller builder, with the slot's own copy of the item as the
+    // floor: the slot knows the name and quality even for an entry no
+    // GetItemInfo has arrived for, and answering nothing there would be worse
+    // than answering briefly.
+    if (!fillItemTooltipById(L, gh, s.item.itemId)) fillItemTooltip(w, s.item, gh);
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -1908,7 +1956,7 @@ int lua_Tooltip_SetQuestLogSpecialItem(lua_State* L) {
     const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
     if (!w || !gh) { lua_pushboolean(L, 0); return 1; }
     const auto item = wowee::addons::questSpecialItemAt(gh, index);
-    lua_pushboolean(L, fillItemTooltipById(w, gh, item.itemId) ? 1 : 0);
+    lua_pushboolean(L, fillItemTooltipById(L, gh, item.itemId) ? 1 : 0);
     return 1;
 }
 
@@ -1926,7 +1974,7 @@ int lua_Tooltip_SetCurrencyToken(lua_State* L) {
     const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
     if (!w || !gh) { lua_pushboolean(L, 0); return 1; }
     const uint32_t itemId = wowee::addons::currencyListItemId(L, index);
-    lua_pushboolean(L, fillItemTooltipById(w, gh, itemId) ? 1 : 0);
+    lua_pushboolean(L, fillItemTooltipById(L, gh, itemId) ? 1 : 0);
     return 1;
 }
 
@@ -1941,7 +1989,11 @@ int lua_Tooltip_SetBagItem(lua_State* L) {
     const auto& s = (bag == 0) ? inv.getBackpackSlot(slot - 1)
                                : inv.getBagSlot(bag - 1, slot - 1);
     if (s.empty()) { lua_pushboolean(L, 0); return 1; }
-    fillItemTooltip(w, s.item, gh);
+    // Through the fuller builder, with the slot's own copy of the item as the
+    // floor: the slot knows the name and quality even for an entry no
+    // GetItemInfo has arrived for, and answering nothing there would be worse
+    // than answering briefly.
+    if (!fillItemTooltipById(L, gh, s.item.itemId)) fillItemTooltip(w, s.item, gh);
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -1972,7 +2024,7 @@ int lua_Tooltip_SetGuildBankItem(lua_State* L) {
 
     for (const auto& it : *items) {
         if (it.slotId + 1 != slot) continue;
-        lua_pushboolean(L, fillItemTooltipById(w, gh, it.itemEntry) ? 1 : 0);
+        lua_pushboolean(L, fillItemTooltipById(L, gh, it.itemEntry) ? 1 : 0);
         return 1;
     }
     lua_pushboolean(L, 0);
