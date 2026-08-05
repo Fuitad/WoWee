@@ -31,6 +31,8 @@ public:
     /// now owns. Errors are logged rather than thrown: a bad line here should
     /// cost the keypress, not the frame.
     void runInterfaceCommand(const std::string& lua);
+    /// The same, for a command whose answer decides what happens next.
+    bool interfaceCommandBoolean(const std::string& expression);
 
 
     void fireEvent(const std::string& event, const std::vector<std::string>& args = {});

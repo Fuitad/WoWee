@@ -612,6 +612,11 @@ bool Application::initialize() {
                     addonManager_->runInterfaceCommand(lua);
                 }
             });
+            // The same route, for a question rather than an instruction.
+            gameHandler->setInterfaceQueryCallback([this](const std::string& expr) {
+                if (!addonManager_ || !addonsLoaded_) return false;
+                return addonManager_->interfaceCommandBoolean(expr);
+            });
             // Wire spell icon path resolver for Lua API (GetSpellInfo, UnitBuff icon, etc.)
             {
                 auto spellIconPaths  = std::make_shared<std::unordered_map<uint32_t, std::string>>();

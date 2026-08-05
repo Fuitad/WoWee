@@ -320,6 +320,20 @@ public:
     }
     void runInterfaceCommand(const std::string& lua) const;
 
+    /// An interface command whose answer decides what happens next.
+    ///
+    /// Escape is the case: FrameXML knows whether it has a panel open and this
+    /// client does not, so whether the key closed something is its answer to
+    /// give. False when there is no interface, which is the right default —
+    /// the client's own handling then runs as it always did.
+    using InterfaceQuery = std::function<bool(const std::string&)>;
+    void setInterfaceQueryCallback(InterfaceQuery cb) {
+        interfaceQuery_ = std::move(cb);
+    }
+    bool askInterface(const std::string& expression) const {
+        return interfaceQuery_ ? interfaceQuery_(expression) : false;
+    }
+
     // Spell icon path resolver: spellId -> texture path string (e.g., "Interface\\Icons\\Spell_Fire_Fireball01")
     using SpellIconPathResolver = std::function<std::string(uint32_t)>;
     void setSpellIconPathResolver(SpellIconPathResolver r) { spellIconPathResolver_ = std::move(r); }
@@ -3566,6 +3580,7 @@ private:
     AddonChatCallback addonChatCallback_;
     AddonEventCallback addonEventCallback_;
     InterfaceCommand   interfaceCommand_;
+    InterfaceQuery     interfaceQuery_;
     SpellIconPathResolver spellIconPathResolver_;
     IconPathResolver iconPathResolver_;
     ItemIconPathResolver itemIconPathResolver_;

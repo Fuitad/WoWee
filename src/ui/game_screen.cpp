@@ -1281,6 +1281,21 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 gameHandler.closeQuestRequestItems();
             } else if (gameHandler.isTradeOpen()) {
                 gameHandler.cancelTrade();
+            } else if (gameHandler.askInterface(
+                           "CloseAllWindows and CloseAllWindows() and true or false")) {
+                // FrameXML had a panel open and closed it. Everything above
+                // this line is a window the *server* knows about, and each of
+                // those has to go through the client so the closing packet is
+                // sent — CloseAllWindows would hide the frame and leave the
+                // server thinking the vendor was still open.
+                //
+                // What is left by the time it gets here is the interface's own:
+                // the character sheet, the spellbook, the talent frame, the
+                // quest log, the world map, the social panel. Escape closing
+                // the top window is how WoW behaves and how ToggleGameMenu is
+                // written, and none of it could happen while this chain fell
+                // straight through to the game menu — so Escape opened a menu
+                // on top of the panel it should have closed.
             } else {
                 windowManager_.showEscapeMenu = true;
             }

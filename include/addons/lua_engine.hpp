@@ -30,6 +30,13 @@ public:
     bool executeFile(const std::string& path);
     bool executeString(const std::string& code);
 
+    /// Run a Lua expression and answer whether it came out true.
+    ///
+    /// executeString cannot say anything back, and some decisions belong to
+    /// the interface: whether Escape closed one of its panels is FrameXML's
+    /// answer to give, not something this client can work out from outside.
+    bool evaluateBoolean(const std::string& expression);
+
     /// Error from the last executeFile/executeString that returned false.
     /// Lets a caller loading many files report them together rather than
     /// leaving the reasons scattered through the log.

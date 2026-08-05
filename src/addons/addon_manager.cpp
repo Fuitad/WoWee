@@ -763,6 +763,11 @@ void AddonManager::runInterfaceCommand(const std::string& lua) {
     }
 }
 
+bool AddonManager::interfaceCommandBoolean(const std::string& expression) {
+    if (expression.empty()) return false;
+    return luaEngine_.evaluateBoolean(expression);
+}
+
 void AddonManager::fireEvent(const std::string& event, const std::vector<std::string>& args) {
     luaEngine_.fireEvent(event, args);
 }

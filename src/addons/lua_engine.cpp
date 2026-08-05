@@ -7727,6 +7727,27 @@ bool LuaEngine::executeFile(const std::string& path) {
     return true;
 }
 
+/// Run an expression and answer whether it came out true.
+///
+/// The stack is left as it was found, whatever the chunk does: this runs from
+/// the input path, once per key press, and a value left behind on each one
+/// grows until the state is exhausted.
+bool LuaEngine::evaluateBoolean(const std::string& expression) {
+    if (!L_ || expression.empty()) return false;
+    const std::string chunk = "return (" + expression + ")";
+    const int base = lua_gettop(L_);
+    BudgetGuard guard(L_, chunkTimeoutMs_);
+    if (runChunk(L_, chunk.c_str(), chunk.size(), chunk.c_str()) != 0) {
+        const char* err = lua_tostring(L_, -1);
+        LOG_WARNING("LuaEngine: ", expression, " — ", err ? err : "(unknown)");
+        lua_settop(L_, base);
+        return false;
+    }
+    const bool truth = lua_toboolean(L_, -1) != 0;
+    lua_settop(L_, base);
+    return truth;
+}
+
 bool LuaEngine::executeString(const std::string& code) {
     if (!L_) return false;
 
