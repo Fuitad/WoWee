@@ -860,6 +860,36 @@ static int lua_GetMapOverlayInfo(lua_State* L) {
 // `for id = 1, count`, which raises on nil and took the whole menu down.
 
 /// Aura ids that make a spell a tracking spell.
+/// The spell possessing the player, or zero.
+///
+/// Which aura it is decides what the possess bar's cancel button cancels, so
+/// this selects on the aura *type* rather than on anything looser: only a
+/// spell that applies one of the four possession auras can be returned, and if
+/// none is found the caller shows no bar rather than a button that would
+/// cancel something else. Values from AzerothCore's SpellAuraDefines.
+static uint32_t possessAuraSpellId(wowee::game::GameHandler* gh) {
+    if (!gh) return 0;
+    constexpr uint32_t kModPossess = 2;
+    constexpr uint32_t kModCharm = 6;
+    constexpr uint32_t kModPossessPet = 128;
+    constexpr uint32_t kAoeCharm = 177;
+    for (const auto& aura : gh->getPlayerAuras()) {
+        if (aura.isEmpty()) continue;
+        // Asking for the name is what fills the cache; the entry is not there
+        // to be read until something has.
+        gh->getSpellName(aura.spellId);
+        auto it = gh->spellNameCacheRef().find(aura.spellId);
+        if (it == gh->spellNameCacheRef().end()) continue;
+        for (uint32_t type : it->second.effectAuraIds) {
+            if (type == kModPossess || type == kModCharm ||
+                type == kModPossessPet || type == kAoeCharm) {
+                return aura.spellId;
+            }
+        }
+    }
+    return 0;
+}
+
 static constexpr uint32_t kAuraTrackCreatures = 44;
 static constexpr uint32_t kAuraTrackResources = 45;
 
@@ -3069,7 +3099,6 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetPreviousArenaSeason",      lua_ReturnZero},
                 {"GetComparisonCategoryNumAchievements", lua_ReturnZero},
                 {"GetMultiCastTotemSpells",  lua_ReturnNil},
-                {"GetPossessInfo",           lua_ReturnNil},
                 {"GetVoiceStatus",           lua_ReturnFalse},
                 {"GetMuteStatus",            lua_ReturnFalse},
                 {"GetActiveVoiceChannel",    lua_ReturnNil},
@@ -3203,22 +3232,56 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"IsHelpfulItem",            lua_ReturnFalse},
                 {"IsHarmfulSpell",           lua_ReturnFalse},
                 {"IsHelpfulSpell",           lua_ReturnFalse},
-                // False on purpose, and not for want of the state: the
-                // player's UNIT_FIELD_CHARM says whether they are possessing
-                // something, and the possessed unit's bar does arrive — 
-                // Player::PossessSpellInitialize sends SMSG_PET_SPELLS with
-                // charmInfo->BuildActionBar, which lands in petActionSlots_.
+                // Shown only while there is something to possess *and* a way
+                // out of it. The bar's second button is the escape — see
+                // GetPossessInfo below — so offering the bar without being
+                // able to name the aura it cancels would be a bar that traps
+                // rather than releases.
+                {"IsPossessBarVisible", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            bool possessing = false;
+            if (gh) {
+                const uint16_t idx = wowee::game::fieldIndex(
+                    wowee::game::UF::UNIT_FIELD_CHARM);
+                if (idx != 0xFFFF) {
+                    if (auto e = gh->getEntityManager().getEntity(gh->getPlayerGuid())) {
+                        const uint64_t lo = e->getField(idx);
+                        const uint64_t hi = e->getField(static_cast<uint16_t>(idx + 1));
+                        possessing = ((hi << 32) | lo) != 0;
+                    }
+                }
+            }
+            lua_pushboolean(L,
+                (possessing && possessAuraSpellId(gh) != 0) ? 1 : 0);
+            return 1;
+        }},
+                // GetPossessInfo(slot) → texture, name, enabled
                 //
-                // What is missing is the second slot's contract.
-                // POSSESS_CANCEL_SLOT is 2 and PossessButton_OnClick does
-                // `local _, name = GetPossessInfo(id); CancelUnitBuff("player",
-                // name)` — so that slot must name the possessing aura, because
-                // it is how someone escapes a mind control. A pet action's name
-                // there cancels the wrong buff or nothing.
+                // Slot two only, which is POSSESS_CANCEL_SLOT.
+                // PossessButton_OnClick reads the *name* from here and hands it
+                // to CancelUnitBuff("player", name) — that button is how
+                // someone gets out of a mind control, so it has to name the
+                // possessing aura and nothing else.
                 //
-                // Turning this on without that gives an empty bar and no way
-                // out, since a nil from GetPossessInfo hides both buttons.
-                {"IsPossessBarVisible",      lua_ReturnFalse},
+                // The other slot answers nil, which hides its button. What
+                // belongs there is the possessed unit's own action, and this
+                // client has no way to know which of its ten action slots that
+                // is — a wrong icon on a bar whose other button works is worse
+                // than one button.
+                {"GetPossessInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            constexpr int kCancelSlot = 2;
+            if (!gh || static_cast<int>(luaL_optnumber(L, 1, 0)) != kCancelSlot) {
+                return luaReturnNil(L);
+            }
+            const uint32_t spellId = possessAuraSpellId(gh);
+            if (spellId == 0) return luaReturnNil(L);
+            const std::string icon = gh->getSpellIconPath(spellId);
+            if (icon.empty()) lua_pushnil(L); else lua_pushstring(L, icon.c_str());
+            lua_pushstring(L, gh->getSpellName(spellId).c_str());
+            lua_pushboolean(L, 1);
+            return 3;
+        }},
                 // IsRaidOfficer() — whether this player is an assistant.
                 //
                 // The same question UnitIsRaidOfficer already answers for
