@@ -345,6 +345,50 @@ static int lua_UnitIsTappedByAllThreatList(lua_State* L) {
     return 1;
 }
 
+namespace {
+
+/// A unit's standing on a mob's threat list: the status WoW reports, its raw
+/// threat, and the leader's.
+///
+/// One place, because UnitThreatSituation and UnitDetailedThreatSituation must
+/// agree — the indicator's colour comes from the first and its number from the
+/// second, and two copies of the rule would eventually disagree about which
+/// unit is tanking while the number beside it said otherwise.
+///
+/// Answers false when no list has arrived for this mob, which is not the same
+/// as being absent from one: the caller falls back to guessing from whom the
+/// mob is attacking, and only a list that exists can say "not on it".
+struct ThreatStanding {
+    int status = 0;          ///< 0 none, 1 threat, 2 insecurely, 3 securely tanking
+    uint32_t threat = 0;
+    uint32_t topThreat = 0;
+    bool onList = false;
+};
+
+bool threatStandingFor(game::GameHandler* gh, uint64_t unitGuid, uint64_t mobGuid,
+                       ThreatStanding& out) {
+    if (!gh || unitGuid == 0 || mobGuid == 0) return false;
+    const auto* list = gh->getThreatList(mobGuid);
+    if (!list || list->empty()) return false;
+    out.topThreat = (*list)[0].threat;
+    for (size_t i = 0; i < list->size(); ++i) {
+        if ((*list)[i].victimGuid != unitGuid) continue;
+        out.onList = true;
+        out.threat = (*list)[i].threat;
+        if (i != 0) { out.status = 1; return true; }
+        // Securely tanking only when the lead is clear. WoW's own rule is a
+        // percentage margin over the runner-up; at the head with someone close
+        // behind it is "insecurely", which is what turns the indicator amber
+        // before it turns red.
+        const uint32_t next = (list->size() > 1) ? (*list)[1].threat : 0;
+        out.status = (list->size() > 1 && next * 11 >= out.topThreat * 10) ? 2 : 3;
+        return true;
+    }
+    return true;  // the list exists and this unit is not on it
+}
+
+}  // namespace
+
 // UnitThreatSituation(unit, mobUnit) → 0=not tanking, 1=not tanking but threat, 2=insecurely tanking, 3=securely tanking
 static int lua_UnitThreatSituation(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -363,31 +407,14 @@ static int lua_UnitThreatSituation(lua_State* L) {
         mobGuid = resolveUnitGuid(gh, mStr);
     }
     // The mob's own threat list first, which is what the server actually sent.
-    // It is sorted highest first, so being at its head is tanking; being on it
-    // at all is threat without tanking. This used to go straight to the guess
-    // below because the list was built from a misread packet and was never
-    // worth consulting — SMSG_THREAT_UPDATE was read as though it carried the
-    // second guid that only SMSG_HIGHEST_THREAT_UPDATE has.
-    if (mobGuid != 0) {
-        if (const auto* list = gh->getThreatList(mobGuid); list && !list->empty()) {
-            for (size_t i = 0; i < list->size(); ++i) {
-                if ((*list)[i].victimGuid != playerUnitGuid) continue;
-                // Securely tanking only when the lead is clear. WoW's own rule
-                // is a percentage margin over the runner-up; at the head with
-                // someone close behind it answers "insecurely", which is what
-                // turns the indicator amber before it turns red.
-                if (i != 0) { lua_pushnumber(L, 1); return 1; }
-                if (list->size() == 1) { lua_pushnumber(L, 3); return 1; }
-                const uint32_t lead = (*list)[0].threat;
-                const uint32_t next = (*list)[1].threat;
-                lua_pushnumber(L, (next * 11 >= lead * 10) ? 2 : 3);
-                return 1;
-            }
-            // On no part of the list, and the list is the whole truth about
-            // this mob: nothing to tank it for.
-            lua_pushnumber(L, 0);
-            return 1;
-        }
+    // This used to go straight to the guess below because the list was built
+    // from a misread packet and was never worth consulting — SMSG_THREAT_UPDATE
+    // was read as though it carried the second guid that only
+    // SMSG_HIGHEST_THREAT_UPDATE has.
+    ThreatStanding standing;
+    if (threatStandingFor(gh, playerUnitGuid, mobGuid, standing)) {
+        lua_pushnumber(L, standing.status);
+        return 1;
     }
     // Approximate threat: check if the mob is targeting this unit
     if (mobGuid != 0) {
@@ -429,23 +456,46 @@ static int lua_UnitDetailedThreatSituation(lua_State* L) {
     std::string uidStr(uid);
     toLowerInPlace(uidStr);
     uint64_t unitGuid = resolveUnitGuid(gh, uidStr);
-    bool isTanking = false;
-    int status = 0;
-    if (unitGuid != 0 && mobUid && *mobUid) {
+    uint64_t mobGuid = 0;
+    if (mobUid && *mobUid) {
         std::string mStr(mobUid);
         toLowerInPlace(mStr);
-        uint64_t mobGuid = resolveUnitGuid(gh, mStr);
-        if (mobGuid != 0) {
-            auto mobEnt = gh->getEntityManager().getEntity(mobGuid);
-            if (mobEnt) {
-                const auto& f = mobEnt->getFields();
-                auto lo = f.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_LO));
-                if (lo != f.end()) {
-                    uint64_t mt = lo->second;
-                    auto hi = f.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_HI));
-                    if (hi != f.end()) mt |= (static_cast<uint64_t>(hi->second) << 32);
-                    if (mt == unitGuid) { isTanking = true; status = 3; }
-                }
+        mobGuid = resolveUnitGuid(gh, mStr);
+    }
+
+    ThreatStanding standing;
+    if (threatStandingFor(gh, unitGuid, mobGuid, standing)) {
+        const bool isTanking = (standing.status >= 2);
+        double rawPct = 0.0;
+        if (standing.topThreat > 0)
+            rawPct = 100.0 * standing.threat / standing.topThreat;
+        // Against the point where aggro changes hands rather than against the
+        // leader: WoW pulls at a tenth clear of the current tank, so a hundred
+        // here means "about to take it" and is what the numeric indicator
+        // colours on. Whoever holds it is already at a hundred by definition.
+        const double pullPct = isTanking ? 100.0 : std::min(100.0, rawPct / 1.1);
+        lua_pushboolean(L, isTanking);
+        lua_pushnumber(L, standing.status);
+        lua_pushnumber(L, pullPct);
+        lua_pushnumber(L, rawPct);
+        lua_pushnumber(L, standing.threat);
+        return 5;
+    }
+
+    // No list for this mob yet. The same guess UnitThreatSituation falls back
+    // to, and the same lack of a number behind it.
+    bool isTanking = false;
+    int status = 0;
+    if (unitGuid != 0 && mobGuid != 0) {
+        auto mobEnt = gh->getEntityManager().getEntity(mobGuid);
+        if (mobEnt) {
+            const auto& f = mobEnt->getFields();
+            auto lo = f.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_LO));
+            if (lo != f.end()) {
+                uint64_t mt = lo->second;
+                auto hi = f.find(game::fieldIndex(game::UF::UNIT_FIELD_TARGET_HI));
+                if (hi != f.end()) mt |= (static_cast<uint64_t>(hi->second) << 32);
+                if (mt == unitGuid) { isTanking = true; status = 3; }
             }
         }
     }
@@ -453,7 +503,7 @@ static int lua_UnitDetailedThreatSituation(lua_State* L) {
     lua_pushnumber(L, status);
     lua_pushnumber(L, isTanking ? 100.0 : 0.0); // threatPct
     lua_pushnumber(L, isTanking ? 100.0 : 0.0); // rawThreatPct
-    lua_pushnumber(L, 0); // threatValue (not available without server threat data)
+    lua_pushnumber(L, 0); // threatValue — unknown without the list
     return 5;
 }
 
