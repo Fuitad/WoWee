@@ -1002,6 +1002,22 @@ void ChatHandler::replyToLastWhisper(const std::string& message) {
 // ============================================================
 
 void ChatHandler::handleChannelList(network::Packet& packet) {
+    // A channel type byte comes first — Channel::List writes `uint8(1)` before
+    // the name — and this read the name straight from it. The stray byte does
+    // not shift anything, because the name's terminator ends the string either
+    // way, but it rides along on the front of every use of it: the roster was
+    // filed under "\x01General" while getChannelRoster is asked for "General",
+    // so the member count answered zero for every channel.
+    //
+    // Recognised rather than assumed, since not every realm's build sends it: a
+    // channel name always begins with a printable character, so a control byte
+    // here is the type and nothing else can be.
+    if (!packet.hasRemaining(1)) return;
+    if (!packet.getData().empty() &&
+        packet.getReadPos() < packet.getData().size() &&
+        packet.getData()[packet.getReadPos()] < 0x20) {
+        packet.readUInt8();  // channel type
+    }
     std::string chanName = packet.readString();
     if (!packet.hasRemaining(5)) return;
     /*uint8_t chanFlags =*/ packet.readUInt8();
