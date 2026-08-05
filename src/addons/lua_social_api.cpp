@@ -467,6 +467,23 @@ static int lua_CancelDuel(lua_State* L) {
 // hated starts at -42000 and exalted at 42000, with the rest between.
 namespace {
 
+/// Which guild roster row is selected. Panel state with no counterpart in the
+/// game, so it lives here — the same shape as selectedFriend and selectedSkill.
+///
+/// The getter answered a flat zero and the setter forgot, which is what killed
+/// note editing: every dialog that edits a note reads the selection to know
+/// whose note it is, and index zero is nobody.
+int& selectedGuildRosterRow() { static int row = 0; return row; }
+
+/// The name in a guild roster row, or empty. The note calls take an index and
+/// the client's own verbs take a name, so this is where the two meet.
+std::string guildRosterNameAt(game::GameHandler* gh, int index) {
+    if (!gh || index < 1) return {};
+    const auto& roster = gh->getGuildRoster();
+    if (index > static_cast<int>(roster.members.size())) return {};
+    return roster.members[static_cast<size_t>(index) - 1].name;
+}
+
 /// Whether the player has opted out of loot rolls. The server is told and
 /// keeps the real state; nothing sends it back, so it is remembered here for
 /// the menu that shows a tick beside it.
@@ -1345,6 +1362,31 @@ void registerSocialLuaAPI(lua_State* L) {
             return 0;
         }},
                 {"GetGuildRosterInfo",      lua_GetGuildRosterInfo},
+                {"SetGuildRosterSelection", [](lua_State* L) -> int {
+            selectedGuildRosterRow() = static_cast<int>(luaL_optnumber(L, 1, 0));
+            return 0;
+        }},
+                {"GetGuildRosterSelection", [](lua_State* L) -> int {
+            lua_pushnumber(L, selectedGuildRosterRow());
+            return 1;
+        }},
+                // The two note editors. Both dialogs read the selection to
+                // know whose note they are editing and then send by index;
+                // this client's own verbs take a name, so the row is resolved
+                // here. Neither was bound at all, so both dialogs accepted
+                // text and threw it away.
+                {"GuildRosterSetPublicNote", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const std::string name = guildRosterNameAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            if (!name.empty()) gh->setGuildPublicNote(name, luaL_optstring(L, 2, ""));
+            return 0;
+        }},
+                {"GuildRosterSetOfficerNote", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const std::string name = guildRosterNameAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            if (!name.empty()) gh->setGuildOfficerNote(name, luaL_optstring(L, 2, ""));
+            return 0;
+        }},
                 {"GetGuildRosterMOTD",      lua_GetGuildRosterMOTD},
                 {"GetNumFriends",           lua_GetNumFriends},
                 {"GetFriendInfo",           lua_GetFriendInfo},

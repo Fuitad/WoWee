@@ -2849,7 +2849,6 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"SetChatColorNameByClass",      lua_SetChatColorNameByClass},
                 {"GetChatColorNameByClass",      lua_GetChatColorNameByClass},
                 {"GetExistingLocales",       lua_ReturnNil},
-                {"GetGuildRosterSelection",  lua_ReturnZero},
                 // Read from the real keyboard: a shift-click means something
                 // different from a click, and FrameXML asks on every press.
                 {"IsShiftKeyDown",           lua_IsShiftKeyDown},
@@ -2983,7 +2982,6 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"RegisterForSave",          lua_ReturnNothing},
                 {"RegisterStaticConstants",  lua_ReturnNothing},
                 {"SetChatWindowName",        lua_SetChatWindowName},
-                {"SetGuildRosterSelection",  lua_ReturnNothing},
                 {"SetupFullscreenScale",     lua_ReturnNothing},
                 {"DropCursorMoney",          lua_ReturnNothing},
                 // AchievementMicroButton_Update() — called by the achievement
