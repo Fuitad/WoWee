@@ -43,6 +43,7 @@ WHAT THE CATEGORIES MEAN
 """
 
 import os
+import pathlib
 import re
 import sys
 
@@ -93,6 +94,26 @@ def read_report(path):
     return names
 
 
+BOOTSTRAP = pathlib.Path(__file__).resolve().parent.parent / "src/addons"
+
+
+def bootstrap_globals():
+    """Globals the client builds in C before the interface loads.
+
+    A frame created in a bootstrap chunk is defined as far as FrameXML is
+    concerned and undefined as far as a scan of Data/interface can tell — the
+    two look identical from there, which is what the note at the bottom of this
+    report used to warn about. It can be read instead: the chunks are Lua in
+    C string literals, and a created frame is spelled the same way there.
+    """
+    names = set()
+    for path in BOOTSTRAP.rglob("*.cpp"):
+        text = path.read_text(errors="ignore")
+        names |= set(re.findall(r'([A-Za-z_]\w*)\s*=\s*CreateFrame\(', text))
+        names |= set(re.findall(r'function\s+([A-Za-z_]\w*)\s*\(', text))
+    return names
+
+
 def main():
     path = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_REPORT
     if not os.path.exists(path):
@@ -103,8 +124,10 @@ def main():
 
     names = read_report(path)
     defines, mentions = index()
+    built_in_c = bootstrap_globals()
 
     buckets = {
+        "created by the client in C": [],
         "in an addon that did not load": [],
         "assigned nil at file scope": [],
         "defined nowhere in this interface": [],
@@ -117,6 +140,10 @@ def main():
             buckets["widget field"].append((name[len("widget:"):], []))
             continue
         bare = name.split(":", 1)[-1]
+        if bare in built_in_c:
+            buckets["created by the client in C"].append(
+                (bare, sorted(mentions.get(bare, ()))[:2]))
+            continue
         where = defines.get(bare)
         if where and any(in_addon for _, in_addon in where):
             buckets["in an addon that did not load"].append(
@@ -141,8 +168,9 @@ def main():
     print(f"{real} worth reading." if real else
           "Nothing left that is a gap in this client. Read the callers of the")
     if not real:
-        print("'defined nowhere' group before believing that — a C-created frame")
-        print("and a Blizzard typo look identical from here.")
+        print("'defined nowhere' group before believing that — a frame defined")
+        print("in an addon's own XML has been read as missing here more than")
+        print("once, and a Blizzard leftover looks the same as a real gap.")
     return 0
 
 

@@ -4624,6 +4624,33 @@ void LuaEngine::registerCoreAPI() {
         "UIPanelWindows = {}\n"
         "WorldFrame = CreateFrame('Frame', 'WorldFrame')\n"
         "WorldFrame:SetAllPoints()\n"
+        // Two frames the real client builds in C and the world map then uses
+        // without checking. FrameXML says so itself, twice, in a comment
+        // naming CWorldMap::CreatePlayerArrowFrame.
+        //
+        // Missing, the first use raises — and the first use is the third
+        // statement of WorldMapFrame_OnLoad, so everything after it was lost:
+        // the scale of WorldMapDetailFrame and WorldMapButton, the POI bounds,
+        // the objective font metrics, and WorldMapFrame.numQuests, which later
+        // code counts up from and cannot when it is nil.
+        //
+        // Empty is the honest shape for both. This client draws the player
+        // arrow and the quest areas itself, so what these need to do is exist,
+        // take their scale and frame level, and draw nothing.
+        "PlayerArrowEffectFrame = CreateFrame('Frame', 'PlayerArrowEffectFrame')\n"
+        "WorldMapBlobFrame = CreateFrame('Frame', 'WorldMapBlobFrame')\n"
+        // Only the methods with no implementation behind them. Show, Hide,
+        // SetScale and SetFrameLevel are real widget methods, and defining
+        // them here would put a no-op table field in front of each.
+        "function WorldMapBlobFrame:DrawQuestBlob() end\n"
+        "function WorldMapBlobFrame:SetFillAlpha() end\n"
+        "function WorldMapBlobFrame:SetBorderAlpha() end\n"
+        // Nil rather than zero: the caller reads it as "are there blob
+        // tooltips to use instead of the quest log's own objectives", and
+        // takes the quest log path when there are none. Zero is true in Lua
+        // and would send it down the blob path with nothing in it.
+        "function WorldMapBlobFrame:GetNumTooltips() return nil end\n"
+        "function WorldMapBlobFrame:GetTooltipIndex(i) return i end\n"
         // GameTooltip: global tooltip frame used by virtually all addons
         // Created as a GameTooltip, not a Frame, so it is one as far as the
         // widget tree is concerned and its lines are drawn.
