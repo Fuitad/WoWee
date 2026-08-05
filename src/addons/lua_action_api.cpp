@@ -85,11 +85,27 @@ static void clearCursorItem(lua_State* L);
 
 static void setCursorType(lua_State* L, CursorType type) {
     if (s_cursorType == type) return;
+    const bool wasCarrying = (s_cursorType != CursorType::NONE);
+    const bool nowCarrying = (type != CursorType::NONE);
     s_cursorType = type;
     lua_getfield(L, LUA_REGISTRYINDEX, "wowee_lua_engine");
     auto* engine = static_cast<LuaEngine*>(lua_touserdata(L, -1));
     lua_pop(L, 1);
-    if (engine) engine->fireEvent("CURSOR_UPDATE", {});
+    if (!engine) return;
+    engine->fireEvent("CURSOR_UPDATE", {});
+    // Picking something up shows the empty slots of the action bars, so there
+    // is somewhere visible to drop it; putting it down hides them again. Every
+    // action button registers for both and neither was ever fired, so dragging
+    // a spell towards the bar showed no targets at all — the bar looked as
+    // though it would not take it.
+    //
+    // Fired on the change rather than on every set: this function is called
+    // with the same type repeatedly and the grid would flicker.
+    if (nowCarrying && !wasCarrying) {
+        engine->fireEvent("ACTIONBAR_SHOWGRID", {});
+    } else if (wasCarrying && !nowCarrying) {
+        engine->fireEvent("ACTIONBAR_HIDEGRID", {});
+    }
 }
 
 static int lua_HasAction(lua_State* L) {
