@@ -1503,13 +1503,47 @@ void registerActionLuaAPI(lua_State* L) {
             lua_pushnumber(L, id);
             return 1;
         }},
+                // DeleteMacro(index) — and the rest of the half shifts down.
+                //
+                // Every macro verb here takes what WoW calls an index and what
+                // this client stores as an id, and the two are the same number
+                // only while the slots are dense. CreateMacro fills the first
+                // free slot, so they start dense; this emptied one and left a
+                // hole, and from then on the two disagreed.
+                //
+                // What that costs: with macros in slots 1, 2 and 3, deleting
+                // the second leaves 1 and 3. GetNumMacros counts two, so the
+                // macro frame asks for slots 1 and 2 — one macro, one blank
+                // row, and the macro in slot 3 invisible and unreachable.
+                //
+                // Compacting is also what WoW does. Deleting a macro there
+                // shifts the ones after it down, which is why a macro on an
+                // action bar can move when an earlier one is deleted; matching
+                // that is more faithful than keeping a hole, and it is the
+                // assumption getMacroIds already documents.
                 {"DeleteMacro",         [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const uint32_t id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
-            if (gh && id != 0) {
-                gh->setMacroText(id, "");     // empty text removes it
-                gh->setMacroMeta(id, "", "");
+            if (!gh || id == 0) return 0;
+            // Which half this slot belongs to; the two do not shift into
+            // each other.
+            const uint32_t first = (id >= 37u) ? 37u : 1u;
+            const uint32_t last  = (id >= 37u) ? 54u : 36u;
+            if (id < first || id > last) return 0;
+            for (uint32_t slot = id; slot < last; ++slot) {
+                const std::string next = gh->getMacroText(slot + 1);
+                if (next.empty()) {
+                    gh->setMacroText(slot, "");
+                    gh->setMacroMeta(slot, "", "");
+                    break;
+                }
+                gh->setMacroText(slot, next);
+                gh->setMacroMeta(slot, gh->getMacroName(slot + 1),
+                                       gh->getMacroIcon(slot + 1));
             }
+            // The last slot in the half is never written by the loop above.
+            gh->setMacroText(last, "");
+            gh->setMacroMeta(last, "", "");
             return 0;
         }},
                 // Saved as each change is made, so this has nothing to do.
