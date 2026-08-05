@@ -928,10 +928,10 @@ void AnimationController::applyMountPositioning(float mountBob, float mountRoll,
             haveSeat = characterRenderer->getAttachmentTransform(
                 mountInstanceId_, static_cast<uint32_t>(mountSeatAttachmentId_), mountSeatTransform);
         }
-        if (!haveSeat) {
-            mountSeatAttachmentId_ = -2;
-        }
-
+        // A failed lookup is "not yet", not "never". The seat is read off the
+        // mount's model, and a mount summoned before its M2 has finished
+        // loading answers no on the first frame or two — latching that closed
+        // left the rider on the guessed height for the whole ride.
         if (haveSeat) {
             glm::vec3 targetRiderPos = glm::vec3(mountSeatTransform[3]) + glm::vec3(0.0f, 0.0f, 0.02f);
             mountSeatSmoothingInit_ = false;
@@ -968,9 +968,8 @@ void AnimationController::applyMountPositioning(float mountBob, float mountRoll,
                 break;
             }
         }
-        if (!haveSeat) {
-            mountSeatAttachmentId_ = -2;
-        }
+        // Left at -1 on failure, so the next frame probes again — see the note
+        // in the taxi branch above.
     }
 
     if (haveSeat) {

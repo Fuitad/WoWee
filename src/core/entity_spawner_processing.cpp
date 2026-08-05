@@ -1712,11 +1712,39 @@ void EntitySpawner::processPendingMount() {
 
     mountInstanceId_ = instanceId;
 
-    // Compute height offset — place player above mount's back
-    // Use tight bounds from actual vertices (M2 header bounds can be inaccurate)
+    // Compute height offset — place player above mount's back.
+    //
+    // The seat is not something to derive: the artist placed it, as attachment
+    // 0 ("MountMain"), and every rideable model carries one. Take it when it is
+    // there. This is also what the camera is offset by, so a mount whose seat
+    // is nowhere near its silhouette gets a sane camera too.
     const auto* modelData = charRenderer->getModelData(modelId);
     float heightOffset = 1.8f;
-    if (modelData && !modelData->vertices.empty()) {
+    bool haveSeatPoint = false;
+    if (modelData) {
+        for (const auto& att : modelData->attachments) {
+            if (att.id == 0) {
+                heightOffset = att.position.z;
+                haveSeatPoint = (heightOffset > 0.1f);
+                if (haveSeatPoint) {
+                    LOG_INFO("Mount seat attachment: z=", heightOffset);
+                } else {
+                    heightOffset = 1.8f;
+                }
+                break;
+            }
+        }
+    }
+
+    // No attachment: fall back to a guess from tight bounds of the actual
+    // vertices (M2 header bounds can be inaccurate).
+    //
+    // The guess is a fraction of the tallest vertex, which assumes the tallest
+    // part of the model is roughly over the seat — true of a horse, false of
+    // anything with a mast, a stack or handlebars. The motorcycle's tallest
+    // vertex is 5.11 against a seat at 0.76, so the rider sat four yards over
+    // the bike. It is only ever reached now when the model names no seat.
+    if (!haveSeatPoint && modelData && !modelData->vertices.empty()) {
         float minZ =  std::numeric_limits<float>::max();
         float maxZ = -std::numeric_limits<float>::max();
         for (const auto& v : modelData->vertices) {
