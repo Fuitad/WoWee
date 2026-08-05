@@ -52,12 +52,19 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
     // ones named — it read "the rest" when trade and the ready check were also
     // in the list, and both were being drawn twice.
     if (!frameXmlOwns(UiElement::Dialogs)) renderGroupInvitePopup(gameHandler);
-    renderDuelRequestPopup(gameHandler);
+    // FrameXML answers DUEL_REQUESTED with StaticPopup_Show("DUEL_REQUESTED"),
+    // and this client fires that event — so with dialogs handed over both
+    // appeared. Three of the popups in this function were already gated on
+    // exactly this and the rest were not.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderDuelRequestPopup(gameHandler);
     renderDuelCountdown(gameHandler);
     // The roll dialog belongs to the loot window, and FrameXML has four of its
     // own that open on the same roll. Whichever side draws the loot window
     // draws the roll that comes out of it.
     if (!frameXmlOwns(UiElement::Loot)) {
+        // GroupLootFrame1..4, which belong to the loot element rather than to
+    // dialogs — they are frames of their own, not static popups.
+    if (!frameXmlOwns(UiElement::Loot))
         renderLootRollPopup(gameHandler, inventoryScreen, chatPanel);
     }
     // The trade request and the trade window belong to different elements on
@@ -66,6 +73,10 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
     // events, so each surface has to stand down for its own owner.
     if (!frameXmlOwns(UiElement::Dialogs)) renderTradeRequestPopup(gameHandler);
     if (!frameXmlOwns(UiElement::Trade)) {
+        // TradeFrame is its own element, and its suppression entry names exactly
+    // that frame — so with trade handed over this drew a second trade window
+    // beside FrameXML's, both live, both showing the same slots.
+    if (!frameXmlOwns(UiElement::Trade))
         renderTradeWindow(gameHandler, inventoryScreen, chatPanel);
     }
     if (!frameXmlOwns(UiElement::Dialogs)) renderSummonRequestPopup(gameHandler);
@@ -74,7 +85,9 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
     // client's other page-text surface, WindowManager::renderBookWindow, was
     // already gated on Book; this one reads different state and was not.
     if (!frameXmlOwns(UiElement::Book)) renderItemTextWindow(gameHandler);
-    renderGuildInvitePopup(gameHandler);
+    // StaticPopupDialogs["GUILD_INVITE"], shown from UIParent's own handler
+    // for GUILD_INVITE_REQUEST.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderGuildInvitePopup(gameHandler);
     if (!frameXmlOwns(UiElement::ReadyCheck)) renderReadyCheckPopup(gameHandler);
     renderBgInvitePopup(gameHandler);
     // FrameXML answers the same three invitations from staticpopup.lua, and
@@ -83,8 +96,10 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
         renderBfMgrInvitePopup(gameHandler);
     }
     if (!frameXmlOwns(UiElement::DungeonFinder)) {
-        renderLfgProposalPopup(gameHandler);
-        renderLfgRoleCheckPopup(gameHandler);
+        // LFDDungeonReadyPopup and LFDRoleCheckPopup, both named in the dungeon
+    // finder's suppression list.
+    if (!frameXmlOwns(UiElement::DungeonFinder)) renderLfgProposalPopup(gameHandler);
+        if (!frameXmlOwns(UiElement::DungeonFinder)) renderLfgRoleCheckPopup(gameHandler);
     }
 }
 
@@ -93,7 +108,8 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
 // ---------------------------------------------------------------------------
 void DialogManager::renderLateDialogs(game::GameHandler& gameHandler) {
     if (!frameXmlOwns(UiElement::Dialogs)) {
-        renderResurrectDialog(gameHandler);
+        // ShowResurrectRequest, from UIParent's RESURRECT_REQUEST handler.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderResurrectDialog(gameHandler);
         renderTalentWipeConfirmDialog(gameHandler);
     }
     renderPetUnlearnConfirmDialog(gameHandler);
