@@ -51,7 +51,7 @@ CHECKS = [
      r"^(\d+) statement\(s\) dressed as though", 0,
      "statements dressed as though a braceless if guarded them"),
     ("declared_vs_read_check.py",
-     r"attributes declared, (\d+) the emitter never names", 19,
+     r"attributes declared, (\d+) the emitter never names", 18,
      "XML attributes the emitter never reads"),
     ("declared_vs_read_check.py",
      r"^(\d+) script type\(s\) declared and never fired", 3,

@@ -239,6 +239,51 @@ void clampInside(const Widget& screen, float rectW, float rectH,
 }
 }  // namespace
 
+// Resize from whichever corner the grabber took hold of.
+//
+// The point names the corner that MOVES. Dragging BOTTOMRIGHT grows the frame
+// right and down, so its top-left stays put and only the size changes; dragging
+// TOPLEFT has to move the frame as well, because the corner the player is not
+// touching must not travel. Getting that wrong makes a frame walk across the
+// screen as it is resized, which is the usual way this is done wrongly.
+void WidgetTree::resizeBy(uint32_t id, const std::string& point,
+                          float dx, float dy) {
+    Widget* w = get(id);
+    if (!w) return;
+
+    // A frame sized by two opposing anchors has no width of its own to change,
+    // so pin it to what it is currently drawn at first — the same reason
+    // pinToCurrentPosition does this before a move.
+    if (w->width <= 0.0f)  w->width  = w->rectW;
+    if (w->height <= 0.0f) w->height = w->rectH;
+
+    const bool movesLeft   = point.find("LEFT")   != std::string::npos;
+    const bool movesBottom = point.find("BOTTOM") != std::string::npos;
+    // A corner with neither LEFT nor RIGHT in it does not change the width, and
+    // the same for TOP/BOTTOM and the height — "BOTTOM" alone is a bottom edge.
+    const bool changesW = movesLeft || point.find("RIGHT") != std::string::npos;
+    const bool changesH = movesBottom || point.find("TOP") != std::string::npos;
+
+    const float oldW = w->width, oldH = w->height;
+    if (changesW) w->width  += movesLeft   ? -dx : dx;
+    if (changesH) w->height += movesBottom ? -dy : dy;
+
+    // Bounds. A zero maximum means unbounded, which is how a frame that never
+    // called SetMaxResize reads.
+    if (w->minResizeW > 0.0f) w->width  = std::max(w->width,  w->minResizeW);
+    if (w->minResizeH > 0.0f) w->height = std::max(w->height, w->minResizeH);
+    if (w->maxResizeW > 0.0f) w->width  = std::min(w->width,  w->maxResizeW);
+    if (w->maxResizeH > 0.0f) w->height = std::min(w->height, w->maxResizeH);
+    // Never inside out, whatever the bounds say.
+    w->width  = std::max(w->width, 1.0f);
+    w->height = std::max(w->height, 1.0f);
+
+    // Move by however much the size actually changed, not by the cursor delta:
+    // once a bound is reached the frame must stop rather than keep sliding.
+    if (movesLeft)   { const float d = w->width  - oldW; for (Anchor& a : w->anchors) a.x -= d; }
+    if (movesBottom) { const float d = w->height - oldH; for (Anchor& a : w->anchors) a.y -= d; }
+}
+
 void WidgetTree::nudge(uint32_t id, float dx, float dy) {
     Widget* w = get(id);
     if (!w) return;

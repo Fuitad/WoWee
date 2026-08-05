@@ -452,7 +452,68 @@ int lua_Frame_StartMoving(lua_State* L) {
     return 0;
 }
 int lua_Frame_StopMovingOrSizing(lua_State* L) {
-    if (auto* tree = wowee::addons::getWidgetTree(L)) tree->setMovingWidget(0);
+    if (auto* tree = wowee::addons::getWidgetTree(L)) {
+        tree->setMovingWidget(0);
+        tree->setSizingWidget(0, "");
+    }
+    return 0;
+}
+
+/// StartSizing(point) — take hold of a frame by one of its corners.
+///
+/// The size grabber on the chat window does this on mouse down, and it was a
+/// no-op: the grabber lit up, the cursor changed to the resize arrows, and
+/// nothing moved. Moving a frame worked the whole time, which made the missing
+/// half easy to miss.
+int lua_Frame_StartSizing(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (!tree || id == 0) return 0;
+    const auto* w = tree->get(id);
+    if (!w || !w->resizable) return 0;
+    // BOTTOMRIGHT is what the grabber art sits on and what FrameXML passes when
+    // it passes nothing.
+    const char* point = luaL_optstring(L, 2, "BOTTOMRIGHT");
+    tree->pinToCurrentPosition(id);
+    tree->setSizingWidget(id, point ? point : "BOTTOMRIGHT");
+    return 0;
+}
+
+int lua_Frame_SetResizable(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (!tree || id == 0) return 0;
+    if (auto* w = tree->get(id)) w->resizable = lua_toboolean(L, 2) != 0;
+    return 0;
+}
+
+int lua_Frame_IsResizable(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    const auto* w = (tree && id) ? tree->get(id) : nullptr;
+    lua_pushboolean(L, w && w->resizable ? 1 : 0);
+    return 1;
+}
+
+int lua_Frame_SetMinResize(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (!tree || id == 0) return 0;
+    if (auto* w = tree->get(id)) {
+        w->minResizeW = static_cast<float>(luaL_optnumber(L, 2, 0));
+        w->minResizeH = static_cast<float>(luaL_optnumber(L, 3, 0));
+    }
+    return 0;
+}
+
+int lua_Frame_SetMaxResize(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (!tree || id == 0) return 0;
+    if (auto* w = tree->get(id)) {
+        w->maxResizeW = static_cast<float>(luaL_optnumber(L, 2, 0));
+        w->maxResizeH = static_cast<float>(luaL_optnumber(L, 3, 0));
+    }
     return 0;
 }
 
@@ -3617,6 +3678,11 @@ void LuaEngine::registerCoreAPI() {
         {"RegisterForDrag", lua_Frame_RegisterForDrag},
         {"StartMoving",     lua_Frame_StartMoving},
         {"StopMovingOrSizing", lua_Frame_StopMovingOrSizing},
+        {"StartSizing",     lua_Frame_StartSizing},
+        {"SetResizable",    lua_Frame_SetResizable},
+        {"IsResizable",     lua_Frame_IsResizable},
+        {"SetMinResize",    lua_Frame_SetMinResize},
+        {"SetMaxResize",    lua_Frame_SetMaxResize},
         {"GetWidth",        lua_Region_GetWidth},
         {"SetScale",        lua_Region_SetScale},
         {"GetScale",        lua_Region_GetScale},
@@ -3800,7 +3866,6 @@ void LuaEngine::registerCoreAPI() {
         "function mt:EnableMouseWheel(enable)\n"
         "    __WoweeSetWheelEnabled(self, enable ~= false)\n"
         "end\n"
-        "function mt:SetResizable(resizable) end\n"
         // A scroll frame's range is recomputed after every layout, so asking
         // for it again has nothing to do — but answering rather than falling
         // through to the no-op list keeps it out of a report whose whole
@@ -4103,8 +4168,6 @@ void LuaEngine::registerCoreAPI() {
         "        self:SetScript(scriptType, fn)\n"
         "    end\n"
         "end\n"
-        "function mt:SetMinResize(...) end\n"
-        "function mt:SetMaxResize(...) end\n"
         // IsMouseOver is not here. It was, answering a flat false, and it sat
         // among these no-ops as though it were one — but there is a real
         // implementation of it in C, registered earlier and therefore losing.
@@ -4340,14 +4403,14 @@ void LuaEngine::registerCoreAPI() {
         "SetHyperlinkCompareItem=1,SetHyperlinksEnabled=1,SetID=1,\n"
         "SetInventoryItem=1,SetJustifyH=1,SetJustifyV=1,SetLFGCompletionReward=1,\n"
         "SetLFGDungeonReward=1,SetLight=1,SetMaxBytes=1,\n"
-        "SetMaxLetters=1,SetMaxResize=1,SetMerchantCostItem=1,\n"
-        "SetMinimumWidth=1,SetMinMaxValues=1,SetMinResize=1,SetModel=1,SetModelScale=1,\n"
+        "SetMaxLetters=1,SetMerchantCostItem=1,\n"
+        "SetMinimumWidth=1,SetMinMaxValues=1,SetModel=1,SetModelScale=1,\n"
         "SetMovable=1,SetMultiLine=1,SetNormalFontObject=1,SetNormalTexture=1,\n"
         "SetNumber=1,SetNumeric=1,SetOwner=1,SetParent=1,SetPetAction=1,\n"
         "SetPlayerTextureHeight=1,SetPlayerTextureWidth=1,SetPoint=1,SetPosition=1,\n"
         "SetPossession=1,SetPropagateKeyboardInput=1,SetPushedTexture=1,SetQuestItem=1,\n"
         "SetQuestLogRewardSpell=1,\n"
-        "SetResizable=1,SetRotation=1,SetScale=1,SetScript=1,\n"
+        "SetRotation=1,SetScale=1,SetScript=1,\n"
         "SetScrollChild=1,SetSelection=1,SetSequence=1,\n"
         "SetSequenceTime=1,SetShadowOffset=1,SetShapeshift=1,SetShown=1,SetSize=1,\n"
         "SetSpacing=1,SetSpell=1,SetSpellByID=1,SetStartDelay=1,SetStatusBarColor=1,\n"
@@ -4370,7 +4433,7 @@ void LuaEngine::registerCoreAPI() {
         "SetTradeTargetItem=1,SetUIPanel=1,SetUnit=1,\n"
         "SetUnitBuff=1,SetUnitDebuff=1,SetValue=1,SetValueStep=1,\n"
         "SetVertexColor=1,SetVerticalScroll=1,SetWidth=1,SetZoom=1,Show=1,ShowUIPanel=1,\n"
-        "ShowUIPanelFailed=1,StartMovie=1,StartMoving=1,StartSizing=1,Stop=1,\n"
+        "ShowUIPanelFailed=1,StartMovie=1,StartMoving=1,Stop=1,\n"
         "StopMovie=1,StopMovingOrSizing=1,ToggleInputLanguage=1,TryOn=1,\n"
         "UIParentManageFramePositions=1,UnlockHighlight=1,UnregisterAllEvents=1,\n"
         "UnregisterAutoHide=1,UnregisterEvent=1,UpdateColorByID=1,\n"
@@ -6749,7 +6812,8 @@ bool LuaEngine::holdsMousePress() const {
     // A drag or a moved frame counts even with nothing held, because that is
     // precisely the state a stranded drag leaves behind and it has to stay
     // reachable long enough for the release to clear it.
-    return draggingWid_ != 0 || widgets_.movingWidget() != 0;
+    return draggingWid_ != 0 || widgets_.movingWidget() != 0 ||
+           widgets_.sizingWidget() != 0;
 }
 
 void LuaEngine::releaseMouseHover() {
@@ -6866,14 +6930,20 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
     // in the running client, so this does not rely on the release path having
     // matched the drag correctly.
     const bool anyHeld = buttonDown_[0] || buttonDown_[1] || buttonDown_[2];
-    if (!anyHeld && (widgets_.movingWidget() != 0 || draggingWid_ != 0)) {
+    if (!anyHeld && (widgets_.movingWidget() != 0 || widgets_.sizingWidget() != 0 ||
+                     draggingWid_ != 0)) {
         if (draggingWid_ != 0) callFrameScript(draggingWid_, "OnDragStop", "LeftButton");
         widgets_.setMovingWidget(0);
+        widgets_.setSizingWidget(0, "");
         draggingWid_ = 0;
         draggingButton_ = -1;
     }
     if (const uint32_t moving = widgets_.movingWidget()) {
         if (dx != 0.0f || dy != 0.0f) widgets_.nudge(moving, dx, dy);
+    }
+    if (const uint32_t sizing = widgets_.sizingWidget()) {
+        if (dx != 0.0f || dy != 0.0f)
+            widgets_.resizeBy(sizing, widgets_.sizingPoint(), dx, dy);
     }
 
     // Begin a drag once the cursor has left the button it went down on. WoW

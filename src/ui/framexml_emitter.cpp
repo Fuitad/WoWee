@@ -940,6 +940,14 @@ struct Emitter {
         // was asked of a frame that had never been told it was movable, and
         // every one of those windows was nailed down.
         emitTextAttr(node, var);
+        // A frame declares this the same way it declares movable, and it was
+        // going nowhere: the chat window says resizable="true" and its size
+        // grabber called StartSizing on a frame that had never been told it
+        // could be sized, so the grabber lit up and nothing happened.
+        if (node.attr("resizable")) {
+            line(var + ":SetResizable(" +
+                 (node.attrBool("resizable") ? "true" : "false") + ")");
+        }
         if (node.attr("movable")) {
             line(var + ":SetMovable(" + (node.attrBool("movable") ? "true" : "false") + ")");
         }

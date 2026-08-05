@@ -94,6 +94,15 @@ struct Widget {
     /// registers for drag without being movable — dragging it picks the item up
     /// instead of moving the button.
     bool movable = false;
+    /// Whether StartSizing will pick this frame up. A frame declares it in XML
+    /// or is told by SetResizable; the chat window turns it off while docked.
+    bool resizable = false;
+    /// The bounds a resize is held inside, from SetMinResize/SetMaxResize.
+    /// Zero means unbounded in that direction.
+    float minResizeW = 0.0f;
+    float minResizeH = 0.0f;
+    float maxResizeW = 0.0f;
+    float maxResizeH = 0.0f;
     /// Whether dragging is stopped at the screen edge. FrameXML declares it on
     /// 33 frames and addons set it on nearly every window they let the player
     /// move; without it a window dragged past the edge is gone for good, since
@@ -489,6 +498,23 @@ public:
     /// loop, because that is what the bindings can already reach.
     uint32_t movingWidget() const { return movingWid_; }
     void setMovingWidget(uint32_t id) { movingWid_ = id; }
+
+    /// The frame a size grabber is dragging, and which corner it took hold of.
+    ///
+    /// Same arrangement as the moving frame above and for the same reason:
+    /// StartSizing is called from Lua and the cursor is read by the input loop.
+    /// The corner matters because dragging the left edge has to move the frame
+    /// as well as resize it — its right edge must stay where it is.
+    uint32_t sizingWidget() const { return sizingWid_; }
+    const std::string& sizingPoint() const { return sizingPoint_; }
+    void setSizingWidget(uint32_t id, const std::string& point) {
+        sizingWid_ = id;
+        sizingPoint_ = point;
+    }
+
+    /// Grow or shrink a frame being sized, by a cursor delta in interface
+    /// units. Held inside SetMinResize/SetMaxResize.
+    void resizeBy(uint32_t id, const std::string& point, float dx, float dy);
     void addPoint(uint32_t id, const Anchor& anchor);
     void setAllPoints(uint32_t id, uint32_t relativeTo);
 
@@ -582,6 +608,8 @@ private:
     std::deque<Widget> widgets_;   ///< Index 0 is a placeholder; id == index.
     uint32_t rootId_ = 0;
     uint32_t movingWid_ = 0;
+    uint32_t sizingWid_ = 0;
+    std::string sizingPoint_;
     uint32_t nextOrder_ = 1;
     std::vector<const Widget*> drawOrder_;
 };
