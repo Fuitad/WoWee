@@ -731,17 +731,75 @@ static int lua_MoneyCursorNoop(lua_State* L) { (void)L; return 0; }
 // keep, so there is nothing to report — and the caller opens with
 // `if ( not refundSec ...) then return false`, which is exactly the answer.
 static int lua_GetContainerItemPurchaseInfo(lua_State* L) {
-    for (int i = 0; i < 5; ++i) lua_pushnil(L);
+    // money, honorPoints, arenaPoints, itemCount, refundSeconds.
+    //
+    // This answered five nils on the reading that the refund window is server
+    // state this client is never sent. It is sent — as a reply to
+    // CMSG_ITEM_REFUND_INFO, which nothing here had ever asked. So the first
+    // call for an item asks and answers nothing, and the reply fires
+    // UPDATE_INVENTORY_ALERTS, which is what brings the interface back.
+    //
+    // containerframe.lua treats a nil fifth return as "not refundable" and
+    // stops, so answering nothing while the question is in flight is the
+    // correct thing rather than a placeholder.
+    auto* gh = getGameHandler(L);
+    const int bag = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const int slot = static_cast<int>(luaL_optnumber(L, 2, 0));
+    const uint64_t guid = gh ? containerSlotGuid(gh, bag, slot) : 0;
+    if (!gh || guid == 0) { for (int i = 0; i < 5; ++i) lua_pushnil(L); return 5; }
+
+    const auto* info = gh->getItemRefundInfo(guid);
+    if (!info) {
+        gh->requestItemRefundInfo(guid);
+        for (int i = 0; i < 5; ++i) lua_pushnil(L);
+        return 5;
+    }
+
+    // Two hours of played time, which is what the server counts down. Past it
+    // there is no window left, and nil is how that is said.
+    constexpr uint32_t kRefundWindow = 2 * 60 * 60;
+    uint32_t itemCount = 0;
+    for (const auto& cost : info->items) if (cost.first != 0) itemCount += cost.second;
+
+    lua_pushnumber(L, info->money);
+    lua_pushnumber(L, info->honor);
+    lua_pushnumber(L, info->arena);
+    lua_pushnumber(L, itemCount);
+    if (info->playedSincePurchase < kRefundWindow)
+        lua_pushnumber(L, kRefundWindow - info->playedSincePurchase);
+    else
+        lua_pushnil(L);
     return 5;
 }
 
 // GetContainerItemPurchaseItem(bag, slot, index, isEquipped) →
 //   texture, quantity, link, name
 //
-// The currencies that would come back with it. Only reached once the call above
-// reports a live refund window, so it is never asked here.
+// The items that would come back with a refund — a badge or a mark, whatever
+// the vendor charged besides money. Reached only once the call above reports a
+// live window, which it does now.
 static int lua_GetContainerItemPurchaseItem(lua_State* L) {
-    for (int i = 0; i < 4; ++i) lua_pushnil(L);
+    auto* gh = getGameHandler(L);
+    const int bag = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const int slot = static_cast<int>(luaL_optnumber(L, 2, 0));
+    const int index = static_cast<int>(luaL_optnumber(L, 3, 1)) - 1;
+    const uint64_t guid = gh ? containerSlotGuid(gh, bag, slot) : 0;
+    const auto* info = guid ? gh->getItemRefundInfo(guid) : nullptr;
+    if (!info || index < 0 || index >= 5 || info->items[static_cast<size_t>(index)].first == 0) {
+        for (int i = 0; i < 4; ++i) lua_pushnil(L);
+        return 4;
+    }
+    const uint32_t itemId = info->items[static_cast<size_t>(index)].first;
+    const auto* item = gh->getItemInfo(itemId);
+    if (!item || !item->valid) {
+        gh->ensureItemInfo(itemId);
+        for (int i = 0; i < 4; ++i) lua_pushnil(L);
+        return 4;
+    }
+    lua_pushstring(L, gh->getItemIconPath(item->displayInfoId).c_str());
+    lua_pushnumber(L, info->items[static_cast<size_t>(index)].second);
+    lua_pushstring(L, game::buildItemLink(itemId, item->quality, item->name).c_str());
+    lua_pushstring(L, item->name.c_str());
     return 4;
 }
 
@@ -3150,6 +3208,16 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetCoinText",             lua_GetCoinText},
                 {"GetContainerItemPurchaseInfo", lua_GetContainerItemPurchaseInfo},
                 {"GetContainerItemPurchaseItem", lua_GetContainerItemPurchaseItem},
+                // ContainerRefundItemPurchase(bag, slot) — the Accept on
+                // "hand this back for what you paid". It sat on a popup that
+                // could not be raised, because the call above answered nil.
+                {"ContainerRefundItemPurchase", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int bag = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const int slot = static_cast<int>(luaL_optnumber(L, 2, 0));
+            if (gh) gh->refundItem(containerSlotGuid(gh, bag, slot));
+            return 0;
+        }},
                 // PickupPlayerMoney(amount) — the coin pickup dialog's Okay.
                 // Clamped to what the player has: the dialog does not check,
                 // and a cursor carrying more than the purse would be spent by

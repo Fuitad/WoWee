@@ -3195,7 +3195,33 @@ void GameHandler::registerOpcodeHandlers() {
     // synthesizing reflected damage entries or misattributing GUIDs.
     registerSkipHandler(Opcode::SMSG_SPELLBREAKLOG);
     // Consume silently — informational, no UI action needed
-    registerSkipHandler(Opcode::SMSG_ITEM_REFUND_INFO_RESPONSE);
+    // What an item cost and how long is left to hand it back.
+    //
+    // Skipped until now, which is why GetContainerItemPurchaseInfo answered
+    // nil and the refund lock never appeared. The client was never sent this
+    // unasked — it is a reply to CMSG_ITEM_REFUND_INFO, and nothing asked.
+    dispatchTable_[Opcode::SMSG_ITEM_REFUND_INFO_RESPONSE] = [this](network::Packet& packet) {
+        if (!packet.hasRemaining(8 + 4 * 3)) return;
+        const uint64_t itemGuid = packet.readUInt64();
+        ItemRefundInfo info;
+        info.money = packet.readUInt32();
+        info.honor = packet.readUInt32();
+        info.arena = packet.readUInt32();
+        // Five cost slots, id and count together — the same interleaving the
+        // item query's sockets use, and the same trap if read as two runs.
+        for (auto& slot : info.items) {
+            if (!packet.hasRemaining(8)) break;
+            slot.first  = packet.readUInt32();
+            slot.second = packet.readUInt32();
+        }
+        if (packet.hasRemaining(8)) {
+            packet.readUInt32();                       // always zero
+            info.playedSincePurchase = packet.readUInt32();
+        }
+        packet.skipAll();
+        itemRefundInfo_[itemGuid] = info;
+        fireAddonEvent("UPDATE_INVENTORY_ALERTS", {});
+    };
     // Consume silently — informational, no UI action needed
     registerSkipHandler(Opcode::SMSG_LOOT_LIST);
     // Same format as LOCKOUT_ADDED; consume

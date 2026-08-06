@@ -24,6 +24,7 @@
 #include <array>
 #include <functional>
 #include <cstdint>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 #include <map>
@@ -2905,6 +2906,36 @@ public:
     /// The template entry of an item this client is holding, by guid. Zero when
     /// the guid names nothing in the player's own inventory or bank.
     /// Has this item already bound to its owner? ITEM_FIELD_FLAGS bit 0x1.
+    /// What was paid for an item, and how long is left to hand it back.
+    ///
+    /// The server answers CMSG_ITEM_REFUND_INFO with this and nothing keeps
+    /// it until asked — so the whole record is a reply to a question, and the
+    /// question is only worth asking about an item the player is looking at.
+    struct ItemRefundInfo {
+        uint32_t money = 0;
+        uint32_t honor = 0;
+        uint32_t arena = 0;
+        std::array<std::pair<uint32_t, uint32_t>, 5> items{};  ///< id, count
+        /// Played seconds since the purchase. The window is two hours of it,
+        /// which is why this is played time and not wall-clock: logging out
+        /// does not run it down.
+        uint32_t playedSincePurchase = 0;
+    };
+    /// Ask the server what an item cost. The answer arrives asynchronously and
+    /// lands in the map below.
+    void requestItemRefundInfo(uint64_t itemGuid);
+    /// Hand an item back for what was paid for it.
+    void refundItem(uint64_t itemGuid);
+    const ItemRefundInfo* getItemRefundInfo(uint64_t itemGuid) const {
+        auto it = itemRefundInfo_.find(itemGuid);
+        return (it != itemRefundInfo_.end()) ? &it->second : nullptr;
+    }
+    /// True once the request has gone out, so the interface asks once per item
+    /// rather than once per frame it is hovered.
+    bool refundInfoRequested(uint64_t itemGuid) const {
+        return itemRefundAsked_.count(itemGuid) != 0;
+    }
+
     bool isItemSoulbound(uint64_t guid) const {
         auto it = onlineItems_.find(guid);
         return it != onlineItems_.end() && (it->second.flags & 0x1u) != 0;
@@ -3803,6 +3834,8 @@ private:
 
     // ---- Online item tracking ----
     std::unordered_map<uint64_t, OnlineItemInfo> onlineItems_;
+    std::unordered_map<uint64_t, ItemRefundInfo> itemRefundInfo_;
+    std::set<uint64_t> itemRefundAsked_;
     std::unordered_map<uint32_t, ItemQueryResponseData> itemInfoCache_;
     std::unordered_set<uint32_t> pendingItemQueries_;
     float pendingItemQueryTimer_ = 0.0f;

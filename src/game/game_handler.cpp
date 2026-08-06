@@ -3246,6 +3246,23 @@ bool GameHandler::hasPetitionShowlist() const {
     return socialHandler_ ? socialHandler_->hasPetitionShowlist() : false;
 }
 
+void GameHandler::requestItemRefundInfo(uint64_t itemGuid) {
+    if (itemGuid == 0) return;
+    if (getState() != WorldState::IN_WORLD || !getSocket()) return;
+    if (!itemRefundAsked_.insert(itemGuid).second) return;   // asked already
+    network::Packet packet(wireOpcode(Opcode::CMSG_ITEM_REFUND_INFO));
+    packet.writeUInt64(itemGuid);
+    getSocket()->send(packet);
+}
+
+void GameHandler::refundItem(uint64_t itemGuid) {
+    if (itemGuid == 0) return;
+    if (getState() != WorldState::IN_WORLD || !getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_ITEM_REFUND));
+    packet.writeUInt64(itemGuid);
+    getSocket()->send(packet);
+}
+
 void GameHandler::resolveGMResponse() {
     if (getState() != WorldState::IN_WORLD || !getSocket()) return;
     network::Packet packet(wireOpcode(Opcode::CMSG_GMRESPONSE_RESOLVE));
