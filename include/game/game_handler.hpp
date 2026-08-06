@@ -4572,9 +4572,6 @@ private:
     uint64_t pendingDeleteGuid_ = 0;
     float pendingDeleteTimer_ = 0.0f;
     bool pendingDeleteFallbackEnum_ = false;
-    bool pendingCharCreateResult_ = false;
-    bool pendingCharCreateSuccess_ = false;
-    std::string pendingCharCreateMsg_;
     bool requiresWarden_ = false;
     bool wardenGateSeen_ = false;
     float wardenGateElapsed_ = 0.0f;
@@ -4597,7 +4594,6 @@ private:
     std::vector<uint8_t> wardenModuleKey_;     // 16 bytes RC4
     uint32_t wardenModuleSize_ = 0;
     std::vector<uint8_t> wardenModuleData_;    // Downloaded module chunks
-    std::vector<uint8_t> wardenLoadedModuleImage_; // Parsed module image for key derivation
     std::shared_ptr<WardenModule> wardenLoadedModule_; // Loaded Warden module
 
     // Pre-computed challenge/response entries from .cr file

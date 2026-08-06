@@ -746,14 +746,12 @@ void GameHandler::updateTimers(float deltaTime) {
 }
 
 void GameHandler::update(float deltaTime) {
-    // Fire deferred char-create callback (outside ImGui render)
-    if (pendingCharCreateResult_) {
-        pendingCharCreateResult_ = false;
-        if (charCreateCallback_) {
-            charCreateCallback_(pendingCharCreateSuccess_, pendingCharCreateMsg_);
-        }
-    }
-
+    // The char-create callback used to be deferred to here, out of the packet
+    // handler and so out of any render pass. It is not any more: the
+    // SMSG_CHAR_CREATE handler calls charCreateCallback_ itself, and nothing
+    // had set the flag this waited on for long enough that the three members
+    // behind it were never written at all. A block that cannot run, guarding a
+    // deferral that no longer happens, reads as though both still do.
     if (!socket) {
         return;
     }
