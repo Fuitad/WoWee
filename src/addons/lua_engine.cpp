@@ -2377,6 +2377,15 @@ int lua_Region_SetDrawLayer(lua_State* L) {
     }
     return 0;
 }
+/// Whether links drawn in this frame answer a click, which is separate from
+/// whether the frame has a handler for them. FCF_SetUninteractable turns it off
+/// for a chat window made click-through and back on when it is not.
+int lua_Frame_SetHyperlinksEnabled(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->hyperlinksEnabled = lua_isnone(L, 2) ? true : (lua_toboolean(L, 2) != 0);
+    }
+    return 0;
+}
 int lua_Frame_EnableMouse(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
         // Absent argument means true, which is how addons usually write it.
@@ -4153,6 +4162,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetAlpha",        lua_Region_SetAlpha},
         {"GetAlpha",        lua_Region_GetAlpha},
         {"EnableMouse",     lua_Frame_EnableMouse},
+        {"SetHyperlinksEnabled", lua_Frame_SetHyperlinksEnabled},
         {"IsMouseEnabled",  lua_Frame_IsMouseEnabled},
         {"SetNormalFontObject",   lua_Frame_SetNormalFontObject},
         {"SetTextColor",          lua_FontString_SetTextColor},
@@ -4840,7 +4850,8 @@ void LuaEngine::registerCoreAPI() {
         "SetFontObject=1,SetFontString=1,SetFormattedText=1,SetFrameLevel=1,\n"
         "SetFrameRate=1,SetFrameStrata=1,SetHeight=1,SetHighlightFontObject=1,\n"
         "SetHighlightTexture=1,SetHitRectInsets=1,SetHorizontalScroll=1,\n"
-        "SetHyperlinkCompareItem=1,SetHyperlinksEnabled=1,SetID=1,\n"
+        // SetHyperlinksEnabled is a real binding now, applied after this set.
+        "SetHyperlinkCompareItem=1,SetID=1,\n"
         "SetInventoryItem=1,SetJustifyH=1,SetJustifyV=1,SetLFGCompletionReward=1,\n"
         "SetLFGDungeonReward=1,SetLight=1,SetMaxBytes=1,\n"
         "SetMaxLetters=1,SetMerchantCostItem=1,\n"
@@ -7828,7 +7839,14 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                             widgets_, hitLink->widget, [this](uint32_t w) {
                                 return frameHasScript(w, "OnHyperlinkClick");
                             });
-                        if (owner != 0) {
+                        // A frame can turn its own links off without giving up
+                        // the handler: FCF_SetUninteractable does exactly that
+                        // to a chat window made click-through, and the GM chat
+                        // addon does it while a ticket is being written. The
+                        // click then carries on to whatever is underneath, as
+                        // it would if the link were not there.
+                        const ui::Widget* ownerW = owner ? widgets_.get(owner) : nullptr;
+                        if (owner != 0 && ownerW && ownerW->hyperlinksEnabled) {
                             callFrameScript3(owner, "OnHyperlinkClick",
                                              hitLink->link.c_str(),
                                              hitLink->text.c_str(), b.name);

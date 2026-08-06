@@ -466,6 +466,12 @@ struct Widget {
     /// interface sets it through one button and reads it back through another.
     int zoomLevel = 0;
 
+    /// Whether a link drawn in this frame answers a click. FCF_SetUninteractable
+    /// turns it off for a chat window the player has made click-through, and the
+    /// GM chat addon turns it off while a ticket is being written. Enabled is
+    /// the default because every frame that draws links wants them live.
+    bool hyperlinksEnabled = true;
+
     /// A Minimap:PingLocation the interface asked for, in minimap-local
     /// interface units from its centre with +y up. Parked here for the same
     /// reason the zoom is: turning it into a world position needs the map's
