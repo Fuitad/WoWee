@@ -288,6 +288,97 @@ static int lua_GetFriendInfo(lua_State* L) {
 
 // --- Guild API ---
 
+/// The guild roster as the panel is currently asking to see it: offline members
+/// dropped if the tick is clear, and ordered by whichever column was last
+/// clicked. Everything that takes a roster row index reads it from here.
+///
+/// The roster arrives in the server's order and used to be handed over in it,
+/// with SortGuildRoster and SetGuildRosterShowOffline both doing nothing. That
+/// is the whole of the guild panel's sorting and filtering — FrameXML keeps no
+/// order of its own, it re-reads the API and redraws — so every column header
+/// was a button that played a click and changed nothing, and the "show offline"
+/// tick could be cleared with the offline members still listed beneath it.
+///
+/// Pointers into the roster, which is owned by the handler and outlives the
+/// call; the view is rebuilt per call rather than cached, because the roster is
+/// replaced wholesale whenever SMSG_GUILD_ROSTER arrives and a cache would go
+/// stale exactly when the panel redraws.
+namespace {
+
+bool& guildShowOffline() { static bool show = true; return show; }
+std::string& guildSortField() { static std::string field = "name"; return field; }
+bool& guildSortReverse() { static bool rev = false; return rev; }
+
+std::vector<const game::GuildRosterMember*> guildRosterView(game::GameHandler* gh) {
+    std::vector<const game::GuildRosterMember*> view;
+    if (!gh) return view;
+    const auto& roster = gh->getGuildRoster();
+    view.reserve(roster.members.size());
+    for (const auto& m : roster.members) {
+        if (!guildShowOffline() && !m.online) continue;
+        view.push_back(&m);
+    }
+    const std::string& by = guildSortField();
+    // Ties break on name so a redraw cannot reorder equal rows under the
+    // player's cursor — a level sort over a guild of forty otherwise shuffles
+    // every row of the same level each time the roster arrives.
+    auto less = [&](const game::GuildRosterMember* a, const game::GuildRosterMember* b) {
+        if (by == "level")  { if (a->level != b->level) return a->level < b->level; }
+        else if (by == "class")  { if (a->classId != b->classId) return a->classId < b->classId; }
+        else if (by == "rank")   { if (a->rankIndex != b->rankIndex) return a->rankIndex < b->rankIndex; }
+        else if (by == "note")   { if (a->publicNote != b->publicNote) return a->publicNote < b->publicNote; }
+        else if (by == "zone")   {
+            const std::string za = a->online ? gh->getWhoAreaName(a->zoneId) : std::string();
+            const std::string zb = b->online ? gh->getWhoAreaName(b->zoneId) : std::string();
+            if (za != zb) return za < zb;
+        } else if (by == "online") {
+            // Longest offline last, which is what the "last online" column
+            // means; anyone online sorts above everyone who is not.
+            if (a->online != b->online) return a->online > b->online;
+            if (a->lastOnline != b->lastOnline) return a->lastOnline < b->lastOnline;
+        }
+        return a->name < b->name;
+    };
+    std::stable_sort(view.begin(), view.end(), less);
+    if (guildSortReverse()) std::reverse(view.begin(), view.end());
+    return view;
+}
+
+/// The who results in the order the panel last asked for. Same story as the
+/// guild roster: the list arrives in the server's order, every column header
+/// calls SortWho with its field and nothing else, and FrameXML keeps no order
+/// of its own — so the headers and the sort dropdown were both inert.
+///
+/// "group" is one of the fields the headers send and there is nothing here to
+/// answer it with: SMSG_WHO carries no party for the players it lists. It
+/// falls through to the name, which is the same order the column had before.
+std::string& whoSortField() { static std::string field = "name"; return field; }
+bool& whoSortReverse() { static bool rev = false; return rev; }
+
+std::vector<const game::WhoEntry*> whoResultsView(game::GameHandler* gh) {
+    std::vector<const game::WhoEntry*> view;
+    if (!gh) return view;
+    for (const auto& w : gh->getWhoResults()) view.push_back(&w);
+    const std::string& by = whoSortField();
+    auto less = [&](const game::WhoEntry* a, const game::WhoEntry* b) {
+        if (by == "level")      { if (a->level != b->level) return a->level < b->level; }
+        else if (by == "class") { if (a->classId != b->classId) return a->classId < b->classId; }
+        else if (by == "race")  { if (a->raceId != b->raceId) return a->raceId < b->raceId; }
+        else if (by == "guild") { if (a->guildName != b->guildName) return a->guildName < b->guildName; }
+        else if (by == "zone")  {
+            const std::string za = gh->getWhoAreaName(a->zoneId);
+            const std::string zb = gh->getWhoAreaName(b->zoneId);
+            if (za != zb) return za < zb;
+        }
+        return a->name < b->name;
+    };
+    std::stable_sort(view.begin(), view.end(), less);
+    if (whoSortReverse()) std::reverse(view.begin(), view.end());
+    return view;
+}
+
+}  // namespace
+
 // IsInGuild() → boolean
 static int lua_IsInGuild(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -321,11 +412,16 @@ static int lua_GetGuildInfoFunc(lua_State* L) {
 static int lua_GetNumGuildMembers(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { lua_pushnumber(L, 0); lua_pushnumber(L, 0); return 2; }
-    const auto& roster = gh->getGuildRoster();
+    // The first count is how many rows there are to draw, so it has to be the
+    // filtered one: the panel loops 1..this and reads each index, and counting
+    // the whole roster while indexing a filtered view walked off the end of it.
+    // The second is how many of the guild are online, filtered or not, which is
+    // what the "N of M online" line means.
+    const auto view = guildRosterView(gh);
     int online = 0;
-    for (const auto& m : roster.members)
+    for (const auto& m : gh->getGuildRoster().members)
         if (m.online) online++;
-    lua_pushnumber(L, roster.members.size());
+    lua_pushnumber(L, view.size());
     lua_pushnumber(L, online);
     return 2;
 }
@@ -335,9 +431,9 @@ static int lua_GetGuildRosterInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
     int index = static_cast<int>(luaL_checknumber(L, 1));
     if (!gh || index < 1) { return luaReturnNil(L); }
-    const auto& roster = gh->getGuildRoster();
-    if (index > static_cast<int>(roster.members.size())) { return luaReturnNil(L); }
-    const auto& m = roster.members[index - 1];
+    const auto view = guildRosterView(gh);
+    if (index > static_cast<int>(view.size())) { return luaReturnNil(L); }
+    const auto& m = *view[static_cast<size_t>(index) - 1];
 
     lua_pushstring(L, m.name.c_str());                      // 1: name
     const auto& rankNames = gh->getGuildRankNames();
@@ -627,9 +723,9 @@ int& selectedGuildRosterRow() { static int row = 0; return row; }
 /// the client's own verbs take a name, so this is where the two meet.
 std::string guildRosterNameAt(game::GameHandler* gh, int index) {
     if (!gh || index < 1) return {};
-    const auto& roster = gh->getGuildRoster();
-    if (index > static_cast<int>(roster.members.size())) return {};
-    return roster.members[static_cast<size_t>(index) - 1].name;
+    const auto view = guildRosterView(gh);
+    if (index > static_cast<int>(view.size())) return {};
+    return view[static_cast<size_t>(index) - 1]->name;
 }
 
 /// Whether the player has opted out of loot rolls. The server is told and
@@ -1258,11 +1354,23 @@ void registerSocialLuaAPI(lua_State* L) {
                 // choice the client does not keep, and the roster it is given
                 // holds everyone either way — so the list shows them, which is
                 // what answering true says.
-                {"GetGuildRosterShowOffline", [](lua_State* L) -> int { lua_pushboolean(L, 1); return 1; }},
-                {"SetGuildRosterShowOffline", [](lua_State* L) -> int { (void)L; return 0; }},
-                // The who list arrives in the server's order and is shown in
-                // it; there is no second order to sort into.
-                {"SortWho", [](lua_State* L) -> int { (void)L; return 0; }},
+                {"GetGuildRosterShowOffline", [](lua_State* L) -> int {
+            lua_pushboolean(L, guildShowOffline() ? 1 : 0);
+            return 1;
+        }},
+                {"SetGuildRosterShowOffline", [](lua_State* L) -> int {
+            guildShowOffline() = lua_toboolean(L, 1) != 0;
+            return 0;
+        }},
+                // SortWho(field) — name, zone, guild, race, level, class or
+                // group, from a column header or the sort dropdown. Same
+                // contract as SortGuildRoster: the same field twice reverses.
+                {"SortWho", [](lua_State* L) -> int {
+            const std::string field = luaL_optstring(L, 1, "name");
+            if (field == whoSortField()) whoSortReverse() = !whoSortReverse();
+            else { whoSortField() = field; whoSortReverse() = false; }
+            return 0;
+        }},
                 // Voice again: nothing can be muted, so nothing is added to the
                 // list and there is no list to update.
                 // The last two the social frame reaches for, both belonging to
@@ -1300,10 +1408,10 @@ void registerSocialLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh || idx < 1) return luaReturnNil(L);
-            const auto& roster = gh->getGuildRoster();
-            if (idx > static_cast<int>(roster.members.size())) return luaReturnNil(L);
+            const auto view = guildRosterView(gh);
+            if (idx > static_cast<int>(view.size())) return luaReturnNil(L);
             // The roster reports it in days, fractionally.
-            const float days = roster.members[static_cast<size_t>(idx) - 1].lastOnline;
+            const float days = view[static_cast<size_t>(idx) - 1]->lastOnline;
             const int totalDays = static_cast<int>(days);
             lua_pushnumber(L, totalDays / 365);          // years
             lua_pushnumber(L, (totalDays % 365) / 30);   // months
@@ -1821,8 +1929,15 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh) gh->requestGuildRoster();
             return 0;
         }},
+                // SortGuildRoster(field) — one of name, zone, level, class,
+                // rank, note, online, from whichever column header was
+                // clicked. Clicking the same one again reverses it, which is
+                // the header's only way of saying so: it sends the field and
+                // nothing else, and expects the API to remember.
                 {"SortGuildRoster", [](lua_State* L) -> int {
-            (void)L; // Sorting is client-side display only
+            const std::string field = luaL_optstring(L, 1, "name");
+            if (field == guildSortField()) guildSortReverse() = !guildSortReverse();
+            else { guildSortField() = field; guildSortReverse() = false; }
             return 0;
         }},
                 // The three answers to a battlefield manager prompt. All were
@@ -2025,9 +2140,9 @@ void registerSocialLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             int index = static_cast<int>(luaL_checknumber(L, 1));
             if (!gh || index < 1) { return luaReturnNil(L); }
-            const auto& results = gh->getWhoResults();
-            if (index > static_cast<int>(results.size())) { return luaReturnNil(L); }
-            const auto& w = results[index - 1];
+            const auto view = whoResultsView(gh);
+            if (index > static_cast<int>(view.size())) { return luaReturnNil(L); }
+            const auto& w = *view[static_cast<size_t>(index) - 1];
 
 
             const char* raceName = (w.raceId < 12) ? kLuaRaces[w.raceId] : "Unknown";
@@ -2049,8 +2164,13 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh) gh->queryWho(query);
             return 0;
         }},
+                // SetWhoToUI(toUI) — whether a /who answer should fill the
+                // panel or be printed as chat lines. Nothing to switch: this
+                // client's who handler only ever stores the rows and fires
+                // WHO_LIST_UPDATE, so the panel is already the one place they
+                // go and there is no chat print to turn off.
                 {"SetWhoToUI", [](lua_State* L) -> int {
-            (void)L; return 0; // Stub
+            (void)L; return 0;
         }},
                 {"GetNumGossipOptions", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);

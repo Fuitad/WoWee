@@ -5222,8 +5222,26 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, 0);
             return 1;
         }},
+                // NotifyInspect(unit) — ask the server for this player's gear,
+                // talents and achievements. The inspect window calls it as it
+                // opens and again whenever it is pointed at someone else, and
+                // it is the only request either of those makes.
+                //
+                // This did nothing, on the reasoning that the client inspects
+                // by itself when a player is targeted. It does, but that is a
+                // different thing: a background queue that keeps gear visuals
+                // right, throttled to one request every two seconds and only
+                // for players already spawned nearby. So the window opened on
+                // whatever that queue happened to have fetched last — often
+                // another player entirely, and on a first inspect nothing.
+                //
+                // inspectUnit sends the achievements query alongside on Wrath,
+                // which is what the comparison tab reads.
                 {"NotifyInspect", [](lua_State* L) -> int {
-            (void)L; // Inspect is auto-triggered by the C++ side when targeting a player
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const uint64_t guid = resolveUnitGuid(gh, luaL_optstring(L, 1, "target"));
+            if (guid) gh->inspectUnit(guid);
             return 0;
         }},
                 {"ClearInspectPlayer", [](lua_State* L) -> int {
