@@ -1353,14 +1353,6 @@ bool QuestHandler::requestQuestQuery(uint32_t questId, bool force) {
     return true;
 }
 
-void QuestHandler::setQuestTracked(uint32_t questId, bool tracked) {
-    if (tracked) {
-        trackedQuestIds_.insert(questId);
-    } else {
-        trackedQuestIds_.erase(questId);
-    }
-}
-
 void QuestHandler::acceptQuest() {
     if (!questDetailsOpen_ || owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     const uint32_t questId = currentQuestDetails_.questId;

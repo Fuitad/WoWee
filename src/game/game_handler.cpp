@@ -1305,14 +1305,10 @@ void GameHandler::saveCharacterConfig() {
         if (!icon.empty()) out << "macro_" << id << "_icon=" << icon << "\n";
     }
 
-    // Save quest log
-    out << "quest_log_count=" << questLog_.size() << "\n";
-    for (size_t i = 0; i < questLog_.size(); i++) {
-        const auto& quest = questLog_[i];
-        out << "quest_" << i << "_id=" << quest.questId << "\n";
-        out << "quest_" << i << "_title=" << quest.title << "\n";
-        out << "quest_" << i << "_complete=" << (quest.complete ? 1 : 0) << "\n";
-    }
+    // The quest log itself is not saved: the server sends it on every login,
+    // so a stored copy could only ever be staler than what arrives. What is
+    // saved below is the tracker selection, which is a client-side choice the
+    // server knows nothing about.
 
     // Save tracked quest IDs so the quest tracker restores on login
     if (!trackedQuestIds_.empty()) {

@@ -138,9 +138,11 @@ public:
     void abandonQuest(uint32_t questId);
     void shareQuestWithParty(uint32_t questId);
     bool requestQuestQuery(uint32_t questId, bool force = false);
-    bool isQuestTracked(uint32_t questId) const { return trackedQuestIds_.count(questId) > 0; }
-    void setQuestTracked(uint32_t questId, bool tracked);
-    const std::unordered_set<uint32_t>& getTrackedQuestIds() const { return trackedQuestIds_; }
+    // Tracker membership deliberately lives on GameHandler, not here: it is
+    // what the HUD, the Lua watch bindings and the saved character config all
+    // read, and this handler's own quest code reaches it via
+    // owner_.setQuestTracked(). A second copy here would answer only to
+    // whoever wrote it.
     bool isQuestQueryPending(uint32_t questId) const {
         return pendingQuestQueryIds_.count(questId) > 0;
     }
@@ -270,7 +272,6 @@ private:
     std::vector<QuestLogEntry> questLog_;
     int selectedQuestLogIndex_ = 0;
     std::unordered_set<uint32_t> pendingQuestQueryIds_;
-    std::unordered_set<uint32_t> trackedQuestIds_;
 
     // Quest giver status per NPC
     std::unordered_map<uint64_t, QuestGiverStatus> npcQuestStatus_;

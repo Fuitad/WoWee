@@ -3101,14 +3101,18 @@ std::string GameHandler::guidToUnitId(uint64_t guid) const {
     return {};
 }
 
+// Both read through getQuestLog(), which delegates to QuestHandler — the only
+// place a quest log is ever filled in. They used to walk a GameHandler member
+// of the same name that the decomposition left behind and nothing ever wrote,
+// so every title came back empty and every lookup came back null.
 std::string GameHandler::getQuestTitle(uint32_t questId) const {
-    for (const auto& q : questLog_)
+    for (const auto& q : getQuestLog())
         if (q.questId == questId && !q.title.empty()) return q.title;
     return {};
 }
 
 const GameHandler::QuestLogEntry* GameHandler::findQuestLogEntry(uint32_t questId) const {
-    for (const auto& q : questLog_)
+    for (const auto& q : getQuestLog())
         if (q.questId == questId) return &q;
     return nullptr;
 }

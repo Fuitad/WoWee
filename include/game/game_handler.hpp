@@ -4352,8 +4352,8 @@ private:
     bool questOfferRewardOpen_ = false;
     QuestOfferRewardData currentQuestOfferReward_;
 
-    // Quest log
-    std::vector<QuestLogEntry> questLog_;
+    // Quest log. The entries themselves live in QuestHandler and are reached
+    // through getQuestLog(); only the client-side selection state is here.
     int selectedQuestLogIndex_ = 0;
     std::unordered_set<uint32_t> pendingQuestQueryIds_;
     std::unordered_set<uint32_t> trackedQuestIds_;
