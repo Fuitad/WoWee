@@ -32,7 +32,7 @@ public:
     // --- Public API (delegated from GameHandler) ---
 
     // NPC Gossip
-    void selectGossipOption(uint32_t optionId);
+    void selectGossipOption(uint32_t optionId, const std::string& code = "");
     void selectGossipQuest(uint32_t questId);
     void acceptQuest();
     void declineQuest();

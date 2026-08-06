@@ -3032,8 +3032,8 @@ void GameHandler::performGameObjectInteractionNow(uint64_t guid) {
     }
 }
 
-void GameHandler::selectGossipOption(uint32_t optionId) {
-    if (questHandler_) questHandler_->selectGossipOption(optionId);
+void GameHandler::selectGossipOption(uint32_t optionId, const std::string& code) {
+    if (questHandler_) questHandler_->selectGossipOption(optionId, code);
 }
 
 void GameHandler::selectGossipQuest(uint32_t questId) {

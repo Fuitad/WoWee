@@ -2317,6 +2317,12 @@ void registerSocialLuaAPI(lua_State* L) {
             const auto& opt = opts[static_cast<size_t>(index - 1)];
             const bool confirmed = lua_toboolean(L, 3) != 0;
 
+            // A coded option wants a string typed rather than a price agreed,
+            // and the interface asks for it with a different dialog.
+            if (!confirmed && opt.isCoded) {
+                gh->fireAddonEvent("GOSSIP_ENTER_CODE", {std::to_string(index)});
+                return 0;
+            }
             if (!confirmed && (opt.boxMoney > 0 || !opt.boxText.empty())) {
                 // arg1 is handed straight back to this function as the index,
                 // so it is the position rather than the option's id.
@@ -2325,7 +2331,7 @@ void registerSocialLuaAPI(lua_State* L) {
                                     std::to_string(opt.boxMoney)});
                 return 0;
             }
-            gh->selectGossipOption(opt.id);
+            gh->selectGossipOption(opt.id, luaL_optstring(L, 2, ""));
             return 0;
         }},
                 {"GetNumGossipAvailableQuests", [](lua_State* L) -> int {

@@ -1154,13 +1154,17 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
 // Public API methods
 // ---------------------------------------------------------------------------
 
-void QuestHandler::selectGossipOption(uint32_t optionId) {
+void QuestHandler::selectGossipOption(uint32_t optionId, const std::string& code) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() || !gossipWindowOpen_) return;
     LOG_INFO("selectGossipOption: optionId=", optionId,
              " npcGuid=0x", std::hex, currentGossip_.npcGuid, std::dec,
              " menuId=", currentGossip_.menuId,
              " numOptions=", currentGossip_.options.size());
-    auto packet = GossipSelectOptionPacket::build(currentGossip_.npcGuid, currentGossip_.menuId, optionId);
+    // The code goes on the wire only for an option the server flagged coded —
+    // it reads the string conditionally, on GossipOptionCoded, so sending one
+    // for an ordinary option leaves a trailing string it never consumes.
+    auto packet = GossipSelectOptionPacket::build(currentGossip_.npcGuid,
+                                                  currentGossip_.menuId, optionId, code);
     owner_.getSocket()->send(packet);
 
     for (const auto& opt : currentGossip_.options) {
