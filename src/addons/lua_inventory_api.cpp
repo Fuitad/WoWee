@@ -2984,15 +2984,9 @@ static int lua_GetLootMethod(lua_State* L) {
     // zero would claim the player is the master looter of it.
     if (!gh) { lua_pushstring(L, "freeforall"); lua_pushnil(L); lua_pushnil(L); return 3; }
     const auto& pd = gh->getPartyData();
-    const char* method = "freeforall";
-    switch (pd.lootMethod) {
-        case 0: method = "freeforall"; break;
-        case 1: method = "roundrobin"; break;
-        case 2: method = "master"; break;
-        case 3: method = "group"; break;
-        case 4: method = "needbeforegreed"; break;
-    }
-    lua_pushstring(L, method);
+    lua_pushstring(L, pd.lootMethod < kNumLootMethods
+                          ? kLootMethodTokens[pd.lootMethod]
+                          : kLootMethodTokens[0]);
     // Who the master looter is, or nobody.
     //
     // Zero is not "nobody" here — it is *the player*. playerframe.lua reads

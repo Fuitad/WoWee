@@ -67,6 +67,7 @@ PAIRS = [
     ("kLuaClassTokens", ["CLASS_ICON_TCOORDS", "RAID_CLASS_COLORS"]),
     ("kLuaPowerNames", ["PowerBarColor"]),
     ("kMirrorTimerNames", ["MirrorTimerColors"]),
+    ("kLootMethodTokens", ["UnitLootMethod"]),
 ]
 
 

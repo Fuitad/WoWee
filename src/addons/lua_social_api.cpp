@@ -1670,11 +1670,7 @@ void registerSocialLuaAPI(lua_State* L) {
             if (!gh) return 0;
             std::string method(luaL_optstring(L, 1, ""));
             toLowerInPlace(method);
-            uint8_t m = 0;
-            if (method == "roundrobin")           m = 1;
-            else if (method == "master")          m = 2;
-            else if (method == "group")           m = 3;
-            else if (method == "needbeforegreed") m = 4;
+            const uint8_t m = lootMethodFromToken(method);
 
             const auto& pd = gh->getPartyData();
             uint64_t masterGuid = 0;

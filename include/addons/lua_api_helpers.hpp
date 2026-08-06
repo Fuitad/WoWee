@@ -89,6 +89,29 @@ inline constexpr const char* kLuaRaces[] = {
     "Tauren","Gnome","Troll","","Blood Elf","Draenei"
 };
 
+/// The five loot methods, indexed by the value the group list carries, and the
+/// tokens the interface knows them by. unitpopup.lua does
+/// `UnitLootMethod[GetLootMethod()].text` — a table keyed by the token, with
+/// .text read straight off the result — so a spelling that misses raises rather
+/// than losing a label.
+///
+/// One table for both directions. It was a switch answering id-to-token in the
+/// inventory bindings and an if-chain answering token-to-id in the social ones,
+/// which is the same fact written twice: they agreed, and nothing but reading
+/// both said so.
+inline constexpr const char* kLootMethodTokens[] = {
+    "freeforall", "roundrobin", "master", "group", "needbeforegreed"
+};
+inline constexpr uint8_t kNumLootMethods = 5;
+
+/// The wire value for a token, or zero — free-for-all — for one not known,
+/// which is what the if-chain's fall-through did.
+inline uint8_t lootMethodFromToken(const std::string& lower) {
+    for (uint8_t i = 0; i < kNumLootMethods; ++i)
+        if (lower == kLootMethodTokens[i]) return i;
+    return 0;
+}
+
 /// UnitRace returns the display name first and this *file name* second, and the
 /// two differ for four races: the file name never has a space in it, and the
 /// Undead one is not the display name at all. It is a file name because that is
