@@ -3501,6 +3501,11 @@ public:
     /// Whether a creature template entry is one a known critter spell summons,
     /// so a query answer about it is worth telling the companion tab about.
     bool isCompanionCreature(uint32_t entry) const;
+    /// "MOUNT", "CRITTER", or empty for a creature that is neither. Both kinds
+    /// hold a creature template entry and both need a display id looked up, so
+    /// both wait on a query coming back — and the tab is told which list to
+    /// re-read, because COMPANION_UPDATE carries the kind.
+    std::string companionKindForCreature(uint32_t entry) const;
     /// Fire COMPANION_UPDATE if a mount or critter has come out or gone away.
     ///
     /// Called from every place the player's auras change, and it has to filter:

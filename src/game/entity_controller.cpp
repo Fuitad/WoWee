@@ -2837,13 +2837,18 @@ void EntityController::handleCreatureQueryResponse(network::Packet& packet) {
                 }
             }
         }
-        // A companion may have been waiting on exactly this. A critter's
+        // A companion may have been waiting on exactly this. A companion's
         // creature id is a template entry and the model frame needs a display
         // id, so GetCompanionInfo answers zero until the query comes back —
         // and the tab only re-reads when told. Without this the model appeared
         // on the next login and not before.
-        if (owner_.isCompanionCreature(data.entry) && owner_.addonEventCallbackRef()) {
-            owner_.addonEventCallbackRef()("COMPANION_UPDATE", {"CRITTER"});
+        //
+        // With the kind, because the event carries it and the tab re-reads the
+        // list it names: a mount's answer announced as a critter's left the
+        // mount tab holding the zero it started with.
+        const std::string kind = owner_.companionKindForCreature(data.entry);
+        if (!kind.empty() && owner_.addonEventCallbackRef()) {
+            owner_.addonEventCallbackRef()("COMPANION_UPDATE", {kind});
         }
     }
 }
