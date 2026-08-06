@@ -2009,6 +2009,24 @@ static int lua_GetContainerNumSlots(lua_State* L) {
     return 1;
 }
 
+// GetKeyRingSize() → how many keys fit.
+//
+// Answered zero, from the list of counts that are zero because the thing
+// counted cannot exist here — which the keyring can. PutKeyInKeyRing walks
+// `for i=1, GetKeyRingSize()` looking for a free slot and, finding none,
+// tells the player there are no empty keyring slots: dropping a key on the
+// keyring button failed every time, with an error saying the ring was full.
+//
+// The same count GetContainerNumSlots gives for KEYRING_CONTAINER, through the
+// same helper rather than beside it. Those two disagreeing is how this came
+// about: the container path was taught about the keyring and this one was not.
+static int lua_GetKeyRingSize(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) { return luaReturnZero(L); }
+    lua_pushnumber(L, containerSlotCount(gh->getInventory(), kKeyringContainer));
+    return 1;
+}
+
 // GetContainerItemInfo(container, slot) → texture, count, locked, quality, readable, lootable, link
 // GetLatestThreeSenders() — who the unread mail is from.
 //
@@ -3262,6 +3280,7 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetItemCount",      lua_GetItemCount},
                 {"UseContainerItem",  lua_UseContainerItem},
                 {"GetContainerNumSlots",    lua_GetContainerNumSlots},
+                {"GetKeyRingSize",          lua_GetKeyRingSize},
                 // PurchaseSlot() — buying the next bank bag slot, which the
                 // confirmation dialog's Okay calls. Unbound, so the dialog
                 // asked, took the answer and bought nothing. GetBankSlotCost
