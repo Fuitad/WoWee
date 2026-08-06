@@ -257,7 +257,14 @@ struct PetitionInfo {
     uint64_t ownerGuid = 0;
     std::string guildName;
     uint32_t signatureCount = 0;
+    /// How many signatures the charter needs. Only SMSG_PETITION_QUERY_RESPONSE
+    /// says, so this is the fallback until that reply lands — nine is retail's
+    /// guild figure, and AzerothCore's is a config the reply carries.
     uint32_t signaturesRequired = 9;
+    /// Guild or arena, from the query reply. The signature frame writes a
+    /// different heading and a different confirmation for each, and calling
+    /// every charter a guild charter mislabels all three arena ones.
+    bool isArena = false;
     std::vector<PetitionSignature> signatures;
     bool showUI = false;
 };

@@ -290,7 +290,7 @@ CHECKS = [
     # The mirror of handler_announce_check: that one asks what a handler fails
     # to pass on, this asks what the wire carried that nothing collected.
     #
-    # Six, each still to be read. Five were answered the day it was written and
+    # Four, all in the charter-purchase path. Five were answered the day it was written and
     # both were live — a loot row the player cannot take drawing as ordinary
     # loot, and a group invite the server had already refused raising the
     # accept popup. Both sat next to a comment saying the data was unavailable,
@@ -299,7 +299,7 @@ CHECKS = [
     # The tool carries its own canary, because two separate mistakes make it
     # report a clean zero while seeing nothing at all.
     ("parsed_never_read_check.py",
-     r"^(\d+) parsed and never read", 6,
+     r"^(\d+) parsed and never read", 4,
      "packet fields stored by the parser and read by nobody"),
     # Top-level FrameXML frames named nowhere in framexml_takeover.cpp —
     # neither handed over nor suppressed.

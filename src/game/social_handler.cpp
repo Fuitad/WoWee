@@ -2662,8 +2662,37 @@ void SocialHandler::handlePetitionQueryResponse(network::Packet& packet) {
     uint64_t petGuid = packet.readUInt64();
     std::string guildName = packet.readString();
     /*std::string body =*/ packet.readString();
-    if (petitionInfo_.petitionGuid == petGuid) petitionInfo_.guildName = guildName;
+
+    // Three words the reply carries that used to be skipped along with the
+    // rest of it. The first is how many signatures the charter needs — nothing
+    // else on the wire says, so signaturesRequired sat at its default of nine
+    // for every charter, and the counter under the signature list read "x / 9"
+    // whatever the realm was configured for. CanSignPetition compares against
+    // the same number, so the Sign button stayed live past the real
+    // requirement.
+    //
+    // The third tells a guild charter from an arena one: AzerothCore writes
+    // zero for a guild and the team size otherwise. GetPetitionInfo answered
+    // "guild" for everything, which is the wrong heading and the wrong
+    // confirmation on all three arena charters.
+    uint32_t needed = 0, arenaType = 0;
+    if (rem() >= 12) {
+        needed = packet.readUInt32();
+        /*uint32_t neededAgain =*/ packet.readUInt32();
+        arenaType = packet.readUInt32();
+    }
     packet.skipAll();
+
+    if (petitionInfo_.petitionGuid != petGuid) return;
+    petitionInfo_.guildName = guildName;
+    if (needed > 0) petitionInfo_.signaturesRequired = needed;
+    petitionInfo_.isArena = arenaType != 0;
+
+    // Said again, because the frame was drawn when the signatures arrived and
+    // everything above lands after it. Without this the charter keeps the
+    // blank name and the placeholder count it opened with — the shape that
+    // reads as "only right after reopening it".
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("PETITION_SHOW", {});
 }
 
 void SocialHandler::handlePetitionShowSignatures(network::Packet& packet) {
@@ -2672,7 +2701,7 @@ void SocialHandler::handlePetitionShowSignatures(network::Packet& packet) {
     petitionInfo_ = PetitionInfo{};
     petitionInfo_.petitionGuid = packet.readUInt64();
     petitionInfo_.ownerGuid    = packet.readUInt64();
-    /*uint32_t petEntry =*/     packet.readUInt32();
+    const uint32_t petEntry    = packet.readUInt32();
     uint8_t sigCount           = packet.readUInt8();
     petitionInfo_.signatureCount = sigCount;
     petitionInfo_.signatures.reserve(sigCount);
@@ -2684,6 +2713,19 @@ void SocialHandler::handlePetitionShowSignatures(network::Packet& packet) {
         petitionInfo_.signatures.push_back(sig);
     }
     petitionInfo_.showUI = true;
+
+    // Ask what this charter actually is. Everything the frame needs beyond the
+    // signatures — the name, the number of signatures required, and whether it
+    // is a guild or an arena charter — comes only from the query reply, and
+    // this client never sent the query. The opcode was in the table and the
+    // reply had a handler waiting for it; nothing ever asked, so the handler
+    // never ran and the frame opened on a nameless charter needing nine
+    // signatures whatever it was.
+    if (owner_.getSocket()) {
+        auto query = PetitionQueryPacket::build(petEntry, petitionInfo_.petitionGuid);
+        owner_.getSocket()->send(query);
+    }
+
     // The signature list frame opens on this. The petition is parsed and
     // stored above — showUI is what this client's own window reads — and the
     // interface's version was never told, so a charter could not be signed

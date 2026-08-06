@@ -90,6 +90,14 @@ EXPECTED = {
     # reader would have nothing but zero to report. In the protocol at large it
     # says a bid was outbid the moment it was placed.
     ("AuctionCommandResult", "bidError"): "always zero as AzerothCore sends it",
+    # The byte SMSG_INITIAL_SPELLS opens with. Player::SendInitialSpells writes
+    # a literal uint8(0) and has no other send site, so there is no talent
+    # group in it to read. GetActiveTalentGroup is answered from the talent
+    # packets, which do carry one.
+    ("InitialSpellsData", "talentSpec"): "AzerothCore writes a literal zero",
+    # "1 = show window", and the one place that builds SMSG_SHOWTAXINODES
+    # always writes 1 — the packet arriving *is* the instruction to open it.
+    ("ShowTaxiNodesData", "windowInfo"): "the only send site always writes 1",
 }
 
 

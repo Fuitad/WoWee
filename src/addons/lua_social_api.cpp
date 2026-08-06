@@ -922,7 +922,10 @@ static int lua_GetPetitionInfo(lua_State* L) {
     if (!gh || !info) return 0;
     const bool isOwner = info->ownerGuid == gh->getPlayerGuid();
     const std::string& owner = gh->lookupName(info->ownerGuid);
-    lua_pushstring(L, "guild");
+    // The heading and both confirmations branch on this, so a charter called
+    // a guild charter when it is an arena one is wrong twice over. The query
+    // reply says which; until it lands, guild is the commoner answer.
+    lua_pushstring(L, info->isArena ? "arena" : "guild");
     lua_pushstring(L, info->guildName.c_str());
     lua_pushstring(L, "");                                   // body text: not sent
     lua_pushnumber(L, info->signaturesRequired);

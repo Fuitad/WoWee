@@ -797,6 +797,14 @@ network::Packet PetitionShowlistPacket::build(uint64_t npcGuid) {
     return packet;
 }
 
+network::Packet PetitionQueryPacket::build(uint32_t petitionId, uint64_t petitionGuid) {
+    network::Packet packet(wireOpcode(Opcode::CMSG_PETITION_QUERY));
+    packet.writeUInt32(petitionId);
+    packet.writeUInt64(petitionGuid);
+    LOG_DEBUG("Built CMSG_PETITION_QUERY: id=", petitionId, " guid=", petitionGuid);
+    return packet;
+}
+
 network::Packet PetitionBuyPacket::build(uint64_t npcGuid, const std::string& guildName,
                                          uint32_t clientIndex) {
     // Field for field as HandlePetitionBuyOpcode reads it. The previous layout

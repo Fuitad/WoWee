@@ -1163,7 +1163,23 @@ public:
     static network::Packet build(uint64_t npcGuid);
 };
 
-/** CMSG_PETITION_BUY packet builder */
+/** CMSG_PETITION_QUERY packet builder.
+ *
+ * Asks what a charter is: its name, how many signatures it needs, and whether
+ * it is a guild or an arena charter. SMSG_PETITION_SHOW_SIGNATURES carries
+ * none of those — only the guid, the owner and the signatures so far — so
+ * without this the charter has no name to draw and no requirement to count
+ * against.
+ *
+ * The leading word is the guild id, which AzerothCore reads and discards
+ * ("in Trinity always same as petition low guid"); the guid is what it answers
+ * from.
+ */
+class PetitionQueryPacket {
+public:
+    static network::Packet build(uint32_t petitionId, uint64_t petitionGuid);
+};
+
 /** CMSG_PETITION_BUY packet builder.
  *
  * `clientIndex` is what tells the server which charter is being bought: the
