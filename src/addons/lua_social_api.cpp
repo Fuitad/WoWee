@@ -1034,6 +1034,19 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh && name && *name) gh->buyPetition(gh->getPetitionNpcGuid(), name);
             return 0;
         }},
+                // BuyPetition(index, name) — the arena registrar's Purchase.
+                // The index is the tab that was open, which is the arena slot
+                // plus one, and it is the only thing telling the server a
+                // five-person charter from a two-person one.
+                {"BuyPetition", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 1));
+            const char* name = luaL_optstring(L, 2, "");
+            if (gh && name && *name && index >= 1)
+                gh->buyPetition(gh->getPetitionNpcGuid(), name,
+                                static_cast<uint32_t>(index));
+            return 0;
+        }},
                 {"CloseGuildRegistrar", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->closePetitionVendor();
             return 0;

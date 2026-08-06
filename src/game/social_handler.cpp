@@ -1523,9 +1523,10 @@ void SocialHandler::requestPetitionShowlist(uint64_t npcGuid) {
     owner_.getSocket()->send(packet);
 }
 
-void SocialHandler::buyPetition(uint64_t npcGuid, const std::string& guildName) {
+void SocialHandler::buyPetition(uint64_t npcGuid, const std::string& guildName,
+                                uint32_t clientIndex) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    auto packet = PetitionBuyPacket::build(npcGuid, guildName);
+    auto packet = PetitionBuyPacket::build(npcGuid, guildName, clientIndex);
     owner_.getSocket()->send(packet);
 }
 

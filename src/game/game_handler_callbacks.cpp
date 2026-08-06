@@ -2572,8 +2572,9 @@ void GameHandler::requestPetitionShowlist(uint64_t npcGuid) {
     if (socialHandler_) socialHandler_->requestPetitionShowlist(npcGuid);
 }
 
-void GameHandler::buyPetition(uint64_t npcGuid, const std::string& guildName) {
-    if (socialHandler_) socialHandler_->buyPetition(npcGuid, guildName);
+void GameHandler::buyPetition(uint64_t npcGuid, const std::string& guildName,
+                              uint32_t clientIndex) {
+    if (socialHandler_) socialHandler_->buyPetition(npcGuid, guildName, clientIndex);
 }
 
 void GameHandler::signPetition(uint64_t petitionGuid) {

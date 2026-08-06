@@ -781,24 +781,29 @@ network::Packet PetitionShowlistPacket::build(uint64_t npcGuid) {
     return packet;
 }
 
-network::Packet PetitionBuyPacket::build(uint64_t npcGuid, const std::string& guildName) {
+network::Packet PetitionBuyPacket::build(uint64_t npcGuid, const std::string& guildName,
+                                         uint32_t clientIndex) {
+    // Field for field as HandlePetitionBuyOpcode reads it. The previous layout
+    // wrote a uint32 where the server reads a string, and skipped the ten
+    // strings it reads before the index — so every field after the name was
+    // out of place and clientIndex, which is the whole of what distinguishes a
+    // guild charter from a five-person arena one, came off the end of the
+    // packet.
     network::Packet packet(wireOpcode(Opcode::CMSG_PETITION_BUY));
     packet.writeUInt64(npcGuid);          // NPC GUID
-    packet.writeUInt32(0);                // unk
-    packet.writeUInt64(0);                // unk
-    packet.writeString(guildName);        // guild name
-    packet.writeUInt32(0);                // body text (empty)
-    packet.writeUInt32(0);                // min sigs
-    packet.writeUInt32(0);                // max sigs
-    packet.writeUInt32(0);                // unk
-    packet.writeUInt32(0);                // unk
-    packet.writeUInt32(0);                // unk
-    packet.writeUInt32(0);                // unk
-    packet.writeUInt16(0);                // unk
-    packet.writeUInt32(0);                // unk
-    packet.writeUInt32(0);                // unk index
-    packet.writeUInt32(0);                // unk
-    LOG_DEBUG("Built CMSG_PETITION_BUY: npcGuid=", npcGuid, " name=", guildName);
+    packet.writeUInt32(0);
+    packet.writeUInt64(0);
+    packet.writeString(guildName);        // the name being bought
+    packet.writeString("");               // body text, which the client leaves empty
+    for (int i = 0; i < 7; ++i) packet.writeUInt32(0);
+    packet.writeUInt16(0);
+    for (int i = 0; i < 3; ++i) packet.writeUInt32(0);
+    // Ten signature slots, empty. The server reads them whatever they hold.
+    for (int i = 0; i < 10; ++i) packet.writeString("");
+    packet.writeUInt32(clientIndex);      // 1 = guild, arena slot + 1 otherwise
+    packet.writeUInt32(0);
+    LOG_DEBUG("Built CMSG_PETITION_BUY: npcGuid=", npcGuid, " name=", guildName,
+              " index=", clientIndex);
     return packet;
 }
 

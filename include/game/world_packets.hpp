@@ -1154,9 +1154,17 @@ public:
 };
 
 /** CMSG_PETITION_BUY packet builder */
+/** CMSG_PETITION_BUY packet builder.
+ *
+ * `clientIndex` is what tells the server which charter is being bought: the
+ * guild registrar sends 1, and an arena registrar sends the arena slot plus
+ * one — 1, 2 and 3 for the two, three and five person teams. The tab the
+ * player opened is that number.
+ */
 class PetitionBuyPacket {
 public:
-    static network::Packet build(uint64_t npcGuid, const std::string& guildName);
+    static network::Packet build(uint64_t npcGuid, const std::string& guildName,
+                                 uint32_t clientIndex = 1);
 };
 
 /** SMSG_PETITION_SHOWLIST data */

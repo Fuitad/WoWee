@@ -693,7 +693,8 @@ public:
     void delGuildRank();
     void deleteGuildRank();
     void requestPetitionShowlist(uint64_t npcGuid);
-    void buyPetition(uint64_t npcGuid, const std::string& guildName);
+    void buyPetition(uint64_t npcGuid, const std::string& guildName,
+                     uint32_t clientIndex = 1);
 
     // Guild state accessors
     bool isInGuild() const;
