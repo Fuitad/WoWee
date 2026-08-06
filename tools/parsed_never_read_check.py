@@ -75,6 +75,14 @@ EXPECTED = {
     ("LootItem", "isQuestItem"): "no consumer in 3.3.5's loot frame",
     # Named unknown because it is. Reading it would be inventing a meaning.
     ("AuthChallengeData", "unknown1"): "unidentified field, by name",
+    # Echoed, not decided: AzerothCore reads emoteNum off CMSG_TEXT_EMOTE and
+    # relays it untouched, so every observer shows the phrasing the *sender*
+    # picked. It selects among an emote's several wordings — and this client's
+    # EmoteRegistry keeps exactly one othersTarget and one othersNoTarget per
+    # emote, so there is no second wording to select. Sending zero and ignoring
+    # what comes back agree with each other. It becomes a real finding the day
+    # the registry carries variants.
+    ("TextEmoteData", "emoteNum"): "no text variants to choose between",
 }
 
 
