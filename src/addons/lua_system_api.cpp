@@ -3181,6 +3181,14 @@ void registerSystemLuaAPI(lua_State* L) {
                 ? static_cast<lua_Number>(roster->members.size()) : 0);
             return 1;
         }},
+                // SortArenaTeamRoster(column) — the details frame's column
+                // headers. Unbound, every one of them raised on click.
+                {"SortArenaTeamRoster", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* key = luaL_optstring(L, 1, "");
+            if (gh && key && *key) gh->sortArenaTeamRosters(key);
+            return 0;
+        }},
                 {"GetArenaTeamRosterSelection",  lua_GetArenaTeamRosterSelection},
                 {"SetArenaTeamRosterSelection",  lua_SetArenaTeamRosterSelection},
                 {"CloseArenaTeamRoster",         lua_CloseArenaTeamRoster},

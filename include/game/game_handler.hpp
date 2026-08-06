@@ -1809,6 +1809,15 @@ public:
     using ArenaTeamMember = game::ArenaTeamMember;
     using ArenaTeamRoster = game::ArenaTeamRoster;
     // Returns roster for the given teamId, or nullptr if not yet received
+    /// Reorder every stored arena roster by one of the details frame's
+    /// columns: "name", "class", "played", "won", "rating", "seasonplayed" or
+    /// "seasonwon". Clicking the same column again reverses it.
+    ///
+    /// Every roster rather than one, because the interface asks for a sort
+    /// without saying which team — it sorts what it is showing, and it only
+    /// ever shows one at a time.
+    void sortArenaTeamRosters(const std::string& key);
+
     const ArenaTeamRoster* getArenaTeamRoster(uint32_t teamId) const {
         for (const auto& r : arenaTeamRosters_) {
             if (r.teamId == teamId) return &r;
@@ -4222,6 +4231,10 @@ private:
 
     // Vehicle (WotLK): non-zero when player is seated in a vehicle
     uint32_t vehicleId_ = 0;
+    /// The column the arena rosters are sorted by, so clicking it again knows
+    /// to reverse rather than re-sort the same way.
+    std::string arenaSortKey_;
+    bool arenaSortAscending_ = true;
 
     // Taxi / Flight Paths
     std::unordered_map<uint64_t, bool> taxiNpcHasRoutes_;  // guid -> has new/available routes

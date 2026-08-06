@@ -3246,6 +3246,41 @@ bool GameHandler::hasPetitionShowlist() const {
     return socialHandler_ ? socialHandler_->hasPetitionShowlist() : false;
 }
 
+void GameHandler::sortArenaTeamRosters(const std::string& key) {
+    if (key.empty()) return;
+    // The same column twice reverses. A different one starts again in the
+    // direction that column reads best: a name from A, a number from the top.
+    if (key == arenaSortKey_) {
+        arenaSortAscending_ = !arenaSortAscending_;
+    } else {
+        arenaSortKey_ = key;
+        arenaSortAscending_ = (key == "name" || key == "class");
+    }
+    const bool asc = arenaSortAscending_;
+
+    auto value = [&key](const ArenaTeamMember& m) -> uint64_t {
+        if (key == "class")        return m.classId;
+        if (key == "played")       return m.weekGames;
+        if (key == "won")          return m.weekWins;
+        if (key == "seasonplayed") return m.seasonGames;
+        if (key == "seasonwon")    return m.seasonWins;
+        if (key == "rating")       return m.personalRating;
+        return 0;
+    };
+
+    for (auto& roster : arenaTeamRosters_) {
+        std::stable_sort(roster.members.begin(), roster.members.end(),
+            [&](const ArenaTeamMember& a, const ArenaTeamMember& b) {
+                if (key == "name") {
+                    return asc ? (a.name < b.name) : (b.name < a.name);
+                }
+                const uint64_t va = value(a), vb = value(b);
+                if (va == vb) return a.name < b.name;   // steady under ties
+                return asc ? (va < vb) : (vb < va);
+            });
+    }
+}
+
 void GameHandler::requestItemRefundInfo(uint64_t itemGuid) {
     if (itemGuid == 0) return;
     if (getState() != WorldState::IN_WORLD || !getSocket()) return;
