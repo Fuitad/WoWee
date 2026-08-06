@@ -11,6 +11,7 @@
 #include "core/config_paths.hpp"
 #include "imgui.h"
 #include "addons/lua_api_helpers.hpp"
+#include "ui/display_modes.hpp"
 #include "addons/lua_engine.hpp"
 #include "game/bg_score_defs.hpp"
 #include "game/pet_action.hpp"
@@ -1617,18 +1618,37 @@ static std::array<bool, 4>& actionBarToggles() {
 ///   string.match((({GetScreenResolutions()})[GetCurrentResolution()] or ""),
 ///                "(%d+).-(%d+)")
 /// then tonumber(width) / tonumber(height). An empty list makes both nil.
+// GetScreenResolutions() → every mode, as "WxH", one return value each.
+//
+// It used to answer the window's current size and nothing else, so the video
+// panel's dropdown had a single row and there was nothing to pick. The list is
+// the one this client's own settings panel offers, shared rather than written
+// twice, because the dropdown carries a *position* in it: it hands that index
+// straight back to SetScreenResolution.
 static int lua_GetScreenResolutions(lua_State* L) {
+    for (int i = 0; i < ui::kNumDisplayResolutions; ++i)
+        lua_pushstring(L, ui::displayResolutionLabel(i).c_str());
+    return ui::kNumDisplayResolutions;
+}
+
+// GetCurrentResolution() → which of those the window is, counted from one.
+static int lua_GetCurrentResolution(lua_State* L) {
     auto* svc = getLuaServices(L);
-    auto* win = svc ? svc->window : nullptr;
-    const int w = win ? win->getWidth() : 1920;
-    const int h = win ? win->getHeight() : 1080;
-    lua_pushstring(L, (std::to_string(w) + "x" + std::to_string(h)).c_str());
+    const int idx = (svc && svc->getResolutionIndex) ? svc->getResolutionIndex() : 0;
+    lua_pushnumber(L, idx + 1);
     return 1;
 }
 
-static int lua_GetCurrentResolution(lua_State* L) {
-    lua_pushnumber(L, 1.0);
-    return 1;
+// SetScreenResolution(index) — the dropdown's row, counted from one.
+//
+// A no-op before this, which is why the comment beside RestoreVideoResolutionDefaults
+// could say nothing above it was settable. Both records are moved together, so
+// this client's own options do not show the size it had before.
+static int lua_SetScreenResolution(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    const int row = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (svc && svc->setResolutionIndex && row >= 1) svc->setResolutionIndex(row - 1);
+    return 0;
 }
 
 /// A position on the battlefield map for someone who is not there: origin and
@@ -3584,9 +3604,13 @@ void registerSystemLuaAPI(lua_State* L) {
                 // none, so choosing from either list can only ever re-choose
                 // what is set. These accept the call and change nothing, which
                 // is the truth rather than a stub.
-                {"SetScreenResolution",      lua_ReturnNothing},
+                {"SetScreenResolution",      lua_SetScreenResolution},
                 {"SetMultisampleFormat",     lua_ReturnNothing},
-                // Nothing above is settable, so there is nothing to put back.
+                // Resolution and windowed mode are settable now, so this one
+                // has something to put back and does not do it. Left rather
+                // than guessed: the defaults live as function-local constants
+                // in the settings panel, and a Restore that picks its own would
+                // disagree with the Defaults button beside it.
                 {"RestoreVideoResolutionDefaults", lua_ReturnNothing},
                 {"RestoreVideoEffectsDefaults",    lua_ReturnNothing},
                 {"RestoreVideoStereoDefaults",     lua_ReturnNothing},

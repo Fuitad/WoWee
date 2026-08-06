@@ -146,6 +146,12 @@ struct LuaServices {
     std::function<bool()> getFullscreen;
     std::function<void(bool)> setFullscreen;
 
+    /// The resolution, as a position in the shared mode list. The video
+    /// panel's dropdown is built from GetScreenResolutions and hands back the
+    /// row it was given, so the list and the index have to be one thing.
+    std::function<int()> getResolutionIndex;
+    std::function<void(int)> setResolutionIndex;
+
     /// The barber shop's selectors, for the interface's own barber panel.
     ///
     /// Selector numbers are FrameXML's BarberShopFrameSelector IDs: 1 hair

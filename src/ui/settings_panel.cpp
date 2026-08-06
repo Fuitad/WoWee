@@ -4,6 +4,7 @@
 // graphics preset logic.
 // ============================================================
 #include "ui/settings_panel.hpp"
+#include "ui/display_modes.hpp"
 #include "ui/inventory_screen.hpp"
 #include "ui/chat_panel.hpp"
 #include "ui/keybinding_manager.hpp"
@@ -721,14 +722,10 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
     auto* renderer = services_.renderer;
     if (!window) return;
 
-    static constexpr int kResolutions[][2] = {
-        {1280, 720},
-        {1600, 900},
-        {1920, 1080},
-        {2560, 1440},
-        {3840, 2160},
-    };
-    static constexpr int kResCount = sizeof(kResolutions) / sizeof(kResolutions[0]);
+    // Shared with the interface's own video panel, whose dropdown carries a
+    // position in this list rather than a size — see ui/display_modes.hpp.
+    const auto& kResolutions = kDisplayResolutions;
+    constexpr int kResCount = kNumDisplayResolutions;
     constexpr int kDefaultResW = 1920;
     constexpr int kDefaultResH = 1080;
     constexpr bool kDefaultFullscreen = false;

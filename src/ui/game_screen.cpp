@@ -1,4 +1,5 @@
 #include "ui/game_screen.hpp"
+#include "ui/display_modes.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "ui/scene_pick.hpp"
 #include "ui/ui_colors.hpp"
@@ -177,6 +178,22 @@ bool GameScreen::getFullscreen() const {
 void GameScreen::setFullscreen(bool enabled) {
     settingsPanel_.pendingFullscreen = enabled;
     if (services_.window) services_.window->setFullscreen(enabled);
+}
+
+int GameScreen::getResolutionIndex() const {
+    if (!services_.window) return settingsPanel_.pendingResIndex;
+    return displayResolutionIndexFor(services_.window->getWidth(),
+                                     services_.window->getHeight());
+}
+
+void GameScreen::setResolutionIndex(int index) {
+    if (index < 0 || index >= kNumDisplayResolutions) return;
+    settingsPanel_.pendingResIndex = index;
+    settingsPanel_.pendingResolutionWidth  = kDisplayResolutions[index][0];
+    settingsPanel_.pendingResolutionHeight = kDisplayResolutions[index][1];
+    if (services_.window)
+        services_.window->applyResolution(settingsPanel_.pendingResolutionWidth,
+                                          settingsPanel_.pendingResolutionHeight);
 }
 
 void GameScreen::setServices(const UIServices& services) {
