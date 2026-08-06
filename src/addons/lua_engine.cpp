@@ -1,5 +1,6 @@
 #include "addons/lua_engine.hpp"
 #include "ui/link_hit.hpp"
+#include "ui/text_markup.hpp"
 #include "ui/widget_tree.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/framexml_takeover.hpp"
@@ -7179,11 +7180,16 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
             break;
         // Declared ignoreArrows means these belong to the game rather than to
         // the cursor, which is how someone turns while the chat box is open.
+        // A step is one drawn character, not one byte. An item link is fifty
+        // bytes and eighteen characters, and stepping through it a byte at a
+        // time leaves the caret apparently stuck.
         case kLeft:
-            if (!w->editIgnoreArrows && w->cursorPos > 0) --w->cursorPos;
+            if (!w->editIgnoreArrows && w->cursorPos > 0)
+                w->cursorPos = ui::caretStepLeft(w->editText, w->cursorPos);
             break;
         case kRight:
-            if (!w->editIgnoreArrows && w->cursorPos < len) ++w->cursorPos;
+            if (!w->editIgnoreArrows && w->cursorPos < len)
+                w->cursorPos = ui::caretStepRight(w->editText, w->cursorPos);
             break;
         case kHome:  w->cursorPos = 0; break;
         case kEnd:   w->cursorPos = len; break;

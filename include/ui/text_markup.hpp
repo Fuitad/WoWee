@@ -103,5 +103,59 @@ inline std::vector<WrapRun> parseMarkup(const std::string& in) {
     return runs;
 }
 
+/// The next caret position after `at`, treating an escape as one step.
+///
+/// A caret walks what is drawn, not what is held. "|Hitem:3299|h[Fractured
+/// Canine]|h" is fifty-odd bytes and eighteen characters on screen, so
+/// stepping one byte at a time leaves the caret apparently frozen for forty
+/// keypresses while it crawls through the payload — and then jumping a whole
+/// word when it reaches the display text. Only reachable since links became
+/// clickable and shift-click began putting them in the box.
+///
+/// A colour escape and an inline texture draw nothing at all, so the caret
+/// passes over them without stopping. A link's markers are skipped and its
+/// display text is walked one character at a time, which is what the player
+/// sees moving.
+inline size_t caretStepRight(const std::string& s, size_t at) {
+    if (at >= s.size()) return s.size();
+    while (at + 1 < s.size() && s[at] == '|') {
+        const char tag = s[at + 1];
+        if (tag == '|') return at + 2;                     // a literal bar
+        if (tag == 'c' || tag == 'C') { at += 10; continue; }
+        if (tag == 'r' || tag == 'R') { at += 2;  continue; }
+        if (tag == 'H') {
+            // Past the |h that ends the payload, onto the display text. Not to
+            // the next bar, which is that same |h — leaving the closing branch
+            // below to skip again, and one step to run to the end of the line.
+            const size_t close = s.find("|h", at + 2);
+            at = (close == std::string::npos) ? s.size() : close + 2;
+            continue;
+        }
+        if (tag == 'h') { at += 2; continue; }   // the closing marker
+        if (tag == 'T' || tag == 't') {
+            const size_t close = s.find("|t", at + 2);
+            at = (close == std::string::npos) ? s.size() : close + 2;
+            continue;
+        }
+        break;                                             // a bar meaning nothing
+    }
+    return (at >= s.size()) ? s.size() : at + 1;
+}
+
+/// The previous caret position, by the same rule. Walked forward from the
+/// start rather than backward: the escapes are only unambiguous read in the
+/// direction they were written, and a box holds a line of chat, not a book.
+inline size_t caretStepLeft(const std::string& s, size_t at) {
+    size_t prev = 0;
+    for (size_t p = 0; p < at;) {
+        const size_t next = caretStepRight(s, p);
+        if (next <= p) break;
+        if (next >= at) return p;
+        prev = next;
+        p = next;
+    }
+    return prev;
+}
+
 }  // namespace ui
 }  // namespace wowee

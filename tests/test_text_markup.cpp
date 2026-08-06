@@ -17,6 +17,8 @@
 
 using wowee::ui::parseMarkup;
 using wowee::ui::WrapRun;
+using wowee::ui::caretStepLeft;
+using wowee::ui::caretStepRight;
 
 namespace {
 /// Everything the runs would draw, which is what the reader sees.
@@ -80,5 +82,57 @@ TEST_CASE("the other escapes still behave", "[markup]") {
     }
     SECTION("an unterminated link does not run off the end") {
         REQUIRE(drawn("|Hitem:1") == "");
+    }
+}
+
+
+// ── The caret walks what is drawn ───────────────────────────────────────────
+//
+// Only reachable since links became clickable: shift-clicking one puts the
+// whole "|Hitem:3299|h[Fractured Canine]|h" into the edit box, and the box
+// draws its display text. A caret stepping one byte at a time would sit still
+// for forty keypresses crossing the payload and then jump a word.
+TEST_CASE("the caret steps by drawn characters", "[markup]") {
+    const std::string line = "hi |Hitem:1|h[AB]|h x";
+
+    SECTION("right from the start crosses the plain text one at a time") {
+        REQUIRE(caretStepRight(line, 0) == 1);
+        REQUIRE(caretStepRight(line, 1) == 2);
+    }
+
+    SECTION("the markup draws nothing, so a step crosses it and one character") {
+        // "hi " is three characters; index 3 opens "|Hitem:1|h" and the first
+        // character it draws is the '[' at index 13. One step from 3 therefore
+        // lands after that '[', at 14 — the markup itself is not a place the
+        // caret can rest, because nothing there is on screen.
+        REQUIRE(line.substr(13, 1) == "[");
+        REQUIRE(caretStepRight(line, 3) == 14);
+    }
+
+    SECTION("and the display text is walked one character at a time") {
+        REQUIRE(caretStepRight(line, 14) == 15);   // over 'A'
+        REQUIRE(caretStepRight(line, 15) == 16);   // over 'B'
+    }
+
+    SECTION("left is the inverse of right, everywhere along the line") {
+        for (size_t p = 0; p < line.size();) {
+            const size_t next = caretStepRight(line, p);
+            if (next >= line.size()) break;
+            REQUIRE(caretStepLeft(line, next) == p);
+            p = next;
+        }
+    }
+
+    SECTION("neither runs past an end") {
+        REQUIRE(caretStepRight(line, line.size()) == line.size());
+        REQUIRE(caretStepLeft(line, 0) == 0);
+    }
+
+    SECTION("a colour escape draws nothing, so the caret does not stop in it") {
+        // "a|cffff0000b|rc": the escape is ten bytes drawing nothing, so a
+        // step from after 'a' crosses it and 'b' together.
+        const std::string coloured = "a|cffff0000b|rc";
+        REQUIRE(coloured.substr(11, 1) == "b");
+        REQUIRE(caretStepRight(coloured, 1) == 12);
     }
 }
