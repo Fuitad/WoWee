@@ -32,6 +32,41 @@ WHAT IT CANNOT SEE
 Whether an unread attribute matters. Most of the remainder have no method
 behind them at all, and a few are XML namespace bookkeeping. Read before
 acting.
+
+THE SEVENTEEN ATTRIBUTES, READ 2026-08-05
+
+Not boilerplate, and not attributes:
+
+  * xmlns, xsi, schemaLocation on Ui — XML namespace declarations. They will
+    never be read and are counted only because this reads every name in the
+    schema.
+
+No mechanism here to honour them:
+
+  * horizTile, vertTile on Texture — eleven uses, all of them chat frame
+    borders and tab backgrounds. Tiling needs a REPEAT sampler and the UI's is
+    shared and CLAMP_TO_EDGE, so uv > 1 clamps instead of repeating. The cost
+    of leaving it is a border strip stretched rather than tiled.
+  * monochrome on Font, rotatesTexture on StatusBar, protected on Frame —
+    a font flag, a fill-direction texture rotation, and secure-frame marking.
+  * minimapArrowModel, minimapPlayerModel on Minimap — the player arrow is
+    drawn in minimap_display.frag.glsl, not from a model.
+
+No consequence:
+
+  * debug, platform on Binding — build metadata.
+  * nonBlocking on Texture — an async-load hint for a loader that is already
+    async.
+  * bytes and indented on FontString, countInvisibleLetters on EditBox,
+    dontSavePosition on ScrollingMessageFrame — limits and layout niceties
+    with no case behind them in this interface.
+
+The one that came out of this list was motionScriptsWhileDisabled, and it is
+worth noting why it did not belong with the rest: it read as inert, and it was
+the opposite. Nothing here suppressed motion scripts at all, so every greyed
+control answered the mouse — the permissive superset, which looks like the
+attribute working. WoW fires OnEnter on a disabled button only when this asks,
+which is how a greyed control explains why it is greyed.
 """
 import pathlib
 import re

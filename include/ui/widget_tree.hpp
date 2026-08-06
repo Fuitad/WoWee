@@ -246,6 +246,11 @@ struct Widget {
     /// A disabled button is greyed and takes no clicks. True by default, as a
     /// button is until something disables it.
     bool  enabled = true;
+    /// Whether OnEnter and OnLeave still run once this is disabled. WoW does
+    /// not fire them on a disabled button unless the XML asks, which is how a
+    /// greyed control explains *why* it is greyed: five templates here declare
+    /// it, MainMenuBarMicroButton and LootRollButtonTemplate among them.
+    bool  motionScriptsWhileDisabled = false;
     /// Whether this region is one of its owner's state textures, and which.
     ButtonArt buttonArt = ButtonArt::None;
     /// Whether a check button is checked, which decides between its checked

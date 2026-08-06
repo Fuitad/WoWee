@@ -1168,6 +1168,12 @@ struct Emitter {
         // Whether or not this frame declared one: a template it inherits may
         // have installed the handler, and that frame still loads. The runtime
         // check costs nothing when there is none.
+        // Whether a disabled button still hears the mouse. Set before OnLoad
+        // rather than after, because a handler may disable the button it is
+        // running for and the answer has to be in place by then.
+        if (node.attrBool("motionScriptsWhileDisabled")) {
+            line(var + ":SetMotionScriptsWhileDisabled(true)");
+        }
         if (fireOnLoad) {
             line("if " + var + ":GetScript(\"OnLoad\") then " +
                  var + ":GetScript(\"OnLoad\")(" + var + ") end");

@@ -50,8 +50,15 @@ CHECKS = [
     ("misleading_indent_check.py",
      r"^(\d+) statement\(s\) dressed as though", 0,
      "statements dressed as though a braceless if guarded them"),
+    # Seventeen, each read on 2026-08-05 and listed in the tool's docstring.
+    # Three are XML namespace boilerplate rather than attributes at all, and
+    # the rest divide into "no mechanism here" (texture tiling needs a REPEAT
+    # sampler and the UI's is shared and CLAMP_TO_EDGE) and "no consequence"
+    # (build metadata on Binding, an async-load hint). The one that came out
+    # was motionScriptsWhileDisabled, which was not inert: nothing here ever
+    # suppressed motion scripts, so every greyed control answered the mouse.
     ("declared_vs_read_check.py",
-     r"attributes declared, (\d+) the emitter never names", 18,
+     r"attributes declared, (\d+) the emitter never names", 17,
      "XML attributes the emitter never reads"),
     ("declared_vs_read_check.py",
      r"^(\d+) script type\(s\) declared and never fired", 3,

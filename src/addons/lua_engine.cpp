@@ -2380,6 +2380,21 @@ int lua_Region_SetDrawLayer(lua_State* L) {
 /// Whether links drawn in this frame answer a click, which is separate from
 /// whether the frame has a handler for them. FCF_SetUninteractable turns it off
 /// for a chat window made click-through and back on when it is not.
+/// Whether OnEnter and OnLeave still run once this button is disabled. WoW
+/// suppresses them by default, which is why the XML has an attribute to ask
+/// for them back — MainMenuBarMicroButton and LootRollButtonTemplate among the
+/// five that do, both of them explaining in a tooltip why they are greyed.
+int lua_Frame_SetMotionScriptsWhileDisabled(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->motionScriptsWhileDisabled = lua_isnone(L, 2) ? true : (lua_toboolean(L, 2) != 0);
+    }
+    return 0;
+}
+int lua_Frame_GetMotionScriptsWhileDisabled(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushboolean(L, w && w->motionScriptsWhileDisabled ? 1 : 0);
+    return 1;
+}
 int lua_Frame_SetHyperlinksEnabled(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
         w->hyperlinksEnabled = lua_isnone(L, 2) ? true : (lua_toboolean(L, 2) != 0);
@@ -4163,6 +4178,8 @@ void LuaEngine::registerCoreAPI() {
         {"GetAlpha",        lua_Region_GetAlpha},
         {"EnableMouse",     lua_Frame_EnableMouse},
         {"SetHyperlinksEnabled", lua_Frame_SetHyperlinksEnabled},
+        {"SetMotionScriptsWhileDisabled", lua_Frame_SetMotionScriptsWhileDisabled},
+        {"GetMotionScriptsWhileDisabled", lua_Frame_GetMotionScriptsWhileDisabled},
         {"IsMouseEnabled",  lua_Frame_IsMouseEnabled},
         {"SetNormalFontObject",   lua_Frame_SetNormalFontObject},
         {"SetTextColor",          lua_FontString_SetTextColor},
@@ -7571,10 +7588,21 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
 
     // Hover first, so a frame that appears under a stationary cursor still gets
     // its OnEnter rather than waiting for the mouse to move.
+    //
+    // A disabled button hears nothing unless its XML asked to, which is WoW's
+    // rule and the reason the attribute exists at all. Without this every
+    // greyed control answered the mouse — a tooltip on a spellbook slot for a
+    // spell that is not known, and on every micro button whose panel is shut.
+    // The five templates that declare it keep theirs, which is the point: that
+    // is how a greyed control says why it is greyed.
+    const auto hearsMotion = [this](uint32_t id) {
+        const auto* w = widgets_.get(id);
+        return w && (w->enabled || w->motionScriptsWhileDisabled);
+    };
     if (hit != hoverWid_) {
-        if (hoverWid_ != 0) callFrameScript(hoverWid_, "OnLeave");
+        if (hoverWid_ != 0 && hearsMotion(hoverWid_)) callFrameScript(hoverWid_, "OnLeave");
         hoverWid_ = hit;
-        if (hoverWid_ != 0) callFrameScript(hoverWid_, "OnEnter");
+        if (hoverWid_ != 0 && hearsMotion(hoverWid_)) callFrameScript(hoverWid_, "OnEnter");
     }
 
     // How far the cursor has travelled since last frame, which is what carries
