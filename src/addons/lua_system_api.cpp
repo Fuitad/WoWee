@@ -4369,6 +4369,38 @@ void registerSystemLuaAPI(lua_State* L) {
                 //
                 // The client only has a toggle, so this toggles only when that
                 // lands on what was asked for. Same shape as SetPVP.
+                // The two getters beside ShowHelm and ShowCloak below, which
+                // have worked all along — so the checkbox wrote the setting
+                // correctly and could not show it, and reading it raised as
+                // the Display panel was built.
+                {"ShowingHelm", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L, (gh && gh->isHelmVisible()) ? 1 : 0);
+            return 1;
+        }},
+                {"ShowingCloak", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L, (gh && gh->isCloakVisible()) ? 1 : 0);
+            return 1;
+        }},
+                // The equipment manager exists here — GetNumEquipmentSets and
+                // the rest of its API are bound — so the panel's checkbox is
+                // offering something real.
+                {"CanUseEquipmentSets",         lua_ReturnTrue},
+                // Tutorials can be reset because they are kept: the flags live
+                // in the CVar file. Answering false would grey out a button
+                // that would have worked.
+                {"CanResetTutorials",           lua_ReturnTrue},
+                {"ResetTutorials", [](lua_State* L) -> int {
+            (void)L;
+            cvarStore()[kTutorialCVar].clear();
+            saveStoredCVars();
+            return 0;
+        }},
+                // A Mac-only mouse this build does not look for.
+                {"DetectWowMouse",              lua_ReturnFalse},
+                // No Battle.net, so no chat to filter.
+                {"BNSetMatureLanguageFilter",   lua_ReturnNothing},
                 {"ShowHelm", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (!gh) return 0;
