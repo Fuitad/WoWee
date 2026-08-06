@@ -273,6 +273,20 @@ target_link_libraries(test_equipment_set_packets PRIVATE catch2_main)
 add_test(NAME equipment_set_packets COMMAND test_equipment_set_packets)
 register_test_target(test_equipment_set_packets)
 
+# ── test_auction_sort_packet ─────────────────────────────────
+# The sort block on CMSG_AUCTION_LIST_ITEMS was a hardcoded zero, and the
+# browse tab re-queries rather than sorting locally, so its column headers did
+# nothing at all. Two orderings have to agree and they run opposite ways.
+add_executable(test_auction_sort_packet
+    test_auction_sort_packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
+)
+target_include_directories(test_auction_sort_packet PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_auction_sort_packet SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_auction_sort_packet PRIVATE catch2_main)
+add_test(NAME auction_sort_packet COMMAND test_auction_sort_packet)
+register_test_target(test_auction_sort_packet)
+
 # ── test_achievement_criteria ────────────────────────────────
 # The criteria progress record. Its counter is a packed guid and was read as a
 # fixed uint64, which put every field behind it out of place — and in the login

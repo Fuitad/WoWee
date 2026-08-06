@@ -2941,14 +2941,17 @@ void InventoryHandler::closeAuctionHouse() {
 
 void InventoryHandler::auctionSearch(const std::string& name, uint8_t levelMin, uint8_t levelMax,
                                       uint32_t quality, uint32_t itemClass, uint32_t itemSubClass,
-                                      uint32_t invTypeMask, uint8_t usableOnly, uint32_t offset) {
+                                      uint32_t invTypeMask, uint8_t usableOnly, uint32_t offset,
+                                      const std::vector<AuctionSortKey>& sort) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() || auctioneerGuid_ == 0) return;
-    lastAuctionSearch_ = {name, levelMin, levelMax, quality, itemClass, itemSubClass, invTypeMask, usableOnly, offset};
+    lastAuctionSearch_ = {name, levelMin, levelMax, quality, itemClass, itemSubClass,
+                          invTypeMask, usableOnly, offset, sort};
     hasAuctionSearch_ = true;
     pendingAuctionTarget_ = AuctionResultTarget::BROWSE;
     auto packet = AuctionListItemsPacket::build(auctioneerGuid_, offset, name,
                                                   levelMin, levelMax, invTypeMask,
-                                                  itemClass, itemSubClass, quality, usableOnly, 0);
+                                                  itemClass, itemSubClass, quality, usableOnly, 0,
+                                                  sort);
     owner_.getSocket()->send(packet);
     auctionSearchDelayTimer_ = 5.0f;
 }
@@ -3097,7 +3100,8 @@ void InventoryHandler::handleAuctionCommandResult(network::Packet& packet) {
         if (action == 2 && hasAuctionSearch_) {
             auctionSearch(lastAuctionSearch_.name, lastAuctionSearch_.levelMin, lastAuctionSearch_.levelMax,
                          lastAuctionSearch_.quality, lastAuctionSearch_.itemClass, lastAuctionSearch_.itemSubClass,
-                         lastAuctionSearch_.invTypeMask, lastAuctionSearch_.usableOnly, lastAuctionSearch_.offset);
+                         lastAuctionSearch_.invTypeMask, lastAuctionSearch_.usableOnly,
+                         lastAuctionSearch_.offset, lastAuctionSearch_.sort);
         }
     } else {
         const char* errMsg = "Unknown error.";

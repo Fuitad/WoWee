@@ -377,7 +377,8 @@ public:
     void closeAuctionHouse();
     void auctionSearch(const std::string& name, uint8_t levelMin, uint8_t levelMax,
                        uint32_t quality, uint32_t itemClass, uint32_t itemSubClass,
-                       uint32_t invTypeMask, uint8_t usableOnly, uint32_t offset = 0);
+                       uint32_t invTypeMask, uint8_t usableOnly, uint32_t offset = 0,
+                       const std::vector<AuctionSortKey>& sort = {});
     void auctionSellItem(int backpackIndex, uint32_t bid,
                          uint32_t buyout, uint32_t duration);
     // Post an auction for an item identified by its server GUID, so items in any
@@ -641,6 +642,10 @@ private:
         uint32_t invTypeMask = 0;
         uint8_t usableOnly = 0;
         uint32_t offset = 0;
+        /// Carried so the re-query after a successful bid asks for the same
+        /// ordering. Dropping it there would reorder the list under the player
+        /// at the moment they bought something.
+        std::vector<AuctionSortKey> sort;
     };
     AuctionSearchParams lastAuctionSearch_;
     bool hasAuctionSearch_ = false;  // true after any search (including empty-name browse-all)

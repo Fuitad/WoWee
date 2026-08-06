@@ -3005,7 +3005,8 @@ public:
     void closeAuctionHouse();
     void auctionSearch(const std::string& name, uint8_t levelMin, uint8_t levelMax,
                        uint32_t quality, uint32_t itemClass, uint32_t itemSubClass,
-                       uint32_t invTypeMask, uint8_t usableOnly, uint32_t offset = 0);
+                       uint32_t invTypeMask, uint8_t usableOnly, uint32_t offset = 0,
+                       const std::vector<AuctionSortKey>& sort = {});
     void auctionSellItem(int backpackIndex, uint32_t bid,
                          uint32_t buyout, uint32_t duration);
     void auctionSellItemByGuid(uint64_t itemGuid, uint32_t stackCount, uint32_t bid,

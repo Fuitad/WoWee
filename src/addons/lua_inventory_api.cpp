@@ -1873,6 +1873,40 @@ std::unordered_map<std::string, std::vector<AuctionSortKey>>& auctionSortState()
     return s;
 }
 
+/// The browse tab's ordering, as the wire wants it.
+///
+/// The columns FrameXML names and the ones the server sorts on are the same
+/// set under different names, so this is the whole of the translation. Any
+/// column with no counterpart is dropped rather than guessed at: the server
+/// discards a search whose sort block it cannot read, so an invented id costs
+/// the entire result rather than one column of ordering.
+///
+/// Order is reversed on the way out. FrameXML pushes keys least significant
+/// first — GetAuctionSort(table, 1) is the one set *last* — and the server
+/// walks its vector from the front, taking the first as primary.
+std::vector<game::AuctionSortKey> wireAuctionSort(std::string_view which) {
+    static const std::unordered_map<std::string, uint8_t> kColumns = {
+        {"level",        0},   // AUCTION_SORT_MINLEVEL
+        {"quality",      1},   // AUCTION_SORT_RARITY
+        {"buyout",       2},   // AUCTION_SORT_BUYOUT
+        {"duration",     3},   // AUCTION_SORT_TIMELEFT
+        {"name",         5},   // AUCTION_SORT_ITEM
+        {"minbidbuyout", 6},   // AUCTION_SORT_MINBIDBUY
+        {"seller",       7},   // AUCTION_SORT_OWNER
+        {"bid",          8},   // AUCTION_SORT_BID
+        {"quantity",     9},   // AUCTION_SORT_STACK
+    };
+    const auto& keys = auctionSortState()[std::string(which)];
+    std::vector<game::AuctionSortKey> out;
+    out.reserve(keys.size());
+    for (auto it = keys.rbegin(); it != keys.rend(); ++it) {
+        auto found = kColumns.find(it->column);
+        if (found == kColumns.end()) continue;
+        out.push_back({found->second, it->reverse});
+    }
+    return out;
+}
+
 game::AuctionListResult* auctionListForSort(game::GameHandler* gh,
                                             std::string_view which) {
     if (!gh) return nullptr;
@@ -4008,8 +4042,15 @@ void registerInventoryLuaAPI(lua_State* L) {
             const uint32_t quality = qualityIdx < 0
                 ? game::kAuctionAny : static_cast<uint32_t>(qualityIdx);
             // The page is a page; the wire wants the row it starts at.
+            //
+            // The ordering travels with the query rather than being applied to
+            // what comes back. That is the browse tab's own design: clicking a
+            // column header calls AuctionFrameBrowse_Search, not
+            // SortAuctionApplySort, so nothing sorts the browse list locally
+            // and a query that leaves the sort block empty leaves the headers
+            // inert.
             gh->auctionSearch(name, lo, hi, quality, cls, sub, inv, usable,
-                              page * 50);
+                              page * 50, wireAuctionSort("list"));
             return 0;
         }},
                 {"GetOwnerAuctionItems", [](lua_State* L) -> int {

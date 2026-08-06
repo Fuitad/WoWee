@@ -621,7 +621,8 @@ network::Packet AuctionListItemsPacket::build(
     uint8_t levelMin, uint8_t levelMax,
     uint32_t invTypeMask, uint32_t itemClass,
     uint32_t itemSubClass, uint32_t quality,
-    uint8_t usableOnly, uint8_t exactMatch)
+    uint8_t usableOnly, uint8_t exactMatch,
+    const std::vector<AuctionSortKey>& sort)
 {
     network::Packet p(wireOpcode(Opcode::CMSG_AUCTION_LIST_ITEMS));
     p.writeUInt64(guid);
@@ -638,7 +639,16 @@ network::Packet AuctionListItemsPacket::build(
     // WotLK has no exact-match field here; the next byte is the sort count.
     // Keep the API argument for callers shared with older server profiles.
     (void)exactMatch;
-    p.writeUInt8(0);
+
+    // The ordering, which used to be a hardcoded zero — no columns, no sort.
+    // That is not a small loss: the browse tab does not sort what it already
+    // has, it re-asks with the ordering attached (AuctionFrame_OnClickSortColumn
+    // calls AuctionFrameBrowse_Search for "list" rather than
+    // SortAuctionApplySort), and AzerothCore only sorts at all once the result
+    // runs past one page — which is exactly when ordering the fifty rows on
+    // hand gives the wrong answer.
+    //
+    writeAuctionSortBlock(p, sort);
     return p;
 }
 

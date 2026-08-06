@@ -3016,15 +3016,57 @@ public:
     static bool parse(network::Packet& packet, AuctionHelloData& data);
 };
 
+/** One column of an auction search's ordering, as the wire carries it.
+ *
+ * `column` is AzerothCore's AuctionSortOrder — MINLEVEL 0, RARITY 1, BUYOUT 2,
+ * TIMELEFT 3, ITEM 5, MINBIDBUY 6, OWNER 7, BID 8, STACK 9.
+ *
+ * `descending` goes across as sent. The server's comparator is not uniformly
+ * ordered — it answers -1 for the *higher* required level and -1 for the
+ * *lower* quality — and the original interface's per-column reverse flags were
+ * written against those inversions. Normalising the flag here would undo that
+ * pairing and sort half the columns backwards.
+ */
+struct AuctionSortKey {
+    uint8_t column = 0;
+    bool descending = false;
+};
+
+/// Append the ordering to a CMSG_AUCTION_LIST_ITEMS: a count, then a mode and
+/// a direction per column, most significant first.
+///
+/// Written here rather than inside the builder so it can be tested without
+/// linking the packet family — the builder's translation unit reaches the
+/// splines and the crypto through a shared facade, and a test that pulls those
+/// in to check six bytes ends up testing a hand-written copy instead.
+///
+/// The count is clamped rather than allowed through: AzerothCore checks it
+/// against AUCTION_SORT_MAX and abandons the entire request when it is
+/// exceeded, so an over-long sort returns no auctions at all rather than
+/// unsorted ones.
+inline void writeAuctionSortBlock(network::Packet& p,
+                                  const std::vector<AuctionSortKey>& sort) {
+    constexpr size_t kMaxSortColumns = 11;  // AUCTION_SORT_MAX
+    const size_t count = sort.size() < kMaxSortColumns ? sort.size() : kMaxSortColumns;
+    p.writeUInt8(static_cast<uint8_t>(count));
+    for (size_t i = 0; i < count; ++i) {
+        p.writeUInt8(sort[i].column);
+        p.writeUInt8(sort[i].descending ? 1 : 0);
+    }
+}
+
 /** CMSG_AUCTION_LIST_ITEMS packet builder */
 class AuctionListItemsPacket {
 public:
+    /// `sort` is ordered most significant first, which is the order the server
+    /// walks it in.
     static network::Packet build(uint64_t guid, uint32_t offset,
                                   const std::string& searchName,
                                   uint8_t levelMin, uint8_t levelMax,
                                   uint32_t invTypeMask, uint32_t itemClass,
                                   uint32_t itemSubClass, uint32_t quality,
-                                  uint8_t usableOnly, uint8_t exactMatch);
+                                  uint8_t usableOnly, uint8_t exactMatch,
+                                  const std::vector<AuctionSortKey>& sort = {});
 };
 
 /** CMSG_AUCTION_SELL_ITEM packet builder */
