@@ -115,7 +115,21 @@ const std::set<std::string>& requested() {
                 //
                 // WOWEE_FRAMEXML_UI names the whole set, so any of these can
                 // be dropped by listing the others.
-                "bagbar", "micromenu", "uierrors", "raidwarning"};
+                "bagbar", "micromenu", "uierrors", "raidwarning",
+                // The interaction loop, on the same reasoning: these are the
+                // windows a player opens dozens of times an hour, so a fault
+                // in one shows on the next corpse or the next NPC rather than
+                // waiting to be stumbled on.
+                //
+                //   loot        every corpse
+                //   gossip      every NPC with something to say
+                //   questgiver  every quest taken or handed in
+                //   partyframes every group
+                //
+                // Each is clean in the readiness report, gated where this
+                // client draws it, absent from the ungated-draw list, and has
+                // a check row whose frames the promised-frames sweep resolves.
+                "loot", "gossip", "questgiver", "partyframes"};
         }();
 
         if (!raw || !*raw) {
@@ -271,9 +285,9 @@ const std::set<std::string>& requested() {
                     // named in both reads as though it were still waiting.
                     "achievements", "auctionhouse", "bank",
                     "barbershop", "bgscore", "book", "chat", "classtrainer",
-                    "dungeonfinder", "gamemenu", "gossip", "guildbank",
-                    "help", "inspect", "loot", "mail",
-                    "partyframes", "questgiver", "questlog", "questtracker",
+                    "dungeonfinder", "gamemenu", "guildbank",
+                    "help", "inspect", "mail",
+                    "questlog", "questtracker",
                     "readycheck", "social", "stable",
                     "talents", "taxi", "totems", "trade", "tradeskill",
                     "vendor", "worldmap"}) {

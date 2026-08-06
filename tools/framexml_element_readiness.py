@@ -585,12 +585,18 @@ def main():
     # the drift is gone.
     #
     # The defaults are left out — the tier adds to them rather than replacing
-    # them, and listing one twice reads as a mistake. Keep this in step with
-    # the set in framexml_takeover.cpp: zonetext and dialogs joined it and this
-    # copy did not follow, which is the drift the printed list exists to stop.
-    DEFAULTS = {"playerframe", "targetframe", "minimap", "mainmenubar",
-                "characterframe", "bags", "castbar", "spellbook", "petframe",
-                "focusframe", "buffs", "durability", "zonetext", "dialogs"}
+    # them, and listing one twice reads as a mistake.
+    #
+    # Read out of framexml_takeover.cpp rather than copied. This was a copy,
+    # under a comment warning that zonetext and dialogs had joined the real set
+    # without it following — and it drifted again the moment eight elements
+    # were promoted, so the printed tier still offered four of them as
+    # candidates. A list whose whole job is to stop drift cannot be a second
+    # copy of the thing it is checking.
+    _takeover = open(os.path.join(ROOT, "src/ui/framexml_takeover.cpp"),
+                     encoding="utf-8", errors="ignore").read()
+    _block = _takeover[_takeover.index("static const auto defaults"):]
+    DEFAULTS = set(re.findall(r'"([a-z0-9]+)"', _block[:_block.index("}();")]))
     # Settled elements belong here too. They show a count above because this
     # cannot prove an absent feature is absent, but every name in them has been
     # read and found unreachable, redundant, or a feature that does not exist —
@@ -655,9 +661,11 @@ def main():
     print()
     print("To try one, name it alongside the current defaults — the environment")
     print("replaces the list rather than adding to it:")
-    print("  WOWEE_FRAMEXML_UI=playerframe,targetframe,minimap,mainmenubar,"
-          "characterframe,bags,castbar,spellbook,petframe,focusframe,buffs,"
-          "durability,<element>")
+    # From the same parsed set as DEFAULTS above. This line was a third copy
+    # of it, and by the time anyone read it the set had gained zonetext,
+    # dialogs and eight more — so the command it offered would have *removed*
+    # ten elements while adding one, which is the opposite of trying one out.
+    print("  WOWEE_FRAMEXML_UI=" + ",".join(sorted(DEFAULTS)) + ",<element>")
 
 
 if __name__ == "__main__":
