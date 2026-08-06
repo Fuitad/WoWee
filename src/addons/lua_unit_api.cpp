@@ -3044,17 +3044,33 @@ void registerUnitLuaAPI(lua_State* L) {
                 // character sheet reads the second and concatenates it. One
                 // value left it nil, and the line that prints "expertise /
                 // off-hand expertise" raised rather than printing.
+                // GetExpertise() → expertise points, main hand and off hand.
+                //
+                // Two values, not three: the character sheet destructures
+                // `local expertise, offhandExpertise = GetExpertise()` and
+                // prints them either side of a slash when an off hand is being
+                // swung. The third was never read, and both of the first two
+                // were zero for everyone — the server sends them, in points,
+                // and nothing here was reading the fields.
                 {"GetExpertise", [](lua_State* L) -> int {
-            lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 0);
-            return 3;
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? gh->getExpertise() : 0);
+            lua_pushnumber(L, gh ? gh->getOffhandExpertise() : 0);
+            return 2;
         }},
                 // Two, for the same reason and under the same guard, four
                 // lines below the call above: the character sheet formats the
                 // off-hand percentage whenever an off-hand is equipped, and
                 // format("%.2f", nil) raises. Fixing GetExpertise alone left
                 // every dual-wielder's stat panel broken on the next line.
+                // A point of expertise is a quarter of a percent off the
+                // chance to be dodged or parried, which is the arithmetic the
+                // sheet's tooltip line does not do for itself — it formats
+                // whatever it is given with two decimal places and a % sign.
                 {"GetExpertisePercent", [](lua_State* L) -> int {
-            lua_pushnumber(L, 0); lua_pushnumber(L, 0);
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, (gh ? gh->getExpertise() : 0) * 0.25);
+            lua_pushnumber(L, (gh ? gh->getOffhandExpertise() : 0) * 0.25);
             return 2;
         }},
                 {"GetArmorPenetration",     lua_ZeroPercent},

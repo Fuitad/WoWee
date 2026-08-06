@@ -83,6 +83,13 @@ enum class UF : uint16_t {
     PLAYER_RANGED_CRIT_PERCENTAGE,   // Ranged crit chance %
     PLAYER_SPELL_CRIT_PERCENTAGE1,   // Spell crit chance % (first school; 7 consecutive float fields)
     PLAYER_FIELD_COMBAT_RATING_1,    // First of 25 int32 combat rating slots (CR_* indices)
+    // Expertise, in expertise *points* rather than percent — the character
+    // sheet prints the points and works the percent out at a quarter of one
+    // each. Ints, not floats, unlike the percentages above. WotLK only here:
+    // the indices were read off AzerothCore's UpdateFields.h and checked by
+    // reproducing PLAYER_BLOCK_PERCENTAGE's known 1024 from the same UNIT_END.
+    PLAYER_EXPERTISE,
+    PLAYER_OFFHAND_EXPERTISE,
 
     // Player PvP currency (TBC/WotLK only — Classic uses the old weekly honor system)
     PLAYER_FIELD_HONOR_CURRENCY,     // Accumulated honor points (uint32)

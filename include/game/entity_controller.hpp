@@ -214,6 +214,7 @@ private:
         uint16_t spDmg1, healBonus;
         uint16_t blockPct, dodgePct, parryPct, critPct, rangedCritPct;
         uint16_t sCrit1, rating1;
+        uint16_t expertise, offhandExpertise;
         static PlayerFieldIndices resolve();
     };
     struct UnitFieldUpdateResult {

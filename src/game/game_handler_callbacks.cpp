@@ -633,6 +633,8 @@ void GameHandler::selectCharacter(uint64_t characterGuid) {
     playerDodgePct_ = -1.0f;
     playerParryPct_ = -1.0f;
     playerBlockPct_ = -1.0f;
+    playerExpertise_ = 0;
+    playerOffhandExpertise_ = 0;
     playerCritPct_  = -1.0f;
     playerRangedCritPct_ = -1.0f;
     std::fill(std::begin(playerSpellCritPct_), std::end(playerSpellCritPct_), -1.0f);

@@ -726,7 +726,9 @@ EntityController::PlayerFieldIndices EntityController::PlayerFieldIndices::resol
         fieldIndex(UF::PLAYER_CRIT_PERCENTAGE),
         fieldIndex(UF::PLAYER_RANGED_CRIT_PERCENTAGE),
         fieldIndex(UF::PLAYER_SPELL_CRIT_PERCENTAGE1),
-        fieldIndex(UF::PLAYER_FIELD_COMBAT_RATING_1)
+        fieldIndex(UF::PLAYER_FIELD_COMBAT_RATING_1),
+        fieldIndex(UF::PLAYER_EXPERTISE),
+        fieldIndex(UF::PLAYER_OFFHAND_EXPERTISE)
     };
 }
 
@@ -1478,6 +1480,10 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
         // Percentage stats are stored as IEEE 754 floats packed into uint32 update fields.
         // memcpy reinterprets the bits; clamp to [0..100] to guard against NaN/Inf from
         // corrupted packets reaching the UI (display-only, no gameplay logic depends on these).
+        // Points, not a percentage, so read straight rather than through the
+        // float reinterpretation the lines below need.
+        else if (pfi.expertise != 0xFFFF && key == pfi.expertise) { owner_.playerExpertiseRef() = static_cast<int32_t>(val); }
+        else if (pfi.offhandExpertise != 0xFFFF && key == pfi.offhandExpertise) { owner_.playerOffhandExpertiseRef() = static_cast<int32_t>(val); }
         else if (pfi.blockPct != 0xFFFF && key == pfi.blockPct) { std::memcpy(&owner_.playerBlockPctRef(), &val, 4); owner_.playerBlockPctRef() = std::clamp(owner_.playerBlockPctRef(), 0.0f, 100.0f); }
         else if (pfi.dodgePct != 0xFFFF && key == pfi.dodgePct) { std::memcpy(&owner_.playerDodgePctRef(), &val, 4); owner_.playerDodgePctRef() = std::clamp(owner_.playerDodgePctRef(), 0.0f, 100.0f); }
         else if (pfi.parryPct != 0xFFFF && key == pfi.parryPct) { std::memcpy(&owner_.playerParryPctRef(), &val, 4); owner_.playerParryPctRef() = std::clamp(owner_.playerParryPctRef(), 0.0f, 100.0f); }

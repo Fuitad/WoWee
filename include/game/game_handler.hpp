@@ -480,6 +480,11 @@ public:
     float getDodgePct()  const { return playerDodgePct_; }
     float getParryPct()  const { return playerParryPct_; }
     float getBlockPct()  const { return playerBlockPct_; }
+    /// Expertise in points, main hand and off hand. Zero until the server
+    /// says otherwise, which is also the right answer for a class that has
+    /// none — unlike the percentages above, where -1 has to mean "not told".
+    int32_t getExpertise() const { return playerExpertise_; }
+    int32_t getOffhandExpertise() const { return playerOffhandExpertise_; }
     float getCritPct()   const { return playerCritPct_; }
     float getRangedCritPct() const { return playerRangedCritPct_; }
     // Spell crit by school (0=Physical,1=Holy,2=Fire,3=Nature,4=Frost,5=Shadow,6=Arcane)
@@ -3158,6 +3163,8 @@ public:
     auto& playerArenaPointsRef() { return playerArenaPoints_; }
     auto& playerArmorRatingRef() { return playerArmorRating_; }
     auto& playerBlockPctRef() { return playerBlockPct_; }
+    auto& playerExpertiseRef() { return playerExpertise_; }
+    auto& playerOffhandExpertiseRef() { return playerOffhandExpertise_; }
     auto& playerCombatRatingsRef() { return playerCombatRatings_; }
     auto& playerCritPctRef() { return playerCritPct_; }
     auto& playerDodgePctRef() { return playerDodgePct_; }
@@ -4213,6 +4220,8 @@ private:
     float playerDodgePct_     = -1.0f;
     float playerParryPct_     = -1.0f;
     float playerBlockPct_     = -1.0f;
+    int32_t playerExpertise_        = 0;
+    int32_t playerOffhandExpertise_ = 0;
     float playerCritPct_      = -1.0f;
     float playerRangedCritPct_ = -1.0f;
     float playerSpellCritPct_[7] = {-1.0f,-1.0f,-1.0f,-1.0f,-1.0f,-1.0f,-1.0f};
