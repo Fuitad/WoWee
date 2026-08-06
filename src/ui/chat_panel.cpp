@@ -1248,6 +1248,18 @@ void ChatPanel::executeMacroText(game::GameHandler& gameHandler,
     macroStopped_ = false;
 }
 
+std::vector<std::string> ChatPanel::registryCommandNames() const {
+    return commandRegistry_.getCompletions("");
+}
+
+bool ChatPanel::runRegistryCommand(game::GameHandler& gameHandler,
+                                   const std::string& alias, const std::string& args) {
+    std::string lower = alias;
+    for (char& c : lower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    ChatCommandContext ctx{gameHandler, services_, *this, args, lower};
+    return commandRegistry_.dispatch(lower, ctx).handled;
+}
+
 void ChatPanel::sendChatMessage(game::GameHandler& gameHandler) {
     if (strlen(chatInputBuffer_) == 0) return;
     std::string input(chatInputBuffer_);

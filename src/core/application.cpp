@@ -381,6 +381,16 @@ bool Application::initialize() {
         luaSvc.runMacroText = [uim = uiManager.get(), gh = gameHandler.get()](const std::string& body) {
             if (uim && gh) uim->getGameScreen().getChatPanel().executeMacroText(*gh, body);
         };
+        luaSvc.clientChatCommandNames = [uim = uiManager.get()]() {
+            std::vector<std::string> out;
+            if (uim) out = uim->getGameScreen().getChatPanel().registryCommandNames();
+            return out;
+        };
+        luaSvc.runClientChatCommand = [uim = uiManager.get(), gh = gameHandler.get()](
+                const std::string& alias, const std::string& args) -> bool {
+            if (!uim || !gh) return false;
+            return uim->getGameScreen().getChatPanel().runRegistryCommand(*gh, alias, args);
+        };
         luaSvc.getGamma = [uim = uiManager.get()]() -> float {
             return uim ? uim->getGameScreen().getGamma() : 1.0f;
         };

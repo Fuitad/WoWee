@@ -3292,6 +3292,28 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetLFGCompletionReward",     lua_GetLFGCompletionReward},
                 {"GetLFGCompletionRewardItem", lua_GetLFGCompletionRewardItem},
                 {"RunMacroText",             lua_RunMacroText},
+                // This client's own slash commands, for the bootstrap chunk
+                // that puts them into SlashCmdList. Not WoW API — the names
+                // are prefixed so nothing in FrameXML can collide with them.
+                {"__WoweeClientCommandNames", [](lua_State* L) -> int {
+            auto* svc = getLuaServices(L);
+            lua_newtable(L);
+            if (!svc || !svc->clientChatCommandNames) return 1;
+            int i = 1;
+            for (const auto& name : svc->clientChatCommandNames()) {
+                lua_pushstring(L, name.c_str());
+                lua_rawseti(L, -2, i++);
+            }
+            return 1; }},
+                {"__WoweeRunClientCommand", [](lua_State* L) -> int {
+            auto* svc = getLuaServices(L);
+            const char* alias = luaL_optstring(L, 1, "");
+            const char* args  = luaL_optstring(L, 2, "");
+            bool ok = false;
+            if (svc && svc->runClientChatCommand && alias && *alias)
+                ok = svc->runClientChatCommand(alias, args);
+            lua_pushboolean(L, ok ? 1 : 0);
+            return 1; }},
                 {"RunMacro",                 lua_RunMacro},
                 {"TriggerTutorial",          lua_TriggerTutorial},
                 {"Quit",                     lua_Quit},

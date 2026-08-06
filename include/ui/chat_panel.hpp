@@ -81,6 +81,21 @@ public:
     void executeMacroText(game::GameHandler& gameHandler,
                           const std::string& macroText);
 
+    /// Every command name this client's own registry answers.
+    ///
+    /// For bridging them into FrameXML's SlashCmdList. With chat handed over,
+    /// the edit box is FrameXML's and ChatEdit_ParseText consults nothing but
+    /// that table, so a command living only here cannot be typed at all.
+    std::vector<std::string> registryCommandNames() const;
+
+    /// Run one of them, without going near SlashCmdList.
+    ///
+    /// sendChatMessage tries SlashCmdList first and this registry second, so a
+    /// bridge that went back through it would find the entry it had just been
+    /// called from and recurse. This is the registry alone.
+    bool runRegistryCommand(game::GameHandler& gameHandler,
+                            const std::string& alias, const std::string& args);
+
     // ---- Slash-command side-effects ----
     // GameScreen reads these each frame, then clears them.
 

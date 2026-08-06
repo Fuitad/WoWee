@@ -518,6 +518,49 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         "  end\n"
         "end\n");
 
+    // This client's own slash commands, into SlashCmdList.
+    //
+    // The registry in ChatPanel answers about seventy names FrameXML has no
+    // equivalent for — /unstuck, /coords, /whereami, /transport, /threat, the
+    // GM helpers, the helm and cloak toggles. It was reached from this
+    // client's own chat input and from nowhere else, so handing chat over took
+    // every one of them away: FrameXML's ChatEdit_ParseText walks SlashCmdList
+    // and consults nothing beyond it.
+    //
+    // After FrameXML has loaded, so the taken set below is complete and this
+    // can never shadow a command the interface already answers — /follow going
+    // to a no-op because both sides claimed it is a fault this file has seen.
+    //
+    // Registered whichever interface owns the chat. When this client owns it,
+    // sendChatMessage tries SlashCmdList before its own registry and will now
+    // find these first; that is one extra hop to the same command rather than
+    // a difference in behaviour, and it keeps the two paths identical.
+    luaEngine_.executeString(
+        "if __WoweeClientCommandNames and __WoweeRunClientCommand then\n"
+        // Every /name FrameXML already answers. The table is keyed by the
+        // slash text rather than by the SlashCmdList key, because that is what
+        // collides: two different keys can name the same command.
+        "  local taken = {}\n"
+        "  for k, v in pairs(_G) do\n"
+        "    if type(k) == 'string' and type(v) == 'string' and\n"
+        "       string.sub(k, 1, 6) == 'SLASH_' then\n"
+        "      taken[string.lower(v)] = true\n"
+        "    end\n"
+        "  end\n"
+        "  for _, name in ipairs(__WoweeClientCommandNames()) do\n"
+        "    local slash = '/' .. name\n"
+        "    if not taken[slash] then\n"
+        "      local key = 'WOWEE_' .. string.upper(name)\n"
+        "      _G['SLASH_' .. key .. '1'] = slash\n"
+        // Straight to the registry. Going back through the chat path would
+        // find the entry this handler was called from and recurse.
+        "      SlashCmdList[key] = function(msg)\n"
+        "        __WoweeRunClientCommand(name, msg or '')\n"
+        "      end\n"
+        "    end\n"
+        "  end\n"
+        "end\n");
+
 
     luaEngine_.executeString(
         "if UIParent and UIParent.SetAttribute then\n"

@@ -22,6 +22,17 @@ struct LuaServices {
     /// through the same path the action bar uses for a macro button.
     std::function<void(const std::string&)> runMacroText;
 
+    /// This client's own slash commands, and a way to run one.
+    ///
+    /// The registry in ChatPanel answers about seventy names FrameXML has no
+    /// equivalent for — /unstuck, /coords, /transport, /threat, the GM
+    /// helpers. It used to be reached from this client's own chat input, and
+    /// handing chat over took that away: FrameXML's ChatEdit_ParseText
+    /// consults SlashCmdList and nothing else, so every one of them stopped
+    /// being typeable. These two bridge the registry into that table.
+    std::function<std::vector<std::string>()> clientChatCommandNames;
+    std::function<bool(const std::string&, const std::string&)> runClientChatCommand;
+
     /// Ask for the interface to be reloaded, as ReloadUI() does.
     ///
     /// A request rather than the act: reloading shuts the Lua state down and

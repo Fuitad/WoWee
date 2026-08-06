@@ -280,6 +280,13 @@ CHECKS = [
     # answered while it stays nil. GetText was that for months, raising every
     # time the reputation list opened. Zero is the only acceptable number and
     # the tool carries three canaries so a zero means something.
+    # This client's own slash commands, and whether FrameXML's chat can reach
+    # them. Zero with the bridge in addon_manager, seventy-one without — so
+    # the number answers the real question rather than standing in for it, and
+    # deleting the bridge is what makes it fail. Verified that way.
+    ("client_command_bridge_check.py",
+     r"^(\d+) client command\(s\) FrameXML's chat cannot reach", 0,
+     "client slash commands FrameXML's chat cannot reach"),
     ("global_vs_method_check.py",
      r"^(\d+) global\(s\) called by FrameXML and bound only", 0,
      "globals FrameXML calls that exist only as a widget method"),
