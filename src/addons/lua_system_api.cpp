@@ -447,6 +447,15 @@ static int lua_GetCVar(lua_State* L) {
             lua_pushstring(L, svc->getMinimapRotate() ? "1" : "0");
             return 1;
         }
+    } else if (n == "autolootdefault") {
+        // Asked of the client, like its neighbours. The interface options put
+        // a checkbox on this and the client has a real auto-loot setting, and
+        // the two had never met: the store answered a default of "1" while
+        // autoLoot_ starts false, so the box was ticked and looting was not.
+        if (auto* gh = getGameHandler(L)) {
+            lua_pushstring(L, gh->isAutoLoot() ? "1" : "0");
+            return 1;
+        }
     } else if (n == "autoselfcast") {
         if (auto* gh = getGameHandler(L)) {
             lua_pushstring(L, gh->isAutoSelfCast() ? "1" : "0");
@@ -481,7 +490,10 @@ static int lua_GetCVar(lua_State* L) {
     else if (n == "sound_enablesfx") lua_pushstring(L, "1");
     else if (n == "sound_enablemusic") lua_pushstring(L, "1");
     else if (n == "chatbubbles") lua_pushstring(L, "1");
-    else if (n == "autolootdefault") lua_pushstring(L, "1");
+    // Off, which is what a stock client has and what interfaceoptionsframe.lua
+    // itself declares as the default. Only reached before the handler exists;
+    // once it does, the branch above answers from the setting itself.
+    else if (n == "autolootdefault") lua_pushstring(L, "0");
     // On, as it is for a fresh account. The XP bar and the unit frames put
     // their whole tooltip behind this one: GameTooltip_AddNewbieTip is called
     // with noNormalText set, so with tips off it does nothing at all and
@@ -722,6 +734,11 @@ static int lua_SetCVar(lua_State* L) {
             svc->setMinimapRotate(value != "0");
     } else if (key == "autoselfcast") {
         if (auto* gh = getGameHandler(L)) gh->setAutoSelfCast(value != "0");
+    } else if (key == "autolootdefault") {
+        // The checkbox wrote to the store and stopped there, so the interface's
+        // auto-loot option did nothing at all — the client keeps the setting
+        // and nothing was telling it.
+        if (auto* gh = getGameHandler(L)) gh->setAutoLoot(value != "0");
     }
     // Announced, because nine frames listen for it — the options panels redraw
     // themselves from this rather than from the click that caused it.
