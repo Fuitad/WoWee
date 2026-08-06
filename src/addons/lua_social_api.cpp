@@ -598,6 +598,23 @@ static int lua_CancelDuel(lua_State* L) {
 // hated starts at -42000 and exalted at 42000, with the rest between.
 namespace {
 
+/// Give or take raid assistant for the group member with this name.
+///
+/// Names are how the unit popup identifies people here, and the group roster is
+/// the only name-to-guid map this client keeps — which is enough, because only
+/// a group member can be an assistant.
+static void setGroupAssistantByName(lua_State* L, bool apply) {
+    auto* gh = getGameHandler(L);
+    const char* who = luaL_optstring(L, 1, "");
+    if (!gh || !who || !*who) return;
+    for (const auto& m : gh->getPartyData().members) {
+        if (m.name != who) continue;
+        gh->setGroupAssistant(m.guid, apply);
+        return;
+    }
+}
+
+
 /// Which guild roster row is selected. Panel state with no counterpart in the
 /// game, so it lives here — the same shape as selectedFriend and selectedSkill.
 ///
@@ -2581,8 +2598,22 @@ void registerSocialLuaAPI(lua_State* L) {
             }
             return 0;
         }},
-                {"PromoteToAssistant",        [](lua_State* L) -> int { (void)L; return 0; }},
-                {"DemoteAssistant",           [](lua_State* L) -> int { (void)L; return 0; }},
+                // Raid assistant, given and taken. The unit menu passes a
+                // *name* rather than a unit token — PromoteToAssistant(fullname,
+                // 1) — and the group roster is the one place a name can be
+                // turned into a guid here, which is also the only place it needs
+                // to be: assistant is a thing only a group member can hold.
+                //
+                // Both were no-ops while the opcode sat in all three expansion
+                // maps, so the entry appeared in the menu and did nothing.
+                {"PromoteToAssistant", [](lua_State* L) -> int {
+            setGroupAssistantByName(L, true);
+            return 0;
+        }},
+                {"DemoteAssistant", [](lua_State* L) -> int {
+            setGroupAssistantByName(L, false);
+            return 0;
+        }},
                 {"GrantLevel",                [](lua_State* L) -> int { (void)L; return 0; }},
                 // Whether the player passes on every loot roll. The setter
                 // accepted and forgot, and the getter beside it answered a

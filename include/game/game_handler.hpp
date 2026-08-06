@@ -2454,6 +2454,8 @@ public:
     /// Ask the battleground for everyone's position; throttled, and a no-op
     /// outside one. See SocialHandler::requestBattlefieldPositions.
     void requestBattlefieldPositions();
+    /// Give or take raid assistant, by guid.
+    void setGroupAssistant(uint64_t guid, bool apply);
     /// Whether a map id belongs to an arena. Same table, the other instance
     /// type — the rows are loaded either way and only the battleground ones
     /// are kept in the queue list.

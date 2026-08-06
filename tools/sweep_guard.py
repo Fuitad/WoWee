@@ -386,7 +386,7 @@ CHECKS = [
     # the packet that does carry them is the turn-in one, which arrives only
     # when the player is already standing at the NPC.
     ("framexml_live_stubs.py",
-     r"^\d+ bindings, \d+ of them stubs, (\d+) reached from a handed-over element", 174,
+     r"^\d+ bindings, \d+ of them stubs, (\d+) reached from a handed-over element", 171,
      "stubs reachable from an element FrameXML draws"),
     # Bindings that read fewer arguments than the interface passes. The only
     # sweep here that asks whether an answer used everything it was told —
@@ -429,8 +429,12 @@ CHECKS = [
     # wrong in a different way. GetContainerItemPurchaseInfo ignores the
     # isEquipped flag and would look an equipped item up in a bag, which costs
     # nothing while the refund window it reports is untracked either way.
+    # Fifty-seven: PromoteToAssistant and DemoteAssistant joined when they
+    # stopped being no-ops, and both ignore the same trailing exactMatch flag
+    # PromoteToLeader beside them does. They match exactly, which is the
+    # behaviour that flag asks for and the only value the unit popup passes.
     ("binding_arg_coverage_check.py",
-     r"^(\d+) binding\(s\) read fewer arguments", 55,
+     r"^(\d+) binding\(s\) read fewer arguments", 57,
      "bindings that ignore an argument the interface passes"),
     ("tools_run_check.py",
      r"^(\d+) that cannot run", 0,

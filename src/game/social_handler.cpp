@@ -4164,6 +4164,15 @@ void SocialHandler::deleteGmTicket() {
     LOG_INFO("Deleting GM ticket");
 }
 
+void SocialHandler::setGroupAssistant(uint64_t guid, bool apply) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    if (guid == 0) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_GROUP_ASSISTANT_LEADER));
+    packet.writeUInt64(guid);
+    packet.writeUInt8(apply ? 1 : 0);
+    owner_.getSocket()->send(packet);
+}
+
 void SocialHandler::requestBattlefieldPositions() {
     if (!owner_.isInWorld() || !owner_.getSocket()) return;
     // Only in one. AzerothCore drops the request outright when the player has

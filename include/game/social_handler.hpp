@@ -137,6 +137,11 @@ public:
     /// because the interface calls it from WorldMapFrame_OnUpdate, which is
     /// every frame the map is open.
     void requestBattlefieldPositions();
+
+    /// Give or take raid assistant. CMSG_GROUP_ASSISTANT_LEADER is a guid and
+    /// a flag, and AzerothCore drops it unless the sender leads the group —
+    /// which is the same test the unit menu makes before offering the entry.
+    void setGroupAssistant(uint64_t guid, bool apply);
     static constexpr uint8_t kGuildBankMoneyTab = 6;
     const std::vector<GuildBankLogEntry>& getGuildBankLog(uint8_t tab) const {
         static const std::vector<GuildBankLogEntry> empty;

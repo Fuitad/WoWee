@@ -2412,6 +2412,10 @@ void GameHandler::setActionBarSlot(int slot, ActionBarSlot::Type type, uint32_t 
     }
 }
 
+void GameHandler::setGroupAssistant(uint64_t guid, bool apply) {
+    if (socialHandler_) socialHandler_->setGroupAssistant(guid, apply);
+}
+
 void GameHandler::requestBattlefieldPositions() {
     if (socialHandler_) socialHandler_->requestBattlefieldPositions();
 }
