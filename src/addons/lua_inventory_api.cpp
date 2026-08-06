@@ -3753,7 +3753,13 @@ void registerInventoryLuaAPI(lua_State* L) {
             return 0;
         }},
                 {"QueryGuildBankText",  [](lua_State* L) -> int { (void)L; return 0; }},
-                {"GetGuildBankText",    [](lua_State* L) -> int { lua_pushstring(L, ""); return 1; }},
+                // Nil, not "". QueryGuildBankText above sends nothing, so this
+                // client never learns a tab's text — and "" claims to know it
+                // is empty. The panel does `if ( text )` and its else branch
+                // clears the box, which is the same thing on screen; the
+                // difference is that it no longer copies a lie into
+                // GuildBankTabInfoEditBox.text on the way.
+                {"GetGuildBankText",    [](lua_State* L) -> int { lua_pushnil(L); return 1; }},
                 // SetGuildBankText(tab, text) — the info panel on a guild
                 // bank tab. The opcode existed and nothing built it, so the
                 // edit box saved nothing. FrameXML counts tabs from one and

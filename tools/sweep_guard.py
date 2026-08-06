@@ -484,6 +484,18 @@ CHECKS = [
     ("token_table_check.py",
      r"^(\d+) table lookup\(s\) keyed by a binding", 9,
      "tables the interface indexes with a binding's answer"),
+    # A bound binding answering "" or 0 where the interface tests for nothing.
+    # Only nil and false are false in Lua, so the branch meant for "there is
+    # none" never runs and the one meant for "here it is" runs empty-handed:
+    # GetAbandonQuestItems offered "you will lose:" with nothing after the
+    # colon, and GetGuildBankTabCost kept the buy screen up for a guild that
+    # owned every tab. Zero, and the first of those was put back in its original
+    # shape and seen to trip it — the first draft could not, because it only
+    # matched `if ( X() )` and both faults are written `local v = X()` and
+    # tested on the next line. 2s.
+    ("framexml_falsey_expected.py",
+     r"^(\d+) answer something true where nothing was meant", 0,
+     "bindings answering true where the interface tests for nothing"),
     # GameTooltip setters that answer with a no-op, so the tooltip is blank.
     # A tooltip setter is the whole content of a tooltip: no error, no partial
     # result, just an empty box on one panel while every other hover works.

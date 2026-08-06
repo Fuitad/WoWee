@@ -2281,8 +2281,32 @@ void registerQuestLuaAPI(lua_State* L) {
                 // What is destroyed along with the quest. Nothing here knows
                 // which items a quest would take back, and an invented list
                 // would warn about items the player keeps.
+                // What abandoning the quest destroys, or nil for nothing —
+                // and nil is the load-bearing part. Both callers do
+                // `if ( items )` to choose between two popups, and an empty
+                // string is true in Lua, so answering "" always took the
+                // ABANDON_QUEST_WITH_ITEMS branch and showed "you will lose:"
+                // with nothing after the colon.
+                //
+                // The quest's source item is the one the server takes back, and
+                // this client has stored it since the reward parser learned to
+                // read it — it even queries the item info for it on arrival.
+                // Items gathered for the quest are not named: which of those
+                // the server destroys depends on flags this client does not
+                // parse, and listing the wrong ones is worse than listing none.
                 {"GetAbandonQuestItems", [](lua_State* L) -> int {
-            lua_pushstring(L, "");
+            auto* gh = getGameHandler(L);
+            const uint32_t id = pendingAbandonQuest();
+            if (!gh || id == 0) { lua_pushnil(L); return 1; }
+            for (const auto& q : gh->getQuestLog()) {
+                if (q.questId != id) continue;
+                if (q.sourceItemId == 0) break;
+                const auto* info = gh->getItemInfo(q.sourceItemId);
+                if (!info || !info->valid || info->name.empty()) break;
+                lua_pushstring(L, info->name.c_str());
+                return 1;
+            }
+            lua_pushnil(L);
             return 1;
         }},
                 {"AbandonQuest", [](lua_State* L) -> int {
