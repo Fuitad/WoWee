@@ -144,9 +144,17 @@ def helper_reach():
     src = HELPERS.read_text(errors="ignore")
     src += "".join(p.read_text(errors="ignore") for p in ADDONS.glob("*.cpp"))
     out = {}
-    for m in re.finditer(r"(?:inline|static)\s+[\w:*&<> ]+?\s(\w+)\(lua_State\* L[^)]*\)\s*\{(.*?)\n\}",
-                         src, re.S):
-        out[m.group(1)] = _max_index(m.group(2))
+    # Braces, for the reason given where the bodies are read: a one-line helper
+    # has no closing brace at the start of a line.
+    for m in re.finditer(r"(?:inline|static)\s+[\w:*&<> ]+?\s(\w+)\(lua_State\* L[^)]*\)\s*\{", src):
+        depth, i = 1, m.end()
+        while i < len(src) and depth:
+            if src[i] == "{":
+                depth += 1
+            elif src[i] == "}":
+                depth -= 1
+            i += 1
+        out[m.group(1)] = _max_index(src[m.end():i - 1])
     return out
 
 

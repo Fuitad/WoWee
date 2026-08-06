@@ -213,13 +213,17 @@ CHECKS = [
     # pet's and putting an Alliance badge over a Horde target;
     # SetInventoryItem did the same on the inspect paperdoll.
     #
-    # Eight, each read once. Five are the player's sheet alone, the pet tab
+    # Seven, each read once. Five are the player's sheet alone, the pet tab
     # having no ranged or defence line — UnitDefense, UnitRangedAttack,
-    # UnitRangedAttackPower, UnitRangedDamage, UnitAttackBothHands. One is
-    # asked only with "player": UnitControllingVehicle. The last two are the
-    # check's own blind spots, named in its docstring: IsUnitOnQuest takes the
-    # unit second, and UnitPlayerOrPetInRaid delegates to a binding that does
-    # resolve.
+    # UnitRangedAttackPower, UnitRangedDamage, UnitAttackBothHands. The other
+    # two are the check's own blind spots, named in its docstring: IsUnitOnQuest
+    # takes the unit second, and UnitPlayerOrPetInRaid delegates to a binding
+    # that does resolve.
+    #
+    # UnitControllingVehicle left when the *named* bodies were brace-matched as
+    # well as the inline ones — a one-line function has no closing brace at the
+    # start of a line, so the non-greedy form ran on and gave it the next
+    # function's calls.
     #
     # Was ten, and the two that left were never really here. The inline-lambda
     # body was found by looking for a closing "}}" at a fixed indent, which only
@@ -232,7 +236,7 @@ CHECKS = [
     # count. Braces are matched now, and the one-line form was seen to be caught
     # before this number was trusted.
     ("unit_argument_check.py",
-     r"^(\d+) unit binding\(s\) that never look at their unit", 8,
+     r"^(\d+) unit binding\(s\) that never look at their unit", 7,
      "unit bindings answering from the player whatever they were asked"),
     # Requests the server reads off the wire and throws away — an opcode
     # registered Handle_NULL. Two, and both are accounted for:
