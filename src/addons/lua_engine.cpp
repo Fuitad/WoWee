@@ -6758,7 +6758,8 @@ void LuaEngine::fireEvent(const std::string& eventName,
                     const char* err = lua_tostring(L_, -1);
                     std::string errStr = err ? err : "(unknown)";
                     LOG_ERROR("LuaEngine: event '", eventName, "' handler error: ", errStr);
-                    if (luaErrorCallback_) luaErrorCallback_(errStr);
+                    noteLuaError(errStr);
+        if (luaErrorCallback_) luaErrorCallback_(errStr);
                     lua_pop(L_, 1);
                 }
             }
@@ -6831,7 +6832,8 @@ void LuaEngine::fireEvent(const std::string& eventName,
                             const char* ferr = lua_tostring(L_, -1);
                             std::string ferrStr = ferr ? ferr : "(unknown)";
                             LOG_ERROR("LuaEngine: frame OnEvent error: ", ferrStr);
-                            if (luaErrorCallback_) luaErrorCallback_(ferrStr);
+                            noteLuaError(ferrStr);
+        if (luaErrorCallback_) luaErrorCallback_(ferrStr);
                             lua_pop(L_, 1);
                         }
                     } else {
@@ -6881,6 +6883,7 @@ void LuaEngine::callFrameScript(uint32_t wid, const char* script,
     if (lua_pcall(L_, nargs, 0, handlerIdx) != 0) {
         const char* err = lua_tostring(L_, -1);
         LOG_ERROR("LuaEngine: ", script, " error: ", err ? err : "?");
+        noteLuaError(err ? err : "script error");
         if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
         lua_pop(L_, 1);
     }
@@ -6925,6 +6928,7 @@ void LuaEngine::callFrameScript3(uint32_t wid, const char* script,
     if (lua_pcall(L_, 4, 0, handlerIdx) != 0) {
         const char* err = lua_tostring(L_, -1);
         LOG_ERROR("LuaEngine: ", script, " error: ", err ? err : "?");
+        noteLuaError(err ? err : "script error");
         if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
         lua_pop(L_, 1);
     }
@@ -6954,6 +6958,7 @@ void LuaEngine::callFrameScriptNumber(uint32_t wid, const char* script, double a
     if (lua_pcall(L_, 2, 0, handlerIdx) != 0) {
         const char* err = lua_tostring(L_, -1);
         LOG_ERROR("LuaEngine: ", script, " error: ", err ? err : "?");
+        noteLuaError(err ? err : "script error");
         if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
         lua_pop(L_, 1);
     }
@@ -6983,6 +6988,7 @@ void LuaEngine::callFrameScriptColor(uint32_t wid, const char* script,
     if (lua_pcall(L_, 4, 0, handlerIdx) != 0) {
         const char* err = lua_tostring(L_, -1);
         LOG_ERROR("LuaEngine: ", script, " error: ", err ? err : "?");
+        noteLuaError(err ? err : "script error");
         if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
         lua_pop(L_, 1);
     }
@@ -7198,6 +7204,14 @@ void LuaEngine::declareDeferredGlobals(const std::vector<std::string>& names) {
 }
 
 void LuaEngine::reportMissingApi() const {
+    // Written again here so the counts are the session's final ones; the first
+    // sighting of each error already put the file on disk.
+    writeLuaErrorReport();
+    if (!luaErrors_.empty()) {
+        LOG_WARNING("LuaEngine: ", luaErrors_.size(),
+                    " distinct Lua error(s) this session — see ",
+                    core::getConfigRoot(), "/lua_errors.txt");
+    }
     // Every name is checked against _G before being reported, so without a
     // state there is nothing to say. Guarded here as well as at the call site
     // because the crash this cost was a null state, not an empty list.
@@ -7307,6 +7321,43 @@ void LuaEngine::reportMissingApi() const {
         out << "\n-- widget methods that answered with a no-op --\n";
         for (const auto& n : noops) out << n << "\n";
         LOG_WARNING("LuaEngine: the full list is in ", path);
+    }
+}
+
+void LuaEngine::noteLuaError(const std::string& message) {
+    if (message.empty()) return;
+    auto [it, inserted] = luaErrors_.emplace(message, 0u);
+    ++it->second;
+    // Written the first time each distinct error is seen, not only at
+    // shutdown. The errors worth reading are often the ones just before a
+    // crash, and a report written on a clean quit is exactly the report that
+    // loses them. Rewriting on a repeat would put a file write inside an
+    // OnUpdate that raises every frame, so repeats only bump the count and the
+    // shutdown pass writes the final tally.
+    if (inserted) writeLuaErrorReport();
+}
+
+void LuaEngine::writeLuaErrorReport() const {
+    if (luaErrors_.empty()) return;
+    const std::string path = core::getConfigRoot() + "/lua_errors.txt";
+    std::ofstream out(path);
+    if (!out) return;
+    out << "-- Lua errors from the interface, most frequent first.\n"
+           "--\n"
+           "-- Each line is a handler that stopped part way through. What it had\n"
+           "-- not done yet did not happen, which is why the symptom is usually a\n"
+           "-- panel that is present and does nothing rather than an error on\n"
+           "-- screen. The traceback names the file and line.\n\n";
+    std::vector<std::pair<uint64_t, const std::string*>> byCount;
+    byCount.reserve(luaErrors_.size());
+    for (const auto& [msg, count] : luaErrors_) byCount.emplace_back(count, &msg);
+    std::sort(byCount.begin(), byCount.end(),
+              [](const auto& a, const auto& b) {
+                  if (a.first != b.first) return a.first > b.first;
+                  return *a.second < *b.second;
+              });
+    for (const auto& [count, msg] : byCount) {
+        out << "[" << count << (count == 1 ? " time] " : " times] ") << *msg << "\n\n";
     }
 }
 
@@ -8456,10 +8507,12 @@ void LuaEngine::dispatchOnUpdate(float elapsed) {
                         lua_setfield(L_, scriptsIdx, "OnUpdate");
                         LOG_ERROR("LuaEngine: OnUpdate disabled after ", failures,
                                   " failures: ", uerrStr);
-                        if (luaErrorCallback_) luaErrorCallback_(uerrStr);
+                        noteLuaError(uerrStr);
+        if (luaErrorCallback_) luaErrorCallback_(uerrStr);
                     } else if (failures == 1) {
                         LOG_ERROR("LuaEngine: OnUpdate error: ", uerrStr);
-                        if (luaErrorCallback_) luaErrorCallback_(uerrStr);
+                        noteLuaError(uerrStr);
+        if (luaErrorCallback_) luaErrorCallback_(uerrStr);
                     }
                 } else {
                     // Consecutive, so a handler that recovers is not punished
@@ -8805,6 +8858,7 @@ bool LuaEngine::executeFile(const std::string& path) {
         std::string msg = errMsg ? errMsg : "(unknown error)";
         lastError_ = msg;
         LOG_ERROR("LuaEngine: error loading '", path, "': ", msg);
+        noteLuaError(msg);
         if (luaErrorCallback_) luaErrorCallback_(msg);
         if (gameHandler_) {
             game::MessageChatData errChat;
@@ -8850,6 +8904,7 @@ bool LuaEngine::executeString(const std::string& code) {
         std::string msg = errMsg ? errMsg : "(unknown error)";
         lastError_ = msg;
         LOG_ERROR("LuaEngine: script error: ", msg);
+        noteLuaError(msg);
         if (luaErrorCallback_) luaErrorCallback_(msg);
         if (gameHandler_) {
             game::MessageChatData errChat;

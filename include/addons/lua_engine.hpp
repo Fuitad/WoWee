@@ -2,6 +2,7 @@
 
 #include "addons/lua_services.hpp"
 #include "ui/widget_tree.hpp"
+#include <map>
 #include <functional>
 #include <unordered_map>
 #include <string>
@@ -208,6 +209,9 @@ private:
     game::GameHandler* gameHandler_ = nullptr;
     LuaServices luaServices_;
     LuaErrorCallback luaErrorCallback_;
+    /// Distinct Lua errors this session and how often each fired. A handler
+    /// that raises on every frame is one entry, not forty thousand.
+    std::map<std::string, uint64_t> luaErrors_;
     OpenSettingsCallback openSettingsCallback_;
     /// How many events are being dispatched inside one another right now.
     /// Guards against two handlers triggering each other without end.
@@ -307,6 +311,17 @@ private:
     void installMissingApiFallback();
     /// Log the names collected, once, at shutdown.
     void reportMissingApi() const;
+
+    /// Record a Lua error and keep it where a player can find it afterwards.
+    ///
+    /// Errors have always gone to the log with a traceback, and the log has to
+    /// be captured to be read — which means asking someone to re-run the game
+    /// down a pipe to answer "why does this panel do nothing". They go to
+    /// ~/.wowee/lua_errors.txt as well now, deduplicated with a count, beside
+    /// the missing-API report that is written the same way and for the same
+    /// reason.
+    void noteLuaError(const std::string& message);
+    void writeLuaErrorReport() const;
 
     void registerCoreAPI();
     void registerEventAPI();
