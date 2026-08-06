@@ -223,13 +223,6 @@ EXPECTED_SHORT = {
     "GetMapDebugObjectInfo": "debug overlay, no data",
     # Battleground vehicles are not tracked.
     "GetBattlefieldVehicleInfo": "vehicles not tracked",
-    # The guild emblem. SMSG_GUILD_QUERY_RESPONSE carries the style, colour,
-    # border and background and the parser reads all four — nothing keeps them,
-    # so there is nothing to turn into the six texture names. The guild bank
-    # guards a nil here and falls back to a default emblem, which is why it is
-    # a gap rather than a break. Filling it means keeping those fields and
-    # writing the id-to-path mapping.
-    "GetGuildTabardFileNames": "emblem fields parsed and not kept",
     # Two of five. The last three are the colour of a custom power bar, which
     # only vehicles and a few encounters have; a nil leaves unitframe on the
     # power type's own colour, which is the answer for everything here.

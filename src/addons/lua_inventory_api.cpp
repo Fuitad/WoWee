@@ -3820,7 +3820,63 @@ void registerInventoryLuaAPI(lua_State* L) {
             pushTimeAgo(L, e.secondsAgo);
             return 7;
         }},
-                {"GetGuildTabardFileNames",          [](lua_State* L) -> int { (void)L; return 0; }},
+                // The six textures a guild tabard is drawn from, in the order
+                // the guild bank unpacks them: background upper and lower,
+                // emblem upper and lower, border upper and lower.
+                //
+                // This answered nothing, and the data was in hand the whole
+                // time — SMSG_GUILD_QUERY_RESPONSE carries the emblem style
+                // and colour, the border style and colour and the background
+                // colour, and handleGuildQueryResponse keeps the whole struct.
+                // A grep for the field names does not see that, because it is
+                // assigned wholesale as `guildQueryData_ = data`.
+                //
+                // The names are built rather than looked up: the install has
+                // 6118 of these and they are named by index —
+                // background_<colour>, emblem_<style>_<colour>,
+                // border_<style>_<colour>, each in an upper and a lower half.
+                // Ranges measured from the files present rather than guessed,
+                // and the guess was wrong both ways: 51 backgrounds, 170 emblem
+                // styles — not 100 — of 17 colours each, and 10 border styles
+                // of which the first six have 17 colours and the last four have
+                // only 4.
+                //
+                // Out of range answers nothing rather than naming a file that
+                // is not there, which is what the server sends for a guild with
+                // no emblem chosen. The guild bank guards for that and falls
+                // back to its own default background — so a wrong name would be
+                // worse than no name, since a non-nil one stops that fallback.
+                {"GetGuildTabardFileNames", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const auto& g = gh->getGuildQueryData();
+            if (g.guildId == 0) return 0;
+            const uint32_t kBorderColors = (g.borderStyle <= 5) ? 16u : 3u;
+            if (g.backgroundColor > 50 || g.emblemStyle > 169 ||
+                g.emblemColor > 16 || g.borderStyle > 9 ||
+                g.borderColor > kBorderColors) {
+                return 0;
+            }
+            auto push = [&](const char* kind, uint32_t a, int b, const char* half) {
+                char buf[128];
+                if (b < 0) {
+                    std::snprintf(buf, sizeof(buf),
+                                  "Textures\\GuildEmblems\\%s_%02u_%s_U", kind, a, half);
+                } else {
+                    std::snprintf(buf, sizeof(buf),
+                                  "Textures\\GuildEmblems\\%s_%02u_%02d_%s_U",
+                                  kind, a, b, half);
+                }
+                lua_pushstring(L, buf);
+            };
+            push("Background", g.backgroundColor, -1, "TU");
+            push("Background", g.backgroundColor, -1, "TL");
+            push("Emblem", g.emblemStyle, static_cast<int>(g.emblemColor), "TU");
+            push("Emblem", g.emblemStyle, static_cast<int>(g.emblemColor), "TL");
+            push("Border", g.borderStyle, static_cast<int>(g.borderColor), "TU");
+            push("Border", g.borderStyle, static_cast<int>(g.borderColor), "TL");
+            return 6;
+        }},
                 // The guild master, which is what the real client answers and
                 // is now a question this can put — rank zero in the roster. It
                 // used to say no on the grounds that nothing could send the
