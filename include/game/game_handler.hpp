@@ -743,6 +743,10 @@ public:
     void clearPetitionDialog() { showPetitionDialog_ = false; }
     uint32_t getPetitionCost() const;
     uint64_t getPetitionNpcGuid() const;
+    /// name, icon and cost of the nth charter a petition vendor is offering.
+    /// False when the vendor offered no such charter.
+    bool getPetitionCharter(int index, uint32_t& itemId, uint32_t& displayId,
+                            uint32_t& cost) const;
 
     // Petition signatures (guild charter signing flow)
     using PetitionSignature = game::PetitionSignature;

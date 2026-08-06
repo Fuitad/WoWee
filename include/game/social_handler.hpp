@@ -183,6 +183,12 @@ public:
     /// different thing, so closing one has to close the other.
     void closePetitionVendor();
     bool isGuildRegistrar() const { return petitionIsGuildCharter_; }
+    /// The charters on offer, in the order the vendor listed them — one from a
+    /// guild registrar, three from an arena registrar for the two, three and
+    /// five person teams.
+    const std::vector<PetitionShowlistData::Charter>& getPetitionCharters() const {
+        return petitionCharters_;
+    }
     uint32_t getPetitionCost() const { return petitionCost_; }
     uint64_t getPetitionNpcGuid() const { return petitionNpcGuid_; }
     const PetitionInfo& getPetitionInfo() const { return petitionInfo_; }
@@ -506,6 +512,7 @@ private:
     /// Which of the two registrar panels is open — the offer says, not the
     /// opcode, and closing has to name the same one that opened.
     bool petitionIsGuildCharter_ = false;
+    std::vector<PetitionShowlistData::Charter> petitionCharters_;
     uint32_t petitionCost_ = 0;
     uint64_t petitionNpcGuid_ = 0;
     PetitionInfo petitionInfo_;

@@ -3281,6 +3281,17 @@ void GameHandler::reportMailSpam(uint64_t senderGuid, uint32_t mailId) {
     if (socialHandler_) socialHandler_->reportMailSpam(senderGuid, mailId);
 }
 
+bool GameHandler::getPetitionCharter(int index, uint32_t& itemId,
+                                     uint32_t& displayId, uint32_t& cost) const {
+    if (!socialHandler_ || index < 0) return false;
+    const auto& charters = socialHandler_->getPetitionCharters();
+    if (index >= static_cast<int>(charters.size())) return false;
+    itemId    = charters[static_cast<size_t>(index)].itemId;
+    displayId = charters[static_cast<size_t>(index)].displayId;
+    cost      = charters[static_cast<size_t>(index)].cost;
+    return true;
+}
+
 void GameHandler::closePetitionVendor() {
     if (socialHandler_) socialHandler_->closePetitionVendor();
 }

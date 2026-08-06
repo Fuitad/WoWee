@@ -22,6 +22,7 @@
 //     is never sent. Answering yes would promise a refund that does not exist.
 #include "addons/lua_api_helpers.hpp"
 #include "game/inventory_slots.hpp"
+#include "game/game_utils.hpp"
 #include "addons/lua_engine.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
@@ -112,6 +113,39 @@ int pushGemInfo(lua_State* L, game::GameHandler* gh, uint32_t gemItemId, int soc
     // either. Both sides of that are already masks, so one AND says it.
     lua_pushboolean(L, (socketMask & gemMask) != 0 ? 1 : 0);
     return 3;
+}
+
+/// An item link for the gem in a socket, or nothing when the socket is empty.
+///
+/// The panel's own tooltips work off the socket index, but a link is what a
+/// shift-click puts in the chat box and what an addon hands around. Reachable
+/// at all only since chat began drawing links.
+int pushGemLink(lua_State* L, game::GameHandler* gh, uint32_t gemItemId) {
+    if (!gh || gemItemId == 0) return 0;
+    const auto* gem = gh->getItemInfo(gemItemId);
+    if (!gem || !gem->valid) {
+        gh->ensureItemInfo(gemItemId);
+        return 0;
+    }
+    lua_pushstring(L, game::buildItemLink(gemItemId, gem->quality, gem->name).c_str());
+    return 1;
+}
+
+/// GetExistingSocketLink(index) — the gem already in the socket.
+int lua_GetExistingSocketLink(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 1)) - 1;
+    if (!gh || !gh->isSocketingOpen() || index < 0 || index > 2) return 0;
+    const auto enchants = gh->getItemSocketEnchantIds(gh->getSocketItemGuid());
+    return pushGemLink(L, gh, gh->getEnchantGemItem(enchants[static_cast<size_t>(index)]));
+}
+
+/// GetNewSocketLink(index) — the gem waiting to go in.
+int lua_GetNewSocketLink(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 1)) - 1;
+    if (!gh || !gh->isSocketingOpen() || index < 0 || index > 2) return 0;
+    return pushGemLink(L, gh, gh->getSocketPendingGemItemId(index));
 }
 
 /// SocketInventoryItem(invSlot) — the paperdoll's right-click entry.
@@ -273,6 +307,8 @@ void registerSocketLuaAPI(lua_State* L) {
         {"GetNumSockets",              lua_GetNumSockets},
         {"GetSocketTypes",             lua_GetSocketTypes},
         {"GetExistingSocketInfo",      lua_GetExistingSocketInfo},
+        {"GetExistingSocketLink",      lua_GetExistingSocketLink},
+        {"GetNewSocketLink",           lua_GetNewSocketLink},
         {"GetNewSocketInfo",           lua_GetNewSocketInfo},
         {"GetSocketItemInfo",          lua_GetSocketItemInfo},
         {"GetSocketItemRefundable",    lua_GetSocketItemRefundable},

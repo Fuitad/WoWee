@@ -978,6 +978,40 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"SignPetition",        lua_SignPetition},
                 {"OfferPetition",       lua_OfferPetition},
                 {"ClosePetition",       lua_ClosePetition},
+                // GetPetitionItemInfo(index) → name, texture, price.
+                //
+                // The arena registrar prices whichever tab is open, and its
+                // three tabs are the three charters the vendor listed — the
+                // two, three and five person teams. It calls this on opening a
+                // tab and waits for a callback when the answer is nothing,
+                // which is what happens before the item query comes back.
+                {"GetPetitionItemInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 1)) - 1;
+            uint32_t itemId = 0, displayId = 0, cost = 0;
+            if (!gh || !gh->getPetitionCharter(index, itemId, displayId, cost)) return 0;
+            const auto* info = gh->getItemInfo(itemId);
+            if (!info || !info->valid) { gh->ensureItemInfo(itemId); return 0; }
+            lua_pushstring(L, info->name.c_str());
+            lua_pushstring(L, gh->getItemIconPath(
+                displayId ? displayId : info->displayInfoId).c_str());
+            lua_pushnumber(L, cost);
+            return 3;
+        }},
+                // TurnInArenaPetition(teamSize, r,g,b, icon, ...) — the banner
+                // designer's Accept.
+                //
+                // Every argument after the first is the tabard being drawn on
+                // screen, and the server reads none of them:
+                // HandleTurnInPetitionOpcode takes the petition's guid and
+                // nothing else. So the charter whose window is open is the
+                // whole of the request, and the colours are a client-side
+                // preview of a banner the server assigns itself.
+                {"TurnInArenaPetition", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L))
+                gh->turnInPetition(gh->getPetitionInfo().petitionGuid);
+            return 0;
+        }},
                 // --- The guild registrar ---
                 //
                 // Reachable since PETITION_SHOWLIST started firing an event,

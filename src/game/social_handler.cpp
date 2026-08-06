@@ -2482,6 +2482,9 @@ void SocialHandler::handlePetitionShowlist(network::Packet& packet) {
     if (!PetitionShowlistParser::parse(packet, data)) return;
     petitionNpcGuid_ = data.npcGuid;
     petitionCost_ = data.cost;
+    // The whole offer, not just the first charter's price. An arena registrar
+    // offers three and the panel prices whichever tab is open.
+    petitionCharters_ = data.charters;
     showPetitionDialog_ = true;
     petitionIsGuildCharter_ = data.isGuildCharter();
     // The vendor panel opens on this. showPetitionDialog_ is what this
