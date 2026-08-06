@@ -28,14 +28,17 @@ surface gets its contents before believing the row.
 THE TWENTY-EIGHT IT REPORTS TODAY, ALL CHECKED
 
 Two faults were found in this list on 2026-08-05, both live since the branch
-started, and both had been skimmed past twice because they sat among
-twenty-six rows that are fine. A report nobody can triage at a glance gets
-skimmed, so here is the triage, and a row appearing that is not on this list
-is the thing to look at.
+started, and both had been skimmed past twice because they sat among rows that
+are fine. A report nobody can triage at a glance gets skimmed — so the triage
+lives in ACCOUNTED below, one line of reasoning each, and the question this
+tool now answers is whether a row is NEW.
 
-The question that separates them is not "does FrameXML draw this too" but
-"does FrameXML draw this too *without being asked*". A duplicate only happens
-when both sides put something on screen in response to the same event.
+The question that separates a fault from a row that is fine is not "does
+FrameXML draw this too" but "does FrameXML draw this too *without being
+asked*". A duplicate only happens when both sides put something on screen in
+response to the same event. A window with its own toggle has a FrameXML
+counterpart and cannot collide with it: two ways to open a thing is not two
+things on screen.
 
   * Fixed: renderBgInvitePopup — CONFIRM_BATTLEFIELD_ENTRY, raised by
     battlefieldframe.lua from UPDATE_BATTLEFIELD_STATUS, which this client
@@ -43,26 +46,18 @@ when both sides put something on screen in response to the same event.
   * Fixed: renderLogoutCountdown — the CAMP and QUIT popups, raised by
     uiparent.lua from PLAYER_CAMPING and PLAYER_QUITING, both fired here.
 
-  * No FrameXML counterpart at all (17): the chat bubbles, the cooldown
-    tracker, the damage meter, the threat window, the duel countdown, the
-    entity list, the nameplates — which are engine-drawn in 3.3.5 and not in
-    FrameXML — the player-info and weather debug overlays, the item-target
-    cursor, the resurrect flash, the ding effect, and the discovery,
-    area-trigger, honor, reputation and whisper toasts.
-  * A counterpart that is not raised by an event (3): the equipment-set,
-    skills and combat-log windows. FrameXML has all three — inside the
-    character frame, and as ChatFrame2 — but this client's are windows with
-    their own toggle, opened deliberately. Two ways to see the same thing is
-    not two things on screen.
-  * A counterpart under an element not handed over (4): the quest complete and
-    progress toasts against questtracker, the instance lockouts against
-    social, the item loot toast against the achievements AlertFrame. Each
-    becomes a real question the day its element is promoted.
-  * Gated somewhere this cannot see (2): renderZoneToasts, suppressed by the
-    zone banner's own timer — the banner's gate deliberately sits *after* the
-    timer is tracked, so swapping in an early return would trade one duplicate
-    for another — and renderPetUnlearnConfirmDialog, where staticpopup.lua
-    declares no CONFIRM_PET_UNLEARN so this client's is the only one.
+WHAT THE FIRST VERSION OF THAT LIST GOT WRONG
+
+It was a map from surface to the element it would collide with, and four of its
+seven entries were claims nobody had checked. WatchFrame raises no toast when a
+quest completes; AlertFrame_OnEvent in 3.3.5 handles achievements and dungeon
+rewards and no loot at all; RaidInfoFrame is opened from a button. A fifth,
+written while correcting the other four, said 3.3.5 had no titles UI —
+PlayerTitleFrame is on the paperdoll.
+
+Writing an unverified judgement into a tool is the thing a tool is for
+catching, and the correction is why this is an allowlist rather than a map: it
+holds only what was read, and says nothing about what it has not read.
 """
 import re
 import sys
@@ -304,49 +299,64 @@ if half_wired:
 else:
     print("\nEvery suppressed element also stands down. Both halves wired.")
 
-# ── Which of them belong to an element already handed over ──────────────────
+# ── Which of them have been looked at ───────────────────────────────────────
 #
-# The triage in the docstring is what two live duplicates cost to find: both
-# sat in a list of twenty-eight, twenty-six of which are fine, and both were
-# skimmed past twice. This encodes the half of that judgement a tool can hold —
-# which FrameXML element each ungated surface would collide with — so that
-# promoting an element raises its own questions instead of waiting for someone
-# to re-read the list.
+# An allowlist, not a counterpart map. The first cut of this was a map from
+# surface to the FrameXML element it would collide with, and four of its seven
+# entries were wrong: WatchFrame raises no toast on a quest completing,
+# AlertFrame in 3.3.5 shows achievements and dungeon rewards and no loot at
+# all, and RaidInfoFrame is a window opened from a button. Writing an
+# unverified judgement into a tool is the thing the tool is for catching.
 #
-# Only surfaces with a FrameXML counterpart appear here. A row absent from this
-# map is one with nothing on the other side to collide with, and stays absent.
-COUNTERPART = {
-    "ToastManager::renderQuestCompleteToasts":  "QuestTracker",
-    "ToastManager::renderQuestProgressToasts":  "QuestTracker",
-    "ToastManager::renderItemLootToasts":       "Achievements",
-    "WindowManager::renderInstanceLockouts":    "Social",
-    # Windows with their own toggle rather than surfaces raised by an event.
-    # Listed so the map is complete, and marked so they do not read as pending
-    # faults: two ways to open the same thing is not two things on screen.
-    "WindowManager::renderEquipSetWindow":      "CharacterFrame*",
-    "WindowManager::renderSkillsWindow":        "CharacterFrame*",
-    "CombatUI::renderCombatLog":                "Chat*",
+# So it holds only what was checked, and the useful question becomes the other
+# one: is this row NEW. Twenty-eight surfaces draw without a gate and every one
+# has been read against what FrameXML raises; a twenty-ninth has not, and that
+# is worth stopping for whether or not it turns out to be fine.
+#
+# The reason beside each is what was checked, so a row can be re-examined
+# without starting over.
+ACCOUNTED = {
+    # Nothing on the other side at all.
+    "ChatBubbleManager::render":                  "no FrameXML bubbles; engine-drawn in 3.3.5",
+    "CombatUI::renderCooldownTracker":            "no counterpart",
+    "CombatUI::renderDPSMeter":                   "no counterpart",
+    "CombatUI::renderThreatWindow":               "no counterpart; FrameXML's threat is on the unit frame",
+    "DialogManager::renderDuelCountdown":         "no counterpart; FrameXML has the request popup only",
+    "GameScreen::renderEntityList":               "debug window",
+    "GameScreen::renderNameplates":               "no FrameXML nameplates in 3.3.5",
+    "GameScreen::renderPlayerInfo":               "debug window",
+    "GameScreen::renderWeatherOverlay":           "debug overlay",
+    "InventoryScreen::renderItemTargetCursor":    "cursor art",
+    "ToastManager::renderAreaTriggerToasts":      "no counterpart",
+    "ToastManager::renderDingEffect":             "no counterpart",
+    "ToastManager::renderDiscoveryToast":         "no counterpart",
+    "ToastManager::renderPvpHonorToasts":         "no counterpart",
+    "ToastManager::renderRepToasts":              "no counterpart",
+    "ToastManager::renderResurrectFlash":         "no counterpart",
+    "ToastManager::renderWhisperToasts":          "no counterpart",
+    "ToastManager::renderPlayerLevelUpToasts":    "LevelUpDisplay is Cataclysm; nothing in 3.3.5",
+    "ToastManager::renderItemLootToasts":         "AlertFrame_OnEvent handles achievements and LFG rewards only",
+    "ToastManager::renderQuestCompleteToasts":    "WatchFrame redraws; it raises no toast",
+    "ToastManager::renderQuestProgressToasts":    "WatchFrame redraws; progress never goes through addUIError",
+    # Opened deliberately. Two ways to open a thing is not two things on screen.
+    "WindowManager::renderEquipSetWindow":        "a window with its own toggle",
+    "WindowManager::renderSkillsWindow":          "a window with its own toggle",
+    "WindowManager::renderInstanceLockouts":      "a window with its own toggle; RaidInfoFrame is too",
+    "WindowManager::renderTitlesWindow":          "a window with its own toggle; FrameXML's is the paperdoll's title dropdown",
+    "CombatUI::renderCombatLog":                  "a window with its own toggle; FrameXML's is ChatFrame2",
+    # Gated somewhere a reachability walk cannot see.
+    "ToastManager::renderZoneToasts":             "suppressed by the zone banner's own timer",
+    "DialogManager::renderPetUnlearnConfirmDialog": "staticpopup.lua declares no CONFIRM_PET_UNLEARN",
 }
 
-defaults_block = takeover[takeover.index("static const auto defaults"):]
-defaults_block = defaults_block[:defaults_block.index("}();")]
-handed_over = set(re.findall(r'"([a-z0-9]+)"', defaults_block))
-element_names = dict(re.findall(r'\{UiElement::(\w+),\s*"([a-z0-9]+)"\}', takeover))
-
-pending = []
-for fn, element in sorted(COUNTERPART.items()):
-    if element.endswith("*"):
-        continue                       # opened deliberately, cannot double up
-    if any(fn == r[0] for r in rows) and element_names.get(element) in handed_over:
-        pending.append((fn, element))
-
-print(f"\n{len(COUNTERPART)} of them have a FrameXML counterpart at all")
-if pending:
-    print(f"\n{len(pending)} draw ungated while their element is handed over "
-          f"— these are on screen twice:")
-    for fn, element in pending:
-        print(f"  {fn:44} UiElement::{element}")
+unreviewed = sorted(r[0] for r in rows if r[0] not in ACCOUNTED)
+print(f"\n{len(ACCOUNTED)} of them have been read against what FrameXML raises")
+if unreviewed:
+    print(f"\n{len(unreviewed)} that have not — ask of each whether FrameXML puts "
+          f"the same thing on screen in response to the same event:")
+    for fn in unreviewed:
+        print(f"  {fn}")
 else:
-    print("None of those elements is handed over, so none can collide yet.")
+    print("None unreviewed.")
 
 sys.exit(0)
