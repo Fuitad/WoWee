@@ -196,16 +196,56 @@ static int lua_PlaySoundFile(lua_State* L) {
     return 0;
 }
 
+/// GetPlayerMapPosition(unit) → where that unit is on the map now showing,
+/// as a fraction across it.
+///
+/// Two faults, both silent. It answered raw world coordinates, and
+/// worldmapframe.lua multiplies what it gets by WorldMapDetailFrame's width —
+/// so the player arrow was placed some thousands of pixels off the parchment
+/// rather than on it. And it ignored the unit it was asked about, so the four
+/// party markers and the forty raid ones all described the player.
+///
+/// Zero and zero is the answer for "not on this map": every caller tests
+/// `if ( x == 0 and y == 0 )` and hides its marker, which is what should happen
+/// for someone in another zone.
 static int lua_GetPlayerMapPosition(lua_State* L) {
     auto* gh = getGameHandler(L);
-    if (gh) {
-        const auto& mi = gh->getMovementInfo();
-        lua_pushnumber(L, mi.x);
-        lua_pushnumber(L, mi.y);
+    auto* svc = getLuaServices(L);
+    const char* uid = luaL_optstring(L, 1, "player");
+    if (!gh || !svc || !svc->mapUVForWorldPos || !uid) {
+        lua_pushnumber(L, 0);
+        lua_pushnumber(L, 0);
         return 2;
     }
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
+    float wx = 0.0f, wy = 0.0f, wz = 0.0f;
+    std::string unit(uid);
+    toLowerInPlace(unit);
+    if (unit == "player") {
+        const auto& mi = gh->getMovementInfo();
+        wx = mi.x; wy = mi.y; wz = mi.z;
+    } else if (const uint64_t guid = resolveUnitGuid(gh, unit)) {
+        // Through the entity when it is in range, and the group list when it is
+        // not — a raid member across the zone is exactly who this is asked
+        // about, and they have no entity here.
+        if (auto e = gh->getEntityManager().getEntity(guid)) {
+            wx = e->getX(); wy = e->getY(); wz = e->getZ();
+        } else if (const auto* m = findPartyMember(gh, guid)) {
+            // The group list carries a coarse position — SMSG_PARTY_MEMBER_STATS
+            // truncates it to a pair of int16 yards — which is ample for a dot
+            // on a zone map and is the only position there is for someone out
+            // of range.
+            wx = static_cast<float>(m->posX);
+            wy = static_cast<float>(m->posY);
+        }
+    }
+    float u = 0.0f, v = 0.0f;
+    if ((wx == 0.0f && wy == 0.0f) || !svc->mapUVForWorldPos(wx, wy, wz, u, v)) {
+        lua_pushnumber(L, 0);
+        lua_pushnumber(L, 0);
+        return 2;
+    }
+    lua_pushnumber(L, u);
+    lua_pushnumber(L, v);
     return 2;
 }
 

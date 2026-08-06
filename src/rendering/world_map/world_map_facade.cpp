@@ -735,6 +735,33 @@ uint32_t WorldMapFacade::currentAreaId() const {
     return zones[static_cast<size_t>(idx)].areaID;
 }
 
+bool WorldMapFacade::mapUVForCanonical(float wowX, float wowY, float wowZ,
+                                       float& u, float& v) const {
+    const int idx = impl_->viewState.currentZoneIdx();
+    const auto& zones = impl_->data.zones();
+    if (idx < 0 || idx >= static_cast<int>(zones.size())) return false;
+    const Zone& zone = zones[static_cast<size_t>(idx)];
+    const bool isContinent = (zone.areaID == 0);
+
+    // A continent is drawn against bounds derived from its children rather than
+    // its own, which is what the party dot layer does before projecting.
+    ZoneBounds bounds = zone.bounds;
+    if (isContinent) {
+        float l, r, t, b;
+        if (getContinentProjectionBounds(zones, impl_->viewState.continentIdx(),
+                                         l, r, t, b)) {
+            bounds = {l, r, t, b};
+        }
+    }
+    const glm::vec2 uv = renderPosToMapUV(
+        core::coords::canonicalToRender(glm::vec3(wowX, wowY, wowZ)),
+        bounds, isContinent);
+    if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) return false;
+    u = uv.x;
+    v = uv.y;
+    return true;
+}
+
 std::vector<WorldMapFacade::Landmark> WorldMapFacade::currentLandmarks() const {
     const int idx = impl_->viewState.currentZoneIdx();
     const auto& zones = impl_->data.zones();

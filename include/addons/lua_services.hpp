@@ -94,6 +94,10 @@ struct LuaServices {
     /// The WorldMapArea id being shown, and setting the map from one. Zero
     /// when a continent rather than a zone is shown, which is the branch the
     /// interface takes to ask about continents instead.
+    /// Where a canonical world position falls on the map now showing, 0..1
+    /// across the image. False when it is off this map. GetPlayerMapPosition
+    /// answers in this space — FrameXML multiplies it by the map frame's width.
+    std::function<bool(float, float, float, float&, float&)> mapUVForWorldPos;
     std::function<uint32_t()> getMapWorldAreaId;
     std::function<void(uint32_t)> setMapWorldAreaId;
 

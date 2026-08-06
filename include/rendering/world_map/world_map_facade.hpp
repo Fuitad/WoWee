@@ -124,6 +124,17 @@ public:
     /// Drill into the zone under that point, as clicking it would.
     bool clickMapPoint(float u, float v);
 
+    /// Where a world position falls on the map now showing, as 0..1 across the
+    /// image. False when it is off this map, which is how the interface's own
+    /// markers ask to be hidden.
+    ///
+    /// The inverse of zoneAtMapPoint, and the thing GetPlayerMapPosition needs:
+    /// FrameXML multiplies what that answers by the map frame's width, so a
+    /// world coordinate handed over unconverted puts the player arrow thousands
+    /// of pixels off the parchment.
+    bool mapUVForCanonical(float wowX, float wowY, float wowZ,
+                           float& u, float& v) const;
+
     /// Step out one level: zone to continent, continent to world.
     void zoomOutOneLevel();
 
