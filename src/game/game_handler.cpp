@@ -3062,10 +3062,13 @@ void GameHandler::rebuildCompanions() const {
             const std::string idx = std::to_string(i);
             if (dbc->getUInt32(row, (*layout)["EffectApplyAuraName" + idx]) == kAuraMounted) {
                 mount = true;
-                // SPELL_AURA_MOUNTED's misc value is the display id the player
-                // is put on — AzerothCore hands it straight to Player::Mount,
-                // which writes it to UNIT_FIELD_MOUNTDISPLAYID. So a mount's
-                // creature id is already the thing a model frame wants.
+                // SPELL_AURA_MOUNTED's misc value is a creature *entry*, the
+                // same number space a summon's is. AuraEffect::HandleAuraMounted
+                // opens with `uint32 creatureEntry = GetMiscValue();` and then
+                // picks the model with ChooseDisplayId on that entry's
+                // template — it is not handed to Player::Mount as a display id,
+                // which is what the comment here used to say. Stored as the
+                // entry and resolved by the reader, exactly like a critter's.
                 c.creatureId = dbc->getUInt32(row, (*layout)["EffectMiscValue" + idx]);
             } else if (dbc->getUInt32(row, (*layout)["Effect" + idx]) == kEffectSummon &&
                        dbc->getUInt32(row, (*layout)["EffectMiscValueB" + idx]) ==
@@ -3073,8 +3076,9 @@ void GameHandler::rebuildCompanions() const {
                 critter = true;
                 // A summon's misc value is a creature *entry*, not a display
                 // id, and the model frame takes a display id. Left as the entry
-                // and resolved in GetCompanionInfo, which is the only reader
-                // and knows which kind it was asked for.
+                // and resolved in GetCompanionInfo, which is the only reader.
+                // Both kinds are entries, so it no longer matters there which
+                // kind was asked for.
                 //
                 // It used to resolve here when the cache happened to be warm
                 // and leave the entry when it did not, on the reading that a
