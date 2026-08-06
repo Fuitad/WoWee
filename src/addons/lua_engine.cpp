@@ -2621,6 +2621,23 @@ int lua_FontString_SetShadowColor(lua_State* L) {
     return 0;
 }
 
+/// SetTextHeight(height) — the font's size, keeping its face and flags.
+///
+/// A different thing from GetTextHeight, which answers how tall the rendered
+/// string turned out; this one is a setter and the two are not a pair.
+///
+/// The raid-warning banner is the caller that shows it: RaidNotice_UpdateSlot
+/// scales its text up over the first fraction of a second and back down over
+/// the rest, so with this doing nothing the banner appeared at whatever size
+/// its template carried and sat there. Combat feedback sizes its numbers by
+/// hit type through the same call, and the scrolling combat text its crits.
+int lua_FontString_SetTextHeight(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        const double h = luaL_optnumber(L, 2, 0.0);
+        if (h > 0.0) w->fontHeight = static_cast<float>(h);
+    }
+    return 0;
+}
 int lua_FontString_SetFontObject(lua_State* L) {
     applyFontObject(L, 2, widgetOf(L, 1));
     return 0;
@@ -2745,6 +2762,7 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     if (isFontString) {
         set("GetFont", lua_FontString_GetFont);
         set("SetFont", lua_FontString_SetFont);
+        set("SetTextHeight", lua_FontString_SetTextHeight);
         set("SetText", lua_FontString_SetText);
         set("SetFormattedText", lua_FontString_SetFormattedText);
         set("GetText", lua_FontString_GetText);
@@ -4896,7 +4914,7 @@ void LuaEngine::registerCoreAPI() {
         // that is not there, in the one place someone would check.
         "SetGlyph=1,SetSocketGem=1,SetSocketedItem=1,SetExistingSocketGem=1,\n"
         "SetScrollOffset=1,RegisterAllEvents=1,\n"
-        "SetStatusBarTexture=1,SetTexCoord=1,SetText=1,SetTextHeight=1,\n"
+        "SetStatusBarTexture=1,SetTexCoord=1,SetText=1,\n"
         "SetTexture=1,SetToplevel=1,\n"
         "SetUIPanel=1,SetUnit=1,\n"
         "SetUnitBuff=1,SetUnitDebuff=1,SetValue=1,SetValueStep=1,\n"
