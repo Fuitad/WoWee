@@ -1724,7 +1724,7 @@ static int lua_UseContainerItem(lua_State* L) {
     // the only place one can live, so using it is the only thing a right-click
     // can mean.
     if (bag == kKeyringContainer) {
-        gh->useItemBySlot(wireSlot);
+        gh->useKeyringItem(slot - 1);
         return 0;
     }
 

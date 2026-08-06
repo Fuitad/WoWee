@@ -3253,6 +3253,10 @@ void GameHandler::useItemBySlot(int backpackIndex, bool confirmed) {
     if (inventoryHandler_) inventoryHandler_->useItemBySlot(backpackIndex, confirmed);
 }
 
+void GameHandler::useKeyringItem(int index, bool confirmed) {
+    if (inventoryHandler_) inventoryHandler_->useKeyringItem(index, confirmed);
+}
+
 void GameHandler::useItemInBag(int bagIndex, int slotIndex, bool confirmed) {
     if (inventoryHandler_) inventoryHandler_->useItemInBag(bagIndex, slotIndex, confirmed);
 }

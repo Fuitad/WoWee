@@ -1724,6 +1724,18 @@ void InventoryHandler::useItemBySlot(int backpackIndex, bool confirmed) {
                     itemGuid, slot.item, confirmed);
 }
 
+void InventoryHandler::useKeyringItem(int index, bool confirmed) {
+    if (index < 0 || index >= Inventory::KEYRING_SLOTS) return;
+    const auto& slot = owner_.inventoryRef().getKeyringSlot(index);
+    if (slot.empty()) return;
+    // The keyring keeps its guid on the slot; keyringSlotGuids_ is cleared on
+    // login and never filled, so reading it here would answer zero every time.
+    uint64_t itemGuid = slot.item.guid;
+    if (itemGuid == 0) itemGuid = owner_.resolveOnlineItemGuid(slot.item.itemId);
+    dispatchUseItem(0xFF, static_cast<uint8_t>(slots::keyringWireSlot(index)),
+                    itemGuid, slot.item, confirmed);
+}
+
 void InventoryHandler::useItemInBag(int bagIndex, int slotIndex, bool confirmed) {
     if (bagIndex < 0 || bagIndex >= owner_.inventoryRef().NUM_BAG_SLOTS) return;
     if (slotIndex < 0 || slotIndex >= owner_.inventoryRef().getBagSize(bagIndex)) return;

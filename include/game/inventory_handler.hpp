@@ -207,6 +207,10 @@ public:
     void equipPendingItem();
     void cancelPendingEquip();
     void useItemBySlot(int backpackIndex, bool confirmed = false);
+    /// Use a key from the keyring. Its own entry point because the keyring is
+    /// addressed by a wire slot of its own past the bags, and useItemBySlot
+    /// bounds-checks against the backpack and would silently do nothing.
+    void useKeyringItem(int index, bool confirmed = false);
     void useItemInBag(int bagIndex, int slotIndex, bool confirmed = false);
 
     // ---- Item-targeted item use (sharpening stones, weightstones, weapon oils) ----

@@ -2724,6 +2724,7 @@ public:
     void equipPendingItem();
     void cancelPendingEquip();
     void useItemBySlot(int backpackIndex, bool confirmed = false);
+    void useKeyringItem(int index, bool confirmed = false);
     void useItemInBag(int bagIndex, int slotIndex, bool confirmed = false);
 
     // Item-targeted item use: sharpening stones, weightstones and weapon oils enchant
