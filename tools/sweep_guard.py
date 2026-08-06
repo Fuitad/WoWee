@@ -147,7 +147,7 @@ CHECKS = [
     # Checking whether a popup is reachable means asking which event shows it
     # and whether this client fires that event, not whether the verb is bound.
     ("staticpopup_verbs_check.py",
-     r"^(\d+) name\(s\) a popup button calls and nothing answers", 5,
+     r"^(\d+) name\(s\) a popup button calls and nothing answers", 0,
      "names a static popup's buttons call that nothing answers"),
     # The three wire-shape checks. Each is a fault that no test catches: a
     # request the server drops on the floor, a reply read at the wrong offsets,

@@ -79,6 +79,37 @@ def hooks(body):
         yield name, body[pos:end]
 
 
+#: Names checked one at a time and found unreachable, with what settled each.
+#:
+#: A set rather than a count, because a count only says how many: fix one,
+#: introduce another, and the number never moves. handler_announce_check was
+#: pinned that way and hid a real one — the guild roster being emptied on
+#: leaving a guild with nobody told — for as long as the count was all that was
+#: pinned.
+#:
+#: Each of these belongs to a popup this client cannot put on screen. Checked
+#: both ways in: the event that raises it is never fired, *and* the click path
+#: that raises the same popup without an event cannot run either.
+EXPECTED = {
+    # Recruit-a-friend level granting. LEVEL_GRANT_PROPOSED is fired nowhere
+    # and there is no click path to it.
+    "AcceptLevelGrant": "LEVEL_GRANT_PROPOSED unreachable",
+    "DeclineLevelGrant": "LEVEL_GRANT_PROPOSED unreachable",
+    # END_REFUND and END_BOUND_TRADEABLE have two ways in and neither runs.
+    # The events are fired nowhere; the item socketing frame raises the same
+    # two popups from its Socket button, but only behind
+    # GetSocketItemRefundable and GetSocketItemBoundTradeable, which both
+    # answer nil — the per-item timer behind them is server state this client
+    # is never sent, and answering yes would promise a refund that does not
+    # exist.
+    "EndRefund": "END_REFUND unreachable by event or by click",
+    "EndBoundTradeable": "END_BOUND_TRADEABLE unreachable by event or by click",
+    # This client does not put an enchant on the trade window, so
+    # TRADE_REPLACE_ENCHANT has nothing to fire it.
+    "ReplaceTradeEnchant": "TRADE_REPLACE_ENCHANT unreachable",
+}
+
+
 def main():
     bound = bound_names()
     popups = ROOT / "Data/interface/framexml/staticpopup.lua"
@@ -104,6 +135,8 @@ def main():
             local = {n.strip() for group in local for n in group.split(",")}
             for call in CALL.findall(hook_body):
                 if call in local:
+                    continue
+                if call in EXPECTED:
                     continue
                 if call not in bound:
                     missing.setdefault(call, set()).add(f"{name}.{hook_name}")
