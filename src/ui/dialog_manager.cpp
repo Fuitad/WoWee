@@ -94,9 +94,20 @@ void DialogManager::renderDialogs(game::GameHandler& gameHandler,
     // for GUILD_INVITE_REQUEST.
     if (!frameXmlOwns(UiElement::Dialogs)) renderGuildInvitePopup(gameHandler);
     if (!frameXmlOwns(UiElement::ReadyCheck)) renderReadyCheckPopup(gameHandler);
-    renderBgInvitePopup(gameHandler);
-    // FrameXML answers the same three invitations from staticpopup.lua, and
-    // this client fires every event that raises them — so both were on screen.
+    // The battleground invitation, which was the fourth and was missed.
+    //
+    // FrameXML answers the same three invitations below from staticpopup.lua,
+    // and this client fires every event that raises them — so both were on
+    // screen. This one is no different: UPDATE_BATTLEFIELD_STATUS is fired
+    // from social_handler, battlefieldframe.lua raises
+    // CONFIRM_BATTLEFIELD_ENTRY on it, and "dialogs" has been handed over from
+    // the start. Every battleground invitation put up two accept buttons.
+    //
+    // tools/framexml_ungated_draws.py had it the whole time, in among the
+    // surfaces this client draws on purpose — the nameplates, the toasts, the
+    // damage meter — which is what a report of thirty entries costs when only
+    // some of them are faults.
+    if (!frameXmlOwns(UiElement::Dialogs)) renderBgInvitePopup(gameHandler);
     if (!frameXmlOwns(UiElement::Dialogs)) {
         renderBfMgrInvitePopup(gameHandler);
     }
@@ -120,6 +131,9 @@ void DialogManager::renderLateDialogs(game::GameHandler& gameHandler) {
     // popup's own accept button says so in as many words.
     if (!frameXmlOwns(UiElement::Dialogs)) renderTalentWipeConfirmDialog(gameHandler);
     }
+    // Not gated: FrameXML has the string for this one and no dialog behind it.
+    // staticpopup.lua declares no CONFIRM_PET_UNLEARN, so this client's is the
+    // only one and hiding it would leave the confirmation with no answer.
     renderPetUnlearnConfirmDialog(gameHandler);
 }
 
