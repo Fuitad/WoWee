@@ -91,6 +91,9 @@ def lua_keys(table):
     for path in INTERFACE.rglob("*.lua"):
         text = path.read_text(errors="ignore")
         keys.update(re.findall(re.escape(table) + r'\s*\[\s*"([^"]+)"\s*\]', text))
+        # Numeric keys as well, for the report below: a table written
+        # [0]=60 [1]=70 [2]=80 says at a glance what an answer of 3 will find.
+        keys.update(re.findall(re.escape(table) + r"\s*\[\s*(\d+)\s*\]\s*=", text))
         m = re.search(re.escape(table) + r"\s*=\s*\{", text)
         if m:
             depth, i = 1, m.end()
@@ -102,6 +105,31 @@ def lua_keys(table):
                 i += 1
             keys.update(re.findall(r'\[\s*"([^"]+)"\s*\]', text[m.end():i]))
     return keys
+
+
+def table_keyed_by_binding():
+    """Sites where the interface indexes a table with a binding's answer.
+
+    `MAX_PLAYER_LEVEL_TABLE[GetAccountExpansionLevel()]` is the whole fault in
+    one line: a lookup with no fallback, where a wrong answer is a nil rather
+    than a wrong value, and the nil is then compared with `<`. Finding these by
+    shape rather than by listing them means a new one cannot slip past — the
+    pairs above have to be written down, and something nobody wrote down is
+    exactly what this is for.
+
+    It reports rather than judges: knowing the key set of the table and the
+    answers of the binding are two different problems, and the second needs the
+    C read. The count is pinned so a new site is read once.
+    """
+    sites = {}
+    for path in INTERFACE.rglob("*.lua"):
+        text = path.read_text(errors="ignore")
+        for m in re.finditer(r"\b([A-Za-z_]\w*)\[\s*([A-Z]\w+)\s*\(", text):
+            table, fn = m.group(1), m.group(2)
+            if table in ("_G", "select", "string"):
+                continue
+            sites.setdefault((table, fn), set()).add(path.name)
+    return sites
 
 
 def main():
@@ -139,6 +167,18 @@ def main():
     for r in rows:
         print(r)
     if not rows:
+        print("  (none)")
+
+    sites = table_keyed_by_binding()
+    print()
+    print(f"{len(sites)} table lookup(s) keyed by a binding's answer:\n")
+    for (table, fn), files in sorted(sites.items()):
+        keys = lua_keys(table)
+        ordered = sorted(keys, key=lambda k: (not k.isdigit(), int(k) if k.isdigit() else k))
+        shown = ", ".join(ordered[:8]) if keys else "(no literal keys parsed)"
+        print(f"  {table}[{fn}()]   in {', '.join(sorted(files))}")
+        print(f"      keys: {shown}")
+    if not sites:
         print("  (none)")
     return 0
 

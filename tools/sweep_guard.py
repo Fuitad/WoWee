@@ -441,6 +441,17 @@ CHECKS = [
     ("token_table_check.py",
      r"^(\d+) token\(s\) spelled so", 0,
      "token strings the interface cannot look up"),
+    # Where the interface indexes a table with a binding's answer directly. A
+    # reading list, not a verdict — the sweep can print the table's keys but not
+    # what the binding answers. Nine, and the one that put it here was
+    # MAX_PLAYER_LEVEL_TABLE[GetAccountExpansionLevel()] against a table holding
+    # 0, 1 and 2 while the binding counted from one: on Wrath it read nothing,
+    # MAX_PLAYER_LEVEL became nil, and the comparison beside it raised on every
+    # level gained. Five of the nine call a C binding and all five have been
+    # read; a tenth means someone should read that one. 1s.
+    ("token_table_check.py",
+     r"^(\d+) table lookup\(s\) keyed by a binding", 9,
+     "tables the interface indexes with a binding's answer"),
     # GameTooltip setters that answer with a no-op, so the tooltip is blank.
     # A tooltip setter is the whole content of a tooltip: no error, no partial
     # result, just an empty box on one panel while every other hover works.
