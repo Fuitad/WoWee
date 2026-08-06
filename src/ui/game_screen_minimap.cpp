@@ -144,12 +144,28 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
 
     float screenW = static_cast<float>(window->getWidth());
 
-    // Minimap parameters (matching minimap.cpp)
+    // Where the map is, which is not always where this client would put it.
+    //
+    // These used to be the corner this client's own minimap occupies, and that
+    // held for as long as the marker pass only ran when this client drew the
+    // ring. It draws blips on FrameXML's minimap too now, and that one sits
+    // wherever the Minimap widget was laid out — so the rect is asked for
+    // rather than assumed, and the corner is the fallback for when nothing has
+    // placed it.
     float mapSize = 200.0f;
     float margin = 10.0f;
     float mapRadius = mapSize * 0.5f;
     float centerX = screenW - margin - mapRadius;
     float centerY = margin + mapRadius;
+    // Nothing placed it and FrameXML owns the ring: its minimap is hidden or
+    // was never built, so there is no map to put blips on and the fallback
+    // corner would scatter them over empty screen.
+    if (frameXmlOwns(UiElement::Minimap) && !minimap->hasScreenRect()) return;
+    if (minimap->hasScreenRect() && minimap->screenRectW() > 0.0f) {
+        mapRadius = minimap->screenRectW() * 0.5f;
+        centerX = minimap->screenRectX() + mapRadius;
+        centerY = minimap->screenRectY() + minimap->screenRectH() * 0.5f;
+    }
     float viewRadius = minimap->getViewRadius();
 
     // Use the exact same minimap center as Renderer::renderWorld() to keep markers anchored.

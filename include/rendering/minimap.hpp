@@ -68,6 +68,17 @@ public:
         rectX_ = x; rectY_ = y; rectW_ = w; rectH_ = h; haveRect_ = true;
     }
     void clearScreenRect() { haveRect_ = false; }
+    /// Where the map is actually being drawn, when something placed it.
+    ///
+    /// The marker pass needs this: it used to assume the corner this client
+    /// puts its own minimap in, and when FrameXML draws the ring the map moves
+    /// to whatever rect the Minimap widget occupies. Blips computed against
+    /// the old corner land beside the map rather than on it.
+    bool hasScreenRect() const { return haveRect_; }
+    float screenRectX() const { return rectX_; }
+    float screenRectY() const { return rectY_; }
+    float screenRectW() const { return rectW_; }
+    float screenRectH() const { return rectH_; }
 
     float getArrowRotation() const { return arrowRotation_; }
     VkDescriptorSet getArrowDS() const { return arrowDS_; }
