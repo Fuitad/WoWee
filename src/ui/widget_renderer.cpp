@@ -1513,8 +1513,18 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                     // room on screen, so the ones still lit pack together.
                     if (m.color[3] <= 0.0f) continue;
                     float rgba[4] = {m.color[0], m.color[1], m.color[2], m.color[3]};
-                    dl->AddText(font, size, ImVec2(x0, y), packColor(rgba, w->alpha),
-                                m.text.c_str());
+                    // Through the markup parser, not straight to AddText.
+                    //
+                    // A chat line is the densest markup the interface produces:
+                    // "|cff9d9d9d|Hitem:3299|h[Fractured Canine]|h|r" is one
+                    // item link with a colour around it, and drawn raw that is
+                    // what appeared on screen — every escape, every bar, in the
+                    // middle of the sentence. It is also where the links are,
+                    // so this is what files their rects and makes a click on
+                    // one land somewhere.
+                    drawMarkupText(dl, font, size, ImVec2(x0, y),
+                                   packColor(rgba, w->alpha), w->alpha, m.text,
+                                   0.0f, false, nullptr, false, &tree, w->id);
                     y -= lineH;
                 }
             }
