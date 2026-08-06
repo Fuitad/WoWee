@@ -9,6 +9,42 @@ are on a code path that is on screen right now.
 Being listed is not being wrong. Plenty of stubs are correct: the feature is
 genuinely absent (vehicles, voice chat) or FrameXML tolerates the empty answer.
 It is a reading list, ordered by how central the file is.
+
+THE FORTY IT REPORTS TODAY, ALL CHECKED
+
+None is a defect, but three are worth knowing about because they are visible
+rather than merely absent. Read once so the count can be watched rather than
+re-triaged.
+
+VISIBLE, AND DELIBERATE
+
+  * GetBattlefieldInstanceRunTime — the scoreboard prints "Time Elapsed: 0
+    seconds" rather than nothing, because worldstateframe.lua formats whatever
+    it is given. The real answer is milliseconds since the *instance* started,
+    which this client cannot know: it can measure since the player joined, and
+    labelling that "Time Elapsed" would be confidently wrong for anyone who
+    arrived late. A zero that reads as broken is better than a number that
+    reads as true.
+  * ShowContainerSellCursor, ShowBuybackSellCursor — the cursor does not change
+    to the sell icon over a bag item at a vendor. This client's cursor has no
+    such icon to change to.
+
+ABSENT FEATURES, WHICH IS WHAT THE STUB SAYS (28)
+
+The world map's debug objects, zone map, battlefield flag and vehicle
+positions, dungeon map floors and Wintergrasp timer; Battle.net and its friend
+list; voice chat and mutes; movie recording; mail stationery; achievement
+comparison; arena opponents; the multi-cast bar's offset; addon memory usage.
+Each is a feature this client does not have, and the stub is the honest shape
+of that.
+
+CORRECT ANSWERS THAT LOOK LIKE STUBS (9)
+
+IsMacClient is false because it is not one. GetAdjustedSkillPoints is zero
+because WotLK has no skill points — skillframe.lua gates every purchase verb
+on it, which is why BuySkillTier and AddSkillUp are unreachable rather than
+unimplemented. GetCurrentMapDungeonLevel is zero because a map with no floors
+is on floor zero.
 """
 import re
 from pathlib import Path
