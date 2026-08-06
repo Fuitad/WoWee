@@ -129,7 +129,24 @@ const std::set<std::string>& requested() {
                 // Each is clean in the readiness report, gated where this
                 // client draws it, absent from the ungated-draw list, and has
                 // a check row whose frames the promised-frames sweep resolves.
-                "loot", "gossip", "questgiver", "partyframes"};
+                "loot", "gossip", "questgiver", "partyframes",
+                // The other half of the interaction loop. Hit less often than
+                // a corpse, but every one of them daily, and each is a window
+                // whose failure is obvious the moment it is opened rather than
+                // something that degrades quietly.
+                //
+                //   vendor  every merchant
+                //   mail    every mailbox
+                //   bank    every visit
+                //   trade   every exchange with another player
+                //
+                // The unfired events on three of them are all accounted for in
+                // the readiness report: mail's two are the refund lock behind a
+                // per-item timer this client is never sent, trade's carry a
+                // single slot where this client only ever learns of a whole
+                // side, and vendor's shares a branch with PLAYER_MONEY, which
+                // is fired.
+                "vendor", "mail", "bank", "trade"};
         }();
 
         if (!raw || !*raw) {
@@ -283,14 +300,14 @@ const std::set<std::string>& requested() {
                     // out of this list and into the defaults. They are added
                     // either way — the defaults go in first — but an element
                     // named in both reads as though it were still waiting.
-                    "achievements", "auctionhouse", "bank",
+                    "achievements", "auctionhouse",
                     "barbershop", "bgscore", "book", "chat", "classtrainer",
                     "dungeonfinder", "gamemenu", "guildbank",
-                    "help", "inspect", "mail",
+                    "help", "inspect",
                     "questlog", "questtracker",
                     "readycheck", "social", "stable",
-                    "talents", "taxi", "totems", "trade", "tradeskill",
-                    "vendor", "worldmap"}) {
+                    "talents", "taxi", "totems", "tradeskill",
+                    "worldmap"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "
