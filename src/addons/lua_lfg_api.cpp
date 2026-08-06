@@ -13,9 +13,18 @@
 //     faction all come from the file.
 //   * The queue is real — joining, leaving, roles and the queued list go
 //     through the LFG verbs this client has had all along.
-//   * Locks, rewards, the proposal's per-member detail, the boot vote's
-//     detail, party backfill and the raid browser's search are NOT modelled.
-//     They answer empty, and each one says why where it is bound.
+//   * Locks and rewards are real, off SMSG_LFG_PLAYER_INFO.
+//   * The boot vote is real, including who is being voted on and whether this
+//     player has answered — the victim arrives as a guid, not a name.
+//   * The role check knows which dungeons it is for and how many are
+//     answering it.
+//   * The proposal's per-member detail, party backfill and the raid browser's
+//     search are NOT modelled. They answer empty, and each says why where it
+//     is bound.
+//
+// That list is worth keeping honest. It read "locks, rewards, the boot vote's
+// detail ... are NOT modelled" for some time after all three had been written,
+// and a note like this is what the next pass reads instead of the code.
 //
 // An empty answer is chosen deliberately over a plausible one. Every caller
 // here guards, and a fabricated reward or lock reads as fact.
