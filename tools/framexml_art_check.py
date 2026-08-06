@@ -35,13 +35,25 @@ right one.
 
 Unreachable frames still count: the login splash and the tic-tac-toe minigame
 are both in the list below and neither can appear.
+
+THE ONE IT REPORTS TODAY, AND WHY IT IS NOT A GAP
+
+interface/talentframe/ui-talentframe-spectab, from blizzard_talentui.lua:852.
+That line sits behind `SELECTEDSPEC_DISPLAYTYPE == "PUSHED_OUT"`, and the
+constant is set to "GOLD_INSIDE" eight hundred lines above it — so the texture
+is never asked for and its absence is not a blank tab.
+
+Eighteen others went when this started reading only the files the loader opens.
+They came from focusframe, questtimerframe, minigameframe, tictactoeframe and
+petpopup: in no manifest, included by nothing, and so never a request for art
+at all.
 """
 import pathlib
 import re
 import sys
 import pathlib as _pathlib
 sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
-from framexml_source import without_comments
+from framexml_source import without_comments, loaded_files
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DATA = ROOT / "Data"
@@ -97,11 +109,13 @@ def references():
     # way to know from here what they end up as.
     lua_pat = re.compile(
         r"(?:" + "|".join(SETTERS) + r")\s*\(\s*\"([^\"]+)\"(\s*\.\.)?")
-    for path in INTERFACE.rglob("*.xml"):
+    # Only files the loader opens: art referenced by a file that never runs is
+    # never asked for, so a missing texture there is not a missing texture.
+    for path in sorted(q for q in loaded_files(INTERFACE) if q.suffix.lower() == ".xml"):
         text = re.sub(r"<!--.*?-->", "", path.read_text(errors="ignore"), flags=re.S)
         for m in xml_pat.finditer(text):
             refs.setdefault(normalise(m.group(1)), set()).add(path.name)
-    for path in INTERFACE.rglob("*.lua"):
+    for path in sorted(q for q in loaded_files(INTERFACE) if q.suffix.lower() == ".lua"):
         text = without_comments(path.read_text(errors="ignore"))
         for m in lua_pat.finditer(text):
             # A colour or a blend mode rather than a path.

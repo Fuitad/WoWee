@@ -29,7 +29,7 @@ from pathlib import Path
 
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).resolve().parent))
-from framexml_source import without_comments
+from framexml_source import without_comments, loaded_files
 
 ROOT = Path(__file__).resolve().parent.parent
 XML = ROOT / "Data/interface"
@@ -91,7 +91,12 @@ UNPACK = re.compile(r"local\s+([\w\s,]+?)\s*=\s*\.\.\.")
 ARGN = re.compile(r"\barg([1-9])\b")
 
 wanted = {}
-for path in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
+# Only files the loader opens. focusframe.lua is the one this was reading and
+# should not have been: it is in no manifest and nothing includes it, because
+# FocusFrame is declared in targetframe.xml inheriting TargetFrameTemplate and
+# handled by targetframe.lua. A handler in a file that never runs cannot read
+# an argument that is never fired.
+for path in sorted(loaded_files(XML)):
     text = without_comments(path.read_text(errors="ignore"))
     for m in BRANCH.finditer(text):
         name, body = m.group(1), m.group(2)

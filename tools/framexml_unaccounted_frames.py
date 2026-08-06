@@ -19,6 +19,9 @@ about: if this client draws the same thing, both are on screen.
 import re
 from pathlib import Path
 
+import sys as _s; _s.path.insert(0, str(Path(__file__).resolve().parent))
+from framexml_source import loaded_files
+
 ROOT = Path("/home/k/Desktop/wowee")
 XML = ROOT / "Data/interface/framexml"
 
@@ -31,7 +34,12 @@ for lit in re.findall(r'"([^"]*)"', src):
 
 # <Frame name="X" ... parent="UIParent"> in either attribute order.
 tops = {}
-for path in sorted(XML.glob("*.xml")):
+# Only files the loader opens. minigameframe, tictactoeframe, petpopup and
+# questtimerframe are in no manifest and included by nothing, so the top-level
+# frames they declare are never built — an element cannot be missing an entry
+# for a frame that cannot exist.
+for path in sorted(q for q in loaded_files(XML.parent)
+                   if q.suffix.lower() == ".xml" and q.parent == XML):
     text = path.read_text(errors="ignore")
     for tag in re.finditer(r"<(Frame|Button|StatusBar|ScrollFrame|MessageFrame|"
                            r"SimpleHTML|Slider|ColorSelect|Model|PlayerModel)\b[^>]*>", text):
