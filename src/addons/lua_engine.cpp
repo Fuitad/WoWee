@@ -1550,6 +1550,59 @@ int lua_Tooltip_SetSpellByID(lua_State* L) {
     return 1;
 }
 
+/// An equipment set, hovered on the character sheet's gear manager.
+///
+/// The set name and what it holds. The item guids were parsed and exposed all
+/// along — GetEquipmentSetItemIDs reads the same two accessors — so the only
+/// thing missing was the tooltip that describes them, which the no-op fallback
+/// left as an empty box over every set button.
+///
+/// A slot the set was told to leave alone is written as a guid of one, which is
+/// what the ignore mask records; those are skipped rather than listed as an
+/// item nobody can name. An item the player no longer holds resolves to no id
+/// and is called out in red, which is the whole reason to hover a set.
+int lua_Tooltip_SetEquipmentSet(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    const char* wanted = luaL_optstring(L, 2, "");
+    if (!w || !gh || !wanted || !*wanted) { lua_pushboolean(L, 0); return 1; }
+
+    const game::EquipmentSetInfo* set = nullptr;
+    for (const auto& es : gh->getEquipmentSets())
+        if (es.name == wanted) { set = &es; break; }
+    if (!set) { lua_pushboolean(L, 0); return 1; }
+
+    w->isTooltip = true;
+    w->tooltipLines.clear();
+    auto line = [&](std::string text, float r, float g, float b) {
+        wowee::ui::Widget::TooltipLine tl;
+        tl.left = std::move(text);
+        tl.lc[0] = r; tl.lc[1] = g; tl.lc[2] = b; tl.lc[3] = 1.0f;
+        tl.rc[0] = tl.rc[1] = tl.rc[2] = tl.rc[3] = 1.0f;
+        w->tooltipLines.push_back(std::move(tl));
+    };
+    line(set->name, 1.0f, 1.0f, 1.0f);
+
+    const auto* guids = gh->getEquipmentSetItems(set->setId);
+    const uint32_t ignored = gh->getEquipmentSetIgnoreMask(set->setId);
+    if (guids) {
+        for (int slot = 0; slot < 19; ++slot) {
+            if (ignored & (1u << slot)) continue;
+            const uint64_t guid = (*guids)[static_cast<size_t>(slot)];
+            if (guid == 0) continue;
+            const uint32_t itemId = gh->getItemIdByGuid(guid);
+            const auto* info = itemId ? gh->getItemInfo(itemId) : nullptr;
+            if (info && info->valid && !info->name.empty()) {
+                line(info->name, 1.0f, 1.0f, 1.0f);
+            } else {
+                line("Missing item", 1.0f, 0.1f, 0.1f);
+            }
+        }
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 /// The spell a quest hands over, hovered in the quest log.
 ///
 /// It was on the no-op list, which was the right answer while
@@ -4195,6 +4248,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetGuildBankItem", lua_Tooltip_SetGuildBankItem},
         {"SetSpellByID",    lua_Tooltip_SetSpellByID},
         {"SetQuestLogRewardSpell", lua_Tooltip_SetQuestLogRewardSpell},
+        {"SetEquipmentSet",        lua_Tooltip_SetEquipmentSet},
         {"SetHyperlink",    lua_Tooltip_SetHyperlink},
         // On frames as well as on font strings, where these were already
         // registered. A chat frame is asked for its own font — not a label's —
@@ -4962,7 +5016,7 @@ void LuaEngine::registerCoreAPI() {
         "SetClampedToScreen=1,SetCooldown=1,\n"
         "SetCursorPosition=1,SetDesaturated=1,SetDisabledCheckedTexture=1,\n"
         "SetDisabledFontObject=1,SetDisabledTexture=1,SetDrawLayer=1,\n"
-        "SetEquipmentSet=1,SetFacing=1,SetFillAlpha=1,SetFillTexture=1,SetFocus=1,\n"
+        "SetFacing=1,SetFillAlpha=1,SetFillTexture=1,SetFocus=1,\n"
         "SetFontObject=1,SetFontString=1,SetFormattedText=1,SetFrameLevel=1,\n"
         "SetFrameRate=1,SetFrameStrata=1,SetHeight=1,SetHighlightFontObject=1,\n"
         "SetHighlightTexture=1,SetHitRectInsets=1,SetHorizontalScroll=1,\n"
