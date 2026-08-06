@@ -499,7 +499,11 @@ static uint32_t spellIdForCall(lua_State* L, game::GameHandler* gh) {
 /// GetSpellName(slot, bookType) → name, rank.
 static int lua_GetSpellName(lua_State* L) {
     auto* gh = getGameHandler(L);
-    const uint32_t id = spellIdForBookSlot(gh, static_cast<int>(luaL_checknumber(L, 1)));
+    // Through spellIdForCall, which reads the book as well as the slot. The
+    // spellbook passes SpellBookFrame.bookType to every one of these, and
+    // resolving a pet slot through the player's tabs names one of the player's
+    // own spells — the wrong answer wearing the shape of a right one.
+    const uint32_t id = spellIdForCall(L, gh);
     if (id == 0) { return luaReturnNil(L); }
     const std::string& name = gh->getSpellName(id);
     lua_pushstring(L, name.empty() ? "Unknown" : name.c_str());
@@ -511,7 +515,10 @@ static int lua_GetSpellName(lua_State* L) {
 /// target, which is what clicking a spellbook entry does.
 static int lua_CastSpell(lua_State* L) {
     auto* gh = getGameHandler(L);
-    const uint32_t id = spellIdForBookSlot(gh, static_cast<int>(luaL_checknumber(L, 1)));
+    // Same resolver, and here it decides what is cast: clicking a pet spell
+    // resolved through the player's tabs cast whichever of the player's spells
+    // sat at that index.
+    const uint32_t id = spellIdForCall(L, gh);
     if (id != 0) gh->castSpell(id, gh->getTargetGuid());
     return 0;
 }
