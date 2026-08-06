@@ -168,6 +168,28 @@ enum class UiElement {
 };
 
 /// True when FrameXML is drawing this instead, so the client should not.
+///
+/// **Before gating a render pass on this, ask whether FrameXML draws that
+/// layer at all.** For a window the answer is yes and the gate is right. For a
+/// layer the *real* client draws natively, there is nothing on the other side
+/// to take the work over, and gating it simply deletes it — with no error, no
+/// warning, and a handover check that still passes because the gate is there.
+///
+/// Two of those, found 2026-08-05 and both invisible rather than loud:
+///
+///   * **Minimap blips.** minimap.xml declares the border, the buttons, the
+///     mail and battlefield icons and the north tag — and not one frame for a
+///     party member, a flight master or a corpse. Gating renderMinimapMarkers
+///     left the ring drawn and nothing on it. The pass runs either way now and
+///     the gate moved inward, to the mouse handling and the two indicators
+///     that really are FrameXML's.
+///   * **Everything inside WorldMapDetailFrame.** Not gated away but hidden:
+///     the widget renderer draws into ImGui's background list and this
+///     client's map is a window over it, so whatever FrameXML puts there
+///     cannot be seen and this side has to draw it. The layer inventory is in
+///     framexml_takeover.cpp beside the worldmap entry.
+///
+/// Every other gate was audited at the same time and is a window.
 bool frameXmlOwns(UiElement element);
 
 /// The name an element is switched on by, for diagnostics.
