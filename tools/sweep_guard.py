@@ -293,6 +293,16 @@ CHECKS = [
     ("framexml_unreachable_verbs.py",
      r"^(\d+) verbs this client's own windows can reach", 66,
      "verbs only this client's own windows could reach"),
+    # Emote tokens FrameXML can hand DoEmote that it cannot answer. One,
+    # named "unused", which is a placeholder in FrameXML's own list. It was
+    # two hundred and twenty-one until 2026-08-05, when DoEmote stopped
+    # answering from a map written by hand and started reading EmotesText.dbc
+    # through EmoteRegistry — the same table this client's own chat had been
+    # reading directly all along, which is why nobody noticed until chat was
+    # handed over and DoEmote became the only route.
+    ("emote_coverage_check.py",
+     r"^(\d+) emote token\(s\) DoEmote cannot answer", 1,
+     "emote tokens FrameXML can send that DoEmote cannot answer"),
     ("client_command_bridge_check.py",
      r"^(\d+) client command\(s\) FrameXML's chat cannot reach", 0,
      "client slash commands FrameXML's chat cannot reach"),

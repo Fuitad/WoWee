@@ -4,6 +4,7 @@
 #include <vector>
 #include "addons/lua_api_helpers.hpp"
 #include "game/reputation_standing.hpp"
+#include "rendering/animation_controller.hpp"
 
 namespace wowee::addons {
 
@@ -1892,28 +1893,37 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh) gh->setGuildPublicNote(luaL_checkstring(L, 1), luaL_checkstring(L, 2));
             return 0;
         }},
+                // DoEmote(token) — every emote FrameXML offers, and there
+                // are three hundred and twenty-three of them.
+                //
+                // This was a hand-written map of thirty-one names, and a token
+                // outside it fell off the end of the lookup and returned
+                // having done nothing at all: no packet, no animation, no
+                // text. /rasp, /moo, /train and roughly two hundred and ninety
+                // others simply did not happen, and nothing said so.
+                //
+                // It went unnoticed because this client's own chat never
+                // called DoEmote — it has an emote fallthrough of its own that
+                // reads the same registry directly. Handing chat over made
+                // DoEmote the only route, and shrank the emote set to
+                // thirty-one on the way through.
+                //
+                // EmoteRegistry keys its table on lower-cased command names
+                // out of EmotesText.dbc; FrameXML's tokens are upper case.
+                //
+                // Only the id is needed: the server echoes SMSG_EMOTE back and
+                // chat_handler plays the animation from it, and SMSG_TEXT_EMOTE
+                // carries the wording. Sending is the whole of the client's
+                // part.
                 {"DoEmote", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const char* token = luaL_checkstring(L, 1);
-            if (!gh) return 0;
-            std::string t(token);
-            for (char& c : t) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
-            // Map common emote tokens to DBC TextEmote IDs
-            static const std::unordered_map<std::string, uint32_t> emoteMap = {
-                {"WAVE", 67}, {"BOW", 2}, {"DANCE", 10}, {"CHEER", 5},
-                {"CHICKEN", 6}, {"CRY", 8}, {"EAT", 14}, {"DRINK", 13},
-                {"FLEX", 16}, {"KISS", 22}, {"LAUGH", 23}, {"POINT", 30},
-                {"ROAR", 34}, {"RUDE", 36}, {"SALUTE", 37}, {"SHY", 40},
-                {"SILLY", 41}, {"SIT", 42}, {"SLEEP", 43}, {"SPIT", 44},
-                {"THANK", 52}, {"CLAP", 7}, {"KNEEL", 21}, {"LAY", 24},
-                {"NO", 28}, {"YES", 70}, {"BEG", 1}, {"ANGRY", 64},
-                {"FAREWELL", 15}, {"HELLO", 18}, {"WELCOME", 68},
-            };
-            auto it = emoteMap.find(t);
-            uint64_t target = gh->hasTarget() ? gh->getTargetGuid() : 0;
-            if (it != emoteMap.end()) {
-                gh->sendTextEmote(it->second, target);
-            }
+            if (!gh || !token) return 0;
+            std::string name(token);
+            toLowerInPlace(name);
+            const uint32_t emoteId = rendering::AnimationController::getEmoteDbcId(name);
+            if (emoteId == 0) return 0;
+            gh->sendTextEmote(emoteId, gh->hasTarget() ? gh->getTargetGuid() : 0);
             return 0;
         }},
                 {"AddFriend", [](lua_State* L) -> int {
