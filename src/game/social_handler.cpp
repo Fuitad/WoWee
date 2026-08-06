@@ -489,6 +489,29 @@ void SocialHandler::registerOpcodes(DispatchTable& table) {
 
     // ---- Inspect ----
     table[Opcode::SMSG_INSPECT_TALENT] = [this](network::Packet& packet) { handleInspectResults(packet); };
+    // The honour tab's own answer, on the same opcode it was asked with.
+    // AzerothCore replies with the target's guid, the honour byte, the packed
+    // kill counter and three totals — MiscHandler.cpp, HandleInspectHonorStats.
+    table[Opcode::MSG_INSPECT_HONOR_STATS] = [this](network::Packet& packet) {
+        if (!packet.hasRemaining(8 + 1 + 16)) return;
+        const uint64_t guid = packet.readUInt64();
+        // Only for whoever is being inspected. The window reads one result and
+        // a stale answer for someone else would be attributed to them.
+        if (inspectResult_.guid != 0 && guid != inspectResult_.guid) return;
+        inspectResult_.honorRank = packet.readUInt8();
+        // One field holds both days: PAIR32_LOPART is today and the high half
+        // is yesterday, which is how the server rolls the counter over —
+        // MAKE_PAIR32(0, kills_today) at midnight.
+        const uint32_t kills = packet.readUInt32();
+        inspectResult_.honorTodayKills     = kills & 0xFFFFu;
+        inspectResult_.honorYesterdayKills = kills >> 16;
+        inspectResult_.honorTodayContribution     = packet.readUInt32();
+        inspectResult_.honorYesterdayContribution = packet.readUInt32();
+        inspectResult_.honorLifetimeKills         = packet.readUInt32();
+        inspectResult_.hasHonorData = true;
+        if (owner_.addonEventCallbackRef())
+            owner_.addonEventCallbackRef()("INSPECT_HONOR_UPDATE", {});
+    };
     table[Opcode::SMSG_INSPECT_RESULTS_UPDATE] = [this](network::Packet& packet) { handleInspectResults(packet); };
 
     // ---- Group ----
@@ -967,6 +990,16 @@ void SocialHandler::inspectTarget() { inspectUnit(owner_.getTargetGuid()); }
 
 // Any player, not only the targeted one: FrameXML's unit menus name the unit
 // the menu was opened on, and on a party frame that is not the target.
+void SocialHandler::requestInspectHonorData(uint64_t guid) {
+    if (guid == 0) return;
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    const uint32_t wire = wireOpcode(Opcode::MSG_INSPECT_HONOR_STATS);
+    if (wire == 0xFFFF) return;
+    network::Packet pkt(static_cast<uint16_t>(wire));
+    pkt.writeUInt64(guid);
+    owner_.getSocket()->send(pkt);
+}
+
 void SocialHandler::inspectUnit(uint64_t guid) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) {
         LOG_WARNING("Cannot inspect: not in world or not connected");
@@ -1206,6 +1239,20 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
         }
     }
 
+    // A different player means the honour figures in hand are somebody else's.
+    // The fields here are assigned one at a time rather than as a whole struct,
+    // so anything not named survives — and the honour tab reads
+    // HasInspectHonorData to decide whether to ask, so a stale true would show
+    // the last player's kills against this one's name and never correct itself.
+    if (inspectResult_.guid != guid) {
+        inspectResult_.hasHonorData = false;
+        inspectResult_.honorTodayKills = 0;
+        inspectResult_.honorYesterdayKills = 0;
+        inspectResult_.honorTodayContribution = 0;
+        inspectResult_.honorYesterdayContribution = 0;
+        inspectResult_.honorLifetimeKills = 0;
+        inspectResult_.honorRank = 0;
+    }
     inspectResult_.guid              = guid;
     inspectResult_.playerName        = playerName;
     inspectResult_.totalTalents      = totalTalents;

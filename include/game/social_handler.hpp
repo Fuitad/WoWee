@@ -69,6 +69,10 @@ public:
     void inspectTarget();
     /// Inspect any player by guid; inspectTarget is this with the current target.
     void inspectUnit(uint64_t guid);
+    /// Ask for the honour figures behind the inspect window's PvP tab. A
+    /// separate request from the inspect itself, and answered on its own
+    /// opcode, which is why the tab asks for it when it opens.
+    void requestInspectHonorData(uint64_t guid);
     const InspectResult* getInspectResult() const {
         return inspectResult_.guid ? &inspectResult_ : nullptr;
     }

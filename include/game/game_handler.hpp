@@ -538,6 +538,8 @@ public:
     void inspectTarget();
     /// Inspect any player by guid, which is what FrameXML's unit menus name.
     void inspectUnit(uint64_t guid);
+    /// See SocialHandler: the honour tab asks for these separately.
+    void requestInspectHonorData(uint64_t guid);
 
     using InspectArenaTeam = game::InspectArenaTeam;
     using InspectResult = game::InspectResult;

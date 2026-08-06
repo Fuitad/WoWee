@@ -5391,21 +5391,43 @@ void registerSystemLuaAPI(lua_State* L) {
                 // false, and the panel's honour section stays empty instead of
                 // claiming the player has never won anything.
                 {"HasInspectHonorData", [](lua_State* L) -> int {
-            lua_pushboolean(L, 0);
+            auto* gh = getGameHandler(L);
+            const auto* r = gh ? gh->getInspectResult() : nullptr;
+            lua_pushboolean(L, (r && r->hasHonorData) ? 1 : 0);
             return 1;
         }},
+                // The tab asks for these when it opens and redraws on
+                // INSPECT_HONOR_UPDATE. It did nothing, so the answer never
+                // came and the tab sat empty behind a HasInspectHonorData that
+                // was false for good.
                 {"RequestInspectHonorData", [](lua_State* L) -> int {
-            (void)L;
+            auto* gh = getGameHandler(L);
+            const auto* r = gh ? gh->getInspectResult() : nullptr;
+            if (gh && r && r->guid != 0) gh->requestInspectHonorData(r->guid);
             return 0;
         }},
                 {"GetInspectHonorData", [](lua_State* L) -> int {
             // Six: today's kills and honour, yesterday's, lifetime kills, and
-            // the lifetime *rank* — which inspecthonorframe feeds straight
-            // into GetPVPRankInfo. The old rank ladder was retired in this
-            // expansion and the server sends nothing for it, so zero is the
-            // truthful answer rather than a placeholder; what was missing was
-            // returning it at all.
-            for (int i = 0; i < 6; ++i) lua_pushnumber(L, 0);
+            // the lifetime *rank*, which inspecthonorframe feeds straight into
+            // GetPVPRankInfo and shows NONE for when that answers nothing.
+            //
+            // The rank byte is what the server puts in that slot, and what it
+            // puts there is the honour points truncated to eight bits — the
+            // rank ladder was retired in this expansion and the field was
+            // reused rather than removed. Passed on as sent rather than
+            // interpreted here.
+            auto* gh = getGameHandler(L);
+            const auto* r = gh ? gh->getInspectResult() : nullptr;
+            if (!r || !r->hasHonorData) {
+                for (int i = 0; i < 6; ++i) lua_pushnumber(L, 0);
+                return 6;
+            }
+            lua_pushnumber(L, r->honorTodayKills);
+            lua_pushnumber(L, r->honorTodayContribution);
+            lua_pushnumber(L, r->honorYesterdayKills);
+            lua_pushnumber(L, r->honorYesterdayContribution);
+            lua_pushnumber(L, r->honorLifetimeKills);
+            lua_pushnumber(L, r->honorRank);
             return 6;
         }},
                 {"GetInspectPVPRankProgress", [](lua_State* L) -> int {

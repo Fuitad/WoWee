@@ -102,6 +102,18 @@ struct InspectResult {
     /// fell back to the viewer's own tree and attributed it to the target.
     std::unordered_map<uint32_t, uint8_t> talentRanks;
     uint8_t classId = 0;
+
+    /// The honour tab, which arrives separately: MSG_INSPECT_HONOR_STATS is
+    /// asked for by the tab when it opens and answered with its own packet.
+    /// `hasHonorData` is what tells "not asked yet" from "asked and all zero",
+    /// which is the difference between requesting again and drawing zeros.
+    bool     hasHonorData = false;
+    uint32_t honorTodayKills = 0;
+    uint32_t honorYesterdayKills = 0;
+    uint32_t honorTodayContribution = 0;
+    uint32_t honorYesterdayContribution = 0;
+    uint32_t honorLifetimeKills = 0;
+    uint8_t  honorRank = 0;
 };
 
 /// An event argument that should arrive in Lua as nil rather than as text.
