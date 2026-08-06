@@ -706,6 +706,26 @@ static std::vector<uint32_t> skillOrder(game::GameHandler* gh) {
 // with a flag saying which is active.
 namespace {
 
+/// An achievement's artwork, as a path.
+///
+/// Achievement.dbc names an icon by SpellIcon.dbc id and the loader has been
+/// caching that id all along; the two bindings that answer an icon were pushing
+/// a constant path and the raw id respectively, so every achievement in the
+/// panel wore the same picture. The resolver was already here — the spellbook's
+/// tabs use it for the icons SkillLine.dbc names the same way.
+///
+/// The generic one stays as the fallback: eighty-seven of the 1817 rows name no
+/// icon at all, and a blank texture reads as a missing file rather than as a
+/// row without artwork.
+std::string achievementIconPath(game::GameHandler* gh, uint32_t achievementId) {
+    static const std::string kGeneric = "Interface\\Icons\\Achievement_General";
+    if (!gh) return kGeneric;
+    const uint32_t iconId = gh->getAchievementIconId(achievementId);
+    if (iconId == 0) return kGeneric;
+    std::string path = gh->getIconPath(iconId);
+    return path.empty() ? kGeneric : path;
+}
+
 /// The stabled pets, in the order they arrived, with the active one left out.
 std::vector<const game::GameHandler::StabledPet*> stabledOnly(game::GameHandler* gh) {
     std::vector<const game::GameHandler::StabledPet*> out;
@@ -3166,15 +3186,17 @@ void registerQuestLuaAPI(lua_State* L) {
                     lua_pushnumber(L, done ? on.yearSince2000 : 0);              // 7: year
                     lua_pushstring(L, gh->getAchievementDescription(achId).c_str()); // 8
                     lua_pushnumber(L, 0);                                        // 9: flags
-                    lua_pushnumber(L, gh->getAchievementIconId(achId));            // 10: icon
+                    // A path, not the id. The panel puts this straight on a
+                    // button as its texture, and a number is not a texture in
+                    // 3.3.5 — the icon id was already cached, and the resolver
+                    // that turns one into a path was already here for the
+                    // spellbook's tabs.
+                    lua_pushstring(L, achievementIconPath(gh, achId).c_str());   // 10: icon
                     return 10;
                 }
             }
             return luaReturnNil(L);
         }},
-                // The chain an achievement belongs to. Achievement.dbc carries
-                // it in Supercedes, which is not loaded — so no chain, and the
-                // panel simply draws none rather than a wrong one.
                 // The two ends of an achievement chain, off Achievement.dbc's
                 // Supercedes column. Answering nil for both made every chained
                 // achievement look like a single one: the panel shows the
@@ -3321,7 +3343,7 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushnumber(L, year);               // 7: year
             lua_pushstring(L, desc.c_str());       // 8: description
             lua_pushnumber(L, 0);                  // 9: flags
-            lua_pushstring(L, "Interface\\Icons\\Achievement_General"); // 10: icon
+            lua_pushstring(L, achievementIconPath(gh, id).c_str()); // 10: icon
             lua_pushstring(L, "");                 // 11: rewardText
             lua_pushboolean(L, 0);                 // 12: isGuildAchievement
             return 12;
