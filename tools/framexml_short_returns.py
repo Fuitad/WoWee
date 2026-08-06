@@ -64,6 +64,30 @@ for f in ADDONS.glob("*.cpp"):
     # name. The name it is registered under stands in for one.
     for m in re.finditer(r'\{"([A-Za-z0-9_]+)",\s*\[\]\s*\(lua_State\*\s*L\)\s*->\s*int\s*\{', s):
         bound[m.group(1)] = (m.group(1), f)
+    # And the third registration form: a global, set one at a time rather than
+    # through a table.
+    #
+    # Last, so it wins a name that is also a widget method. Both spellings of
+    # GetCursorPosition exist — an EditBox method answering where the caret is,
+    # and a global answering where the mouse is — and reading only the tables
+    # found the method, whose one return was then held against
+    # `xPos, yPos = GetCursorPosition()`. That call is a global call, and the
+    # global returns both. A destructured call site is never a method call, so
+    # the global is the right answer wherever there is one.
+    for m in re.finditer(
+            r'lua_pushcfunction\(\s*L_?\s*,\s*(lua_[A-Za-z0-9_]+)\s*\)\s*;\s*'
+            r'lua_setglobal\(\s*L_?\s*,\s*"([A-Za-z0-9_]+)"\s*\)', s):
+        bound[m.group(2)] = (m.group(1), f)
+
+#: `return n;` — a count worked out at run time, which no reading of the source
+#: can pin down. A body with one of these is uncountable and is left out
+#: entirely rather than being scored on whatever literal returns it also has.
+#:
+#: Those literals are almost always guards. GetGossipOptions pushes two values
+#: per option and ends `return n;`, and its only literal return is the `if
+#: (!gh) return 0;` above the loop — so it read as answering nothing at all,
+#: against a call site unpacking two.
+COMPUTED = re.compile(r"\breturn\s+(?!\d)[A-Za-z_]\w*\s*;")
 
 # implementation -> max returned count
 pushes = {}
@@ -84,7 +108,7 @@ for f in ADDONS.glob("*.cpp"):
         rets = [int(x) for x in re.findall(r"\breturn\s+(\d+)\s*;", body)]
         for a, b in re.findall(r"\breturn\s+[^;]*\?\s*(\d+)\s*:\s*(\d+)\s*;", body):
             rets += [int(a), int(b)]
-        if rets:
+        if rets and not COMPUTED.search(body):
             pushes[name] = max(rets)
     # The inline bodies, keyed by the name they are registered under. Braces
     # are matched rather than scanning to the next definition, because a lambda
@@ -101,7 +125,7 @@ for f in ADDONS.glob("*.cpp"):
         rets = [int(x) for x in re.findall(r"\breturn\s+(\d+)\s*;", body)]
         for a, b in re.findall(r"\breturn\s+[^;]*\?\s*(\d+)\s*:\s*(\d+)\s*;", body):
             rets += [int(a), int(b)]
-        if rets:
+        if rets and not COMPUTED.search(body):
             pushes[m.group(1)] = max(rets)
 
 def strip_comments(text: str) -> str:
@@ -176,9 +200,55 @@ for path in sorted(loaded_files(XML)):
 print(f"parsed {len(bound)} bindings, {len(pushes)} bodies, "
       f"{len(unpack)} destructured call sites\n")
 
+#: Bindings answering short on purpose, checked one at a time.
+#:
+#: A set rather than a count. A ceiling says only how many there are, so fixing
+#: one and introducing another leaves the number where it was —
+#: handler_announce_check was pinned that way and hid a live bug for as long as
+#: it was.
+EXPECTED_SHORT = {
+    # Battle.net. A 3.3.5 server has none of it, so every one of these answers
+    # nothing and every caller guards for that.
+    "BNGetFriendInfo": "no Battle.net",
+    "BNGetFriendInfoByID": "no Battle.net",
+    "BNGetToonInfo": "no Battle.net",
+    "BNGetFriendInviteInfo": "no Battle.net",
+    "BNGetConversationMemberInfo": "no Battle.net",
+    # The in-game knowledge base. There is no article store behind it.
+    "KBArticle_GetData": "no knowledge base",
+    "KBSetup_GetCategoryData": "no knowledge base",
+    "KBSetup_GetSubCategoryData": "no knowledge base",
+    # Blizzard's own debug overlay, shipped switched off.
+    "GetDebugZoneMap": "debug overlay, no data",
+    "GetMapDebugObjectInfo": "debug overlay, no data",
+    # Battleground vehicles are not tracked.
+    "GetBattlefieldVehicleInfo": "vehicles not tracked",
+    # The guild emblem. SMSG_GUILD_QUERY_RESPONSE carries the style, colour,
+    # border and background and the parser reads all four — nothing keeps them,
+    # so there is nothing to turn into the six texture names. The guild bank
+    # guards a nil here and falls back to a default emblem, which is why it is
+    # a gap rather than a break. Filling it means keeping those fields and
+    # writing the id-to-path mapping.
+    "GetGuildTabardFileNames": "emblem fields parsed and not kept",
+    # Two of five. The last three are the colour of a custom power bar, which
+    # only vehicles and a few encounters have; a nil leaves unitframe on the
+    # power type's own colour, which is the answer for everything here.
+    "UnitPowerType": "alt power colours, absent by design",
+    # One of three. Answering nil is the answer — the item objectives *are* the
+    # leaderboard objectives, listed by the branch above this one, so there is
+    # nothing left for this to describe.
+    "GetQuestLogItemDrop": "no drops left to name",
+    # One of two. The second is the realm, which is nil for a player on your
+    # own realm — and there is no other kind here.
+    "UnitName": "realm is nil for a same-realm player",
+    # One of two. The second is a trade skill link, which a spell only has when
+    # it is a recipe being viewed in a trade skill window.
+    "GetSpellLink": "no trade skill link for a plain spell",
+}
+
 hits = []
 for fn, (n, where) in unpack.items():
-    if fn not in bound:
+    if fn not in bound or fn in EXPECTED_SHORT:
         continue
     impl, _ = bound[fn]
     if impl not in pushes:

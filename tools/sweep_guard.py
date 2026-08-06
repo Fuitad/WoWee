@@ -58,7 +58,7 @@ CHECKS = [
     # count it computes, which this sweep reads as zero — the known shape named
     # in its docstring.
     ("framexml_short_returns.py",
-     r"^(\d+) binding\(s\) may return short", 20,
+     r"^(\d+) binding\(s\) may return short", 0,
      "bindings answering fewer values than the interface unpacks"),
     ("misleading_indent_check.py",
      r"^(\d+) statement\(s\) dressed as though", 0,

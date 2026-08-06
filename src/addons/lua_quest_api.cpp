@@ -539,7 +539,14 @@ static int lua_QuestPOIGetIconInfo(lua_State* L) {
     lua_pushboolean(L, complete);
     lua_pushnumber(L, best->x);
     lua_pushnumber(L, best->y);
-    return 3;
+    // The fourth value the API names: which objective this marker belongs to.
+    // The client has carried it all along as questObjectiveIndex, where -1
+    // means the quest itself rather than one of its lines — which is nil here,
+    // because that is what "not an objective" is in Lua and a zero would be a
+    // real objective number.
+    if (best->questObjectiveIndex < 0) lua_pushnil(L);
+    else lua_pushnumber(L, best->questObjectiveIndex + 1);
+    return 4;
 }
 
 /// The markers arrive with the server's own updates, so there is nothing to

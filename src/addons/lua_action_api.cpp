@@ -295,7 +295,13 @@ static int lua_GetActionInfo(lua_State* L) {
             lua_pushstring(L, "spell");
             lua_pushnumber(L, action.id);
             lua_pushstring(L, "spell");
-            return 3;
+            // The fourth value, which for a spell action is the same id.
+            // vehiclemenubar reads it to build a link on a modified click —
+            // HandleModifiedItemClick(GetSpellLink(spellID)) — so without it
+            // shift-clicking a vehicle button linked nothing. Only spells have
+            // one; an item or a macro answers nil, as the real client does.
+            lua_pushnumber(L, action.id);
+            return 4;
         case game::ActionBarSlot::ITEM:
             lua_pushstring(L, "item");
             lua_pushnumber(L, action.id);
