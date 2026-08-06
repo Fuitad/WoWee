@@ -169,6 +169,16 @@ void GameScreen::setVsync(bool enabled) {
     if (services_.window) services_.window->setVsync(enabled);
 }
 
+bool GameScreen::getFullscreen() const {
+    return services_.window ? services_.window->isFullscreen()
+                            : settingsPanel_.pendingFullscreen;
+}
+
+void GameScreen::setFullscreen(bool enabled) {
+    settingsPanel_.pendingFullscreen = enabled;
+    if (services_.window) services_.window->setFullscreen(enabled);
+}
+
 void GameScreen::setServices(const UIServices& services) {
     services_ = services;
     // Settings are loaded by the constructor before services are injected.

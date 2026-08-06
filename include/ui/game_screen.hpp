@@ -53,6 +53,11 @@ public:
     bool getVsync() const;
     void setVsync(bool enabled);
 
+    /// Windowed or full screen, for gxWindow. Both records again, for the same
+    /// reason as the pacing above.
+    bool getFullscreen() const;
+    void setFullscreen(bool enabled);
+
     // Gamma, as WoW's video options mean it: 1.0 is untouched, and the client
     // keeps the same number as a 0-100 brightness where 50 is neutral. Exposed
     // so the interface's own brightness slider drives the one setting rather

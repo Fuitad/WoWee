@@ -490,6 +490,17 @@ static int lua_GetCVar(lua_State* L) {
              n == "sound_sfxvolume" || n == "sound_ambiencevolume") {
         lua_pushstring(L, "1");
     }
+    // Windowed, as one — the way round the checkbox is labelled. Answered from
+    // the window only as a *default*, below the store, unlike the settings this
+    // client owns outright: gxWindow is applied by RestartGx after the panel
+    // has written it, so between the tick and the Okay the stored value is the
+    // truth and the window is still the old state. Asking the window first
+    // would have made RestartGx read back what it was about to set.
+    else if (n == "gxwindow") {
+        auto* svc = getLuaServices(L);
+        const bool full = (svc && svc->getFullscreen) ? svc->getFullscreen() : false;
+        lua_pushstring(L, full ? "0" : "1");
+    }
     else if (n == "uiscale") lua_pushstring(L, "1");
     else if (n == "useuiscale") lua_pushstring(L, "1");
     else if (n == "screenwidth" || n == "gxresolution") {
@@ -3555,7 +3566,31 @@ void registerSystemLuaAPI(lua_State* L) {
                 // Applying video settings restarts the graphics device on the
                 // real client. This one applies what it can as it goes and has
                 // no device to tear down.
-                {"RestartGx",                lua_ReturnNothing},
+                // RestartGx() — apply the display CVars marked `restart`.
+                //
+                // The video panel writes every changed CVar and then, if any of
+                // them wanted it, restarts the device once so they take effect
+                // together; gxWindow is one of those, so the SetCVar that
+                // precedes this is deliberately not where the change lands.
+                // A no-op here meant ticking Windowed wrote a value and left
+                // the window exactly as it was.
+                //
+                // Only gxWindow is acted on. gxResolution is a dropdown whose
+                // value format has not been read off the control here, and a
+                // resolution applied from a misread string is a window nobody
+                // can put back.
+                {"RestartGx", [](lua_State* L) -> int {
+            auto* svc = getLuaServices(L);
+            if (!svc || !svc->setFullscreen) return 0;
+            lua_getglobal(L, "GetCVar");
+            lua_pushstring(L, "gxWindow");
+            if (lua_pcall(L, 1, 1, 0) != 0) { lua_pop(L, 1); return 0; }
+            const char* windowed = lua_tostring(L, -1);
+            const bool wantFullscreen = windowed && std::string(windowed) == "0";
+            lua_pop(L, 1);
+            svc->setFullscreen(wantFullscreen);
+            return 0;
+        }},
                 {"Sound_GameSystem_RestartSoundSystem", lua_ReturnNothing},
                 // A separate render scale for the player model, which this
                 // client does not have. False disables the control rather than

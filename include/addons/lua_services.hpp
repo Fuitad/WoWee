@@ -139,6 +139,13 @@ struct LuaServices {
     std::function<bool()> getVsync;
     std::function<void(bool)> setVsync;
 
+    /// Windowed or full screen, for gxWindow — applied by RestartGx rather
+    /// than by the SetCVar that precedes it, which is the order the video
+    /// panel works in: it writes every changed CVar, then restarts the device
+    /// once so the ones marked `restart` take effect together.
+    std::function<bool()> getFullscreen;
+    std::function<void(bool)> setFullscreen;
+
     /// The barber shop's selectors, for the interface's own barber panel.
     ///
     /// Selector numbers are FrameXML's BarberShopFrameSelector IDs: 1 hair

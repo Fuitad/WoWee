@@ -538,6 +538,12 @@ bool Application::initialize() {
         luaSvc.setVsync = [uim = uiManager.get()](bool on) {
             if (uim) uim->getGameScreen().setVsync(on);
         };
+        luaSvc.getFullscreen = [uim = uiManager.get()]() -> bool {
+            return uim ? uim->getGameScreen().getFullscreen() : false;
+        };
+        luaSvc.setFullscreen = [uim = uiManager.get()](bool on) {
+            if (uim) uim->getGameScreen().setFullscreen(on);
+        };
         // Gathered once, on the first ask rather than at startup: it is a walk
         // of the whole manifest, and most sessions never open an icon picker.
         luaSvc.listIconTextures = [am = assetManager.get()]() -> const std::vector<std::string>& {
