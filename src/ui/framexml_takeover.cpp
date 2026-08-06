@@ -439,31 +439,21 @@ bool frameXmlBuiltOnDemand(std::string_view frameName) {
            frameName.rfind("DebuffButton", 0) == 0;
 }
 
-std::vector<std::string> frameXmlCandidateFrames() {
-    // The elements this branch has not taken over yet, in the order they are
-    // likely to go next. Named individually rather than derived from the check
-    // list so that adding a candidate is a deliberate act.
-    struct Candidate { UiElement element; const char* frames; };
-    // Empty for now: every element with a FrameXML equivalent worth the swap has
-    // been handed over. What is left is drawn by this client on purpose — chat,
-    // the quest log, the quest tracker — so there is nothing to report as ready.
-    // Adding the next one back is a matter of listing it here.
-    static const std::vector<Candidate> kCandidates = {};
+namespace { void appendCandidateFrames(std::vector<std::string>& out); }
 
+std::vector<std::string> frameXmlCandidateFrames() {
+    // Every element this branch has *not* taken over, so the takeover check
+    // reports whether each would have built if it had been.
+    //
+    // Derived from the check rows rather than named again here. It used to be
+    // a list of its own, "so that adding a candidate is a deliberate act", and
+    // it sat empty behind a comment saying everything worth swapping had been
+    // handed over — which stopped being true the moment thirty-three elements
+    // went behind WOWEE_FRAMEXML_UI=candidates. Now that every one of those has
+    // a check row, the deliberate act is writing that row, and one list cannot
+    // disagree with the other.
     std::vector<std::string> out;
-    for (const Candidate& c : kCandidates) {
-        if (frameXmlOwns(c.element)) continue;   // already in use, checked above
-        std::string all(c.frames);
-        size_t at = 0;
-        while (at < all.size()) {
-            const size_t sp = all.find(' ', at);
-            std::string one = all.substr(
-                at, sp == std::string::npos ? std::string::npos : sp - at);
-            if (!one.empty()) out.push_back(std::move(one));
-            if (sp == std::string::npos) break;
-            at = sp + 1;
-        }
-    }
+    appendCandidateFrames(out);
     return out;
 }
 
@@ -928,6 +918,27 @@ void reportUncheckedElements() {
                         "row — if its frames never build, nothing draws it and "
                         "nothing notices");
         }
+    }
+}
+
+/// The top-level frame of every element not currently handed over.
+///
+/// One name each rather than the whole row: this is a readiness line, and the
+/// question it answers is whether the panel exists at all. The rest of a row
+/// separates "built and empty" from "built and misplaced", which are questions
+/// for an element already in use.
+///
+/// Load-on-demand panels are skipped. Theirs do not exist until the player
+/// opens them, so reporting them as not built says nothing and would bury the
+/// ones it does say something about.
+void appendCandidateFrames(std::vector<std::string>& out) {
+    for (const Check& c : kChecks) {
+        if (c.lazy || !c.frames || !*c.frames) continue;
+        if (frameXmlOwns(c.element)) continue;   // in use, and checked already
+        std::string all(c.frames);
+        const size_t sp = all.find(' ');
+        std::string top = all.substr(0, sp == std::string::npos ? all.size() : sp);
+        if (!top.empty()) out.push_back(std::move(top));
     }
 }
 
