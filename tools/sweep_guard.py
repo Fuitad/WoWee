@@ -314,6 +314,21 @@ CHECKS = [
     ("read_never_written_check.py",
      r"^(\d+) read and never written", 0,
      "struct fields with readers and no writer"),
+    # Frames the interface declares that the emitter does not create. Runs the
+    # real emitter over each file and looks for the name in what came out,
+    # which is the one question about it that reading either side cannot
+    # settle.
+    #
+    # Zero across 172 files and 2369 frames. It matters because a dropped frame
+    # raises nothing: the handlers that touch it die on a nil index somewhere
+    # else entirely, and what the player sees is a panel that is present and
+    # does nothing — the shape of several reports this week.
+    #
+    # Needs the framexml_emit target; it says so and stops rather than
+    # reporting a clean zero it did not earn.
+    ("framexml_frame_emitted_check.py",
+     r"^(\d+) file\(s\) with frames the emitter does not create", 0,
+     "frames declared in XML that the emitter never creates"),
     # Top-level FrameXML frames named nowhere in framexml_takeover.cpp —
     # neither handed over nor suppressed.
     #
