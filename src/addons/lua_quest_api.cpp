@@ -1669,7 +1669,25 @@ static int lua_AddPreviewTalentPoints(lua_State* L) {
     // Bounded by what is already learned and the talent's own cap: a preview
     // that goes past either is one the server will refuse, and the frame draws
     // straight from these numbers.
-    const int wanted = std::clamp(staged + delta, 0, static_cast<int>(maxRank) - have);
+    int upper = static_cast<int>(maxRank) - have;
+
+    // And bounded by the points the player actually has. This was missing, so
+    // a preview could stage more than were available and go on staging them:
+    // GetUnspentTalentPoints subtracts the staged total and floors the answer
+    // at zero, which hid the overspend instead of stopping it — the counter sat
+    // at 0 while every further click still took.
+    //
+    // Counted against every staged point rather than this talent's, because the
+    // pool is shared across all three trees, and only when adding: taking a
+    // staged point back is always allowed however far past the pool it went.
+    if (delta > 0) {
+        int stagedTotal = 0;
+        for (const auto& [tid, n] : previewPoints()) { (void)tid; stagedTotal += n; }
+        const int unspent =
+            gh->getUnspentTalentPoints(gh->getActiveTalentSpec()) - stagedTotal;
+        upper = std::min(upper, staged + std::max(0, unspent));
+    }
+    const int wanted = std::clamp(staged + delta, 0, std::max(0, upper));
     staged = wanted;
     if (staged == 0) previewPoints().erase(id);
     // What makes a staged point appear: the talent frame refreshes on this
