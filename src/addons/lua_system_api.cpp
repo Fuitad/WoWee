@@ -3587,6 +3587,16 @@ void registerSystemLuaAPI(lua_State* L) {
                 // loop run once against nils, which is worse than an empty
                 // list — for anything returning a list, nothing is the right
                 // way to say there is none.
+                // The anti-aliasing dropdown, left empty on purpose. It walks
+                // its formats in threes — colourBits, depthBits, samples — so
+                // the shape is answerable, and this client has 1x/2x/4x/8x MSAA
+                // behind the same kind of index the resolution dropdown uses.
+                // What it cannot say is that MSAA is unavailable while FSR is
+                // running, which is a rule the settings panel enforces by
+                // disabling its own combo. A dropdown that offers four modes
+                // and silently applies none of them is worse than one that
+                // offers nothing, and emptying it when FSR toggles mid-session
+                // is not a state the panel expects either.
                 {"GetMultisampleFormats",    lua_ReturnNothing},
                 {"GetRefreshRates",          lua_ReturnNothing},
                 // ---- The options panels behind the game menu ----
