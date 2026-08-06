@@ -1746,8 +1746,10 @@ void GameHandler::setGuildBankTabText(uint8_t tab, const std::string& text) {
 }
 
 void GameHandler::channelModeration(Opcode op, const std::string& channelName,
-                                    const std::string& targetName) {
-    if (socialHandler_) socialHandler_->channelModeration(op, channelName, targetName);
+                                    const std::string& targetName,
+                                    bool allowEmptyTarget) {
+    if (socialHandler_) socialHandler_->channelModeration(op, channelName, targetName,
+                                                         allowEmptyTarget);
 }
 
 void GameHandler::promoteToLeader(uint64_t guid) {

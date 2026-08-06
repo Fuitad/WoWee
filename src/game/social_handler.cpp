@@ -1766,9 +1766,13 @@ void SocialHandler::setGuildBankTabText(uint8_t tab, const std::string& text) {
 }
 
 void SocialHandler::channelModeration(Opcode op, const std::string& channelName,
-                                     const std::string& targetName) {
+                                     const std::string& targetName,
+                                     bool allowEmptyTarget) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    if (channelName.empty() || targetName.empty()) return;
+    // An empty second string is meaningless for the moderation commands — there
+    // is no player called nothing — but it is how a channel password is
+    // cleared, so that one caller says it means it.
+    if (channelName.empty() || (targetName.empty() && !allowEmptyTarget)) return;
     auto packet = ChannelModerationPacket::build(op, channelName, targetName);
     owner_.getSocket()->send(packet);
 }

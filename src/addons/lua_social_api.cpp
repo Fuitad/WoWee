@@ -2680,7 +2680,17 @@ void registerSocialLuaAPI(lua_State* L) {
                 gh->channelModeration(game::Opcode::CMSG_CHANNEL_UNMODERATOR, ch, who);
             return 0;
         }},
-                {"SetChannelOwner",           [](lua_State* L) -> int { (void)L; return 0; }},
+                // SetChannelOwner(channel, name) — the same two strings the
+                // eight moderation commands send, on an opcode that was mapped
+                // and never built.
+                {"SetChannelOwner", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* ch = luaL_optstring(L, 1, "");
+            const char* who = luaL_optstring(L, 2, "");
+            if (gh && ch && who && *ch && *who)
+                gh->channelModeration(game::Opcode::CMSG_CHANNEL_SET_OWNER, ch, who);
+            return 0;
+        }},
                 {"BNSetToonBlocked",          [](lua_State* L) -> int { (void)L; return 0; }},
 
                 // ---- What the summon and resurrect popups read ----
@@ -2978,7 +2988,18 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"DisplayChannelOwner",      [](lua_State* L) -> int { (void)L; return 0; }},
                 {"ListChannels",             [](lua_State* L) -> int { (void)L; return 0; }},
                 {"ListChannelByName",        [](lua_State* L) -> int { (void)L; return 0; }},
-                {"SetChannelPassword",       [](lua_State* L) -> int { (void)L; return 0; }},
+                // SetChannelPassword(channel, password) — the same shape again,
+                // and the one place an empty second string is meant: sending
+                // no password is how a channel's password is taken off.
+                {"SetChannelPassword", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* ch = luaL_optstring(L, 1, "");
+            const char* pass = luaL_optstring(L, 2, "");
+            if (gh && ch && *ch)
+                gh->channelModeration(game::Opcode::CMSG_CHANNEL_PASSWORD, ch,
+                                      pass ? pass : "", /*allowEmptyTarget=*/true);
+            return 0;
+        }},
                 {"ArenaTeamInviteByName",    [](lua_State* L) -> int { (void)L; return 0; }},
                 {"ArenaTeamLeave",           [](lua_State* L) -> int { (void)L; return 0; }},
                 {"ArenaTeamSetLeaderByName", [](lua_State* L) -> int { (void)L; return 0; }},

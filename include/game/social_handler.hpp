@@ -268,7 +268,8 @@ public:
     const std::string& getPendingInviterName() const { return pendingInviterName; }
     void setGuildBankTabText(uint8_t tab, const std::string& text);
     void channelModeration(Opcode op, const std::string& channelName,
-                           const std::string& targetName);
+                           const std::string& targetName,
+                           bool allowEmptyTarget = false);
     void promoteToLeader(uint64_t guid);
     void uninvitePlayer(const std::string& playerName);
     void setLootMethod(uint8_t method, uint64_t masterGuid, uint8_t threshold);

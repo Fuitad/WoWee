@@ -821,7 +821,8 @@ public:
     /// Channel moderation: invite, kick, ban, unban, mute, unmute and the
     /// moderator pair, which are one packet shape with eight opcodes.
     void channelModeration(Opcode op, const std::string& channelName,
-                           const std::string& targetName);
+                           const std::string& targetName,
+                           bool allowEmptyTarget = false);
 
     /// Hand party leadership to another member.
     void promoteToLeader(uint64_t guid);
