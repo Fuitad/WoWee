@@ -2953,6 +2953,10 @@ void InventoryHandler::auctionSearch(const std::string& name, uint8_t levelMin, 
                                                   itemClass, itemSubClass, quality, usableOnly, 0,
                                                   sort);
     owner_.getSocket()->send(packet);
+    // Blocks the Search button until the answer comes back. The result carries
+    // the server's own wait and replaces this with it, so five seconds is only
+    // what applies while a reply is outstanding — and on Classic and TBC, whose
+    // list result ends before that field.
     auctionSearchDelayTimer_ = 5.0f;
 }
 
@@ -3044,6 +3048,21 @@ void InventoryHandler::handleAuctionListResult(network::Packet& packet) {
     // WotLK 7 (PRISMATIC_ENCHANTMENT_SLOT joined the inspected range in 3.x).
     const int enchantSlots = isClassicLikeExpansion() ? 1 : (isPreWotlk() ? 6 : 7);
     if (!AuctionListResultParser::parse(packet, result, enchantSlots)) return;
+
+    // How long before another search may be sent — the server's own figure,
+    // which every list result carries and which was parsed and then dropped.
+    // AzerothCore's AUCTION_SEARCH_DELAY is 300, in milliseconds; the guess it
+    // replaces was five whole seconds, so the Search button sat dead for about
+    // seventeen times longer than the server ever asked for, and paging
+    // through results crawled.
+    //
+    // A zero means the field was not sent at all rather than "no wait" —
+    // Classic and TBC end the packet before it — so the old guess stays as the
+    // floor for those, where an unthrottled client is what the server would
+    // have to defend itself against.
+    if (result.searchDelay > 0) {
+        auctionSearchDelayTimer_ = static_cast<float>(result.searchDelay) / 1000.0f;
+    }
 
     if (pendingAuctionTarget_ == AuctionResultTarget::OWNER) {
         auctionOwnerResults_ = std::move(result);

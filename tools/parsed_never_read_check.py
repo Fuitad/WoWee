@@ -83,6 +83,13 @@ EXPECTED = {
     # what comes back agree with each other. It becomes a real finding the day
     # the registry carries variants.
     ("TextEmoteData", "emoteNum"): "no text variants to choose between",
+    # Read correctly now — the condition was inverted and the field was taken
+    # exactly when it was absent — but there is nothing behind it on this
+    # server. AzerothCore's only four-argument SendAuctionCommandResult passes
+    # a literal zero and the parameter defaults to zero everywhere else, so a
+    # reader would have nothing but zero to report. In the protocol at large it
+    # says a bid was outbid the moment it was placed.
+    ("AuctionCommandResult", "bidError"): "always zero as AzerothCore sends it",
 }
 
 

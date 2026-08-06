@@ -782,7 +782,13 @@ bool AuctionCommandResultParser::parse(network::Packet& packet, AuctionCommandRe
     data.auctionId = packet.readUInt32();
     data.action = packet.readUInt32();
     data.errorCode = packet.readUInt32();
-    if (data.errorCode != 0 && data.action == 2 && packet.hasRemaining(4)) {
+    // The fourth word is conditional, and the condition was inverted. The
+    // server writes it under `if (!ErrorCode && Action)` — on *success*, for
+    // any action but the zeroth — while this read it on failure and only for a
+    // bid. The two conditions never overlap, so the field was read exactly
+    // when it was absent and skipped exactly when it was there. Only the
+    // remaining-size guard kept that from reading off the end.
+    if (data.errorCode == 0 && data.action != 0 && packet.hasRemaining(4)) {
         data.bidError = packet.readUInt32();
     }
     return true;
