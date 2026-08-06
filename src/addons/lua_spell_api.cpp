@@ -119,6 +119,40 @@ static int lua_IsSpellInRange(lua_State* L) {
 
 // UnitIsVisible(unit) → boolean (entity exists in the client's entity manager)
 
+/// Whether the player's class can remove a debuff of this dispel type.
+///
+/// The "RAID" filter FrameXML passes on party frames means "only what I can do
+/// something about", and it is what showDispelDebuffs turns on. Without it the
+/// filter string was accepted and ignored, so the frames showed every debuff
+/// however little the healer could do — and answering the CVar without this
+/// would have claimed a filter that does not filter.
+///
+/// Dispel types are Spell.dbc's: 1 Magic, 2 Curse, 3 Disease, 4 Poison. The
+/// class table is 3.3.5's, and it is about what the class can remove from a
+/// *friendly* target rather than what it can purge from an enemy.
+static bool classCanDispel(uint8_t classId, uint8_t dispelType) {
+    if (dispelType == 0) return false;
+    constexpr uint8_t kMagic = 1, kCurse = 2, kDisease = 3, kPoison = 4;
+    switch (classId) {
+        case 2:  // Paladin — Cleanse
+            return dispelType == kMagic || dispelType == kPoison || dispelType == kDisease;
+        case 5:  // Priest — Dispel Magic, Abolish Disease
+            return dispelType == kMagic || dispelType == kDisease;
+        case 7:  // Shaman — Cure Toxins, Cleanse Spirit at 51
+            return dispelType == kCurse || dispelType == kPoison || dispelType == kDisease;
+        case 8:  // Mage — Remove Curse
+            return dispelType == kCurse;
+        case 11: // Druid — Remove Curse, Abolish Poison
+            return dispelType == kCurse || dispelType == kPoison;
+        case 6:  // Death Knight — the pet's Leech, and unholy's disease removal
+            return dispelType == kDisease;
+        case 9:  // Warlock — the Felhunter's Devour Magic
+            return dispelType == kMagic;
+        default: // Warrior, Hunter, Rogue: nothing
+            return false;
+    }
+}
+
 static int lua_UnitAura(lua_State* L, bool wantBuff) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnNil(L); }
@@ -139,12 +173,29 @@ static int lua_UnitAura(lua_State* L, bool wantBuff) {
     }
     if (!auras) { return luaReturnNil(L); }
 
+    // "RAID" on a debuff means only what this character can remove. The index
+    // counts into the filtered list, so the test has to come before the count
+    // — filtering after it would answer the wrong aura for every index past
+    // the first one skipped.
+    const char* filterArg = luaL_optstring(L, 3, "");
+    bool dispellableOnly = false;
+    if (!wantBuff && filterArg) {
+        std::string f(filterArg);
+        for (char& c : f) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        dispellableOnly = f.find("RAID") != std::string::npos;
+    }
+    const uint8_t playerClass = gh->getPlayerClass();
+
     // Filter to buffs or debuffs and find the Nth one
     int found = 0;
     for (const auto& aura : *auras) {
         if (aura.isEmpty() || aura.spellId == 0) continue;
         bool isDebuff = (aura.flags & 0x80) != 0;
         if (wantBuff ? isDebuff : !isDebuff) continue;
+        if (dispellableOnly &&
+            !classCanDispel(playerClass, gh->getSpellDispelType(aura.spellId))) {
+            continue;
+        }
         found++;
         if (found == index) {
             // Return: name, rank, icon, count, debuffType, duration, expirationTime, ...spellId

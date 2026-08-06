@@ -535,6 +535,21 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // as off by accident and reading as off on purpose look identical from
     // Lua and are not the same thing to whoever reads this next.
     else if (n == "equipmentmanager") lua_pushstring(L, "0");
+    // On, which is the default interfaceoptionsframe itself declares for it:
+    // `["SHOW_DISPELLABLE_DEBUFFS"] = { default = "1", ... }`. Answering
+    // nothing read as off and contradicted that, so the party frames showed
+    // every debuff on a member rather than the ones this character can lift.
+    //
+    // Answered only now that it drives something. UnitDebuff took the "RAID"
+    // filter FrameXML passes and ignored it, so turning this on before would
+    // have claimed a filter that does not filter — which is worse than the
+    // wrong default, because it reads as working.
+    else if (n == "showdispeldebuffs") lua_pushstring(L, "1");
+    // Off, also as declared. It asks the same "RAID" filter of *buffs* — only
+    // the ones this character could cast — and that half is not implemented,
+    // so this stays where the real client leaves it rather than being turned
+    // on into a filter that would not filter.
+    else if (n == "showcastablebuffs") lua_pushstring(L, "0");
     // The numbers on a unit frame's bars. A stock 3.3.5 client keeps these off
     // and shows them on mouseover; on this one they are wanted permanently,
     // which is what the Status Text interface option turns on.
