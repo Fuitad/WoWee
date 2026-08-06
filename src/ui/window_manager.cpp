@@ -2643,6 +2643,12 @@ void WindowManager::renderTaxiWindow(game::GameHandler& gameHandler) {
 
 void WindowManager::renderLogoutCountdown(game::GameHandler& gameHandler) {
     if (!gameHandler.isLoggingOut()) return;
+    // FrameXML counts the same seconds down. uiparent.lua raises the CAMP and
+    // QUIT popups from PLAYER_CAMPING and PLAYER_QUITING, both of which this
+    // client fires from social_handler, and "dialogs" has been handed over
+    // since the branch started — so every /logout put two countdowns on
+    // screen, one above the other.
+    if (frameXmlOwns(UiElement::Dialogs)) return;
 
     auto* window = services_.window;
     float screenW = window ? static_cast<float>(window->getWidth())  : 1280.0f;
