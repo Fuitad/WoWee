@@ -317,6 +317,23 @@ CHECKS = [
     ("tools_run_check.py",
      r"^(\d+) that cannot run", 0,
      "sweeps that cannot run at all"),
+    # GameTooltip setters that answer with a no-op, so the tooltip is blank.
+    # A tooltip setter is the whole content of a tooltip: no error, no partial
+    # result, just an empty box on one panel while every other hover works.
+    # Eight on 2026-08-05, four fixed — SetTradeTargetItem (its own twin was
+    # written and it was not), SetShapeshift (the stance bar, on screen the
+    # whole time for five classes), SetMerchantCostItem, SetLFGDungeonReward.
+    # The four left have nothing behind them to print; each is named in the
+    # tool.
+    ("tooltip_setter_check.py",
+     r"^(\d+) answered by the no-op fallback", 4,
+     "tooltip setters that leave the tooltip blank"),
+    # The loud half of the same question, and the one that must stay zero: a
+    # tooltip setter that is neither implemented nor allowlisted raises and
+    # takes the OnEnter with it.
+    ("tooltip_setter_check.py",
+     r"^(\d+) neither implemented nor allowlisted", 0,
+     "tooltip setters that raise"),
     ("chat_type_coverage_check.py",
      r"^(\d+) chat type\(s\) SendChatMessage does not map", 1,
      "chat types FrameXML can send that SendChatMessage does not map"),

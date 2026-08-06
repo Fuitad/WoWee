@@ -4870,8 +4870,8 @@ void LuaEngine::registerCoreAPI() {
         // SetHyperlinksEnabled is a real binding now, applied after this set.
         "SetHyperlinkCompareItem=1,SetID=1,\n"
         "SetInventoryItem=1,SetJustifyH=1,SetJustifyV=1,SetLFGCompletionReward=1,\n"
-        "SetLFGDungeonReward=1,SetLight=1,SetMaxBytes=1,\n"
-        "SetMaxLetters=1,SetMerchantCostItem=1,\n"
+        "SetLight=1,SetMaxBytes=1,\n"
+        "SetMaxLetters=1,\n"
         "SetMinMaxValues=1,SetModel=1,SetModelScale=1,\n"
         "SetMovable=1,SetMultiLine=1,SetNormalFontObject=1,SetNormalTexture=1,\n"
         "SetNumber=1,SetNumeric=1,SetOwner=1,SetParent=1,SetPetAction=1,\n"
@@ -4880,7 +4880,7 @@ void LuaEngine::registerCoreAPI() {
         "SetQuestLogRewardSpell=1,\n"
         "SetRotation=1,SetScale=1,SetScript=1,\n"
         "SetScrollChild=1,SetSelection=1,SetSequence=1,\n"
-        "SetSequenceTime=1,SetShadowOffset=1,SetShapeshift=1,SetShown=1,SetSize=1,\n"
+        "SetSequenceTime=1,SetShadowOffset=1,SetShown=1,SetSize=1,\n"
         "SetSpacing=1,SetSpell=1,SetSpellByID=1,SetStartDelay=1,SetStatusBarColor=1,\n"
         // Tooltip setters for things this client cannot describe yet. They
         // belong here rather than nowhere: a name the metatable does not answer
@@ -4898,7 +4898,7 @@ void LuaEngine::registerCoreAPI() {
         "SetScrollOffset=1,RegisterAllEvents=1,\n"
         "SetStatusBarTexture=1,SetTexCoord=1,SetText=1,SetTextHeight=1,\n"
         "SetTexture=1,SetToplevel=1,\n"
-        "SetTradeTargetItem=1,SetUIPanel=1,SetUnit=1,\n"
+        "SetUIPanel=1,SetUnit=1,\n"
         "SetUnitBuff=1,SetUnitDebuff=1,SetValue=1,SetValueStep=1,\n"
         "SetVertexColor=1,SetVerticalScroll=1,SetWidth=1,SetZoom=1,Show=1,ShowUIPanel=1,\n"
         "ShowUIPanelFailed=1,StartMovie=1,StartMoving=1,Stop=1,\n"
@@ -5574,6 +5574,49 @@ void LuaEngine::registerCoreAPI() {
         "    if link then return self:SetHyperlink(link) end\n"
         "    local name = GetTradePlayerItemInfo(index)\n"
         "    if name then self:SetText(name, 1, 1, 1) end\n"
+        "end\n"
+        // The other half of the trade window. SetTradePlayerItem was written
+        // and its twin was not, so hovering your own offer named the item and
+        // hovering theirs said nothing — an asymmetry rather than a decision.
+        "function __WoweeFrameMT:SetTradeTargetItem(index)\n"
+        "    self:ClearLines()\n"
+        "    local link = GetTradeTargetItemLink and GetTradeTargetItemLink(index)\n"
+        "    if link then return self:SetHyperlink(link) end\n"
+        "    local name = GetTradeTargetItemInfo(index)\n"
+        "    if name then self:SetText(name, 1, 1, 1) end\n"
+        "end\n"
+        // The stance bar's tooltip. Every druid, warrior, rogue, priest and
+        // death knight has this bar on screen the whole time, and hovering a
+        // form said nothing at all.
+        "function __WoweeFrameMT:SetShapeshift(index)\n"
+        "    self:ClearLines()\n"
+        "    local _, name, isActive = GetShapeshiftFormInfo(index)\n"
+        "    if not name then return end\n"
+        "    self:SetText(name, 1, 1, 1)\n"
+        "    if isActive then self:AddLine(ACTIVE_PETS or 'Active', 0.5, 0.5, 0.5) end\n"
+        "end\n"
+        // What a vendor wants besides coin — badges, marks, a token. The
+        // money frame draws one of these per cost item and the tooltip is the
+        // only place the item is named.
+        "function __WoweeFrameMT:SetMerchantCostItem(index, costIndex)\n"
+        "    self:ClearLines()\n"
+        "    local _, value, link = GetMerchantItemCostItem(index, costIndex)\n"
+        "    if link then\n"
+        "        self:SetHyperlink(link)\n"
+        "        if value and value > 1 then self:AddLine('Required: ' .. value, 1, 1, 1) end\n"
+        "    end\n"
+        "end\n"
+        // The reward icons on the dungeon-ready popup.
+        // GetLFGDungeonRewardInfo answers a name, an icon and a count, so
+        // this can say what the item is; the completion-reward twin cannot,
+        // because GetLFGCompletionRewardItem's contract is a texture and a
+        // quantity and there is no name behind it.
+        "function __WoweeFrameMT:SetLFGDungeonReward(dungeonId, rewardIndex)\n"
+        "    self:ClearLines()\n"
+        "    local name, _, count = GetLFGDungeonRewardInfo(dungeonId, rewardIndex)\n"
+        "    if not name or name == '' then return end\n"
+        "    self:SetText(name, 1, 1, 1)\n"
+        "    if count and count > 1 then self:AddLine('x' .. count, 1, 1, 1) end\n"
         "end\n"
         "function __WoweeFrameMT:SetUnitAura(unit, index, filter)\n"
         "    self:ClearLines()\n"
