@@ -5830,6 +5830,25 @@ void LuaEngine::registerCoreAPI() {
         "    local name = GetTradeTargetItemInfo(index)\n"
         "    if name then self:SetText(name, 1, 1, 1) end\n"
         "end\n"
+        // The stance bar's cooldown swirl. Written here rather than in C
+        // because both halves already exist as bindings and neither is where
+        // the other lives: the form tables are in lua_unit_api and the cooldown
+        // arithmetic — start and duration wound back so the sweep does not
+        // restart every time the bar asks — is in lua_spell_api. A third copy
+        // of either is how the two would start to disagree.
+        //
+        // GetSpellCooldown takes a name, which is what makes this work across
+        // ranks: every rank of Stealth or Travel Form shares one name, and the
+        // form tables carry no spell id to look up instead.
+        //
+        // It answered a flat no-cooldown before, so a stance swapped on a
+        // cooldown showed none — and the shapeshift bar is on screen the whole
+        // time for five classes.
+        "function GetShapeshiftFormCooldown(index)\n"
+        "    local _, name = GetShapeshiftFormInfo(index)\n"
+        "    if not name then return 0, 0, 1 end\n"
+        "    return GetSpellCooldown(name)\n"
+        "end\n"
         // The stance bar's tooltip. Every druid, warrior, rogue, priest and
         // death knight has this bar on screen the whole time, and hovering a
         // form said nothing at all.

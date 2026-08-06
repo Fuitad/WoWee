@@ -1157,11 +1157,11 @@ void registerSpellLuaAPI(lua_State* L) {
             }
             return 0;
         }},
-                {"GetShapeshiftFormCooldown", [](lua_State* L) -> int {
-            // No per-form cooldown tracking — return no cooldown
-            lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 1);
-            return 3;
-        }},
+                // GetShapeshiftFormCooldown is defined in the bootstrap, over
+                // GetShapeshiftFormInfo and GetSpellCooldown, because those are
+                // in two different files and it needs both. A stub here would
+                // be dead — the bootstrap runs after these are registered — and
+                // framexml_lua_override_check exists to catch exactly that.
                 {"GetShapeshiftForm", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             lua_pushnumber(L, gh ? gh->getShapeshiftFormId() : 0);
