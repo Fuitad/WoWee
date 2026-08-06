@@ -1810,7 +1810,9 @@ public:
 
     // ---- Loot ----
     void lootTarget(uint64_t guid);
-    void lootItem(uint8_t slotIndex);
+    void lootItem(uint8_t slotIndex, bool confirmed = false);
+    void confirmPendingLoot();
+    void confirmBindOnUse();
     void lootMoney();
     void cancelTempEnchantment(uint8_t handIndex);
     void closeLoot();
@@ -2701,8 +2703,8 @@ public:
     bool equipWouldBindFromBag(int bagIndex, int slotIndex) const;
     void equipPendingItem();
     void cancelPendingEquip();
-    void useItemBySlot(int backpackIndex);
-    void useItemInBag(int bagIndex, int slotIndex);
+    void useItemBySlot(int backpackIndex, bool confirmed = false);
+    void useItemInBag(int bagIndex, int slotIndex, bool confirmed = false);
 
     // Item-targeted item use: sharpening stones, weightstones and weapon oils enchant
     // another item, so using one arms a targeting cursor instead of casting immediately.

@@ -220,7 +220,16 @@ void WindowManager::renderLootWindow(game::GameHandler& gameHandler,
                 snprintf(popupId, sizeof(popupId), "##MLGive%d", lootSlotClicked);
                 ImGui::OpenPopup(popupId);
             } else {
-                gameHandler.lootItem(static_cast<uint8_t>(lootSlotClicked));
+                // Taken as already confirmed: this window has no bind warning
+                // to show. The handler raises LOOT_BIND_CONFIRM for a
+                // bind-on-pickup item and holds the request until it is
+                // answered, and there is nothing here to answer it — the click
+                // would do nothing at all.
+                //
+                // So the warning is on the interface's path only, which is the
+                // one being moved to. Closing that gap means giving this window
+                // a confirm of its own, the way it already has one for equip.
+                gameHandler.lootItem(static_cast<uint8_t>(lootSlotClicked), true);
             }
         }
 
@@ -262,7 +271,7 @@ void WindowManager::renderLootWindow(game::GameHandler& gameHandler,
         if (hasItems) {
             if (ImGui::Button("Loot All", ImVec2(-1, 0))) {
                 for (const auto& item : loot.items) {
-                    gameHandler.lootItem(item.slotIndex);
+                    gameHandler.lootItem(item.slotIndex, true);
                 }
             }
             ImGui::Spacing();

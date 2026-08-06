@@ -83,7 +83,6 @@ public:
 
     // ---- Loot ----
     void lootTarget(uint64_t targetGuid);
-    void lootItem(uint8_t slotIndex);
     /// Take the coin on the corpse. Its own request, with no slot:
     /// money is not one of the numbered loot slots on the wire even
     /// though the interface shows it as one.
@@ -186,10 +185,26 @@ public:
         int     slot    = 0;
         uint8_t wireSlot = 0;   ///< what the event carried, for the reply
     };
+    // ---- Looting, and the prompt before something binds ----
+    //
+    // Same shape as the equip prompt above and for the same reason: neither
+    // interface warned before taking a bind-on-pickup item.
+    void lootItem(uint8_t slotIndex, bool confirmed = false);
+    /// Send the loot request that was held back. The dialog passes the slot it
+    /// was shown for, but only one can be waiting, so the held one is enough —
+    /// and going back through lootItem with the slot would raise the prompt
+    /// again, which is a loop rather than a confirmation.
+    void confirmPendingLoot();
+
+    /// Send the use that was held back by the bind-on-use prompt. USE_BIND
+    /// carries no slot at all — FrameXML shows it and calls this with nothing —
+    /// so the held request is the only record of what was being used.
+    void confirmBindOnUse();
+
     void equipPendingItem();
     void cancelPendingEquip();
-    void useItemBySlot(int backpackIndex);
-    void useItemInBag(int bagIndex, int slotIndex);
+    void useItemBySlot(int backpackIndex, bool confirmed = false);
+    void useItemInBag(int bagIndex, int slotIndex, bool confirmed = false);
 
     // ---- Item-targeted item use (sharpening stones, weightstones, weapon oils) ----
     /// True while a used item is waiting for the player to pick the item it applies to.
@@ -434,7 +449,8 @@ private:
 
     // Resolves the item's on-use spell, then either parks the use for item
     // targeting or sends it immediately.
-    void dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t itemGuid, const ItemDef& item);
+    void dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t itemGuid,
+                         const ItemDef& item, bool confirmed = false);
     void sendUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t itemGuid, uint32_t spellId,
                      uint64_t targetGuid, uint64_t itemTargetGuid);
 
@@ -519,6 +535,19 @@ private:
     // ---- Mail state ----
     SocketSession socketSession_;
     PendingEquip pendingEquip_;
+    /// The use held back waiting for an answer. Kept whole rather than as a
+    /// slot pair: the item may be gone from that slot by the time the player
+    /// answers, and re-reading it would use whatever moved into its place.
+    struct PendingUse {
+        bool     active = false;
+        uint8_t  wowBag = 0;
+        uint8_t  wowSlot = 0;
+        uint64_t itemGuid = 0;
+        ItemDef  item;
+    };
+    PendingUse pendingUse_;
+    bool pendingLootActive_ = false;
+    uint8_t pendingLootSlot_ = 0;
     bool mailboxOpen_ = false;
     uint64_t mailboxGuid_ = 0;
     std::vector<MailMessage> mailInbox_;

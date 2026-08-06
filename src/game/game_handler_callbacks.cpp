@@ -2596,8 +2596,16 @@ void GameHandler::lootTarget(uint64_t guid) {
     if (inventoryHandler_) inventoryHandler_->lootTarget(guid);
 }
 
-void GameHandler::lootItem(uint8_t slotIndex) {
-    if (inventoryHandler_) inventoryHandler_->lootItem(slotIndex);
+void GameHandler::lootItem(uint8_t slotIndex, bool confirmed) {
+    if (inventoryHandler_) inventoryHandler_->lootItem(slotIndex, confirmed);
+}
+
+void GameHandler::confirmPendingLoot() {
+    if (inventoryHandler_) inventoryHandler_->confirmPendingLoot();
+}
+
+void GameHandler::confirmBindOnUse() {
+    if (inventoryHandler_) inventoryHandler_->confirmBindOnUse();
 }
 
 void GameHandler::lootMoney() {
@@ -3240,12 +3248,12 @@ void GameHandler::splitItem(uint8_t srcBag, uint8_t srcSlot, uint8_t count) {
     if (inventoryHandler_) inventoryHandler_->splitItem(srcBag, srcSlot, count);
 }
 
-void GameHandler::useItemBySlot(int backpackIndex) {
-    if (inventoryHandler_) inventoryHandler_->useItemBySlot(backpackIndex);
+void GameHandler::useItemBySlot(int backpackIndex, bool confirmed) {
+    if (inventoryHandler_) inventoryHandler_->useItemBySlot(backpackIndex, confirmed);
 }
 
-void GameHandler::useItemInBag(int bagIndex, int slotIndex) {
-    if (inventoryHandler_) inventoryHandler_->useItemInBag(bagIndex, slotIndex);
+void GameHandler::useItemInBag(int bagIndex, int slotIndex, bool confirmed) {
+    if (inventoryHandler_) inventoryHandler_->useItemInBag(bagIndex, slotIndex, confirmed);
 }
 
 bool GameHandler::isAwaitingItemTarget() const {

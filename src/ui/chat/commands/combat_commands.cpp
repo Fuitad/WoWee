@@ -290,10 +290,10 @@ public:
             iss >> bagNum >> slotNum;
             if (!iss.fail() && slotNum >= 1) {
                 if (bagNum == 0) {
-                    ctx.gameHandler.useItemBySlot(slotNum - 1);
+                    ctx.gameHandler.useItemBySlot(slotNum - 1, true);
                     return {};
                 } else if (bagNum >= 1 && bagNum <= game::Inventory::NUM_BAG_SLOTS) {
-                    ctx.gameHandler.useItemInBag(bagNum - 1, slotNum - 1);
+                    ctx.gameHandler.useItemInBag(bagNum - 1, slotNum - 1, true);
                     return {};
                 }
             }
@@ -326,7 +326,7 @@ public:
             std::string nameLow = info->name;
             for (char& c : nameLow) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
             if (nameLow == useArgLower) {
-                ctx.gameHandler.useItemBySlot(s);
+                ctx.gameHandler.useItemBySlot(s, true);
                 found = true;
             }
         }
@@ -340,7 +340,7 @@ public:
                 std::string nameLow = info->name;
                 for (char& c : nameLow) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
                 if (nameLow == useArgLower) {
-                    ctx.gameHandler.useItemInBag(b, s);
+                    ctx.gameHandler.useItemInBag(b, s, true);
                     found = true;
                 }
             }

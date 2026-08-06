@@ -3051,7 +3051,9 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
                                 info->itemClass == 1)) {
                         gameHandler_->openItemBySlot(backpackIndex);
                     } else {
-                        gameHandler_->useItemBySlot(backpackIndex);
+                        // No bind warning in this window — see the loot click in
+                        // window_manager.cpp for why that is said here.
+                        gameHandler_->useItemBySlot(backpackIndex, true);
                     }
                 }
             } else if (kind == SlotKind::BACKPACK && isBagSlot) {
@@ -3081,7 +3083,7 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
                                 info->itemClass == 1)) {
                         gameHandler_->openItemInBag(bagIndex, bagSlotIndex);
                     } else {
-                        gameHandler_->useItemInBag(bagIndex, bagSlotIndex);
+                        gameHandler_->useItemInBag(bagIndex, bagSlotIndex, true);
                     }
                 }
             } else if (isKeyringSlot) {

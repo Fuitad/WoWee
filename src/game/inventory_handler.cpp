@@ -872,10 +872,42 @@ void InventoryHandler::lootTarget(uint64_t targetGuid) {
     owner_.getSocket()->send(packet);
 }
 
-void InventoryHandler::lootItem(uint8_t slotIndex) {
+void InventoryHandler::lootItem(uint8_t slotIndex, bool confirmed) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+
+    if (!confirmed) {
+        // Bind-on-pickup, and the warning neither interface gave. The slot the
+        // event carries is the one on screen, not the server's: uiparent.lua
+        // answers it with GetLootSlotInfo, which counts the coin as a slot of
+        // its own and the items after it.
+        const auto& loot = owner_.getCurrentLoot();
+        int display = (loot.gold > 0) ? 1 : 0;
+        for (const auto& item : loot.items) {
+            ++display;
+            if (item.slotIndex != slotIndex) continue;
+            const auto* info = owner_.getItemInfo(item.itemId);
+            if (info && info->valid && info->bindType == 1) {
+                pendingLootActive_ = true;
+                pendingLootSlot_ = slotIndex;
+                if (owner_.addonEventCallbackRef())
+                    owner_.addonEventCallbackRef()("LOOT_BIND_CONFIRM",
+                                                   {std::to_string(display)});
+                return;
+            }
+            break;
+        }
+    }
+
+    pendingLootActive_ = false;
     auto packet = AutostoreLootItemPacket::build(slotIndex);
     owner_.getSocket()->send(packet);
+}
+
+void InventoryHandler::confirmPendingLoot() {
+    if (!pendingLootActive_) return;
+    const uint8_t slot = pendingLootSlot_;
+    pendingLootActive_ = false;
+    lootItem(slot, true);
 }
 
 void InventoryHandler::lootMoney() {
@@ -1477,10 +1509,27 @@ void InventoryHandler::cancelPendingEquip() {
 // Spells that enchant another item (sharpening stones, weightstones, weapon oils)
 // cannot be sent immediately: they need the target item's GUID, so the use is
 // parked and completed by completeItemUseOnItem() once the player picks a target.
+void InventoryHandler::confirmBindOnUse() {
+    const PendingUse pending = pendingUse_;
+    pendingUse_ = PendingUse{};
+    if (!pending.active) return;
+    dispatchUseItem(pending.wowBag, pending.wowSlot, pending.itemGuid, pending.item, true);
+}
+
 void InventoryHandler::dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t itemGuid,
-                                       const ItemDef& item) {
+                                       const ItemDef& item, bool confirmed) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     if (owner_.isRestoring()) owner_.cancelCast();
+
+    // Bind-on-use, and not yet bound. Same warning as the equip prompt, one
+    // step earlier: using the item is what binds it.
+    if (!confirmed && item.bindType == 3 && !item.soulbound) {
+        pendingUse_ = PendingUse{true, wowBag, wowSlot, itemGuid, item};
+        if (owner_.addonEventCallbackRef())
+            owner_.addonEventCallbackRef()("USE_BIND_CONFIRM", {});
+        return;
+    }
+
     if (itemGuid == 0) {
         LOG_WARNING("useItem: itemGuid=0 for item='", item.name, "' entry=", item.itemId,
                     " — cannot use");
@@ -1594,7 +1643,7 @@ void InventoryHandler::completeItemUseOnItem(uint64_t targetItemGuid) {
     sendUseItem(pending.bag, pending.slot, pending.itemGuid, pending.spellId, 0, targetItemGuid);
 }
 
-void InventoryHandler::useItemBySlot(int backpackIndex) {
+void InventoryHandler::useItemBySlot(int backpackIndex, bool confirmed) {
     if (backpackIndex < 0 || backpackIndex >= owner_.inventoryRef().getBackpackSize()) return;
     const auto& slot = owner_.inventoryRef().getBackpackSlot(backpackIndex);
     if (slot.empty()) return;
@@ -1605,10 +1654,10 @@ void InventoryHandler::useItemBySlot(int backpackIndex) {
     }
 
     dispatchUseItem(0xFF, static_cast<uint8_t>(Inventory::NUM_EQUIP_SLOTS + backpackIndex),
-                    itemGuid, slot.item);
+                    itemGuid, slot.item, confirmed);
 }
 
-void InventoryHandler::useItemInBag(int bagIndex, int slotIndex) {
+void InventoryHandler::useItemInBag(int bagIndex, int slotIndex, bool confirmed) {
     if (bagIndex < 0 || bagIndex >= owner_.inventoryRef().NUM_BAG_SLOTS) return;
     if (slotIndex < 0 || slotIndex >= owner_.inventoryRef().getBagSize(bagIndex)) return;
     const auto& slot = owner_.inventoryRef().getBagSlot(bagIndex, slotIndex);
@@ -1630,7 +1679,7 @@ void InventoryHandler::useItemInBag(int bagIndex, int slotIndex) {
              " itemGuid=0x", std::hex, itemGuid, std::dec);
 
     dispatchUseItem(static_cast<uint8_t>(Inventory::FIRST_BAG_EQUIP_SLOT + bagIndex),
-                    static_cast<uint8_t>(slotIndex), itemGuid, slot.item);
+                    static_cast<uint8_t>(slotIndex), itemGuid, slot.item, confirmed);
 }
 
 void InventoryHandler::openItemBySlot(int backpackIndex) {

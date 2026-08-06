@@ -3233,12 +3233,16 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetLootSlotLink",     lua_GetLootSlotLink},
                 {"LootSlot",            lua_LootSlot},
                 // ConfirmLootSlot(slot) — the Accept on "this will bind to
-                // you". The dialog is raised from LOOT_BIND_CONFIRM and its
-                // button asks for the same slot again; the server takes the
-                // repeat as the confirmation. Unbound, the prompt appeared and
-                // its Accept raised, so a bind-on-pickup item could be seen and
-                // not taken.
-                {"ConfirmLootSlot",     lua_LootSlot},
+                // you", raised from LOOT_BIND_CONFIRM.
+                //
+                // Not LootSlot again: LootSlot is what raises the prompt, so
+                // answering it that way asks the same question forever. The
+                // held request is sent instead, and the slot the dialog passes
+                // is not read — only one can be waiting.
+                {"ConfirmLootSlot", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->confirmPendingLoot();
+            return 0;
+        }},
                 // The answer to "this item will bind to you".
                 //
                 // Both dialogs — EQUIP_BIND for a drop onto a slot,
@@ -3251,6 +3255,13 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // OnHide calls CancelPendingEquip as well as OnCancel, so
                 // cancelling twice has to be harmless — it is: the second
                 // clears an already-empty request.
+                // ConfirmBindOnUse() — the Accept on "using this will bind
+                // it". USE_BIND carries no slot, so the held request is the
+                // only record of which item was being used.
+                {"ConfirmBindOnUse", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->confirmBindOnUse();
+            return 0;
+        }},
                 {"EquipPendingItem", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->equipPendingItem();
             return 0;
