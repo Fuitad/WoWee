@@ -143,6 +143,22 @@ def script_types():
     return out
 
 
+#: Names the bootstrap sets to something FrameXML then replaces, on purpose.
+#: A set rather than a count, so a new disagreement cannot hide behind an
+#: accepted one.
+EXPECTED_DIFFERING = {
+    # A stand-in for the window that does not exist yet. The bootstrap gives
+    # DEFAULT_CHAT_FRAME a table with an AddMessage that prints, so anything
+    # writing to chat before FrameXML loads is seen rather than lost;
+    # chatframe.lua and ChatFrame1's own OnLoad both reassign it to the real
+    # frame afterwards. The client's own AddMessage is kept under
+    # __WoweeClientChatAddMessage, which FrameXML will not take, and is what
+    # the redirect in AddonManager::loadFrameXml puts back when this client
+    # owns the chat rather than FrameXML.
+    "DEFAULT_CHAT_FRAME": "stand-in until chatframe.lua assigns the real one",
+}
+
+
 def constants():
     """(bootstrap value, framexml value) for names set in both."""
     boot = {}
@@ -165,7 +181,7 @@ def constants():
             v = fx[v].rstrip(";").strip()
         return v.replace('"', "'").replace(" ", "")
     return {n: (boot[n], fx[n]) for n in sorted(set(boot) & set(fx))
-            if norm(boot[n]) != norm(fx[n])}
+            if norm(boot[n]) != norm(fx[n]) and n not in EXPECTED_DIFFERING}
 
 
 def vocabulary(pattern, known_from):

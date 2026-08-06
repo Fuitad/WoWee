@@ -131,6 +131,18 @@ EXPECTED = {
     # requesting another one without end — and a zero would do it as surely as
     # a one, zero being true in Lua.
     "ARENA_TEAM_ROSTER_UPDATE",
+    # readycheck reads arg1 as "a new ready check started before this one
+    # finished", and there is nothing on the wire to answer it with:
+    # AzerothCore's HandleRaidReadyCheckFinishedOpcode broadcasts
+    # MSG_RAID_READY_CHECK_FINISHED with an empty body. nil reads as false,
+    # which is what "not preempted" wants.
+    #
+    # That branch prints "you were away", and it is not gated on the argument
+    # but on self.initiator, which ReadyCheckFrame_OnHide clears. So the line
+    # appears only when the frame is still up, which is to say only when the
+    # player never answered. Passing a false here would change nothing; passing
+    # a true would suppress a message that is meant to appear.
+    "READY_CHECK_FINISHED",
 }
 
 rows = []

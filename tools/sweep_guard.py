@@ -96,36 +96,21 @@ CHECKS = [
     ("declared_vs_read_check.py",
      r"^(\d+) CVar\(s\) with no default that the interface does arithmetic", 1,
      "CVars with no default that the interface does arithmetic on"),
+    # Zero now, because the one that will never agree is named in the tool with
+    # why instead of counted here. DEFAULT_CHAT_FRAME's bootstrap value is a
+    # stand-in for before the interface loads and FrameXML replaces it on
+    # purpose; what that cost is handled by the redirect in
+    # AddonManager::loadFrameXml rather than by making the two agree. A count
+    # of one could have hidden a second disagreement behind it.
     ("declared_vs_read_check.py",
-     r"^(\d+) constant\(s\) set in both places", 1,
-     # The one left is DEFAULT_CHAT_FRAME, and it is not a disagreement: the
-     # bootstrap's table is a placeholder for before the interface loads, and
-     # FrameXML replaces it with ChatFrame1 on purpose. What that cost — every
-     # message FrameXML writes going to a hidden frame when this client owns
-     # the chat — is handled by the redirect in AddonManager::loadFrameXml
-     # rather than by making the two agree. It will not go to zero.
+     r"^(\d+) constant\(s\) set in both places", 0,
      "constants the bootstrap and the interface disagree about"),
-    # The one remaining is correct and will not go to zero: readycheck.lua reads
-    # a `preempted` flag off READY_CHECK_FINISHED, and AzerothCore's
-    # HandleRaidReadyCheckFinishedOpcode broadcasts that message with an empty
-    # body. There is no flag on the wire to send, and nil reads as false, which
-    # is what "not preempted" wants. Lower this only if that stops being true.
-    # Two, both decisions rather than gaps. READY_CHECK_FINISHED's `preempted`
-    # says the check was cut short rather than answered, and this client is
-    # never told which. PLAYER_FOCUS_CHANGED has no argument in this version at
-    # all — focusframe unpacks `local arg1 = ...` once at the top of a chain of
-    # six events and only one of them carries anything, which is the ambiguity
-    # this sweep documents rather than resolves.
+    # Both arms are zero, and what used to hold them up is now named in the
+    # tool with the reason rather than counted here — a count of one or four
+    # cannot tell a decision from a new fault arriving as an old one leaves.
     ("framexml_event_arity.py",
-     r"^(\d+) fired with fewer arguments than a handler reads", 1,
+     r"^(\d+) fired with fewer arguments than a handler reads", 0,
      "events fired with fewer arguments than a handler reads"),
-    # Four, and all four deliberate: ITEM_LOCK_CHANGED and RUNE_POWER_UPDATE
-    # both use the absence of the second argument as the signal ("not arg2" is
-    # how the paperdoll knows an equipment slot from a bag slot, "not usable" is
-    # how a rune knows it is spent), UPDATE_TICKET fires empty to say there is
-    # no ticket, and TRACKED_ACHIEVEMENT_UPDATE carries a timer from the packet
-    # and only an id from the tracking toggle, which the tracker guards for.
-    # The ceiling is here for the fifth, which will be an accident.
     ("framexml_event_arity.py",
      r"^(\d+) fired from several places with differing counts", 0,
      "events whose argument count depends on which path fired them"),
