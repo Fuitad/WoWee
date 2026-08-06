@@ -273,6 +273,10 @@ bool frameXmlWasReleased(UiElement element);
 /// dropdown in the interface options and then draws floating combat text over
 /// the one CombatUI is already drawing.
 void frameXmlNoteAddOnLoaded(const std::string& addOnName);
+
+/// Whether a load-on-demand addon has loaded. Case-insensitive: the interface
+/// asks for "Blizzard_AuctionUI" and the directory is blizzard_auctionui.
+bool frameXmlAddOnLoaded(std::string_view addOnName);
 bool frameXmlDrawsCombatText();
 
 /// The icon of the item the cursor is carrying, or empty for nothing.

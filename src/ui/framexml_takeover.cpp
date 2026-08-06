@@ -5,6 +5,7 @@
 #include <array>
 #include <atomic>
 #include <cstdlib>
+#include <mutex>
 #include <set>
 #include <string>
 
@@ -464,6 +465,29 @@ bool frameXmlOwnsMouse() { return gMouseOwned.load(std::memory_order_relaxed); }
 
 namespace { std::atomic<bool> gCombatTextAddOn{false}; }
 
+namespace {
+/// Every load-on-demand addon that has actually loaded.
+///
+/// Without this, a panel from one of them cannot be told apart from a panel
+/// that failed to build: both are "the frame does not exist". With it the
+/// question becomes answerable — the addon loaded and the frame still is not
+/// there — which is the only way the safety net can cover them.
+///
+/// Written from the addon loader and read from the render thread, and both are
+/// rare, so a lock rather than anything clever.
+std::mutex gLoadedAddOnsLock;
+std::set<std::string> gLoadedAddOns;
+} // namespace
+
+bool frameXmlAddOnLoaded(std::string_view addOnName) {
+    std::string lower;
+    lower.reserve(addOnName.size());
+    for (char ch : addOnName)
+        lower += static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    std::lock_guard<std::mutex> guard(gLoadedAddOnsLock);
+    return gLoadedAddOns.count(lower) != 0;
+}
+
 void frameXmlNoteAddOnLoaded(const std::string& addOnName) {
     // Matched without regard to case, because the interface asks for
     // "Blizzard_CombatText" and the directory is blizzard_combattext.
@@ -471,6 +495,10 @@ void frameXmlNoteAddOnLoaded(const std::string& addOnName) {
     lower.reserve(addOnName.size());
     for (char c : addOnName)
         lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    {
+        std::lock_guard<std::mutex> guard(gLoadedAddOnsLock);
+        gLoadedAddOns.insert(lower);
+    }
     if (lower == "blizzard_combattext") {
         gCombatTextAddOn.store(true, std::memory_order_relaxed);
         LOG_INFO("FrameXML: Blizzard_CombatText loaded; this client's floating "
@@ -822,9 +850,16 @@ struct Check {
     const char* frames;
     /// Built only when the player opens it — a load-on-demand addon's panel.
     /// Reported as not built, which is the correct state for one nobody has
-    /// opened, and never handed back for it: releasing on that would take away
-    /// every panel that works exactly as intended.
+    /// opened, and never handed back for it while that is still the answer.
     bool lazy = false;
+    /// The addon a lazy panel arrives with.
+    ///
+    /// Named so the two states can be told apart. "The frame does not exist"
+    /// means nothing on its own for these — it is the normal state before the
+    /// panel is first opened — but once the addon has loaded and the frame is
+    /// still absent, that is the same failure the net exists for. Without this
+    /// the eight load-on-demand elements could only be handed over blind.
+    const char* addOn = nullptr;
 };
 const Check kChecks[] = {
         {UiElement::PlayerFrame,  "PlayerFrame PlayerFrameTexture PlayerPortrait "
@@ -947,14 +982,19 @@ const Check kChecks[] = {
 
         // Load-on-demand: reported, never released. Their frames do not exist
         // until the player opens the panel, which is not a failure to build.
-        {UiElement::TradeSkill,    "TradeSkillFrame",    true},
-        {UiElement::ClassTrainer,  "ClassTrainerFrame",  true},
-        {UiElement::AuctionHouse,  "AuctionFrame",       true},
-        {UiElement::GuildBank,     "GuildBankFrame",     true},
-        {UiElement::Inspect,       "InspectFrame",       true},
-        {UiElement::Achievements,  "AchievementFrame",   true},
-        {UiElement::BarberShop,    "BarberShopFrame",    true},
-        {UiElement::DungeonFinder, "LFDParentFrame",     true},
+        {UiElement::TradeSkill,    "TradeSkillFrame",    true, "Blizzard_TradeSkillUI"},
+        {UiElement::ClassTrainer,  "ClassTrainerFrame",  true, "Blizzard_TrainerUI"},
+        {UiElement::AuctionHouse,  "AuctionFrame",       true, "Blizzard_AuctionUI"},
+        {UiElement::GuildBank,     "GuildBankFrame",     true, "Blizzard_GuildBankUI"},
+        {UiElement::Inspect,       "InspectFrame",       true, "Blizzard_InspectUI"},
+        {UiElement::Achievements,  "AchievementFrame",   true, "Blizzard_AchievementUI"},
+        {UiElement::BarberShop,    "BarberShopFrame",    true, "Blizzard_BarbershopUI"},
+        // Not lazy: LFDFrame.xml is listed in framexml.toc, so
+        // LFDParentFrame is built at load like any core frame. Its
+        // *suppression* row is marked lazy for the popups that arrive
+        // later, which is a different question from whether the panel
+        // itself exists.
+        {UiElement::DungeonFinder, "LFDParentFrame"},
 };
 
 /// Elements handed over with no check row, which therefore get no safety net.
@@ -1041,8 +1081,10 @@ int frameXmlReleaseUnbuiltElements(
     for (const Check& c : kChecks) {
         if (!frameXmlOwns(c.element)) continue;   // not ours, or already given back
         if (!c.frames || !*c.frames) continue;
-        // A panel nobody has opened has not failed to build.
-        if (c.lazy) continue;
+        // A panel nobody has opened has not failed to build. Once its addon
+        // has loaded, though, the frame's absence means what it means
+        // everywhere else.
+        if (c.lazy && !(c.addOn && frameXmlAddOnLoaded(c.addOn))) continue;
 
         // The first name only: the top-level frame. A panel that built and is
         // missing a label is a different fault, and handing it back for that
