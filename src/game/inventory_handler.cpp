@@ -2361,6 +2361,36 @@ int InventoryHandler::maxSendableMailAttachments() {
     return isClassicLikeExpansion() ? 1 : MAIL_MAX_ATTACHMENTS;
 }
 
+/// Warn when an attached item still has a refund window, which posting it ends.
+///
+/// Only tellable since the refund info is asked for and kept: this used to be
+/// recorded as correctly-unfired on the grounds that the window was a timer
+/// this client did not have. It has one now.
+///
+/// The interface answers with RespondMailLockSendItem(slot, keep).
+void InventoryHandler::noteMailAttachRefundable(int attachIndex) {
+    if (attachIndex < 0 || attachIndex >= maxSendableMailAttachments()) return;
+    const auto& att = mailAttachments_[static_cast<size_t>(attachIndex)];
+    if (!att.occupied()) return;
+    const auto* refund = owner_.getItemRefundInfo(att.itemGuid);
+    if (!refund) {
+        // Not asked yet. Ask, so the next attachment of the same item knows —
+        // and say nothing now rather than guess, which is what an item with no
+        // window looks like too.
+        owner_.requestItemRefundInfo(att.itemGuid);
+        return;
+    }
+    constexpr uint32_t kRefundWindow = 2 * 60 * 60;
+    if (refund->playedSincePurchase >= kRefundWindow) return;   // window is over
+    if (!owner_.addonEventCallbackRef()) return;
+    const auto* info = owner_.getItemInfo(att.item.itemId);
+    owner_.addonEventCallbackRef()(
+        "MAIL_LOCK_SEND_ITEMS",
+        {std::to_string(attachIndex + 1),
+         info ? game::buildItemLink(att.item.itemId, info->quality, info->name)
+              : att.item.name});
+}
+
 bool InventoryHandler::attachItemFromBackpack(int backpackIndex) {
     if (backpackIndex < 0 || backpackIndex >= owner_.inventoryRef().getBackpackSize()) return false;
     const auto& slot = owner_.inventoryRef().getBackpackSlot(backpackIndex);
@@ -2373,6 +2403,7 @@ bool InventoryHandler::attachItemFromBackpack(int backpackIndex) {
             mailAttachments_[i].item = slot.item;
             mailAttachments_[i].srcBag = 0xFF;
             mailAttachments_[i].srcSlot = static_cast<uint8_t>(Inventory::NUM_EQUIP_SLOTS + backpackIndex);
+            noteMailAttachRefundable(i);
             return true;
         }
     }
@@ -2397,6 +2428,7 @@ bool InventoryHandler::attachItemFromBag(int bagIndex, int slotIndex) {
             mailAttachments_[i].item = slot.item;
             mailAttachments_[i].srcBag = static_cast<uint8_t>(Inventory::FIRST_BAG_EQUIP_SLOT + bagIndex);
             mailAttachments_[i].srcSlot = static_cast<uint8_t>(slotIndex);
+            noteMailAttachRefundable(i);
             return true;
         }
     }

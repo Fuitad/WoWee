@@ -47,7 +47,15 @@ for path in SOURCES:
     t = path.read_text(errors="ignore")
     defined |= set(re.findall(r"\bfunction\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", t))
     defined |= set(re.findall(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*", t, re.M))
-    defined |= set(re.findall(r"\blocal\s+([A-Za-z_][A-Za-z0-9_]*)", t))
+    # Every name in a local declaration, not just the first. Lua declares
+    # several at once — `local A, B = CreateRestrictedEnvironment(...)` in
+    # restrictedexecution.lua — and reading only the first reported the second
+    # as a global nothing defines.
+    for names in re.findall(r"\blocal\s+([A-Za-z_][A-Za-z0-9_,\s]*)", t):
+        for name in names.split(","):
+            name = name.strip()
+            if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+                defined.add(name)
     # Frame names become globals.
     defined |= set(re.findall(r'name="\$?parent?([A-Za-z0-9_]+)"', t))
     defined |= set(re.findall(r'name="([A-Za-z0-9_]+)"', t))

@@ -269,6 +269,9 @@ public:
     void sendMail(const std::string& recipient, const std::string& subject,
                   const std::string& body, uint64_t money, uint64_t cod = 0);
     bool attachItemFromBackpack(int backpackIndex);
+    /// Raise MAIL_LOCK_SEND_ITEMS when the attachment still has a refund
+    /// window, which posting it ends.
+    void noteMailAttachRefundable(int attachIndex);
     bool attachItemFromBag(int bagIndex, int slotIndex);
     bool detachMailAttachment(int attachIndex);
     void clearMailAttachments();

@@ -3371,6 +3371,21 @@ void registerInventoryLuaAPI(lua_State* L) {
             if (auto* gh = getGameHandler(L)) gh->replaceEnchant();
             return 0;
         }},
+                // RespondMailLockSendItem(slot, keep) — the answer to "this
+                // item can still be handed back; posting it ends that". Keep
+                // it attached, or take it off again.
+                //
+                // MAIL_UNLOCK_SEND_ITEMS either way: the lock is the dialog
+                // being up, and it comes down whichever button was pressed.
+                {"RespondMailLockSendItem", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const bool keep = lua_toboolean(L, 2) != 0;
+            if (!gh) return 0;
+            if (!keep && slot >= 1) gh->detachMailAttachment(slot - 1);
+            gh->fireAddonEvent("MAIL_UNLOCK_SEND_ITEMS", {});
+            return 0;
+        }},
                 {"ConfirmBindOnUse", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->confirmBindOnUse();
             return 0;
