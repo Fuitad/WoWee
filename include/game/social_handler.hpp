@@ -169,6 +169,10 @@ public:
     /// known. The roster carries one per rank and the member row names which
     /// rank each member holds; both were parsed and stored and neither was
     /// being read.
+    /// Where the player sits in the guild, as an index into the rank list.
+    /// 0xFFFFFFFF when the roster has not arrived or the player is not in it —
+    /// distinct from rank zero, which is the guild master.
+    uint32_t getPlayerGuildRankIndex() const;
     uint32_t getPlayerGuildRankRights() const;
     bool hasPendingGuildInvite() const { return pendingGuildInvite_; }
     const std::string& getPendingGuildInviterName() const { return pendingGuildInviterName_; }

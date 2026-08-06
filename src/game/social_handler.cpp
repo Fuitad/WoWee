@@ -2266,15 +2266,18 @@ void SocialHandler::saveGuildRank(uint32_t rankId, uint32_t rights, const std::s
     requestGuildRoster();
 }
 
-uint32_t SocialHandler::getPlayerGuildRankRights() const {
-    if (!hasGuildRoster_) return 0;
+uint32_t SocialHandler::getPlayerGuildRankIndex() const {
+    if (!hasGuildRoster_) return 0xFFFFFFFFu;
     const uint64_t me = owner_.getPlayerGuid();
-    for (const auto& m : guildRoster_.members) {
-        if (m.guid != me) continue;
-        if (m.rankIndex >= guildRoster_.ranks.size()) return 0;
-        return guildRoster_.ranks[m.rankIndex].rights;
-    }
-    return 0;
+    for (const auto& m : guildRoster_.members)
+        if (m.guid == me) return m.rankIndex;
+    return 0xFFFFFFFFu;
+}
+
+uint32_t SocialHandler::getPlayerGuildRankRights() const {
+    const uint32_t idx = getPlayerGuildRankIndex();
+    if (idx >= guildRoster_.ranks.size()) return 0;
+    return guildRoster_.ranks[idx].rights;
 }
 
 void SocialHandler::handleGuildQueryResponse(network::Packet& packet) {

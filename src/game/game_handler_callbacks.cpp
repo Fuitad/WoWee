@@ -2412,6 +2412,10 @@ void GameHandler::setActionBarSlot(int slot, ActionBarSlot::Type type, uint32_t 
     }
 }
 
+uint32_t GameHandler::getPlayerGuildRankIndex() const {
+    return socialHandler_ ? socialHandler_->getPlayerGuildRankIndex() : 0xFFFFFFFFu;
+}
+
 float GameHandler::getSpellCooldown(uint32_t spellId) const {
     if (spellHandler_) return spellHandler_->getSpellCooldown(spellId);
     return 0;

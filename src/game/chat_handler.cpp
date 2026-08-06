@@ -541,15 +541,13 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
     // Some servers send officer chat to all guild members regardless of rank.
     // WoW guild right bit 0x40 = GR_RIGHT_OFFCHATSPEAK, 0x80 = GR_RIGHT_OFFCHATLISTEN
     if (data.type == ChatType::OFFICER) {
-        const auto& roster = owner_.getGuildRoster();
-        uint64_t myGuid = owner_.getPlayerGuid();
-        uint32_t myRankIdx = 0;
-        for (const auto& m : roster.members) {
-            if (m.guid == myGuid) { myRankIdx = m.rankIndex; break; }
-        }
-        if (myRankIdx < roster.ranks.size()) {
-            uint32_t rights = roster.ranks[myRankIdx].rights;
-            if (!(rights & 0x80)) { // GR_RIGHT_OFFCHATLISTEN = 0x80
+        // Through the shared lookup, which answers zero rights when the roster
+        // has not arrived — the same "say nothing about it" this had before,
+        // since the test below only hides chat when a rank is known and lacks
+        // the bit.
+        const uint32_t idx = owner_.getPlayerGuildRankIndex();
+        if (idx != 0xFFFFFFFFu && idx < owner_.getGuildRoster().ranks.size()) {
+            if (!(owner_.getPlayerGuildRankRights() & 0x80)) { // GR_RIGHT_OFFCHATLISTEN
                 return; // Don't show officer chat to non-officers
             }
         }

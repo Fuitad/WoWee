@@ -705,6 +705,16 @@ public:
     bool isInGuild() const;
     const std::string& getGuildName() const;
     const GuildRosterData& getGuildRoster() const;
+
+    /// Where the player sits in the guild, as an index into the roster's rank
+    /// list. Rank zero is the guild master, which is what IsGuildLeader asks.
+    /// Returns 0xFFFFFFFF when the roster has not arrived or the player is not
+    /// in it — distinct from rank zero, which is the opposite answer.
+    ///
+    /// Shared because the chat handler was already doing this walk to decide
+    /// whether to show officer chat, and a second copy is how two answers to
+    /// one question start to disagree.
+    uint32_t getPlayerGuildRankIndex() const;
     bool hasGuildRoster() const;
     const std::vector<std::string>& getGuildRankNames() const;
     uint32_t getPlayerGuildRankRights() const;

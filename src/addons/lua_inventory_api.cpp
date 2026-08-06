@@ -3677,10 +3677,15 @@ void registerInventoryLuaAPI(lua_State* L) {
                                               static_cast<uint8_t>(slot - 1), 0, 0);
             return 0;
         }},
+                // Rank *is* in what this client parses — the roster carries a
+                // rankIndex per member and the chat handler has been reading
+                // the player's own to decide whether to show officer chat. The
+                // comment that used to sit here said otherwise, and answering
+                // no meant a guild master was offered none of what is theirs.
+                // Rank zero is the guild master; an unknown rank is not.
                 {"IsGuildLeader", [](lua_State* L) -> int {
-            // Rank is not in what this client parses, and claiming leadership
-            // would offer tab-buying and rank editing that the server refuses.
-            lua_pushboolean(L, 0);
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L, gh && gh->getPlayerGuildRankIndex() == 0 ? 1 : 0);
             return 1;
         }},
                 // The transaction log, the tab text and the tabard are not in
