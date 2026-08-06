@@ -223,6 +223,13 @@ private:
     /// The same, with a number. A handler that compares its argument against
     /// zero cannot be handed a numeric string.
     void callFrameScriptNumber(uint32_t wid, const char* script, double arg);
+    /// Three string arguments, which OnHyperlinkClick takes: the link, the
+    /// text it drew, and the mouse button.
+    void callFrameScript3(uint32_t wid, const char* script, const char* a,
+                          const char* b, const char* c);
+    /// Whether a frame declares a script. Used to find which ancestor of a
+    /// clicked link actually wants to hear about it.
+    bool frameHasScript(uint32_t wid, const char* script);
     /// OnColorSelect, whose three arguments the handler names r, g and b.
     void callFrameScriptColor(uint32_t wid, const char* script, const float rgb[3]);
     /// Which part of a colour picker the held mouse button is dragging: the

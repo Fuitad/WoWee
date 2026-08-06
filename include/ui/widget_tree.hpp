@@ -494,9 +494,35 @@ struct Widget {
     int   effLevel = 0;
 };
 
+/// A link drawn on screen this frame, and where it landed.
+///
+/// The runs carry the payload out of parseMarkup and the drawing pass is the
+/// only place the rect is known, but the click arrives in the input pass — so
+/// it is recorded here, where both sides already meet.
+struct LinkRect {
+    uint32_t    widget = 0;   ///< the font string the link was drawn in
+    std::string link;         ///< "item:3299", "quest:1234:60"
+    std::string text;         ///< what it drew, brackets and all
+    float x0 = 0.0f, y0 = 0.0f, x1 = 0.0f, y1 = 0.0f;
+};
+
 class WidgetTree {
 public:
     WidgetTree();
+
+    /// Links drawn this frame. Cleared at the start of each draw and refilled
+    /// by it, so a link that stopped being drawn stops being clickable in the
+    /// same frame rather than one later.
+    void clearLinkRects() { linkRects_.clear(); }
+    void addLinkRect(const LinkRect& r) { linkRects_.push_back(r); }
+    /// The last link drawn under this point, which is the topmost — the draw
+    /// order is back to front and later rects sit over earlier ones.
+    const LinkRect* linkAt(float x, float y) const {
+        for (auto it = linkRects_.rbegin(); it != linkRects_.rend(); ++it) {
+            if (x >= it->x0 && x <= it->x1 && y >= it->y0 && y <= it->y1) return &*it;
+        }
+        return nullptr;
+    }
 
     /// The screen-sized root every unparented widget hangs from. WoW calls it
     /// UIParent and addons anchor to it by name constantly.
@@ -669,6 +695,7 @@ public:
     const std::vector<const Widget*>& drawOrder() const { return drawOrder_; }
 
 private:
+    std::vector<LinkRect> linkRects_;
     void layoutWidget(uint32_t id, float screenW, float screenH);
     void collectDrawOrder();
 

@@ -6516,6 +6516,48 @@ void LuaEngine::callFrameScript(uint32_t wid, const char* script,
 }
 
 
+bool LuaEngine::frameHasScript(uint32_t wid, const char* script) {
+    if (!L_ || wid == 0) return false;
+    lua_getglobal(L_, "__WoweeFramesByWid");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return false; }
+    lua_pushinteger(L_, static_cast<lua_Integer>(wid));
+    lua_rawget(L_, -2);
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 2); return false; }
+    lua_getfield(L_, -1, "__scripts");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 3); return false; }
+    lua_getfield(L_, -1, script);
+    const bool has = lua_isfunction(L_, -1);
+    lua_pop(L_, 4);
+    return has;
+}
+
+void LuaEngine::callFrameScript3(uint32_t wid, const char* script,
+                                 const char* a, const char* b, const char* c) {
+    if (!L_ || wid == 0) return;
+    lua_getglobal(L_, "__WoweeFramesByWid");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
+    lua_pushinteger(L_, static_cast<lua_Integer>(wid));
+    lua_rawget(L_, -2);
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 2); return; }
+    lua_getfield(L_, -1, "__scripts");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 3); return; }
+    lua_pushcfunction(L_, luaTracebackHandler);
+    const int handlerIdx = lua_gettop(L_);
+    lua_getfield(L_, handlerIdx - 1, script);
+    if (!lua_isfunction(L_, -1)) { lua_pop(L_, 5); return; }
+    lua_pushvalue(L_, handlerIdx - 2);   // self
+    lua_pushstring(L_, a ? a : "");
+    lua_pushstring(L_, b ? b : "");
+    lua_pushstring(L_, c ? c : "");
+    if (lua_pcall(L_, 4, 0, handlerIdx) != 0) {
+        const char* err = lua_tostring(L_, -1);
+        LOG_ERROR("LuaEngine: ", script, " error: ", err ? err : "?");
+        if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
+        lua_pop(L_, 1);
+    }
+    lua_pop(L_, 4);
+}
+
 void LuaEngine::callFrameScriptNumber(uint32_t wid, const char* script, double arg) {
     if (!L_ || wid == 0) return;
     lua_getglobal(L_, "__WoweeFramesByWid");
@@ -7737,9 +7779,35 @@ void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
                     // use them to set up and tear down around an action, and
                     // an addon that only has PostClick would otherwise never
                     // hear that its button was used.
-                    callFrameScript(pressedWid_[i], "PreClick", b.name);
-                    callFrameScript(pressedWid_[i], "OnClick", b.name);
-                    callFrameScript(pressedWid_[i], "PostClick", b.name);
+                    // A link under the cursor is answered before the button
+                    // it sits on. FrameXML puts OnHyperlinkClick on the chat
+                    // frame, not on the font string the text is drawn in, so
+                    // the handler is looked for up the parent chain — and a
+                    // frame that declares none lets the click carry on as an
+                    // ordinary one.
+                    bool tookLink = false;
+                    if (const ui::LinkRect* hitLink = widgets_.linkAt(x, y)) {
+                        for (uint32_t w = hitLink->widget; w != 0;) {
+                            const ui::Widget* node = widgets_.get(w);
+                            if (frameHasScript(w, "OnHyperlinkClick")) {
+                                callFrameScript3(w, "OnHyperlinkClick",
+                                                 hitLink->link.c_str(),
+                                                 hitLink->text.c_str(), b.name);
+                                tookLink = true;
+                                break;
+                            }
+                            w = node ? node->parent : 0;
+                        }
+                    }
+                    // A click that landed on a link is spent. WoW does not
+                    // run the chat frame's OnClick as well when an item link
+                    // is opened, and running both here would scroll the frame
+                    // or drop focus underneath the tooltip that just appeared.
+                    if (!tookLink) {
+                        callFrameScript(pressedWid_[i], "PreClick", b.name);
+                        callFrameScript(pressedWid_[i], "OnClick", b.name);
+                        callFrameScript(pressedWid_[i], "PostClick", b.name);
+                    }
 
                     // A second click on the same frame, soon enough after the
                     // first, is also a double click — WoW sends both, and the

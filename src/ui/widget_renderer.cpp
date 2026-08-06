@@ -252,7 +252,8 @@ void WidgetRenderer::drawMarkupText(ImDrawList* dl, ImFont* font, float size,
                                     ImVec2 at, uint32_t fallback, float alpha,
                                     const std::string& text, float wrapWidth,
                                     bool nonSpaceWrap, const char* justifyH,
-                                    bool forceColor) {
+                                    bool forceColor, WidgetTree* linkSink,
+                                    uint32_t linkOwner) {
     const auto lines = wrapText(parseMarkup(text), wrapWidth, nonSpaceWrap,
                                 [&](const std::string& piece) {
                                     return font->CalcTextSizeA(size, FLT_MAX, 0.0f,
@@ -281,7 +282,17 @@ void WidgetRenderer::drawMarkupText(ImDrawList* dl, ImFont* font, float size,
                 col = packColor(rgba, alpha);
             }
             dl->AddText(font, size, ImVec2(x, y), col, run.text.c_str());
-            x += font->CalcTextSizeA(size, FLT_MAX, 0.0f, run.text.c_str()).x;
+            const float runW = font->CalcTextSizeA(size, FLT_MAX, 0.0f,
+                                                   run.text.c_str()).x;
+            // Where the link landed, for the click that arrives in another
+            // pass entirely. Only from the pass that draws the text itself —
+            // the outline and shadow draw the same glyphs and would file the
+            // same link two or three times over.
+            if (linkSink && !forceColor && !run.link.empty()) {
+                linkSink->addLinkRect({linkOwner, run.link, run.text,
+                                       x, y, x + runW, y + lineH});
+            }
+            x += runW;
         }
         y += lineH;
     }
@@ -629,6 +640,9 @@ void WidgetRenderer::drawCooldown(ImDrawList* dl, const Widget& w,
 }
 
 void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
+    // Refilled by this pass, so a link that stopped being drawn stops
+    // being clickable in the same frame rather than one later.
+    tree.clearLinkRects();
     // Every descriptor set in this cache belongs to the context, which frees
     // them all together. Drawing with one afterwards is a fault the GPU answers
     // by resetting, so the cache goes when they do — at the cost of re-uploading
@@ -1752,7 +1766,8 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
             }
             drawMarkupText(dl, font, size, ImVec2(tx, ty),
                            packColor(textColor, w->alpha), w->alpha, w->text,
-                           wrapW, w->nonSpaceWrap, w->justifyH.c_str());
+                           wrapW, w->nonSpaceWrap, w->justifyH.c_str(), false,
+                           &tree, w->id);
         }
     }
 }

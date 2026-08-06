@@ -181,6 +181,13 @@ const std::set<std::string>& requested() {
                 // has drawn them all along, so "builds but wrong" costs more
                 // here than anywhere else.
                 //
+                //   chat          back, and this time with the links working.
+                //                 A click is hit-tested against the link rects
+                //                 the draw pass records, the handler is looked
+                //                 for up the parent chain because FrameXML puts
+                //                 it on the chat frame rather than the font
+                //                 string, and SetItemRef and ItemRefTooltip are
+                //                 both FrameXML's own.
                 //   questlog      held back with the world map on the reading
                 //                 that it drew a second map. It draws no map.
                 //   questtracker  its two remaining names are AchievementFrame
@@ -191,7 +198,7 @@ const std::set<std::string>& requested() {
                 // The world map stays with this client deliberately and is not
                 // on this list: it is the one element where the swap was
                 // considered and decided against.
-                "questlog", "questtracker"};
+                "chat", "questlog", "questtracker"};
         }();
 
         if (!raw || !*raw) {
@@ -345,16 +352,7 @@ const std::set<std::string>& requested() {
                     // out of this list and into the defaults. They are added
                     // either way — the defaults go in first — but an element
                     // named in both reads as though it were still waiting.
-                    // chat went over and came back a second time. The widget
-                    // layer fires no OnHyperlinkClick — nothing does, anywhere —
-                    // so an item link in FrameXML's chat frame is text. This
-                    // client's own chat has a markup parser and renderer for
-                    // |Hitem, |Hspell, |Hquest and |Hachievement, clickable and
-                    // with tooltips, so handing chat over traded a working
-                    // feature for a rendered one. It goes back the day
-                    // hyperlink dispatch exists; the emitter already knows the
-                    // handler's signature.
-                    "chat", "worldmap"}) {
+                    "worldmap"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "
