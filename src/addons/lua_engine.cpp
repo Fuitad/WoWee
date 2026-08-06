@@ -7809,16 +7809,15 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                     // ordinary one.
                     bool tookLink = false;
                     if (const ui::LinkRect* hitLink = widgets_.linkAt(x, y)) {
-                        for (uint32_t w = hitLink->widget; w != 0;) {
-                            const ui::Widget* node = widgets_.get(w);
-                            if (frameHasScript(w, "OnHyperlinkClick")) {
-                                callFrameScript3(w, "OnHyperlinkClick",
-                                                 hitLink->link.c_str(),
-                                                 hitLink->text.c_str(), b.name);
-                                tookLink = true;
-                                break;
-                            }
-                            w = node ? node->parent : 0;
+                        const uint32_t owner = ui::findScriptOwner(
+                            widgets_, hitLink->widget, [this](uint32_t w) {
+                                return frameHasScript(w, "OnHyperlinkClick");
+                            });
+                        if (owner != 0) {
+                            callFrameScript3(owner, "OnHyperlinkClick",
+                                             hitLink->link.c_str(),
+                                             hitLink->text.c_str(), b.name);
+                            tookLink = true;
                         }
                     }
                     // A click that landed on a link is spent. WoW does not

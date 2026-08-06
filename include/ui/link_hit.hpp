@@ -52,5 +52,31 @@ inline LinkRect linkRectFromDraw(uint32_t owner, const std::string& link,
     return r;
 }
 
+/// The nearest frame at or above `start` that declares a script.
+///
+/// FrameXML puts OnHyperlinkClick on the chat frame; the text is drawn in a
+/// font string several levels below it, and the link rect names the font
+/// string because that is what drew it. So the click has to walk up.
+///
+/// Takes a predicate rather than asking Lua, so the walk can be tested on its
+/// own — the walk is the part with a loop in it, and the part that stops at
+/// the root, refuses a cycle, and returns zero when nothing along the chain
+/// wants the click.
+///
+/// Zero means nobody claimed it, and the caller lets the click carry on as an
+/// ordinary one.
+template <typename Tree, typename HasScript>
+uint32_t findScriptOwner(const Tree& tree, uint32_t start, HasScript hasScript) {
+    // Bounded by the number of widgets: a parent chain that loops would
+    // otherwise spin here, and a tree is built by code that can have bugs.
+    uint32_t guard = 0;
+    for (uint32_t w = start; w != 0 && guard <= tree.size(); ++guard) {
+        if (hasScript(w)) return w;
+        const auto* node = tree.get(w);
+        w = node ? node->parent : 0;
+    }
+    return 0;
+}
+
 }  // namespace ui
 }  // namespace wowee

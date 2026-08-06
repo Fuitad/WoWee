@@ -18,6 +18,7 @@
 using wowee::ui::LinkRect;
 using wowee::ui::linkRectFromDraw;
 using wowee::ui::mouseToTreeSpace;
+using wowee::ui::findScriptOwner;
 using wowee::ui::parseMarkup;
 using wowee::ui::WrapRun;
 
@@ -162,5 +163,72 @@ TEST_CASE("a chat line's link is found by a click on its text", "[linkhit]") {
     SECTION("and at an interface scale") {
         REQUIRE(linkUnderClick(line, 0.0f, 200.0f, kLineH,
                                25.0f, 205.0f, kScreenH, 0.8f) == "item:3299");
+    }
+}
+
+
+// ── Finding the frame that wants the click ─────────────────────────────────
+//
+// FrameXML declares OnHyperlinkClick on the chat frame. The text is drawn in a
+// font string several levels below it, and the link rect names the font string
+// because that is what drew it — so the click walks up. This is that walk,
+// with the Lua question replaced by a predicate: the walk is the part with a
+// loop in it.
+namespace {
+
+/// The smallest thing findScriptOwner needs: sized, and able to hand back a
+/// node with a parent.
+struct FakeTree {
+    struct Node { uint32_t parent = 0; };
+    std::vector<Node> nodes;              // index 0 unused, ids are 1-based
+    size_t size() const { return nodes.size(); }
+    const Node* get(uint32_t id) const {
+        return (id < nodes.size()) ? &nodes[id] : nullptr;
+    }
+};
+
+}  // namespace
+
+TEST_CASE("the click finds the frame that declares the handler", "[linkhit]") {
+    // 1 chat frame <- 2 scroll child <- 3 font string
+    FakeTree tree{{{0}, {0}, {1}, {2}}};
+
+    SECTION("an ancestor several levels up") {
+        REQUIRE(findScriptOwner(tree, 3, [](uint32_t w) { return w == 1; }) == 1);
+    }
+
+    SECTION("the frame itself, when it is the one that declares it") {
+        REQUIRE(findScriptOwner(tree, 3, [](uint32_t w) { return w == 3; }) == 3);
+    }
+
+    SECTION("the nearest one, not the furthest") {
+        REQUIRE(findScriptOwner(tree, 3, [](uint32_t w) { return w == 1 || w == 2; }) == 2);
+    }
+
+    SECTION("nobody, so the click carries on as an ordinary one") {
+        REQUIRE(findScriptOwner(tree, 3, [](uint32_t) { return false; }) == 0);
+    }
+
+    SECTION("a chain that loops does not spin") {
+        // 1 -> 2 -> 1. Built by code, so it can happen; the walk is bounded by
+        // the tree's size rather than trusting the chain to end.
+        //
+        // This section states the intent and CANNOT prove it, which is worth
+        // knowing before anyone trusts it. Removing the bound and running this
+        // still passes: the predicate here always answers false and the tree
+        // reads are pure, so the loop has no side effects, and a side-effect-free
+        // infinite loop is undefined behaviour that the optimiser is entitled
+        // to delete — at -O2 it does, at -O0 the same code spins. Checked both
+        // ways rather than assumed.
+        //
+        // The bound is still load-bearing in the client, where the predicate
+        // calls into Lua and the loop therefore has side effects the optimiser
+        // must keep.
+        FakeTree looped{{{0}, {2}, {1}}};
+        REQUIRE(findScriptOwner(looped, 1, [](uint32_t) { return false; }) == 0);
+    }
+
+    SECTION("an id the tree does not have stops rather than reading it") {
+        REQUIRE(findScriptOwner(tree, 99, [](uint32_t) { return false; }) == 0);
     }
 }
