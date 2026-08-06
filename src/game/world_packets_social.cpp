@@ -505,13 +505,29 @@ bool FriendStatusParser::parse(network::Packet& packet, FriendStatusData& data) 
 
     data.status = packet.readUInt8();
     data.guid = packet.readUInt64();
-    if (data.status == 1) {  // Online
-        // Conditional: note (string) + chatFlag (1)
-        if (packet.hasData()) {
-            data.note = packet.readString();
-            if (packet.hasRemaining(1)) {
-                data.chatFlag = packet.readUInt8();
-            }
+    // What follows depends on the result, and SocialMgr::SendFriendStatus
+    // writes it in two separate switches rather than one:
+    //
+    //   FRIEND_ADDED_ONLINE / FRIEND_ADDED_OFFLINE  -> the note
+    //   FRIEND_ADDED_ONLINE / FRIEND_ONLINE         -> status, area, level, class
+    //
+    // so an add-while-online carries both, in that order. This used to read a
+    // note and one byte when the result was 1 — which is FRIEND_LIST_FULL and
+    // carries nothing at all — and read nothing for the two results that
+    // actually have a body. A friend coming online brought their area, level
+    // and class every time and none of it was taken.
+    constexpr uint8_t kFriendOnline = 0x02;
+    constexpr uint8_t kFriendAddedOnline = 0x06;
+    constexpr uint8_t kFriendAddedOffline = 0x07;
+    if (data.status == kFriendAddedOnline || data.status == kFriendAddedOffline) {
+        if (packet.hasData()) data.note = packet.readString();
+    }
+    if (data.status == kFriendAddedOnline || data.status == kFriendOnline) {
+        if (packet.hasRemaining(13)) {
+            data.chatFlag = packet.readUInt8();
+            data.areaId = packet.readUInt32();
+            data.level = packet.readUInt32();
+            data.classId = packet.readUInt32();
         }
     }
     LOG_DEBUG("Parsed SMSG_FRIEND_STATUS: status=", static_cast<int>(data.status), " guid=0x", std::hex, data.guid, std::dec);

@@ -83,14 +83,19 @@ struct ContactEntry {
     std::string name;
     std::string note;
     uint32_t    flags    = 0;   // 0x1=friend, 0x2=ignore, 0x4=mute
-    uint8_t     status   = 0;   // 0=offline, 1=online, 2=AFK, 3=DND
+    /// AzerothCore's FriendStatus, and a bitmask rather than a number:
+    /// 0x01 online, 0x02 away, 0x04 do-not-disturb, 0x08 recruit-a-friend.
+    /// An away friend is 0x03 — online *and* away — which is why this cannot
+    /// be compared for equality. It used to be documented as 0/1/2/3 and read
+    /// that way, so an away friend was shown as busy.
+    uint8_t     status   = 0;
     uint32_t    areaId   = 0;
     uint32_t    level    = 0;
     uint32_t    classId  = 0;
 
     bool isFriend() const { return (flags & 0x1) != 0; }
     bool isIgnored() const { return (flags & 0x2) != 0; }
-    bool isOnline()  const { return status != 0; }
+    bool isOnline()  const { return (status & 0x01) != 0; }
 };
 
 /**

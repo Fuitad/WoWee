@@ -926,10 +926,20 @@ public:
 
 /** SMSG_FRIEND_STATUS data */
 struct FriendStatusData {
-    uint8_t status = 0;  // 0 = offline, 1 = online, etc.
+    /// AzerothCore's FriendsResult, which is not a state but an *outcome*:
+    /// 0 DB_ERROR, 1 LIST_FULL, 2 ONLINE, 3 OFFLINE, 4 NOT_FOUND, 5 REMOVED,
+    /// 6 ADDED_ONLINE, 7 ADDED_OFFLINE, 8 ALREADY, 9 SELF, 10 ENEMY, and the
+    /// ignore and mute results above those.
+    uint8_t status = 0;
     uint64_t guid = 0;
     std::string note;
+    /// FriendStatus, and a bitmask rather than a number: 0x01 online, 0x02
+    /// away, 0x04 do-not-disturb, 0x08 recruit-a-friend. An away friend is
+    /// 0x03, not 0x02.
     uint8_t chatFlag = 0;
+    uint32_t areaId = 0;
+    uint32_t level = 0;
+    uint32_t classId = 0;
 };
 
 /** SMSG_FRIEND_STATUS parser */

@@ -2895,29 +2895,60 @@ void SocialHandler::handleFriendStatus(network::Packet& packet) {
         else if (data.status == 0) owner_.friendsCacheRef().erase(playerName);
     }
 
-    if (data.status == 0) {
+    // AzerothCore's FriendsResult, read off SocialMgr.h rather than guessed.
+    // The numbering here was five places out: zero is a database error and not
+    // a removal, one is a full list and not an addition, and the three results
+    // that matter most — removed, added-online, added-offline — are 5, 6 and 7
+    // where this had "already in your list", "list is full" and "is ignoring
+    // you". So adding a friend announced that the list was full, and a
+    // database error deleted them from it.
+    enum : uint8_t {
+        kDbError = 0, kListFull = 1, kOnline = 2, kOffline = 3, kNotFound = 4,
+        kRemoved = 5, kAddedOnline = 6, kAddedOffline = 7, kAlready = 8,
+        kSelf = 9, kEnemy = 10,
+    };
+    if (data.status == kRemoved) {
         if (cit != owner_.contactsRef().end())
             owner_.contactsRef().erase(cit);
-    } else {
+    } else if (data.status == kOnline || data.status == kOffline ||
+               data.status == kAddedOnline || data.status == kAddedOffline) {
+        const bool nowOnline =
+            (data.status == kOnline || data.status == kAddedOnline);
+        // chatFlag is the FriendStatus bitmask the packet carries, and it is
+        // what the friends list reads for away and busy. Offline results carry
+        // no body, so the flags are cleared rather than left as they were.
+        const uint8_t flags = nowOnline ? data.chatFlag : 0;
         if (cit != owner_.contactsRef().end()) {
             if (!playerName.empty() && playerName != "Unknown") cit->name = playerName;
-            if (data.status == 2) cit->status = 1; else if (data.status == 3) cit->status = 0;
+            cit->status = flags;
+            if (nowOnline) {
+                cit->areaId = data.areaId;
+                cit->level = data.level;
+                cit->classId = data.classId;
+            }
+            if (!data.note.empty()) cit->note = data.note;
         } else {
             ContactEntry entry;
             entry.guid = data.guid; entry.name = playerName; entry.flags = 0x1;
-            entry.status = (data.status == 2) ? 1 : 0;
+            entry.status = flags;
+            entry.note = data.note;
+            entry.areaId = data.areaId; entry.level = data.level;
+            entry.classId = data.classId;
             owner_.contactsRef().push_back(std::move(entry));
         }
     }
     switch (data.status) {
-        case 0: owner_.addSystemChatMessage(playerName + " has been removed from your friends list."); break;
-        case 1: owner_.addSystemChatMessage(playerName + " has been added to your friends list."); break;
-        case 2: owner_.addSystemChatMessage(playerName + " is now online."); break;
-        case 3: owner_.addSystemChatMessage(playerName + " is now offline."); break;
-        case 4: owner_.addSystemChatMessage("Player not found."); break;
-        case 5: owner_.addSystemChatMessage(playerName + " is already in your friends list."); break;
-        case 6: owner_.addSystemChatMessage("Your friends list is full."); break;
-        case 7: owner_.addSystemChatMessage(playerName + " is ignoring you."); break;
+        case kDbError:      owner_.addSystemChatMessage("Your friends list could not be reached."); break;
+        case kListFull:     owner_.addSystemChatMessage("Your friends list is full."); break;
+        case kOnline:       owner_.addSystemChatMessage(playerName + " is now online."); break;
+        case kOffline:      owner_.addSystemChatMessage(playerName + " is now offline."); break;
+        case kNotFound:     owner_.addSystemChatMessage("Player not found."); break;
+        case kRemoved:      owner_.addSystemChatMessage(playerName + " has been removed from your friends list."); break;
+        case kAddedOnline:
+        case kAddedOffline: owner_.addSystemChatMessage(playerName + " has been added to your friends list."); break;
+        case kAlready:      owner_.addSystemChatMessage(playerName + " is already in your friends list."); break;
+        case kSelf:         owner_.addSystemChatMessage("You cannot add yourself as a friend."); break;
+        case kEnemy:        owner_.addSystemChatMessage(playerName + " belongs to the other faction."); break;
         default: break;
     }
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("FRIENDLIST_UPDATE", {});

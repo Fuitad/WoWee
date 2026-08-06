@@ -277,7 +277,13 @@ static int lua_GetFriendInfo(lua_State* L) {
             if (c.areaId != 0) area = gh->getWhoAreaName(c.areaId);
             lua_pushstring(L, area.c_str());         // 4: area
             lua_pushboolean(L, c.isOnline());        // 5: connected
-            lua_pushstring(L, c.status == 2 ? "<AFK>" : (c.status == 3 ? "<DND>" : "")); // 6: status
+            // The bits, not the number: an away friend is online|away, which
+            // is 3, and comparing that for equality named them busy instead.
+            // friendsframe tests these against CHAT_FLAG_AFK and CHAT_FLAG_DND,
+            // which are these strings.
+            constexpr uint8_t kAway = 0x02, kBusy = 0x04;
+            lua_pushstring(L, (c.status & kAway) ? "<AFK>"
+                            : ((c.status & kBusy) ? "<DND>" : ""));  // 6: status
             lua_pushstring(L, c.note.c_str());       // 7: note
             return 7;
         }
