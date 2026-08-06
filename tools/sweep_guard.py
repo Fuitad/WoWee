@@ -425,6 +425,13 @@ CHECKS = [
     ("lazy_load_latch_check.py",
      r"^(\d+) latch before checking that the assets exist", 0,
      "lazy loaders that latch before checking their assets are there"),
+    # A frame named in the readiness tables that no file the loader reaches
+    # declares. It reports NOT BUILT for ever, which reads as a fault in the
+    # interface rather than in the list — and the list is where it is. Zero,
+    # and a made-up name was put in and seen to trip it. 2s.
+    ("framexml_promised_frames.py",
+     r"^(\d+) promised by a table and declared nowhere", 0,
+     "frames the readiness tables name that nothing declares"),
     # The mirror of the sweep above: not whether the answer used what it was
     # told, but whether it is spelled the way the caller looks it up. A token is
     # a table key, so a misspelling is a nil rather than a wrong value — the

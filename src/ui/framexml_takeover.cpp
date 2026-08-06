@@ -1032,9 +1032,12 @@ const Check kChecks[] = {
         // as a fault in the interface rather than in this list.
         {UiElement::XpBar,        "MainMenuExpBar ExhaustionTick"},
         // Both hang off the minimap cluster, so if either is in the wrong
-        // place the cluster's own rect is the first thing to look at.
-        {UiElement::Minimap,      "MinimapCluster BuffFrame BuffButton1 "
-                                  "DurabilityFrame"},
+        // place the cluster's own rect is the first thing to look at. Not
+        // BuffButton1, for the same reason the Buffs entry below gives: the
+        // buff frame creates each button the first time an aura needs one, so
+        // a character carrying none has no BuffButton1 and this reported the
+        // minimap as NOT BUILT for as long as that was true.
+        {UiElement::Minimap,      "MinimapCluster BuffFrame DurabilityFrame"},
         {UiElement::RepBar,       "ReputationWatchBar ReputationWatchStatusBar"},
         {UiElement::StanceBar,    "ShapeshiftBarFrame ShapeshiftButton1"},
         {UiElement::CastBar,      "CastingBarFrame CastingBarFrameBorder CastingBarFrameText"},
