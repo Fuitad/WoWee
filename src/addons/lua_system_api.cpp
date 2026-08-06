@@ -4929,8 +4929,16 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, t->tm_year + 1900); // year
             return 4;
         }},
+                // How many calendar invites are waiting to be answered. The
+                // calendar addon is refused by name, but this is not only its
+                // question: gametime.lua asks it for the indicator on the
+                // minimap's date button, and that file is core FrameXML. A
+                // constant zero left the button dark however many invites had
+                // arrived.
                 {"CalendarGetNumPendingInvites", [](lua_State* L) -> int {
-            return luaReturnZero(L);
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? static_cast<double>(gh->getCalendarPendingInvites()) : 0);
+            return 1;
         }},
                 {"CalendarGetNumDayEvents", [](lua_State* L) -> int {
             return luaReturnZero(L);

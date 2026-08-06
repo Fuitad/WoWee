@@ -2881,7 +2881,15 @@ void GameHandler::registerOpcodeHandlers() {
         // uint32 numPending — number of unacknowledged calendar invites
         if (packet.hasRemaining(4)) {
             uint32_t numPending = packet.readUInt32();
+            const bool countChanged = (calendarPendingInvites_ != numPending);
             calendarPendingInvites_ = numPending;
+            // The minimap's date button carries the indicator: gametime.lua
+            // shows GameTimeCalendarInvitesTexture when the count rises and
+            // hides it at zero, and it only ever asks on this event and on
+            // PLAYER_ENTERING_WORLD. Firing nothing left it correct at login
+            // and stale for the rest of the session.
+            if (countChanged && addonEventCallback_)
+                addonEventCallback_("CALENDAR_UPDATE_PENDING_INVITES", {});
             if (numPending > 0) {
                 char buf[64];
                 std::snprintf(buf, sizeof(buf),
@@ -2959,6 +2967,10 @@ void GameHandler::registerOpcodeHandlers() {
             addSystemChatMessage("You have a new calendar invite.");
         }
         if (calendarPendingInvites_ < 255) ++calendarPendingInvites_;
+        // Same indicator, and this is the path that matters most: an invite
+        // arriving mid-session is exactly when the button has to light up.
+        if (addonEventCallback_)
+            addonEventCallback_("CALENDAR_UPDATE_PENDING_INVITES", {});
         LOG_INFO("SMSG_CALENDAR_EVENT_INVITE_ALERT: title='", title, "'");
     };
     // Sent when an event invite's RSVP status changes for the local player

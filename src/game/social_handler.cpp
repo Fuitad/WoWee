@@ -3129,6 +3129,12 @@ void SocialHandler::handleLfgJoinResult(network::Packet& packet) {
         owner_.addUIError(errMsg);
         owner_.addSystemChatMessage(errMsg);
     }
+    // The queue state moved, either into a queue or back out of the attempt,
+    // and LFG_UPDATE is how the panel is told to re-read it — the same event
+    // handleLfgUpdate fires for the same reason two handlers down. Without it
+    // the state was right in this client and stale in the interface until some
+    // other LFG packet happened along.
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("LFG_UPDATE", {});
 }
 
 // SMSG_LFG_PLAYER_INFO — what the random dungeons pay out, and what this

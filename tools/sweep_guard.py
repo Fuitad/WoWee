@@ -248,7 +248,7 @@ CHECKS = [
     # set, the withdrawn summon dialog, a dead pet's frame and ability bar, and
     # the flight map left open for the whole flight.
     ("handler_announce_check.py",
-     r"^(\d+) that tell the player and not the interface", 18,
+     r"^(\d+) that tell the player and not the interface", 13,
      "handlers that change state and announce nothing"),
     # Top-level FrameXML frames named nowhere in framexml_takeover.cpp —
     # neither handed over nor suppressed.

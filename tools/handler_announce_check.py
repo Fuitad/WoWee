@@ -37,11 +37,44 @@ until the next login, and SMSG_SUMMON_CANCEL cleared the pending summon
 without CANCEL_SUMMON, leaving a dialog offering a summon the server had
 already withdrawn.
 
-The rest were read once each. What they write is bookkeeping this client keeps
-for itself — a fishing attempt that failed, a battleground invite it will act
-on when answered, a home location nothing draws — so there is no second model
-to bring level and the message is the whole content. The ceiling is a number
-to look at when it moves, not a queue.
+Re-read on 2026-08-05, and the count went 20 -> 13. Three of those were this
+sweep's own fault and two were real.
+
+THE FALSE ROWS, WHICH MATTERED MORE THAN THE COUNT
+
+addonEventCallback_ — the same call spelled from inside GameHandler, where
+there is no Ref() accessor — was not in TELLS_INTERFACE, and
+game_handler_packets is where most handlers live. So a whole file's worth of
+handlers that announce perfectly well were reported as silent.
+SMSG_BATTLEFIELD_MGR_ENTRY_INVITE fires its event two lines below the chat
+message this sweep caught it by.
+
+A false row here is worse than a missing one. The obvious response to "this
+handler tells nobody" is to add a fire — and raiseUiError already reaches
+UI_ERROR_MESSAGE through addUIError, which is how this file once grew a second
+answer to a question already answered two headers away.
+
+THE TWO REAL ONES
+
+  * SMSG_CALENDAR_SEND_NUM_PENDING stored the count and fired nothing, and
+    CalendarGetNumPendingInvites answered a constant zero. The calendar addon
+    is refused by name, but the indicator is not its: gametime.lua puts it on
+    the minimap's date button and asks only on CALENDAR_UPDATE_PENDING_INVITES
+    and PLAYER_ENTERING_WORLD. Correct at login, stale for the session — both
+    halves fixed.
+  * handleLfgJoinResult set lfgState_ and said nothing, so joining a queue left
+    the dungeon finder reading the old state until some other LFG packet
+    happened along. It fires LFG_UPDATE now, which is what handleLfgUpdate
+    fires two handlers down for the same reason.
+
+WHAT IS LEFT
+
+Thirteen, each read. What they write is bookkeeping this client keeps for
+itself — a fishing attempt that failed, a purchase refused, a home location
+that GetBindLocation polls rather than being told about, a logout after which
+there is no interface left to tell. The message is the whole content and a
+chat line is the right place for it. The ceiling is a number to look at when
+it moves, not a queue.
 """
 import re
 import sys
@@ -73,8 +106,15 @@ WRITES_STATE = re.compile(
 #: events takes the callback into a local first — `auto fire = ...; fire(...)`
 #: — and requiring the immediate call reported the whole dungeon-finder
 #: proposal path, which fires four.
+#: addonEventCallback_ is the same thing spelled from inside GameHandler,
+#: where there is no Ref() accessor to go through — and game_handler_packets
+#: is where most handlers live, so leaving it out reported a whole file's worth
+#: of handlers that announce perfectly well. SMSG_BATTLEFIELD_MGR_ENTRY_INVITE
+#: was one: it fires its event two lines below the chat message this sweep
+#: caught it by. A false row here is worse than a missing one, because the
+#: obvious response to it is to add a second fire for an event already sent.
 TELLS_INTERFACE = ("fireAddonEvent", "addonEventCallbackRef()",
-                   "pendingEvents_.emit")
+                   "addonEventCallback_", "pendingEvents_.emit")
 ANNOUNCES = re.compile(r"\bannounce[A-Z]\w*\(")
 
 #: `table[Opcode::X] = [this](...) { … };` and the dispatchTable_ spelling.
