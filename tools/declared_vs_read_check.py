@@ -193,6 +193,25 @@ def vocabulary(pattern, known_from):
     return want, sorted(want[n] for n in want if n not in known)
 
 
+#: Script types declared by the interface that nothing here fires, checked one
+#: at a time. A set rather than a count — a ceiling only says how many, so
+#: fixing one and introducing another leaves the number unmoved.
+EXPECTED_UNFIRED = {
+    # The movie player. This client plays no cinematics, so neither the end of
+    # one nor a subtitle coming off screen can happen.
+    "OnMovieFinished": "no movie playback",
+    "OnMovieHideSubtitle": "no movie playback",
+    # The item-push animation over a bag button. ITEM_PUSH shows a Model frame
+    # whose OnAnimFinished hides it again, and that never fires — so the frame
+    # is left shown. Nothing is drawn by it: a Model's `file` is an .mdx, not a
+    # texture, and this client neither loads nor plays one, so there is no
+    # moment at which the sequence ends. Worth revisiting if Model frames ever
+    # render, because the frame staying shown is real even while it is
+    # invisible.
+    "OnAnimFinished": "no .mdx playback, so no end of one — frame left shown",
+}
+
+
 def main():
     emitter = EMITTER.read_text(errors="ignore") if EMITTER.exists() else ""
     named = set(re.findall(r'"(\w+)"', emitter))
@@ -202,7 +221,8 @@ def main():
     fired = set()
     for path in SRC.rglob("*.cpp"):
         fired |= set(re.findall(r'"(On[A-Z]\w+)"', path.read_text(errors="ignore")))
-    unfired = sorted(s for s in script_types() if s not in fired)
+    unfired = sorted(s for s in script_types()
+                     if s not in fired and s not in EXPECTED_UNFIRED)
 
     differing = constants()
 

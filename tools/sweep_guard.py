@@ -74,7 +74,7 @@ CHECKS = [
      r"attributes declared, (\d+) the emitter never names", 17,
      "XML attributes the emitter never reads"),
     ("declared_vs_read_check.py",
-     r"^(\d+) script type\(s\) declared and never fired", 3,
+     r"^(\d+) script type\(s\) declared and never fired", 0,
      "script handlers FrameXML declares that nothing fires"),
     ("declared_vs_read_check.py",
      r"sound names asked for, (\d+) with no hand-written mapping", 24,
