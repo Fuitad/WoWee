@@ -4573,10 +4573,17 @@ void LuaEngine::registerCoreAPI() {
         // buttons this way — a keybinding that presses an action button, a
         // dropdown that picks its default — and it answered as a no-op, so
         // none of those did anything.
+        // A scripted click flips a check button exactly as a real one does, so
+        // the two paths cannot disagree about what the button now says. The
+        // scripts are read first because a frame with none is not clicked at
+        // all — and then neither is it toggled.
         "function mt:Click(button, down)\n"
         "    local s = rawget(self, '__scripts')\n"
         "    if not s then return end\n"
         "    button = button or 'LeftButton'\n"
+        "    if self:GetObjectType() == 'CheckButton' and self:IsEnabled() then\n"
+        "        self:SetChecked(not self:GetChecked())\n"
+        "    end\n"
         "    if s.PreClick then s.PreClick(self, button, down) end\n"
         "    if s.OnClick then s.OnClick(self, button, down) end\n"
         "    if s.PostClick then s.PostClick(self, button, down) end\n"
@@ -8200,6 +8207,26 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                     // is opened, and running both here would scroll the frame
                     // or drop focus underneath the tooltip that just appeared.
                     if (!tookLink) {
+                        // A check button flips itself before its handler runs,
+                        // and nothing here did it — checked moved only when
+                        // Lua called SetChecked. Handlers that read their own
+                        // state to decide what a click meant therefore saw the
+                        // same answer every time.
+                        //
+                        // The mail inbox is the clearest of them:
+                        // InboxFrame_OnClick opens the letter when
+                        // self:GetChecked() and hides OpenMailFrame when not,
+                        // so every click on a message took the closing branch
+                        // and no mail could be read. Every options checkbox
+                        // reading GetChecked in its OnClick had the same fault.
+                        //
+                        // Before PreClick, which is where WoW does it, so a
+                        // handler calling SetChecked itself still has the last
+                        // word.
+                        if (auto* cb = widgets_.get(pressedWid_[i]);
+                            cb && cb->enabled && cb->objectType == "CheckButton") {
+                            cb->checked = !cb->checked;
+                        }
                         callFrameScript(pressedWid_[i], "PreClick", b.name);
                         callFrameScript(pressedWid_[i], "OnClick", b.name);
                         callFrameScript(pressedWid_[i], "PostClick", b.name);
