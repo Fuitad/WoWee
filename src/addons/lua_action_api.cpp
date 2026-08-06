@@ -1503,10 +1503,27 @@ void registerActionLuaAPI(lua_State* L) {
                 {"HasAction",           lua_HasAction},
                 // A macro's name, which only a macro has; ActionButton_Update
                 // shows it under the icon and expects nothing for a spell.
-                {"GetActionText",       [](lua_State* L) -> int {
-                    lua_pushnil(L);
-                    return 1;
-                }},
+                // GetActionText(slot) → the name written under the button.
+                //
+                // Only a macro has one, which is what the action button draws
+                // in its Name font string — so with nil answered for every slot
+                // a bar full of macros was a row of nameless icons, all of them
+                // the same question mark unless the player had picked an icon.
+                // The names were there: GetMacroInfo has been reading them off
+                // the same handler all along.
+                {"GetActionText", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int slot = static_cast<int>(luaL_optnumber(L, 1, 0)) - 1;
+            if (!gh || slot < 0) { lua_pushnil(L); return 1; }
+            const auto& bar = gh->getActionBar();
+            if (slot >= static_cast<int>(bar.size())) { lua_pushnil(L); return 1; }
+            const auto& action = bar[static_cast<size_t>(slot)];
+            if (action.type != game::ActionBarSlot::MACRO) { lua_pushnil(L); return 1; }
+            const std::string name = gh->getMacroName(action.id);
+            if (name.empty()) { lua_pushnil(L); return 1; }
+            lua_pushstring(L, name.c_str());
+            return 1;
+        }},
                 // Whether the action has a range to be in or out of. Nothing
                 // here tracks that yet, and false is what "no range check"
                 // looks like — the button simply never dims for distance.

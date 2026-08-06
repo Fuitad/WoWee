@@ -2549,8 +2549,22 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushnumber(L, 1);
             return 1;
         }},
+                // GetTradeSkillCooldown(index) → seconds left, or nil.
+                //
+                // A recipe's cooldown is its spell's — transmutes and the salt
+                // shaker are the ones that have any — and this client has been
+                // tracking those all along. nil still means "not on cooldown",
+                // which is the branch that leaves the line blank.
                 {"GetTradeSkillCooldown", [](lua_State* L) -> int {
-            return luaReturnNil(L);   // nil means "not on cooldown"
+            auto* gh = getGameHandler(L);
+            const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh || i < 1) return luaReturnNil(L);
+            const auto recipes = gh->getCraftingRecipes();
+            if (i > static_cast<int>(recipes.size())) return luaReturnNil(L);
+            const float left = gh->getSpellCooldown(recipes[i - 1].spellId);
+            if (left <= 0.0f) return luaReturnNil(L);
+            lua_pushnumber(L, left);
+            return 1;
         }},
                 {"GetTradeSkillTools", [](lua_State* L) -> int {
             // The tool requirement is not in what this client parses, and
