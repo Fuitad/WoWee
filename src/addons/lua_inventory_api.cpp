@@ -2821,7 +2821,19 @@ static int lua_GetLootSlotInfo(lua_State* L) {
 
     lua_pushnumber(L, item.count);                           // quantity
     lua_pushnumber(L, info ? info->quality : 1);             // quality
-    lua_pushboolean(L, 0);                                   // locked (not tracked)
+    // locked — the row the loot window draws in red and refuses to take.
+    //
+    // Answered false because the slot type was "not tracked". It is tracked:
+    // SMSG_LOOT_RESPONSE carries one per item and the parser has always stored
+    // it. AzerothCore's LootSlotType is ALLOW_LOOT 0, ROLL_ONGOING 1, MASTER 2,
+    // LOCKED 3, OWNER 4 — so everything except the two that mean "take it" is
+    // locked, which covers a roll still running and an item only the master
+    // looter can hand out. Both used to draw as ordinary loot that silently did
+    // nothing when clicked.
+    constexpr uint8_t kAllowLoot = 0, kOwner = 4;
+    const bool locked = item.lootSlotType != kAllowLoot &&
+                        item.lootSlotType != kOwner;
+    lua_pushboolean(L, locked ? 1 : 0);
     return 5;
 }
 
