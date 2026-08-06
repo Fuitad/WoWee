@@ -423,64 +423,16 @@ static void applySoundCVars(lua_State* L) {
     if (auto* m = ac->getPlayerVoiceManager())    m->setVolumeScale(sfx);
 }
 
-static int lua_GetCVar(lua_State* L) {
-    const char* name = luaL_checkstring(L, 1);
-    // Folded to lower case, because the client's CVar names are not
-    // case-sensitive and the interface does not spell them consistently.
-    // uidropdownmenu.lua asks for "uiscale" where everything else says
-    // "uiScale"; an exact match answered "0" for it, tonumber("0") is 0, and
-    // every dropdown menu in the interface opened at SetScale(0) — laid out,
-    // drawn, and invisible.
-    std::string n(name);
-    toLowerInPlace(n);
-    // Asked of the client before the store, for the two settings it also owns.
-    // The V key toggles nameplates and the settings panel turns the minimap,
-    // neither of which goes through SetCVar; answering from the store would
-    // report whatever the interface last wrote, which by then is a guess.
-    if (n == "nameplateshowenemies") {
-        if (auto* svc = getLuaServices(L); svc && svc->getNameplatesShown) {
-            lua_pushstring(L, svc->getNameplatesShown() ? "1" : "0");
-            return 1;
-        }
-    } else if (n == "rotateminimap") {
-        if (auto* svc = getLuaServices(L); svc && svc->getMinimapRotate) {
-            lua_pushstring(L, svc->getMinimapRotate() ? "1" : "0");
-            return 1;
-        }
-    } else if (n == "gxvsync") {
-        if (auto* svc = getLuaServices(L); svc && svc->getVsync) {
-            lua_pushstring(L, svc->getVsync() ? "1" : "0");
-            return 1;
-        }
-    } else if (n == "mouseinvertpitch") {
-        if (auto* svc = getLuaServices(L); svc && svc->getInvertMouse) {
-            lua_pushstring(L, svc->getInvertMouse() ? "1" : "0");
-            return 1;
-        }
-    } else if (n == "chatbubbles") {
-        if (auto* svc = getLuaServices(L); svc && svc->getChatBubblesShown) {
-            lua_pushstring(L, svc->getChatBubblesShown() ? "1" : "0");
-            return 1;
-        }
-    } else if (n == "autolootdefault") {
-        // Asked of the client, like its neighbours. The interface options put
-        // a checkbox on this and the client has a real auto-loot setting, and
-        // the two had never met: the store answered a default of "1" while
-        // autoLoot_ starts false, so the box was ticked and looting was not.
-        if (auto* gh = getGameHandler(L)) {
-            lua_pushstring(L, gh->isAutoLoot() ? "1" : "0");
-            return 1;
-        }
-    } else if (n == "autoselfcast") {
-        if (auto* gh = getGameHandler(L)) {
-            lua_pushstring(L, gh->isAutoSelfCast() ? "1" : "0");
-            return 1;
-        }
-    }
-    if (auto it = cvarStore().find(n); it != cvarStore().end()) {
-        lua_pushstring(L, it->second.c_str());
-        return 1;
-    }
+
+/// The value a CVar has when nobody has set it.
+///
+/// Split out so GetCVarDefault can answer it. That was aliased straight to
+/// GetCVar, which answers the *current* value — and every options panel
+/// captures control.defaultValue from it as the panel loads, so the Defaults
+/// button restored each control to whatever it had been when the panel was
+/// opened. Nothing looked broken: the button worked, it just always agreed
+/// with wherever the controls already were.
+static void pushCvarDefault(lua_State* L, const std::string& n) {
     // Return sensible defaults for commonly queried CVars
     // The sound ones read back as on and at full, which is what this client
     // starts as. Volume up/down step from whatever is read here, so answering
@@ -654,6 +606,81 @@ static int lua_GetCVar(lua_State* L) {
     // update down. "classic" is the stock setting.
     else if (n == "chatstyle") lua_pushstring(L, "classic");
     else lua_pushstring(L, "0");
+}
+
+static int lua_GetCVar(lua_State* L) {
+    const char* name = luaL_checkstring(L, 1);
+    // Folded to lower case, because the client's CVar names are not
+    // case-sensitive and the interface does not spell them consistently.
+    // uidropdownmenu.lua asks for "uiscale" where everything else says
+    // "uiScale"; an exact match answered "0" for it, tonumber("0") is 0, and
+    // every dropdown menu in the interface opened at SetScale(0) — laid out,
+    // drawn, and invisible.
+    std::string n(name);
+    toLowerInPlace(n);
+    // Asked of the client before the store, for the two settings it also owns.
+    // The V key toggles nameplates and the settings panel turns the minimap,
+    // neither of which goes through SetCVar; answering from the store would
+    // report whatever the interface last wrote, which by then is a guess.
+    if (n == "nameplateshowenemies") {
+        if (auto* svc = getLuaServices(L); svc && svc->getNameplatesShown) {
+            lua_pushstring(L, svc->getNameplatesShown() ? "1" : "0");
+            return 1;
+        }
+    } else if (n == "rotateminimap") {
+        if (auto* svc = getLuaServices(L); svc && svc->getMinimapRotate) {
+            lua_pushstring(L, svc->getMinimapRotate() ? "1" : "0");
+            return 1;
+        }
+    } else if (n == "gxvsync") {
+        if (auto* svc = getLuaServices(L); svc && svc->getVsync) {
+            lua_pushstring(L, svc->getVsync() ? "1" : "0");
+            return 1;
+        }
+    } else if (n == "mouseinvertpitch") {
+        if (auto* svc = getLuaServices(L); svc && svc->getInvertMouse) {
+            lua_pushstring(L, svc->getInvertMouse() ? "1" : "0");
+            return 1;
+        }
+    } else if (n == "chatbubbles") {
+        if (auto* svc = getLuaServices(L); svc && svc->getChatBubblesShown) {
+            lua_pushstring(L, svc->getChatBubblesShown() ? "1" : "0");
+            return 1;
+        }
+    } else if (n == "autolootdefault") {
+        // Asked of the client, like its neighbours. The interface options put
+        // a checkbox on this and the client has a real auto-loot setting, and
+        // the two had never met: the store answered a default of "1" while
+        // autoLoot_ starts false, so the box was ticked and looting was not.
+        if (auto* gh = getGameHandler(L)) {
+            lua_pushstring(L, gh->isAutoLoot() ? "1" : "0");
+            return 1;
+        }
+    } else if (n == "autoselfcast") {
+        if (auto* gh = getGameHandler(L)) {
+            lua_pushstring(L, gh->isAutoSelfCast() ? "1" : "0");
+            return 1;
+        }
+    }
+    if (auto it = cvarStore().find(n); it != cvarStore().end()) {
+        lua_pushstring(L, it->second.c_str());
+        return 1;
+    }
+    pushCvarDefault(L, n);
+    return 1;
+}
+
+/// GetCVarDefault(name) → what it would be if nobody had set it.
+///
+/// Not the same question as GetCVar, and it used to be answered by the same
+/// function. The options panels capture control.defaultValue from this as they
+/// load and the Defaults button writes it back, so aliasing the two made that
+/// button restore each control to the value it already had.
+static int lua_GetCVarDefault(lua_State* L) {
+    const char* name = luaL_checkstring(L, 1);
+    std::string n(name);
+    toLowerInPlace(n);
+    pushCvarDefault(L, n);
     return 1;
 }
 
@@ -3434,7 +3461,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"UpdateAddOnMemoryUsage",   lua_ReturnNothing},
                 {"RunScript",                lua_RunScript},
                 {"IsMouseButtonDown",        lua_IsMouseButtonDown},
-                {"GetCVarDefault",           lua_GetCVar},
+                {"GetCVarDefault",           lua_GetCVarDefault},
                 {"IsAddOnLoaded",            lua_IsAddOnLoaded},
                 {"LoadAddOn",                lua_LoadAddOn},
                 {"UIParentLoadAddOn",        lua_LoadAddOn},
