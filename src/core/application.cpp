@@ -1,5 +1,6 @@
 #include "core/application.hpp"
 #include "core/coordinates.hpp"
+#include "ui/minimap_projection.hpp"
 #include "core/profiler.hpp"
 #include "core/npc_interaction_callback_handler.hpp"
 #include "core/audio_callback_handler.hpp"
@@ -3274,6 +3275,36 @@ void Application::render() {
                             const int lvl = (mm->zoomLevel < 0) ? 0
                                           : (mm->zoomLevel > 4 ? 4 : mm->zoomLevel);
                             map->setViewRadius(kRadius[lvl]);
+                        }
+
+                        // Minimap:PingLocation, which is all Minimap_OnClick
+                        // does. The offsets are minimap-local interface units
+                        // from the centre with +y up; the projection works in
+                        // pixels with +y down, and the ratio of the two radii
+                        // is what carries the scale, so both being interface
+                        // units is enough.
+                        if (mm->pingRequested) {
+                            mm->pingRequested = false;
+                            ui::MinimapView view;
+                            view.viewRadius = map->getViewRadius();
+                            view.mapRadius = mm->rectW * 0.5f;
+                            if (map->isRotateWithCamera()) {
+                                if (auto* cam = renderer->getCamera()) {
+                                    const glm::vec3 fwd = cam->getForward();
+                                    const float bearing = std::atan2(fwd.y, -fwd.x);
+                                    view.cosBearing = std::cos(bearing);
+                                    view.sinBearing = std::sin(bearing);
+                                }
+                            }
+                            glm::vec3 playerRender = renderer->getCharacterInstanceId() != 0
+                                ? renderer->getCharacterPosition()
+                                : (renderer->getCamera() ? renderer->getCamera()->getPosition()
+                                                         : glm::vec3(0.0f));
+                            const glm::vec2 d = ui::minimapOffsetToRenderDelta(
+                                mm->pingX, -mm->pingY, view);
+                            const glm::vec3 canon = core::coords::renderToCanonical(
+                                playerRender + glm::vec3(d.x, d.y, 0.0f));
+                            if (gameHandler) gameHandler->sendMinimapPing(canon.x, canon.y);
                         }
                     } else {
                         map->clearScreenRect();

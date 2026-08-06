@@ -466,6 +466,14 @@ struct Widget {
     /// interface sets it through one button and reads it back through another.
     int zoomLevel = 0;
 
+    /// A Minimap:PingLocation the interface asked for, in minimap-local
+    /// interface units from its centre with +y up. Parked here for the same
+    /// reason the zoom is: turning it into a world position needs the map's
+    /// view radius and the camera bearing, and Lua can reach neither. The
+    /// frame loop picks it up and clears the flag.
+    bool pingRequested = false;
+    float pingX = 0.0f, pingY = 0.0f;
+
     // Filled in by layout(). Screen rect in WoW coordinates: origin bottom-left.
     float left = 0.0f, bottom = 0.0f, rectW = 0.0f, rectH = 0.0f;
     /// Shown, with every ancestor shown. This is what WoW's IsVisible answers

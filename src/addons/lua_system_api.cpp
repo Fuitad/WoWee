@@ -4265,6 +4265,33 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetCVarBool",         lua_GetCVarBool},
                 {"SetCVar",             lua_SetCVar},
                 {"GetLocale",         lua_GetLocale},
+                // Gender-aware lookup of a global string by token name.
+                //
+                // The reputation list is the caller that matters:
+                // ReputationFrame_Update builds each row's standing label as
+                // GetText("FACTION_STANDING_LABEL"..standingID, gender), and an
+                // unbound global there is not a blank label but an error that
+                // takes the whole list down with it.
+                {"GetText", [](lua_State* L) -> int {
+            const char* token = luaL_optstring(L, 1, nullptr);
+            if (!token) { lua_pushstring(L, ""); return 1; }
+            // globalstrings.lua carries FACTION_STANDING_LABEL3_FEMALE beside
+            // FACTION_STANDING_LABEL3, so a gendered token wins when it exists.
+            // 2 = male, 3 = female; 1 and absent mean neuter/unknown.
+            const int gender = static_cast<int>(luaL_optnumber(L, 2, 0));
+            const char* suffix = gender == 3 ? "_FEMALE" : (gender == 2 ? "_MALE" : nullptr);
+            if (suffix) {
+                lua_getglobal(L, (std::string(token) + suffix).c_str());
+                if (lua_isstring(L, -1)) return 1;
+                lua_pop(L, 1);
+            }
+            lua_getglobal(L, token);
+            if (lua_isstring(L, -1)) return 1;
+            lua_pop(L, 1);
+            // A token with no string behind it shows as itself rather than as
+            // nil, which would clear whatever label asked for it.
+            lua_pushstring(L, token);
+            return 1; }},
                 {"GetBuildInfo",      lua_GetBuildInfo},
                 {"GetCurrentMapAreaID", lua_GetCurrentMapAreaID},
                 {"SetMapToCurrentZone", lua_SetMapToCurrentZone},

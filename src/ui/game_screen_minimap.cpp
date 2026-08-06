@@ -3,6 +3,7 @@
 #include "ui/ui_raid_icons.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/ui_helpers.hpp"
+#include "ui/minimap_projection.hpp"
 #include "rendering/vk_context.hpp"
 #include "core/application.hpp"
 #include "core/appearance_composer.hpp"
@@ -170,6 +171,10 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         sinB = std::sin(bearing);
     }
 
+    // The same view the Lua binding uses, so a ctrl+click here and a
+    // Minimap:PingLocation from the interface land on the same world point.
+    const MinimapView minimapView{viewRadius, mapRadius, cosB, sinB};
+
     auto* drawList = ImGui::GetForegroundDrawList();
 
     // Partition the entity map once. Marker categories below can traverse their
@@ -201,16 +206,9 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         float dx = worldRenderPos.x - playerRender.x;
         float dy = worldRenderPos.y - playerRender.y;
 
-        // Exact inverse of minimap display shader:
-        //   shader: mapUV = playerUV + vec2(rotated.y, -rotated.x) * zoom * 2
-        //   where rotated = R(bearing) * vec2(-center.x, center.y).
-        // Render +X is west and +Y is north, while composite UV grows east/south.
-        float rx = -(dy * cosB - dx * sinB);
-        float ry = -(dy * sinB + dx * cosB);
-
-        // Scale to minimap pixels
-        float px = rx / viewRadius * mapRadius;
-        float py = ry / viewRadius * mapRadius;
+        const glm::vec2 off = renderDeltaToMinimapOffset(dx, dy, minimapView);
+        float px = off.x;
+        float py = off.y;
 
         float distFromCenter = std::sqrt(px * px + py * py);
         if (distFromCenter > mapRadius - 3.0f) {
@@ -850,9 +848,12 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
                 // Corpse is outside minimap — draw an edge arrow pointing toward it
                 float dx = corpseRender.x - playerRender.x;
                 float dy = corpseRender.y - playerRender.y;
-                // Rotate delta into minimap frame (same as projectToMinimap)
-                float rx = -(dy * cosB - dx * sinB);
-                float ry = -(dy * sinB + dx * cosB);
+                // Only the direction is wanted here, and the projection's
+                // scale is uniform and positive, so it falls out of the
+                // normalisation below.
+                const glm::vec2 dir = renderDeltaToMinimapOffset(dx, dy, minimapView);
+                float rx = dir.x;
+                float ry = dir.y;
                 float len = std::sqrt(rx * rx + ry * ry);
                 if (len > 0.001f) {
                     float nx = rx / len;
@@ -950,18 +951,10 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         float mdy = mouse.y - centerY;
         float distSq = mdx * mdx + mdy * mdy;
         if (distSq <= mapRadius * mapRadius) {
-            // Invert projectToMinimap: px=mdx, py=mdy → rx=px*viewRadius/mapRadius
-            float rx = mdx * viewRadius / mapRadius;
-            float ry = mdy * viewRadius / mapRadius;
-            // rx/ry are in rotated minimap frame; invert the same transform
-            // used by projectToMinimap, including the horizontal mirror.
-            float oldRx = -rx;
-            float rotX = oldRx * cosB - ry * sinB;
-            float rotY = oldRx * sinB + ry * cosB;
-            float wdx = -rotY;
-            float wdy =  rotX;
-            // playerRender is in render coords; add delta to get render position then convert to canonical
-            glm::vec3 clickRender = playerRender + glm::vec3(wdx, wdy, 0.0f);
+            // playerRender is in render coords; add the delta the click means
+            // to get a render position, then convert to canonical.
+            const glm::vec2 d = minimapOffsetToRenderDelta(mdx, mdy, minimapView);
+            glm::vec3 clickRender = playerRender + glm::vec3(d.x, d.y, 0.0f);
             glm::vec3 clickCanon = core::coords::renderToCanonical(clickRender);
             gameHandler.sendMinimapPing(clickCanon.x, clickCanon.y);
         }
@@ -1109,14 +1102,9 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             ImGui::BeginTooltip();
             if (settingsPanel_.showMinimapCoordinates_) {
                 // Compute the world coordinate under the mouse cursor.
-                float rxW = mdx / mapRadius * viewRadius;
-                float ryW = mdy / mapRadius * viewRadius;
-                float hoverOldRx = -rxW;
-                float hoverRotX = hoverOldRx * cosB - ryW * sinB;
-                float hoverRotY = hoverOldRx * sinB + ryW * cosB;
-                float hoverDx = -hoverRotY;
-                float hoverDy =  hoverRotX;
-                glm::vec3 hoverRender(playerRender.x + hoverDx, playerRender.y + hoverDy, playerRender.z);
+                const glm::vec2 hover = minimapOffsetToRenderDelta(mdx, mdy, minimapView);
+                glm::vec3 hoverRender(playerRender.x + hover.x, playerRender.y + hover.y,
+                                      playerRender.z);
                 glm::vec3 hoverCanon = core::coords::renderToCanonical(hoverRender);
                 ImGui::TextColored(ImVec4(0.9f, 0.85f, 0.5f, 1.0f), "%.1f, %.1f", hoverCanon.x, hoverCanon.y);
             }

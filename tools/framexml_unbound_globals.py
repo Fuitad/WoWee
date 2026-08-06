@@ -39,6 +39,25 @@ the whole time.
     GameMovieFinished has no movie to finish, and PickupEquipmentSet would put
     something on a cursor with no kind for it and no drop target that takes it.
 
+WHAT IT CANNOT SEE: A GLOBAL A WIDGET METHOD IS NAMED AFTER
+
+Bindings are found by their name in the C++ source, and a widget method
+registers by name the same way a global does. So a global goes on reading as
+bound the moment any widget method shares its name, and no amount of reading
+this report finds it.
+
+GetText was exactly that. FrameXML's GetText(token, gender) looks a global
+string up with a gendered variant, and ReputationFrame_Update builds every
+standing label with it — but set("GetText", lua_FontString_GetText) registers
+a FontString method of that name, so this sweep counted it bound and the
+reputation list raised on open regardless. The runtime missing-API report
+caught it; this could not. Bound 2026-08-05.
+
+The shape generalises: any name that is both a global and a method — GetText,
+and whatever else grows into the collision later — is invisible here. The
+runtime report is the only sweep that distinguishes them, because it records
+what was actually asked for and of what.
+
 A NOTE ON THE COUNT
 
 It fell from 368 to 36 across one session, and most of that was not binding

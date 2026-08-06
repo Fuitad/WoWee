@@ -2180,6 +2180,19 @@ int lua_Minimap_GetZoomLevels(lua_State* L) {
     lua_pushnumber(L, 5);
     return 1;
 }
+/// Minimap_OnClick's whole body: a click inside the circle pings that spot for
+/// the party. The offsets arrive minimap-local, in interface units from the
+/// centre, and turning them into a world position needs the map's view radius
+/// and the camera bearing — neither of which Lua can reach. So the request is
+/// parked on the widget and the frame loop, which has both, converts it.
+int lua_Minimap_PingLocation(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->pingX = static_cast<float>(luaL_optnumber(L, 2, 0));
+        w->pingY = static_cast<float>(luaL_optnumber(L, 3, 0));
+        w->pingRequested = true;
+    }
+    return 0;
+}
 
 /// Enable and Disable, with the handlers that go with them.
 ///
@@ -4135,6 +4148,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetZoom",         lua_Minimap_SetZoom},
         {"GetZoom",         lua_Minimap_GetZoom},
         {"GetZoomLevels",   lua_Minimap_GetZoomLevels},
+        {"PingLocation",    lua_Minimap_PingLocation},
         {"GetCenter",       lua_Region_GetCenter},
         {"SetAlpha",        lua_Region_SetAlpha},
         {"GetAlpha",        lua_Region_GetAlpha},
@@ -4807,7 +4821,8 @@ void LuaEngine::registerCoreAPI() {
         "IsEnabled=1,IsEquippedItem=1,IsEventRegistered=1,IsMouseEnabled=1,\n"
         "IsObjectType=1,IsProtected=1,IsShown=1,IsUnderMouse=1,\n"
         "IsUnit=1,IsVisible=1,LockHighlight=1,Lower=1,MoveUIPanel=1,\n"
-        "New=1,NumLines=1,OnFinished=1,OnUpdate=1,PageDown=1,PageUp=1,PingLocation=1,\n"
+        "New=1,NumLines=1,OnFinished=1,OnUpdate=1,PageDown=1,PageUp=1,\n"
+        // PingLocation is a real binding now, applied after this set.
         "Play=1,Raise=1,RefreshValue=1,RegisterAutoHide=1,RegisterEvent=1,\n"
         "RegisterForClicks=1,RegisterForDrag=1,ReleaseFrame=1,\n"
         "RemoveMessagesByAccessID=1,ReplaceIconTexture=1,Reset=1,Reuse=1,Run=1,\n"

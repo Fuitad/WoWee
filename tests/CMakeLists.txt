@@ -790,6 +790,17 @@ target_include_directories(test_link_hit SYSTEM PRIVATE
 )
 target_link_libraries(test_link_hit PRIVATE catch2_main)
 add_test(NAME link_hit COMMAND test_link_hit)
+
+# ── test_minimap_projection ──────────────────────────────────
+add_executable(test_minimap_projection
+    test_minimap_projection.cpp
+)
+target_include_directories(test_minimap_projection PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_minimap_projection SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS}
+)
+target_link_libraries(test_minimap_projection PRIVATE catch2_main)
+add_test(NAME minimap_projection COMMAND test_minimap_projection)
 register_test_target(test_text_wrap)
 
 # ── test_chat_markup_parser ──────────────────────────────────
