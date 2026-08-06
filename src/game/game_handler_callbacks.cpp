@@ -1886,6 +1886,10 @@ bool GameHandler::ownsChatChannel(const std::string& name) const {
     return chatHandler_ && chatHandler_->ownsChannel(name);
 }
 
+uint64_t GameHandler::chatLineSender(uint32_t lineId) const {
+    return chatHandler_ ? chatHandler_->chatLineSender(lineId) : 0;
+}
+
 const std::vector<std::string>& GameHandler::getJoinedChannels() const {
     if (chatHandler_) return chatHandler_->getJoinedChannels();
     static const std::vector<std::string> kEmpty;

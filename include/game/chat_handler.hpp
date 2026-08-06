@@ -46,6 +46,12 @@ public:
     bool ownsChannel(const std::string& name) const {
         return ownedChannels_.count(name) != 0;
     }
+    /// Who sent the line with this id, or zero if it is not remembered.
+    uint64_t chatLineSender(uint32_t lineId) const {
+        for (const auto& [id, guid] : chatLineSenders_)
+            if (id == lineId) return guid;
+        return 0;
+    }
 
     /// The roster of a channel by name, empty until a list is asked for. The
     /// list used to be printed to chat and dropped, so the channel panel had
@@ -105,6 +111,18 @@ private:
     uint64_t chatUidCounter_ = 0;  // monotonic uid for MessageChatData::uid
     std::vector<std::string> joinedChannels_;
     std::set<std::string> ownedChannels_;
+    /// Who sent the message a chat line id names, newest last.
+    ///
+    /// Every chat event carries a line id as its eleventh argument, and
+    /// FrameXML builds it into the player link on the name — so a right-click
+    /// on that name hands the id back and expects the client to know which
+    /// message it was. This client sent zero for all of them, which is one id
+    /// shared by every line ever printed and therefore no id at all.
+    ///
+    /// Bounded, because a session's chat is unbounded and only recent lines can
+    /// be reported anyway.
+    std::deque<std::pair<uint32_t, uint64_t>> chatLineSenders_;
+    uint32_t nextChatLineId_ = 1;
     std::unordered_map<std::string, std::vector<ChannelMember>> channelRosters_;
     bool chatLogEnabled_ = false;
     bool chatLogInitialized_ = false;

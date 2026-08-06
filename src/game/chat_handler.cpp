@@ -645,6 +645,22 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
         // CHANNEL0, which no table has, and the message was dropped before it
         // reached the window. arg9 is what the frame matches against the
         // channels it carries when the zone id does not settle it.
+        // A line id of its own, remembered against the sender. FrameXML builds
+        // this into the player link on the name — "|Hplayer:Name:lineId:..." —
+        // so a right-click on that name hands it back and the client is
+        // expected to know which message it was. Zero for every line is one id
+        // shared by all of them, which is what made Report Spam unofferable:
+        // CanComplainChat is asked about the id before the entry is shown.
+        const uint32_t lineId = nextChatLineId_++;
+        if (data.senderGuid != 0) {
+            chatLineSenders_.emplace_back(lineId, data.senderGuid);
+            // Recent lines only. A session's chat has no end, and a message old
+            // enough to have fallen out of this is old enough not to be
+            // reportable.
+            constexpr size_t kRememberedLines = 512;
+            while (chatLineSenders_.size() > kRememberedLines)
+                chatLineSenders_.pop_front();
+        }
         const int channelNumber = getChannelIndex(data.channelName);
         const size_t dash = data.channelName.find(" - ");
         const std::string shortChannel = (dash == std::string::npos)
@@ -660,7 +676,7 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
             std::to_string(channelNumber),
             shortChannel,
             "0",
-            "0",
+            std::to_string(lineId),
             guidBuf
         });
     }

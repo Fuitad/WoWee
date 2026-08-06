@@ -1285,8 +1285,22 @@ void registerSocialLuaAPI(lua_State* L) {
                 // an id nothing recorded. Sending it with a zero guid would
                 // report nobody, which is worse than not sending — so this
                 // takes the click and does nothing, and the popup closes.
+                // Report a chat line as spam. The unit menu offers it on a
+                // right-click of a name in chat and hands back the line id from
+                // the player link; the popup that confirms it calls this with
+                // the same id.
+                //
+                // The report itself was already built — CMSG_COMPLAIN, which
+                // this server has a real handler for — and reachable only from
+                // this client's own window, because every chat line carried the
+                // id zero and CanComplainChat is asked about that id before the
+                // entry is shown at all.
                 {"ComplainChat", [](lua_State* L) -> int {
-            (void)L;
+            auto* gh = getGameHandler(L);
+            const uint32_t lineId = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (!gh || lineId == 0) return 0;
+            const uint64_t guid = gh->chatLineSender(lineId);
+            if (guid != 0) gh->reportPlayer(guid, "");
             return 0;
         }},
                 // The petition *vendor* — the guild master or arena
@@ -2744,7 +2758,16 @@ void registerSocialLuaAPI(lua_State* L) {
             return 0;
         }},
                 {"CanGrantLevel",             [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
-                {"CanComplainChat",           [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                // Whether that line can be reported: it has to be one this
+                // client still remembers the sender of, and not one of the
+                // player's own.
+                {"CanComplainChat", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t lineId = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            const uint64_t guid = (gh && lineId) ? gh->chatLineSender(lineId) : 0;
+            lua_pushboolean(L, (guid != 0 && guid != gh->getPlayerGuid()) ? 1 : 0);
+            return 1;
+        }},
                 {"CanChangePlayerDifficulty", [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 {"IsSilenced",                [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 {"IsDisplayChannelModerator", [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
