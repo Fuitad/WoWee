@@ -3861,6 +3861,24 @@ void SocialHandler::handleInitializeFactions(network::Packet& packet) {
         fs.standing = static_cast<int32_t>(packet.readUInt32());
         owner_.initialFactionsRef().push_back(fs);
     }
+    // Also keyed by faction, which is how everything that draws a standing
+    // asks for one. This packet is indexed by ReputationListID and the map is
+    // indexed by faction id, and only SMSG_SET_FACTION_STANDING wrote to the
+    // map — so a standing was known from login and unreadable until it next
+    // moved. The reputation tab drew every bar empty at Neutral however much
+    // the character had earned, and so did this client's own panel and the
+    // watched-faction bar, all three reading the same empty map.
+    owner_.loadFactionNameCache();
+    for (size_t repListId = 0; repListId < owner_.initialFactionsRef().size(); ++repListId) {
+        const uint32_t factionId =
+            owner_.getFactionIdByRepListId(static_cast<uint32_t>(repListId));
+        if (factionId == 0) continue;
+        owner_.factionStandingsRef()[factionId] =
+            owner_.initialFactionsRef()[repListId].standing;
+    }
+    LOG_INFO("Reputation: ", owner_.initialFactionsRef().size(),
+             " factions initialised, ", owner_.factionStandingsRef().size(),
+             " resolved to a faction id");
 }
 
 void SocialHandler::handleSetFactionStanding(network::Packet& packet) {

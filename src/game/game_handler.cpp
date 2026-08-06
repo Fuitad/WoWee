@@ -3663,7 +3663,19 @@ const GossipMessageData& GameHandler::getCurrentGossip() const {
 }
 int32_t GameHandler::getFactionStanding(uint32_t factionId) const {
     auto it = factionStandings_.find(factionId);
-    return it == factionStandings_.end() ? 0 : it->second;
+    if (it != factionStandings_.end()) return it->second;
+    // Nothing in the by-faction map means nothing has *changed* since login:
+    // SMSG_SET_FACTION_STANDING is what writes it, and it only arrives when
+    // reputation moves. The standings the character logged in with come in
+    // SMSG_INITIALIZE_FACTIONS, indexed by ReputationListID rather than by
+    // faction, and the two were never joined — so every faction read zero and
+    // the reputation tab drew every bar empty at Neutral, whatever the
+    // character had earned, until the next point of reputation with it.
+    const uint32_t repListId = getRepListIdByFactionId(factionId);
+    if (repListId < initialFactions_.size()) {
+        return initialFactions_[repListId].standing;
+    }
+    return 0;
 }
 
 const std::vector<GameHandler::ReputationEntry>& GameHandler::getReputationList() const {
