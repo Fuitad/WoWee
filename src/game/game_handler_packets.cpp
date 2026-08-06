@@ -301,14 +301,10 @@ void GameHandler::registerOpcodeHandlers() {
             // value, maxvalue, scale, paused, label). Sending the type as a
             // number and omitting the label left it matching no timer and
             // dividing a nil.
-            // The names WoW passes, not the wire's own ordering words:
-            // MirrorTimerColors in mirrortimer.lua is keyed EXHAUSTION, BREATH
-            // and DEATH, and a name that misses it indexes a nil colour and
-            // raises before the frame is ever shown.
-            static const char* kMirrorTimers[3] = {"EXHAUSTION", "BREATH", "DEATH"};
-            static const char* kMirrorLabels[3] = {"Exhaustion", "Breath", "Death"};
-            const char* timerName = (type < 3) ? kMirrorTimers[type] : "BREATH";
-            const char* timerLabel = (type < 3) ? kMirrorLabels[type] : "Breath";
+            // The names WoW passes, not the wire's own ordering words — see
+            // kMirrorTimerNames, which every path that names a timer shares.
+            const char* timerName = (type < 3) ? kMirrorTimerNames[type] : "BREATH";
+            const char* timerLabel = (type < 3) ? kMirrorTimerLabels[type] : "Breath";
             fireAddonEvent("MIRROR_TIMER_START", {
                     timerName, std::to_string(value),
                     std::to_string(maxV), std::to_string(scale),
@@ -323,9 +319,8 @@ void GameHandler::registerOpcodeHandlers() {
             mirrorTimers_[type].value  = 0;
             // Named, like the start above: MirrorTimer_Hide matches on the
             // timer's name, so a number hides nothing.
-            static const char* kStopNames[3] = {"EXHAUSTION", "BREATH", "DEATH"};
             fireAddonEvent("MIRROR_TIMER_STOP",
-                           {type < 3 ? kStopNames[type] : "BREATH"});
+                           {type < 3 ? kMirrorTimerNames[type] : "BREATH"});
         }
     };
     dispatchTable_[Opcode::SMSG_PAUSE_MIRROR_TIMER] = [this](network::Packet& packet) {

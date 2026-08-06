@@ -1990,6 +1990,20 @@ public:
     void dismissCritter();
 
     // Mirror timers (0=fatigue, 1=breath, 2=feigndeath)
+    //
+    // The interface names its timers rather than numbering them, and the name
+    // is a table key twice over: MirrorTimerColors is keyed by it, and
+    // MirrorTimer_Show reads color.r straight off the result, so a name that
+    // misses raises rather than merely losing the colour. MirrorTimer_Hide then
+    // matches the running dialog by the same name, which is why start and stop
+    // have to agree — they are one table here for that reason. Four copies of
+    // this list had accumulated across three files and the fourth said
+    // "FATIGUE", which is not one of the four keys mirrortimer.lua defines.
+    static constexpr const char* kMirrorTimerNames[3] =
+        {"EXHAUSTION", "BREATH", "FEIGNDEATH"};
+    static constexpr const char* kMirrorTimerLabels[3] =
+        {"Exhaustion", "Breath", "Feign Death"};
+
     struct MirrorTimer {
         int32_t value    = 0;
         int32_t maxValue = 0;
@@ -2044,9 +2058,8 @@ public:
                 //
                 // Named rather than numbered, as the packet handler does:
                 // MirrorTimer_Hide matches on the timer's name.
-                static const char* kStopNames[3] = {"EXHAUSTION", "BREATH", "DEATH"};
                 fireAddonEvent("MIRROR_TIMER_STOP",
-                               {ti < 3 ? kStopNames[ti] : "BREATH"});
+                               {ti < 3 ? kMirrorTimerNames[ti] : "BREATH"});
             }
         }
     }

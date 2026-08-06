@@ -1849,8 +1849,11 @@ void registerActionLuaAPI(lua_State* L) {
                 {"GetMirrorTimerInfo", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int index = static_cast<int>(luaL_optnumber(L, 1, 1)) - 1;
-            static const char* kNames[3]  = {"FATIGUE", "BREATH", "FEIGNDEATH"};
-            static const char* kLabels[3] = {"Fatigue", "Breath", "Feign Death"};
+            // Shared with the packet handler that fires MIRROR_TIMER_START, so
+            // that polling and event agree on the name MirrorTimer_Hide will
+            // later be asked to match.
+            const auto& kNames  = game::GameHandler::kMirrorTimerNames;
+            const auto& kLabels = game::GameHandler::kMirrorTimerLabels;
             if (!gh || index < 0 || index > 2 || !gh->getMirrorTimer(index).active) {
                 lua_pushstring(L, "UNKNOWN");
                 lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 0);

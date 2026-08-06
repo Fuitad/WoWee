@@ -13,7 +13,7 @@ different spelling is not a wrong colour, it is a nil, and nil takes the other
 branch without a word. Nothing else here can see it: the name is bound, the
 argument is read, the return is a string of the right type in the right slot.
 
-Two came out of it on 2026-08-06:
+Three came out of it on 2026-08-06:
 
   * UnitPowerType answered "" for power type 5 where RUNES was meant, so a rune
     bar's label prefix came back nil from _G[""]. The colour survived only
@@ -24,6 +24,12 @@ Two came out of it on 2026-08-06:
     splices it straight into "DressUpBackground-"..fileName, so a Night Elf
     asked for an asset with a space in its name and the dressing room drew no
     background at all.
+  * GetMirrorTimerInfo answered "FATIGUE" where MirrorTimerColors is keyed
+    EXHAUSTION. MirrorTimer_Show reads color.r straight off the lookup, so that
+    one raised rather than losing a colour — on a per-frame polling path, while
+    drowning. The same three names existed in four places across three files and
+    only this copy was wrong, so they are one table now; the sweep can see it
+    because that table has a findable home.
 
 WHAT IT COMPARES
 
@@ -51,22 +57,27 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 INTERFACE = ROOT / "Data/interface"
-HELPERS = ROOT / "include/addons/lua_api_helpers.hpp"
+# Token tables live wherever the code that answers with them does; both files
+# are searched so a table can sit beside its subject rather than in one bucket.
+SOURCES = [ROOT / "include/addons/lua_api_helpers.hpp",
+           ROOT / "include/game/game_handler.hpp"]
 
 # C token table -> the FrameXML table(s) whose keys it must be spelled for.
 PAIRS = [
     ("kLuaClassTokens", ["CLASS_ICON_TCOORDS", "RAID_CLASS_COLORS"]),
     ("kLuaPowerNames", ["PowerBarColor"]),
+    ("kMirrorTimerNames", ["MirrorTimerColors"]),
 ]
 
 
 def c_tokens(name):
-    """The non-empty strings in a `const char* name[] = { ... }` table."""
-    src = HELPERS.read_text(errors="ignore")
-    m = re.search(r"\b" + re.escape(name) + r"\[\]\s*=\s*\{(.*?)\}", src, re.S)
-    if not m:
-        return None
-    return [t for t in re.findall(r'"([^"]*)"', m.group(1)) if t]
+    """The non-empty strings in a `const char* name[...] = { ... }` table."""
+    for path in SOURCES:
+        src = path.read_text(errors="ignore")
+        m = re.search(r"\b" + re.escape(name) + r"\[\d*\]\s*=\s*\{(.*?)\}", src, re.S)
+        if m:
+            return [t for t in re.findall(r'"([^"]*)"', m.group(1)) if t]
+    return None
 
 
 def lua_keys(table):
@@ -98,7 +109,7 @@ def main():
     for c_name, tables in PAIRS:
         tokens = c_tokens(c_name)
         if tokens is None:
-            rows.append(f"  {c_name} — table not found in lua_api_helpers.hpp (renamed?)")
+            rows.append(f"  {c_name} — table not found in any SOURCES file (renamed? moved?)")
             continue
         for table in tables:
             keys = lua_keys(table)
@@ -114,7 +125,7 @@ def main():
     # the fault they had was a space in one.
     files = c_tokens("kLuaRaceFileNames")
     if files is None:
-        rows.append("  kLuaRaceFileNames — table not found in lua_api_helpers.hpp (renamed?)")
+        rows.append("  kLuaRaceFileNames — table not found in any SOURCES file (renamed? moved?)")
     else:
         checked += 1
         for tok in files:
