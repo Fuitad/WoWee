@@ -32,6 +32,9 @@ import re
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from framexml_source import loaded_files
+
 ROOT = Path(__file__).resolve().parent.parent
 XML = ROOT / "Data/interface"
 ENGINE = ROOT / "src/addons/lua_engine.cpp"
@@ -52,14 +55,17 @@ def strip(text, is_xml):
 # since it was written. One fact in two places, drifting.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from framexml_provides import widget_methods_provided  # noqa: E402
-from framexml_source import without_comments_or_strings  # noqa: E402
+from framexml_source import without_comments_or_strings  # noqa: E402, loaded_files
 
 answered_by_engine = widget_methods_provided()
 
 # Methods FrameXML defines itself, on frames or on its own tables.
 defined = set()
 called = {}
-for p in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
+# Only files the loader opens. GlueXML — login, character select, realm
+# list — sits in the same tree and is refused by name, so a name it calls
+# or a value it unpacks says nothing about this client.
+for p in sorted(loaded_files(XML)):
     text = strip(p.read_text(errors="ignore"), p.suffix == ".xml")
     defined |= set(re.findall(r"\bfunction\s+[\w.]+[.:](\w+)\s*\(", text))
     defined |= set(re.findall(r"[\w.]+\.(\w+)\s*=\s*function", text))

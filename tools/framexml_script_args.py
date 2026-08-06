@@ -51,6 +51,9 @@ import re
 import sys
 from pathlib import Path
 
+import sys as _s; _s.path.insert(0, str(Path(__file__).resolve().parent))
+from framexml_source import loaded_files
+
 ROOT = Path(__file__).resolve().parent.parent
 XML = ROOT / "Data/interface"
 EMITTER = ROOT / "src/ui/framexml_emitter.cpp"
@@ -91,7 +94,9 @@ def main():
     default = table[""]
 
     rows = []
-    for path in sorted(XML.rglob("*.xml")):
+    # Only files the loader opens; see framexml_source.loaded_files.
+    for path in sorted(q for q in loaded_files(XML)
+                       if q.suffix.lower() == ".xml"):
         # Blanked in place rather than deleted, so every offset stays where it
         # was. Deleting shifts every line number after the first comment, and a
         # report that sends you to the wrong line costs more than it saves.

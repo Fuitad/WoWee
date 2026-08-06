@@ -48,6 +48,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from framexml_provides import noop_widget_methods  # noqa: E402
 
+import sys as _s; _s.path.insert(0, str(Path(__file__).resolve().parent))
+from framexml_source import loaded_files
+
 ROOT = Path(__file__).resolve().parent.parent
 XML = ROOT / "Data/interface"
 
@@ -95,7 +98,9 @@ def close_paren(text, open_at):
 
 
 def main():
-    files = sorted(list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")))
+    # Only files the loader opens — GlueXML is refused by name and its
+    # calls say nothing about this client.
+    files = sorted(loaded_files(XML))
     bodies = {p: strip(p.read_text(errors="ignore"), p.suffix == ".xml")
               for p in files}
 

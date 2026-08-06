@@ -24,7 +24,7 @@ from pathlib import Path
 
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).resolve().parent))
-from framexml_source import without_comments
+from framexml_source import without_comments, loaded_files
 
 ROOT = Path("/home/k/Desktop/wowee")
 ADDONS = ROOT / "src/addons"
@@ -99,7 +99,10 @@ def top_level_split(rhs):
 
 # FrameXML: max destructured count per call
 unpack = {}
-for path in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
+# Only files the loader opens. GlueXML — login, character select, realm
+# list — sits in the same tree and is refused by name, so a name it calls
+# or a value it unpacks says nothing about this client.
+for path in sorted(loaded_files(XML)):
     t = strip_comments(path.read_text(errors="ignore"))
     for m in re.finditer(r"(?:local\s+)?([A-Za-z_][\w., \t]*?)\s*=\s*([^\n]+)", t):
         lhs, rhs = m.group(1), m.group(2)
