@@ -225,6 +225,36 @@ const std::set<std::string>& requested() {
                 // of its own flag, and both the M key and the micro-menu
                 // button already route to ToggleFrame(WorldMapFrame).
                 //
+                // THE LAYER INVENTORY, WHICH IS WHAT THIS SEAM COSTS
+                //
+                // Everything FrameXML draws inside WorldMapDetailFrame is
+                // behind this client's map window and cannot be seen, so every
+                // one of those layers has to be drawn on this side or it does
+                // not exist. Enumerated 2026-08-05 against the frames
+                // worldmapframe.xml declares, so the next gap is a diff:
+                //
+                //   drawn here     corpse, death release, party dots, quest
+                //                  POIs, taxi nodes, rares, chests, the
+                //                  exploration mask, the player marker, the
+                //                  zone highlight — and battleground team
+                //                  positions, which were the one layer nobody
+                //                  had checked and are drawn here now.
+                //   nothing to draw
+                //                  WorldMapFlag1 and 2, the battleground flag
+                //                  positions: no packet here carries them.
+                //                  WorldMapBlobFrame, the shaded quest areas:
+                //                  this client's quest POIs are points, and a
+                //                  blob needs the polygon the server sends
+                //                  with them, which is not parsed.
+                //                  Vehicles, which are absent generally.
+                //   covered        WorldMapPing follows the player's own
+                //                  marker rather than a party ping, and this
+                //                  client draws that marker.
+                //
+                // The trap is that binding the stub looks like the fix and is
+                // not: GetNumBattlefieldPositions feeds WorldMapRaid1..40, and
+                // those frames cannot be seen from behind the map.
+                //
                 // Its two unfired events are accounted for:
                 // WORLD_MAP_NAME_UPDATE is registered with no branch to handle
                 // it, and CLOSE_WORLD_MAP is the server telling the map to
