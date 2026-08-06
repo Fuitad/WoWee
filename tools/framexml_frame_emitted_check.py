@@ -24,7 +24,13 @@ WHAT IT COMPARES
 
 Concrete (non-virtual) frame elements carrying a literal name, against the Lua
 emitFrameXml produces for that same file. Zero today, across 172 in-game files
-and some four thousand frames.
+and 2369 frames.
+
+It also compiles what was emitted, which is a second and separate claim: a
+syntax error anywhere in a chunk takes down every frame in that file, and the
+name check cannot see it because the name is in the text either way. Also zero
+— and seen to fail before that zero was believed: putting `local x = = 1` in a
+gamemenuframe OnLoad makes framexml_emit exit 2 and name the emitted line.
 
 WHAT IT DELIBERATELY SKIPS
 
@@ -88,6 +94,13 @@ def main():
                                  text=True, timeout=60)
         except subprocess.TimeoutExpired:
             rows.append((p.name, "emitter timed out", []))
+            continue
+        if run.returncode == 2:
+            # The frames are all in the text; the chunk will not load, so none
+            # of them is ever created. Reported separately because the fix is
+            # in the emitter's output, not in its coverage.
+            first = (run.stderr.strip().splitlines() or ["?"])[0]
+            rows.append((p.name, "emitted Lua does not compile", [first[:90]]))
             continue
         if run.returncode != 0:
             rows.append((p.name, "emitter failed", []))

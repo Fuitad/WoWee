@@ -16,8 +16,19 @@
 //     framexml_emit .../floatingchatframe.xml | grep -n 'editBox'
 //
 // A hypothesis about emitted output is cheap to test and expensive to assume.
+// It also compiles what it emitted, because "the frame was written out" and
+// "the file the frame is in will load" are different claims. A syntax error
+// anywhere in a chunk takes down every frame in that file, and the frame-name
+// check cannot see it: the name is in the text either way.
+//
+// Exit codes: 0 fine, 1 the XML did not parse, 2 the emitted Lua did not
+// compile. The Lua is printed either way, so a syntax error can be looked at.
 #include "ui/xml_parser.hpp"
 #include "ui/framexml_emitter.hpp"
+extern "C" {
+#include "lua.h"
+#include "lauxlib.h"
+}
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -27,6 +38,14 @@ int main(int argc, char** argv) {
     std::string src((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     wowee::ui::XmlNode root; std::string err;
     if (!wowee::ui::parseXml(src, root, err)) { std::cerr << "parse: " << err << "\n"; return 1; }
-    std::cout << wowee::ui::emitFrameXml(root).lua;
-    return 0;
+    const std::string lua = wowee::ui::emitFrameXml(root).lua;
+    std::cout << lua;
+
+    lua_State* L = luaL_newstate();
+    if (!L) return 0;
+    const bool ok = luaL_loadbuffer(L, lua.c_str(), lua.size(), argv[1]) == 0;
+    if (!ok) std::cerr << "emitted Lua does not compile: "
+                       << lua_tostring(L, -1) << "\n";
+    lua_close(L);
+    return ok ? 0 : 2;
 }

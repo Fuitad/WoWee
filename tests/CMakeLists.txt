@@ -84,8 +84,10 @@ add_executable(framexml_emit
     ${CMAKE_SOURCE_DIR}/src/ui/framexml_emitter.cpp
     ${CMAKE_SOURCE_DIR}/src/ui/xml_parser.cpp
 )
-target_include_directories(framexml_emit PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(framexml_emit PRIVATE ${TEST_INCLUDE_DIRS}
+    ${CMAKE_SOURCE_DIR}/extern/lua-5.1.5/src)
 target_include_directories(framexml_emit SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(framexml_emit PRIVATE lua51)
 
 # ── framexml_compiles ───────────────────────────────────────
 # Not a unit test: it emits every real FrameXML file and asks Lua itself
