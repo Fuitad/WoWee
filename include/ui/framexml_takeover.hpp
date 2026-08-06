@@ -239,6 +239,30 @@ bool frameXmlWorldEntered();
 void frameXmlNoteMouseOwned(bool owned);
 bool frameXmlOwnsMouse();
 
+/// Hand an element back to this client because FrameXML's version was never
+/// built.
+///
+/// frameXmlOwns already refuses everything when FrameXML did not load at all,
+/// on the grounds that hiding this client's own version and putting nothing in
+/// its place is worse than either interface on its own. That is just as true of
+/// one element as of all of them, and it is the reason so few have been handed
+/// over: a panel that does not build is not a worse panel, it is no panel, and
+/// there is no way back to the one that worked.
+///
+/// Checked against the top-level frame of each owned element — the first name
+/// in its check row. Not the whole row: a frame that built and is missing a
+/// label is a different fault, and releasing on that would hand back panels
+/// that work.
+///
+/// Takes a lookup rather than reading the widget tree itself, so the table
+/// stays where the rest of the takeover tables are.
+int frameXmlReleaseUnbuiltElements(
+    const std::function<bool(const std::string&)>& frameExists);
+
+/// Whether an element was handed back this way. For the report — the answer
+/// that matters at a call site is frameXmlOwns, which already accounts for it.
+bool frameXmlWasReleased(UiElement element);
+
 /// A load-on-demand addon has loaded, so whatever it draws is now on screen.
 ///
 /// Element ownership cannot answer this. An element is chosen before the run

@@ -995,6 +995,21 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     if (loadPass || worldPass || askedFor) {
         if (!askedFor) ++passesDone;
         const char* when = askedFor ? "on request" : (loadPass ? "at load" : "in world");
+
+        // Before reporting anything, give back any element whose top-level
+        // frame does not exist. Handing one over hides this client's own, so a
+        // panel that did not build is not a worse panel — it is no panel, with
+        // no way back to the one that worked. Only in world: at load a panel
+        // that builds on demand has not been asked for yet.
+        if (worldPass || askedFor) {
+            const int given = frameXmlReleaseUnbuiltElements(
+                [&tree](const std::string& name) { return tree.findByName(name) != nullptr; });
+            if (given > 0) {
+                LOG_WARNING("FrameXML: ", given, " element(s) handed back; this "
+                            "client draws them for the rest of the session");
+            }
+        }
+
         const std::vector<std::string> wanted = frameXmlCheckFrames();
         if (!wanted.empty()) {
             LOG_WARNING("FrameXML takeover check ", when, ", on ", screenW, "x", screenH,

@@ -321,11 +321,29 @@ static bool frameXmlLoaded() {
     return on;
 }
 
+namespace {
+/// Elements handed back because their frames were never built. A bit per
+/// UiElement — written once from the render thread during the takeover check
+/// and read from everywhere, so an atomic rather than a set.
+std::atomic<uint64_t> gReleased{0};
+
+constexpr uint64_t releaseBit(UiElement element) {
+    return uint64_t{1} << static_cast<unsigned>(element);
+}
+} // namespace
+
+bool frameXmlWasReleased(UiElement element) {
+    return (gReleased.load(std::memory_order_relaxed) & releaseBit(element)) != 0;
+}
+
 bool frameXmlOwns(UiElement element) {
     // Nothing is owned if FrameXML was not loaded: hiding this client's own
     // version of something and putting nothing in its place is worse than
     // either interface on its own.
     if (!frameXmlLoaded()) return false;
+
+    // The same for one element whose frames never arrived.
+    if (frameXmlWasReleased(element)) return false;
 
     const auto& names = requested();
     if (names.empty() || names.count("none")) return false;
@@ -696,6 +714,8 @@ std::vector<std::string> frameXmlLazySuppressedFrames() {
     return out;
 }
 
+namespace { void reportUncheckedElements(); }
+
 void frameXmlReportUnaccountedElements() {
     // Every element must be one thing or the other: drawn by FrameXML with
     // this client's version gated off, or drawn by this client with FrameXML's
@@ -727,6 +747,8 @@ void frameXmlReportUnaccountedElements() {
                         "twice");
         }
     }
+
+    reportUncheckedElements();
 }
 
 namespace {
@@ -819,6 +841,37 @@ const Check kChecks[] = {
                                   "QuestLogDetailScrollFrame"},
 };
 
+/// Elements handed over with no check row, which therefore get no safety net.
+///
+/// frameXmlReleaseUnbuiltElements walks the check rows and hands back anything
+/// whose top-level frame never built, because a hidden window with nothing in
+/// its place is worse than either interface alone. An element with no row is
+/// invisible to that: if its frames never arrive, nothing draws it and nothing
+/// says so.
+///
+/// Deliberately not derived from the suppression rows instead. Those name the
+/// right frames, but half of them belong to load-on-demand addons — the
+/// auction house, the guild bank, the achievement panel — whose frames
+/// correctly do not exist until the player opens them, and handing those back
+/// on the first check in world would take away every panel that works exactly
+/// as intended.
+///
+/// So writing a check row is part of handing an element over.
+void reportUncheckedElements() {
+    for (const Entry& e : kElements) {
+        if (!frameXmlOwns(e.element)) continue;
+        bool checked = false;
+        for (const Check& c : kChecks) {
+            if (c.element == e.element && c.frames && *c.frames) { checked = true; break; }
+        }
+        if (!checked) {
+            LOG_WARNING("FrameXML: '", e.name, "' is handed over with no check "
+                        "row — if its frames never build, nothing draws it and "
+                        "nothing notices");
+        }
+    }
+}
+
 /// Split a space-separated frame list onto the end of a vector.
 void appendFrames(const char* frames, std::vector<std::string>& out) {
     if (!frames) return;
@@ -843,6 +896,30 @@ std::vector<std::string> frameXmlAccountedFrames() {
     for (const Suppress& s : kSuppress) appendFrames(s.frames, out);
     for (const Check& c : kChecks)      appendFrames(c.frames, out);
     return out;
+}
+
+int frameXmlReleaseUnbuiltElements(
+        const std::function<bool(const std::string&)>& frameExists) {
+    int released = 0;
+    for (const Check& c : kChecks) {
+        if (!frameXmlOwns(c.element)) continue;   // not ours, or already given back
+        if (!c.frames || !*c.frames) continue;
+
+        // The first name only: the top-level frame. A panel that built and is
+        // missing a label is a different fault, and handing it back for that
+        // would take away one that works.
+        std::string all(c.frames);
+        const size_t sp = all.find(' ');
+        const std::string top = all.substr(0, sp == std::string::npos ? all.size() : sp);
+        if (top.empty() || frameExists(top)) continue;
+
+        gReleased.fetch_or(releaseBit(c.element), std::memory_order_relaxed);
+        ++released;
+        LOG_WARNING("FrameXML: handing '", uiElementName(c.element),
+                    "' back to this client — ", top, " was never built, so "
+                    "nothing would have drawn it");
+    }
+    return released;
 }
 
 std::vector<std::string> frameXmlCheckFrames() {
