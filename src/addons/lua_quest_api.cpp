@@ -1285,6 +1285,45 @@ static int& tradeSkillSelection() {
     static int selected = 0;
     return selected;
 }
+
+/// The trade skill list's two filters, and the view every binding reads.
+///
+/// The panel's search box and its "Have Materials" checkbox were no-ops, so
+/// typing in one or ticking the other changed nothing. Filtering has to happen
+/// in one place: the panel asks GetNumTradeSkills for a count and then indexes
+/// everything else by position in that same list, so a count filtered anywhere
+/// but here would have the rows describing different recipes than the ones
+/// counted.
+static std::string& tradeSkillNameFilter() {
+    static std::string filter;
+    return filter;
+}
+static bool& tradeSkillOnlyMakeable() {
+    static bool only = false;
+    return only;
+}
+
+/// The recipes the panel should show, in its order.
+///
+/// Returned by value, as getCraftingRecipes already was at every one of these
+/// call sites — the copy is the list, not an extra one.
+static std::vector<game::GameHandler::CraftRecipe> visibleCraftingRecipes(
+        game::GameHandler* gh) {
+    std::vector<game::GameHandler::CraftRecipe> out;
+    if (!gh) return out;
+    std::string needle = tradeSkillNameFilter();
+    toLowerInPlace(needle);
+    for (const auto& r : gh->getCraftingRecipes()) {
+        if (tradeSkillOnlyMakeable() && r.canMake <= 0) continue;
+        if (!needle.empty()) {
+            std::string name = r.name;
+            toLowerInPlace(name);
+            if (name.find(needle) == std::string::npos) continue;
+        }
+        out.push_back(r);
+    }
+    return out;
+}
 static int& trainerSelection() {
     static int selected = 0;
     return selected;
@@ -2474,7 +2513,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetNumTradeSkills", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             lua_pushnumber(L, gh ? static_cast<double>(
-                gh->getCraftingRecipes().size()) : 0.0);
+                visibleCraftingRecipes(gh).size()) : 0.0);
             return 1;
         }},
                 // GetTradeSkillInfo(i) → name, type, numAvailable, isExpanded,
@@ -2483,7 +2522,7 @@ void registerQuestLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh) return luaReturnNil(L);
-            const auto recipes = gh->getCraftingRecipes();
+            const auto recipes = visibleCraftingRecipes(gh);
             if (i < 1 || i > static_cast<int>(recipes.size())) return luaReturnNil(L);
             const auto& r = recipes[i - 1];
             static const char* kBands[4] = {"optimal", "medium", "easy", "trivial"};
@@ -2500,7 +2539,7 @@ void registerQuestLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh) return luaReturnNil(L);
-            const auto recipes = gh->getCraftingRecipes();
+            const auto recipes = visibleCraftingRecipes(gh);
             if (i < 1 || i > static_cast<int>(recipes.size())) return luaReturnNil(L);
             const std::string icon = gh->getSpellIconPath(recipes[i - 1].spellId);
             lua_pushstring(L, icon.empty()
@@ -2511,7 +2550,7 @@ void registerQuestLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh) return luaReturnNil(L);
-            const auto recipes = gh->getCraftingRecipes();
+            const auto recipes = visibleCraftingRecipes(gh);
             if (i < 1 || i > static_cast<int>(recipes.size())) return luaReturnNil(L);
             const uint32_t id = recipes[i - 1].spellId;
             lua_pushstring(L, gh->formatSpellDescription(
@@ -2523,7 +2562,7 @@ void registerQuestLuaAPI(lua_State* L) {
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             int n = 0;
             if (gh) {
-                const auto recipes = gh->getCraftingRecipes();
+                const auto recipes = visibleCraftingRecipes(gh);
                 if (i >= 1 && i <= static_cast<int>(recipes.size())) {
                     auto it = gh->spellNameCacheRef().find(recipes[i - 1].spellId);
                     if (it != gh->spellNameCacheRef().end()) {
@@ -2542,7 +2581,7 @@ void registerQuestLuaAPI(lua_State* L) {
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             const int n = static_cast<int>(luaL_optnumber(L, 2, 1));
             if (!gh) return luaReturnNil(L);
-            const auto recipes = gh->getCraftingRecipes();
+            const auto recipes = visibleCraftingRecipes(gh);
             if (i < 1 || i > static_cast<int>(recipes.size())) return luaReturnNil(L);
             auto it = gh->spellNameCacheRef().find(recipes[i - 1].spellId);
             if (it == gh->spellNameCacheRef().end()) return luaReturnNil(L);
@@ -2568,7 +2607,7 @@ void registerQuestLuaAPI(lua_State* L) {
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             int lo = 1, hi = 1;
             if (gh) {
-                const auto recipes = gh->getCraftingRecipes();
+                const auto recipes = visibleCraftingRecipes(gh);
                 if (i >= 1 && i <= static_cast<int>(recipes.size())) {
                     auto it = gh->spellNameCacheRef().find(recipes[i - 1].spellId);
                     if (it != gh->spellNameCacheRef().end()) {
@@ -2615,7 +2654,7 @@ void registerQuestLuaAPI(lua_State* L) {
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             int count = static_cast<int>(luaL_optnumber(L, 2, 1));
             if (!gh) return 0;
-            const auto recipes = gh->getCraftingRecipes();
+            const auto recipes = visibleCraftingRecipes(gh);
             if (i < 1 || i > static_cast<int>(recipes.size())) return 0;
             if (count < 1) count = 1;
             gh->startCraftQueue(recipes[i - 1].spellId, count);
@@ -2648,7 +2687,7 @@ void registerQuestLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh || i < 1) return luaReturnNil(L);
-            const auto recipes = gh->getCraftingRecipes();
+            const auto recipes = visibleCraftingRecipes(gh);
             if (i > static_cast<int>(recipes.size())) return luaReturnNil(L);
             const float left = gh->getSpellCooldown(recipes[i - 1].spellId);
             if (left <= 0.0f) return luaReturnNil(L);
@@ -2672,7 +2711,7 @@ void registerQuestLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh || i < 1) return luaReturnNil(L);
-            const auto recipes = gh->getCraftingRecipes();
+            const auto recipes = visibleCraftingRecipes(gh);
             if (i > static_cast<int>(recipes.size())) return luaReturnNil(L);
             auto it = gh->spellNameCacheRef().find(recipes[i - 1].spellId);
             if (it == gh->spellNameCacheRef().end()) return luaReturnNil(L);
@@ -2693,7 +2732,7 @@ void registerQuestLuaAPI(lua_State* L) {
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             const int n = static_cast<int>(luaL_optnumber(L, 2, 1));
             if (!gh || i < 1 || n < 1) return luaReturnNil(L);
-            const auto recipes = gh->getCraftingRecipes();
+            const auto recipes = visibleCraftingRecipes(gh);
             if (i > static_cast<int>(recipes.size())) return luaReturnNil(L);
             auto it = gh->spellNameCacheRef().find(recipes[i - 1].spellId);
             if (it == gh->spellNameCacheRef().end()) return luaReturnNil(L);
@@ -2722,9 +2761,21 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetTradeSkillInvSlotFilter",  [](lua_State* L) -> int { lua_pushboolean(L, 1); return 1; }},
                 {"SetTradeSkillSubClassFilter", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"SetTradeSkillInvSlotFilter",  [](lua_State* L) -> int { (void)L; return 0; }},
-                {"SetTradeSkillItemNameFilter", [](lua_State* L) -> int { (void)L; return 0; }},
+                // The search box above the recipe list. It matched nothing
+                // because nothing read it; the panel calls TradeSkillFrame_Update
+                // straight after, so the list redraws against the new view.
+                {"SetTradeSkillItemNameFilter", [](lua_State* L) -> int {
+            tradeSkillNameFilter() = luaL_optstring(L, 1, "");
+            return 0;
+        }},
                 {"SetTradeSkillItemLevelFilter",[](lua_State* L) -> int { (void)L; return 0; }},
-                {"TradeSkillOnlyShowMakeable",  [](lua_State* L) -> int { (void)L; return 0; }},
+                // The "Have Materials" checkbox, which had nothing behind it.
+                // canMake is the count this client already works out for the
+                // reagent lines, so the filter is the same number read twice.
+                {"TradeSkillOnlyShowMakeable",  [](lua_State* L) -> int {
+            tradeSkillOnlyMakeable() = lua_toboolean(L, 1) != 0;
+            return 0;
+        }},
                 {"CollapseTradeSkillSubClass",  [](lua_State* L) -> int { (void)L; return 0; }},
                 {"ExpandTradeSkillSubClass",    [](lua_State* L) -> int { (void)L; return 0; }},
                 // GetTradeskillRepeatCount() → how many are still to be made.
