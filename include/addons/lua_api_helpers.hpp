@@ -375,6 +375,22 @@ inline int pushFactionInfo(lua_State* L, game::GameHandler* gh,
     lua_pushnumber(L, value);                                   // 6: barValue
     lua_pushboolean(L, atWar ? 1 : 0);                          // 7: atWarWith
     lua_pushboolean(L, peaceForced ? 0 : 1);                    // 8: canToggleAtWar
+    // Flat, and the parent chain does not make it otherwise — checked rather
+    // than assumed, because a grouped list is the obvious thing to reach for
+    // here and the obvious rule for building one does not hold.
+    //
+    // Faction.dbc field 18 is ParentFactionID and is real: Stormwind's is
+    // Alliance, Orgrimmar's is Horde, and both of those point at Classic. But
+    // the rule that would make a header — a parent with no reputation of its
+    // own — matches nothing at all: Alliance is ReputationListID 11, Horde is
+    // 12 and Classic is 96, so every parent in the file is itself a tracked
+    // faction. Whatever the real client groups by, it is not that, and a
+    // grouping guessed wrong is worse than no grouping.
+    //
+    // So no row is a header, nothing can be collapsed, and
+    // Collapse/ExpandFactionHeader are correctly inert. The skills list says
+    // the same thing beside its own pair: the guard is in the data, not in the
+    // frame.
     lua_pushboolean(L, 0);                                      // 9: isHeader
     lua_pushboolean(L, 0);                                      // 10: isCollapsed
     lua_pushboolean(L, 1);                                      // 11: hasRep
