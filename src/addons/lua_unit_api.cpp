@@ -67,34 +67,56 @@ static int lua_UnitHealthMax(lua_State* L) {
     return 1;
 }
 
+/// UnitPower(unit, powerType) — the second argument names *which* bar.
+///
+/// Absent, it means the one the unit is using, which is what the main power
+/// bar wants. Given, it names one of the seven, and alternatepowerbar.lua is
+/// the caller that needs it: a druid in a form has energy or rage as its
+/// current power and mana as an alternate, and that frame asks for the
+/// alternate by index. Ignoring the argument answered with the current power,
+/// so the mana bar shown beside a cat's energy bar was that same energy.
+///
+/// The seven are all tracked — Entity keeps powers[7] and maxPowers[7] — so
+/// this is a matter of reading the one asked for.
 static int lua_UnitPower(lua_State* L) {
     const char* uid = luaL_optstring(L, 1, "player");
+    const bool byType = lua_isnumber(L, 2);
+    const uint8_t want = byType ? static_cast<uint8_t>(lua_tonumber(L, 2)) : 0;
     auto* unit = resolveUnit(L, uid);
     if (unit) {
-        lua_pushnumber(L, unit->getPower());
+        lua_pushnumber(L, byType ? unit->getPowerByType(want) : unit->getPower());
     } else {
         auto* gh = getGameHandler(L);
         std::string uidStr(uid);
         toLowerInPlace(uidStr);
         uint64_t guid = gh ? resolveUnitGuid(gh, uidStr) : 0;
         const auto* pm = findPartyMember(gh, guid);
-        lua_pushnumber(L, pm ? pm->curPower : 0);
+        // Party stats carry one power and say which it is, so a request for a
+        // different one is answered with nothing rather than with that.
+        const bool same = pm && (!byType || pm->powerType == want);
+        lua_pushnumber(L, same ? pm->curPower : 0);
     }
     return 1;
 }
 
+/// UnitPowerMax(unit, powerType) — the same, and the one that decides whether
+/// the alternate bar is drawn at all: alternatepowerbar tests this against zero
+/// before showing itself.
 static int lua_UnitPowerMax(lua_State* L) {
     const char* uid = luaL_optstring(L, 1, "player");
+    const bool byType = lua_isnumber(L, 2);
+    const uint8_t want = byType ? static_cast<uint8_t>(lua_tonumber(L, 2)) : 0;
     auto* unit = resolveUnit(L, uid);
     if (unit) {
-        lua_pushnumber(L, unit->getMaxPower());
+        lua_pushnumber(L, byType ? unit->getMaxPowerByType(want) : unit->getMaxPower());
     } else {
         auto* gh = getGameHandler(L);
         std::string uidStr(uid);
         toLowerInPlace(uidStr);
         uint64_t guid = gh ? resolveUnitGuid(gh, uidStr) : 0;
         const auto* pm = findPartyMember(gh, guid);
-        lua_pushnumber(L, pm ? pm->maxPower : 0);
+        const bool same = pm && (!byType || pm->powerType == want);
+        lua_pushnumber(L, same ? pm->maxPower : 0);
     }
     return 1;
 }
