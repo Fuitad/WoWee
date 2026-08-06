@@ -248,6 +248,12 @@ private:
 
     // ---- Chat bubbles (delegated to ChatBubbleManager) ----
     ChatBubbleManager bubbleManager_;
+public:
+    /// The chatBubbles setting, which the interface options own. Forwarded
+    /// rather than exposing the manager: the panel is what the outside holds.
+    bool bubblesShown() const { return bubbleManager_.bubblesShown(); }
+    void setBubblesShown(bool shown) { bubbleManager_.setBubblesShown(shown); }
+private:
 
     // ---- Whisper toast state (populated in render, rendered by GameScreen/ToastManager) ----
     // Whisper scanning lives here because it's tightly coupled to chat history iteration.

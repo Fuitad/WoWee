@@ -519,6 +519,12 @@ bool Application::initialize() {
         luaSvc.setMinimapRotate = [r = renderer.get()](bool rotate) {
             if (auto* mm = r ? r->getMinimap() : nullptr) mm->setRotateWithCamera(rotate);
         };
+        luaSvc.getChatBubblesShown = [uim = uiManager.get()]() -> bool {
+            return uim ? uim->getGameScreen().getChatPanel().bubblesShown() : true;
+        };
+        luaSvc.setChatBubblesShown = [uim = uiManager.get()](bool shown) {
+            if (uim) uim->getGameScreen().getChatPanel().setBubblesShown(shown);
+        };
         // Gathered once, on the first ask rather than at startup: it is a walk
         // of the whole manifest, and most sessions never open an icon picker.
         luaSvc.listIconTextures = [am = assetManager.get()]() -> const std::vector<std::string>& {

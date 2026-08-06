@@ -36,6 +36,9 @@ void ChatBubbleManager::addBubble(uint64_t senderGuid, const std::string& messag
 }
 
 void ChatBubbleManager::render(game::GameHandler& gameHandler, const UIServices& services) {
+    // Off means off: the queue is dropped as well, so turning the setting off
+    // clears what is on screen rather than leaving it to fade for five seconds.
+    if (!show_) { bubbles_.clear(); return; }
     if (bubbles_.empty()) return;
 
     auto* renderer = services.renderer;

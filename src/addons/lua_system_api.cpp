@@ -447,6 +447,11 @@ static int lua_GetCVar(lua_State* L) {
             lua_pushstring(L, svc->getMinimapRotate() ? "1" : "0");
             return 1;
         }
+    } else if (n == "chatbubbles") {
+        if (auto* svc = getLuaServices(L); svc && svc->getChatBubblesShown) {
+            lua_pushstring(L, svc->getChatBubblesShown() ? "1" : "0");
+            return 1;
+        }
     } else if (n == "autolootdefault") {
         // Asked of the client, like its neighbours. The interface options put
         // a checkbox on this and the client has a real auto-loot setting, and
@@ -734,6 +739,9 @@ static int lua_SetCVar(lua_State* L) {
             svc->setMinimapRotate(value != "0");
     } else if (key == "autoselfcast") {
         if (auto* gh = getGameHandler(L)) gh->setAutoSelfCast(value != "0");
+    } else if (key == "chatbubbles") {
+        if (auto* svc = getLuaServices(L); svc && svc->setChatBubblesShown)
+            svc->setChatBubblesShown(value != "0");
     } else if (key == "autolootdefault") {
         // The checkbox wrote to the store and stopped there, so the interface's
         // auto-loot option did nothing at all — the client keeps the setting

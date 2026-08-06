@@ -119,6 +119,11 @@ struct LuaServices {
     std::function<bool()> getMinimapRotate;
     std::function<void(bool)> setMinimapRotate;
 
+    /// Speech bubbles over players' heads, for chatBubbles. The interface
+    /// options have always had the checkbox; nothing was behind it.
+    std::function<bool()> getChatBubblesShown;
+    std::function<void(bool)> setChatBubblesShown;
+
     /// The barber shop's selectors, for the interface's own barber panel.
     ///
     /// Selector numbers are FrameXML's BarberShopFrameSelector IDs: 1 hair
