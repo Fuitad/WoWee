@@ -2423,8 +2423,20 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushboolean(L, 1);              // enabled
             lua_pushnumber(L, glyphType);       // glyphType (1=major, 2=minor)
             if (glyphId != 0) {
-                lua_pushnumber(L, glyphId);     // glyphSpellID
-                lua_pushstring(L, "Interface\\Icons\\INV_Glyph_MajorWarrior"); // placeholder icon
+                // The *spell*, not the properties id the server sent. Every
+                // caller treats this as a spell — the glyph panel builds its
+                // link from it and the tooltip describes it — and pushing the
+                // properties id gave them a number that means something else.
+                // GlyphProperties.dbc field 1 is the spell; checked by
+                // resolving it for all 362 rows, which come out named "Glyph
+                // of Moonfire" and the like.
+                gh->ensureGlyphPropertiesLoaded();
+                const uint32_t spellId = gh->getGlyphSpellId(glyphId);
+                lua_pushnumber(L, spellId ? spellId : glyphId);   // glyphSpellID
+                // ...and its own icon rather than a warrior glyph for everyone.
+                std::string icon = spellId ? gh->getSpellIconPath(spellId) : std::string();
+                lua_pushstring(L, icon.empty()
+                    ? "Interface\\Icons\\INV_Misc_QuestionMark" : icon.c_str());
             } else {
                 lua_pushnil(L);
                 lua_pushnil(L);

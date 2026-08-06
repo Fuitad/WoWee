@@ -2351,6 +2351,24 @@ const std::vector<GameHandler::CurrencyType>& GameHandler::getCurrencyTypes() {
 // Achievement.dbc field 38 is the category. It is not in the layout file, but
 // the fields either side of it are — Points at 39, Description at 21, IconID at
 // 42 — which is the stock 3.3.5a order, so 38 is where the category sits.
+void GameHandler::ensureGlyphPropertiesLoaded() {
+    if (glyphPropertiesLoaded_) return;
+    auto* am = services_.assetManager;
+    // Checked before the latch, like the achievement loader below: one call
+    // made before the asset manager is up would disable this for the session.
+    if (!am || !am->isInitialized()) return;
+    glyphPropertiesLoaded_ = true;
+
+    auto dbc = am->loadDBC("GlyphProperties.dbc");
+    if (!dbc || !dbc->isLoaded() || dbc->getFieldCount() < 2) return;
+    for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+        const uint32_t id = dbc->getUInt32(i, 0);
+        const uint32_t spellId = dbc->getUInt32(i, 1);
+        if (id != 0 && spellId != 0) glyphSpellCache_[id] = spellId;
+    }
+    LOG_INFO("Glyphs: ", glyphSpellCache_.size(), " properties mapped to spells");
+}
+
 void GameHandler::ensureAchievementCategoriesLoaded() {
     if (achievementCategoriesLoaded_) return;
     auto* am = services_.assetManager;

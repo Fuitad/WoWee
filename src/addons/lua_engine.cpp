@@ -1550,6 +1550,31 @@ int lua_Tooltip_SetSpellByID(lua_State* L) {
     return 1;
 }
 
+/// A glyph in its socket, hovered on the glyph panel.
+///
+/// SetGlyph(socketID, talentGroup) — the same one-based socket and spec
+/// GetGlyphSocketInfo takes. A glyph *is* a spell once its properties id is
+/// resolved, so this is the spell tooltip; the resolution is the one that
+/// binding now does, off GlyphProperties.dbc.
+int lua_Tooltip_SetGlyph(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    const int socket = static_cast<int>(luaL_optnumber(L, 2, 0));
+    const int spec = static_cast<int>(luaL_optnumber(L, 3, 0));
+    if (!w || !gh || socket < 1 || socket > game::GameHandler::MAX_GLYPH_SLOTS) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    const auto& glyphs = (spec >= 1 && spec <= 2)
+        ? gh->getGlyphs(static_cast<uint8_t>(spec - 1)) : gh->getGlyphs();
+    const uint16_t glyphId = glyphs[static_cast<size_t>(socket) - 1];
+    if (glyphId == 0) { lua_pushboolean(L, 0); return 1; }
+    gh->ensureGlyphPropertiesLoaded();
+    const uint32_t spellId = gh->getGlyphSpellId(glyphId);
+    lua_pushboolean(L, spellId && fillSpellTooltip(w, gh, spellId) ? 1 : 0);
+    return 1;
+}
+
 /// One item from a finished dungeon's reward list, hovered on the alert.
 ///
 /// The alert frame passes the same one-based index it gave
@@ -4272,6 +4297,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetQuestLogRewardSpell", lua_Tooltip_SetQuestLogRewardSpell},
         {"SetEquipmentSet",        lua_Tooltip_SetEquipmentSet},
         {"SetLFGCompletionReward", lua_Tooltip_SetLFGCompletionReward},
+        {"SetGlyph",               lua_Tooltip_SetGlyph},
         {"SetHyperlink",    lua_Tooltip_SetHyperlink},
         // On frames as well as on font strings, where these were already
         // registered. A chat frame is asked for its own font — not a label's —
@@ -5070,7 +5096,7 @@ void LuaEngine::registerCoreAPI() {
         // method table first and only falls through to here — but this set says
         // "cannot describe it yet", and a name in it that works reads as a gap
         // that is not there, in the one place someone would check.
-        "SetGlyph=1,SetSocketGem=1,SetSocketedItem=1,SetExistingSocketGem=1,\n"
+        "SetSocketGem=1,SetSocketedItem=1,SetExistingSocketGem=1,\n"
         "SetScrollOffset=1,RegisterAllEvents=1,\n"
         "SetStatusBarTexture=1,SetTexCoord=1,SetText=1,\n"
         "SetTexture=1,SetToplevel=1,\n"

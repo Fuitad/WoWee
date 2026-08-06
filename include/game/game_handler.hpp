@@ -2459,6 +2459,19 @@ public:
     // Achievement_Criteria.dbc). The panel is a tree of categories, so it needs
     // all of this before it can draw a single row.
     void ensureAchievementCategoriesLoaded();
+
+    /// The spell a glyph is, by GlyphProperties.dbc id.
+    ///
+    /// The server sends glyph *properties* ids in the update fields, and every
+    /// caller wants the spell: its name, its icon and its tooltip are the
+    /// spell's. Verified rather than assumed — field 1 resolves to a real spell
+    /// for 361 of the 362 rows, and those spells are named "Glyph of Moonfire"
+    /// and the like.
+    void ensureGlyphPropertiesLoaded();
+    uint32_t getGlyphSpellId(uint32_t glyphPropertiesId) const {
+        auto it = glyphSpellCache_.find(glyphPropertiesId);
+        return it != glyphSpellCache_.end() ? it->second : 0u;
+    }
     void ensureAchievementCriteriaLoaded();
     /// Category ids in the order the panel shows them. The two tabs are
     /// disjoint sets, not one list filtered at the call site: GetCategoryList
@@ -4427,6 +4440,8 @@ private:
     std::unordered_map<uint32_t, uint32_t> achievementSupercedes_;
     std::unordered_map<uint32_t, uint32_t> achievementSupercededBy_;
     bool achievementCategoriesLoaded_ = false;
+    bool glyphPropertiesLoaded_ = false;
+    std::unordered_map<uint32_t, uint32_t> glyphSpellCache_;
     std::unordered_map<uint32_t, std::vector<AchievementCriterion>> achievementCriteria_;
     std::unordered_map<uint32_t, AchievementCriterionIndex> achievementCriterionById_;
     bool achievementCriteriaLoaded_ = false;
