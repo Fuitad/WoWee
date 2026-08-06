@@ -512,6 +512,16 @@ CHECKS = [
     ("framexml_vararg_spread.py",
      r"^(\d+) answer nothing at all", 0,
      "bindings spread into a vararg call that answer nothing"),
+    # A C binding for a name FrameXML declares itself never runs: bindings are
+    # registered in LuaEngine::initialize and the interface is read after, so
+    # the later definition wins. Nothing else reports it — the binding compiles,
+    # the name resolves, and every sweep that counts bound names counts it.
+    # Usually the arrangement is deliberate and FrameXML's version wraps the
+    # binding under another name; the three that do are listed in the tool with
+    # what settled each. Zero, and dropping one from that list reports it. 2s.
+    ("framexml_lua_override_check.py",
+     r"^(\d+) C binding\(s\) doing real work that FrameXML overrides", 0,
+     "C bindings FrameXML overrides, so they never run"),
     # GameTooltip setters that answer with a no-op, so the tooltip is blank.
     # A tooltip setter is the whole content of a tooltip: no error, no partial
     # result, just an empty box on one panel while every other hover works.
