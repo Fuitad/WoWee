@@ -1503,6 +1503,22 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 const float size = ((w->fontHeight > 0.0f) ? w->fontHeight
                                                            : ImGui::GetFontSize()) * s;
                 const float lineH = size * 1.15f + w->messagePadding * s;
+                // A chat line is wrapped to the frame, not run off the end of
+                // it. Every other label in the interface has wrapped for as
+                // long as there has been a wrapper; this surface drew each
+                // message as one unbroken line, so anything longer than the
+                // window simply left it.
+                const float wrapW = (x1 - x0) > size ? (x1 - x0) : 0.0f;
+                auto lineCount = [&](const std::string& text) {
+                    if (wrapW <= 0.0f) return size_t{1};
+                    const auto lines = wrapText(
+                        parseMarkup(text), wrapW, false,
+                        [&](const std::string& piece) {
+                            return font->CalcTextSizeA(size, FLT_MAX, 0.0f,
+                                                       piece.c_str()).x;
+                        });
+                    return lines.empty() ? size_t{1} : lines.size();
+                };
                 float y = y1 - lineH;
                 const int scroll = w->messageScroll;
                 for (int i = static_cast<int>(w->messages.size()) - 1 - scroll;
@@ -1522,10 +1538,16 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                     // middle of the sentence. It is also where the links are,
                     // so this is what files their rects and makes a click on
                     // one land somewhere.
-                    drawMarkupText(dl, font, size, ImVec2(x0, y),
+                    // A wrapped message occupies several lines and grows
+                    // upward, because the newest sits at the bottom: the block
+                    // starts as many lines above the cursor as it needs, and
+                    // the cursor then moves past all of them.
+                    const size_t rows = lineCount(m.text);
+                    const float top = y - static_cast<float>(rows - 1) * lineH;
+                    drawMarkupText(dl, font, size, ImVec2(x0, top),
                                    packColor(rgba, w->alpha), w->alpha, m.text,
-                                   0.0f, false, nullptr, false, &tree, w->id);
-                    y -= lineH;
+                                   wrapW, false, nullptr, false, &tree, w->id);
+                    y -= lineH * static_cast<float>(rows);
                 }
             }
 
