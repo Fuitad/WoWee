@@ -579,9 +579,11 @@ inline uint64_t containerSlotGuid(game::GameHandler* gh, int bag, int slot) {
 ///
 /// The client tracks cooldowns per spell, and an item on cooldown is one whose
 /// use spell is — the same relationship dispatchUseItem walks to decide what
-/// using it casts. Only the remaining time is kept, not the original duration,
-/// so the sweep is reported as starting now and lasting what is left: that
-/// draws exactly the remaining arc, which is the part anyone reads.
+/// using it casts. The original duration is now kept beside the remaining time,
+/// so the sweep is wound back to where it actually began: reporting it as
+/// starting *now* and lasting what is left drew the right arc only until the
+/// interface asked a second time, at which point the swirl jumped back to full
+/// and unwound again. BAG_UPDATE_COOLDOWN fires on every use, so it asked often.
 ///
 /// False when the item has no use spell or that spell is ready.
 inline bool itemUseCooldown(game::GameHandler* gh, uint32_t itemId,
@@ -594,8 +596,10 @@ inline bool itemUseCooldown(game::GameHandler* gh, uint32_t itemId,
         const auto& cds = gh->getSpellCooldowns();
         auto it = cds.find(sp.spellId);
         if (it == cds.end() || it->second <= 0.0f) continue;
-        start = luaGetTimeNow();
-        duration = it->second;
+        double total = gh->getSpellCooldownTotal(sp.spellId);
+        if (total < it->second) total = it->second;
+        start = luaGetTimeNow() - (total - it->second);
+        duration = total;
         return true;
     }
     return false;

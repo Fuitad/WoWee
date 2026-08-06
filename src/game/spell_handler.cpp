@@ -1067,6 +1067,16 @@ float SpellHandler::getSpellCooldown(uint32_t spellId) const {
     return (it != spellCooldowns_.end()) ? it->second : 0.0f;
 }
 
+// The length the running cooldown began with. Falls back to whatever is left
+// when nothing recorded a total, which is the old behaviour rather than a zero:
+// a duration of zero reads as "no cooldown" to the interface and would clear a
+// swirl that is still running.
+float SpellHandler::getSpellCooldownTotal(uint32_t spellId) const {
+    auto it = spellCooldownTotals_.find(spellId);
+    if (it != spellCooldownTotals_.end()) return it->second;
+    return getSpellCooldown(spellId);
+}
+
 void SpellHandler::seedCooldownFromSpellInfo(uint32_t spellId) {
     if (spellId == 0) return;
     auto existing = spellCooldowns_.find(spellId);
@@ -1081,6 +1091,7 @@ void SpellHandler::seedCooldownFromSpellInfo(uint32_t spellId) {
 
     const float seconds = cooldownMs / 1000.0f;
     spellCooldowns_[spellId] = seconds;
+    spellCooldownTotals_[spellId] = seconds;
     for (auto& slot : owner_.actionBarRef()) {
         if (slot.type != ActionBarSlot::SPELL || slot.id != spellId) continue;
         slot.cooldownRemaining = seconds;
@@ -1535,6 +1546,7 @@ void SpellHandler::updateTimers(float dt) {
     for (auto it = spellCooldowns_.begin(); it != spellCooldowns_.end(); ) {
         it->second -= dt;
         if (it->second <= 0.0f) {
+            spellCooldownTotals_.erase(it->first);
             it = spellCooldowns_.erase(it);
             anyCooldownEnded = true;
         } else {
@@ -1676,6 +1688,7 @@ void SpellHandler::handleInitialSpells(network::Packet& packet) {
         uint32_t effectiveMs = std::max(cd.cooldownMs, cd.categoryCooldownMs);
         if (effectiveMs > 0) {
             spellCooldowns_[cd.spellId] = effectiveMs / 1000.0f;
+            spellCooldownTotals_[cd.spellId] = effectiveMs / 1000.0f;
         }
     }
 
@@ -2169,8 +2182,11 @@ void SpellHandler::handleSpellCooldown(network::Packet& packet) {
         auto it = spellCooldowns_.find(spellId);
         if (it == spellCooldowns_.end()) {
             spellCooldowns_[spellId] = seconds;
+            spellCooldownTotals_[spellId] = seconds;
         } else {
             it->second = mergeCooldownSeconds(it->second, seconds);
+            float& total = spellCooldownTotals_[spellId];
+            total = std::max(total, it->second);
         }
         for (auto& slot : owner_.actionBarRef()) {
             bool match = (slot.type == ActionBarSlot::SPELL && slot.id == spellId)
@@ -2202,6 +2218,7 @@ void SpellHandler::handleCooldownEvent(network::Packet& packet) {
     if (packet.hasRemaining(8))
         packet.readUInt64();
     spellCooldowns_.erase(spellId);
+    spellCooldownTotals_.erase(spellId);
     for (auto& slot : owner_.actionBarRef()) {
         if (slot.type == ActionBarSlot::SPELL && slot.id == spellId) {
             slot.cooldownRemaining = 0.0f;
@@ -2873,6 +2890,7 @@ void SpellHandler::resetCastState() {
 void SpellHandler::resetAllState() {
     knownSpells_.clear();
     spellCooldowns_.clear();
+    spellCooldownTotals_.clear();
     playerAuras_.clear();
     targetAuras_.clear();
     unitAurasCache_.clear();
@@ -3747,6 +3765,7 @@ void SpellHandler::handleClearCooldown(network::Packet& packet) {
     if (packet.hasRemaining(4)) {
         uint32_t spellId = packet.readUInt32();
         spellCooldowns_.erase(spellId);
+        spellCooldownTotals_.erase(spellId);
         for (auto& slot : owner_.actionBarRef()) {
             if (slot.type == ActionBarSlot::SPELL && slot.id == spellId)
                 slot.cooldownRemaining = 0.0f;
@@ -4022,8 +4041,11 @@ void SpellHandler::handleItemCooldown(network::Packet& packet) {
                 auto it = spellCooldowns_.find(spellId);
                 if (it == spellCooldowns_.end()) {
                     spellCooldowns_[spellId] = cdSec;
+                    spellCooldownTotals_[spellId] = cdSec;
                 } else {
                     it->second = mergeCooldownSeconds(it->second, cdSec);
+                    float& total = spellCooldownTotals_[spellId];
+                    total = std::max(total, it->second);
                 }
             }
             // Resolve itemId from the GUID so item-type slots are also updated

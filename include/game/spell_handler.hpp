@@ -69,6 +69,7 @@ public:
     const std::unordered_set<uint32_t>& getKnownSpells() const { return knownSpells_; }
     const std::unordered_map<uint32_t, float>& getSpellCooldowns() const { return spellCooldowns_; }
     float getSpellCooldown(uint32_t spellId) const;
+    float getSpellCooldownTotal(uint32_t spellId) const;
 
     // Cast state
     bool isCasting() const { return casting_ || restorationActive_; }
@@ -425,6 +426,13 @@ private:
     // --- Spell state ---
     std::unordered_set<uint32_t> knownSpells_;
     std::unordered_map<uint32_t, float> spellCooldowns_;    // spellId -> remaining seconds
+    // spellId -> the length the cooldown had when it began. Kept beside the
+    // remaining time rather than derived from it because GetSpellCooldown is
+    // asked for (start, duration), and answering (now, remaining) redraws the
+    // swirl as a fresh full sweep every time the interface asks — which it does
+    // on every ACTIONBAR_UPDATE_COOLDOWN, so a long cooldown appears to restart
+    // whenever anything else is cast.
+    std::unordered_map<uint32_t, float> spellCooldownTotals_;
     uint8_t castCount_ = 0;
     bool casting_ = false;
     bool castIsChannel_ = false;

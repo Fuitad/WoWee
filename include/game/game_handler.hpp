@@ -1523,6 +1523,7 @@ public:
 
     // Cooldowns
     float getSpellCooldown(uint32_t spellId) const;
+    float getSpellCooldownTotal(uint32_t spellId) const;
     const std::unordered_map<uint32_t, float>& getSpellCooldowns() const {
         static const std::unordered_map<uint32_t, float> empty;
         return spellHandler_ ? spellHandler_->getSpellCooldowns() : empty;

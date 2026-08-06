@@ -597,10 +597,19 @@ static int lua_GetSpellCooldown(lua_State* L) {
     double nowSec = luaGetTimeNow();
 
     if (cd > 0.01f) {
-        // Spell-specific cooldown (longer than GCD)
-        double start = nowSec - 0.01; // approximate start as "just now" minus epsilon
+        // Spell-specific cooldown (longer than GCD). The pair asked for is
+        // (start, duration), not (now, remaining) — the cooldown frame draws a
+        // sweep of `duration` beginning at `start`, so saying it began now with
+        // a length of whatever is left restarts the swirl at full every time
+        // the interface asks. It asks on every ACTIONBAR_UPDATE_COOLDOWN, which
+        // fires on every cast, so a five-minute cooldown looked like it kept
+        // starting over. Wound back the same way the GCD branch below already
+        // does it.
+        double total = gh->getSpellCooldownTotal(spellId);
+        if (total < cd) total = cd;   // a total never recorded falls back to what is left
+        double start = nowSec - (total - cd);
         lua_pushnumber(L, start);
-        lua_pushnumber(L, cd);
+        lua_pushnumber(L, total);
     } else if (gcdRem > 0.01f) {
         // GCD is active — return GCD timing
         double elapsed = gcdTotal - gcdRem;
