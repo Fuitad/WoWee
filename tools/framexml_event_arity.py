@@ -159,8 +159,34 @@ if not rows:
 # false where the roster just arrived and true where a member changed and no new
 # roster is coming. Fixing one site and not the other leaves the count clean and
 # half the behaviour missing, which is what this section is for.
+#: Events fired with different counts on purpose, each checked against the
+#: branch that reads them. A set rather than a count: a ceiling of four says
+#: only how many, so fixing one and introducing another leaves it unmoved.
+EXPECTED_UNEVEN = {
+    # The short firing is the "no ticket" answer. helpframe unpacks seven and
+    # opens with `if ( category )`, under Blizzard's own comment "If there are
+    # args then the player has a ticket".
+    "UPDATE_TICKET": "no arguments means no ticket",
+    # Two arguments when the rune is ready, one when it is not. runeframe reads
+    # `local rune, usable` and branches on `not usable`, so the missing second
+    # argument is what says the rune is on cooldown.
+    "RUNE_POWER_UPDATE": "the missing argument is the cooldown",
+    # Four from the criteria packet, one when the player ticks a box.
+    # watchframe's branch does nothing with a nil elapsed or duration and then
+    # calls WatchFrame_Update regardless, which is the whole point of the short
+    # firing — and the achievement UI calls it itself besides.
+    "TRACKED_ACHIEVEMENT_UPDATE": "short firing still redraws the tracker",
+    # Two for a bag slot, one for an equipment slot — and the absent second
+    # argument is what says which. containerframe guards `if ( bag and slot
+    # ... )` so the short firing falls through it, and the paperdoll's is
+    # `if ( not arg2 and arg1 == self:GetID() )`, which a second argument makes
+    # fail outright: the square would never grey.
+    "ITEM_LOCK_CHANGED": "the missing argument means an equipment slot",
+}
+
 uneven = {n: v for n, v in sites.items()
-          if len({c for c, _ in v}) > 1 and n in wanted}
+          if len({c for c, _ in v}) > 1 and n in wanted
+          and n not in EXPECTED_UNEVEN}
 print(f"\n{len(uneven)} fired from several places with differing counts:\n")
 for name in sorted(uneven):
     counts = ", ".join(f"{c} at {w}" for c, w in sorted(uneven[name]))

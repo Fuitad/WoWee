@@ -127,7 +127,7 @@ CHECKS = [
     # and only an id from the tracking toggle, which the tracker guards for.
     # The ceiling is here for the fifth, which will be an accident.
     ("framexml_event_arity.py",
-     r"^(\d+) fired from several places with differing counts", 4,
+     r"^(\d+) fired from several places with differing counts", 0,
      "events whose argument count depends on which path fired them"),
     # Five, and every one is unreachable: the event that shows its dialog is
     # not fired anywhere under src/. LEVEL_GRANT_PROPOSED is Recruit-a-Friend
