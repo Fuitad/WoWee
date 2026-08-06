@@ -2380,7 +2380,7 @@ public:
     struct BookPage { uint32_t pageId = 0; std::string text; };
     const std::vector<BookPage>& getBookPages() const { return bookPages_; }
     bool hasBookOpen() const { return !bookPages_.empty(); }
-    void clearBook() { bookPages_.clear(); bookTitle_.clear(); }
+    void clearBook() { bookPages_.clear(); bookTitle_.clear(); bookMaterial_ = 0; }
 
     /// What is being read, for the heading over the page. Known at every point
     /// a book is opened — the game object's name from its query cache, or the
@@ -2389,6 +2389,15 @@ public:
     /// the page after it, and nothing about what the pages belong to.
     const std::string& getBookTitle() const { return bookTitle_; }
     void setBookTitle(std::string title) { bookTitle_ = std::move(title); }
+    /// The backing the open book's pages are drawn on, set from the same place
+    /// as the title and for the same reason: the page text response says
+    /// nothing about what the pages belong to.
+    uint32_t getBookMaterial() const { return bookMaterial_; }
+    void setBookMaterial(uint32_t material) { bookMaterial_ = material; }
+    /// PageTextMaterial.dbc's name for a material id, empty for none. The
+    /// interface wants the word, not the number — it picks a texture and a
+    /// text colour by it.
+    const std::string& getPageTextMaterialName(uint32_t materialId) const;
 
     // Other player level-up callback — fires when another player gains a level
     using OtherPlayerLevelUpCallback = std::function<void(uint64_t guid, uint32_t newLevel)>;
@@ -4769,6 +4778,11 @@ private:
     std::vector<TempEnchantTimer> tempEnchantTimers_;
     std::vector<BookPage> bookPages_;            // pages collected for the current readable item
     std::string bookTitle_;                      // name of the object or item those pages belong to
+    uint32_t bookMaterial_ = 0;                  // PageTextMaterial.dbc id, 0 for unknown
+    /// PageTextMaterial.dbc is seven rows and is read once on the first ask,
+    /// like the other DBC-backed caches here.
+    mutable std::unordered_map<uint32_t, std::string> pageTextMaterialNames_;
+    mutable bool pageTextMaterialsLoaded_ = false;
     OtherPlayerLevelUpCallback otherPlayerLevelUpCallback_;
     OtherPlayerMountCallback otherPlayerMountCallback_;
     AchievementEarnedCallback achievementEarnedCallback_;

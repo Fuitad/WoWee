@@ -2919,12 +2919,16 @@ void EntityController::handleGameObjectPageText(network::Packet& packet) {
     // AzerothCore layout:
     // type 9 (TEXT): data[0]=pageID
     // type 10 (GOOBER): data[7]=pageId
-    if (info.type == 9) pageId = info.data[0];
-    else if (info.type == 10) pageId = info.data[7];
+    // The backing sits two words behind the page in both layouts, which is the
+    // whole of what tells a stone tablet from a parchment letter on screen.
+    uint32_t pageMaterial = 0;
+    if (info.type == 9)       { pageId = info.data[0]; pageMaterial = info.data[2]; }
+    else if (info.type == 10) { pageId = info.data[7]; pageMaterial = info.data[9]; }
 
     if (pageId != 0 && owner_.getSocket() && owner_.getState() == WorldState::IN_WORLD) {
         owner_.bookPagesRef().clear();  // start a fresh book for this interaction
         owner_.setBookTitle(info.name);
+        owner_.setBookMaterial(pageMaterial);
         auto req = PageTextQueryPacket::build(pageId, guid);
         owner_.getSocket()->send(req);
         return;

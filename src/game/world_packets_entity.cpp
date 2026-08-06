@@ -598,7 +598,7 @@ bool ItemQueryResponseParser::parse(network::Packet& packet, ItemQueryResponseDa
     if (packet.hasRemaining(16)) {
         data.pageTextId = packet.readUInt32(); // PageText
         packet.readUInt32(); // LanguageID
-        packet.readUInt32(); // PageMaterial
+        data.pageMaterial = packet.readUInt32(); // PageMaterial
         data.startQuestId = packet.readUInt32(); // StartQuest
     }
 

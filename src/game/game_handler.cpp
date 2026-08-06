@@ -3816,6 +3816,32 @@ const std::vector<GameHandler::ReputationEntry>& GameHandler::getReputationList(
     return reputationList_;
 }
 
+const std::string& GameHandler::getPageTextMaterialName(uint32_t materialId) const {
+    static const std::string kNone;
+    if (!pageTextMaterialsLoaded_) {
+        auto* am = services().assetManager;
+        // Not an attempt while the assets are down: marking it loaded here
+        // would disable the file for the session, the way the faction and
+        // skill caches beside it were once caught doing.
+        if (am && am->isInitialized()) {
+            pageTextMaterialsLoaded_ = true;
+            if (auto dbc = am->loadDBC("PageTextMaterial.dbc"); dbc && dbc->isLoaded()) {
+                for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+                    const uint32_t id = dbc->getUInt32(i, 0);
+                    std::string name = dbc->getString(i, 1);
+                    if (id != 0 && !name.empty()) {
+                        pageTextMaterialNames_[id] = std::move(name);
+                    }
+                }
+                LOG_INFO("PageTextMaterial.dbc: loaded ",
+                         pageTextMaterialNames_.size(), " page materials");
+            }
+        }
+    }
+    auto it = pageTextMaterialNames_.find(materialId);
+    return it != pageTextMaterialNames_.end() ? it->second : kNone;
+}
+
 uint32_t GameHandler::getFactionParentId(uint32_t factionId) const {
     loadFactionNameCache();
     auto it = factionParent_.find(factionId);

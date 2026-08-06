@@ -2447,13 +2447,32 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushstring(L, title.c_str());
             return 1;
         }},
-                // These two the wire really does not carry: a page has no
-                // author, and nothing here reads the object's page material.
-                // The frame guards both — a nil creator drops the "from" line
-                // and a nil material falls back to Parchment — so absent is
-                // honest and safe where an invented one would be neither.
+                // A page really has no author on this wire —
+                // SMSG_ITEM_TEXT_QUERY_RESPONSE is an id and the words — and
+                // the frame drops the "from" line on a nil, which is honest
+                // where an invented name would not be.
                 {"ItemTextGetCreator",  [](lua_State* L) -> int { return luaReturnNil(L); }},
-                {"ItemTextGetMaterial", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                // The material is carried, and the claim that it was not stood
+                // beside the line discarding it: the item query's four
+                // post-description words are PageText, LanguageID,
+                // PageMaterial and StartQuest, and all three parsers read the
+                // third into nothing. A game object's is in its template two
+                // words behind the page id.
+                //
+                // It names one of PageTextMaterial.dbc's seven backings, which
+                // is what itemtextframe wants — it picks both the frame's
+                // texture and the text colour by that word, so every letter
+                // and tablet was drawn on parchment.
+                {"ItemTextGetMaterial", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return luaReturnNil(L);
+            const std::string& name = gh->getPageTextMaterialName(gh->getBookMaterial());
+            // Nil rather than an empty string for an unknown id: the frame
+            // tests `if ( not material )` and substitutes Parchment itself.
+            if (name.empty()) return luaReturnNil(L);
+            lua_pushstring(L, name.c_str());
+            return 1;
+        }},
                 // A letter is one page and its buttons stay hidden. A book is
                 // as many as its chain has, all of them already fetched, so
                 // turning one is a move through what is in hand rather than a

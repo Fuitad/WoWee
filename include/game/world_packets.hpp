@@ -1800,6 +1800,11 @@ struct ItemQueryResponseData {
     uint32_t bindType = 0;      // 0=none, 1=BoP, 2=BoE, 3=BoU, 4=BoQ
     std::string description;    // Flavor/lore text
     uint32_t pageTextId = 0;     // Non-zero: item can be read via CMSG_READ_ITEM + page query
+    /// Which of PageTextMaterial.dbc's seven backings the page is drawn on —
+    /// Parchment, Stone, Marble, Silver, Bronze, Valentine, Illidan. Read off
+    /// the same four post-description words as pageTextId and thrown away
+    /// until 2026-08-06, so every letter and book opened on parchment.
+    uint32_t pageMaterial = 0;
     // Generic stat pairs for non-primary stats (hit, crit, haste, AP, SP, etc.)
     struct ExtraStat { uint32_t statType = 0; int32_t statValue = 0; };
     std::vector<ExtraStat> extraStats;

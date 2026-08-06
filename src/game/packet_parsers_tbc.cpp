@@ -1148,7 +1148,7 @@ bool TbcPacketParsers::parseItemQueryResponse(network::Packet& packet, ItemQuery
     if (packet.hasRemaining(16)) {
         data.pageTextId = packet.readUInt32(); // PageText
         packet.readUInt32(); // LanguageID
-        packet.readUInt32(); // PageMaterial
+        data.pageMaterial = packet.readUInt32(); // PageMaterial
         data.startQuestId = packet.readUInt32(); // StartQuest
     }
 
