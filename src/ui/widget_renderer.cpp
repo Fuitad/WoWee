@@ -1,6 +1,7 @@
 #include <cstring>
 #include "ui/widget_renderer.hpp"
 #include "ui/text_markup.hpp"
+#include "ui/link_hit.hpp"
 #include "ui/text_wrap.hpp"
 #include <set>
 
@@ -296,10 +297,9 @@ void WidgetRenderer::drawMarkupText(ImDrawList* dl, ImFont* font, float size,
                 // coordinate here is a screen pixel with y growing down.
                 // Filing the pixels would have made the hit test miss by the
                 // scale factor and by the whole height of the screen.
-                const float sc = (linkScale_ > 0.0f) ? linkScale_ : 1.0f;
-                linkSink->addLinkRect({linkOwner, run.link, run.text,
-                                       x / sc, (linkScreenH_ - (y + lineH)) / sc,
-                                       (x + runW) / sc, (linkScreenH_ - y) / sc});
+                linkSink->addLinkRect(linkRectFromDraw(
+                    linkOwner, run.link, run.text, x, y, runW, lineH,
+                    linkScreenH_, linkScale_));
             }
             x += runW;
         }

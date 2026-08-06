@@ -3833,9 +3833,8 @@ void Application::render() {
                 buttons.left   = ImGui::IsMouseDown(ImGuiMouseButton_Left);
                 buttons.right  = ImGui::IsMouseDown(ImGuiMouseButton_Right);
                 buttons.middle = ImGui::IsMouseDown(ImGuiMouseButton_Middle);
-                engine->dispatchMouse(io.MousePos.x,
-                                      io.DisplaySize.y - io.MousePos.y,
-                                      buttons);
+                engine->dispatchMouse(io.MousePos.x, io.MousePos.y,
+                                      io.DisplaySize.y, buttons);
 
                 // Letting a carried item go over the world is how an item is
                 // destroyed. The C client raises DELETE_ITEM_CONFIRM for it and

@@ -1,4 +1,5 @@
 #include "addons/lua_engine.hpp"
+#include "ui/link_hit.hpp"
 #include "ui/widget_tree.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/framexml_takeover.hpp"
@@ -7446,13 +7447,14 @@ void LuaEngine::releaseMouseHover() {
     haveCursor_ = false;
 }
 
-void LuaEngine::dispatchMouse(float x, float y, MouseButtons buttons) {
+void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons buttons) {
     if (!L_) return;
-    // The cursor arrives in pixels and the tree is in interface units, so this
-    // is where the two meet. Hit testing against unconverted pixels would miss
-    // every frame by the scale factor.
-    const float s = widgets_.uiScale();
-    if (s > 0.0f) { x /= s; y /= s; }
+    // The cursor arrives in window pixels measured from the top, and the tree
+    // is in interface units measured from the bottom. ui::mouseToTreeSpace is
+    // the one definition of that conversion — the link rects a draw pass files
+    // go through its other half, and when the two were written separately the
+    // hyperlink hit test missed by the scale factor and the screen height.
+    ui::mouseToTreeSpace(x, y, screenH, widgets_.uiScale());
     const uint32_t hit = widgets_.hitTest(x, y);
     lastMouseHit_ = hit;
     // Kept so IsMouseOver can answer from a frame's own rect. Hover alone is

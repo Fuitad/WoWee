@@ -70,7 +70,10 @@ public:
         bool right = false;
         bool middle = false;
     };
-    void dispatchMouse(float x, float y, MouseButtons buttons);
+    /// Window pixels from the top-left, as ImGui reports them, plus the
+    /// window height — converted here rather than by the caller, so the
+    /// tree's coordinate space has one entrance.
+    void dispatchMouse(float x, float y, float screenH, MouseButtons buttons);
 
     /// Whether the interface is holding a press: a button went down on a frame
     /// and has not come up, or a frame is being dragged or moved.
