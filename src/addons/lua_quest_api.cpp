@@ -1039,12 +1039,24 @@ static int lua_GetNumTalentTabs(lua_State* L) {
 static std::unordered_map<uint32_t, int>& previewPoints();
 
 // GetTalentTabInfo(tabIndex) → name, iconTexture, pointsSpent, background
+/// The fourth argument asks for the *pet's* tree.
+///
+/// Nothing here tracks pet talents — no packet fills them and no table holds
+/// them — and ignoring the argument answered out of the player's trees
+/// instead, so a hunter's pet tab drew the hunter's own talents. Ten nils is
+/// the honest answer and leaves the tab empty; talentframebase treats a nil
+/// name as "no talent here", which is what it is.
+static bool wantsPetTalents(lua_State* L, int index) {
+    return lua_toboolean(L, index) != 0;
+}
+
 static int lua_GetTalentTabInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
     int tabIndex = static_cast<int>(luaL_checknumber(L, 1)); // 1-indexed
     if (!gh || tabIndex < 1) {
         return luaReturnNil(L);
     }
+    if (wantsPetTalents(L, 3)) return luaReturnNil(L);
     const bool inspect = lua_toboolean(L, 2) != 0;
     uint8_t classId = talentClassId(gh, inspect);
     uint32_t classMask = (classId > 0) ? (1u << (classId - 1)) : 0;
@@ -1195,6 +1207,10 @@ static int lua_GetTalentInfo(lua_State* L) {
     const int tabIndex = static_cast<int>(luaL_checknumber(L, 1));
     const int talentIndex = static_cast<int>(luaL_checknumber(L, 2));
     const bool inspect = lua_toboolean(L, 3) != 0;
+    if (wantsPetTalents(L, 4)) {
+        for (int i = 0; i < 10; i++) lua_pushnil(L);
+        return 10;
+    }
     const auto* talent = talentAt(gh, tabIndex, talentIndex, talentClassId(gh, inspect));
     // Ten values, not eight. The frame reads previewRank into the rank it
     // displays and then compares it against maxRank — as nil that is an error
@@ -1295,6 +1311,9 @@ static int lua_AddPreviewTalentPoints(lua_State* L) {
     const int tab   = static_cast<int>(luaL_optnumber(L, 1, 0));
     const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
     const int delta = static_cast<int>(luaL_optnumber(L, 3, 1));
+    // The pet tree again: staging a preview point there resolved against the
+    // player's trees, and LearnPreviewTalents would then have spent it.
+    if (wantsPetTalents(L, 4)) return 0;
     const uint32_t id = resolveTalentId(gh, tab, index);
     if (!gh || id == 0) return 0;
 
@@ -1326,6 +1345,7 @@ static int lua_GetTalentPrereqs(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int tabIndex = static_cast<int>(luaL_checknumber(L, 1));
     const int talentIndex = static_cast<int>(luaL_checknumber(L, 2));
+    if (wantsPetTalents(L, 4)) return 0;
     const auto* talent = talentAt(gh, tabIndex, talentIndex);
     if (!talent) return 0;
 
@@ -1391,6 +1411,10 @@ static int lua_LearnPreviewTalents(lua_State* L) {
 // LearnTalent(tabIndex, talentIndex, pet, group) — spend one point directly
 static int lua_LearnTalent(lua_State* L) {
     auto* gh = getGameHandler(L);
+    // Pet talents are not modelled, and this is the argument that made that
+    // dangerous rather than merely blank: clicking in a pet tree resolved the
+    // same tab and index against the *player's* trees and spent a point there.
+    if (wantsPetTalents(L, 3)) return 0;
     const uint32_t id = resolveTalentId(gh, static_cast<int>(luaL_optnumber(L, 1, 0)),
                                             static_cast<int>(luaL_optnumber(L, 2, 0)));
     if (gh && id != 0) gh->learnTalent(id, gh->getTalentRank(id) + 1);
