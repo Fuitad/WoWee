@@ -3209,19 +3209,27 @@ void registerQuestLuaAPI(lua_State* L) {
                 // The trainer reads the third bare — `if ( cpCost2 > 0 )` — so
                 // one value made selecting anything a trainer offers an error.
                 //
-                // Only the coin is known here. Nothing in the trainer list says
-                // which service is a profession, so the other two are zero,
-                // which is right for the spells and recipes that make up nearly
-                // all of it; the consequence is that learning a profession asks
-                // for money without the extra confirmation about slots.
+                // The second and third were zero on the reasoning that nothing
+                // in the trainer list says which service is a profession. The
+                // list says exactly that and has all along: profDialog and
+                // profButton are the packet's two point costs, and AzerothCore
+                // fills the second with `primaryProfessionFirstRank ? 1 : 0`
+                // — the one thing it is for. Parsed since the parser was
+                // written, stored, and read by nothing.
+                //
+                // What it buys: learning a first profession rank now raises
+                // CONFIRM_PROFESSION, and the Train button greys when both
+                // slots are already spent. Both come free from the frame once
+                // the number is real, because UnitCharacterPoints already
+                // answers the free-slot count it is compared against.
                 {"GetTrainerServiceCost", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             const auto* list = gh ? &gh->getTrainerSpells().spells : nullptr;
             const bool have = list && i >= 1 && i <= static_cast<int>(list->size());
-            lua_pushnumber(L, have ? (*list)[i - 1].spellCost : 0);
-            lua_pushnumber(L, 0);
-            lua_pushnumber(L, 0);
+            lua_pushnumber(L, have ? (*list)[i - 1].spellCost  : 0);
+            lua_pushnumber(L, have ? (*list)[i - 1].profDialog : 0);
+            lua_pushnumber(L, have ? (*list)[i - 1].profButton : 0);
             return 3;
         }},
                 {"GetTrainerServiceLevelReq", [](lua_State* L) -> int {
@@ -3396,9 +3404,21 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushboolean(L, it == trainerFilters().end() ? 1 : (it->second ? 1 : 0));
             return 1;
         }},
-                // The list this client builds is flat, so there is no header to
-                // fold; the panel calls these when its own headers are clicked
-                // and expects nothing back.
+                // Inert, and this one really is — unlike the three other
+                // Collapse/Expand pairs, which all turned out to have their
+                // grouping sitting in data the client already held.
+                //
+                // Blizzard's name says the heading is a skill line, and the
+                // only skill line in the packet is ReqSkillLine. Across
+                // AzerothCore's whole npc_trainer table — 880 trainers, 4934
+                // rows — not one trainer has more than a single distinct
+                // non-zero value, and 816 have none at all. So grouping by it
+                // yields one heading over the entire list, or none, which is
+                // strictly worse than the flat list it would replace.
+                //
+                // Checked against the table rather than argued from the packet,
+                // because the packet plainly *could* carry several and the
+                // question is whether any server sends them.
                 {"CollapseTrainerSkillLine", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"ExpandTrainerSkillLine",   [](lua_State* L) -> int { (void)L; return 0; }},
                 // GetGlyphLink(socket [, talentGroup]) → hyperlink, or nil
