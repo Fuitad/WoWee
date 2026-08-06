@@ -162,7 +162,20 @@ const std::set<std::string>& requested() {
                 // is opened and the safety net cannot tell that from a failure
                 // to build.
                 "bgscore", "book", "gamemenu", "help", "readycheck",
-                "social", "stable", "taxi", "totems"};
+                "social", "stable", "taxi", "totems",
+                // The panels that arrive with an addon, now that the net can
+                // tell "nobody has opened it" from "it did not build" — the
+                // addon has loaded and the frame is still absent.
+                //
+                //   achievements auctionhouse barbershop classtrainer
+                //   guildbank inspect talents tradeskill
+                //
+                // The dungeon finder joins them without being one: LFDFrame.xml
+                // is in framexml.toc, so its panel is built at load and the net
+                // covered it all along.
+                "achievements", "auctionhouse", "barbershop", "classtrainer",
+                "guildbank", "inspect", "talents", "tradeskill",
+                "dungeonfinder"};
         }();
 
         if (!raw || !*raw) {
@@ -316,10 +329,7 @@ const std::set<std::string>& requested() {
                     // out of this list and into the defaults. They are added
                     // either way — the defaults go in first — but an element
                     // named in both reads as though it were still waiting.
-                    "achievements", "auctionhouse", "barbershop", "chat",
-                    "classtrainer", "dungeonfinder", "guildbank", "inspect",
-                    "questlog", "questtracker", "talents", "tradeskill",
-                    "worldmap"}) {
+                    "chat", "questlog", "questtracker", "worldmap"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "
@@ -982,6 +992,7 @@ const Check kChecks[] = {
 
         // Load-on-demand: reported, never released. Their frames do not exist
         // until the player opens the panel, which is not a failure to build.
+        {UiElement::Talents,       "PlayerTalentFrame",  true, "Blizzard_TalentUI"},
         {UiElement::TradeSkill,    "TradeSkillFrame",    true, "Blizzard_TradeSkillUI"},
         {UiElement::ClassTrainer,  "ClassTrainerFrame",  true, "Blizzard_TrainerUI"},
         {UiElement::AuctionHouse,  "AuctionFrame",       true, "Blizzard_AuctionUI"},
