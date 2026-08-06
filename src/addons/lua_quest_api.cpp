@@ -2,6 +2,7 @@
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_engine.hpp"
+#include "game/auction_filters.hpp"
 #include "game/game_utils.hpp"
 #include "game/packed_time.hpp"
 
@@ -1314,18 +1315,104 @@ static bool& tradeSkillOnlyMakeable() {
 ///
 /// Returned by value, as getCraftingRecipes already was at every one of these
 /// call sites — the copy is the list, not an extra one.
+/// The item a recipe makes, or null while its details are still being asked
+/// for. The spell cache carries createdItemId; the item query fills the rest.
+static const game::ItemQueryResponseData* craftedItem(game::GameHandler* gh,
+                                                      uint32_t spellId) {
+    if (!gh || spellId == 0) return nullptr;
+    auto it = gh->spellNameCacheRef().find(spellId);
+    if (it == gh->spellNameCacheRef().end()) return nullptr;
+    const uint32_t made = it->second.createdItemId;
+    if (made == 0) return nullptr;
+    gh->ensureItemInfo(made);
+    const auto* info = gh->getItemInfo(made);
+    return (info && info->valid) ? info : nullptr;
+}
+
+/// Which entry of each dropdown is picked. Both are single-select — the click
+/// handler calls Set…Filter(id - 1, 1, 1) and nothing ever unchecks — so this
+/// is an index rather than a set, and zero is the "all" row the list opens
+/// with.
+static int& tradeSkillSubClassPick() { static int pick = 0; return pick; }
+static int& tradeSkillInvSlotPick()  { static int pick = 0; return pick; }
+
+/// The two dropdown lists, built from every known recipe rather than from the
+/// filtered ones — a list that shrank as it was filtered would renumber itself
+/// under the selection, and the selection is an index into it.
+static std::vector<std::string> tradeSkillSubClasses(game::GameHandler* gh) {
+    std::vector<std::string> out;
+    if (!gh) return out;
+    for (const auto& r : gh->getCraftingRecipes()) {
+        const auto* info = craftedItem(gh, r.spellId);
+        if (!info || info->subclassName.empty()) continue;
+        if (std::find(out.begin(), out.end(), info->subclassName) == out.end())
+            out.push_back(info->subclassName);
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+/// The equipment slots the recipes make something for, by the same labels the
+/// auction house filters by — one table for both rather than a second list of
+/// slot names that could drift from it.
+static std::vector<std::string> tradeSkillInvSlots(game::GameHandler* gh) {
+    std::vector<std::string> out;
+    if (!gh) return out;
+    for (const auto& r : gh->getCraftingRecipes()) {
+        const auto* info = craftedItem(gh, r.spellId);
+        if (!info || info->inventoryType == 0) continue;
+        for (int i = 1; i < game::kNumAuctionSlots; ++i) {
+            if (game::kAuctionSlots[i].invType != info->inventoryType) continue;
+            const std::string label = game::kAuctionSlots[i].label;
+            if (std::find(out.begin(), out.end(), label) == out.end())
+                out.push_back(label);
+            break;
+        }
+    }
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
 static std::vector<game::GameHandler::CraftRecipe> visibleCraftingRecipes(
         game::GameHandler* gh) {
     std::vector<game::GameHandler::CraftRecipe> out;
     if (!gh) return out;
     std::string needle = tradeSkillNameFilter();
     toLowerInPlace(needle);
+    const auto subs  = (tradeSkillSubClassPick() > 0) ? tradeSkillSubClasses(gh)
+                                                      : std::vector<std::string>{};
+    const auto slots = (tradeSkillInvSlotPick() > 0)  ? tradeSkillInvSlots(gh)
+                                                      : std::vector<std::string>{};
     for (const auto& r : gh->getCraftingRecipes()) {
         if (tradeSkillOnlyMakeable() && r.canMake <= 0) continue;
         if (!needle.empty()) {
             std::string name = r.name;
             toLowerInPlace(name);
             if (name.find(needle) == std::string::npos) continue;
+        }
+        // A recipe whose item has not arrived yet is shown rather than hidden.
+        // The details are asked for on demand, so filtering on what is not back
+        // would empty the list and refill it as the replies landed.
+        if (!subs.empty() || !slots.empty()) {
+            const auto* info = craftedItem(gh, r.spellId);
+            if (info) {
+                const int si = tradeSkillSubClassPick();
+                if (si > 0 && si <= static_cast<int>(subs.size()) &&
+                    info->subclassName != subs[static_cast<size_t>(si) - 1]) {
+                    continue;
+                }
+                const int vi = tradeSkillInvSlotPick();
+                if (vi > 0 && vi <= static_cast<int>(slots.size())) {
+                    std::string label;
+                    for (int i = 1; i < game::kNumAuctionSlots; ++i) {
+                        if (game::kAuctionSlots[i].invType == info->inventoryType) {
+                            label = game::kAuctionSlots[i].label;
+                            break;
+                        }
+                    }
+                    if (label != slots[static_cast<size_t>(vi) - 1]) continue;
+                }
+            }
         }
         out.push_back(r);
     }
@@ -2793,12 +2880,43 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"PartialPlayTime",           [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 {"GetBillingTimeRested",      [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
                 // Filters and sub-classes: panel state, kept so it reads back.
-                {"GetTradeSkillSubClasses",   [](lua_State* L) -> int { (void)L; return 0; }},
-                {"GetTradeSkillInvSlots",     [](lua_State* L) -> int { (void)L; return 0; }},
-                {"GetTradeSkillSubClassFilter", [](lua_State* L) -> int { lua_pushboolean(L, 1); return 1; }},
-                {"GetTradeSkillInvSlotFilter",  [](lua_State* L) -> int { lua_pushboolean(L, 1); return 1; }},
-                {"SetTradeSkillSubClassFilter", [](lua_State* L) -> int { (void)L; return 0; }},
-                {"SetTradeSkillInvSlotFilter",  [](lua_State* L) -> int { (void)L; return 0; }},
+                // The trade skill window's two filter dropdowns. Both answered
+                // nothing and both are spread straight into a vararg call —
+                // TradeSkillFilterFrame_LoadSubClasses(GetTradeSkillSubClasses())
+                // — so each dropdown built its "All" row and stopped, and
+                // picking anything was impossible rather than merely inert.
+                //
+                // Single-select, not a set of ticks: the click handler calls
+                // Set…Filter(id - 1, 1, 1) and nothing ever unticks, so the
+                // state is one index and zero is the "All" row.
+                {"GetTradeSkillSubClasses", [](lua_State* L) -> int {
+            const auto subs = tradeSkillSubClasses(getGameHandler(L));
+            for (const auto& s : subs) lua_pushstring(L, s.c_str());
+            return static_cast<int>(subs.size());
+        }},
+                {"GetTradeSkillInvSlots", [](lua_State* L) -> int {
+            const auto slots = tradeSkillInvSlots(getGameHandler(L));
+            for (const auto& s : slots) lua_pushstring(L, s.c_str());
+            return static_cast<int>(slots.size());
+        }},
+                {"GetTradeSkillSubClassFilter", [](lua_State* L) -> int {
+            const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+            lua_pushboolean(L, i == tradeSkillSubClassPick() ? 1 : 0);
+            return 1;
+        }},
+                {"GetTradeSkillInvSlotFilter", [](lua_State* L) -> int {
+            const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+            lua_pushboolean(L, i == tradeSkillInvSlotPick() ? 1 : 0);
+            return 1;
+        }},
+                {"SetTradeSkillSubClassFilter", [](lua_State* L) -> int {
+            tradeSkillSubClassPick() = static_cast<int>(luaL_optnumber(L, 1, 0));
+            return 0;
+        }},
+                {"SetTradeSkillInvSlotFilter", [](lua_State* L) -> int {
+            tradeSkillInvSlotPick() = static_cast<int>(luaL_optnumber(L, 1, 0));
+            return 0;
+        }},
                 // The search box above the recipe list. It matched nothing
                 // because nothing read it; the panel calls TradeSkillFrame_Update
                 // straight after, so the list redraws against the new view.
