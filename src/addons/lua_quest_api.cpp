@@ -7,6 +7,7 @@
 #include "game/packed_time.hpp"
 
 #include <algorithm>
+#include <map>
 #include <vector>
 
 namespace wowee::addons {
@@ -707,6 +708,52 @@ static std::vector<uint32_t> skillOrder(game::GameHandler* gh) {
     return ids;
 }
 
+/// One drawn line of the skills tab: a heading, or a skill under one.
+///
+/// The tab is a flat list with a heading row every so often, exactly like the
+/// reputation panel — GetSkillLineInfo answers `header` and `isExpanded` for
+/// each row, and a closed heading takes its skills out of the list rather than
+/// hiding them in place, because GetNumSkillLines is what the scroll frame
+/// counts.
+///
+/// The grouping was previously reported as absent on the reasoning that "the
+/// guard is in the data, not in the frame". The data was there the whole time:
+/// getSkillCategory already answered for every skill, and SkillLineCategory.dbc
+/// names the eight headings and gives the order to draw them in.
+struct SkillRow {
+    uint32_t skillId = 0;      ///< 0 for a heading
+    uint32_t categoryId = 0;
+    bool isHeader = false;
+};
+
+static std::vector<SkillRow> skillRows(game::GameHandler* gh) {
+    std::vector<SkillRow> rows;
+    if (!gh) return rows;
+
+    // Category 12 is "Not Displayed", and it means it. A skill the file does
+    // not categorise at all is kept rather than dropped: it is something the
+    // player has, and losing it silently is worse than filing it last.
+    constexpr uint32_t kNotDisplayed = 12;
+    std::map<std::pair<uint32_t, uint32_t>, std::vector<uint32_t>> grouped;
+    for (uint32_t id : skillOrder(gh)) {
+        const uint32_t cat = gh->getSkillCategory(id);
+        if (cat == kNotDisplayed) continue;
+        grouped[{gh->getSkillCategorySortIndex(cat), cat}].push_back(id);
+    }
+
+    for (const auto& [key, ids] : grouped) {
+        const uint32_t cat = key.second;
+        // A category with no name is one this build's file does not describe;
+        // its skills are still listed, just without a heading over them.
+        if (cat != 0 && !gh->getSkillCategoryName(cat).empty()) {
+            rows.push_back({0, cat, true});
+            if (gh->isSkillCategoryCollapsed(cat)) continue;
+        }
+        for (uint32_t id : ids) rows.push_back({id, cat, false});
+    }
+    return rows;
+}
+
 // --- The stable ---
 //
 // Everything here was already tracked: the pets, their levels, how many slots
@@ -935,8 +982,23 @@ static int lua_GetNextStableSlotCost(lua_State* L) {
 static int lua_GetNumSkillLines(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnZero(L); }
-    lua_pushnumber(L, gh->getPlayerSkills().size());
+    // The drawn rows, not the skills: headings are rows too, and a closed one
+    // takes its skills out of the list entirely.
+    lua_pushnumber(L, static_cast<double>(skillRows(gh).size()));
     return 1;
+}
+
+/// Open or close the heading at a drawn-row index. Shared by the two verbs,
+/// which differ only in the boolean and must resolve the index the same way.
+static int skillHeaderSetCollapsed(lua_State* L, bool collapsed) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || index < 1) return 0;
+    const auto rows = skillRows(gh);
+    if (index > static_cast<int>(rows.size())) return 0;
+    const auto& row = rows[static_cast<size_t>(index) - 1];
+    if (row.isHeader) gh->setSkillCategoryCollapsed(row.categoryId, collapsed);
+    return 0;
 }
 
 // GetSkillLineInfo(index) → skillName, isHeader, isExpanded, skillRank, numTempPoints, skillModifier, skillMaxRank, isAbandonable, stepCost, rankCost, minLevel, skillCostType
@@ -955,8 +1017,8 @@ static int lua_GetSkillLineInfo(lua_State* L) {
     // truthful answer and it costs no more than a blank line in the list.
     // Short-circuit rather than a ternary: binding a reference across both arms
     // would copy the whole skill map on every call.
-    if (!gh || index < 1 ||
-        index > static_cast<int>(gh->getPlayerSkills().size())) {
+    const auto rows = gh ? skillRows(gh) : std::vector<SkillRow>{};
+    if (!gh || index < 1 || index > static_cast<int>(rows.size())) {
         lua_pushstring(L, "");                          // 1: skillName
         lua_pushboolean(L, 0);                          // 2: isHeader
         lua_pushboolean(L, 1);                          // 3: isExpanded
@@ -973,16 +1035,33 @@ static int lua_GetSkillLineInfo(lua_State* L) {
         lua_pushstring(L, "");                          // 13: skillDescription
         return 13;
     }
-    const auto order = skillOrder(gh);
+    const auto& row = rows[static_cast<size_t>(index) - 1];
+    if (row.isHeader) {
+        // A heading carries its name and its open/closed state and nothing
+        // else. The costs stay nil for the same reason they are nil below —
+        // zero is true in Lua and would send the heading down the
+        // "Learn <skill>" branch.
+        lua_pushstring(L, gh->getSkillCategoryName(row.categoryId).c_str());
+        lua_pushboolean(L, 1);                          // 2: isHeader
+        lua_pushboolean(L, gh->isSkillCategoryCollapsed(row.categoryId) ? 0 : 1);
+        for (int i = 4; i <= 7; ++i) lua_pushnumber(L, 0);
+        lua_pushboolean(L, 0);                          // 8: isAbandonable
+        lua_pushnil(L);                                 // 9: stepCost
+        lua_pushnil(L);                                 // 10: rankCost
+        lua_pushnumber(L, 0);                           // 11: minLevel
+        lua_pushnumber(L, 0);                           // 12: skillCostType
+        lua_pushstring(L, "");                          // 13: skillDescription
+        return 13;
+    }
     const auto& skills = gh->getPlayerSkills();
-    const auto found = skills.find(order[static_cast<size_t>(index - 1)]);
+    const auto found = skills.find(row.skillId);
     if (found == skills.end()) { return luaReturnNil(L); }
     const auto& skill = found->second;
     std::string name = gh->getSkillName(skill.skillId);
     if (name.empty()) name = "Skill " + std::to_string(skill.skillId);
 
     lua_pushstring(L, name.c_str());                    // 1: skillName
-    lua_pushboolean(L, 0);                              // 2: isHeader (false — flat list)
+    lua_pushboolean(L, 0);                              // 2: isHeader
     lua_pushboolean(L, 1);                              // 3: isExpanded
     lua_pushnumber(L, skill.effectiveValue());           // 4: skillRank
     lua_pushnumber(L, skill.bonusTemp);                  // 5: numTempPoints
@@ -2372,13 +2451,16 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"IsAtStableMaster",       lua_IsAtStableMaster},
                 {"GetNextStableSlotCost",  lua_GetNextStableSlotCost},
                 {"GetSkillLineInfo",        lua_GetSkillLineInfo},
-                // GetSkillLineInfo reports isHeader false for every row, so the
-                // skills list has no headers to open or close. Bound rather
-                // than left out because the click that calls them is on the
-                // row label template, which the tab builds for whatever the
-                // data gives it — the guard is in the data, not in the frame.
-                {"ExpandSkillHeader",       [](lua_State* L) -> int { (void)L; return 0; }},
-                {"CollapseSkillHeader",     [](lua_State* L) -> int { (void)L; return 0; }},
+                // Opening and closing a heading. The index is a position in
+                // the drawn rows, and a click on a skill row rather than a
+                // heading is ignored rather than refused — the tab calls these
+                // from the row label template whatever the row turns out to be.
+                {"ExpandSkillHeader",   [](lua_State* L) -> int {
+            return skillHeaderSetCollapsed(L, false);
+        }},
+                {"CollapseSkillHeader", [](lua_State* L) -> int {
+            return skillHeaderSetCollapsed(L, true);
+        }},
                 {"GetNumTalentTabs",        lua_GetNumTalentTabs},
                 {"GetTalentTabInfo",        lua_GetTalentTabInfo},
                 {"GetNumTalents",           lua_GetNumTalents},

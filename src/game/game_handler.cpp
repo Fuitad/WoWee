@@ -1111,8 +1111,32 @@ const std::string& GameHandler::getSkillName(uint32_t skillId) const {
 }
 
 uint32_t GameHandler::getSkillCategory(uint32_t skillId) const {
+    // Loaded on the ask, like getSkillName above and for the same reason: the
+    // write paths can all have run before the assets were up, and then nothing
+    // goes back for the file.
+    loadSkillLineDbc();
     auto it = skillLineCategories_.find(skillId);
     return (it != skillLineCategories_.end()) ? it->second : 0;
+}
+
+const std::string& GameHandler::getSkillCategoryName(uint32_t categoryId) const {
+    loadSkillLineDbc();
+    auto it = skillCategoryNames_.find(categoryId);
+    return (it != skillCategoryNames_.end()) ? it->second : kEmptySkillName;
+}
+
+uint32_t GameHandler::getSkillCategorySortIndex(uint32_t categoryId) const {
+    loadSkillLineDbc();
+    auto it = skillCategorySort_.find(categoryId);
+    // Unknown headings sort last rather than first, so a category this build's
+    // file does not name cannot displace the ones it does.
+    return (it != skillCategorySort_.end()) ? it->second : 0xFFFFFFFFu;
+}
+
+void GameHandler::setSkillCategoryCollapsed(uint32_t categoryId, bool collapsed) {
+    if (categoryId == 0) return;
+    if (collapsed) collapsedSkillCategories_.insert(categoryId);
+    else           collapsedSkillCategories_.erase(categoryId);
 }
 
 bool GameHandler::isProfessionSpell(uint32_t spellId) const {
@@ -1341,6 +1365,14 @@ void GameHandler::saveCharacterConfig() {
         }
         out << "collapsed_factions=" << ids << "\n";
     }
+    if (!collapsedSkillCategories_.empty()) {
+        std::string ids;
+        for (uint32_t cid : collapsedSkillCategories_) {
+            if (!ids.empty()) ids += ',';
+            ids += std::to_string(cid);
+        }
+        out << "collapsed_skill_categories=" << ids << "\n";
+    }
 
     LOG_INFO("Character config saved to ", path);
 }
@@ -1405,11 +1437,14 @@ void GameHandler::loadCharacterConfig() {
                 macroIcons_[macroId] = val;
             }
         } else if ((key == "tracked_quests" || key == "map_visible_quests" ||
-                    key == "collapsed_factions") && !val.empty()) {
+                    key == "collapsed_factions" ||
+                    key == "collapsed_skill_categories") && !val.empty()) {
             // Parse a comma-separated id list into the matching selection.
-            auto& destination = key == "tracked_quests"    ? trackedQuestIds_
-                              : key == "collapsed_factions" ? collapsedFactionIds_
-                                                            : mapVisibleQuestIds_;
+            auto& destination =
+                  key == "tracked_quests"    ? trackedQuestIds_
+                : key == "collapsed_factions" ? collapsedFactionIds_
+                : key == "collapsed_skill_categories" ? collapsedSkillCategories_
+                                                      : mapVisibleQuestIds_;
             if (key == "collapsed_factions") reputationRowsDirty_ = true;
             destination.clear();
             size_t tqPos = 0;

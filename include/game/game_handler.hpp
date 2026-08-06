@@ -1369,6 +1369,14 @@ public:
     // Player skills
     const std::unordered_map<uint32_t, PlayerSkill>& getPlayerSkills() const { return playerSkills_; }
     const std::string& getSkillName(uint32_t skillId) const;
+    /// The heading a skill is filed under, and that heading's name and place.
+    /// Zero and empty for a skill the file does not categorise.
+    const std::string& getSkillCategoryName(uint32_t categoryId) const;
+    uint32_t getSkillCategorySortIndex(uint32_t categoryId) const;
+    bool isSkillCategoryCollapsed(uint32_t categoryId) const {
+        return collapsedSkillCategories_.count(categoryId) > 0;
+    }
+    void setSkillCategoryCollapsed(uint32_t categoryId, bool collapsed);
     uint32_t getSkillCategory(uint32_t skillId) const;
     bool isProfessionSpell(uint32_t spellId) const;
 
@@ -3312,6 +3320,8 @@ public:
     auto& playerSkillsRef() { return playerSkills_; }
     auto& skillLineAbilityLoadedRef() { return skillLineAbilityLoaded_; }
     auto& skillLineCategoriesRef() { return skillLineCategories_; }
+    auto& skillCategoryNamesRef() { return skillCategoryNames_; }
+    auto& skillCategorySortRef() { return skillCategorySort_; }
     auto& skillLineIconsRef() { return skillLineIcons_; }
     auto& skillLineDescriptionsRef() { return skillLineDescriptions_; }
     const std::string& getSkillDescription(uint32_t skillId) const {
@@ -4687,6 +4697,13 @@ private:
     std::unordered_map<uint32_t, PlayerSkill> playerSkills_;
     std::unordered_map<uint32_t, std::string> skillLineNames_;
     std::unordered_map<uint32_t, uint32_t> skillLineCategories_;
+    /// The headings the skills tab groups under, from SkillLineCategory.dbc,
+    /// with the display order the file itself gives.
+    std::unordered_map<uint32_t, std::string> skillCategoryNames_;
+    std::unordered_map<uint32_t, uint32_t> skillCategorySort_;
+    /// Headings the player has closed. Client-side, like the reputation ones,
+    /// and saved with the rest of the character config for the same reason.
+    std::unordered_set<uint32_t> collapsedSkillCategories_;
     /// SkillLine.dbc's own icon, which is what gives each spellbook tab down
     /// the side of the book its distinct picture. Read alongside the name
     /// because they come out of the same row of the same file.

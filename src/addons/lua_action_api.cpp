@@ -2349,6 +2349,15 @@ void registerActionLuaAPI(lua_State* L) {
         }},
                 // UNLEARN_SKILL's accept, from the skill panel's unlearn
                 // button. The skill line comes from the button's own row.
+                // Takes a skill id here, and FrameXML's one caller passes it
+                // whatever it was handed as the popup's data — which in the
+                // original client is the skills tab's row index, not an id.
+                // Nothing shows UNLEARN_SKILL in this build (GetSkillLineInfo
+                // answers isAbandonable false, so no row offers to unlearn), so
+                // the two never meet; if the popup is ever raised, whichever
+                // side passes the index has to resolve it through skillRows()
+                // first, or this unlearns the skill whose id happens to equal a
+                // row number.
                 {"AbandonSkill", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const auto skillId = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));

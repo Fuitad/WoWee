@@ -3587,6 +3587,32 @@ void SpellHandler::loadSkillLineDbc() {
         }
     }
     LOG_INFO("GameHandler: Loaded ", owner_.skillLineNamesRef().size(), " skill line names");
+
+    // The eight headings the skills tab groups under, read from the file that
+    // names them rather than written out here — and with the order the file
+    // itself gives, which is the order the original tab draws them in:
+    // Attributes, Class Skills, Professions, Secondary Skills, Weapon Skills,
+    // Armor Proficiencies, Languages, Not Displayed.
+    auto catDbc = am->loadDBC("SkillLineCategory.dbc");
+    if (!catDbc || !catDbc->isLoaded()) {
+        LOG_WARNING("GameHandler: Could not load SkillLineCategory.dbc");
+        return;
+    }
+    // Nineteen fields: the id, seventeen locale columns, and the sort index
+    // last. Taken from the end rather than by number so a shorter localised
+    // build still finds it.
+    const uint32_t catFields = catDbc->getFieldCount();
+    for (uint32_t i = 0; i < catDbc->getRecordCount(); i++) {
+        const uint32_t id = catDbc->getUInt32(i, 0);
+        if (id == 0) continue;
+        std::string name = catDbc->getString(i, 1);
+        if (!name.empty()) owner_.skillCategoryNamesRef()[id] = std::move(name);
+        if (catFields >= 2) {
+            owner_.skillCategorySortRef()[id] = catDbc->getUInt32(i, catFields - 1);
+        }
+    }
+    LOG_INFO("GameHandler: Loaded ", owner_.skillCategoryNamesRef().size(),
+             " skill categories");
 }
 
 void SpellHandler::extractSkillFields(const FlatFieldMap& fields) {
