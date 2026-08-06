@@ -27,6 +27,22 @@ False positives to expect, and why they cannot be filtered by shape:
     defined before treating it as a gap.
   * Methods on Lua's own types (`("x"):format(...)`) — lowercase, so the
     uppercase-initial filter drops them.
+
+WHAT IT REPORTS TODAY, AND WHY NONE OF IT IS REAL
+
+Seven, all false positives, left in the count rather than special-cased —
+a list with an exception in it stops being checkable.
+
+  * Collapse and Expand, on the achievement buttons. The addon assigns them
+    as table fields — `self.Collapse = AchievementButton_Collapse` in
+    AchievementButton_OnLoad — and a field always beats the metatable, so they
+    are answered. A field assignment is not a method definition and this
+    cannot see one.
+  * Five on dump.lua's writer object, which nothing constructs. /dump is not
+    reachable here.
+
+The nine that were real-looking before were GlueXML, and are gone now that
+this reads only what the loader opens.
 """
 import re
 import sys
