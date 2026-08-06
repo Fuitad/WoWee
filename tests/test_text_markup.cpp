@@ -100,18 +100,13 @@ TEST_CASE("the caret steps by drawn characters", "[markup]") {
         REQUIRE(caretStepRight(line, 1) == 2);
     }
 
-    SECTION("the markup draws nothing, so a step crosses it and one character") {
-        // "hi " is three characters; index 3 opens "|Hitem:1|h" and the first
-        // character it draws is the '[' at index 13. One step from 3 therefore
-        // lands after that '[', at 14 — the markup itself is not a place the
-        // caret can rest, because nothing there is on screen.
-        REQUIRE(line.substr(13, 1) == "[");
-        REQUIRE(caretStepRight(line, 3) == 14);
-    }
-
-    SECTION("and the display text is walked one character at a time") {
-        REQUIRE(caretStepRight(line, 14) == 15);   // over 'A'
-        REQUIRE(caretStepRight(line, 15) == 16);   // over 'B'
+    SECTION("a link is one step whole, so the caret never rests inside it") {
+        // "hi " is three characters and the link runs from 3 to the end. One
+        // step from 3 clears all of it — payload, display text and closing
+        // marker — because a caret inside a link is a caret that can leave
+        // half an escape behind when something is erased.
+        REQUIRE(caretStepRight(line, 3) == 19);
+        REQUIRE(line.substr(19) == " x");
     }
 
     SECTION("left is the inverse of right, everywhere along the line") {
@@ -134,5 +129,48 @@ TEST_CASE("the caret steps by drawn characters", "[markup]") {
         const std::string coloured = "a|cffff0000b|rc";
         REQUIRE(coloured.substr(11, 1) == "b");
         REQUIRE(caretStepRight(coloured, 1) == 12);
+    }
+}
+
+
+// ── Erasing uses the same step, so the two cannot disagree ─────────────────
+//
+// Backspace over a link has to take the whole link. Removing a byte leaves
+// half an escape behind, which the parser then reads as whatever the wreckage
+// resembles — and the text is the player's own message, so the damage is
+// visible and unrecoverable by pressing the key again.
+namespace {
+
+/// Backspace, as the edit box performs it: erase back to the previous caret
+/// position.
+std::string backspaceAt(std::string s, size_t& at) {
+    const size_t from = caretStepLeft(s, at);
+    s.erase(from, at - from);
+    at = from;
+    return s;
+}
+
+}  // namespace
+
+TEST_CASE("erasing removes what draws as one character", "[markup]") {
+    SECTION("backspace over a link takes all of it") {
+        std::string s = "hi |Hitem:1|h[AB]|h";
+        size_t at = s.size();
+        // One press: the link is a single unit.
+        s = backspaceAt(s, at);
+        REQUIRE(s == "hi ");
+        REQUIRE(at == 3);
+    }
+
+    SECTION("and never leaves half an escape") {
+        std::string s = "a|cffff0000b|rc";
+        size_t at = s.size();
+        while (at > 0) {
+            s = backspaceAt(s, at);
+            // Whatever is left must still parse to something sane: every bar
+            // in it is either doubled or opens an escape that closes.
+            REQUIRE(parseMarkup(s).size() <= 3);
+        }
+        REQUIRE(s.empty());
     }
 }

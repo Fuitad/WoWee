@@ -7138,16 +7138,23 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
 
     const size_t len = w->editText.size();
     switch (sdlKeycode) {
+        // Erasing a character means erasing what draws as one. A link is
+        // fifty-odd bytes, so taking a byte off either end leaves a mangled
+        // escape behind — half a payload, drawing as whatever the parser makes
+        // of the wreckage. The same step the caret moves by is the span to
+        // remove, which keeps the two from ever disagreeing.
         case kBackspace:
             if (w->cursorPos > 0 && len > 0) {
-                w->editText.erase(w->cursorPos - 1, 1);
-                --w->cursorPos;
+                const size_t from = ui::caretStepLeft(w->editText, w->cursorPos);
+                w->editText.erase(from, w->cursorPos - from);
+                w->cursorPos = from;
                 callFrameScript(focusedWid_, "OnTextChanged");
             }
             break;
         case kDelete:
             if (w->cursorPos < len) {
-                w->editText.erase(w->cursorPos, 1);
+                const size_t to = ui::caretStepRight(w->editText, w->cursorPos);
+                w->editText.erase(w->cursorPos, to - w->cursorPos);
                 callFrameScript(focusedWid_, "OnTextChanged");
             }
             break;

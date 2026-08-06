@@ -113,9 +113,9 @@ inline std::vector<WrapRun> parseMarkup(const std::string& in) {
 /// clickable and shift-click began putting them in the box.
 ///
 /// A colour escape and an inline texture draw nothing at all, so the caret
-/// passes over them without stopping. A link's markers are skipped and its
-/// display text is walked one character at a time, which is what the player
-/// sees moving.
+/// passes over them without stopping. A link is one step whole — the caret
+/// cannot rest inside it, the same way it cannot in the real client, and a
+/// backspace therefore removes the link rather than a byte of its payload.
 inline size_t caretStepRight(const std::string& s, size_t at) {
     if (at >= s.size()) return s.size();
     while (at + 1 < s.size() && s[at] == '|') {
@@ -124,14 +124,18 @@ inline size_t caretStepRight(const std::string& s, size_t at) {
         if (tag == 'c' || tag == 'C') { at += 10; continue; }
         if (tag == 'r' || tag == 'R') { at += 2;  continue; }
         if (tag == 'H') {
-            // Past the |h that ends the payload, onto the display text. Not to
-            // the next bar, which is that same |h — leaving the closing branch
-            // below to skip again, and one step to run to the end of the line.
-            const size_t close = s.find("|h", at + 2);
-            at = (close == std::string::npos) ? s.size() : close + 2;
-            continue;
+            // A whole link is one step: payload, display text and closing
+            // marker together. The caret cannot rest inside one and a
+            // backspace takes all of it, which is the only arrangement where
+            // half an escape can never exist — erasing "]" out of
+            // "|Hitem:1|h[AB]|h" leaves "[AB|h", and the parser then reads the
+            // wreckage as whatever it resembles.
+            const size_t payload = s.find("|h", at + 2);
+            const size_t close = (payload == std::string::npos)
+                ? std::string::npos : s.find("|h", payload + 2);
+            return (close == std::string::npos) ? s.size() : close + 2;
         }
-        if (tag == 'h') { at += 2; continue; }   // the closing marker
+        if (tag == 'h') { at += 2; continue; }   // a stray closing marker
         if (tag == 'T' || tag == 't') {
             const size_t close = s.find("|t", at + 2);
             at = (close == std::string::npos) ? s.size() : close + 2;
