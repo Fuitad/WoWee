@@ -605,6 +605,104 @@ bool boughtHeldMerchantItem(lua_State* L) {
 }
 
 
+/// Put the item in a bag slot on the cursor, with everything that goes with it:
+/// the icon, the greyed slot, and the record of where it came from.
+///
+/// Split out of lua_PickupContainerItem so PickupItem can reach it. Writing the
+/// cursor twice is how one of them would come to set the icon and the other not.
+static void pickupFromContainerSlot(lua_State* L, game::GameHandler* gh,
+                                    int bag, int slot) {
+    const auto& inv = gh->getInventory();
+    const game::ItemSlot* itemSlot = nullptr;
+    if (bag == 0 && slot >= 1 && slot <= inv.getBackpackSize()) {
+        itemSlot = &inv.getBackpackSlot(slot - 1);
+    } else if (bag >= 1 && bag <= 4) {
+        int bagSize = inv.getBagSize(bag - 1);
+        if (slot >= 1 && slot <= bagSize) {
+            itemSlot = &inv.getBagSlot(bag - 1, slot - 1);
+        }
+    }
+    if (itemSlot && !itemSlot->empty()) {
+        setCursorType(L, CursorType::ITEM);
+        s_cursorId = itemSlot->item.itemId;
+        s_cursorBag = bag;
+        s_cursorSlot = slot;
+        uint32_t displayId = itemSlot->item.displayInfoId;
+        if (displayId == 0) {
+            if (const auto* info = gh->getItemInfo(itemSlot->item.itemId)) {
+                displayId = info->displayInfoId;
+            }
+        }
+        wowee::ui::frameXmlSetCursorItem(
+            displayId ? gh->getItemIconPath(displayId) : std::string());
+        cursorItemSlot() = {bag, slot, false};
+        // The slot draws greyed while its item is on the cursor, which is how a
+        // bag shows that something has been picked up out of it.
+        gh->fireAddonEvent("ITEM_LOCK_CHANGED",
+                           {std::to_string(bag), std::to_string(slot)});
+        LOG_WARNING("FrameXML pickup: bag ", bag, " slot ", slot,
+                    " item ", itemSlot->item.itemId);
+    } else {
+        LOG_WARNING("FrameXML pickup: bag ", bag, " slot ", slot,
+                    " — nothing there to pick up");
+    }
+}
+
+/// PickupItem(id | "name" | link) — put an item on the cursor by naming it
+/// rather than by pointing at a slot.
+///
+/// A macro's own way to pick something up, and the 'item' branch of
+/// securehandlers.lua's cursor dispatcher — every other branch there was bound
+/// and this one raised.
+///
+/// The first matching slot wins. WoW picks the first too, and a stack split
+/// across two bags is one item as far as this is concerned.
+static int lua_PickupItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+
+    uint32_t wantId = 0;
+    std::string wantName;
+    if (lua_isnumber(L, 1)) {
+        wantId = static_cast<uint32_t>(lua_tonumber(L, 1));
+    } else if (const char* text = lua_tostring(L, 1)) {
+        // A link carries the id in it — "|Hitem:6948:0:..." — and is what a
+        // shift-click puts in a macro, so it is the common case rather than
+        // the exotic one.
+        const std::string str(text);
+        const size_t at = str.find("Hitem:");
+        if (at != std::string::npos) {
+            wantId = static_cast<uint32_t>(std::strtoul(str.c_str() + at + 6, nullptr, 10));
+        } else {
+            wantName = str;
+        }
+    }
+    if (wantId == 0 && wantName.empty()) return 0;
+
+    auto matches = [&](const game::ItemSlot& s) {
+        if (s.empty()) return false;
+        if (wantId != 0) return s.item.itemId == wantId;
+        return s.item.name == wantName;
+    };
+
+    const auto& inv = gh->getInventory();
+    for (int i = 0; i < inv.getBackpackSize(); ++i) {
+        if (matches(inv.getBackpackSlot(i))) {
+            pickupFromContainerSlot(L, gh, 0, i + 1);
+            return 0;
+        }
+    }
+    for (int b = 0; b < game::Inventory::NUM_BAG_SLOTS; ++b) {
+        for (int sl = 0; sl < inv.getBagSize(b); ++sl) {
+            if (matches(inv.getBagSlot(b, sl))) {
+                pickupFromContainerSlot(L, gh, b + 1, sl + 1);
+                return 0;
+            }
+        }
+    }
+    return 0;
+}
+
 static int lua_PickupContainerItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -663,40 +761,7 @@ static int lua_PickupContainerItem(lua_State* L) {
         return 0;
     }
 
-    const auto& inv = gh->getInventory();
-    const game::ItemSlot* itemSlot = nullptr;
-    if (bag == 0 && slot >= 1 && slot <= inv.getBackpackSize()) {
-        itemSlot = &inv.getBackpackSlot(slot - 1);
-    } else if (bag >= 1 && bag <= 4) {
-        int bagSize = inv.getBagSize(bag - 1);
-        if (slot >= 1 && slot <= bagSize) {
-            itemSlot = &inv.getBagSlot(bag - 1, slot - 1);
-        }
-    }
-    if (itemSlot && !itemSlot->empty()) {
-        setCursorType(L, CursorType::ITEM);
-        s_cursorId = itemSlot->item.itemId;
-        s_cursorBag = bag;
-        s_cursorSlot = slot;
-        uint32_t displayId = itemSlot->item.displayInfoId;
-        if (displayId == 0) {
-            if (const auto* info = gh->getItemInfo(itemSlot->item.itemId)) {
-                displayId = info->displayInfoId;
-            }
-        }
-        wowee::ui::frameXmlSetCursorItem(
-            displayId ? gh->getItemIconPath(displayId) : std::string());
-        cursorItemSlot() = {bag, slot, false};
-        // The slot draws greyed while its item is on the cursor, which is how a
-        // bag shows that something has been picked up out of it.
-        gh->fireAddonEvent("ITEM_LOCK_CHANGED",
-                           {std::to_string(bag), std::to_string(slot)});
-        LOG_WARNING("FrameXML pickup: bag ", bag, " slot ", slot,
-                    " item ", itemSlot->item.itemId);
-    } else {
-        LOG_WARNING("FrameXML pickup: bag ", bag, " slot ", slot,
-                    " — nothing there to pick up");
-    }
+    pickupFromContainerSlot(L, gh, bag, slot);
     return 0;
 }
 
@@ -1464,6 +1529,7 @@ void registerActionLuaAPI(lua_State* L) {
                 {"PickupSpell",         lua_PickupSpell},
                 {"PickupSpellBookItem", lua_PickupSpellBookItem},
                 {"PickupContainerItem", lua_PickupContainerItem},
+                {"PickupItem",          lua_PickupItem},
                 {"PickupInventoryItem", lua_PickupInventoryItem},
                 {"PickupBagFromSlot",   lua_PickupBagFromSlot},
                 {"ClickSendMailItemButton", lua_ClickSendMailItemButton},
