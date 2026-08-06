@@ -602,20 +602,32 @@ struct Emitter {
         }
 
         const std::string var = nextVar();
-        // A frame declared at XML top level with no parent of its own is
-        // parentless in WoW, not a child of UIParent — and that is load
-        // bearing rather than a detail. Opening the world map calls
-        // UIParent:Hide() and then shows the map, so a map parented to
-        // UIParent goes down with everything else and leaves an empty screen.
-        // Dropdowns, tooltips, the cinematic frame and the world frame all
-        // have to outlive that same call.
+        // The frames the panel system can put full screen, and only those.
         //
-        // Nearly every other top-level frame still lands on UIParent, because
-        // the template it inherits says so — TargetFrameTemplate and the rest
-        // carry parent="UIParent" and now apply it.
+        // uiparent.lua's fullscreen path is UIParent:Hide() followed by
+        // frame:Show(), so a frame it can do that to must not be a child of
+        // UIParent — the map went down with everything the call was meant to
+        // clear out of its way. In WoW these are parentless because they are
+        // declared at XML top level with no parent of their own.
+        //
+        // Named rather than derived from that rule, which would take in a
+        // hundred more: this list is UIPanelWindows' `area = "full"` entries,
+        // and it is the whole set the mechanism applies to. Detaching the rest
+        // changes what GetParent() answers for them — nil where it used to be
+        // UIParent — and FrameXML asks that of frames it is about to position,
+        // so a wider net blanks panels rather than freeing them.
+        static const char* kFullscreenPanels[] = {
+            "WorldMapFrame", "CinematicFrame",
+        };
+        bool detached = false;
+        if (parentVar.empty() && !node.attr("parent")) {
+            for (const char* n : kFullscreenPanels) {
+                if (rawName == n) { detached = true; break; }
+            }
+        }
         const std::string parentArg = node.attr("parent")
             ? *node.attr("parent")
-            : (parentVar.empty() ? "nil" : parentVar);
+            : (parentVar.empty() ? (detached ? "nil" : "UIParent") : parentVar);
         // Through nameArg, the same as regions: inside a template a child named
         // $parentScrollBar has to work out its name when the template is
         // replayed, because the frame it belongs to is not known until then.

@@ -196,7 +196,7 @@ void WidgetTree::clearPoints(uint32_t id) {
 
 void WidgetTree::setWidth(uint32_t id, float width) {
     Widget* w = get(id);
-    if (!w) return;
+    if (!w || !std::isfinite(width)) return;
     // Zero on a font string means "as wide as your text", not "no width".
     // That is WoW's convention and the interface leans on it:
     // PanelTemplates_TabResize ends with tabText:SetWidth(0) for a tab that
@@ -221,7 +221,7 @@ void WidgetTree::setWidth(uint32_t id, float width) {
 
 void WidgetTree::setHeight(uint32_t id, float height) {
     Widget* w = get(id);
-    if (!w) return;
+    if (!w || !std::isfinite(height)) return;
     w->height = height;
     w->rectH = height;
 }
@@ -408,6 +408,14 @@ void WidgetTree::lower(uint32_t id) {
 void WidgetTree::addPoint(uint32_t id, const Anchor& anchor) {
     Widget* w = get(id);
     if (!w) return;
+    // Geometry that is not a number never enters the tree. Once one does it
+    // spreads: the frame's rect goes to nan, everything anchored to it
+    // follows, and a nan rect is hit by every mouse position because every
+    // comparison against a nan is false — which stops the camera turning
+    // anywhere on screen. FrameXML computes offsets as fractions of the
+    // screen, so an arithmetic slip upstream arrives here rather than being
+    // caught where it was made.
+    if (!std::isfinite(anchor.x) || !std::isfinite(anchor.y)) return;
     // One anchor per point: setting a point that is already set replaces it
     // rather than adding a second. FrameXML depends on this, because it
     // repositions frames with a bare SetPoint and no ClearAllPoints —
