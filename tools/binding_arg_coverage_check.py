@@ -153,8 +153,23 @@ def helper_reach():
 def main():
     widest = passed_by_interface()
     src = "".join(p.read_text(errors="ignore") for p in sorted(ADDONS.glob("*.cpp")))
-    bodies = {m.group(1): m.group(2) for m in
-              re.finditer(r"static int (lua_\w+)\(lua_State\* L\)\s*\{(.*?)\n\}", src, re.S)}
+    # Braces matched, not "to the first \n}". A named function written on one
+    # line — `static int lua_X(lua_State* L) { (void)L; return 0; }` — has no
+    # closing brace at the start of a line, so the non-greedy form ran on and
+    # took the next function's body with it. Which bindings got reported then
+    # depended on how the ones above them happened to be formatted: adding two
+    # functions beside a one-liner moved GetContainerItemPurchaseInfo in and out
+    # of the list without touching it. Same fault the inline form had below.
+    bodies = {}
+    for m in re.finditer(r"static int (lua_\w+)\(lua_State\* L\)\s*\{", src):
+        depth, i = 1, m.end()
+        while i < len(src) and depth:
+            if src[i] == "{":
+                depth += 1
+            elif src[i] == "}":
+                depth -= 1
+            i += 1
+        bodies[m.group(1)] = src[m.end():i - 1]
     registered = {m.group(1): m.group(2) for m in
                   re.finditer(r'\{"([A-Za-z_]\w*)",\s*(lua_\w+)\}', src)}
     # ...and the inline form, which is more than half of them. Registering a

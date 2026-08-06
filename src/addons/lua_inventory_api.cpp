@@ -718,10 +718,43 @@ static int lua_GetCoinText(lua_State* L) {
 // Moving money with the cursor: picking an amount up, dropping it into a trade,
 // a mail, a mail's cash-on-delivery box, or the guild bank.
 //
-// This client has no money on its cursor — amounts are typed into the frame
-// that wants them — so these accept the call and do nothing rather than leaving
-// the frames that offer the gesture to raise on it.
+// Kept for the two money types this client cannot move — the guild bank's and
+// the auction's — where the gesture exists in the interface and there is
+// nowhere for it to land. Trade and mail have their own now: the cursor does
+// carry money, and the comment that used to sit here saying otherwise was
+// written before PickupPlayerMoney and setCursorMoney were.
 static int lua_MoneyCursorNoop(lua_State* L) { (void)L; return 0; }
+
+/// The drop half of the money gesture, for the trade window.
+///
+/// MoneyTypeInfo["PLAYER_TRADE"].DropFunc calls this with **no argument**: the
+/// amount is whatever is on the cursor, which is the whole design the cursor
+/// helper describes — the frame it is dropped on reads the amount, puts it
+/// where it belongs and clears the cursor. A no-op meant dragging gold onto a
+/// trade did nothing, and there is no other way to offer money in this panel.
+static int lua_AddTradeMoney(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const uint64_t held = cursorMoney();
+    if (!gh || held == 0) return 0;
+    gh->setTradeGold(gh->getMyTradeGold() + held);
+    setCursorMoney(L, 0);
+    return 0;
+}
+
+/// The pick-up half: take money back off the trade onto the cursor. Without an
+/// amount, all of it — which is what the money frame passes when the whole
+/// figure is dragged.
+static int lua_PickupTradeMoney(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+    const uint64_t offered = gh->getMyTradeGold();
+    if (offered == 0) return 0;
+    uint64_t take = static_cast<uint64_t>(luaL_optnumber(L, 1, 0));
+    if (take == 0 || take > offered) take = offered;
+    gh->setTradeGold(offered - take);
+    setCursorMoney(L, take);
+    return 0;
+}
 
 // GetContainerItemPurchaseInfo(bag, slot, isEquipped) →
 //   money, honorPoints, arenaPoints, itemCount, refundSec
@@ -1198,8 +1231,26 @@ static int lua_SetSendMailCOD(lua_State* L) {
 
 // The coin pickup frame adds to what is already attached rather than replacing
 // it, so these are not the setters under another name.
+// Called bare by the money frame's DropFunc, so an absent argument means the
+// cursor's whole amount rather than nothing — which is what `+= copperArg` came
+// to, leaving dragged gold out of the letter without a word.
 static int lua_AddSendMailMoney(lua_State* L) {
-    s_sendMailMoney += copperArg(L, 1);
+    const uint32_t named = copperArg(L, 1);
+    if (named > 0) { s_sendMailMoney += named; return 0; }
+    const uint64_t held = cursorMoney();
+    if (held == 0) return 0;
+    s_sendMailMoney += static_cast<uint32_t>(held);
+    setCursorMoney(L, 0);
+    return 0;
+}
+
+/// Take the money back off the letter and onto the cursor.
+static int lua_PickupSendMailMoney(lua_State* L) {
+    uint64_t take = static_cast<uint64_t>(luaL_optnumber(L, 1, 0));
+    if (s_sendMailMoney == 0) return 0;
+    if (take == 0 || take > s_sendMailMoney) take = s_sendMailMoney;
+    s_sendMailMoney -= static_cast<uint32_t>(take);
+    setCursorMoney(L, take);
     return 0;
 }
 
@@ -3229,11 +3280,11 @@ void registerInventoryLuaAPI(lua_State* L) {
             setCursorMoney(L, want < have ? want : have);
             return 0;
         }},
-                {"PickupTradeMoney",        lua_MoneyCursorNoop},
-                {"PickupSendMailMoney",     lua_MoneyCursorNoop},
+                {"PickupTradeMoney",        lua_PickupTradeMoney},
+                {"PickupSendMailMoney",     lua_PickupSendMailMoney},
                 {"PickupSendMailCOD",       lua_MoneyCursorNoop},
                 {"PickupGuildBankMoney",    lua_MoneyCursorNoop},
-                {"AddTradeMoney",           lua_MoneyCursorNoop},
+                {"AddTradeMoney",           lua_AddTradeMoney},
                 {"GetCurrencyListSize", [](lua_State* L) -> int {
             lua_pushnumber(L, static_cast<lua_Number>(buildCurrencyList(L).size()));
             return 1;

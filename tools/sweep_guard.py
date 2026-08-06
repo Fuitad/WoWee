@@ -411,8 +411,22 @@ CHECKS = [
     # no name-to-guid lookup here to resolve it with, so it emotes at the
     # current target. Each is wrong either way, and a guess would be harder to
     # notice than the gap. 4s.
+    # Fifty-five, and the move from fifty-four is composition rather than
+    # decay: the named-function bodies are brace-matched now, like the inline
+    # ones, instead of running to the first "\n}" — which a one-line function
+    # does not have, so it took the next function's body with it. Two rows were
+    # never really there (SetOverrideBindingClick, ShowContainerSellCursor) and
+    # three had been hidden behind swallowed text.
+    #
+    # Of those three: UnitBuff and UnitDebuff ignore a filter that is only ever
+    # "RAID", and only when showCastableBuffs is on — which has no default and
+    # so reads false. Answering it means knowing which buffs the player could
+    # cast or dispel, which this client has no model of, so the list would be
+    # wrong in a different way. GetContainerItemPurchaseInfo ignores the
+    # isEquipped flag and would look an equipped item up in a bag, which costs
+    # nothing while the refund window it reports is untracked either way.
     ("binding_arg_coverage_check.py",
-     r"^(\d+) binding\(s\) read fewer arguments", 54,
+     r"^(\d+) binding\(s\) read fewer arguments", 55,
      "bindings that ignore an argument the interface passes"),
     ("tools_run_check.py",
      r"^(\d+) that cannot run", 0,
