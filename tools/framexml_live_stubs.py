@@ -10,6 +10,29 @@ Being listed is not being wrong. Plenty of stubs are correct: the feature is
 genuinely absent (vehicles, voice chat) or FrameXML tolerates the empty answer.
 It is a reading list, ordered by how central the file is.
 
+WHAT IT COULD NOT SEE UNTIL 2026-08-06
+
+A stub written out in place. Only the named shared ones were recognised —
+lua_ReturnNil and its family — so a lambda answering a literal from inside the
+registration table counted as an implementation, which is exactly what a stub
+is not. The count went from thirty-nine to a hundred and ninety-five.
+
+The test is now that stripping the pushes and the return leaves nothing that
+calls anything. Asking it the other way round — which sources does this body
+read — kept failing in the same direction: GetActionBarPage keeps its page in a
+Lua global, GetSelectedFaction and GetSelectedSkill keep theirs in C++ statics
+behind an accessor, and all three are implementations that simply do not go
+through the game handler.
+
+Two of the newly visible are worth naming: GetQuestLogCompletionText answers ""
+and GetQuestLogRequiredMoney answers 0, both to the quest log and the tracker.
+Answering them needs SMSG_QUEST_QUERY_RESPONSE parsed further than it is — the
+quest log entry carries neither field, and the packet that does carry them is
+the turn-in one, which arrives only once the player is at the NPC.
+
+THE FORTY THAT WERE CHECKED. The hundred and fifty-six that joined them have
+not been.
+
 THE FORTY IT REPORTS TODAY, ALL CHECKED
 
 None is a defect, but three are worth knowing about because they are visible
@@ -145,12 +168,46 @@ def _live_files():
 OWNED = _live_files()
 
 bound = {}
+inline_stub = {}
 for f in (ROOT / "src/addons").glob("*.cpp"):
     s = f.read_text(errors="ignore")
     for m in re.finditer(r'\{"([A-Za-z0-9_]+)",\s*(?:&)?\s*(lua_[A-Za-z0-9_]+)\}', s):
         bound[m.group(1)] = m.group(2)
+    # The inline form. A binding registered as a lambda in the table is the
+    # same binding to Lua, but only the named shared stubs — lua_ReturnNil and
+    # its family — were recognised here, so a stub written out in place was
+    # counted as an implementation. It is a stub by the same test: it never
+    # reaches the game and never reads what it was passed, so it answers the
+    # same thing every time it is called.
+    for m in re.finditer(r'\{"([A-Za-z0-9_]+)",\s*\[\]\(lua_State\*\s*L?\s*\)\s*->\s*int\s*\{', s):
+        depth, i = 1, m.end()
+        while i < len(s) and depth:
+            if s[i] == "{":
+                depth += 1
+            elif s[i] == "}":
+                depth -= 1
+            i += 1
+        body = s[m.end():i - 1]
+        name = m.group(1)
+        bound.setdefault(name, name)
+        # A stub answers with literals and consults nothing to do it. Asking
+        # instead which *sources* a body reads kept getting this wrong in the
+        # same direction: GetActionBarPage keeps its page in a Lua global,
+        # GetSelectedFaction and GetSelectedSkill in C++ statics behind an
+        # accessor, and all three are implementations that simply do not go
+        # through the game handler. So the test is the other way round — strip
+        # the pushes and the return, and a stub has nothing left that calls
+        # anything.
+        # Only the call *token* is removed, not what it was passed — otherwise
+        # lua_pushnumber(L, selectedFaction()) loses the accessor inside it and
+        # reads as a literal. luaReturnNil goes with them: it is how a binding
+        # says nil, not something it consults.
+        rest = re.sub(r"lua_push\w*\s*\(|luaReturnNil\s*\(|\breturn\b|\(void\)\s*L\s*;",
+                      "", body)
+        if not re.search(r"\w+\s*\(", rest):
+            inline_stub[name] = "(inline)"
 
-stubbed = {n for n, impl in bound.items() if impl in STUBS}
+stubbed = {n for n, impl in bound.items() if impl in STUBS} | set(inline_stub)
 
 hits = {}
 for fname, element in OWNED.items():

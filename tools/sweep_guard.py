@@ -345,11 +345,30 @@ CHECKS = [
     # value is in no packet this client is sent, and the container sell-cursor
     # pair, which is cosmetic.
     #
-    # The ceiling is for the fortieth. A stub added on a handed-over element is
+    # The ceiling is for the next one. A stub added on a handed-over element is
     # the shape DoEmote had — plausible, silent, and invisible until the panel
     # that needs it is the only route. 8s.
+    #
+    # A hundred and ninety-five now, and the jump is this sweep learning to see
+    # a stub written out in place. It recognised only the named shared ones —
+    # lua_ReturnNil and its family — so a lambda answering a literal in the
+    # table counted as an implementation. Which is what a stub is: the test is
+    # now that stripping the pushes and the return leaves nothing that calls
+    # anything, arrived at after asking the question the other way round marked
+    # GetActionBarPage, GetSelectedFaction and GetSelectedSkill, all three of
+    # which do consult something — a Lua global, a C++ static — just not the
+    # game handler.
+    #
+    # The thirty-nine above were each read. The hundred and fifty-six that
+    # joined them have not been, and saying so is the point of writing it here.
+    # Two are worth naming: GetQuestLogCompletionText answers "" and
+    # GetQuestLogRequiredMoney answers 0, both to the quest log and the tracker.
+    # Those two are real, and answering them needs SMSG_QUEST_QUERY_RESPONSE
+    # parsed further than it is — the quest log entry carries neither field, and
+    # the packet that does carry them is the turn-in one, which arrives only
+    # when the player is already standing at the NPC.
     ("framexml_live_stubs.py",
-     r"^\d+ bindings, \d+ of them stubs, (\d+) reached from a handed-over element", 39,
+     r"^\d+ bindings, \d+ of them stubs, (\d+) reached from a handed-over element", 195,
      "stubs reachable from an element FrameXML draws"),
     # Bindings that read fewer arguments than the interface passes. The only
     # sweep here that asks whether an answer used everything it was told —
