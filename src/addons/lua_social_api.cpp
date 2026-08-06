@@ -120,7 +120,16 @@ static int lua_SendChatMessage(lua_State* L) {
     std::string typeStr(chatType);
     for (char& c : typeStr) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 
+    // Eight of the thirteen were mapped and the rest fell to the SAY this is
+    // initialised with, which is the worst possible default: a message meant
+    // for a channel or a raid warning went to everyone standing nearby, and
+    // nothing about it looked like a failure.
+    //
+    // CHANNEL is the one that mattered most. Every numbered channel — General,
+    // Trade, LookingForGroup — sends through here, so with FrameXML drawing
+    // the chat every channel line was said out loud instead.
     game::ChatType ct = game::ChatType::SAY;
+    bool known = true;
     if (typeStr == "SAY")            ct = game::ChatType::SAY;
     else if (typeStr == "YELL")      ct = game::ChatType::YELL;
     else if (typeStr == "PARTY")     ct = game::ChatType::PARTY;
@@ -129,8 +138,38 @@ static int lua_SendChatMessage(lua_State* L) {
     else if (typeStr == "RAID")      ct = game::ChatType::RAID;
     else if (typeStr == "WHISPER")   ct = game::ChatType::WHISPER;
     else if (typeStr == "BATTLEGROUND") ct = game::ChatType::BATTLEGROUND;
+    else if (typeStr == "CHANNEL")   ct = game::ChatType::CHANNEL;
+    else if (typeStr == "RAID_WARNING") ct = game::ChatType::RAID_WARNING;
+    // The custom emote, /e and /me. A different thing from DoEmote: this one
+    // carries the player's own words rather than an EmotesText row.
+    else if (typeStr == "EMOTE")     ct = game::ChatType::EMOTE;
+    // The messages sent to whoever whispers while away. Their own chat types
+    // on the wire, and said aloud if they are not.
+    else if (typeStr == "AFK")       ct = game::ChatType::AFK;
+    else if (typeStr == "DND")       ct = game::ChatType::DND;
+    else known = false;
+    if (!known) {
+        LOG_WARNING("SendChatMessage: unknown chat type '", typeStr,
+                    "', not sending — SAY would say it out loud");
+        return 0;
+    }
 
     std::string targetStr(target && *target ? target : "");
+    // A channel is named on the wire and numbered in the interface.
+    // ChatEdit_ParseText stores what GetChannelName answered — an index into
+    // the joined list — as the edit box's channelTarget and hands that back
+    // here, so a bare number has to be turned into the name before it is sent.
+    if (ct == game::ChatType::CHANNEL && lua_isnumber(L, 4)) {
+        const int index = static_cast<int>(lua_tonumber(L, 4));
+        const auto& joined = gh->getJoinedChannels();
+        if (index >= 1 && index <= static_cast<int>(joined.size())) {
+            targetStr = joined[static_cast<size_t>(index) - 1];
+        } else {
+            LOG_WARNING("SendChatMessage: channel index ", index,
+                        " is outside the ", joined.size(), " joined, not sending");
+            return 0;
+        }
+    }
     gh->sendChatMessage(ct, msg, targetStr);
     return 0;
 }

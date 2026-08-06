@@ -300,6 +300,15 @@ CHECKS = [
     # through EmoteRegistry — the same table this client's own chat had been
     # reading directly all along, which is why nobody noticed until chat was
     # handed over and DoEmote became the only route.
+    # Chat types FrameXML can hand SendChatMessage that it does not map. One,
+    # REPLY, and it is correct: processChatType rewrites /r to WHISPER before
+    # anything is sent, so it cannot arrive. The binding mapped eight of
+    # thirteen until 2026-08-05 and *defaulted to SAY*, so every numbered
+    # channel line, every raid warning and every custom emote was said out
+    # loud to whoever was standing nearby. It refuses an unknown type now.
+    ("chat_type_coverage_check.py",
+     r"^(\d+) chat type\(s\) SendChatMessage does not map", 1,
+     "chat types FrameXML can send that SendChatMessage does not map"),
     ("emote_coverage_check.py",
      r"^(\d+) emote token\(s\) DoEmote cannot answer", 1,
      "emote tokens FrameXML can send that DoEmote cannot answer"),
