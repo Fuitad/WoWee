@@ -9,6 +9,42 @@ File-agnostic on purpose. Every per-element sweep so far has been crippled by
 its own hand-written file list, so this one maps nothing: it reports the file
 each name is called from and lets the reader decide whether that file is on
 screen.
+
+THE THIRTY-SIX IT REPORTS TODAY, EVERY ONE OPENED
+
+Not grouped and dismissed — opened. Grouping is how five wrong claims survived
+in this file's neighbours: "the refund window is server state this client is
+never sent" was written once and cited four times, and it was one request away
+the whole time.
+
+  * Voice chat (5). AzerothCore's handlers read the request and throw it away;
+    no SMSG_VOICE_* is ever sent. Verified in VoiceChatHandler.cpp.
+  * Movie recording (5). The renderer captures one frame to a PNG and has no
+    encoder. MovieRecording_* is video.
+  * The GM survey's submit trio (3). Its questions DO come from four DBCs this
+    install carries — absent by choice, not by necessity, and the reason is in
+    framexml_live_stubs.
+  * Vehicle seats (6). Vehicle state is tracked and fired; seats are not, and
+    the seat indicator additionally needs UNIT_ENTERED_VEHICLE's sixth
+    argument, which is not sent.
+  * The refund window's client-side verbs (4). Refunds themselves are
+    implemented; these end a window rather than read one.
+  * The calendar (3). LoadAddOn refuses Blizzard_Calendar by name, and
+    ToggleCalendar tests for Calendar_Toggle before calling it.
+  * Skill-point purchase (3). WotLK has none, and skillframe.lua gates every
+    one of these on GetAdjustedSkillPoints, which is correctly zero.
+  * Recruit-a-friend (2), Battle.net (1), trade-window enchanting (2), and
+    four singletons: TeleportToDebugObject is debug, StopCinematic has nothing
+    to stop because SMSG_TRIGGER_CINEMATIC is acknowledged and skipped,
+    GameMovieFinished has no movie to finish, and PickupEquipmentSet would put
+    something on a cursor with no kind for it and no drop target that takes it.
+
+A NOTE ON THE COUNT
+
+It fell from 368 to 36 across one session, and most of that was not binding
+things. 201 went when this stopped reading files the loader never opens, and
+another handful when it learned that `local A, B = f()` declares two names
+rather than one. A report is only as honest as its input set.
 """
 import re
 import sys
