@@ -447,6 +447,11 @@ static int lua_GetCVar(lua_State* L) {
             lua_pushstring(L, svc->getMinimapRotate() ? "1" : "0");
             return 1;
         }
+    } else if (n == "gxvsync") {
+        if (auto* svc = getLuaServices(L); svc && svc->getVsync) {
+            lua_pushstring(L, svc->getVsync() ? "1" : "0");
+            return 1;
+        }
     } else if (n == "mouseinvertpitch") {
         if (auto* svc = getLuaServices(L); svc && svc->getInvertMouse) {
             lua_pushstring(L, svc->getInvertMouse() ? "1" : "0");
@@ -744,6 +749,9 @@ static int lua_SetCVar(lua_State* L) {
             svc->setMinimapRotate(value != "0");
     } else if (key == "autoselfcast") {
         if (auto* gh = getGameHandler(L)) gh->setAutoSelfCast(value != "0");
+    } else if (key == "gxvsync") {
+        if (auto* svc = getLuaServices(L); svc && svc->setVsync)
+            svc->setVsync(value != "0");
     } else if (key == "mouseinvertpitch") {
         if (auto* svc = getLuaServices(L); svc && svc->setInvertMouse)
             svc->setInvertMouse(value != "0");

@@ -135,6 +135,10 @@ struct LuaServices {
     std::function<bool()> getInvertMouse;
     std::function<void(bool)> setInvertMouse;
 
+    /// Display pacing, for gxVSync on the video options panel.
+    std::function<bool()> getVsync;
+    std::function<void(bool)> setVsync;
+
     /// The barber shop's selectors, for the interface's own barber panel.
     ///
     /// Selector numbers are FrameXML's BarberShopFrameSelector IDs: 1 hair

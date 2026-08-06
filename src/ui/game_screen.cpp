@@ -159,6 +159,16 @@ float clickDragThreshold() {
 }
 }
 
+bool GameScreen::getVsync() const {
+    return services_.window ? services_.window->isVsyncEnabled()
+                            : settingsPanel_.pendingVsync;
+}
+
+void GameScreen::setVsync(bool enabled) {
+    settingsPanel_.pendingVsync = enabled;
+    if (services_.window) services_.window->setVsync(enabled);
+}
+
 void GameScreen::setServices(const UIServices& services) {
     services_ = services;
     // Settings are loaded by the constructor before services are injected.

@@ -43,6 +43,16 @@ public:
     /// nothing of its own to show while GameMenuFrame is suppressed.
     void openSettings() { settingsPanel_.showSettingsWindow = true; }
 
+    /// Display pacing, for the interface's gxVSync checkbox.
+    ///
+    /// Both halves, because there are two records of it: the window has the
+    /// real state and the settings panel keeps its own copy, which it reads off
+    /// the window once at init and writes to disk on save. Setting only the
+    /// window would leave that copy stale, so opening this client's own options
+    /// afterwards would show the old value and save it back.
+    bool getVsync() const;
+    void setVsync(bool enabled);
+
     // Gamma, as WoW's video options mean it: 1.0 is untouched, and the client
     // keeps the same number as a 0-100 brightness where 50 is neutral. Exposed
     // so the interface's own brightness slider drives the one setting rather
