@@ -2816,6 +2816,8 @@ public:
     void repairAll(uint64_t vendorGuid, bool useGuildBank = false);
     uint32_t estimateRepairAllCost() const;
     const std::deque<BuybackItem>& getBuybackItems() const;
+    /// Equip a held item into a named equipment slot. See InventoryHandler.
+    void equipItemToSlot(uint64_t itemGuid, uint8_t equipSlot);
     void autoEquipItemBySlot(int backpackIndex, bool confirmed = false);
     void autoEquipItemInBag(int bagIndex, int slotIndex, bool confirmed = false);
     /// Would equipping this bind it? Asked by both interfaces before they put

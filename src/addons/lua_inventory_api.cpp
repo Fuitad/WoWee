@@ -1613,11 +1613,30 @@ static int lua_UseItemByName(lua_State* L) {
 }
 
 // EquipItemByName(item) — what /equip does
+/// EquipItemByName(item [, slot]) — wear it, optionally in a named slot.
+///
+/// The second argument was read by nothing, so `/equipslot 12 Some Trinket`
+/// picked whichever trinket slot the server preferred and the number the player
+/// typed did nothing. It is the interface's one-based inventory slot; the wire
+/// counts equipment slots from zero, which is also what this client's EquipSlot
+/// enum does.
 static int lua_EquipItemByName(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
     const uint32_t itemId = carriedItemMatching(gh, L, 1);
     if (itemId == 0) return 0;
+    const int wantSlot = static_cast<int>(luaL_optnumber(L, 2, 0));
+    // Zero is "no slot named", not slot zero — the interface's own numbering
+    // starts at one, so there is no ambiguity to resolve.
+    if (wantSlot >= 1 && wantSlot <= game::Inventory::NUM_EQUIP_SLOTS) {
+        const uint64_t guid = gh->resolveOnlineItemGuid(itemId);
+        if (guid != 0) {
+            gh->equipItemToSlot(guid, static_cast<uint8_t>(wantSlot - 1));
+            return 0;
+        }
+        // No guid for it — fall through and let the server choose, which is
+        // better than doing nothing at all.
+    }
     const auto& inv = gh->getInventory();
     for (int i = 0; i < inv.getBackpackSize(); ++i) {
         const auto& sl = inv.getBackpackSlot(i);

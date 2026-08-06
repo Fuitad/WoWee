@@ -167,6 +167,7 @@ public:
     // interfaces ask — this client's own popup and FrameXML's EQUIP_BIND — and
     // both come back through here, so without it the answer to the prompt
     // raises the prompt again.
+    void equipItemToSlot(uint64_t itemGuid, uint8_t equipSlot);
     void autoEquipItemBySlot(int backpackIndex, bool confirmed = false);
     void autoEquipItemInBag(int bagIndex, int slotIndex, bool confirmed = false);
 

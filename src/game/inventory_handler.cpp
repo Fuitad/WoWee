@@ -1473,6 +1473,29 @@ bool InventoryHandler::equipWouldBindFromBag(int bagIndex, int slotIndex) const 
     return !slot.empty() && slot.item.wouldBindOnEquip();
 }
 
+// Equip a specific item into a specific equipment slot, rather than letting the
+// server pick. CMSG_AUTOEQUIP_ITEM_SLOT has been in the opcode enum with
+// nothing building it, so /equipslot could name a slot and never reach one.
+//
+// The wire is the item's guid and a one-byte destination — ItemPackets.cpp
+// reads exactly that — and the destination is the server's own 0-based
+// equipment slot, which is what this client's EquipSlot enum counts in too.
+// The interface counts from one, so the caller takes the one off.
+void InventoryHandler::equipItemToSlot(uint64_t itemGuid, uint8_t equipSlot) {
+    if (itemGuid == 0) return;
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    // Refused above the equipment slots rather than sent: AzerothCore drops the
+    // packet outright when the destination is not an equipment position, and a
+    // dropped request is indistinguishable from one that was never built.
+    if (equipSlot >= static_cast<uint8_t>(Inventory::FIRST_BAG_EQUIP_SLOT)) return;
+    const uint32_t wire = wireOpcode(Opcode::CMSG_AUTOEQUIP_ITEM_SLOT);
+    if (wire == 0xFFFF) return;
+    network::Packet pkt(static_cast<uint16_t>(wire));
+    pkt.writeUInt64(itemGuid);
+    pkt.writeUInt8(equipSlot);
+    owner_.getSocket()->send(pkt);
+}
+
 void InventoryHandler::autoEquipItemBySlot(int backpackIndex, bool confirmed) {
     if (backpackIndex < 0 || backpackIndex >= owner_.inventoryRef().getBackpackSize()) return;
     const auto& slot = owner_.inventoryRef().getBackpackSlot(backpackIndex);
