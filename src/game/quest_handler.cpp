@@ -244,6 +244,7 @@ static bool readCStringAt(const std::vector<uint8_t>& data, size_t start, std::s
 struct QuestQueryTextCandidate {
     std::string title;
     std::string objectives;
+    std::string completionText;
     int score = -1000;
 };
 
@@ -298,6 +299,31 @@ static QuestQueryTextCandidate pickBestQuestQueryTexts(const std::vector<uint8_t
                 size_t n2 = next;
                 if (readCStringAt(data, next, s2, n2) && isReadableQuestText(s2, 8, 600)) {
                     c.objectives = normalizeQuestText(s2, false);
+                }
+
+                // The strings run Title, Objectives, Details, AreaDescription,
+                // CompletedText — read off AzerothCore's Quest::BuildQuestData,
+                // where they are written in that order after the numeric block.
+                // The fifth is what the quest log and the world map's quest
+                // list show once every objective is done, and answering it with
+                // "" left a completed quest with a blank line where "Return to
+                // Marshal Dughan" belongs.
+                //
+                // Only from the seeded offsets, and only for the layout that
+                // order was read off. The scan below finds a title by scoring
+                // printable text, which says nothing about what follows it; and
+                // the earlier expansions' string order has not been read off a
+                // serializer here, so a guess would put an arbitrary sentence
+                // on a quest.
+                if (!classicHint && off == wotlkOffset) {
+                    std::string s3, s4, s5;
+                    size_t n3 = n2, n4 = n2, n5 = n2;
+                    if (readCStringAt(data, n2, s3, n3) &&
+                        readCStringAt(data, n3, s4, n4) &&
+                        readCStringAt(data, n4, s5, n5) &&
+                        isReadableQuestText(s5, 8, 600)) {
+                        c.completionText = normalizeQuestText(s5, false);
+                    }
                 }
                 if (c.score > best.score) best = c;
             }
@@ -1026,6 +1052,7 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
                 (q.objectives.empty() || q.objectives.size() < 16)) {
                 q.objectives = parsed.objectives;
             }
+            if (!parsed.completionText.empty()) q.completionText = parsed.completionText;
 
             // Store structured kill/item objectives for later kill-count restoration.
             if (objs.valid) {

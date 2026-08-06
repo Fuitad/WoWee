@@ -82,6 +82,8 @@ public:
         uint32_t questId = 0;
         std::string title;
         std::string objectives;
+        /// Shown once every objective is done, in place of the objective list.
+        std::string completionText;
         int32_t level = 0;   // quest level from query response; 0 = unknown, -1 = player-scaling
         // ZoneOrSort from query response: >0 = AreaTable zone id, <0 = QuestSort.dbc
         // category (negated), 0 = unknown

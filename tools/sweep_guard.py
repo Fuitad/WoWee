@@ -368,7 +368,7 @@ CHECKS = [
     # the packet that does carry them is the turn-in one, which arrives only
     # when the player is already standing at the NPC.
     ("framexml_live_stubs.py",
-     r"^\d+ bindings, \d+ of them stubs, (\d+) reached from a handed-over element", 194,
+     r"^\d+ bindings, \d+ of them stubs, (\d+) reached from a handed-over element", 193,
      "stubs reachable from an element FrameXML draws"),
     # Bindings that read fewer arguments than the interface passes. The only
     # sweep here that asks whether an answer used everything it was told —

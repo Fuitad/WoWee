@@ -2019,8 +2019,24 @@ void registerQuestLuaAPI(lua_State* L) {
                 // AddLine("- "..GetQuestLogCompletionText(i)) without checking.
                 // Concatenating nil raises, so the pin would have taken the map
                 // down; concatenating an empty string draws a bare dash.
+                // GetQuestLogCompletionText(index) → what to do now it is done.
+                //
+                // The world map's quest list puts this straight into the row's
+                // objectives line for any quest that is complete, so answering
+                // "" left the row blank where "Return to Marshal Dughan"
+                // belongs. It is the fifth string in SMSG_QUEST_QUERY_RESPONSE
+                // and was being walked past.
                 {"GetQuestLogCompletionText", [](lua_State* L) -> int {
-            lua_pushstring(L, "");
+            auto* gh = getGameHandler(L);
+            const game::GameHandler::QuestLogEntry* q = nullptr;
+            if (gh && lua_isnumber(L, 1)) {
+                const int idx = static_cast<int>(lua_tonumber(L, 1));
+                const auto& log = gh->getQuestLog();
+                if (idx >= 1 && idx <= static_cast<int>(log.size())) q = &log[idx - 1];
+            } else {
+                q = selectedLogEntry(gh);
+            }
+            lua_pushstring(L, q ? q->completionText.c_str() : "");
             return 1;
         }},
                 // The words on a book or a plaque, which this client parses out
