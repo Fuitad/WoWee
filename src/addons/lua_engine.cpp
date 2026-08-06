@@ -3842,8 +3842,13 @@ static int lua_CreateFrame(lua_State* L) {
     if (lua_istable(L, 3)) {
         lua_pushvalue(L, 3);
         lua_setfield(L, -2, "__parent");
+    } else if (lua_gettop(L) >= 3 && lua_isnil(L, 3) && !lua_isstring(L, 3)) {
+        // An explicit nil is a frame with no parent, which is a real thing in
+        // WoW and the only way anything survives UIParent:Hide(). GetParent()
+        // on one answers nil, so no __parent is written.
     } else {
-        // A name, or nothing at all, which means UIParent.
+        // A name, or the argument left off entirely, which means UIParent —
+        // what an addon means by omitting it.
         if (lua_isstring(L, 3)) lua_getglobal(L, lua_tostring(L, 3));
         else lua_getglobal(L, "UIParent");
         if (lua_istable(L, -1)) lua_setfield(L, -2, "__parent");
@@ -3861,6 +3866,21 @@ static int lua_CreateFrame(lua_State* L) {
             lua_getglobal(L, lua_tostring(L, 3));
             if (lua_istable(L, -1)) parent = widgetIdOf(L, lua_gettop(L));
             lua_pop(L, 1);
+        } else if (!(lua_gettop(L) >= 3 && lua_isnil(L, 3))) {
+            // Omitted, not nil: UIParent, and named here so the widget agrees
+            // with the __parent written above. Zero would hang it off the
+            // screen instead, which is what an explicit nil asks for.
+            //
+            // Through the global rather than the tree's own id, because
+            // uiparent.xml declares UIParent like any other frame and nothing
+            // deduplicates by name — so the widget FrameXML's UIParent points
+            // at is the one that file made, and the tree's is the placeholder
+            // that stood in before any of it was read. Fall back to that one
+            // for anything created before it loads.
+            lua_getglobal(L, "UIParent");
+            if (lua_istable(L, -1)) parent = widgetIdOf(L, lua_gettop(L));
+            lua_pop(L, 1);
+            if (parent == 0) parent = tree->uiParentId();
         }
         const uint32_t id = tree->create(wowee::ui::WidgetKind::Frame, parent,
                                          name ? name : "");

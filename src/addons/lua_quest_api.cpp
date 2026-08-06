@@ -2443,7 +2443,25 @@ void registerQuestLuaAPI(lua_State* L) {
                 // opened it without being asked. Neither is parsed from the
                 // quest packets here, and false is what the interface does
                 // with an absent answer anyway.
-                {"QuestFlagsPVP",      [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
+                // QuestFlagsPVP() — whether holding this quest forces the PvP
+                // flag on. The accept button branches on it and puts up
+                // CONFIRM_ACCEPT_PVP_QUEST instead of accepting outright, so a
+                // flat false took a quest that flags you for PvP without
+                // asking. QUEST_FLAGS_FLAGS_PVP is 0x2000 in AzerothCore's
+                // QuestDef.h; the offer packet carried it and the parser threw
+                // it away. Zero before Wrath, where the offer has no flags
+                // field for it to be in.
+                {"QuestFlagsPVP", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            constexpr uint32_t kQuestFlagsPvp = 0x00002000u;
+            lua_pushboolean(L, gh && (gh->getQuestDetails().questFlags & kQuestFlagsPvp) ? 1 : 0);
+            return 1;
+        }},
+                // QuestGetAutoAccept() stays false, and that is the answer
+                // rather than a gap: QUEST_FLAGS_AUTO_ACCEPT is 0x80000 and
+                // AzerothCore's own note beside it says no 3.3.5a quest
+                // carries it. The flag is parsed now, so if one ever does this
+                // can read it from the same place.
                 {"QuestGetAutoAccept", [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 // Shown when a reward is confirmed without one being picked.
                 // The message belongs to the server in the real client; there

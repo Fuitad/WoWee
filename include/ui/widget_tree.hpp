@@ -635,6 +635,9 @@ public:
 
     /// The screen-filling frame everything else hangs off.
     uint32_t rootId() const { return rootId_; }
+    /// UIParent, which is the root's one child at startup and the parent of
+    /// nearly everything. Distinct from rootId() — see the note there.
+    uint32_t uiParentId() const { return uiParentId_; }
 
     /// Records a frame as a scroll frame, and keeps the list of them. Walking
     /// every widget each frame to find a handful is the kind of cost that does
@@ -737,7 +740,15 @@ private:
     /// Whether a state texture should be drawn given what the mouse is doing.
     bool buttonArtVisible(const Widget& w) const;
     std::deque<Widget> widgets_;   ///< Index 0 is a placeholder; id == index.
+    /// The screen itself, above UIParent. Everything FrameXML draws hangs off
+    /// UIParent, but not quite everything: a frame declared at XML top level
+    /// with no parent of its own is parentless in WoW, and that is load
+    /// bearing. Opening the world map runs UIParent:Hide() and then shows the
+    /// map — so if the map is a child of UIParent it goes down with the rest
+    /// of the interface and nothing is left on screen. Dropdowns, tooltips and
+    /// the cinematic frame have to outlive the same call.
     uint32_t rootId_ = 0;
+    uint32_t uiParentId_ = 0;
     uint32_t movingWid_ = 0;
     uint32_t sizingWid_ = 0;
     std::string sizingPoint_;

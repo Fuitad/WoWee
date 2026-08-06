@@ -730,7 +730,7 @@ bool QuestDetailsParser::parse(network::Packet& packet, QuestDetailsData& data) 
     // VARIABLE-count reward arrays (count == entries actually written; only
     // non-empty slots are serialized). No portrait strings — those are 4.x+.
     /*activateAccept*/ packet.readUInt8();
-    /*flags*/ packet.readUInt32();
+    data.questFlags = packet.readUInt32();
     data.suggestedPlayers = packet.readUInt32();
     /*isFinished*/ packet.readUInt8();
 

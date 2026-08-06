@@ -572,6 +572,16 @@ struct Emitter {
             // arriving with no highlight texture and no size. First, so the
             // template's own body overrides what it inherited.
             emitInherits(node, "self");
+            // A template's own parent, applied to whatever inherits it. This
+            // was dropped: templates were replayed onto a frame that had
+            // already been created, and only the creation call looked at
+            // parent=. TargetFrameTemplate and MirrorTimerTemplate both say
+            // parent="UIParent" and the frames built from them are declared
+            // with no parent of their own, so this is the only place they can
+            // get one. After the inherited templates so the most derived wins.
+            if (const std::string* par = node.attr("parent"); par && !par->empty()) {
+                line("if " + *par + " then self:SetParent(" + *par + ") end");
+            }
             result.lua += inner.result.lua;
             for (auto& w : inner.result.warnings) result.warnings.push_back(w);
             line("end");
@@ -579,9 +589,20 @@ struct Emitter {
         }
 
         const std::string var = nextVar();
+        // A frame declared at XML top level with no parent of its own is
+        // parentless in WoW, not a child of UIParent — and that is load
+        // bearing rather than a detail. Opening the world map calls
+        // UIParent:Hide() and then shows the map, so a map parented to
+        // UIParent goes down with everything else and leaves an empty screen.
+        // Dropdowns, tooltips, the cinematic frame and the world frame all
+        // have to outlive that same call.
+        //
+        // Nearly every other top-level frame still lands on UIParent, because
+        // the template it inherits says so — TargetFrameTemplate and the rest
+        // carry parent="UIParent" and now apply it.
         const std::string parentArg = node.attr("parent")
             ? *node.attr("parent")
-            : (parentVar.empty() ? "UIParent" : parentVar);
+            : (parentVar.empty() ? "nil" : parentVar);
         // Through nameArg, the same as regions: inside a template a child named
         // $parentScrollBar has to work out its name when the template is
         // replayed, because the frame it belongs to is not known until then.

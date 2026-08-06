@@ -2447,6 +2447,10 @@ struct QuestDetailsData {
     std::string details;      // Quest description text
     std::string objectives;   // Objectives text
     uint32_t suggestedPlayers = 0;
+    /// QUEST_FLAGS_* as AzerothCore defines them. Only 3.x carries this — the
+    /// TBC and Classic offers have no flags field at all, so it stays zero
+    /// there rather than being guessed at.
+    uint32_t questFlags = 0;
     uint32_t rewardMoney = 0;
     uint32_t rewardXp = 0;
     std::vector<QuestRewardItem> rewardChoiceItems;  // Player picks one of these

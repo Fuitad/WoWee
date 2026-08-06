@@ -61,7 +61,11 @@ FrameStrata parseStrata(const std::string& rawName) {
 
 WidgetTree::WidgetTree() {
     widgets_.emplace_back();          // id 0 is "none"
-    rootId_ = create(WidgetKind::Frame, 0, "UIParent");
+    // The screen, then UIParent inside it. The screen carries no name: nothing
+    // in FrameXML may find it, and GetParent on a detached frame answers nil
+    // rather than naming something WoW has no word for.
+    rootId_ = create(WidgetKind::Frame, 0, "");
+    uiParentId_ = create(WidgetKind::Frame, rootId_, "UIParent");
 }
 
 uint32_t WidgetTree::create(WidgetKind kind, uint32_t parent, const std::string& name) {
@@ -72,8 +76,8 @@ uint32_t WidgetTree::create(WidgetKind kind, uint32_t parent, const std::string&
     w.kind = kind;
     w.name = name;
     w.creationOrder = nextOrder_++;
-    // Regions belong to the frame that made them; a frame with no parent hangs
-    // off the root, which is what UIParent is for.
+    // Regions belong to the frame that made them; a widget with no parent
+    // hangs off the screen, which is the root and sits above UIParent.
     if (parent == 0 && id != rootId_ && rootId_ != 0) parent = rootId_;
     w.parent = parent;
     if (parent != 0 && parent < widgets_.size()) {
@@ -96,8 +100,11 @@ uint32_t WidgetTree::create(WidgetKind kind, uint32_t parent, const std::string&
 void WidgetTree::setParent(uint32_t id, uint32_t newParent) {
     Widget* w = get(id);
     if (!w || id == rootId_) return;
-    // Nothing named, or the root's own rule: a frame with no parent hangs off
-    // the screen, which is what UIParent is.
+    // SetParent(nil) detaches to the screen — above UIParent, not under it.
+    // This is exactly what WorldMap_ToggleSizeUp does before the map is shown
+    // full screen: with the screen and UIParent being one node, nil landed
+    // back on UIParent and the map was hidden by the same call that was
+    // supposed to clear the way for it.
     if (newParent == 0) newParent = rootId_;
     if (newParent == w->parent) return;
     if (!get(newParent)) return;
@@ -456,7 +463,27 @@ void WidgetTree::layout(float pixelW, float pixelH) {
     rootW.effLevel = 0;
     rootW.effScale = 1.0f;
 
-    for (uint32_t child : rootW.children) layoutWidget(child, screenW, screenH);
+    // UIParent fills the screen and is laid out here rather than by anchors:
+    // it is created before any XML is read, so it has none, and a frame with
+    // no anchors is not displayed. Its own shown flag still decides whether
+    // anything under it is, which is the whole point of it being a frame.
+    if (Widget* ui = get(uiParentId_); ui && ui != &rootW) {
+        ui->left = 0.0f;
+        ui->bottom = 0.0f;
+        ui->rectW = screenW;
+        ui->rectH = screenH;
+        ui->visibleChain = rootW.visible && ui->shown;
+        ui->visible = ui->visibleChain;
+        ui->effStrata = ui->strata;
+        ui->effLevel = 0;
+        ui->effScale = 1.0f;
+        for (uint32_t child : ui->children) layoutWidget(child, screenW, screenH);
+    }
+
+    for (uint32_t child : rootW.children) {
+        if (child == uiParentId_) continue;
+        layoutWidget(child, screenW, screenH);
+    }
     collectDrawOrder();
 }
 
