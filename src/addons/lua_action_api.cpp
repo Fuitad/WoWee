@@ -549,6 +549,25 @@ static int lua_PickupSpell(lua_State* L) {
     return 0;
 }
 
+// PlaceGlyphInSocket(socket) — put the glyph on the cursor into that socket.
+//
+// Registered here rather than with the other glyph calls because the glyph is
+// on the cursor and the cursor lives in this file. There is no socketing opcode
+// in 3.3.5: the glyph item is used with the socket written into the glyphIndex
+// field CMSG_USE_ITEM already carries, and the server applies the item's spell
+// to it. The comment this replaces said socketing "needs a packet this client
+// does not send" — the packet was there, one field short of saying where.
+static int lua_PlaceGlyphInSocket(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int socket = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || socket < 1 || socket > game::GameHandler::MAX_GLYPH_SLOTS) return 0;
+    uint8_t bag = 0, slot = 0;
+    if (!cursorWireSlot(bag, slot)) return 0;   // nothing held: nothing to place
+    gh->placeGlyphFromBag(bag, slot, static_cast<uint32_t>(socket - 1));
+    setCursorType(L, CursorType::NONE);
+    return 0;
+}
+
 // PickupGuildBankItem(tab, slot) — both halves of a guild bank drag.
 //
 // The frame calls this from OnDragStart and from OnReceiveDrag, so one function
@@ -1676,6 +1695,7 @@ void registerActionLuaAPI(lua_State* L) {
                 {"PickupSpell",         lua_PickupSpell},
                 {"PickupCompanion",     lua_PickupCompanion},
                 {"PickupGuildBankItem", lua_PickupGuildBankItem},
+                {"PlaceGlyphInSocket",  lua_PlaceGlyphInSocket},
                 {"SplitGuildBankItem",  lua_SplitGuildBankItem},
                 {"PickupSpellBookItem", lua_PickupSpellBookItem},
                 {"PickupContainerItem", lua_PickupContainerItem},

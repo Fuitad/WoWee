@@ -1768,6 +1768,21 @@ void InventoryHandler::useItemInBag(int bagIndex, int slotIndex, bool confirmed)
                     static_cast<uint8_t>(slotIndex), itemGuid, slot.item, confirmed);
 }
 
+void InventoryHandler::placeGlyphFromBag(uint8_t wireBag, uint8_t wireSlot,
+                                         uint32_t socketIndex) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    // The server refuses the whole use when the index is past the last socket,
+    // so a bad one loses the item use as well as the placement.
+    if (socketIndex >= 6) return;
+    auto packet = UseItemPacket::build(wireBag, wireSlot, /*itemGuid=*/0,
+                                       /*spellId=*/0, /*targetGuid=*/0,
+                                       /*itemTargetGuid=*/0, /*gameObjectGuid=*/0,
+                                       socketIndex);
+    LOG_INFO("placeGlyphFromBag: bag=", (int)wireBag, " slot=", (int)wireSlot,
+             " socket=", socketIndex);
+    owner_.getSocket()->send(packet);
+}
+
 void InventoryHandler::openItemBySlot(int backpackIndex) {
     if (backpackIndex < 0 || backpackIndex >= owner_.inventoryRef().getBackpackSize()) return;
     if (owner_.inventoryRef().getBackpackSlot(backpackIndex).empty()) return;

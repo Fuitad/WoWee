@@ -3047,27 +3047,16 @@ void registerQuestLuaAPI(lua_State* L) {
             return 1;
         }},
                 // GlyphMatchesSocket(socket) → whether what is on the cursor
-                // fits. Always false: this client does not track a glyph on the
-                // cursor, and answering yes would light every empty socket as a
-                // place to drop something that cannot be dropped.
+                // fits. Still false, and now for a narrower reason: the cursor
+                // does carry the item, but nothing here reads a glyph's own
+                // socket type — major glyphs go in three sockets and minor ones
+                // in the other three, and lighting all six would offer a drop
+                // the server then refuses.
                 {"GlyphMatchesSocket", [](lua_State* L) -> int {
             lua_pushboolean(L, 0);
             return 1;
         }},
-                // PlaceGlyphInSocket(socket). Socketing needs a packet this
-                // client does not send, so this says so once rather than
-                // failing quietly — a button that looks live and does nothing
-                // is worse than one that explains itself.
-                {"PlaceGlyphInSocket", [](lua_State* L) -> int {
-            static bool said = false;
-            if (!said) {
-                said = true;
-                LOG_WARNING("PlaceGlyphInSocket: this client cannot apply "
-                            "glyphs — the glyph panel is read-only");
-            }
-            (void)L;
-            return 0;
-        }},
+                
                 // SetCursor(art) — the pointer's own image, which this client
                 // does not change.
                 {"SetCursor", [](lua_State* L) -> int { (void)L; return 0; }},

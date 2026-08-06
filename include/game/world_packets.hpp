@@ -2265,10 +2265,14 @@ public:
 /** CMSG_USE_ITEM packet builder */
 class UseItemPacket {
 public:
+    /// glyphIndex is the socket a glyph item is being put into, counted from
+    /// zero. The server reads it out of every use — it sits between the item
+    /// guid and the cast flags — and refuses the whole request when it is past
+    /// MAX_GLYPH_SLOT_INDEX, so it is a field rather than an extra opcode.
     static network::Packet build(uint8_t bagIndex, uint8_t slotIndex,
                                  uint64_t itemGuid, uint32_t spellId = 0,
                                  uint64_t targetGuid = 0, uint64_t itemTargetGuid = 0,
-                                 uint64_t gameObjectGuid = 0);
+                                 uint64_t gameObjectGuid = 0, uint32_t glyphIndex = 0);
 };
 
 /** CMSG_OPEN_ITEM packet builder (for locked containers / lockboxes) */

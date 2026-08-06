@@ -498,14 +498,14 @@ network::Packet AutostoreLootItemPacket::build(uint8_t slotIndex) {
 network::Packet UseItemPacket::build(uint8_t bagIndex, uint8_t slotIndex,
                                      uint64_t itemGuid, uint32_t spellId,
                                      uint64_t targetGuid, uint64_t itemTargetGuid,
-                                     uint64_t gameObjectGuid) {
+                                     uint64_t gameObjectGuid, uint32_t glyphIndex) {
     network::Packet packet(wireOpcode(Opcode::CMSG_USE_ITEM));
     packet.writeUInt8(bagIndex);
     packet.writeUInt8(slotIndex);
     packet.writeUInt8(0);  // cast count
     packet.writeUInt32(spellId); // spell id from item data
     packet.writeUInt64(itemGuid); // full 8-byte GUID
-    packet.writeUInt32(0); // glyph index
+    packet.writeUInt32(glyphIndex); // the socket, when a glyph is being placed
     packet.writeUInt8(0);  // cast flags
     if (itemTargetGuid != 0) {
         // Sharpening stones, weightstones and weapon oils enchant another item:

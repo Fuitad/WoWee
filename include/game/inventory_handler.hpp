@@ -337,6 +337,14 @@ public:
     void withdrawGuildBankMoney(uint32_t amount);
     void guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, uint8_t destBag,
                                uint8_t destSlot, uint32_t splitCount = 0);
+    /// Put a glyph from a bag slot into a socket.
+    ///
+    /// There is no separate socketing opcode in 3.3.5: the glyph item is used
+    /// with the socket written into the glyphIndex field CMSG_USE_ITEM already
+    /// carries, and the server applies the item's spell to that socket. The
+    /// wire's bag and slot are the same ones a plain use writes.
+    void placeGlyphFromBag(uint8_t wireBag, uint8_t wireSlot, uint32_t socketIndex);
+
     /// Ask for a tab's info text, and read back what arrived.
     ///
     /// MSG_QUERY_GUILD_BANK_TEXT is a request the server answers with the same

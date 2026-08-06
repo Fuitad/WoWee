@@ -3278,6 +3278,10 @@ void GameHandler::useKeyringItem(int index, bool confirmed) {
     if (inventoryHandler_) inventoryHandler_->useKeyringItem(index, confirmed);
 }
 
+void GameHandler::placeGlyphFromBag(uint8_t wireBag, uint8_t wireSlot, uint32_t socketIndex) {
+    if (inventoryHandler_) inventoryHandler_->placeGlyphFromBag(wireBag, wireSlot, socketIndex);
+}
+
 void GameHandler::useItemInBag(int bagIndex, int slotIndex, bool confirmed) {
     if (inventoryHandler_) inventoryHandler_->useItemInBag(bagIndex, slotIndex, confirmed);
 }
