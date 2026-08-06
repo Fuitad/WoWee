@@ -314,6 +314,20 @@ CHECKS = [
     # called .group(1) on the None they got. handover_halves_check is in this
     # list, so ctest caught it in under a minute; framexml_live_stubs is not,
     # and it sat crashing until someone happened to run it. 18s.
+    # Bindings that answer something plausible and do nothing, reachable from
+    # an element FrameXML draws. Thirty-nine, and almost all are systems that
+    # are genuinely absent — voice, Battle.net, movie recording, the debug zone
+    # map, arena opponents, WotLK's non-existent skill points. Two were read
+    # properly on 2026-08-05 and left: GetBattlefieldInstanceRunTime, whose
+    # value is in no packet this client is sent, and the container sell-cursor
+    # pair, which is cosmetic.
+    #
+    # The ceiling is for the fortieth. A stub added on a handed-over element is
+    # the shape DoEmote had — plausible, silent, and invisible until the panel
+    # that needs it is the only route. 8s.
+    ("framexml_live_stubs.py",
+     r"^\d+ bindings, \d+ of them stubs, (\d+) reached from a handed-over element", 39,
+     "stubs reachable from an element FrameXML draws"),
     ("tools_run_check.py",
      r"^(\d+) that cannot run", 0,
      "sweeps that cannot run at all"),
