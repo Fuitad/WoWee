@@ -4762,6 +4762,16 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushboolean(L, repeating);
             return 1;
         }},
+                // No, and deliberately no even on macOS, which this client does
+                // run on. It gates two things. The first is the game menu's Mac
+                // Options button, and the panel behind it is Blizzard's movie
+                // recorder and compression settings — every one of which this
+                // client has nothing behind, so answering yes would add a
+                // button that opens a window of dead controls. The second is
+                // the Mac spelling of key names in binding text, which is
+                // cosmetic and wrong in the smaller direction.
+                //
+                // Turn this on with the recorder, not before it.
                 {"IsMacClient",              lua_ReturnFalse},
                 // IsPartyLeader() — whether *this* player leads the group.
                 //
