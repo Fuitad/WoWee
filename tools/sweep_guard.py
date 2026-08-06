@@ -286,6 +286,21 @@ CHECKS = [
     ("handler_announce_check.py",
      r"^(\d+) that tell the player and not the interface", 0,
      "handlers that change state and announce nothing"),
+    # Packet fields the parser fills in that no line outside the parser reads.
+    # The mirror of handler_announce_check: that one asks what a handler fails
+    # to pass on, this asks what the wire carried that nothing collected.
+    #
+    # Ten, each still to be read. Two were answered the day it was written and
+    # both were live — a loot row the player cannot take drawing as ordinary
+    # loot, and a group invite the server had already refused raising the
+    # accept popup. Both sat next to a comment saying the data was unavailable,
+    # which is the shape this exists to catch.
+    #
+    # The tool carries its own canary, because two separate mistakes make it
+    # report a clean zero while seeing nothing at all.
+    ("parsed_never_read_check.py",
+     r"^(\d+) parsed and never read", 10,
+     "packet fields stored by the parser and read by nobody"),
     # Top-level FrameXML frames named nowhere in framexml_takeover.cpp —
     # neither handed over nor suppressed.
     #
