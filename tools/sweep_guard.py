@@ -328,6 +328,24 @@ CHECKS = [
     ("framexml_live_stubs.py",
      r"^\d+ bindings, \d+ of them stubs, (\d+) reached from a handed-over element", 39,
      "stubs reachable from an element FrameXML draws"),
+    # Bindings that read fewer arguments than the interface passes. The only
+    # sweep here that asks whether an answer used everything it was told —
+    # every other one asks whether a name is answered, and these names all are.
+    #
+    # Seven faults on 2026-08-05, four of which *acted* on the wrong thing:
+    # dragging a pet spell put a player spell on the bar, clicking a pet talent
+    # spent a point in the player's tree, cancelling an aura by name raised
+    # instead of cancelling, and click-casting on a unit frame cast on the
+    # current target. None raised, and the icons were right in every one.
+    #
+    # Thirty-five left. Mostly genuinely optional arguments — the self-cast
+    # flag on UseAction and its siblings, the show-realm flag on GetUnitName,
+    # the notify flag on SetCVar — and one that is wrong and named in the tool:
+    # GetAttackPowerForStat needs a per-class coefficient table this client
+    # does not have. 4s.
+    ("binding_arg_coverage_check.py",
+     r"^(\d+) binding\(s\) read fewer arguments", 35,
+     "bindings that ignore an argument the interface passes"),
     ("tools_run_check.py",
      r"^(\d+) that cannot run", 0,
      "sweeps that cannot run at all"),
