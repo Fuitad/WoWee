@@ -4373,6 +4373,28 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"CombatLog_Object_IsA", lua_CombatLog_Object_IsA},
                 {"GetNumAddOns",      lua_GetNumAddOns},
                 {"GetAddOnInfo",      lua_GetAddOnInfo},
+                // Turning an addon off, which the "an addon did something it
+                // is not allowed to" popup offers as its first button before
+                // reloading. Answered with nothing, that button reloaded and
+                // brought the same addon back.
+                //
+                // The change lands on the next run rather than at once: an
+                // addon already loaded has its functions in the state and its
+                // frames on screen, and neither can be taken back out.
+                {"DisableAddOn", [](lua_State* L) -> int {
+            auto* svc = getLuaServices(L);
+            const char* name = luaL_optstring(L, 1, nullptr);
+            if (svc && svc->setAddOnEnabled && name && *name)
+                svc->setAddOnEnabled(name, false);
+            return 0;
+        }},
+                {"EnableAddOn", [](lua_State* L) -> int {
+            auto* svc = getLuaServices(L);
+            const char* name = luaL_optstring(L, 1, nullptr);
+            if (svc && svc->setAddOnEnabled && name && *name)
+                svc->setAddOnEnabled(name, true);
+            return 0;
+        }},
                 {"GetAddOnMetadata",  lua_GetAddOnMetadata},
                 {"IsInInstance",         lua_IsInInstance},
                 {"GetInstanceInfo",      lua_GetInstanceInfo},

@@ -740,6 +740,9 @@ public:
     /// Rename a charter the player is carrying. The petition is an item, so it
     /// is named by its item guid.
     void renamePetition(uint64_t petitionGuid, const std::string& newName);
+    /// Tell the server the GM's reply has been read and closed. Empty packet;
+    /// the server answers by deciding whether to offer a survey.
+    void resolveGMResponse();
     void clearPetitionDialog() { showPetitionDialog_ = false; }
     uint32_t getPetitionCost() const;
     uint64_t getPetitionNpcGuid() const;

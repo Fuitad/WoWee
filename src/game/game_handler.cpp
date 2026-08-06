@@ -3246,6 +3246,12 @@ bool GameHandler::hasPetitionShowlist() const {
     return socialHandler_ ? socialHandler_->hasPetitionShowlist() : false;
 }
 
+void GameHandler::resolveGMResponse() {
+    if (getState() != WorldState::IN_WORLD || !getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_GMRESPONSE_RESOLVE));
+    getSocket()->send(packet);
+}
+
 void GameHandler::renamePetition(uint64_t petitionGuid, const std::string& newName) {
     if (petitionGuid == 0 || newName.empty()) return;
     if (getState() != WorldState::IN_WORLD || !getSocket()) return;

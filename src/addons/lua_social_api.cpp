@@ -978,6 +978,14 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"SignPetition",        lua_SignPetition},
                 {"OfferPetition",       lua_OfferPetition},
                 {"ClosePetition",       lua_ClosePetition},
+                // GMResponseResolve() — the "close this reply" button on a GM
+                // ticket's answer. An empty packet; the server replies by
+                // deciding whether to ask for a survey. Unbound, the button
+                // raised and the reply could not be dismissed.
+                {"GMResponseResolve", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->resolveGMResponse();
+            return 0;
+        }},
                 // GetPetitionItemInfo(index) → name, texture, price.
                 //
                 // The arena registrar prices whichever tab is open, and its

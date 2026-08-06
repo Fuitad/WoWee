@@ -145,6 +145,12 @@ struct LuaServices {
     /// Whether a named addon has been loaded, for IsAddOnLoaded.
     std::function<bool(const std::string& name)> isAddOnLoaded;
 
+    /// Turn an addon on or off for the next run, as EnableAddOn and
+    /// DisableAddOn do. It takes effect on reload rather than at once — an
+    /// addon already loaded has its functions in the Lua state and its frames
+    /// on screen, and neither can be taken back out.
+    std::function<void(const std::string& name, bool enabled)> setAddOnEnabled;
+
     /// Every icon this install carries, as paths SetTexture accepts.
     ///
     /// The macro and guild bank pickers are grids over this list: they ask how
