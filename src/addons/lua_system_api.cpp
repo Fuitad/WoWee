@@ -4872,10 +4872,28 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetWintergraspWaitTime",   lua_ReturnNil},
                 {"GetNumWorldStateUI",       lua_GetNumWorldStateUI},
                 {"GetWorldStateUIInfo",      lua_GetWorldStateUIInfo},
-                // Only reached from the world-PvP branch, which uiType 0 keeps
-                // worldstateframe.lua out of. Bound so the branch is safe if a
-                // later entry ever reports uiType 1.
-                {"IsSubZonePVPPOI",          lua_ReturnFalse},
+                // Whether the player is standing on a world PvP objective.
+                //
+                // This gates the whole of uiType 1 in worldstateframe, and the
+                // CVar it is gated behind defaults to "2" — show these only in
+                // a PvP area — so a flat false hid every world PvP objective
+                // display anywhere but inside a battleground, where the
+                // instanceType check lets them through instead. The note that
+                // stood here said the branch is unreachable; the branch is
+                // reachable and this was what closed it.
+                //
+                // Answered from AreaTable's Flags against the *area* under the
+                // player rather than the zone: the bit sits on the subzone —
+                // Halaa, The Overlook, the Plaguelands towers — and resolving
+                // to the zone loses it. Wintergrasp is marked with a flag of
+                // its own and is the one that would have survived either way.
+                {"IsSubZonePVPPOI", [](lua_State* L) -> int {
+            auto* svc = getLuaServices(L);
+            const bool on = svc && svc->isOnOutdoorPvpObjective &&
+                            svc->isOnOutdoorPvpObjective();
+            lua_pushboolean(L, on ? 1 : 0);
+            return 1;
+        }},
                 {"GetNumVoiceSessions",      lua_ReturnZero},
                 // Asked from WorldMapFrame_OnUpdate, so every frame the map is
                 // open. The handler throttles and refuses outside a

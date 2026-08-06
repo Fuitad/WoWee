@@ -34,6 +34,16 @@ public:
 
     uint32_t getZoneId(int tileX, int tileY) const;
     uint32_t resolveAreaZoneId(uint32_t areaId) const;
+
+    /// Whether an area is a world PvP objective — one of the eleven the
+    /// AREA_FLAG_OUTDOOR_PVP bit marks, or anywhere in Wintergrasp, which
+    /// carries a flag of its own instead.
+    ///
+    /// Field 4 of AreaTable.dbc, verified against two rows rather than taken
+    /// from the position: Wintergrasp's own area carries 0x01000000 there and
+    /// Shattrath carries the sanctuary bit, and neither would hold if the
+    /// column were something else.
+    bool isOutdoorPvpArea(uint32_t areaId) const;
     const ZoneInfo* getZoneInfo(uint32_t zoneId) const;
     std::string getRandomMusic(uint32_t zoneId);
     std::vector<std::string> getAllMusicPaths() const;
@@ -47,6 +57,9 @@ private:
     std::unordered_map<int, uint32_t> tileToZone;
     std::unordered_map<uint32_t, ZoneInfo> zones;
     std::unordered_map<uint32_t, uint32_t> areaParents_;
+    /// AreaTable's Flags column, by area id. Read in the same pass as the
+    /// parents; the file is walked once either way.
+    std::unordered_map<uint32_t, uint32_t> areaFlags_;
     std::string lastPlayedMusic_;
     bool useOriginalSoundtrack_ = true;
 };

@@ -111,6 +111,14 @@ struct LuaServices {
     /// client works this out locally for exactly that reason.
     std::function<uint32_t()> getLiveZoneId;
 
+    /// Whether the player is standing on a world PvP objective.
+    ///
+    /// The *area* rather than the zone, which is why it is not derived from
+    /// getLiveZoneId: the flag sits on the subzone — Halaa, The Overlook, the
+    /// Plaguelands towers — and resolving to the zone loses it. Wintergrasp is
+    /// the one that survives either way, being its own zone.
+    std::function<bool()> isOnOutdoorPvpObjective;
+
     /// Nameplates over hostile and neutral units, for nameplateShowEnemies.
     ///
     /// There is no counterpart for nameplateShowFriends: this client always

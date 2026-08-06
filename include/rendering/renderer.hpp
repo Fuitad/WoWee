@@ -146,6 +146,9 @@ public:
     SkySystem* getSkySystem() const { return skySystem.get(); }
     const std::string& getCurrentZoneName() const;
     uint32_t getCurrentZoneId() const;
+    /// The area under the player, asked of AreaTable rather than resolved to a
+    /// zone first — the world PvP flag is on the subzone. See ZoneManager.
+    bool isOnOutdoorPvpObjective() const;
     bool isPlayerIndoors() const { return playerIndoors_; }
     VkContext* getVkContext() const { return vkCtx; }
     VkDescriptorSetLayout getPerFrameSetLayout() const { return perFrameSetLayout; }

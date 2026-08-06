@@ -483,6 +483,9 @@ bool Application::initialize() {
         luaSvc.getLiveZoneId = [r = renderer.get()]() -> uint32_t {
             return r ? r->getCurrentZoneId() : 0u;
         };
+        luaSvc.isOnOutdoorPvpObjective = [r = renderer.get()]() -> bool {
+            return r && r->isOnOutdoorPvpObjective();
+        };
         luaSvc.takeScreenshot = [uim = uiManager.get()]() {
             if (uim) uim->getGameScreen().takeScreenshot();
         };

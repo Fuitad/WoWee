@@ -1289,6 +1289,15 @@ bool Renderer::ensureOutlandSkybox() {
     return true;
 }
 
+bool Renderer::isOnOutdoorPvpObjective() const {
+    if (!zoneManager || !terrainManager) return false;
+    if (const auto areaId = terrainManager->getAreaIdAt(
+            characterPosition.x, characterPosition.y)) {
+        return zoneManager->isOutdoorPvpArea(*areaId);
+    }
+    return false;
+}
+
 uint32_t Renderer::getCurrentZoneId() const {
     uint32_t tileZoneId = 0;
     if (zoneManager && terrainManager) {
