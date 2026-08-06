@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <map>
+#include <set>
 #include <vector>
 
 namespace wowee::addons {
@@ -1517,6 +1518,86 @@ static std::vector<game::GameHandler::CraftRecipe> visibleCraftingRecipes(
     }
     return out;
 }
+
+/// One drawn line of the crafting list: a subclass heading, or a recipe.
+///
+/// Blizzard's own name for the verb says what the headings are —
+/// CollapseTradeSkillSubClass — and the subclass is the crafted item's, which
+/// is the same source the subclass filter dropdown beside the list is built
+/// from. One rule for both, so the headings and the filter cannot disagree.
+///
+/// A recipe whose item has not arrived yet has no subclass to file it under.
+/// Those go last, under no heading, rather than being hidden: the details are
+/// asked for on demand, and hiding them would empty the list and refill it as
+/// the replies landed. They move under their heading once the reply arrives,
+/// which is the same churn the dropdown already has.
+struct TradeSkillRow {
+    game::GameHandler::CraftRecipe recipe;
+    std::string subclass;
+    bool isHeader = false;
+};
+
+/// Headings the player has closed, by subclass name. Not saved: the crafting
+/// window is opened against one profession at a time and the original client
+/// does not carry the state between openings either.
+static std::set<std::string>& collapsedTradeSkillSubClasses() {
+    static std::set<std::string> closed;
+    return closed;
+}
+
+static std::vector<TradeSkillRow> tradeSkillRows(game::GameHandler* gh) {
+    std::vector<TradeSkillRow> rows;
+    if (!gh) return rows;
+    std::map<std::string, std::vector<game::GameHandler::CraftRecipe>> grouped;
+    std::vector<game::GameHandler::CraftRecipe> ungrouped;
+    for (const auto& r : visibleCraftingRecipes(gh)) {
+        const auto* info = craftedItem(gh, r.spellId);
+        if (info && !info->subclassName.empty()) grouped[info->subclassName].push_back(r);
+        else                                     ungrouped.push_back(r);
+    }
+    for (const auto& [subclass, recipes] : grouped) {
+        TradeSkillRow header;
+        header.subclass = subclass;
+        header.isHeader = true;
+        header.recipe.name = subclass;
+        rows.push_back(std::move(header));
+        // A closed heading takes its recipes out of the list rather than
+        // hiding them in place: GetNumTradeSkills is what the scroll frame
+        // counts and every other binding indexes into.
+        if (collapsedTradeSkillSubClasses().count(subclass)) continue;
+        for (const auto& r : recipes) rows.push_back({r, subclass, false});
+    }
+    for (const auto& r : ungrouped) rows.push_back({r, {}, false});
+    return rows;
+}
+
+/// The recipe at a drawn-row index, or null for a heading or no such row.
+/// Every binding taking a trade skill index goes through this, because an
+/// index that lands on a heading must not be treated as the recipe that used
+/// to sit at that offset — DoTradeSkill would craft it.
+static const game::GameHandler::CraftRecipe* tradeSkillRecipeAt(
+        const std::vector<TradeSkillRow>& rows, int index) {
+    if (index < 1 || index > static_cast<int>(rows.size())) return nullptr;
+    const auto& row = rows[static_cast<size_t>(index) - 1];
+    return row.isHeader ? nullptr : &row.recipe;
+}
+
+/// Open or close the heading at a drawn-row index. A click on a recipe row is
+/// ignored rather than refused: the panel calls these from the row template
+/// whatever the row turns out to be.
+static int tradeSkillHeaderSetCollapsed(lua_State* L, bool collapsed) {
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!gh || index < 1) return 0;
+    const auto rows = tradeSkillRows(gh);
+    if (index > static_cast<int>(rows.size())) return 0;
+    const auto& row = rows[static_cast<size_t>(index) - 1];
+    if (!row.isHeader) return 0;
+    if (collapsed) collapsedTradeSkillSubClasses().insert(row.subclass);
+    else           collapsedTradeSkillSubClasses().erase(row.subclass);
+    return 0;
+}
+
 static int& trainerSelection() {
     static int selected = 0;
     return selected;
@@ -2740,7 +2821,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetNumTradeSkills", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             lua_pushnumber(L, gh ? static_cast<double>(
-                visibleCraftingRecipes(gh).size()) : 0.0);
+                tradeSkillRows(gh).size()) : 0.0);
             return 1;
         }},
                 // GetTradeSkillInfo(i) → name, type, numAvailable, isExpanded,
@@ -2749,15 +2830,28 @@ void registerQuestLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh) return luaReturnNil(L);
-            const auto recipes = visibleCraftingRecipes(gh);
-            if (i < 1 || i > static_cast<int>(recipes.size())) return luaReturnNil(L);
-            const auto& r = recipes[i - 1];
+            const auto rows = tradeSkillRows(gh);
+            if (i < 1 || i > static_cast<int>(rows.size())) return luaReturnNil(L);
+            const auto& row = rows[static_cast<size_t>(i) - 1];
+            if (row.isHeader) {
+                // "header" is what the panel branches on; the count and the
+                // verb belong to a recipe and a heading has neither.
+                lua_pushstring(L, row.subclass.c_str());
+                lua_pushstring(L, "header");
+                lua_pushnumber(L, 0);
+                lua_pushboolean(L,
+                    collapsedTradeSkillSubClasses().count(row.subclass) ? 0 : 1);
+                lua_pushnil(L);         // altVerb
+                lua_pushnumber(L, 0);   // numSkillUps
+                return 6;
+            }
+            const auto& r = row.recipe;
             static const char* kBands[4] = {"optimal", "medium", "easy", "trivial"};
             lua_pushstring(L, r.name.c_str());
             lua_pushstring(L, kBands[r.difficulty < 0 || r.difficulty > 3
                                          ? 0 : r.difficulty]);
             lua_pushnumber(L, r.canMake);
-            lua_pushboolean(L, 1);      // expanded: this list has no headers
+            lua_pushboolean(L, 1);      // a recipe row is never folded
             lua_pushnil(L);             // altVerb
             lua_pushnumber(L, 1);       // numSkillUps
             return 6;
@@ -2766,9 +2860,9 @@ void registerQuestLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh) return luaReturnNil(L);
-            const auto recipes = visibleCraftingRecipes(gh);
-            if (i < 1 || i > static_cast<int>(recipes.size())) return luaReturnNil(L);
-            const std::string icon = gh->getSpellIconPath(recipes[i - 1].spellId);
+            const auto* rec = tradeSkillRecipeAt(tradeSkillRows(gh), i);
+            if (!rec) return luaReturnNil(L);
+            const std::string icon = gh->getSpellIconPath(rec->spellId);
             lua_pushstring(L, icon.empty()
                 ? "Interface\\Icons\\INV_Misc_QuestionMark" : icon.c_str());
             return 1;
@@ -2777,9 +2871,9 @@ void registerQuestLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh) return luaReturnNil(L);
-            const auto recipes = visibleCraftingRecipes(gh);
-            if (i < 1 || i > static_cast<int>(recipes.size())) return luaReturnNil(L);
-            const uint32_t id = recipes[i - 1].spellId;
+            const auto* rec = tradeSkillRecipeAt(tradeSkillRows(gh), i);
+            if (!rec) return luaReturnNil(L);
+            const uint32_t id = rec->spellId;
             lua_pushstring(L, gh->formatSpellDescription(
                 id, gh->getSpellDescription(id)).c_str());
             return 1;
@@ -2789,9 +2883,9 @@ void registerQuestLuaAPI(lua_State* L) {
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             int n = 0;
             if (gh) {
-                const auto recipes = visibleCraftingRecipes(gh);
-                if (i >= 1 && i <= static_cast<int>(recipes.size())) {
-                    auto it = gh->spellNameCacheRef().find(recipes[i - 1].spellId);
+                const auto* rec = tradeSkillRecipeAt(tradeSkillRows(gh), i);
+                if (rec) {
+                    auto it = gh->spellNameCacheRef().find(rec->spellId);
                     if (it != gh->spellNameCacheRef().end()) {
                         for (const auto& r : it->second.reagents) {
                             if (r.itemId != 0) ++n;
@@ -2808,9 +2902,9 @@ void registerQuestLuaAPI(lua_State* L) {
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             const int n = static_cast<int>(luaL_optnumber(L, 2, 1));
             if (!gh) return luaReturnNil(L);
-            const auto recipes = visibleCraftingRecipes(gh);
-            if (i < 1 || i > static_cast<int>(recipes.size())) return luaReturnNil(L);
-            auto it = gh->spellNameCacheRef().find(recipes[i - 1].spellId);
+            const auto* rec = tradeSkillRecipeAt(tradeSkillRows(gh), i);
+            if (!rec) return luaReturnNil(L);
+            auto it = gh->spellNameCacheRef().find(rec->spellId);
             if (it == gh->spellNameCacheRef().end()) return luaReturnNil(L);
             int seen = 0;
             for (const auto& r : it->second.reagents) {
@@ -2834,9 +2928,9 @@ void registerQuestLuaAPI(lua_State* L) {
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             int lo = 1, hi = 1;
             if (gh) {
-                const auto recipes = visibleCraftingRecipes(gh);
-                if (i >= 1 && i <= static_cast<int>(recipes.size())) {
-                    auto it = gh->spellNameCacheRef().find(recipes[i - 1].spellId);
+                const auto* rec = tradeSkillRecipeAt(tradeSkillRows(gh), i);
+                if (rec) {
+                    auto it = gh->spellNameCacheRef().find(rec->spellId);
                     if (it != gh->spellNameCacheRef().end()) {
                         // The count is not in what this client parses; one is
                         // right for the great majority of recipes and wrong
@@ -2881,10 +2975,10 @@ void registerQuestLuaAPI(lua_State* L) {
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             int count = static_cast<int>(luaL_optnumber(L, 2, 1));
             if (!gh) return 0;
-            const auto recipes = visibleCraftingRecipes(gh);
-            if (i < 1 || i > static_cast<int>(recipes.size())) return 0;
+            const auto* rec = tradeSkillRecipeAt(tradeSkillRows(gh), i);
+            if (!rec) return 0;
             if (count < 1) count = 1;
-            gh->startCraftQueue(recipes[i - 1].spellId, count);
+            gh->startCraftQueue(rec->spellId, count);
             return 0;
         }},
                 {"CloseTradeSkill", [](lua_State* L) -> int {
@@ -2900,7 +2994,14 @@ void registerQuestLuaAPI(lua_State* L) {
             return 1;
         }},
                 {"GetFirstTradeSkill", [](lua_State* L) -> int {
-            // No headers in this list, so the first recipe is the first row.
+            // The first row that is a recipe rather than a heading, which is
+            // what the panel selects when it opens. One now that the list has
+            // headings: row one is "Armor" or "Weapon", not something to make.
+            auto* gh = getGameHandler(L);
+            const auto rows = gh ? tradeSkillRows(gh) : std::vector<TradeSkillRow>{};
+            for (size_t n = 0; n < rows.size(); ++n) {
+                if (!rows[n].isHeader) { lua_pushnumber(L, static_cast<double>(n + 1)); return 1; }
+            }
             lua_pushnumber(L, 1);
             return 1;
         }},
@@ -2914,9 +3015,9 @@ void registerQuestLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh || i < 1) return luaReturnNil(L);
-            const auto recipes = visibleCraftingRecipes(gh);
-            if (i > static_cast<int>(recipes.size())) return luaReturnNil(L);
-            const float left = gh->getSpellCooldown(recipes[i - 1].spellId);
+            const auto* rec = tradeSkillRecipeAt(tradeSkillRows(gh), i);
+            if (!rec) return luaReturnNil(L);
+            const float left = gh->getSpellCooldown(rec->spellId);
             if (left <= 0.0f) return luaReturnNil(L);
             lua_pushnumber(L, left);
             return 1;
@@ -2938,9 +3039,9 @@ void registerQuestLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh || i < 1) return luaReturnNil(L);
-            const auto recipes = visibleCraftingRecipes(gh);
-            if (i > static_cast<int>(recipes.size())) return luaReturnNil(L);
-            auto it = gh->spellNameCacheRef().find(recipes[i - 1].spellId);
+            const auto* rec = tradeSkillRecipeAt(tradeSkillRows(gh), i);
+            if (!rec) return luaReturnNil(L);
+            auto it = gh->spellNameCacheRef().find(rec->spellId);
             if (it == gh->spellNameCacheRef().end()) return luaReturnNil(L);
             const uint32_t made = it->second.createdItemId;
             if (made == 0) return luaReturnNil(L);
@@ -2959,9 +3060,9 @@ void registerQuestLuaAPI(lua_State* L) {
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             const int n = static_cast<int>(luaL_optnumber(L, 2, 1));
             if (!gh || i < 1 || n < 1) return luaReturnNil(L);
-            const auto recipes = visibleCraftingRecipes(gh);
-            if (i > static_cast<int>(recipes.size())) return luaReturnNil(L);
-            auto it = gh->spellNameCacheRef().find(recipes[i - 1].spellId);
+            const auto* rec = tradeSkillRecipeAt(tradeSkillRows(gh), i);
+            if (!rec) return luaReturnNil(L);
+            auto it = gh->spellNameCacheRef().find(rec->spellId);
             if (it == gh->spellNameCacheRef().end()) return luaReturnNil(L);
             int seen = 0;
             for (const auto& r : it->second.reagents) {
@@ -3047,8 +3148,12 @@ void registerQuestLuaAPI(lua_State* L) {
             tradeSkillOnlyMakeable() = lua_toboolean(L, 1) != 0;
             return 0;
         }},
-                {"CollapseTradeSkillSubClass",  [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ExpandTradeSkillSubClass",    [](lua_State* L) -> int { (void)L; return 0; }},
+                {"CollapseTradeSkillSubClass",  [](lua_State* L) -> int {
+            return tradeSkillHeaderSetCollapsed(L, true);
+        }},
+                {"ExpandTradeSkillSubClass",    [](lua_State* L) -> int {
+            return tradeSkillHeaderSetCollapsed(L, false);
+        }},
                 // GetTradeskillRepeatCount() → how many are still to be made.
                 //
                 // This is not only a readout: the trade skill frame does
