@@ -2,6 +2,7 @@
 
 #include "ui/widget_tree.hpp"
 
+#include <limits>
 #include <string>
 
 using namespace wowee::ui;
@@ -1847,4 +1848,64 @@ TEST_CASE("a model frame carries what it has been asked to try on",
 
     tree.get(model)->tryOnItems.clear();
     CHECK(tree.get(model)->tryOnItems.empty());
+}
+
+TEST_CASE("The screen sits above UIParent so a frame can leave it",
+          "[widget][layout]") {
+    // Hiding UIParent is how FrameXML clears the interface out of the way of a
+    // fullscreen panel: uiparent.lua's fullscreen path is UIParent:Hide()
+    // followed by frame:Show(). A frame that cannot get out from under
+    // UIParent goes down with everything the call was meant to make room for,
+    // which is what left the world map hiding the interface and then itself.
+    WidgetTree tree;
+    REQUIRE(tree.root() != tree.uiParentId());
+    REQUIRE(tree.get(tree.uiParentId())->parent == tree.root());
+
+    // A frame with no parent named hangs off UIParent, as almost everything
+    // does...
+    const uint32_t child = tree.create(WidgetKind::Frame, tree.uiParentId(), "Child");
+    tree.setAllPoints(child, tree.uiParentId());
+    // ...and SetParent(nil) takes it out to the screen, not back to UIParent.
+    // Anchored like the world map is, which is what makes it drawable at all:
+    // a frame with no anchor points is not displayed, whoever its parent is.
+    const uint32_t loose = tree.create(WidgetKind::Frame, tree.uiParentId(), "Loose");
+    tree.setParent(loose, 0);
+    tree.setAllPoints(loose, tree.root());
+    REQUIRE(tree.get(loose)->parent == tree.root());
+    REQUIRE(tree.get(child)->parent == tree.uiParentId());
+
+    // So hiding UIParent takes one down and leaves the other standing.
+    tree.get(tree.uiParentId())->shown = false;
+    tree.layout(kScreenW, kScreenH);
+    CHECK(tree.get(child)->visible == false);
+    CHECK(tree.get(loose)->visible == true);
+}
+
+TEST_CASE("A rect that is not a number is never hit", "[widget][hittest]") {
+    // Every comparison against a nan is false, so a naive range test lets one
+    // through at any coordinate: `x < left` and `x > right` are both false and
+    // the frame reads as hit wherever the cursor is. One mouse-enabled frame
+    // answering every hit test tells the rest of the client the interface owns
+    // the mouse, and the camera stops turning anywhere on screen — which is
+    // what a chat window whose saved position had gone to nan did.
+    WidgetTree tree;
+    const uint32_t good = tree.create(WidgetKind::Frame, tree.uiParentId(), "Good");
+    Widget* g = tree.get(good);
+    g->mouseEnabled = true;
+    g->visible = true;
+    g->left = 10.0f; g->bottom = 10.0f; g->rectW = 20.0f; g->rectH = 20.0f;
+    REQUIRE(tree.hitTest(15.0f, 15.0f) == good);
+    REQUIRE(tree.hitTest(500.0f, 500.0f) == 0);
+
+    const uint32_t bad = tree.create(WidgetKind::Frame, tree.uiParentId(), "Bad");
+    Widget* b = tree.get(bad);
+    b->mouseEnabled = true;
+    b->visible = true;
+    b->left = std::numeric_limits<float>::quiet_NaN();
+    b->bottom = 0.0f; b->rectW = 100.0f; b->rectH = 100.0f;
+
+    // Nowhere near it, and it must still lose.
+    CHECK(tree.hitTest(500.0f, 500.0f) == 0);
+    // And it must not take a hit away from a frame that really is there.
+    CHECK(tree.hitTest(15.0f, 15.0f) == good);
 }
