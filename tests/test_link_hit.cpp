@@ -213,19 +213,26 @@ TEST_CASE("the click finds the frame that declares the handler", "[linkhit]") {
         // 1 -> 2 -> 1. Built by code, so it can happen; the walk is bounded by
         // the tree's size rather than trusting the chain to end.
         //
-        // This section states the intent and CANNOT prove it, which is worth
-        // knowing before anyone trusts it. Removing the bound and running this
-        // still passes: the predicate here always answers false and the tree
-        // reads are pure, so the loop has no side effects, and a side-effect-free
-        // infinite loop is undefined behaviour that the optimiser is entitled
-        // to delete — at -O2 it does, at -O0 the same code spins. Checked both
-        // ways rather than assumed.
+        // The predicate counts, which is what makes this provable. A first
+        // version answered a constant false, and then the walk had no side
+        // effects at all — a side-effect-free infinite loop is undefined
+        // behaviour the optimiser may delete, and at -O2 it did: removing the
+        // bound left the test passing. At -O0 the same code spun. So the
+        // "failable" check was hollow in exactly the build that ships.
         //
-        // The bound is still load-bearing in the client, where the predicate
-        // calls into Lua and the loop therefore has side effects the optimiser
-        // must keep.
+        // Counting fixes both halves. The count is an effect the compiler has
+        // to keep, so the loop survives optimisation; and the escape below
+        // turns a missing bound into a failed assertion rather than a hung
+        // test, which is the difference between a red run and a stuck one.
         FakeTree looped{{{0}, {2}, {1}}};
-        REQUIRE(findScriptOwner(looped, 1, [](uint32_t) { return false; }) == 0);
+        int calls = 0;
+        const uint32_t owner = findScriptOwner(looped, 1, [&](uint32_t) {
+            // Well past any honest walk of a three-node tree. Claiming the
+            // click here is how an unbounded loop announces itself.
+            return ++calls > 16;
+        });
+        REQUIRE(owner == 0);
+        REQUIRE(calls <= static_cast<int>(looped.size()) + 1);
     }
 
     SECTION("an id the tree does not have stops rather than reading it") {
