@@ -2472,6 +2472,45 @@ int lua_FontString_GetJustifyV(lua_State* L) {
 
 // ── Fonts ───────────────────────────────────────────────────────────────────
 
+/// GetTextColor() → r, g, b, a. The getter of a setter that has been
+/// implemented all along, which is the asymmetry worth watching for.
+///
+/// It is asked of two different things and has to answer both. A font string
+/// is a widget and keeps its colour there. A **font object** — GameFontNormal
+/// and its ninety siblings — is a plain Lua table with r, g, b and a fields,
+/// which is what applyFontObject reads when a font string inherits one.
+///
+/// optionspaneltemplates is the caller: re-enabling a control does
+/// `SetTextColor(fontObject:GetTextColor())`, and nil for all four made that
+/// SetTextColor() with no arguments — which defaults to white rather than to
+/// the colour the font object actually carries.
+int lua_FontString_GetTextColor(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    wowee::ui::Widget* w = widgetOf(L, 1);
+    // A button colours the label it holds, exactly as the setter does.
+    if (w && w->kind != wowee::ui::WidgetKind::FontString && tree) {
+        lua_getfield(L, 1, "__fontString");
+        if (lua_istable(L, -1)) {
+            if (auto* fs = tree->get(widgetIdOf(L, lua_gettop(L)))) w = fs;
+        }
+        lua_pop(L, 1);
+    }
+    if (w) {
+        for (int i = 0; i < 4; ++i) lua_pushnumber(L, w->color[i]);
+        return 4;
+    }
+    if (lua_istable(L, 1)) {
+        static const char* keys[4] = {"r", "g", "b", "a"};
+        for (int i = 0; i < 4; ++i) {
+            lua_getfield(L, 1, keys[i]);
+            lua_pushnumber(L, lua_isnumber(L, -1) ? lua_tonumber(L, -1) : 1.0);
+            lua_remove(L, -2);
+        }
+        return 4;
+    }
+    for (int i = 0; i < 4; ++i) lua_pushnumber(L, 1.0);
+    return 4;
+}
 int lua_FontString_SetTextColor(lua_State* L) {
     // On a button this colours the label it holds, which is where a button's
     // text actually lives; on a font string it colours itself. FrameXML calls
@@ -2763,6 +2802,7 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
         set("GetFont", lua_FontString_GetFont);
         set("SetFont", lua_FontString_SetFont);
         set("SetTextHeight", lua_FontString_SetTextHeight);
+        set("GetTextColor", lua_FontString_GetTextColor);
         set("SetText", lua_FontString_SetText);
         set("SetFormattedText", lua_FontString_SetFormattedText);
         set("GetText", lua_FontString_GetText);
@@ -4853,7 +4893,7 @@ void LuaEngine::registerCoreAPI() {
         "GetObjectType=1,GetParent=1,GetPoint=1,GetPushedTexture=1,GetRect=1,\n"
         "GetRegionParent=1,GetRegions=1,GetRight=1,GetScale=1,GetScript=1,\n"
         "GetScrollChild=1,GetSize=1,GetSpacing=1,GetStatusBarTexture=1,\n"
-        "GetStringHeight=1,GetStringWidth=1,GetTexCoord=1,GetText=1,GetTextColor=1,\n"
+        "GetStringHeight=1,GetStringWidth=1,GetTexCoord=1,GetText=1,\n"
         "GetTextHeight=1,GetTexture=1,GetTextWidth=1,GetTooltipIndex=1,GetTop=1,\n"
         // GetUTF8CursorPosition is a real binding now, applied after this set.
         // A real method wins the lookup either way, but a name left here is a
