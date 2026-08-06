@@ -69,7 +69,18 @@ for p in sorted(root.rglob("*.cpp")):
         m = LATCH.match(line)
         if not m:
             continue
-        window = lines[i + 1:i + 8]
+        # Stopped at the end of the enclosing function. Without that, a latch
+        # written as the last statement of one function was read against the
+        # opening guard of the *next* one: CharacterPreview::loadCreature
+        # latches on its final line and loadPreviewM2 begins four lines later
+        # with `if (!assetManager_) return false;`, which reported a function
+        # that does check — at its top, before doing anything — as one that
+        # does not.
+        window = []
+        for w in lines[i + 1:i + 8]:
+            if w.startswith("}"):
+                break
+            window.append(w)
         for j, w in enumerate(window):
             if PRECOND.search(w) and "return" in "\n".join(window[j:j + 2]):
                 hits.append((p.as_posix(), i + 1, m.group(1), w.strip()[:58]))
@@ -85,10 +96,13 @@ for p in sorted(root.rglob("*.cpp")):
                     break
 
 print(f"scanned {len(list(root.rglob('*.cpp')))} translation units")
+# The count is printed either way, so sweep_guard has something to pin. It used
+# to say "no loader latches" on the clean run, which reads well and gives a
+# ratchet nothing to hold on to.
+print(f"\n{len(hits)} latch before checking that the assets exist:\n")
 if not hits:
-    print("\nno loader latches before its assets are checked.")
+    print("  (none)")
 else:
-    print(f"\n{len(hits)} latch before checking that the assets exist:\n")
     for f, ln, flag, cond in hits:
         print(f"  {f}:{ln}")
         print(f"      {flag} = true   before   {cond}")

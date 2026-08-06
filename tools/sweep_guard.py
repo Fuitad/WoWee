@@ -415,6 +415,16 @@ CHECKS = [
     ("tools_run_check.py",
      r"^(\d+) that read only one of the two binding forms", 0,
      "sweeps that see under half the bindings they claim to check"),
+    # A lazy loader that sets its "done" flag before checking the assets are
+    # there disables itself for the session on one early call — no error, and
+    # the panel is simply empty from then on. Zero, and the fault was put back
+    # into ensureAchievementCategoriesLoaded and seen to trip it. Reported one
+    # before it was taught to stop at the end of a function: a latch on the
+    # last line of CharacterPreview::loadCreature was being read against the
+    # opening guard of the next function down. 1s.
+    ("lazy_load_latch_check.py",
+     r"^(\d+) latch before checking that the assets exist", 0,
+     "lazy loaders that latch before checking their assets are there"),
     # The mirror of the sweep above: not whether the answer used what it was
     # told, but whether it is spelled the way the caller looks it up. A token is
     # a table key, so a misspelling is a nil rather than a wrong value — the
