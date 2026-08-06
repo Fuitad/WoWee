@@ -2433,10 +2433,11 @@ void registerSocialLuaAPI(lua_State* L) {
                 // atWarWith, canToggleAtWar, isHeader, isCollapsed, hasRep,
                 // isWatched, isChild
                 //
-                // Flat: every row is a faction. The real client groups these
-                // under collapsible headers built from each faction's parent,
-                // which this does not read — so the list is complete and in the
-                // server's order, but not divided into categories.
+                // Flat: every row is a faction, complete and in the server's
+                // order but not divided into categories. Not because the parent
+                // field goes unread — reading it does not produce headers, and
+                // pushFactionInfo carries the check that shows why against the
+                // file itself. One place for that, not two.
                 {"GetFactionInfo", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int index = static_cast<int>(luaL_checknumber(L, 1));
