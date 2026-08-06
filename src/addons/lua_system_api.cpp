@@ -1798,6 +1798,30 @@ struct ChatWindowSettings {
     float xOffset = 0.0f, yOffset = 0.0f;
     bool hasDimensions = false;
     float width = 0.0f, height = 0.0f;
+    /// Which of ChatTypeGroup's names this window shows, and which chat
+    /// channels it carries. Both are read once per login and are the whole of
+    /// what a chat window listens to: ChatFrame_RegisterForMessages walks the
+    /// first list and calls RegisterEvent for every event in each group, and
+    /// nothing else in FrameXML registers a chat frame for a CHAT_MSG_ event.
+    std::vector<std::string> messageGroups;
+    std::vector<std::pair<std::string, int>> channels;
+};
+
+/// Every group name ChatTypeGroup defines in 3.3.5, which is what the General
+/// window shows by default — say and yell through to loot, experience and the
+/// error line. Names FrameXML does not know are skipped by the reader rather
+/// than raising, so the cost of listing one too many is nothing and the cost of
+/// missing one is that kind of message never appearing.
+inline constexpr const char* kDefaultChatGroups[] = {
+    "SYSTEM", "SAY", "EMOTE", "YELL", "WHISPER", "PARTY", "PARTY_LEADER",
+    "RAID", "RAID_LEADER", "RAID_WARNING", "BATTLEGROUND",
+    "BATTLEGROUND_LEADER", "GUILD", "OFFICER", "MONSTER_SAY", "MONSTER_YELL",
+    "MONSTER_EMOTE", "MONSTER_WHISPER", "MONSTER_BOSS_EMOTE",
+    "MONSTER_BOSS_WHISPER", "ERRORS", "AFK", "DND", "IGNORED", "BG_HORDE",
+    "BG_ALLIANCE", "BG_NEUTRAL", "COMBAT_XP_GAIN", "COMBAT_HONOR_GAIN",
+    "COMBAT_FACTION_CHANGE", "SKILL", "LOOT", "MONEY", "OPENING",
+    "TRADESKILLS", "PET_INFO", "COMBAT_MISC_INFO", "ACHIEVEMENT",
+    "GUILD_ACHIEVEMENT", "CHANNEL", "TARGETICONS",
 };
 
 /// NUM_CHAT_WINDOWS in 3.3.5. Indices are one-based from Lua.
@@ -1813,6 +1837,10 @@ static std::array<ChatWindowSettings, kNumChatWindows>& chatWindows() {
         // answering one for every window claimed each was first.
         w[0].shown = true; w[0].docked = 1;
         w[1].shown = true; w[1].docked = 2;
+        // General carries everything; the combat log window is driven by
+        // Blizzard_CombatLog and registers its own events, so its list is
+        // empty here exactly as it is in the real client.
+        for (const char* g : kDefaultChatGroups) w[0].messageGroups.emplace_back(g);
         return w;
     }();
     return windows;
@@ -1879,6 +1907,23 @@ static void saveInterfaceState() {
             out << k << "position=" << w.point << "," << w.xOffset << "," << w.yOffset << "\n";
         if (w.hasDimensions)
             out << k << "size=" << w.width << "," << w.height << "\n";
+        // Written even when empty, because empty is a real setting: a window
+        // whose groups were all removed must come back empty rather than
+        // falling to the defaults and refilling itself on the next login.
+        std::string groups;
+        for (const auto& g : w.messageGroups) {
+            if (g.find_first_of(",\n") != std::string::npos) continue;
+            if (!groups.empty()) groups += ",";
+            groups += g;
+        }
+        out << k << "groups=" << groups << "\n";
+        std::string chans;
+        for (const auto& c : w.channels) {
+            if (c.first.find_first_of(",:\n") != std::string::npos) continue;
+            if (!chans.empty()) chans += ",";
+            chans += c.first + ":" + std::to_string(c.second);
+        }
+        out << k << "channels=" << chans << "\n";
     }
 }
 
@@ -1931,6 +1976,28 @@ static void loadInterfaceState() {
         } else if (field == "size") {
             if (std::sscanf(value.c_str(), "%f,%f", &w.width, &w.height) == 2)
                 w.hasDimensions = true;
+        } else if (field == "groups") {
+            w.messageGroups.clear();
+            for (size_t at = 0; at <= value.size();) {
+                const size_t comma = value.find(',', at);
+                const std::string one = value.substr(at, comma - at);
+                if (!one.empty()) w.messageGroups.push_back(one);
+                if (comma == std::string::npos) break;
+                at = comma + 1;
+            }
+        } else if (field == "channels") {
+            w.channels.clear();
+            for (size_t at = 0; at <= value.size();) {
+                const size_t comma = value.find(',', at);
+                const std::string one = value.substr(at, comma - at);
+                const size_t colon = one.rfind(':');
+                if (colon != std::string::npos && colon > 0) {
+                    w.channels.emplace_back(one.substr(0, colon),
+                                            std::atoi(one.c_str() + colon + 1));
+                }
+                if (comma == std::string::npos) break;
+                at = comma + 1;
+            }
         } else continue;
         ++loaded;
     }
@@ -4411,6 +4478,88 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetNumBattlefieldVehicles", lua_ReturnZero},
                 {"GetBattlefieldVehicleInfo", lua_ReturnNil},
                 {"GetChatWindowInfo",        lua_GetChatWindowInfo},
+                // What a chat window listens to, and the whole reason chat
+                // shows anything. ChatFrame_OnLoad registers a chat frame for
+                // no CHAT_MSG_ event at all — every one of them comes from
+                // ChatFrame_RegisterForMessages walking this list on
+                // UPDATE_CHAT_WINDOWS. Answering nothing registered nothing,
+                // so every message the client parsed, coloured and routed
+                // arrived at a frame that had not asked for it: the chat
+                // window stayed empty from login to logout.
+                {"GetChatWindowMessages", [](lua_State* L) -> int {
+            const ChatWindowSettings* w = chatWindow(L, 1);
+            if (!w) return 0;
+            for (const auto& g : w->messageGroups) lua_pushstring(L, g.c_str());
+            return static_cast<int>(w->messageGroups.size());
+        }},
+                // Name and zone-channel id in pairs, which is the shape
+                // ChatFrame_RegisterForChannels reads: it steps two at a time
+                // and fills channelList and zoneChannelList together.
+                {"GetChatWindowChannels", [](lua_State* L) -> int {
+            const ChatWindowSettings* w = chatWindow(L, 1);
+            if (!w) return 0;
+            for (const auto& c : w->channels) {
+                lua_pushstring(L, c.first.c_str());
+                lua_pushnumber(L, c.second);
+            }
+            return static_cast<int>(w->channels.size()) * 2;
+        }},
+                // The four the chat settings panel edits. Ticking a message
+                // group or joining a channel goes through these, and they did
+                // nothing — so a change made in the panel lasted until the
+                // frame was next asked what it listened to, which is the next
+                // login, and then went back.
+                {"AddChatWindowMessages", [](lua_State* L) -> int {
+            ChatWindowSettings* w = chatWindow(L, 1);
+            const char* group = lua_isstring(L, 2) ? lua_tostring(L, 2) : nullptr;
+            if (!w || !group) return 0;
+            for (const auto& g : w->messageGroups) if (g == group) return 0;
+            w->messageGroups.emplace_back(group);
+            saveInterfaceState();
+            return 0;
+        }},
+                {"RemoveChatWindowMessages", [](lua_State* L) -> int {
+            ChatWindowSettings* w = chatWindow(L, 1);
+            const char* group = lua_isstring(L, 2) ? lua_tostring(L, 2) : nullptr;
+            if (!w || !group) return 0;
+            auto& v = w->messageGroups;
+            v.erase(std::remove(v.begin(), v.end(), std::string(group)), v.end());
+            saveInterfaceState();
+            return 0;
+        }},
+                // Answers the zone channel id, and has to: ChatFrame_AddChannel
+                // puts the channel into the frame's own list only `if
+                // ( zoneChannel )`, so returning nothing meant the channel was
+                // recorded here and never reached the frame that shows it.
+                // Zero is a real answer for a channel that is not zone based,
+                // and passes that test — zero being true in Lua.
+                {"AddChatWindowChannel", [](lua_State* L) -> int {
+            ChatWindowSettings* w = chatWindow(L, 1);
+            const char* name = lua_isstring(L, 2) ? lua_tostring(L, 2) : nullptr;
+            if (!w || !name) return 0;
+            const int zone = static_cast<int>(luaL_optnumber(L, 3, 0));
+            for (auto& c : w->channels) {
+                if (c.first != name) continue;
+                if (zone != 0) c.second = zone;
+                lua_pushnumber(L, c.second);
+                return 1;
+            }
+            w->channels.emplace_back(name, zone);
+            saveInterfaceState();
+            lua_pushnumber(L, zone);
+            return 1;
+        }},
+                {"RemoveChatWindowChannel", [](lua_State* L) -> int {
+            ChatWindowSettings* w = chatWindow(L, 1);
+            const char* name = lua_isstring(L, 2) ? lua_tostring(L, 2) : nullptr;
+            if (!w || !name) return 0;
+            auto& v = w->channels;
+            v.erase(std::remove_if(v.begin(), v.end(),
+                        [&](const std::pair<std::string, int>& c) { return c.first == name; }),
+                    v.end());
+            saveInterfaceState();
+            return 0;
+        }},
                 {"GetNumBattlefieldFlagPositions", [](lua_State* L) -> int {
             // Only when both are carried, for the reason the accessor gives:
             // one carrier cannot be told from the other, and the loop this

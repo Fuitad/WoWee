@@ -3031,8 +3031,6 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"BNIsFriend",      [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 {"BNIsToonBlocked", [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 {"BNGetNumFriendInvites", [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
-                {"GetChatWindowChannels", [](lua_State* L) -> int { (void)L; return 0; }},
-                {"GetChatWindowMessages", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GetClickFrame",         [](lua_State* L) -> int { lua_pushnil(L); return 1; }},
                 // Pet autocast is left alone deliberately rather than wired to
                 // togglePetSpellAutocast: these two say enable and disable, the
@@ -3069,12 +3067,10 @@ void registerSocialLuaAPI(lua_State* L) {
             return 0;
         }},
                 {"PetAggressiveMode",    [](lua_State* L) -> int { (void)L; return 0; }},
-                // Channel moderation, arena teams, the addon list, the console
-                // and the rest: no client support behind any of them.
-                {"AddChatWindowChannel",     [](lua_State* L) -> int { (void)L; return 0; }},
-                {"RemoveChatWindowChannel",  [](lua_State* L) -> int { (void)L; return 0; }},
-                {"AddChatWindowMessages",    [](lua_State* L) -> int { (void)L; return 0; }},
-                {"RemoveChatWindowMessages", [](lua_State* L) -> int { (void)L; return 0; }},
+                // The four chat-window list editors moved to
+                // lua_system_api.cpp, beside the chat window store they write
+                // to. Two registrations of one name would be settled by load
+                // order, so they are not also here.
                                 // The eight channel moderation commands. Every one is the
                 // same packet — channel name then player name — and none of
                 // them was ever sent: the opcodes existed and nothing built
