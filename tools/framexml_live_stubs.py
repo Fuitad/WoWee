@@ -98,8 +98,13 @@ def _live_files():
     tk = (ROOT / "src/ui/framexml_takeover.cpp").read_text()
     defaults = set(_re.findall(r'"([a-z]+)"',
         _re.search(r"return std::set<std::string>\{(.*?)\};", tk, _re.S).group(1)))
-    cand = set(_re.findall(r'"([a-z]+)"',
-        _re.search(r"for \(const char\* name : \{(.*?)\}\)", tk, _re.S).group(1)))
+    # The candidates tier used to add a list on top of the defaults and adds
+    # nothing now — every element is in the defaults, so the loop it was read
+    # out of is gone. Read as empty rather than crashing, which is what this
+    # did between the loop being removed and 2026-08-05: nothing runs this
+    # sweep from the build, so nothing noticed.
+    _cand_loop = _re.search(r"for \(const char\* name : \{(.*?)\}\)", tk, _re.S)
+    cand = set(_re.findall(r'"([a-z]+)"', _cand_loop.group(1))) if _cand_loop else set()
     rd = (ROOT / "tools/framexml_element_readiness.py").read_text()
     ns = {}
     exec(_re.search(r"^ELEMENTS = \{.*?^\}", rd, _re.S | _re.M).group(0), ns)

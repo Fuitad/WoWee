@@ -306,6 +306,17 @@ CHECKS = [
     # thirteen until 2026-08-05 and *defaulted to SAY*, so every numbered
     # channel line, every raid warning and every custom emote was said out
     # loud to whoever was standing nearby. It refuses an unknown type now.
+    # Sweeps that cannot run at all. Not their numbers — this runs the ones
+    # sweep_guard does not, and reports any that raise or exit non-zero.
+    #
+    # Two broke on 2026-08-05 from a single edit: the candidates tier lost its
+    # `for (const char* name : {...})` loop and two tools parsed that loop and
+    # called .group(1) on the None they got. handover_halves_check is in this
+    # list, so ctest caught it in under a minute; framexml_live_stubs is not,
+    # and it sat crashing until someone happened to run it. 18s.
+    ("tools_run_check.py",
+     r"^(\d+) that cannot run", 0,
+     "sweeps that cannot run at all"),
     ("chat_type_coverage_check.py",
      r"^(\d+) chat type\(s\) SendChatMessage does not map", 1,
      "chat types FrameXML can send that SendChatMessage does not map"),
