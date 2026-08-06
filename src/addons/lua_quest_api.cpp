@@ -2573,9 +2573,54 @@ void registerQuestLuaAPI(lua_State* L) {
         }},
                 // Links, which need an item this client does not resolve for a
                 // recipe, and the play-time limits that only Chinese realms set.
-                {"GetTradeSkillItemLink",     [](lua_State* L) -> int { return luaReturnNil(L); }},
+                // The two links a trade skill row can be shift-clicked for:
+                // what the recipe makes, and what it takes. Both item ids were
+                // already here — createdItemId off the spell and the reagent
+                // list GetTradeSkillReagentInfo walks — so the panel could name
+                // and count them while answering nil to anyone asking for a
+                // link to the same thing.
+                {"GetTradeSkillItemLink", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh || i < 1) return luaReturnNil(L);
+            const auto recipes = gh->getCraftingRecipes();
+            if (i > static_cast<int>(recipes.size())) return luaReturnNil(L);
+            auto it = gh->spellNameCacheRef().find(recipes[i - 1].spellId);
+            if (it == gh->spellNameCacheRef().end()) return luaReturnNil(L);
+            const uint32_t made = it->second.createdItemId;
+            if (made == 0) return luaReturnNil(L);
+            gh->ensureItemInfo(made);
+            const auto* info = gh->getItemInfo(made);
+            if (!info || !info->valid) return luaReturnNil(L);
+            lua_pushstring(L, game::buildItemLink(made, info->quality, info->name).c_str());
+            return 1;
+        }},
+                // A recipe link is an |Htrade: hyperlink carrying the whole
+                // skill list, which this client has no reader for — a link it
+                // cannot resolve on the way back in would be worse than none.
                 {"GetTradeSkillRecipeLink",   [](lua_State* L) -> int { return luaReturnNil(L); }},
-                {"GetTradeSkillReagentItemLink", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                {"GetTradeSkillReagentItemLink", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const int n = static_cast<int>(luaL_optnumber(L, 2, 1));
+            if (!gh || i < 1 || n < 1) return luaReturnNil(L);
+            const auto recipes = gh->getCraftingRecipes();
+            if (i > static_cast<int>(recipes.size())) return luaReturnNil(L);
+            auto it = gh->spellNameCacheRef().find(recipes[i - 1].spellId);
+            if (it == gh->spellNameCacheRef().end()) return luaReturnNil(L);
+            int seen = 0;
+            for (const auto& r : it->second.reagents) {
+                if (r.itemId == 0) continue;
+                if (++seen != n) continue;
+                gh->ensureItemInfo(r.itemId);
+                const auto* info = gh->getItemInfo(r.itemId);
+                if (!info || !info->valid) return luaReturnNil(L);
+                lua_pushstring(L,
+                    game::buildItemLink(r.itemId, info->quality, info->name).c_str());
+                return 1;
+            }
+            return luaReturnNil(L);
+        }},
                 {"GetTradeSkillListLink",     [](lua_State* L) -> int { return luaReturnNil(L); }},
                 {"IsTradeSkillLinked",        [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 {"NoPlayTime",                [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
