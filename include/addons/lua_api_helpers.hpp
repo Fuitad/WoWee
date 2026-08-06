@@ -446,6 +446,29 @@ inline const game::ItemSlot* inventorySlotItem(const game::Inventory& inv, int s
     return nullptr;
 }
 
+/// Where a container slot lives on the wire: the container byte and the slot
+/// within it.
+///
+/// The backpack, the keyring and the general bank are all slots of the player's
+/// own container, 0xFF, at three different offsets; a worn bag and a bank bag
+/// are containers in their own right, numbered by the slot the bag sits in.
+/// Written out at each call site this cost two fixes in a day — the keyring
+/// asked wornBagContainer for container -3, and the first bank bag came out as
+/// container 23.
+inline uint8_t containerWireBag(int bag) {
+    if (bag == 0 || bag == kKeyringContainer || bag == kBankContainer) return game::slots::kNoContainer;
+    if (isBankBagContainer(bag))
+        return static_cast<uint8_t>(game::slots::bankBagContainer(bag - kFirstBankBagContainer));
+    return static_cast<uint8_t>(game::slots::wornBagContainer(bag - 1));
+}
+
+inline uint8_t containerWireSlot(int bag, int slot) {
+    if (bag == 0)                  return static_cast<uint8_t>(game::slots::backpackWireSlot(slot - 1));
+    if (bag == kKeyringContainer)  return static_cast<uint8_t>(game::slots::keyringWireSlot(slot - 1));
+    if (bag == kBankContainer)     return static_cast<uint8_t>(game::slots::bankGeneralWireSlot(slot - 1));
+    return static_cast<uint8_t>(slot - 1);
+}
+
 inline uint64_t containerSlotGuid(game::GameHandler* gh, int bag, int slot) {
     if (!gh || slot < 1) return 0;
     if (bag == 0) return gh->getBackpackItemGuid(slot - 1);

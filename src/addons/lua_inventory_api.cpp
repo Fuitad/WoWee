@@ -192,10 +192,9 @@ static int lua_GetContainerItemCooldown(lua_State* L) {
     double start = 0.0, duration = 0.0;
     if (gh && slot >= 1) {
         const auto& inv = gh->getInventory();
-        const game::ItemSlot* s = nullptr;
-        if (bag == 0 && slot <= inv.getBackpackSize()) s = &inv.getBackpackSlot(slot - 1);
-        else if (bag >= 1 && bag <= 4 && slot <= inv.getBagSize(bag - 1))
-            s = &inv.getBagSlot(bag - 1, slot - 1);
+        // Through the shared resolver, so the bank and the keyring answer too:
+        // BankFrame_UpdateCooldown asks this for every one of its slots.
+        const game::ItemSlot* s = containerItemSlot(inv, bag, slot);
         if (s && !s->empty()) itemUseCooldown(gh, s->item.itemId, start, duration);
     }
     lua_pushnumber(L, start);
@@ -961,18 +960,11 @@ static int lua_SplitContainerItem(lua_State* L) {
     const int count = static_cast<int>(luaL_optnumber(L, 3, 1));
     if (!gh || slot < 1 || count < 1) return 0;
 
-    if (bag == 0) {
-        const auto& inv = gh->getInventory();
-        if (slot > inv.getBackpackSize()) return 0;
-        gh->splitItem(0xFF, static_cast<uint8_t>(game::slots::backpackWireSlot(slot - 1)),
-                      static_cast<uint8_t>(count));
-    } else if (bag >= 1 && bag <= 4) {
-        const auto& inv = gh->getInventory();
-        if (slot > inv.getBagSize(bag - 1)) return 0;
-        gh->splitItem(static_cast<uint8_t>(game::slots::wornBagContainer(bag - 1)),
-                      static_cast<uint8_t>(slot - 1),
-                      static_cast<uint8_t>(count));
-    }
+    // Every container the interface can name, through the one mapping.
+    // bankframe splits from BANK_CONTAINER, which this could not name before.
+    if (!containerItemSlot(gh->getInventory(), bag, slot)) return 0;
+    gh->splitItem(containerWireBag(bag), containerWireSlot(bag, slot),
+                  static_cast<uint8_t>(count));
     return 0;
 }
 
@@ -1703,32 +1695,6 @@ static int lua_UseContainerItem(lua_State* L) {
     // in and this client's own window has never offered a right-click for it,
     // so a branch would be inventing behaviour rather than restoring it; a
     // trade is made by dragging, which the cursor bridge carries.
-    // The keyring lives in the player's own container, past the bags, the way
-    // the backpack does — so it is 0xFF with a keyring wire slot, not a worn
-    // bag. Without this the arithmetic below ran on bag - 1 with bag at -2 and
-    // asked wornBagContainer for container -3.
-    // The general bank sits in the player's own container beside the backpack
-    // and the keyring, at wire slot 39 upward — it is a container to the
-    // interface and inventory slots on the wire, which is the whole reason
-    // bankframe reaches it both ways.
-    const int wireSlot = (bag == kKeyringContainer)
-                             ? game::slots::keyringWireSlot(slot - 1)
-                             : (bag == kBankContainer)
-                                   ? game::slots::bankGeneralWireSlot(slot - 1)
-                                   : (bag == 0)
-                                         ? game::slots::backpackWireSlot(slot - 1)
-                                         : (slot - 1);
-    // A bank bag is a container in its own right, and its number on the wire
-    // is the slot the bag sits in — 67 upward — not a worn bag's. Left to
-    // wornBagContainer(bag - 1) the first of them came out as container 23.
-    const uint8_t wireBag =
-        (bag == 0 || bag == kKeyringContainer || bag == kBankContainer)
-            ? 0xFF
-            : isBankBagContainer(bag)
-                  ? static_cast<uint8_t>(
-                        game::slots::bankBagContainer(bag - kFirstBankBagContainer))
-                  : static_cast<uint8_t>(game::slots::wornBagContainer(bag - 1));
-
     // A key, before any of the window branches below. Those read the container
     // as a worn bag — attachItemFromBag(bag - 1, ...) and sellItemInBag do —
     // and a key cannot be mailed, sold or banked in any case: the keyring is
@@ -1738,6 +1704,9 @@ static int lua_UseContainerItem(lua_State* L) {
         gh->useKeyringItem(slot - 1);
         return 0;
     }
+
+    const int wireSlot = containerWireSlot(bag, slot);
+    const uint8_t wireBag = containerWireBag(bag);
 
     if (gh->isMailComposeOpen()) {
         if (bag == 0) gh->attachItemFromBackpack(slot - 1);
