@@ -250,6 +250,16 @@ CHECKS = [
     ("discarded_request_check.py",
      r"^(\d+) that the server reads and discards", 2,
      "requests the server reads and discards"),
+    # The same table read backwards: a message the server sends that this
+    # client names and never handles. Judged by whether the server *builds* one
+    # anywhere outside its own opcode table — a name kept only for recognition
+    # is not a gap, and one in a WorldPacket constructor is a packet arriving
+    # here and being dropped. Three were live on 2026-08-06: the hover,
+    # feather-fall and water-walk broadcasts, missing from the relay list their
+    # siblings were already in. Zero, and taking one back out reports it. 4s.
+    ("discarded_request_check.py",
+     r"^(\d+) that the server actually builds", 0,
+     "server messages this client is sent and never handles"),
     # Update-field indices against the server's own UpdateFields.h. Zero, and it
     # has to stay zero: a wrong index reads whatever sits at that slot and the
     # value is simply wrong forever, with no error anywhere. Five were wrong
