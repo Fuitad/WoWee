@@ -659,6 +659,16 @@ uint32_t WidgetTree::hitTest(float x, float y) const {
         if (w.id == 0 || w.kind != WidgetKind::Frame) continue;
         if (!w.visible || !w.mouseEnabled) continue;
         if (w.rectW <= 0.0f || w.rectH <= 0.0f) continue;
+        // A rect with a NaN in it matches *everything*. Every comparison
+        // against a NaN is false, so both `x < left` and `x > right` are false
+        // and the frame below is treated as hit wherever the cursor is — and
+        // one mouse-enabled frame answering every hit test tells the rest of
+        // the client the interface owns the mouse, so the camera stops turning
+        // and never starts again. A chat window whose saved position had gone
+        // to nan did exactly that. Checked here as well as where positions are
+        // written, because this is the one place the damage is total.
+        if (!std::isfinite(w.left) || !std::isfinite(w.bottom) ||
+            !std::isfinite(w.rectW) || !std::isfinite(w.rectH)) continue;
         // The hit rect, which is the frame's rect brought in by its insets.
         // Top and bottom are named the way WoW names them: top is the upper
         // edge, and y grows upward here, so it comes off bottom + height.

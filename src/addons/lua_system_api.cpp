@@ -1982,13 +1982,26 @@ static void loadInterfaceState() {
             std::sscanf(value.c_str(), "%f,%f,%f,%f", &w.r, &w.g, &w.b, &w.alpha);
         } else if (field == "position") {
             char pt[32] = {0};
-            if (std::sscanf(value.c_str(), "%31[^,],%f,%f", pt, &w.xOffset, &w.yOffset) == 3) {
+            float px = 0.0f, py = 0.0f;
+            // Read into locals and only kept if they are numbers. A file
+            // written before this was refused on the way out still holds a
+            // nan, and taking it back would restore the frame that swallows
+            // every hit test — see lua_SetChatWindowSavedPosition.
+            if (std::sscanf(value.c_str(), "%31[^,],%f,%f", pt, &px, &py) == 3 &&
+                std::isfinite(px) && std::isfinite(py)) {
                 w.point = pt;
+                w.xOffset = px;
+                w.yOffset = py;
                 w.hasPosition = true;
             }
         } else if (field == "size") {
-            if (std::sscanf(value.c_str(), "%f,%f", &w.width, &w.height) == 2)
+            float pw = 0.0f, ph = 0.0f;
+            if (std::sscanf(value.c_str(), "%f,%f", &pw, &ph) == 2 &&
+                std::isfinite(pw) && std::isfinite(ph)) {
+                w.width = pw;
+                w.height = ph;
                 w.hasDimensions = true;
+            }
         } else if (field == "groups") {
             w.messageGroups.clear();
             for (size_t at = 0; at <= value.size();) {
@@ -2118,9 +2131,23 @@ static int lua_SetChatWindowSavedPosition(lua_State* L) {
     // Called with nil to forget the position, which is how a window that has
     // been re-docked stops being restored to where it floated.
     if (lua_isnoneornil(L, 2)) { w->hasPosition = false; saveInterfaceState(); return 0; }
+    const float x = static_cast<float>(luaL_optnumber(L, 3, 0.0));
+    const float y = static_cast<float>(luaL_optnumber(L, 4, 0.0));
+    // A position is saved as a fraction of the screen, so anything that made
+    // the screen zero for a frame makes this nan — and a nan written out is
+    // permanent, because it is read back on every login and put straight into
+    // the frame's rect. From there it is not a misplaced window: a rect with a
+    // nan in it matches every hit test, since every comparison against a nan
+    // is false, and one mouse-enabled frame answering every hit test stops the
+    // camera turning for good. Refused rather than stored.
+    if (!std::isfinite(x) || !std::isfinite(y)) {
+        LOG_WARNING("Refusing a chat window position that is not a number: ",
+                    x, ",", y);
+        return 0;
+    }
     w->point   = luaL_optstring(L, 2, "TOPLEFT");
-    w->xOffset = static_cast<float>(luaL_optnumber(L, 3, 0.0));
-    w->yOffset = static_cast<float>(luaL_optnumber(L, 4, 0.0));
+    w->xOffset = x;
+    w->yOffset = y;
     w->hasPosition = true;
     saveInterfaceState();
     return 0;
@@ -2129,8 +2156,15 @@ static int lua_SetChatWindowSavedDimensions(lua_State* L) {
     auto* w = chatWindow(L, 1);
     if (!w) return 0;
     if (lua_isnoneornil(L, 2)) { w->hasDimensions = false; saveInterfaceState(); return 0; }
-    w->width  = static_cast<float>(luaL_optnumber(L, 2, 0.0));
-    w->height = static_cast<float>(luaL_optnumber(L, 3, 0.0));
+    const float wd = static_cast<float>(luaL_optnumber(L, 2, 0.0));
+    const float ht = static_cast<float>(luaL_optnumber(L, 3, 0.0));
+    if (!std::isfinite(wd) || !std::isfinite(ht)) {
+        LOG_WARNING("Refusing chat window dimensions that are not numbers: ",
+                    wd, "x", ht);
+        return 0;
+    }
+    w->width  = wd;
+    w->height = ht;
     w->hasDimensions = true;
     saveInterfaceState();
     return 0;

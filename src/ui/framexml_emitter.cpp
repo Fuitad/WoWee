@@ -566,6 +566,10 @@ struct Emitter {
                                 std::string(), /*fireOnLoad=*/false);
             line("__WoweeTemplates[" + quote(name) + "] = function(self)");
             line("local __w = {}");
+            // Whether this frame arrived with a parent, read before any
+            // inherited template runs — a base template setting one must not
+            // make a derived template's own parent look redundant.
+            line("local __noParent = not self:GetParent()");
             // A template can itself inherit one, and this branch used to return
             // before that was ever emitted — so InterfaceOptionsListButtonTemplate
             // silently dropped the OptionsListButtonTemplate it is built on,
@@ -579,8 +583,17 @@ struct Emitter {
             // parent="UIParent" and the frames built from them are declared
             // with no parent of their own, so this is the only place they can
             // get one. After the inherited templates so the most derived wins.
+            //
+            // Only onto a frame that has none. A template's parent= is read at
+            // creation in WoW, so it settles a top-level frame declared without
+            // one and says nothing about a nested frame — whose parent is the
+            // element containing it. Applying it unconditionally tore children
+            // out of their containers and re-hung them on UIParent, which moves
+            // their strata and their level and puts whatever was full screen
+            // above the world.
             if (const std::string* par = node.attr("parent"); par && !par->empty()) {
-                line("if " + *par + " then self:SetParent(" + *par + ") end");
+                line("if " + *par + " and __noParent then self:SetParent(" +
+                     *par + ") end");
             }
             result.lua += inner.result.lua;
             for (auto& w : inner.result.warnings) result.warnings.push_back(w);
