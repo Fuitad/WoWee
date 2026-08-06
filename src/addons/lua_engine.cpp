@@ -884,6 +884,23 @@ static void callScriptOnTable(lua_State* L, int tableIdx, const char* script,
     lua_pop(L, 1);
 }
 
+/// Tells a tooltip that what it now holds is an item.
+///
+/// GameTooltip's own OnTooltipSetItem is where the comparison tooltips come
+/// from — it tests IsModifiedClick("COMPAREITEMS") and calls
+/// GameTooltip_ShowCompareItem — and nothing here fired it, so holding shift
+/// over a bag, a bank slot, a merchant row or a link did nothing at all. Every
+/// item setter goes through the builder this is called from, so it is fired
+/// once there rather than in each of the twenty-odd setters.
+///
+/// The tooltip is the first argument at every one of those call sites, which
+/// is what makes one index right for all of them.
+static void callScriptOnTable(lua_State* L, int tableIdx, const char* script,
+                              double arg);
+static void fireTooltipSetItem(lua_State* L) {
+    if (lua_istable(L, 1)) callScriptOnTable(L, 1, "OnTooltipSetItem", 0.0);
+}
+
 // Scroll frames. A window onto a taller child: the child is laid out at its
 // full size and moved by the offset, and what falls outside the frame is
 // clipped. Until now SetVerticalScroll was a no-op and every getter answered
@@ -2000,7 +2017,7 @@ static bool fillItemTooltipById(lua_State* L, game::GameHandler* gh,
         if (lua_pcall(L, 2, 1, 0) == 0) {
             const bool ok = lua_toboolean(L, -1) != 0;
             lua_settop(L, top);
-            if (ok) { w->shown = true; return true; }
+            if (ok) { w->shown = true; fireTooltipSetItem(L); return true; }
             // Nothing written, so leave the frame as the fallback finds it.
             w->tooltipLines.clear();
         } else {
@@ -2091,7 +2108,10 @@ int lua_Tooltip_SetInventoryItem(lua_State* L) {
     // floor: the slot knows the name and quality even for an entry no
     // GetItemInfo has arrived for, and answering nothing there would be worse
     // than answering briefly.
-    if (!fillItemTooltipById(L, gh, s.item.itemId)) fillItemTooltip(w, s.item, gh);
+    if (!fillItemTooltipById(L, gh, s.item.itemId)) {
+        fillItemTooltip(w, s.item, gh);
+        fireTooltipSetItem(L);
+    }
     appendTemporaryEnchantLine(w, gh, gh->getEquipSlotGuid(slot - 1));
     lua_pushboolean(L, 1);
     return 1;
@@ -2186,7 +2206,10 @@ int lua_Tooltip_SetBagItem(lua_State* L) {
     // floor: the slot knows the name and quality even for an entry no
     // GetItemInfo has arrived for, and answering nothing there would be worse
     // than answering briefly.
-    if (!fillItemTooltipById(L, gh, s.item.itemId)) fillItemTooltip(w, s.item, gh);
+    if (!fillItemTooltipById(L, gh, s.item.itemId)) {
+        fillItemTooltip(w, s.item, gh);
+        fireTooltipSetItem(L);
+    }
     lua_pushboolean(L, 1);
     return 1;
 }
