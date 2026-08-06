@@ -1882,6 +1882,10 @@ void GameHandler::clearChatHistory() {
     if (chatHandler_) chatHandler_->getChatHistory().clear();
 }
 
+bool GameHandler::ownsChatChannel(const std::string& name) const {
+    return chatHandler_ && chatHandler_->ownsChannel(name);
+}
+
 const std::vector<std::string>& GameHandler::getJoinedChannels() const {
     if (chatHandler_) return chatHandler_->getJoinedChannels();
     static const std::vector<std::string> kEmpty;

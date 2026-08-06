@@ -787,6 +787,7 @@ void ChatHandler::handleChannelNotify(network::Packet& packet) {
             break;
         }
         case ChannelNotifyType::YOU_LEFT: {
+            ownedChannels_.erase(data.channelName);
             joinedChannels_.erase(
                 std::remove(joinedChannels_.begin(), joinedChannels_.end(), data.channelName),
                 joinedChannels_.end());
@@ -838,6 +839,16 @@ void ChatHandler::handleChannelNotify(network::Packet& packet) {
             addSystemChatMessage("Password for '" + data.channelName + "' changed.");
             break;
         case ChannelNotifyType::OWNER_CHANGED:
+            // The guid beside the name is the new owner's —
+            // Channel::MakeOwnerChanged writes _ownerGUID into it. Kept so the
+            // unit menu can offer the moderator entries, which FrameXML hides
+            // behind IsDisplayChannelOwner: the verbs behind them were built
+            // and could not be reached.
+            if (data.senderGuid != 0 && data.senderGuid == owner_.getPlayerGuid()) {
+                ownedChannels_.insert(data.channelName);
+            } else {
+                ownedChannels_.erase(data.channelName);
+            }
             addSystemChatMessage("Owner of '" + data.channelName + "' changed.");
             break;
         case ChannelNotifyType::NOT_OWNER:

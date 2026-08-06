@@ -1757,7 +1757,9 @@ void registerSocialLuaAPI(lua_State* L) {
             return static_cast<int>(joined.size() * 3);
         }},
                 // Channel moderation is not modelled, so the player owns none.
-                {"IsDisplayChannelOwner", luaReturnFalse},
+                // IsDisplayChannelOwner lives in lua_system_api.cpp, beside
+                // the selected-channel state it has to read. Two registrations
+                // of one name would be settled by load order.
                 // ChangeChatColor(type, r, g, b) — recolour one kind of chat
                 // message.
                 //

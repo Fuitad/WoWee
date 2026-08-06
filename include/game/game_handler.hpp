@@ -313,6 +313,8 @@ public:
     /// Announce a rune's type and readiness to the interface.
     void fireRuneUpdate(uint32_t index);
     const std::vector<std::string>& getJoinedChannels() const;
+    /// Whether the player owns this chat channel. See ChatHandler.
+    bool ownsChatChannel(const std::string& name) const;
     /// The members of a chat channel, as of the last list requested for it.
     const std::vector<ChannelMember>& getChannelRoster(const std::string& channel) const;
     std::string getChannelByIndex(int index) const;

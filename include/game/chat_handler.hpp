@@ -10,6 +10,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 #include <vector>
 
 namespace wowee {
@@ -38,6 +39,13 @@ public:
     std::string getChannelByIndex(int index) const;
     int getChannelIndex(const std::string& channelName) const;
     const std::vector<std::string>& getJoinedChannels() const { return joinedChannels_; }
+    /// Whether the player owns this channel — the one who created it, or who
+    /// it passed to. SMSG_CHANNEL_NOTIFY says so with OWNER_CHANGED, which
+    /// carries the new owner's guid: AzerothCore's Channel::MakeOwnerChanged
+    /// writes _ownerGUID into it.
+    bool ownsChannel(const std::string& name) const {
+        return ownedChannels_.count(name) != 0;
+    }
 
     /// The roster of a channel by name, empty until a list is asked for. The
     /// list used to be printed to chat and dropped, so the channel panel had
@@ -96,6 +104,7 @@ private:
     size_t maxChatHistory_ = 100;
     uint64_t chatUidCounter_ = 0;  // monotonic uid for MessageChatData::uid
     std::vector<std::string> joinedChannels_;
+    std::set<std::string> ownedChannels_;
     std::unordered_map<std::string, std::vector<ChannelMember>> channelRosters_;
     bool chatLogEnabled_ = false;
     bool chatLogInitialized_ = false;

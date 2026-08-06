@@ -4849,6 +4849,25 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, selectedDisplayChannel());
             return 1;
         }},
+                // Whether the player owns the channel that panel has selected.
+                // It answered a flat false, and that is the whole of whether
+                // Make Moderator and Remove Moderator appear on the unit menu —
+                // so ChannelModerator and ChannelUnmoderator were built and
+                // could not be reached from the place that names them.
+                //
+                // Ownership comes from SMSG_CHANNEL_NOTIFY's OWNER_CHANGED,
+                // whose guid is the new owner's: Channel::MakeOwnerChanged
+                // writes _ownerGUID into it. The index is the panel's own
+                // one-based one, the same GetChannelDisplayInfo reads.
+                {"IsDisplayChannelOwner", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int sel = selectedDisplayChannel();
+            if (!gh || sel < 1) { lua_pushboolean(L, 0); return 1; }
+            const auto& joined = gh->getJoinedChannels();
+            if (sel > static_cast<int>(joined.size())) { lua_pushboolean(L, 0); return 1; }
+            lua_pushboolean(L, gh->ownsChatChannel(joined[static_cast<size_t>(sel) - 1]) ? 1 : 0);
+            return 1;
+        }},
                 {"SetSelectedDisplayChannel", [](lua_State* L) -> int {
             selectedDisplayChannel() = static_cast<int>(luaL_optnumber(L, 1, 0));
             return 0;
