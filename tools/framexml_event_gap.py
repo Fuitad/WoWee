@@ -176,7 +176,51 @@ def handled_opcodes():
             skipped |= set(re.findall(
                 r"table\[Opcode::(SMSG_[A-Z0-9_]+)\]\s*=\s*\[\]\([^)]*\)\s*\{"
                 r"\s*packet\.skipAll\(\);\s*\};", src))
+            # The third spelling, and the one this client actually uses for its
+            # long lists: a loop whose body calls registerSkipHandler on each.
+            # Missing it filed sixty-odd deliberately-dropped opcodes as
+            # handled, which is what put the voice and calendar events on the
+            # "read these first" list — features with no parser at all.
+            for block in re.finditer(
+                    r"for\s*\(\s*auto\s+(\w+)\s*:\s*\{([^}]*)\}\s*\)\s*\{?"
+                    r"\s*registerSkipHandler\(\s*\1\s*\)", src):
+                skipped |= set(re.findall(r"Opcode::(SMSG_[A-Z0-9_]+)", block.group(2)))
     return names - skipped, skipped
+
+
+#: Words that say what happened rather than what it happened to. An event and
+#: the message behind it name the same subject and almost never agree on these,
+#: so they are dropped before the two names are compared.
+FILLER = {"READY", "UPDATE", "UPDATED", "RESULT", "CHANGED", "CHANGE",
+          "INFO", "DATA", "RESPOND", "RESPONSE", "MSG", "NOTIFY", "RECEIVED"}
+
+
+def shares_tokens(event, body):
+    """Whether an event and an opcode body name the same thing.
+
+    Squashing underscores and asking for containment only pairs names where one
+    reads as a run inside the other, and that missed the case this arm exists
+    for: INSPECT_ACHIEVEMENT_READY is backed by SMSG_RESPOND_INSPECT_ACHIEVEMENTS,
+    whose extra leading word breaks the run. The report said zero for months
+    with that pair — and INSPECT_TALENT_READY, ARENA_TEAM_UPDATE and two more —
+    sitting inside it, handled and never announced.
+
+    So: compare word sets instead. Every word of the event that says what it is
+    about has to appear in the message, plurals folded, and at least two of them
+    must — one word in common is how CORPSE finds CALENDAR.
+    """
+    def words(name):
+        return [w.rstrip("S") for w in name.split("_") if w]
+
+    subject = {w for w in words(event) if w not in {f.rstrip("S") for f in FILLER}}
+    if len(subject) < 2:
+        return False
+    carried = set(words(body))
+    if not subject <= carried:
+        return False
+    # A message that negates a word of the event is about the opposite case:
+    # SMSG_CORPSE_NOT_IN_INSTANCE does not back CORPSE_IN_INSTANCE.
+    return "NOT" not in carried
 
 
 def main():
@@ -193,7 +237,8 @@ def main():
     for event in gap:
         for opcode in opcodes:
             body = opcode[len("SMSG_"):]
-            if squash(body) == squash(event) or squash(event) in squash(body):
+            if squash(body) == squash(event) or squash(event) in squash(body) \
+                    or shares_tokens(event, body):
                 backed.append((event, opcode))
                 break
 
@@ -216,7 +261,8 @@ def main():
     for event in gap:
         for opcode in skipped:
             body = opcode[len("SMSG_"):]
-            if squash(body) == squash(event) or squash(event) in squash(body):
+            if squash(body) == squash(event) or squash(event) in squash(body) \
+                    or shares_tokens(event, body):
                 onlySkipped.append((event, opcode))
                 break
     if onlySkipped:

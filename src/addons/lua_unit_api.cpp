@@ -1726,16 +1726,6 @@ static int lua_CancelBarberShop(lua_State* L) {
     return 0;
 }
 
-/// Things this client does not model, answered false rather than left to the
-/// fallback — which would answer with an object, and an object is true.
-/// InRepairMode deciding yes would put a repair cursor on every item in the
-/// bags; HasWandEquipped deciding yes would show a wand's damage on the sheet
-/// for a character holding none.
-static int lua_ReturnFalse(lua_State* L) {
-    lua_pushboolean(L, 0);
-    return 1;
-}
-
 /// GetMaxCombatRatingBonus(rating) → the cap on what a rating can give. Zero
 /// would read as "capped at nothing", so this answers with a hundred percent,
 /// which is no cap in any practical sense.

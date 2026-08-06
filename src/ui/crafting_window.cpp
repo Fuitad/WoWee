@@ -78,7 +78,6 @@ void WindowManager::renderCraftingWindow(game::GameHandler& gameHandler,
 
     gameHandler.loadSpellNameCache();
     auto* assetMgr = services_.assetManager;
-    const auto& inventory = gameHandler.getInventory();
 
     // ---- Collect known recipes of this skill line ----
     std::vector<RecipeRow> recipes;

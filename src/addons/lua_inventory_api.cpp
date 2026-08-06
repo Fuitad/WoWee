@@ -16,17 +16,6 @@
 
 namespace wowee::addons {
 
-/// Money held on the cursor. There is no money cursor here, so this is a real
-/// zero rather than an absent answer — but it has to be a number rather than
-/// not exist. MoneyFrame's very first update reads
-/// GetMoney() - GetCursorMoney() - GetPlayerTradeMoney(), and a missing name
-/// comes back from the API fallback as a function whose call yields nothing,
-/// so the subtraction hits nil and takes the whole file down.
-static int lua_GetZeroMoney(lua_State* L) {
-    lua_pushnumber(L, 0.0);
-    return 1;
-}
-
 /// What each side has staked in the open trade.
 ///
 /// These answered zero alongside the cursor, on the reasoning that there is no
@@ -246,12 +235,9 @@ static int lua_SetPortraitToTexture(lua_State* L) {
     return 0;
 }
 
-/// Things the bags ask for that this client has no notion of. Answered
-/// rather than left to the fallback, which would answer with an object —
-/// and an object is true, so SpellCanTargetItem deciding yes would arm an
-/// item cursor for every spell cast with the bags open.
+/// Bag calls that do nothing here, answered rather than left to the fallback:
+/// that answers with an object, and an object called as a function raises.
 static int lua_ContainerNoOp(lua_State* L) { (void)L; return 0; }
-static int lua_ContainerFalse(lua_State* L) { lua_pushboolean(L, 0); return 1; }
 
 /// SpellCanTargetItem() — whether something is waiting to be applied to an item.
 ///

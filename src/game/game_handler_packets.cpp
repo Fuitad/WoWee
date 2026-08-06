@@ -3003,6 +3003,11 @@ void GameHandler::registerOpcodeHandlers() {
                           evTitle.c_str(), statusStr);
             addSystemChatMessage(buf);
         }
+        // The chat line is the whole of it, deliberately. framexml_event_gap
+        // pairs this message with CALENDAR_UPDATE_EVENT on the words they
+        // share, but an RSVP changing is CALENDAR_UPDATE_INVITE_LIST in
+        // retail — and both are read by a calendar that would re-read nothing,
+        // since no event list is kept here for either to draw from.
         packet.skipAll();
     };
     // uint64 inviteId + uint64 eventId + uint32 mapId + uint32 difficulty + uint64 resetTime

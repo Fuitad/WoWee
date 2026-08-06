@@ -121,11 +121,25 @@ for path in sorted(loaded_files(XML)):
         if prev is None or need > prev[0]:
             wanted[name] = entry
 
+#: Events whose handler reads an argument that is *meant* to be absent, so
+#: firing fewer is the answer rather than the fault. Listed with the reason,
+#: because each is a judgement about that event rather than a shape.
+EXPECTED = {
+    # pvpframe reads arg1 as "the roster you are holding is stale, ask for it
+    # again", and redraws from what arrived only when arg1 is missing. This is
+    # fired when a roster arrives, so passing anything would answer a roster by
+    # requesting another one without end — and a zero would do it as surely as
+    # a one, zero being true in Lua.
+    "ARENA_TEAM_ROSTER_UPDATE",
+}
+
 rows = []
 for name, (need, where, names) in sorted(wanted.items()):
     have = fired.get(name)
     if have is None:
         continue              # not fired at all — the other sweep's column
+    if name in EXPECTED:
+        continue
     if need > have:
         rows.append((need - have, name, have, need, where, names))
 

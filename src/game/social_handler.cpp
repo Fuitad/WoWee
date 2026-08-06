@@ -1239,6 +1239,12 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
         char guidBuf[32];
         snprintf(guidBuf, sizeof(guidBuf), "0x%016llX", (unsigned long long)guid);
         owner_.addonEventCallbackRef()("INSPECT_READY", {guidBuf});
+        // The same packet carries the talents, and the talent tab of the
+        // inspect window redraws on this event alone. Only INSPECT_READY was
+        // fired, which is what the gear tab listens for — so inspecting anyone
+        // filled the paperdoll and left the talent tab blank, however
+        // completely the ranks above had been parsed.
+        owner_.addonEventCallbackRef()("INSPECT_TALENT_READY", {});
         const std::string inspectUnit = owner_.guidToUnitId(guid);
         if (!inspectUnit.empty()) {
             owner_.addonEventCallbackRef()("UNIT_INVENTORY_CHANGED", {inspectUnit});
@@ -3516,6 +3522,15 @@ void SocialHandler::lfgLeave() {
 
 void SocialHandler::lfgSetRoles(uint8_t roles) {
     lfgOfferedRoles_ = roles;
+    // Three frames draw the same three role checkboxes — the dungeon queue, the
+    // raid browser queue and the role-check popup — and every one of them ticks
+    // from GetLFGRoles when this event arrives. Setting the roles without
+    // firing it left whichever frame was clicked correct and the other two
+    // showing what they were last drawn with, which is the shape that reads as
+    // "it only takes after a relog".
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("LFG_ROLE_UPDATE", {});
+    }
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     const uint32_t wire = wireOpcode(Opcode::CMSG_LFG_SET_ROLES);
     if (wire == 0xFFFF) return;
@@ -3568,9 +3583,18 @@ void SocialHandler::handleArenaTeamQueryResponse(network::Packet& packet) {
     std::string teamName = packet.readString();
     uint32_t teamType = 0;
     if (packet.hasRemaining(4)) teamType = packet.readUInt32();
-    for (auto& s : arenaTeamStats_) { if (s.teamId == teamId) { s.teamName = teamName; s.teamType = teamType; return; } }
-    ArenaTeamStats stub; stub.teamId = teamId; stub.teamName = teamName; stub.teamType = teamType;
-    arenaTeamStats_.push_back(std::move(stub));
+    bool known = false;
+    for (auto& s : arenaTeamStats_) { if (s.teamId == teamId) { s.teamName = teamName; s.teamType = teamType; known = true; break; } }
+    if (!known) {
+        ArenaTeamStats stub; stub.teamId = teamId; stub.teamName = teamName; stub.teamType = teamType;
+        arenaTeamStats_.push_back(std::move(stub));
+    }
+    // A team's name arriving is what the PvP panel redraws on. Without this the
+    // arena tabs kept whatever they were built with, so a team queried after
+    // the panel opened stayed nameless until it was closed and opened again.
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("ARENA_TEAM_UPDATE", {});
+    }
 }
 
 void SocialHandler::handleArenaTeamRoster(network::Packet& packet) {
@@ -3612,8 +3636,23 @@ void SocialHandler::handleArenaTeamRoster(network::Packet& packet) {
         }
         roster.members.push_back(std::move(m));
     }
-    for (auto& r : arenaTeamRosters_) { if (r.teamId == teamId) { r = std::move(roster); return; } }
-    arenaTeamRosters_.push_back(std::move(roster));
+    bool replaced = false;
+    for (auto& r : arenaTeamRosters_) { if (r.teamId == teamId) { r = std::move(roster); replaced = true; break; } }
+    if (!replaced) arenaTeamRosters_.push_back(std::move(roster));
+
+    // The roster is stored and the arena panel is told, which it was not: the
+    // team detail window redraws on this event and on nothing else, so a
+    // roster that arrived after the window opened was held here and never
+    // shown.
+    //
+    // Fired with no arguments, and that is the whole contract. pvpframe reads
+    // arg1 as "the roster you hold is stale, ask for it again" and only
+    // redraws from what arrived when arg1 is absent — so any argument at all
+    // would answer this roster by requesting another one, forever. A zero
+    // would do it too, zero being true in Lua.
+    if (owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("ARENA_TEAM_ROSTER_UPDATE", {});
+    }
 }
 
 void SocialHandler::handleArenaTeamInvite(network::Packet& packet) {
