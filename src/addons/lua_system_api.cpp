@@ -518,18 +518,23 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // with noNormalText set, so with tips off it does nothing at all and
     // hovering the experience bar says nothing.
     else if (n == "shownewbietips") lua_pushstring(L, "1");
-    // On where the client has equipment sets, which is Wrath. This is the whole
-    // of whether the feature is reachable: GearManagerDialog_OnEvent shows
-    // GearManagerToggleButton only `if ( GetCVarBool("equipmentManager") )`, and
-    // that button is the only way onto the character sheet's gear manager. So
-    // an unanswered CVar hid a feature this client implements in full — the
-    // sets are saved, named, swapped and deleted, and none of it could be
-    // reached. Off before Wrath, where the server has no equipment sets to
-    // keep and the panel would save into nothing.
-    else if (n == "equipmentmanager") {
-        auto* gh = getGameHandler(L);
-        lua_pushstring(L, (gh && gh->supportsEquipmentSets()) ? "1" : "0");
-    }
+    // Off, which is what the real client ships and is a decision here rather
+    // than an accident. GearManagerDialog_OnEvent shows GearManagerToggleButton
+    // only `if ( GetCVarBool("equipmentManager") )`, and that button is the only
+    // way onto the character sheet's gear manager — so this looks at first like
+    // an unanswered CVar hiding a feature this client implements in full.
+    //
+    // It is not hidden, it is opt-in, exactly as in 3.3.5: Interface >
+    // Features > Use Equipment Manager is a real panel here, its checkbox
+    // writes this CVar, the store answers ahead of these defaults, and the
+    // button appears on the next VARIABLES_LOADED. Turning it on by default
+    // would be this client deciding something the real one leaves to the
+    // player.
+    //
+    // Answered rather than left silent so the reasoning is on record: reading
+    // as off by accident and reading as off on purpose look identical from
+    // Lua and are not the same thing to whoever reads this next.
+    else if (n == "equipmentmanager") lua_pushstring(L, "0");
     // The numbers on a unit frame's bars. A stock 3.3.5 client keeps these off
     // and shows them on mouseover; on this one they are wanted permanently,
     // which is what the Status Text interface option turns on.
