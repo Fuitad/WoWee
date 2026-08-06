@@ -925,8 +925,14 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     }
 
     // Skip minimap input when an ImGui window (bag, settings, etc.) is in front.
+    //
+    // ...and entirely when FrameXML draws the minimap, because then the frame
+    // is a widget with its own handlers: Minimap_OnClick pings through
+    // PingLocation and the cluster's zoom buttons and OnMouseWheel change the
+    // zoom. Running both would ping twice and zoom two steps per notch.
     ImGuiContext& g = *ImGui::GetCurrentContext();
-    bool minimapInputBlocked = (g.HoveredWindow != nullptr);
+    const bool minimapInputBlocked =
+        (g.HoveredWindow != nullptr) || frameXmlOwns(UiElement::Minimap);
 
     // Scroll wheel over minimap → zoom in/out
     if (!minimapInputBlocked) {
@@ -1344,6 +1350,15 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     }
 
     // Indicators below the minimap (stacked: new mail, then BG queue, then latency)
+    //
+    // FrameXML has its own for the first two — MiniMapMailFrame and
+    // MiniMapBattlefieldFrame sit on the cluster — so these are its when it
+    // draws the minimap. The blips above are not: WoW's own minimap blips come
+    // from the C client and minimap.xml declares no frame for a single one of
+    // them, which is why the marker pass runs either way and only this part
+    // stands down.
+    if (frameXmlOwns(UiElement::Minimap)) return;
+
     float indicatorX = centerX - mapRadius;
     float nextIndicatorY = centerY + mapRadius + 4.0f;
     const float indicatorW = mapRadius * 2.0f;

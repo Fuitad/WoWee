@@ -649,7 +649,20 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     if (!frameXmlOwns(UiElement::BattlegroundScore)) {
         combatUI_.renderBgScoreboard(gameHandler);
     }
-    if (showMinimap_ && !frameXmlOwns(UiElement::Minimap)) {
+    // The blips, whoever draws the ring around them.
+    //
+    // This was gated on the element the way every other pass is, and the
+    // minimap is the one place that is wrong: WoW's minimap blips come from
+    // the C client, not from the interface. minimap.xml declares the border,
+    // the buttons, the mail and battlefield icons and the north tag, and not
+    // one frame for a party member, a flight master or a corpse — so handing
+    // the minimap over and standing this down left the ring drawn, the map
+    // inside it drawn, and nothing on it at all.
+    //
+    // The pass stands down where FrameXML genuinely does own the work: its
+    // input, and the mail and battlefield indicators. Both gates are inside
+    // it now.
+    if (showMinimap_) {
         renderMinimapMarkers(gameHandler);
     }
     windowManager_.renderLogoutCountdown(gameHandler);
