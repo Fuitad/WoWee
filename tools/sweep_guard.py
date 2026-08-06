@@ -284,6 +284,15 @@ CHECKS = [
     # them. Zero with the bridge in addon_manager, seventy-one without — so
     # the number answers the real question rather than standing in for it, and
     # deleting the bridge is what makes it fail. Verified that way.
+    # Verbs this client's own windows can reach and FrameXML cannot. The
+    # question that found the slash-command registry, so it is worth running
+    # rather than remembering — 2.7s. Sixty-six, all triaged in the tool:
+    # callback wiring, the glue screen, the 3D world, five with a bound
+    # FrameXML equivalent, and window state FrameXML replaces whole. The
+    # sixty-seventh is the one to look at.
+    ("framexml_unreachable_verbs.py",
+     r"^(\d+) verbs this client's own windows can reach", 66,
+     "verbs only this client's own windows could reach"),
     ("client_command_bridge_check.py",
      r"^(\d+) client command\(s\) FrameXML's chat cannot reach", 0,
      "client slash commands FrameXML's chat cannot reach"),
