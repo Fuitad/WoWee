@@ -2531,14 +2531,71 @@ void registerUnitLuaAPI(lua_State* L) {
                 // status, map, instance, level range, team size, registered.
                 // Stopping at three left teamSize nil and the panel formatted
                 // a number from nothing.
+                // GetBattlefieldStatus(queue) → status, map, instance, the level
+                // range, the arena team size and whether it is a rated match.
+                //
+                // "none" for every queue, while SMSG_BATTLEFIELD_STATUS has been
+                // parsed into three slots carrying exactly this. So the PVP
+                // frame showed nothing queued however long the player had been
+                // waiting, and battlefieldframe.lua's own test —
+                // `queueStatus ~= "none"` — never passed.
+                //
+                // The status tokens are the four the interface compares against
+                // and the ids are AzerothCore's BattlegroundStatus: 1 waiting in
+                // the queue, 2 invited and waiting to accept, 3 in progress, 4
+                // ending. Four reads as active because the battleground is
+                // still the one the player is standing in.
                 {"GetBattlefieldStatus", [](lua_State* L) -> int {
-            lua_pushstring(L, "none");   // status
-            lua_pushstring(L, "");       // map name
-            lua_pushnumber(L, 0);        // instance id
-            lua_pushnumber(L, 0);        // level range min
-            lua_pushnumber(L, 0);        // level range max
-            lua_pushnumber(L, 0);        // team size
-            lua_pushnumber(L, 0);        // registered match
+            auto* gh = getGameHandler(L);
+            const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const char* status = "none";
+            std::string mapName;
+            uint32_t minLevel = 0, maxLevel = 0;
+            uint8_t teamSize = 0;
+            if (gh && idx >= 1 && idx <= 3) {
+                const auto& q = gh->getBgQueues()[static_cast<size_t>(idx) - 1];
+                switch (q.statusId) {
+                    case 1: status = "queued";  break;
+                    case 2: status = "confirm"; break;
+                    case 3: case 4: status = "active"; break;
+                    default: break;
+                }
+                if (q.statusId != 0) {
+                    mapName = q.bgName;
+                    teamSize = q.arenaType;
+                    // The level range belongs to the battleground rather than to
+                    // the queue, and the available list is where it arrives.
+                    for (const auto& bg : gh->getAvailableBgs()) {
+                        if (bg.bgTypeId != q.bgTypeId) continue;
+                        minLevel = bg.minLevel;
+                        maxLevel = bg.maxLevel;
+                        break;
+                    }
+                }
+            }
+            // An empty queue answers a nil map name, which is what the real
+            // client does and what battlefieldframe.lua's `if ( mapName )` is
+            // written for. Its own path rather than a conditional push, so the
+            // seven values read in order on both — the return-order sweep reads
+            // the sequence of pushes, and a branch in the middle of one is a
+            // sequence it cannot follow.
+            if (mapName.empty()) {
+                lua_pushstring(L, status);
+                lua_pushnil(L);
+                lua_pushnumber(L, 0);
+                lua_pushnumber(L, 0);
+                lua_pushnumber(L, 0);
+                lua_pushnumber(L, 0);
+                lua_pushnumber(L, 0);
+                return 7;
+            }
+            lua_pushstring(L, status);
+            lua_pushstring(L, mapName.c_str());
+            lua_pushnumber(L, 0);        // instance id: not on this wire
+            lua_pushnumber(L, minLevel);
+            lua_pushnumber(L, maxLevel);
+            lua_pushnumber(L, teamSize);
+            lua_pushnumber(L, 0);        // rated match: arenas only, untracked
             return 7;
         }},
                 // The money a quest asks for, which the tracker compares
