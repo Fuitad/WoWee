@@ -2567,13 +2567,14 @@ void GameHandler::registerOpcodeHandlers() {
         if (!packet.hasRemaining(1)) return;
         uint64_t inspectedGuid = packet.readPackedGuid();
         if (inspectedGuid == 0) { packet.skipAll(); return; }
-        std::unordered_set<uint32_t> achievements;
+        std::unordered_map<uint32_t, uint32_t> achievements;
         while (packet.hasRemaining(4)) {
             uint32_t id = packet.readUInt32();
             if (id == 0xFFFFFFFF) break;
             if (!packet.hasRemaining(4)) break;
-            /*date*/ packet.readUInt32();
-            achievements.insert(id);
+            // Kept rather than skipped: the comparison tab prints the date each
+            // row was earned beside it.
+            achievements[id] = packet.readUInt32();
         }
         while (packet.hasRemaining(4)) {
             uint32_t id = packet.readUInt32();
@@ -2584,6 +2585,9 @@ void GameHandler::registerOpcodeHandlers() {
         inspectedPlayerAchievements_[inspectedGuid] = std::move(achievements);
         LOG_INFO("SMSG_RESPOND_INSPECT_ACHIEVEMENTS: guid=0x", std::hex, inspectedGuid, std::dec,
                  " achievements=", inspectedPlayerAchievements_[inspectedGuid].size());
+        // The comparison tab reads its totals on this and nothing else, so
+        // without it the panel sat on whatever it had when it opened.
+        fireAddonEvent("INSPECT_ACHIEVEMENT_READY", {});
     };
     dispatchTable_[Opcode::SMSG_ON_CANCEL_EXPECTED_RIDE_VEHICLE_AURA] = [this](network::Packet& packet) {
         const bool wasRiding = vehicleId_ != 0;

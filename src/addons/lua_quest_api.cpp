@@ -3378,13 +3378,70 @@ void registerQuestLuaAPI(lua_State* L) {
                 static_cast<uint64_t>(pit->second)).c_str());
             return 1;
         }},
-                // Comparing achievements against an inspected player needs the
-                // server to send theirs, which is never asked for here.
-                {"SetAchievementComparisonUnit",   [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ClearAchievementComparisonUnit", [](lua_State* L) -> int { (void)L; return 0; }},
-                {"GetAchievementComparisonInfo",   [](lua_State* L) -> int { return luaReturnNil(L); }},
+                // The comparison tab, which used to say the server is never
+                // asked for another player's achievements. It is: inspecting a
+                // player on Wrath sends CMSG_QUERY_INSPECT_ACHIEVEMENTS beside
+                // the inspect itself, and the reply has been parsed into a set
+                // per guid the whole time. What was missing was naming whose
+                // set to read.
+                {"SetAchievementComparisonUnit", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* uid = luaL_optstring(L, 1, "");
+            if (!gh || !uid || !*uid) return 0;
+            std::string unit(uid);
+            toLowerInPlace(unit);
+            gh->setAchievementComparisonGuid(resolveUnitGuid(gh, unit));
+            return 0;
+        }},
+                {"ClearAchievementComparisonUnit", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->setAchievementComparisonGuid(0);
+            return 0;
+        }},
+                // GetAchievementComparisonInfo(id) → completed, month, day, year.
+                //
+                // Nil when nobody is being compared, which is what the tab reads
+                // as "no data yet" — distinct from a false that would claim the
+                // other player has not earned it.
+                {"GetAchievementComparisonInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (!gh || id == 0) return luaReturnNil(L);
+            const auto* set = gh->getInspectedPlayerAchievements(
+                gh->getAchievementComparisonGuid());
+            if (!set) return luaReturnNil(L);
+            const auto it = set->find(id);
+            if (it == set->end()) {
+                lua_pushboolean(L, 0);
+                lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 0);
+                return 4;
+            }
+            const game::WowDate on = game::unpackWowPackedTime(it->second);
+            lua_pushboolean(L, 1);
+            lua_pushnumber(L, on.month);
+            lua_pushnumber(L, on.day);
+            lua_pushnumber(L, on.yearSince2000);
+            return 4;
+        }},
+                // Their statistics, which the reply does carry counters for and
+                // this client walks past to reach the end of the packet. Left
+                // as the dash until those are kept: a zero would read as a
+                // player who has never done the thing.
                 {"GetComparisonStatistic",         [](lua_State* L) -> int { lua_pushstring(L, "--"); return 1; }},
-                {"GetComparisonAchievementPoints", [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
+                {"GetComparisonAchievementPoints", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) { lua_pushnumber(L, 0); return 1; }
+            const auto* set = gh->getInspectedPlayerAchievements(
+                gh->getAchievementComparisonGuid());
+            if (!set) { lua_pushnumber(L, 0); return 1; }
+            gh->ensureAchievementCategoriesLoaded();
+            uint32_t total = 0;
+            for (const auto& [id, when] : *set) {
+                (void)when;
+                total += gh->getAchievementPoints(id);
+            }
+            lua_pushnumber(L, total);
+            return 1;
+        }},
                 {"GetTotalAchievementPoints", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             lua_pushnumber(L, gh ? gh->getTotalAchievementPoints() : 0);

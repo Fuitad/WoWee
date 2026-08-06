@@ -2572,12 +2572,21 @@ public:
         auto it = achievementIconCache_.find(id);
         return (it != achievementIconCache_.end()) ? it->second : 0u;
     }
-    /// Returns the set of achievement IDs earned by an inspected player (via SMSG_RESPOND_INSPECT_ACHIEVEMENTS).
-    /// Returns nullptr if no inspect data is available for the given GUID.
-    const std::unordered_set<uint32_t>* getInspectedPlayerAchievements(uint64_t guid) const {
+    /// What an inspected player has earned, from SMSG_RESPOND_INSPECT_ACHIEVEMENTS:
+    /// achievement id to the packed date it was earned. Null when nothing has
+    /// come back for that guid.
+    ///
+    /// The date is kept because the comparison tab prints it beside each row —
+    /// it was being read off the wire to stay in step and then dropped, which
+    /// is the same thing as not reading it.
+    const std::unordered_map<uint32_t, uint32_t>* getInspectedPlayerAchievements(uint64_t guid) const {
         auto it = inspectedPlayerAchievements_.find(guid);
         return (it != inspectedPlayerAchievements_.end()) ? &it->second : nullptr;
     }
+
+    /// Who the achievement comparison tab is looking at, or zero.
+    uint64_t getAchievementComparisonGuid() const { return achievementComparisonGuid_; }
+    void setAchievementComparisonGuid(uint64_t guid) { achievementComparisonGuid_ = guid; }
 
     // Server-triggered music callback — fires when SMSG_PLAY_MUSIC is received.
     // The soundId corresponds to a SoundEntries.dbc record. The receiver is
@@ -4480,7 +4489,8 @@ private:
 
     // Per-player achievement data from SMSG_RESPOND_INSPECT_ACHIEVEMENTS
     // Key: inspected player's GUID; value: set of earned achievement IDs
-    std::unordered_map<uint64_t, std::unordered_set<uint32_t>> inspectedPlayerAchievements_;
+    std::unordered_map<uint64_t, std::unordered_map<uint32_t, uint32_t>> inspectedPlayerAchievements_;
+    uint64_t achievementComparisonGuid_ = 0;
 
     // Area name cache (lazy-loaded from WorldMapArea.dbc; maps AreaTable ID → display name)
     mutable std::unordered_map<uint32_t, std::string> areaNameCache_;
