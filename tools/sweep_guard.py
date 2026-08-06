@@ -301,6 +301,19 @@ CHECKS = [
     ("parsed_never_read_check.py",
      r"^(\d+) parsed and never read", 4,
      "packet fields stored by the parser and read by nobody"),
+    # The mirror of the row above: a field every reader agrees on and no writer
+    # ever fills, so they all agree on the declaration's initialiser. Zero,
+    # because the one that was found — a charter's signature requirement,
+    # permanently nine — is fixed and nothing should replace it.
+    #
+    # Three exceptions are named in the tool rather than counted here, all of
+    # them written somewhere a member assignment does not appear: a reference
+    # out-parameter, and a whole-struct assignment. The tool carries a canary,
+    # because two of its three write-forms were added only after an empty
+    # report turned out to be an empty *sweep*.
+    ("read_never_written_check.py",
+     r"^(\d+) read and never written", 0,
+     "struct fields with readers and no writer"),
     # Top-level FrameXML frames named nowhere in framexml_takeover.cpp —
     # neither handed over nor suppressed.
     #
