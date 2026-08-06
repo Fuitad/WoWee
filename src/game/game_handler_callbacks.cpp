@@ -3272,8 +3272,12 @@ void GameHandler::cancelItemTargeting() {
     if (inventoryHandler_) inventoryHandler_->cancelItemTargeting();
 }
 
-void GameHandler::completeItemUseOnItem(uint64_t targetItemGuid) {
-    if (inventoryHandler_) inventoryHandler_->completeItemUseOnItem(targetItemGuid);
+void GameHandler::completeItemUseOnItem(uint64_t targetItemGuid, bool confirmed) {
+    if (inventoryHandler_) inventoryHandler_->completeItemUseOnItem(targetItemGuid, confirmed);
+}
+
+void GameHandler::replaceEnchant() {
+    if (inventoryHandler_) inventoryHandler_->replaceEnchant();
 }
 
 void GameHandler::openItemBySlot(int backpackIndex) {

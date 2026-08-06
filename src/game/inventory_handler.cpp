@@ -1615,15 +1615,50 @@ void InventoryHandler::beginSpellItemTargeting(uint32_t spellId, const std::stri
     owner_.addSystemChatMessage("Choose an item to use " + spellName + " on.");
 }
 
-void InventoryHandler::completeItemUseOnItem(uint64_t targetItemGuid) {
+void InventoryHandler::replaceEnchant() {
+    const PendingEnchant pending = pendingEnchant_;
+    pendingEnchant_ = PendingEnchant{};
+    if (!pending.active) return;
+    // Put the request back only to answer it, so a refusal leaves nothing
+    // waiting for a target.
+    pendingItemTarget_ = pending.request;
+    completeItemUseOnItem(pending.targetItemGuid, true);
+}
+
+void InventoryHandler::completeItemUseOnItem(uint64_t targetItemGuid, bool confirmed) {
     if (!isAwaitingItemTarget()) return;
     const PendingItemTarget pending = *pendingItemTarget_;
-    pendingItemTarget_.reset();
 
     if (targetItemGuid == 0 || !owner_.getSocket()) {
+        pendingItemTarget_.reset();
         owner_.raiseUiError("That is not a valid target.");
         return;
     }
+
+    // Something permanent is already on it, and applying this destroys it.
+    //
+    // Only the permanent slot. A weapon carrying a sharpening stone is not
+    // warned about, because the temporary slot is minutes of a stone rather
+    // than an enchanter, and naming a permanent enchant that is not being
+    // replaced would be a warning about the wrong thing.
+    if (!confirmed) {
+        const auto enchants = owner_.getItemEnchantIds(targetItemGuid);
+        if (enchants.first != 0) {
+            // Taken out of the parked slot entirely: see PendingEnchant.
+            pendingItemTarget_.reset();
+            pendingEnchant_ = PendingEnchant{true, targetItemGuid, pending};
+            const std::string existing = owner_.getEnchantName(enchants.first);
+            if (owner_.addonEventCallbackRef()) {
+                owner_.addonEventCallbackRef()(
+                    "REPLACE_ENCHANT",
+                    {existing.empty() ? std::string("an enchantment") : existing,
+                     pending.itemName});
+            }
+            return;
+        }
+    }
+
+    pendingItemTarget_.reset();
 
     if (pending.fromSpell) {
         auto packet = owner_.getPacketParsers()

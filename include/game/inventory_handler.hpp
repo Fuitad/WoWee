@@ -201,6 +201,9 @@ public:
     /// so the held request is the only record of what was being used.
     void confirmBindOnUse();
 
+    /// Apply the enchant that was held back by the replace prompt.
+    void replaceEnchant();
+
     void equipPendingItem();
     void cancelPendingEquip();
     void useItemBySlot(int backpackIndex, bool confirmed = false);
@@ -217,7 +220,7 @@ public:
     /// sent once the player picks one.
     void beginSpellItemTargeting(uint32_t spellId, const std::string& spellName);
     /// Sends the parked CMSG_USE_ITEM with TARGET_FLAG_ITEM against targetItemGuid.
-    void completeItemUseOnItem(uint64_t targetItemGuid);
+    void completeItemUseOnItem(uint64_t targetItemGuid, bool confirmed = false);
 
     void openItemBySlot(int backpackIndex);
     void openItemInBag(int bagIndex, int slotIndex);
@@ -546,6 +549,20 @@ private:
         ItemDef  item;
     };
     PendingUse pendingUse_;
+    /// The enchant held back waiting for an answer, with the request it was
+    /// made from and the item it was aimed at.
+    ///
+    /// The whole request is moved here rather than left parked in
+    /// pendingItemTarget_. FrameXML's REPLACE_ENCHANT has a No with nothing
+    /// behind it — no OnCancel, no OnHide — so a refusal is silence, and a
+    /// request left waiting for a target it will never be given would be
+    /// applied to whatever the player clicked next.
+    struct PendingEnchant {
+        bool              active = false;
+        uint64_t          targetItemGuid = 0;
+        PendingItemTarget request;
+    };
+    PendingEnchant pendingEnchant_;
     bool pendingLootActive_ = false;
     uint8_t pendingLootSlot_ = 0;
     bool mailboxOpen_ = false;

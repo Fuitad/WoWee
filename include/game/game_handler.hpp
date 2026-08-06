@@ -2713,7 +2713,8 @@ public:
     void beginSpellItemTargeting(uint32_t spellId, const std::string& spellName);
     uint32_t getPendingItemTargetSourceItemId() const;
     void cancelItemTargeting();
-    void completeItemUseOnItem(uint64_t targetItemGuid);
+    void completeItemUseOnItem(uint64_t targetItemGuid, bool confirmed = false);
+    void replaceEnchant();
 
     // CMSG_OPEN_ITEM — for locked containers (lockboxes); server checks keyring automatically
     void openItemBySlot(int backpackIndex);

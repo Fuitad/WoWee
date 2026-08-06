@@ -3258,6 +3258,18 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // ConfirmBindOnUse() — the Accept on "using this will bind
                 // it". USE_BIND carries no slot, so the held request is the
                 // only record of which item was being used.
+                // ReplaceEnchant() — the Yes on "do you want to replace X
+                // with Y?". The enchant stays parked until this arrives, so
+                // the answer still has the item it was aimed at.
+                //
+                // TRADE_REPLACE_ENCHANT shares this button. That prompt is the
+                // one raised while an enchant is on the trade window, which
+                // this client does not put there — so it is never fired, and
+                // the shared verb costs nothing.
+                {"ReplaceEnchant", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->replaceEnchant();
+            return 0;
+        }},
                 {"ConfirmBindOnUse", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->confirmBindOnUse();
             return 0;
