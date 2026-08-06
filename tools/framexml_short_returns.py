@@ -58,6 +58,12 @@ for f in ADDONS.glob("*.cpp"):
     s = f.read_text(errors="ignore")
     for m in re.finditer(r'\{"([A-Za-z0-9_]+)",\s*(?:&)?\s*(lua_[A-Za-z0-9_]+)\}', s):
         bound[m.group(1)] = (m.group(2), f)
+    # ...and the inline form, which is more than half of the bindings and was
+    # invisible here for the same reason it was invisible to the argument
+    # sweep: only a *named* implementation was matched, and a lambda has no
+    # name. The name it is registered under stands in for one.
+    for m in re.finditer(r'\{"([A-Za-z0-9_]+)",\s*\[\]\s*\(lua_State\*\s*L\)\s*->\s*int\s*\{', s):
+        bound[m.group(1)] = (m.group(1), f)
 
 # implementation -> max returned count
 pushes = {}
@@ -80,6 +86,23 @@ for f in ADDONS.glob("*.cpp"):
             rets += [int(a), int(b)]
         if rets:
             pushes[name] = max(rets)
+    # The inline bodies, keyed by the name they are registered under. Braces
+    # are matched rather than scanning to the next definition, because a lambda
+    # sits inside a table and has no next definition to stop at.
+    for m in re.finditer(r'\{"([A-Za-z0-9_]+)",\s*\[\]\s*\(lua_State\*\s*L\)\s*->\s*int\s*\{', s):
+        depth, i = 1, m.end()
+        while i < len(s) and depth:
+            if s[i] == "{":
+                depth += 1
+            elif s[i] == "}":
+                depth -= 1
+            i += 1
+        body = s[m.end():i - 1]
+        rets = [int(x) for x in re.findall(r"\breturn\s+(\d+)\s*;", body)]
+        for a, b in re.findall(r"\breturn\s+[^;]*\?\s*(\d+)\s*:\s*(\d+)\s*;", body):
+            rets += [int(a), int(b)]
+        if rets:
+            pushes[m.group(1)] = max(rets)
 
 def strip_comments(text: str) -> str:
     """Drop Lua and XML comments.

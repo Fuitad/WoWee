@@ -3886,22 +3886,41 @@ void registerInventoryLuaAPI(lua_State* L) {
             return 0;
         }},
                 {"GetAuctionSellItemInfo", [](lua_State* L) -> int {
-            // name, texture, count, quality, canUse, price — what the sell tab
-            // draws in its slot and what its deposit is figured from.
+            // name, texture, count, quality, canUse, price, pricePerUnit,
+            // stackCount, totalCount — what the sell tab draws in its slot and
+            // what its deposit and stack controls are figured from.
+            //
+            // The last three were missing, and the tab does `if totalCount > 1`
+            // the moment an item is dropped in, so it raised on a nil rather
+            // than showing a slot without stack controls. stackCount is the
+            // item's maximum stack and totalCount is how many the player holds:
+            // UpdateMaximumButtons caps the stack size at min(totalCount,
+            // stackCount) and the number of stacks at totalCount / stackSize.
             auto* gh = getGameHandler(L);
             const auto* held = auctionSellItemSlot(gh);
             if (!held) { auctionSellSlot() = AuctionSellSlot{}; return luaReturnNil(L); }
             const auto& s = *held;
             const auto* info = gh->getItemInfo(s.item.itemId);
+            const uint32_t inStack = s.item.stackCount ? s.item.stackCount : 1;
+            // price is the vendor value of the whole stack and pricePerUnit of
+            // one of them — the tab offers a starting bid of one or the other
+            // depending on which way the price dropdown is set, so sending the
+            // per-unit figure as both had it suggest a stack for the price of
+            // a single item.
+            const uint32_t unitPrice = (info && info->valid) ? info->sellPrice : 0;
             lua_pushstring(L, (info && info->valid && !info->name.empty())
                                   ? info->name.c_str() : s.item.name.c_str());
             lua_pushstring(L, gh->getItemIconPath(s.item.displayInfoId).c_str());
-            lua_pushnumber(L, s.item.stackCount ? s.item.stackCount : 1);
+            lua_pushnumber(L, inStack);
             lua_pushnumber(L, info && info->valid ? info->quality
                                   : static_cast<uint32_t>(s.item.quality));
             lua_pushboolean(L, 1);
-            lua_pushnumber(L, info && info->valid ? info->sellPrice : 0);
-            return 6;
+            lua_pushnumber(L, static_cast<lua_Number>(unitPrice) * inStack);
+            lua_pushnumber(L, unitPrice);
+            lua_pushnumber(L, (info && info->valid && info->maxStack > 0)
+                                  ? static_cast<lua_Number>(info->maxStack) : 1);
+            lua_pushnumber(L, countItemInBags(gh, s.item.itemId));
+            return 9;
         }},
                 {"CloseAuctionHouse", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->closeAuctionHouse();

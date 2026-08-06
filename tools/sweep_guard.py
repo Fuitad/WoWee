@@ -44,8 +44,21 @@ CHECKS = [
     ("framexml_load_check.py",
      r"^(\d+) that resolve to nothing", 0,
      "manifest entries and script references pointing at no file"),
+    # Twenty, and the rise is the sweep seeing more rather than the client
+    # doing worse — the same blind spot the argument sweep had: only bindings
+    # written as *named* functions were matched, and a lambda has no name, so
+    # more than half were never counted. Eight rows appeared and one was real:
+    # GetAuctionSellItemInfo answered six values where the sell tab unpacks
+    # nine and then does `if totalCount > 1` the moment an item is dropped in,
+    # so it raised on a nil instead of showing a slot without stack controls.
+    #
+    # Of the rest, five are the Battle.net family, which has no server behind it
+    # in 3.3.5a; GetGuildTabardFileNames answers nothing and its callers set
+    # textures, where nil reads as an empty slot; and GetGossipOptions returns a
+    # count it computes, which this sweep reads as zero — the known shape named
+    # in its docstring.
     ("framexml_short_returns.py",
-     r"^(\d+) binding\(s\) may return short", 13,
+     r"^(\d+) binding\(s\) may return short", 20,
      "bindings answering fewer values than the interface unpacks"),
     ("misleading_indent_check.py",
      r"^(\d+) statement\(s\) dressed as though", 0,
