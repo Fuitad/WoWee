@@ -1443,6 +1443,15 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 // written, and none of it could happen while this chain fell
                 // straight through to the game menu — so Escape opened a menu
                 // on top of the panel it should have closed.
+            } else if (frameXmlOwns(UiElement::GameMenu)) {
+                // Whoever draws the menu is who Escape has to ask. This branch
+                // always set the flag behind *this* client's menu, and that
+                // menu is only drawn while FrameXML does not own the element —
+                // so with the game menu handed over, Escape set a flag nobody
+                // read and nothing appeared. ToggleGameMenu is the interface's
+                // own way in, and it is the same function its Escape binding
+                // calls.
+                gameHandler.runInterfaceCommand("ToggleGameMenu()");
             } else {
                 windowManager_.showEscapeMenu = true;
             }
