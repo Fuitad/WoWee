@@ -1691,33 +1691,80 @@ static int lua_SetScreenResolution(lua_State* L) {
     return 0;
 }
 
-/// GetBattlefieldPosition(index) → where a team mate is on the battleground
-/// map, as a fraction across it, and their name.
+/// The battleground position list carries two kinds of entry, and the packet
+/// says which by the block it arrived in.
 ///
-/// Origin and no name for anyone past the end, because WorldMapFrame_Update's
-/// loop is bounded by MAX_RAID_MEMBERS rather than by how many are present and
-/// hides each frame whose position comes back as zero.
+/// AzerothCore's writer sends `m_numPlayerPositions` first — a count it always
+/// writes as zero, with a commented-out loop beside it — and then the flag
+/// carriers. So group 0 is the team positions, which no AzerothCore realm
+/// sends, and group 1 is the carriers. The parser has recorded which all along
+/// and the first version of these accessors ignored it, which would have drawn
+/// flag carriers as ordinary party dots.
+static const game::BgPlayerPosition* bgEntryAt(game::GameHandler* gh,
+                                               int group, int index) {
+    if (!gh || index < 1) return nullptr;
+    int seen = 0;
+    for (const auto& p : gh->getBgPlayerPositions()) {
+        if (p.group != group) continue;
+        if (++seen == index) return &p;
+    }
+    return nullptr;
+}
+
+static int bgCount(game::GameHandler* gh, int group) {
+    if (!gh) return 0;
+    int n = 0;
+    for (const auto& p : gh->getBgPlayerPositions()) if (p.group == group) ++n;
+    return n;
+}
+
+/// GetBattlefieldPosition(index) → where a team mate is, as a fraction across
+/// the map, and their name.
 ///
-/// MSG_BATTLEGROUND_PLAYER_POSITIONS has been parsed into a list of guids and
-/// canonical coordinates all along; the projection to map space is the one
-/// GetPlayerMapPosition now uses, so the two kinds of dot land in the same
-/// place for the same person.
+/// Origin and no name past the end, because WorldMapFrame_Update's loop is
+/// bounded by MAX_RAID_MEMBERS rather than by how many are present and hides
+/// each frame whose position comes back as zero. On an AzerothCore realm that
+/// is every one of them: the server writes the count and never the entries.
 static int lua_GetBattlefieldPosition(lua_State* L) {
     auto* gh = getGameHandler(L);
     auto* svc = getLuaServices(L);
     const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
     float u = 0.0f, v = 0.0f;
-    if (gh && svc && svc->mapUVForWorldPos && index >= 1) {
-        const auto& list = gh->getBgPlayerPositions();
-        if (index <= static_cast<int>(list.size())) {
-            const auto& p = list[static_cast<size_t>(index) - 1];
-            if (svc->mapUVForWorldPos(p.wowX, p.wowY, 0.0f, u, v)) {
-                lua_pushnumber(L, u);
-                lua_pushnumber(L, v);
-                lua_pushstring(L, gh->lookupName(p.guid).c_str());
-                return 3;
-            }
+    if (const auto* p = bgEntryAt(gh, 0, index)) {
+        if (svc && svc->mapUVForWorldPos &&
+            svc->mapUVForWorldPos(p->wowX, p->wowY, 0.0f, u, v)) {
+            lua_pushnumber(L, u);
+            lua_pushnumber(L, v);
+            lua_pushstring(L, gh->lookupName(p->guid).c_str());
+            return 3;
         }
+    }
+    lua_pushnumber(L, 0.0);
+    lua_pushnumber(L, 0.0);
+    lua_pushstring(L, "");
+    return 3;
+}
+
+/// GetBattlefieldFlagPosition(index) → where a carried flag is, and which flag.
+///
+/// The third value names a texture under Interface\\WorldStateFrame, so a
+/// wrong one is not a missing icon but the enemy's flag drawn over your own.
+/// The server writes the alliance carrier and then the horde one, skipping
+/// whichever is not held — so with both carried the order says which is which,
+/// and with one carried it does not. Rather than guess, that case answers zero
+/// and the frame hides: no flag on the map is a smaller lie than the wrong one.
+static int lua_GetBattlefieldFlagPosition(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    auto* svc = getLuaServices(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    float u = 0.0f, v = 0.0f;
+    const auto* p = bgEntryAt(gh, 1, index);
+    if (p && bgCount(gh, 1) == 2 && svc && svc->mapUVForWorldPos &&
+        svc->mapUVForWorldPos(p->wowX, p->wowY, 0.0f, u, v)) {
+        lua_pushnumber(L, u);
+        lua_pushnumber(L, v);
+        lua_pushstring(L, index == 1 ? "AllianceFlag" : "HordeFlag");
+        return 3;
     }
     lua_pushnumber(L, 0.0);
     lua_pushnumber(L, 0.0);
@@ -4327,9 +4374,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 // count is asked for beside it and a flat zero said the
                 // positions were not there while they were.
                 {"GetNumBattlefieldPositions", [](lua_State* L) -> int {
-            auto* gh = getGameHandler(L);
-            lua_pushnumber(L, gh ? static_cast<lua_Number>(
-                gh->getBgPlayerPositions().size()) : 0.0);
+            lua_pushnumber(L, bgCount(getGameHandler(L), 0));
             return 1;
         }},
                 {"GetBattlefieldPosition",   lua_GetBattlefieldPosition},
@@ -4349,8 +4394,16 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetNumBattlefieldVehicles", lua_ReturnZero},
                 {"GetBattlefieldVehicleInfo", lua_ReturnNil},
                 {"GetChatWindowInfo",        lua_GetChatWindowInfo},
-                {"GetNumBattlefieldFlagPositions", lua_ReturnZero},
-                {"GetBattlefieldFlagPosition",     lua_GetBattlefieldPosition},
+                {"GetNumBattlefieldFlagPositions", [](lua_State* L) -> int {
+            // Only when both are carried, for the reason the accessor gives:
+            // one carrier cannot be told from the other, and the loop this
+            // bounds draws a named flag texture per entry.
+            auto* gh = getGameHandler(L);
+            const int n = bgCount(gh, 1);
+            lua_pushnumber(L, n == 2 ? 2 : 0);
+            return 1;
+        }},
+                {"GetBattlefieldFlagPosition",     lua_GetBattlefieldFlagPosition},
                 // Time left on a loot roll that is not running, which
                 // GroupLootFrame compares against a bar range at once.
                 {"GetNumDungeonMapLevels",   lua_ReturnZero},
