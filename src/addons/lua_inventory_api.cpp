@@ -1667,14 +1667,9 @@ static int lua_UseContainerItem(lua_State* L) {
     // spell is waiting for one.
     if (completedItemTarget(L, containerSlotGuid(gh, bag, slot))) return 0;
     const auto& inv = gh->getInventory();
-    const game::ItemSlot* itemSlot = nullptr;
-    if (bag == 0 && slot >= 1 && slot <= inv.getBackpackSize())
-        itemSlot = &inv.getBackpackSlot(slot - 1);
-    else if (bag >= 1 && bag <= 4) {
-        int sz = inv.getBagSize(bag - 1);
-        if (slot >= 1 && slot <= sz)
-            itemSlot = &inv.getBagSlot(bag - 1, slot - 1);
-    }
+    // The keyring counts here too: right-clicking a key is how a locked box or
+    // a quest door is opened, and the branch this replaced could not name it.
+    const game::ItemSlot* itemSlot = containerItemSlot(inv, bag, slot);
     if (!itemSlot || itemSlot->empty()) return 0;
 
     // Right-clicking an item in a bag is three different messages depending on
@@ -1998,14 +1993,11 @@ static int lua_GetContainerNumSlots(lua_State* L) {
     auto* gh = getGameHandler(L);
     int container = static_cast<int>(luaL_checknumber(L, 1));
     if (!gh) { return luaReturnZero(L); }
-    const auto& inv = gh->getInventory();
-    if (container == 0) {
-        lua_pushnumber(L, inv.getBackpackSize());
-    } else if (container >= 1 && container <= 4) {
-        lua_pushnumber(L, inv.getBagSize(container - 1));
-    } else {
-        lua_pushnumber(L, 0);
-    }
+    // Through containerSlotCount, which knows the keyring. Answering zero for
+    // KEYRING_CONTAINER made GetKeyRingSize loop zero times, so the keyring
+    // frame was generated with no slots and opened empty — while the keys were
+    // being tracked out of PLAYER_FIELD_KEYRING_SLOT_1 the whole time.
+    lua_pushnumber(L, containerSlotCount(gh->getInventory(), container));
     return 1;
 }
 
@@ -2096,13 +2088,10 @@ static int lua_GetContainerFreeSlots(lua_State* L) {
         lua_pushnumber(L, slotIndex);          // WoW slots are 1-based
         lua_rawseti(L, -2, next++);
     };
-    if (container == 0) {
-        for (int i = 0; i < inv.getBackpackSize(); ++i)
-            addIfEmpty(inv.getBackpackSlot(i), i + 1);
-    } else if (container >= 1 && container <= 4) {
-        const int bagIdx = container - 1;
-        for (int i = 0; i < inv.getBagSize(bagIdx); ++i)
-            addIfEmpty(inv.getBagSlot(bagIdx, i), i + 1);
+    const int slots = containerSlotCount(inv, container);
+    for (int i = 1; i <= slots; ++i) {
+        if (const game::ItemSlot* sl = containerItemSlot(inv, container, i))
+            addIfEmpty(*sl, i);
     }
     return 1;
 }
@@ -2121,14 +2110,10 @@ static int lua_GetContainerItemID(lua_State* L) {
     if (!gh) { return luaReturnNil(L); }
 
     const auto& inv = gh->getInventory();
-    const game::ItemSlot* itemSlot = nullptr;
-    if (container == 0 && slot >= 1 && slot <= inv.getBackpackSize()) {
-        itemSlot = &inv.getBackpackSlot(slot - 1);   // WoW slots are 1-based
-    } else if (container >= 1 && container <= 4) {
-        const int bagIdx = container - 1;
-        if (slot >= 1 && slot <= inv.getBagSize(bagIdx))
-            itemSlot = &inv.getBagSlot(bagIdx, slot - 1);
-    }
+    // One lookup for every container the interface can name, the keyring
+    // included: this branched on 0 and 1-4 and let KEYRING_CONTAINER fall
+    // through, so the keyring frame opened with nothing in it.
+    const game::ItemSlot* itemSlot = containerItemSlot(inv, container, slot);
     // An empty slot has no id, and nil is how that is said — zero would be an
     // item, and the callers test the result rather than compare it.
     if (!itemSlot || itemSlot->empty()) { return luaReturnNil(L); }
@@ -2143,16 +2128,10 @@ static int lua_GetContainerItemInfo(lua_State* L) {
     if (!gh) { return luaReturnNil(L); }
 
     const auto& inv = gh->getInventory();
-    const game::ItemSlot* itemSlot = nullptr;
-
-    if (container == 0 && slot >= 1 && slot <= inv.getBackpackSize()) {
-        itemSlot = &inv.getBackpackSlot(slot - 1);  // WoW uses 1-based
-    } else if (container >= 1 && container <= 4) {
-        int bagIdx = container - 1;
-        int bagSize = inv.getBagSize(bagIdx);
-        if (slot >= 1 && slot <= bagSize)
-            itemSlot = &inv.getBagSlot(bagIdx, slot - 1);
-    }
+    // One lookup for every container the interface can name, the keyring
+    // included: this branched on 0 and 1-4 and let KEYRING_CONTAINER fall
+    // through, so the keyring frame opened with nothing in it.
+    const game::ItemSlot* itemSlot = containerItemSlot(inv, container, slot);
 
     if (!itemSlot || itemSlot->empty()) { return luaReturnNil(L); }
 
@@ -2201,16 +2180,10 @@ static int lua_GetContainerItemLink(lua_State* L) {
     if (!gh) { return luaReturnNil(L); }
 
     const auto& inv = gh->getInventory();
-    const game::ItemSlot* itemSlot = nullptr;
-
-    if (container == 0 && slot >= 1 && slot <= inv.getBackpackSize()) {
-        itemSlot = &inv.getBackpackSlot(slot - 1);
-    } else if (container >= 1 && container <= 4) {
-        int bagIdx = container - 1;
-        int bagSize = inv.getBagSize(bagIdx);
-        if (slot >= 1 && slot <= bagSize)
-            itemSlot = &inv.getBagSlot(bagIdx, slot - 1);
-    }
+    // One lookup for every container the interface can name, the keyring
+    // included: this branched on 0 and 1-4 and let KEYRING_CONTAINER fall
+    // through, so the keyring frame opened with nothing in it.
+    const game::ItemSlot* itemSlot = containerItemSlot(inv, container, slot);
 
     if (!itemSlot || itemSlot->empty()) { return luaReturnNil(L); }
     const auto* info = gh->getItemInfo(itemSlot->item.itemId);
@@ -2235,14 +2208,10 @@ static int lua_GetContainerNumFreeSlots(lua_State* L) {
     int freeSlots = 0;
     int totalSlots = 0;
 
-    if (container == 0) {
-        totalSlots = inv.getBackpackSize();
-        for (int i = 0; i < totalSlots; ++i)
-            if (inv.getBackpackSlot(i).empty()) ++freeSlots;
-    } else if (container >= 1 && container <= 4) {
-        totalSlots = inv.getBagSize(container - 1);
-        for (int i = 0; i < totalSlots; ++i)
-            if (inv.getBagSlot(container - 1, i).empty()) ++freeSlots;
+    totalSlots = containerSlotCount(inv, container);
+    for (int i = 1; i <= totalSlots; ++i) {
+        const game::ItemSlot* sl = containerItemSlot(inv, container, i);
+        if (sl && sl->empty()) ++freeSlots;
     }
 
     lua_pushnumber(L, freeSlots);

@@ -366,10 +366,45 @@ inline bool repairedHeldItem(game::GameHandler* gh, uint64_t itemGuid) {
     return true;
 }
 
+/// The keyring, which FrameXML addresses as a container like any other.
+///
+/// constants.lua sets KEYRING_CONTAINER = -2, and containerframe.lua builds the
+/// keyring frame by asking GetContainerNumSlots(-2) and then walking the slots.
+/// Every container binding here branched on 0 for the backpack and 1 to 4 for
+/// the worn bags and let everything else fall through to zero, so the keyring
+/// opened with no slots at all — while the keys themselves were being tracked
+/// the whole time, out of PLAYER_FIELD_KEYRING_SLOT_1.
+constexpr int kKeyringContainer = -2;
+
+/// How many slots a container has, in the interface's numbering.
+inline int containerSlotCount(const game::Inventory& inv, int container) {
+    if (container == 0) return inv.getBackpackSize();
+    if (container >= 1 && container <= 4) return inv.getBagSize(container - 1);
+    if (container == kKeyringContainer) return inv.getKeyringSize();
+    return 0;
+}
+
+/// One slot of one container, or nullptr when there is no such slot. `slot` is
+/// 1-based, as every container binding receives it from Lua.
+inline const game::ItemSlot* containerItemSlot(const game::Inventory& inv,
+                                               int container, int slot) {
+    if (slot < 1 || slot > containerSlotCount(inv, container)) return nullptr;
+    if (container == 0) return &inv.getBackpackSlot(slot - 1);
+    if (container >= 1 && container <= 4) return &inv.getBagSlot(container - 1, slot - 1);
+    if (container == kKeyringContainer) return &inv.getKeyringSlot(slot - 1);
+    return nullptr;
+}
+
 inline uint64_t containerSlotGuid(game::GameHandler* gh, int bag, int slot) {
     if (!gh || slot < 1) return 0;
     if (bag == 0) return gh->getBackpackItemGuid(slot - 1);
     if (bag >= 1 && bag <= 4) return gh->getBagItemGuid(bag - 1, slot - 1);
+    // The keyring keeps its guid on the slot rather than in a side table, so
+    // this reads it from the inventory directly.
+    if (bag == kKeyringContainer) {
+        const auto* s = containerItemSlot(gh->getInventory(), bag, slot);
+        return s ? s->item.guid : 0;
+    }
     return 0;
 }
 
