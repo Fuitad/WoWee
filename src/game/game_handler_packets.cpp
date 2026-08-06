@@ -2271,10 +2271,40 @@ void GameHandler::registerOpcodeHandlers() {
             }
         }
     };
+    // The instance boot timer, which this read nothing of.
+    //
+    // Two uint32s: how long is left in milliseconds, and why. The whole
+    // countdown arrives once and nothing more is sent until it stops, so the
+    // deadline is worked out here and the remainder counted from it.
+    //
+    // It also said the wrong thing. The message was "you must be in a raid
+    // group to enter this instance", and that is not what the server sends
+    // this for: UpdateHomebindTime raises it when the player is standing in an
+    // instance they are not valid for — saved to a different id, or in a party
+    // inside a raid — and the sixty seconds is until they are teleported to a
+    // graveyard. A player got one line of the wrong explanation and no
+    // countdown at all.
     dispatchTable_[Opcode::SMSG_RAID_GROUP_ONLY] = [this](network::Packet& packet) {
-        addUIError("You must be in a raid group to enter this instance.");
-        raiseUiError("You must be in a raid group to enter this instance.");
+        uint32_t timerMs = 0;
+        if (packet.hasRemaining(8)) {
+            timerMs = packet.readUInt32();
+            packet.readUInt32();   // reason; only 0 and 1 are ever sent
+        }
         packet.skipAll();
+
+        if (timerMs == 0) {
+            instanceBootDeadline_.reset();
+            fireAddonEvent("INSTANCE_BOOT_STOP", {});
+            return;
+        }
+        instanceBootDeadline_ = std::chrono::steady_clock::now() +
+                                std::chrono::milliseconds(timerMs);
+        const std::string msg = "You are not in this instance's group. You will be "
+                                "teleported out in " + std::to_string(timerMs / 1000) +
+                                " seconds.";
+        addUIError(msg);
+        addSystemChatMessage(msg);
+        fireAddonEvent("INSTANCE_BOOT_START", {});
     };
     dispatchTable_[Opcode::SMSG_RAID_READY_CHECK_ERROR] = [this](network::Packet& packet) {
         if (packet.hasRemaining(1)) {

@@ -2716,6 +2716,12 @@ public:
     void completeItemUseOnItem(uint64_t targetItemGuid, bool confirmed = false);
     void replaceEnchant();
 
+    /// Seconds until the server teleports the player out of an instance they
+    /// are not valid for, or 0 when no such timer is running. The server sends
+    /// the whole countdown once and then says nothing until it stops, so the
+    /// remainder is worked out from when it arrived.
+    int getInstanceBootTimeRemaining() const;
+
     // CMSG_OPEN_ITEM — for locked containers (lockboxes); server checks keyring automatically
     void openItemBySlot(int backpackIndex);
     void openItemInBag(int bagIndex, int slotIndex);
@@ -3727,6 +3733,8 @@ private:
     float lastFacingSentOrientation_ = 0.0f;
     uint32_t lastLatency = 0;                // Last measured latency (milliseconds)
     std::chrono::steady_clock::time_point pingTimestamp_;  // Time CMSG_PING was sent
+    /// When the instance boot timer runs out. Unset while none is running.
+    std::optional<std::chrono::steady_clock::time_point> instanceBootDeadline_;
 
     // Player GUID and map
     uint64_t playerGuid = 0;

@@ -3558,6 +3558,14 @@ void registerSystemLuaAPI(lua_State* L) {
                 // GetNumSockets answered zero here, which said every item has
                 // no sockets. It is real now, and in lua_socket_api.cpp.
                 {"GetPreviousArenaSeason",      lua_ReturnZero},
+                // GetInstanceBootTimeRemaining() — the countdown on the
+                // "you are not in this instance's group" dialog, which reads
+                // it on show and hides itself when it is not positive.
+                {"GetInstanceBootTimeRemaining", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? gh->getInstanceBootTimeRemaining() : 0);
+            return 1;
+        }},
                 // The tutorial popups. Both raise where they are called —
                 // FlagTutorial from TutorialFrame_Update as a tutorial is
                 // shown, IsTutorialFlagged from TutorialFrame_NewTutorial

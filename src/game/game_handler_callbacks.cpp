@@ -3276,6 +3276,13 @@ void GameHandler::completeItemUseOnItem(uint64_t targetItemGuid, bool confirmed)
     if (inventoryHandler_) inventoryHandler_->completeItemUseOnItem(targetItemGuid, confirmed);
 }
 
+int GameHandler::getInstanceBootTimeRemaining() const {
+    if (!instanceBootDeadline_) return 0;
+    const auto left = *instanceBootDeadline_ - std::chrono::steady_clock::now();
+    const auto secs = std::chrono::duration_cast<std::chrono::seconds>(left).count();
+    return secs > 0 ? static_cast<int>(secs) : 0;
+}
+
 void GameHandler::replaceEnchant() {
     if (inventoryHandler_) inventoryHandler_->replaceEnchant();
 }
