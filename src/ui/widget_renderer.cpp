@@ -1567,12 +1567,23 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
                 const float ty = boxTop + ((boxBottom - boxTop) - size) * 0.5f;
                 const float pad = w->textInsetLeft * s;
                 if (!w->editText.empty()) {
-                    dl->AddText(font, size, ImVec2(x0 + pad, ty), col,
-                                w->editText.c_str());
+                    // Through the markup parser like everything else. An edit
+                    // box holds what the player typed, which used to mean plain
+                    // words — but shift-clicking a link puts the whole
+                    // "|Hitem:3299|h[Fractured Canine]|h" into it, and drawn
+                    // raw that is what the player sees themselves typing.
+                    // Links are only clickable at all as of this branch, so
+                    // this became reachable at the same moment.
+                    drawMarkupText(dl, font, size, ImVec2(x0 + pad, ty), col,
+                                   w->alpha, w->editText);
                 }
                 if (w->editFocused) {
-                    const std::string upTo = w->editText.substr(
-                        0, std::min(w->cursorPos, w->editText.size()));
+                    // Measured against what is drawn, not what is held. The
+                    // caret sits after the text to its left, and to the left of
+                    // a link is its display name — measuring the raw string
+                    // would put the caret an escape sequence too far right.
+                    const std::string upTo = strippedText(w->editText.substr(
+                        0, std::min(w->cursorPos, w->editText.size())));
                     const float caret = font
                         ? font->CalcTextSizeA(size, FLT_MAX, 0.0f, upTo.c_str()).x
                         : 0.0f;
