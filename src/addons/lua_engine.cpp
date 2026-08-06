@@ -6202,6 +6202,13 @@ void LuaEngine::registerCoreAPI() {
         // being handed one relies on.
         "    GetFontObject = function(self) return self end,\n"
         "} }\n"
+        // Exposed, because the emitter has to put it back. A <Font> in the
+        // interface with inherits= is built as a fresh table copying the base's
+        // fields, and pairs() carries no metatable — so fontstyles.xml
+        // redefining GameFontNormal replaced the object below with one that
+        // answers no methods at all, and every fontObject:GetTextColor() in the
+        // options panels raised on a table with nothing behind it.
+        "__WoweeFontMT = fontMT\n"
         "local function font(h, r, g, b)\n"
         "    return setmetatable({ height = h, r = r, g = g, b = b, a = 1 }, fontMT)\n"
         "end\n"

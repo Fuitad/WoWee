@@ -471,6 +471,11 @@ struct Emitter {
             line("    for k, v in pairs(base) do " + name + "[k] = v end");
             line("  end");
             line("end");
+            // pairs() copies fields and not the metatable, and a font object's
+            // methods live in one. Without this the copy answered nothing —
+            // fontObject:GetTextColor(), which every options control calls to
+            // put its label back when it is enabled, indexed a bare table.
+            line("if __WoweeFontMT then setmetatable(" + name + ", __WoweeFontMT) end");
         } else {
             // rawget, because reading the name to see whether it is already
             // there is exactly what the missing-API fallback is watching for.
@@ -478,6 +483,8 @@ struct Emitter {
             // itself missing at the moment it was defined — thirty entries in
             // a list whose whole value is that everything in it is real.
             line(name + " = rawget(_G, " + quote(name) + ") or {}");
+            // ...and one made fresh here has no metatable either.
+            line("if __WoweeFontMT then setmetatable(" + name + ", __WoweeFontMT) end");
         }
         if (height > 0.0f) line(name + ".height = " + std::to_string(height));
         if (const std::string* f = node.attr("font"))
