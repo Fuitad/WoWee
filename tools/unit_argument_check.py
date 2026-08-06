@@ -122,14 +122,61 @@ def bindings(text):
         yield m.group(1), text[m.end():i - 1]
 
 
+#: Bindings whose answer is the player's on purpose, with what settled each.
+#:
+#: A set rather than a count: a ceiling only says how many there are, so fixing
+#: one and introducing another leaves the number unmoved. handler_announce_check
+#: was pinned that way and hid a live bug for as long as it was.
+#:
+#: The five paperdoll stats are read through PaperDollFrame_Set… helpers whose
+#: every call site passes no unit at all, and each opens by defaulting it to
+#: "player". There is no path that asks them about anyone else.
+EXPECTED = {
+    "lua_UnitAttackBothHands": "paperdoll stat, every caller defaults to player",
+    "lua_UnitDefense": "paperdoll stat, every caller defaults to player",
+    "lua_UnitRangedAttack": "paperdoll stat, every caller defaults to player",
+    "lua_UnitRangedAttackPower": "paperdoll stat, every caller defaults to player",
+    "lua_UnitRangedDamage": "paperdoll stat, every caller defaults to player",
+    # The server never tells a client what another player's quest log holds, so
+    # only the player is answerable. False for everyone else leaves the shared
+    # count hidden rather than claiming a number nobody can stand behind.
+    "IsUnitOnQuest": "no data for any unit but the player",
+}
+
+#: `return lua_Other(L);` — the binding hands the whole call, unit argument and
+#: all, to another one. UnitPlayerOrPetInRaid does exactly that to
+#: UnitPlayerOrPetInParty, which resolves the unit properly, and reading only
+#: the first body reported it as answering from the player.
+DELEGATES = re.compile(r"return\s+(lua_\w+)\s*\(\s*L\s*\)")
+
+
 def main():
+    # Every binding body, so a delegation can be followed to what it calls.
+    all_bodies = {}
+    for path in sorted(ADDONS.glob("*.cpp")):
+        for name, body in bindings(path.read_text(errors="ignore")):
+            all_bodies.setdefault(name, body)
+
+    def looks_at_unit(name, body, depth=0):
+        if LOOKS.search(body):
+            return True
+        if depth >= 3:
+            return False
+        for callee in DELEGATES.findall(body):
+            target = all_bodies.get(callee)
+            if target is not None and looks_at_unit(callee, target, depth + 1):
+                return True
+        return False
+
     rows = []
     for path in sorted(ADDONS.glob("*.cpp")):
         text = path.read_text(errors="ignore")
         for name, body in bindings(text):
             if "Unit" not in name:
                 continue
-            if LOOKS.search(body):
+            if name in EXPECTED:
+                continue
+            if looks_at_unit(name, body):
                 continue
             if not PLAYER_ONLY.search(body):
                 continue

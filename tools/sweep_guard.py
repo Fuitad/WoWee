@@ -236,7 +236,7 @@ CHECKS = [
     # count. Braces are matched now, and the one-line form was seen to be caught
     # before this number was trusted.
     ("unit_argument_check.py",
-     r"^(\d+) unit binding\(s\) that never look at their unit", 7,
+     r"^(\d+) unit binding\(s\) that never look at their unit", 0,
      "unit bindings answering from the player whatever they were asked"),
     # Requests the server reads off the wire and throws away — an opcode
     # registered Handle_NULL. Two, and both are accounted for:
