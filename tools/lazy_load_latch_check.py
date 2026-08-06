@@ -47,7 +47,12 @@ import re
 import sys
 import pathlib
 
-root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "src")
+# Anchored to this file, not to the working directory. sweep_guard runs from
+# the build tree under ctest, where a relative "src" does not exist — and the
+# tool exited with a message instead of a count, which the guard could only
+# report as "the report's shape changed".
+root = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 \
+    else pathlib.Path(__file__).resolve().parent.parent / "src"
 if not root.is_dir():
     sys.exit(f"no such directory: {root}")
 
