@@ -276,6 +276,36 @@ inline uint64_t resolveUnitGuid(game::GameHandler* gh, const std::string& uid) {
     return 0;
 }
 
+/// A unit token, or the name of somebody standing nearby.
+///
+/// Several of the interface's verbs take either — "/wave Bob" and "/follow Bob"
+/// hand over whatever was typed after the command, and the same argument may be
+/// a unit token. resolveUnitGuid knows only the tokens and answers zero for a
+/// name, so a binding built on it alone silently used the current target
+/// instead of the person named.
+///
+/// The name is matched against entities in range, which is the only place a
+/// name can be resolved from: nothing here can ask the server who a name
+/// belongs to without a query it would then have to wait for. Case-insensitive,
+/// because the player typed it.
+inline uint64_t resolveUnitOrName(game::GameHandler* gh, const std::string& text) {
+    if (!gh || text.empty()) return 0;
+    std::string lower = text;
+    toLowerInPlace(lower);
+    if (const uint64_t byToken = resolveUnitGuid(gh, lower)) return byToken;
+    // Units only — a name aimed at a doodad is not what anyone meant, and
+    // getName lives on the concrete types rather than on Entity.
+    for (const auto& [guid, entity] : gh->getEntityManager().getEntities()) {
+        if (!entity || entity->getType() == game::ObjectType::GAMEOBJECT) continue;
+        auto unit = std::static_pointer_cast<game::Unit>(entity);
+        std::string name = unit->getName();
+        if (name.empty()) continue;
+        toLowerInPlace(name);
+        if (name == lower) return guid;
+    }
+    return 0;
+}
+
 /// Where the quest's usable item is sitting, if the player is carrying it.
 ///
 /// Some quests hand you an item to use — a horn, a lantern, a disguise — and

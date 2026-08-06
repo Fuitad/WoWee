@@ -434,7 +434,7 @@ CHECKS = [
     # PromoteToLeader beside them does. They match exactly, which is the
     # behaviour that flag asks for and the only value the unit popup passes.
     ("binding_arg_coverage_check.py",
-     r"^(\d+) binding\(s\) read fewer arguments", 56,
+     r"^(\d+) binding\(s\) read fewer arguments", 55,
      "bindings that ignore an argument the interface passes"),
     ("tools_run_check.py",
      r"^(\d+) that cannot run", 0,

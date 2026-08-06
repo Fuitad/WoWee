@@ -2108,7 +2108,19 @@ void registerSocialLuaAPI(lua_State* L) {
             toLowerInPlace(name);
             const uint32_t emoteId = rendering::AnimationController::getEmoteDbcId(name);
             if (emoteId == 0) return 0;
-            gh->sendTextEmote(emoteId, gh->hasTarget() ? gh->getTargetGuid() : 0);
+            // The second argument is whoever the emote is aimed at, and it was
+            // read by nothing — so "/wave Bob" waved at the current target, or
+            // at nobody, whatever Bob was standing there. chatframe hands over
+            // the text after the command, which may be a unit token or a name.
+            //
+            // The current target when none is named, which is what the emote
+            // buttons and a bare "/dance" mean.
+            const char* aimedAt = luaL_optstring(L, 2, "");
+            uint64_t target = (aimedAt && *aimedAt) ? resolveUnitOrName(gh, aimedAt) : 0;
+            if (target == 0 && (!aimedAt || !*aimedAt)) {
+                target = gh->hasTarget() ? gh->getTargetGuid() : 0;
+            }
+            gh->sendTextEmote(emoteId, target);
             return 0;
         }},
                 {"AddFriend", [](lua_State* L) -> int {
