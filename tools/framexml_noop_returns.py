@@ -87,7 +87,10 @@ RAISES = re.compile(r"^\s*(?:[-+*/%^<>]|[<>=~]=|\.\.|\[|:)")
 #: over the receiver first — `a .. frame:Foo()` has the concat three tokens
 #: from the call, not next to it, and a check anchored on the call itself finds
 #: nothing at all. Both halves of this file's first draft were anchored there.
-RAISES_BEFORE = re.compile(r"(?:[-+*/%^<>]|[<>=~]=|\.\.)\s*$")
+#: The length operator belongs here too — `#frame:GetRegions()` raises on a
+#: nil exactly as a subscript does. Zero rows today; it is here so the first
+#: one is caught rather than discovered.
+RAISES_BEFORE = re.compile(r"(?:[-+*/%^<>#]|[<>=~]=|\.\.)\s*$")
 #: The answer is kept or handed on, and the nil surfaces somewhere else.
 TRAVELS = re.compile(r"(?:\blocal\s+[\w,\s]+=|[^=<>~]=|\breturn\b|,)\s*$")
 #: What a receiver expression is made of, walking backwards from the colon.

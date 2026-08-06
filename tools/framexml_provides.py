@@ -67,11 +67,18 @@ def widget_methods_provided():
     # IsPlaying, SetDuration and SetOffset were reported as answering nil when
     # the animation system has provided all three since it was written.
     shims = set(re.findall(r'function\s+\w+\s*:\s*(\w+)\s*\(', src))
+    # The region method table is built with a `set("Name", fn)` lambda rather
+    # than a braced table, and fifty-seven names go on that way. Five of them
+    # were answered nowhere else and so read as unprovided — GetTextColor and
+    # SetTextHeight among them, both of which had just been implemented. A
+    # source of truth that cannot see one of the registration forms sends every
+    # sweep that trusts it looking for gaps that are not there.
+    region = set(re.findall(r'\bset\("([A-Za-z_]\w*)"', src))
     # Several names per string literal — "SetMovable=1,SetNormalTexture=1,\n" —
     # so anchoring on the opening quote finds only the first of each and
     # under-counts the allowlist by four to one.
     allowlist = set(re.findall(r"\b([A-Za-z]\w*)=1", src))
-    return table | shims | allowlist
+    return table | shims | region | allowlist
 
 
 def counting_table():
