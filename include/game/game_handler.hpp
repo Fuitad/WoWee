@@ -2913,6 +2913,9 @@ public:
     void guildBankDepositItem(uint8_t tabId, uint8_t bankSlot, uint8_t srcBag, uint8_t srcSlot);
     /// Rename a guild bank tab and pick its icon.
     void setGuildBankTabInfo(uint8_t tabId, const std::string& name, const std::string& icon);
+    /// Ask for a tab's info text, and read back what arrived.
+    void queryGuildBankText(uint8_t tabId);
+    const std::string& getGuildBankTabText(uint8_t tabId) const;
     void guildBankDepositFromInventory(uint8_t srcBag, uint8_t srcSlot);
     bool isGuildBankOpen() const;
     const GuildBankData& getGuildBankData() const;

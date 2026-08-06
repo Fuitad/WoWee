@@ -721,6 +721,13 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
 
     // ---- Guild Bank ----
     table[Opcode::SMSG_GUILD_BANK_LIST] = [this](network::Packet& packet) { handleGuildBankList(packet); };
+    // The reply shares its opcode with the request: a tab id and its text.
+    table[Opcode::MSG_QUERY_GUILD_BANK_TEXT] = [this](network::Packet& packet) {
+        if (!packet.hasRemaining(1)) return;
+        const uint8_t tabId = packet.readUInt8();
+        std::string text = packet.readString();
+        if (tabId < guildBankTabText_.size()) guildBankTabText_[tabId] = std::move(text);
+    };
 
     // ---- Auction House ----
     table[Opcode::MSG_AUCTION_HELLO] = [this](network::Packet& packet) { handleAuctionHello(packet); };
@@ -2794,6 +2801,18 @@ void InventoryHandler::guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, ui
     auto packet = GuildBankSwapItemsPacket::buildBankToInventory(guildBankerGuid_, tabId, bankSlot,
                                                                  destBag, destSlot, splitCount);
     owner_.getSocket()->send(packet);
+}
+
+void InventoryHandler::queryGuildBankText(uint8_t tabId) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet p(wireOpcode(Opcode::MSG_QUERY_GUILD_BANK_TEXT));
+    p.writeUInt8(tabId);
+    owner_.getSocket()->send(p);
+}
+
+const std::string& InventoryHandler::getGuildBankTabText(uint8_t tabId) const {
+    static const std::string kNone;
+    return tabId < guildBankTabText_.size() ? guildBankTabText_[tabId] : kNone;
 }
 
 void InventoryHandler::setGuildBankTabInfo(uint8_t tabId, const std::string& name,

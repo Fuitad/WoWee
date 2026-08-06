@@ -337,6 +337,16 @@ public:
     void withdrawGuildBankMoney(uint32_t amount);
     void guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, uint8_t destBag,
                                uint8_t destSlot, uint32_t splitCount = 0);
+    /// Ask for a tab's info text, and read back what arrived.
+    ///
+    /// MSG_QUERY_GUILD_BANK_TEXT is a request the server answers with the same
+    /// opcode: a tab id and the text. This client could already *write* the
+    /// text — SetGuildBankText has sent CMSG_SET_GUILD_BANK_TEXT all along —
+    /// and had no way to read it, so a tab's description could be saved and
+    /// never seen again.
+    void queryGuildBankText(uint8_t tabId);
+    const std::string& getGuildBankTabText(uint8_t tabId) const;
+
     /// Rename a guild bank tab and pick its icon.
     ///
     /// CMSG_GUILD_BANK_UPDATE_TAB: the banker's guid, the tab counted from
@@ -600,6 +610,7 @@ private:
     // ---- Guild Bank state ----
     bool guildBankOpen_ = false;
     uint64_t guildBankerGuid_ = 0;
+    std::array<std::string, 6> guildBankTabText_{};
     GuildBankData guildBankData_;
     uint8_t guildBankActiveTab_ = 0;
 

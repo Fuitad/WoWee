@@ -3750,14 +3750,28 @@ void registerInventoryLuaAPI(lua_State* L) {
             if (gh && tab >= 1) gh->requestGuildBankLog(static_cast<uint8_t>(tab - 1));
             return 0;
         }},
-                {"QueryGuildBankText",  [](lua_State* L) -> int { (void)L; return 0; }},
-                // Nil, not "". QueryGuildBankText above sends nothing, so this
-                // client never learns a tab's text — and "" claims to know it
-                // is empty. The panel does `if ( text )` and its else branch
-                // clears the box, which is the same thing on screen; the
-                // difference is that it no longer copies a lie into
-                // GuildBankTabInfoEditBox.text on the way.
-                {"GetGuildBankText",    [](lua_State* L) -> int { lua_pushnil(L); return 1; }},
+                // Ask for a tab's info text. The panel calls this when a tab is
+                // opened and reads the answer with GetGuildBankText below.
+                {"QueryGuildBankText",  [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int tab = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (gh && tab >= 1) gh->queryGuildBankText(static_cast<uint8_t>(tab - 1));
+            return 0;
+        }},
+                // What the query above brought back, or nil for a tab nothing
+                // has answered for yet. Still nil rather than "": the panel
+                // does `if ( text )` and its else branch clears the box, so an
+                // empty string would claim to know the tab has none.
+                {"GetGuildBankText",    [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int tab = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (gh && tab >= 1) {
+                const std::string& text = gh->getGuildBankTabText(static_cast<uint8_t>(tab - 1));
+                if (!text.empty()) { lua_pushstring(L, text.c_str()); return 1; }
+            }
+            lua_pushnil(L);
+            return 1;
+        }},
                 // SetGuildBankText(tab, text) — the info panel on a guild
                 // bank tab. The opcode existed and nothing built it, so the
                 // edit box saved nothing. FrameXML counts tabs from one and
