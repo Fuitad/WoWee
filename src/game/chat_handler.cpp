@@ -638,6 +638,17 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
         std::string lang = std::to_string(static_cast<int>(data.language));
         char guidBuf[32];
         snprintf(guidBuf, sizeof(guidBuf), "0x%016llX", (unsigned long long)data.senderGuid);
+        // arg8 is the channel's number and arg9 its name without the zone
+        // after it, and both were sent empty. That is the whole of whether a
+        // channel line is shown: the handler builds "CHANNEL"..arg8 and looks
+        // it up in ChatTypeInfo, so a zero made every channel message
+        // CHANNEL0, which no table has, and the message was dropped before it
+        // reached the window. arg9 is what the frame matches against the
+        // channels it carries when the zone id does not settle it.
+        const int channelNumber = getChannelIndex(data.channelName);
+        const size_t dash = data.channelName.find(" - ");
+        const std::string shortChannel = (dash == std::string::npos)
+            ? data.channelName : data.channelName.substr(0, dash);
         owner_.addonEventCallbackRef()(eventName, {
             data.message,
             data.senderName,
@@ -646,8 +657,8 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
             senderInfo,
             "",
             "0",
-            "0",
-            "",
+            std::to_string(channelNumber),
+            shortChannel,
             "0",
             "0",
             guidBuf

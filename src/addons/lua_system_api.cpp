@@ -1841,6 +1841,19 @@ static std::array<ChatWindowSettings, kNumChatWindows>& chatWindows() {
         // Blizzard_CombatLog and registers its own events, so its list is
         // empty here exactly as it is in the real client.
         for (const char* g : kDefaultChatGroups) w[0].messageGroups.emplace_back(g);
+        // The channels the default layout carries. FrameXML never adds one by
+        // itself — ChatFrame_RegisterForChannels reads this list and nothing
+        // else fills it — so with it empty every channel line was matched
+        // against nothing and dropped, however well the message parsed.
+        //
+        // Names without the zone after them, which is what the frame compares:
+        // the message carries "General - Blasted Lands" and the short name
+        // beside it, and the match is on the short one. Zero for the zone id,
+        // which this client does not learn; the name settles it.
+        for (const char* c : {"General", "Trade", "LocalDefense",
+                              "LookingForGroup", "GuildRecruitment"}) {
+            w[0].channels.emplace_back(c, 0);
+        }
         return w;
     }();
     return windows;
