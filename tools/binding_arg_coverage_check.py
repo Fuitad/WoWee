@@ -45,6 +45,24 @@ docstring is honest about which way each errs:
     fixed, which is the same shape as framexml_provides not seeing the
     set("Name", ...) registration form.
 
+WHAT IT COULD NOT SEE UNTIL 2026-08-06
+
+More than half the bindings. A binding registered as an inline lambda in the
+table — {"Name", [](lua_State* L) -> int { ... }} — is the same binding to Lua
+as one written as a named function above it, but only the named form was
+matched here, so 738 of 1420 were never asked the question. Three faults came
+straight out of the other half, and all three are the acting kind:
+
+  * DoTradeSkill    both of the trade skill frame's buttons pass a count, and
+                    Create All made one item. The craft queue it needed already
+                    existed; the client's own crafting window was using it.
+  * CastPetAction   the unit a click-cast binding passes was dropped, so the pet
+                    went at the current target instead of what was clicked —
+                    exactly the fault CastSpellByID had, two files over.
+  * ToggleSpellAutocast  the spellbook passes a book slot and its book; only the
+                    name form was handled, so right-clicking a pet spell looked
+                    up a spell called "12" and toggled nothing.
+
 WHAT IT CANNOT SEE
 
 An argument that is read and then misused — UnitIsFriend read its first
@@ -139,6 +157,24 @@ def main():
               re.finditer(r"static int (lua_\w+)\(lua_State\* L\)\s*\{(.*?)\n\}", src, re.S)}
     registered = {m.group(1): m.group(2) for m in
                   re.finditer(r'\{"([A-Za-z_]\w*)",\s*(lua_\w+)\}', src)}
+    # ...and the inline form, which is more than half of them. Registering a
+    # binding as a lambda in the table rather than as a named function above it
+    # is the same binding to Lua, but it was invisible here: `registered` only
+    # matched {"Name", lua_Name} and `bodies` only matched a named definition,
+    # so 738 of the 1420 bindings were never asked whether they read what they
+    # were passed. The body is taken by matching braces, because the closing
+    # "}}" sits at whatever indent the file happens to use.
+    for m in re.finditer(r'\{"([A-Za-z_]\w*)",\s*\[\]\(lua_State\* L\) -> int \{', src):
+        depth, i = 1, m.end()
+        while i < len(src) and depth:
+            if src[i] == "{":
+                depth += 1
+            elif src[i] == "}":
+                depth -= 1
+            i += 1
+        name = m.group(1)
+        bodies[name] = src[m.end():i - 1]
+        registered.setdefault(name, name)
     helpers = helper_reach()
 
     rows = []

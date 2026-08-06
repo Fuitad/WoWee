@@ -2105,7 +2105,18 @@ void registerActionLuaAPI(lua_State* L) {
             uint32_t packed = gh->getPetActionSlot(index - 1);
             uint32_t spellId = packed & 0x00FFFFFF;
             if (spellId != 0) {
-                uint64_t target = gh->hasTarget() ? gh->getTargetGuid() : gh->getPetGuid();
+                // CastPetAction(action, unit) — the unit is what a click-cast
+                // binding on a unit frame passes, and dropping it sent the pet
+                // at whatever was targeted instead of what was clicked. The
+                // same fault CastSpellByID had, two files over.
+                uint64_t target = 0;
+                if (const char* uid = luaL_optstring(L, 2, nullptr)) {
+                    std::string u(uid);
+                    toLowerInPlace(u);
+                    target = resolveUnitGuid(gh, u);
+                }
+                if (target == 0)
+                    target = gh->hasTarget() ? gh->getTargetGuid() : gh->getPetGuid();
                 gh->sendPetAction(packed, target);
             }
             return 0;

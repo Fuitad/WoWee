@@ -348,13 +348,25 @@ CHECKS = [
     # instead of cancelling, and click-casting on a unit frame cast on the
     # current target. None raised, and the icons were right in every one.
     #
-    # Thirty-five left. Mostly genuinely optional arguments — the self-cast
-    # flag on UseAction and its siblings, the show-realm flag on GetUnitName,
-    # the notify flag on SetCVar — and one that is wrong and named in the tool:
-    # GetAttackPowerForStat needs a per-class coefficient table this client
-    # does not have. 4s.
+    # Fifty-four, and the rise is the sweep seeing more rather than the client
+    # doing worse: it matched only bindings written as named functions, so the
+    # 738 registered as inline lambdas — more than half — were never asked the
+    # question. Three faults came out of that half and are fixed; the twenty-two
+    # rows it added are otherwise trailing optional flags of the kind already
+    # here (exactMatch on StartDuel, FollowUnit, PromoteToLeader; showError on
+    # CanInspect; includeAll on GetCategoryNumAchievements).
+    #
+    # Mostly genuinely optional arguments — the self-cast flag on UseAction and
+    # its siblings, the show-realm flag on GetUnitName, the notify flag on
+    # SetCVar — and three that are wrong and named here:
+    # GetAttackPowerForStat needs a per-class coefficient table this client does
+    # not have; StartAuction's numStacks would need a several-item request where
+    # the builder writes one; DoEmote's target is a player *name*, and there is
+    # no name-to-guid lookup here to resolve it with, so it emotes at the
+    # current target. Each is wrong either way, and a guess would be harder to
+    # notice than the gap. 4s.
     ("binding_arg_coverage_check.py",
-     r"^(\d+) binding\(s\) read fewer arguments", 35,
+     r"^(\d+) binding\(s\) read fewer arguments", 54,
      "bindings that ignore an argument the interface passes"),
     ("tools_run_check.py",
      r"^(\d+) that cannot run", 0,

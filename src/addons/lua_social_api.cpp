@@ -2879,9 +2879,17 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"DisableSpellAutocast", [](lua_State* L) -> int {
             return setPetAutocastByName(L, false);
         }},
+                // ToggleSpellAutocast(spell, bookType) — asked in two shapes.
+                //
+                // The spellbook passes a book *slot* and the book it belongs
+                // to; /petautocasttoggle passes a name. Only the name was
+                // handled, so right-clicking a pet spell in the spellbook
+                // looked up a pet spell called "12" and toggled nothing at all.
                 {"ToggleSpellAutocast",  [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            const uint32_t id = petSpellByName(gh, luaL_optstring(L, 1, ""));
+            const uint32_t id = (!lua_isnoneornil(L, 2) && lua_isnumber(L, 1))
+                ? spellIdForCall(L, gh)
+                : petSpellByName(gh, luaL_optstring(L, 1, ""));
             if (gh && id != 0) gh->togglePetSpellAutocast(id);
             return 0;
         }},

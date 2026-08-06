@@ -2469,13 +2469,24 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushnumber(L, maxRank);
             return 3;
         }},
+                // DoTradeSkill(index, repeat) — make `repeat` of a recipe.
+                //
+                // Both of the trade skill frame's buttons pass a count: Create
+                // sends what the box holds and Create All sends numAvailable.
+                // Casting once regardless made "Create All" produce a single
+                // item, with no error to say why. The craft queue this needs
+                // already existed and the client's own crafting window has been
+                // using it — one press per craft is not the same as a queue,
+                // because each craft has to wait for the last to finish.
                 {"DoTradeSkill", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
+            int count = static_cast<int>(luaL_optnumber(L, 2, 1));
             if (!gh) return 0;
             const auto recipes = gh->getCraftingRecipes();
             if (i < 1 || i > static_cast<int>(recipes.size())) return 0;
-            gh->castSpell(recipes[i - 1].spellId);
+            if (count < 1) count = 1;
+            gh->startCraftQueue(recipes[i - 1].spellId, count);
             return 0;
         }},
                 {"CloseTradeSkill", [](lua_State* L) -> int {
