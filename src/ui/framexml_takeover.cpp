@@ -146,7 +146,22 @@ const std::set<std::string>& requested() {
                 // single slot where this client only ever learns of a whole
                 // side, and vendor's shares a branch with PLAYER_MONEY, which
                 // is fired.
-                "vendor", "mail", "bank", "trade"};
+                "vendor", "mail", "bank", "trade",
+                // The occasional windows. None is on screen often, but each
+                // opens whole or not at all, so a fault is unmistakable the
+                // first time one is reached — and none of the nine has an
+                // unfired event or an unanswered call that is not accounted
+                // for in the readiness report.
+                //
+                //   bgscore, book, gamemenu, help, readycheck,
+                //   social, stable, taxi, totems
+                //
+                // Talents is not among them: Blizzard_TalentUI is
+                // load-on-demand, so its frames do not exist until the panel
+                // is opened and the safety net cannot tell that from a failure
+                // to build.
+                "bgscore", "book", "gamemenu", "help", "readycheck",
+                "social", "stable", "taxi", "totems"};
         }();
 
         if (!raw || !*raw) {
@@ -300,13 +315,9 @@ const std::set<std::string>& requested() {
                     // out of this list and into the defaults. They are added
                     // either way — the defaults go in first — but an element
                     // named in both reads as though it were still waiting.
-                    "achievements", "auctionhouse",
-                    "barbershop", "bgscore", "book", "chat", "classtrainer",
-                    "dungeonfinder", "gamemenu", "guildbank",
-                    "help", "inspect",
-                    "questlog", "questtracker",
-                    "readycheck", "social", "stable",
-                    "talents", "taxi", "totems", "tradeskill",
+                    "achievements", "auctionhouse", "barbershop", "chat",
+                    "classtrainer", "dungeonfinder", "guildbank", "inspect",
+                    "questlog", "questtracker", "talents", "tradeskill",
                     "worldmap"}) {
                 out.insert(name);
             }
