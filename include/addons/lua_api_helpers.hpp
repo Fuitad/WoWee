@@ -377,11 +377,23 @@ inline bool repairedHeldItem(game::GameHandler* gh, uint64_t itemGuid) {
 /// the whole time, out of PLAYER_FIELD_KEYRING_SLOT_1.
 constexpr int kKeyringContainer = -2;
 
+/// The seven bank bags, which the interface numbers straight on from the four
+/// worn ones: NUM_BAG_SLOTS + 1 through NUM_BAG_SLOTS + NUM_BANKBAGSLOTS, so 5
+/// to 11. Each is a container of its own and containerframe.lua opens them
+/// exactly as it opens a worn bag.
+constexpr int kFirstBankBagContainer = 5;
+constexpr int kBankBagContainers = 7;
+inline bool isBankBagContainer(int c) {
+    return c >= kFirstBankBagContainer && c < kFirstBankBagContainer + kBankBagContainers;
+}
+
 /// How many slots a container has, in the interface's numbering.
 inline int containerSlotCount(const game::Inventory& inv, int container) {
     if (container == 0) return inv.getBackpackSize();
     if (container >= 1 && container <= 4) return inv.getBagSize(container - 1);
     if (container == kKeyringContainer) return inv.getKeyringSize();
+    if (isBankBagContainer(container))
+        return inv.getBankBagSize(container - kFirstBankBagContainer);
     return 0;
 }
 
@@ -393,6 +405,8 @@ inline const game::ItemSlot* containerItemSlot(const game::Inventory& inv,
     if (container == 0) return &inv.getBackpackSlot(slot - 1);
     if (container >= 1 && container <= 4) return &inv.getBagSlot(container - 1, slot - 1);
     if (container == kKeyringContainer) return &inv.getKeyringSlot(slot - 1);
+    if (isBankBagContainer(container))
+        return &inv.getBankBagSlot(container - kFirstBankBagContainer, slot - 1);
     return nullptr;
 }
 
@@ -426,9 +440,9 @@ inline uint64_t containerSlotGuid(game::GameHandler* gh, int bag, int slot) {
     if (!gh || slot < 1) return 0;
     if (bag == 0) return gh->getBackpackItemGuid(slot - 1);
     if (bag >= 1 && bag <= 4) return gh->getBagItemGuid(bag - 1, slot - 1);
-    // The keyring keeps its guid on the slot rather than in a side table, so
-    // this reads it from the inventory directly.
-    if (bag == kKeyringContainer) {
+    // The keyring and the bank bags keep their guid on the slot rather than in
+    // a side table, so these read it from the inventory directly.
+    if (bag == kKeyringContainer || isBankBagContainer(bag)) {
         const auto* s = containerItemSlot(gh->getInventory(), bag, slot);
         return s ? s->item.guid : 0;
     }
