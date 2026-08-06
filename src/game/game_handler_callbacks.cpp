@@ -1591,6 +1591,10 @@ void GameHandler::queryServerTime(bool announce) {
     if (socialHandler_) socialHandler_->queryServerTime(announce);
 }
 
+uint64_t GameHandler::getTalentWipeNpcGuid() const {
+    return spellHandler_ ? spellHandler_->getTalentWipeNpcGuid() : 0u;
+}
+
 uint32_t GameHandler::getSecondsUntilDailyReset() const {
     return socialHandler_ ? socialHandler_->getSecondsUntilDailyReset() : 0u;
 }

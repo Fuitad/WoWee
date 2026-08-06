@@ -167,9 +167,6 @@ static int lua_GetNumBankSlots(lua_State* L) {
     return 2;
 }
 
-/// GetContainerItemCooldown(bag, slot) → start, duration, enabled. Item
-/// cooldowns are not tracked, and all zero is "nothing running" — which is
-/// what ContainerFrame checks before doing arithmetic with the first two.
 /// GetContainerItemCooldown(bag, slot) → start, duration, enable.
 ///
 /// It answered zero for everything, so a potion or a trinket in the bags never
@@ -745,10 +742,7 @@ static int lua_PickupTradeMoney(lua_State* L) {
 // GetContainerItemPurchaseInfo(bag, slot, isEquipped) →
 //   money, honorPoints, arenaPoints, itemCount, refundSec
 //
-// What an item could be handed back for, and how long is left to do it. The
-// refund window is a per-item timer the server sends and this client does not
-// keep, so there is nothing to report — and the caller opens with
-// `if ( not refundSec ...) then return false`, which is exactly the answer.
+// What an item could be handed back for, and how long is left to do it.
 static int lua_GetContainerItemPurchaseInfo(lua_State* L) {
     // money, honorPoints, arenaPoints, itemCount, refundSeconds.
     //

@@ -216,6 +216,9 @@ public:
     // Talent wipe confirm dialog
     bool showTalentWipeConfirmDialog() const { return talentWipePending_; }
     uint32_t getTalentWipeCost() const { return talentWipeCost_; }
+    /// The trainer offering the wipe. The confirmation closes itself when the
+    /// player walks away from them.
+    uint64_t getTalentWipeNpcGuid() const { return talentWipeNpcGuid_; }
     void confirmTalentWipe();
     void cancelTalentWipe() { talentWipePending_ = false; }
 

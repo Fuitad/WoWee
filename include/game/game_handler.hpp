@@ -270,6 +270,11 @@ public:
     /// The order is the order a window would cover another: a trade or a
     /// merchant is more specific than the gossip that opened it.
     uint64_t getInteractNpcGuid() const;
+    /// The innkeeper whose bind confirmation is open, and the trainer whose
+    /// talent-wipe confirmation is. Both dialogs close themselves when the
+    /// player walks out of range, which is the only thing these answer.
+    uint64_t getBinderGuid() const { return binderGuid_; }
+    uint64_t getTalentWipeNpcGuid() const;
 
     /// What another player is visibly wearing, by ItemDisplayInfo id and
     /// inventory type, indexed by equipment slot. False when nothing is known

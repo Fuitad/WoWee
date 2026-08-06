@@ -311,6 +311,30 @@ static int lua_GetFriendInfo(lua_State* L) {
 /// stale exactly when the panel redraws.
 namespace {
 
+/// Whether an npc a dialog is waiting on is still close enough to talk to.
+///
+/// Five yards is AzerothCore's INTERACTION_DISTANCE, which is the figure the
+/// server itself refuses a request beyond — so a dialog that stays open past
+/// it is offering a button that cannot work.
+///
+/// An npc with no entity here answers *yes*, and the distinction matters: not
+/// knowing where someone is is not the same as knowing they are far away. Both
+/// callers close a dialog on a no, and the note this replaces warned about
+/// exactly that — a client that cannot measure the distance and answers no
+/// shuts the dialog the instant it opens. Closing on ignorance would bring
+/// that back for any npc briefly missing from the entity list.
+bool npcWithinInteractRange(game::GameHandler* gh, uint64_t npcGuid) {
+    if (!gh || npcGuid == 0) return true;
+    auto npc = gh->getEntityManager().getEntity(npcGuid);
+    auto player = gh->getEntityManager().getEntity(gh->getPlayerGuid());
+    if (!npc || !player) return true;
+    const float dx = player->getX() - npc->getX();
+    const float dy = player->getY() - npc->getY();
+    const float dz = player->getZ() - npc->getZ();
+    constexpr float kInteractionDistance = 5.0f;
+    return dx * dx + dy * dy + dz * dz <= kInteractionDistance * kInteractionDistance;
+}
+
 /// Which arena team a one-based index names, or zero for none.
 ///
 /// The interface counts teams 1, 2, 3 for the three bracket sizes and passes
@@ -3008,20 +3032,20 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetReleaseTimeRemaining", [](lua_State* L) -> int {
             lua_pushnumber(L, -1); return 1;
         }},
-                // Both are asked from an OnUpdate, so they would raise on
-                // every frame the popup is up rather than once.
+                // Asked from an OnUpdate, so this runs on every frame the
+                // popup is up rather than once.
                 //
                 // IsOutOfBounds decides whether the death popup shows the
-                // falling-to-your-death variant. CheckTalentMasterDist hides
-                // the talent wipe confirmation when the player walks away from
-                // the trainer — true keeps it up, which is right for a client
-                // that does not track that distance and would otherwise close
-                // the dialog the instant it opened.
+                // falling-to-your-death variant, and nothing here says which
+                // it is.
                 {"IsOutOfBounds", [](lua_State* L) -> int {
             lua_pushboolean(L, 0); return 1;
         }},
                 {"CheckTalentMasterDist", [](lua_State* L) -> int {
-            lua_pushboolean(L, 1); return 1;
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L,
+                gh && npcWithinInteractRange(gh, gh->getTalentWipeNpcGuid()) ? 1 : 0);
+            return 1;
         }},
                 // ---- Reached through FrameXML's own calls, not directly ----
                 //
@@ -3057,8 +3081,21 @@ void registerSocialLuaAPI(lua_State* L) {
             if (auto* gh = getGameHandler(L)) gh->confirmBinder();
             return 0;
         }},
+                // Both are asked from the confirmation's own OnUpdate and both
+                // used to answer a flat yes, so neither dialog ever closed
+                // itself: walking away from the innkeeper left the bind
+                // confirmation on screen, and the server refuses the request
+                // that button then sends.
+                //
+                // Five yards is what the server means by interacting —
+                // AzerothCore's INTERACTION_DISTANCE — measured against the
+                // npc each dialog names. A dialog whose npc has gone out of
+                // sight has no entity to measure, and that answers no for the
+                // same reason: it is no longer there to talk to.
                 {"CheckBinderDist", [](lua_State* L) -> int {
-            lua_pushboolean(L, 1); return 1;
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L, gh && npcWithinInteractRange(gh, gh->getBinderGuid()) ? 1 : 0);
+            return 1;
         }},
                 {"InCinematic", [](lua_State* L) -> int {
             lua_pushboolean(L, 0); return 1;
