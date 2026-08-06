@@ -348,7 +348,7 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
         /*uint32_t received      =*/ packet.readUInt32();
         /*uint32_t created       =*/ packet.readUInt32();
         /*uint32_t displayInChat =*/ packet.readUInt32();
-        /*uint8_t  bagSlot       =*/ packet.readUInt8();
+        const uint8_t bagSlot = packet.readUInt8();
         /*uint32_t slot          =*/ packet.readUInt32();
         uint32_t itemId = packet.readUInt32();
         /*uint32_t suffixFactor  =*/ packet.readUInt32();
@@ -356,9 +356,18 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
         uint32_t count = packet.readUInt32();
 
         auto* info = owner_.getItemInfo(itemId);
+        // Which bag button the item landed in, in the numbering the interface
+        // uses. Item::GetBagSlot answers the container's own inventory slot —
+        // 19 to 22 for the four worn bags — or INVENTORY_SLOT_BAG_0, 255, for
+        // the backpack. FrameXML's buttons take their ids from
+        // GetInventorySlotInfo("Bag0Slot") and friends, which are 20 to 23,
+        // with MainMenuBarBackpackButton declared id="0" in the XML. So the
+        // worn bags are one apart and the backpack is a special case.
+        const int bagButtonId = (bagSlot == 255) ? 0 : (static_cast<int>(bagSlot) + 1);
+
         if (!info || info->name.empty()) {
             // Item info not yet cached — defer notification
-            owner_.pendingItemPushNotifsRef().push_back({itemId, count});
+            owner_.pendingItemPushNotifsRef().push_back({itemId, count, bagButtonId});
             owner_.ensureItemInfo(itemId);
             return;
         }
@@ -378,7 +387,15 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
         }
         if (owner_.addonEventCallbackRef()) {
             fireBagUpdates();
-            owner_.addonEventCallbackRef()("ITEM_PUSH", {std::to_string(itemId), std::to_string(count)});
+            // ITEM_PUSH(bagSlot, icon), which is what the bag button's flash
+            // animation reads: mainmenubarbagbuttons compares its own GetID
+            // against the first and calls ReplaceIconTexture with the second.
+            // This sent the item id and the stack count instead — two numbers
+            // where a bag id and a texture were meant — so the comparison
+            // never matched and the animation has never once played.
+            owner_.addonEventCallbackRef()("ITEM_PUSH",
+                    {std::to_string(bagButtonId),
+                     owner_.getItemIconPath(info->displayInfoId)});
         }
         if (owner_.itemLootCallbackRef())
             owner_.itemLootCallbackRef()(itemId, count, quality, itemName);
@@ -3624,6 +3641,16 @@ void InventoryHandler::handleItemQueryResponse(network::Packet& packet) {
                     if (auto* sfx = ac->getUiSoundManager()) sfx->playLootItem();
                 }
                 if (owner_.itemLootCallbackRef()) owner_.itemLootCallbackRef()(data.entry, it->count, data.quality, itemName);
+                // ...and the event, which this path had never fired. An item
+                // whose name was not cached when it arrived is exactly the
+                // first one of its kind the player picks up, so the interface
+                // heard nothing on precisely the pickups it most wanted to
+                // hear about — watchframe refreshes its objectives on this.
+                if (owner_.addonEventCallbackRef()) {
+                    owner_.addonEventCallbackRef()("ITEM_PUSH",
+                            {std::to_string(it->bagButtonId),
+                             owner_.getItemIconPath(data.displayInfoId)});
+                }
                 it = owner_.pendingItemPushNotifsRef().erase(it);
             } else {
                 ++it;

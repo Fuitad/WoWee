@@ -3857,6 +3857,11 @@ private:
     struct PendingItemPushNotif {
         uint32_t itemId = 0;
         uint32_t count  = 1;
+        /// The bag button the item landed in, in the interface's numbering:
+        /// 0 for the backpack and 20-23 for the four worn bags. Carried so the
+        /// deferred path can fire ITEM_PUSH with the same arguments the
+        /// immediate one does.
+        int bagButtonId = 0;
     };
     std::vector<PendingItemPushNotif> pendingItemPushNotifs_;
     std::array<uint64_t, 23> equipSlotGuids_{};
