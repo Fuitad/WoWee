@@ -41,6 +41,10 @@ static uint32_t   s_cursorId   = 0;    // spellId, itemId, or action slot
 static int        s_cursorSlot = 0;    // source slot for placement
 static int        s_cursorBag  = -1;   // source bag for container items
 static uint64_t   s_cursorMoney = 0;   // copper, when the cursor carries money
+/// How much of a guild bank stack the cursor took, or zero for all of it. The
+/// wire carries the split on the *withdrawal*, not on the pickup, so the amount
+/// has to wait on the cursor until the drop says where it is going.
+static uint32_t   s_cursorSplit = 0;
 static void setCursorType(lua_State* L, CursorType type);
 /// Where the cursor's item came from, in wire bag/slot space. Declared here
 /// because the guild bank pickup above needs it and it is defined further down
@@ -110,6 +114,10 @@ static void clearCursorItem(lua_State* L);
 
 static void setCursorType(lua_State* L, CursorType type) {
     if (s_cursorType == type) return;
+    // Putting anything down forgets the guild bank split. It rides on the
+    // cursor between the pickup and the drop, and a leftover would be applied
+    // to the next withdrawal — a stack the player never asked to divide.
+    if (type != CursorType::GUILDBANK) s_cursorSplit = 0;
     const bool wasCarrying = (s_cursorType != CursorType::NONE);
     const bool nowCarrying = (type != CursorType::NONE);
     s_cursorType = type;
@@ -582,11 +590,27 @@ static int lua_PickupGuildBankItem(lua_State* L) {
         s_cursorId = it.itemEntry;
         s_cursorBag = tab;
         s_cursorSlot = slot;
+        s_cursorSplit = 0;   // the whole stack, unless SplitGuildBankItem says otherwise
         const auto* info = gh->getItemInfo(it.itemEntry);
         wowee::ui::frameXmlSetCursorItem(
             info ? gh->getItemIconPath(info->displayInfoId) : std::string());
         return 0;
     }
+    return 0;
+}
+
+// SplitGuildBankItem(tab, slot, amount) — take part of a stack.
+//
+// The stack split dialog calls this instead of PickupGuildBankItem when the
+// player asks for fewer than all of them. It is the same pickup with a number
+// attached: the wire carries the split on the *withdrawal* rather than on the
+// pickup, so the amount rides on the cursor until the drop says where it goes.
+static int lua_SplitGuildBankItem(lua_State* L) {
+    const int amount = static_cast<int>(luaL_optnumber(L, 3, 0));
+    lua_settop(L, 2);
+    lua_PickupGuildBankItem(L);
+    if (s_cursorType == CursorType::GUILDBANK && amount > 0)
+        s_cursorSplit = static_cast<uint32_t>(amount);
     return 0;
 }
 
@@ -823,7 +847,7 @@ static int lua_PickupContainerItem(lua_State* L) {
         }
         gh->guildBankWithdrawItem(static_cast<uint8_t>(s_cursorBag - 1),
                                   static_cast<uint8_t>(s_cursorSlot - 1),
-                                  dstBag, dstSlot);
+                                  dstBag, dstSlot, s_cursorSplit);
         setCursorType(L, CursorType::NONE);
         return 0;
     }
@@ -1652,6 +1676,7 @@ void registerActionLuaAPI(lua_State* L) {
                 {"PickupSpell",         lua_PickupSpell},
                 {"PickupCompanion",     lua_PickupCompanion},
                 {"PickupGuildBankItem", lua_PickupGuildBankItem},
+                {"SplitGuildBankItem",  lua_SplitGuildBankItem},
                 {"PickupSpellBookItem", lua_PickupSpellBookItem},
                 {"PickupContainerItem", lua_PickupContainerItem},
                 {"PickupItem",          lua_PickupItem},

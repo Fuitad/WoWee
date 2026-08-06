@@ -335,7 +335,8 @@ public:
     void buyGuildBankTab();
     void depositGuildBankMoney(uint32_t amount);
     void withdrawGuildBankMoney(uint32_t amount);
-    void guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, uint8_t destBag, uint8_t destSlot);
+    void guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, uint8_t destBag,
+                               uint8_t destSlot, uint32_t splitCount = 0);
     void guildBankDepositItem(uint8_t tabId, uint8_t bankSlot, uint8_t srcBag, uint8_t srcSlot);
     // Deposit an inventory item into the first free slot of the viewed tab.
     void guildBankDepositFromInventory(uint8_t srcBag, uint8_t srcSlot);

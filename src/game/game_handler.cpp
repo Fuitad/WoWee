@@ -1979,8 +1979,10 @@ void GameHandler::withdrawGuildBankMoney(uint32_t amount) {
     if (inventoryHandler_) inventoryHandler_->withdrawGuildBankMoney(amount);
 }
 
-void GameHandler::guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, uint8_t destBag, uint8_t destSlot) {
-    if (inventoryHandler_) inventoryHandler_->guildBankWithdrawItem(tabId, bankSlot, destBag, destSlot);
+void GameHandler::guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, uint8_t destBag,
+                                        uint8_t destSlot, uint32_t splitCount) {
+    if (inventoryHandler_) inventoryHandler_->guildBankWithdrawItem(tabId, bankSlot, destBag,
+                                                                   destSlot, splitCount);
 }
 
 void GameHandler::guildBankDepositItem(uint8_t tabId, uint8_t bankSlot, uint8_t srcBag, uint8_t srcSlot) {

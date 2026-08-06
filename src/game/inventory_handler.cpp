@@ -2788,9 +2788,11 @@ void InventoryHandler::withdrawGuildBankMoney(uint32_t amount) {
     owner_.getSocket()->send(packet);
 }
 
-void InventoryHandler::guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, uint8_t destBag, uint8_t destSlot) {
+void InventoryHandler::guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, uint8_t destBag,
+                                             uint8_t destSlot, uint32_t splitCount) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() || guildBankerGuid_ == 0) return;
-    auto packet = GuildBankSwapItemsPacket::buildBankToInventory(guildBankerGuid_, tabId, bankSlot, destBag, destSlot);
+    auto packet = GuildBankSwapItemsPacket::buildBankToInventory(guildBankerGuid_, tabId, bankSlot,
+                                                                 destBag, destSlot, splitCount);
     owner_.getSocket()->send(packet);
 }
 

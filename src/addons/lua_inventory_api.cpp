@@ -3700,7 +3700,6 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // withdraw and deposit packets move an item straight to or
                 // from a bag. AutoStoreGuildBankItem does that and works;
                 // these two say nothing rather than half-moving something.
-                {"SplitGuildBankItem",  [](lua_State* L) -> int { (void)L; return 0; }},
                 {"CloseGuildBankFrame", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->closeGuildBank();
             return 0;
