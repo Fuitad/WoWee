@@ -2226,6 +2226,37 @@ public:
     /// list is built and so is not stored in it.
     int32_t getFactionStanding(uint32_t factionId) const;
 
+    /// One line of the reputation panel as it is drawn: the flat list above
+    /// grouped under the headers Faction.dbc's parent chain describes.
+    ///
+    /// The server sends standings and nothing else — no categories, no order
+    /// beyond its own list. Both the headers and the nesting come from
+    /// ParentFactionID, and a header is simply a faction that some visible
+    /// faction descends from. A header may have a standing of its own (Alliance
+    /// does), which is why hasRep is a separate answer from isHeader.
+    struct ReputationRow {
+        uint32_t factionId = 0;
+        /// The server's repListId, and 0 for a header the player has no
+        /// standing with — such a row is drawn but cannot be acted on.
+        uint32_t reputationIndex = 0;
+        std::string name;
+        uint8_t flags = 0;
+        bool isHeader = false;    ///< something below it descends from this
+        bool isChild = false;     ///< drawn indented, under a header
+        bool hasRep = false;      ///< the player has a standing to show
+    };
+    /// The rows currently on screen: headers, plus the children of every header
+    /// that is not collapsed. This is what GetNumFactions counts and what
+    /// GetFactionInfo indexes, so every binding taking a "faction index" must
+    /// resolve it through here rather than through the flat list.
+    const std::vector<ReputationRow>& getReputationRows() const;
+    bool isFactionCollapsed(uint32_t factionId) const {
+        return collapsedFactionIds_.count(factionId) > 0;
+    }
+    void setFactionCollapsed(uint32_t factionId, bool collapsed);
+    /// The faction this one is grouped under, or 0 for a top-level one.
+    uint32_t getFactionParentId(uint32_t factionId) const;
+
     const std::vector<FactionStandingInit>& getInitialFactions() const { return initialFactions_; }
     const std::unordered_map<uint32_t, int32_t>& getFactionStandings() const { return factionStandings_; }
 
@@ -4484,6 +4515,17 @@ private:
     mutable std::unordered_map<uint32_t, ContinentBounds> continentBoundsCache_;
     mutable std::vector<ReputationEntry> reputationList_;
     mutable bool reputationListBuilt_ = false;
+    /// factionId → the faction it is grouped under, from Faction.dbc field 18.
+    /// Filled by loadFactionNameCache alongside the names and the repList map.
+    mutable std::unordered_map<uint32_t, uint32_t> factionParent_;
+    /// The drawn rows, rebuilt whenever the collapse set changes rather than
+    /// on every ask — the reputation panel calls GetFactionInfo once per row
+    /// per redraw.
+    mutable std::vector<ReputationRow> reputationRows_;
+    mutable bool reputationRowsDirty_ = true;
+    /// Headers the player has closed. Client-side only: the server has no
+    /// opinion about it, so it is saved with the rest of the character config.
+    std::unordered_set<uint32_t> collapsedFactionIds_;
     std::unordered_map<uint32_t, std::string> achievementDescCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementPointsCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementIconCache_;  // achievementId → SpellIcon.dbc ID

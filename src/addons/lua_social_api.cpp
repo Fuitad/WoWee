@@ -2446,27 +2446,26 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"AcceptDuel",          lua_AcceptDuel},
                 {"CancelDuel",          lua_CancelDuel},
                 {"GetAutoCompleteResults", lua_GetAutoCompleteResults},
+                // Every "faction index" below is a position in the *drawn*
+                // rows, not in the flat list the server sent: headers are rows
+                // too, and a collapsed one takes its children out of the list
+                // entirely. Resolving one against the flat list would act on
+                // whatever faction happened to sit at that offset instead.
                 {"GetNumFactions", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            lua_pushnumber(L, gh ? static_cast<double>(gh->getReputationList().size()) : 0.0);
+            lua_pushnumber(L, gh ? static_cast<double>(gh->getReputationRows().size()) : 0.0);
             return 1;
         }},
                 // name, description, standingID, barMin, barMax, barValue,
                 // atWarWith, canToggleAtWar, isHeader, isCollapsed, hasRep,
                 // isWatched, isChild
-                //
-                // Flat: every row is a faction, complete and in the server's
-                // order but not divided into categories. Not because the parent
-                // field goes unread — reading it does not produce headers, and
-                // pushFactionInfo carries the check that shows why against the
-                // file itself. One place for that, not two.
                 {"GetFactionInfo", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int index = static_cast<int>(luaL_checknumber(L, 1));
             if (!gh || index < 1) { return luaReturnNil(L); }
-            const auto& list = gh->getReputationList();
-            if (index > static_cast<int>(list.size())) { return luaReturnNil(L); }
-            return pushFactionInfo(L, gh, list[index - 1]);
+            const auto& rows = gh->getReputationRows();
+            if (index > static_cast<int>(rows.size())) { return luaReturnNil(L); }
+            return pushFactionRow(L, gh, rows[index - 1]);
         }},
                 // The reputation tab's controls. Every one of these has a verb
                 // on GameHandler and none had a binding, so the tab could show
@@ -2474,17 +2473,21 @@ void registerSocialLuaAPI(lua_State* L) {
                 // reputation panel was the only way to declare war on a faction
                 // or pick which bar to watch.
                 //
-                // All take a position in the flat list above, which is where
-                // reputationIndex (the server's repListId) comes from.
+                // All take a position in the drawn rows above. A header row
+                // the player has no standing with carries reputationIndex 0
+                // and cannot be acted on, which is why each checks hasRep
+                // before sending anything: declaring war on "Classic" is not a
+                // request the server has an answer for.
                 {"SetWatchedFactionIndex", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh) return 0;
             // Zero is FrameXML's "watch nothing", not a missing argument.
             if (index < 1) { gh->setWatchedFactionId(0); return 0; }
-            const auto& list = gh->getReputationList();
-            if (index <= static_cast<int>(list.size())) {
-                gh->setWatchedFactionId(list[static_cast<size_t>(index) - 1].factionId);
+            const auto& rows = gh->getReputationRows();
+            if (index <= static_cast<int>(rows.size())) {
+                const auto& row = rows[static_cast<size_t>(index) - 1];
+                if (row.hasRep) gh->setWatchedFactionId(row.factionId);
             }
             return 0;
         }},
@@ -2492,9 +2495,10 @@ void registerSocialLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh || index < 1) return 0;
-            const auto& list = gh->getReputationList();
-            if (index > static_cast<int>(list.size())) return 0;
-            const auto& f = list[static_cast<size_t>(index) - 1];
+            const auto& rows = gh->getReputationRows();
+            if (index > static_cast<int>(rows.size())) return 0;
+            const auto& f = rows[static_cast<size_t>(index) - 1];
+            if (!f.hasRep) return 0;
             const bool atWar = (f.flags & game::GameHandler::FACTION_FLAG_AT_WAR) != 0;
             gh->setFactionAtWar(f.reputationIndex, !atWar);
             return 0;
@@ -2503,10 +2507,10 @@ void registerSocialLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh || index < 1) return 0;
-            const auto& list = gh->getReputationList();
-            if (index <= static_cast<int>(list.size())) {
-                gh->setFactionInactive(list[static_cast<size_t>(index) - 1].reputationIndex,
-                                       false);
+            const auto& rows = gh->getReputationRows();
+            if (index <= static_cast<int>(rows.size())) {
+                const auto& row = rows[static_cast<size_t>(index) - 1];
+                if (row.hasRep) gh->setFactionInactive(row.reputationIndex, false);
             }
             return 0;
         }},
@@ -2514,10 +2518,10 @@ void registerSocialLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh || index < 1) return 0;
-            const auto& list = gh->getReputationList();
-            if (index <= static_cast<int>(list.size())) {
-                gh->setFactionInactive(list[static_cast<size_t>(index) - 1].reputationIndex,
-                                       true);
+            const auto& rows = gh->getReputationRows();
+            if (index <= static_cast<int>(rows.size())) {
+                const auto& row = rows[static_cast<size_t>(index) - 1];
+                if (row.hasRep) gh->setFactionInactive(row.reputationIndex, true);
             }
             return 0;
         }},
@@ -2526,15 +2530,22 @@ void registerSocialLuaAPI(lua_State* L) {
                 // faction's parent to build categories. With no headers there
                 // is nothing to open or close, and the tab calls these from a
                 // row's click handler regardless of what the row is.
-                {"ExpandFactionHeader",   [](lua_State* L) -> int { (void)L; return 0; }},
-                {"CollapseFactionHeader", [](lua_State* L) -> int { (void)L; return 0; }},
+                // Opening and closing a group. FrameXML calls these from a
+                // row's click handler regardless of what the row is, so a
+                // non-header index is ignored rather than refused.
+                {"ExpandFactionHeader", [](lua_State* L) -> int {
+            return factionHeaderSetCollapsed(L, false);
+        }},
+                {"CollapseFactionHeader", [](lua_State* L) -> int {
+            return factionHeaderSetCollapsed(L, true);
+        }},
                 {"IsFactionInactive", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int index = static_cast<int>(luaL_checknumber(L, 1));
-            const auto* list = gh ? &gh->getReputationList() : nullptr;
-            const bool inactive = list && index >= 1 &&
-                index <= static_cast<int>(list->size()) &&
-                ((*list)[index - 1].flags & game::GameHandler::FACTION_FLAG_INACTIVE) != 0;
+            const auto* rows = gh ? &gh->getReputationRows() : nullptr;
+            const bool inactive = rows && index >= 1 &&
+                index <= static_cast<int>(rows->size()) &&
+                ((*rows)[index - 1].flags & game::GameHandler::FACTION_FLAG_INACTIVE) != 0;
             lua_pushboolean(L, inactive ? 1 : 0);
             return 1;
         }},

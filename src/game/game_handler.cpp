@@ -1331,6 +1331,17 @@ void GameHandler::saveCharacterConfig() {
         out << "map_visible_quests=" << ids << "\n";
     }
 
+    // Which reputation headers are closed. The server has no opinion about it,
+    // so this file is the only place it can survive a logout.
+    if (!collapsedFactionIds_.empty()) {
+        std::string ids;
+        for (uint32_t fid : collapsedFactionIds_) {
+            if (!ids.empty()) ids += ',';
+            ids += std::to_string(fid);
+        }
+        out << "collapsed_factions=" << ids << "\n";
+    }
+
     LOG_INFO("Character config saved to ", path);
 }
 
@@ -1393,11 +1404,13 @@ void GameHandler::loadCharacterConfig() {
             } else if (key.substr(secondUnder + 1) == "icon" && !val.empty()) {
                 macroIcons_[macroId] = val;
             }
-        } else if ((key == "tracked_quests" || key == "map_visible_quests") &&
-                   !val.empty()) {
-            // Parse comma-separated quest IDs into the appropriate selection.
-            auto& destination = key == "tracked_quests"
-                ? trackedQuestIds_ : mapVisibleQuestIds_;
+        } else if ((key == "tracked_quests" || key == "map_visible_quests" ||
+                    key == "collapsed_factions") && !val.empty()) {
+            // Parse a comma-separated id list into the matching selection.
+            auto& destination = key == "tracked_quests"    ? trackedQuestIds_
+                              : key == "collapsed_factions" ? collapsedFactionIds_
+                                                            : mapVisibleQuestIds_;
+            if (key == "collapsed_factions") reputationRowsDirty_ = true;
             destination.clear();
             size_t tqPos = 0;
             while (tqPos <= val.size()) {
@@ -2609,10 +2622,15 @@ void GameHandler::loadFactionNameCache() const {
     //  23:    Name (English locale, string ref)
     constexpr uint32_t ID_FIELD      = 0;
     constexpr uint32_t REPLIST_FIELD = 1;
+    constexpr uint32_t PARENT_FIELD  = 18;
     constexpr uint32_t NAME_FIELD    = 23;  // enUS name string
 
     // Classic/TBC have fewer fields; fall back gracefully
     const bool hasRepListField = dbc->getFieldCount() > REPLIST_FIELD;
+    // The parent chain is what groups the reputation panel into the headers
+    // the original interface draws. Read here rather than in a second pass so
+    // there is one opinion about which field holds it.
+    const bool hasParentField = dbc->getFieldCount() > PARENT_FIELD;
     if (dbc->getFieldCount() <= NAME_FIELD) {
         LOG_WARNING("Faction.dbc: unexpected field count ", dbc->getFieldCount());
         // Don't abort — still try to load names from a shorter layout
@@ -2627,6 +2645,12 @@ void GameHandler::loadFactionNameCache() const {
             std::string name = dbc->getString(i, nameField);
             if (!name.empty()) {
                 factionNameCache_[factionId] = std::move(name);
+            }
+        }
+        if (hasParentField) {
+            const uint32_t parentId = dbc->getUInt32(i, PARENT_FIELD);
+            if (parentId != 0 && parentId != factionId) {
+                factionParent_[factionId] = parentId;
             }
         }
         // Build repListId ↔ factionId mapping (WotLK field 1)
@@ -3732,6 +3756,123 @@ const std::vector<GameHandler::ReputationEntry>& GameHandler::getReputationList(
     // Walked in the server's own order already, so no sort is needed.
     LOG_INFO("Reputation: ", reputationList_.size(), " visible factions");
     return reputationList_;
+}
+
+uint32_t GameHandler::getFactionParentId(uint32_t factionId) const {
+    loadFactionNameCache();
+    auto it = factionParent_.find(factionId);
+    return (it != factionParent_.end()) ? it->second : 0u;
+}
+
+void GameHandler::setFactionCollapsed(uint32_t factionId, bool collapsed) {
+    if (factionId == 0) return;
+    const bool changed = collapsed ? collapsedFactionIds_.insert(factionId).second
+                                   : collapsedFactionIds_.erase(factionId) > 0;
+    // Rebuilding on a no-op would be harmless but the redraw is not: the
+    // reputation panel reads its scroll position back from the row count.
+    if (changed) reputationRowsDirty_ = true;
+}
+
+const std::vector<GameHandler::ReputationRow>& GameHandler::getReputationRows() const {
+    const auto& flat = getReputationList();
+    if (!reputationRowsDirty_) return reputationRows_;
+    reputationRows_.clear();
+    // An empty list means the standings have not arrived, not that there are
+    // none — latching that would leave the panel empty for the session.
+    if (flat.empty()) return reputationRows_;
+    reputationRowsDirty_ = false;
+
+    // Everything drawn: the visible factions, plus every faction one of them
+    // descends from. A group whose members the player has not met is not drawn
+    // at all, so its heading is not either.
+    std::unordered_map<uint32_t, const ReputationEntry*> byId;
+    std::unordered_set<uint32_t> displayed;
+    for (const auto& e : flat) { byId[e.factionId] = &e; displayed.insert(e.factionId); }
+    for (const auto& e : flat) {
+        // Faction.dbc is data, and a cycle in it would spin here. The real
+        // chain is three deep, so a small ceiling costs nothing.
+        uint32_t p = getFactionParentId(e.factionId);
+        for (int depth = 0; p != 0 && depth < 8; ++depth) {
+            displayed.insert(p);
+            p = getFactionParentId(p);
+        }
+    }
+
+    // Where each group sits: at its first member's place in the server's list.
+    // Ordering by the heading's own repListId instead would scatter the groups,
+    // since Classic is 96 while the factions inside it start at 10.
+    constexpr size_t kNoRank = static_cast<size_t>(-1);
+    std::unordered_map<uint32_t, size_t> rank;
+    for (uint32_t id : displayed) rank[id] = kNoRank;
+    for (size_t i = 0; i < flat.size(); ++i) {
+        uint32_t id = flat[i].factionId;
+        for (int depth = 0; id != 0 && depth < 9; ++depth) {
+            auto it = rank.find(id);
+            if (it != rank.end() && i < it->second) it->second = i;
+            id = getFactionParentId(id);
+        }
+    }
+
+    // The tree, with a parent outside the drawn set counting as no parent.
+    std::unordered_map<uint32_t, std::vector<uint32_t>> children;
+    for (uint32_t id : displayed) {
+        const uint32_t parent = getFactionParentId(id);
+        children[displayed.count(parent) ? parent : 0u].push_back(id);
+    }
+    const auto byRank = [&](uint32_t a, uint32_t b) {
+        if (rank[a] != rank[b]) return rank[a] < rank[b];
+        return getFactionNamePublic(a) < getFactionNamePublic(b);
+    };
+    for (auto& [parent, kids] : children) {
+        (void)parent;
+        std::sort(kids.begin(), kids.end(), byRank);
+    }
+
+    // Depth first, so a heading is immediately followed by what is under it.
+    // FrameXML draws a flat list and takes the nesting from isHeader/isChild,
+    // which means the order *is* the grouping: emitting in the server's order
+    // and relying on the flags would file each faction under whichever heading
+    // happened to be printed last.
+    std::vector<std::pair<uint32_t, int>> stack;
+    for (auto it = children[0].rbegin(); it != children[0].rend(); ++it) {
+        stack.emplace_back(*it, 0);
+    }
+    while (!stack.empty()) {
+        const auto [factionId, depth] = stack.back();
+        stack.pop_back();
+
+        auto kidsIt = children.find(factionId);
+        const bool isHeader = kidsIt != children.end() && !kidsIt->second.empty();
+
+        ReputationRow row;
+        row.factionId = factionId;
+        row.isHeader = isHeader;
+        // Only two levels are drawn: FrameXML knows a heading and an indented
+        // row and nothing deeper, so everything below the top shares one indent.
+        row.isChild = depth > 0;
+        auto entry = byId.find(factionId);
+        if (entry != byId.end()) {
+            row.reputationIndex = entry->second->reputationIndex;
+            row.name = entry->second->name;
+            row.flags = entry->second->flags;
+            row.hasRep = true;
+        } else {
+            // A heading the player has no standing with — Classic and the two
+            // expansion groups are the usual ones. Drawn as a bare heading.
+            row.name = getFactionNamePublic(factionId);
+            row.hasRep = false;
+        }
+        reputationRows_.push_back(std::move(row));
+
+        // A closed group keeps its heading and loses everything under it: the
+        // panel counts rows and indexes into them, so a hidden row must not be
+        // in the list at all.
+        if (!isHeader || isFactionCollapsed(factionId)) continue;
+        for (auto it = kidsIt->second.rbegin(); it != kidsIt->second.rend(); ++it) {
+            stack.emplace_back(*it, depth + 1);
+        }
+    }
+    return reputationRows_;
 }
 
 const GameHandler::ContinentBounds&
