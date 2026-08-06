@@ -5082,9 +5082,13 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"TaxiGetDestY", lua_TaxiLegCoord<1, false>},
                 // SetTaxiMap(texture) — the flight map's own picture.
                 //
-                // Nothing here has continent map artwork to give it, and the
-                // texture it is handed keeps whatever its XML set. Named rather
-                // than left out so it does not read as a gap that was missed.
+                // This client has continent artwork, but not in the shape this
+                // call wants: its flight map is a mode of the world map, which
+                // draws the continent from tiles and puts taxi nodes over it,
+                // where SetTaxiMap hands over one texture to point at a single
+                // TAXIMAP image. So the texture keeps whatever its XML set.
+                // Named rather than left out so it does not read as a gap that
+                // was missed.
                 {"SetTaxiMap", [](lua_State* L) -> int { (void)L; return 0; }},
                 {"CloseTaxiMap", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->closeTaxi();

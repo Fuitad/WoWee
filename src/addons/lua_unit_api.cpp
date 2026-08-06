@@ -3054,15 +3054,45 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushnumber(L, gh ? gh->getPetNextLevelExp() : 0);
             return 2;
         }},
-                // Companions and mounts, which this client does not enumerate
-                // — the tab lists nothing, and these are what its buttons
-                // would call if it did.
-                {"GetCompanionCooldown",    [](lua_State* L) -> int {
-            lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 0); return 3; }},
+                // GetCompanionCooldown(mode, index) → start, duration, enabled.
+                //
+                // A companion's cooldown is its summon spell's, the same
+                // relationship GetTradeSkillCooldown reads for a recipe. The
+                // comment that used to sit here said this client does not
+                // enumerate companions, which stopped being true when
+                // rebuildCompanions was written — GetCompanionInfo has listed
+                // them, and CallCompanion below has summoned them, ever since.
+                //
+                // (start, duration), not (now, remaining): the cooldown frame
+                // draws a sweep of `duration` beginning at `start`, so the
+                // start is wound back by however much has already run.
+                {"GetCompanionCooldown", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* kind = luaL_optstring(L, 1, "");
+            const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+            if (!gh || index < 1) {
+                lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 1);
+                return 3;
+            }
+            const auto& list = gh->getCompanions(std::string(kind) == "MOUNT");
+            float left = 0.0f, total = 0.0f;
+            if (index <= static_cast<int>(list.size())) {
+                const uint32_t spellId = list[static_cast<size_t>(index) - 1].spellId;
+                left = gh->getSpellCooldown(spellId);
+                total = gh->getSpellCooldownTotal(spellId);
+                if (total < left) total = left;
+            }
+            if (left <= 0.01f) {
+                lua_pushnumber(L, 0); lua_pushnumber(L, 0); lua_pushnumber(L, 1);
+                return 3;
+            }
+            lua_pushnumber(L, luaGetTimeNow() - (total - left));
+            lua_pushnumber(L, total);
+            lua_pushnumber(L, 1);
+            return 3;
+        }},
                 // Summoning a mount or a critter is casting its spell — there
-                // is no separate companion message on the wire in 3.3.5, which
-                // is why these two were no-ops beside a list that was empty
-                // anyway.
+                // is no separate companion message on the wire in 3.3.5.
                 {"CallCompanion", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const char* kind = luaL_optstring(L, 1, "");

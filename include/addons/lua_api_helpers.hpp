@@ -89,6 +89,23 @@ inline constexpr const char* kLuaRaces[] = {
     "Tauren","Gnome","Troll","","Blood Elf","Draenei"
 };
 
+/// Whether a quest of this level is grey to a player of that one.
+///
+/// The threshold is AzerothCore's Acore::XP::GetGrayLevel, which the server
+/// uses for the same judgement — `creatureOrQuestLevel <= GetGrayLevel(level)`.
+/// Written out rather than guessed at a "level - 8 or so", which is what the
+/// comment beside IsActiveQuestTrivial used to decline to do; the formula is
+/// three branches and it is the server's own.
+inline bool questIsTrivial(int playerLevel, int questLevel) {
+    if (questLevel <= 0 || playerLevel <= 0) return false;
+    int grey;
+    if (playerLevel <= 5)       grey = 0;
+    else if (playerLevel <= 39) grey = playerLevel - 5 - playerLevel / 10;
+    else if (playerLevel <= 59) grey = playerLevel - 1 - playerLevel / 5;
+    else                        grey = playerLevel - 9;
+    return questLevel <= grey;
+}
+
 /// The five loot methods, indexed by the value the group list carries, and the
 /// tokens the interface knows them by. unitpopup.lua does
 /// `UnitLootMethod[GetLootMethod()].text` — a table keyed by the token, with

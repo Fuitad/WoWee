@@ -2126,10 +2126,16 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"SelectActiveQuest", [](lua_State* L) -> int {
             return selectGossipQuestAt(L, /*available=*/false);
         }},
-                // Only greys a title, and nothing here knows a quest's green
-                // range — a guess would grey quests that are not trivial.
+                // Greys the title of a quest the player has outlevelled. The
+                // gossip list carries each quest's level and the threshold is
+                // the server's own formula, so this is a comparison rather than
+                // the guess the old comment here declined to make.
                 {"IsActiveQuestTrivial", [](lua_State* L) -> int {
-            lua_pushboolean(L, 0);
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_checknumber(L, 1));
+            const auto* q = gossipQuestAt(L, /*available=*/false, index);
+            lua_pushboolean(L, (gh && q &&
+                questIsTrivial(static_cast<int>(gh->getPlayerLevel()), q->questLevel)) ? 1 : 0);
             return 1;
         }},
                 // isTrivial, isDaily, isRepeatable — which icon the greeting
@@ -2137,7 +2143,9 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetAvailableQuestInfo", [](lua_State* L) -> int {
             const int index = static_cast<int>(luaL_checknumber(L, 1));
             const auto* q = gossipQuestAt(L, /*available=*/true, index);
-            lua_pushboolean(L, 0);
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L, (gh && q &&
+                questIsTrivial(static_cast<int>(gh->getPlayerLevel()), q->questLevel)) ? 1 : 0);
             lua_pushboolean(L, q && (q->questFlags & kQuestFlagsDaily) ? 1 : 0);
             lua_pushboolean(L, q && q->isRepeatable ? 1 : 0);
             return 3;
