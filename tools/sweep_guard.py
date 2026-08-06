@@ -102,20 +102,23 @@ CHECKS = [
     ("framexml_event_arity.py",
      r"^(\d+) fired from several places with differing counts", 4,
      "events whose argument count depends on which path fired them"),
-    # Twenty-five, and most are correctly absent: their dialog is shown by a
-    # message this client is never sent — the bind-confirmation family needs
-    # LOOT_BIND_CONFIRM and its three siblings, none of which any opcode here
-    # produces, and the arena and socketing ones need features that are not
-    # here at all. The ceiling is for a regression, and for the day one of
-    # those events starts being fired: a popup that can open with an unbound
-    # accept is a player pressing a button and getting an error.
+    # Five, and every one is unreachable: the event that shows its dialog is
+    # not fired anywhere under src/. LEVEL_GRANT_PROPOSED is Recruit-a-Friend
+    # level granting, END_BOUND_TRADEABLE and END_REFUND end a refund window,
+    # and TRADE_REPLACE_ENCHANT is the trade-window twin of REPLACE_ENCHANT —
+    # which *is* fired, from inventory_handler, and whose verb is bound.
     #
-    # That day came for CONFIRM_LOOT_ROLL on 2026-08-05, and in the useful
-    # direction: it is raised by the *client*, not the server, so nothing here
+    # It was twenty-five. The rest went as the bind-confirmation family and the
+    # socketing prompts were implemented, and the ceiling stayed at twenty-five
+    # until 2026-08-05, permitting twenty silent regressions.
+    #
+    # The ceiling is for the day one of those four events starts being fired: a
+    # popup that opens with an unbound accept is a player pressing a button and
+    # getting an error. That day came for CONFIRM_LOOT_ROLL, and in the useful
+    # direction — it is raised by the *client*, not the server, so nothing here
     # raised it and Need on a bind-on-pickup item bound it with no warning.
-    # RollOnLoot raises it now and ConfirmLootRoll answers it. Checking whether
-    # a popup is reachable means asking which event shows it and whether this
-    # client fires that event — not whether the verb is bound.
+    # Checking whether a popup is reachable means asking which event shows it
+    # and whether this client fires that event, not whether the verb is bound.
     ("staticpopup_verbs_check.py",
      r"^(\d+) name\(s\) a popup button calls and nothing answers", 5,
      "names a static popup's buttons call that nothing answers"),
