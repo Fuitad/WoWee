@@ -1752,6 +1752,12 @@ void registerSocialLuaAPI(lua_State* L) {
                 // SetRaidSubgroup(raidIndex, group) — move a member into a
                 // different group of eight. SwapRaidSubgroup exchanges two,
                 // which is what the raid UI uses when the destination is full.
+                // The group number stays as the interface counts it, from one.
+                // SocialHandler::setRaidSubgroup takes 1..8 and writes group - 1
+                // itself — subtracting here as well makes Group 1 a zero, which
+                // that function then rejects, and every other group land one
+                // short. The wire is zero-based; the conversion is just already
+                // done a layer down.
                 {"SetRaidSubgroup", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int idx   = static_cast<int>(luaL_optnumber(L, 1, 0));
