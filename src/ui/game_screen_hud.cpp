@@ -520,6 +520,31 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
                 dots.push_back({ rpos, col, member.name });
             }
         }
+        // Battleground team positions, which this client had only ever drawn
+        // on the minimap.
+        //
+        // FrameXML draws them on its own world map — WorldMapRaid1..40, placed
+        // from GetNumBattlefieldPositions and GetBattlefieldPosition — but that
+        // is exactly the area this client's map surface covers, so nothing
+        // FrameXML puts there can be seen. Handing the map over made the
+        // interface responsible for a layer it cannot show, so the surface
+        // that hides it has to draw them instead.
+        //
+        // The same two group colours the minimap uses, so a flag carrier is
+        // the same colour on both.
+        {
+            static const uint32_t kBgGroupColors[2] = {
+                IM_COL32( 80, 180, 255, 240),   // group 0
+                IM_COL32(220,  50,  50, 240),   // group 1
+            };
+            for (const auto& bp : gameHandler.getBgPlayerPositions()) {
+                // Packet coords are canonical: wowX north, wowY west.
+                const glm::vec3 rpos =
+                    core::coords::canonicalToRender(glm::vec3(bp.wowX, bp.wowY, 0.0f));
+                dots.push_back({ rpos, kBgGroupColors[bp.group & 1],
+                                 gameHandler.lookupName(bp.guid) });
+            }
+        }
         wm->setPartyDots(std::move(dots));
     }
 
