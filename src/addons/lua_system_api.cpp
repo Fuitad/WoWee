@@ -324,6 +324,29 @@ static bool tutorialFlagged(int id) {
     return false;
 }
 
+/// Every flagged tutorial, in id order.
+///
+/// Stored in the order they were seen, which is not the order they are browsed
+/// in: the next and previous buttons walk the ids, so the list is sorted here
+/// rather than kept sorted, and a file hand-edited into any order still reads.
+static std::vector<int> tutorialIds() {
+    std::vector<int> ids;
+    const std::string& all = cvarStore()[kTutorialCVar];
+    size_t at = 0;
+    while (at < all.size()) {
+        const size_t comma = all.find(',', at);
+        const std::string piece = all.substr(
+            at, comma == std::string::npos ? std::string::npos : comma - at);
+        if (!piece.empty()) {
+            try { ids.push_back(std::stoi(piece)); } catch (...) {}
+        }
+        if (comma == std::string::npos) break;
+        at = comma + 1;
+    }
+    std::sort(ids.begin(), ids.end());
+    return ids;
+}
+
 static void flagTutorial(int id) {
     if (id <= 0 || tutorialFlagged(id)) return;
     std::string& all = cvarStore()[kTutorialCVar];
@@ -3572,6 +3595,25 @@ void registerSystemLuaAPI(lua_State* L) {
                 // before one is queued.
                 {"FlagTutorial", [](lua_State* L) -> int {
             flagTutorial(static_cast<int>(luaL_optnumber(L, 1, 0)));
+            return 0;
+        }},
+                // Walking the tutorials already seen. Both answer an id or
+                // nothing, and nothing is what disables the button — so a
+                // wrong answer here is a button that looks available and does
+                // not move.
+                {"GetNextCompleatedTutorial", [](lua_State* L) -> int {
+            const int from = static_cast<int>(luaL_optnumber(L, 1, 0));
+            for (int id : tutorialIds()) {
+                if (id > from) { lua_pushnumber(L, id); return 1; }
+            }
+            return 0;
+        }},
+                {"GetPrevCompleatedTutorial", [](lua_State* L) -> int {
+            const int from = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const auto ids = tutorialIds();
+            for (auto it = ids.rbegin(); it != ids.rend(); ++it) {
+                if (*it < from) { lua_pushnumber(L, *it); return 1; }
+            }
             return 0;
         }},
                 {"IsTutorialFlagged", [](lua_State* L) -> int {
