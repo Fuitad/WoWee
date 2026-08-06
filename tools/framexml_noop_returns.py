@@ -31,6 +31,26 @@ split by what the consumption does:
   fine     called for effect, or tested for truth (nil is falsy, which is what
            a no-op is for) — not reported
 
+A NO-OP WHOSE NIL IS THE DOCUMENTED ANSWER, AND MUST STAY ONE
+
+SetDesaturated, and it is worth naming because it is the shape someone
+"fixes". itembuttontemplate.lua — which backs every item button in the
+interface — writes:
+
+    local shaderSupported = icon:SetDesaturated(desaturated);
+    if ( not desaturated ) then r, g, b = 1.0, 1.0, 1.0
+    elseif ( not r or not shaderSupported ) then r, g, b = 0.5, 0.5, 0.5 end
+    icon:SetVertexColor(r, g, b);
+
+The variable's own name says nil is expected: no shader, so dim it with vertex
+colour instead. The no-op returns nil, the fallback runs, and unusable and
+locked items grey out correctly — verified down to the draw, where textures are
+tinted by packColor(w->color, w->alpha) and SetVertexColor writes that colour.
+
+Binding SetDesaturated to return true without actually desaturating would take
+that fallback away and leave every unusable item at full brightness. This one
+is right as it is.
+
 WHAT IT CANNOT SEE
 
 Where a nil goes once assigned. The silent tier is a list to read, not a list
