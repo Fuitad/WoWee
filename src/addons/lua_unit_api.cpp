@@ -2539,10 +2539,6 @@ void registerUnitLuaAPI(lua_State* L) {
         }},
                 // The money a quest asks for, which the tracker compares
                 // against the player's before calling an objective complete.
-                {"GetQuestLogRequiredMoney", [](lua_State* L) -> int {
-            lua_pushnumber(L, 0);
-            return 1;
-        }},
                 // SetBattlefieldScoreFaction(faction) — show one side only.
                 //
                 // The scoreboard's tabs are a filter, not a sort: 1 is

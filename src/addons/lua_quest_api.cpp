@@ -1660,9 +1660,35 @@ static int lua_GetQuestLogSpellLink(lua_State* L) {
     return luaReturnNil(L);
 }
 
+// The server sends one field for both, and its sign says which: AzerothCore's
+// GetRewOrReqMoney returns the reward when it is positive and the *cost* when
+// it is negative, and the quest query serializer writes that single int32. So a
+// quest that charges the player was answering this with a negative reward, and
+// the reward panel drew a money frame with a negative amount in it.
 static int lua_GetQuestLogRewardMoney(lua_State* L) {
     const auto* q = selectedLogEntry(getGameHandler(L));
-    lua_pushnumber(L, q ? q->rewardMoney : 0);
+    const int32_t money = q ? q->rewardMoney : 0;
+    lua_pushnumber(L, money > 0 ? money : 0);
+    return 1;
+}
+
+// ...and the other half of that field, which answered zero for every quest.
+//
+// Named with an index by the world map and without one by the quest info
+// panel, which is how most of the quest log accessors are asked: the selected
+// entry is the default, not the only answer.
+static int lua_GetQuestLogRequiredMoney(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const game::GameHandler::QuestLogEntry* q = nullptr;
+    if (gh && lua_isnumber(L, 1)) {
+        const int idx = static_cast<int>(lua_tonumber(L, 1));
+        const auto& log = gh->getQuestLog();
+        if (idx >= 1 && idx <= static_cast<int>(log.size())) q = &log[idx - 1];
+    } else {
+        q = selectedLogEntry(gh);
+    }
+    const int32_t money = q ? q->rewardMoney : 0;
+    lua_pushnumber(L, money < 0 ? -money : 0);
     return 1;
 }
 
@@ -2242,6 +2268,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetQuestLogItemLink",     lua_GetQuestLogItemLink},
                 {"GetQuestLogSpellLink",    lua_GetQuestLogSpellLink},
                 {"GetQuestLogRewardMoney", lua_GetQuestLogRewardMoney},
+                {"GetQuestLogRequiredMoney", lua_GetQuestLogRequiredMoney},
                 {"GetTitleText",         lua_GetTitleText},
                 {"GetQuestText",         lua_GetQuestText},
                 {"GetObjectiveText",     lua_GetObjectiveText},
