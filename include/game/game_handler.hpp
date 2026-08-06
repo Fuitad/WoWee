@@ -1844,6 +1844,9 @@ public:
     uint32_t getLfgBootNeeded() const;
     const std::string& getLfgBootTargetName() const;
     const std::string& getLfgBootReason() const;
+    using LfgRoleCheckDungeon = game::LfgRoleCheckDungeon;
+    const std::vector<LfgRoleCheckDungeon>& getLfgRoleCheckDungeons() const;
+    uint8_t getLfgRoleCheckMembers() const;
     bool isLfgBootInProgress() const;
     bool hasLfgBootVoted() const;
     bool getLfgBootMyVote() const;

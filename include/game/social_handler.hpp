@@ -434,6 +434,10 @@ public:
     uint32_t getLfgBootNeeded()      const { return lfgBootNeeded_; }
     const std::string& getLfgBootTargetName() const { return lfgBootTargetName_; }
     const std::string& getLfgBootReason()     const { return lfgBootReason_; }
+    const std::vector<LfgRoleCheckDungeon>& getLfgRoleCheckDungeons() const {
+        return lfgRoleCheckDungeons_;
+    }
+    uint8_t getLfgRoleCheckMembers() const { return lfgRoleCheckMembers_; }
     bool isLfgBootInProgress() const { return lfgBootInProgress_; }
     bool hasLfgBootVoted()     const { return lfgBootDidVote_; }
     bool getLfgBootMyVote()    const { return lfgBootMyVote_; }
@@ -644,6 +648,10 @@ private:
     uint32_t lfgBootNeeded_   = 0;
     /// The three flags the proposal opens with. Read from the packet and
     /// dropped until 2026-08-06; the vote dialog branches on all three.
+    /// What the role check is for, and how many are answering it. Read off
+    /// SMSG_LFG_ROLE_CHECK_UPDATE, which used to stop at the count.
+    std::vector<LfgRoleCheckDungeon> lfgRoleCheckDungeons_;
+    uint8_t lfgRoleCheckMembers_ = 0;
     bool lfgBootInProgress_ = false;
     bool lfgBootDidVote_    = false;
     bool lfgBootMyVote_     = false;

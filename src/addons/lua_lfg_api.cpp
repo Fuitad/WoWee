@@ -328,7 +328,22 @@ void registerLfgLuaAPI(lua_State* L) {
     // which SetLFGRoles above already sends, so this is the confirmation and
     // has nothing left to send.
     {"CompleteLFGRoleCheck",  luaReturnNothing},
-    {"GetLFGRoleUpdateSlot",  [](lua_State* L) -> int { return luaReturnNil(L); }},
+    // GetLFGRoleUpdateSlot(index) → dungeonType, dungeonID
+    //
+    // The dungeons a role check is being run for. The popup names the one when
+    // there is one and lists them in a tooltip when there are several; with
+    // nothing to answer, every check read as "multiple dungeons".
+    {"GetLFGRoleUpdateSlot", [](lua_State* L) -> int {
+        auto* gh = getGameHandler(L);
+        const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+        if (!gh || index < 1) return luaReturnNil(L);
+        const auto& dungeons = gh->getLfgRoleCheckDungeons();
+        if (index > static_cast<int>(dungeons.size())) return luaReturnNil(L);
+        const auto& d = dungeons[static_cast<size_t>(index) - 1];
+        lua_pushnumber(L, d.typeId);
+        lua_pushnumber(L, d.dungeonId);
+        return 2;
+    }},
 
     // ---- The queue ----
 

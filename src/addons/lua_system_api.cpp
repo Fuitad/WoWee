@@ -2688,12 +2688,21 @@ static int lua_GetLFGInfoServer(lua_State* L) {
 }
 
 // GetLFGRoleUpdate() → roleCheckInProgress, slots, members
+//
+// The last two were nil, and nil is not a harmless blank here.
+// LFDRoleCheckPopupDescription_OnEnter opens with `if ( slots <= 1 )`, which
+// compares nil to a number and raises — hovering the role-check popup took the
+// file down with it. LFDRoleCheckPopup_Update branches on `slots == 1` too, so
+// every check also described itself as being for multiple dungeons.
+//
+// Both come off SMSG_LFG_ROLE_CHECK_UPDATE, which carries the dungeon list and
+// the group size behind the count the handler used to stop at.
 static int lua_GetLFGRoleUpdate(lua_State* L) {
     auto* gh = getGameHandler(L);
     const bool checking = gh && gh->getLfgState() == game::LfgState::RoleCheck;
     if (checking) lua_pushboolean(L, 1); else lua_pushnil(L);
-    lua_pushnil(L);
-    lua_pushnil(L);
+    lua_pushnumber(L, gh ? static_cast<double>(gh->getLfgRoleCheckDungeons().size()) : 0.0);
+    lua_pushnumber(L, gh ? gh->getLfgRoleCheckMembers() : 0);
     return 3;
 }
 

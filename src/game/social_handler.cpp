@@ -3551,7 +3551,26 @@ void SocialHandler::handleLfgRoleCheckUpdate(network::Packet& packet) {
     if (!packet.hasRemaining(6)) return;
     const uint32_t roleCheckState = packet.readUInt32();
     packet.readUInt8();   // initiating
-    packet.readUInt8();   // dungeon count, then the dungeons and the roster
+
+    // The dungeons being checked for, and how many are in the group. Both were
+    // stopped at: the count was read and the list behind it left on the wire.
+    //
+    // That is not merely a blank. GetLFGRoleUpdate answered nil for the slot
+    // count, and the popup's own tooltip opens with `if ( slots <= 1 )` —
+    // comparing nil to a number, which raises. Hovering the role-check popup
+    // took the file down.
+    //
+    // Each dungeon arrives as its LFGDungeons entry, which packs the type into
+    // the top byte the same way the queue list does above.
+    lfgRoleCheckDungeons_.clear();
+    const uint8_t dungeonCount = packet.readUInt8();
+    for (uint8_t i = 0; i < dungeonCount && packet.hasRemaining(4); ++i) {
+        const uint32_t entry = packet.readUInt32();
+        lfgRoleCheckDungeons_.push_back({entry & 0x00FFFFFFu,
+                                         static_cast<uint8_t>((entry >> 24) & 0xFFu)});
+    }
+    lfgRoleCheckMembers_ = packet.hasRemaining(1) ? packet.readUInt8() : 0;
+
     if (roleCheckState == 1) lfgState_ = LfgState::Queued;
     else if (roleCheckState == 3) { lfgState_ = LfgState::None; owner_.addUIError("Dungeon Finder: Role check failed — missing required role."); owner_.addSystemChatMessage("Dungeon Finder: Role check failed — missing required role."); }
     else if (roleCheckState == 2) { lfgState_ = LfgState::RoleCheck; owner_.addSystemChatMessage("Dungeon Finder: Performing role check..."); }

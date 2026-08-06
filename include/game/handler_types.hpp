@@ -269,6 +269,13 @@ struct PetitionInfo {
     bool showUI = false;
 };
 
+/// One dungeon of an LFG role check: its id, and the type packed into the top
+/// byte of the entry SMSG_LFG_ROLE_CHECK_UPDATE sends.
+struct LfgRoleCheckDungeon {
+    uint32_t dungeonId = 0;
+    uint8_t typeId = 0;
+};
+
 // ---- Ready check ----
 
 struct ReadyCheckResult {

@@ -3659,6 +3659,16 @@ uint32_t GameHandler::getLfgBootVotes() const {
     return socialHandler_ ? socialHandler_->getLfgBootVotes() : 0;
 }
 
+const std::vector<GameHandler::LfgRoleCheckDungeon>&
+GameHandler::getLfgRoleCheckDungeons() const {
+    static const std::vector<LfgRoleCheckDungeon> empty;
+    return socialHandler_ ? socialHandler_->getLfgRoleCheckDungeons() : empty;
+}
+
+uint8_t GameHandler::getLfgRoleCheckMembers() const {
+    return socialHandler_ ? socialHandler_->getLfgRoleCheckMembers() : 0u;
+}
+
 bool GameHandler::isLfgBootInProgress() const {
     return socialHandler_ && socialHandler_->isLfgBootInProgress();
 }
