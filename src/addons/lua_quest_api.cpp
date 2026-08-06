@@ -3175,8 +3175,40 @@ void registerQuestLuaAPI(lua_State* L) {
                 // The chain an achievement belongs to. Achievement.dbc carries
                 // it in Supercedes, which is not loaded — so no chain, and the
                 // panel simply draws none rather than a wrong one.
-                {"GetNextAchievement",     [](lua_State* L) -> int { return luaReturnNil(L); }},
-                {"GetPreviousAchievement", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                // The two ends of an achievement chain, off Achievement.dbc's
+                // Supercedes column. Answering nil for both made every chained
+                // achievement look like a single one: the panel shows the
+                // expand arrow only when there is a previous step
+                // (blizzard_achievementui.lua:828), and builds the list of
+                // finished steps by walking GetPreviousAchievement until it
+                // stops. So "Level 20" showed nothing of the "Level 10" behind
+                // it, and neither did any cooking, fishing or battleground
+                // series.
+                {"GetPreviousAchievement", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (!gh || id == 0) return luaReturnNil(L);
+            gh->ensureAchievementCategoriesLoaded();
+            const uint32_t prev = gh->getAchievementSupercedes(id);
+            if (prev == 0) return luaReturnNil(L);
+            lua_pushnumber(L, prev);
+            return 1;
+        }},
+                // ...and forwards, with whether that next step is already done
+                // — AchievementFrameSummaryAchievement_OnClick walks
+                // `newID, completed = GetNextAchievement(nextID)` to find the
+                // furthest one earned, so the second value is what stops it.
+                {"GetNextAchievement", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (!gh || id == 0) return luaReturnNil(L);
+            gh->ensureAchievementCategoriesLoaded();
+            const uint32_t next = gh->getAchievementSupercededBy(id);
+            if (next == 0) return luaReturnNil(L);
+            lua_pushnumber(L, next);
+            lua_pushboolean(L, gh->getEarnedAchievements().count(next) > 0 ? 1 : 0);
+            return 2;
+        }},
                 // GetStatistic(id) → the statistic's value, as a string.
                 // Statistics count criteria progress, and only whether an
                 // achievement was earned is tracked here, so this reports the

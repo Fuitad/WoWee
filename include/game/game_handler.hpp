@@ -2480,6 +2480,20 @@ public:
         auto it = achievementCategoryCache_.find(achievementId);
         return it != achievementCategoryCache_.end() ? it->second : 0u;
     }
+
+    /// The achievement this one supersedes, or zero — Achievement.dbc's
+    /// Supercedes column, which chains "Level 20" behind "Level 10" and
+    /// "Expert Cook" behind "Journeyman Cook". The achievement panel walks it
+    /// backwards to build a completed chain and forwards to find the step in
+    /// progress, so both directions are kept.
+    uint32_t getAchievementSupercedes(uint32_t achievementId) const {
+        auto it = achievementSupercedes_.find(achievementId);
+        return it != achievementSupercedes_.end() ? it->second : 0u;
+    }
+    uint32_t getAchievementSupercededBy(uint32_t achievementId) const {
+        auto it = achievementSupercededBy_.find(achievementId);
+        return it != achievementSupercededBy_.end() ? it->second : 0u;
+    }
     const std::unordered_map<uint32_t, std::vector<AchievementCriterion>>& getAchievementCriteriaMap() const {
         return achievementCriteria_;
     }
@@ -4402,6 +4416,8 @@ private:
     std::unordered_map<uint32_t, AchievementCategoryInfo> achievementCategoryInfo_;
     std::vector<uint32_t> achievementCategoryOrder_;
     std::vector<uint32_t> statisticCategoryOrder_;
+    std::unordered_map<uint32_t, uint32_t> achievementSupercedes_;
+    std::unordered_map<uint32_t, uint32_t> achievementSupercededBy_;
     bool achievementCategoriesLoaded_ = false;
     std::unordered_map<uint32_t, std::vector<AchievementCriterion>> achievementCriteria_;
     std::unordered_map<uint32_t, AchievementCriterionIndex> achievementCriterionById_;

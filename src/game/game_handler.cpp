@@ -2370,6 +2370,16 @@ void GameHandler::ensureAchievementCategoriesLoaded() {
         categoryAchievements_[category].push_back(id);
         if (haveFlags && (dbc->getUInt32(i, 41) & 0x1u) != 0)
             statisticCategories.insert(category);
+        // Field 3 is Supercedes: the achievement this one follows on from.
+        // Checked by reading it — "Level 20" points at "Level 10" and "Expert
+        // Cook" at "Journeyman Cook", and all 176 non-zero values are ids that
+        // exist. Kept both ways round because the panel walks it backwards to
+        // list a finished chain and forwards to find the step still open.
+        const uint32_t supercedes = dbc->getUInt32(i, 3);
+        if (supercedes != 0) {
+            achievementSupercedes_[id] = supercedes;
+            achievementSupercededBy_[supercedes] = id;
+        }
     }
 
     // Achievement_Category.dbc: id, parent, then the localised names. A parent
