@@ -2235,6 +2235,16 @@ void GameHandler::loadAchievementNameCache() {
             uint32_t iconId = dbc->getUInt32(i, iconField);
             if (iconId > 0) achievementIconCache_[id] = iconId;
         }
+        // Field 41 is Flags. Read here rather than in the category loader,
+        // which used to read it separately for the statistic bit alone — one
+        // pass over the file, one idea of what the column is. Confirmed twice
+        // over: bit 0x1 agrees with "does this row's category descend from
+        // Statistics" on all 1817 rows, and FrameXML's own constants.lua names
+        // that same bit ACHIEVEMENT_FLAGS_STATISTIC.
+        if (fieldCount > 41) {
+            uint32_t flags = dbc->getUInt32(i, 41);
+            if (flags != 0) achievementFlagsCache_[id] = flags;
+        }
     }
     LOG_INFO("Achievement: loaded ", achievementNameCache_.size(), " names from Achievement.dbc");
 }
@@ -2368,7 +2378,7 @@ void GameHandler::ensureAchievementCategoriesLoaded() {
         const uint32_t category = dbc->getUInt32(i, 38);
         achievementCategoryCache_[id] = category;
         categoryAchievements_[category].push_back(id);
-        if (haveFlags && (dbc->getUInt32(i, 41) & 0x1u) != 0)
+        if (haveFlags && (getAchievementFlags(id) & 0x1u) != 0)
             statisticCategories.insert(category);
         // Field 3 is Supercedes: the achievement this one follows on from.
         // Checked by reading it — "Level 20" points at "Level 10" and "Expert

@@ -3185,7 +3185,7 @@ void registerQuestLuaAPI(lua_State* L) {
                     // form rather than a four-digit one.
                     lua_pushnumber(L, done ? on.yearSince2000 : 0);              // 7: year
                     lua_pushstring(L, gh->getAchievementDescription(achId).c_str()); // 8
-                    lua_pushnumber(L, 0);                                        // 9: flags
+                    lua_pushnumber(L, gh->getAchievementFlags(achId));            // 9: flags
                     // A path, not the id. The panel puts this straight on a
                     // button as its texture, and a number is not a texture in
                     // 3.3.5 — the icon id was already cached, and the resolver
@@ -3342,7 +3342,7 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushnumber(L, day);                // 6: day
             lua_pushnumber(L, year);               // 7: year
             lua_pushstring(L, desc.c_str());       // 8: description
-            lua_pushnumber(L, 0);                  // 9: flags
+            lua_pushnumber(L, gh->getAchievementFlags(id)); // 9: flags
             lua_pushstring(L, achievementIconPath(gh, id).c_str()); // 10: icon
             lua_pushstring(L, "");                 // 11: rewardText
             lua_pushboolean(L, 0);                 // 12: isGuildAchievement

@@ -2532,6 +2532,13 @@ public:
         return (it != achievementPointsCache_.end()) ? it->second : 0u;
     }
     /// Returns the SpellIcon.dbc ID for an achievement's icon, or 0 if unknown.
+    /// Achievement.dbc's Flags column. FrameXML reads bit 0x80 to decide
+    /// whether a row draws as a progress bar instead of a list of criteria —
+    /// the Loremaster and zone-quest achievements, twenty-two of them.
+    uint32_t getAchievementFlags(uint32_t id) const {
+        auto it = achievementFlagsCache_.find(id);
+        return (it != achievementFlagsCache_.end()) ? it->second : 0u;
+    }
     uint32_t getAchievementIconId(uint32_t id) const {
         auto it = achievementIconCache_.find(id);
         return (it != achievementIconCache_.end()) ? it->second : 0u;
@@ -4402,6 +4409,7 @@ private:
     std::unordered_map<uint32_t, std::string> achievementDescCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementPointsCache_;
     std::unordered_map<uint32_t, uint32_t>    achievementIconCache_;  // achievementId → SpellIcon.dbc ID
+    std::unordered_map<uint32_t, uint32_t>    achievementFlagsCache_; // achievementId → Achievement.dbc Flags
     int selectedGuildRank_ = 1;
     PendingGuildRank pendingGuildRank_;
     std::vector<CurrencyType> currencyTypes_;
