@@ -3291,6 +3291,14 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // one raised while an enchant is on the trade window, which
                 // this client does not put there — so it is never fired, and
                 // the shared verb costs nothing.
+                // BindEnchant() — the Okay on "enchanting this will bind it".
+                // The same held request ReplaceEnchant answers: only one
+                // enchant can be waiting, and the two prompts are raised from
+                // the same place for the same pending cast.
+                {"BindEnchant", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->replaceEnchant();
+            return 0;
+        }},
                 {"ReplaceEnchant", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->replaceEnchant();
             return 0;

@@ -2904,6 +2904,11 @@ public:
     uint32_t getEnchantGemItem(uint32_t enchantId) const;
     /// The template entry of an item this client is holding, by guid. Zero when
     /// the guid names nothing in the player's own inventory or bank.
+    /// Has this item already bound to its owner? ITEM_FIELD_FLAGS bit 0x1.
+    bool isItemSoulbound(uint64_t guid) const {
+        auto it = onlineItems_.find(guid);
+        return it != onlineItems_.end() && (it->second.flags & 0x1u) != 0;
+    }
     uint32_t getItemEntryByGuid(uint64_t guid) const {
         auto it = onlineItems_.find(guid);
         return (it != onlineItems_.end()) ? it->second.entry : 0;

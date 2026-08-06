@@ -1642,6 +1642,21 @@ void InventoryHandler::completeItemUseOnItem(uint64_t targetItemGuid, bool confi
     // than an enchanter, and naming a permanent enchant that is not being
     // replaced would be a warning about the wrong thing.
     if (!confirmed) {
+        // Enchanting an unbound item binds it. Same family as the equip, use
+        // and loot warnings, and the one of the five that was missed: the
+        // interface has raised BIND_ENCHANT for it all along and nothing ever
+        // fired it.
+        const uint32_t targetEntry = owner_.getItemEntryByGuid(targetItemGuid);
+        const auto* targetInfo = targetEntry ? owner_.getItemInfo(targetEntry) : nullptr;
+        if (targetInfo && targetInfo->bindType == 2 &&
+            !owner_.isItemSoulbound(targetItemGuid)) {
+            pendingItemTarget_.reset();
+            pendingEnchant_ = PendingEnchant{true, targetItemGuid, pending};
+            if (owner_.addonEventCallbackRef())
+                owner_.addonEventCallbackRef()("BIND_ENCHANT", {});
+            return;
+        }
+
         const auto enchants = owner_.getItemEnchantIds(targetItemGuid);
         if (enchants.first != 0) {
             // Taken out of the parked slot entirely: see PendingEnchant.
