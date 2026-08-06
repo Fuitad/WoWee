@@ -75,7 +75,14 @@ ROOT = Path(__file__).resolve().parent.parent
 XML = ROOT / "Data/interface"
 
 #: Consuming the answer in one of these raises when the answer is nil.
-RAISES = re.compile(r"^\s*(?:[-+*/%^<>]|[<>=~]=|\.\.|\[)")
+#:
+#: The colon belongs here for the same reason the bracket does: calling a
+#: method on the answer indexes it first, so a nil raises on the spot. Leaving
+#: it out is what let GetStatusBarTexture through — blizzard_achievementui does
+#: `self:GetStatusBarTexture():SetDrawLayer("BORDER")` in the OnLoad of a
+#: virtual template, so every achievement progress bar built raised there, and
+#: this sweep classified it as a call made for effect.
+RAISES = re.compile(r"^\s*(?:[-+*/%^<>]|[<>=~]=|\.\.|\[|:)")
 #: ...whether it comes after the call or before it. Before means stepping back
 #: over the receiver first — `a .. frame:Foo()` has the concat three tokens
 #: from the call, not next to it, and a check anchored on the call itself finds

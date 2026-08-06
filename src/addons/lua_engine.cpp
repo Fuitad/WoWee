@@ -4812,6 +4812,25 @@ void LuaEngine::registerCoreAPI() {
         // given. Every button has a font string in the real client, and
         // FrameXML assumes it: FCF_SetTabColor does
         // minFrame:GetFontString():SetTextColor(...) without checking.
+        // The fill of a status bar, as an object. This client keeps a bar's
+        // fill as a texture *path* on the bar itself, so there is no region to
+        // hand back and one is made on demand — the same answer GetFontString
+        // gives one line below, and for the same reason.
+        //
+        // It was nil, and blizzard_achievementui does
+        // `self:GetStatusBarTexture():SetDrawLayer("BORDER")` in the OnLoad of
+        // a virtual template, so every achievement progress bar raised there.
+        //
+        // What comes back is a real region: the layering and tinting calls
+        // FrameXML makes on it are recorded rather than refused. They do not
+        // drive the fill, which is drawn from the path — an honest stand-in
+        // rather than a working one, and it is the raise that was the bug.
+        "function mt:GetStatusBarTexture()\n"
+        "    if not self.__barTexture then\n"
+        "        self.__barTexture = self:CreateTexture(nil, 'ARTWORK')\n"
+        "    end\n"
+        "    return self.__barTexture\n"
+        "end\n"
         "function mt:GetFontString()\n"
         "    if not self.__fontString then\n"
         "        self.__fontString = self:CreateFontString(nil, 'OVERLAY')\n"
@@ -4892,7 +4911,7 @@ void LuaEngine::registerCoreAPI() {
         "GetNumChildren=1,GetNumMessages=1,GetNumPoints=1,GetNumTooltips=1,\n"
         "GetObjectType=1,GetParent=1,GetPoint=1,GetPushedTexture=1,GetRect=1,\n"
         "GetRegionParent=1,GetRegions=1,GetRight=1,GetScale=1,GetScript=1,\n"
-        "GetScrollChild=1,GetSize=1,GetSpacing=1,GetStatusBarTexture=1,\n"
+        "GetScrollChild=1,GetSize=1,GetSpacing=1,\n"
         "GetStringHeight=1,GetStringWidth=1,GetTexCoord=1,GetText=1,\n"
         "GetTextHeight=1,GetTexture=1,GetTextWidth=1,GetTooltipIndex=1,GetTop=1,\n"
         // GetUTF8CursorPosition is a real binding now, applied after this set.
