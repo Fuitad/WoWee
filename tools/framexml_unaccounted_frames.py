@@ -3,11 +3,25 @@ r"""Static version of the unaccounted-frame sweep.
 
 Known blind spot, measured rather than assumed: this reads parent="UIParent"
 out of the XML, so frames built at runtime by CreateFrame are invisible to it.
-Forty-two named frames are created that way and six are parented to UIParent —
-ChatFrame, RaidPullout, the two combat-log frames, WorldStateCaptureBar and
-this client's own widget demo. None duplicates a handed-over element today,
-and the capture bar cannot appear at all because GetNumWorldStateUI answers
-zero. Re-measure with:
+Re-measured 2026-08-05 against files the loader actually opens: thirty-five
+named frames are built that way and seven reach UIParent. Read against what
+this client fires — the lens the main list needed — none is a duplicate:
+
+  * ChatFrame — the literal is "ChatFrame"..i, so the real names are
+    ChatFrame1..10 and all ten are suppressed by the chat element.
+  * CombatLogQuickButtonFrame, CombatLogUpdateFrame — Blizzard_CombatLog is
+    load-on-demand and arrives only when the combat-log tab is picked. This
+    client's own combat log is behind showCombatLog_, a toggle nothing fires.
+  * MacroEditBox — not a window. A hidden edit box chatframe.lua runs macro
+    text through.
+  * RaidPullout — built by dragging a group out of FrameXML's own raid UI.
+  * WorldStateCaptureBar — cannot be built: GetWorldStateUIInfo reports uiType
+    0 for every entry, which is what keeps worldstateframe.lua's world-PvP
+    branch out. **This is the one to re-check after any world-state work** —
+    it is the shape where finishing an API opens a window nobody asked for.
+  * WoweeWidgetDemoFrame — this client's own.
+
+Re-measure with:
 
     grep -rhoP 'CreateFrame\(\s*"[A-Za-z]+"\s*,\s*"\K[A-Za-z0-9_]+' Data/interface/
 
