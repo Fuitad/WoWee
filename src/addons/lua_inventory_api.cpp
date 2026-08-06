@@ -3010,7 +3010,20 @@ static int lua_GetItemLink(lua_State* L) {
 void registerInventoryLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"GetMoney",      lua_GetMoney},
-                {"GetCursorMoney",      lua_GetZeroMoney},
+                // The money cursor. A drag of money is routed entirely by the
+                // interface — the frame it lands on reads the amount, puts it
+                // where it belongs, and clears the cursor — so the client's
+                // whole part is holding the number. It held nothing, so money
+                // could not be dragged into a mail, a trade, a guild bank
+                // deposit or an auction bid.
+                {"GetCursorMoney", [](lua_State* L) -> int {
+            lua_pushnumber(L, static_cast<lua_Number>(cursorMoney()));
+            return 1;
+        }},
+                {"DropCursorMoney", [](lua_State* L) -> int {
+            setCursorMoney(L, 0);
+            return 0;
+        }},
                 {"GetPlayerTradeMoney", lua_GetPlayerTradeMoney},
                 {"GetTargetTradeMoney", lua_GetTargetTradeMoney},
                 {"GetMerchantNumItems",  lua_GetMerchantNumItems},
@@ -3137,7 +3150,19 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetCoinText",             lua_GetCoinText},
                 {"GetContainerItemPurchaseInfo", lua_GetContainerItemPurchaseInfo},
                 {"GetContainerItemPurchaseItem", lua_GetContainerItemPurchaseItem},
-                {"PickupPlayerMoney",       lua_MoneyCursorNoop},
+                // PickupPlayerMoney(amount) — the coin pickup dialog's Okay.
+                // Clamped to what the player has: the dialog does not check,
+                // and a cursor carrying more than the purse would be spent by
+                // whatever it was dropped on.
+                {"PickupPlayerMoney", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const double asked = luaL_optnumber(L, 1, 0);
+            if (!gh || asked <= 0) { setCursorMoney(L, 0); return 0; }
+            const uint64_t have = gh->getMoneyCopper();
+            const uint64_t want = static_cast<uint64_t>(asked);
+            setCursorMoney(L, want < have ? want : have);
+            return 0;
+        }},
                 {"PickupTradeMoney",        lua_MoneyCursorNoop},
                 {"PickupSendMailMoney",     lua_MoneyCursorNoop},
                 {"PickupSendMailCOD",       lua_MoneyCursorNoop},

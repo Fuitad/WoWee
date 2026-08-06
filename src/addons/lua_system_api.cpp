@@ -3933,7 +3933,9 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"RegisterStaticConstants",  lua_ReturnNothing},
                 {"SetChatWindowName",        lua_SetChatWindowName},
                 {"SetupFullscreenScale",     lua_ReturnNothing},
-                {"DropCursorMoney",          lua_ReturnNothing},
+                // DropCursorMoney is real now, and lives with the rest of the
+                // money cursor in lua_inventory_api.cpp. Two registrations of
+                // one name would be settled by load order.
                 // AchievementMicroButton_Update() — called by the achievement
                 // addon and defined nowhere. mainmenubarmicrobuttons.lua has
                 // AchievementMicroButton_OnEvent but not this, so it is a hole

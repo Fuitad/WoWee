@@ -430,6 +430,18 @@ const game::TalentEntry* talentAt(game::GameHandler* gh, int tabIndex, int talen
 /// it can say which paperdoll slot should light up.
 uint32_t cursorItemId();
 
+/// Money picked up onto the cursor, in copper, and zero when there is none.
+///
+/// A drag of money is routed entirely by the interface: the frame it is
+/// dropped on reads the amount, puts it wherever it belongs — a mail's money
+/// field, a guild bank deposit, an auction bid — and then clears the cursor.
+/// So the whole of the client's part is holding the number.
+///
+/// Declared beside cursorItemId because it is the same cursor: picking money
+/// up has to displace an item and ClearCursor has to drop both.
+uint64_t cursorMoney();
+void setCursorMoney(lua_State* L, uint64_t copper);
+
 /// The paperdoll slot an item on the cursor was picked up from, or zero when it
 /// came from a bag or nothing is held. One-based, as FrameXML numbers slots.
 int cursorEquipSlot();

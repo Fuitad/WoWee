@@ -35,11 +35,32 @@ namespace wowee::addons {
 // window puts one there on every left-click — PickupMerchantItem — and buying
 // is what happens when it is dropped into a bag, so without it a left-click at
 // a vendor did nothing at all and only right-click bought.
-enum class CursorType { NONE, SPELL, ITEM, ACTION, MACRO, MERCHANT };
+enum class CursorType { NONE, SPELL, ITEM, ACTION, MACRO, MERCHANT, MONEY };
 static CursorType s_cursorType = CursorType::NONE;
 static uint32_t   s_cursorId   = 0;    // spellId, itemId, or action slot
 static int        s_cursorSlot = 0;    // source slot for placement
 static int        s_cursorBag  = -1;   // source bag for container items
+static uint64_t   s_cursorMoney = 0;   // copper, when the cursor carries money
+static void setCursorType(lua_State* L, CursorType type);
+
+uint64_t cursorMoney() {
+    return s_cursorType == CursorType::MONEY ? s_cursorMoney : 0;
+}
+
+void setCursorMoney(lua_State* L, uint64_t copper) {
+    // Through setCursorType rather than by assignment: it is what fires
+    // CURSOR_UPDATE and what shows the action bars' empty slots. Setting the
+    // type by hand would put money on the cursor with nothing told about it.
+    s_cursorMoney = copper;
+    if (copper == 0) {
+        if (s_cursorType == CursorType::MONEY) setCursorType(L, CursorType::NONE);
+        return;
+    }
+    s_cursorId = 0;
+    s_cursorSlot = 0;
+    s_cursorBag = -1;
+    setCursorType(L, CursorType::MONEY);
+}
 
 uint32_t cursorItemId() {
     return s_cursorType == CursorType::ITEM ? s_cursorId : 0;
@@ -420,6 +441,12 @@ static int lua_GetCursorInfo(lua_State* L) {
             lua_pushstring(L, "macro");
             lua_pushnumber(L, s_cursorId);
             return 2;
+        case CursorType::MONEY:
+            // containerframe.lua branches on this exact string to decide that
+            // a click in a bag is money being put back.
+            lua_pushstring(L, "money");
+            lua_pushnumber(L, static_cast<lua_Number>(s_cursorMoney));
+            return 2;
         case CursorType::MERCHANT:
             // containerframe.lua branches on this exact string to decide
             // whether a click in a bag is a purchase.
@@ -536,6 +563,7 @@ static bool cursorWireSlot(uint8_t& bag, uint8_t& slot) {
 
 /// Put the cursor down.
 static void clearCursorItem(lua_State* L) {
+    s_cursorMoney = 0;
     setCursorType(L, CursorType::NONE);
     s_cursorId = 0;
     s_cursorSlot = 0;
