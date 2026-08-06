@@ -333,7 +333,16 @@ static int lua_CastSpellByName(lua_State* L) {
         if (rank > bestRank) { bestRank = rank; bestId = sid; }
     }
     if (bestId != 0) {
-        uint64_t target = gh->hasTarget() ? gh->getTargetGuid() : 0;
+        // The same second argument, and the same branch of SECURE_ACTIONS.spell
+        // reaches here: a spell named rather than numbered is cast by name, and
+        // the unit clicked still says who it lands on.
+        uint64_t target = 0;
+        if (const char* unit = luaL_optstring(L, 2, nullptr)) {
+            std::string u(unit);
+            toLowerInPlace(u);
+            target = resolveUnitGuid(gh, u);
+        }
+        if (target == 0 && gh->hasTarget()) target = gh->getTargetGuid();
         gh->castSpell(bestId, target);
     }
     return 0;
@@ -895,7 +904,18 @@ static int lua_CastSpellByID(lua_State* L) {
     if (!gh) return 0;
     uint32_t spellId = static_cast<uint32_t>(luaL_checknumber(L, 1));
     if (spellId == 0) return 0;
-    uint64_t target = gh->hasTarget() ? gh->getTargetGuid() : 0;
+    // The second argument names who it is cast on, and this is the click-cast
+    // path: SECURE_ACTIONS.spell does CastSpellByID(spellID, unit) with the
+    // unit off the button that was clicked. Ignoring it cast on whatever was
+    // targeted instead, so healing a party member through their frame hit the
+    // current target.
+    uint64_t target = 0;
+    if (const char* unit = luaL_optstring(L, 2, nullptr)) {
+        std::string u(unit);
+        toLowerInPlace(u);
+        target = resolveUnitGuid(gh, u);
+    }
+    if (target == 0 && gh->hasTarget()) target = gh->getTargetGuid();
     gh->castSpell(spellId, target);
     return 0;
 }
