@@ -38,6 +38,7 @@ A sweep that runs, exits zero, and reports a number that means nothing —
 framexml_bool_vs_number's nil arm was exactly that on the day it was written.
 Only reintroducing the fault finds those.
 """
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -50,6 +51,12 @@ SKIP = {
     "asset_pipeline_gui.py", "m2_viewer.py", "upscale_textures.py",
     "gen_opcode_registry.py", "tools_run_check.py", "sweep_guard.py",
 }
+
+
+#: Sweeps that look at named implementations for a reason, not by oversight.
+#: Widget methods are all named functions — there is no inline form of one to
+#: miss — so widget_field_check is complete as it stands.
+PARSES_NAMED_ONLY_ON_PURPOSE = {"widget_field_check.py"}
 
 
 def main():
@@ -82,6 +89,37 @@ def main():
         print(f"  {name}")
         print(f"      {why}")
     if not broken:
+        print("  (none)")
+
+    # And the half-blind ones. A binding is registered in this codebase two
+    # ways — as a named function, {"Name", lua_Name}, or as a lambda written
+    # out in the table — and they are the same binding to Lua. Four sweeps
+    # matched only the named form and so asked their question of less than half
+    # the bindings while reporting a number that read as all of them. Fixing
+    # them on 2026-08-06 turned up a raising auction sell tab, a Create All
+    # that made one item, a pet sent at the wrong target, and a hundred and
+    # fifty-six uncounted stubs. This is here so the fifth sweep to parse a
+    # binding cannot be written the same way.
+    half = []
+    for path in sorted(TOOLS.glob("*.py")):
+        if path.name in SKIP or path.name in PARSES_NAMED_ONLY_ON_PURPOSE:
+            continue
+        src = path.read_text(errors="ignore")
+        # The escaped paren, not the words: a sweep that merely mentions
+        # lua_State in its prose is not parsing bindings, and element_readiness
+        # says "a helper with no lua_State to fire" in a comment.
+        if not re.search(r"\\\(lua_State", src):
+            continue
+        if not re.search(r"->\\?s\*?\s*int|->\s*int", src):
+            half.append(path.name)
+
+    print()
+    print(f"{len(half)} that read only one of the two binding forms:\n")
+    for name in half:
+        print(f"  {name}")
+        print("      matches {\"Name\", lua_Name} but not the inline lambda, "
+              "so it sees under half the bindings")
+    if not half:
         print("  (none)")
     return 0
 

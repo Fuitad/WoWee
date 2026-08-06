@@ -74,13 +74,32 @@ for path in sorted(loaded_files(XML)):
 src = subprocess.run(["grep", "-rn", "-A", "40", "static int lua_",
                       str(ROOT / "src/addons")], capture_output=True, text=True).stdout
 
+_ADDON_SRC = "\n".join((ROOT / "src/addons" / f).read_text(errors="ignore")
+                       for f in ["lua_action_api.cpp", "lua_unit_api.cpp",
+                                 "lua_inventory_api.cpp", "lua_spell_api.cpp",
+                                 "lua_social_api.cpp", "lua_system_api.cpp"])
+
 bound = {}
-for m in re.finditer(r'\{"([A-Za-z0-9_]+)",\s*(?:lua_)?([A-Za-z0-9_]+)\}',
-                     "\n".join((ROOT / "src/addons" / f).read_text(errors="ignore")
-                               for f in ["lua_action_api.cpp", "lua_unit_api.cpp",
-                                         "lua_inventory_api.cpp", "lua_spell_api.cpp",
-                                         "lua_social_api.cpp", "lua_system_api.cpp"])):
+for m in re.finditer(r'\{"([A-Za-z0-9_]+)",\s*(?:lua_)?([A-Za-z0-9_]+)\}', _ADDON_SRC):
     bound[m.group(1)] = m.group(2)
+
+# The inline form, whose body is right there rather than in a named function
+# somewhere above. Matching only {"Name", lua_Name} asked this question of
+# fewer than half the bindings while reporting a number that read as all of
+# them — the same blind spot four other sweeps had, and a zero from half a
+# search is not a zero.
+inline_bodies = {}
+for m in re.finditer(r'\{"([A-Za-z0-9_]+)",\s*\[\]\(lua_State\*\s*L?\s*\)\s*->\s*int\s*\{',
+                     _ADDON_SRC):
+    depth, i = 1, m.end()
+    while i < len(_ADDON_SRC) and depth:
+        if _ADDON_SRC[i] == "{":
+            depth += 1
+        elif _ADDON_SRC[i] == "}":
+            depth -= 1
+        i += 1
+    inline_bodies[m.group(1)] = _ADDON_SRC[m.end():i - 1]
+    bound.setdefault(m.group(1), m.group(1))
 
 hits = []
 for name in sorted(numeric):
@@ -94,8 +113,11 @@ for name in sorted(numeric):
     if impl in ("ReturnNil", "luaReturnNil"):
         hits.append((name, impl + " (answers nil)", sorted(numeric[name])[:2]))
         continue
-    body = subprocess.run(["grep", "-rn", "-A", "45", f"int {impl}(lua_State",
-                           str(ROOT / "src/addons")], capture_output=True, text=True).stdout
+    if name in inline_bodies:
+        body = inline_bodies[name]
+    else:
+        body = subprocess.run(["grep", "-rn", "-A", "45", f"int {impl}(lua_State",
+                               str(ROOT / "src/addons")], capture_output=True, text=True).stdout
     if not body:
         continue
     if "lua_pushboolean" in body and "lua_pushnumber" not in body.split("lua_pushboolean")[0][-400:]:

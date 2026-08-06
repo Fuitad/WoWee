@@ -403,6 +403,18 @@ CHECKS = [
     ("tools_run_check.py",
      r"^(\d+) that cannot run", 0,
      "sweeps that cannot run at all"),
+    # A binding is registered two ways — as a named function, or as a lambda
+    # written out in the table — and they are the same binding to Lua. Five
+    # sweeps matched only the named form, so each asked its question of fewer
+    # than half the bindings while reporting a number that read as all of them.
+    # Fixing them on 2026-08-06 turned up a raising auction sell tab, a Create
+    # All that made one item, a pet sent at the wrong target, three boolean
+    # answers compared numerically, and a hundred and fifty-six uncounted
+    # stubs. Zero, and one sweep was blinded again and seen to be caught before
+    # that zero was believed.
+    ("tools_run_check.py",
+     r"^(\d+) that read only one of the two binding forms", 0,
+     "sweeps that see under half the bindings they claim to check"),
     # The mirror of the sweep above: not whether the answer used what it was
     # told, but whether it is spelled the way the caller looks it up. A token is
     # a table key, so a misspelling is a nil rather than a wrong value — the
@@ -441,8 +453,18 @@ CHECKS = [
     ("global_vs_method_check.py",
      r"^(\d+) global\(s\) called by FrameXML and bound only", 0,
      "globals FrameXML calls that exist only as a widget method"),
+    # Three, and each is safe for its own reason — which is why they are listed
+    # rather than filtered. GetWintergraspWaitTime is guarded inside the same
+    # expression that compares it (`nextBattleTime and nextBattleTime > 60`,
+    # and `and` short-circuits); GetGuildBankTabInfo is compared with ==, which
+    # nil survives; GetMapDebugObjectInfo would raise on `size > 1`, but the
+    # loop that calls it runs `for i=1, GetNumMapDebugObjects()` and that
+    # answers zero, so it never runs at all.
+    #
+    # It was two, from a search that could only see bindings written as named
+    # functions — 750 of 1322. A number from half a search is not a number.
     ("framexml_bool_vs_number.py",
-     r"^(\d+) binding\(s\) answer a boolean or nil", 2,
+     r"^(\d+) binding\(s\) answer a boolean or nil", 3,
      "bindings answering a boolean or nil where a number is compared"),
     ("framexml_unaccounted_frames.py",
      r"^\d+ top-level frames, (\d+) unaccounted", 37,
