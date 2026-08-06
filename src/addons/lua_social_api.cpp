@@ -2297,13 +2297,35 @@ void registerSocialLuaAPI(lua_State* L) {
             }
             return n;
         }},
+                // SelectGossipOption(index, text, confirmed)
+                //
+                // An option can come with a confirmation box: SMSG_GOSSIP_MESSAGE
+                // carries boxText and boxMoney per option, and this client has
+                // parsed both for as long as it has read the packet. Nothing
+                // raised the prompt, so an option costing a thousand gold — the
+                // dual talent specialisation, a guild tabard — was bought by
+                // the click that selected it, with no confirmation at all.
+                //
+                // The third argument is FrameXML saying the player has now
+                // answered: GOSSIP_CONFIRM's Accept calls back with it true.
                 {"SelectGossipOption", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             int index = static_cast<int>(luaL_checknumber(L, 1));
             if (!gh || index < 1) return 0;
             const auto& opts = gh->getCurrentGossip().options;
-            if (index <= static_cast<int>(opts.size()))
-                gh->selectGossipOption(opts[index - 1].id);
+            if (index > static_cast<int>(opts.size())) return 0;
+            const auto& opt = opts[static_cast<size_t>(index - 1)];
+            const bool confirmed = lua_toboolean(L, 3) != 0;
+
+            if (!confirmed && (opt.boxMoney > 0 || !opt.boxText.empty())) {
+                // arg1 is handed straight back to this function as the index,
+                // so it is the position rather than the option's id.
+                gh->fireAddonEvent("GOSSIP_CONFIRM",
+                                   {std::to_string(index), opt.boxText,
+                                    std::to_string(opt.boxMoney)});
+                return 0;
+            }
+            gh->selectGossipOption(opt.id);
             return 0;
         }},
                 {"GetNumGossipAvailableQuests", [](lua_State* L) -> int {
