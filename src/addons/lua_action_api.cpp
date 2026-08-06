@@ -400,7 +400,15 @@ static int lua_GetActionCooldown(lua_State* L) {
     return 3;
 }
 
-// UseAction(slot, checkCursor, onSelf) — activate action bar slot (1-indexed)
+// UseAction(slot, unit, button) — activate action bar slot (1-indexed)
+//
+// The second argument is a unit, and it was ignored. securetemplates is the
+// only caller and it passes what the button's own attributes resolved to:
+// nil for an ordinary click, and "player" when the self-cast modifier is
+// held — which is the whole of how self-casting works. Dropping it meant
+// every action went at the current target, so self-cast did nothing, and a
+// unit-frame button carrying its own unit acted on whoever was targeted
+// instead.
 static int lua_UseAction(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -410,11 +418,23 @@ static int lua_UseAction(lua_State* L) {
     const auto& action = bar[slot];
     // The end of the chain a click travels, and the last place it can stop
     // without saying so: an empty slot, a cooldown, or a type nothing acts on
-    // all look the same from the button.
-    LOG_WARNING("UseAction: slot ", slot + 1, " type=", static_cast<int>(action.type),
-                " id=", action.id, " ready=", action.isReady() ? 1 : 0);
+    // all look the same from the button. At debug level, because pressing a
+    // button on the action bar is the most ordinary thing a player does and
+    // this was a warning on every one of them.
+    LOG_DEBUG("UseAction: slot ", slot + 1, " type=", static_cast<int>(action.type),
+              " id=", action.id, " ready=", action.isReady() ? 1 : 0);
     if (action.type == game::ActionBarSlot::SPELL && action.isReady()) {
+        // A unit that resolves wins; anything else falls back to the target,
+        // which is what an ordinary click has always done. An unresolvable
+        // unit is not treated as "cast on nobody" — a raid frame naming a
+        // member who has gone out of range should still cast at the target
+        // rather than silently at nothing.
         uint64_t target = gh->hasTarget() ? gh->getTargetGuid() : 0;
+        if (const char* unit = lua_tostring(L, 2); unit && *unit) {
+            std::string uid(unit);
+            toLowerInPlace(uid);
+            if (const uint64_t named = resolveUnitGuid(gh, uid)) target = named;
+        }
         gh->castSpell(action.id, target);
     } else if (action.type == game::ActionBarSlot::ITEM && action.id != 0) {
         gh->useItemById(action.id);
