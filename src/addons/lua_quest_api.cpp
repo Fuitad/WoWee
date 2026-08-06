@@ -2579,8 +2579,24 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"TradeSkillOnlyShowMakeable",  [](lua_State* L) -> int { (void)L; return 0; }},
                 {"CollapseTradeSkillSubClass",  [](lua_State* L) -> int { (void)L; return 0; }},
                 {"ExpandTradeSkillSubClass",    [](lua_State* L) -> int { (void)L; return 0; }},
-                {"GetTradeskillRepeatCount",    [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
-                {"StopTradeSkillRepeat",        [](lua_State* L) -> int { (void)L; return 0; }},
+                // GetTradeskillRepeatCount() → how many are still to be made.
+                //
+                // This is not only a readout: the trade skill frame does
+                // TradeSkillInputBox:SetNumber(GetTradeskillRepeatCount()) every
+                // time a recipe is selected and again on UPDATE_TRADESKILL_RECAST,
+                // so answering zero pinned the quantity box at zero and Create
+                // asked for none however many the player typed. One when no
+                // queue is running, which is what a fresh selection should show.
+                {"GetTradeskillRepeatCount", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int left = gh ? gh->getCraftQueueRemaining() : 0;
+            lua_pushnumber(L, left > 1 ? left : 1);
+            return 1;
+        }},
+                {"StopTradeSkillRepeat", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->cancelCraftQueue();
+            return 0;
+        }},
                 // ---- Trainer -------------------------------------------
                 //
                 // The client has parsed the trainer list all along — spell,

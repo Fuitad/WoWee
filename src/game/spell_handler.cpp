@@ -2057,6 +2057,11 @@ void SpellHandler::handleSpellGo(network::Packet& packet) {
             } else {
                 craftQueueSpellId_ = 0;
             }
+            // The count changed, and the trade skill frame only reads it when
+            // told to: UPDATE_TRADESKILL_RECAST is what makes its quantity box
+            // count down instead of sitting at the number first asked for.
+            if (owner_.addonEventCallbackRef())
+                owner_.addonEventCallbackRef()("UPDATE_TRADESKILL_RECAST", {});
         }
         // Spell queue: fire the next queued spell
         else if (queuedSpellId_ != 0) {
