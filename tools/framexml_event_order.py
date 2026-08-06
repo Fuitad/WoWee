@@ -21,7 +21,29 @@ variable is the reverse.
 WHAT IT CANNOT SEE
 
 Two positions of the same kind swapped — a bag id and a slot id the wrong way
-round read alike from here. Nor an argument built by a helper: an event fired
+round read alike from here. It is also blind when FrameXML unpacks into names
+that say nothing, which is the more common way this hides.
+
+ITEM_PUSH is both at once, and is a live example rather than a hypothetical.
+mainmenubarbagbuttons.lua opens `local arg1, arg2 = ...` — no kind in either
+name — and then treats arg1 as a bag identifier and arg2 as an icon:
+
+    local id = self:GetParent():GetID();
+    if ( id == arg1 ) then self:ReplaceIconTexture(arg2);
+
+This client fires it with (itemId, count). Two numbers where a bag id and a
+texture were meant, so nothing here can tell, and the comparison simply never
+matches: the bag-push animation has never once played. SMSG_ITEM_PUSH_RESULT
+does carry the bag slot — Player::SendNewItem writes item->GetBagSlot() — and
+inventory_handler reads past it.
+
+Left unfixed on purpose. The translation from the server's slot numbering
+(255 for the backpack, 19-22 for equipped bags) to the button ids FrameXML
+compares against is an off-by-one that cannot be settled by reading: only
+MainMenuBarBackpackButton declares an id in XML, id="0", and the four bag
+buttons take theirs at runtime. One look in-world settles it. The only other
+consumer, watchframe.lua, calls WatchFrame_Update() and reads neither
+argument, so nothing else is waiting on it. Nor an argument built by a helper: an event fired
 through one call, as the spellcast events are now, is one expression and pairs
 with nothing. That is not a hole so much as the reason the helper is better —
 the order lives in one place instead of at nine call sites.

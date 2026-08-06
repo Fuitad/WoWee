@@ -317,6 +317,12 @@ CHECKS = [
     # What the two arity sweeps structurally cannot see: the count being right
     # while the values are in the wrong places. That is what the spellcast
     # events did — two fired where two were read, the second one wrong.
+    #
+    # Its own blind spot has a name now: ITEM_PUSH fires (itemId, count) where
+    # a bag id and an icon were meant, and FrameXML unpacks it into arg1/arg2,
+    # so neither side offers a kind to compare. The bag-push animation has
+    # never played. Written up in the tool; it needs one look in-world to
+    # settle the slot numbering, not more reading.
     ("framexml_event_order.py",
      r"^(\d+) argument\(s\) in the wrong position", 0,
      "event arguments of the wrong kind for the position they are in"),
