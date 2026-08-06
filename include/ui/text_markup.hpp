@@ -161,5 +161,26 @@ inline size_t caretStepLeft(const std::string& s, size_t at) {
     return prev;
 }
 
+/// The nearest position at or before `at` that the caret can actually occupy.
+///
+/// Everything that moves the caret by stepping keeps it on a boundary already.
+/// This is for the one that does not: SetCursorPosition takes a number from
+/// Lua and, unguarded, will put the caret inside a link — after which a
+/// backspace splits the escape, which is the whole thing the stepping was
+/// arranged to prevent. FrameXML only ever asks for 0 or the end, so today
+/// this changes nothing; an invariant that holds because no caller happens to
+/// break it is not one.
+inline size_t caretSnap(const std::string& s, size_t at) {
+    if (at >= s.size()) return s.size();
+    size_t p = 0;
+    while (p < at) {
+        const size_t next = caretStepRight(s, p);
+        if (next <= p) break;          // no progress: stop rather than spin
+        if (next > at) return p;       // `at` fell inside this step
+        p = next;
+    }
+    return p;
+}
+
 }  // namespace ui
 }  // namespace wowee

@@ -19,6 +19,7 @@ using wowee::ui::parseMarkup;
 using wowee::ui::WrapRun;
 using wowee::ui::caretStepLeft;
 using wowee::ui::caretStepRight;
+using wowee::ui::caretSnap;
 
 namespace {
 /// Everything the runs would draw, which is what the reader sees.
@@ -172,5 +173,37 @@ TEST_CASE("erasing removes what draws as one character", "[markup]") {
             REQUIRE(parseMarkup(s).size() <= 3);
         }
         REQUIRE(s.empty());
+    }
+}
+
+
+TEST_CASE("a position from outside is snapped to one the caret can occupy", "[markup]") {
+    const std::string line = "hi |Hitem:1|h[AB]|h x";
+
+    SECTION("a position inside a link comes back to its start") {
+        // Anywhere from the opening bar to the last byte of the closing marker
+        // is inside the link, and all of it snaps to where the link begins.
+        for (size_t at = 4; at < 19; ++at) REQUIRE(caretSnap(line, at) == 3);
+    }
+
+    SECTION("positions outside one are left alone") {
+        REQUIRE(caretSnap(line, 0) == 0);
+        REQUIRE(caretSnap(line, 3) == 3);
+        REQUIRE(caretSnap(line, 19) == 19);
+        REQUIRE(caretSnap(line, line.size()) == line.size());
+    }
+
+    SECTION("every snapped position is one stepping can reach") {
+        for (size_t at = 0; at <= line.size(); ++at) {
+            const size_t snapped = caretSnap(line, at);
+            bool reachable = (snapped == 0);
+            for (size_t p = 0; !reachable && p < line.size();) {
+                const size_t next = caretStepRight(line, p);
+                if (next <= p) break;
+                if (next == snapped) reachable = true;
+                p = next;
+            }
+            REQUIRE(reachable);
+        }
     }
 }

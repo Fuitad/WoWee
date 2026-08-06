@@ -3291,8 +3291,11 @@ int lua_EditBox_SetCursorPosition(lua_State* L) {
     auto* w = widgetOf(L, 1);
     if (!w) return 0;
     const double at = luaL_optnumber(L, 2, 0.0);
-    w->cursorPos = static_cast<size_t>(std::clamp(
-        at, 0.0, static_cast<double>(w->editText.size())));
+    // Snapped to a place the caret can be. Stepping keeps it on a boundary and
+    // erasing removes exactly one step, so a caret dropped inside a link by a
+    // number from Lua is the one way left to split an escape.
+    w->cursorPos = ui::caretSnap(w->editText, static_cast<size_t>(std::clamp(
+        at, 0.0, static_cast<double>(w->editText.size()))));
     return 0;
 }
 int lua_EditBox_GetCursorPosition(lua_State* L) {
