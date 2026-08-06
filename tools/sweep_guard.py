@@ -349,6 +349,15 @@ CHECKS = [
     ("tools_run_check.py",
      r"^(\d+) that cannot run", 0,
      "sweeps that cannot run at all"),
+    # The mirror of the sweep above: not whether the answer used what it was
+    # told, but whether it is spelled the way the caller looks it up. A token is
+    # a table key, so a misspelling is a nil rather than a wrong value — the
+    # rune bar's prefix came back nil from _G[""], and UnitRace's file name
+    # asked for an asset with a space in it. Zero, and both faults were put back
+    # and seen to trip it before that zero was believed. 1s.
+    ("token_table_check.py",
+     r"^(\d+) token\(s\) spelled so", 0,
+     "token strings the interface cannot look up"),
     # GameTooltip setters that answer with a no-op, so the tooltip is blank.
     # A tooltip setter is the whole content of a tooltip: no error, no partial
     # result, just an empty box on one panel while every other hover works.

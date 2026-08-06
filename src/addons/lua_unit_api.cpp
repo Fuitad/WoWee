@@ -914,9 +914,11 @@ static int lua_UnitRace(lua_State* L) {
     toLowerInPlace(uid);
 
     const uint8_t raceId = unitRaceOf(gh, uid);
-    const char* name = (raceId > 0 && raceId < 12) ? kLuaRaces[raceId] : "Unknown";
+    const bool known = (raceId > 0 && raceId < 12);
+    const char* name = known ? kLuaRaces[raceId] : "Unknown";
+    const char* file = known ? kLuaRaceFileNames[raceId] : "Unknown";
     lua_pushstring(L, name);      // 1: localized race
-    lua_pushstring(L, name);      // 2: English race
+    lua_pushstring(L, file);      // 2: race file name, spliced into asset paths
     lua_pushnumber(L, raceId);    // 3: raceId (WoW returns 3 values)
     return 3;
 }

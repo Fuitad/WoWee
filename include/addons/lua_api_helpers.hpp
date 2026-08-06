@@ -88,8 +88,27 @@ inline constexpr const char* kLuaRaces[] = {
     "","Human","Orc","Dwarf","Night Elf","Undead",
     "Tauren","Gnome","Troll","","Blood Elf","Draenei"
 };
+
+/// UnitRace returns the display name first and this *file name* second, and the
+/// two differ for four races: the file name never has a space in it, and the
+/// Undead one is not the display name at all. It is a file name because that is
+/// literally what it is spliced into — DressUpTexturePath builds
+/// "Interface\DressUpFrame\DressUpBackground-"..fileName, so "Night Elf" asks
+/// for an asset that does not exist and the dressing room draws no background.
+/// The -- HACK in dressupframe.lua that rewrites GNOME to Dwarf and TROLL to Orc
+/// is the tell: those two are remapped precisely because their backgrounds were
+/// never shipped, which fixes the spelling of the ones that were.
+inline constexpr const char* kLuaRaceFileNames[] = {
+    "","Human","Orc","Dwarf","NightElf","Scourge",
+    "Tauren","Gnome","Troll","","BloodElf","Draenei"
+};
+
+/// Indexed by power type, and the token FrameXML looks up in PowerBarColor for
+/// the bar's colour and in _G for its label prefix. Slot 5 is RUNES: a colour
+/// missed here still lands, because PowerBarColor carries numeric aliases as a
+/// fallback, but _G[""] is nil and the prefix has no such second chance.
 inline constexpr const char* kLuaPowerNames[] = {
-    "MANA","RAGE","FOCUS","ENERGY","HAPPINESS","","RUNIC_POWER"
+    "MANA","RAGE","FOCUS","ENERGY","HAPPINESS","RUNES","RUNIC_POWER"
 };
 
 // ---- Quality hex strings ----
