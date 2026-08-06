@@ -1020,8 +1020,20 @@ static int talentRankFor(game::GameHandler* gh, bool inspect, uint32_t talentId)
     return gh->getTalentRank(talentId);
 }
 
+/// The fourth argument asks for the *pet's* tree.
+///
+/// Nothing here tracks pet talents — no packet fills them and no table holds
+/// them — and ignoring the argument answered out of the player's trees
+/// instead, so a hunter's pet tab drew the hunter's own talents. Ten nils is
+/// the honest answer and leaves the tab empty; talentframebase treats a nil
+/// name as "no talent here", which is what it is.
+static bool wantsPetTalents(lua_State* L, int index) {
+    return lua_toboolean(L, index) != 0;
+}
+
 static int lua_GetNumTalentTabs(lua_State* L) {
     auto* gh = getGameHandler(L);
+    if (wantsPetTalents(L, 2)) { return luaReturnZero(L); }
     if (!gh) { return luaReturnZero(L); }
     // Count tabs matching the class in question
     uint8_t classId = talentClassId(gh, lua_toboolean(L, 1) != 0);
@@ -1039,17 +1051,6 @@ static int lua_GetNumTalentTabs(lua_State* L) {
 static std::unordered_map<uint32_t, int>& previewPoints();
 
 // GetTalentTabInfo(tabIndex) → name, iconTexture, pointsSpent, background
-/// The fourth argument asks for the *pet's* tree.
-///
-/// Nothing here tracks pet talents — no packet fills them and no table holds
-/// them — and ignoring the argument answered out of the player's trees
-/// instead, so a hunter's pet tab drew the hunter's own talents. Ten nils is
-/// the honest answer and leaves the tab empty; talentframebase treats a nil
-/// name as "no talent here", which is what it is.
-static bool wantsPetTalents(lua_State* L, int index) {
-    return lua_toboolean(L, index) != 0;
-}
-
 static int lua_GetTalentTabInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
     int tabIndex = static_cast<int>(luaL_checknumber(L, 1)); // 1-indexed
@@ -1109,6 +1110,10 @@ static int lua_GetTalentTabInfo(lua_State* L) {
 static int lua_GetNumTalents(lua_State* L) {
     auto* gh = getGameHandler(L);
     int tabIndex = static_cast<int>(luaL_checknumber(L, 1));
+    // The counts belong to the same family as the readers below and were
+    // missed with them: a pet tab whose talents all answer nil still asked how
+    // many to lay out, and got the player's tree's count.
+    if (wantsPetTalents(L, 3)) { return luaReturnZero(L); }
     if (!gh || tabIndex < 1) { return luaReturnZero(L); }
     uint8_t classId = talentClassId(gh, lua_toboolean(L, 2) != 0);
     uint32_t classMask = (classId > 0) ? (1u << (classId - 1)) : 0;

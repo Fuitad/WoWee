@@ -844,24 +844,47 @@ static int lua_GetSpellLink(lua_State* L) {
     return 1;
 }
 
+/// CancelUnitBuff(unit, indexOrName [, filterOrRank]) — both forms.
+///
+/// The interface uses both and this took only the index, through
+/// luaL_checknumber — so the two name forms raised on the spot rather than
+/// cancelling anything. The possess bar cancels the aura holding the player in
+/// a vehicle by name, and /cancelaura passes what was typed; both were an
+/// error message where an aura should have dropped.
+///
+/// The third argument is a filter for the index form and a rank for the name
+/// form, which is how WoW spells it. Only HELPFUL is answerable — a debuff
+/// cannot be cancelled — so the filter decides nothing here beyond confirming
+/// buffs are what is being counted.
 static int lua_CancelUnitBuff(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
-    const char* uid = luaL_optstring(L, 1, "player");
-    std::string uidStr(uid);
+    std::string uidStr(luaL_optstring(L, 1, "player"));
     toLowerInPlace(uidStr);
-    if (uidStr != "player") return 0; // Can only cancel own buffs
-    int index = static_cast<int>(luaL_checknumber(L, 2));
+    if (uidStr != "player") return 0;   // only one's own auras can be cancelled
+
     const auto& auras = gh->getPlayerAuras();
-    // Find the Nth buff (non-debuff)
+    const bool byName = lua_isstring(L, 2) && !lua_isnumber(L, 2);
+
+    if (byName) {
+        std::string want(lua_tostring(L, 2));
+        toLowerInPlace(want);
+        for (const auto& a : auras) {
+            if (a.isEmpty() || (a.flags & 0x80) != 0) continue;
+            std::string have = gh->getSpellName(a.spellId);
+            toLowerInPlace(have);
+            if (have == want) { gh->cancelAura(a.spellId); return 0; }
+        }
+        return 0;
+    }
+
+    const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (index < 1) return 0;
     int buffCount = 0;
     for (const auto& a : auras) {
         if (a.isEmpty()) continue;
-        if ((a.flags & 0x80) != 0) continue; // skip debuffs
-        if (++buffCount == index) {
-            gh->cancelAura(a.spellId);
-            break;
-        }
+        if ((a.flags & 0x80) != 0) continue;   // debuffs are not cancellable
+        if (++buffCount == index) { gh->cancelAura(a.spellId); return 0; }
     }
     return 0;
 }
