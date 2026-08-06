@@ -84,6 +84,8 @@ public:
         std::string objectives;
         /// Shown once every objective is done, in place of the objective list.
         std::string completionText;
+        /// The spell the quest offers as a reward, or zero.
+        uint32_t rewardSpellId = 0;
         int32_t level = 0;   // quest level from query response; 0 = unknown, -1 = player-scaling
         // ZoneOrSort from query response: >0 = AreaTable zone id, <0 = QuestSort.dbc
         // category (negated), 0 = unknown

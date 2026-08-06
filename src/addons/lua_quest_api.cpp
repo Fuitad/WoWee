@@ -57,6 +57,11 @@ static int lua_IsCurrentQuestFailed(lua_State* L) { lua_pushboolean(L, 0); retur
 // this client parses parses none of them, and each is asked behind `if ( ... )`
 // before its block is drawn — so nil leaves the block out rather than drawing
 // an empty one.
+// GetRewardSpell() — the quest *giver's* reward spell.
+//
+// Still nil: SMSG_QUESTGIVER_QUEST_DETAILS is not parsed for one, and the log
+// form below cannot stand in for it — the panel that asks this is showing a
+// quest being offered, which is usually not the one selected in the log.
 static int lua_GetQuestRewardSpell(lua_State* L) { (void)L; return luaReturnNil(L); }
 static int lua_GetQuestRewardTitle(lua_State* L) { (void)L; return luaReturnNil(L); }
 static int lua_ProcessQuestLogRewardFactions(lua_State* L) { (void)L; return 0; }
@@ -1553,6 +1558,34 @@ static const game::GameHandler::QuestLogEntry* selectedLogEntry(game::GameHandle
     return &log[idx - 1];
 }
 
+// GetQuestLogRewardSpell() → texture, name, isTradeskillSpell, isSpellLearned
+//
+// Nil for every quest, and questinfo.lua gates the whole reward-spell row on
+// `if ( GetQuestLogRewardSpell() )` — so a quest that teaches a recipe or hands
+// out a buff showed no sign of it, and the tooltip setter beside it had nothing
+// to describe. The spell is in SMSG_QUEST_QUERY_RESPONSE at the field between
+// two the reward parser already reads.
+//
+// The three flags decide only which line is printed under the icon:
+// REWARD_TRADESKILL_SPELL for a recipe, REWARD_AURA for something not yet
+// known, REWARD_SPELL otherwise.
+static int lua_GetQuestLogRewardSpell(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return luaReturnNil(L);
+    const auto* q = selectedLogEntry(gh);
+    const uint32_t spellId = q ? q->rewardSpellId : 0u;
+    if (spellId == 0) return luaReturnNil(L);
+    const std::string name = gh->getSpellName(spellId);
+    if (name.empty()) return luaReturnNil(L);
+    std::string icon = gh->getSpellIconPath(spellId);
+    lua_pushstring(L, icon.empty() ? "Interface\\Icons\\INV_Misc_QuestionMark"
+                                   : icon.c_str());
+    lua_pushstring(L, name.c_str());
+    lua_pushboolean(L, gh->isProfessionSpell(spellId) ? 1 : 0);
+    lua_pushboolean(L, gh->getKnownSpells().count(spellId) > 0 ? 1 : 0);
+    return 4;
+}
+
 /// One reward, described the way every reward button reads it.
 template <typename Container>
 static int pushRewardAt(lua_State* L, game::GameHandler* gh,
@@ -1993,7 +2026,7 @@ void registerQuestLuaAPI(lua_State* L) {
         }},
                 {"GetQuestLogTimeLeft",     lua_GetQuestLogTimeLeft},
                 {"IsCurrentQuestFailed",    lua_IsCurrentQuestFailed},
-                {"GetQuestLogRewardSpell",  lua_GetQuestRewardSpell},
+                {"GetQuestLogRewardSpell",  lua_GetQuestLogRewardSpell},
                 {"GetRewardSpell",          lua_GetQuestRewardSpell},
                 {"GetRewardTitle",          lua_GetQuestRewardTitle},
                 {"GetQuestLogRewardTitle",  lua_GetQuestRewardTitle},

@@ -2507,6 +2507,10 @@ struct QuestQueryRewardsData {
     /// The quest's start item, zero when it has none or when the layout for
     /// this expansion has not been verified against a server serializer.
     uint32_t sourceItemId = 0;
+    /// The spell the quest shows as a reward — a recipe taught, a buff given.
+    /// Same caveat as the start item: WotLK only, because that is the layout
+    /// counted off a serializer here.
+    uint32_t rewardSpellId = 0;
     bool valid = false;
 };
 

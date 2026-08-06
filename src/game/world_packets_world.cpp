@@ -1229,9 +1229,14 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
     // between the money and the pairs has not been read off a serializer here,
     // and a guess would put an arbitrary item on the watch frame.
     size_t sourceItemField = 0;
+    size_t rewardSpellField = 0;
     if (questLogStride >= 5) {        // WotLK
         moneyField = 11; rewardPairsField = 24; choicePairsField = 32;
         sourceItemField = 17;
+        // Counted from the same base as the four above: money is absolute 13
+        // and the start item absolute 19, and the serializer writes
+        // money(13), maxLevel(14), rewSpell(15) — so 13 here, which is 15 there.
+        rewardSpellField = 13;
     } else if (questLogStride == 4) { // TBC
         moneyField = 9;  rewardPairsField = 17; choicePairsField = 25;
     } else {                          // Classic / Turtle
@@ -1263,6 +1268,12 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
         if (out.itemId[i] > 0x00FFFFFFu || out.itemCount[i] > 0xFFFFu) return {};
     for (size_t i = 0; i < 6; ++i)
         if (out.choiceItemId[i] > 0x00FFFFFFu || out.choiceItemCount[i] > 0xFFFFu) return {};
+    if (rewardSpellField) {
+        const uint32_t spell = readU32At(base + rewardSpellField * 4u);
+        // The same plausibility gate the items get: a layout that has slipped
+        // lands in float or string data and answers something enormous.
+        if (spell <= 0x000FFFFFu) out.rewardSpellId = spell;
+    }
     if (sourceItemField) {
         const uint32_t srcItem = readU32At(base + sourceItemField * 4u);
         // Same plausibility gate the rewards use: a layout mismatch lands in a

@@ -1550,6 +1550,27 @@ int lua_Tooltip_SetSpellByID(lua_State* L) {
     return 1;
 }
 
+/// The spell a quest hands over, hovered in the quest log.
+///
+/// It was on the no-op list, which was the right answer while
+/// GetQuestLogRewardSpell returned nil — questinfo.lua gates the whole reward
+/// row on that, so there was no icon to hover. With the row drawn the tooltip
+/// is the next thing anyone reaches for, and an empty box over a reward is the
+/// shape a no-op leaves behind.
+int lua_Tooltip_SetQuestLogRewardSpell(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    uint32_t spellId = 0;
+    if (gh) {
+        const int idx = gh->getSelectedQuestLogIndex();
+        const auto& log = gh->getQuestLog();
+        if (idx >= 1 && idx <= static_cast<int>(log.size()))
+            spellId = log[static_cast<size_t>(idx) - 1].rewardSpellId;
+    }
+    lua_pushboolean(L, spellId && fillSpellTooltip(w, gh, spellId) ? 1 : 0);
+    return 1;
+}
+
 /// A talent's name, the rank the player has in it, and what it does.
 ///
 /// Hovering a talent used to raise: the metatable had no SetTalent, so the call
@@ -4173,6 +4194,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetBackpackToken", lua_Tooltip_ReturnFalse},
         {"SetGuildBankItem", lua_Tooltip_SetGuildBankItem},
         {"SetSpellByID",    lua_Tooltip_SetSpellByID},
+        {"SetQuestLogRewardSpell", lua_Tooltip_SetQuestLogRewardSpell},
         {"SetHyperlink",    lua_Tooltip_SetHyperlink},
         // On frames as well as on font strings, where these were already
         // registered. A chat frame is asked for its own font — not a label's —
@@ -4954,7 +4976,7 @@ void LuaEngine::registerCoreAPI() {
         "SetNumber=1,SetNumeric=1,SetOwner=1,SetParent=1,SetPetAction=1,\n"
         "SetPlayerTextureHeight=1,SetPlayerTextureWidth=1,SetPoint=1,SetPosition=1,\n"
         "SetPossession=1,SetPropagateKeyboardInput=1,SetPushedTexture=1,SetQuestItem=1,\n"
-        "SetQuestLogRewardSpell=1,\n"
+
         "SetRotation=1,SetScale=1,SetScript=1,\n"
         "SetScrollChild=1,SetSelection=1,SetSequence=1,\n"
         "SetSequenceTime=1,SetShadowOffset=1,SetShown=1,SetSize=1,\n"
