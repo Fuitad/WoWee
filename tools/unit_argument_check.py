@@ -42,6 +42,31 @@ Two shapes report as faults and are not:
 
 Both are cheap to recognise by eye and expensive to encode, so they are left in
 the count and named here.
+
+THE TEN IT REPORTS TODAY, EACH OPENED (2026-08-05)
+
+  * Five paperdoll figures — UnitDefense, UnitAttackBothHands, UnitRangedAttack,
+    UnitRangedAttackPower, UnitRangedDamage. FrameXML's PaperDollFrame_Set*
+    helpers take (statFrame, unit) and fall back to "player" when the unit is
+    absent, and every caller of these five passes a frame and no unit. The pet
+    sheet passes a unit to exactly three helpers — SetDamage, SetArmor and
+    SetAttackPower — and none of them is one of these five. So they are asked
+    about the player alone, and the day the pet sheet grows a defence or ranged
+    row is the day this stops being true.
+  * UnitIsSameServer — answers true always, which is what "same realm" means
+    where there is no cross-realm anything.
+  * UnitControllingVehicle — asked about "player" and nothing else.
+  * GetUnitHealthModifier — a constant 1.0, and the one row here whose value a
+    real per-unit answer would change: petpaperdollframe multiplies the stamina
+    tooltip's projected health gain by it, for "pet".
+  * IsUnitOnQuest and UnitPlayerOrPetInRaid — the two shapes above.
+
+THE TRAP THE THREE PET-SHEET HELPERS SET
+
+They pass the token **capitalised** — PaperDollFrame_SetArmor(PetArmorFrame,
+"Pet") — so any binding they reach has to lower it before comparing. UnitDamage,
+UnitArmor and UnitAttackPower all do, and all three read the pet's own fields;
+that is what makes them absent from this list rather than on it.
 """
 import re
 import sys
