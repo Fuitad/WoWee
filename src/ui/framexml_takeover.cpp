@@ -195,10 +195,41 @@ const std::set<std::string>& requested() {
                 //                 been shown, which loads the addon that
                 //                 defines them.
                 //
-                // The world map stays with this client deliberately and is not
-                // on this list: it is the one element where the swap was
-                // considered and decided against.
-                "chat", "questlog", "questtracker"};
+                // The world map is below, and it is the last one in.
+                "chat", "questlog", "questtracker",
+                // The world map, which was the last element outside the
+                // defaults and is not a replacement at all — it is a seam.
+                //
+                // The reading that held it back was that FrameXML would draw a
+                // second map over this client's own. Both do draw: FrameXML
+                // fills WorldMapDetailTile1..12 and this client's renderer
+                // loads the same twelve, from the same
+                // Interface\WorldMap\<folder>\<folder>N.blp. So the question
+                // was never whether two maps are drawn but which is seen, and
+                // the answer is in the draw lists. The widget renderer draws
+                // into ImGui's BACKGROUND list, deliberately, so this client's
+                // interface stays on top while the two coexist — and this
+                // client's map is an ImGui window. It covers FrameXML's tiles
+                // exactly where the two overlap, which is the detail frame,
+                // and application.cpp hands it that frame's rect so the
+                // overlap is exact.
+                //
+                // What that leaves is the arrangement the rect hand-off was
+                // written for: FrameXML owns the window, the chrome, the zone
+                // dropdown and the open/close, and this client owns the map
+                // surface inside it — with the party dots, taxi nodes, quest
+                // POIs and player marker it already draws, none of which are
+                // gated on ownership. game_screen_hud reads the presence of
+                // the rect as the statement that the map is wanted, in place
+                // of its own flag, and both the M key and the micro-menu
+                // button already route to ToggleFrame(WorldMapFrame).
+                //
+                // Its two unfired events are accounted for:
+                // WORLD_MAP_NAME_UPDATE is registered with no branch to handle
+                // it, and CLOSE_WORLD_MAP is the server telling the map to
+                // shut, which nothing here sends — the key closes it through
+                // the same toggle that opens it.
+                "worldmap"};
         }();
 
         if (!raw || !*raw) {
@@ -347,17 +378,15 @@ const std::set<std::string>& requested() {
         // name took the chat frame down with it.
         if (out.erase("candidates") > 0) {
             out.insert(defaults.begin(), defaults.end());
-            for (const char* name : {
-                    // bagbar, micromenu, uierrors and raidwarning have come
-                    // out of this list and into the defaults. They are added
-                    // either way — the defaults go in first — but an element
-                    // named in both reads as though it were still waiting.
-                    "worldmap"}) {
-                out.insert(name);
-            }
-            LOG_WARNING("FrameXML: drawing the defaults plus every element the "
-                        "readiness report calls clean. Clean means no call "
-                        "raises, not that it has been seen drawing.");
+            // Nothing is added on top any more. bagbar, micromenu, uierrors,
+            // raidwarning and finally worldmap have all come out of here and
+            // into the defaults, so "candidates" and the defaults name the
+            // same set — every element is handed over. The word is kept
+            // because runs and notes use it, and because the next element
+            // added goes here first.
+            LOG_WARNING("FrameXML: 'candidates' is the defaults now — every "
+                        "element is handed over, so there is nothing left for "
+                        "it to add.");
         }
 
         if (out.count("all") == 0) {

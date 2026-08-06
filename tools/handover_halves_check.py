@@ -63,8 +63,16 @@ def main():
 
     defaults = set(re.findall(r'"(\w+)"', re.search(
         r"return std::set<std::string>\{(.*?)\};", cpp, re.S).group(1)))
-    candidates = set(re.findall(r'"(\w+)"', re.search(
-        r"for \(const char\* name : \{(.*?)\}\) \{", cpp, re.S).group(1)))
+    # "candidates" used to add a list on top of the defaults. It adds
+    # nothing now — every element is in the defaults — so the loop it was read
+    # out of is gone. Read it as empty rather than as a parse failure, but only
+    # when the word is still there: if the whole mechanism is renamed, this
+    # should go back to failing loudly.
+    if "candidates" not in cpp:
+        print("no 'candidates' tier in the takeover source — this reads it")
+        return 1
+    extra = re.search(r"for \(const char\* name : \{(.*?)\}\) \{", cpp, re.S)
+    candidates = set(re.findall(r'"(\w+)"', extra.group(1))) if extra else set()
 
     live = sorted(e for e, n in names.items()
                   if n in defaults or n in candidates)
