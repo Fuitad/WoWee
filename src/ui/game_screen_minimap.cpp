@@ -1213,6 +1213,18 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         }
     };
 
+    // Everything past here is chrome around the minimap rather than marks on
+    // it, and chrome is FrameXML's when FrameXML draws the ring: the cluster
+    // carries its own zoom buttons, its own clock, and its own mail, LFG and
+    // battlefield icons, and this client's would sit on top of them.
+    //
+    // The blips above are the opposite case and the reason this function runs
+    // at all when the element is owned — minimap.xml declares no frame for a
+    // party member, a flight master or a corpse, because in WoW those come
+    // from the C client. Gating the whole pass left the ring drawn and nothing
+    // on it.
+    if (frameXmlOwns(UiElement::Minimap)) return;
+
     // Speaker mute button at the minimap top-right corner
     ImGui::SetNextWindowPos(ImVec2(centerX + mapRadius - 26.0f, centerY - mapRadius + 4.0f), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(22.0f, 22.0f), ImGuiCond_Always);
@@ -1366,14 +1378,6 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     }
 
     // Indicators below the minimap (stacked: new mail, then BG queue, then latency)
-    //
-    // FrameXML has its own for the first two — MiniMapMailFrame and
-    // MiniMapBattlefieldFrame sit on the cluster — so these are its when it
-    // draws the minimap. The blips above are not: WoW's own minimap blips come
-    // from the C client and minimap.xml declares no frame for a single one of
-    // them, which is why the marker pass runs either way and only this part
-    // stands down.
-    if (frameXmlOwns(UiElement::Minimap)) return;
 
     float indicatorX = centerX - mapRadius;
     float nextIndicatorY = centerY + mapRadius + 4.0f;
