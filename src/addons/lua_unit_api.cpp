@@ -2214,6 +2214,32 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"UnitLevel",     lua_UnitLevel},
                 {"UnitExists",    lua_UnitExists},
                 {"UnitIsDead",    lua_UnitIsDead},
+                // UnitUsingVehicle(unit) — in a vehicle, or moving between its
+                // seats. This client models the vehicle a player is in and not
+                // its seats, so the second half never happens and the first is
+                // exactly isInVehicle.
+                //
+                // Only the player: a vehicle another unit is riding is not
+                // something this client is told about, and answering false for
+                // one is the truth as far as it knows rather than a guess.
+                {"UnitUsingVehicle", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            std::string uid(luaL_optstring(L, 1, "player"));
+            toLowerInPlace(uid);
+            lua_pushboolean(L, (gh && uid == "player" && gh->isInVehicle()) ? 1 : 0);
+            return 1;
+        }},
+                // UnitVehicleSeatInfo(unit, seat) → controlType, occupantName,
+                // serverName, ejectable, canSwitchSeats.
+                //
+                // Seats are not modelled: SMSG_PLAYER_VEHICLE_DATA carries the
+                // vehicle a player is in and nothing about who else is aboard.
+                // Nothing rather than an invented seat — the caller shows an
+                // occupant's name from it, and a made-up one would be a name.
+                {"UnitVehicleSeatInfo", [](lua_State* L) -> int {
+            for (int i = 0; i < 5; ++i) lua_pushnil(L);
+            return 5;
+        }},
                 {"UnitIsGhost",   lua_UnitIsGhost},
                 {"UnitIsDeadOrGhost", lua_UnitIsDeadOrGhost},
                 {"UnitIsAFK",     lua_UnitIsAFK},
