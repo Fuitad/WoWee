@@ -553,6 +553,36 @@ static int lua_GetCVar(lua_State* L) {
     else if (n == "previewtalents") lua_pushstring(L, "1");
     else if (n == "chatmousescroll") lua_pushstring(L, "1");
     else if (n == "showkeyring")     lua_pushstring(L, "1");
+    // The quest tracker's filter, and it is not a preference — it is a bitmask
+    // fed to bit.band. watchframe.lua starts it at 0 on load and then, on
+    // VARIABLES_LOADED, overwrites it with tonumber(GetCVar("trackerFilter")).
+    // An unanswered CVar makes that nil, and bit.band(nil, x) raises: the
+    // tracker worked until the login event that is supposed to configure it,
+    // then went down on its next update, every session.
+    //
+    // Seven is all three bits — achievements, completed quests, quests from
+    // other zones — which is what a stock client shows. Zero would not raise
+    // but is worse than it looks: the two tests at watchframe.lua:813 skip a
+    // quest that is complete and a quest outside the current map, so an empty
+    // mask hides most of the log.
+    else if (n == "trackerfilter") lua_pushstring(L, "7");
+    // Manual, which is WATCHFRAME_SORT_MANUAL. Only ever compared with ==, so
+    // nil was survivable here — it is answered for the same reason its
+    // neighbour is, and because the sort menu's ticks read it.
+    else if (n == "trackersorting") lua_pushstring(L, "0");
+    // The narrow tracker, which is what a stock client has.
+    // WatchFrame_SetWidth tests `width == "0"` and takes the wide branch for
+    // anything else, so nil quietly chose the wide one.
+    else if (n == "watchframewidth") lua_pushstring(L, "0");
+    // Opaque. WorldMapFrame_SetOpacity computes 0.5 + (1.0 - opacity) * 0.5,
+    // which raises on a nil — and WorldMap_ToggleSizeDown calls it, so putting
+    // the map into windowed mode took it down. Zero is opaque here: the
+    // arithmetic reads the value as how transparent to be.
+    else if (n == "worldmapopacity") lua_pushstring(L, "0");
+    // Half, as the arena frames have it. The same arithmetic-on-nil shape,
+    // reached only if the arena addon loads, which is why it is a default
+    // rather than a fix.
+    else if (n == "partybackgroundopacity") lua_pushstring(L, "0.5");
     // Full volume and sound on, which is what a fresh client has. These are
     // read as numbers by the sound options, where zero reads as silence
     // rather than as "unset".

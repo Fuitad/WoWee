@@ -82,6 +82,20 @@ CHECKS = [
     ("declared_vs_read_check.py",
      r"CVars named, (\d+) the client never answers", 51,
      "CVars the client never answers, so they read as off"),
+    # The half of that list that raises rather than reading as off. A CVar the
+    # interface only tests survives answering nothing — the branch behind it
+    # does not run. One fed to tonumber() and then to arithmetic does not:
+    # watchframe.lua sets WATCHFRAME_FILTER_TYPE from
+    # tonumber(GetCVar("trackerFilter")) on VARIABLES_LOADED and then calls
+    # bit.band on it, so the quest tracker worked until the login event meant to
+    # configure it and went down on its next update, every session. The world
+    # map had the same shape in WorldMapFrame_SetOpacity.
+    #
+    # One left: MovieRecordingCompression, behind `if (not IsMacClient()) then
+    # return` in macoptionsframe.lua, and IsMacClient answers false.
+    ("declared_vs_read_check.py",
+     r"^(\d+) CVar\(s\) with no default that the interface does arithmetic", 1,
+     "CVars with no default that the interface does arithmetic on"),
     ("declared_vs_read_check.py",
      r"^(\d+) constant\(s\) set in both places", 1,
      # The one left is DEFAULT_CHAT_FRAME, and it is not a disagreement: the

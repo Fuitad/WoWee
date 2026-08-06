@@ -247,6 +247,27 @@ def main():
     if not unanswered:
         print("  (none)")
 
+    # The half of that list that raises rather than reading as off. A CVar the
+    # interface only tests is survivable when it answers nothing — the branch
+    # behind it does not run. One fed to tonumber() and then to arithmetic is
+    # not: watchframe.lua sets WATCHFRAME_FILTER_TYPE from
+    # tonumber(GetCVar("trackerFilter")) on VARIABLES_LOADED and then calls
+    # bit.band on it, so the quest tracker worked until the login event that
+    # configures it and went down on its next update, every session.
+    arith = set()
+    for path in list(FRAMEXML.rglob("*.lua")):
+        text = without_comments(path.read_text(errors="ignore"))
+        for m in re.finditer(r'tonumber\(\s*GetCVar\(\s*"([A-Za-z0-9_]+)"', text):
+            arith.add(m.group(1).lower())
+    unanswered_lower = {n.lower() for n in unanswered}
+    risky = sorted(n for n in arith if n in unanswered_lower)
+    print(f"\n{len(risky)} CVar(s) with no default that the interface does "
+          f"arithmetic on:\n")
+    for n in risky:
+        print(f"  {n}")
+    if not risky:
+        print("  (none)")
+
     print(f"\n{len(differing)} constant(s) set in both places with different "
           f"values:\n")
     for name, (b, f) in differing.items():
