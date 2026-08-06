@@ -528,6 +528,33 @@ static int lua_PickupSpell(lua_State* L) {
     return 0;
 }
 
+// PickupCompanion(mode, index) — drag a mount or a critter to the bar.
+//
+// Registered here rather than beside the other companion calls because the
+// cursor lives in this file, and because that is what this is: a pickup.
+//
+// A companion is summoned by a spell, and this client's action bar holds
+// spells, so the cursor carries the summon rather than a companion of its own
+// kind. What lands on the bar is the same icon casting the same thing; the
+// difference is invisible to everyone but the tooltip, which names the spell.
+// Modelling a fourth action type to say "companion" would change nothing a
+// player can see.
+static int lua_PickupCompanion(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return 0;
+    const char* mode = luaL_optstring(L, 1, "");
+    const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (index < 1) return 0;
+    const auto& list = gh->getCompanions(std::string(mode) == "MOUNT");
+    if (index > static_cast<int>(list.size())) return 0;
+    const uint32_t spellId = list[static_cast<size_t>(index) - 1].spellId;
+    if (spellId == 0) return 0;
+    setCursorType(L, CursorType::SPELL);
+    s_cursorId = spellId;
+    wowee::ui::frameXmlSetCursorItem(gh->getSpellIconPath(spellId));
+    return 0;
+}
+
 // PickupSpellBookItem(bookSlot, bookType) — alias for PickupSpell
 static int lua_PickupSpellBookItem(lua_State* L) {
     return lua_PickupSpell(L);
@@ -1542,6 +1569,7 @@ void registerActionLuaAPI(lua_State* L) {
                 {"PickupAction",        lua_PickupAction},
                 {"PlaceAction",         lua_PlaceAction},
                 {"PickupSpell",         lua_PickupSpell},
+                {"PickupCompanion",     lua_PickupCompanion},
                 {"PickupSpellBookItem", lua_PickupSpellBookItem},
                 {"PickupContainerItem", lua_PickupContainerItem},
                 {"PickupItem",          lua_PickupItem},

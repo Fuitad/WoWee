@@ -3033,7 +3033,6 @@ void registerUnitLuaAPI(lua_State* L) {
             }
             return 0;
         }},
-                {"PickupCompanion",         [](lua_State* L) -> int { (void)L; return 0; }},
                 {"IsTitleKnown",            [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int bit = static_cast<int>(luaL_optnumber(L, 1, -1));
