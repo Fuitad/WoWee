@@ -11,11 +11,14 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path("/home/k/Desktop/wowee")
+import sys as _s; _s.path.insert(0, str(Path(__file__).resolve().parent))
+from framexml_source import loaded_files
+
 XML = ROOT / "Data/interface"
 
 # Name(...) compared numerically, or a local assigned from it then compared.
 numeric = {}
-for path in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
+for path in sorted(loaded_files(XML)):
     text = path.read_text(errors="ignore")
     for m in re.finditer(r"\b([A-Z][A-Za-z0-9_]*)\s*\([^()\n]*\)\s*(==|~=|>=?|<=?)\s*(-?\d+)", text):
         numeric.setdefault(m.group(1), set()).add(f"{path.name}: {m.group(0)[:60]}")

@@ -34,6 +34,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+import sys as _s; _s.path.insert(0, str(Path(__file__).resolve().parent))
+from framexml_source import loaded_files
+
 XML = ROOT / "Data/interface"
 SRC = ROOT / "src"
 
@@ -65,7 +68,7 @@ def looked_up():
 def declared():
     """Names FrameXML gives a frame, in the XML or through CreateFrame."""
     out = set()
-    for path in list(XML.rglob("*.xml")) + list(XML.rglob("*.lua")):
+    for path in sorted(loaded_files(XML)):
         text = path.read_text(errors="ignore")
         out |= set(re.findall(r'name="([A-Za-z0-9_]+)"', text))
         out |= set(re.findall(

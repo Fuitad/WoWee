@@ -37,7 +37,7 @@ import re
 import sys
 import pathlib as _pathlib
 sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
-from framexml_source import without_comments
+from framexml_source import without_comments, loaded_files
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 XML = ROOT / "Data/interface"
@@ -99,7 +99,7 @@ def fired():
 def unpacked():
     """Event -> [(the names it unpacks, the file)]."""
     out = {}
-    for path in XML.rglob("*.lua"):
+    for path in sorted(q for q in loaded_files(XML) if q.suffix.lower() == ".lua"):
         text = without_comments(path.read_text(errors="ignore"))
         # A handler serving exactly one event: the unpack at its top is that
         # event's signature.

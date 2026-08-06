@@ -50,6 +50,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+import sys as _s; _s.path.insert(0, str(Path(__file__).resolve().parent))
+from framexml_source import loaded_files
+
 XML = ROOT / "Data/interface"
 API = ROOT / "src/addons/lua_system_api.cpp"
 
@@ -78,7 +81,7 @@ def main():
 
     # Every CVar name the interface mentions, however it mentions it.
     names, wanted = set(), {}
-    for path in sorted(list(XML.rglob("*.lua")) + list(XML.rglob("*.xml"))):
+    for path in sorted(sorted(loaded_files(XML))):
         text = path.read_text(errors="ignore")
         names |= set(re.findall(r'(?:Get|Set)CVar\w*\(\s*"(\w+)"', text))
         names |= set(re.findall(r'\.cvar\s*=\s*"(\w+)"', text))

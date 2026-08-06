@@ -33,6 +33,9 @@ import re
 from pathlib import Path
 
 ROOT = Path("/home/k/Desktop/wowee")
+import sys as _s; _s.path.insert(0, str(Path(__file__).resolve().parent))
+from framexml_source import loaded_files
+
 XML = ROOT / "Data/interface"
 
 STUBS = {"lua_ReturnNil", "lua_ReturnZero", "lua_ReturnFalse", "lua_ReturnNothing",
@@ -60,7 +63,7 @@ for f in (ROOT / "src/addons").glob("*.cpp"):
 # Defined in FrameXML itself — ChatFrame_DisplayUsageError and ShowUIPanel are
 # Lua, not bindings, and are not this client's business.
 defined = set()
-for path in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
+for path in sorted(loaded_files(XML)):
     t = path.read_text(errors="ignore")
     defined |= set(re.findall(r"\bfunction\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", t))
     defined |= set(re.findall(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*", t, re.M))

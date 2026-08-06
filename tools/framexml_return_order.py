@@ -44,7 +44,7 @@ import re
 import sys
 import pathlib as _pathlib
 sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
-from framexml_source import without_comments
+from framexml_source import without_comments, loaded_files
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 XML, ADDONS = ROOT/"Data/interface", ROOT/"src/addons"
@@ -94,7 +94,7 @@ def looks_name(e): return bool(re.search(r"(?i)name|\.c_str\(\)|^\"", e))
 
 rows, seen = [], set()
 DEST = re.compile(r"local\s+([\w\s,_]+?)\s*=\s*(\w+)\s*\(")
-for p in XML.rglob("*.lua"):
+for p in sorted(q for q in loaded_files(XML) if q.suffix.lower() == ".lua"):
     t = without_comments(p.read_text(errors="ignore"))
     for m in DEST.finditer(t):
         names = [x.strip() for x in m.group(1).split(",") if x.strip()]

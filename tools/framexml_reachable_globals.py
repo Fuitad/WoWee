@@ -10,6 +10,25 @@ GetBindingFromClick, reached from staticpopup.lua.
 So walk it. Every FrameXML function that calls an unbound global is a carrier;
 anything calling a carrier is a carrier. Report the ones a live file reaches,
 with the chain.
+
+THE ONE IT REPORTS TODAY, AND WHY IT IS NOT A FAULT
+
+Calendar_Toggle, reached from ToggleCalendar in uiparent.lua — which tests for
+it first:
+
+    function ToggleCalendar()
+        Calendar_LoadUI();
+        if ( Calendar_Toggle ) then Calendar_Toggle(); end
+    end
+
+Calendar_Toggle exists only once Blizzard_Calendar has loaded, and LoadAddOn
+refuses that addon by name, so the guard is what makes the minimap's date
+button do nothing instead of raising. The report cannot see a guard on the
+name it is reporting.
+
+It read two hundred and two before it stopped reading files the loader never
+opens — GlueXML, and the handful in framexml/ that no manifest lists. A report
+of two hundred is one nobody triages.
 """
 import re
 import sys
@@ -17,7 +36,7 @@ from pathlib import Path
 
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).resolve().parent))
-from framexml_source import without_comments_or_strings
+from framexml_source import without_comments_or_strings, loaded_files
 
 ROOT = Path("/home/k/Desktop/wowee")
 XML = ROOT / "Data/interface"
@@ -88,7 +107,7 @@ bodies, defined = {}, set()
 # raise". Per file because a local in one is nothing in another, and pooling
 # them would hide a genuinely missing global that shares a name.
 locals_by_file = {}
-for p in list(XML.rglob("*.lua")) + list(XML.rglob("*.xml")):
+for p in sorted(loaded_files(XML)):
     t = strip(p.read_text(errors="ignore"))
     defined |= set(re.findall(r"\bfunction\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(", t))
     defined |= set(re.findall(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*", t, re.M))

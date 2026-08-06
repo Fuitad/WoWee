@@ -40,7 +40,7 @@ import re
 import sys
 import pathlib as _pathlib
 sys.path.insert(0, str(_pathlib.Path(__file__).resolve().parent))
-from framexml_source import without_comments
+from framexml_source import without_comments, loaded_files
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 XML = ROOT / "Data/interface"
@@ -83,7 +83,7 @@ def fired():
 def main():
     have = fired()
     rows = []
-    for path in XML.rglob("*.lua"):
+    for path in sorted(q for q in loaded_files(XML) if q.suffix.lower() == ".lua"):
         text = without_comments(path.read_text(errors="ignore"))
         for m in HANDLER.finditer(text):
             fn, body = m.group(1), m.group(2)
