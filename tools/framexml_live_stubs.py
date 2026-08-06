@@ -29,6 +29,20 @@ VISIBLE, AND DELIBERATE
     to the sell icon over a bag item at a vendor. This client's cursor has no
     such icon to change to.
 
+ONE THAT IS ABSENT BY CHOICE RATHER THAN BY NECESSITY
+
+The GM survey. Its questions come from four DBCs this install carries, not from
+any packet — GMSurveyCurrentSurvey maps language to survey, GMSurveySurveys
+lists the question ids, GMSurveyQuestions and GMSurveyAnswers hold the text —
+and the trigger is the getSurvey byte in SMSG_GMRESPONSE_STATUS_UPDATE.
+Submitting is what makes it work rather than merely appear, and that means
+accumulating ten answers with per-question comments for CMSG_GMSURVEY_SUBMIT.
+The panel is only reached after a game master closes a ticket.
+
+Recorded because this file previously said the questions were unparseable,
+which was read off the event's name rather than off the files sitting beside
+it.
+
 ABSENT FEATURES, WHICH IS WHAT THE STUB SAYS (28)
 
 The world map's debug objects, zone map, battlefield flag and vehicle
