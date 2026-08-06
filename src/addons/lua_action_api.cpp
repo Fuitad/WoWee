@@ -657,6 +657,8 @@ static void pickupFromContainerSlot(lua_State* L, game::GameHandler* gh,
 ///
 /// The first matching slot wins. WoW picks the first too, and a stack split
 /// across two bags is one item as far as this is concerned.
+static int lua_ReturnNothing2(lua_State* L) { (void)L; return 0; }
+
 static int lua_PickupItem(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
@@ -1530,6 +1532,19 @@ void registerActionLuaAPI(lua_State* L) {
                 {"PickupSpellBookItem", lua_PickupSpellBookItem},
                 {"PickupContainerItem", lua_PickupContainerItem},
                 {"PickupItem",          lua_PickupItem},
+                // The totem bar's summon flyout calls these two from its
+                // OnClick and OnLeave, and nothing in this interface defines
+                // them — not multicastactionbarframe.lua beside the XML that
+                // calls them, not anywhere. An upstream gap rather than one of
+                // this client's, but the raise lands here all the same, and it
+                // lands on a shaman clicking their own totem bar.
+                //
+                // Answered with nothing, which makes the button inert. There
+                // is no honest alternative: the missing function is what would
+                // have decided which totem the flyout chose, and inventing one
+                // would summon whatever this guessed.
+                {"MultiCastSummonSpellButtonFlyoutButton_OnClick", lua_ReturnNothing2},
+                {"MultiCastSummonSpellButtonFlyoutButton_OnLeave", lua_ReturnNothing2},
                 {"PickupInventoryItem", lua_PickupInventoryItem},
                 {"PickupBagFromSlot",   lua_PickupBagFromSlot},
                 {"ClickSendMailItemButton", lua_ClickSendMailItemButton},
