@@ -2412,6 +2412,10 @@ void GameHandler::setActionBarSlot(int slot, ActionBarSlot::Type type, uint32_t 
     }
 }
 
+void GameHandler::requestBattlefieldPositions() {
+    if (socialHandler_) socialHandler_->requestBattlefieldPositions();
+}
+
 uint32_t GameHandler::getPlayerGuildRankIndex() const {
     return socialHandler_ ? socialHandler_->getPlayerGuildRankIndex() : 0xFFFFFFFFu;
 }

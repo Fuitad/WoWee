@@ -128,6 +128,15 @@ public:
     /// Ask for one bank tab's log. Tab six is the money log, which is what the
     /// server means by GUILD_BANK_MAX_TABS.
     void requestGuildBankLog(uint8_t tab);
+
+    /// Ask the battleground for everyone's position.
+    ///
+    /// MSG_BATTLEGROUND_PLAYER_POSITIONS is a request the server answers with
+    /// the same opcode — the reply was already parsed here and nothing ever
+    /// asked, so the list it fills stayed empty for both maps. Throttled
+    /// because the interface calls it from WorldMapFrame_OnUpdate, which is
+    /// every frame the map is open.
+    void requestBattlefieldPositions();
     static constexpr uint8_t kGuildBankMoneyTab = 6;
     const std::vector<GuildBankLogEntry>& getGuildBankLog(uint8_t tab) const {
         static const std::vector<GuildBankLogEntry> empty;
@@ -561,6 +570,7 @@ private:
     std::vector<AvailableBgInfo> availableBgs_;
     BgScoreboardData bgScoreboard_;
     std::vector<BgPlayerPosition> bgPlayerPositions_;
+    std::chrono::steady_clock::time_point lastBgPositionRequest_{};
 
     // LFG / Dungeon Finder
     LfgState lfgState_        = LfgState::None;

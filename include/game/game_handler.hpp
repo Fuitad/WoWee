@@ -2451,6 +2451,9 @@ public:
 
     /// Whether a map id belongs to a battleground, from the same table.
     bool isBattlegroundMap(uint32_t mapId);
+    /// Ask the battleground for everyone's position; throttled, and a no-op
+    /// outside one. See SocialHandler::requestBattlefieldPositions.
+    void requestBattlefieldPositions();
     /// Whether a map id belongs to an arena. Same table, the other instance
     /// type — the rows are loaded either way and only the battleground ones
     /// are kept in the queue list.

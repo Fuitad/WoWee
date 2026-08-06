@@ -4164,6 +4164,20 @@ void SocialHandler::deleteGmTicket() {
     LOG_INFO("Deleting GM ticket");
 }
 
+void SocialHandler::requestBattlefieldPositions() {
+    if (!owner_.isInWorld() || !owner_.getSocket()) return;
+    // Only in one. AzerothCore drops the request outright when the player has
+    // no battleground, so asking anywhere else is bytes for nothing.
+    if (!owner_.isBattlegroundMap(owner_.getCurrentMapId())) return;
+    // Once a second. The interface asks from WorldMapFrame_OnUpdate, so an
+    // unthrottled send is one packet per frame for as long as the map is open.
+    const auto now = std::chrono::steady_clock::now();
+    if (now - lastBgPositionRequest_ < std::chrono::seconds(1)) return;
+    lastBgPositionRequest_ = now;
+    network::Packet pkt(wireOpcode(Opcode::MSG_BATTLEGROUND_PLAYER_POSITIONS));
+    owner_.getSocket()->send(pkt);
+}
+
 // MSG_GUILD_EVENT_LOG_QUERY: ask, with no payload. The reply is the same
 // opcode and is parsed below.
 void SocialHandler::requestGuildBankLog(uint8_t tab) {

@@ -1691,11 +1691,34 @@ static int lua_SetScreenResolution(lua_State* L) {
     return 0;
 }
 
-/// A position on the battlefield map for someone who is not there: origin and
-/// no name. Three values, because WorldMapFrame_Update multiplies the first
-/// two by the map's dimensions on the line after reading them, and its loop is
-/// bounded by MAX_RAID_MEMBERS rather than by how many are actually present.
+/// GetBattlefieldPosition(index) → where a team mate is on the battleground
+/// map, as a fraction across it, and their name.
+///
+/// Origin and no name for anyone past the end, because WorldMapFrame_Update's
+/// loop is bounded by MAX_RAID_MEMBERS rather than by how many are present and
+/// hides each frame whose position comes back as zero.
+///
+/// MSG_BATTLEGROUND_PLAYER_POSITIONS has been parsed into a list of guids and
+/// canonical coordinates all along; the projection to map space is the one
+/// GetPlayerMapPosition now uses, so the two kinds of dot land in the same
+/// place for the same person.
 static int lua_GetBattlefieldPosition(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    auto* svc = getLuaServices(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    float u = 0.0f, v = 0.0f;
+    if (gh && svc && svc->mapUVForWorldPos && index >= 1) {
+        const auto& list = gh->getBgPlayerPositions();
+        if (index <= static_cast<int>(list.size())) {
+            const auto& p = list[static_cast<size_t>(index) - 1];
+            if (svc->mapUVForWorldPos(p.wowX, p.wowY, 0.0f, u, v)) {
+                lua_pushnumber(L, u);
+                lua_pushnumber(L, v);
+                lua_pushstring(L, gh->lookupName(p.guid).c_str());
+                return 3;
+            }
+        }
+    }
     lua_pushnumber(L, 0.0);
     lua_pushnumber(L, 0.0);
     lua_pushstring(L, "");
@@ -4298,7 +4321,17 @@ void registerSystemLuaAPI(lua_State* L) {
         }},
                 {"GetNumMapOverlays",        lua_GetNumMapOverlays},
                 {"GetNumMapDebugObjects",    lua_ReturnZero},
-                {"GetNumBattlefieldPositions", lua_ReturnZero},
+                // How many team mates the battleground has reported. The loop
+                // that draws them does not use this — it walks to
+                // MAX_RAID_MEMBERS and hides whatever answers zero — but the
+                // count is asked for beside it and a flat zero said the
+                // positions were not there while they were.
+                {"GetNumBattlefieldPositions", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? static_cast<lua_Number>(
+                gh->getBgPlayerPositions().size()) : 0.0);
+            return 1;
+        }},
                 {"GetBattlefieldPosition",   lua_GetBattlefieldPosition},
                 // Both of these want a position normalised to the map frame
                 // currently on screen, which only the map that is drawing knows
@@ -4577,7 +4610,16 @@ void registerSystemLuaAPI(lua_State* L) {
                 // later entry ever reports uiType 1.
                 {"IsSubZonePVPPOI",          lua_ReturnFalse},
                 {"GetNumVoiceSessions",      lua_ReturnZero},
-                {"RequestBattlefieldPositions", lua_ReturnNothing},
+                // Asked from WorldMapFrame_OnUpdate, so every frame the map is
+                // open. The handler throttles and refuses outside a
+                // battleground; before this nothing ever asked, and the reply
+                // that fills the position list is only ever sent on request —
+                // so the list was empty for FrameXML's map and for this
+                // client's own minimap alike.
+                {"RequestBattlefieldPositions", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->requestBattlefieldPositions();
+            return 0;
+        }},
                 {"UpdateWorldMapArrowFrames",   lua_ReturnNothing},
                 {"SetSelectedSkill", [](lua_State* L) -> int {
             selectedSkill() = static_cast<int>(luaL_optnumber(L, 1, 0)); return 0; }},
