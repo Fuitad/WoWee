@@ -43,6 +43,20 @@ Recorded because this file previously said the questions were unparseable,
 which was read off the event's name rather than off the files sitting beside
 it.
 
+TWO THAT WERE CHECKED AND ARE GENUINELY ABSENT
+
+Written down because three neighbouring claims of the same kind turned out to
+be wrong — the refund window, the GM survey and vehicle state were all called
+absent and all three were reachable. These two are not.
+
+  * Voice chat. AzerothCore's handlers read the request and throw it away:
+    HandleVoiceSessionEnableOpcode is two read_skips, HandleSetActiveVoiceChannel
+    another two, HandleChannelVoiceOnOpcode an empty body with a comment. No
+    SMSG_VOICE_* is ever sent, so there is no session to report on and nothing
+    a binding could answer from.
+  * Movie recording. The renderer can capture one frame — Renderer::captureScreenshot
+    writes a PNG — and there is no encoder behind it. MovieRecording_* is video.
+
 ABSENT FEATURES, WHICH IS WHAT THE STUB SAYS (28)
 
 The world map's debug objects, zone map, battlefield flag and vehicle
