@@ -1550,6 +1550,28 @@ int lua_Tooltip_SetSpellByID(lua_State* L) {
     return 1;
 }
 
+/// One item from a finished dungeon's reward list, hovered on the alert.
+///
+/// The alert frame passes the same one-based index it gave
+/// GetLFGCompletionRewardItem to draw the icon, so the lookup is the one that
+/// binding already does — SMSG_LFG_PLAYER_REWARD carries the item ids and this
+/// client has been parsing them. Without it the icon had an empty box over it.
+int lua_Tooltip_SetLFGCompletionReward(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (!w || !gh) { lua_pushboolean(L, 0); return 1; }
+    const auto& reward = gh->getLfgCompletionReward();
+    if (!reward.valid || index < 1 ||
+        index > static_cast<int>(reward.items.size())) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    const uint32_t itemId = reward.items[static_cast<size_t>(index) - 1].itemId;
+    lua_pushboolean(L, itemId && fillItemTooltipById(w, gh, itemId) ? 1 : 0);
+    return 1;
+}
+
 /// An equipment set, hovered on the character sheet's gear manager.
 ///
 /// The set name and what it holds. The item guids were parsed and exposed all
@@ -4249,6 +4271,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetSpellByID",    lua_Tooltip_SetSpellByID},
         {"SetQuestLogRewardSpell", lua_Tooltip_SetQuestLogRewardSpell},
         {"SetEquipmentSet",        lua_Tooltip_SetEquipmentSet},
+        {"SetLFGCompletionReward", lua_Tooltip_SetLFGCompletionReward},
         {"SetHyperlink",    lua_Tooltip_SetHyperlink},
         // On frames as well as on font strings, where these were already
         // registered. A chat frame is asked for its own font — not a label's —
@@ -5022,7 +5045,7 @@ void LuaEngine::registerCoreAPI() {
         "SetHighlightTexture=1,SetHitRectInsets=1,SetHorizontalScroll=1,\n"
         // SetHyperlinksEnabled is a real binding now, applied after this set.
         "SetHyperlinkCompareItem=1,SetID=1,\n"
-        "SetInventoryItem=1,SetJustifyH=1,SetJustifyV=1,SetLFGCompletionReward=1,\n"
+        "SetInventoryItem=1,SetJustifyH=1,SetJustifyV=1,\n"
         "SetLight=1,SetMaxBytes=1,\n"
         "SetMaxLetters=1,\n"
         "SetMinMaxValues=1,SetModel=1,SetModelScale=1,\n"
