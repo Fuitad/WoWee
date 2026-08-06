@@ -264,6 +264,15 @@ CHECKS = [
     # Two standing rows, both read and both written into its docstring —
     # an unreachable debug reader and a Wintergrasp timer whose nil is
     # `and`-guarded.
+    # A global FrameXML calls that exists here only as a widget method. The
+    # unbound-global sweep cannot see this by construction — methods and
+    # globals register the same way, so a method makes the global read as
+    # answered while it stays nil. GetText was that for months, raising every
+    # time the reputation list opened. Zero is the only acceptable number and
+    # the tool carries three canaries so a zero means something.
+    ("global_vs_method_check.py",
+     r"^(\d+) global\(s\) called by FrameXML and bound only", 0,
+     "globals FrameXML calls that exist only as a widget method"),
     ("framexml_bool_vs_number.py",
      r"^(\d+) binding\(s\) answer a boolean or nil", 2,
      "bindings answering a boolean or nil where a number is compared"),
