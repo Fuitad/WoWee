@@ -158,6 +158,25 @@ inline uint64_t resolveUnitGuid(game::GameHandler* gh, const std::string& uid) {
     if (uid == "focus")       return gh->getFocusGuid();
     if (uid == "mouseover")   return gh->getMouseoverGuid();
     if (uid == "pet")         return gh->getPetGuid();
+    // The NPC whose window is open, which is how FrameXML titles three of
+    // them: GossipFrameNpcNameText and BankFrameTitleText both read
+    // UnitName("npc"), and QuestFrameNpcNameText reads UnitName("questnpc").
+    // Neither token resolved, so all three came up blank — and the
+    // UnitExists() beside each is what decides whether the portrait model is
+    // set at all.
+    //
+    // Whichever window is actually open answers: the quest detail carries the
+    // giver it came from, the gossip its own npc, and a vendor or a banker
+    // theirs. The target is the last resort, and is usually the same NPC.
+    if (uid == "npc" || uid == "questnpc") {
+        if (uid == "questnpc" && gh->getQuestDetails().npcGuid != 0)
+            return gh->getQuestDetails().npcGuid;
+        if (gh->getCurrentGossip().npcGuid != 0) return gh->getCurrentGossip().npcGuid;
+        if (gh->getQuestDetails().npcGuid != 0)  return gh->getQuestDetails().npcGuid;
+        if (gh->getVendorGuid() != 0)            return gh->getVendorGuid();
+        if (gh->getBankerGuid() != 0)            return gh->getBankerGuid();
+        return gh->getTargetGuid();
+    }
     // Compound unit IDs: targettarget, focustarget, pettarget, mouseovertarget
     if (uid == "targettarget")    return getEntityTargetGuid(gh, gh->getTargetGuid());
     if (uid == "focustarget")     return getEntityTargetGuid(gh, gh->getFocusGuid());
