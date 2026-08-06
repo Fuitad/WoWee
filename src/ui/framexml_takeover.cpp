@@ -94,7 +94,28 @@ const std::set<std::string>& requested() {
                 "playerframe", "targetframe", "minimap",
                 "mainmenubar", "characterframe", "bags", "castbar",
                 "spellbook", "petframe", "focusframe", "buffs", "durability",
-                "zonetext", "dialogs"};
+                "zonetext", "dialogs",
+                // Promoted once a panel that fails to build hands itself back.
+                // Until then the cost of being wrong about one of these was
+                // the whole element: this client's version hidden, FrameXML's
+                // absent, and nothing on screen. Now the worst case is a log
+                // line and the old window.
+                //
+                // These four first because they are the ones a fault shows on
+                // immediately, rather than waiting for the right NPC — the
+                // same reason the fourteen above went first.
+                //
+                //   bagbar, micromenu — the bag buttons and the micro buttons.
+                //     They sit on the main bar, which FrameXML has drawn all
+                //     along, so this finishes a bar that was half handed over.
+                //   uierrors — the red error text. Its one unfired event,
+                //     SYSMSG, has no opcode behind it anywhere; what the frame
+                //     is for is UI_ERROR_MESSAGE, raised from eighty sites.
+                //   raidwarning — both its events are fired.
+                //
+                // WOWEE_FRAMEXML_UI names the whole set, so any of these can
+                // be dropped by listing the others.
+                "bagbar", "micromenu", "uierrors", "raidwarning"};
         }();
 
         if (!raw || !*raw) {
@@ -244,14 +265,18 @@ const std::set<std::string>& requested() {
         if (out.erase("candidates") > 0) {
             out.insert(defaults.begin(), defaults.end());
             for (const char* name : {
-                    "achievements", "auctionhouse", "bagbar", "bank",
+                    // bagbar, micromenu, uierrors and raidwarning have come
+                    // out of this list and into the defaults. They are added
+                    // either way — the defaults go in first — but an element
+                    // named in both reads as though it were still waiting.
+                    "achievements", "auctionhouse", "bank",
                     "barbershop", "bgscore", "book", "chat", "classtrainer",
                     "dungeonfinder", "gamemenu", "gossip", "guildbank",
-                    "help", "inspect", "loot", "mail", "micromenu",
+                    "help", "inspect", "loot", "mail",
                     "partyframes", "questgiver", "questlog", "questtracker",
-                    "raidwarning", "readycheck", "social", "stable",
+                    "readycheck", "social", "stable",
                     "talents", "taxi", "totems", "trade", "tradeskill",
-                    "uierrors", "vendor", "worldmap"}) {
+                    "vendor", "worldmap"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "
