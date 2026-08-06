@@ -35,13 +35,17 @@ namespace wowee::addons {
 // window puts one there on every left-click — PickupMerchantItem — and buying
 // is what happens when it is dropped into a bag, so without it a left-click at
 // a vendor did nothing at all and only right-click bought.
-enum class CursorType { NONE, SPELL, ITEM, ACTION, MACRO, MERCHANT, MONEY };
+enum class CursorType { NONE, SPELL, ITEM, ACTION, MACRO, MERCHANT, MONEY, GUILDBANK };
 static CursorType s_cursorType = CursorType::NONE;
 static uint32_t   s_cursorId   = 0;    // spellId, itemId, or action slot
 static int        s_cursorSlot = 0;    // source slot for placement
 static int        s_cursorBag  = -1;   // source bag for container items
 static uint64_t   s_cursorMoney = 0;   // copper, when the cursor carries money
 static void setCursorType(lua_State* L, CursorType type);
+/// Where the cursor's item came from, in wire bag/slot space. Declared here
+/// because the guild bank pickup above needs it and it is defined further down
+/// with the other cursor helpers.
+static bool cursorWireSlot(uint8_t& bag, uint8_t& slot);
 
 uint64_t cursorMoney() {
     return s_cursorType == CursorType::MONEY ? s_cursorMoney : 0;
@@ -430,6 +434,11 @@ static int lua_GetCursorInfo(lua_State* L) {
             lua_pushnumber(L, s_cursorId); // spellId
             return 4;
         case CursorType::ITEM:
+        // An item out of the guild bank is an item. Where it came from is this
+        // file's business — PickupContainerItem reads the cursor type to know a
+        // drop is a withdrawal — and saying so here would only give the
+        // interface a kind it has no branch for.
+        case CursorType::GUILDBANK:
             lua_pushstring(L, "item");
             lua_pushnumber(L, s_cursorId);
             return 2;
@@ -459,7 +468,11 @@ static int lua_GetCursorInfo(lua_State* L) {
 }
 
 static int lua_CursorHasItem(lua_State* L) {
-    lua_pushboolean(L, s_cursorType == CursorType::ITEM ? 1 : 0);
+    // A guild bank item counts. The bank frame's own OnClick tests this before
+    // deciding a click is a drop, so answering no for one would have left the
+    // item stuck on the cursor with nowhere that would take it.
+    lua_pushboolean(L, (s_cursorType == CursorType::ITEM ||
+                        s_cursorType == CursorType::GUILDBANK) ? 1 : 0);
     return 1;
 }
 
@@ -525,6 +538,55 @@ static int lua_PickupSpell(lua_State* L) {
     // does it. Dragging a spell out of the book carried nothing visible, so
     // the drag read as not having started.
     wowee::ui::frameXmlSetCursorItem(gh->getSpellIconPath(s_cursorId));
+    return 0;
+}
+
+// PickupGuildBankItem(tab, slot) — both halves of a guild bank drag.
+//
+// The frame calls this from OnDragStart and from OnReceiveDrag, so one function
+// picks up and puts down, the way PickupContainerItem does for bags. It was a
+// no-op, so nothing could be moved into or out of the guild bank at all —
+// while the packet builder for the move sat verified against the server, and
+// AutoStoreGuildBankItem beside it has been using half of it for right-clicks.
+//
+// The tab and slot are FrameXML's, counted from one; the wire counts from zero,
+// which is the shift AutoStoreGuildBankItem already applies.
+static int lua_PickupGuildBankItem(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int tab = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const int slot = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (!gh || tab < 1 || slot < 1) return 0;
+
+    // Carrying a bag item, so this is the deposit.
+    uint8_t srcBag = 0, srcSlot = 0;
+    if (cursorWireSlot(srcBag, srcSlot)) {
+        gh->guildBankDepositItem(static_cast<uint8_t>(tab - 1),
+                                 static_cast<uint8_t>(slot - 1), srcBag, srcSlot);
+        setCursorType(L, CursorType::NONE);
+        return 0;
+    }
+    // Carrying a bank item already: that is a move within the bank, and the
+    // request builder says plainly that it does not write that path. Dropping
+    // the cursor is better than sending something the server will read as a
+    // withdrawal to nowhere.
+    if (s_cursorType == CursorType::GUILDBANK) {
+        setCursorType(L, CursorType::NONE);
+        return 0;
+    }
+
+    // Otherwise pick the slot up, if there is anything in it.
+    const auto& bank = gh->getGuildBankData();
+    for (const auto& it : bank.tabItems) {
+        if (it.slotId != slot - 1 || it.itemEntry == 0) continue;
+        setCursorType(L, CursorType::GUILDBANK);
+        s_cursorId = it.itemEntry;
+        s_cursorBag = tab;
+        s_cursorSlot = slot;
+        const auto* info = gh->getItemInfo(it.itemEntry);
+        wowee::ui::frameXmlSetCursorItem(
+            info ? gh->getItemIconPath(info->displayInfoId) : std::string());
+        return 0;
+    }
     return 0;
 }
 
@@ -746,6 +808,25 @@ static int lua_PickupContainerItem(lua_State* L) {
     // A bag click while the cursor holds a vendor's item is the purchase.
     // containerframe.lua routes it here after checking GetCursorInfo.
     if (boughtHeldMerchantItem(L)) return 0;
+
+    // Carrying something out of the guild bank, so this is the withdrawal.
+    // The destination is this bag slot rather than the server's choice, which
+    // is what dropping on a particular square means.
+    if (s_cursorType == CursorType::GUILDBANK) {
+        uint8_t dstBag, dstSlot;
+        if (bag == 0) {
+            dstBag = 0xFF;
+            dstSlot = static_cast<uint8_t>(game::slots::backpackWireSlot(slot - 1));
+        } else {
+            dstBag = static_cast<uint8_t>(game::slots::wornBagContainer(bag - 1));
+            dstSlot = static_cast<uint8_t>(slot - 1);
+        }
+        gh->guildBankWithdrawItem(static_cast<uint8_t>(s_cursorBag - 1),
+                                  static_cast<uint8_t>(s_cursorSlot - 1),
+                                  dstBag, dstSlot);
+        setCursorType(L, CursorType::NONE);
+        return 0;
+    }
 
     // Already carrying something, so this is the drop rather than the pickup.
     // One function does both halves of a drag in WoW, and without this half a
@@ -1570,6 +1651,7 @@ void registerActionLuaAPI(lua_State* L) {
                 {"PlaceAction",         lua_PlaceAction},
                 {"PickupSpell",         lua_PickupSpell},
                 {"PickupCompanion",     lua_PickupCompanion},
+                {"PickupGuildBankItem", lua_PickupGuildBankItem},
                 {"PickupSpellBookItem", lua_PickupSpellBookItem},
                 {"PickupContainerItem", lua_PickupContainerItem},
                 {"PickupItem",          lua_PickupItem},
