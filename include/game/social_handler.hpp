@@ -263,6 +263,10 @@ public:
     // it is already holding against this character.
     void acceptArenaTeamInvite();
     void declineArenaTeamInvite();
+    void arenaTeamInvite(uint32_t teamId, const std::string& name);
+    void arenaTeamLeave(uint32_t teamId);
+    void arenaTeamRemove(uint32_t teamId, const std::string& name);
+    void arenaTeamSetLeader(uint32_t teamId, const std::string& name);
     void disbandArenaTeam(uint32_t teamId);
     /// Report a mail as spam. Type 0 of CMSG_COMPLAIN; the three values after
     /// the sender are a zero, the mail's own id, and another zero.

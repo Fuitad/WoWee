@@ -170,7 +170,7 @@ CHECKS = [
     # writing __parent while layout went on using the widget's, and GetCenter
     # read a field that only a dead SetPoint had ever written.
     ("widget_field_check.py",
-     r"^(\d+) method\(s\) touch only a Lua field", 6,
+     r"^(\d+) method\(s\) touch only a Lua field", 0,
      "frame methods writing a Lua field where the widget is what is read"),
     # Nineteen, none of them reachable: the login splash, the tic-tac-toe
     # minigame, and one talent-frame background behind a branch that cannot run

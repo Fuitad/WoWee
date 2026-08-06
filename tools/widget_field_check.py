@@ -61,6 +61,32 @@ def bodies(src):
     return out
 
 
+#: Methods whose whole subject is the Lua object rather than the widget behind
+#: it, checked one at a time. A set rather than a count: a ceiling says only how
+#: many there are, so fixing one and introducing another leaves the number
+#: unmoved.
+#:
+#: What these six have in common is that the widget has no opinion to diverge
+#: from. A frame's name, its parent, its scripts and the events it listens to
+#: are all Lua-side truth — nothing renames a widget behind __name, and
+#: SetParent writes the widget as well as the field precisely because the
+#: widget *does* have an opinion about parenthood.
+#:
+#: GetParent is the one to be careful with. It has to answer nil for a frame
+#: created with an explicit nil parent, because that is how FrameXML tells a
+#: top-level frame from a nested one — a template's parent= is applied only to
+#: a frame that arrived without one. Reading the widget instead would answer
+#: the screen, which is not nil.
+EXPECTED_FIELD_ONLY = {
+    "GetName": "__name, and nothing renames a widget",
+    "GetParent": "__parent, and nil is load bearing",
+    "GetScript": "__scripts",
+    "SetScript": "__scripts",
+    "RegisterEvent": "__events",
+    "UnregisterEvent": "__events",
+}
+
+
 def main():
     src = ENGINE.read_text(errors="ignore")
     registered = dict(re.findall(r'\{"(\w+)",\s*(lua_\w+)\}', src))
@@ -76,7 +102,7 @@ def main():
         writes = 'lua_setfield(L, 1, "__' in body or \
                  'lua_setfield(L, -2, "__' in body
         reads = 'lua_getfield(L, 1, "__' in body
-        if writes or reads:
+        if (writes or reads) and api not in EXPECTED_FIELD_ONLY:
             rows.append((api, fn, "writes" if writes else "reads"))
 
     print(f"{len(registered)} registered methods, {len(fns)} bodies read\n")

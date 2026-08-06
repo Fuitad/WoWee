@@ -305,6 +305,18 @@ static int lua_GetFriendInfo(lua_State* L) {
 /// stale exactly when the panel redraws.
 namespace {
 
+/// Which arena team a one-based index names, or zero for none.
+///
+/// The interface counts teams 1, 2, 3 for the three bracket sizes and passes
+/// that position; the wire wants the team's own id, which is what every arena
+/// command is addressed by. The same mapping the roster request uses.
+uint32_t arenaTeamIdAtIndex(game::GameHandler* gh, int index) {
+    if (!gh || index < 1) return 0;
+    const auto& teams = gh->getArenaTeamStats();
+    if (index > static_cast<int>(teams.size())) return 0;
+    return teams[static_cast<size_t>(index) - 1].teamId;
+}
+
 bool& guildShowOffline() { static bool show = true; return show; }
 std::string& guildSortField() { static std::string field = "name"; return field; }
 bool& guildSortReverse() { static bool rev = false; return rev; }
@@ -3135,10 +3147,43 @@ void registerSocialLuaAPI(lua_State* L) {
                                       pass ? pass : "", /*allowEmptyTarget=*/true);
             return 0;
         }},
-                {"ArenaTeamInviteByName",    [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ArenaTeamLeave",           [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ArenaTeamSetLeaderByName", [](lua_State* L) -> int { (void)L; return 0; }},
-                {"ArenaTeamUninviteByName",  [](lua_State* L) -> int { (void)L; return 0; }},
+                // The four arena team commands. Each is named by a static
+                // popup's button and by a slash command — /teaminvite,
+                // /teamquit, /teamkick, /teamcaptain — and all four did
+                // nothing: the popup closed, the command was accepted, and no
+                // packet was sent. The opcodes have been in the maps the whole
+                // time with nothing building them.
+                //
+                // The first argument is the team's position in the list, which
+                // is how the interface counts the three bracket sizes; the wire
+                // is addressed by the team's own id.
+                {"ArenaTeamInviteByName", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t id = arenaTeamIdAtIndex(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            const char* name = luaL_optstring(L, 2, "");
+            if (gh && id) gh->arenaTeamInvite(id, name ? name : "");
+            return 0;
+        }},
+                {"ArenaTeamLeave", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t id = arenaTeamIdAtIndex(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            if (gh && id) gh->arenaTeamLeave(id);
+            return 0;
+        }},
+                {"ArenaTeamSetLeaderByName", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t id = arenaTeamIdAtIndex(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            const char* name = luaL_optstring(L, 2, "");
+            if (gh && id) gh->arenaTeamSetLeader(id, name ? name : "");
+            return 0;
+        }},
+                {"ArenaTeamUninviteByName", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const uint32_t id = arenaTeamIdAtIndex(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
+            const char* name = luaL_optstring(L, 2, "");
+            if (gh && id) gh->arenaTeamRemove(id, name ? name : "");
+            return 0;
+        }},
                 {"BNGetConversationInfo",    [](lua_State* L) -> int { (void)L; return 0; }},
                 {"BNInviteToConversation",   [](lua_State* L) -> int { (void)L; return 0; }},
                 {"BNLeaveConversation",      [](lua_State* L) -> int { (void)L; return 0; }},

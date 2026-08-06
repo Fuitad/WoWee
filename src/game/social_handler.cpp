@@ -1706,6 +1706,47 @@ void SocialHandler::declineArenaTeamInvite() {
     owner_.getSocket()->send(packet);
 }
 
+// The four arena team commands that had no sender. Every one is the team id
+// and, for three of them, a player name — the shape AzerothCore reads in
+// ArenaTeamHandler.cpp: `recvData >> arenaTeamId >> name`. Disband and the two
+// invite answers below were already built; these four were named by the
+// interface's own popups and slash commands and reached bindings with nothing
+// behind them, so the buttons closed and nothing happened.
+void SocialHandler::arenaTeamInvite(uint32_t teamId, const std::string& name) {
+    if (teamId == 0 || name.empty()) return;
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_ARENA_TEAM_INVITE));
+    packet.writeUInt32(teamId);
+    packet.writeString(name);
+    owner_.getSocket()->send(packet);
+}
+
+void SocialHandler::arenaTeamLeave(uint32_t teamId) {
+    if (teamId == 0) return;
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_ARENA_TEAM_LEAVE));
+    packet.writeUInt32(teamId);
+    owner_.getSocket()->send(packet);
+}
+
+void SocialHandler::arenaTeamRemove(uint32_t teamId, const std::string& name) {
+    if (teamId == 0 || name.empty()) return;
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_ARENA_TEAM_REMOVE));
+    packet.writeUInt32(teamId);
+    packet.writeString(name);
+    owner_.getSocket()->send(packet);
+}
+
+void SocialHandler::arenaTeamSetLeader(uint32_t teamId, const std::string& name) {
+    if (teamId == 0 || name.empty()) return;
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    network::Packet packet(wireOpcode(Opcode::CMSG_ARENA_TEAM_LEADER));
+    packet.writeUInt32(teamId);
+    packet.writeString(name);
+    owner_.getSocket()->send(packet);
+}
+
 void SocialHandler::disbandArenaTeam(uint32_t teamId) {
     if (teamId == 0) return;
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;

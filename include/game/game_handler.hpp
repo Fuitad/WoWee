@@ -750,6 +750,10 @@ public:
     void closePetitionVendor();
     void acceptArenaTeamInvite();
     void declineArenaTeamInvite();
+    void arenaTeamInvite(uint32_t teamId, const std::string& name);
+    void arenaTeamLeave(uint32_t teamId);
+    void arenaTeamRemove(uint32_t teamId, const std::string& name);
+    void arenaTeamSetLeader(uint32_t teamId, const std::string& name);
     void disbandArenaTeam(uint32_t teamId);
     void reportMailSpam(uint64_t senderGuid, uint32_t mailId);
     /// Take the glyph out of a socket. Zero-based slot, as the server counts.

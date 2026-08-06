@@ -3431,6 +3431,18 @@ void GameHandler::declineArenaTeamInvite() {
     if (socialHandler_) socialHandler_->declineArenaTeamInvite();
 }
 
+void GameHandler::arenaTeamInvite(uint32_t teamId, const std::string& name) {
+    if (socialHandler_) socialHandler_->arenaTeamInvite(teamId, name);
+}
+void GameHandler::arenaTeamLeave(uint32_t teamId) {
+    if (socialHandler_) socialHandler_->arenaTeamLeave(teamId);
+}
+void GameHandler::arenaTeamRemove(uint32_t teamId, const std::string& name) {
+    if (socialHandler_) socialHandler_->arenaTeamRemove(teamId, name);
+}
+void GameHandler::arenaTeamSetLeader(uint32_t teamId, const std::string& name) {
+    if (socialHandler_) socialHandler_->arenaTeamSetLeader(teamId, name);
+}
 void GameHandler::disbandArenaTeam(uint32_t teamId) {
     if (socialHandler_) socialHandler_->disbandArenaTeam(teamId);
 }
