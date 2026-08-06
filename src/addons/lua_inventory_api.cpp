@@ -1643,8 +1643,7 @@ static int lua_UseInventoryItem(lua_State* L) {
     // A weapon that is worn is as good a target as one in a bag, and the
     // paperdoll's right-click arrives here.
     if (completedItemTarget(L, gh->getEquipSlotGuid(slotId - 1))) return 0;
-    const auto& slot = gh->getInventory().getEquipSlot(
-        static_cast<game::EquipSlot>(slotId - 1));
+    const auto& slot = *inventorySlotItem(gh->getInventory(), slotId);
     if (!slot.empty()) gh->useItemById(slot.item.itemId);
     return 0;
 }
@@ -2366,12 +2365,14 @@ static int lua_GetInventoryItemCount(lua_State* L) {
     const int slotId = static_cast<int>(luaL_optnumber(L, 2, 0));
     std::string uidStr(uid);
     toLowerInPlace(uidStr);
-    if (!gh || uidStr != "player" || slotId < 1 || slotId > 19) {
+    // Not 1..19: the bank is addressed through this too — bankframe.lua asks
+    // GetInventoryItemCount("player", BankButtonIDToInvSlotID(id)) for every
+    // one of its twenty-eight slots, and those ids start at forty.
+    if (!gh || uidStr != "player" || !inventorySlotItem(gh->getInventory(), slotId)) {
         lua_pushnumber(L, 0);
         return 1;
     }
-    const auto& slot = gh->getInventory().getEquipSlot(
-        static_cast<game::EquipSlot>(slotId - 1));
+    const auto& slot = *inventorySlotItem(gh->getInventory(), slotId);
     if (slot.empty()) { lua_pushnumber(L, 0); return 1; }
     // A single item reports a stack of one rather than zero, which is how the
     // count is drawn: zero would print nothing where the client prints nothing
@@ -2408,7 +2409,8 @@ static int lua_GetInventoryItemLink(lua_State* L) {
     auto* gh = getGameHandler(L);
     const char* uid = luaL_optstring(L, 1, "player");
     int slotId = static_cast<int>(luaL_checknumber(L, 2));
-    if (!gh || slotId < 1 || slotId > 19) { return luaReturnNil(L); }
+    // The bank is named through these too, at forty and up.
+    if (!gh) { return luaReturnNil(L); }
     std::string uidStr(uid);
     toLowerInPlace(uidStr);
     uint32_t itemId = 0;
@@ -2416,7 +2418,9 @@ static int lua_GetInventoryItemLink(lua_State* L) {
     uint32_t q = 1;
     if (uidStr == "player") {
         const auto& inv = gh->getInventory();
-        const auto& slot = inv.getEquipSlot(static_cast<game::EquipSlot>(slotId - 1));
+        const game::ItemSlot* sp = inventorySlotItem(inv, slotId);
+        if (!sp) { return luaReturnNil(L); }
+        const auto& slot = *sp;
         if (slot.empty()) { return luaReturnNil(L); }
         itemId = slot.item.itemId;
         const auto* info = gh->getItemInfo(itemId);
@@ -2443,7 +2447,8 @@ static int lua_GetInventoryItemID(lua_State* L) {
     auto* gh = getGameHandler(L);
     const char* uid = luaL_optstring(L, 1, "player");
     int slotId = static_cast<int>(luaL_checknumber(L, 2));
-    if (!gh || slotId < 1 || slotId > 19) { return luaReturnNil(L); }
+    // The bank is named through these too, at forty and up.
+    if (!gh) { return luaReturnNil(L); }
     std::string uidStr(uid);
     toLowerInPlace(uidStr);
     if (uidStr != "player") {
@@ -2453,9 +2458,9 @@ static int lua_GetInventoryItemID(lua_State* L) {
         return 1;
     }
 
-    const auto& inv = gh->getInventory();
-    const auto& slot = inv.getEquipSlot(static_cast<game::EquipSlot>(slotId - 1));
-    if (slot.empty()) { return luaReturnNil(L); }
+    const game::ItemSlot* sp = inventorySlotItem(gh->getInventory(), slotId);
+    if (!sp || sp->empty()) { return luaReturnNil(L); }
+    const auto& slot = *sp;
     lua_pushnumber(L, slot.item.itemId);
     return 1;
 }
@@ -2467,8 +2472,11 @@ static int lua_GetInventoryItemTexture(lua_State* L) {
     // 1..19 is head through tabard; 20..23 are the four bag slots. The bag bar
     // buttons ask about those four, and stopping at 19 answered "no bag" for
     // every one of them.
-    constexpr int kNumSlots = static_cast<int>(game::EquipSlot::NUM_SLOTS);
-    if (!gh || slotId < 1 || slotId > kNumSlots) { return luaReturnNil(L); }
+    // Equipment and the bank both. bankframe.lua draws its twenty-eight slots
+    // with GetInventoryItemTexture("player", BankButtonIDToInvSlotID(id)), and
+    // those ids land at forty and up — so a bound of NUM_SLOTS answered nil for
+    // every one and the bank read as empty while bankSlots_ held the items.
+    if (!gh || !inventorySlotItem(gh->getInventory(), slotId)) { return luaReturnNil(L); }
     std::string uidStr(uid);
     toLowerInPlace(uidStr);
     if (uidStr != "player") {
@@ -2482,7 +2490,7 @@ static int lua_GetInventoryItemTexture(lua_State* L) {
     }
 
     const auto& inv = gh->getInventory();
-    const auto& slot = inv.getEquipSlot(static_cast<game::EquipSlot>(slotId - 1));
+    const auto& slot = *inventorySlotItem(inv, slotId);
     if (slot.empty()) { return luaReturnNil(L); }
 
     // Nil here means "empty slot" to the interface: PaperDollItemSlotButton_Update

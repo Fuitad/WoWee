@@ -12,6 +12,7 @@
 #include "game/game_handler.hpp"
 #include "game/entity.hpp"
 #include "game/update_field_table.hpp"
+#include "game/inventory_slots.hpp"
 #include "game/reputation_standing.hpp"
 #include "core/logger.hpp"
 #include "core/app_clock.hpp"
@@ -392,6 +393,32 @@ inline const game::ItemSlot* containerItemSlot(const game::Inventory& inv,
     if (container == 0) return &inv.getBackpackSlot(slot - 1);
     if (container >= 1 && container <= 4) return &inv.getBagSlot(container - 1, slot - 1);
     if (container == kKeyringContainer) return &inv.getKeyringSlot(slot - 1);
+    return nullptr;
+}
+
+/// One slot named by an *inventory* slot id, the interface's 1-based numbering.
+///
+/// Equipment is 1 to 23 and everything above it was answered as absent, which
+/// covered the paperdoll and nothing else. The bank is addressed this way:
+/// bankframe.lua draws its twenty-eight general slots by asking
+/// GetInventoryItemTexture("player", BankButtonIDToInvSlotID(id)), and those
+/// ids land at 40 and up — so every one of them read empty while
+/// inventory_handler filled bankSlots_ from the update fields.
+inline const game::ItemSlot* inventorySlotItem(const game::Inventory& inv, int slotId) {
+    const int wire = game::slots::toWireSlot(slotId);
+    if (slotId >= 1 && slotId <= static_cast<int>(game::EquipSlot::NUM_SLOTS)) {
+        return &inv.getEquipSlot(static_cast<game::EquipSlot>(slotId - 1));
+    }
+    if (wire >= game::slots::kBankGeneralFirst &&
+        wire <  game::slots::kBankGeneralFirst + game::slots::kBankGeneralCount) {
+        return &inv.getBankSlot(wire - game::slots::kBankGeneralFirst);
+    }
+    // The bag a bank bag *is*, not what is inside it — the seven slots the
+    // bank's own bag row draws.
+    if (wire >= game::slots::kBankBagFirst &&
+        wire <  game::slots::kBankBagFirst + game::slots::kBankBagCount) {
+        return &inv.getBankBagItem(wire - game::slots::kBankBagFirst);
+    }
     return nullptr;
 }
 
