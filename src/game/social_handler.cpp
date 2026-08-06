@@ -3693,8 +3693,12 @@ void SocialHandler::handleLfgBootProposalUpdate(network::Packet& packet) {
     // than it should have.
     if (!packet.hasRemaining(27)) return;
     bool inProgress = packet.readUInt8() != 0;
-    packet.readUInt8();   // this player has voted
-    packet.readUInt8();   // and what they said
+    // Both were read and dropped. The vote dialog needs them: didVote decides
+    // whether it shows the buttons or the tally, and myVote which of the two
+    // is lit.
+    lfgBootDidVote_ = packet.readUInt8() != 0;
+    lfgBootMyVote_  = packet.readUInt8() != 0;
+    lfgBootInProgress_ = inProgress;
     lfgBootVictimGuid_ = packet.readUInt64();
     uint32_t totalVotes = packet.readUInt32();
     uint32_t bootVotes = packet.readUInt32();
@@ -3703,12 +3707,22 @@ void SocialHandler::handleLfgBootProposalUpdate(network::Packet& packet) {
     lfgBootVotes_ = bootVotes; lfgBootTotal_ = totalVotes;
     lfgBootTimeLeft_ = timeLeft; lfgBootNeeded_ = votesNeeded;
     if (packet.getReadPos() < packet.getSize()) lfgBootReason_ = packet.readString();
-    if (packet.getReadPos() < packet.getSize()) lfgBootTargetName_ = packet.readString();
+    // The packet carries one string and it is the reason. The victim is the
+    // guid above — AzerothCore writes `data << boot.victim` and then the
+    // reason, and nothing else — so a second string was being looked for that
+    // is never there, and the name it was meant to fill stayed empty. Resolved
+    // from the guid instead, which is how every other name here is found.
+    lfgBootTargetName_ = owner_.lookupName(lfgBootVictimGuid_);
+    if (lfgBootTargetName_.empty() && lfgBootVictimGuid_ != 0) {
+        owner_.queryPlayerName(lfgBootVictimGuid_);
+    }
     if (inProgress) { lfgState_ = LfgState::Boot; }
     else {
         const bool bootPassed = (bootVotes >= votesNeeded);
         lfgBootVotes_ = lfgBootTotal_ = lfgBootTimeLeft_ = lfgBootNeeded_ = 0;
         lfgBootTargetName_.clear(); lfgBootReason_.clear();
+        lfgBootDidVote_ = lfgBootMyVote_ = lfgBootInProgress_ = false;
+        lfgBootVictimGuid_ = 0;
         lfgState_ = LfgState::InDungeon;
         owner_.addSystemChatMessage(bootPassed ? "Dungeon Finder: Vote kick passed — member removed." : "Dungeon Finder: Vote kick failed.");
     }

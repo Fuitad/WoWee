@@ -434,6 +434,9 @@ public:
     uint32_t getLfgBootNeeded()      const { return lfgBootNeeded_; }
     const std::string& getLfgBootTargetName() const { return lfgBootTargetName_; }
     const std::string& getLfgBootReason()     const { return lfgBootReason_; }
+    bool isLfgBootInProgress() const { return lfgBootInProgress_; }
+    bool hasLfgBootVoted()     const { return lfgBootDidVote_; }
+    bool getLfgBootMyVote()    const { return lfgBootMyVote_; }
 
     // Arena
     const std::vector<ArenaTeamStats>& getArenaTeamStats() const { return arenaTeamStats_; }
@@ -639,6 +642,11 @@ private:
     uint32_t lfgBootTotal_    = 0;
     uint32_t lfgBootTimeLeft_ = 0;
     uint32_t lfgBootNeeded_   = 0;
+    /// The three flags the proposal opens with. Read from the packet and
+    /// dropped until 2026-08-06; the vote dialog branches on all three.
+    bool lfgBootInProgress_ = false;
+    bool lfgBootDidVote_    = false;
+    bool lfgBootMyVote_     = false;
     std::string lfgBootTargetName_;
     std::string lfgBootReason_;
 };

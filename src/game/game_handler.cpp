@@ -3659,6 +3659,18 @@ uint32_t GameHandler::getLfgBootVotes() const {
     return socialHandler_ ? socialHandler_->getLfgBootVotes() : 0;
 }
 
+bool GameHandler::isLfgBootInProgress() const {
+    return socialHandler_ && socialHandler_->isLfgBootInProgress();
+}
+
+bool GameHandler::hasLfgBootVoted() const {
+    return socialHandler_ && socialHandler_->hasLfgBootVoted();
+}
+
+bool GameHandler::getLfgBootMyVote() const {
+    return socialHandler_ && socialHandler_->getLfgBootMyVote();
+}
+
 uint32_t GameHandler::getLfgBootTotal() const {
     return socialHandler_ ? socialHandler_->getLfgBootTotal() : 0;
 }

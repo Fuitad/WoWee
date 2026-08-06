@@ -450,9 +450,33 @@ void registerLfgLuaAPI(lua_State* L) {
         return 7;
     }},
     {"GetLFGProposalEncounter", [](lua_State* L) -> int { return luaReturnNil(L); }},
-    // The boot vote. getLfgBootVotes and friends have the counts; the name of
-    // who is being voted on and the reason given are not parsed.
-    {"GetLFGBootProposal",      [](lua_State* L) -> int { return luaReturnNil(L); }},
+    // GetLFGBootProposal() → inProgress, didVote, myVote, targetName,
+    //                          totalVotes, bootVotes, timeLeft, reason
+    //
+    // Answered nil under a note saying the target's name and the reason were
+    // not parsed. The reason was parsed all along, and the name is the victim
+    // guid the same handler reads — the packet carries no name, which is why
+    // looking for one found nothing. The three flags in front of the guid were
+    // read and dropped; without them the dialog cannot tell a vote it has
+    // already answered from one it has not.
+    {"GetLFGBootProposal", [](lua_State* L) -> int {
+        auto* gh = getGameHandler(L);
+        if (!gh || !gh->isLfgBootInProgress()) return luaReturnNil(L);
+        lua_pushboolean(L, 1);
+        lua_pushboolean(L, gh->hasLfgBootVoted() ? 1 : 0);
+        lua_pushboolean(L, gh->getLfgBootMyVote() ? 1 : 0);
+        // Sent as it is even when the guid has not resolved yet. lfdframe gates
+        // the popup on this being truthy, and an empty string is truthy in Lua
+        // — so a name still in flight costs a blank in the question rather than
+        // the vote itself, and the victim is a party member whose name the
+        // roster almost always already has.
+        lua_pushstring(L, gh->getLfgBootTargetName().c_str());
+        lua_pushnumber(L, gh->getLfgBootTotal());
+        lua_pushnumber(L, gh->getLfgBootVotes());
+        lua_pushnumber(L, gh->getLfgBootTimeLeft());
+        lua_pushstring(L, gh->getLfgBootReason().c_str());
+        return 8;
+    }},
     // GetLFGDungeonRewards(dungeonID) → doneToday, moneyBase, moneyVar,
     //                                    experienceBase, experienceVar, numRewards
     //

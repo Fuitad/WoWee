@@ -1844,6 +1844,9 @@ public:
     uint32_t getLfgBootNeeded() const;
     const std::string& getLfgBootTargetName() const;
     const std::string& getLfgBootReason() const;
+    bool isLfgBootInProgress() const;
+    bool hasLfgBootVoted() const;
+    bool getLfgBootMyVote() const;
 
     // Arena team stats (aliased from handler_types.hpp)
     using ArenaTeamStats = game::ArenaTeamStats;
