@@ -74,6 +74,10 @@ private:
                         float wrapWidth = 0.0f, bool nonSpaceWrap = false,
                         const char* justifyH = nullptr, bool forceColor = false,
                         WidgetTree* linkSink = nullptr, uint32_t linkOwner = 0);
+    /// Screen height and interface scale of the pass in flight, so a link rect
+    /// can be filed in the coordinates the click will arrive in.
+    float linkScreenH_ = 0.0f;
+    float linkScale_ = 1.0f;
     void drawBackdrop(ImDrawList* dl, const Widget& w, float scale,
                       float x0, float y0, float x1, float y1);
     void drawStatusBar(ImDrawList* dl, const Widget& w,

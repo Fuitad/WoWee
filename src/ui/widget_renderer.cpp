@@ -289,8 +289,17 @@ void WidgetRenderer::drawMarkupText(ImDrawList* dl, ImFont* font, float size,
             // the outline and shadow draw the same glyphs and would file the
             // same link two or three times over.
             if (linkSink && !forceColor && !run.link.empty()) {
+                // Into the space the click arrives in, which is not the space
+                // this draws in. dispatchMouse takes DisplaySize.y - MousePos.y
+                // and divides by the interface scale, so the tree is in
+                // interface units with y growing upward, while every
+                // coordinate here is a screen pixel with y growing down.
+                // Filing the pixels would have made the hit test miss by the
+                // scale factor and by the whole height of the screen.
+                const float sc = (linkScale_ > 0.0f) ? linkScale_ : 1.0f;
                 linkSink->addLinkRect({linkOwner, run.link, run.text,
-                                       x, y, x + runW, y + lineH});
+                                       x / sc, (linkScreenH_ - (y + lineH)) / sc,
+                                       (x + runW) / sc, (linkScreenH_ - y) / sc});
             }
             x += runW;
         }
@@ -643,6 +652,8 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     // Refilled by this pass, so a link that stopped being drawn stops
     // being clickable in the same frame rather than one later.
     tree.clearLinkRects();
+    linkScreenH_ = screenH;
+    linkScale_ = tree.uiScale();
     // Every descriptor set in this cache belongs to the context, which frees
     // them all together. Drawing with one afterwards is a fault the GPU answers
     // by resetting, so the cache goes when they do — at the cost of re-uploading
