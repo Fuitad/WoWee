@@ -1707,16 +1707,22 @@ static int lua_UseContainerItem(lua_State* L) {
     // the backpack does — so it is 0xFF with a keyring wire slot, not a worn
     // bag. Without this the arithmetic below ran on bag - 1 with bag at -2 and
     // asked wornBagContainer for container -3.
+    // The general bank sits in the player's own container beside the backpack
+    // and the keyring, at wire slot 39 upward — it is a container to the
+    // interface and inventory slots on the wire, which is the whole reason
+    // bankframe reaches it both ways.
     const int wireSlot = (bag == kKeyringContainer)
                              ? game::slots::keyringWireSlot(slot - 1)
-                             : (bag == 0)
-                                   ? game::slots::backpackWireSlot(slot - 1)
-                                   : (slot - 1);
+                             : (bag == kBankContainer)
+                                   ? game::slots::bankGeneralWireSlot(slot - 1)
+                                   : (bag == 0)
+                                         ? game::slots::backpackWireSlot(slot - 1)
+                                         : (slot - 1);
     // A bank bag is a container in its own right, and its number on the wire
     // is the slot the bag sits in — 67 upward — not a worn bag's. Left to
     // wornBagContainer(bag - 1) the first of them came out as container 23.
     const uint8_t wireBag =
-        (bag == 0 || bag == kKeyringContainer)
+        (bag == 0 || bag == kKeyringContainer || bag == kBankContainer)
             ? 0xFF
             : isBankBagContainer(bag)
                   ? static_cast<uint8_t>(
@@ -1745,8 +1751,9 @@ static int lua_UseContainerItem(lua_State* L) {
     if (gh->isBankOpen()) {
         // Which way depends on which side the item is already on. A
         // right-click in a bank bag takes it out; anywhere else puts it in.
-        if (isBankBagContainer(bag)) gh->withdrawItem(wireBag, static_cast<uint8_t>(wireSlot));
-        else                         gh->depositItem(wireBag, static_cast<uint8_t>(wireSlot));
+        const bool fromBank = isBankBagContainer(bag) || bag == kBankContainer;
+        if (fromBank) gh->withdrawItem(wireBag, static_cast<uint8_t>(wireSlot));
+        else          gh->depositItem(wireBag, static_cast<uint8_t>(wireSlot));
         return 0;
     }
 
@@ -1754,7 +1761,7 @@ static int lua_UseContainerItem(lua_State* L) {
     // shuts all seven on BANKFRAME_CLOSED — and every branch past here reads
     // the container as a worn bag. Refusing is the honest answer to a state
     // that should not arise, and it is what kept the keyring out of them.
-    if (isBankBagContainer(bag)) return 0;
+    if (isBankBagContainer(bag) || bag == kBankContainer) return 0;
 
     if (gh->isGuildBankOpen()) {
         gh->guildBankDepositFromInventory(wireBag, static_cast<uint8_t>(wireSlot));
