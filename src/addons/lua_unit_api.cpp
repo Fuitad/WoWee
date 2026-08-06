@@ -1620,12 +1620,16 @@ static int lua_SetPortraitTexture(lua_State* L) {
 // fired and the interface answers it by loading the barber addon. So sitting
 // in the chair took the addon down as it loaded.
 //
-// The hair category is "NORMAL" for everyone. There is a HORNS variant, and
-// which races use it is not something this client knows; NORMAL is a real
-// label and right for nearly every race, where a guess would be wrong for
-// whoever it was guessed against.
+// The hair category is NORMAL for everyone but tauren, who have horns where
+// other races have hair — the barber offers them "Horn Style" and "Horn Color",
+// and HAIR_HORNS_STYLE and HAIR_HORNS_COLOR are both there in globalstrings
+// beside the NORMAL pair. It is the only race that differs, which is why the
+// facial-hair function below has a switch and this has an if.
 static int lua_GetHairCustomization(lua_State* L) {
-    lua_pushstring(L, "NORMAL");
+    auto* gh = getGameHandler(L);
+    const bool tauren = gh &&
+        static_cast<game::Race>(gh->getPlayerRace()) == game::Race::TAUREN;
+    lua_pushstring(L, tauren ? "HORNS" : "NORMAL");
     return 1;
 }
 
