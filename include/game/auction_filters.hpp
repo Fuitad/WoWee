@@ -87,5 +87,23 @@ inline const AuctionSubFilter* auctionSubsFor(uint32_t classId, int& count) {
     return nullptr;
 }
 
+/// The three lengths an auction may run for, in minutes, which is what the
+/// wire field carries: AzerothCore multiplies it by sixty and then accepts
+/// only 1, 2 or 4 times MIN_AUCTION_TIME (12 hours), rejecting the request
+/// outright otherwise. FrameXML's duration dropdown does not deal in minutes —
+/// its values are 1, 2 and 3 for the same three lengths — so a posting made
+/// through it asked for one, two or three minutes and the server dropped it
+/// without a word.
+inline constexpr uint32_t kAuctionDurationMinutes[3] = {720, 1440, 2880};
+
+/// Minutes for a duration written either way: the dropdown's 1..3, or minutes
+/// already. Anything else falls to twelve hours, which is the shortest the
+/// server will take and so the least costly guess.
+inline constexpr uint32_t auctionDurationMinutes(uint32_t d) {
+    if (d >= 1 && d <= 3) return kAuctionDurationMinutes[d - 1];
+    for (uint32_t m : kAuctionDurationMinutes) if (d == m) return d;
+    return kAuctionDurationMinutes[0];
+}
+
 } // namespace game
 } // namespace wowee

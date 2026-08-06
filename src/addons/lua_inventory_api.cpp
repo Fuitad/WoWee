@@ -3797,7 +3797,13 @@ void registerInventoryLuaAPI(lua_State* L) {
             }
             const uint32_t page = static_cast<uint32_t>(luaL_optnumber(L, 7, 0));
             const uint8_t usable = lua_toboolean(L, 8) ? 1 : 0;
-            const uint32_t quality = static_cast<uint32_t>(luaL_optnumber(L, 9, 0));
+            // The rarity dropdown's "All" is -1, not nil, and casting a
+            // negative double straight to uint32_t is undefined — it happens to
+            // land on the 0xFFFFFFFF the server reads as "any quality" on the
+            // machines this has run on, which is not the same as meaning to.
+            const int qualityIdx = static_cast<int>(luaL_optnumber(L, 9, -1));
+            const uint32_t quality = qualityIdx < 0
+                ? game::kAuctionAny : static_cast<uint32_t>(qualityIdx);
             // The page is a page; the wire wants the row it starts at.
             gh->auctionSearch(name, lo, hi, quality, cls, sub, inv, usable,
                               page * 50);
@@ -3855,7 +3861,13 @@ void registerInventoryLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const uint32_t bid = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
             const uint32_t buy = static_cast<uint32_t>(luaL_optnumber(L, 2, 0));
-            const uint32_t dur = static_cast<uint32_t>(luaL_optnumber(L, 3, 720));
+            // The dropdown's 1, 2 and 3 mean twelve, twenty-four and forty-eight
+            // hours; the wire field is minutes. Sent as they came, they asked
+            // for one, two or three minutes, and AzerothCore accepts only 1, 2
+            // or 4 times MIN_AUCTION_TIME and returns without answering — so
+            // posting an auction from FrameXML did nothing at all, silently.
+            const uint32_t dur = game::auctionDurationMinutes(
+                static_cast<uint32_t>(luaL_optnumber(L, 3, 1)));
             uint64_t guid = 0;
             const auto* item = auctionSellItemSlot(gh, &guid);
             if (!item || guid == 0) return 0;
@@ -3975,7 +3987,12 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // could not hold anything. It can now.
                 {"CalculateAuctionDeposit", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            const double minutes = luaL_optnumber(L, 1, 720);
+            // The same duration the dropdown hands StartAuction, and in the
+            // same 1..3 shape: read as minutes it made `blocks` zero below, so
+            // every deposit was the one-silver floor whatever the item or the
+            // length.
+            const double minutes = static_cast<double>(game::auctionDurationMinutes(
+                static_cast<uint32_t>(luaL_optnumber(L, 1, 1))));
             const auto* held = auctionSellItemSlot(gh);
             if (!held || minutes <= 0) {
                 lua_pushnumber(L, 0);

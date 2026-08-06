@@ -4439,8 +4439,7 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
             uint32_t buyoutCopper = static_cast<uint32_t>(auctionSellBuyout_[0]) * 10000
                                   + static_cast<uint32_t>(auctionSellBuyout_[1]) * 100
                                   + static_cast<uint32_t>(auctionSellBuyout_[2]);
-            const uint32_t durationMins[] = {720, 1440, 2880};
-            uint32_t dur = durationMins[auctionSellDuration_];
+            uint32_t dur = game::kAuctionDurationMinutes[auctionSellDuration_];
             gameHandler.auctionSellItemByGuid(sellSlot->item.guid, sellSlot->item.stackCount,
                                               bidCopper, buyoutCopper, dur);
             // Clear sell inputs
