@@ -326,6 +326,27 @@ struct Companion {
 /// map 43, Ragefire Chasm faction 0 where everything else is -1, Karazhan in
 /// the Burning Crusade raid group. The layout table only ever named ID and
 /// Name, which is why the picker had nothing to list.
+/// What a finished dungeon-finder run paid out, from SMSG_LFG_PLAYER_REWARD.
+///
+/// Kept because the alert frame reads it back rather than being handed it:
+/// LFG_COMPLETION_REWARD carries no arguments, and
+/// DungeonCompletionAlertFrame_ShowAlert then asks GetLFGCompletionReward for
+/// all nine values and GetLFGCompletionRewardItem for each item.
+struct LfgCompletionReward {
+    struct Item {
+        uint32_t itemId = 0;
+        uint32_t displayId = 0;
+        uint32_t count = 0;
+    };
+    uint32_t randomDungeonId = 0;  ///< the "Random ..." entry that was queued for
+    uint32_t dungeonId = 0;        ///< the dungeon actually finished
+    bool done = false;
+    uint32_t money = 0;            ///< copper
+    uint32_t xp = 0;
+    std::vector<Item> items;
+    bool valid = false;
+};
+
 struct LfgDungeon {
     uint32_t id = 0;
     std::string name;

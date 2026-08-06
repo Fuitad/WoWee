@@ -378,6 +378,8 @@ public:
     void lfgSetBootVote(bool vote);
     void lfgTeleport(bool toLfgDungeon = true);
     LfgState getLfgState()           const { return lfgState_; }
+    /// What the last finished dungeon paid out, for GetLFGCompletionReward.
+    const LfgCompletionReward& getLfgCompletionReward() const { return lfgCompletionReward_; }
     bool isLfgQueued()               const { return lfgState_ == LfgState::Queued; }
     bool isLfgInDungeon()            const { return lfgState_ == LfgState::InDungeon; }
     uint32_t getLfgDungeonId()       const { return lfgDungeonId_; }
@@ -558,6 +560,7 @@ private:
 
     // LFG / Dungeon Finder
     LfgState lfgState_        = LfgState::None;
+    LfgCompletionReward lfgCompletionReward_;
     uint32_t lfgDungeonId_    = 0;
     uint32_t lfgProposalId_   = 0;
     /// The proposal the ready dialog has already been opened for. The server

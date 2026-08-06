@@ -2800,28 +2800,75 @@ static int lua_JoinBattlefield(lua_State* L) {
 //   name, typeID, textureFilename, moneyBase, moneyVar, experienceBase,
 //   experienceVar, numStrangers, numRewards
 //
-// What a finished dungeon finder run paid out. Nothing here tracks it, so there
-// is none — but the six counts answer zero rather than nil, which is the
-// opposite of the usual choice and for the opposite reason. The alert frame
-// does not test them, it does arithmetic with them:
+// What a finished dungeon finder run paid out, from SMSG_LFG_PLAYER_REWARD.
+//
+// The six counts answer zero rather than nil even with no reward to report,
+// which is the opposite of the usual choice and for the opposite reason: the
+// alert frame does not test them, it does arithmetic with them —
 //
 //     local moneyAmount = moneyBase + moneyVar * numStrangers
 //
-// so a nil raises there rather than reading as absent. The three describing the
-// dungeon stay nil, because those are shown rather than added.
+// so a nil raises there rather than reading as absent.
+//
+// The variable halves are always zero. They are the per-stranger bonus for
+// filling a group with people from other realms, which 3.3.5a's server does not
+// send and this realm could not have anyway; numStrangers is zero to match, so
+// the arithmetic above lands on the base whichever way the frame reads it.
 static int lua_GetLFGCompletionReward(lua_State* L) {
-    lua_pushnil(L);          // 1: name
-    lua_pushnil(L);          // 2: typeID
-    lua_pushnil(L);          // 3: textureFilename
-    for (int i = 0; i < 6; ++i) lua_pushnumber(L, 0);
+    auto* gh = getGameHandler(L);
+    const game::LfgCompletionReward* r = gh ? &gh->getLfgCompletionReward() : nullptr;
+    if (!r || !r->valid) {
+        lua_pushnil(L);      // 1: name
+        lua_pushnil(L);      // 2: typeID
+        lua_pushnil(L);      // 3: textureFilename
+        for (int i = 0; i < 6; ++i) lua_pushnumber(L, 0);
+        return 9;
+    }
+    // The dungeon finished, not the random entry queued for: the toast names
+    // the instance the player actually walked out of.
+    const game::LfgDungeon* d = nullptr;
+    for (const auto& e : gh->getLfgDungeons()) {
+        if (e.id == r->dungeonId) { d = &e; break; }
+    }
+    // Pushed once each and in order, rather than an if/else per slot: two
+    // pushes on one line read as two return values to anything counting them,
+    // this file's own return-order sweep included.
+    const std::string name = (d && !d->name.empty()) ? d->name : std::string();
+    // Appended to "Interface\\LFGFrame\\LFGIcon-" by the frame, so it is the
+    // bare suffix out of LFGDungeons.dbc and not a path.
+    const std::string texture = (d && !d->texture.empty()) ? d->texture : std::string();
+    name.empty() ? lua_pushnil(L) : lua_pushstring(L, name.c_str());          // 1
+    d ? lua_pushinteger(L, static_cast<lua_Integer>(d->typeId)) : lua_pushnil(L);  // 2
+    texture.empty() ? lua_pushnil(L) : lua_pushstring(L, texture.c_str());    // 3
+    lua_pushnumber(L, static_cast<double>(r->money));  // 4: moneyBase
+    lua_pushnumber(L, 0);                              // 5: moneyVar
+    lua_pushnumber(L, static_cast<double>(r->xp));     // 6: experienceBase
+    lua_pushnumber(L, 0);                              // 7: experienceVar
+    lua_pushnumber(L, 0);                              // 8: numStrangers
+    lua_pushnumber(L, static_cast<double>(r->items.size()));  // 9: numRewards
     return 9;
 }
 
 // GetLFGCompletionRewardItem(index) → texturePath, quantity
-// Only reached once the call above reports rewards, which it never does.
+//
+// One-based, and the index runs over the rewards the call above counted. The
+// texture is the item's own icon, which is where the display id in the packet
+// earns its place — the reward can name an item the bags have never held and
+// so have no cached query behind it.
 static int lua_GetLFGCompletionRewardItem(lua_State* L) {
-    lua_pushnil(L);
-    lua_pushnumber(L, 0);
+    auto* gh = getGameHandler(L);
+    const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const game::LfgCompletionReward* r = gh ? &gh->getLfgCompletionReward() : nullptr;
+    if (!r || !r->valid || index < 1 ||
+        index > static_cast<int>(r->items.size())) {
+        lua_pushnil(L);
+        lua_pushnumber(L, 0);
+        return 2;
+    }
+    const auto& item = r->items[static_cast<size_t>(index) - 1];
+    const std::string icon = gh->getItemIconPath(item.displayId);
+    if (!icon.empty()) lua_pushstring(L, icon.c_str()); else lua_pushnil(L);
+    lua_pushnumber(L, static_cast<double>(item.count));
     return 2;
 }
 

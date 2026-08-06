@@ -1771,6 +1771,8 @@ public:
     void lfgSetBootVote(bool vote);
     void lfgTeleport(bool toLfgDungeon = true);
     LfgState getLfgState() const;
+    /// What the last finished dungeon-finder run paid out.
+    const LfgCompletionReward& getLfgCompletionReward() const;
     bool isLfgQueued() const;
     bool isLfgInDungeon() const;
     uint32_t getLfgDungeonId() const;

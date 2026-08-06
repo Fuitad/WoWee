@@ -1,4 +1,5 @@
 #include "game/social_handler.hpp"
+#include "ui/framexml_takeover.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
 #include "game/entity.hpp"
@@ -2602,6 +2603,22 @@ void SocialHandler::handlePlayedTime(network::Packet& packet) {
     totalTimePlayed_ = data.totalTimePlayed;
     levelTimePlayed_ = data.levelTimePlayed;
     if (data.triggerMessage) {
+        // TIME_PLAYED_MSG(totalTime, levelTime), in seconds, which is what
+        // ChatFrame_SystemEventHandler dispatches to ChatFrame_DisplayTimePlayed
+        // — the real client's own answer to /played, down to the localised
+        // "days, hours, minutes, seconds" string. The server also sends played
+        // time unasked at login, and triggerMessage is what tells the two
+        // apart, so this stays inside it.
+        owner_.fireAddonEvent("TIME_PLAYED_MSG",
+                              {std::to_string(data.totalTimePlayed),
+                               std::to_string(data.levelTimePlayed)});
+        // ...and the hand-built lines below are what this client says when it
+        // is drawing its own chat. With FrameXML drawing it they would be a
+        // second, differently worded copy printed beside the real one — the
+        // same shape as the gossip binder in quest_handler, where doing the
+        // work here as well as letting the interface do it asked twice.
+        if (ui::frameXmlOwns(ui::UiElement::Chat)) return;
+
         uint32_t totalDays = data.totalTimePlayed / 86400;
         uint32_t totalHours = (data.totalTimePlayed % 86400) / 3600;
         uint32_t totalMinutes = (data.totalTimePlayed % 3600) / 60;
@@ -3346,36 +3363,84 @@ void SocialHandler::handleLfgUpdatePlayer(network::Packet& packet) {
 }
 
 void SocialHandler::handleLfgPlayerReward(network::Packet& packet) {
-    if (!packet.hasRemaining( 13)) return;
-    packet.readUInt32(); packet.readUInt32(); packet.readUInt8();
-    uint32_t money = packet.readUInt32();
-    uint32_t xp = packet.readUInt32();
+    // SMSG_LFG_PLAYER_REWARD, against WorldSession::SendLfgPlayerReward:
+    //
+    //   uint32 rdungeonEntry   the random entry queued for
+    //   uint32 sdungeonEntry   the dungeon actually finished
+    //   uint8  done
+    //   uint32 1               a constant the server writes and nothing reads
+    //   uint32 money           GetRewOrReqMoney(level), in copper
+    //   uint32 xp              XPValue(level)
+    //   uint32 0
+    //   uint32 0
+    //   uint8  itemNum
+    //   itemNum x { uint32 itemId, uint32 displayId, uint32 count }
+    //
+    // This read the constant as the money, the money as the XP and the XP as
+    // the item count — so the line it printed was always "1c" followed by the
+    // real money labelled XP, and then it looped tens of thousands of times
+    // over whatever came next looking for items.
+    //
+    // packet_layout_check does cover this opcode and did not catch it, for a
+    // reason worth keeping: it compares field *widths*, and every field misread
+    // here is four bytes wide. Delete one of them and it reports the shape
+    // change immediately; shift the meaning of five fields that are all uint32
+    // and the two readings line up byte for byte. A same-width misalignment is
+    // the one shape that sweep cannot see.
+    if (!packet.hasRemaining(4 + 4 + 1 + 4 + 4 + 4 + 4 + 4 + 1)) return;
+    LfgCompletionReward reward;
+    reward.randomDungeonId = packet.readUInt32();
+    reward.dungeonId       = packet.readUInt32();
+    reward.done            = packet.readUInt8() != 0;
+    packet.readUInt32();   // the constant 1
+    reward.money           = packet.readUInt32();
+    reward.xp              = packet.readUInt32();
+    packet.readUInt32();
+    packet.readUInt32();
+    const uint8_t itemNum = packet.readUInt8();
+    for (uint8_t i = 0; i < itemNum && packet.hasRemaining(12); ++i) {
+        LfgCompletionReward::Item item;
+        item.itemId    = packet.readUInt32();
+        item.displayId = packet.readUInt32();
+        item.count     = packet.readUInt32();
+        reward.items.push_back(item);
+    }
+    reward.valid = true;
+    lfgCompletionReward_ = reward;
+
+    const uint32_t money = reward.money;
+    const uint32_t xp = reward.xp;
     uint32_t gold = money / 10000, silver = (money % 10000) / 100, copper = money % 100;
     char moneyBuf[64];
     if (gold > 0) snprintf(moneyBuf, sizeof(moneyBuf), "%ug %us %uc", gold, silver, copper);
     else if (silver > 0) snprintf(moneyBuf, sizeof(moneyBuf), "%us %uc", silver, copper);
     else snprintf(moneyBuf, sizeof(moneyBuf), "%uc", copper);
     std::string rewardMsg = std::string("Dungeon Finder reward: ") + moneyBuf + ", " + std::to_string(xp) + " XP";
-    if (packet.hasRemaining( 4)) {
-        uint32_t rewardCount = packet.readUInt32();
-        for (uint32_t i = 0; i < rewardCount && packet.hasRemaining( 9); ++i) {
-            uint32_t itemId = packet.readUInt32();
-            uint32_t itemCount = packet.readUInt32();
-            packet.readUInt8();
-            if (i == 0) {
-                std::string itemLabel = "item #" + std::to_string(itemId);
-                uint32_t lfgItemQuality = 1;
-                if (const ItemQueryResponseData* info = owner_.getItemInfo(itemId)) {
-                    if (!info->name.empty()) itemLabel = info->name;
-                    lfgItemQuality = info->quality;
-                }
-                rewardMsg += ", " + buildItemLink(itemId, lfgItemQuality, itemLabel);
-                if (itemCount > 1) rewardMsg += " x" + std::to_string(itemCount);
-            }
+    if (!reward.items.empty()) {
+        const auto& first = reward.items.front();
+        std::string itemLabel = "item #" + std::to_string(first.itemId);
+        uint32_t lfgItemQuality = 1;
+        if (const ItemQueryResponseData* info = owner_.getItemInfo(first.itemId)) {
+            if (!info->name.empty()) itemLabel = info->name;
+            lfgItemQuality = info->quality;
         }
+        rewardMsg += ", " + buildItemLink(first.itemId, lfgItemQuality, itemLabel);
+        if (first.count > 1) rewardMsg += " x" + std::to_string(first.count);
     }
-    owner_.addSystemChatMessage(rewardMsg);
     lfgState_ = LfgState::FinishedDungeon;
+
+    // The reward toast. It carries no arguments — the frame reads the nine
+    // values back through GetLFGCompletionReward — so the store above has to
+    // be written before this fires.
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("LFG_COMPLETION_REWARD", {});
+
+    // ...and the hand-built chat line only when this client is drawing its own
+    // chat, for the same reason /played's is conditional: FrameXML says this
+    // its own way, in a toast rather than a line, and printing both is two
+    // announcements of one reward.
+    if (!ui::frameXmlOwns(ui::UiElement::DungeonFinder)) {
+        owner_.addSystemChatMessage(rewardMsg);
+    }
 }
 
 void SocialHandler::handleLfgBootProposalUpdate(network::Packet& packet) {

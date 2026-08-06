@@ -3430,6 +3430,11 @@ GameHandler::LfgState GameHandler::getLfgState() const {
     return socialHandler_ ? socialHandler_->getLfgState() : LfgState::None;
 }
 
+const LfgCompletionReward& GameHandler::getLfgCompletionReward() const {
+    static const LfgCompletionReward kNone;
+    return socialHandler_ ? socialHandler_->getLfgCompletionReward() : kNone;
+}
+
 bool GameHandler::isLfgQueued() const {
     return socialHandler_ ? socialHandler_->isLfgQueued() : false;
 }

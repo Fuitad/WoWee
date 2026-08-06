@@ -75,6 +75,16 @@ WHAT IT CANNOT SEE
     swallowed the flag and three bytes of the next pet, every pet after the
     first was read at the wrong offset, and the last was dropped. The prefix
     this compares ends at the name, three fields before any of that.
+
+  * A misalignment between fields of the same width, which is invisible here by
+    construction: the two readings line up byte for byte and only the *meaning*
+    has slid. SMSG_LFG_PLAYER_REWARD was read that way — the server writes a
+    constant 1, then money, then XP, and the client took the constant as the
+    money, the money as the XP and the XP as an item count, then looped that
+    many times over the rest. Five uint32s in a row, so this reported a match
+    throughout. Deleting one of them makes it report instantly, which is how
+    the coverage was confirmed; nothing about that helps when the count is
+    right. Reading the server's writer is the only check for this shape.
   * A handler that reads through a helper or a parser class rather than
     directly. Those are the larger packets, and they are the ones where a
     misparse is hardest to spot by eye — a real gap in this, not a small one.
