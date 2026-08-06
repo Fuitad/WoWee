@@ -81,7 +81,7 @@ public:
 class TimeCommand : public IChatCommand {
 public:
     ChatCommandResult execute(ChatCommandContext& ctx) override {
-        ctx.gameHandler.queryServerTime();
+        ctx.gameHandler.queryServerTime(true);  // typed by the player, so say it
         return {};
     }
     std::vector<std::string> aliases() const override { return {"time"}; }

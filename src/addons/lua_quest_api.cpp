@@ -3460,12 +3460,25 @@ void registerQuestLuaAPI(lua_State* L) {
                 // prints in a tooltip through SecondsToTime. A nil there is
                 // arithmetic on nothing rather than a blank line.
                 //
-                // Counted to the next midnight in the server's own day, which
-                // is where a stock realm puts it. Not the true reset — that is
-                // a realm setting nothing sends — but the right shape and the
-                // right order of magnitude, where zero would read as "the
-                // reset is now" every time the tooltip was opened.
+                // The server's own figure, asked for once on entering the
+                // world: SMSG_QUERY_TIME_RESPONSE's second word is
+                // GetNextDailyQuestsResetTime() minus now. This used to count
+                // to the next local midnight, under a comment saying the real
+                // reset was a realm setting nothing sends — it is sent, in the
+                // reply to a packet this client already knew how to ask for,
+                // and it was parsed and dropped.
+                //
+                // Midnight remains the answer until the reply lands, and for
+                // any realm that does not send one. Zero would be wrong in a
+                // way a wrong number is not: SecondsToTime renders it as "the
+                // reset is now", every time the tooltip is opened.
                 {"GetQuestResetTime", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) {
+                if (const uint32_t left = gh->getSecondsUntilDailyReset(); left > 0) {
+                    lua_pushnumber(L, left);
+                    return 1;
+                }
+            }
             const time_t now = time(nullptr);
             struct tm* t = localtime(&now);
             const int secondsIntoDay = t ? (t->tm_hour * 3600 + t->tm_min * 60 + t->tm_sec) : 0;

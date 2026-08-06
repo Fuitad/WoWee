@@ -559,7 +559,9 @@ public:
     }
 
     // Server info commands
-    void queryServerTime();
+    void queryServerTime(bool announce = false);
+    /// Seconds until the daily quest reset, or 0 if the server has not said.
+    uint32_t getSecondsUntilDailyReset() const;
     void requestPlayedTime();
     void queryWho(const std::string& playerName = "");
     uint32_t getTotalTimePlayed() const;

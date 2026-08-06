@@ -78,7 +78,13 @@ public:
     }
 
     // Server info / who
-    void queryServerTime();
+    /// Ask the server for the time. `announce` prints it to chat, which is
+    /// what /time wants and what the login-time query must not do.
+    void queryServerTime(bool announce = false);
+    /// Seconds until the daily quest reset, or 0 if the server has not said.
+    /// Counted down from when the answer arrived rather than stored raw, since
+    /// the reply is asked for once and read for the rest of the session.
+    uint32_t getSecondsUntilDailyReset() const;
     void requestPlayedTime();
     void queryWho(const std::string& playerName = "");
     uint32_t getTotalTimePlayed() const { return totalTimePlayed_; }
@@ -520,6 +526,11 @@ private:
 
     // Time played
     uint32_t totalTimePlayed_ = 0;
+    /// SMSG_QUERY_TIME_RESPONSE's second word and when it landed. Zero means
+    /// no answer yet, which is different from "the reset is now".
+    uint32_t dailyResetOffset_ = 0;
+    time_t   dailyResetReceivedAt_ = 0;
+    bool     announceServerTime_ = false;
     uint32_t levelTimePlayed_ = 0;
 
     // Who results

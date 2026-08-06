@@ -1303,8 +1303,9 @@ void SocialHandler::handleInspectResults(network::Packet& packet) {
 // Server Info / Who / Social
 // ============================================================
 
-void SocialHandler::queryServerTime() {
+void SocialHandler::queryServerTime(bool announce) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    announceServerTime_ = announce;
     auto packet = QueryTimePacket::build();
     owner_.getSocket()->send(packet);
     LOG_INFO("Requested server time");
@@ -2731,11 +2732,34 @@ void SocialHandler::handleTurnInPetitionResults(network::Packet& packet) {
 void SocialHandler::handleQueryTimeResponse(network::Packet& packet) {
     QueryTimeResponseData data;
     if (!QueryTimeResponseParser::parse(packet, data)) return;
+
+    // The second word is how long until the daily quests reset —
+    // GetNextDailyQuestsResetTime() minus now, in AzerothCore's own terms. It
+    // was parsed and dropped, and GetQuestResetTime answered the time until
+    // local midnight instead, with a comment saying this was a realm setting
+    // nothing sends. It is sent, in the reply to a packet this client already
+    // knew how to ask for.
+    dailyResetOffset_ = data.timeOffset;
+    dailyResetReceivedAt_ = time(nullptr);
+
+    // Only /time says it out loud. The login-time ask is for the reset figure
+    // and would otherwise greet every player with the clock.
+    if (!announceServerTime_) return;
+    announceServerTime_ = false;
     time_t serverTime = static_cast<time_t>(data.serverTime);
     struct tm* timeInfo = localtime(&serverTime);
     char timeStr[64];
     strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", timeInfo);
     owner_.addSystemChatMessage("Server time: " + std::string(timeStr));
+}
+
+uint32_t SocialHandler::getSecondsUntilDailyReset() const {
+    if (dailyResetOffset_ == 0 || dailyResetReceivedAt_ == 0) return 0;
+    const auto elapsed = static_cast<int64_t>(time(nullptr) - dailyResetReceivedAt_);
+    const int64_t left = static_cast<int64_t>(dailyResetOffset_) - elapsed;
+    // Past the reset the answer is stale rather than negative; the next login
+    // asks again. Zero reads as "not known", which is the honest answer.
+    return left > 0 ? static_cast<uint32_t>(left) : 0;
 }
 
 void SocialHandler::handlePlayedTime(network::Packet& packet) {

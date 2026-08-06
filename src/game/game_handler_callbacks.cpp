@@ -950,6 +950,10 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
     // Spell.dbc cache alone is ~170ms on a cold load).
     if (initialWorldEntry) {
         preloadDBCCaches();
+        // Asked once, read all session: the reply carries how long until the
+        // daily quests reset, which is the only place that figure comes from.
+        // Silently — the announcement belongs to /time.
+        queryServerTime(false);
     }
 
     // Fire PLAYER_ENTERING_WORLD — THE most important event for addon initialization.
@@ -1583,8 +1587,12 @@ const GameHandler::InspectResult* GameHandler::getInspectResult() const {
     return socialHandler_ ? socialHandler_->getInspectResult() : nullptr;
 }
 
-void GameHandler::queryServerTime() {
-    if (socialHandler_) socialHandler_->queryServerTime();
+void GameHandler::queryServerTime(bool announce) {
+    if (socialHandler_) socialHandler_->queryServerTime(announce);
+}
+
+uint32_t GameHandler::getSecondsUntilDailyReset() const {
+    return socialHandler_ ? socialHandler_->getSecondsUntilDailyReset() : 0u;
 }
 
 void GameHandler::requestPlayedTime() {

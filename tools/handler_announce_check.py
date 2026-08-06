@@ -157,6 +157,11 @@ EXPECTED = {
     # read when asked. The panel redraws on GUILD_ROSTER_UPDATE, fired by the
     # roster handler.
     "SocialHandler::handleGuildInfo": "guild name, read on demand",
+    # The seconds until the daily quest reset, which GetQuestResetTime answers
+    # when the quest log's tooltip asks for it. Nothing draws it from an event
+    # because 3.3.5 has none — the same shape as the bind location below. The
+    # chat line is /time's answer and appears only when the player typed it.
+    "SocialHandler::handleQueryTimeResponse": "daily reset offset, read on demand",
     # The session is ending and the client is leaving the world.
     "SocialHandler::handleLogoutComplete": "logging out, nothing left to draw",
 }
