@@ -1516,6 +1516,15 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
 
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_MINIMAP)) {
                 showMinimap_ = !showMinimap_;
+                // This flag gates this client's marker pass, which is drawn
+                // over FrameXML's minimap on purpose rather than instead of it
+                // — so on its own the key hid the markers and left the minimap
+                // underneath them up. ToggleMinimap is what the interface's own
+                // TOGGLEMINIMAP binding calls, and it hides the frame the
+                // markers sit on, which is what makes the two agree.
+                if (frameXmlOwns(UiElement::Minimap)) {
+                    gameHandler.runInterfaceCommand("ToggleMinimap()");
+                }
             }
 
             if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_RAID_FRAMES)) {
