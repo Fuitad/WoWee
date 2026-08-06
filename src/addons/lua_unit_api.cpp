@@ -1958,16 +1958,47 @@ static int lua_UnitIsUnit(lua_State* L) {
     return 1;
 }
 
+/// UnitIsFriend(unit1, unit2) — is unit2 friendly to unit1.
+///
+/// Two units, and the answer is about the *second*. This read only the first,
+/// which every caller in the interface passes as "player" — and the player is
+/// never hostile, so it answered true for whatever was being asked about.
+/// targetframe.lua colours the name from it, picks the debuff layout from it
+/// and filters with it, so every target read as a friend.
+///
+/// Hostility is modelled relative to the player, so the unit that carries the
+/// answer is whichever of the pair is *not* the player — and the interface
+/// passes both orders: UnitIsFriend("player", self.unit) beside
+/// UnitIsEnemy(self.unit, "player"). Keying on position would be right for one
+/// of them and wrong for the other.
+static game::Unit* unitAskedAbout(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const char* a = luaL_optstring(L, 1, "player");
+    const char* b = luaL_optstring(L, 2, nullptr);
+    if (!b) return resolveUnit(L, a);
+    if (!gh) return resolveUnit(L, b);
+    std::string ua(a), ub(b);
+    toLowerInPlace(ua);
+    toLowerInPlace(ub);
+    const uint64_t player = gh->getPlayerGuid();
+    if (resolveUnitGuid(gh, ua) == player) return resolveUnit(L, b);
+    if (resolveUnitGuid(gh, ub) == player) return resolveUnit(L, a);
+    // Neither is the player: answered about the second, which is the one the
+    // question is grammatically about.
+    return resolveUnit(L, b);
+}
+
 static int lua_UnitIsFriend(lua_State* L) {
-    const char* uid = luaL_optstring(L, 1, "player");
-    auto* unit = resolveUnit(L, uid);
+    auto* unit = unitAskedAbout(L);
     lua_pushboolean(L, unit && !unit->isHostile());
     return 1;
 }
 
+/// UnitIsEnemy(unit1, unit2) — is unit2 hostile to unit1. The same shape as
+/// UnitIsFriend above, and it was wrong the same way: asked about the player it
+/// answered false for every enemy.
 static int lua_UnitIsEnemy(lua_State* L) {
-    const char* uid = luaL_optstring(L, 1, "player");
-    auto* unit = resolveUnit(L, uid);
+    auto* unit = unitAskedAbout(L);
     lua_pushboolean(L, unit && unit->isHostile());
     return 1;
 }
