@@ -3401,7 +3401,33 @@ void registerSystemLuaAPI(lua_State* L) {
             return 1;
         }},
                 {"GetAdjustedSkillPoints",   lua_ReturnZero},
-                {"GetPartyLeaderIndex",      lua_ReturnZero},
+                // Which party slot holds the leader, in the same 1-to-4
+                // ordering resolveUnitGuid gives "party1".."party4": members
+                // other than the player, in order. Zero means the player leads
+                // it, which is what WoW answers and what the crown reads as
+                // "not on this frame".
+                //
+                // A constant zero meant PartyMemberFrame_UpdateLeader hid the
+                // icon on every frame it ran for, so no party ever showed who
+                // was leading it — while partyData has carried leaderGuid all
+                // along.
+                {"GetPartyLeaderIndex", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) { lua_pushnumber(L, 0); return 1; }
+            const auto& pd = gh->getPartyData();
+            if (pd.leaderGuid == 0 || pd.leaderGuid == gh->getPlayerGuid()) {
+                lua_pushnumber(L, 0);
+                return 1;
+            }
+            int slot = 0;
+            for (const auto& m : pd.members) {
+                if (m.guid == gh->getPlayerGuid()) continue;
+                ++slot;
+                if (m.guid == pd.leaderGuid) { lua_pushnumber(L, slot); return 1; }
+            }
+            lua_pushnumber(L, 0);
+            return 1;
+        }},
                 {"GetNumArenaOpponents",     lua_ReturnZero},
                 {"GetCurrentMultisampleFormat", lua_ReturnOne},
                 // These hand back a list, not a value: the caller walks it with
