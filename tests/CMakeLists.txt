@@ -76,6 +76,17 @@ target_link_libraries(test_framexml PRIVATE catch2_main)
 add_test(NAME framexml COMMAND test_framexml)
 register_test_target(test_framexml)
 
+# ── framexml_emit ────────────────────────────────────────────
+# Not a test: a one-file dump of what the emitter produces, for answering
+# questions about emitted Lua without starting the client.
+add_executable(framexml_emit
+    ${CMAKE_SOURCE_DIR}/tools/framexml_emit.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/framexml_emitter.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/xml_parser.cpp
+)
+target_include_directories(framexml_emit PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(framexml_emit SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+
 # ── framexml_compiles ───────────────────────────────────────
 # Not a unit test: it emits every real FrameXML file and asks Lua itself
 # whether the result compiles. The unit tests above check cases someone
