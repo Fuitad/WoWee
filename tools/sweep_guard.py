@@ -475,7 +475,7 @@ CHECKS = [
     # The four left have nothing behind them to print; each is named in the
     # tool.
     ("tooltip_setter_check.py",
-     r"^(\d+) answered by the no-op fallback", 4,
+     r"^(\d+) answered by the no-op fallback", 3,
      "tooltip setters that leave the tooltip blank"),
     # The loud half of the same question, and the one that must stay zero: a
     # tooltip setter that is neither implemented nor allowlisted raises and
