@@ -1161,12 +1161,29 @@ public:
 
 /** SMSG_PETITION_SHOWLIST data */
 struct PetitionShowlistData {
+    /// One charter on offer. A guild registrar offers one; an arena registrar
+    /// offers three, for the two, three and five person teams.
+    struct Charter {
+        uint32_t index = 0;
+        uint32_t itemId = 0;
+        uint32_t displayId = 0;
+        uint32_t cost = 0;
+        uint32_t unknown = 0;
+        uint32_t requiredSigs = 0;
+    };
     uint64_t npcGuid = 0;
+    std::vector<Charter> charters;
+    // The first charter, flattened, for everything that only wants the one.
     uint32_t itemId = 0;
     uint32_t displayId = 0;
     uint32_t cost = 0;
     uint32_t charterType = 0;
     uint32_t requiredSigs = 0;
+
+    /// Guild Charter is item 5863; the arena charters are 23560, 23561 and
+    /// 23562. Which of the two panels opens depends on this and nothing else —
+    /// the opcode is the same for both.
+    bool isGuildCharter() const { return itemId == 5863; }
 
     bool isValid() const { return npcGuid != 0; }
 };

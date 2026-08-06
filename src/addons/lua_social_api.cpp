@@ -978,6 +978,33 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"SignPetition",        lua_SignPetition},
                 {"OfferPetition",       lua_OfferPetition},
                 {"ClosePetition",       lua_ClosePetition},
+                // --- The guild registrar ---
+                //
+                // Reachable since PETITION_SHOWLIST started firing an event,
+                // which is what made these three matter: the panel opened and
+                // its Purchase button raised.
+                //
+                // BuyGuildCharter takes the name typed into the frame; the
+                // vendor is whichever one this client is standing at.
+                {"BuyGuildCharter", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const char* name = luaL_optstring(L, 1, "");
+            if (gh && name && *name) gh->buyPetition(gh->getPetitionNpcGuid(), name);
+            return 0;
+        }},
+                {"CloseGuildRegistrar", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->closePetitionVendor();
+            return 0;
+        }},
+                // What the charter costs, in copper, as the offer said. This
+                // was noise until the showlist was read properly: the count is
+                // one byte and there is an index in front of every charter,
+                // and reading neither put the cost three bytes out.
+                {"GetGuildCharterCost", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? gh->getPetitionCost() : 0);
+            return 1;
+        }},
                 // RenamePetition(name) — the Accept on the rename dialog,
                 // which is how a charter gets the guild or team name it will
                 // be turned in under. The petition being renamed is the one

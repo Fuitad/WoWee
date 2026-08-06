@@ -808,16 +808,29 @@ bool PetitionShowlistParser::parse(network::Packet& packet, PetitionShowlistData
         return false;
     }
     data.npcGuid = packet.readUInt64();
-    uint32_t count = packet.readUInt32();
-    if (count > 0) {
-        data.itemId = packet.readUInt32();
-        data.displayId = packet.readUInt32();
-        data.cost = packet.readUInt32();
-        // Skip unused fields if present
-        if (packet.hasRemaining(8)) {
-            data.charterType = packet.readUInt32();
-            data.requiredSigs = packet.readUInt32();
-        }
+    // One byte, not four. Reading a uint32 here swallowed the count and three
+    // bytes of the first charter's index, so every field after it was three
+    // bytes out of place and the cost this client showed was noise.
+    const uint8_t count = packet.readUInt8();
+    // Six uint32s per charter, the first of which is an index the reader also
+    // did not know was there.
+    for (uint8_t i = 0; i < count && packet.hasRemaining(24); ++i) {
+        PetitionShowlistData::Charter charter;
+        charter.index        = packet.readUInt32();
+        charter.itemId       = packet.readUInt32();
+        charter.displayId    = packet.readUInt32();
+        charter.cost         = packet.readUInt32();
+        charter.unknown      = packet.readUInt32();
+        charter.requiredSigs = packet.readUInt32();
+        data.charters.push_back(charter);
+    }
+    if (!data.charters.empty()) {
+        const auto& first = data.charters.front();
+        data.itemId       = first.itemId;
+        data.displayId    = first.displayId;
+        data.cost         = first.cost;
+        data.charterType  = first.unknown;
+        data.requiredSigs = first.requiredSigs;
     }
     LOG_INFO("Parsed SMSG_PETITION_SHOWLIST: npcGuid=", data.npcGuid, " cost=", data.cost);
     return true;
