@@ -23,11 +23,19 @@ struct WrapRun {
     std::string text;
     bool  hasColor = false;
     float rgba[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    /// The payload of the |H...|h this run sits inside — "item:3299" and the
+    /// like — or empty when the run is not part of a link. Carried so a click
+    /// has something to name; the display text alone cannot say what was
+    /// clicked.
+    std::string link;
 };
 
 /// Whether two runs are the same style, so adjacent pieces can be merged back
 /// into one rather than left as a string of one-word runs.
 inline bool sameStyle(const WrapRun& a, const WrapRun& b) {
+    // Two links are not one run even in the same colour: merging them would
+    // leave a single rect covering both, and a click could not say which.
+    if (a.link != b.link) return false;
     if (a.hasColor != b.hasColor) return false;
     if (!a.hasColor) return true;
     return std::equal(std::begin(a.rgba), std::end(a.rgba), std::begin(b.rgba));

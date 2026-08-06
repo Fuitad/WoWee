@@ -1,5 +1,6 @@
 #include <cstring>
 #include "ui/widget_renderer.hpp"
+#include "ui/text_markup.hpp"
 #include "ui/text_wrap.hpp"
 #include <set>
 
@@ -41,78 +42,8 @@ uint32_t packColor(const float rgba[4], float alpha) {
 
 /// WoW's inline markup, split into runs of text that share a colour.
 ///
-/// The interface writes colour into the string itself — "|cffffd200(M)|r" is
-/// the world map's keybinding hint in gold — and draws it with the same call as
-/// any other label. Drawn without parsing, the escape is what appears on
-/// screen, which is what the map button's tooltip was showing.
-///
-/// Also dropped here: |H...|h link markers, which wrap the display text of an
-/// item or spell link, and |T...|t inline textures, which name a file this has
-/// no way to place mid-line. "||" is a literal bar.
-// The wrap works on these too, so there is one definition rather than two
-// that have to agree — see ui/text_wrap.hpp.
 using TextRun = wowee::ui::WrapRun;
-
-std::vector<TextRun> parseMarkup(const std::string& in) {
-    std::vector<TextRun> runs;
-    TextRun cur;
-    auto flush = [&] {
-        if (!cur.text.empty()) runs.push_back(cur);
-        cur.text.clear();
-    };
-    auto hexPair = [](const std::string& s, size_t at) {
-        auto v = [](char c) -> int {
-            if (c >= '0' && c <= '9') return c - '0';
-            if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-            if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-            return -1;
-        };
-        const int hi = v(s[at]), lo = v(s[at + 1]);
-        return (hi < 0 || lo < 0) ? -1 : hi * 16 + lo;
-    };
-
-    for (size_t i = 0; i < in.size();) {
-        if (in[i] != '|') { cur.text += in[i++]; continue; }
-        if (i + 1 >= in.size()) { cur.text += in[i++]; continue; }
-        const char tag = in[i + 1];
-        if (tag == '|') { cur.text += '|'; i += 2; continue; }
-        if ((tag == 'c' || tag == 'C') && i + 9 < in.size()) {
-            // |cAARRGGBB — alpha first, and the interface almost always sends
-            // ff for it. Ignored rather than applied: a label's own alpha
-            // already governs it, and multiplying the two fades text that the
-            // real client draws solid.
-            const int r = hexPair(in, i + 4), g = hexPair(in, i + 6),
-                      b = hexPair(in, i + 8);
-            if (r >= 0 && g >= 0 && b >= 0) {
-                flush();
-                cur.hasColor = true;
-                cur.rgba[0] = r / 255.0f; cur.rgba[1] = g / 255.0f;
-                cur.rgba[2] = b / 255.0f; cur.rgba[3] = 1.0f;
-                i += 10;
-                continue;
-            }
-        }
-        if (tag == 'r' || tag == 'R') { flush(); cur.hasColor = false; i += 2; continue; }
-        // |n is WoW's line break, and it was not handled at all — so every one
-        // of them drew as a literal bar and an n. globalstrings.lua alone has a
-        // hundred and thirty-eight.
-        if (tag == 'n' || tag == 'N') { cur.text += '\n'; i += 2; continue; }
-        if (tag == 'H' || tag == 'h') {
-            // |Hitem:...|h[Name]|h — the part between the markers is the text.
-            const size_t end = in.find('|', i + 2);
-            i = (end == std::string::npos) ? in.size() : end;
-            continue;
-        }
-        if (tag == 'T' || tag == 't') {
-            const size_t end = in.find("|t", i + 2);
-            i = (end == std::string::npos) ? in.size() : end + 2;
-            continue;
-        }
-        cur.text += in[i++];   // a bar that means nothing in particular
-    }
-    flush();
-    return runs;
-}
+using wowee::ui::parseMarkup;
 
 /// The same string with every escape taken out, for measuring.
 std::string strippedText(const std::string& in) {

@@ -768,6 +768,17 @@ target_include_directories(test_text_wrap SYSTEM PRIVATE
 )
 target_link_libraries(test_text_wrap PRIVATE catch2_main)
 add_test(NAME text_wrap COMMAND test_text_wrap)
+
+# ── test_text_markup ─────────────────────────────────────────
+add_executable(test_text_markup
+    test_text_markup.cpp
+)
+target_include_directories(test_text_markup PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_text_markup SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS}
+)
+target_link_libraries(test_text_markup PRIVATE catch2_main)
+add_test(NAME text_markup COMMAND test_text_markup)
 register_test_target(test_text_wrap)
 
 # ── test_chat_markup_parser ──────────────────────────────────
