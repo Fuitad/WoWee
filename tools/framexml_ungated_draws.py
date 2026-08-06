@@ -24,6 +24,45 @@ unconditionally and draws nothing, because the callback that fills its list
 returns early when FrameXML owns the element. That is a real gate one layer
 up, and no reachability walk over draw calls can see it. Check where a listed
 surface gets its contents before believing the row.
+
+THE TWENTY-EIGHT IT REPORTS TODAY, ALL CHECKED
+
+Two faults were found in this list on 2026-08-05, both live since the branch
+started, and both had been skimmed past twice because they sat among
+twenty-six rows that are fine. A report nobody can triage at a glance gets
+skimmed, so here is the triage, and a row appearing that is not on this list
+is the thing to look at.
+
+The question that separates them is not "does FrameXML draw this too" but
+"does FrameXML draw this too *without being asked*". A duplicate only happens
+when both sides put something on screen in response to the same event.
+
+  * Fixed: renderBgInvitePopup — CONFIRM_BATTLEFIELD_ENTRY, raised by
+    battlefieldframe.lua from UPDATE_BATTLEFIELD_STATUS, which this client
+    fires. Two accept buttons on every battleground invitation.
+  * Fixed: renderLogoutCountdown — the CAMP and QUIT popups, raised by
+    uiparent.lua from PLAYER_CAMPING and PLAYER_QUITING, both fired here.
+
+  * No FrameXML counterpart at all (17): the chat bubbles, the cooldown
+    tracker, the damage meter, the threat window, the duel countdown, the
+    entity list, the nameplates — which are engine-drawn in 3.3.5 and not in
+    FrameXML — the player-info and weather debug overlays, the item-target
+    cursor, the resurrect flash, the ding effect, and the discovery,
+    area-trigger, honor, reputation and whisper toasts.
+  * A counterpart that is not raised by an event (3): the equipment-set,
+    skills and combat-log windows. FrameXML has all three — inside the
+    character frame, and as ChatFrame2 — but this client's are windows with
+    their own toggle, opened deliberately. Two ways to see the same thing is
+    not two things on screen.
+  * A counterpart under an element not handed over (4): the quest complete and
+    progress toasts against questtracker, the instance lockouts against
+    social, the item loot toast against the achievements AlertFrame. Each
+    becomes a real question the day its element is promoted.
+  * Gated somewhere this cannot see (2): renderZoneToasts, suppressed by the
+    zone banner's own timer — the banner's gate deliberately sits *after* the
+    timer is tracked, so swapping in an early return would trade one duplicate
+    for another — and renderPetUnlearnConfirmDialog, where staticpopup.lua
+    declares no CONFIRM_PET_UNLEARN so this client's is the only one.
 """
 import re
 import sys
