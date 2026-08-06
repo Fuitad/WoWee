@@ -1019,12 +1019,22 @@ void SocialPanel::renderGuildRoster(game::GameHandler& gameHandler,
         }
     }
 
+    // Charters belong to FrameXML when the element is handed over: the same
+    // packets these flags are set by also fire GUILD_REGISTRAR_SHOW,
+    // PETITION_VENDOR_SHOW and PETITION_SHOW, and FrameXML raises a window on
+    // each. Without this gate every charter bought or signed asked twice.
+    //
+    // The flag is consumed either way. Left set it would sit true behind the
+    // handed-over window and open this one the moment the element came back.
+    const bool ownsPetitionUi = !frameXmlOwns(UiElement::Petition);
+
     // Petition creation dialog (shown when NPC sends SMSG_PETITION_SHOWLIST)
     if (gameHandler.hasPetitionShowlist()) {
-        ImGui::OpenPopup("CreateGuildPetition");
+        if (ownsPetitionUi) ImGui::OpenPopup("CreateGuildPetition");
         gameHandler.clearPetitionDialog();
     }
-    if (ImGui::BeginPopupModal("CreateGuildPetition", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ownsPetitionUi &&
+        ImGui::BeginPopupModal("CreateGuildPetition", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::Text("Create Guild Charter");
         ImGui::Separator();
         uint32_t cost = gameHandler.getPetitionCost();
@@ -1051,10 +1061,11 @@ void SocialPanel::renderGuildRoster(game::GameHandler& gameHandler,
 
     // Petition signatures window (shown when a petition item is used or offered)
     if (gameHandler.hasPetitionSignaturesUI()) {
-        ImGui::OpenPopup("PetitionSignatures");
+        if (ownsPetitionUi) ImGui::OpenPopup("PetitionSignatures");
         gameHandler.clearPetitionSignaturesUI();
     }
-    if (ImGui::BeginPopupModal("PetitionSignatures", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (ownsPetitionUi &&
+        ImGui::BeginPopupModal("PetitionSignatures", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         const auto& pInfo = gameHandler.getPetitionInfo();
         if (!pInfo.guildName.empty())
             ImGui::Text("Guild Charter: %s", pInfo.guildName.c_str());

@@ -15,6 +15,43 @@ zero. Re-measure with:
 Top-level FrameXML frames (parent="UIParent") whose names appear nowhere in
 framexml_takeover.cpp. Each is a part of the interface nobody has decided
 about: if this client draws the same thing, both are on screen.
+
+READ IT AGAINST WHAT THE CLIENT *FIRES*, NOT AGAINST WHAT IT DRAWS
+
+That is the mistake this report invited for months, and it is why forty-one
+rows sat here unexamined. A row is only a duplicate if something can put the
+FrameXML frame on screen, and for a top-level window that is almost always one
+event. So the question per row is: what shows it, and does this client fire
+that? Anything else — a window opened by a button in FrameXML's own panel, or
+one waiting on an event nothing sends — cannot appear beside a second copy,
+because it cannot appear.
+
+Reading the thirty-seven that way on 2026-08-05 turned up one real fault, and
+it was three frames of the same family. Charters: this client fires
+GUILD_REGISTRAR_SHOW and PETITION_VENDOR_SHOW from one handler and
+PETITION_SHOW from the next, and each raises a FrameXML window beside a popup
+social_panel.cpp draws from the very same packet. Every charter bought or
+signed asked twice. They are UiElement::Petition now, and the count fell to
+thirty-seven.
+
+WHAT THE THIRTY-SEVEN ARE
+
+  * 15 dormant — nothing anywhere shows them. AutoCompleteBox, the four
+    Battle.net frames, GuildControlPopupFrame, AddFriendFrame,
+    FriendsFriendsFrame, SmallTextTooltip, MacOptionsCompressFrame,
+    FolderPicker, StationeryPopupFrame, MovieProgressFrame, RuneFrame,
+    TutorialFrameAlertButton, AutoFollowStatus.
+  * 18 opened by a control in FrameXML's own interface — the chat menu, a
+    dropdown's colour swatch, the game menu, the vehicle bar, an item link's
+    dress-up. Reachable, and correctly so: the control that opens them belongs
+    to a panel already handed over, and nothing here opens a second one on the
+    same click.
+  * 4 waiting on an event this client does not fire: ArenaFrame and
+    BattlefieldFrame on BATTLEFIELDS_SHOW, PVPParentFrame on
+    NPC_PVPQUEUE_ANYWHERE, TabardFrame on OPEN_TABARD_FRAME. None of the three
+    names appears anywhere under src/ except in a comment saying so. These are
+    the rows to re-read first: firing any of them is what would turn a dormant
+    row into a duplicate, and nothing ties the two decisions together.
 """
 import re
 from pathlib import Path

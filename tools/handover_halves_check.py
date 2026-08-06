@@ -51,9 +51,20 @@ def main():
 
     table = re.search(r"\{UiElement::PlayerFrame.*?\n\};", cpp, re.S)
     names = dict(re.findall(r'\{UiElement::(\w+),\s*"([a-z]\w*)"\}', table.group(0)))
-    # A suppression row names frames, which are UpperCamelCase; the name table
-    # above names elements, which are lowercase. That is what tells them apart.
-    suppress = set(re.findall(r'\{UiElement::(\w+),\s*"[A-Z][^"]*"', cpp))
+    # Only rows inside kSuppress count.
+    #
+    # This used to match any row in the file whose first string was
+    # UpperCamelCase, on the reasoning that a suppression row names frames and
+    # the element table names lowercase elements. True, and useless: a *check*
+    # row names frames too, and every handed-over element has one. So the half
+    # of this sweep that looks for a missing suppression entry answered zero
+    # for every element that had a check row — which is all of them. Caught by
+    # deleting a real suppression row and watching the count stay at zero.
+    body = re.search(r"const Suppress kSuppress\[\] = \{(.*?)\n *\};", cpp, re.S)
+    if not body:
+        print("could not find kSuppress — this reads it")
+        return 1
+    suppress = set(re.findall(r'\{UiElement::(\w+),', body.group(1)))
 
     gates = set()
     for path in (ROOT / "src").rglob("*.cpp"):

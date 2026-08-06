@@ -241,15 +241,25 @@ CHECKS = [
      r"^(\d+) that tell the player and not the interface", 20,
      "handlers that change state and announce nothing"),
     # Top-level FrameXML frames named nowhere in framexml_takeover.cpp —
-    # neither handed over nor suppressed. Forty-four, and none of them is a
-    # double: every name was checked against this client's own UI and none has
-    # a counterpart there, so FrameXML drawing them is the only version there
-    # is. That is a decision about forty-four particular frames, though, not a
-    # rule — the forty-fifth is the one to look at, which is what the ceiling
-    # is for. The tool's own blind spot is frames built by CreateFrame, which
-    # its docstring measures and lists.
+    # neither handed over nor suppressed.
+    #
+    # This comment used to say all forty-four had been checked against this
+    # client's own UI and none had a counterpart. That was wrong, and wrong in
+    # the way a claim written once and cited afterwards usually is: the check
+    # it describes was a search for look-alike windows, and what makes a
+    # duplicate is a shared *trigger*. Three of the forty-four were charter
+    # windows raised by three events this client fires, beside two popups
+    # social_panel.cpp draws from the same packets. They are
+    # UiElement::Petition now.
+    #
+    # So the ceiling guards a list that has been read the right way once, on
+    # 2026-08-05, with the result written into the tool's docstring: fifteen
+    # dormant, eighteen opened by a control in FrameXML's own interface, four
+    # waiting on an event nothing fires. The thirty-eighth is the one to look
+    # at. The tool's own blind spot is frames built by CreateFrame, which its
+    # docstring measures and lists.
     ("framexml_unaccounted_frames.py",
-     r"^\d+ top-level frames, (\d+) unaccounted", 44,
+     r"^\d+ top-level frames, (\d+) unaccounted", 37,
      "FrameXML frames neither handed over nor suppressed"),
     # The blind spot both widget-method sweeps had: they count the no-op
     # allowlist as answered, which is right for "does the call raise here" and

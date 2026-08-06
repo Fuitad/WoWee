@@ -150,6 +150,21 @@ enum class UiElement {
     /// LFG_PROPOSAL_SHOW is fired, so LFDDungeonReadyPopup was already being
     /// raised beside this client's own every time a group formed.
     DungeonFinder,
+    /// Charters: buying one, signing one, turning one in. Found by following
+    /// the unaccounted-frame sweep to what fires, which is what that sweep had
+    /// never been read against.
+    ///
+    /// Three of FrameXML's frames and two of this client's, on three events
+    /// this client fires from one handler pair — GUILD_REGISTRAR_SHOW and
+    /// PETITION_VENDOR_SHOW raise GuildRegistrarFrame and ArenaRegistrarFrame,
+    /// PETITION_SHOW raises PetitionFrame, and this client opens its own
+    /// "CreateGuildPetition" and "PetitionSignatures" popups on the same two
+    /// packets. So every charter bought or signed asked twice.
+    ///
+    /// The events were added deliberately — the note beside PETITION_SHOW says
+    /// the interface's version was never told, so a charter could not be
+    /// signed through it. Firing them is what made the duplicate.
+    Petition,
 };
 
 /// True when FrameXML is drawing this instead, so the client should not.

@@ -16,7 +16,7 @@ namespace {
 struct Entry { UiElement element; std::string_view name; };
 
 // One row per element, and the only place a name is written down.
-constexpr std::array<Entry, 51> kElements{{
+constexpr std::array<Entry, 52> kElements{{
     {UiElement::PlayerFrame,  "playerframe"},
     {UiElement::TargetFrame,  "targetframe"},
     {UiElement::PetFrame,     "petframe"},
@@ -50,6 +50,7 @@ constexpr std::array<Entry, 51> kElements{{
     {UiElement::GuildBank,    "guildbank"},
     {UiElement::Inspect,      "inspect"},
     {UiElement::DungeonFinder, "dungeonfinder"},
+    {UiElement::Petition,     "petition"},
     {UiElement::Buffs,        "buffs"},
     {UiElement::Durability,   "durability"},
     {UiElement::ZoneText,     "zonetext"},
@@ -229,7 +230,13 @@ const std::set<std::string>& requested() {
                 // it, and CLOSE_WORLD_MAP is the server telling the map to
                 // shut, which nothing here sends — the key closes it through
                 // the same toggle that opens it.
-                "worldmap"};
+                "worldmap",
+                // The charter windows, found by reading the unaccounted-frame
+                // sweep against what this client fires rather than against
+                // what it draws. Every global the four files call is bound,
+                // including the ones a charter cannot be bought or turned in
+                // without.
+                "petition"};
         }();
 
         if (!raw || !*raw) {
@@ -652,6 +659,13 @@ const Suppress kSuppress[] = {
         // popup could not appear because LFG_ROLE_CHECK_SHOW was never fired,
         // and the browser only from a micro button this branch has taken over.
         {UiElement::DungeonFinder, "LFDParentFrame LFDDungeonReadyPopup LFDRoleCheckPopup"},
+        // The charter windows. All three are live duplicates: this client
+        // fires GUILD_REGISTRAR_SHOW and PETITION_VENDOR_SHOW from one handler
+        // and PETITION_SHOW from the next, and each raises the FrameXML frame
+        // named here beside a popup this client draws for the same packet.
+        // PVPBannerFrame comes with the arena registrar and is opened from it.
+        {UiElement::Petition,     "PetitionFrame GuildRegistrarFrame "
+                                  "ArenaRegistrarFrame PVPBannerFrame"},
         // Every one of these has a working window in this client and a
         // FrameXML twin that shows on the same event. The client fires
         // MERCHANT_SHOW, LOOT_OPENED, BANKFRAME_OPENED, PARTY_MEMBERS_CHANGED
@@ -821,6 +835,38 @@ const Suppress kSuppress[] = {
         // own — naming only the zone would leave "Trade District" announcing
         // itself twice while "Stormwind City" announced itself once.
         {UiElement::ZoneText,   "ZoneTextFrame SubZoneTextFrame"},
+        // The eight oldest elements, which had no suppression rows at all.
+        //
+        // They are the first fourteen's survivors: handed over before this
+        // table existed and owned by default ever since, so nothing exercised
+        // the half of the contract they were missing. It only shows in a run
+        // that names a subset — WOWEE_FRAMEXML_UI=playerframe left FrameXML's
+        // minimap, character sheet, spellbook, cast bar, pet and focus frames
+        // and both halves of the bag and micro rows drawn beside this
+        // client's own, which is the exact fault this table is for.
+        //
+        // Found by fixing handover_halves_check, whose suppression half had
+        // been answering zero for every element that has a check row —
+        // including all eight of these.
+        //
+        // Frames are the top ones from each element's check row, plus the
+        // container where hiding one hides the rest: MinimapCluster carries
+        // the ring, the zoom buttons and the zone text, and MainMenuBarBackpack
+        // Button carries the four bag slots beside it.
+        {UiElement::Minimap,    "MinimapCluster"},
+        {UiElement::CharacterFrame, "CharacterFrame"},
+        {UiElement::Spellbook,  "SpellBookFrame"},
+        {UiElement::CastBar,    "CastingBarFrame"},
+        {UiElement::PetFrame,   "PetFrame"},
+        {UiElement::FocusFrame, "FocusFrame"},
+        {UiElement::BagBar,     "MainMenuBarBackpackButton CharacterBag0Slot "
+                                "CharacterBag1Slot CharacterBag2Slot CharacterBag3Slot "
+                                "KeyRingButton"},
+        {UiElement::MicroMenu,  "CharacterMicroButton SpellbookMicroButton "
+                                "TalentMicroButton AchievementMicroButton "
+                                "QuestLogMicroButton SocialsMicroButton "
+                                "PVPMicroButton LFDMicroButton MainMenuBarPerformanceBar "
+                                "HelpMicroButton MainMenuMicroButton"},
     };
 }  // namespace
 
@@ -1058,6 +1104,12 @@ const Check kChecks[] = {
         // later, which is a different question from whether the panel
         // itself exists.
         {UiElement::DungeonFinder, "LFDParentFrame"},
+        // Not lazy either: petitionframe.xml, guildregistrarframe.xml and
+        // arenaregistrarframe.xml are all in framexml.toc. Only PetitionFrame
+        // is named because the net asks about the top frame of a row and no
+        // more — which of the three is on screen depends on the NPC, and a
+        // registrar the player has not walked up to is not a failure.
+        {UiElement::Petition,      "PetitionFrame"},
 };
 
 /// Elements handed over with no check row, which therefore get no safety net.
