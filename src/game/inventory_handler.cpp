@@ -3021,15 +3021,18 @@ void InventoryHandler::auctionListBidderItems(uint32_t offset) {
 }
 
 void InventoryHandler::handleAuctionHello(network::Packet& packet) {
-    if (!packet.hasRemaining(12)) return;
-    uint64_t guid = packet.readUInt64();
-    uint32_t houseId = packet.readUInt32();
-    auctioneerGuid_ = guid;
-    auctionHouseId_ = houseId;
-    auctionOpen_ = true;
-    auctionActiveTab_ = 0;
+    // Through the parser and the opener rather than reading and setting inline.
+    // Both existed and neither had a caller: this read the same two fields a
+    // second time and set the same state a second time, so the packet's layout
+    // was written down twice and openAuctionHouse was dead code that looked
+    // live. The parser also reads the trailing enabled byte, which is in the
+    // WotLK packet and not the vanilla one — this did not, and would have
+    // needed the same expansion difference written a second time to.
+    AuctionHelloData data;
+    if (!AuctionHelloParser::parse(packet, data)) return;
+    auctionHouseId_ = data.auctionHouseId;
+    openAuctionHouse(data.auctioneerGuid);
     owner_.closeGossip();
-    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("AUCTION_HOUSE_SHOW", {});
 }
 
 void InventoryHandler::handleAuctionListResult(network::Packet& packet) {
