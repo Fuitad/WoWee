@@ -304,4 +304,49 @@ if half_wired:
 else:
     print("\nEvery suppressed element also stands down. Both halves wired.")
 
+# ── Which of them belong to an element already handed over ──────────────────
+#
+# The triage in the docstring is what two live duplicates cost to find: both
+# sat in a list of twenty-eight, twenty-six of which are fine, and both were
+# skimmed past twice. This encodes the half of that judgement a tool can hold —
+# which FrameXML element each ungated surface would collide with — so that
+# promoting an element raises its own questions instead of waiting for someone
+# to re-read the list.
+#
+# Only surfaces with a FrameXML counterpart appear here. A row absent from this
+# map is one with nothing on the other side to collide with, and stays absent.
+COUNTERPART = {
+    "ToastManager::renderQuestCompleteToasts":  "QuestTracker",
+    "ToastManager::renderQuestProgressToasts":  "QuestTracker",
+    "ToastManager::renderItemLootToasts":       "Achievements",
+    "WindowManager::renderInstanceLockouts":    "Social",
+    # Windows with their own toggle rather than surfaces raised by an event.
+    # Listed so the map is complete, and marked so they do not read as pending
+    # faults: two ways to open the same thing is not two things on screen.
+    "WindowManager::renderEquipSetWindow":      "CharacterFrame*",
+    "WindowManager::renderSkillsWindow":        "CharacterFrame*",
+    "CombatUI::renderCombatLog":                "Chat*",
+}
+
+defaults_block = takeover[takeover.index("static const auto defaults"):]
+defaults_block = defaults_block[:defaults_block.index("}();")]
+handed_over = set(re.findall(r'"([a-z0-9]+)"', defaults_block))
+element_names = dict(re.findall(r'\{UiElement::(\w+),\s*"([a-z0-9]+)"\}', takeover))
+
+pending = []
+for fn, element in sorted(COUNTERPART.items()):
+    if element.endswith("*"):
+        continue                       # opened deliberately, cannot double up
+    if any(fn == r[0] for r in rows) and element_names.get(element) in handed_over:
+        pending.append((fn, element))
+
+print(f"\n{len(COUNTERPART)} of them have a FrameXML counterpart at all")
+if pending:
+    print(f"\n{len(pending)} draw ungated while their element is handed over "
+          f"— these are on screen twice:")
+    for fn, element in pending:
+        print(f"  {fn:44} UiElement::{element}")
+else:
+    print("None of those elements is handed over, so none can collide yet.")
+
 sys.exit(0)
