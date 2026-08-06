@@ -107,7 +107,13 @@ def main():
               "the count below is meaningless.")
     print()
 
-    unanswered = sorted(tokens - commands) if uses_registry else sorted(tokens)
+    # A placeholder in the DBC rather than an emote: EMOTE*_TOKEN carries the
+    # literal string "unused" for the gaps in the numbering, and there is no
+    # command to answer it with because there is nothing to perform. Named so
+    # that a real token going unanswered still shows.
+    EXPECTED_UNANSWERED = {"unused": "a DBC placeholder, not an emote"}
+    unanswered = sorted((tokens - commands) if uses_registry else tokens)
+    unanswered = [t for t in unanswered if t not in EXPECTED_UNANSWERED]
     print(f"{len(unanswered)} emote token(s) DoEmote cannot answer:\n")
     for name in unanswered[:40]:
         print(f"  {name}")

@@ -91,7 +91,18 @@ def main():
         print("  CANARY: SAY is not mapped — the binding is not parsing.")
     print()
 
-    missing = sorted(sendable - mapped)
+    # Named rather than counted, so a second one cannot arrive behind it.
+    #
+    # REPLY is a ChatTypeInfo entry — it colours the edit box — and never a send
+    # type. Both paths that use it turn it into a whisper first: SlashCmdList
+    # REPLY calls SendChatMessage(msg, "WHISPER", ...) against
+    # ChatEdit_GetLastTellTarget, and the edit box sets its chatType attribute
+    # to WHISPER before anything leaves. Checked that /r reaches a target while
+    # pinning this: ChatEdit_SetLastTellTarget is called from
+    # ChatFrame_MessageEventHandler with arg2 of an incoming whisper, which
+    # this client fires with the sender's name.
+    EXPECTED_UNMAPPED = {"REPLY": "converted to WHISPER before it is sent"}
+    missing = sorted(sendable - mapped - set(EXPECTED_UNMAPPED))
     print(f"{len(missing)} chat type(s) SendChatMessage does not map:\n")
     for name in missing:
         print(f"  {name}")
