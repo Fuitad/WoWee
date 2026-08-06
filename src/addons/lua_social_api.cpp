@@ -2124,8 +2124,19 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh) gh->removeIgnore(name);
             return 0;
         }},
+                // ShowFriends() — not a panel verb despite the name: it asks
+                // the server to resend the friend, ignore and mute lists, and
+                // FriendsFrame_Update calls it every time the list redraws.
+                // It did nothing, on the reading that the panel is drawn by
+                // this client rather than by Lua — but what it is for is the
+                // request, and without it the list was whatever had last been
+                // pushed, with an online column that went stale and stayed
+                // stale until a friend happened to log in or out.
+                //
+                // CMSG_CONTACT_LIST was in all three opcode maps with nothing
+                // building it.
                 {"ShowFriends", [](lua_State* L) -> int {
-            (void)L; // Friends panel is shown via ImGui, not Lua
+            if (auto* gh = getGameHandler(L)) gh->requestContactList();
             return 0;
         }},
                 {"GetNumWhoResults", [](lua_State* L) -> int {

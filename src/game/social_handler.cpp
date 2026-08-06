@@ -4234,6 +4234,36 @@ void SocialHandler::setGroupAssistant(uint64_t guid, bool apply) {
     owner_.getSocket()->send(packet);
 }
 
+void SocialHandler::requestContactList() {
+    if (!owner_.isInWorld() || !owner_.getSocket()) return;
+    // Once a second. FriendsFrame_Update calls ShowFriends every time it
+    // redraws, and it redraws on every friend status line — so an unthrottled
+    // send answers each one with a request for the whole list again.
+    const auto now = std::chrono::steady_clock::now();
+    if (now - lastContactListRequest_ < std::chrono::seconds(1)) return;
+    lastContactListRequest_ = now;
+    // Two names for one request. Vanilla calls it CMSG_FRIEND_LIST and sends
+    // it empty; TBC renamed it CMSG_CONTACT_LIST and gave it a flags word.
+    // Checked against the opcode maps: classic names only the first, TBC and
+    // WotLK only the second.
+    if (isClassicLikeExpansion()) {
+        const uint32_t wire = wireOpcode(Opcode::CMSG_FRIEND_LIST);
+        if (wire == 0xFFFF) return;
+        network::Packet pkt(static_cast<uint16_t>(wire));
+        owner_.getSocket()->send(pkt);
+        return;
+    }
+    const uint32_t wire = wireOpcode(Opcode::CMSG_CONTACT_LIST);
+    if (wire == 0xFFFF) return;
+    network::Packet pkt(static_cast<uint16_t>(wire));
+    // Which lists to send back. AzerothCore reads one uint32 and hands it
+    // straight to SendSocialList; SOCIAL_FLAG_ALL is friend, ignored and muted
+    // together, which is what the panel shows across its three tabs.
+    constexpr uint32_t kSocialFlagAll = 0x07;
+    pkt.writeUInt32(kSocialFlagAll);
+    owner_.getSocket()->send(pkt);
+}
+
 void SocialHandler::requestBattlefieldPositions() {
     if (!owner_.isInWorld() || !owner_.getSocket()) return;
     // Only in one. AzerothCore drops the request outright when the player has

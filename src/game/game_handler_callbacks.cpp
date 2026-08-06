@@ -2422,6 +2422,10 @@ void GameHandler::requestBattlefieldPositions() {
     if (socialHandler_) socialHandler_->requestBattlefieldPositions();
 }
 
+void GameHandler::requestContactList() {
+    if (socialHandler_) socialHandler_->requestContactList();
+}
+
 uint32_t GameHandler::getPlayerGuildRankIndex() const {
     return socialHandler_ ? socialHandler_->getPlayerGuildRankIndex() : 0xFFFFFFFFu;
 }

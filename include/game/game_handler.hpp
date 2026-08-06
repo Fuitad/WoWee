@@ -2463,6 +2463,8 @@ public:
     /// Ask the battleground for everyone's position; throttled, and a no-op
     /// outside one. See SocialHandler::requestBattlefieldPositions.
     void requestBattlefieldPositions();
+    /// Ask for the friend, ignore and mute lists again. See SocialHandler.
+    void requestContactList();
     /// Give or take raid assistant, by guid.
     void setGroupAssistant(uint64_t guid, bool apply);
     /// Whether a map id belongs to an arena. Same table, the other instance

@@ -137,6 +137,14 @@ public:
     /// because the interface calls it from WorldMapFrame_OnUpdate, which is
     /// every frame the map is open.
     void requestBattlefieldPositions();
+    /// Ask the server to resend the friend, ignore and mute lists.
+    ///
+    /// The server sends them once at login and pushes a status line whenever a
+    /// friend comes or goes, so this is a refresh rather than the only way to
+    /// have them — but the friends panel asks for one every time it redraws,
+    /// which is what ShowFriends means, and a stale online column is what
+    /// happens without it.
+    void requestContactList();
 
     /// Give or take raid assistant. CMSG_GROUP_ASSISTANT_LEADER is a guid and
     /// a flag, and AzerothCore drops it unless the sender leads the group —
@@ -577,6 +585,7 @@ private:
     BgScoreboardData bgScoreboard_;
     std::vector<BgPlayerPosition> bgPlayerPositions_;
     std::chrono::steady_clock::time_point lastBgPositionRequest_{};
+    std::chrono::steady_clock::time_point lastContactListRequest_{};
 
     // LFG / Dungeon Finder
     LfgState lfgState_        = LfgState::None;
