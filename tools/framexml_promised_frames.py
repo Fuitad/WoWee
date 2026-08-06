@@ -95,14 +95,53 @@ def promised():
     return out
 
 
+#: A frame declaring what it is built from. Template children are declared
+#: inside the template, in whatever file that lives in, and resolve against
+#: whoever instantiates it — PartyMemberFrame1 is declared in partyframe.xml
+#: and its health bar in partyframetemplates.xml.
+INHERITS = re.compile(r'<\w+\b[^>]*\bname="([A-Za-z][A-Za-z0-9_]*)"[^>]*\binherits="([A-Za-z][A-Za-z0-9_]*)"'
+                      r'|<\w+\b[^>]*\binherits="([A-Za-z][A-Za-z0-9_]*)"[^>]*\bname="([A-Za-z][A-Za-z0-9_]*)"')
+#: A virtual frame and the relative names inside it.
+TEMPLATE = re.compile(r'<(\w+)\b[^>]*\bname="([A-Za-z][A-Za-z0-9_]*)"[^>]*\bvirtual="true"')
+
+
+def _template_suffixes(text):
+    """template name -> the $parent suffixes declared inside it.
+
+    Bounded by the next virtual declaration rather than by matching tags: the
+    files nest several levels and a tag matcher here would be a parser. The
+    overshoot only ever adds suffixes, and a suffix that belongs to a
+    neighbouring template still names a real child of something.
+    """
+    out = {}
+    marks = [(m.start(), m.group(2)) for m in TEMPLATE.finditer(text)]
+    for i, (at, name) in enumerate(marks):
+        end = marks[i + 1][0] if i + 1 < len(marks) else len(text)
+        out[name] = set(RELATIVE.findall(text[at:end]))
+    return out
+
+
 def declared():
-    """(every name declared, and per file: its names and its $parent suffixes)"""
+    """(every name declared, and per file: names, suffixes, inherits, templates)"""
     names, per_file = set(), []
+    templates = {}
+    inherits = {}
     for path in loaded_files(INTERFACE):
         text = without_comments(path.read_text(errors="ignore"))
         mine = set(DECLARED.findall(text)) | set(CREATED.findall(text))
         names |= mine
         per_file.append((mine, set(RELATIVE.findall(text))))
+        templates.update(_template_suffixes(text))
+        for a, b, c, d in INHERITS.findall(text):
+            if a and b: inherits.setdefault(a, set()).add(b)
+            if c and d: inherits.setdefault(d, set()).add(c)
+    # A frame's own suffixes plus every one its templates bring with them.
+    for frame, parents in inherits.items():
+        extra = set()
+        for t in parents:
+            extra |= templates.get(t, set())
+        if extra:
+            per_file.append(({frame}, extra))
     return names, per_file
 
 

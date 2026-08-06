@@ -760,7 +760,15 @@ namespace {
 // At namespace scope because the unaccounted-frame sweep reads it too: a name
 // mentioned here is a name somebody has considered, which is the whole of what
 // that sweep needs to know.
-struct Check { UiElement element; const char* frames; };
+struct Check {
+    UiElement element;
+    const char* frames;
+    /// Built only when the player opens it — a load-on-demand addon's panel.
+    /// Reported as not built, which is the correct state for one nobody has
+    /// opened, and never handed back for it: releasing on that would take away
+    /// every panel that works exactly as intended.
+    bool lazy = false;
+};
 const Check kChecks[] = {
         {UiElement::PlayerFrame,  "PlayerFrame PlayerFrameTexture PlayerPortrait "
                                   "PlayerFrameHealthBar PlayerFrameManaBar PlayerName "
@@ -839,6 +847,57 @@ const Check kChecks[] = {
         // window around it.
         {UiElement::QuestLog,     "QuestLogFrame QuestLogScrollFrame "
                                   "QuestLogDetailScrollFrame"},
+
+        // ---- The elements behind WOWEE_FRAMEXML_UI=candidates ----
+        //
+        // Written so the release above can see them. An element with no row
+        // here is one that, if its frames never arrive, draws nothing and says
+        // nothing — this client's own version is hidden the moment it is
+        // handed over, and there is no way back to it.
+        //
+        // Top-level frame first in every row: that is the one the release
+        // tests. The rest are the art and the parts carrying live data, which
+        // is what separates "never built" from "built and empty".
+        {UiElement::QuestGiver,   "QuestFrame QuestFrameNpcNameText "
+                                  "QuestFrameDetailPanel QuestFrameAcceptButton"},
+        {UiElement::Gossip,       "GossipFrame GossipFrameNpcNameText "
+                                  "GossipFrameGreetingPanel"},
+        {UiElement::Mail,         "MailFrame InboxFrame MailFrameTab1"},
+        {UiElement::Vendor,       "MerchantFrame MerchantItem1 MerchantMoneyFrame "
+                                  "MerchantNameText"},
+        {UiElement::Loot,         "LootFrame LootButton1"},
+        {UiElement::Bank,         "BankFrame BankFrameTitleText"},
+        // Not BuffButton1: the buff frame creates each button the first time an
+        // aura needs one, so on a character carrying none they do not exist and
+        // that is correct.
+        {UiElement::Buffs,        "BuffFrame TemporaryEnchantFrame"},
+        {UiElement::Durability,   "DurabilityFrame"},
+        {UiElement::PartyFrames,  "PartyMemberFrame1 PartyMemberFrame1HealthBar "
+                                  "PartyMemberFrame1Name"},
+        {UiElement::Social,       "FriendsFrame FriendsFrameTitleText"},
+        {UiElement::Trade,        "TradeFrame TradeFrameRecipientNameText"},
+        {UiElement::ReadyCheck,   "ReadyCheckFrame ReadyCheckFrameText"},
+        {UiElement::RaidWarning,  "RaidWarningFrame RaidBossEmoteFrame"},
+        {UiElement::Dialogs,      "StaticPopup1 StaticPopup1Text StaticPopup1Button1"},
+        {UiElement::Taxi,         "TaxiFrame TaxiRouteMap"},
+        {UiElement::Stable,       "PetStableFrame"},
+        {UiElement::Book,         "ItemTextFrame ItemTextPageText"},
+        {UiElement::GameMenu,     "GameMenuFrame GameMenuButtonLogout"},
+        {UiElement::Help,         "HelpFrame TicketStatusFrame"},
+        {UiElement::BattlegroundScore, "WorldStateScoreFrame"},
+        {UiElement::Totems,       "TotemFrame MultiCastActionBarFrame"},
+        {UiElement::UiErrors,     "UIErrorsFrame"},
+
+        // Load-on-demand: reported, never released. Their frames do not exist
+        // until the player opens the panel, which is not a failure to build.
+        {UiElement::TradeSkill,    "TradeSkillFrame",    true},
+        {UiElement::ClassTrainer,  "ClassTrainerFrame",  true},
+        {UiElement::AuctionHouse,  "AuctionFrame",       true},
+        {UiElement::GuildBank,     "GuildBankFrame",     true},
+        {UiElement::Inspect,       "InspectFrame",       true},
+        {UiElement::Achievements,  "AchievementFrame",   true},
+        {UiElement::BarberShop,    "BarberShopFrame",    true},
+        {UiElement::DungeonFinder, "LFDParentFrame",     true},
 };
 
 /// Elements handed over with no check row, which therefore get no safety net.
@@ -904,6 +963,8 @@ int frameXmlReleaseUnbuiltElements(
     for (const Check& c : kChecks) {
         if (!frameXmlOwns(c.element)) continue;   // not ours, or already given back
         if (!c.frames || !*c.frames) continue;
+        // A panel nobody has opened has not failed to build.
+        if (c.lazy) continue;
 
         // The first name only: the top-level frame. A panel that built and is
         // missing a label is a different fault, and handing it back for that
