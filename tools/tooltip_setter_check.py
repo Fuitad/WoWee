@@ -60,11 +60,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from framexml_source import loaded_files, without_comments  # noqa: E402
+from framexml_provides import (  # noqa: E402
+    noop_widget_methods, widget_methods_provided)
 
 ROOT = Path(__file__).resolve().parent.parent
 INTERFACE = ROOT / "Data/interface"
-ADDONS = ROOT / "src/addons"
-ENGINE = ADDONS / "lua_engine.cpp"
 
 #: Names a tooltip is reached by. `tooltip` catches the local FrameXML takes
 #: when a function is handed one, which is how most of the templates call it.
@@ -82,24 +82,29 @@ def called():
 
 def main():
     calls = called()
-    engine = ENGINE.read_text(errors="ignore")
-    addons = "".join(p.read_text(errors="ignore") for p in ADDONS.glob("*.cpp"))
-
-    lua_impl = set(re.findall(r"function __WoweeFrameMT:([A-Za-z0-9_]+)", engine))
-    c_bound = {n for n in calls
-               if re.search(r'\{"' + n + r'",|set\("' + n + r'"', addons)}
-    allowlist = set(re.findall(r"\b([A-Za-z0-9_]+)=1", engine))
+    names = set(calls)
+    # Through framexml_provides rather than by matching names here.
+    #
+    # That file is the one implementation of "does the client answer this", and
+    # it exists because the ad-hoc versions produce false gaps — a name written
+    # as a bootstrap Lua method, or listed in the counting table, is answered
+    # and looks unbound to a search for {"Name",. This sweep had its own copy
+    # for exactly one day.
+    provided = widget_methods_provided()
+    allowlist = noop_widget_methods()
 
     print(f"{len(calls)} tooltip Set* methods called by the interface, "
-          f"{len(lua_impl & set(calls))} written in bootstrap Lua, {len(c_bound)} bound in C")
+          f"{len(names & provided) - len(names & allowlist)} of them implemented")
     if "SetHyperlink" not in calls:
         print("  CANARY: SetHyperlink not seen called — the interface is not parsing.")
     print()
 
-    blank = sorted(n for n in calls
-                   if n not in lua_impl and n not in c_bound and n in allowlist)
-    raises = sorted(n for n in calls
-                    if n not in lua_impl and n not in c_bound and n not in allowlist)
+    # Answered, but with nothing. widget_methods_provided counts an allowlist
+    # entry as provided, which is the right answer to "does this raise" and the
+    # wrong one to "does this fill the tooltip" — so the two sets are asked
+    # separately rather than one being derived from the other.
+    blank = sorted(names & allowlist)
+    raises = sorted(names - provided)
 
     print(f"{len(blank)} answered by the no-op fallback, so the tooltip is blank:\n")
     for name in blank:

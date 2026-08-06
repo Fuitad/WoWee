@@ -41,10 +41,15 @@ FontString reader and the global above.
 
 WHAT IT CANNOT SEE
 
-A global answered by bootstrap Lua rather than by a C binding — those are picked
-up by the FrameXML-definition check only if they use `function Name(`. And it
-reads calls, not reachability: a name called only from a file nothing loads is
-still counted, which is why loaded_files does the filtering.
+It reads calls, not reachability: a name called only from a file nothing loads
+would still be counted, which is why loaded_files does the filtering.
+
+Both sides come from framexml_provides, which is the one implementation of
+"does the client answer this name". This tool rolled its own for a day and
+missed 407 globals — everything registered through the bootstrap or the
+counting table rather than a {"Name", lua_Name} row — and every one of those
+would have been reported here as a global existing only as a method, which is
+the exact false gap that file was written to stop.
 
 Verified failable: deleting the GetText global from lua_system_api.cpp takes
 this from zero rows to one, naming GetText.
@@ -55,31 +60,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from framexml_source import loaded_files, without_comments_or_strings  # noqa: E402
+from framexml_provides import (  # noqa: E402
+    globals_provided, widget_methods_provided)
 
 ROOT = Path(__file__).resolve().parent.parent
-ADDONS = ROOT / "src/addons"
 INTERFACE = ROOT / "Data/interface"
-
-
-def widget_methods():
-    """Names registered on a widget's method table."""
-    text = (ADDONS / "lua_engine.cpp").read_text(errors="ignore")
-    names = set(re.findall(r'\bset\("([A-Za-z_]\w*)"', text))
-    names |= set(re.findall(r'\{"([A-Za-z_]\w*)",\s*lua_\w+\}', text))
-    names |= set(re.findall(r"function mt:([A-Za-z_]\w*)", text))
-    names |= set(re.findall(r"mt\['([A-Za-z_]\w*)'\]", text))
-    return names
-
-
-def global_bindings():
-    """Names registered as globals, through a table or lua_setglobal."""
-    names = set()
-    for path in ADDONS.glob("lua_*_api.cpp"):
-        names |= set(re.findall(r'\{"([A-Za-z_]\w*)",', path.read_text(errors="ignore")))
-    for path in ADDONS.glob("*.cpp"):
-        names |= set(re.findall(r'lua_setglobal\(\s*L_?\s*,\s*"([A-Za-z_]\w*)"',
-                                path.read_text(errors="ignore")))
-    return names
 
 
 def interface():
@@ -96,8 +81,14 @@ def interface():
 
 
 def main():
-    methods = widget_methods()
-    globs = global_bindings()
+    # Both sides through framexml_provides, which is the one implementation of
+    # "does the client answer this name". Rolling them here missed 407 globals
+    # — everything registered through the bootstrap or the counting table
+    # rather than a {"Name", lua_Name} row — and every one of those would have
+    # been reported as a global that exists only as a method, which is the
+    # exact false gap that file was written to stop.
+    methods = widget_methods_provided()
+    globs = globals_provided()
     called, defined = interface()
 
     # A zero means nothing without evidence that all three sides parsed. Each
