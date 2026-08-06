@@ -1876,8 +1876,21 @@ static int lua_GetMapInfo(lua_State* L) {
 
 /// The expansion this client speaks. Two is Wrath, which is what the wire
 /// format and the DBC layouts here assume.
+/// The expansion, counted from zero: 0 vanilla, 1 TBC, 2 Wrath. That is the
+/// numbering LFGDungeons.dbc's expansion column uses and the one
+/// MAX_PLAYER_LEVEL_TABLE is keyed by — [0]=60, [1]=70, [2]=80.
+static int expansionLevelZeroBased(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    auto* reg = svc ? svc->expansionRegistry : nullptr;
+    auto* prof = reg ? reg->getActive() : nullptr;
+    if (!prof) return 2;
+    if (prof->id == "wotlk") return 2;
+    if (prof->id == "tbc") return 1;
+    return 0;   // classic and turtle
+}
+
 static int lua_GetExpansionLevel(lua_State* L) {
-    lua_pushnumber(L, 2.0);
+    lua_pushnumber(L, expansionLevelZeroBased(L));
     return 1;
 }
 
@@ -5050,13 +5063,17 @@ void registerSystemLuaAPI(lua_State* L) {
             else lua_pushnumber(L, 60);
             return 1;
         }},
+                // Counted from zero, like GetExpansionLevel beside it and like
+                // the table it is used to index. This answered one higher, and
+                // reputationframe.lua does
+                //     MAX_PLAYER_LEVEL = MAX_PLAYER_LEVEL_TABLE[GetAccountExpansionLevel()]
+                // against a table holding only 0, 1 and 2 — so on Wrath it read
+                // nothing and MAX_PLAYER_LEVEL became nil, which
+                // `newLevel < MAX_PLAYER_LEVEL` then raised on every level gained.
+                // On the earlier two it simply came out an expansion too high,
+                // and a level 60 was never treated as capped.
                 {"GetAccountExpansionLevel", [](lua_State* L) -> int {
-            auto* svc = getLuaServices(L);
-            auto* reg = svc ? svc->expansionRegistry : nullptr;
-            auto* prof = reg ? reg->getActive() : nullptr;
-            if (prof && prof->id == "wotlk") lua_pushnumber(L, 3);
-            else if (prof && prof->id == "tbc") lua_pushnumber(L, 2);
-            else lua_pushnumber(L, 1);
+            lua_pushnumber(L, expansionLevelZeroBased(L));
             return 1;
         }},
     };
