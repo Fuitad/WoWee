@@ -19,6 +19,7 @@
 #include "rendering/vk_context.hpp"
 #include "core/window.hpp"
 #include "game/game_handler.hpp"
+#include "game/auction_filters.hpp"
 #include "game/packed_time.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
@@ -3954,53 +3955,20 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
         // Browse tab - Search filters
 
         // --- Helper: resolve current UI filter state into wire-format search params ---
-        // WoW 3.3.5a item class IDs:
-        //   0=Consumable, 1=Container, 2=Weapon, 3=Gem, 4=Armor,
-        //   7=Projectile/TradeGoods, 9=Recipe, 11=Quiver, 15=Miscellaneous
-        struct AHClassMapping { const char* label; uint32_t classId; };
-        static const AHClassMapping classMappings[] = {
-            {"All",         0xFFFFFFFF},
-            {"Weapon",      2},
-            {"Armor",       4},
-            {"Container",   1},
-            {"Consumable",  0},
-            {"Trade Goods", 7},
-            {"Gem",         3},
-            {"Recipe",      9},
-            {"Quiver",      11},
-            {"Miscellaneous", 15},
-        };
-        static constexpr int NUM_CLASSES = 10;
-
-        // Weapon subclass IDs (WoW 3.3.5a)
-        struct AHSubMapping { const char* label; uint32_t subId; };
-        static const AHSubMapping weaponSubs[] = {
-            {"All", 0xFFFFFFFF}, {"Axe (1H)", 0}, {"Axe (2H)", 1}, {"Bow", 2},
-            {"Gun", 3}, {"Mace (1H)", 4}, {"Mace (2H)", 5}, {"Polearm", 6},
-            {"Sword (1H)", 7}, {"Sword (2H)", 8}, {"Staff", 10},
-            {"Fist Weapon", 13}, {"Dagger", 15}, {"Thrown", 16},
-            {"Crossbow", 18}, {"Wand", 19},
-        };
-        static constexpr int NUM_WEAPON_SUBS = 16;
-
-        // Armor subclass IDs
-        static const AHSubMapping armorSubs[] = {
-            {"All", 0xFFFFFFFF}, {"Cloth", 1}, {"Leather", 2}, {"Mail", 3},
-            {"Plate", 4}, {"Shield", 6}, {"Miscellaneous", 0},
-        };
-        static constexpr int NUM_ARMOR_SUBS = 7;
-
-        // Equipment-slot (inventory type) IDs — a server-side filter carried in
-        // the CMSG_AUCTION_LIST_ITEMS auctionSlotID field.
-        struct AHSlotMapping { const char* label; uint32_t invType; };
-        static const AHSlotMapping slotMappings[] = {
-            {"All Slots", 0xFFFFFFFF}, {"Head", 1}, {"Neck", 2}, {"Shoulder", 3},
-            {"Chest", 5}, {"Waist", 6}, {"Legs", 7}, {"Feet", 8}, {"Wrist", 9},
-            {"Hands", 10}, {"Finger", 11}, {"Trinket", 12}, {"Back", 16},
-            {"One-Hand", 13}, {"Two-Hand", 17}, {"Main Hand", 21}, {"Off Hand", 22},
-            {"Ranged", 26}, {"Shield", 14}, {"Held Off-hand", 23}, {"Relic", 28},
-        };
-        static constexpr int NUM_AH_SLOTS = 21;
+        //
+        // The tables moved to game/auction_filters.hpp when FrameXML's own
+        // filter column needed the identical lists: the index it hands back to
+        // QueryAuctionItems has to mean the same thing on the way in as it did
+        // on the way out, and two copies of a list whose positions are the
+        // protocol drift silently.
+        const auto* classMappings = game::kAuctionClasses;
+        constexpr int NUM_CLASSES = game::kNumAuctionClasses;
+        const auto* weaponSubs = game::kAuctionWeaponSubs;
+        constexpr int NUM_WEAPON_SUBS = game::kNumAuctionWeaponSubs;
+        const auto* armorSubs = game::kAuctionArmorSubs;
+        constexpr int NUM_ARMOR_SUBS = game::kNumAuctionArmorSubs;
+        const auto* slotMappings = game::kAuctionSlots;
+        constexpr int NUM_AH_SLOTS = game::kNumAuctionSlots;
 
         auto getSearchClassId = [&]() -> uint32_t {
             if (auctionItemClass_ < 0 || auctionItemClass_ >= NUM_CLASSES) return 0xFFFFFFFF;
@@ -4056,7 +4024,7 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
 
                 uint32_t classId = classMappings[c].classId;
                 if (selected && (classId == 2 || classId == 4)) {
-                    const AHSubMapping* subs = (classId == 2) ? weaponSubs : armorSubs;
+                    const game::AuctionSubFilter* subs = (classId == 2) ? weaponSubs : armorSubs;
                     int numSubs = (classId == 2) ? NUM_WEAPON_SUBS : NUM_ARMOR_SUBS;
                     ImGui::Indent(14.0f);
                     for (int s = 0; s < numSubs; ++s) {

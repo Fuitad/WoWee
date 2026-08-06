@@ -3,6 +3,7 @@
 #include "addons/lua_api_helpers.hpp"
 #include "game/inventory_slots.hpp"
 #include "game/game_utils.hpp"
+#include "game/auction_filters.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "core/logger.hpp"
 #include "core/config_paths.hpp"
@@ -3774,9 +3775,26 @@ void registerInventoryLuaAPI(lua_State* L) {
             const char* name = luaL_optstring(L, 1, "");
             const uint8_t lo  = static_cast<uint8_t>(luaL_optnumber(L, 2, 0));
             const uint8_t hi  = static_cast<uint8_t>(luaL_optnumber(L, 3, 0));
-            const uint32_t inv = static_cast<uint32_t>(luaL_optnumber(L, 4, 0));
-            const uint32_t cls = static_cast<uint32_t>(luaL_optnumber(L, 5, 0));
-            const uint32_t sub = static_cast<uint32_t>(luaL_optnumber(L, 6, 0));
+            // The three filters arrive as positions in the lists above, not as
+            // the ids the wire wants — and nil, for "not filtered", arrives as
+            // zero. Zero is a real item class, so this used to ask the server
+            // for Consumables whenever nobody had picked a category: a plain
+            // search by name found nothing but food. Row zero of each shared
+            // list is "All", so the lookup turns both cases into the right
+            // answer at once.
+            const int invIdx = static_cast<int>(luaL_optnumber(L, 4, 0));
+            const int clsIdx = static_cast<int>(luaL_optnumber(L, 5, 0));
+            const int subIdx = static_cast<int>(luaL_optnumber(L, 6, 0));
+            const uint32_t inv = (invIdx > 0 && invIdx < game::kNumAuctionSlots)
+                ? game::kAuctionSlots[invIdx].invType : game::kAuctionAny;
+            const uint32_t cls = (clsIdx > 0 && clsIdx < game::kNumAuctionClasses)
+                ? game::kAuctionClasses[clsIdx].classId : game::kAuctionAny;
+            uint32_t sub = game::kAuctionAny;
+            if (cls != game::kAuctionAny && subIdx > 0) {
+                int count = 0;
+                const auto* subs = game::auctionSubsFor(cls, count);
+                if (subs && subIdx < count) sub = subs[subIdx].subId;
+            }
             const uint32_t page = static_cast<uint32_t>(luaL_optnumber(L, 7, 0));
             const uint8_t usable = lua_toboolean(L, 8) ? 1 : 0;
             const uint32_t quality = static_cast<uint32_t>(luaL_optnumber(L, 9, 0));
@@ -4030,8 +4048,40 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // honest: this client has no item-class table to name them
                 // from, and inventing the names would filter on numbers that
                 // mean nothing to the server.
-                {"GetAuctionItemClasses",    [](lua_State* L) -> int { (void)L; return 0; }},
-                {"GetAuctionItemSubClasses", [](lua_State* L) -> int { (void)L; return 0; }},
+                // The browse tab's filter column, which was empty: it is built
+                // from whatever GetAuctionItemClasses returns —
+                // AuctionFrameBrowse_InitClasses copies the varargs straight
+                // into CLASS_FILTERS — so answering nothing left the whole left
+                // pane blank and the auction house searchable by name only.
+                //
+                // The lists are the ones this client's own auction window has
+                // always shown, now shared, because the *position* in them is
+                // the protocol: FrameXML hands the index back to
+                // QueryAuctionItems and it has to mean the same thing on the
+                // way in. Row zero is "All" and is not returned here — which
+                // makes FrameXML's 1-based index land on the right row of the
+                // shared table, and an unselected filter arrive as zero and
+                // read as "any" without a special case.
+                {"GetAuctionItemClasses", [](lua_State* L) -> int {
+            for (int i = 1; i < game::kNumAuctionClasses; ++i)
+                lua_pushstring(L, game::kAuctionClasses[i].label);
+            return game::kNumAuctionClasses - 1;
+        }},
+                {"GetAuctionItemSubClasses", [](lua_State* L) -> int {
+            const int ci = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (ci < 1 || ci >= game::kNumAuctionClasses) return 0;
+            int count = 0;
+            const auto* subs = game::auctionSubsFor(game::kAuctionClasses[ci].classId, count);
+            if (!subs) return 0;
+            for (int i = 1; i < count; ++i) lua_pushstring(L, subs[i].label);
+            return count - 1;
+        }},
+                // Nothing, deliberately. The slot list this client offers is one
+                // flat set rather than a different set per subclass, and hanging
+                // all twenty under every subclass of every category would be a
+                // third tier the real one does not have. Answering none leaves
+                // selectedInvtypeIndex nil, which arrives as zero and reads as
+                // "any" — the slot filter simply stays unused rather than wrong.
                 {"GetAuctionInvTypes",       [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GetNumAuctionItems", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
