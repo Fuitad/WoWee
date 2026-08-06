@@ -175,7 +175,25 @@ const std::set<std::string>& requested() {
                 // covered it all along.
                 "achievements", "auctionhouse", "barbershop", "classtrainer",
                 "guildbank", "inspect", "talents", "tradeskill",
-                "dungeonfinder"};
+                "dungeonfinder",
+                // The last three, and the ones held back longest — not for
+                // readiness, but because this client draws all three well and
+                // has drawn them all along, so "builds but wrong" costs more
+                // here than anywhere else.
+                //
+                //   chat          went out once and came back, over forty-eight
+                //                 unbound slash-command handlers. All bound.
+                //   questlog      held back with the world map on the reading
+                //                 that it drew a second map. It draws no map.
+                //   questtracker  its two remaining names are AchievementFrame
+                //                 internals, reached only after that panel has
+                //                 been shown, which loads the addon that
+                //                 defines them.
+                //
+                // The world map stays with this client deliberately and is not
+                // on this list: it is the one element where the swap was
+                // considered and decided against.
+                "chat", "questlog", "questtracker"};
         }();
 
         if (!raw || !*raw) {
@@ -329,7 +347,7 @@ const std::set<std::string>& requested() {
                     // out of this list and into the defaults. They are added
                     // either way — the defaults go in first — but an element
                     // named in both reads as though it were still waiting.
-                    "chat", "questlog", "questtracker", "worldmap"}) {
+                    "worldmap"}) {
                 out.insert(name);
             }
             LOG_WARNING("FrameXML: drawing the defaults plus every element the "
