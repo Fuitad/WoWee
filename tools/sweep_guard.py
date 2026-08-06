@@ -45,7 +45,7 @@ CHECKS = [
      r"^(\d+) that resolve to nothing", 0,
      "manifest entries and script references pointing at no file"),
     ("framexml_short_returns.py",
-     r"^(\d+) binding\(s\) may return short", 15,
+     r"^(\d+) binding\(s\) may return short", 13,
      "bindings answering fewer values than the interface unpacks"),
     ("misleading_indent_check.py",
      r"^(\d+) statement\(s\) dressed as though", 0,
@@ -90,7 +90,7 @@ CHECKS = [
     # six events and only one of them carries anything, which is the ambiguity
     # this sweep documents rather than resolves.
     ("framexml_event_arity.py",
-     r"^(\d+) fired with fewer arguments than a handler reads", 2,
+     r"^(\d+) fired with fewer arguments than a handler reads", 1,
      "events fired with fewer arguments than a handler reads"),
     # Four, and all four deliberate: ITEM_LOCK_CHANGED and RUNE_POWER_UPDATE
     # both use the absence of the second argument as the signal ("not arg2" is
@@ -117,7 +117,7 @@ CHECKS = [
     # a popup is reachable means asking which event shows it and whether this
     # client fires that event — not whether the verb is bound.
     ("staticpopup_verbs_check.py",
-     r"^(\d+) name\(s\) a popup button calls and nothing answers", 25,
+     r"^(\d+) name\(s\) a popup button calls and nothing answers", 5,
      "names a static popup's buttons call that nothing answers"),
     # The three wire-shape checks. Each is a fault that no test catches: a
     # request the server drops on the floor, a reply read at the wrong offsets,
@@ -149,7 +149,7 @@ CHECKS = [
     # missing texture raises nothing: the frame is built, laid out and drawn,
     # and the part that should have art is simply absent.
     ("framexml_art_check.py",
-     r"^(\d+) not in this install", 19,
+     r"^(\d+) not in this install", 1,
      "art the interface asks for that this install does not have"),
     # CVAR_UPDATE carries the CVar's label, not its name, and the two are
     # different spellings — so a mapping that cannot produce a label the
@@ -164,7 +164,7 @@ CHECKS = [
     # reads a global, finds nothing and carries on with nil. Two remain and
     # both are Blizzard's own deliberate nil, guarded on the far side.
     ("framexml_script_args.py",
-     r"^(\d+) body/signature disagreement", 2,
+     r"^(\d+) body/signature disagreement", 0,
      "handler bodies reading an argument their signature does not carry"),
     # A dozen things are driven by finding a FrameXML frame by name and
     # handing it something — the minimap and world map are told where to be,
@@ -245,7 +245,7 @@ CHECKS = [
     # set, the withdrawn summon dialog, a dead pet's frame and ability bar, and
     # the flight map left open for the whole flight.
     ("handler_announce_check.py",
-     r"^(\d+) that tell the player and not the interface", 20,
+     r"^(\d+) that tell the player and not the interface", 18,
      "handlers that change state and announce nothing"),
     # Top-level FrameXML frames named nowhere in framexml_takeover.cpp —
     # neither handed over nor suppressed.
@@ -354,7 +354,7 @@ CHECKS = [
     # needs CONFIRM_BATTLEFIELD_ENTRY, which nothing here fires. That last is a
     # thinner reason than the other two and stops holding the day it is wired.
     ("dialog_gate_check.py",
-     r"^(\d+) with no ownership check", 3,
+     r"^(\d+) with no ownership check", 2,
      "dialogs drawn without asking whether FrameXML draws them too"),
     ("api_shadowing_check.py",
      r"^\s*(\d+) to look at", 9,

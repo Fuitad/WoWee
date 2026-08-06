@@ -33,6 +33,41 @@ Whether an unread attribute matters. Most of the remainder have no method
 behind them at all, and a few are XML namespace bookkeeping. Read before
 acting.
 
+THE CVARS, AND THE TEST THAT DECIDES ONE
+
+An unanswered CVar reads as "0", so the question per name is not "is it
+answered" but **does zero switch off something that works**. That is the test
+the defaults table in lua_system_api.cpp was built with, and every entry in it
+names the consequence: the character sheet showed two empty stat panels because
+playerStatLeftDropdown answered "0" and matched no category; the chat wheel did
+nothing because chatMouseScroll gates the only EnableMouseWheel call; the
+keyring was unreachable because showKeyring gates the only Show.
+
+Read that way on 2026-08-05, the rest are correctly zero. Most are preferences
+a fresh account has off — lootUnderMouse, alwaysCompareItems, fullSizeFocusFrame,
+displayFreeBagSlots, threatShowNumeric, the two tracker ones, miniWorldMap,
+equipmentManager, the buff filters — and the remainder belong to systems that
+are not here: movie recording, voice, Battle.net, the arena addon.
+
+Three worth naming because they look like faults and are not:
+
+  * worldMapOpacity is inverted. WorldMapFrame_SetOpacity computes
+    `alpha = 0.35 + (1.0 - opacity) * 0.65`, so zero is fully opaque, which is
+    what a stock client shows.
+  * ShowAllSpellRanks off is the stock state and the path behind it works —
+    GetSpellTabInfo returns the highest-rank offset and count as its fifth and
+    sixth values precisely because SpellBook_GetTabInfo keeps those and throws
+    the first pair away.
+  * showTokenFrame and showTokenFrameHonor both false is not "hidden": that is
+    the branch that scans the currency list and decides, which is what a fresh
+    account wants.
+
+The one left undecided is screenEdgeFlash, the full-screen combat flash. Its
+default is plausibly on, LowHealthFrame exists to draw it, and unlike the
+entries above it is reachable from an Interface Options checkbox — so zero
+costs a preference rather than a feature, and turning a full-screen flash on
+from a guess is the wrong way round.
+
 THE SEVENTEEN ATTRIBUTES, READ 2026-08-05
 
 Not boilerplate, and not attributes:
