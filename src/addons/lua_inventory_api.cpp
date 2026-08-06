@@ -3766,9 +3766,36 @@ void registerInventoryLuaAPI(lua_State* L) {
             return 7;
         }},
                 {"GetGuildTabardFileNames",          [](lua_State* L) -> int { (void)L; return 0; }},
+                // No, and not for want of a rank to check — IsGuildLeader can
+                // answer that now. Renaming a tab needs CMSG_GUILD_BANK_UPDATE_TAB,
+                // which this client has no builder for, so SetGuildBankTabInfo
+                // below cannot send whatever the panel collects. Saying yes
+                // would open an edit box over a change that goes nowhere, which
+                // is the reasoning CanAlterSkin uses at the barber.
                 {"CanEditGuildTabInfo",              [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
                 {"SetGuildBankTabInfo",              [](lua_State* L) -> int { (void)L; return 0; }},
-                {"GetGuildBankTabCost",              [](lua_State* L) -> int { lua_pushnumber(L, 0); return 1; }},
+                // What the next tab costs, in copper, or nil once all six are
+                // bought — and nil is the load-bearing part: the panel does
+                // `if ( not tabCost )` to decide the guild has them all, and
+                // zero is true in Lua, so answering zero kept the buy screen up
+                // for a guild with nothing left to buy and priced it at nothing.
+                //
+                // BuyGuildBankTab does send, so this was not a dead number on a
+                // dead screen: it offered a real purchase at a made-up price.
+                // The six are the client's own constants in WoW rather than
+                // anything the server sends, and AzerothCore's defaults are the
+                // same figures — 100g, 250g, 500g, 1000g, 2500g, 5000g — though
+                // Guild.BankTabCost0-5 can be configured away from them.
+                {"GetGuildBankTabCost", [](lua_State* L) -> int {
+            static constexpr uint32_t kTabCost[6] = {
+                1000000u, 2500000u, 5000000u, 10000000u, 25000000u, 50000000u
+            };
+            auto* gh = getGameHandler(L);
+            const size_t owned = gh ? gh->getGuildBankData().tabs.size() : 0;
+            if (owned >= 6) { lua_pushnil(L); return 1; }
+            lua_pushnumber(L, static_cast<lua_Number>(kTabCost[owned]));
+            return 1;
+        }},
                 // ---- Auction house, the acting half ---------------------
                 //
                 // The listing half was already here; these are the calls that
