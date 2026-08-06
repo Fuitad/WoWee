@@ -2159,12 +2159,25 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushstring(L, gh->getItemText().c_str());
             return 1;
         }},
-                // What the wire does not carry. The frame guards all three —
-                // a nil material becomes "Parchment", a nil creator drops the
-                // "from" line, and SetText takes a nil as no text — so absent
-                // is both honest and safe, where a made-up title or author
-                // would be neither.
-                {"ItemTextGetItem",     [](lua_State* L) -> int { return luaReturnNil(L); }},
+                // ItemTextGetItem() — the heading over the page. The page
+                // text response carries the words and the id of the page
+                // after it and nothing about what they belong to, so this is
+                // kept from wherever the book was opened: the game object's
+                // name out of its query cache, or the item's out of the bag.
+                // It used to answer nil and the frame headed every book, sign
+                // and plaque with nothing.
+                {"ItemTextGetItem", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const std::string title = gh ? gh->getBookTitle() : std::string();
+            if (title.empty()) return luaReturnNil(L);
+            lua_pushstring(L, title.c_str());
+            return 1;
+        }},
+                // These two the wire really does not carry: a page has no
+                // author, and nothing here reads the object's page material.
+                // The frame guards both — a nil creator drops the "from" line
+                // and a nil material falls back to Parchment — so absent is
+                // honest and safe where an invented one would be neither.
                 {"ItemTextGetCreator",  [](lua_State* L) -> int { return luaReturnNil(L); }},
                 {"ItemTextGetMaterial", [](lua_State* L) -> int { return luaReturnNil(L); }},
                 // A letter is one page and its buttons stay hidden. A book is

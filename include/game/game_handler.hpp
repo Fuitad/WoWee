@@ -2313,7 +2313,15 @@ public:
     struct BookPage { uint32_t pageId = 0; std::string text; };
     const std::vector<BookPage>& getBookPages() const { return bookPages_; }
     bool hasBookOpen() const { return !bookPages_.empty(); }
-    void clearBook() { bookPages_.clear(); }
+    void clearBook() { bookPages_.clear(); bookTitle_.clear(); }
+
+    /// What is being read, for the heading over the page. Known at every point
+    /// a book is opened — the game object's name from its query cache, or the
+    /// item's from the inventory — and set there, because none of it survives
+    /// into the page text response itself: that carries the words and the id of
+    /// the page after it, and nothing about what the pages belong to.
+    const std::string& getBookTitle() const { return bookTitle_; }
+    void setBookTitle(std::string title) { bookTitle_ = std::move(title); }
 
     // Other player level-up callback — fires when another player gains a level
     using OtherPlayerLevelUpCallback = std::function<void(uint64_t guid, uint32_t newLevel)>;
@@ -4667,6 +4675,7 @@ private:
     LevelUpDeltas lastLevelUpDeltas_;
     std::vector<TempEnchantTimer> tempEnchantTimers_;
     std::vector<BookPage> bookPages_;            // pages collected for the current readable item
+    std::string bookTitle_;                      // name of the object or item those pages belong to
     OtherPlayerLevelUpCallback otherPlayerLevelUpCallback_;
     OtherPlayerMountCallback otherPlayerMountCallback_;
     AchievementEarnedCallback achievementEarnedCallback_;

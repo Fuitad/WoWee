@@ -1817,6 +1817,7 @@ void InventoryHandler::readItemBySlot(int backpackIndex) {
     if (itemGuid == 0) itemGuid = owner_.resolveOnlineItemGuid(slot.item.itemId);
 
     owner_.bookPagesRef().clear();
+    owner_.setBookTitle(info ? info->name : std::string());
     auto readPacket = ReadItemPacket::build(0xFF, static_cast<uint8_t>(Inventory::NUM_EQUIP_SLOTS + backpackIndex));
     owner_.getSocket()->send(readPacket);
     auto pagePacket = PageTextQueryPacket::build(pageTextId, itemGuid != 0 ? itemGuid : owner_.getPlayerGuid());
@@ -1848,6 +1849,7 @@ void InventoryHandler::readItemInBag(int bagIndex, int slotIndex) {
 
     uint8_t wowBag = static_cast<uint8_t>(Inventory::FIRST_BAG_EQUIP_SLOT + bagIndex);
     owner_.bookPagesRef().clear();
+    owner_.setBookTitle(info ? info->name : std::string());
     auto readPacket = ReadItemPacket::build(wowBag, static_cast<uint8_t>(slotIndex));
     owner_.getSocket()->send(readPacket);
     auto pagePacket = PageTextQueryPacket::build(pageTextId, itemGuid != 0 ? itemGuid : owner_.getPlayerGuid());

@@ -2919,6 +2919,7 @@ void EntityController::handleGameObjectPageText(network::Packet& packet) {
 
     if (pageId != 0 && owner_.getSocket() && owner_.getState() == WorldState::IN_WORLD) {
         owner_.bookPagesRef().clear();  // start a fresh book for this interaction
+        owner_.setBookTitle(info.name);
         auto req = PageTextQueryPacket::build(pageId, guid);
         owner_.getSocket()->send(req);
         return;
