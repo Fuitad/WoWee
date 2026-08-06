@@ -124,6 +124,17 @@ struct LuaServices {
     std::function<bool()> getChatBubblesShown;
     std::function<void(bool)> setChatBubblesShown;
 
+    /// Whether looking up drags the view down, for mouseInvertPitch.
+    ///
+    /// There is deliberately no counterpart for mouseSpeed, which sits beside
+    /// it on the same panel: FrameXML never declares that slider's range —
+    /// neither the control nor OptionsSliderTemplate sets minValue or maxValue
+    /// — so the number it writes has no scale to convert from, and the camera's
+    /// own sensitivity runs 0.05 to 1. Mapping one onto the other would be a
+    /// guess about both ends.
+    std::function<bool()> getInvertMouse;
+    std::function<void(bool)> setInvertMouse;
+
     /// The barber shop's selectors, for the interface's own barber panel.
     ///
     /// Selector numbers are FrameXML's BarberShopFrameSelector IDs: 1 hair

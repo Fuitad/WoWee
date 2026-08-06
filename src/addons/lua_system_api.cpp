@@ -447,6 +447,11 @@ static int lua_GetCVar(lua_State* L) {
             lua_pushstring(L, svc->getMinimapRotate() ? "1" : "0");
             return 1;
         }
+    } else if (n == "mouseinvertpitch") {
+        if (auto* svc = getLuaServices(L); svc && svc->getInvertMouse) {
+            lua_pushstring(L, svc->getInvertMouse() ? "1" : "0");
+            return 1;
+        }
     } else if (n == "chatbubbles") {
         if (auto* svc = getLuaServices(L); svc && svc->getChatBubblesShown) {
             lua_pushstring(L, svc->getChatBubblesShown() ? "1" : "0");
@@ -739,6 +744,9 @@ static int lua_SetCVar(lua_State* L) {
             svc->setMinimapRotate(value != "0");
     } else if (key == "autoselfcast") {
         if (auto* gh = getGameHandler(L)) gh->setAutoSelfCast(value != "0");
+    } else if (key == "mouseinvertpitch") {
+        if (auto* svc = getLuaServices(L); svc && svc->setInvertMouse)
+            svc->setInvertMouse(value != "0");
     } else if (key == "chatbubbles") {
         if (auto* svc = getLuaServices(L); svc && svc->setChatBubblesShown)
             svc->setChatBubblesShown(value != "0");
