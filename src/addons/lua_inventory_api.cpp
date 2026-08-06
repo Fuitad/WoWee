@@ -1704,12 +1704,29 @@ static int lua_UseContainerItem(lua_State* L) {
     // in and this client's own window has never offered a right-click for it,
     // so a branch would be inventing behaviour rather than restoring it; a
     // trade is made by dragging, which the cursor bridge carries.
-    const int wireSlot = (bag == 0)
-                             ? game::slots::backpackWireSlot(slot - 1)
-                             : (slot - 1);
+    // The keyring lives in the player's own container, past the bags, the way
+    // the backpack does — so it is 0xFF with a keyring wire slot, not a worn
+    // bag. Without this the arithmetic below ran on bag - 1 with bag at -2 and
+    // asked wornBagContainer for container -3.
+    const int wireSlot = (bag == kKeyringContainer)
+                             ? game::slots::keyringWireSlot(slot - 1)
+                             : (bag == 0)
+                                   ? game::slots::backpackWireSlot(slot - 1)
+                                   : (slot - 1);
     const uint8_t wireBag =
-        (bag == 0) ? 0xFF
-                   : static_cast<uint8_t>(game::slots::wornBagContainer(bag - 1));
+        (bag == 0 || bag == kKeyringContainer)
+            ? 0xFF
+            : static_cast<uint8_t>(game::slots::wornBagContainer(bag - 1));
+
+    // A key, before any of the window branches below. Those read the container
+    // as a worn bag — attachItemFromBag(bag - 1, ...) and sellItemInBag do —
+    // and a key cannot be mailed, sold or banked in any case: the keyring is
+    // the only place one can live, so using it is the only thing a right-click
+    // can mean.
+    if (bag == kKeyringContainer) {
+        gh->useItemBySlot(wireSlot);
+        return 0;
+    }
 
     if (gh->isMailComposeOpen()) {
         if (bag == 0) gh->attachItemFromBackpack(slot - 1);
