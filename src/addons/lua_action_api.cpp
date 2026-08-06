@@ -514,21 +514,17 @@ static int lua_PlaceAction(lua_State* L) {
 static int lua_PickupSpell(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) return 0;
-    int slot = static_cast<int>(luaL_checknumber(L, 1));
-    const auto& tabs = gh->getSpellBookTabs();
-    int idx = slot;
-    for (const auto& tab : tabs) {
-        if (idx <= static_cast<int>(tab.spellIds.size())) {
-            setCursorType(L, CursorType::SPELL);
-            s_cursorId = tab.spellIds[idx - 1];
-            // On the pointer as well as in the state, the way every other
-            // pickup here does it. Dragging a spell out of the book carried
-            // nothing visible, so the drag read as not having started.
-            wowee::ui::frameXmlSetCursorItem(gh->getSpellIconPath(s_cursorId));
-            return 0;
-        }
-        idx -= static_cast<int>(tab.spellIds.size());
-    }
+    // Through the shared resolver, so the book is read as well as the slot:
+    // dragging a pet spell out of the book picked up whichever of the player's
+    // spells sat at that index.
+    const uint32_t picked = spellIdForCall(L, gh);
+    if (picked == 0) return 0;
+    setCursorType(L, CursorType::SPELL);
+    s_cursorId = picked;
+    // On the pointer as well as in the state, the way every other pickup here
+    // does it. Dragging a spell out of the book carried nothing visible, so
+    // the drag read as not having started.
+    wowee::ui::frameXmlSetCursorItem(gh->getSpellIconPath(s_cursorId));
     return 0;
 }
 

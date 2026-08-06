@@ -441,60 +441,6 @@ static int lua_GetSpellBookItemName(lua_State* L) {
 // slot and book. The newer half was implemented and the older was not, so the
 // panel could name a spell and not cast it.
 
-/// The spell in a book slot, or zero. One place, because four functions below
-/// all begin by asking the same question of the same two arguments.
-static uint32_t spellIdForBookSlot(game::GameHandler* gh, int slot) {
-    if (!gh || slot < 1) return 0;
-    int idx = slot;
-    for (const auto& tab : gh->getSpellBookTabs()) {
-        if (idx <= static_cast<int>(tab.spellIds.size())) return tab.spellIds[idx - 1];
-        idx -= static_cast<int>(tab.spellIds.size());
-    }
-    return 0;
-}
-
-/// The spell a call means, in either of the two forms the client accepts.
-///
-/// GetSpellTexture, GetSpellCooldown and GetSpellLink are each overloaded:
-/// **one** argument is a spell id or a spell name, **two** are a book *slot*
-/// and the book holding it. Only the second form is ever used by the
-/// spellbook — SpellBook_GetSpellID hands its buttons a slot, never an id.
-///
-/// Read as an id regardless, a slot of 1, 2, 3 resolved to whatever spells
-/// happen to carry those ids, which is why the spellbook drew a page of
-/// unrelated icons. The names beside them were right the whole time, because
-/// GetSpellName already took the slot form.
-static uint32_t spellIdForCall(lua_State* L, game::GameHandler* gh) {
-    if (!gh) return 0;
-    // A book beside a number is a slot. A book beside a *name* is not a form
-    // the client has, but falling through to the name lookup is free and
-    // beats raising out of a caller that only wanted an icon.
-    if (!lua_isnoneornil(L, 2) && lua_isnumber(L, 1)) {
-        const int slot = static_cast<int>(lua_tonumber(L, 1));
-        // The pet book is a list of its own, not a tab in the player's.
-        // Resolving a pet slot through the player's tabs answers with one of
-        // the player's own spells — a wrong answer that looks like a right
-        // one, which is worse than none.
-        const char* book = lua_tostring(L, 2);
-        if (book && std::string(book) == "pet") {
-            const auto& pet = gh->getPetSpells();
-            if (slot < 1 || slot > static_cast<int>(pet.size())) return 0;
-            return pet[static_cast<size_t>(slot - 1)];
-        }
-        return spellIdForBookSlot(gh, slot);
-    }
-    if (lua_isnumber(L, 1)) return static_cast<uint32_t>(lua_tonumber(L, 1));
-    const char* name = lua_tostring(L, 1);
-    if (!name || !*name) return 0;
-    std::string nameLow(name);
-    toLowerInPlace(nameLow);
-    for (uint32_t sid : gh->getKnownSpells()) {
-        std::string sn = gh->getSpellName(sid);
-        toLowerInPlace(sn);
-        if (sn == nameLow) return sid;
-    }
-    return 0;
-}
 
 /// GetSpellName(slot, bookType) → name, rank.
 static int lua_GetSpellName(lua_State* L) {
@@ -537,7 +483,11 @@ static int lua_CastSpell(lua_State* L) {
 static int lua_IsPassiveSpell(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { lua_pushboolean(L, 0); return 1; }
-    const uint32_t id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+    // Both forms: IsPassiveSpell(spellId) and IsPassiveSpell(slot, bookType),
+    // which is the one the spellbook uses — and reading a slot as an id
+    // answered for whichever spell happens to carry the number 1, 2 or 3.
+    // The result decides whether a spell is drawn as castable at all.
+    const uint32_t id = spellIdForCall(L, gh);
     lua_pushboolean(L, gh->isSpellPassive(id) ? 1 : 0);
     return 1;
 }
