@@ -1336,6 +1336,16 @@ static const game::ItemQueryResponseData* craftedItem(game::GameHandler* gh,
 static int& tradeSkillSubClassPick() { static int pick = 0; return pick; }
 static int& tradeSkillInvSlotPick()  { static int pick = 0; return pick; }
 
+/// The item level range typed into the search box. The box does double duty:
+/// a number, a range "20-30" or an approximate "~25" filters by the level of
+/// what a recipe makes, and anything else filters by name — the panel decides
+/// which and calls one of the two, clearing the other. Both zero means no
+/// range, which is how it clears this one.
+static std::pair<int, int>& tradeSkillLevelRange() {
+    static std::pair<int, int> range{0, 0};
+    return range;
+}
+
 /// The two dropdown lists, built from every known recipe rather than from the
 /// filtered ones — a list that shrank as it was filtered would renumber itself
 /// under the selection, and the selection is an index into it.
@@ -1383,12 +1393,22 @@ static std::vector<game::GameHandler::CraftRecipe> visibleCraftingRecipes(
                                                       : std::vector<std::string>{};
     const auto slots = (tradeSkillInvSlotPick() > 0)  ? tradeSkillInvSlots(gh)
                                                       : std::vector<std::string>{};
+    const auto level = tradeSkillLevelRange();
     for (const auto& r : gh->getCraftingRecipes()) {
         if (tradeSkillOnlyMakeable() && r.canMake <= 0) continue;
         if (!needle.empty()) {
             std::string name = r.name;
             toLowerInPlace(name);
             if (name.find(needle) == std::string::npos) continue;
+        }
+        if (level.second > 0) {
+            const auto* made = craftedItem(gh, r.spellId);
+            // Shown while unknown, for the same reason as the two filters
+            // below: the details arrive on demand.
+            if (made && (static_cast<int>(made->itemLevel) < level.first ||
+                         static_cast<int>(made->itemLevel) > level.second)) {
+                continue;
+            }
         }
         // A recipe whose item has not arrived yet is shown rather than hidden.
         // The details are asked for on demand, so filtering on what is not back
@@ -2924,7 +2944,20 @@ void registerQuestLuaAPI(lua_State* L) {
             tradeSkillNameFilter() = luaL_optstring(L, 1, "");
             return 0;
         }},
-                {"SetTradeSkillItemLevelFilter",[](lua_State* L) -> int { (void)L; return 0; }},
+                // A number in the search box filters by the level of what the
+                // recipe makes rather than by its name — "25", "20-30" and
+                // "~25" all reach here, and the panel clears the name filter
+                // when they do. Both zero clears this one, which is what it
+                // sends when the text is not a number.
+                //
+                // The arguments arrive as the strings strmatch produced;
+                // luaL_optnumber reads those.
+                {"SetTradeSkillItemLevelFilter", [](lua_State* L) -> int {
+            const int lo = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const int hi = static_cast<int>(luaL_optnumber(L, 2, 0));
+            tradeSkillLevelRange() = {lo, hi};
+            return 0;
+        }},
                 // The "Have Materials" checkbox, which had nothing behind it.
                 // canMake is the count this client already works out for the
                 // reagent lines, so the filter is the same number read twice.
