@@ -2859,7 +2859,7 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushnumber(L, static_cast<lua_Number>(earned));
             return 2;
         }},
-                // GetCategoryList() → every achievement category id, as a table.
+                // GetCategoryList() → the achievement category ids, as a table.
                 {"GetCategoryList", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             lua_newtable(L);
@@ -2867,6 +2867,28 @@ void registerQuestLuaAPI(lua_State* L) {
             gh->ensureAchievementCategoriesLoaded();
             int n = 0;
             for (uint32_t id : gh->getAchievementCategoryOrder()) {
+                lua_pushnumber(L, ++n);
+                lua_pushnumber(L, id);
+                lua_settable(L, -3);
+            }
+            return 1;
+        }},
+                // GetStatisticsCategoryList() → the same for the other tab.
+                //
+                // The Statistics tab reads this out of a table built when the
+                // panel loads — STAT_FUNCTIONS.categoryAccessor — and then calls
+                // it: `local cats = achievementFunctions.categoryAccessor()`.
+                // Absent, that is a call on a nil field, so opening Statistics
+                // raised rather than showing an empty tab. The list it wants is
+                // the half GetCategoryList used to return along with everything
+                // else, which put rows nothing can complete under Achievements.
+                {"GetStatisticsCategoryList", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_newtable(L);
+            if (!gh) return 1;
+            gh->ensureAchievementCategoriesLoaded();
+            int n = 0;
+            for (uint32_t id : gh->getStatisticCategoryOrder()) {
                 lua_pushnumber(L, ++n);
                 lua_pushnumber(L, id);
                 lua_settable(L, -3);
@@ -3030,7 +3052,29 @@ void registerQuestLuaAPI(lua_State* L) {
                 // Statistics count criteria progress, and only whether an
                 // achievement was earned is tracked here, so this reports the
                 // dash WoW itself shows for a statistic with no value.
-                {"GetStatistic", [](lua_State* L) -> int { lua_pushstring(L, "--"); return 1; }},
+                // GetStatistic(achievementId) → the counter, as a string.
+                //
+                // A statistic is an achievement with one criterion and no
+                // quantity to reach, so its value is simply that criterion's
+                // counter — the same counter GetAchievementCriteriaInfo reads
+                // for a half-finished achievement, which was already tracked
+                // while this answered "--" for every row. "--" is still the
+                // answer when nothing has been counted, because that is what
+                // the real client shows for a statistic never triggered.
+                {"GetStatistic", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const auto id = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
+            if (!gh || id == 0) { lua_pushstring(L, "--"); return 1; }
+            gh->ensureAchievementCriteriaLoaded();
+            const auto& list = gh->getAchievementCriteria(id);
+            if (list.empty()) { lua_pushstring(L, "--"); return 1; }
+            const auto& progress = gh->getCriteriaProgress();
+            const auto pit = progress.find(list[0].id);
+            if (pit == progress.end()) { lua_pushstring(L, "--"); return 1; }
+            lua_pushstring(L, std::to_string(
+                static_cast<uint64_t>(pit->second)).c_str());
+            return 1;
+        }},
                 // Comparing achievements against an inspected player needs the
                 // server to send theirs, which is never asked for here.
                 {"SetAchievementComparisonUnit",   [](lua_State* L) -> int { (void)L; return 0; }},

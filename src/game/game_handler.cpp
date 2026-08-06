@@ -2354,12 +2354,22 @@ void GameHandler::ensureAchievementCategoriesLoaded() {
     if (!dbc || !dbc->isLoaded()) return;
     const uint32_t fieldCount = dbc->getFieldCount();
     if (fieldCount <= 38) return;
+    // Field 41 is Flags, and bit 0x1 marks a statistic rather than an
+    // achievement — verified against all 1817 rows of the 3.3.5a file by the
+    // other thing that says the same: whether the row's category descends from
+    // the top-level Statistics category. The two agree on every record, and no
+    // category holds a mixture, so either signal alone would do; the flag is
+    // used because it does not depend on a category being named in English.
+    std::unordered_set<uint32_t> statisticCategories;
+    const bool haveFlags = fieldCount > 41;
     for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
         const uint32_t id = dbc->getUInt32(i, 0);
         if (id == 0 || achievementNameCache_.find(id) == achievementNameCache_.end()) continue;
         const uint32_t category = dbc->getUInt32(i, 38);
         achievementCategoryCache_[id] = category;
         categoryAchievements_[category].push_back(id);
+        if (haveFlags && (dbc->getUInt32(i, 41) & 0x1u) != 0)
+            statisticCategories.insert(category);
     }
 
     // Achievement_Category.dbc: id, parent, then the localised names. A parent
@@ -2382,6 +2392,21 @@ void GameHandler::ensureAchievementCategoriesLoaded() {
             achievementCategoryInfo_[id] = std::move(info);
             achievementCategoryOrder_.push_back(id);
         }
+
+        // A category holding statistics is one, and so is every category above
+        // it: the Statistics root holds no rows of its own, so marking only the
+        // leaves would leave the tab with children and no trees to hang them
+        // on. Walking up from each marked leaf reaches exactly 34 of the 86
+        // categories, all of them descending from the one top-level Statistics
+        // category and none of them shared with an achievement category.
+        for (uint32_t leaf : statisticCategories) {
+            for (int32_t c = static_cast<int32_t>(leaf); c >= 0; ) {
+                auto it = achievementCategoryInfo_.find(static_cast<uint32_t>(c));
+                if (it == achievementCategoryInfo_.end() || it->second.isStatistic) break;
+                it->second.isStatistic = true;
+                c = it->second.parentId;
+            }
+        }
         // Id breaks ties, so the order is total and the same on every load —
         // siblings share a ui_order across different parents.
         std::sort(achievementCategoryOrder_.begin(), achievementCategoryOrder_.end(),
@@ -2391,8 +2416,15 @@ void GameHandler::ensureAchievementCategoriesLoaded() {
                       if (oa != ob) return oa < ob;
                       return a < b;
                   });
+        // Split into the two lists the two tabs ask for, keeping that order.
+        auto split = std::stable_partition(
+            achievementCategoryOrder_.begin(), achievementCategoryOrder_.end(),
+            [this](uint32_t c) { return !achievementCategoryInfo_[c].isStatistic; });
+        statisticCategoryOrder_.assign(split, achievementCategoryOrder_.end());
+        achievementCategoryOrder_.erase(split, achievementCategoryOrder_.end());
     }
     LOG_INFO("Achievement: ", achievementCategoryOrder_.size(), " categories, ",
+             statisticCategoryOrder_.size(), " statistic categories, ",
              achievementCategoryCache_.size(), " achievements placed");
 }
 

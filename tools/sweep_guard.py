@@ -186,16 +186,26 @@ CHECKS = [
     # pet's and putting an Alliance badge over a Horde target;
     # SetInventoryItem did the same on the inspect paperdoll.
     #
-    # Ten, each read once. Five are the player's sheet alone, the pet tab
+    # Eight, each read once. Five are the player's sheet alone, the pet tab
     # having no ranged or defence line — UnitDefense, UnitRangedAttack,
-    # UnitRangedAttackPower, UnitRangedDamage, UnitAttackBothHands. Two are
-    # asked only with "player": UnitControllingVehicle and UnitIsSameServer.
-    # GetUnitHealthModifier answers one for every unit, which is the true
-    # answer in 3.3.5. The last two are the check's own blind spots, named in
-    # its docstring: IsUnitOnQuest takes the unit second, and
-    # UnitPlayerOrPetInRaid delegates to a binding that does resolve.
+    # UnitRangedAttackPower, UnitRangedDamage, UnitAttackBothHands. One is
+    # asked only with "player": UnitControllingVehicle. The last two are the
+    # check's own blind spots, named in its docstring: IsUnitOnQuest takes the
+    # unit second, and UnitPlayerOrPetInRaid delegates to a binding that does
+    # resolve.
+    #
+    # Was ten, and the two that left were never really here. The inline-lambda
+    # body was found by looking for a closing "}}" at a fixed indent, which only
+    # a multi-line lambda has, so a one-line one was invisible and a multi-line
+    # one's body ran on to the next "}}" it could find — swallowing whatever lay
+    # between and inheriting its gh->getX() calls. GetUnitHealthModifier,
+    # UnitIsSameServer and SetAchievementComparisonUnit were reported for code
+    # that was not theirs, and which bindings appeared depended on how the ones
+    # above them happened to be formatted: reformatting GetStatistic changed the
+    # count. Braces are matched now, and the one-line form was seen to be caught
+    # before this number was trusted.
     ("unit_argument_check.py",
-     r"^(\d+) unit binding\(s\) that never look at their unit", 10,
+     r"^(\d+) unit binding\(s\) that never look at their unit", 8,
      "unit bindings answering from the player whatever they were asked"),
     # Requests the server reads off the wire and throws away — an opcode
     # registered Handle_NULL. Two, and both are accounted for:

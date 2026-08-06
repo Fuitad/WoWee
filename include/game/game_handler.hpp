@@ -2375,6 +2375,7 @@ public:
         std::string name;
         int32_t     parentId = -1;  // -1 is a top-level category, as WoW reports it
         uint32_t    uiOrder  = 0;   // where it sits among its siblings
+        bool        isStatistic = false;  // lives in the Statistics tree
     };
     struct AchievementCriterion {
         uint32_t    id = 0;
@@ -2454,7 +2455,13 @@ public:
     // all of this before it can draw a single row.
     void ensureAchievementCategoriesLoaded();
     void ensureAchievementCriteriaLoaded();
+    /// Category ids in the order the panel shows them. The two tabs are
+    /// disjoint sets, not one list filtered at the call site: GetCategoryList
+    /// and GetStatisticsCategoryList are separate accessors in WoW because a
+    /// statistic is not a thing that can be earned, and showing the Statistics
+    /// tree under Achievements offers rows nothing can complete.
     const std::vector<uint32_t>& getAchievementCategoryOrder() const { return achievementCategoryOrder_; }
+    const std::vector<uint32_t>& getStatisticCategoryOrder() const { return statisticCategoryOrder_; }
     const AchievementCategoryInfo* getAchievementCategoryInfo(uint32_t categoryId) const {
         auto it = achievementCategoryInfo_.find(categoryId);
         return it != achievementCategoryInfo_.end() ? &it->second : nullptr;
@@ -4385,6 +4392,7 @@ private:
     std::unordered_map<uint32_t, std::vector<uint32_t>> categoryAchievements_;
     std::unordered_map<uint32_t, AchievementCategoryInfo> achievementCategoryInfo_;
     std::vector<uint32_t> achievementCategoryOrder_;
+    std::vector<uint32_t> statisticCategoryOrder_;
     bool achievementCategoriesLoaded_ = false;
     std::unordered_map<uint32_t, std::vector<AchievementCriterion>> achievementCriteria_;
     std::unordered_map<uint32_t, AchievementCriterionIndex> achievementCriterionById_;

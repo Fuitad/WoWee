@@ -89,13 +89,28 @@ PLAYER_ONLY = re.compile(r"\bgh->get\w+\(\s*\)|playerGuid")
 
 
 def bindings(text):
-    """(name, body) for both the named and the inline binding shapes."""
+    """(name, body) for both the named and the inline binding shapes.
+
+    The inline body is found by matching braces rather than by looking for the
+    closing "}}" at a fixed indent. That indent only exists on a lambda written
+    across several lines, so every one-line lambda was invisible here — 162 of
+    them, four with a unit in the name — and worse, a multi-line lambda's body
+    ran on to the next "}}" it could find and swallowed whatever was between.
+    Which bindings got reported therefore depended on how the ones above them
+    happened to be formatted: reformatting one of them changed the count.
+    """
     for m in re.finditer(r"static int (lua_\w+)\(lua_State\* L\) \{(.*?)\n\}",
                          text, re.S):
         yield m.group(1), m.group(2)
-    for m in re.finditer(r'\{"(\w+)",\s*\[\]\(lua_State\* L\) -> int \{(.*?)\n        \}\}',
-                         text, re.S):
-        yield m.group(1), m.group(2)
+    for m in re.finditer(r'\{"(\w+)",\s*\[\]\(lua_State\* L\) -> int \{', text):
+        depth, i = 1, m.end()
+        while i < len(text) and depth:
+            if text[i] == "{":
+                depth += 1
+            elif text[i] == "}":
+                depth -= 1
+            i += 1
+        yield m.group(1), text[m.end():i - 1]
 
 
 def main():
