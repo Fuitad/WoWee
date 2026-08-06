@@ -1,10 +1,42 @@
 #!/usr/bin/env python3
-"""Bindings that answer a boolean where FrameXML compares a number.
+"""Bindings answering something a numeric comparison can never match.
 
-`x == 0` against `true`/`false` is silently false, never an error, so the
-branch simply never runs. IsActionInRange is the shape: actionbutton.lua tests
-`valid == 0` and `valid == 1` for the out-of-range indicator, and a boolean
-return would have failed both and hidden the indicator forever.
+Two shapes, one failure:
+
+  * **a boolean**, where `x == 0` against `true`/`false` is silently false and
+    the branch simply never runs. IsActionInRange is the case that named this:
+    actionbutton.lua tests `valid == 0` and `valid == 1` for the out-of-range
+    indicator, and a boolean would have failed both and hidden it forever.
+
+  * **nil**, which is worse, because it fails the comparison in the *other*
+    direction. `nil ~= 0` is **true** in Lua, so a binding answering nil where
+    the reader asks `if ( x ~= 0 )` takes the branch meant for "there is one"
+    every single time — carrying the nil into whatever is behind it.
+
+    GetQuestWorldMapAreaID was that. WorldMap_OpenToQuest asks
+    `if ( mapID ~= 0 )` and then `if ( floorNumber ~= 0 )`, and lua_ReturnNil
+    ran both, on the path the quest tracker takes whenever a tracked quest is
+    clicked. SetMapByID drops a zero id and SetDungeonMapLevel is a no-op, so
+    nothing came of it — it was inert by luck, not by design, and the answer
+    for "none" is now the pair of zeroes the reader is testing for.
+
+The nil arm only sees bindings registered straight to a shared nil returner.
+A hand-written body that pushes nil on some path is invisible here, and that
+is the shape to widen to if this ever reports zero for long.
+
+THE TWO IT REPORTS TODAY
+
+  * GetMapDebugObjectInfo — unreachable. The loop that calls it runs to
+    GetNumMapDebugObjects(), which answers zero, so `for i = 1, 0` never
+    executes. It is reported because this sweep reads comparisons, not
+    reachability.
+  * GetWintergraspWaitTime — guarded the careful way, `if ( nextBattleTime and
+    nextBattleTime > 60 )`, so nil takes the final else and the timer reads
+    "in progress" forever. Wrong on screen and safe underneath, and there is
+    no better answer: a number would be a more confident lie.
+
+Verified failable by restoring GetQuestWorldMapAreaID's lua_ReturnNil, which
+takes the report from two rows to three.
 """
 import re
 import subprocess
@@ -23,11 +55,20 @@ for path in sorted(loaded_files(XML)):
     for m in re.finditer(r"\b([A-Z][A-Za-z0-9_]*)\s*\([^()\n]*\)\s*(==|~=|>=?|<=?)\s*(-?\d+)", text):
         numeric.setdefault(m.group(1), set()).add(f"{path.name}: {m.group(0)[:60]}")
     # local v = Name(...)  ... later  v == 0
-    for m in re.finditer(r"local\s+([a-zA-Z_]\w*)\s*=\s*([A-Z][A-Za-z0-9_]*)\s*\(", text):
-        var, fn = m.group(1), m.group(2)
+    #
+    # Every name on the left, not only the first. `local mapID, floorNumber =
+    # GetQuestWorldMapAreaID(questID)` is the case: both are compared against
+    # zero two lines down, and reading one name saw neither, because what
+    # follows `local mapID` is a comma rather than an equals sign. This is the
+    # same blind spot framexml_unbound_globals had, where it cost 555 names.
+    for m in re.finditer(r"local\s+([a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*)\s*=\s*"
+                         r"([A-Z][A-Za-z0-9_]*)\s*\(", text):
+        fn = m.group(2)
         tail = text[m.end(): m.end() + 900]
-        if re.search(rf"\b{re.escape(var)}\s*(==|~=|>=?|<=?)\s*-?\d", tail):
-            numeric.setdefault(fn, set()).add(f"{path.name}: local {var} = {fn}(...) then compared")
+        for var in (v.strip() for v in m.group(1).split(",")):
+            if re.search(rf"\b{re.escape(var)}\s*(==|~=|>=?|<=?)\s*-?\d", tail):
+                numeric.setdefault(fn, set()).add(
+                    f"{path.name}: local {var} = {fn}(...) then compared")
 
 # Which of those names are C bindings, and do they push a boolean?
 src = subprocess.run(["grep", "-rn", "-A", "40", "static int lua_",
@@ -46,6 +87,13 @@ for name in sorted(numeric):
     if name not in bound:
         continue
     impl = bound[name]
+    # Before the body lookup, not after: a binding registered straight to a
+    # shared returner has no body of its own to find, so asking for one and
+    # skipping when it is missing discarded exactly the rows this arm is for.
+    # Verified by restoring the fault and watching this report it.
+    if impl in ("ReturnNil", "luaReturnNil"):
+        hits.append((name, impl + " (answers nil)", sorted(numeric[name])[:2]))
+        continue
     body = subprocess.run(["grep", "-rn", "-A", "45", f"int {impl}(lua_State",
                            str(ROOT / "src/addons")], capture_output=True, text=True).stdout
     if not body:
@@ -68,7 +116,7 @@ else:
           f"The sweep is not reading FrameXML; the count below is meaningless.")
 print()
 
-print(f"{len(hits)} binding(s) push a boolean and are compared numerically:\n")
+print(f"{len(hits)} binding(s) answer a boolean or nil and are compared numerically:\n")
 for name, impl, where in hits:
     print(f"  {name}  ->  {impl}")
     for w in where:

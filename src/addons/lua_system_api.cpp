@@ -4430,7 +4430,19 @@ void registerSystemLuaAPI(lua_State* L) {
                 // drops from. Both are read while building the map's quest
                 // list; nil is "not on this map", which is what the list does
                 // with a quest it cannot place.
-                {"GetQuestWorldMapAreaID", lua_ReturnNil},
+                // Which map a quest wants opened, and on which dungeon floor.
+                // Nothing here tracks either, and the answer for "none" is a
+                // pair of zeroes rather than nil because that is what the
+                // caller tests: WorldMap_OpenToQuest asks `if ( mapID ~= 0 )`
+                // and then `if ( floorNumber ~= 0 )`, and nil ~= 0 is true in
+                // Lua — so answering nil ran both branches, on the path the
+                // quest tracker takes every time a tracked quest is clicked.
+                // SetMapByID drops a zero id and SetDungeonMapLevel does
+                // nothing at all, so it was inert; it was inert by luck.
+                {"GetQuestWorldMapAreaID", [](lua_State* L) -> int {
+            lua_pushnumber(L, 0);   // mapID
+            lua_pushnumber(L, 0);   // floorNumber
+            return 2; }},
                 {"GetQuestLogItemDrop",    lua_ReturnNil},
                 // How many of those there are. Unbound, so the world map's
                 // quest tooltip called a nil global and raised — the guard

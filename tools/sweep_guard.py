@@ -258,6 +258,15 @@ CHECKS = [
     # waiting on an event nothing fires. The thirty-eighth is the one to look
     # at. The tool's own blind spot is frames built by CreateFrame, which its
     # docstring measures and lists.
+    # Bindings answering a boolean or nil where FrameXML compares a number.
+    # Never in this list until 2026-08-05, which is the whole reason its nil
+    # arm could be added and be hollow at the same time: nothing ran it.
+    # Two standing rows, both read and both written into its docstring —
+    # an unreachable debug reader and a Wintergrasp timer whose nil is
+    # `and`-guarded.
+    ("framexml_bool_vs_number.py",
+     r"^(\d+) binding\(s\) answer a boolean or nil", 2,
+     "bindings answering a boolean or nil where a number is compared"),
     ("framexml_unaccounted_frames.py",
      r"^\d+ top-level frames, (\d+) unaccounted", 37,
      "FrameXML frames neither handed over nor suppressed"),
