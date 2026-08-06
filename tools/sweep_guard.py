@@ -500,6 +500,18 @@ CHECKS = [
     ("framexml_falsey_expected.py",
      r"^(\d+) answer something true where nothing was meant", 0,
      "bindings answering true where the interface tests for nothing"),
+    # A binding spread into a vararg call, answering nothing. Nothing is
+    # unpacked at these sites, so no short-return check reads them: the count
+    # *is* the payload, and zero means the call runs its loop zero times and
+    # the subsystem behind it does nothing. GetChatWindowMessages answered
+    # nothing and that was the whole of chat — ChatFrame_OnLoad registers a
+    # chat frame for no CHAT_MSG_ event at all, every one comes from the line
+    # this feeds, so the window showed nothing from login to logout while every
+    # message parsed correctly. Zero, and the stub was put back and seen to
+    # trip it. 2s.
+    ("framexml_vararg_spread.py",
+     r"^(\d+) answer nothing at all", 0,
+     "bindings spread into a vararg call that answer nothing"),
     # GameTooltip setters that answer with a no-op, so the tooltip is blank.
     # A tooltip setter is the whole content of a tooltip: no error, no partial
     # result, just an empty box on one panel while every other hover works.
