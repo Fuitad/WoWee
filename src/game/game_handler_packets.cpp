@@ -1230,13 +1230,18 @@ void GameHandler::registerOpcodeHandlers() {
     dispatchTable_[Opcode::SMSG_ALL_ACHIEVEMENT_DATA] = [this](network::Packet& packet) {
         handleAllAchievementData(packet);
     };
+    // Both are errors rather than remarks, and the real client shows them on
+    // the error line rather than in the chat log — ERR_FISH_NOT_HOOKED and
+    // ERR_FISH_ESCAPED are globalstrings. raiseUiError puts them there, fires
+    // UI_ERROR_MESSAGE so the interface's own error frame draws them, and
+    // keeps the chat line this client has always written.
     dispatchTable_[Opcode::SMSG_FISH_NOT_HOOKED] = [this](network::Packet& /*packet*/) {
         hookedFishingBobberGuid_ = 0;
-        addSystemChatMessage("Your fish got away.");
+        raiseUiError("Your fish got away.");
     };
     dispatchTable_[Opcode::SMSG_FISH_ESCAPED] = [this](network::Packet& /*packet*/) {
         hookedFishingBobberGuid_ = 0;
-        addSystemChatMessage("Your fish escaped!");
+        raiseUiError("Your fish escaped!");
     };
 
     // ---- Auto-repeat / auras / dispel / totem ----

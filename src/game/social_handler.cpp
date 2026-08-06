@@ -2451,8 +2451,15 @@ void SocialHandler::handleGuildCommandResult(network::Packet& packet) {
     GuildCommandResultData data;
     if (!GuildCommandResultParser::parse(packet, data)) return;
     if (data.errorCode == 0) {
+        // Whether the player's own membership changed, which is a different
+        // question from whether the command worked: inviting someone succeeds
+        // without altering anything the panels read.
+        bool membershipChanged = false;
         switch (data.command) {
-            case 0: owner_.addSystemChatMessage("Guild created."); break;
+            case 0:
+                owner_.addSystemChatMessage("Guild created.");
+                membershipChanged = true;
+                break;
             case 1:
                 if (!data.name.empty()) owner_.addSystemChatMessage("You have invited " + data.name + " to the guild.");
                 break;
@@ -2460,8 +2467,22 @@ void SocialHandler::handleGuildCommandResult(network::Packet& packet) {
                 owner_.addSystemChatMessage("You have left the guild.");
                 guildName_.clear(); guildRankNames_.clear();
                 guildRoster_ = GuildRosterData{}; hasGuildRoster_ = false;
+                membershipChanged = true;
                 break;
             default: break;
+        }
+        // Leaving a guild emptied the name, the ranks and the whole roster and
+        // told nobody, so the interface's guild tab kept showing the guild the
+        // player had just left — every row of it, until something else
+        // happened to fire a roster update. PLAYER_GUILD_UPDATE is what
+        // friendsframe and the paperdoll re-check IsInGuild on.
+        //
+        // The roster event carries false, which is the established contract
+        // here: every reader answers a true with `if arg1 then GuildRoster()
+        // end`, and the reply to that would fire this again without end.
+        if (membershipChanged && owner_.addonEventCallbackRef()) {
+            owner_.addonEventCallbackRef()("PLAYER_GUILD_UPDATE", {});
+            owner_.addonEventCallbackRef()("GUILD_ROSTER_UPDATE", {eventBool(false)});
         }
         return;
     }

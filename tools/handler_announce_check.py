@@ -117,6 +117,50 @@ TELLS_INTERFACE = ("fireAddonEvent", "addonEventCallbackRef()",
                    "addonEventCallback_", "pendingEvents_.emit")
 ANNOUNCES = re.compile(r"\bannounce[A-Z]\w*\(")
 
+#: Rows checked one at a time and found to be right as they stand, with what
+#: settled each.
+#:
+#: Pinned as a *set* rather than as a count, which is what this list is for. A
+#: ceiling of thirteen says only how many there are: fix one, introduce
+#: another, and the number never moves. handleGuildCommandResult was exactly
+#: that — it emptied the guild name, the ranks and the whole roster on leaving
+#: a guild and told nobody, and sat inside an accepted count for as long as the
+#: count was all that was pinned.
+#:
+#: The common thread in what remains: the state written is this client's own
+#: bookkeeping, which no binding reads, or it is read on demand rather than
+#: drawn from an event.
+EXPECTED = {
+    # Auto-attack bookkeeping — the out-of-range flag and the warning cooldown.
+    # No binding reads either. The message itself reaches the interface as
+    # UI_ERROR_MESSAGE through raiseUiError, which is where the real client
+    # puts these.
+    "SMSG_ATTACKSWING_CANT_ATTACK": "auto-attack state, error already raised",
+    "SMSG_ATTACKSWING_NOTINRANGE": "auto-attack state, error already raised",
+    "SMSG_ATTACKSWING_NOTSTANDING": "auto-attack state, error already raised",
+    # The home bind. GetBindLocation reads it when the hearthstone tooltip or
+    # the confirm-binder popup draws; 3.3.5 has no bind-changed event.
+    "SMSG_BINDPOINTUPDATE": "bind location, read on demand",
+    "SMSG_PLAYERBOUND": "bind location, read on demand",
+    # Pending-purchase bookkeeping, and it calls addUIError itself.
+    "SMSG_BUY_FAILED": "purchase bookkeeping, error already raised",
+    # Clears this client's bobber guid; the message is the whole of it and now
+    # goes through raiseUiError to the error frame.
+    "SMSG_FISH_ESCAPED": "fishing state, error already raised",
+    "SMSG_FISH_NOT_HOOKED": "fishing state, error already raised",
+    # The bobber's bite animation, played through this client's own callback.
+    # Nothing in FrameXML draws a game object's animation.
+    "SMSG_GAMEOBJECT_CUSTOM_ANIM": "bobber animation, no interface counterpart",
+    # Clears the pending turn-in request, which is this client's own.
+    "SMSG_QUESTGIVER_QUEST_INVALID": "turn-in bookkeeping, error already raised",
+    # The guild name and info text, which GetGuildInfo and GetGuildInfoText
+    # read when asked. The panel redraws on GUILD_ROSTER_UPDATE, fired by the
+    # roster handler.
+    "SocialHandler::handleGuildInfo": "guild name, read on demand",
+    # The session is ending and the client is leaving the world.
+    "SocialHandler::handleLogoutComplete": "logging out, nothing left to draw",
+}
+
 #: `table[Opcode::X] = [this](...) { … };` and the dispatchTable_ spelling.
 HANDLER = re.compile(
     r"(?:table|dispatchTable_)\[Opcode::(\w+)\]\s*=\s*\[[^\]]*\]\s*\([^)]*\)\s*\{")
@@ -166,6 +210,8 @@ def main():
             # SMSG_QUESTUPDATE_COMPLETE did: it set quest.complete and left
             # the tracker showing the quest as unfinished until the next login.
             if not WRITES_STATE.search(body):
+                continue
+            if name in EXPECTED:
                 continue
             line = text.count("\n", 0, at) + 1
             rows.append((name, f"{path.name}:{line}"))
