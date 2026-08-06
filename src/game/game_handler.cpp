@@ -1989,6 +1989,11 @@ void GameHandler::guildBankDepositItem(uint8_t tabId, uint8_t bankSlot, uint8_t 
     if (inventoryHandler_) inventoryHandler_->guildBankDepositItem(tabId, bankSlot, srcBag, srcSlot);
 }
 
+void GameHandler::setGuildBankTabInfo(uint8_t tabId, const std::string& name,
+                                      const std::string& icon) {
+    if (inventoryHandler_) inventoryHandler_->setGuildBankTabInfo(tabId, name, icon);
+}
+
 void GameHandler::guildBankDepositFromInventory(uint8_t srcBag, uint8_t srcSlot) {
     if (inventoryHandler_) inventoryHandler_->guildBankDepositFromInventory(srcBag, srcSlot);
 }

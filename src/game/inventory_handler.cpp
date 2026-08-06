@@ -2796,6 +2796,21 @@ void InventoryHandler::guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, ui
     owner_.getSocket()->send(packet);
 }
 
+void InventoryHandler::setGuildBankTabInfo(uint8_t tabId, const std::string& name,
+                                           const std::string& icon) {
+    if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
+    if (guildBankerGuid_ == 0) return;
+    // Both or neither: the server tests them before it does anything, so a
+    // half-filled request is a packet that changes nothing and says nothing.
+    if (name.empty() || icon.empty()) return;
+    network::Packet p(wireOpcode(Opcode::CMSG_GUILD_BANK_UPDATE_TAB));
+    p.writeUInt64(guildBankerGuid_);
+    p.writeUInt8(tabId);
+    p.writeString(name);
+    p.writeString(icon);
+    owner_.getSocket()->send(p);
+}
+
 void InventoryHandler::guildBankDepositItem(uint8_t tabId, uint8_t bankSlot, uint8_t srcBag, uint8_t srcSlot) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() || guildBankerGuid_ == 0) return;
     auto packet = GuildBankSwapItemsPacket::buildInventoryToBank(guildBankerGuid_, tabId, bankSlot, srcBag, srcSlot);

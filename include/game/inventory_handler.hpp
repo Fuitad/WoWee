@@ -337,6 +337,14 @@ public:
     void withdrawGuildBankMoney(uint32_t amount);
     void guildBankWithdrawItem(uint8_t tabId, uint8_t bankSlot, uint8_t destBag,
                                uint8_t destSlot, uint32_t splitCount = 0);
+    /// Rename a guild bank tab and pick its icon.
+    ///
+    /// CMSG_GUILD_BANK_UPDATE_TAB: the banker's guid, the tab counted from
+    /// zero, then the name and the icon path. AzerothCore drops it unless both
+    /// strings are non-empty and the player is standing at the bank, which is
+    /// why the empty name the popup allows is refused here rather than sent.
+    void setGuildBankTabInfo(uint8_t tabId, const std::string& name,
+                             const std::string& icon);
     void guildBankDepositItem(uint8_t tabId, uint8_t bankSlot, uint8_t srcBag, uint8_t srcSlot);
     // Deposit an inventory item into the first free slot of the viewed tab.
     void guildBankDepositFromInventory(uint8_t srcBag, uint8_t srcSlot);

@@ -3821,14 +3821,30 @@ void registerInventoryLuaAPI(lua_State* L) {
             return 7;
         }},
                 {"GetGuildTabardFileNames",          [](lua_State* L) -> int { (void)L; return 0; }},
-                // No, and not for want of a rank to check — IsGuildLeader can
-                // answer that now. Renaming a tab needs CMSG_GUILD_BANK_UPDATE_TAB,
-                // which this client has no builder for, so SetGuildBankTabInfo
-                // below cannot send whatever the panel collects. Saying yes
-                // would open an edit box over a change that goes nowhere, which
-                // is the reasoning CanAlterSkin uses at the barber.
-                {"CanEditGuildTabInfo",              [](lua_State* L) -> int { lua_pushboolean(L, 0); return 1; }},
-                {"SetGuildBankTabInfo",              [](lua_State* L) -> int { (void)L; return 0; }},
+                // The guild master, which is what the real client answers and
+                // is now a question this can put — rank zero in the roster. It
+                // used to say no on the grounds that nothing could send the
+                // change; that was true of the builder and not of the opcode,
+                // which has been in all three expansion maps.
+                //
+                // AzerothCore does not gate the rename by rank at all, so this
+                // is the client being stricter than the server, as retail is.
+                {"CanEditGuildTabInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L, gh && gh->getPlayerGuildRankIndex() == 0 ? 1 : 0);
+            return 1;
+        }},
+                // SetGuildBankTabInfo(tab, name, icon) — the rename popup's
+                // Okay. The tab is FrameXML's, counted from one.
+                {"SetGuildBankTabInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int tab = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const char* name = luaL_optstring(L, 2, "");
+            const char* icon = luaL_optstring(L, 3, "");
+            if (gh && tab >= 1)
+                gh->setGuildBankTabInfo(static_cast<uint8_t>(tab - 1), name, icon);
+            return 0;
+        }},
                 // What the next tab costs, in copper, or nil once all six are
                 // bought — and nil is the load-bearing part: the panel does
                 // `if ( not tabCost )` to decide the guild has them all, and
