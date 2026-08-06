@@ -3377,16 +3377,26 @@ void registerSystemLuaAPI(lua_State* L) {
                 // told by SMSG_INSTANCE_DIFFICULTY and kept answering as one.
                 // A dropdown reading a constant shows the wrong tick and, worse,
                 // sends a change nobody asked for when the menu is opened.
+                // The wire counts difficulties from zero and the interface from
+                // one: DUNGEON_DIFFICULTY_NORMAL is 0 on AzerothCore, and the
+                // popup checks its menu entry with `GetDungeonDifficulty() ==
+                // index`, index being the 1-based row. Answering the stored
+                // value straight made Heroic read as Normal — `d ? d : 1` turns
+                // both 0 and 1 into 1 — so the tick sat on the wrong row and
+                // unitpopup's `GetDungeonDifficulty() == 1` heroic-lockout
+                // check was true inside a heroic.
+                //
+                // Both answer from the one value this client tracks. Only one
+                // of the two applies at a time, so that holds until a party
+                // sets a raid difficulty while standing in a dungeon.
                 {"GetDungeonDifficulty", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            const uint32_t d = gh ? gh->getInstanceDifficulty() : 0;
-            lua_pushnumber(L, d ? d : 1);
+            lua_pushnumber(L, (gh ? gh->getInstanceDifficulty() : 0u) + 1u);
             return 1;
         }},
                 {"GetRaidDifficulty", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            const uint32_t d = gh ? gh->getInstanceDifficulty() : 0;
-            lua_pushnumber(L, d ? d : 1);
+            lua_pushnumber(L, (gh ? gh->getInstanceDifficulty() : 0u) + 1u);
             return 1;
         }},
                 {"GetChatTypeIndex",         lua_ReturnOne},

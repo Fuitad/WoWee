@@ -2599,16 +2599,20 @@ void registerSocialLuaAPI(lua_State* L) {
                 // Both send a real opcode now; sendSetDifficulty used to write
                 // CMSG_CHANGEPLAYER_DIFFICULTY, which the server reads off the
                 // wire and throws away.
+                // The menu row, which counts from one, less one for the wire,
+                // which counts from zero. Sent as it came, picking Normal set
+                // Heroic, and picking Heroic sent 2 — which the server tests
+                // against MAX_DUNGEON_DIFFICULTY and drops, so it did nothing.
                 {"SetDungeonDifficulty", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            const uint32_t mode = static_cast<uint32_t>(luaL_optnumber(L, 1, 1));
-            if (gh) gh->sendSetDifficulty(mode, /*raid=*/false);
+            const int row = static_cast<int>(luaL_optnumber(L, 1, 1));
+            if (gh && row >= 1) gh->sendSetDifficulty(static_cast<uint32_t>(row - 1), /*raid=*/false);
             return 0;
         }},
                 {"SetRaidDifficulty", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            const uint32_t mode = static_cast<uint32_t>(luaL_optnumber(L, 1, 1));
-            if (gh) gh->sendSetDifficulty(mode, /*raid=*/true);
+            const int row = static_cast<int>(luaL_optnumber(L, 1, 1));
+            if (gh && row >= 1) gh->sendSetDifficulty(static_cast<uint32_t>(row - 1), /*raid=*/true);
             return 0;
         }},
                                 {"ChannelBan", [](lua_State* L) -> int {
