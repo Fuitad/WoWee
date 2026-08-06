@@ -1439,7 +1439,12 @@ void SocialHandler::requestGuildRoster() {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     auto packet = GuildRosterPacket::build();
     owner_.getSocket()->send(packet);
-    owner_.addSystemChatMessage("Requesting guild roster...");
+    // Said in the log, not to the player. This is asked for far more often
+    // than a person would ask for it: eight places here request a roster after
+    // a guild change, and the interface asks whenever the mail frame or the
+    // friends frame opens with an empty one. Every one of those put a line in
+    // chat that the real client never writes.
+    LOG_DEBUG("Requested guild roster");
 }
 
 // The longer "guild information" text, which is a different field from the
