@@ -18,6 +18,28 @@ One false-positive shape, seen and worth knowing before acting:
     `GetCursorPosition` is a global returning x and y *and* an EditBox method
     returning one character offset; resolving the name to the method makes the
     global look short by one.
+
+THE FOURTEEN IT REPORTS TODAY, ALL CHECKED
+
+None is a fault. Read once so the count can be watched rather than re-triaged,
+and so a fifteenth stands out.
+
+  * A name that is both a global and a widget method (1). GetCursorPosition
+    the global answers two values; GetCursorPosition the edit-box method
+    answers one, and this cannot tell them apart — the same caveat
+    api_shadowing_check carries. The caller in blizzard_battlefieldminimap
+    reaches the global.
+  * Missing values that are correctly nil (6). UnitName's second return is the
+    realm, which is nil on your own; UnitPowerType's last three are the
+    alternate power bar's colour; GetSpellLink's second is a trade-skill link;
+    GetActionInfo's fourth is a vehicle spell id; QuestPOIGetIconInfo's fourth
+    is an objective index; GetQuestWorldMapAreaID's second is a dungeon floor.
+    Each caller either guards or passes the nil straight into something that
+    does.
+  * Features that are absent, answering one nil where several are unpacked (7).
+    The knowledge base, the world map's debug objects and zone map, the
+    battlefield vehicle list, the quest item drop. Answering more nils would
+    change nothing: the first one already tells the caller to stop.
 """
 import re
 from pathlib import Path

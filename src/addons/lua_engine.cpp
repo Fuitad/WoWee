@@ -3518,13 +3518,17 @@ static int lua_GetCursorPosition(lua_State* L) {
     // root is one, so the pixels went straight through: on a 1080-tall window
     // every such position was out by forty percent, and on a 4K one by nearly
     // three times. The loot window opened under the mouse landed well off it.
+    // Through ui::mouseToTreeSpace, which is the one definition of it. This
+    // was a third hand-written copy — the flip in application.cpp, the scale
+    // in dispatchMouse, and both again here — and the copies are how the
+    // hyperlink hit test came to be filed in one space and tested in another.
     const auto& io = ImGui::GetIO();
     auto* tree = wowee::addons::getWidgetTree(L);
-    const float s = tree ? tree->uiScale() : 1.0f;
-    const float px = io.MousePos.x;
-    const float py = io.DisplaySize.y - io.MousePos.y;
-    lua_pushnumber(L, (s > 0.0f) ? px / s : px);
-    lua_pushnumber(L, (s > 0.0f) ? py / s : py);
+    float px = io.MousePos.x;
+    float py = io.MousePos.y;
+    ui::mouseToTreeSpace(px, py, io.DisplaySize.y, tree ? tree->uiScale() : 1.0f);
+    lua_pushnumber(L, px);
+    lua_pushnumber(L, py);
     return 2;
 }
 
