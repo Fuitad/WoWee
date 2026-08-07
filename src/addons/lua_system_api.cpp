@@ -6196,6 +6196,37 @@ void registerSystemLuaAPI(lua_State* L) {
                 static_cast<int32_t>(luaL_optnumber(L, 1, -1));
             return 0;
         }},
+                // Inviting someone.
+                //
+                // Two cases in one call, which is how WoW does it. An event
+                // that exists is invited to by id; an event still being
+                // created has no id yet, so the invitation is a *pre-invite*
+                // and the server holds it against the creator until the event
+                // is committed. Telling them apart by whether an event is
+                // open, which is the same thing the interface means.
+                {"CalendarEventInvite", [](lua_State* L) -> int {
+            const char* name = luaL_optstring(L, 1, "");
+            auto* gh = getGameHandler(L);
+            if (!gh || !name || !*name) return 0;
+            const auto& open = gh->getCalendarEventDetail();
+            const bool preInvite = (open.eventId == 0);
+            const uint32_t flags = preInvite ? calendarDraft().flags : open.flags;
+            gh->inviteToCalendarEvent(open.eventId, 0, name, preInvite,
+                                      (flags & 0x0400u) != 0);
+            return 0;
+        }},
+                // The three bounds go on the wire: this has its own opcode
+                // rather than being an invitation with the name left out, and
+                // the server picks the members from them.
+                {"CalendarMassInviteGuild", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            gh->massInviteGuildToCalendarEvent(
+                static_cast<uint32_t>(luaL_optnumber(L, 1, 1)),
+                static_cast<uint32_t>(luaL_optnumber(L, 2, 80)),
+                static_cast<uint32_t>(luaL_optnumber(L, 3, 0)));
+            return 0;
+        }},
                 // And the commit.
                 {"CalendarAddEvent", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) {

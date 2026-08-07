@@ -365,6 +365,14 @@ public:
 
     // Calendar
     void requestCalendar();
+    /// Invite someone: CMSG_CALENDAR_EVENT_INVITE. A pre-invite belongs to an
+    /// event that has not been created yet, and carries no event id.
+    void inviteToCalendarEvent(uint64_t eventId, uint64_t inviteId,
+                               const std::string& name, bool isPreInvite,
+                               bool isGuildEvent);
+    /// Invite the guild by filter: CMSG_CALENDAR_GUILD_FILTER.
+    void massInviteGuildToCalendarEvent(uint32_t minLevel, uint32_t maxLevel,
+                                        uint32_t minRank);
     /// Ask for one event's detail: CMSG_CALENDAR_GET_EVENT.
     void requestCalendarEvent(uint64_t eventId);
     /// Create an event: CMSG_CALENDAR_ADD_EVENT.

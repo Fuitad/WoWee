@@ -720,6 +720,13 @@ public:
     const CalendarEventDetail& getCalendarEventDetail() const {
         return calendarEventDetail_;
     }
+    /// Invite someone to an event, or to one not yet created.
+    void inviteToCalendarEvent(uint64_t eventId, uint64_t inviteId,
+                               const std::string& name, bool isPreInvite,
+                               bool isGuildEvent);
+    /// Invite the guild by level and rank filter.
+    void massInviteGuildToCalendarEvent(uint32_t minLevel, uint32_t maxLevel,
+                                        uint32_t minRank);
     /// Ask the server for one event's detail: CMSG_CALENDAR_GET_EVENT.
     void requestCalendarEvent(uint64_t eventId);
     /// Send a staged event to the server.

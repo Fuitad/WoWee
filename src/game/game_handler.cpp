@@ -3270,6 +3270,23 @@ void GameHandler::requestCalendar() {
     if (socialHandler_) socialHandler_->requestCalendar();
 }
 
+void GameHandler::inviteToCalendarEvent(uint64_t eventId, uint64_t inviteId,
+                                        const std::string& name,
+                                        bool isPreInvite, bool isGuildEvent) {
+    if (socialHandler_) {
+        socialHandler_->inviteToCalendarEvent(eventId, inviteId, name,
+                                              isPreInvite, isGuildEvent);
+    }
+}
+
+void GameHandler::massInviteGuildToCalendarEvent(uint32_t minLevel,
+                                                 uint32_t maxLevel,
+                                                 uint32_t minRank) {
+    if (socialHandler_) {
+        socialHandler_->massInviteGuildToCalendarEvent(minLevel, maxLevel, minRank);
+    }
+}
+
 void GameHandler::requestCalendarEvent(uint64_t eventId) {
     if (socialHandler_) socialHandler_->requestCalendarEvent(eventId);
 }

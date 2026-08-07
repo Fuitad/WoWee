@@ -4417,6 +4417,39 @@ void SocialHandler::requestBfMgrExit(uint32_t battleId) {
 // Calendar
 // ============================================================
 
+void SocialHandler::inviteToCalendarEvent(uint64_t eventId, uint64_t inviteId,
+                                          const std::string& name,
+                                          bool isPreInvite, bool isGuildEvent) {
+    if (!owner_.isInWorld()) return;
+    // eventId, inviteId, name, isPreInvite, isGuildEvent — CalendarHandler.cpp:515.
+    // The two flags are ByteBuffer bools, which are one byte each on the wire.
+    network::Packet pkt(wireOpcode(Opcode::CMSG_CALENDAR_EVENT_INVITE));
+    pkt.writeUInt64(eventId);
+    pkt.writeUInt64(inviteId);
+    pkt.writeString(name);
+    pkt.writeUInt8(isPreInvite ? 1 : 0);
+    pkt.writeUInt8(isGuildEvent ? 1 : 0);
+    owner_.getSocket()->send(pkt);
+    LOG_INFO("inviteToCalendarEvent: '", name, "' to event ", eventId,
+             isPreInvite ? " (before it is created)" : "");
+}
+
+void SocialHandler::massInviteGuildToCalendarEvent(uint32_t minLevel,
+                                                   uint32_t maxLevel,
+                                                   uint32_t minRank) {
+    if (!owner_.isInWorld()) return;
+    // Its own opcode, not an invite with the name left out: the server picks
+    // the members itself from these three bounds and never sees a name
+    // (CalendarHandler.cpp:198, and Guild::MassInviteToEvent behind it).
+    network::Packet pkt(wireOpcode(Opcode::CMSG_CALENDAR_GUILD_FILTER));
+    pkt.writeUInt32(minLevel);
+    pkt.writeUInt32(maxLevel);
+    pkt.writeUInt32(minRank);
+    owner_.getSocket()->send(pkt);
+    LOG_INFO("massInviteGuildToCalendarEvent: levels ", minLevel, "-", maxLevel,
+             ", rank ", minRank, " and above");
+}
+
 void SocialHandler::requestCalendarEvent(uint64_t eventId) {
     if (!owner_.isInWorld()) return;
     network::Packet pkt(wireOpcode(Opcode::CMSG_CALENDAR_GET_EVENT));
