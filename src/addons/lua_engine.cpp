@@ -3841,6 +3841,19 @@ int lua_EditBox_ClearHistory(lua_State* L) {
     return 0;
 }
 
+/// SetCountInvisibleLetters(flag) — charge the markup against the limit.
+int lua_EditBox_SetCountInvisibleLetters(lua_State* L) {
+    if (auto* w = widgetOf(L, 1)) {
+        w->countInvisibleLetters = lua_isnone(L, 2) ? true : (lua_toboolean(L, 2) != 0);
+    }
+    return 0;
+}
+int lua_EditBox_GetCountInvisibleLetters(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    lua_pushboolean(L, (w && w->countInvisibleLetters) ? 1 : 0);
+    return 1;
+}
+
 int lua_EditBox_GetHistoryLines(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     lua_pushnumber(L, w ? w->editHistoryLines : 0);
@@ -4937,6 +4950,8 @@ void LuaEngine::registerCoreAPI() {
         {"AddHistoryLine",        lua_EditBox_AddHistoryLine},
         {"SetHistoryLines",       lua_EditBox_SetHistoryLines},
         {"ClearHistory",          lua_EditBox_ClearHistory},
+        {"SetCountInvisibleLetters", lua_EditBox_SetCountInvisibleLetters},
+        {"GetCountInvisibleLetters", lua_EditBox_GetCountInvisibleLetters},
         {"GetHistoryLines",       lua_EditBox_GetHistoryLines},
         {"SetIgnoreArrows",       lua_EditBox_SetIgnoreArrows},
         {"Insert",                lua_EditBox_Insert},
@@ -8065,9 +8080,19 @@ void LuaEngine::dispatchText(const char* utf8) {
                   add.end());
         if (add.empty()) return;
     }
-    if (w->editMaxLetters > 0 &&
-        static_cast<int>(w->editText.size() + add.size()) > w->editMaxLetters) {
-        const int room = w->editMaxLetters - static_cast<int>(w->editText.size());
+    // Counted the way the box asked to be counted. A limit is in characters
+    // shown, not bytes held, unless countInvisibleLetters says otherwise: the
+    // chat box declares letters="255" and nothing else, so the escapes a
+    // shift-clicked item link brings — about sixty bytes for eighteen visible
+    // characters — must not be charged against it.
+    const int held = w->countInvisibleLetters
+                         ? static_cast<int>(w->editText.size())
+                         : static_cast<int>(ui::visibleLength(w->editText));
+    const int adding = w->countInvisibleLetters
+                           ? static_cast<int>(add.size())
+                           : static_cast<int>(ui::visibleLength(add));
+    if (w->editMaxLetters > 0 && held + adding > w->editMaxLetters) {
+        const int room = w->editMaxLetters - held;
         if (room <= 0) return;
         add.resize(static_cast<size_t>(room));
     }

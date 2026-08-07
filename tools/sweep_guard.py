@@ -77,7 +77,7 @@ CHECKS = [
     # was motionScriptsWhileDisabled, which was not inert: nothing here ever
     # suppressed motion scripts, so every greyed control answered the mouse.
     ("declared_vs_read_check.py",
-     r"attributes declared, (\d+) the emitter never names", 17,
+     r"attributes declared, (\d+) the emitter never names", 16,
      "XML attributes the emitter never reads"),
     # Eight, not zero, and the number went up because the check started
     # working. It used to accept any "OnX" literal anywhere in src, and the

@@ -182,6 +182,21 @@ inline size_t caretSnap(const std::string& s, size_t at) {
     return p;
 }
 
+/// How many characters a string shows, ignoring the markup that draws none.
+///
+/// An edit box's letter limit counts these rather than bytes, unless the box
+/// asked for countInvisibleLetters. The chat box does not ask: it declares
+/// letters="255" and nothing else, so the colour codes and hyperlink escapes
+/// that a shift-clicked item link brings with it must not be charged against
+/// the limit. One such link is around sixty bytes and shows eighteen, so
+/// counting bytes let three of them fill a message that WoW would have let
+/// carry a dozen.
+inline size_t visibleLength(const std::string& s) {
+    size_t n = 0;
+    for (const WrapRun& r : parseMarkup(s)) n += r.text.size();
+    return n;
+}
+
 /// What an edit box holds after a selected run is replaced.
 ///
 /// The whole of it, because the pieces are where the mistakes are: a selection

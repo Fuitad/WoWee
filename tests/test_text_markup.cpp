@@ -264,3 +264,38 @@ TEST_CASE("A selected run is replaced, and only that run", "[edit][selection]") 
         CHECK(t == "Thr");
     }
 }
+
+// What a letter limit counts.
+//
+// An edit box's limit is in characters shown, not bytes held, unless the box
+// asked for countInvisibleLetters. The chat box does not ask — it declares
+// letters="255" and nothing else — so the escapes a shift-clicked item link
+// brings with it must not be charged against it.
+TEST_CASE("A letter limit counts what is shown, not what is stored",
+          "[edit][markup]") {
+    using wowee::ui::visibleLength;
+
+    SECTION("plain text is its own length") {
+        CHECK(visibleLength("hello") == 5);
+        CHECK(visibleLength("") == 0);
+    }
+    SECTION("a colour escape shows nothing") {
+        // Ten bytes of escape around four shown.
+        CHECK(visibleLength("|cffff0000fire|r") == 4);
+    }
+    SECTION("an item link shows only its name") {
+        const std::string link =
+            "|cff9d9d9d|Hitem:3299:0:0:0:0:0:0:0|h[Fractured Canine]|h|r";
+        CHECK(visibleLength(link) == std::string("[Fractured Canine]").size());
+        // And the whole point: the stored form is far longer, so charging
+        // bytes against a 255 limit would let three links fill a message WoW
+        // would have carried a dozen in.
+        CHECK(link.size() > visibleLength(link) * 3);
+    }
+    SECTION("a message with a link keeps its own words") {
+        const std::string msg =
+            "look at |cff9d9d9d|Hitem:3299|h[Fractured Canine]|h|r now";
+        CHECK(visibleLength(msg) ==
+              std::string("look at [Fractured Canine] now").size());
+    }
+}

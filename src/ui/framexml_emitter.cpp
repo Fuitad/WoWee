@@ -1051,6 +1051,12 @@ struct Emitter {
         if (const std::string* letters = node.attr("letters"); letters && !letters->empty()) {
             line(var + ":SetMaxLetters(" + std::to_string(static_cast<int>(node.attrFloat("letters", 0.0f))) + ")");
         }
+        // Whether the markup that draws nothing counts against that limit.
+        // WoW's default is no and four boxes here ask for yes, the macro
+        // editor among them — where the escapes are the point of the box.
+        if (node.attrBool("countInvisibleLetters")) {
+            line(var + ":SetCountInvisibleLetters(true)");
+        }
         // Which layer a region draws in, which the tree sorts the draw order
         // by. StatusBar is the only element that declares it here, and
         // CastingBarFrameTemplate is one of them — so the cast bar's fill was
