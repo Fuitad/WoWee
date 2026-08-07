@@ -249,6 +249,25 @@ int main(int argc, char** argv) {
         //
         // Sixteen milliseconds a tick, which is the frame this client aims at,
         // so anything measured in seconds advances at the rate it really would.
+        // --fire:EVENT sends one event through the engine's own dispatch.
+        //
+        // Calling a frame's OnEvent by hand tests the handler and nothing
+        // about whether the client would reach it — which table it is
+        // registered in, whether the name matches, whether anything else
+        // listens. This goes the way the client goes.
+        if (std::strncmp(argv[i], "--fire:", 7) == 0) {
+            relayout();
+            mgr.fireEvent(argv[i] + 7);
+            if (errors.size() == before) {
+                std::printf("   no error\n");
+            } else {
+                ++raised;
+                for (size_t k = before; k < errors.size(); ++k) {
+                    std::printf("   %s\n", errors[k].c_str());
+                }
+            }
+            continue;
+        }
         if (std::strncmp(argv[i], "--tick:", 7) == 0) {
             const int ticks = std::atoi(argv[i] + 7);
             relayout();
