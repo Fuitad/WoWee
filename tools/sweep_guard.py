@@ -79,8 +79,20 @@ CHECKS = [
     ("declared_vs_read_check.py",
      r"attributes declared, (\d+) the emitter never names", 17,
      "XML attributes the emitter never reads"),
+    # Eight, not zero, and the number went up because the check started
+    # working. It used to accept any "OnX" literal anywhere in src, and the
+    # emitter carries a table naming every script type it knows a signature
+    # for — so every type read as fired and this reported zero for ever, while
+    # OnCursorChanged sat unfired and every multi-line edit box in the
+    # interface raised on the first keystroke.
+    #
+    # What is left, checked one at a time: OnChar, OnMinMaxChanged and
+    # OnMovieShowSubtitle are declared by nothing and have nothing to fire.
+    # The other five are declared once or twice each and are small on their
+    # own — a secure attribute driver on the action bar, animation OnFinished,
+    # the chat box's input language, and two of the tooltip hooks.
     ("declared_vs_read_check.py",
-     r"^(\d+) script type\(s\) declared and never fired", 0,
+     r"^(\d+) script type\(s\) declared and never fired", 8,
      "script handlers FrameXML declares that nothing fires"),
     ("declared_vs_read_check.py",
      r"sound names asked for, (\d+) with no hand-written mapping", 24,

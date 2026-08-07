@@ -2016,6 +2016,18 @@ int lua_Tooltip_SetUnit(lua_State* L) {
     }
 
     w->shown = true;
+    // The unit counterpart of fireTooltipSetItem, and it was the one of the
+    // pair that was never fired. GameTooltip declares
+    //
+    //     <OnTooltipSetUnit>
+    //         if ( self:IsUnit("mouseover") ) then
+    //             _G[self:GetName().."TextLeft1"]:SetTextColor(
+    //                 GameTooltip_UnitColor("mouseover"));
+    //
+    // so the name at the top of a unit tooltip takes its colour from that
+    // unit's reaction — red for hostile, green for friendly — and without this
+    // every one of them was drawn in the default colour instead.
+    if (lua_istable(L, 1)) callScriptOnTable(L, 1, "OnTooltipSetUnit", 0.0);
     lua_pushboolean(L, 1);
     return 1;
 }

@@ -234,9 +234,44 @@ def main():
     attrs = attributes()
     unread = sorted(a for a in attrs if a not in named)
 
+    # Named where the script is *run*, not merely named. The emitter carries a
+    # table of every script type it knows a signature for —
+    #
+    #     if (script == "OnCursorChanged") return "self, x, y, width, height";
+    #
+    # — so a sweep that accepts any "OnX" literal in any .cpp counts every
+    # script type as fired and reports nothing, for ever. It did: OnCursorChanged
+    # was declared by the interface, emitted with the right signature, and never
+    # once called, and this check read it as fine because the emitter had said
+    # its name. Every multi-line edit box in the interface raised on the first
+    # keystroke because of it.
+    #
+    # So only the calls count: the engine runs a handler through
+    # callFrameScript and its variants, or by fetching it off __scripts with
+    # lua_getfield.
+    # Every literal inside the call, not the first one: a handler is often
+    # chosen by a ternary — callFrameScript(id, visible ? "OnShow" : "OnHide")
+    # — and stopping at the first match reports the second as never fired. It
+    # did, for OnHide, which is fired for every frame that goes away.
+    #
+    # Every helper that runs one, not just the callFrameScript family: a
+    # scroll frame's OnVerticalScroll goes through callScriptOnTable, and a
+    # sweep that does not know that reports it as never fired. It did. Listing
+    # the helpers by hand is the weak part of this check — a new one added
+    # without a line here reports its whole family as dead.
+    OPEN = re.compile(r'(?:callFrameScript\w*|callScriptOnTable|frameHasScript'
+                      r'|lua_getfield)\s*\(')
+    NAME = re.compile(r'"(On[A-Z]\w+)"')
     fired = set()
     for path in SRC.rglob("*.cpp"):
-        fired |= set(re.findall(r'"(On[A-Z]\w+)"', path.read_text(errors="ignore")))
+        text = path.read_text(errors="ignore")
+        for m in OPEN.finditer(text):
+            # To the end of the statement, so a call spanning lines is covered
+            # and the next one is not.
+            end = text.find(";", m.end())
+            if end < 0:
+                end = m.end() + 200
+            fired |= set(NAME.findall(text[m.end():end]))
     unfired = sorted(s for s in script_types()
                      if s not in fired and s not in EXPECTED_UNFIRED)
 
