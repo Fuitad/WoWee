@@ -28,6 +28,9 @@
 // script can ask "did this one still work" without reading the output.
 
 #include "addons/addon_manager.hpp"
+#include "ui/widget_renderer.hpp"
+
+#include <imgui.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -98,9 +101,44 @@ int main(int argc, char** argv) {
     // and a tooltip from its lines, and neither has a font here. Frames sized
     // by their anchors and their own dimensions are right; anything whose size
     // comes from text it holds will read as zero.
-    auto relayout = [&mgr] {
+    // A font, so that a label has a width.
+    //
+    // ImGui's default atlas is built entirely on the CPU — no device, no
+    // window, no backend — and having one turns the renderer's own layout pass
+    // from unusable into usable here. That matters more than it sounds: a
+    // great deal of FrameXML is positioned against a label's extent rather
+    // than a number, and without metrics every one of those labels is zero
+    // wide. The auction browse anchors its rarity dropdown to the BOTTOMRIGHT
+    // of the "Level Range" caption, so with no font the dropdown lands sixty
+    // pixels left of where it belongs, on top of the level boxes — a fault
+    // that looks exactly like the real one being investigated and is not it.
+    //
+    // The typeface is not the game's, so widths are close rather than exact.
+    // Close is the difference between "these two frames overlap" being
+    // answerable and not.
+    ImGui::CreateContext();
+    {
+        ImGuiIO& io = ImGui::GetIO();
+        io.DisplaySize = ImVec2(1920.0f, 1080.0f);
+        io.DeltaTime = 1.0f / 60.0f;
+        io.Fonts->AddFontDefault();
+        io.Fonts->Build();
+        unsigned char* pixels = nullptr;
+        int fw = 0, fh = 0;
+        io.Fonts->GetTexDataAsRGBA32(&pixels, &fw, &fh);
+        io.Fonts->SetTexID(static_cast<ImTextureID>(1));
+        ImGui::NewFrame();
+    }
+
+    // The renderer's layout rather than the tree's, so the passes that size a
+    // label from its text and a tooltip from its lines run too. Drawing is the
+    // other half and is not called: it needs a device.
+    wowee::ui::WidgetRenderer widgets;
+    widgets.initialize(nullptr, nullptr);
+
+    auto relayout = [&mgr, &widgets] {
         if (auto* engine = mgr.getLuaEngine()) {
-            engine->widgets().layout(1920.0f, 1080.0f);
+            widgets.layout(engine->widgets(), 1920.0f, 1080.0f);
         }
     };
     relayout();
