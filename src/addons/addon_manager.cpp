@@ -653,6 +653,53 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         "         CALENDAR_STATUS_TENTATIVE\n"
         "end\n");
 
+    // Report the quest dialog's own geometry, at the moment it is built.
+    //
+    // Reported: the dialog is placed correctly and its contents are not — the
+    // panel at x 0..384 with its reward items eight hundred units to the
+    // right. The readiness dump covers these frames now, but it runs early and
+    // once, so it only ever catches them hidden and unanchored, which is their
+    // resting state and says nothing.
+    //
+    // QuestFrameDetailPanel_OnShow is where it is decided: it runs
+    // QuestInfo_Display twice, once into QuestDetailScrollChildFrame and once
+    // into QuestInfoFadingFrame, and the second parents the rewards to a frame
+    // the first is supposed to have anchored. If that anchoring did not
+    // happen, everything under it lands wherever the unanchored frame sits —
+    // which is the middle of the screen, and is what the numbers look like.
+    //
+    // Wrapped rather than hooked so this runs *after* the real work, and only
+    // ever reads.
+    luaEngine_.executeString(
+        // type() rather than truthiness: the missing-API stand-in is a
+        // callable table, so `if QuestFrameDetailPanel_OnShow then` passes for
+        // a name that does not exist and wraps the stand-in — which is exactly
+        // what happened on the first attempt at this, against a
+        // QuestFrame_ShowQuestDetail that FrameXML does not have. The wrapper
+        // then reported the geometry of a dialog nothing had built and it
+        // looked like the bug.
+        "if type(QuestFrameDetailPanel_OnShow) == 'function' then\n"
+        "  local real = QuestFrameDetailPanel_OnShow\n"
+        "  QuestFrameDetailPanel_OnShow = function(...)\n"
+        "    real(...)\n"
+        "    local function where(f, n)\n"
+        "      if not f then return n .. '=absent' end\n"
+        "      local p = f.GetParent and f:GetParent()\n"
+        "      return string.format('%s=(%.0f,%.0f %.0fx%.0f) pts=%d parent=%s',\n"
+        "        n, f:GetLeft() or -1, f:GetBottom() or -1,\n"
+        "        f:GetWidth() or 0, f:GetHeight() or 0,\n"
+        "        f:GetNumPoints() or 0,\n"
+        "        (p and p.GetName and p:GetName()) or '?')\n"
+        "    end\n"
+        "    __WoweeWarn('quest detail built: ' ..\n"
+        "      where(QuestFrame, 'QuestFrame') .. ' | ' ..\n"
+        "      where(QuestDetailScrollChildFrame, 'ScrollChild') .. ' | ' ..\n"
+        "      where(QuestInfoFadingFrame, 'FadingFrame') .. ' | ' ..\n"
+        "      where(QuestInfoRewardsFrame, 'Rewards') .. ' | ' ..\n"
+        "      where(QuestInfoItem1, 'Item1'))\n"
+        "  end\n"
+        "end\n");
+
     // The game-menu button opens this client's settings.
     //
     // ToggleGameMenu is FrameXML's own function and it shows GameMenuFrame,
