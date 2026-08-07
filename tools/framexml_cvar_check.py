@@ -34,15 +34,20 @@ compares against the off value; it tests for the on ones and falls through.
 """
 import re
 import pathlib
+
+# Paths resolve against the repository, not the working directory.
+REPO = pathlib.Path(__file__).resolve().parent.parent
+
 import collections
 import sys
 
-fx = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "Data/interface/framexml")
+fx = (pathlib.Path(sys.argv[1]) if len(sys.argv) > 1
+      else REPO / "Data" / "interface" / "framexml")
 if not fx.is_dir():
     sys.exit(f"no such directory: {fx}")
 
 # CVars the client answers deliberately, however that answer is spelled.
-sysapi = pathlib.Path("src/addons/lua_system_api.cpp").read_text()
+sysapi = (REPO / "src/addons/lua_system_api.cpp").read_text()
 # Folded, because lua_GetCVar folds: the client's CVar names are not
 # case-sensitive and the interface spells "uiscale" and "uiScale" both ways.
 known = {m.lower() for m in re.findall(r'n == "(\w+)"', sysapi)}

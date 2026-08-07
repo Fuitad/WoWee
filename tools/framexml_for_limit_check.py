@@ -46,9 +46,14 @@ Usage:  tools/framexml_for_limit_check.py [path to Interface/FrameXML]
 import re
 import sys
 import pathlib
+
+# Paths resolve against the repository, not the working directory.
+REPO = pathlib.Path(__file__).resolve().parent.parent
+
 import collections
 
-fx = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "Data/interface/framexml")
+fx = (pathlib.Path(sys.argv[1]) if len(sys.argv) > 1
+      else REPO / "Data" / "interface" / "framexml")
 if not fx.is_dir():
     sys.exit(f"no such directory: {fx}")
 
@@ -66,7 +71,7 @@ for f in allsrc:
 # What the client binds, however it is spelled — including the bootstrap's
 # aliases, which are why `getn` is not a hit.
 src = "\n".join(p.read_text(errors="ignore")
-                for p in pathlib.Path("src/addons").glob("*.cpp"))
+                for p in (REPO / "src" / "addons").glob("*.cpp"))
 provided = set(re.findall(r'\{"(\w+)"', src))
 provided |= set(re.findall(r'"(\w+)"\s*,\s*lua_', src))
 provided |= set(re.findall(r'"function\s+(\w+)\s*\(', src))

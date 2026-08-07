@@ -33,7 +33,13 @@ call on nil.
 """
 import re, pathlib, collections
 
-src = pathlib.Path("src/addons/lua_engine.cpp").read_text()
+# Paths are resolved against the repository, not the working directory:
+# run from build/ these globs matched nothing and the report came out
+# clean from an empty scan, which is the exact shape of a check that
+# cannot fail.
+REPO = pathlib.Path(__file__).resolve().parent.parent
+
+src = (REPO / "src" / "addons" / "lua_engine.cpp").read_text()
 
 # The curated set that answers a no-op.
 block = re.search(r'"__WoweeWidgetMethods = \{\\n"(.*?)"\}\\n"', src, re.S)
@@ -60,8 +66,8 @@ answered = known | impl
 # and the achievement buttons' Collapse are ordinary Lua methods on ordinary
 # Lua tables — nothing to do with the frame metatable, and not missing.
 interface_defined = set()
-for _f in list(pathlib.Path("Data/interface").glob("framexml/*.lua")) + \
-          list(pathlib.Path("Data/interface").glob("addons/*/*.lua")):
+for _f in list((REPO / "Data" / "interface").glob("framexml/*.lua")) + \
+          list((REPO / "Data" / "interface").glob("addons/*/*.lua")):
     _t = _f.read_text(errors="ignore")
     interface_defined |= set(re.findall(r'\bfunction\s+[\w.]+[:.](\w+)\s*\(', _t))
     # `self.Desaturate = AchievementIcon_Desaturate` — assigned to a named
@@ -79,7 +85,7 @@ for _f in list(pathlib.Path("Data/interface").glob("framexml/*.lua")) + \
     interface_defined |= set(re.findall(r'[\w.\]\[]+\.(\w+)\s*=\s*[\w.]+\s*\(', _t))
 answered |= interface_defined
 
-interface = pathlib.Path("Data/interface")
+interface = (REPO / "Data" / "interface")
 files = list(interface.glob("framexml/*.lua")) + list(interface.glob("addons/*/*.lua"))
 
 # obj:Method( — a real method call. Not obj.Method, which is a field read.
@@ -120,7 +126,7 @@ for f in files:
 # SetMaxLetters is safe because SetMaxLetters exists; reading `horizTile` and
 # emitting SetHorizTile would not be.
 EMITTED = re.compile(r'\+\s*":([A-Z]\w*)\("')
-emitter = pathlib.Path("src/ui/framexml_emitter.cpp").read_text(errors="ignore")
+emitter = (REPO / "src" / "ui" / "framexml_emitter.cpp").read_text(errors="ignore")
 for meth in sorted(set(EMITTED.findall(emitter))):
     if meth in answered or meth.startswith("On"):
         continue

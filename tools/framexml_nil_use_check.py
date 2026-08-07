@@ -8,12 +8,18 @@ between, and concatenation is a third raising context that neither covered:
 """
 import re, pathlib, collections, sys
 
-root = pathlib.Path("Data/interface")
+# Paths are resolved against the repository, not the working directory:
+# run from build/ these globs matched nothing and the report came out
+# clean from an empty scan, which is the exact shape of a check that
+# cannot fail.
+REPO = pathlib.Path(__file__).resolve().parent.parent
+
+root = REPO / "Data" / "interface"
 files = list(root.glob("framexml/*.lua")) + list(root.glob("addons/*/*.lua"))
 texts = {f: f.read_text(errors="ignore") for f in files}
 
 csrc = "\n".join(p.read_text(errors="ignore")
-                 for p in pathlib.Path("src/addons").glob("*.cpp"))
+                 for p in (REPO / "src" / "addons").glob("*.cpp"))
 c_bindings = set(re.findall(r'\{"(\w+)",', csrc)) | \
              set(re.findall(r'static int lua_(\w+)', csrc))
 lua_defined = set()
@@ -22,7 +28,7 @@ for t in texts.values():
     lua_defined |= set(re.findall(r'\b([A-Za-z_]\w*)\s*=\s*function\s*\(', t))
 # Names the bootstrap defines as counting stubs answer 0, not nil.
 counting = set(re.findall(r"'([A-Za-z_]\w*)'",
-    re.search(r'local counting = \{(.*?)\n\s*"\}', open('src/addons/lua_engine.cpp').read(), re.S).group(1)))
+    re.search(r'local counting = \{(.*?)\n\s*"\}', (REPO / 'src' / 'addons' / 'lua_engine.cpp').read_text(), re.S).group(1)))
 known = c_bindings | lua_defined | counting
 
 CALL = r'(?<![:.\w])([A-Z][A-Za-z0-9_]{3,})\s*\([^()]*\)'

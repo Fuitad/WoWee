@@ -752,6 +752,30 @@ CHECKS = [
 ]
 
 # Prose rather than a count: the chunk checker says one of two sentences.
+# Three more that were written, left outside this guard, and quietly kept
+# working. Being outside it is not harmless — a sweep nobody runs finds its
+# fault on the day someone happens to run it rather than the day it broke.
+#
+# Each of these three was canaried before it was pinned: the defect it claims
+# to catch was written into a live interface file and each count went 0 -> 1.
+# Two others were written up alongside them and are *not* here —
+# framexml_nil_arithmetic's zero line and framexml_for_limit_check's sentence
+# both stayed clean with their own fault sitting in a loaded file, so pinning
+# them would have added two guards that cannot fail. (nil_arithmetic still
+# earns its keep by hand: the line that found the calendar bug is its "carriers
+# a live file reaches", which is 1 rather than 0 and so has no ceiling to pin.)
+CHECKS += [
+    ("framexml_contract_check.py",
+     r"^(\d+) arity, \d+ return-count", 0,
+     "bindings needing an argument the interface calls bare"),
+    ("framexml_nil_use_check.py",
+     r"^(\d+) missing functions used where nil raises", 0,
+     "missing functions used where nil raises"),
+    ("framexml_method_check.py",
+     r"^(\d+) methods called that neither the metatable nor the known set", 0,
+     "widget methods nothing answers at all"),
+]
+
 SENTENCES = [
     ("bootstrap_chunk_check.py",
      "every local they use is declared in the chunk that uses it",
