@@ -3919,6 +3919,35 @@ int lua_EditBox_SetMultiLine(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->editMultiLine = lua_toboolean(L, 2) != 0;
     return 0;
 }
+/// HighlightText([start, stop]) — select a run, or all of it.
+///
+/// The one caller that matters is autocomplete: it writes the completed name
+/// with SetText and highlights the part it added, so the next character typed
+/// replaces the completion instead of landing after it. With this a no-op,
+/// typing "Thr" into a whisper completed to "Thrall" and the next keystroke
+/// made "Thralla".
+///
+/// No arguments means all of it, which is what WoW does and what the chat
+/// edit box relies on when it takes focus.
+int lua_EditBox_HighlightText(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w || !w->isEditBox) return 0;
+    const size_t len = w->editText.size();
+    size_t a = 0, b = len;
+    if (lua_isnumber(L, 2)) a = static_cast<size_t>(std::max(0.0, lua_tonumber(L, 2)));
+    if (lua_isnumber(L, 3)) b = static_cast<size_t>(std::max(0.0, lua_tonumber(L, 3)));
+    if (a > len) a = len;
+    if (b > len) b = len;
+    if (a > b) std::swap(a, b);
+    w->selStart = a;
+    w->selEnd = b;
+    // An empty run is no selection: FrameXML calls this with equal offsets to
+    // clear one, and a zero-width highlight that still counted would eat the
+    // next character typed.
+    w->hasSelection = (b > a);
+    return 0;
+}
+
 int lua_EditBox_SetCursorPosition(lua_State* L) {
     auto* w = widgetOf(L, 1);
     if (!w) return 0;
@@ -3928,6 +3957,10 @@ int lua_EditBox_SetCursorPosition(lua_State* L) {
     // number from Lua is the one way left to split an escape.
     w->cursorPos = ui::caretSnap(w->editText, static_cast<size_t>(std::clamp(
         at, 0.0, static_cast<double>(w->editText.size()))));
+    // Moving the caret ends the selection, as it does in any text field. A
+    // selection left behind would swallow the next character typed, somewhere
+    // far from whatever set it.
+    w->hasSelection = false;
     return 0;
 }
 int lua_EditBox_GetCursorPosition(lua_State* L) {
@@ -4903,6 +4936,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetMultiLine",          lua_EditBox_SetMultiLine},
         {"SetAutoFocus",          lua_EditBox_SetAutoFocus},
         {"SetCursorPosition",     lua_EditBox_SetCursorPosition},
+        {"HighlightText",         lua_EditBox_HighlightText},
         {"GetCursorPosition",     lua_EditBox_GetCursorPosition},
         {"GetNumLetters",         lua_EditBox_GetNumLetters},
         {"GetUTF8CursorPosition", lua_EditBox_GetUTF8CursorPosition},
@@ -7980,7 +8014,13 @@ int lua_EditBox_HasFocus(lua_State* L) {
 void LuaEngine::setEditFocus(uint32_t wid) {
     if (focusedWid_ == wid) return;
     if (focusedWid_ != 0) {
-        if (auto* old = widgets_.get(focusedWid_)) old->editFocused = false;
+        if (auto* old = widgets_.get(focusedWid_)) {
+            old->editFocused = false;
+            // And its selection, for the same reason: a box that is no longer
+            // being typed into must not keep a run that the next visit would
+            // overwrite.
+            old->hasSelection = false;
+        }
         callFrameScript(focusedWid_, "OnEditFocusLost");
     }
     focusedWid_ = wid;
@@ -8014,6 +8054,15 @@ void LuaEngine::dispatchText(const char* utf8) {
         add.resize(static_cast<size_t>(room));
     }
 
+    // A selected run is replaced by what is typed, which is the whole point of
+    // having one: autocomplete highlights the name it completed so the next
+    // character overwrites it rather than following it.
+    if (w->hasSelection && w->selEnd > w->selStart &&
+        w->selEnd <= w->editText.size()) {
+        w->editText.erase(w->selStart, w->selEnd - w->selStart);
+        w->cursorPos = w->selStart;
+    }
+    w->hasSelection = false;
     const size_t at = std::min(w->cursorPos, w->editText.size());
     w->editText.insert(at, add);
     w->cursorPos = at + add.size();
@@ -8120,6 +8169,17 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
         // of the wreckage. The same step the caret moves by is the span to
         // remove, which keeps the two from ever disagreeing.
         case kBackspace:
+            // The selection first, if there is one: backspace over a
+            // highlighted run removes the run, not the character before it.
+            if (w->hasSelection && w->selEnd > w->selStart &&
+                w->selEnd <= w->editText.size()) {
+                w->editText.erase(w->selStart, w->selEnd - w->selStart);
+                w->cursorPos = w->selStart;
+                w->hasSelection = false;
+                fireCursorChanged(focusedWid_);
+                callFrameScript(focusedWid_, "OnTextChanged");
+                break;
+            }
             if (w->cursorPos > 0 && len > 0) {
                 const size_t from = ui::caretStepLeft(w->editText, w->cursorPos);
                 w->editText.erase(from, w->cursorPos - from);

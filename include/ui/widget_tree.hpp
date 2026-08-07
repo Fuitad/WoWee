@@ -293,6 +293,16 @@ struct Widget {
     float textInsetTop = 0.0f, textInsetBottom = 0.0f;
     std::string editText;
     size_t cursorPos = 0;
+    /// The selected run, as byte offsets into editText, when there is one.
+    ///
+    /// HighlightText(start, stop) sets it and the interface uses it for one
+    /// thing above all: autocomplete writes the completed name and highlights
+    /// the part it added, so the next character typed replaces the completion
+    /// rather than being appended to it. Without a selection, typing "Thr"
+    /// into a whisper gave "Thrall" and the next keystroke made "Thralla".
+    bool   hasSelection = false;
+    size_t selStart = 0;
+    size_t selEnd = 0;
     /// What has been typed into this box before, oldest first, and where the
     /// arrow keys are in it.
     ///
