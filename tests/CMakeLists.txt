@@ -76,6 +76,23 @@ target_link_libraries(test_framexml PRIVATE catch2_main)
 add_test(NAME framexml COMMAND test_framexml)
 register_test_target(test_framexml)
 
+# ── test_framexml_takeover ──────────────────────────────────
+# Which interface draws what in the configuration a run actually gets. The
+# transition's state is "FrameXML draws all of it", and that rested on a list
+# of forty-nine names and a grouping rule agreeing about fifty-two elements,
+# in a file where either can be edited alone. An element falling out is not an
+# error — this client just draws its own version again.
+add_executable(test_framexml_takeover
+    test_framexml_takeover.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/framexml_takeover.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/logger.cpp
+)
+target_include_directories(test_framexml_takeover PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_framexml_takeover SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_framexml_takeover PRIVATE catch2_main)
+add_test(NAME framexml_takeover COMMAND test_framexml_takeover)
+register_test_target(test_framexml_takeover)
+
 # ── test_lua_arg_coercion ───────────────────────────────────
 # The lenient numeric argument, which is a pure function of the Lua stack and
 # so needs no game, window or interface — while the fault it prevents is
