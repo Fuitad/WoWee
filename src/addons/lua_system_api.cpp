@@ -6294,6 +6294,46 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushboolean(L, changed ? 1 : 0);
             return 1;
         }},
+                // Setting another invitee's status or moderator rank, which
+                // is what an event's owner does to confirm, bench or promote
+                // someone. The player's own answer is a different packet
+                // (CMSG_CALENDAR_EVENT_RSVP) and goes through the RSVP verbs.
+                //
+                // The index is into the open event's invite list, and the
+                // status arrives one-based from the interface where the wire
+                // counts from zero.
+                {"CalendarEventSetStatus", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const int uiStatus = static_cast<int>(luaL_optnumber(L, 2, 1));
+            if (!gh) return 0;
+            const auto& ev = gh->getCalendarEventDetail();
+            if (index < 1 || static_cast<size_t>(index) > ev.invitees.size()) return 0;
+            const auto& inv = ev.invitees[static_cast<size_t>(index) - 1];
+            gh->setCalendarInviteStatus(inv.guid, ev.eventId, inv.inviteId,
+                                        static_cast<uint8_t>(uiStatus > 0 ? uiStatus - 1 : 0));
+            return 0;
+        }},
+                {"CalendarEventSetModerator", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh) return 0;
+            const auto& ev = gh->getCalendarEventDetail();
+            if (index < 1 || static_cast<size_t>(index) > ev.invitees.size()) return 0;
+            const auto& inv = ev.invitees[static_cast<size_t>(index) - 1];
+            gh->setCalendarInviteModerator(inv.guid, ev.eventId, inv.inviteId, 1);
+            return 0;
+        }},
+                {"CalendarEventClearModerator", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh) return 0;
+            const auto& ev = gh->getCalendarEventDetail();
+            if (index < 1 || static_cast<size_t>(index) > ev.invitees.size()) return 0;
+            const auto& inv = ev.invitees[static_cast<size_t>(index) - 1];
+            gh->setCalendarInviteModerator(inv.guid, ev.eventId, inv.inviteId, 0);
+            return 0;
+        }},
                 // Inviting someone.
                 //
                 // Two cases in one call, which is how WoW does it. An event

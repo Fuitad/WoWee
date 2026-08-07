@@ -3296,6 +3296,20 @@ void GameHandler::removeCalendarEvent(uint64_t eventId, uint64_t inviteId) {
     if (socialHandler_) socialHandler_->removeCalendarEvent(eventId, inviteId);
 }
 
+void GameHandler::setCalendarInviteStatus(uint64_t inviteeGuid, uint64_t eventId,
+                                          uint64_t inviteId, uint8_t status) {
+    if (socialHandler_) {
+        socialHandler_->setCalendarInviteStatus(inviteeGuid, eventId, inviteId, status);
+    }
+}
+
+void GameHandler::setCalendarInviteModerator(uint64_t inviteeGuid, uint64_t eventId,
+                                             uint64_t inviteId, uint8_t rank) {
+    if (socialHandler_) {
+        socialHandler_->setCalendarInviteModerator(inviteeGuid, eventId, inviteId, rank);
+    }
+}
+
 void GameHandler::requestCalendarEvent(uint64_t eventId) {
     if (socialHandler_) socialHandler_->requestCalendarEvent(eventId);
 }

@@ -370,6 +370,12 @@ public:
     void inviteToCalendarEvent(uint64_t eventId, uint64_t inviteId,
                                const std::string& name, bool isPreInvite,
                                bool isGuildEvent);
+    /// Set another invitee's status, or their moderator rank. Both act on
+    /// someone else; the player's own answer is respondToCalendarInvite.
+    void setCalendarInviteStatus(uint64_t inviteeGuid, uint64_t eventId,
+                                 uint64_t inviteId, uint8_t status);
+    void setCalendarInviteModerator(uint64_t inviteeGuid, uint64_t eventId,
+                                    uint64_t inviteId, uint8_t rank);
     /// Edit an existing event: CMSG_CALENDAR_UPDATE_EVENT.
     void updateCalendarEvent(uint64_t eventId, uint64_t inviteId,
                              const CalendarEventDraft& draft);

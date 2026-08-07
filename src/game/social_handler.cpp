@@ -4487,6 +4487,40 @@ void SocialHandler::removeCalendarEvent(uint64_t eventId, uint64_t inviteId) {
     LOG_INFO("removeCalendarEvent: ", eventId);
 }
 
+void SocialHandler::setCalendarInviteStatus(uint64_t inviteeGuid,
+                                            uint64_t eventId, uint64_t inviteId,
+                                            uint8_t status) {
+    if (!owner_.isInWorld()) return;
+    // packedGuid invitee, eventId, inviteId, ownerInviteId, status
+    // (CalendarHandler.cpp:695). Setting someone *else's* status, which is what
+    // an event's owner does to confirm or bench them — the player's own answer
+    // is CMSG_CALENDAR_EVENT_RSVP and a different packet entirely.
+    network::Packet pkt(wireOpcode(Opcode::CMSG_CALENDAR_EVENT_STATUS));
+    pkt.writePackedGuid(inviteeGuid);
+    pkt.writeUInt64(eventId);
+    pkt.writeUInt64(inviteId);
+    pkt.writeUInt64(0);   // ownerInviteId
+    pkt.writeUInt8(status);
+    owner_.getSocket()->send(pkt);
+    LOG_INFO("setCalendarInviteStatus: invitee ", inviteeGuid, " status ", status);
+}
+
+void SocialHandler::setCalendarInviteModerator(uint64_t inviteeGuid,
+                                               uint64_t eventId,
+                                               uint64_t inviteId, uint8_t rank) {
+    if (!owner_.isInWorld()) return;
+    // The same shape with a rank in place of the status
+    // (CalendarHandler.cpp:727).
+    network::Packet pkt(wireOpcode(Opcode::CMSG_CALENDAR_EVENT_MODERATOR_STATUS));
+    pkt.writePackedGuid(inviteeGuid);
+    pkt.writeUInt64(eventId);
+    pkt.writeUInt64(inviteId);
+    pkt.writeUInt64(0);   // ownerInviteId
+    pkt.writeUInt8(rank);
+    owner_.getSocket()->send(pkt);
+    LOG_INFO("setCalendarInviteModerator: invitee ", inviteeGuid, " rank ", rank);
+}
+
 void SocialHandler::requestCalendarEvent(uint64_t eventId) {
     if (!owner_.isInWorld()) return;
     network::Packet pkt(wireOpcode(Opcode::CMSG_CALENDAR_GET_EVENT));

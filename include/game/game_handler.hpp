@@ -724,6 +724,11 @@ public:
     void inviteToCalendarEvent(uint64_t eventId, uint64_t inviteId,
                                const std::string& name, bool isPreInvite,
                                bool isGuildEvent);
+    /// Set another invitee's status or moderator rank.
+    void setCalendarInviteStatus(uint64_t inviteeGuid, uint64_t eventId,
+                                 uint64_t inviteId, uint8_t status);
+    void setCalendarInviteModerator(uint64_t inviteeGuid, uint64_t eventId,
+                                    uint64_t inviteId, uint8_t rank);
     /// Edit an existing event, and delete one.
     void updateCalendarEvent(uint64_t eventId, uint64_t inviteId,
                              const CalendarEventDraft& draft);
