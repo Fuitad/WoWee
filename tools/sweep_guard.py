@@ -774,6 +774,14 @@ CHECKS += [
     ("framexml_method_check.py",
      r"^(\d+) methods called that neither the metatable nor the known set", 0,
      "widget methods nothing answers at all"),
+    # The one fault here that is not a wrong answer but a dead process. Lua
+    # gives a binding twenty slots above its arguments and pushing past them
+    # writes outside the stack — GetChildren on UIParent, with 267 of them,
+    # died in realloc rather than raising. Canaried by removing each of the
+    # three guards in turn; all three are reported.
+    ("lua_stack_room_check.py",
+     r"^(\d+) binding\(s\) push per row without asking for the room", 0,
+     "bindings pushing a value per row with no room asked for"),
 ]
 
 SENTENCES = [

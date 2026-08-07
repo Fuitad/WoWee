@@ -3526,6 +3526,62 @@ int lua_GetMouseFocus(lua_State* L) {
     return 1;
 }
 
+/// frame:GetChildren() — every child frame, as a list of return values.
+///
+/// The count is the payload here, not any one value: FrameXML spreads it
+/// straight into a vararg call, so answering nothing is not a wrong answer but
+/// an empty one. The call happens, the callee's `...` is empty, and its work
+/// silently does not occur — the same shape that once left every chat window
+/// registered for no message at all.
+///
+/// `ApplyUnitButtonConfiguration(frame:GetChildren())` is the live case: it is
+/// how the secure templates recurse into a unit button's nested frames, so
+/// with nothing returned the top level was configured and everything under it
+/// was not.
+///
+/// Frames only. Textures and font strings are a frame's *regions* in WoW and
+/// come back from GetRegions, which nothing here calls.
+int lua_Frame_GetChildren(lua_State* L) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    const uint32_t id = widgetIdOf(L, 1);
+    if (!tree || id == 0) return 0;
+    const auto* w = tree->get(id);
+    if (!w) return 0;
+
+    lua_getglobal(L, "__WoweeFramesByWid");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); return 0; }
+    const int registry = lua_gettop(L);
+
+    // Room for all of them before any are pushed. Lua guarantees only a small
+    // slack above the arguments, and UIParent has hundreds of children — the
+    // first run of this corrupted the heap rather than raising, because
+    // lua_pushinteger past the top writes outside the stack.
+    if (!lua_checkstack(L, static_cast<int>(w->children.size()) + 2)) {
+        lua_pop(L, 1);
+        LOG_WARNING("GetChildren: no room for ", w->children.size(),
+                    " children of '", w->name, "'; answering none");
+        return 0;
+    }
+
+    int pushed = 0;
+    for (const uint32_t childId : w->children) {
+        const auto* child = tree->get(childId);
+        if (!child || child->kind != wowee::ui::WidgetKind::Frame) continue;
+        lua_pushinteger(L, static_cast<lua_Integer>(childId));
+        lua_rawget(L, registry);
+        if (lua_istable(L, -1)) {
+            ++pushed;
+        } else {
+            // A widget with no Lua table behind it is not a child anyone can
+            // be handed; dropping it keeps the list free of nils, which a
+            // vararg callee would count as children.
+            lua_pop(L, 1);
+        }
+    }
+    lua_remove(L, registry);    // drop the registry, keep the children above it
+    return pushed;
+}
+
 int lua_Frame_EnableKeyboard(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) w->keyboardEnabled = lua_toboolean(L, 2) != 0;
     return 0;
@@ -5010,6 +5066,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetFrameLevel",   lua_Frame_SetFrameLevel},
         {"SetParent",       lua_Frame_SetParent},
         {"GetParent",       lua_Frame_GetParent},
+        {"GetChildren",     lua_Frame_GetChildren},
         {"CreateTexture",   lua_Frame_CreateTexture},
         {"CreateFontString", lua_Frame_CreateFontString},
         {nullptr, nullptr}

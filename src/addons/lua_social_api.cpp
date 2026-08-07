@@ -649,6 +649,10 @@ static int lua_GetAutoCompleteResults(lua_State* L) {
         if (c.isFriend()) note(c.name, kFriend, c.isOnline());
     }
 
+    // `wanted` comes from the caller and nothing bounds it; the names come
+    // from a guild roster, which can be a thousand. Room first — pushing past
+    // the stack top corrupts the heap rather than raising.
+    if (!lua_checkstack(L, wanted + 1)) return 0;
     int pushed = 0;
     for (const auto& [name, flags] : byName) {
         if (pushed >= wanted) break;
@@ -2378,6 +2382,13 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetGossipAvailableQuests", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (!gh) return 0;
+            // Five values per quest, and the quest count is the server's. Room
+            // first: pushing past the stack top corrupts the heap rather than
+            // raising.
+            if (!lua_checkstack(
+                    L, static_cast<int>(gh->getCurrentGossip().quests.size()) * 5 + 1)) {
+                return 0;
+            }
             int n = 0;
             for (const auto& q : gh->getCurrentGossip().quests) {
                 if (!gossipQuestIsAvailable(q.questIcon)) continue;
@@ -2395,6 +2406,13 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetGossipActiveQuests", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (!gh) return 0;
+            // Five values per quest, and the quest count is the server's. Room
+            // first: pushing past the stack top corrupts the heap rather than
+            // raising.
+            if (!lua_checkstack(
+                    L, static_cast<int>(gh->getCurrentGossip().quests.size()) * 5 + 1)) {
+                return 0;
+            }
             int n = 0;
             for (const auto& q : gh->getCurrentGossip().quests) {
                 if (!gossipQuestIsActive(q.questIcon)) continue;
@@ -2704,6 +2722,10 @@ void registerSocialLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             if (!gh) return 0;
             const auto& opts = gh->getCurrentGossip().options;
+            // Two values per option, and the option count is the server's.
+            // Room first: pushing past the stack top corrupts the heap rather
+            // than raising.
+            if (!lua_checkstack(L, static_cast<int>(opts.size()) * 2 + 1)) return 0;
             int n = 0;
             static constexpr const char* kIcons[] = {"gossip","vendor","taxi","trainer","spiritguide","innkeeper","banker","petition","tabard","battlemaster","auctioneer"};
             for (const auto& o : opts) {

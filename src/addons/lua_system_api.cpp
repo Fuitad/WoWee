@@ -1727,6 +1727,17 @@ static int lua_strsplit(lua_State* L) {
     if (!delim[0]) { lua_pushstring(L, str); return 1; }
     int count = 0;
     std::string s(str);
+    // One value per field, and the field count follows from the string rather
+    // than from anything this client chose. Lua guarantees only a small slack
+    // above the arguments, and pushing past the top corrupts the heap rather
+    // than raising — so the room is asked for before any of it is used.
+    // A chat line of commas is all it takes.
+    const size_t fields = static_cast<size_t>(
+        std::count(s.begin(), s.end(), delim[0])) + 1;
+    if (!lua_checkstack(L, static_cast<int>(fields) + 1)) {
+        lua_pushstring(L, str);
+        return 1;
+    }
     size_t pos = 0;
     while (pos <= s.size()) {
         size_t found = s.find(delim[0], pos);
