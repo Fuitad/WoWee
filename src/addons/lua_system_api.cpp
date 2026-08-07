@@ -6332,6 +6332,55 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"CalendarContextInviteRemove", [](lua_State* L) -> int {
             return calendarRespondToContextInvite(L, 9);   // removed
         }},
+                // Whether the player may edit or delete the row the menu is
+                // about, which is whether they created it. The server decides
+                // for real and refuses otherwise; this is what greys the menu
+                // entry rather than letting it be clicked and rejected.
+                {"CalendarContextEventCanEdit", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) { lua_pushboolean(L, 0); return 1; }
+            const auto rows = calendarDayRows(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 3, 0));
+            if (index < 1 || static_cast<size_t>(index) > rows.size()) {
+                lua_pushboolean(L, 0);
+                return 1;
+            }
+            const auto& row = rows[static_cast<size_t>(index) - 1];
+            if (row.kind != wowee::game::CalendarEntryKind::Event) {
+                lua_pushboolean(L, 0);
+                return 1;
+            }
+            const auto& ev = gh->getCalendarData().events[row.index];
+            lua_pushboolean(L, ev.creatorGuid != 0 &&
+                                   ev.creatorGuid == gh->getPlayerGuid() ? 1 : 0);
+            return 1;
+        }},
+                // Reporting an event is a GM feature this client has no
+                // packet for. False rather than nothing: the menu tests it to
+                // decide whether to draw the entry, and a stand-in would draw
+                // one that does nothing when clicked.
+                {"CalendarContextEventCanComplain", [](lua_State* L) -> int {
+            lua_pushboolean(L, 0);
+            return 1;
+        }},
+                // Delete the row the menu is about.
+                {"CalendarContextEventRemove", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const auto& row = calendarContextRow();
+            const auto rows = calendarRowsFor(*gh, row.monthOffset, row.day);
+            if (row.index < 1 || static_cast<size_t>(row.index) > rows.size()) return 0;
+            const auto& entry = rows[static_cast<size_t>(row.index) - 1];
+            if (entry.kind != wowee::game::CalendarEntryKind::Event) return 0;
+            gh->removeCalendarEvent(
+                gh->getCalendarData().events[entry.index].eventId, 0);
+            return 0;
+        }},
+                // Signing up to a guild event, which is an RSVP with the
+                // signed-up status rather than a separate request.
+                {"CalendarContextEventSignUp", [](lua_State* L) -> int {
+            return calendarRespondToContextInvite(L, 6);   // SIGNED_UP
+        }},
                 // Which of the six kinds the menu's row is, so the menu can
                 // offer the right verbs. Read from the same day list the row
                 // was chosen out of.
