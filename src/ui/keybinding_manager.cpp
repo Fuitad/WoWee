@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <functional>
+#include <vector>
 #include "ui/keybinding_manager.hpp"
 #include "core/logger.hpp"
 #include <fstream>
@@ -84,16 +86,24 @@ void setTypedInputProbe(std::function<bool()> probe) {
 }
 
 namespace {
-/// Set by the pump, read by the poll, cleared between iterations.
-bool& consumedEscape() {
-    static bool flag = false;
-    return flag;
+/// Set by the pump, read by the poll, cleared between iterations. A handful of
+/// keys at most — only the ones whose handling lets go of the box.
+std::vector<ImGuiKey>& consumedKeys() {
+    static std::vector<ImGuiKey> keys;
+    return keys;
 }
 }  // namespace
 
-bool interfaceConsumedEscape() { return consumedEscape(); }
-void noteInterfaceConsumedEscape() { consumedEscape() = true; }
-void clearInterfaceConsumedEscape() { consumedEscape() = false; }
+bool interfaceConsumedKey(ImGuiKey key) {
+    const auto& keys = consumedKeys();
+    return std::find(keys.begin(), keys.end(), key) != keys.end();
+}
+
+void noteInterfaceConsumedKey(ImGuiKey key) {
+    if (!interfaceConsumedKey(key)) consumedKeys().push_back(key);
+}
+
+void clearInterfaceConsumedKeys() { consumedKeys().clear(); }
 
 ImGuiKey KeybindingManager::getKeyForAction(Action action) const {
     auto it = bindings_.find(static_cast<int>(action));

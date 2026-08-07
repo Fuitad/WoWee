@@ -1149,7 +1149,7 @@ void Application::run() {
             // Cleared here rather than after the draw, because the flag only
             // ever describes the iteration it was set in: the pump sets it and
             // the draw, further down this same iteration, is the only reader.
-            ui::clearInterfaceConsumedEscape();
+            ui::clearInterfaceConsumedKeys();
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
                 // Pass event to UI manager first
@@ -1258,12 +1258,26 @@ void Application::run() {
                             engine && engine->editBoxHasFocus()) {
                             const bool ctrl =
                                 (event.key.keysym.mod & KMOD_CTRL) != 0;
-                            // Said before the dispatch, because dispatching
-                            // Escape is what lets go of the focus that the
-                            // check above just used — ask afterwards and the
-                            // box no longer admits to having taken anything.
-                            if (event.key.keysym.sym == SDLK_ESCAPE) {
-                                ui::noteInterfaceConsumedEscape();
+                            // Said before the dispatch, because dispatching is
+                            // what lets go of the focus that the check above
+                            // just used — ask afterwards and the box no longer
+                            // admits to having taken anything.
+                            //
+                            // Only the three that let go. Every other key
+                            // leaves the box focused, so the poll's own typing
+                            // guard still answers for them.
+                            switch (event.key.keysym.sym) {
+                                case SDLK_ESCAPE:
+                                    ui::noteInterfaceConsumedKey(ImGuiKey_Escape);
+                                    break;
+                                case SDLK_RETURN:
+                                case SDLK_KP_ENTER:
+                                    ui::noteInterfaceConsumedKey(ImGuiKey_Enter);
+                                    break;
+                                case SDLK_TAB:
+                                    ui::noteInterfaceConsumedKey(ImGuiKey_Tab);
+                                    break;
+                                default: break;
                             }
                             engine->dispatchKey(event.key.keysym.sym, ctrl);
                             continue;

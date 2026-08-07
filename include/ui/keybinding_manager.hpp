@@ -105,30 +105,35 @@ bool interfaceTakingTypedInput();
 void setTypedInputProbe(std::function<bool()> probe);
 
 /**
- * Whether the interface's focused edit box has already taken this frame's
- * Escape.
+ * Whether the interface's focused edit box has already taken this key, this
+ * iteration.
  *
- * The guard above is not enough for this one key, because the two paths run in
- * an order that hides the problem. The event pump hands a focused box every
- * key and stops there — and for Escape, handing it over is what *clears the
- * focus*. The per-frame poll then runs later in the same iteration, asks
- * whether the interface is taking typed input, and is told no: the box it
- * would have deferred to let go a moment ago, on this very press.
+ * The guard above is not enough for three of them, because the pump's handling
+ * of the key *changes what that guard reports*. The pump hands a focused box
+ * every keystroke and stops there — and for these three, taking the key is
+ * what lets go of the box. The per-frame poll then runs later in the same
+ * iteration, asks whether the interface is taking typed input, and is told no,
+ * truthfully, by the box that let go on this very press:
  *
- * So one press did two things. It closed the box, correctly, and then ran the
- * whole Escape chain on top — which with nothing else open opens the game
- * menu. WoW closes the box and stops.
+ *  - **Escape** closes the box. The Escape chain then ran on top and put the
+ *    game menu up behind the box the player had just dismissed.
+ *  - **Enter** sends the line and ends in `ChatEdit_OnEscapePressed`, which
+ *    hides the box. Enter is also this client's open-chat key, so sending a
+ *    message reopened the box on the same press.
+ *  - **Tab** is handed to the box's own handler, which is where the interface
+ *    moves between fields — and the target key is Tab.
  *
  * A flag rather than a consumed key, because ImGui's IsKeyPressed does not
- * consume: both sites see the same press no matter what either does with it.
+ * consume: both sites see the same press whatever either does with it.
  */
-bool interfaceConsumedEscape();
+bool interfaceConsumedKey(ImGuiKey key);
 
-/// Called by the pump when the interface's box took Escape.
-void noteInterfaceConsumedEscape();
+/// Called by the pump, before it dispatches — after, the box no longer admits
+/// to having taken anything.
+void noteInterfaceConsumedKey(ImGuiKey key);
 
-/// Cleared at the top of each event pump, so the flag only ever describes the
+/// Cleared at the top of each event pump, so a flag only ever describes the
 /// iteration it was set in.
-void clearInterfaceConsumedEscape();
+void clearInterfaceConsumedKeys();
 
 }  // namespace wowee::ui

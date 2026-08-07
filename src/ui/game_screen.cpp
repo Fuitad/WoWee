@@ -1375,11 +1375,14 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
     // likeliest answer and is the one that leaves no other trace.
     if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_CHAT, false)) {
         if (io.WantTextInput || interfaceTakingTypedInput() ||
+            interfaceConsumedKey(ImGuiKey_Enter) ||
             chatPanel_.isChatInputActive()) {
             LOG_INFO("Chat key: refused — ImGui wants text: ",
                      io.WantTextInput ? "yes" : "no",
                      ", the interface's box has focus: ",
                      interfaceTakingTypedInput() ? "yes" : "no",
+                     ", the interface's box already took this press: ",
+                     interfaceConsumedKey(ImGuiKey_Enter) ? "yes" : "no",
                      ", this client's chat input: ",
                      chatPanel_.isChatInputActive() ? "active" : "idle");
         } else {
@@ -1387,7 +1390,13 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                      frameXmlChat ? "the interface's box" : "this client's box");
         }
     }
+    // The interface's box gets this press first when it has focus, and Enter
+    // is where it says it is done: ChatEdit_OnEnterPressed sends the line and
+    // ends in ChatEdit_OnEscapePressed, which hides the box. That is also what
+    // clears the focus this poll's guard reads — so the press that sent the
+    // message opened the box again behind it.
     if (!io.WantTextInput && !chatPanel_.isChatInputActive() &&
+        !interfaceConsumedKey(ImGuiKey_Enter) &&
         KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_CHAT, false)) {
         if (frameXmlChat) gameHandler.runInterfaceCommand("ChatFrame_OpenChat(\"\")");
         else              chatPanel_.activateInput();
@@ -1399,7 +1408,14 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
     // WantCaptureKeyboard so that toggle keys like M, C, I still work when an
     // ImGui window (character panel, map, etc.) happens to have focus.
     {
-        if (!textFocus && input.isKeyJustPressed(SDL_SCANCODE_TAB)) {
+        // Two guards, because Tab reaches a focused box two ways. While one
+        // holds focus the probe answers; when the box's own OnTabPressed moves
+        // to the next field, the box that had it has let go by the time this
+        // is asked — and cycling between two fields of a form would have
+        // changed the player's target on every press.
+        if (!textFocus && !interfaceTakingTypedInput() &&
+            !interfaceConsumedKey(ImGuiKey_Tab) &&
+            input.isKeyJustPressed(SDL_SCANCODE_TAB)) {
             const auto& movement = gameHandler.getMovementInfo();
             gameHandler.tabTarget(movement.x, movement.y, movement.z);
         }
@@ -1442,7 +1458,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             // situation. resolveEscape is that question on its own, and its
             // test states each situation directly.
             EscapeState st;
-            st.interfaceConsumedKey  = interfaceConsumedEscape();
+            st.interfaceConsumedKey  = interfaceConsumedKey(ImGuiKey_Escape);
             st.settingsWindowShown   = settingsPanel_.showSettingsWindow;
             st.clientMenuShown       = windowManager_.showEscapeMenu;
             st.casting               = gameHandler.isCasting();
