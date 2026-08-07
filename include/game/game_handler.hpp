@@ -2398,6 +2398,14 @@ public:
     /// interface wants the word, not the number — it picks a texture and a
     /// text colour by it.
     const std::string& getPageTextMaterialName(uint32_t materialId) const;
+    /// Languages.dbc's name for a language id — "Common", "Orcish", and the
+    /// fourteen others. Zero is Universal, which the file does not carry
+    /// because it is not a language anyone speaks.
+    ///
+    /// The interface wants the word: ChatFrame_MessageEventHandler compares
+    /// the third chat argument against GetDefaultLanguage() and prefixes
+    /// "[<it>] " when they differ, so a number there is printed verbatim.
+    const std::string& getLanguageName(uint32_t languageId) const;
 
     // Other player level-up callback — fires when another player gains a level
     using OtherPlayerLevelUpCallback = std::function<void(uint64_t guid, uint32_t newLevel)>;
@@ -4785,6 +4793,9 @@ private:
     /// like the other DBC-backed caches here.
     mutable std::unordered_map<uint32_t, std::string> pageTextMaterialNames_;
     mutable bool pageTextMaterialsLoaded_ = false;
+    /// Languages.dbc, read once on the first ask like the caches beside it.
+    mutable std::unordered_map<uint32_t, std::string> languageNames_;
+    mutable bool languageNamesLoaded_ = false;
     OtherPlayerLevelUpCallback otherPlayerLevelUpCallback_;
     OtherPlayerMountCallback otherPlayerMountCallback_;
     AchievementEarnedCallback achievementEarnedCallback_;

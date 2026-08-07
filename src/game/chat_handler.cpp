@@ -635,7 +635,19 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
     if (owner_.addonEventCallbackRef()) {
         std::string eventName = "CHAT_MSG_";
         eventName += getChatTypeString(data.type);
-        std::string lang = std::to_string(static_cast<int>(data.language));
+        // The language's *name*, not its id. ChatFrame_MessageEventHandler
+        // does
+        //
+        //     if strlen(arg3) > 0 and arg3 ~= "Universal"
+        //                          and arg3 ~= self.defaultLanguage then
+        //         languageHeader = "["..arg3.."] "
+        //
+        // and GetDefaultLanguage answers "Common" or "Orcish". A number never
+        // matches either, so every line in the player's own language was
+        // printed with its id in front of it — guild chat in Common came out
+        // as "[7] Name: hello". Universal is the id the file does not carry
+        // and the word the test above looks for.
+        const std::string lang = owner_.getLanguageName(static_cast<uint32_t>(data.language));
         char guidBuf[32];
         snprintf(guidBuf, sizeof(guidBuf), "0x%016llX", (unsigned long long)data.senderGuid);
         // arg8 is the channel's number and arg9 its name without the zone
@@ -953,9 +965,11 @@ void ChatHandler::fireChatEvent(const MessageChatData& msg) {
     char guidBuf[32];
     snprintf(guidBuf, sizeof(guidBuf), "0x%016llX",
              (unsigned long long)(msg.senderGuid != 0 ? msg.senderGuid : owner_.getPlayerGuid()));
+    // The name, for the reason handleMessageChat gives: a number here is
+    // printed as a language header in front of every line.
     owner_.addonEventCallbackRef()(eventName, {
         msg.message, senderName,
-        std::to_string(static_cast<int>(msg.language)),
+        owner_.getLanguageName(static_cast<uint32_t>(msg.language)),
         msg.channelName, senderName, "", "0", "0", "", "0", "0", guidBuf
     });
 }

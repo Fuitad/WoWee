@@ -3816,6 +3816,31 @@ const std::vector<GameHandler::ReputationEntry>& GameHandler::getReputationList(
     return reputationList_;
 }
 
+const std::string& GameHandler::getLanguageName(uint32_t languageId) const {
+    static const std::string kUniversal = "Universal";
+    static const std::string kNone;
+    // Zero is not in the file: it is the "everyone understands this" language,
+    // and it is also the name the interface tests for before deciding whether
+    // to print a language header at all.
+    if (languageId == 0) return kUniversal;
+    if (!languageNamesLoaded_) {
+        auto* am = services().assetManager;
+        if (am && am->isInitialized()) {
+            languageNamesLoaded_ = true;
+            if (auto dbc = am->loadDBC("Languages.dbc"); dbc && dbc->isLoaded()) {
+                for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+                    const uint32_t id = dbc->getUInt32(i, 0);
+                    std::string name = dbc->getString(i, 1);
+                    if (id != 0 && !name.empty()) languageNames_[id] = std::move(name);
+                }
+                LOG_INFO("Languages.dbc: loaded ", languageNames_.size(), " languages");
+            }
+        }
+    }
+    auto it = languageNames_.find(languageId);
+    return it != languageNames_.end() ? it->second : kNone;
+}
+
 const std::string& GameHandler::getPageTextMaterialName(uint32_t materialId) const {
     static const std::string kNone;
     if (!pageTextMaterialsLoaded_) {

@@ -60,7 +60,12 @@ LATCH = re.compile(
     r'^\s*\*?(?:owner_\.)?(\w*(?:[Ll]oaded|[Ii]nitialized)\w*)(?:Ref\(\))?\s*=\s*true;')
 # A guard on the pointer alone. Having an asset manager is not having assets:
 # loadDBC answers nullptr until it is initialised.
-NULL_ONLY = re.compile(r'if\s*\(\s*!\s*(\w*[Aa]m\w*|\w*[Aa]sset\w*)\b(?![^)]*isInitialized)')
+# `am` exactly, or a name with "asset" in it. It used to be \w*[Aa]m\w*, which
+# matches any identifier containing those two letters — languageNamesLoaded_,
+# frameCount, cameraReady — and reported a loader whose guard was three lines
+# above it and perfectly correct. A pattern loose enough to match "Names" will
+# find something in every file eventually.
+NULL_ONLY = re.compile(r'if\s*\(\s*!\s*(am|\w*[Aa]sset\w*)\b(?![^)]*isInitialized)')
 # The precondition that must come first: the assets, however it is spelled.
 PRECOND = re.compile(
     r'if\s*\(\s*!\s*\w*[Aa]sset\w*'                 # !assetManager / !cachedAssetManager_
