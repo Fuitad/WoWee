@@ -5407,7 +5407,44 @@ void registerSystemLuaAPI(lua_State* L) {
                 // TAXIMAP image. So the texture keeps whatever its XML set.
                 // Named rather than left out so it does not read as a gap that
                 // was missed.
-                {"SetTaxiMap", [](lua_State* L) -> int { (void)L; return 0; }},
+                // SetTaxiMap(texture) — the continent behind the flight points.
+                //
+                // TaxiFrame_OnEvent hands its TaxiMap texture to this and
+                // expects the picture of the continent to come back on it; the
+                // node buttons are then placed over it by TaxiNodePosition,
+                // which answers a fraction of the map rather than a position on
+                // screen. A no-op here left those buttons floating on an empty
+                // panel, which is not a flight map — it is a set of unlabelled
+                // dots with nothing to read them against.
+                //
+                // The files are keyed by map id, not by name: this install has
+                // taximap0, taximap1, taximap530 and taximap571 — Eastern
+                // Kingdoms, Kalimdor, Outland and Northrend. So the id is the
+                // whole of the lookup and no table of continent names is
+                // needed, which is as well, because a name table would be a
+                // second place for the same fact to be written down.
+                {"SetTaxiMap", [](lua_State* L) -> int {
+            auto* tree = getWidgetTree(L);
+            if (!tree || !lua_istable(L, 1)) return 0;
+            // The widget id the frame table carries, read the same way
+            // SetPortraitTexture reads it — widgetIdOf is not visible here.
+            lua_getfield(L, 1, "__wid");
+            const uint32_t id = static_cast<uint32_t>(lua_tointeger(L, -1));
+            lua_pop(L, 1);
+            if (id == 0) return 0;
+            auto* w = tree->get(id);
+            if (!w) return 0;
+            w->solidColor = false;
+            // The handler is not required to reach this: without one the map
+            // id is zero, which is a real map rather than a refusal, and a
+            // client with nobody logged in has no flight window to draw
+            // anyway. Requiring it would only make the wiring untestable
+            // outside a session.
+            auto* gh = getGameHandler(L);
+            w->texturePath = "Interface\\TaxiFrame\\TaxiMap" +
+                             std::to_string(gh ? gh->getCurrentMapId() : 0u);
+            return 0;
+        }},
                 {"CloseTaxiMap", [](lua_State* L) -> int {
             if (auto* gh = getGameHandler(L)) gh->closeTaxi();
             return 0;
