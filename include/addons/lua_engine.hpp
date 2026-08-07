@@ -156,6 +156,24 @@ public:
     /// took it, so the caller knows not to also treat it as a movement key or
     /// a binding — which is the whole reason a dialog can be typed into.
     bool dispatchFrameKey(int sdlKeycode, bool down);
+
+    /// Run whatever FrameXML has bound to this key, if anything. True if a
+    /// binding ran.
+    ///
+    /// The interface ships 273 binding scripts and, until this existed, no key
+    /// press could reach any of them: keys went to a focused edit box or to a
+    /// frame listening for them, and nowhere else. The caller must not offer a
+    /// key this client answers itself — see KeybindingManager::answersKey —
+    /// because most bindings toggle something and two answers to one press
+    /// cancel out.
+    bool dispatchBindingKey(int sdlKeycode, bool shift, bool ctrl, bool alt,
+                            bool down);
+
+    /// The command this key holds, or empty. Whether the client would run it is
+    /// a separate question — see clientActsOnBinding — and keeping the two
+    /// apart is what lets a declined key be told from an unbound one.
+    std::string bindingCommandFor(int sdlKeycode, bool shift, bool ctrl,
+                                  bool alt);
     /// Whether an edit box currently has focus, so the client knows not to
     /// treat the same keystrokes as movement.
     ///

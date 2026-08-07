@@ -1505,6 +1505,38 @@ std::string bindingAt(lua_State* L, int index) {
 
 }  // namespace
 
+bool clientActsOnBinding(const std::string& command) {
+    // The nine the client really performs, asked of the same list that keeps
+    // their keys in step rather than restated — a second copy would be wrong
+    // the moment either side moved.
+    for (const auto& live : kLiveBindings) {
+        if (command == live.command) return true;
+    }
+    // And the rest of what the client answers without going through a binding
+    // at all. Each is a real call site: movement and jumping are polled every
+    // frame, the action bar takes 1 through 0 and the two beside them in
+    // GameScreen, chat opens on Enter and on slash, Tab targets, and Escape has
+    // a whole chain of its own in escape_action.hpp.
+    //
+    // By command rather than by key, because the conflict is that the *action*
+    // happens twice. Most bindings toggle something, so two answers to one
+    // press cancel out and the key reads as dead — which is worse than doing
+    // nothing, since it looks like the binding never ran.
+    static constexpr const char* kClientAnswers[] = {
+        "MOVEFORWARD", "MOVEBACKWARD", "TURNLEFT", "TURNRIGHT",
+        "STRAFELEFT", "STRAFERIGHT", "JUMP", "TOGGLEAUTORUN", "TOGGLERUN",
+        "TOGGLEGAMEMENU", "OPENCHAT", "OPENCHATSLASH", "TARGETNEARESTENEMY",
+        "SCREENSHOT", "TOGGLESHEATH",
+        "ACTIONBUTTON1", "ACTIONBUTTON2", "ACTIONBUTTON3", "ACTIONBUTTON4",
+        "ACTIONBUTTON5", "ACTIONBUTTON6", "ACTIONBUTTON7", "ACTIONBUTTON8",
+        "ACTIONBUTTON9", "ACTIONBUTTON10", "ACTIONBUTTON11", "ACTIONBUTTON12",
+    };
+    for (const char* name : kClientAnswers) {
+        if (command == name) return true;
+    }
+    return false;
+}
+
 // GetBindingKey(command) → key1, key2 (or nil)
 static int lua_GetBindingKey(lua_State* L) {
     seedBindingDefaults();

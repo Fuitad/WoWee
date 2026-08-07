@@ -450,6 +450,59 @@ int main(int argc, char** argv) {
             }
             continue;
         }
+        // --bind:KEY presses a key the way the client's binding dispatch does.
+        //
+        // Calling RunBinding by hand tests the script and nothing about whether
+        // a key press would ever reach it, which is the part that was missing
+        // entirely: 273 binding scripts loaded and none reachable.
+        if (std::strncmp(argv[i], "--bind:", 7) == 0) {
+            relayout();
+            const char* name = argv[i] + 7;
+            // A letter arrives from SDL in lower case; the binding tables are
+            // upper. Only single letters need it, which is all this takes.
+            int sym = 0;
+            if (std::strlen(name) == 1) {
+                sym = std::tolower(static_cast<unsigned char>(name[0]));
+            } else if (std::strcmp(name, "ESCAPE") == 0) {
+                sym = 27;
+            } else if (std::strcmp(name, "SPACE") == 0) {
+                sym = ' ';
+            }
+            if (sym == 0) {
+                std::printf("   --bind: only single letters, ESCAPE and SPACE\n");
+                continue;
+            }
+            bool ran = false;
+            if (auto* engine = mgr.getLuaEngine()) {
+                ran = engine->dispatchBindingKey(sym, false, false, false, true);
+            }
+            // Which command the key holds, said alongside the outcome.
+            //
+            // "Nothing happened" has two quite different causes here — no
+            // command on the key at all, or a command the client performs
+            // itself and the dispatch therefore declines — and reporting both
+            // the same way would make a decline read as a missing binding.
+            std::string command;
+            if (auto* engine = mgr.getLuaEngine()) {
+                command = engine->bindingCommandFor(sym, false, false, false);
+            }
+            if (ran) {
+                std::printf("   %s -> ran %s\n", name,
+                            command.empty() ? "(unnamed)" : command.c_str());
+            } else if (command.empty()) {
+                std::printf("   %s -> nothing bound to this key\n", name);
+            } else {
+                std::printf("   %s -> declined %s; the client performs it\n",
+                            name, command.c_str());
+            }
+            if (errors.size() != before) {
+                ++raised;
+                for (size_t k = before; k < errors.size(); ++k) {
+                    std::printf("   %s\n", errors[k].c_str());
+                }
+            }
+            continue;
+        }
         // --keyfocus names the frame a key press would be handed to.
         //
         // dispatchFrameKey gives the key to the topmost visible frame that

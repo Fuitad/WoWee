@@ -1312,6 +1312,26 @@ void Application::run() {
                                 continue;
                             }
                         }
+                        // Then whatever the interface has bound to the key.
+                        //
+                        // Last of the three, because a focused edit box and an
+                        // open dialog both outrank a binding — which is WoW's
+                        // order too. It declines for anything this client
+                        // performs itself, so the keys that already work are
+                        // untouched; what it adds is every command the client
+                        // has no path for, which until now could be bound in
+                        // the interface's own key-binding panel and then never
+                        // honoured by any press.
+                        if (auto* engine = addonManager_->getLuaEngine()) {
+                            const SDL_Keymod mods = SDL_GetModState();
+                            if (engine->dispatchBindingKey(
+                                    event.key.keysym.sym,
+                                    (mods & KMOD_SHIFT) != 0,
+                                    (mods & KMOD_CTRL) != 0,
+                                    (mods & KMOD_ALT) != 0, true)) {
+                                continue;
+                            }
+                        }
                     }
                     // The third way, and the ordinary one: nothing in the
                     // interface wanted it, so the poll further down decides.

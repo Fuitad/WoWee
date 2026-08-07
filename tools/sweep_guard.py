@@ -924,6 +924,54 @@ def check_paragraph_wrapping():
     return False, what + (" — " + detail if detail else "")
 
 
+def check_binding_dispatch():
+    """A key press reaches FrameXML's bindings, but not one the client answers.
+
+    The interface ships 273 binding scripts and, until the dispatch existed, no
+    press could reach any of them — a key bound in its own key-binding panel was
+    recorded and then never honoured.
+
+    The guard is really on the exclusion. A key answered by both the client and
+    a binding is answered twice, and most bindings toggle something: twice means
+    the panel opens and shuts on the one press, so the key reads as dead. That
+    is worse than the gap it replaced and much harder to spot, because it looks
+    exactly like the binding never ran.
+
+    All three, since each alone can pass while the others are broken: a
+    client-owned command must be declined, an unbound key must do nothing, and a
+    command the client has no path for must actually run.
+    """
+    exe = ROOT / "build" / "bin" / "framexml_run"
+    data = ROOT / "Data"
+    what = "key presses reach bindings, except ones the client answers"
+    if not exe.exists() or not data.is_dir():
+        return None, what
+    argv = [str(exe), str(data),
+            "--bind:W",                                   # MOVEFORWARD, polled
+            "--bind:B",                                   # TOGGLEBACKPACK, live
+            "--bind:X",                                   # nothing bound
+            "SetBinding('J', 'OPENALLBAGS')", "--bind:J"] # no client path
+    try:
+        out = subprocess.run(argv, capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        return False, what + " (timed out)"
+    text = out.stdout + out.stderr
+    wanted = [
+        ("W -> declined MOVEFORWARD",
+         "movement is polled every frame; a binding for it would move twice"),
+        ("B -> declined TOGGLEBACKPACK",
+         "the client opens the bags itself; a binding would shut them again"),
+        ("X -> nothing bound to this key",
+         "an unbound key must stay silent"),
+        ("J -> ran OPENALLBAGS",
+         "a command the client has no path for must actually run"),
+    ]
+    for needle, why in wanted:
+        if needle not in text:
+            return False, f"{what} — expected '{needle}' ({why})"
+    return True, what
+
+
 def check_without_the_standin():
     """Load the whole interface with the missing-API stand-in turned off.
 
@@ -1008,7 +1056,7 @@ def main():
             failures.append(f"{tool}: {what}")
 
     for ok, what in (check_without_the_standin(), check_rebuild_idiom(),
-                     check_paragraph_wrapping()):
+                     check_paragraph_wrapping(), check_binding_dispatch()):
         if ok is None:
             print(f"  skip    -       {what} (framexml_run not built)")
             continue

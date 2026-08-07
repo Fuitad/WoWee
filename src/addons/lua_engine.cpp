@@ -8378,6 +8378,62 @@ static std::string wowKeyName(int sym) {
     return {};
 }
 
+std::string LuaEngine::bindingCommandFor(int sdlKeycode, bool shift, bool ctrl,
+                                         bool alt) {
+    if (!L_) return "";
+    std::string key = wowKeyName(sdlKeycode);
+    if (key.empty()) return "";
+    // WoW's own spelling, and the order is part of it: ALT before CTRL before
+    // SHIFT, because that is how the binding tables are keyed and a prefix in
+    // any other order matches nothing at all.
+    if (shift) key = "SHIFT-" + key;
+    if (ctrl)  key = "CTRL-"  + key;
+    if (alt)   key = "ALT-"   + key;
+
+    // Which command the key runs, and then the command's script — both asked
+    // of the interface's own tables rather than restated here. GetBindingAction
+    // already honours SetBinding, so a key the player rebound in game answers
+    // to whatever they moved it to without this knowing anything about it.
+    lua_getglobal(L_, "GetBindingAction");
+    if (!lua_isfunction(L_, -1)) { lua_pop(L_, 1); return ""; }
+    lua_pushstring(L_, key.c_str());
+    if (lua_pcall(L_, 1, 1, 0) != 0) {
+        LOG_WARNING("GetBindingAction(", key, ") failed: ",
+                    luaL_optstring(L_, -1, "?"));
+        lua_pop(L_, 1);
+        return "";
+    }
+    const char* got = lua_tostring(L_, -1);
+    std::string command = got ? got : "";
+    lua_pop(L_, 1);
+    return command;
+}
+
+bool LuaEngine::dispatchBindingKey(int sdlKeycode, bool shift, bool ctrl,
+                                   bool alt, bool down) {
+    if (!L_) return false;
+    const std::string command = bindingCommandFor(sdlKeycode, shift, ctrl, alt);
+    if (command.empty()) return false;
+    // Left alone if the client performs it. Not "already handled, so skip the
+    // work" — running it as well would undo it.
+    if (clientActsOnBinding(command)) return false;
+
+    lua_getglobal(L_, "__WoweeBindingScripts");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return false; }
+    lua_getfield(L_, -1, command.c_str());
+    if (!lua_isfunction(L_, -1)) { lua_pop(L_, 2); return false; }
+    lua_pushstring(L_, down ? "down" : "up");
+    if (lua_pcall(L_, 1, 0, 0) != 0) {
+        LOG_WARNING("Binding ", command, " failed: ",
+                    luaL_optstring(L_, -1, "?"));
+        lua_pop(L_, 1);
+        lua_pop(L_, 1);
+        return false;
+    }
+    lua_pop(L_, 1);
+    return true;
+}
+
 bool LuaEngine::dispatchFrameKey(int sdlKeycode, bool down) {
     if (!L_) return false;
     const std::string key = wowKeyName(sdlKeycode);

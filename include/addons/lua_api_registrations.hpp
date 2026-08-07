@@ -17,4 +17,12 @@ void registerSocialLuaAPI(lua_State* L);
 void registerSystemLuaAPI(lua_State* L);
 void registerActionLuaAPI(lua_State* L);
 
+/// Whether this client performs a binding command itself, without the
+/// interface.
+///
+/// A key answered by both is answered twice, and most bindings toggle
+/// something — so twice means the panel opens and shuts again on one press and
+/// the key reads as dead. Consulted before running a binding.
+bool clientActsOnBinding(const std::string& command);
+
 } // namespace wowee::addons
