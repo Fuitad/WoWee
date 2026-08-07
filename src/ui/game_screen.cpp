@@ -1363,6 +1363,21 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
         if (frameXmlChat) gameHandler.runInterfaceCommand("ChatFrame_OpenChat(\"/\")");
         else              chatPanel_.activateSlashInput();
     }
+    // The same one line as Escape, for the same reason: the chain reads sound
+    // and the key does nothing, so what is wanted is which branch ran. The
+    // guards are reported too, because being refused before the branch is the
+    // likeliest answer and is the one that leaves no other trace.
+    if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_CHAT, false)) {
+        if (io.WantTextInput || chatPanel_.isChatInputActive()) {
+            LOG_INFO("Chat key: refused — ImGui wants text: ",
+                     io.WantTextInput ? "yes" : "no",
+                     ", this client's chat input: ",
+                     chatPanel_.isChatInputActive() ? "active" : "idle");
+        } else {
+            LOG_INFO("Chat key: opening ",
+                     frameXmlChat ? "the interface's box" : "this client's box");
+        }
+    }
     if (!io.WantTextInput && !chatPanel_.isChatInputActive() &&
         KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_CHAT, false)) {
         if (frameXmlChat) gameHandler.runInterfaceCommand("ChatFrame_OpenChat(\"\")");
