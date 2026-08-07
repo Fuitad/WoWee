@@ -64,6 +64,17 @@ DEF_FUNC = re.compile(r"^\s*(?:local\s+)?function\s+([A-Za-z_]\w*)", re.M)
 DEF_ASSIGN = re.compile(r"^\s*(?:local\s+)?([A-Za-z_]\w*)\s*=\s*function", re.M)
 # A local alias of something already defined: `local Foo_orig = Foo`.
 DEF_ALIAS = re.compile(r"^\s*local\s+([A-Za-z_]\w*)\s*=\s*[A-Za-z_]\w*\s*;?\s*$", re.M)
+# The same thing without `local`, which defines a *global* and is how the
+# achievement frame swaps its tab handler:
+#
+#     AchievementFrameTab_OnClick = AchievementFrameBaseTab_OnClick;
+#
+# Reported as two missing names in an addon that defines both of them. The
+# right-hand side is captured as well as the left, because counting this as a
+# definition is only safe when what it aliases is itself a function — matching
+# any `x = y` is what the note above DEF_ASSIGN warns against.
+DEF_GLOBAL_ALIAS = re.compile(
+    r"^\s*([A-Za-z_]\w*)\s*=\s*([A-Za-z_]\w*)\s*;?\s*$", re.M)
 XML_NAME = re.compile(r'name="([^"$]+)"')
 
 
@@ -128,6 +139,27 @@ def known_names():
     return names
 
 
+def aliasDefs(text, defined, known=()):
+    """Globals defined by aliasing a function that is already defined.
+
+    Repeated to a fixed point so a chain of aliases resolves, and only ever
+    admitting a name whose right-hand side is known to be a function — a bare
+    `x = y` on its own says nothing about what x is.
+    """
+    pairs = DEF_GLOBAL_ALIAS.findall(text)
+    out = set()
+    changed = True
+    while changed:
+        changed = False
+        for name, target in pairs:
+            if name in out:
+                continue
+            if target in defined or target in known or target in out:
+                out.add(name)
+                changed = True
+    return out
+
+
 def audit(addon_dir, known):
     body, defined = "", set()
     for f in sorted(addon_dir.glob("*.lua")) + sorted(addon_dir.glob("*.xml")):
@@ -136,6 +168,7 @@ def audit(addon_dir, known):
         defined |= set(DEF_FUNC.findall(s)) | set(DEF_ASSIGN.findall(s))
         defined |= set(DEF_ALIAS.findall(s))
         defined |= set(XML_NAME.findall(s))   # a frame's name is a global too
+    defined |= aliasDefs(body, defined, known)
     return sorted(c for c in calls_in(body)
                   if c not in known and c not in defined)
 
@@ -185,6 +218,7 @@ def auditFrameXml(known):
         body = without_comments(read(path))
         defined = set(DEF_FUNC.findall(body)) | set(DEF_ASSIGN.findall(body))
         defined |= set(XML_NAME.findall(body))       # a frame's name is a global
+        defined |= aliasDefs(body, defined, known)
         missing = sorted(c for c in calls_in(body)
                          if c not in known and c not in defined)
         rows.append((len(missing), path.name, missing))
