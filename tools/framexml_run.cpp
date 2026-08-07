@@ -8,6 +8,22 @@
 // and swallowed, because a handler that raises looks exactly like a handler
 // that decided to do nothing.
 //
+// Run it a second way before believing a clean report:
+//
+//     WOWEE_LUA_API_FALLBACK=0 framexml_run Data
+//
+// By default an unknown global answers with a stand-in rather than nil, which
+// keeps a file alive past a name nothing implements — and hides that it was
+// needed. With the fallback off, anything the interface actually depends on
+// raises and names itself. As of 2026-08-07 that run is clean: no load errors,
+// no addon failures, no login errors. It found the one thing that was not —
+// Blizzard_BattlefieldMinimap, held up entirely by a stand-in for a frame the
+// real client creates in C++.
+//
+// A clean default run and a failing fallback-off run is the shape to watch
+// for: it means something is leaning on the stand-in and will fall over for
+// anyone who turns it off.
+//
 // This is that run, without the client. The addon manager loads the real
 // FrameXML through the real emitter into a real Lua state with the real
 // bindings, and the only thing missing is a game behind them — every binding

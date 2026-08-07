@@ -5873,6 +5873,14 @@ void LuaEngine::registerCoreAPI() {
         // arrow and the quest areas itself, so what these need to do is exist,
         // take their scale and frame level, and draw nothing.
         "PlayerArrowEffectFrame = CreateFrame('Frame', 'PlayerArrowEffectFrame')\n"
+        // The battlefield minimap's own copy of that arrow, for the same
+        // reason. Its OnLoad addresses it with no guard either — and unlike
+        // the world map's, it was never made, so the only thing holding that
+        // addon up was the fallback that answers an unknown global with a
+        // stand-in. Turn the fallback off and Blizzard_BattlefieldMinimap was
+        // the one addon in the interface that would not load; with this it is
+        // none of them.
+        "PlayerMiniArrowEffectFrame = CreateFrame('Frame', 'PlayerMiniArrowEffectFrame')\n"
         "WorldMapBlobFrame = CreateFrame('Frame', 'WorldMapBlobFrame')\n"
         // Only the methods with no implementation behind them. Show, Hide,
         // SetScale and SetFrameLevel are real widget methods, and defining
