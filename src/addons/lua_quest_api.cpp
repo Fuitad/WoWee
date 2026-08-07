@@ -253,7 +253,12 @@ static int lua_GetQuestLogTitle(lua_State* L) {
     if (q.complete) lua_pushnumber(L, 1); else lua_pushnil(L);  // 7: isComplete
     lua_pushboolean(L, 0);               // 8: isDaily
     lua_pushnumber(L, q.questId);        // 9: questID
-    lua_pushnumber(L, q.questId);        // 10: displayQuestID
+    // Not the id again: this is the developer switch that asks for the id to
+    // be *shown*, and the quest log writes "26102 - Wolves Across the Border"
+    // when it is set. An id is a large number and therefore true, so every
+    // quest in the log wore its own number. Off is what the real client
+    // ships.
+    lua_pushboolean(L, 0);               // 10: displayQuestID
     return 10;
 }
 

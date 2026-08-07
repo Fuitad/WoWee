@@ -1975,3 +1975,83 @@ TEST_CASE("The wheel finds a frame that took the wheel and not the mouse",
     REQUIRE(tree.hitTest(50.0f, 50.0f) != scroll);
     REQUIRE(tree.hitTestWheel(50.0f, 50.0f) == scroll);
 }
+
+// A measurement taken between two moves.
+//
+// Rects used to be answered only from the once-a-frame pass, so a frame
+// anchored inside a handler measured as though it had never been placed — its
+// own size sitting at the origin — until the next frame came round. The
+// interface is written against a client that answers whenever it is asked: the
+// quest tracker anchors each objective line and immediately reads the edge it
+// landed on to know how tall the block grew. Every read came back zero, the
+// tracker concluded it had nothing to show, and collapsed itself.
+//
+// Nothing about this is visible in a single pass, which is why it wants
+// pinning: lay out, and both the old behaviour and the new one agree.
+TEST_CASE("A rect is resolved when it is asked for, not when the frame ends",
+          "[widget][anchor][layout]") {
+    WidgetTree tree;
+    tree.layout(kScreenW, kScreenH);
+
+    const uint32_t a = tree.create(WidgetKind::Frame, tree.uiParentId(), "A");
+    tree.setWidth(a, 100.0f);
+    tree.setHeight(a, 40.0f);
+    Anchor top;
+    top.point = "TOPLEFT";
+    top.relativeTo = tree.uiParentId();
+    top.relativePoint = "TOPLEFT";
+    top.x = 10.0f;
+    top.y = -20.0f;
+    tree.addPoint(a, top);
+
+    // Asked for without a pass in between, exactly as a handler would.
+    tree.resolveWidget(a);
+    const Widget* wa = tree.get(a);
+    REQUIRE(wa != nullptr);
+    CHECK(wa->bottom + wa->rectH == Catch::Approx(kScreenH - 20.0f));
+    CHECK(wa->left == Catch::Approx(10.0f));
+
+    // And a second frame hung off the first, which is the shape the tracker
+    // builds: each line is anchored to the one above it and then measured.
+    const uint32_t b = tree.create(WidgetKind::Frame, tree.uiParentId(), "B");
+    tree.setWidth(b, 100.0f);
+    tree.setHeight(b, 40.0f);
+    Anchor under;
+    under.point = "TOP";
+    under.relativeTo = a;
+    under.relativePoint = "BOTTOM";
+    under.y = -5.0f;
+    tree.addPoint(b, under);
+
+    tree.resolveWidget(b);
+    const Widget* wb = tree.get(b);
+    REQUIRE(wb != nullptr);
+    // A's bottom is 748 - 40 = 708, and B hangs 5 below that.
+    CHECK(wb->bottom + wb->rectH == Catch::Approx(kScreenH - 20.0f - 40.0f - 5.0f));
+
+    // The screen and UIParent are placed by the full pass and have no anchors
+    // of their own, so a chain that walks onto them must stop rather than run
+    // the anchor solver over them — that gave the screen a rect derived from
+    // nothing and put everything measured against it in the wrong place.
+    const Widget* ui = tree.get(tree.uiParentId());
+    REQUIRE(ui != nullptr);
+    CHECK(ui->rectH == Catch::Approx(kScreenH));
+    CHECK(ui->bottom == Catch::Approx(0.0f));
+}
+
+TEST_CASE("Two frames anchored to each other do not resolve for ever",
+          "[widget][anchor][layout]") {
+    WidgetTree tree;
+    tree.layout(kScreenW, kScreenH);
+    const uint32_t a = tree.create(WidgetKind::Frame, tree.uiParentId(), "CycleA");
+    const uint32_t b = tree.create(WidgetKind::Frame, tree.uiParentId(), "CycleB");
+    tree.setWidth(a, 10.0f); tree.setHeight(a, 10.0f);
+    tree.setWidth(b, 10.0f); tree.setHeight(b, 10.0f);
+    Anchor toB; toB.point = "TOP"; toB.relativeTo = b; toB.relativePoint = "BOTTOM";
+    Anchor toA; toA.point = "TOP"; toA.relativeTo = a; toA.relativePoint = "BOTTOM";
+    tree.addPoint(a, toB);
+    tree.addPoint(b, toA);
+    // The rects are whatever they are; what is pinned is that asking returns.
+    tree.resolveWidget(a);
+    SUCCEED("resolving a cycle terminated");
+}

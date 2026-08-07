@@ -152,6 +152,10 @@ struct Widget {
     /// two floats here answer directly.
     float lastReportedW = -1.0f, lastReportedH = -1.0f;
 
+    /// The layout generation this widget's rect was last resolved in. Zero
+    /// means never, which is older than any generation.
+    uint64_t resolvedGen = 0;
+
     /// How far a button's label shifts while the button is held. Declared as
     /// <PushedTextOffset> on 11 templates; it is the small movement that makes
     /// a button feel pressed rather than merely recoloured.
@@ -652,6 +656,31 @@ public:
     /// 1528-tall window and at double on a 384-tall one.
     void layout(float pixelW, float pixelH);
 
+    /// Resolve one widget's rect now, if anything has moved since it was last
+    /// resolved.
+    ///
+    /// Rects used to be answered only from the once-a-frame pass, so a frame
+    /// anchored inside a handler measured as though it had never been placed —
+    /// its own height sitting at the origin — until the next frame. The real
+    /// client answers a measurement whenever it is asked, and the interface is
+    /// written to that: the quest tracker anchors each objective line and then
+    /// reads its bottom edge to know how tall the block grew, and every one
+    /// came back zero, so the tracker concluded it had nothing to show and
+    /// collapsed itself.
+    ///
+    /// Only what the answer depends on is resolved — the widget, what it is
+    /// anchored to, and the parents of both — rather than the whole tree. The
+    /// interface anchors a row and measures it in the same breath, so a
+    /// whole-tree pass per measurement turned one tracker update into hundreds
+    /// of them: correct, and about five milliseconds each.
+    ///
+    /// Free when nothing has moved: each widget records the generation it was
+    /// resolved in, and a repeat asks nothing.
+    void resolveWidget(uint32_t id);
+
+    /// Something moved, resized or changed parent — every rect is stale.
+    void markLayoutDirty() { layoutDirty_ = true; ++layoutGeneration_; }
+
     /// Pixels per interface unit, from the last layout.
     float uiScale() const { return uiScale_; }
 
@@ -752,6 +781,26 @@ private:
     uint32_t hitTestFor(float x, float y, bool forWheel) const;
     std::vector<LinkRect> linkRects_;
     void layoutWidget(uint32_t id, float screenW, float screenH);
+    /// The same, without descending into the children. What a single-widget
+    /// resolve needs, and the body of the recursive one.
+    void layoutWidgetSelf(uint32_t id, float screenW, float screenH);
+    /// Resolve a widget after whatever its rect is measured from.
+    void resolveChain(uint32_t id, float screenW, float screenH, int& depth);
+
+    /// Bumped whenever anything moves. A widget resolved in this generation
+    /// needs no further work; one from an older generation is stale.
+    uint64_t layoutGeneration_ = 1;
+
+    /// Set by anything that moves or resizes a widget, cleared by layout().
+    /// Starts true so the first measurement of a fresh tree resolves.
+    bool  layoutDirty_ = true;
+    /// The size the last full pass ran at, so an on-demand one can match it.
+    float lastPixelW_ = 0.0f;
+    float lastPixelH_ = 0.0f;
+    /// layout() moves widgets, and moving a widget raises the flag. Without
+    /// this an on-demand pass would leave the tree dirty and every rect read
+    /// after it would run another one.
+    bool  layingOut_ = false;
     void collectDrawOrder();
 
     /// A deque, not a vector, because get() hands out a pointer into this and

@@ -288,6 +288,25 @@ wowee::ui::Widget* widgetOf(lua_State* L, int index) {
     return tree->get(widgetIdOf(L, index));
 }
 
+/// The same widget, with its rect resolved first.
+///
+/// For the getters that answer a measurement. A rect used to be whatever the
+/// once-a-frame pass had last written, so a frame anchored inside a handler
+/// measured as if it had never been placed and every measurement taken during
+/// that handler was of the frame's own size sitting at the origin. The real
+/// client resolves when asked, and the interface is written expecting that —
+/// it anchors a row and immediately reads the edge it landed on.
+///
+/// Costs nothing when nothing has moved, which is nearly every call: the pass
+/// only runs again if something raised the flag since the last one.
+wowee::ui::Widget* measuredWidgetOf(lua_State* L, int index) {
+    auto* tree = wowee::addons::getWidgetTree(L);
+    if (!tree) return nullptr;
+    const uint32_t id = widgetIdOf(L, index);
+    tree->resolveWidget(id);
+    return tree->get(id);
+}
+
 LuaEngine* engineFrom(lua_State* L);
 
 /// Report a script that raised, from the free functions that call one.
@@ -682,7 +701,7 @@ int lua_Region_GetTextHeight(lua_State* L) {
 }
 
 int lua_Region_GetWidth(lua_State* L) {
-    const auto* w = widgetOf(L, 1);
+    const auto* w = measuredWidgetOf(L, 1);
     // In the frame's own units, which is what WoW reports: the laid-out rect
     // has the effective scale in it and handing that back would have a script
     // that reads a width and sets it again shrink the frame every time.
@@ -702,7 +721,7 @@ int lua_Region_GetWidth(lua_State* L) {
     return 1;
 }
 int lua_Region_GetHeight(lua_State* L) {
-    const auto* w = widgetOf(L, 1);
+    const auto* w = measuredWidgetOf(L, 1);
     const float es = (w && w->effScale > 0.0f) ? w->effScale : 1.0f;
     lua_pushnumber(L, w ? (w->rectH > 0.0f ? w->rectH / es : w->height) : 0.0);
     return 1;
@@ -715,7 +734,7 @@ int lua_Region_GetHeight(lua_State* L) {
 // open a tooltip on. A no-op behind them is not a getter that answers badly,
 // it is nil in a subtraction, which takes the whole file down.
 int lua_Region_GetLeft(lua_State* L) {
-    const auto* w = widgetOf(L, 1);
+    const auto* w = measuredWidgetOf(L, 1);
     lua_pushnumber(L, w ? w->left : 0.0);
     return 1;
 }
@@ -729,7 +748,7 @@ int lua_Region_GetLeft(lua_State* L) {
 /// click into a ping position, and what the world map uses to place its
 /// markers.
 int lua_Region_GetCenter(lua_State* L) {
-    const auto* w = widgetOf(L, 1);
+    const auto* w = measuredWidgetOf(L, 1);
     if (!w) { lua_pushnil(L); lua_pushnil(L); return 2; }
     lua_pushnumber(L, w->left + w->rectW * 0.5f);
     lua_pushnumber(L, w->bottom + w->rectH * 0.5f);
@@ -737,17 +756,17 @@ int lua_Region_GetCenter(lua_State* L) {
 }
 
 int lua_Region_GetRight(lua_State* L) {
-    const auto* w = widgetOf(L, 1);
+    const auto* w = measuredWidgetOf(L, 1);
     lua_pushnumber(L, w ? (w->left + w->rectW) : 0.0);
     return 1;
 }
 int lua_Region_GetBottom(lua_State* L) {
-    const auto* w = widgetOf(L, 1);
+    const auto* w = measuredWidgetOf(L, 1);
     lua_pushnumber(L, w ? w->bottom : 0.0);
     return 1;
 }
 int lua_Region_GetTop(lua_State* L) {
-    const auto* w = widgetOf(L, 1);
+    const auto* w = measuredWidgetOf(L, 1);
     lua_pushnumber(L, w ? (w->bottom + w->rectH) : 0.0);
     return 1;
 }
@@ -772,7 +791,7 @@ int lua_Region_IsMouseOver(lua_State* L) {
 }
 
 int lua_Region_GetRect(lua_State* L) {
-    const auto* w = widgetOf(L, 1);
+    const auto* w = measuredWidgetOf(L, 1);
     if (!w) return 0;
     lua_pushnumber(L, w->left);
     lua_pushnumber(L, w->bottom);

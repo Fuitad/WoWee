@@ -69,6 +69,7 @@ WidgetTree::WidgetTree() {
 }
 
 uint32_t WidgetTree::create(WidgetKind kind, uint32_t parent, const std::string& name) {
+    markLayoutDirty();
     const uint32_t id = static_cast<uint32_t>(widgets_.size());
     widgets_.emplace_back();
     Widget& w = widgets_.back();
@@ -98,6 +99,7 @@ uint32_t WidgetTree::create(WidgetKind kind, uint32_t parent, const std::string&
 }
 
 void WidgetTree::setParent(uint32_t id, uint32_t newParent) {
+    markLayoutDirty();
     Widget* w = get(id);
     if (!w || id == rootId_) return;
     // SetParent(nil) detaches to the screen — above UIParent, not under it.
@@ -191,10 +193,12 @@ const Widget* WidgetTree::get(uint32_t id) const {
 }
 
 void WidgetTree::clearPoints(uint32_t id) {
+    markLayoutDirty();
     if (Widget* w = get(id)) w->anchors.clear();
 }
 
 void WidgetTree::setWidth(uint32_t id, float width) {
+    markLayoutDirty();
     Widget* w = get(id);
     if (!w || !std::isfinite(width)) return;
     // Zero on a font string means "as wide as your text", not "no width".
@@ -220,6 +224,7 @@ void WidgetTree::setWidth(uint32_t id, float width) {
 }
 
 void WidgetTree::setHeight(uint32_t id, float height) {
+    markLayoutDirty();
     Widget* w = get(id);
     if (!w || !std::isfinite(height)) return;
     w->height = height;
@@ -227,6 +232,7 @@ void WidgetTree::setHeight(uint32_t id, float height) {
 }
 
 void WidgetTree::pinToCurrentPosition(uint32_t id) {
+    markLayoutDirty();
     Widget* w = get(id);
     if (!w) return;
     const Widget* parent = get(w->parent);
@@ -288,6 +294,7 @@ void clampInside(const Widget& screen, float rectW, float rectH,
 // screen as it is resized, which is the usual way this is done wrongly.
 void WidgetTree::resizeBy(uint32_t id, const std::string& point,
                           float dx, float dy) {
+    markLayoutDirty();
     Widget* w = get(id);
     if (!w) return;
 
@@ -325,6 +332,7 @@ void WidgetTree::resizeBy(uint32_t id, const std::string& point,
 }
 
 void WidgetTree::nudge(uint32_t id, float dx, float dy) {
+    markLayoutDirty();
     Widget* w = get(id);
     if (!w) return;
     // A clamped frame stops at the screen edge. The rect used is the one the
@@ -406,6 +414,7 @@ void WidgetTree::lower(uint32_t id) {
 }
 
 void WidgetTree::addPoint(uint32_t id, const Anchor& anchor) {
+    markLayoutDirty();
     Widget* w = get(id);
     if (!w) return;
     // Geometry that is not a number never enters the tree. Once one does it
@@ -442,6 +451,7 @@ void WidgetTree::addPoint(uint32_t id, const Anchor& anchor) {
 }
 
 void WidgetTree::setAllPoints(uint32_t id, uint32_t relativeTo) {
+    markLayoutDirty();
     Widget* w = get(id);
     if (!w) return;
     w->anchors.clear();
@@ -453,7 +463,65 @@ void WidgetTree::setAllPoints(uint32_t id, uint32_t relativeTo) {
     w->anchors.push_back(br);
 }
 
+void WidgetTree::resolveWidget(uint32_t id) {
+    if (layingOut_) return;
+    // Nothing has run a full pass yet, so there is no screen size to resolve
+    // against. Better a stale zero than a rect measured against a guess.
+    if (lastPixelW_ <= 0.0f || lastPixelH_ <= 0.0f) return;
+    const Widget* w = get(id);
+    if (!w || w->resolvedGen == layoutGeneration_) return;
+    const float screenW = (uiScale_ > 0.0f) ? (lastPixelW_ / uiScale_) : lastPixelW_;
+    int depth = 0;
+    resolveChain(id, screenW, kInterfaceHeight, depth);
+}
+
+void WidgetTree::resolveChain(uint32_t id, float screenW, float screenH, int& depth) {
+    if (id == 0) return;
+    Widget* w = get(id);
+    if (!w || w->resolvedGen == layoutGeneration_) return;
+    // The screen and UIParent are placed by the full pass and have no anchors
+    // of their own — running the anchor solver over them would give the screen
+    // a rect derived from nothing, and everything measured against it after
+    // that. They are already correct; the walk stops on them.
+    if (id == rootId_ || id == uiParentId_) {
+        w->resolvedGen = layoutGeneration_;
+        return;
+    }
+    // A frame anchored to something anchored back to it would otherwise walk
+    // for ever. WoW rejects such a pair outright; here the chain simply stops
+    // and the rect stays where the last full pass left it, which is what the
+    // frame before this one already answered.
+    if (++depth > 64) { --depth; return; }
+    // Claimed before the walk rather than after, so a cycle that slips past
+    // the depth guard still terminates: whichever widget is reached twice
+    // stops the second visit itself.
+    w->resolvedGen = layoutGeneration_;
+    const uint32_t parent = w->parent;
+    // Copied: resolving a dependency can create widgets and move the container
+    // this widget's anchors live in.
+    std::vector<uint32_t> deps;
+    deps.reserve(w->anchors.size());
+    for (const Anchor& a : w->anchors) {
+        if (a.relativeTo != 0 && a.relativeTo != id) deps.push_back(a.relativeTo);
+    }
+    // The parent first: a widget's rect is measured from its parent's, and its
+    // scale is the parent's times its own.
+    if (parent != 0 && parent != id) resolveChain(parent, screenW, screenH, depth);
+    for (uint32_t d : deps) resolveChain(d, screenW, screenH, depth);
+    --depth;
+    layoutWidgetSelf(id, screenW, screenH);
+}
+
 void WidgetTree::layout(float pixelW, float pixelH) {
+    // Reentry would be the layout of a layout: this is called from the rect
+    // getters now, and it moves widgets, and moving a widget is what raises
+    // the flag those getters watch.
+    if (layingOut_) return;
+    layingOut_ = true;
+    struct Done { bool& f; ~Done() { f = false; } } done{layingOut_};
+    lastPixelW_ = pixelW;
+    lastPixelH_ = pixelH;
+    layoutDirty_ = false;
     // How many pixels one interface unit is worth. Everything below works in
     // units; only the renderer and hit testing convert.
     uiScale_ = (pixelH > 0.0f) ? (pixelH / kInterfaceHeight) : 1.0f;
@@ -496,8 +564,19 @@ void WidgetTree::layout(float pixelW, float pixelH) {
 }
 
 void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
+    layoutWidgetSelf(id, screenW, screenH);
+    if (const Widget* w = get(id)) {
+        // Copied, because resolving a child can create widgets and reallocate
+        // the container this vector lives in.
+        const std::vector<uint32_t> kids = w->children;
+        for (uint32_t child : kids) layoutWidget(child, screenW, screenH);
+    }
+}
+
+void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
     Widget* w = get(id);
     if (!w) return;
+    w->resolvedGen = layoutGeneration_;
     const Widget* parent = get(w->parent);
 
     // A frame with no anchor points is not displayed. That is WoW's rule, and
@@ -682,7 +761,6 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
         }
     }
 
-    for (uint32_t child : w->children) layoutWidget(child, screenW, screenH);
 }
 
 uint32_t WidgetTree::hitTest(float x, float y) const {
