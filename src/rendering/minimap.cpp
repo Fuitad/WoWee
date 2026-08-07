@@ -237,9 +237,6 @@ void Minimap::shutdown() {
     if (noDataTexture) { noDataTexture->destroy(device, alloc); noDataTexture.reset(); }
     if (compositeTarget) { compositeTarget->destroy(device, alloc); compositeTarget.reset(); }
 
-    if (arrowDS_) { ImGui_ImplVulkan_RemoveTexture(arrowDS_); arrowDS_ = VK_NULL_HANDLE; }
-    if (arrowTexture_) { arrowTexture_->destroy(device, alloc); arrowTexture_.reset(); }
-
     vkCtx = nullptr;
 }
 
@@ -559,7 +556,6 @@ void Minimap::render(VkCommandBuffer cmd, const Camera& playerCamera,
     push.rect = glm::vec4(x, y, pixelW, pixelH);
     push.playerUV = glm::vec2(playerU, playerV);
     push.rotation = rotation;
-    arrowRotation_ = arrowRotation;
     push.arrowRotation = arrowRotation;
     push.zoomRadius = zoomRadius;
     push.squareShape = squareShape ? 1 : 0;
