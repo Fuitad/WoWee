@@ -972,6 +972,115 @@ def check_binding_dispatch():
     return True, what
 
 
+NPC_DIALOG_DATA = """
+local LONG = "Kobolds have overrun the mine to the east and the miners are afraid to return. Clear them out and bring me the candles they carry as proof of your work."
+GetTitleText     = function() return "A Test Quest" end
+GetQuestText     = function() return LONG end
+GetObjectiveText = function() return "Kill 10 Kobold Vermin." end
+GetProgressText  = function() return "Have you dealt with the kobolds yet? They grow bolder each day." end
+GetRewardText    = function() return "You have done well. Take this as a token of the town's gratitude." end
+GetGreetingText  = function() return "Welcome, traveller. I have work that needs doing, if you are willing." end
+GetNumAvailableQuests = function() return 1 end
+GetNumActiveQuests    = function() return 1 end
+GetAvailableTitle     = function() return "A Test Quest" end
+GetActiveTitle        = function() return "An Older Task" end
+GetAvailableQuestInfo = function() return false, 0, 0, false end
+IsQuestCompletable    = function() return true end
+GetNumQuestItems      = function() return 0 end
+GetNumQuestRewards    = function() return 0 end
+GetNumQuestChoices    = function() return 0 end
+GetNumQuestSpellRewards = function() return 0 end
+GetQuestMoneyToGet    = function() return 0 end
+GetRewardMoney        = function() return 0 end
+GetRewardXP           = function() return 0 end
+GetRewardHonor        = function() return 0 end
+GetRewardArenaPoints  = function() return 0 end
+GetRewardTalents      = function() return 0 end
+GetRewardSpell        = function() return nil end
+GetSuggestedGroupSize = function() return 0 end
+QuestGetAutoAccept    = function() return false end
+"""
+
+
+def check_npc_dialogs_fill():
+    """All four NPC dialogs put their text on screen.
+
+    This is the reported bug — a parchment with working buttons and no text —
+    and it had two independent causes, either of which alone reproduces it:
+    the panel never ran its OnShow, so nothing was ever positioned; and a
+    paragraph sized itself from its text instead of wrapping, so it ran out
+    through the side of the frame that clips it.
+
+    All four panels, because all four are the same idiom and only the detail
+    one was ever measured. The vendor is deliberately absent: it was the one
+    dialog that always worked, and it works by a different route.
+
+    Three things per panel, since each can hold while the others fail: the
+    string has text, it has height (a paragraph laid on one line reports the
+    height of one line however much it holds), and it is visible.
+    """
+    exe = ROOT / "build" / "bin" / "framexml_run"
+    data = ROOT / "Data"
+    what = "all four NPC dialogs fill themselves in"
+    if not exe.exists() or not data.is_dir():
+        return None, what
+    # Each panel with the binding that feeds it, because the event is fired
+    # twice and what the second one must show is new text.
+    #
+    # Twice is the whole point. Opening a panel for the first time makes it
+    # visible, and that is a change anything watching can see — so the first
+    # fire works even with the rebuild broken. The second arrives with the
+    # panel already open, which is the case FrameXML uses Hide();Show() for and
+    # the only one that fails. A single fire passed this check with the fix
+    # removed, which is how the shape of it was found.
+    panels = [
+        ("QUEST_GREETING", "GreetingText",             "GetGreetingText"),
+        ("QUEST_DETAIL",   "QuestInfoDescriptionText", "GetQuestText"),
+        ("QUEST_PROGRESS", "QuestProgressText",        "GetProgressText"),
+        ("QUEST_COMPLETE", "QuestInfoRewardText",      "GetRewardText"),
+    ]
+    second = ("The second time this dialog opens it must say something else "
+              "entirely, and it must wrap onto more than one line to say it.")
+    for event, element, getter in panels:
+        argv = [str(exe), str(data), NPC_DIALOG_DATA,
+                "--fire:" + event, "--tick:2",
+                f"local f = {element} "
+                f"if not f or f == _G['QQNoSuchThing'] then "
+                f"error('{event}: {element} does not exist') end "
+                f"if not f:GetText() or f:GetText() == '' then "
+                f"error('{event}: {element} has no text — the panel never "
+                f"filled itself in') end",
+                f"{getter} = function() return [[{second}]] end",
+                "--fire:" + event, "--tick:2",
+                f"local f = {element} "
+                f"if f:GetText() ~= [[{second}]] then "
+                f"error('{event}: {element} kept its first text when the "
+                f"dialog opened again — the panel did not rebuild') end "
+                f"if f:GetHeight() <= 0 then "
+                f"error('{event}: {element} has no height') end "
+                # Two lines at least. The text above is far too long to fit on
+                # one at any of these widths, so a single line's height means it
+                # was sized from its own text rather than wrapped inside its
+                # box — which is the other cause of the same blank dialog, and
+                # the one a height-above-zero test sails straight past.
+                f"if f:GetHeight() < 25 then "
+                f"error('{event}: {element} is one line tall holding text that "
+                f"cannot fit on one — it was sized from its text instead of "
+                f"wrapped inside its width') end "
+                f"if not f:IsVisible() then "
+                f"error('{event}: {element} is not visible') end"]
+        try:
+            out = subprocess.run(argv, capture_output=True, text=True, timeout=300)
+        except subprocess.TimeoutExpired:
+            return False, f"{what} ({event} timed out)"
+        if out.returncode != 0:
+            detail = next((ln.strip() for ln in
+                           (out.stdout + out.stderr).splitlines()
+                           if ln.startswith("   ") and event in ln), event)
+            return False, what + " — " + detail
+    return True, what
+
+
 def check_without_the_standin():
     """Load the whole interface with the missing-API stand-in turned off.
 
@@ -1056,7 +1165,8 @@ def main():
             failures.append(f"{tool}: {what}")
 
     for ok, what in (check_without_the_standin(), check_rebuild_idiom(),
-                     check_paragraph_wrapping(), check_binding_dispatch()):
+                     check_paragraph_wrapping(), check_binding_dispatch(),
+                     check_npc_dialogs_fill()):
         if ok is None:
             print(f"  skip    -       {what} (framexml_run not built)")
             continue
