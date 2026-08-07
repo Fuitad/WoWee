@@ -108,6 +108,37 @@ inline constexpr const char* kLuaClassTokens[] = {
     "","WARRIOR","PALADIN","HUNTER","ROGUE","PRIEST",
     "DEATHKNIGHT","SHAMAN","MAGE","WARLOCK","","DRUID"
 };
+/// The token for a class id, or nullptr when there is not one.
+///
+/// Every caller wants the same thing and the same refusal, and getting the
+/// refusal wrong cost three panels in a day. The rule is that FrameXML guards
+/// these — `if ( classFileName ) then RAID_CLASS_COLORS[classFileName]` — so
+/// the guard is the caller saying it already handles the value being missing.
+/// Anything truthy-but-wrong walks past it and raises a line later, inside a
+/// function that looks unrelated:
+///
+///   * the numeric id took the guild roster down on its first online member,
+///   * the string "UNKNOWN" took Blizzard_ArenaUI down at load,
+///   * and the empty string would do the same as either, because "" is truthy
+///     in Lua as well — which is why this answers a null pointer and not a
+///     blank, and why the two unnamed slots in the table below (ids 0 and 10,
+///     which WoW does not use) have to be treated as absent rather than
+///     returned.
+inline const char* luaClassToken(unsigned classId) {
+    if (classId >= (sizeof(kLuaClassTokens) / sizeof(kLuaClassTokens[0]))) {
+        return nullptr;
+    }
+    const char* token = kLuaClassTokens[classId];
+    return (token && *token) ? token : nullptr;
+}
+
+/// Push that token, or nil. The pairing every caller needs, so that the rule
+/// above is applied rather than remembered.
+inline void luaPushClassToken(lua_State* L, unsigned classId) {
+    if (const char* token = luaClassToken(classId)) lua_pushstring(L, token);
+    else                                            lua_pushnil(L);
+}
+
 inline constexpr const char* kLuaRaces[] = {
     "","Human","Orc","Dwarf","Night Elf","Undead",
     "Tauren","Gnome","Troll","","Blood Elf","Draenei"

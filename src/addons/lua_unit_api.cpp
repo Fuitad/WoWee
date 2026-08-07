@@ -206,7 +206,6 @@ static int lua_UnitClass(lua_State* L) {
                 classId = gh->lookupPlayerClass(guid);
             }
         }
-        const bool known = (classId > 0 && classId < 12);
         // Nothing at all when the class is not known, because that is what WoW
         // answers for a unit it cannot see and what every caller is written
         // against: `local _, class = UnitClass(self.unit); if ( class ) then`.
@@ -217,15 +216,18 @@ static int lua_UnitClass(lua_State* L) {
         // of Blizzard_ArenaUI down at load. A binding that answers a constant
         // where the real one answers nothing defeats every guard written for
         // it, and the guard is the caller saying it already knows how to cope.
-        if (!known) return 0;
-        const char* name = kLuaClasses[classId];
+        //
+        // The token decides: it is the one thing that knows which class ids
+        // WoW actually uses, and the two callers in the social API ask it the
+        // same question for the same reason.
+        const char* token = luaClassToken(classId);
+        if (!token) return 0;
         // Second is the uppercase token, not the display name again. Every
         // class-indexed table in FrameXML is keyed by it, so answering "Mage"
         // where "MAGE" was meant looked up nothing: SetPortraitTexture found no
         // CLASS_ICON_TCOORDS entry and fell back to the placeholder portrait,
         // which is the blue question mark on the character sheet.
-        const char* token = known ? kLuaClassTokens[classId] : "UNKNOWN";
-        lua_pushstring(L, name);
+        lua_pushstring(L, kLuaClasses[classId]);
         lua_pushstring(L, token);
         lua_pushnumber(L, classId);
         return 3;

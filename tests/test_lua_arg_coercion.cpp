@@ -22,6 +22,8 @@
 
 #include "addons/lua_api_helpers.hpp"
 
+#include <string>
+
 extern "C" {
 #include <lauxlib.h>
 #include <lua.h>
@@ -104,4 +106,58 @@ TEST_CASE("Anything else takes the default rather than raising", "[lua][args]") 
     OneArg a;
     lua_newtable(a.L);
     REQUIRE(luaOptNumberText(a.L, -1, 4.0) == Catch::Approx(4.0));
+}
+
+// ── The class token, and its refusal ────────────────────────────────────────
+//
+// Three bindings answer this and all three had it wrong in a different way on
+// the same day, each costing a whole panel: GetGuildRosterInfo gave the numeric
+// id and took the guild roster down on its first online member, GetWhoInfo kept
+// a private copy of the table with a fallback of "WARRIOR", and UnitClass
+// answered the string "UNKNOWN" and took Blizzard_ArenaUI down at load.
+//
+// What they share is the refusal. FrameXML guards these — `if ( classFileName )
+// then RAID_CLASS_COLORS[classFileName]` — so the guard is the caller saying it
+// already copes with the value being missing, and anything truthy-but-wrong
+// walks past it and raises a line later somewhere that looks unrelated.
+
+TEST_CASE("A real class answers its uppercase token", "[lua][class]") {
+    using wowee::addons::luaClassToken;
+    REQUIRE(std::string(luaClassToken(1)) == "WARRIOR");
+    REQUIRE(std::string(luaClassToken(5)) == "PRIEST");
+    // No space in it, which is why the tokens are written out rather than
+    // derived from the display names.
+    REQUIRE(std::string(luaClassToken(6)) == "DEATHKNIGHT");
+    REQUIRE(std::string(luaClassToken(11)) == "DRUID");
+}
+
+TEST_CASE("A class id WoW does not use answers nothing", "[lua][class]") {
+    using wowee::addons::luaClassToken;
+    // Zero is "no class known yet", and 10 is a gap in WoW's own numbering.
+    // Both sit in the table as empty strings, and "" is truthy in Lua — so
+    // returning the slot as-is would pass the caller's guard exactly as the
+    // numeric id did.
+    REQUIRE(luaClassToken(0) == nullptr);
+    REQUIRE(luaClassToken(10) == nullptr);
+}
+
+TEST_CASE("An id past the end of the table answers nothing", "[lua][class]") {
+    using wowee::addons::luaClassToken;
+    REQUIRE(luaClassToken(12) == nullptr);
+    REQUIRE(luaClassToken(255) == nullptr);
+}
+
+TEST_CASE("Pushing the token pushes nil when there is none", "[lua][class]") {
+    OneArg a;
+    wowee::addons::luaPushClassToken(a.L, 8);
+    REQUIRE(lua_isstring(a.L, -1));
+    REQUIRE(std::string(lua_tostring(a.L, -1)) == "MAGE");
+    lua_pop(a.L, 1);
+
+    // Nil, not the empty string. This is the whole of the fix: FrameXML tests
+    // the value for truth before using it as a key.
+    wowee::addons::luaPushClassToken(a.L, 0);
+    REQUIRE(lua_isnil(a.L, -1));
+    REQUIRE_FALSE(lua_isstring(a.L, -1));
+    lua_pop(a.L, 1);
 }

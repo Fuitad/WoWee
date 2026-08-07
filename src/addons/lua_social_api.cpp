@@ -510,12 +510,9 @@ static int lua_GetGuildRosterInfo(lua_State* L) {
     // The guard is there because the value can be absent. A binding that
     // answers something of the wrong kind defeats it, the same way "UNKNOWN"
     // did in UnitClass and a boolean did in GetChecked.
-    // Nil when there is no token, not the empty string: "" is truthy in Lua
-    // too, so it would pass the same guard and fail the same lookup. The
-    // unnamed slots in that table are the class ids WoW does not use.
-    const char* classToken = (m.classId < 12) ? kLuaClassTokens[m.classId] : "";
-    if (classToken && *classToken) lua_pushstring(L, classToken);
-    else                           lua_pushnil(L);            // 11: classFileName
+    // The refusal as well as the answer, from one place: "" is truthy in Lua
+    // and would pass the same guard and fail the same lookup as the id did.
+    luaPushClassToken(L, m.classId);                          // 11: classFileName
     return 11;
 }
 
@@ -2255,23 +2252,17 @@ void registerSocialLuaAPI(lua_State* L) {
 
             const char* raceName = (w.raceId < 12) ? kLuaRaces[w.raceId] : "Unknown";
             const char* className = (w.classId < 12) ? kLuaClasses[w.classId] : "Unknown";
-            // The shared table, not a second copy of it standing beside the one
-            // every other binding reads.
-            const char* classFile = (w.classId < 12) ? kLuaClassTokens[w.classId] : "";
             lua_pushstring(L, w.name.c_str());
             lua_pushstring(L, w.guildName.c_str());
             lua_pushnumber(L, w.level);
             lua_pushstring(L, raceName);
             lua_pushstring(L, className);
             lua_pushstring(L, ""); // zone name (would need area lookup)
-            // Nil rather than "" when there is no token, and nil rather than a
-            // guessed one. The who list reads this exactly as the guild roster
-            // does — `if ( classFileName ) then RAID_CLASS_COLORS[...]` and
-            // then .r off the answer — so an empty string passes the guard and
-            // raises on the line after, and a stand-in like "WARRIOR" paints
-            // every unknown class the same wrong colour.
-            if (classFile && *classFile) lua_pushstring(L, classFile);
-            else                         lua_pushnil(L);
+            // The who list reads this exactly as the guild roster does, so it
+            // gets the same answer from the same place. It used to keep a
+            // private copy of the token table with a fallback of "WARRIOR",
+            // which paints an unknown class a confident wrong colour.
+            luaPushClassToken(L, w.classId);
             return 7;
         }},
                 {"SendWho", [](lua_State* L) -> int {
