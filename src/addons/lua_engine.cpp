@@ -8839,9 +8839,30 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                 if (takes) { owner = id; break; }
                 id = cand->parent;
             }
-            if (owner == 0) continue;
             const float mx = x - pressX_[i], my = y - pressY_[i];
-            if (mx * mx + my * my < kDragThreshold * kDragThreshold) continue;
+            const bool movedEnough =
+                mx * mx + my * my >= kDragThreshold * kDragThreshold;
+            if (owner == 0) {
+                // The silent case, and the one with nothing to show for it.
+                // A press that travels far enough to be a drag and finds
+                // nothing registered for one looks exactly like a press the
+                // interface never saw — and the two have opposite causes.
+                // Said once a second so holding the button does not flood it.
+                if (movedEnough) {
+                    const double now = wowee::core::appTimeSeconds();
+                    if (now - lastNoDragOwnerSaid_ > 1.0) {
+                        lastNoDragOwnerSaid_ = now;
+                        const auto* pw = widgets_.get(pressedWid_[i]);
+                        LOG_WARNING("WidgetInput: dragged from '",
+                                    pw && !pw->name.empty() ? pw->name.c_str()
+                                                            : "(unnamed)",
+                                    "', but neither it nor anything above it "
+                                    "is registered for drag on this button");
+                    }
+                }
+                continue;
+            }
+            if (!movedEnough) continue;
             draggingWid_ = owner;
             draggingButton_ = i;
             callFrameScript(draggingWid_, "OnDragStart",
@@ -9016,9 +9037,15 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                         callFrameScript(hit, "OnReceiveDrag", b.name);
                     }
                     const auto* target = hit ? widgets_.get(hit) : nullptr;
+                    // Which frame, and whether it was listening. A drop on the
+                    // right frame that has no OnReceiveDrag is the other way
+                    // this ends in nothing happening, and it reads the same as
+                    // a drop on empty screen.
                     LOG_WARNING("WidgetInput: drag dropped on ",
                                 target && !target->name.empty() ? target->name.c_str()
-                                                                : "nothing");
+                                                                : "nothing",
+                                hit != 0 && !frameHasScript(hit, "OnReceiveDrag")
+                                    ? " — which has no OnReceiveDrag" : "");
                     draggingWid_ = 0;
                     draggingButton_ = -1;
                 }

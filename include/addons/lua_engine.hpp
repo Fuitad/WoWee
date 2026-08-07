@@ -322,6 +322,9 @@ private:
     /// button that started it. The frame is not always the one the press landed
     /// on — a drag belongs to the nearest ancestor registered for it — so the
     /// release is matched by button rather than by frame.
+    /// Rate limit for the no-drag-owner line, which would otherwise be said
+    /// on every frame the button is held.
+    double lastNoDragOwnerSaid_ = 0.0;
     uint32_t draggingWid_ = 0;
     int draggingButton_ = -1;
     /// Last cursor position, which is what a moving frame is moved by.
