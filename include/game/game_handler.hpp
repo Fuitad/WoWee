@@ -575,6 +575,9 @@ public:
     using WhoEntry = game::WhoEntry;
     const std::vector<WhoEntry>& getWhoResults() const;
     uint32_t getWhoOnlineCount() const;
+    /// Whether the interface is showing the who panel, and so whether a /who
+    /// answer belongs there rather than in the chat.
+    void setWhoToUI(bool toUI);
     std::string getWhoAreaName(uint32_t zoneId) const { return getAreaName(zoneId); }
 
     // Social commands

@@ -3298,6 +3298,10 @@ uint32_t GameHandler::getWhoOnlineCount() const {
     return socialHandler_ ? socialHandler_->getWhoOnlineCount() : 0;
 }
 
+void GameHandler::setWhoToUI(bool toUI) {
+    if (socialHandler_) socialHandler_->setWhoToUI(toUI);
+}
+
 const std::array<GameHandler::BgQueueSlot, 3>& GameHandler::getBgQueues() const {
     if (socialHandler_) return socialHandler_->getBgQueues();
     static const std::array<BgQueueSlot, 3> empty{};

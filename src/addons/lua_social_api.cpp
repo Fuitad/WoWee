@@ -2351,8 +2351,21 @@ void registerSocialLuaAPI(lua_State* L) {
                 // client's who handler only ever stores the rows and fires
                 // WHO_LIST_UPDATE, so the panel is already the one place they
                 // go and there is no chat print to turn off.
+                // SetWhoToUI(toUI) — where a /who answer should go.
+                //
+                // FriendsFrame turns this on while its Who tab is up and off
+                // again on the way out. A no-op meant the client never printed
+                // results to chat, so a /who typed with the panel closed
+                // answered nothing at all: the rows were parsed and stored and
+                // kept, which looks exactly like a search the server ignored.
                 {"SetWhoToUI", [](lua_State* L) -> int {
-            (void)L; return 0;
+            // A number, not a boolean: FrameXML passes 1 and 0, and zero is
+            // true in Lua, so lua_toboolean would read "off" as "on" and this
+            // would be a no-op with extra steps.
+            if (auto* gh = getGameHandler(L)) {
+                gh->setWhoToUI(luaOptNumberText(L, 1, 0.0) != 0.0);
+            }
+            return 0;
         }},
                 {"GetNumGossipOptions", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);

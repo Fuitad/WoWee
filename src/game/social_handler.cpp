@@ -2874,6 +2874,31 @@ void SocialHandler::handleWho(network::Packet& packet) {
         entry.raceId = raceId; entry.zoneId = zoneId;
         whoResults_.push_back(std::move(entry));
     }
+    // To the chat when nobody is showing a panel, which is what a stock client
+    // does and what SetWhoToUI is for. FriendsFrame turns that on while its Who
+    // tab is up and off again on the way out, so a /who typed into chat with
+    // the panel closed printed nothing at all here: the rows were parsed,
+    // stored, and kept.
+    //
+    // The formats are WoW's own, from globalstrings — and they are the
+    // client's to print rather than the interface's, which is why no FrameXML
+    // file formats them. The count line carries a |4 escape, which resolves on
+    // the way to the screen.
+    if (!whoToUI_) {
+        for (const auto& e : whoResults_) {
+            std::string line = "|Hplayer:" + e.name + "|h[" + e.name + "]|h: Level " +
+                               std::to_string(e.level) + " " +
+                               getRaceName(static_cast<Race>(e.raceId)) + std::string(" ") +
+                               getClassName(static_cast<Class>(e.classId));
+            if (!e.guildName.empty()) line += " <" + e.guildName + ">";
+            const std::string zone = owner_.getWhoAreaName(e.zoneId);
+            if (!zone.empty()) line += " - " + zone;
+            owner_.addSystemChatMessage(line);
+        }
+        owner_.addSystemChatMessage(std::to_string(whoOnlineCount_) +
+                                    " |4player:players; total");
+    }
+
     // The who panel asked for this and redraws its rows on the answer coming
     // back. Every row was parsed and stored and only this client's own window
     // ever read them, so a /who through the interface filled a list nobody was

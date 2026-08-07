@@ -91,6 +91,16 @@ public:
     uint32_t getLevelTimePlayed() const { return levelTimePlayed_; }
     const std::vector<WhoEntry>& getWhoResults() const { return whoResults_; }
     uint32_t getWhoOnlineCount() const { return whoOnlineCount_; }
+
+    /// Where a /who answer goes: the panel, or the chat.
+    ///
+    /// SetWhoToUI is how the interface says which. FriendsFrame turns it on
+    /// while its Who tab is up and off again on the way out, so a search typed
+    /// into chat with the panel closed is meant to print its results there —
+    /// which is what a stock client does and what this one did not, having
+    /// treated the call as a no-op and always kept the rows to itself.
+    void setWhoToUI(bool toUI) { whoToUI_ = toUI; }
+    bool isWhoToUI() const { return whoToUI_; }
     std::string getWhoAreaName(uint32_t zoneId) const;
 
     // Social commands
@@ -543,6 +553,9 @@ private:
     // Who results
     std::vector<WhoEntry> whoResults_;
     uint32_t whoOnlineCount_ = 0;
+    /// Off until the interface asks otherwise, which is a stock client's
+    /// default: with no panel open the results belong in the chat.
+    bool whoToUI_ = false;
 
     // Duel
     bool pendingDuelRequest_    = false;
