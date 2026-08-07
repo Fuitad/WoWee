@@ -678,6 +678,20 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // not recognise, so "0" — what an unknown CVar answers — took its whole
     // update down. "classic" is the stock setting.
     else if (n == "chatstyle") lua_pushstring(L, "classic");
+    // "none", which is the word this one is switched off with — and the blanket
+    // default below is a number, which is not off but a format string.
+    //
+    // This is not a preference that read wrong. Timestamps are held as the
+    // strftime format to print, and the interface tests the *word* "none" for
+    // off: anything else is truthy and gets printed. So the fallback "0" became
+    // CHAT_TIMESTAMP_FORMAT = "0", strftime copied that digit through as a
+    // literal, and every line of chat in the game arrived with a 0 stuck to the
+    // front of it.
+    //
+    // Worth remembering when adding a CVar here: the fallback answers "0" for
+    // everything unlisted, which is right for a flag and wrong for any setting
+    // whose value is a word.
+    else if (n == "showtimestamps") lua_pushstring(L, "none");
     else lua_pushstring(L, "0");
 }
 
@@ -732,6 +746,18 @@ static int lua_GetCVar(lua_State* L) {
     } else if (n == "autoselfcast") {
         if (auto* gh = getGameHandler(L)) {
             lua_pushstring(L, gh->isAutoSelfCast() ? "1" : "0");
+            return 1;
+        }
+    } else if (n == "showtimestamps") {
+        // A stored "0" here was never chosen. It is what the old default
+        // answered, and the options panel writes back whatever it read, so a
+        // config saved while that default was live has the fault baked into
+        // it — and fixing only the default would leave those players with the
+        // 0 in front of every line for good. The word for off is "none"; a
+        // digit is a strftime format that prints itself.
+        if (auto it = cvarStore().find(n); it != cvarStore().end() &&
+            (it->second.empty() || it->second == "0")) {
+            lua_pushstring(L, "none");
             return 1;
         }
     }
