@@ -409,6 +409,15 @@ struct Widget {
     /// sizes itself to fit them — which is the part a chat frame does not do,
     /// because a tooltip has no size of its own until it has something to say.
     bool  isTooltip = false;
+    /// Whose tooltip this is, as the unit token SetUnit was given.
+    ///
+    /// GameTooltip:IsUnit(token) is the one question asked of it, and
+    /// gametooltip.xml asks it inside OnTooltipSetUnit to decide whether to
+    /// colour the name by reaction. Kept as the token rather than a guid
+    /// because this layer knows nothing about guids; the binding resolves both
+    /// sides when it compares, so a tooltip set for "target" answers yes to
+    /// "mouseover" when they are the same unit.
+    std::string tooltipUnit;
     struct TooltipLine {
         std::string left, right;
         float lc[4]; float rc[4];

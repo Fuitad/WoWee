@@ -174,6 +174,43 @@ static int lua_Frame_RegisterEvent(lua_State* L) {
 }
 
 // Frame method: frame:UnregisterEvent("EVENT")
+/// UnregisterAllEvents() — stop listening to everything at once.
+///
+/// A no-op before this, which is the dangerous half of the pair: the frame
+/// believes it has stopped and goes on being handed every event it ever asked
+/// for. PlayerFrame does it to the mana bar when the player takes a vehicle,
+/// and the handler that keeps running then reads a bar the vehicle art has
+/// already replaced.
+///
+/// Walks the frame's own table and unregisters each name through the same path
+/// a single UnregisterEvent takes, so the global dispatch list is cleaned the
+/// way it already knows how rather than by a second copy of that logic.
+static int lua_Frame_UnregisterEvent(lua_State* L);
+static int lua_Frame_UnregisterAllEvents(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    lua_getfield(L, 1, "__events");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); return 0; }
+    // Collected first: unregistering rewrites this table, and a traversal that
+    // is being written to is undefined.
+    std::vector<std::string> names;
+    lua_pushnil(L);
+    while (lua_next(L, -2) != 0) {
+        if (lua_isstring(L, -2)) names.emplace_back(lua_tostring(L, -2));
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+    for (const std::string& n : names) {
+        // Through a real call, not by calling the C function in place: it
+        // reads its arguments at stack indices one and two, and pushing them
+        // on top of this frame's own leaves it reading ours instead.
+        lua_pushcfunction(L, lua_Frame_UnregisterEvent);
+        lua_pushvalue(L, 1);                 // self
+        lua_pushstring(L, n.c_str());        // event
+        lua_call(L, 2, 0);
+    }
+    return 0;
+}
+
 static int lua_Frame_UnregisterEvent(lua_State* L) {
     luaL_checktype(L, 1, LUA_TTABLE);
     const char* eventName = luaL_checkstring(L, 2);
@@ -2006,6 +2043,34 @@ int lua_Tooltip_SetTradeSkillItem(lua_State* L) {
 }
 
 /// A unit's name and level, which is what hovering a unit frame shows.
+/// IsUnit(token) — whether this tooltip is describing that unit.
+///
+/// One caller, and it is the reason OnTooltipSetUnit exists: gametooltip.xml
+/// opens that handler with `if ( self:IsUnit("mouseover") )` before colouring
+/// the name by reaction. Answered with a no-op, that test is false for every
+/// tooltip, so firing the handler — which nothing did until yesterday —
+/// changed nothing on its own.
+///
+/// Compared by guid rather than by token, which is the whole point of the
+/// question: a tooltip set for "target" is describing "mouseover" whenever
+/// they are the same unit, and the caller is asking exactly that.
+static int lua_Tooltip_IsUnit(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    auto* gh = wowee::addons::getGameHandler(L);
+    const char* asked = luaL_optstring(L, 2, nullptr);
+    if (!w || !gh || !asked || !*asked || w->tooltipUnit.empty()) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    std::string other(asked);
+    for (char& c : other) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    if (other == w->tooltipUnit) { lua_pushboolean(L, 1); return 1; }
+    const uint64_t mine = wowee::addons::resolveUnitGuid(gh, w->tooltipUnit);
+    const uint64_t theirs = wowee::addons::resolveUnitGuid(gh, other);
+    lua_pushboolean(L, (mine != 0 && mine == theirs) ? 1 : 0);
+    return 1;
+}
+
 int lua_Tooltip_SetUnit(lua_State* L) {
     auto* w = widgetOf(L, 1);
     // A model frame has a SetUnit of its own — it is how the paperdoll loads
@@ -2028,6 +2093,8 @@ int lua_Tooltip_SetUnit(lua_State* L) {
     if (name.empty()) { lua_pushboolean(L, 0); return 1; }
 
     w->isTooltip = true;
+    // Whose tooltip this is, for IsUnit below.
+    w->tooltipUnit = uidStr;
     w->tooltipLines.clear();
 
     auto addLine = [&w](std::string text, float r, float g, float b) {
@@ -4619,6 +4686,7 @@ void LuaEngine::registerCoreAPI() {
         {"RegisterEvent",   lua_Frame_RegisterEvent},
         {"IsEventRegistered", lua_Frame_IsEventRegistered},
         {"UnregisterEvent", lua_Frame_UnregisterEvent},
+        {"UnregisterAllEvents", lua_Frame_UnregisterAllEvents},
         {"SetScript",       lua_Frame_SetScript},
         {"GetScript",       lua_Frame_GetScript},
         {"GetName",         lua_Frame_GetName},
@@ -4719,6 +4787,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetAuctionItem",  lua_Tooltip_SetAuctionItem},
         {"SetTradeSkillItem", lua_Tooltip_SetTradeSkillItem},
         {"SetUnit",         lua_Tooltip_SetUnit},
+        {"IsUnit",          lua_Tooltip_IsUnit},
         {"AddDoubleLine",   lua_Tooltip_AddDoubleLine},
         {"ClearLines",      lua_Tooltip_ClearLines},
         {"SetFrameStack",   lua_Tooltip_SetFrameStack},

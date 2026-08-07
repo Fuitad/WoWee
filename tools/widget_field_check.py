@@ -89,6 +89,7 @@ EXPECTED_FIELD_ONLY = {
     # same table — so answering from it is what keeps the answer and the
     # behaviour from drifting apart.
     "IsEventRegistered": "__events",
+    "UnregisterAllEvents": "__events",
 }
 
 
