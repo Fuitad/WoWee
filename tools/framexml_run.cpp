@@ -1,0 +1,85 @@
+// framexml_run — load FrameXML for real and run an expression against it.
+//
+// Every static sweep in tools/ works on the text: which names exist, which
+// arguments line up, which frames are emitted. They are at their floor, and
+// the bugs that are left are not visible in text — they are what happens when
+// the interface actually runs. Escape opening nothing, the chat box refusing
+// focus, a panel that stays empty: each is a Lua error raised inside a handler
+// and swallowed, because a handler that raises looks exactly like a handler
+// that decided to do nothing.
+//
+// This is that run, without the client. The addon manager loads the real
+// FrameXML through the real emitter into a real Lua state with the real
+// bindings, and the only thing missing is a game behind them — every binding
+// already guards its GameHandler pointer, so a null one gives the answers of a
+// player who is not logged in. That is enough for anything whose fault is in
+// the interface rather than in the data, which is what the swallowed errors
+// are.
+//
+//     framexml_run <assetPath> [expression ...]
+//
+//     framexml_run Data 'ToggleGameMenu()' 'ChatFrame1EditBox:Show()'
+//
+// Errors are collected rather than printed as they happen, so the load and
+// each expression are reported separately: an error during load is a different
+// question from an error the expression caused.
+//
+// Exit status is the number of expressions that raised, capped at 100, so a
+// script can ask "did this one still work" without reading the output.
+
+#include "addons/addon_manager.hpp"
+
+#include <cstdio>
+#include <cstdlib>
+#include <string>
+#include <vector>
+
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        std::fprintf(stderr,
+                     "usage: framexml_run <assetPath> [expression ...]\n"
+                     "  e.g. framexml_run Data 'ToggleGameMenu()'\n");
+        return 2;
+    }
+    const std::string assetPath = argv[1];
+
+    // FrameXML owns nothing unless it is asked to, and a harness that owns
+    // nothing takes the client's side of every handover — which is not the
+    // side being tested. Set before anything reads it.
+    ::setenv("WOWEE_FRAMEXML_UI", "all", 0);
+
+    wowee::addons::AddonManager mgr;
+    if (!mgr.initialize(nullptr)) {
+        std::fprintf(stderr, "framexml_run: Lua would not initialise\n");
+        return 2;
+    }
+
+    std::vector<std::string> errors;
+    if (auto* engine = mgr.getLuaEngine()) {
+        engine->setLuaErrorCallback(
+            [&errors](const std::string& e) { errors.push_back(e); });
+    }
+
+    mgr.setFrameXmlDir(assetPath + "/interface/FrameXML");
+    mgr.scanAddons(assetPath + "/interface/AddOns");
+    mgr.loadAllAddons();
+
+    std::printf("== load: %zu error(s)\n", errors.size());
+    for (const std::string& e : errors) std::printf("   %s\n", e.c_str());
+
+    int raised = 0;
+    for (int i = 2; i < argc; ++i) {
+        const size_t before = errors.size();
+        std::printf("\n== %s\n", argv[i]);
+        mgr.runInterfaceCommand(argv[i]);
+        if (errors.size() == before) {
+            std::printf("   no error\n");
+        } else {
+            ++raised;
+            for (size_t k = before; k < errors.size(); ++k) {
+                std::printf("   %s\n", errors[k].c_str());
+            }
+        }
+    }
+    return raised > 100 ? 100 : raised;
+}

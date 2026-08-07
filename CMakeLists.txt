@@ -1392,6 +1392,57 @@ if(UNIX AND NOT APPLE)
         RENAME wowee.png)
 endif()
 
+# ---- Tool: framexml_run (load FrameXML for real, headless) ----
+#
+# Every sweep in tools/ reads the interface as text and they are at their
+# floor. What is left is what only happens when it runs: a Lua error raised
+# inside a handler and swallowed, which looks exactly like a handler that
+# decided to do nothing. This target is that run without the client — the real
+# emitter, the real bindings, no game behind them and no window.
+#
+# Off by default because it compiles the client a second time, which is a cost
+# only worth paying on the machine asking the question. Other platforms and CI
+# are untouched.
+#
+#     cmake -S . -B build -DWOWEE_BUILD_FRAMEXML_RUN=ON
+#     cmake --build build --target framexml_run
+#     ./build/bin/framexml_run Data 'ToggleGameMenu()'
+option(WOWEE_BUILD_FRAMEXML_RUN
+       "Build the headless FrameXML runner (tools/framexml_run.cpp)" OFF)
+if(WOWEE_BUILD_FRAMEXML_RUN)
+    set(WOWEE_HEADLESS_SOURCES ${WOWEE_SOURCES})
+    list(REMOVE_ITEM WOWEE_HEADLESS_SOURCES src/main.cpp)
+    add_executable(framexml_run
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/framexml_run.cpp
+        ${WOWEE_HEADLESS_SOURCES}
+        ${WOWEE_PLATFORM_SOURCES}
+        ${WOWEE_MACOS_SOURCES}
+    )
+    # Copied from the client rather than written out again. This target is the
+    # client minus its main, so any answer that differs from wowee's is wrong
+    # by construction — and a hand-kept second list would drift the first time
+    # a dependency moved.
+    get_target_property(_wowee_libs wowee LINK_LIBRARIES)
+    get_target_property(_wowee_incs wowee INCLUDE_DIRECTORIES)
+    get_target_property(_wowee_defs wowee COMPILE_DEFINITIONS)
+    if(_wowee_libs)
+        target_link_libraries(framexml_run PRIVATE ${_wowee_libs})
+    endif()
+    if(_wowee_incs)
+        target_include_directories(framexml_run PRIVATE ${_wowee_incs})
+    endif()
+    if(_wowee_defs)
+        target_compile_definitions(framexml_run PRIVATE ${_wowee_defs})
+    endif()
+    target_include_directories(framexml_run SYSTEM PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/vk-bootstrap/src)
+    add_dependencies(framexml_run wowee_version)
+    if(TARGET opcodes-generate)
+        add_dependencies(framexml_run opcodes-generate)
+    endif()
+endif()
+
 # ---- Tool: asset_extract (MPQ → loose files) ----
 if(STORMLIB_LIBRARY AND STORMLIB_INCLUDE_DIR)
     add_executable(asset_extract
