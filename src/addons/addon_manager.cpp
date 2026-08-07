@@ -700,6 +700,33 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         "  end\n"
         "end\n");
 
+    // The same for the progress panel, which is the one a blank parchment was
+    // photographed on — Continue and Cancel, with nothing between them.
+    //
+    // It reports the *length* of each string as well as its rect, because the
+    // two failures look identical on screen and need opposite fixes: a string
+    // that is empty is missing data, and a string that has text but no height
+    // is missing a measurement.
+    luaEngine_.executeString(
+        "if type(QuestFrameProgressPanel_OnShow) == 'function' then\n"
+        "  local real = QuestFrameProgressPanel_OnShow\n"
+        "  QuestFrameProgressPanel_OnShow = function(...)\n"
+        "    real(...)\n"
+        "    local function say(f, n)\n"
+        "      if not f then return n .. '=absent' end\n"
+        "      local t = (f.GetText and f:GetText()) or ''\n"
+        "      return string.format('%s len=%d (%.0f,%.0f %.0fx%.0f) vis=%s',\n"
+        "        n, string.len(t), f:GetLeft() or -1, f:GetBottom() or -1,\n"
+        "        f:GetWidth() or 0, f:GetHeight() or 0,\n"
+        "        tostring(f:IsVisible()))\n"
+        "    end\n"
+        "    __WoweeWarn('quest progress built: ' ..\n"
+        "      say(QuestProgressText, 'ProgressText') .. ' | ' ..\n"
+        "      say(QuestProgressTitle, 'Title') .. ' | ' ..\n"
+        "      say(QuestFrameProgressPanel, 'Panel'))\n"
+        "  end\n"
+        "end\n");
+
     // The game-menu button opens this client's settings.
     //
     // ToggleGameMenu is FrameXML's own function and it shows GameMenuFrame,
