@@ -4425,10 +4425,25 @@ void registerInventoryLuaAPI(lua_State* L) {
             lua_pushnumber(L, a.minBidIncrement);   // minIncrement
             lua_pushnumber(L, a.buyoutPrice);       // buyoutPrice
             lua_pushnumber(L, a.currentBid);        // bidAmount
-            lua_pushboolean(L, a.bidderGuid != 0 ? 1 : 0); // highBidder
-            lua_pushstring(L, "");                  // bidderFullName
-            lua_pushstring(L, "");                  // owner
-            lua_pushstring(L, "");                  // ownerFullName
+            // Whether *this player* holds the high bid, which is not the same
+            // question as whether anybody does. It answered the second, so
+            // every row with a bid on it — most of them — was labelled "Your
+            // Bid", printed over the price it sits in front of.
+            const bool isHighBidder =
+                a.bidderGuid != 0 && a.bidderGuid == gh->getPlayerGuid();
+            lua_pushboolean(L, isHighBidder ? 1 : 0); // highBidder
+            // The seller column, which was two empty strings. The names are
+            // asked for when the list arrives (handleAuctionListResult queries
+            // every owner guid it does not know), so by the time a row is
+            // drawn twice this has an answer; before that it is empty, which
+            // is what an unknown seller looks like anyway.
+            const std::string bidderName =
+                a.bidderGuid ? gh->lookupName(a.bidderGuid) : std::string();
+            const std::string ownerName =
+                a.ownerGuid ? gh->lookupName(a.ownerGuid) : std::string();
+            lua_pushstring(L, bidderName.c_str());  // bidderFullName
+            lua_pushstring(L, ownerName.c_str());   // owner
+            lua_pushstring(L, ownerName.c_str());   // ownerFullName
             lua_pushnumber(L, 0);                   // saleStatus
             lua_pushnumber(L, a.itemEntry);         // itemId
             return 17;

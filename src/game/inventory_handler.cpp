@@ -3772,6 +3772,34 @@ void InventoryHandler::handleItemQueryResponse(network::Packet& packet) {
             owner_.addonEventCallbackRef()("MAIL_INBOX_UPDATE", {});
         }
 
+        // The auction list, for the same reason as the quest rewards above.
+        //
+        // An auction row carries an item entry and nothing else — no name, no
+        // icon — so the list arrives, the queries go out, and the answers land
+        // after the rows are drawn. This client's own auction window read the
+        // item cache on every frame it drew and so filled itself in; an
+        // interface told once draws "Item #41394" against a question mark and
+        // keeps it. Only while the house is open, and only for a row that is
+        // actually waiting on this entry: the query runs hundreds of times
+        // over a login and the rest of them are nothing to do with auctions.
+        if (auctionOpen_ && owner_.addonEventCallbackRef()) {
+            auto listWants = [&data](const AuctionListResult& r) {
+                for (const auto& e : r.auctions) {
+                    if (e.itemEntry == data.entry) return true;
+                }
+                return false;
+            };
+            if (listWants(auctionBrowseResults_)) {
+                owner_.addonEventCallbackRef()("AUCTION_ITEM_LIST_UPDATE", {});
+            }
+            if (listWants(auctionOwnerResults_)) {
+                owner_.addonEventCallbackRef()("AUCTION_OWNED_LIST_UPDATE", {});
+            }
+            if (listWants(auctionBidderResults_)) {
+                owner_.addonEventCallbackRef()("AUCTION_BIDDER_LIST_UPDATE", {});
+            }
+        }
+
         // Flush any deferred loot notifications waiting on this item's name/quality.
         for (auto it = owner_.pendingItemPushNotifsRef().begin(); it != owner_.pendingItemPushNotifsRef().end(); ) {
             if (it->itemId == data.entry) {
