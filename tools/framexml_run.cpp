@@ -80,15 +80,27 @@ int main(int argc, char** argv) {
     // FrameXML load above, since a broken addon is a smaller thing than a
     // broken interface.
     std::vector<std::string> addonFailures;
+    int refused = 0;
     for (const auto& addon : mgr.getLoadOnDemandAddons()) {
+        // The one the client refuses on purpose, refused here too.
+        //
+        // That decision lives in the LoadAddOn *binding*, so asking the
+        // manager directly walks straight past it — and this was loading an
+        // addon the client never loads, reporting the seventy-nine globals it
+        // has no server behind as though they were gaps. A harness that
+        // reaches a state the client cannot is worse than one that reaches
+        // less.
+        if (addon.addonName == "Blizzard_Calendar") { ++refused; continue; }
         std::string why;
         if (!mgr.loadAddOnByName(addon.addonName, why)) {
             addonFailures.push_back(addon.addonName + " (" +
                                     (why.empty() ? "?" : why) + ")");
         }
     }
-    std::printf("== addons: %zu of %zu load-on-demand failed\n",
-                addonFailures.size(), mgr.getLoadOnDemandAddons().size());
+    std::printf("== addons: %zu of %zu load-on-demand failed (%d refused as the client does)\n",
+                addonFailures.size(),
+                mgr.getLoadOnDemandAddons().size() - static_cast<size_t>(refused),
+                refused);
     for (const std::string& f : addonFailures) std::printf("   %s\n", f.c_str());
 
     // The events a login fires, which the interface does a great deal of its
