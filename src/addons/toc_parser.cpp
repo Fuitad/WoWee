@@ -19,6 +19,57 @@ bool TocFile::isLoadOnDemand() const {
     return (it != directives.end()) && it->second == "1";
 }
 
+/// The spelling FrameXML uses for a Blizzard addon, given the one on disk.
+///
+/// An addon's name is its folder's name, and this install's folders are lower
+/// case — the extraction flattened them. Loading copes: every lookup here folds
+/// case before matching. Announcing does not, because the announcement goes to
+/// Lua and Lua's == is case-sensitive:
+///
+///     if ( name == "Blizzard_GlyphUI" and IsAddOnLoaded("Blizzard_TalentUI") ...
+///
+/// That is GlyphFrame_OnEvent, and inside it is the only place the glyph panel
+/// is ever parented to the talent frame, sized to it, and its close button
+/// raised above it. Fired as "blizzard_glyphui" the test simply failed, so the
+/// panel stayed a child of UIParent in the top-left corner of the screen with
+/// no close button on it — which is exactly what it looked like.
+///
+/// Every addon that does its setup on ADDON_LOADED and names itself has the
+/// same problem, so this is fixed once, here, where the name is decided.
+///
+/// The spellings are FrameXML's own, taken from the files that compare against
+/// them rather than guessed: Blizzard_BarberShopUI capitalises the S and
+/// Blizzard_GMChatUI capitalises both letters of GM, and a guess would have had
+/// either wrong.
+static std::string canonicalAddonName(const std::string& onDisk) {
+    static const char* kKnown[] = {
+        "Blizzard_AchievementUI",   "Blizzard_ArenaUI",
+        "Blizzard_AuctionUI",       "Blizzard_BarberShopUI",
+        "Blizzard_BattlefieldMinimap", "Blizzard_BindingUI",
+        "Blizzard_Calendar",        "Blizzard_CombatLog",
+        "Blizzard_CombatText",      "Blizzard_DebugTools",
+        "Blizzard_GlyphUI",         "Blizzard_GMChatUI",
+        "Blizzard_GMSurveyUI",      "Blizzard_GuildBankUI",
+        "Blizzard_InspectUI",       "Blizzard_ItemSocketingUI",
+        "Blizzard_MacroUI",         "Blizzard_RaidUI",
+        "Blizzard_TalentUI",        "Blizzard_TimeManager",
+        "Blizzard_TokenUI",         "Blizzard_TradeSkillUI",
+        "Blizzard_TrainerUI",
+    };
+    auto fold = [](std::string s) {
+        std::transform(s.begin(), s.end(), s.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        return s;
+    };
+    const std::string key = fold(onDisk);
+    for (const char* known : kKnown) {
+        if (fold(known) == key) return known;
+    }
+    // Anything else keeps the name it has. A third-party addon's folder is
+    // already spelled the way its own files expect.
+    return onDisk;
+}
+
 static std::vector<std::string> parseVarList(const std::string& val) {
     std::vector<std::string> result;
     size_t pos = 0;
@@ -60,6 +111,7 @@ std::optional<TocFile> parseTocFile(const std::string& tocPath) {
     // Strip .toc extension from addon name
     size_t dotPos = toc.addonName.rfind(".toc");
     if (dotPos != std::string::npos) toc.addonName.resize(dotPos);
+    toc.addonName = canonicalAddonName(toc.addonName);
 
     std::string line;
     while (std::getline(f, line)) {
