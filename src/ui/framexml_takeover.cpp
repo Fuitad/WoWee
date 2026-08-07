@@ -239,9 +239,17 @@ const std::set<std::string>& requested() {
                 //                  zone highlight — and battleground team
                 //                  positions, which were the one layer nobody
                 //                  had checked and are drawn here now.
+                //   drawn here    the battleground flag carriers, which the
+                //                  same packet as the team positions carries
+                //                  in a second block — count, then guid and
+                //                  x/y each. This note used to say no packet
+                //                  carried them; the parser reads both blocks
+                //                  and tags the second, and the map and the
+                //                  minimap colour a carrier apart from a
+                //                  team-mate by that tag. WorldMapFlag1 and 2
+                //                  are FrameXML's own frames for it and stay
+                //                  behind this client's map like the rest.
                 //   nothing to draw
-                //                  WorldMapFlag1 and 2, the battleground flag
-                //                  positions: no packet here carries them.
                 //                  WorldMapBlobFrame, the shaded quest areas:
                 //                  this client's quest POIs are points, and a
                 //                  blob needs the polygon the server sends
