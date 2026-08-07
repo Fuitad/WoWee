@@ -318,6 +318,15 @@ int main(int argc, char** argv) {
                 for (uint32_t id : {133u, 168u, 116u}) sh->addKnownSpell(id);
             }
             if (auto* engine = mgr.getLuaEngine()) engine->setGameHandler(&gh);
+            // Said every time, because the gap it leaves is the kind that
+            // gets mistaken for a bug. There is a *character* here but no
+            // *entity*: nothing is in the EntityManager, so resolveUnit
+            // answers null and every Unit* binding that goes through it —
+            // UnitClass, UnitName, UnitLevel, UnitExists — returns no values
+            // at all. FrameXML then does `strupper(nil)` and similar, and a
+            // sweep run over this reports raises that no player could reach.
+            std::printf("   note: character only, no entity — Unit* bindings "
+                        "answer empty and raises through them are artifacts\n");
             std::printf("   attached a game handler: %s, race=%u class=%u "
                         "level=%u\n",
                         ch.name.c_str(),
