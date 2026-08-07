@@ -3306,8 +3306,8 @@ void GameHandler::splitItem(uint8_t srcBag, uint8_t srcSlot, uint8_t count) {
     if (inventoryHandler_) inventoryHandler_->splitItem(srcBag, srcSlot, count);
 }
 
-void GameHandler::useItemBySlot(int backpackIndex, bool confirmed) {
-    if (inventoryHandler_) inventoryHandler_->useItemBySlot(backpackIndex, confirmed);
+void GameHandler::useItemBySlot(int backpackIndex, bool confirmed, uint64_t unitTarget) {
+    if (inventoryHandler_) inventoryHandler_->useItemBySlot(backpackIndex, confirmed, unitTarget);
 }
 
 void GameHandler::useKeyringItem(int index, bool confirmed) {
@@ -3318,8 +3318,10 @@ void GameHandler::placeGlyphFromBag(uint8_t wireBag, uint8_t wireSlot, uint32_t 
     if (inventoryHandler_) inventoryHandler_->placeGlyphFromBag(wireBag, wireSlot, socketIndex);
 }
 
-void GameHandler::useItemInBag(int bagIndex, int slotIndex, bool confirmed) {
-    if (inventoryHandler_) inventoryHandler_->useItemInBag(bagIndex, slotIndex, confirmed);
+void GameHandler::useItemInBag(int bagIndex, int slotIndex, bool confirmed,
+                               uint64_t unitTarget) {
+    if (inventoryHandler_) inventoryHandler_->useItemInBag(bagIndex, slotIndex, confirmed,
+                                                           unitTarget);
 }
 
 bool GameHandler::isAwaitingItemTarget() const {
@@ -3369,8 +3371,8 @@ void GameHandler::readItemInBag(int bagIndex, int slotIndex) {
     if (inventoryHandler_) inventoryHandler_->readItemInBag(bagIndex, slotIndex);
 }
 
-void GameHandler::useItemById(uint32_t itemId) {
-    if (inventoryHandler_) inventoryHandler_->useItemById(itemId);
+void GameHandler::useItemById(uint32_t itemId, uint64_t unitTarget) {
+    if (inventoryHandler_) inventoryHandler_->useItemById(itemId, unitTarget);
 }
 
 uint32_t GameHandler::getItemIdForSpell(uint32_t spellId) const {

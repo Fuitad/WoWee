@@ -1564,7 +1564,8 @@ void InventoryHandler::confirmBindOnUse() {
 }
 
 void InventoryHandler::dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t itemGuid,
-                                       const ItemDef& item, bool confirmed) {
+                                       const ItemDef& item, bool confirmed,
+                                       uint64_t unitTarget) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     if (owner_.isRestoring()) owner_.cancelCast();
 
@@ -1618,8 +1619,13 @@ void InventoryHandler::dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t
     }
 
     if (isBandageItem(itemInfo)) synchronizeStationaryBandageCast(owner_);
+    // A unit the caller named wins over the default the item's class implies.
+    // Only the interface's /use handling passes one, and it is the whole of
+    // what `/use [target=Bob] <bandage>` means — targetGuidForUseItem answers
+    // the player for every consumable, so without this the bandage went on
+    // whoever asked for it rather than on whoever was named.
     sendUseItem(wowBag, wowSlot, itemGuid, useSpellId,
-                targetGuidForUseItem(owner_, itemInfo), 0);
+                unitTarget != 0 ? unitTarget : targetGuidForUseItem(owner_, itemInfo), 0);
 }
 
 void InventoryHandler::sendUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t itemGuid,
@@ -1740,7 +1746,8 @@ void InventoryHandler::completeItemUseOnItem(uint64_t targetItemGuid, bool confi
     sendUseItem(pending.bag, pending.slot, pending.itemGuid, pending.spellId, 0, targetItemGuid);
 }
 
-void InventoryHandler::useItemBySlot(int backpackIndex, bool confirmed) {
+void InventoryHandler::useItemBySlot(int backpackIndex, bool confirmed,
+                                     uint64_t unitTarget) {
     if (backpackIndex < 0 || backpackIndex >= owner_.inventoryRef().getBackpackSize()) return;
     const auto& slot = owner_.inventoryRef().getBackpackSlot(backpackIndex);
     if (slot.empty()) return;
@@ -1751,7 +1758,7 @@ void InventoryHandler::useItemBySlot(int backpackIndex, bool confirmed) {
     }
 
     dispatchUseItem(0xFF, static_cast<uint8_t>(Inventory::NUM_EQUIP_SLOTS + backpackIndex),
-                    itemGuid, slot.item, confirmed);
+                    itemGuid, slot.item, confirmed, unitTarget);
 }
 
 void InventoryHandler::useKeyringItem(int index, bool confirmed) {
@@ -1766,7 +1773,8 @@ void InventoryHandler::useKeyringItem(int index, bool confirmed) {
                     itemGuid, slot.item, confirmed);
 }
 
-void InventoryHandler::useItemInBag(int bagIndex, int slotIndex, bool confirmed) {
+void InventoryHandler::useItemInBag(int bagIndex, int slotIndex, bool confirmed,
+                                    uint64_t unitTarget) {
     if (bagIndex < 0 || bagIndex >= owner_.inventoryRef().NUM_BAG_SLOTS) return;
     if (slotIndex < 0 || slotIndex >= owner_.inventoryRef().getBagSize(bagIndex)) return;
     const auto& slot = owner_.inventoryRef().getBagSlot(bagIndex, slotIndex);
@@ -1788,7 +1796,8 @@ void InventoryHandler::useItemInBag(int bagIndex, int slotIndex, bool confirmed)
              " itemGuid=0x", std::hex, itemGuid, std::dec);
 
     dispatchUseItem(static_cast<uint8_t>(Inventory::FIRST_BAG_EQUIP_SLOT + bagIndex),
-                    static_cast<uint8_t>(slotIndex), itemGuid, slot.item, confirmed);
+                    static_cast<uint8_t>(slotIndex), itemGuid, slot.item, confirmed,
+                    unitTarget);
 }
 
 void InventoryHandler::placeGlyphFromBag(uint8_t wireBag, uint8_t wireSlot,
@@ -2062,14 +2071,14 @@ void InventoryHandler::unequipToBackpack(EquipSlot equipSlot) {
     owner_.getSocket()->send(packet);
 }
 
-void InventoryHandler::useItemById(uint32_t itemId) {
+void InventoryHandler::useItemById(uint32_t itemId, uint64_t unitTarget) {
     if (itemId == 0) return;
     LOG_DEBUG("useItemById: searching for itemId=", itemId);
     for (int i = 0; i < owner_.inventoryRef().getBackpackSize(); i++) {
         const auto& slot = owner_.inventoryRef().getBackpackSlot(i);
         if (!slot.empty() && slot.item.itemId == itemId) {
             LOG_DEBUG("useItemById: found itemId=", itemId, " at backpack slot ", i);
-            useItemBySlot(i);
+            useItemBySlot(i, false, unitTarget);
             return;
         }
     }
@@ -2079,7 +2088,7 @@ void InventoryHandler::useItemById(uint32_t itemId) {
             const auto& bagSlot = owner_.inventoryRef().getBagSlot(bag, slot);
             if (!bagSlot.empty() && bagSlot.item.itemId == itemId) {
                 LOG_DEBUG("useItemById: found itemId=", itemId, " in bag ", bag, " slot ", slot);
-                useItemInBag(bag, slot);
+                useItemInBag(bag, slot, false, unitTarget);
                 return;
             }
         }

@@ -1599,10 +1599,27 @@ static int lua_GetInventoryItemDurability(lua_State* L) {
 }
 
 // UseItemByName(item) — what /use does
+/// The unit a /use was aimed at, or zero for "as the item would go anyway".
+///
+/// chatframe passes one to all three of the use bindings —
+/// UseContainerItem(bag, slot, target), UseInventoryItem(slot, target) and
+/// UseItemByName(name, target) — and none of them read it, so
+/// `/use [target=Bob] <bandage>` bandaged whoever asked. An unresolvable name
+/// answers zero rather than refusing: the item then goes where it always did,
+/// which is better than a click that does nothing.
+uint64_t usedOnUnit(lua_State* L, int index) {
+    auto* gh = getGameHandler(L);
+    const char* unit = gh ? lua_tostring(L, index) : nullptr;
+    if (!unit || !*unit) return 0;
+    std::string uid(unit);
+    toLowerInPlace(uid);
+    return resolveUnitGuid(gh, uid);
+}
+
 static int lua_UseItemByName(lua_State* L) {
     auto* gh = getGameHandler(L);
     const uint32_t itemId = carriedItemMatching(gh, L, 1);
-    if (gh && itemId != 0) gh->useItemById(itemId);
+    if (gh && itemId != 0) gh->useItemById(itemId, usedOnUnit(L, 2));
     return 0;
 }
 
@@ -1687,7 +1704,7 @@ static int lua_UseInventoryItem(lua_State* L) {
     // paperdoll's right-click arrives here.
     if (completedItemTarget(L, gh->getEquipSlotGuid(slotId - 1))) return 0;
     const auto& slot = *inventorySlotItem(gh->getInventory(), slotId);
-    if (!slot.empty()) gh->useItemById(slot.item.itemId);
+    if (!slot.empty()) gh->useItemById(slot.item.itemId, usedOnUnit(L, 2));
     return 0;
 }
 
@@ -1830,12 +1847,13 @@ static int lua_UseContainerItem(lua_State* L) {
         if (readable)         gh->readItemBySlot(idx);
         else if (equippable)  gh->autoEquipItemBySlot(idx);
         else if (openable)    gh->openItemBySlot(idx);
-        else                  gh->useItemBySlot(idx);
+        else                  gh->useItemBySlot(idx, false, usedOnUnit(L, 3));
     } else {
         if (readable)         gh->readItemInBag(bag - 1, slot - 1);
         else if (equippable)  gh->autoEquipItemInBag(bag - 1, slot - 1);
         else if (openable)    gh->openItemInBag(bag - 1, slot - 1);
-        else                  gh->useItemInBag(bag - 1, slot - 1);
+        else                  gh->useItemInBag(bag - 1, slot - 1, false,
+                                             usedOnUnit(L, 3));
     }
     return 0;
 }

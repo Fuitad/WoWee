@@ -2896,9 +2896,11 @@ public:
     bool equipWouldBindFromBag(int bagIndex, int slotIndex) const;
     void equipPendingItem();
     void cancelPendingEquip();
-    void useItemBySlot(int backpackIndex, bool confirmed = false);
+    void useItemBySlot(int backpackIndex, bool confirmed = false,
+                       uint64_t unitTarget = 0);
     void useKeyringItem(int index, bool confirmed = false);
-    void useItemInBag(int bagIndex, int slotIndex, bool confirmed = false);
+    void useItemInBag(int bagIndex, int slotIndex, bool confirmed = false,
+                      uint64_t unitTarget = 0);
 
     // Item-targeted item use: sharpening stones, weightstones and weapon oils enchant
     // another item, so using one arms a targeting cursor instead of casting immediately.
@@ -2925,7 +2927,7 @@ public:
     void splitItem(uint8_t srcBag, uint8_t srcSlot, uint8_t count);
     void swapContainerItems(uint8_t srcBag, uint8_t srcSlot, uint8_t dstBag, uint8_t dstSlot);
     void swapBagSlots(int srcBagIndex, int dstBagIndex);
-    void useItemById(uint32_t itemId);
+    void useItemById(uint32_t itemId, uint64_t unitTarget = 0);
     /// Put a glyph from a bag slot into a socket, counted from zero.
     void placeGlyphFromBag(uint8_t wireBag, uint8_t wireSlot, uint32_t socketIndex);
     uint32_t getItemIdForSpell(uint32_t spellId) const;

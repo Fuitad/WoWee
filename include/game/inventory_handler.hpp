@@ -207,12 +207,18 @@ public:
 
     void equipPendingItem();
     void cancelPendingEquip();
-    void useItemBySlot(int backpackIndex, bool confirmed = false);
+    /// `unitTarget` names who the item is used on, and overrides the default
+    /// the item's own class implies. Only the interface's /use handling passes
+    /// it — `/use [target=Bob] Heavy Runecloth Bandage` — and zero keeps the
+    /// behaviour every other caller has always had.
+    void useItemBySlot(int backpackIndex, bool confirmed = false,
+                       uint64_t unitTarget = 0);
     /// Use a key from the keyring. Its own entry point because the keyring is
     /// addressed by a wire slot of its own past the bags, and useItemBySlot
     /// bounds-checks against the backpack and would silently do nothing.
     void useKeyringItem(int index, bool confirmed = false);
-    void useItemInBag(int bagIndex, int slotIndex, bool confirmed = false);
+    void useItemInBag(int bagIndex, int slotIndex, bool confirmed = false,
+                      uint64_t unitTarget = 0);
 
     // ---- Item-targeted item use (sharpening stones, weightstones, weapon oils) ----
     /// True while a used item is waiting for the player to pick the item it applies to.
@@ -239,7 +245,7 @@ public:
     bool writeWireSlot(uint8_t container, uint8_t slot, const game::ItemDef& item);
     void swapBagSlots(int srcBagIndex, int dstBagIndex);
     void unequipToBackpack(EquipSlot equipSlot);
-    void useItemById(uint32_t itemId);
+    void useItemById(uint32_t itemId, uint64_t unitTarget = 0);
     bool isVendorWindowOpen() const { return vendorWindowOpen_; }
     const ListInventoryData& getVendorItems() const { return currentVendorItems_; }
     void setVendorCanRepair(bool v) { currentVendorItems_.canRepair = v; }
@@ -489,7 +495,8 @@ private:
     // Resolves the item's on-use spell, then either parks the use for item
     // targeting or sends it immediately.
     void dispatchUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t itemGuid,
-                         const ItemDef& item, bool confirmed = false);
+                         const ItemDef& item, bool confirmed = false,
+                         uint64_t unitTarget = 0);
     void sendUseItem(uint8_t wowBag, uint8_t wowSlot, uint64_t itemGuid, uint32_t spellId,
                      uint64_t targetGuid, uint64_t itemTargetGuid);
 
