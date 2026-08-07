@@ -2207,15 +2207,22 @@ filteredBgScores(const game::BgScoreboardData& sb) {
     if (column.empty()) return rows;
 
     // Only the columns this client has the numbers for. "class" is not one of
-    // them — the scoreboard packet carries no class — and neither are damage
-    // and healing, which are not parsed and read as zero for everyone, so
-    // sorting by them would rearrange nothing while looking like it worked.
+    // them — the scoreboard packet carries no class.
+    //
+    // Damage and healing were excluded here for the same reason, back when the
+    // parser skipped their eight bytes and every row read zero; sorting by
+    // them would have rearranged nothing while looking like it worked. The
+    // parser reads them now and GetBattlefieldScore hands them to the frame,
+    // so the two columns show real numbers — and were the only two whose
+    // header did nothing when clicked.
     auto key = [&column](const game::BgPlayerScore* p) -> double {
-        if (column == "kills")  return p->killingBlows;
-        if (column == "deaths") return p->deaths;
-        if (column == "hk")     return p->honorableKills;
-        if (column == "cp")     return p->bonusHonor;
-        if (column == "team")   return p->team;
+        if (column == "kills")   return p->killingBlows;
+        if (column == "deaths")  return p->deaths;
+        if (column == "hk")      return p->honorableKills;
+        if (column == "cp")      return p->bonusHonor;
+        if (column == "team")    return p->team;
+        if (column == "damage")  return p->damageDone;
+        if (column == "healing") return p->healingDone;
         return 0.0;
     };
     const bool byName = (column == "name");
@@ -2659,7 +2666,14 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushnumber(L, 0);                   // rank
             lua_pushstring(L, "");                  // race
             lua_pushstring(L, "");                  // class
-            lua_pushstring(L, "WARRIOR");           // classToken
+            // Nil, not a class. The packet carries none — AppendToPacket sends
+            // a guid and six numbers — and the scoreboard asks for exactly
+            // this case: `if (classToken) then ... else buttonClass:Hide()`.
+            // So absence is an answer it handles, and "WARRIOR" was not a
+            // safer default than nil but a wrong one that looks like data: it
+            // drew a warrior's icon beside all forty players in the
+            // battleground, every one of them.
+            lua_pushnil(L);                         // classToken
             lua_pushnumber(L, p.damageDone);        // damageDone
             lua_pushnumber(L, p.healingDone);       // healingDone
             return 12;
