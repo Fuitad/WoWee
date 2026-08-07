@@ -777,6 +777,15 @@ CHECKS += [
 ]
 
 SENTENCES = [
+    # The one check that opens the panels rather than reading about them. A
+    # widget method that exists and answers nil is not a missing name, not a
+    # short return and not a type mismatch, so it passes every static sweep
+    # here and raises the first time a handler reaches through it — which is
+    # what kept the calendar shut. Canaried: with the region GetParent binding
+    # removed, this reports the calendar and nothing else.
+    ("framexml_addon_open_check.py",
+     "every panel loads, shows and runs its OnShow without raising",
+     "a load-on-demand panel that raises on being opened"),
     ("bootstrap_chunk_check.py",
      "every local they use is declared in the chunk that uses it",
      "a bootstrap chunk using a local another chunk declared"),
