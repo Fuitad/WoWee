@@ -1,25 +1,28 @@
-// The order the two placement chunks are composed in.
+// The order the two placement chunks are composed in, and why the obvious
+// argument about it is not enough.
 //
-// ADT stores doodads in MDDF and buildings in MODF, and the rotation field is
-// the same field in both — the format says so, and both readers in
-// terrain_manager build the same triple out of it:
+// ADT stores doodads in MDDF and buildings in MODF. The rotation field reads
+// the same in both, both readers in terrain_manager build the same triple, and
+// the building path composes it Z, Y, X and looks right. From that it follows
+// that the doodads should be composed Z, Y, X too — so they were, and on
+// screen they came out **worse**. Reverted on 2026-08-07; the doodad path
+// composes X, Y, Z, which is what it has always shipped with.
 //
-//     (-rot[2], -rot[0], rot[1] + 180)   in radians
+// That makes four permutations tried and four reverted. One of the steps in
+// the paragraph above is wrong and reading has not found which: perhaps the
+// two chunks are not the same field after all, perhaps the triples differ,
+// perhaps something downstream already accounts for it. None of that is
+// settled here.
 //
-// WoW composes that as Ry(B)*Rx(A)*Rz(C), which in this space is
-// Rz(B)*Ry(-A)*Rx(-C) — so the stored triple is applied Z, then Y, then X.
-// The building path has always done that and the buildings are right. The
-// doodad path applied the same triple in the reverse order.
+// What this file still pins is the one thing that is certainly true and that
+// every attempt has been caught by: **with no pitch and no roll the two orders
+// are the same rotation.** Nearly every doodad in the world is upright, so
+// nearly every doodad looks correct under either order, and a screenshot of a
+// tree standing up is not evidence for either one. Only a visibly tilted
+// placement can tell them apart.
 //
-// What makes this worth a test rather than a look: with no pitch and no roll,
-// the two orders are *the same rotation*. Nearly every doodad in the world is
-// upright, so nearly every doodad looked correct under either one and only a
-// genuinely tilted placement came out wrong. Three attempts to fix this by
-// permuting axes were reverted, because a permutation that satisfies the
-// upright case says nothing at all.
-//
-// So both halves are pinned: that the orders agree where they must, and that
-// they differ where the bug lived.
+// Kept rather than deleted because that is the trap, and it is worth having it
+// stated in a form that runs.
 
 #include <catch_amalgamated.hpp>
 
@@ -28,8 +31,7 @@
 
 namespace {
 
-/// Z, then Y, then X — what WMOInstance::updateModelMatrix does, and now what
-/// M2Instance::updateModelMatrix does.
+/// Z, then Y, then X — what WMOInstance::updateModelMatrix does.
 glm::mat4 composeZYX(const glm::vec3& r) {
     glm::mat4 m(1.0f);
     m = glm::rotate(m, r.z, glm::vec3(0.0f, 0.0f, 1.0f));
@@ -38,7 +40,7 @@ glm::mat4 composeZYX(const glm::vec3& r) {
     return m;
 }
 
-/// X, then Y, then Z — what the doodad path used to do.
+/// X, then Y, then Z — what the doodad path does.
 glm::mat4 composeXYZ(const glm::vec3& r) {
     glm::mat4 m(1.0f);
     m = glm::rotate(m, r.x, glm::vec3(1.0f, 0.0f, 0.0f));
