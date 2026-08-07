@@ -2055,3 +2055,38 @@ TEST_CASE("Two frames anchored to each other do not resolve for ever",
     tree.resolveWidget(a);
     SUCCEED("resolving a cycle terminated");
 }
+
+// The other kind of size, measured the moment it is created.
+//
+// Width can be stated or it can fall out of two opposing anchors, and only the
+// second goes through the solver. The achievement rows use it — each gates its
+// own layout on `objectives:GetHeight() > 0` and then anchors LEFT and RIGHT to
+// its neighbours — so a size that resolves for stated widths and not for solved
+// ones would leave that whole panel collapsed while the simpler cases worked.
+TEST_CASE("A size that comes out of the solver resolves when asked for too",
+          "[widget][anchor][layout]") {
+    WidgetTree tree;
+    tree.layout(kScreenW, kScreenH);
+
+    const uint32_t parent = tree.create(WidgetKind::Frame, tree.uiParentId(), "P");
+    tree.setWidth(parent, 300.0f);
+    tree.setHeight(parent, 200.0f);
+    Anchor centre;
+    centre.point = "CENTER";
+    centre.relativeTo = tree.uiParentId();
+    centre.relativePoint = "CENTER";
+    tree.addPoint(parent, centre);
+
+    const uint32_t child = tree.create(WidgetKind::Frame, parent, "C");
+    tree.setHeight(child, 50.0f);
+    Anchor l; l.point = "LEFT";  l.relativeTo = parent; l.relativePoint = "LEFT";  l.x =  20.0f;
+    Anchor r; r.point = "RIGHT"; r.relativeTo = parent; r.relativePoint = "RIGHT"; r.x = -30.0f;
+    tree.addPoint(child, l);
+    tree.addPoint(child, r);
+
+    tree.resolveWidget(child);
+    const Widget* wc = tree.get(child);
+    REQUIRE(wc != nullptr);
+    CHECK(wc->rectW == Catch::Approx(300.0f - 20.0f - 30.0f));
+    CHECK(wc->rectH == Catch::Approx(50.0f));
+}
