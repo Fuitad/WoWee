@@ -3293,6 +3293,15 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
         lua_setfield(L, -2, name);
     };
     set("GetName", lua_Region_GetName);
+    // The frame the region was created on. Without this the name falls through
+    // to the shared widget no-op — GetParent is in __WoweeWidgetMethods — so
+    // every texture and font string in the interface answered nil for it, and
+    // the region's own __parent, which CreateTexture writes, was never read.
+    set("GetParent", [](lua_State* L) -> int {
+        luaL_checktype(L, 1, LUA_TTABLE);
+        lua_getfield(L, 1, "__parent");
+        return 1;
+    });
     set("SetPoint", lua_Region_SetPoint);
     set("ClearAllPoints", lua_Region_ClearAllPoints);
     set("SetAllPoints", lua_Region_SetAllPoints);
@@ -4156,6 +4165,16 @@ static int lua_Frame_CreateTexture(lua_State* L) {
         lua_pushinteger(L, static_cast<lua_Integer>(id));
         lua_setfield(L, -2, "__wid");
     }
+    // A region's parent, which is the frame it was created on.
+    //
+    // This was never recorded, so GetParent() answered nil for every texture
+    // and every font string in the interface — CreateFrame writes __parent and
+    // these two did not. It is not a rare call: the calendar reaches a day's
+    // shading through `darkTop:GetParent()`, which is how the gap surfaced,
+    // and a region asking its owner for a size or a frame level is an ordinary
+    // shape in FrameXML.
+    lua_pushvalue(L, 1);
+    lua_setfield(L, -2, "__parent");
     installRegionMethods(L, /*isTexture=*/true, /*isFontString=*/false);
     if (name && *name) {
         lua_pushvalue(L, -1);
@@ -4181,6 +4200,16 @@ static int lua_Frame_CreateFontString(lua_State* L) {
         lua_pushinteger(L, static_cast<lua_Integer>(id));
         lua_setfield(L, -2, "__wid");
     }
+    // A region's parent, which is the frame it was created on.
+    //
+    // This was never recorded, so GetParent() answered nil for every texture
+    // and every font string in the interface — CreateFrame writes __parent and
+    // these two did not. It is not a rare call: the calendar reaches a day's
+    // shading through `darkTop:GetParent()`, which is how the gap surfaced,
+    // and a region asking its owner for a size or a frame level is an ordinary
+    // shape in FrameXML.
+    lua_pushvalue(L, 1);
+    lua_setfield(L, -2, "__parent");
     lua_pushstring(L, "");
     lua_setfield(L, -2, "_text");
     installRegionMethods(L, /*isTexture=*/false, /*isFontString=*/true);
