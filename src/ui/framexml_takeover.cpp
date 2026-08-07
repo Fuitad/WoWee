@@ -1099,8 +1099,22 @@ const Check kChecks[] = {
         // Top-level frame first in every row: that is the one the release
         // tests. The rest are the art and the parts carrying live data, which
         // is what separates "never built" from "built and empty".
+        // The QuestInfo chain is here because the quest dialog's *contents*
+        // can land far from the dialog while the dialog itself is placed
+        // correctly, and the four frames above cannot show that.
+        //
+        // QuestInfo_Display reparents and anchors each element it is handed,
+        // and on the detail panel it runs twice — once into
+        // QuestDetailScrollChildFrame and once into QuestInfoFadingFrame. A
+        // session was reported where the reward items sat some eight hundred
+        // units right of the panel, and this list said nothing about it: the
+        // only evidence was which frame a click happened to hit. These four
+        // are the chain that carries them, so the next dump names the one that
+        // is misplaced and what it is parented to.
         {UiElement::QuestGiver,   "QuestFrame QuestFrameNpcNameText "
-                                  "QuestFrameDetailPanel QuestFrameAcceptButton"},
+                                  "QuestFrameDetailPanel QuestFrameAcceptButton "
+                                  "QuestDetailScrollChildFrame QuestInfoFadingFrame "
+                                  "QuestInfoRewardsFrame QuestInfoItem1"},
         {UiElement::Gossip,       "GossipFrame GossipFrameNpcNameText "
                                   "GossipFrameGreetingPanel"},
         {UiElement::Mail,         "MailFrame InboxFrame MailFrameTab1"},
