@@ -896,12 +896,28 @@ void WidgetTree::collectDrawOrder() {
         drawOrder_.push_back(&w);
     }
 
+    // A status bar draws its own fill, where the real client makes the fill a
+    // region of the bar like any other. So the bar sorts where its fill
+    // belongs rather than where the frame does: one level in, among the bar's
+    // own regions, ranked by the layer the fill asked for.
+    //
+    // Without this the fill went under everything the bar owns, whatever it
+    // declared — and a bar with a dark backing of its own wore it over the
+    // fill. The cast bar is exactly that: a BACKGROUND backing, a BORDER fill
+    // and ARTWORK border art, which has to come out in that order.
+    auto sortLevel = [](const Widget* w) {
+        return (w->isStatusBar && !w->barTexture.empty()) ? w->effLevel + 1 : w->effLevel;
+    };
+    auto sortLayer = [](const Widget* w) {
+        return layerRank((w->isStatusBar && !w->barTexture.empty()) ? w->barLayer : w->layer);
+    };
     std::sort(drawOrder_.begin(), drawOrder_.end(),
-              [](const Widget* a, const Widget* b) {
+              [&](const Widget* a, const Widget* b) {
                   const int sa = strataRank(a->effStrata), sb = strataRank(b->effStrata);
                   if (sa != sb) return sa < sb;
-                  if (a->effLevel != b->effLevel) return a->effLevel < b->effLevel;
-                  const int la = layerRank(a->layer), lb = layerRank(b->layer);
+                  const int va = sortLevel(a), vb = sortLevel(b);
+                  if (va != vb) return va < vb;
+                  const int la = sortLayer(a), lb = sortLayer(b);
                   if (la != lb) return la < lb;
                   if (a->subLevel != b->subLevel) return a->subLevel < b->subLevel;
                   // Ties resolve by creation order, so a region added later sits

@@ -345,6 +345,11 @@ struct Widget {
     float barMin = 0.0f, barMax = 1.0f, barValue = 0.0f;
     std::string barTexture;
     float barColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    /// Which layer the bar's fill draws in. In the real client the fill is a
+    /// region like any other and <StatusBar drawLayer="..."> is its layer;
+    /// here it is drawn by the bar itself, so the bar carries the layer and
+    /// sorts by it. ARTWORK is WoW's default for a bar that does not say.
+    DrawLayer barLayer = DrawLayer::Artwork;
     bool  barVertical = false;
 
     /// Fraction filled, clamped. A zero or inverted range reads as empty rather

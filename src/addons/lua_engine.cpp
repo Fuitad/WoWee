@@ -2734,7 +2734,14 @@ int lua_Region_SetVertexColor(lua_State* L) {
 }
 int lua_Region_SetDrawLayer(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
-        w->layer = wowee::ui::parseDrawLayer(luaL_optstring(L, 2, "ARTWORK"));
+        const auto layer = wowee::ui::parseDrawLayer(luaL_optstring(L, 2, "ARTWORK"));
+        // On a status bar this names the layer of the *fill*, which is a
+        // region in the real client and is drawn by the bar here. Twenty bars
+        // in the interface declare it and the cast bar is one of them: it asks
+        // for BORDER so that its own dark backing, which is BACKGROUND, stays
+        // behind the fill rather than over it.
+        if (w->isStatusBar) w->barLayer = layer;
+        else                w->layer = layer;
         w->subLevel = static_cast<int>(luaL_optnumber(L, 3, 0));
     }
     return 0;
@@ -4525,6 +4532,12 @@ void LuaEngine::registerCoreAPI() {
         // versions kept the numbers where only Lua could see them, which is
         // why a frame could be sized and positioned and still never appear.
         {"SetPoint",        lua_Region_SetPoint},
+        // A frame method too, and not only a region one: <StatusBar
+        // drawLayer="BORDER"> is emitted as a call on the bar, and a bar is a
+        // frame. Absent here it fell to the no-op fallback, so all twenty of
+        // the bars that declare a layer were silently ignored — the trace
+        // under WOWEE_WIDGET_TRACE=1 is what named them.
+        {"SetDrawLayer",    lua_Region_SetDrawLayer},
         {"ClearAllPoints",  lua_Region_ClearAllPoints},
         {"SetAllPoints",    lua_Region_SetAllPoints},
         {"SetSize",         lua_Region_SetSize},

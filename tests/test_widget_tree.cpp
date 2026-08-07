@@ -2090,3 +2090,122 @@ TEST_CASE("A size that comes out of the solver resolves when asked for too",
     CHECK(wc->rectW == Catch::Approx(300.0f - 20.0f - 30.0f));
     CHECK(wc->rectH == Catch::Approx(50.0f));
 }
+
+// Where a status bar's fill draws, relative to the bar's own art.
+//
+// In the real client the fill is a region of the bar like any other, and
+// <StatusBar drawLayer="..."> is that region's layer. Here the bar draws its
+// own fill, so the bar has to sort where the fill belongs rather than where a
+// frame would — otherwise the fill goes under everything the bar owns whatever
+// it asked for, and a bar with a dark backing of its own wears it over the
+// fill.
+//
+// CastingBarFrameTemplate is exactly that shape and is what this reproduces: a
+// BACKGROUND backing, a BORDER fill, and ARTWORK border art. Twenty bars in
+// the interface declare a layer this way and every one of them was ignored,
+// because the declaration is emitted as a call on the bar and the bar is a
+// frame.
+TEST_CASE("A bar's fill draws in the layer it asked for", "[widget][statusbar][layer]") {
+    WidgetTree tree;
+
+    const uint32_t bar = tree.create(WidgetKind::Frame, tree.uiParentId(), "Bar");
+    {
+        Widget* w = tree.get(bar);
+        REQUIRE(w != nullptr);
+        w->isStatusBar = true;
+        w->barTexture = "Interface\\TargetingFrame\\UI-StatusBar";
+        w->barLayer = DrawLayer::Border;
+        w->width = 100.0f;
+        w->height = 20.0f;
+    }
+    Anchor at;
+    at.point = "TOPLEFT";
+    at.relativeTo = tree.uiParentId();
+    at.relativePoint = "TOPLEFT";
+    tree.addPoint(bar, at);
+
+    // The bar's own regions, in the two layers that bracket the fill.
+    auto region = [&](const char* name, DrawLayer layer) {
+        const uint32_t id = tree.create(WidgetKind::Texture, bar, name);
+        Widget* w = tree.get(id);
+        w->layer = layer;
+        w->texturePath = "Interface\\Test";
+        Anchor a;
+        a.point = "TOPLEFT";
+        a.relativeTo = bar;
+        a.relativePoint = "TOPLEFT";
+        tree.addPoint(id, a);
+        w->width = 100.0f;
+        w->height = 20.0f;
+        return id;
+    };
+    const uint32_t backing = region("Backing", DrawLayer::Background);
+    const uint32_t border  = region("BorderArt", DrawLayer::Artwork);
+
+    tree.layout(kScreenW, kScreenH);
+
+    auto indexOf = [&](uint32_t id) {
+        const auto& order = tree.drawOrder();
+        for (size_t i = 0; i < order.size(); ++i) {
+            if (order[i]->id == id) return static_cast<int>(i);
+        }
+        return -1;
+    };
+    const int iBacking = indexOf(backing);
+    const int iFill    = indexOf(bar);
+    const int iBorder  = indexOf(border);
+
+    INFO("backing " << iBacking << ", fill " << iFill << ", border art " << iBorder);
+    REQUIRE(iBacking >= 0);
+    REQUIRE(iFill >= 0);
+    REQUIRE(iBorder >= 0);
+    CHECK(iBacking < iFill);    // the backing stays behind the fill
+    CHECK(iFill < iBorder);     // and the frame's art stays in front of it
+}
+
+TEST_CASE("A bar with no fill still sorts as the frame it is",
+          "[widget][statusbar][layer]") {
+    // The bump above is for the fill. A bar that has no fill texture has
+    // nothing to place, and moving it would shuffle a frame for no reason.
+    WidgetTree tree;
+    const uint32_t bar = tree.create(WidgetKind::Frame, tree.uiParentId(), "EmptyBar");
+    {
+        Widget* w = tree.get(bar);
+        w->isStatusBar = true;
+        w->hasBackdrop = true;          // so it is drawn at all
+        w->barLayer = DrawLayer::Overlay;
+        w->width = 100.0f;
+        w->height = 20.0f;
+    }
+    Anchor at;
+    at.point = "TOPLEFT";
+    at.relativeTo = tree.uiParentId();
+    at.relativePoint = "TOPLEFT";
+    tree.addPoint(bar, at);
+
+    const uint32_t sibling = tree.create(WidgetKind::Texture, bar, "Above");
+    {
+        Widget* w = tree.get(sibling);
+        w->layer = DrawLayer::Background;
+        w->texturePath = "Interface\\Test";
+        w->width = 10.0f;
+        w->height = 10.0f;
+    }
+    Anchor a;
+    a.point = "TOPLEFT";
+    a.relativeTo = bar;
+    a.relativePoint = "TOPLEFT";
+    tree.addPoint(sibling, a);
+
+    tree.layout(kScreenW, kScreenH);
+    auto indexOf = [&](uint32_t id) {
+        const auto& order = tree.drawOrder();
+        for (size_t i = 0; i < order.size(); ++i) {
+            if (order[i]->id == id) return static_cast<int>(i);
+        }
+        return -1;
+    };
+    // No fill, so the bar keeps its own level and its child draws over it,
+    // however the bar's unused fill layer is set.
+    CHECK(indexOf(bar) < indexOf(sibling));
+}
