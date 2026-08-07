@@ -1,4 +1,5 @@
 #include "ui/game_screen.hpp"
+#include "ui/escape_action.hpp"
 #include "ui/display_modes.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "ui/scene_pick.hpp"
@@ -1423,91 +1424,103 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
         }
         if (!textFocus &&
             KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_SETTINGS, true)) {
-            LOG_INFO("Escape: FrameXML owns the game menu: ",
-                     frameXmlOwns(UiElement::GameMenu) ? "yes" : "no");
-            if (settingsPanel_.showSettingsWindow) {
-                settingsPanel_.showSettingsWindow = false;
-            } else if (windowManager_.showEscapeMenu) {
-                windowManager_.showEscapeMenu = false;
-                settingsPanel_.showEscapeSettingsNotice = false;
-            } else if (gameHandler.isCasting()) {
-                gameHandler.cancelCast();
-            } else if (gameHandler.isLootWindowOpen()) {
-                gameHandler.closeLoot();
-            } else if (gameHandler.isGossipWindowOpen()) {
-                gameHandler.closeGossip();
-            } else if (gameHandler.isVendorWindowOpen()) {
-                gameHandler.closeVendor();
-            } else if (gameHandler.isBarberShopOpen()) {
-                gameHandler.closeBarberShop();
-            } else if (gameHandler.isBankOpen()) {
-                gameHandler.closeBank();
-            } else if (gameHandler.isGuildBankOpen()) {
-                gameHandler.closeGuildBank();
-            } else if (gameHandler.isTrainerWindowOpen()) {
-                gameHandler.closeTrainer();
-            } else if (gameHandler.isMailboxOpen()) {
-                gameHandler.closeMailbox();
-            } else if (gameHandler.isAuctionHouseOpen()) {
-                gameHandler.closeAuctionHouse();
-            } else if (gameHandler.isQuestDetailsOpen()) {
-                gameHandler.declineQuest();
-            } else if (gameHandler.isQuestOfferRewardOpen()) {
-                gameHandler.closeQuestOfferReward();
-            } else if (gameHandler.isQuestRequestItemsOpen()) {
-                gameHandler.closeQuestRequestItems();
-            } else if (gameHandler.isTradeOpen()) {
-                gameHandler.cancelTrade();
-            } else if (gameHandler.askInterface(
-                           // In ToggleGameMenu's order, and stopping at the
-                           // first that answers. A dropdown open over a panel
-                           // has to go before the panel does, or Escape closes
-                           // the window out from under the menu; the special
-                           // windows are the list addons add themselves to, and
-                           // nothing has ever walked it.
-                           "(CloseMenus and CloseMenus()) or "
-                           "(CloseSpecialWindows and CloseSpecialWindows()) or "
-                           "(CloseAllWindows and CloseAllWindows()) or false")) {
-                LOG_INFO("Escape: the interface closed a panel of its own");
-                // FrameXML had a panel open and closed it. Everything above
-                // this line is a window the *server* knows about, and each of
-                // those has to go through the client so the closing packet is
-                // sent — CloseAllWindows would hide the frame and leave the
-                // server thinking the vendor was still open.
-                //
-                // What is left by the time it gets here is the interface's own:
-                // the character sheet, the spellbook, the talent frame, the
-                // quest log, the world map, the social panel. Escape closing
-                // the top window is how WoW behaves and how ToggleGameMenu is
-                // written, and none of it could happen while this chain fell
-                // straight through to the game menu — so Escape opened a menu
-                // on top of the panel it should have closed.
-            } else if (frameXmlOwns(UiElement::GameMenu)) {
-                LOG_INFO("Escape: asking the interface to toggle its menu");
-                // Whoever draws the menu is who Escape has to ask. This branch
-                // always set the flag behind *this* client's menu, and that
-                // menu is only drawn while FrameXML does not own the element —
-                // so with the game menu handed over, Escape set a flag nobody
-                // read and nothing appeared. ToggleGameMenu is the interface's
-                // own way in, and it is the same function its Escape binding
-                // calls.
-                gameHandler.runInterfaceCommand("ToggleGameMenu()");
-                // And whether it worked, which is the question the earlier
-                // line cannot answer. Asked straight afterwards, so the two
-                // possible faults separate themselves: shown but not on
-                // screen is a drawing problem, and not shown is a problem in
-                // ToggleGameMenu — which runs clean headlessly, so it would
-                // mean the client's copy of the interface differs from the one
-                // measured. Without this line a run tells us the branch was
-                // reached and nothing more, which is where five readings of
-                // this chain already left it.
-                LOG_INFO("Escape: the interface's menu is now ",
-                         gameHandler.askInterface(
-                             "GameMenuFrame and GameMenuFrame:IsShown()")
-                             ? "shown" : "not shown");
-            } else {
-                LOG_INFO("Escape: opening this client's own menu");
-                windowManager_.showEscapeMenu = true;
+            // Gathered, then decided, then done — rather than decided while
+            // being done. The order of these branches is the whole of what
+            // Escape means, and as a chain of else-if inside a draw there was
+            // no way to ask what the key would do without being in the
+            // situation. resolveEscape is that question on its own, and its
+            // test states each situation directly.
+            EscapeState st;
+            st.settingsWindowShown   = settingsPanel_.showSettingsWindow;
+            st.clientMenuShown       = windowManager_.showEscapeMenu;
+            st.casting               = gameHandler.isCasting();
+            st.lootOpen              = gameHandler.isLootWindowOpen();
+            st.gossipOpen            = gameHandler.isGossipWindowOpen();
+            st.vendorOpen            = gameHandler.isVendorWindowOpen();
+            st.barberShopOpen        = gameHandler.isBarberShopOpen();
+            st.bankOpen              = gameHandler.isBankOpen();
+            st.guildBankOpen         = gameHandler.isGuildBankOpen();
+            st.trainerOpen           = gameHandler.isTrainerWindowOpen();
+            st.mailboxOpen           = gameHandler.isMailboxOpen();
+            st.auctionHouseOpen      = gameHandler.isAuctionHouseOpen();
+            st.questDetailsOpen      = gameHandler.isQuestDetailsOpen();
+            st.questOfferRewardOpen  = gameHandler.isQuestOfferRewardOpen();
+            st.questRequestItemsOpen = gameHandler.isQuestRequestItemsOpen();
+            st.tradeOpen             = gameHandler.isTradeOpen();
+
+            const EscapeAction action = resolveEscape(st);
+            LOG_INFO("Escape: ", escapeActionName(action),
+                     " (the interface owns the game menu: ",
+                     frameXmlOwns(UiElement::GameMenu) ? "yes" : "no", ")");
+            switch (action) {
+                case EscapeAction::CloseSettingsWindow:
+                    settingsPanel_.showSettingsWindow = false;
+                    break;
+                case EscapeAction::CloseClientMenu:
+                    windowManager_.showEscapeMenu = false;
+                    settingsPanel_.showEscapeSettingsNotice = false;
+                    break;
+                case EscapeAction::CancelCast:             gameHandler.cancelCast(); break;
+                case EscapeAction::CloseLoot:              gameHandler.closeLoot(); break;
+                case EscapeAction::CloseGossip:            gameHandler.closeGossip(); break;
+                case EscapeAction::CloseVendor:            gameHandler.closeVendor(); break;
+                case EscapeAction::CloseBarberShop:        gameHandler.closeBarberShop(); break;
+                case EscapeAction::CloseBank:              gameHandler.closeBank(); break;
+                case EscapeAction::CloseGuildBank:         gameHandler.closeGuildBank(); break;
+                case EscapeAction::CloseTrainer:           gameHandler.closeTrainer(); break;
+                case EscapeAction::CloseMailbox:           gameHandler.closeMailbox(); break;
+                case EscapeAction::CloseAuctionHouse:      gameHandler.closeAuctionHouse(); break;
+                case EscapeAction::DeclineQuest:           gameHandler.declineQuest(); break;
+                case EscapeAction::CloseQuestOfferReward:  gameHandler.closeQuestOfferReward(); break;
+                case EscapeAction::CloseQuestRequestItems: gameHandler.closeQuestRequestItems(); break;
+                case EscapeAction::CancelTrade:            gameHandler.cancelTrade(); break;
+                case EscapeAction::None: break;
+                case EscapeAction::AskTheInterface: {
+                    // Asked only here, because asking closes things. Everything
+                    // above is a window the *server* knows about and each has
+                    // to go through the client so the closing packet is sent —
+                    // CloseAllWindows would hide the frame and leave the server
+                    // believing the vendor was still open.
+                    //
+                    // In ToggleGameMenu's order, stopping at the first that
+                    // answers. A dropdown open over a panel has to go before
+                    // the panel does, or Escape closes the window out from
+                    // under the menu; the special windows are the list addons
+                    // add themselves to, and nothing has ever walked it.
+                    const bool closed = gameHandler.askInterface(
+                        "(CloseMenus and CloseMenus()) or "
+                        "(CloseSpecialWindows and CloseSpecialWindows()) or "
+                        "(CloseAllWindows and CloseAllWindows()) or false");
+                    const EscapeOutcome outcome = resolveAfterInterface(
+                        closed, frameXmlOwns(UiElement::GameMenu));
+                    LOG_INFO("Escape: ", escapeOutcomeName(outcome));
+                    switch (outcome) {
+                        case EscapeOutcome::InterfaceClosedAPanel:
+                            break;
+                        case EscapeOutcome::ToggleInterfaceMenu:
+                            // The interface's own way in, and the same function
+                            // its own Escape binding calls. This branch used to
+                            // set the flag behind *this* client's menu, and
+                            // that menu is only drawn while the element is not
+                            // handed over — so with it handed over, Escape set
+                            // a flag nobody read and nothing appeared.
+                            gameHandler.runInterfaceCommand("ToggleGameMenu()");
+                            // And whether it worked, which the line above
+                            // cannot say. Asked straight afterwards so the two
+                            // faults separate: shown but not on screen is a
+                            // drawing problem, not shown is a problem in
+                            // ToggleGameMenu — which runs clean headlessly.
+                            LOG_INFO("Escape: the interface's menu is now ",
+                                     gameHandler.askInterface(
+                                         "GameMenuFrame and GameMenuFrame:IsShown()")
+                                         ? "shown" : "not shown");
+                            break;
+                        case EscapeOutcome::OpenClientMenu:
+                            windowManager_.showEscapeMenu = true;
+                            break;
+                    }
+                    break;
+                }
             }
         }
 

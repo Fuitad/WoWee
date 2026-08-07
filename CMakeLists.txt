@@ -864,6 +864,7 @@ set(WOWEE_SOURCES
     src/ui/realm_screen.cpp
     src/ui/character_create_screen.cpp
     src/ui/character_screen.cpp
+    src/ui/escape_action.cpp
     src/ui/game_screen.cpp
     src/ui/scene_pick.cpp
     src/ui/game_screen_frames.cpp

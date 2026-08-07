@@ -85,11 +85,16 @@ NO_ELEMENT = {
 AWARE = ("frameXmlOwns", "runInterfaceCommand")
 
 
+# An enum value is SCREAMING_CASE all the way to a word boundary. Written that
+# way because the looser form also matched the leading capital of a CamelCase
+# value in any other enum whose name ends in Action: EscapeAction::CancelCast
+# read as a key called "C", and four of those appeared as keys that stop
+# working when their panel is handed over.
 def inline_branches():
     """Action -> whether its branch in game_screen.cpp asks who owns the panel."""
     text = (UI / "game_screen.cpp").read_text(errors="ignore")
     out = {}
-    for m in re.finditer(r"Action::([A-Z_]+)", text):
+    for m in re.finditer(r"Action::([A-Z][A-Z0-9_]*)\b", text):
         action = m.group(1)
         if action in IGNORED:
             continue
@@ -112,7 +117,7 @@ def inline_branches():
 
 
 def main():
-    routed = set(re.findall(r"K::Action::([A-Z_]+)", APP.read_text(errors="ignore")))
+    routed = set(re.findall(r"K::Action::([A-Z][A-Z0-9_]*)\b", APP.read_text(errors="ignore")))
 
     polled = {}
     for path in UI.rglob("*.cpp"):
@@ -120,7 +125,7 @@ def main():
         if path.name in ("game_screen.cpp", "keybinding_manager.cpp"):
             continue
         text = path.read_text(errors="ignore")
-        for m in re.finditer(r"Action::([A-Z_]+)", text):
+        for m in re.finditer(r"Action::([A-Z][A-Z0-9_]*)\b", text):
             if m.group(1) in IGNORED:
                 continue
             polled.setdefault(m.group(1), set()).add(path.name)

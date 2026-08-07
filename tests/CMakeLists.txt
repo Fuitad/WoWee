@@ -212,6 +212,17 @@ target_link_libraries(test_widget_tree PRIVATE catch2_main)
 add_test(NAME widget_tree COMMAND test_widget_tree)
 register_test_target(test_widget_tree)
 
+# ── test_escape_action ──────────────────────────────────────
+add_executable(test_escape_action
+    test_escape_action.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/escape_action.cpp
+)
+target_include_directories(test_escape_action PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_escape_action SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_escape_action PRIVATE catch2_main)
+add_test(NAME escape_action COMMAND test_escape_action)
+register_test_target(test_escape_action)
+
 # ── test_placement_rotation ─────────────────────────────────
 add_executable(test_placement_rotation
     test_placement_rotation.cpp
