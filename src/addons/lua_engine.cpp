@@ -6782,8 +6782,22 @@ void LuaEngine::registerCoreAPI() {
         "    if name then\n"
         "        self:SetText(name, 1, 1, 1)\n"
         "        if rank and rank ~= '' then self:AddLine(rank, 0.5, 0.5, 0.5) end\n"
+        // The cost comes from GetSpellInfo, which is where 3.3.5 puts it.
+        //
+        // This called GetSpellPowerCost and read two scalars off it. That
+        // binding exists, but it answers the *retail* shape — a list of
+        // tables, {{type=, cost=, name=}} — so `cost` was a table and
+        // `cost > 0` raised "attempt to compare number with table" on every
+        // spell hovered in the book. Two places holding one fact and
+        // disagreeing about it; the guard `cost and` does not help, because a
+        // table is perfectly truthy.
+        //
+        // GetSpellPowerCost is a Cataclysm API and nothing in this interface
+        // calls it. GetSpellInfo's fourth and sixth values are the cost and
+        // its power type, and they were already being captured here and
+        // thrown away.
         "        -- Mana cost\n"
-        "        local cost, costType = GetSpellPowerCost(spellId)\n"
+        "        local cost, costType = _cost, _powerType\n"
         "        if cost and cost > 0 then\n"
         "            local powerNames = {[0]='Mana',[1]='Rage',[2]='Focus',[3]='Energy',[6]='Runic Power'}\n"
         "            self:AddLine(cost..' '..(powerNames[costType] or 'Mana'), 1, 1, 1)\n"
