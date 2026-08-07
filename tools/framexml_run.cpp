@@ -90,6 +90,37 @@ int main(int argc, char** argv) {
                 addonFailures.size(), mgr.getLoadOnDemandAddons().size());
     for (const std::string& f : addonFailures) std::printf("   %s\n", f.c_str());
 
+    // The events a login fires, which the interface does a great deal of its
+    // setting up on. Without them the frames exist and are half-configured,
+    // and that reads as breakage: a chat frame whose windows were never
+    // updated has no stored alpha, so FCF_FadeInChatFrame does max(nil, ...)
+    // and every click on a chat tab raises — which looks exactly like a real
+    // fault in the chat, and is not one.
+    //
+    // Fired after the addons, so a load-on-demand panel that registered for
+    // one of them hears it too.
+    const size_t beforeEvents = errors.size();
+    // One event, and only this one, because it is the only one that pays.
+    //
+    // Without it the chat frames are half-configured: no stored alpha, so
+    // FCF_FadeInChatFrame does max(nil, ...) and every click on a chat tab
+    // raises. That looks exactly like a real fault in the chat and is not one,
+    // and it is the sort of false lead that costs an afternoon.
+    //
+    // VARIABLES_LOADED and PLAYER_ENTERING_WORLD were tried here and taken out
+    // again. Both assume a character: paperdollframe does
+    // strupper(UnitClass("player")) and pvpbattlegroundframe concatenates
+    // UnitFactionGroup("player"), and with nobody logged in those are nil and
+    // raise. That is an answer about the absence of a player rather than a
+    // fault, and permanent errors in this report would drown the real ones —
+    // its whole worth is that a nonzero count means something.
+    mgr.fireEvent("UPDATE_CHAT_WINDOWS");
+
+    std::printf("== login events: %zu error(s)\n", errors.size() - beforeEvents);
+    for (size_t k = beforeEvents; k < errors.size(); ++k) {
+        std::printf("   %s\n", errors[k].c_str());
+    }
+
     // Resolve the anchors, so a question about where something ended up has an
     // answer. Nothing drives a render loop here, and without this every frame
     // reports a bottom of zero and a top equal to its own height — which is
