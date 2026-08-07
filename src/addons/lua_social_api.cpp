@@ -1595,8 +1595,16 @@ void registerSocialLuaAPI(lua_State* L) {
                 {"GetInboxInvoiceInfo", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
-            const auto& inbox = gh ? gh->getMailInbox() : decltype(gh->getMailInbox()){};
-            if (!gh || index < 1 || index > static_cast<int>(inbox.size())) {
+            if (!gh) {
+                for (int i = 0; i < 10; ++i) lua_pushnil(L);
+                return 10;
+            }
+            // Bound after the null check rather than through a conditional
+            // with an empty vector on the other side: that ternary yields a
+            // prvalue, so it copies the whole inbox on every call in the case
+            // that matters and only looks like it binds a reference.
+            const auto& inbox = gh->getMailInbox();
+            if (index < 1 || index > static_cast<int>(inbox.size())) {
                 for (int i = 0; i < 10; ++i) lua_pushnil(L);
                 return 10;
             }
