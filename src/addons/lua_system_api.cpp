@@ -121,6 +121,31 @@ static std::vector<wowee::game::CalendarDayEntry> calendarDayRows(lua_State* L) 
                                               day, info.year);
 }
 
+/// The row a right-click menu is about: which month, which day, which entry.
+///
+/// State because the menu needs it to be. UIDropDownMenu builds its list in
+/// one call and runs the click in another, and nothing is carried between the
+/// two — so the row is named once by CalendarContextSelectEvent and every verb
+/// on the menu reads it back.
+struct CalendarContextRow { int monthOffset = 0; int day = 0; int index = 0; };
+
+static CalendarContextRow& calendarContextRow() {
+    static CalendarContextRow row;
+    return row;
+}
+
+/// The rows of a day, for a caller that already has the handler and the day.
+static std::vector<wowee::game::CalendarDayEntry> calendarRowsFor(
+        wowee::game::GameHandler& gh, int monthOffset, int day) {
+    if (day < 1) return {};
+    const auto viewed = calendarViewedMonth();
+    const auto info = wowee::game::calendarMonthAt(viewed.first, viewed.second,
+                                                   monthOffset);
+    if (day > info.numDays) return {};
+    return wowee::game::calendarEntriesForDay(gh.getCalendarData(), info.month,
+                                              day, info.year);
+}
+
 /// Which of the six kinds of row this event is, as the string the interface
 /// compares against. Guild events carry a flag; everything else the player can
 /// see on their own calendar is theirs.
@@ -140,6 +165,30 @@ static const char* calendarModStatus(lua_State* L,
     auto* gh = getGameHandler(L);
     return (gh && ev.creatorGuid != 0 && ev.creatorGuid == gh->getPlayerGuid())
                ? "CREATOR" : "";
+}
+
+/// Answer the invitation on the menu's row, if that row has one.
+///
+/// The invite id comes from the invite list the calendar arrived with — the
+/// server wants both it and the event id, and an event the player was never
+/// invited to has no invite to answer. Silent when there is none rather than
+/// sending a request the server would refuse.
+static int calendarRespondToContextInvite(lua_State* L, uint32_t status) {
+    auto* gh = getGameHandler(L);
+    const auto& row = calendarContextRow();
+    if (!gh || row.day < 1) return 0;
+    const auto rows = calendarRowsFor(*gh, row.monthOffset, row.day);
+    if (row.index < 1 || static_cast<size_t>(row.index) > rows.size()) return 0;
+    const auto& entry = rows[static_cast<size_t>(row.index) - 1];
+    if (entry.kind != wowee::game::CalendarEntryKind::Event) return 0;
+    const auto& cal = gh->getCalendarData();
+    const uint64_t eventId = cal.events[entry.index].eventId;
+    for (const auto& invite : cal.invites) {
+        if (invite.eventId != eventId) continue;
+        gh->respondToCalendarInvite(eventId, invite.inviteId, status);
+        return 0;
+    }
+    return 0;
 }
 
 /// The player's own answer to an event, from the invite list that came with
@@ -5959,6 +6008,72 @@ void registerSystemLuaAPI(lua_State* L) {
                 // create menu rather than leading to a request that fails.
                 {"IsInArenaTeam", [](lua_State* L) -> int {
             lua_pushboolean(L, 0);
+            return 1;
+        }},
+                // ---- The right-click menu on a day's event ----
+                //
+                // CalendarContextSelectEvent names the row the menu is about
+                // and every verb below acts on that one. Kept as state because
+                // the menu asks for it back — the dropdown is built in one
+                // call and clicked in another, with nothing carried between.
+                {"CalendarContextSelectEvent", [](lua_State* L) -> int {
+            calendarContextRow() = {
+                static_cast<int>(luaL_optnumber(L, 1, 0)),
+                static_cast<int>(luaL_optnumber(L, 2, 0)),
+                static_cast<int>(luaL_optnumber(L, 3, 0))};
+            return 0;
+        }},
+                {"CalendarContextGetEventIndex", [](lua_State* L) -> int {
+            const auto& row = calendarContextRow();
+            if (row.day < 1 || row.index < 1) {
+                // Three nils rather than none: the interface unpacks this as a
+                // group, and a short answer is the shape framexml_short_returns
+                // exists to catch.
+                lua_pushnil(L); lua_pushnil(L); lua_pushnil(L);
+                return 3;
+            }
+            lua_pushnumber(L, row.monthOffset);
+            lua_pushnumber(L, row.day);
+            lua_pushnumber(L, row.index);
+            return 3;
+        }},
+                // Answering an invitation, which is the one calendar action
+                // that needs nothing staged first. The status values are the
+                // server's CalendarInviteStatus (CalendarMgr.h:73).
+                {"CalendarContextInviteAvailable", [](lua_State* L) -> int {
+            return calendarRespondToContextInvite(L, 1);   // accepted
+        }},
+                {"CalendarContextInviteDecline", [](lua_State* L) -> int {
+            return calendarRespondToContextInvite(L, 2);   // declined
+        }},
+                {"CalendarContextInviteTentative", [](lua_State* L) -> int {
+            return calendarRespondToContextInvite(L, 8);   // tentative
+        }},
+                {"CalendarContextInviteRemove", [](lua_State* L) -> int {
+            return calendarRespondToContextInvite(L, 9);   // removed
+        }},
+                // Which of the six kinds the menu's row is, so the menu can
+                // offer the right verbs. Read from the same day list the row
+                // was chosen out of.
+                {"CalendarContextEventGetCalendarType", [](lua_State* L) -> int {
+            const auto& row = calendarContextRow();
+            auto* gh = getGameHandler(L);
+            // Nil rather than nothing, for the same reason as
+            // CalendarContextGetEventIndex above: the arity belongs at the
+            // binding rather than resting on Lua filling the gap.
+            if (!gh || row.day < 1) { lua_pushnil(L); return 1; }
+            const auto rows = calendarRowsFor(*gh, row.monthOffset, row.day);
+            if (row.index < 1 || static_cast<size_t>(row.index) > rows.size()) {
+                lua_pushnil(L);
+                return 1;
+            }
+            const auto& entry = rows[static_cast<size_t>(row.index) - 1];
+            if (entry.kind == wowee::game::CalendarEntryKind::Holiday) {
+                lua_pushstring(L, "HOLIDAY");
+            } else {
+                lua_pushstring(L, calendarTypeName(
+                    gh->getCalendarData().events[entry.index]));
+            }
             return 1;
         }},
                 // Which event is selected, as monthOffset, day, index.

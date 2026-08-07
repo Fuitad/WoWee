@@ -716,6 +716,9 @@ public:
     void requestCalendar(); ///< Send CMSG_CALENDAR_GET_CALENDAR to the server
     /// The calendar the server last sent, empty until it has answered one.
     const CalendarData& getCalendarData() const { return calendarData_; }
+    /// Answer an invitation. Status is a CalendarInviteStatus.
+    void respondToCalendarInvite(uint64_t eventId, uint64_t inviteId,
+                                 uint32_t status);
     void queryGuildInfo(uint32_t guildId);
     void createGuild(const std::string& guildName);
     void addGuildRank(const std::string& rankName);

@@ -3267,6 +3267,13 @@ void GameHandler::requestCalendar() {
     if (socialHandler_) socialHandler_->requestCalendar();
 }
 
+void GameHandler::respondToCalendarInvite(uint64_t eventId, uint64_t inviteId,
+                                          uint32_t status) {
+    if (socialHandler_) {
+        socialHandler_->respondToCalendarInvite(eventId, inviteId, status);
+    }
+}
+
 // ============================================================
 // Delegating getters — SocialHandler owns the canonical state
 // ============================================================

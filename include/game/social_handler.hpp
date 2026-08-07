@@ -364,6 +364,10 @@ public:
 
     // Calendar
     void requestCalendar();
+    /// Answer an invitation: CMSG_CALENDAR_EVENT_RSVP with a
+    /// CalendarInviteStatus (1 accepted, 2 declined, 8 tentative, 9 removed).
+    void respondToCalendarInvite(uint64_t eventId, uint64_t inviteId,
+                                 uint32_t status);
 
     // ---- Methods moved from GameHandler ----
     void sendSetDifficulty(uint32_t difficulty, bool raid = false);

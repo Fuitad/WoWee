@@ -4417,6 +4417,22 @@ void SocialHandler::requestBfMgrExit(uint32_t battleId) {
 // Calendar
 // ============================================================
 
+void SocialHandler::respondToCalendarInvite(uint64_t eventId, uint64_t inviteId,
+                                            uint32_t status) {
+    if (!owner_.isInWorld()) return;
+    // uint64 eventId, uint64 inviteId, uint32 status — CalendarHandler.cpp:630.
+    // The status is a CalendarInviteStatus: 1 accepted, 2 declined, 8
+    // tentative, 9 removed. The server answers with an event-status alert and
+    // clears the pending action, so nothing is assumed here.
+    network::Packet pkt(wireOpcode(Opcode::CMSG_CALENDAR_EVENT_RSVP));
+    pkt.writeUInt64(eventId);
+    pkt.writeUInt64(inviteId);
+    pkt.writeUInt32(status);
+    owner_.getSocket()->send(pkt);
+    LOG_INFO("respondToCalendarInvite: event ", eventId, " invite ", inviteId,
+             " status ", status);
+}
+
 void SocialHandler::requestCalendar() {
     if (!owner_.isInWorld()) return;
     // CMSG_CALENDAR_GET_CALENDAR has no payload
