@@ -207,7 +207,18 @@ static int lua_UnitClass(lua_State* L) {
             }
         }
         const bool known = (classId > 0 && classId < 12);
-        const char* name = known ? kLuaClasses[classId] : "Unknown";
+        // Nothing at all when the class is not known, because that is what WoW
+        // answers for a unit it cannot see and what every caller is written
+        // against: `local _, class = UnitClass(self.unit); if ( class ) then`.
+        //
+        // "UNKNOWN" passes that guard and then indexes nothing —
+        // CLASS_ICON_TCOORDS has no such key — so the line after it unpacked a
+        // nil. ArenaEnemyFrame_OnLoad does exactly this, which took the whole
+        // of Blizzard_ArenaUI down at load. A binding that answers a constant
+        // where the real one answers nothing defeats every guard written for
+        // it, and the guard is the caller saying it already knows how to cope.
+        if (!known) return 0;
+        const char* name = kLuaClasses[classId];
         // Second is the uppercase token, not the display name again. Every
         // class-indexed table in FrameXML is keyed by it, so answering "Mage"
         // where "MAGE" was meant looked up nothing: SetPortraitTexture found no
@@ -219,10 +230,9 @@ static int lua_UnitClass(lua_State* L) {
         lua_pushnumber(L, classId);
         return 3;
     }
-    lua_pushstring(L, "Unknown");
-    lua_pushstring(L, "UNKNOWN");
-    lua_pushnumber(L, 0);
-    return 3;
+    // The unit does not exist, which is the case WoW answers nothing for. See
+    // above: a constant here reads as a class the caller then looks up.
+    return 0;
 }
 
 // UnitIsGhost(unit) — true if unit is in ghost form
