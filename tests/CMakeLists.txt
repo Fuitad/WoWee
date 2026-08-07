@@ -10,6 +10,15 @@ target_include_directories(catch2_main PUBLIC
 # Catch2 v3 needs C++17 minimum
 target_compile_features(catch2_main PUBLIC cxx_std_17)
 
+# glm is provided by find_package(), so its imported target carries the include
+# path that is not available through the test include directories on macOS.
+# Every test links catch2_main, so publish glm from that shared target once.
+if(TARGET glm::glm-header-only)
+    target_link_libraries(catch2_main PUBLIC glm::glm-header-only)
+elseif(TARGET glm::glm)
+    target_link_libraries(catch2_main PUBLIC glm::glm)
+endif()
+
 # ── ASAN / UBSan propagation ────────────────────────────────
 # Collect all test target names so we can apply sanitizer flags at the end.
 set(ALL_TEST_TARGETS "")
@@ -189,15 +198,6 @@ add_executable(test_chat_types test_chat_types.cpp)
 target_include_directories(test_chat_types PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_chat_types SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_chat_types PRIVATE catch2_main)
-# world_packets.hpp reaches entity.hpp, which includes math/spline.hpp and so
-# <glm/glm.hpp>. glm arrives with the imported target, not with any directory
-# listed above, so without this the target only builds where glm happens to sit
-# in a default system include path.
-if(TARGET glm::glm-header-only)
-    target_link_libraries(test_chat_types PRIVATE glm::glm-header-only)
-elseif(TARGET glm::glm)
-    target_link_libraries(test_chat_types PRIVATE glm::glm)
-endif()
 add_test(NAME chat_types COMMAND test_chat_types)
 register_test_target(test_chat_types)
 
