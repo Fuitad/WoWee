@@ -59,6 +59,39 @@ A window whose functions all return nil stays empty and unnoticed, and appears t
 - Talent prerequisites, totem timers, vendor prices in honor or badges, splitting a stack, and coin as a loot slot
 - `RunScript`, without which `/script` and every macro body were silently inert
 
+### Fixed — an answer of the wrong kind, which is worse than none at all
+Every one of these sits behind a guard: `if ( classFileName ) then RAID_CLASS_COLORS[classFileName]`. The guard is the interface saying it already copes with the value being missing, so an answer that is merely *wrong* walks past it and raises a line later, inside a function that looks unrelated to the thing at fault.
+- **The auction house never sent a search.** `QueryAuctionItems` raised on its own arguments before reaching the socket: the level boxes are handed over as the *text of an edit box*, and an empty one is `""`, which is not "absent" but "a string that will not convert". A raise inside a click handler is swallowed, so a search that never left looked exactly like one that found nothing
+- **The guild roster and the who list died on their first online member.** The eleventh value is `classFileName`, a key, and this answered the numeric class id. A number is true, so the colour lookup found nothing and the next line read a field off it — taking `GuildStatus_Update` down and the whole roster with it. Only on the online branch, so a guild with everyone offline drew perfectly
+- **The arena frames did not exist**, because `UnitClass` answered the string `"UNKNOWN"` for a unit it could not see. `ArenaEnemyFrame_OnLoad` guards for that and unpacks a class table anyway, so the addon raised at load — and an addon that raises at load is not degraded, it is absent
+- **Every line of chat had a `0` in front of it.** Timestamps are held as the format to print them with and switched off with the word "none"; the fallback for a setting nobody has listed is `"0"`, which is a perfectly good format string that prints itself
+- **Every row of an auction said "Your Bid"**, over the price it sits in front of, because the answer given was whether *anybody* held the high bid
+
+### Fixed — the answer arrived after the question
+This client's own windows read the model again on every frame they drew, so they collected a late answer without being told. An interface driven by events reads once. Each of these is a cache filled with nothing announcing it.
+- **NPC dialog was blank.** Gossip carries its greeting as an id to be asked for separately, and the window was announced *before* the question was sent
+- **Auction and vendor rows were "Item #41394" against a question mark**, and stayed that way: the rows carry an item id and nothing readable, and the names land after they are drawn
+- **The unread-mail envelope never went out again.** Reading the last letter fired the event that redraws the *list*; the envelope answers a different one, which nothing fired
+- **A hunter's ranged attack power never reached the character sheet.** Both attack powers were announced with `UNIT_ATTACK_POWER`, which this FrameXML registers and then handles nowhere
+
+### Fixed — panels that were not there at all
+A file that raises while loading is lost whole, so the fault reads as "that window does not exist" rather than "that window is buggy" — with nothing on screen and nothing in the log.
+- **The spellbook**, from a guard path answering one nil where the success path answers six values
+- **Inspecting another player**, from an include resolved against a path with the wrong capitalisation — the fallback for exactly that case existed and was pointed at a directory that does not exist
+- **The debug tools**, for want of `getglobal`
+- **The glyph panel drew in the corner of the screen with no close button.** Its only parenting happens inside `if ( name == "Blizzard_GlyphUI" )` on ADDON_LOADED, and the name was announced in the case the folders happen to have on disk rather than the case FrameXML compares against
+
+### Fixed — laid out or drawn wrongly
+- **Nothing with a scroll bar scrolled.** The wheel was hit-tested with the test written for the mouse, and those are two switches in WoW: the scroll frame template asks for the wheel and never for the mouse, so no scroll frame in the interface was ever found under the cursor
+- **The talent tree was squeezed into the top third of its window**, cut off, and would not scroll — it had been made shorter than its own content. An anchor constrains both axes whether it means to or not, and the points bar's bottom edge was losing to the vertical centre that arrived with its LEFT and RIGHT anchors
+- **Names, health bars and minimap markers drew through the bags and the auction house.** Both go into the same list, where the last thing added is on top, and the panels were going in first
+
+### Added — capabilities the client had and the interface could not reach
+Each of these was already implemented and read by this client's own window, so handing the element over left it behind.
+- **The flight map has a map behind it.** The node buttons are placed as fractions of a continent that was never drawn
+- **`/who` prints its answer** when no panel is showing it, which is what `SetWhoToUI` is for
+- **An auction sale's invoice** — the bid, the deposit, the house's cut and the other party — instead of the raw colon-separated body of the letter
+
 ## [v2.0.37-preview] — 2026-08-02
 
 ### Fixed
