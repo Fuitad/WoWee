@@ -3759,13 +3759,23 @@ int lua_StatusBar_SetValue(lua_State* L) {
     const bool changed = (value != w->barValue);
     w->barValue = value;
 
-    // A slider set from code fires OnValueChanged, as in WoW — a status bar
-    // does not. It is how a scroll bar moved by the wheel or by a button
-    // scrolls the frame beside it rather than only redrawing its own thumb.
+    // A value set from code fires OnValueChanged, as in WoW — for a status bar
+    // as well as a slider. The note here used to say a status bar does not,
+    // and that was wrong: StatusBar carries the script too, and FrameXML
+    // leans on it.
+    //
+    // The experience bar is the case that showed it. mainmenubar.xml:160 puts
+    // TextStatusBar_OnValueChanged in exactly this script, and that is what
+    // rewrites the percentage — so the number sat at whatever it was when the
+    // bar was last touched, and only corrected itself when the cursor crossed
+    // the bar and OnEnter refreshed the text by another route. Killing a mob
+    // moved the fill and left the percentage stale.
+    //
     // Called through the table so the handler runs with self, and only on a
     // real change, because several of these set the value they already have on
-    // every update.
-    if (w->isSlider && changed) {
+    // every update — which also stops a handler that sets its own bar from
+    // recurring.
+    if (changed) {
         lua_getfield(L, 1, "__scripts");
         if (lua_istable(L, -1)) {
             lua_getfield(L, -1, "OnValueChanged");
