@@ -373,6 +373,16 @@ bool Application::initialize() {
 
         // Initialize addon system
         addonManager_ = std::make_unique<addons::AddonManager>();
+        // Bindings ask the interface whether someone is typing before they
+        // fire. Set here rather than at the call sites because every panel
+        // polls its own key from inside its own draw — there are many askers
+        // and one answer.
+        ui::KeybindingManager::getInstance().setTextInputProbe(
+            [this]() -> bool {
+                if (!addonManager_ || !addonsLoaded_) return false;
+                auto* engine = addonManager_->getLuaEngine();
+                return engine != nullptr && engine->editBoxHasFocus();
+            });
         addons::LuaServices luaSvc;
         luaSvc.window            = window.get();
         luaSvc.audioCoordinator  = audioCoordinator_.get();

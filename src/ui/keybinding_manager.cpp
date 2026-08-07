@@ -45,6 +45,13 @@ bool KeybindingManager::isActionPressed(Action action, bool repeat) {
     ImGuiKey key = it->second;
     if (key == ImGuiKey_None) return false;
 
+    // Someone typing into a FrameXML edit box gets no bindings at all, which is
+    // what the real client does and what the event path here already did — it
+    // hands the key to the box and stops. This is the other way in: every panel
+    // polls its key from inside its own draw, and a poll never passed through
+    // that path, so the key arrived twice.
+    if (textInputProbe_ && textInputProbe_()) return false;
+
     // When typing in a text field (e.g. chat input), never treat A-Z or 0-9 as shortcuts.
     const ImGuiIO& io = ImGui::GetIO();
     if (io.WantTextInput) {
@@ -55,6 +62,10 @@ bool KeybindingManager::isActionPressed(Action action, bool repeat) {
     }
 
     return ImGui::IsKeyPressed(key, repeat);
+}
+
+void KeybindingManager::setTextInputProbe(std::function<bool()> probe) {
+    textInputProbe_ = std::move(probe);
 }
 
 ImGuiKey KeybindingManager::getKeyForAction(Action action) const {

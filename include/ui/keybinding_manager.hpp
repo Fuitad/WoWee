@@ -4,6 +4,7 @@
 #include <string>
 #include <unordered_map>
 #include <memory>
+#include <functional>
 
 namespace wowee::ui {
 
@@ -40,6 +41,19 @@ public:
      * Uses ImGui::IsKeyPressed() internally with the bound key.
      */
     bool isActionPressed(Action action, bool repeat = false);
+
+    /**
+     * Tell this manager how to ask the other interface whether someone is
+     * typing.
+     *
+     * There are two interfaces in this client and only one of them is ImGui,
+     * so the io.WantTextInput this used to ask is blind to a chat box that
+     * FrameXML draws. It answers false the whole time someone is typing into
+     * one, and every letter then does double duty: it goes into the box and it
+     * fires the binding on that key as well, so typing "/logout" opened the
+     * quest log on the l and the social panel on the o.
+     */
+    void setTextInputProbe(std::function<bool()> probe);
 
     /**
      * Get the currently bound key for an action.
@@ -80,6 +94,7 @@ private:
     KeybindingManager();
 
     std::unordered_map<int, ImGuiKey> bindings_;  // action -> key
+    std::function<bool()> textInputProbe_;        // is the other interface typing?
 
     void initializeDefaults();
 };
