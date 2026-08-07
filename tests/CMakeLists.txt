@@ -76,6 +76,22 @@ target_link_libraries(test_framexml PRIVATE catch2_main)
 add_test(NAME framexml COMMAND test_framexml)
 register_test_target(test_framexml)
 
+# ── test_lua_arg_coercion ───────────────────────────────────
+# The lenient numeric argument, which is a pure function of the Lua stack and
+# so needs no game, window or interface — while the fault it prevents is
+# invisible at every other level: a raise inside a click handler is swallowed,
+# so an auction search that never sent looked exactly like one that found
+# nothing.
+add_executable(test_lua_arg_coercion
+    test_lua_arg_coercion.cpp
+)
+target_include_directories(test_lua_arg_coercion PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_lua_arg_coercion SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/extern/lua-5.1.5/src)
+target_link_libraries(test_lua_arg_coercion PRIVATE catch2_main lua51)
+add_test(NAME lua_arg_coercion COMMAND test_lua_arg_coercion)
+register_test_target(test_lua_arg_coercion)
+
 # ── framexml_emit ────────────────────────────────────────────
 # Not a test: a one-file dump of what the emitter produces, for answering
 # questions about emitted Lua without starting the client.
