@@ -633,8 +633,8 @@ CHECKS = [
     # these sites is the caller saying it already handles the value being
     # absent, and an answer of the wrong kind walks straight past it.
     ("framexml_key_returns.py",
-     r"^(\d+) binding return\(s\) used as a table key that are not strings", 0,
-     "bindings answering a number where the interface uses it as a name"),
+     r"^(\d+) binding return\(s\) of the wrong kind for the table they index", 0,
+     "bindings answering the wrong kind of key for the table it indexes"),
     ("framexml_unaccounted_frames.py",
      r"^\d+ top-level frames, (\d+) unaccounted", 37,
      "FrameXML frames neither handed over nor suppressed"),

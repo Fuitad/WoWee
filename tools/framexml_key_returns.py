@@ -33,8 +33,13 @@ passes the guard, skips the branch written for it, and raises one line later
 inside a function that looks unrelated to the binding at fault.
 
 So this reads FrameXML for a variable that comes out of a binding at a known
-position and is later used as a table index, and asks what that binding pushes
-there. A string is right. A number is the fault. A boolean is worse.
+position and is later used as a table index, and asks whether what the binding
+pushes there is the kind of key that table is built with.
+
+Both directions, because both fail identically — a lookup that finds nothing
+and a field read off the nil a line later. A number into RAID_CLASS_COLORS is
+the shape that cost three panels; a name into ITEM_QUALITY_COLORS, which is
+indexed 0..6, is its mirror and no more survivable.
 
 WHAT IT CANNOT SEE
 
@@ -210,12 +215,20 @@ def scan(files_text):
                     if m.end() <= at < m.end() + 1200:
                         table = tbl
                         break
-                if table is None or TABLE_KEYS.get(table) != "string":
+                if table is None:
                     continue
+                keyed = TABLE_KEYS.get(table)
                 kind = kinds[pos - 1]
-                if kind in ("string", "lstring", "nil"):
-                    continue
-                found.append((fn, pos, var, kind, table, label))
+                # Both directions fail the same way — a lookup that finds
+                # nothing, and a field read off the nil a line later. A number
+                # into a table keyed by name is the shape that cost three
+                # panels; a name into one keyed by number is its mirror and is
+                # no more survivable, and asking about only one of them would
+                # have been asking half the question.
+                if keyed == "string" and kind not in ("string", "lstring", "nil"):
+                    found.append((fn, pos, var, kind, table, label))
+                elif keyed == "number" and kind in ("string", "lstring"):
+                    found.append((fn, pos, var, kind, table, label))
     return found
 
 
@@ -243,7 +256,7 @@ else:
           "not reading one of its three inputs; the count below is meaningless.")
 print()
 
-print(f"{len(hits)} binding return(s) used as a table key that are not strings:\n")
+print(f"{len(hits)} binding return(s) of the wrong kind for the table they index:\n")
 for fn, pos, var, kind, table, where in sorted(set(hits)):
     print(f"  {fn}() value {pos} -> `{var}`, pushed as {kind}, indexes {table}")
     print(f"      {where}")
