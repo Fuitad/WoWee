@@ -191,7 +191,19 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     // Minimap:PingLocation from the interface land on the same world point.
     const MinimapView minimapView{viewRadius, mapRadius, cosB, sinB};
 
-    auto* drawList = ImGui::GetForegroundDrawList();
+    // Behind windows, in front of the map.
+    //
+    // The foreground list is drawn after every ImGui window, so a blip sat on
+    // top of anything opened over the minimap — a bag, the character sheet,
+    // the map itself. The background list is drawn before them and after the
+    // widget renderer, which puts these above FrameXML's ring and border (that
+    // pass runs earlier in the frame and into this same list) and underneath
+    // any window, which is where WoW keeps them.
+    //
+    // Safe because nothing draws the minimap in a window: the ring and border
+    // are FrameXML's, and the map surface itself comes from the 3D renderer,
+    // which is beneath all of ImGui either way.
+    auto* drawList = ImGui::GetBackgroundDrawList();
 
     // Partition the entity map once. Marker categories below can traverse their
     // compact type-specific lists instead of rescanning every entity 4-5 times.

@@ -2138,7 +2138,11 @@ void GameScreen::renderQuestMarkers(game::GameHandler& gameHandler) {
     float screenW = static_cast<float>(window->getWidth());
     float screenH = static_cast<float>(window->getHeight());
     glm::mat4 viewProj = camera->getViewProjectionMatrix();
-    auto* drawList = ImGui::GetForegroundDrawList();
+    // The same list the nameplates above use, and for the same reason: this is
+    // world-space marking projected onto the screen, so a window opened over
+    // that part of the world has to cover it. The foreground list is drawn
+    // after every window, so a quest marker floated over the bags.
+    auto* drawList = ImGui::GetBackgroundDrawList();
 
     for (const auto& [guid, status] : statuses) {
         // Only show markers for available (!) and reward/completable (?)
