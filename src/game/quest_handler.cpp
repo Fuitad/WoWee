@@ -1957,13 +1957,19 @@ void QuestHandler::handleGossipMessage(network::Packet& packet) {
     // Gossip carries its text as an npc-text id, not inline, so any greeting
     // left over from a quest list belongs to a different window.
     questGreeting_.clear();
-    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("GOSSIP_SHOW", {});
-    owner_.closeVendor(); // Close vendor if gossip opens
 
-    // Classify gossip quests and update quest log + overhead NPC markers.
-    classifyGossipQuests(true);
-
-    // Query NPC body text if not cached
+    // Asked for before the window is announced rather than after it.
+    //
+    // This client's own gossip window read the greeting again on every frame
+    // it drew, so it collected the reply whenever it landed and the order here
+    // could not matter. An interface driven by events reads it once, when it
+    // is told the window opened — so announcing first meant it always read an
+    // empty cache and drew the NPC dialog blank, and the text arriving a
+    // moment later had nobody left to tell.
+    //
+    // Moving it earlier is enough on any NPC talked to twice, where the text
+    // is already cached and the query is not sent at all. The first visit
+    // still needs the arrival to say so, which handleNpcTextUpdate now does.
     if (currentGossip_.titleTextId > 0 && !npcTextCache_.count(currentGossip_.titleTextId)) {
         uint32_t wireOp = wireOpcode(Opcode::CMSG_NPC_TEXT_QUERY);
         if (wireOp != 0xFFFF && owner_.getSocket()) {
@@ -1973,6 +1979,12 @@ void QuestHandler::handleGossipMessage(network::Packet& packet) {
             owner_.getSocket()->send(qPkt);
         }
     }
+
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("GOSSIP_SHOW", {});
+    owner_.closeVendor(); // Close vendor if gossip opens
+
+    // Classify gossip quests and update quest log + overhead NPC markers.
+    classifyGossipQuests(true);
 
     // Play NPC greeting voice
     if (owner_.npcGreetingCallbackRef() && currentGossip_.npcGuid != 0) {
@@ -2128,6 +2140,19 @@ void QuestHandler::handleNpcTextUpdate(network::Packet& packet) {
     }
     LOG_DEBUG("NPC text update: id=", textId,
              " cached=", npcTextCache_.count(textId) ? "yes" : "no");
+
+    // The window is already open and waiting on exactly this text, so say so.
+    //
+    // A cache filled without an event is this client's oldest shape of bug and
+    // it reads as "it only works the second time": the greeting is there for
+    // every later visit to the same NPC and blank on the first, because the
+    // first is the only one where the text arrives after the window did.
+    // GOSSIP_SHOW is the event the interface redraws the greeting on, and
+    // firing it again is what a second look at an open window means.
+    if (gossipWindowOpen_ && currentGossip_.titleTextId == textId &&
+        npcTextCache_.count(textId) && owner_.addonEventCallbackRef()) {
+        owner_.addonEventCallbackRef()("GOSSIP_SHOW", {});
+    }
 }
 
 const std::string& QuestHandler::getNpcText(uint32_t textId) const {
