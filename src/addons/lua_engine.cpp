@@ -7921,7 +7921,13 @@ bool LuaEngine::dispatchMouseWheel(float x, float y, float delta) {
     // Up from whatever is under the cursor to the first frame that asked for
     // the wheel. WoW works the same way: a scroll frame's child fills it and
     // takes the hit, and the scroll frame above is what handles the wheel.
-    uint32_t wid = widgets_.hitTest(x, y);
+    // The wheel's own hit test. A scroll frame enables the wheel and not the
+    // mouse — UIPanelScrollFrameTemplate declares OnMouseWheel and never calls
+    // EnableMouse — so the plain hit test could not see one, and this walk
+    // started from whatever mouse-enabled child happened to be under the
+    // cursor or, over the empty parts of a panel, from nothing at all. The
+    // talent tree is all empty parts between its buttons.
+    uint32_t wid = widgets_.hitTestWheel(x, y);
     while (wid != 0) {
         const auto* w = widgets_.get(wid);
         if (!w) break;

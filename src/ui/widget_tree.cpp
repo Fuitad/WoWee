@@ -662,10 +662,22 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
 }
 
 uint32_t WidgetTree::hitTest(float x, float y) const {
+    return hitTestFor(x, y, false);
+}
+
+uint32_t WidgetTree::hitTestWheel(float x, float y) const {
+    return hitTestFor(x, y, true);
+}
+
+uint32_t WidgetTree::hitTestFor(float x, float y, bool forWheel) const {
     const Widget* best = nullptr;
     for (const Widget& w : widgets_) {
         if (w.id == 0 || w.kind != WidgetKind::Frame) continue;
-        if (!w.visible || !w.mouseEnabled) continue;
+        if (!w.visible) continue;
+        // The wheel is enabled separately from the mouse and a scroll frame
+        // asks for only the wheel, so requiring mouseEnabled for both hid
+        // every one of them from the cursor.
+        if (!w.mouseEnabled && !(forWheel && w.wheelEnabled)) continue;
         if (w.rectW <= 0.0f || w.rectH <= 0.0f) continue;
         // A rect with a NaN in it matches *everything*. Every comparison
         // against a NaN is false, so both `x < left` and `x > right` are false

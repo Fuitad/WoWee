@@ -712,11 +712,22 @@ public:
     /// target, its frame is.
     uint32_t hitTest(float x, float y) const;
 
+    /// The same, for the mouse wheel, which frames may take without taking the
+    /// mouse. EnableMouseWheel and EnableMouse are separate in WoW and
+    /// UIPanelScrollFrameTemplate asks for only the first — it declares
+    /// OnMouseWheel and never enables the mouse. Asking the plain hit test
+    /// meant no scroll frame in the interface was ever found under the cursor,
+    /// so the wheel fell through to the camera and nothing scrolled.
+    uint32_t hitTestWheel(float x, float y) const;
+
     /// Widgets to draw, in the order to draw them. Only those that resolved to a
     /// visible, non-empty rect. Valid until the next layout().
     const std::vector<const Widget*>& drawOrder() const { return drawOrder_; }
 
 private:
+    /// Both hit tests, which differ only in whether a frame that took the
+    /// wheel without taking the mouse counts as under the cursor.
+    uint32_t hitTestFor(float x, float y, bool forWheel) const;
     std::vector<LinkRect> linkRects_;
     void layoutWidget(uint32_t id, float screenW, float screenH);
     void collectDrawOrder();
