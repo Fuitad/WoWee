@@ -1521,7 +1521,23 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                         "(CloseAllWindows and CloseAllWindows()) or false");
                     const EscapeOutcome outcome = resolveAfterInterface(
                         closed, frameXmlOwns(UiElement::GameMenu));
-                    LOG_INFO("Escape: ", escapeOutcomeName(outcome));
+                    // At warning, because this is the press the report is
+                    // about and the default log is warnings only.
+                    //
+                    // Every other branch of this chain speaks at info, so a
+                    // session that reproduces "Escape does nothing" came back
+                    // with no Escape line in it at all — and silence there
+                    // meant nothing, since it is also what a working press
+                    // sounds like. One line per press that gets this far, and
+                    // it names which of the two menus was chosen. If that line
+                    // is absent from a log where Escape was pressed with
+                    // nothing open, the key never reached this chain and the
+                    // fault is in the input path rather than here.
+                    if (outcome == EscapeOutcome::InterfaceClosedAPanel) {
+                        LOG_INFO("Escape: ", escapeOutcomeName(outcome));
+                    } else {
+                        LOG_WARNING("Escape: ", escapeOutcomeName(outcome));
+                    }
                     switch (outcome) {
                         case EscapeOutcome::InterfaceClosedAPanel:
                             break;
