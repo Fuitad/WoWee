@@ -491,7 +491,31 @@ static int lua_GetGuildRosterInfo(lua_State* L) {
     lua_pushstring(L, m.officerNote.c_str());                // 8: officerNote
     lua_pushboolean(L, m.online);                            // 9: online
     lua_pushnumber(L, 0);                                    // 10: status (0=online, 1=AFK, 2=DND)
-    lua_pushnumber(L, m.classId);                            // 11: classId (numeric)
+    // The uppercase token, not the id. This position is classFileName and it
+    // is a key, not a number:
+    //
+    //     if ( classFileName ) then
+    //         classTextColor = RAID_CLASS_COLORS[classFileName];
+    //     else
+    //         classTextColor = NORMAL_FONT_COLOR;
+    //     end
+    //     ... buttonText:SetTextColor(classTextColor.r, ...)
+    //
+    // An id is truthy, so it took the first branch, found no such key, and
+    // read .r off a nil one line later — inside GuildStatus_Update, which
+    // takes the whole roster down with it. Only on the online branch, so a
+    // guild whose members were all offline drew fine and one with anybody on
+    // showed nothing, which is what "mostly unpopulated" looks like.
+    //
+    // The guard is there because the value can be absent. A binding that
+    // answers something of the wrong kind defeats it, the same way "UNKNOWN"
+    // did in UnitClass and a boolean did in GetChecked.
+    // Nil when there is no token, not the empty string: "" is truthy in Lua
+    // too, so it would pass the same guard and fail the same lookup. The
+    // unnamed slots in that table are the class ids WoW does not use.
+    const char* classToken = (m.classId < 12) ? kLuaClassTokens[m.classId] : "";
+    if (classToken && *classToken) lua_pushstring(L, classToken);
+    else                           lua_pushnil(L);            // 11: classFileName
     return 11;
 }
 
@@ -2231,15 +2255,23 @@ void registerSocialLuaAPI(lua_State* L) {
 
             const char* raceName = (w.raceId < 12) ? kLuaRaces[w.raceId] : "Unknown";
             const char* className = (w.classId < 12) ? kLuaClasses[w.classId] : "Unknown";
-            static constexpr const char* kClassFiles[] = {"","WARRIOR","PALADIN","HUNTER","ROGUE","PRIEST","DEATHKNIGHT","SHAMAN","MAGE","WARLOCK","","DRUID"};
-            const char* classFile = (w.classId < 12) ? kClassFiles[w.classId] : "WARRIOR";
+            // The shared table, not a second copy of it standing beside the one
+            // every other binding reads.
+            const char* classFile = (w.classId < 12) ? kLuaClassTokens[w.classId] : "";
             lua_pushstring(L, w.name.c_str());
             lua_pushstring(L, w.guildName.c_str());
             lua_pushnumber(L, w.level);
             lua_pushstring(L, raceName);
             lua_pushstring(L, className);
             lua_pushstring(L, ""); // zone name (would need area lookup)
-            lua_pushstring(L, classFile);
+            // Nil rather than "" when there is no token, and nil rather than a
+            // guessed one. The who list reads this exactly as the guild roster
+            // does — `if ( classFileName ) then RAID_CLASS_COLORS[...]` and
+            // then .r off the answer — so an empty string passes the guard and
+            // raises on the line after, and a stand-in like "WARRIOR" paints
+            // every unknown class the same wrong colour.
+            if (classFile && *classFile) lua_pushstring(L, classFile);
+            else                         lua_pushnil(L);
             return 7;
         }},
                 {"SendWho", [](lua_State* L) -> int {
