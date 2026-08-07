@@ -6907,8 +6907,24 @@ void LuaEngine::registerCoreAPI() {
         "end\n"
         // Iterating a table the secure way, which for our purposes is next.
         "SecureNext = next\n"
-        "function issecurevariable(...) return false end\n"
-        "function issecure() return false end\n"
+        // Secure, because nothing here is tainted.
+        //
+        // These answered false, which is the opposite of the premise written
+        // above them: taint is what makes code insecure, no addon here taints
+        // anything, so every call site is secure and WoW would say so. False
+        // told the interface it was running tainted and sent it down the
+        // defensive branch everywhere.
+        //
+        // The cost was a reported bug with no error behind it.
+        // ActionButton_ShowGrid increments its counter only `if (issecure())`
+        // and shows the button only once that counter reaches one — so the
+        // empty slots of the action bar never appeared while something was on
+        // the cursor. Dragging a spell to the bar therefore had nothing to
+        // land on: the press went to MainMenuBar, which is the strip behind
+        // them and takes no drop, and the spell stayed on the cursor. Bag to
+        // bag worked the whole time, because those buttons are always shown.
+        "function issecurevariable(...) return true end\n"
+        "function issecure() return true end\n"
         // GetCVarBool wraps C-side GetCVar (registered in table) for boolean queries
         // Misc compatibility stubs
         // GetScreenWidth, GetScreenHeight, GetNumLootItems are now C functions

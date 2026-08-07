@@ -57,6 +57,8 @@
 #include "ui/link_hit.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_services.hpp"
+#include "game/character.hpp"
+#include "game/spell_handler.hpp"
 
 #include <imgui.h>
 
@@ -290,12 +292,38 @@ int main(int argc, char** argv) {
         if (std::strcmp(argv[i], "--player") == 0) {
             static wowee::game::GameServices svc;
             static wowee::game::GameHandler gh(svc);
-            gh.setPlayerGuid(0x0000000000000001ull);
+            constexpr uint64_t kGuid = 0x0000000000000001ull;
+            gh.setPlayerGuid(kGuid);
+            // Through the character list, because that is where the client
+            // reads it from: getPlayerRace and getPlayerClass both go via
+            // getActiveCharacter, so setting playerRace_ alone left every one
+            // of them answering zero and the whole thing pointless.
+            wowee::game::Character ch{};
+            ch.guid = kGuid;
+            ch.name = "Headless";
+            ch.race = wowee::game::Race::HUMAN;
+            ch.characterClass = wowee::game::Class::WARRIOR;
+            ch.gender = wowee::game::Gender::MALE;
+            ch.level = 80;
+            gh.charactersRef().clear();
+            gh.charactersRef().push_back(ch);
+            gh.setActiveCharacterGuid(kGuid);
             gh.playerRaceRef() = wowee::game::Race::HUMAN;
+            // A few spells, so the spellbook is not empty. getSpellBookTabs
+            // rebuilds itself from the known set whenever the count changes,
+            // so adding them is all that is needed — and without them
+            // PickupSpell resolves slot 1 to nothing and every drag out of the
+            // book is a no-op that looks like a broken drag.
+            if (auto* sh = gh.getSpellHandler()) {
+                for (uint32_t id : {133u, 168u, 116u}) sh->addKnownSpell(id);
+            }
             if (auto* engine = mgr.getLuaEngine()) engine->setGameHandler(&gh);
-            std::printf("   attached a game handler: race=%u guid=%llu\n",
+            std::printf("   attached a game handler: %s, race=%u class=%u "
+                        "level=%u\n",
+                        ch.name.c_str(),
                         static_cast<unsigned>(gh.getPlayerRace()),
-                        static_cast<unsigned long long>(gh.getPlayerGuid()));
+                        static_cast<unsigned>(gh.getPlayerClass()),
+                        static_cast<unsigned>(ch.level));
             continue;
         }
         // --hit:X,Y says which frame the client's own hit test lands on.
