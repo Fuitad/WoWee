@@ -2209,3 +2209,43 @@ TEST_CASE("A bar with no fill still sorts as the frame it is",
     // however the bar's unused fill layer is set.
     CHECK(indexOf(bar) < indexOf(sibling));
 }
+
+TEST_CASE("Raise and Lower are idempotent", "[widget][level]") {
+    // ShowUIPanel raises on every panel open, so a Raise that adds one whether
+    // or not anything is above it is a leak measured in panel opens. A quest
+    // frame that starts at level 3 was found at 344 after a play session.
+    WidgetTree tree;
+    const uint32_t root = tree.create(WidgetKind::Frame, 0, "Root");
+    const uint32_t a = tree.create(WidgetKind::Frame, root, "A");
+    const uint32_t b = tree.create(WidgetKind::Frame, root, "B");
+    tree.layout(1920.0f, 1080.0f);
+
+    tree.raise(a);
+    tree.layout(1920.0f, 1080.0f);
+    const int afterFirst = tree.get(a)->effLevel;
+
+    // Nine more, with nothing else moving. A frame already on top is already
+    // where Raise is asking it to be.
+    for (int i = 0; i < 9; ++i) {
+        tree.raise(a);
+        tree.layout(1920.0f, 1080.0f);
+    }
+    CHECK(tree.get(a)->effLevel == afterFirst);
+
+    // And it still does its job: B raised above A goes higher, once.
+    tree.raise(b);
+    tree.layout(1920.0f, 1080.0f);
+    CHECK(tree.get(b)->effLevel > tree.get(a)->effLevel);
+    const int bLevel = tree.get(b)->effLevel;
+    tree.raise(b);
+    tree.layout(1920.0f, 1080.0f);
+    CHECK(tree.get(b)->effLevel == bLevel);
+
+    // Lower is the same shape in the other direction, and never goes below
+    // zero — a negative level sorts under the root and stops being drawn.
+    for (int i = 0; i < 12; ++i) {
+        tree.lower(a);
+        tree.layout(1920.0f, 1080.0f);
+    }
+    CHECK(tree.get(a)->effLevel >= 0);
+}

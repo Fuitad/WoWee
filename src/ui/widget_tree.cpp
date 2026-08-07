@@ -1,6 +1,7 @@
 #include "ui/widget_tree.hpp"
 
 #include <algorithm>
+#include <climits>
 #include <cmath>
 
 namespace wowee {
@@ -382,12 +383,23 @@ void WidgetTree::shiftExplicitLevels(uint32_t id, int delta) {
 void WidgetTree::raise(uint32_t id) {
     Widget* w = get(id);
     if (!w) return;
-    int highest = w->effLevel;
+    // The highest of the *others*, not of everything including this frame.
+    //
+    // Seeded with w->effLevel, a frame already on top still came out one
+    // higher, so every call added one whether or not anything was above it —
+    // and ShowUIPanel raises on every panel open. Levels ratcheted all session:
+    // a quest frame that starts at 3 was found at 344 in a play session, and
+    // two frames raising alternately climb without bound.
+    int highest = 0;
     for (const Widget& other : widgets_) {
         if (other.id == 0 || other.id == id) continue;
         if (other.effStrata != w->effStrata) continue;
         if (other.effLevel > highest) highest = other.effLevel;
     }
+    // Already above everything: raising is what was asked for and it is
+    // already true, so leave the level alone. Raise has to be idempotent or
+    // repeating it is a slow leak.
+    if (w->effLevel > highest) return;
     // Explicit from here on, or the next layout would recompute it from the
     // parent and undo the raise immediately.
     const int newLevel = highest + 1;
@@ -399,12 +411,17 @@ void WidgetTree::raise(uint32_t id) {
 void WidgetTree::lower(uint32_t id) {
     Widget* w = get(id);
     if (!w) return;
-    int lowest = w->effLevel;
+    // The lowest of the others, for the same reason raise takes the highest of
+    // the others: seeded with this frame's own level, a frame already at the
+    // bottom went one lower on every call, and level zero is the floor — so
+    // this leaked in the other direction until it hit it.
+    int lowest = INT_MAX;
     for (const Widget& other : widgets_) {
         if (other.id == 0 || other.id == id) continue;
         if (other.effStrata != w->effStrata) continue;
         if (other.effLevel < lowest) lowest = other.effLevel;
     }
+    if (lowest == INT_MAX || w->effLevel < lowest) return;
     // Never below zero: a negative level sorts under the root and the frame
     // stops being drawn at all.
     const int newLevel = (lowest > 0) ? lowest - 1 : 0;
