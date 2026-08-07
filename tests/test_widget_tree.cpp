@@ -1909,3 +1909,69 @@ TEST_CASE("A rect that is not a number is never hit", "[widget][hittest]") {
     // And it must not take a hit away from a frame that really is there.
     CHECK(tree.hitTest(15.0f, 15.0f) == good);
 }
+
+TEST_CASE("An edge anchor positions the frame, not the centre beside it",
+          "[widget][layout]") {
+    // The talent frame's points bar, which is a common shape: LEFT, RIGHT and
+    // BOTTOM together.
+    //
+    // An anchor constrains both axes whether it meant to or not. LEFT is the
+    // left edge and the vertical centre; RIGHT is the right edge and the same
+    // centre. So on y this frame has three constraints — two centres that came
+    // along with the horizontal pair, and the one that is actually about y.
+    //
+    // Positioning from the first anchor put the bar at its parent's vertical
+    // centre and ignored the bottom edge it was given. The scroll frame above
+    // it is anchored to its top, so the talent tree got half the height it
+    // should have, was cut off, and would not scroll — it had been made
+    // shorter than the content it was showing rather than taller.
+    WidgetTree tree;
+    const uint32_t frame = tree.create(WidgetKind::Frame, tree.root(), "Panel");
+    tree.setWidth(frame, 384.0f);
+    tree.setHeight(frame, 512.0f);
+    tree.addPoint(frame, Anchor{"BOTTOMLEFT", 0, "BOTTOMLEFT", 0.0f, 0.0f});
+
+    const uint32_t bar = tree.create(WidgetKind::Frame, frame, "PointsBar");
+    tree.setWidth(bar, 331.0f);
+    tree.setHeight(bar, 26.0f);
+    tree.addPoint(bar, Anchor{"LEFT", frame, "LEFT", 16.0f, 0.0f});
+    tree.addPoint(bar, Anchor{"RIGHT", frame, "RIGHT", -36.0f, 0.0f});
+    tree.addPoint(bar, Anchor{"BOTTOM", frame, "BOTTOM", 0.0f, 81.0f});
+
+    tree.layout(kScreenW, kScreenH);
+    const Widget* w = tree.get(bar);
+    const Widget* p = tree.get(frame);
+
+    // The bottom edge it was given, not the centre it was not.
+    REQUIRE(w->bottom == Catch::Approx(p->bottom + 81.0f));
+    REQUIRE(w->bottom != Catch::Approx(p->bottom + (512.0f - 26.0f) * 0.5f));
+    // Height untouched: a centre and an edge still do not resize.
+    REQUIRE(w->rectH == Catch::Approx(26.0f));
+    // Width from the opposite pair, which is what LEFT and RIGHT do mean.
+    REQUIRE(w->rectW == Catch::Approx(384.0f - 16.0f - 36.0f));
+}
+
+TEST_CASE("The wheel finds a frame that took the wheel and not the mouse",
+          "[widget][scroll][hittest]") {
+    // EnableMouseWheel and EnableMouse are separate in WoW, and
+    // UIPanelScrollFrameTemplate asks for only the first: it declares
+    // OnMouseWheel and never enables the mouse. Hit-testing the wheel with the
+    // test written for the mouse therefore found no scroll frame in the whole
+    // interface, and the wheel fell through to the camera — nothing with a
+    // scroll bar scrolled, the talent tree included.
+    WidgetTree tree;
+    const uint32_t scroll = tree.create(WidgetKind::Frame, tree.root(), "S");
+    tree.get(scroll)->isScrollFrame = true;
+    tree.get(scroll)->wheelEnabled = true;
+    tree.get(scroll)->mouseEnabled = false;   // as the template leaves it
+    tree.get(scroll)->width = 100.0f;
+    tree.get(scroll)->height = 100.0f;
+    tree.addPoint(scroll, Anchor{"BOTTOMLEFT", 0, "BOTTOMLEFT", 0.0f, 0.0f});
+
+    tree.layout(kScreenW, kScreenH);
+
+    // Invisible to the mouse, which is correct and is why it must not be the
+    // test the wheel uses.
+    REQUIRE(tree.hitTest(50.0f, 50.0f) != scroll);
+    REQUIRE(tree.hitTestWheel(50.0f, 50.0f) == scroll);
+}
