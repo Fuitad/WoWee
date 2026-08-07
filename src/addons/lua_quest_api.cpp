@@ -51,10 +51,20 @@ static int lua_GetQuestLogTimeLeft(lua_State* L) {
     return luaReturnNil(L);   // not a timed quest
 }
 
-// Whether the quest being looked at has been failed. Failure is not tracked —
-// GetQuestLogTitle reports complete or not and nothing else — so no quest reads
-// as failed rather than every quest reading as one.
-static int lua_IsCurrentQuestFailed(lua_State* L) { lua_pushboolean(L, 0); return 1; }
+// Defined further down, with the other quest-log readers.
+static const game::GameHandler::QuestLogEntry* selectedLogEntry(game::GameHandler* gh);
+
+// Whether the quest being looked at has been failed.
+//
+// The quest slot's state field carries it beside completion — the server names
+// the two bits QUEST_STATE_COMPLETE and QUEST_STATE_FAIL — and the field was
+// already being read for the first of them.
+static int lua_IsCurrentQuestFailed(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* q = selectedLogEntry(gh);
+    lua_pushboolean(L, (q && q->failed) ? 1 : 0);
+    return 1;
+}
 
 // The spell, title and faction rewards a quest can carry. The query response
 // this client parses parses none of them, and each is asked behind `if ( ... )`
@@ -249,8 +259,12 @@ static int lua_GetQuestLogTitle(lua_State* L) {
     // failed quest from a finished one, and comparing a boolean with a number
     // raises. Correcting the *position* of this value without correcting its
     // type turned a quiet wrong answer into an error on the quest tracker.
-    // Failure is not tracked here, so a quest is either complete or not.
-    if (q.complete) lua_pushnumber(L, 1); else lua_pushnil(L);  // 7: isComplete
+    //
+    // Failed is tested first: the server can set both bits, and a quest whose
+    // timer ran out is failed whatever else is true of it.
+    if (q.failed)        lua_pushnumber(L, -1);
+    else if (q.complete) lua_pushnumber(L, 1);
+    else                 lua_pushnil(L);                        // 7: isComplete
     lua_pushboolean(L, 0);               // 8: isDaily
     lua_pushnumber(L, q.questId);        // 9: questID
     // Not the id again: this is the developer switch that asks for the id to

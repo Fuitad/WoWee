@@ -329,10 +329,15 @@ static int lua_GetMerchantItemMaxStack(lua_State* L) {
     return 1;
 }
 
-/// Extended cost — the badges, marks and honour some vendors charge instead of
-/// money. Not tracked, and zero is "this one costs money", which is true of
-/// every vendor this client has met.
 /// The extended cost behind a vendor slot, or null when it is bought with coin.
+///
+/// The badges, marks and honour some vendors charge instead of money. Parsed
+/// from the vendor inventory — which not every server sends, so the field is
+/// read conditionally — and looked up through getExtendedCost.
+///
+/// The two lines that used to open this comment said it was not tracked and
+/// that zero meant "this one costs money". Both were true once and neither
+/// was true of the function they sat on, which returns the entry.
 static const game::GameHandler::ExtendedCostEntry* merchantCost(lua_State* L, int index) {
     auto* gh = getGameHandler(L);
     if (!gh || index < 1) return nullptr;

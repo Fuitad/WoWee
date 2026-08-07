@@ -1772,7 +1772,9 @@ bool QuestHandler::resyncQuestLogFromServerSlots(bool forceQueryMetadata) {
     if (!sawQuestArea) return false;
 
     std::unordered_map<uint32_t, bool> serverQuestComplete;
+    std::unordered_map<uint32_t, bool> serverQuestFailed;
     serverQuestComplete.reserve(25);
+    serverQuestFailed.reserve(25);
     for (uint16_t slot = 0; slot < 25; ++slot) {
         const uint16_t idField    = ufQuestStart + slot * qStride;
         const uint16_t stateField = ufQuestStart + slot * qStride + 1;
@@ -1782,13 +1784,17 @@ bool QuestHandler::resyncQuestLogFromServerSlots(bool forceQueryMetadata) {
         if (questId == 0) continue;
 
         bool complete = false;
+        bool failed = false;
         if (qStride >= 2) {
             auto stateIt = owner_.lastPlayerFieldsRef().find(stateField);
             if (stateIt != owner_.lastPlayerFieldsRef().end()) {
                 complete = isQuestSlotComplete(qStride, stateIt->second);
+                // The bit beside it, in the field already in hand.
+                failed = isQuestSlotFailed(qStride, stateIt->second);
             }
         }
         serverQuestComplete[questId] = complete;
+        serverQuestFailed[questId] = failed;
     }
 
     std::unordered_set<uint32_t> serverQuestIds;
@@ -1816,6 +1822,16 @@ bool QuestHandler::resyncQuestLogFromServerSlots(bool forceQueryMetadata) {
             quest.complete = true;
             ++marked;
             LOG_DEBUG("Quest ", quest.questId, " marked complete from update fields");
+        }
+        // Assigned rather than latched: a quest that stops being failed —
+        // the server clears the bit when a timer is restarted — has to stop
+        // reading as failed, and only the server knows when that happens.
+        auto fit = serverQuestFailed.find(quest.questId);
+        const bool nowFailed = (fit != serverQuestFailed.end()) && fit->second;
+        if (nowFailed != quest.failed) {
+            quest.failed = nowFailed;
+            LOG_DEBUG("Quest ", quest.questId, " failed=", nowFailed,
+                      " from update fields");
         }
     }
 

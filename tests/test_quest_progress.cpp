@@ -43,3 +43,37 @@ TEST_CASE("Classic completion state does not alias the first kill count", "[ques
     REQUIRE(isQuestSlotComplete(4, 1u));
     REQUIRE(isQuestSlotComplete(5, 1u));
 }
+
+// The bit beside completion, in the same field.
+//
+// The server names them QUEST_STATE_COMPLETE = 0x0001 and QUEST_STATE_FAIL =
+// 0x0002 (Player.h:619). The complete bit was read for as long as the quest
+// log has existed and the fail bit next to it was dropped, so a timed quest
+// that ran out looked exactly like one still running — and the tracker, which
+// writes `if ( isComplete and isComplete < 0 )`, had no way to reach that
+// branch.
+//
+// Both strides, because Classic packs the state into the top byte of a shared
+// field and TBC/WotLK give it one of its own; reading the wrong end answers
+// zero for everything, which is indistinguishable from nothing being failed.
+TEST_CASE("A failed quest slot reads as failed, not as unfinished",
+          "[quest][progress]") {
+    SECTION("WotLK and TBC keep the state in its own field") {
+        const uint8_t stride = 5;
+        CHECK_FALSE(wowee::game::isQuestSlotFailed(stride, 0x0));
+        CHECK_FALSE(wowee::game::isQuestSlotFailed(stride, 0x1));   // complete
+        CHECK(wowee::game::isQuestSlotFailed(stride, 0x2));         // failed
+        CHECK(wowee::game::isQuestSlotFailed(stride, 0x3));         // both
+        // And completion still reads the way it did.
+        CHECK(wowee::game::isQuestSlotComplete(stride, 0x1));
+        CHECK_FALSE(wowee::game::isQuestSlotComplete(stride, 0x2));
+        CHECK(wowee::game::isQuestSlotComplete(stride, 0x3));
+    }
+    SECTION("Classic packs it into the top byte") {
+        const uint8_t stride = 3;
+        CHECK_FALSE(wowee::game::isQuestSlotFailed(stride, 0x00000002));
+        CHECK(wowee::game::isQuestSlotFailed(stride, 0x02000000));
+        CHECK(wowee::game::isQuestSlotComplete(stride, 0x01000000));
+        CHECK(wowee::game::isQuestSlotFailed(stride, 0x03000000));
+    }
+}

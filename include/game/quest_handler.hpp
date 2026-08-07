@@ -93,6 +93,9 @@ public:
         // category (negated), 0 = unknown
         int32_t zoneOrSort = 0;
         bool complete = false;
+        /// A timed quest that ran out, or one the server failed. Read from the
+        /// bit beside `complete` in the same quest-slot field.
+        bool failed = false;
         std::unordered_map<uint32_t, std::pair<uint32_t, uint32_t>> killCounts;
         std::unordered_map<uint32_t, uint32_t> itemCounts;
         std::unordered_map<uint32_t, uint32_t> requiredItemCounts;
