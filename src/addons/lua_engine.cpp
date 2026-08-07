@@ -1563,6 +1563,59 @@ static bool fillItemTooltipById(lua_State* L, game::GameHandler* gh,
 ///
 /// Laid out as WoW lays it out: cost on the left of its line with the range on
 /// the right, then the cast time, then the description.
+/// A quest link, filled from the log.
+///
+/// This used to answer false for every quest, on the grounds that the client
+/// kept nothing beyond the title and a tooltip holding only a name is worse
+/// than the caller knowing it failed. The first half stopped being true: a log
+/// entry now carries the quest giver's own text and the objective list, both
+/// read from the query response.
+///
+/// Only for a quest in the player's own log, which is the honest limit — a
+/// link to a quest they have never taken names an id nothing here has text
+/// for, and answering false there is still the right answer. The caller reads
+/// it: `if ( GameTooltip:SetHyperlink(link) )` decides whether to show the
+/// tooltip at all.
+static bool fillQuestTooltip(wowee::ui::Widget* w, game::GameHandler* gh,
+                             uint32_t questId) {
+    if (!w || !gh || questId == 0) return false;
+    // Through the public log rather than the private finder beside it: this
+    // wants the same entry the quest log itself draws from.
+    const game::GameHandler::QuestLogEntry* q = nullptr;
+    for (const auto& e : gh->getQuestLog()) {
+        if (e.questId == questId) { q = &e; break; }
+    }
+    if (!q) return false;
+    if (q->title.empty() && q->objectives.empty()) return false;
+
+    w->isTooltip = true;
+    w->tooltipLines.clear();
+    auto line = [&w](std::string text, float r, float g, float b) {
+        wowee::ui::Widget::TooltipLine t;
+        t.left = std::move(text);
+        t.lc[0] = r; t.lc[1] = g; t.lc[2] = b; t.lc[3] = 1.0f;
+        t.rc[0] = t.rc[1] = t.rc[2] = 1.0f; t.rc[3] = 1.0f;
+        // Prose, so it breaks to fit rather than making the tooltip as wide
+        // as the sentence.
+        t.wrap = true;
+        w->tooltipLines.push_back(std::move(t));
+    };
+    line(q->title.empty() ? ("Quest #" + std::to_string(questId)) : q->title,
+         1.0f, 0.82f, 0.0f);
+    if (q->level > 0) {
+        line("Level " + std::to_string(q->level), 1.0f, 1.0f, 1.0f);
+    }
+    if (!q->description.empty()) line(q->description, 1.0f, 1.0f, 1.0f);
+    // What is left to do, or what to do now it is done — the same two the log
+    // shows, and the same order.
+    if (q->complete && !q->completionText.empty()) {
+        line(q->completionText, 1.0f, 1.0f, 1.0f);
+    } else if (!q->objectives.empty()) {
+        line(q->objectives, 0.75f, 0.75f, 0.75f);
+    }
+    return true;
+}
+
 static bool fillSpellTooltip(wowee::ui::Widget* w, game::GameHandler* gh,
                              uint32_t spellId) {
     if (!w || !gh || spellId == 0) return false;
@@ -1688,9 +1741,8 @@ int lua_Tooltip_SetHyperlink(lua_State* L) {
         filled = fillSpellTooltip(w, gh, id);
     else if (kind == "item")
         filled = fillItemTooltipById(L, gh, id);
-    // "quest" carries no text this client keeps beyond the title, and a
-    // tooltip holding only a name is worse than the caller knowing it failed:
-    // the tracker uses the answer to decide whether to keep refreshing.
+    else if (kind == "quest")
+        filled = fillQuestTooltip(w, gh, id);
     lua_pushboolean(L, filled ? 1 : 0);
     return 1;
 }
