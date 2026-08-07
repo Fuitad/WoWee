@@ -6276,6 +6276,12 @@ void LuaEngine::registerCoreAPI() {
         "    if type(fn) == 'string' then fn = rawget(_G, fn) end\n"
         "    if type(fn) == 'function' then return fn(...) end\n"
         "end\n"
+        // WoW's own names for indexing the global table, which predate _G being
+        // exposed and are still what a good deal of 3.3.5 code is written with.
+        // Blizzard_DebugTools calls getglobal at file scope and failed to load
+        // whole without it.
+        "function getglobal(n) return _G[n] end\n"
+        "function setglobal(n, v) _G[n] = v end\n"
         // Iterating a table the secure way, which for our purposes is next.
         "SecureNext = next\n"
         "function issecurevariable(...) return false end\n"
