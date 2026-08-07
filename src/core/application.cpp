@@ -3782,7 +3782,14 @@ void Application::render() {
             // Lay out first: hit testing reads the rects this produces, so
             // clicking a frame that moved this frame would otherwise use where
             // it used to be.
-            widgetRenderer_.render(engine->widgets(), io.DisplaySize.x, io.DisplaySize.y);
+            //
+            // Only the layout. The drawing waits until after the UI stage,
+            // which is what puts the nameplates and the minimap's blips into
+            // the same ImGui background list — and in a draw list the last
+            // thing added is the thing on top. Drawing here put the panels
+            // down first, so every player's name and health bar in the world
+            // showed through the bags and the auction house.
+            widgetRenderer_.layout(engine->widgets(), io.DisplaySize.x, io.DisplaySize.y);
 
             // The client's own interface has first claim, but only over the
             // point the cursor is actually on.
@@ -3961,6 +3968,25 @@ void Application::render() {
             // nothing draws — not around a stage that draws.
             uiManager->render(state, authHandler.get(), gameHandler.get());
         });
+
+        // The interface, over the world and everything the world drew on top
+        // of itself. Laid out much earlier, because the frame's clicks are
+        // resolved against those rects; drawn here, because the stage above is
+        // what adds the nameplates and the minimap blips to the background
+        // draw list and the last thing added to one is the thing on top.
+        //
+        // The same guard the layout runs under, so the two never disagree
+        // about whether there is an interface to draw.
+        if (drawWidgets && addonManager_ && addonManager_->getLuaEngine() && renderer) {
+            runRenderStage("frameXml->draw", [&] {
+                const ImGuiIO& uiIo = ImGui::GetIO();
+                widgetRenderer_.draw(addonManager_->getLuaEngine()->widgets(),
+                                     uiIo.DisplaySize.x, uiIo.DisplaySize.y);
+            });
+        }
+
+        // Only now is the draw data closed.
+        uiManager->finishImGuiFrame();
     }
 
     runRenderStage("endFrame", [&] { renderer->endFrame(); });

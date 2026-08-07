@@ -80,6 +80,11 @@ public:
      * Process SDL event for ImGui
      * @param event SDL event to process
      */
+    /// Close the ImGui frame. Separate from render() so the application can
+    /// draw FrameXML's panels between the two — they belong over the world
+    /// overlays that render() puts in the same draw list.
+    void finishImGuiFrame();
+
     void processEvent(const SDL_Event& event);
 
     /**

@@ -649,9 +649,11 @@ void WidgetRenderer::drawCooldown(ImDrawList* dl, const Widget& w,
 }
 
 void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
-    // Refilled by this pass, so a link that stopped being drawn stops
-    // being clickable in the same frame rather than one later.
-    tree.clearLinkRects();
+    layout(tree, screenW, screenH);
+    draw(tree, screenW, screenH);
+}
+
+void WidgetRenderer::layout(WidgetTree& tree, float screenW, float screenH) {
     linkScreenH_ = screenH;
     linkScale_ = tree.uiScale();
     // Every descriptor set in this cache belongs to the context, which frees
@@ -756,6 +758,16 @@ void WidgetRenderer::render(WidgetTree& tree, float screenW, float screenH) {
     sizeFontStrings(tree);
 
     tree.layout(screenW, screenH);
+}
+
+void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
+    // Cleared here rather than in layout(), which is the half that runs before
+    // the frame's clicks are resolved. Emptying the list there and refilling it
+    // here would leave nothing to click against in between, and a chat link
+    // would never be hit at all. Clicks now test the rects this pass laid down
+    // last frame — a frame behind, where a link that stopped being drawn stays
+    // clickable for one more, which is the smaller of the two faults.
+    tree.clearLinkRects();
 
     // The item on the cursor, drawn over everything. FrameXML never draws this
     // — in WoW the client does — so without it picking something up looked

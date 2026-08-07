@@ -38,6 +38,20 @@ public:
     /// tests want.
     void render(WidgetTree& tree, float screenW, float screenH);
 
+    /// The two halves of render(), for callers that need something to happen
+    /// between them.
+    ///
+    /// Hit testing reads the rects layout() produces, so it has to run early —
+    /// before the frame's clicks are resolved, or a frame that moved this frame
+    /// is clicked where it used to be. Drawing has the opposite requirement:
+    /// the interface sits over the world, and the world's overlays — the
+    /// nameplates and the minimap's blips — go into the same ImGui background
+    /// list this does, where whatever is added last is on top. Drawn from here
+    /// the panels went down first and every nameplate in the world showed
+    /// through the bags.
+    void layout(WidgetTree& tree, float screenW, float screenH);
+    void draw(WidgetTree& tree, float screenW, float screenH);
+
     /// Number of distinct textures resident. Cheap diagnostic; the cache never
     /// evicts, because Interface\ art is small, bounded and reused constantly.
     size_t textureCount() const { return textures_.size(); }

@@ -349,7 +349,17 @@ void UIManager::render(core::AppState appState, auth::AuthHandler* authHandler, 
             break;
     }
 
-    // Finalize ImGui draw data (actual rendering happens in the command buffer)
+}
+
+void UIManager::finishImGuiFrame() {
+    // Finalize ImGui draw data (actual rendering happens in the command buffer).
+    //
+    // Split out of render() so the application can put something between the
+    // two. FrameXML's panels draw into the same background list the nameplates
+    // and minimap blips use, and the last thing added to that list is on top,
+    // so the panels have to go in after this stage has drawn the world's
+    // overlays — and before the draw data is closed, which is here.
+    if (!imguiInitialized) return;
     ImGui::Render();
 }
 
