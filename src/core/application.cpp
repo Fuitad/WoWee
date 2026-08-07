@@ -377,7 +377,7 @@ bool Application::initialize() {
         // fire. Set here rather than at the call sites because every panel
         // polls its own key from inside its own draw — there are many askers
         // and one answer.
-        ui::KeybindingManager::getInstance().setTextInputProbe(
+        ui::setTypedInputProbe(
             [this]() -> bool {
                 if (!addonManager_ || !addonsLoaded_) return false;
                 auto* engine = addonManager_->getLuaEngine();
@@ -1268,7 +1268,8 @@ void Application::run() {
                         }
                     }
                     // Skip non-function-key input when UI (chat) has keyboard focus
-                    bool uiHasKeyboard = ImGui::GetIO().WantCaptureKeyboard;
+                    bool uiHasKeyboard = ImGui::GetIO().WantCaptureKeyboard ||
+                                         ui::interfaceTakingTypedInput();
                     auto sc = event.key.keysym.scancode;
                     bool isFKey = (sc >= SDL_SCANCODE_F1 && sc <= SDL_SCANCODE_F12);
                     if (uiHasKeyboard && !isFKey) {
@@ -1956,7 +1957,8 @@ void Application::update(float deltaTime) {
             inGameStep = "weapon-toggle input";
             updateCheckpoint = "in_game: weapon-toggle input";
             {
-                const bool uiWantsKeyboard = ImGui::GetIO().WantCaptureKeyboard;
+                const bool uiWantsKeyboard = ImGui::GetIO().WantCaptureKeyboard ||
+                                             ui::interfaceTakingTypedInput();
                 auto& input = Input::getInstance();
                 if (!uiWantsKeyboard && input.isKeyJustPressed(SDL_SCANCODE_Z) && appearanceComposer_) {
                     const bool sheathing = !appearanceComposer_->isWeaponsSheathed();

@@ -42,18 +42,6 @@ public:
      */
     bool isActionPressed(Action action, bool repeat = false);
 
-    /**
-     * Tell this manager how to ask the other interface whether someone is
-     * typing.
-     *
-     * There are two interfaces in this client and only one of them is ImGui,
-     * so the io.WantTextInput this used to ask is blind to a chat box that
-     * FrameXML draws. It answers false the whole time someone is typing into
-     * one, and every letter then does double duty: it goes into the box and it
-     * fires the binding on that key as well, so typing "/logout" opened the
-     * quest log on the l and the social panel on the o.
-     */
-    void setTextInputProbe(std::function<bool()> probe);
 
     /**
      * Get the currently bound key for an action.
@@ -94,9 +82,26 @@ private:
     KeybindingManager();
 
     std::unordered_map<int, ImGuiKey> bindings_;  // action -> key
-    std::function<bool()> textInputProbe_;        // is the other interface typing?
 
     void initializeDefaults();
 };
+
+/**
+ * Is someone typing into the interface that ImGui does not draw?
+ *
+ * There are two interfaces in this client and only one of them is ImGui, so
+ * the io.WantTextInput that everything here used to ask is blind to a chat box
+ * FrameXML draws. It answers false for the whole time someone is typing into
+ * one, and the keys then do double duty: into the box, and into whatever the
+ * key otherwise does. Typing "/logout" opened the quest log on the l and the
+ * social panel on the o, and walked the character on the o's neighbours.
+ *
+ * Asked from several places — bindings, the camera, the sheathe key — so the
+ * answer lives here once rather than at each of them.
+ */
+bool interfaceTakingTypedInput();
+
+/// How to answer the question above. Set once, while the interface is built.
+void setTypedInputProbe(std::function<bool()> probe);
 
 }  // namespace wowee::ui

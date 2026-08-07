@@ -1,4 +1,5 @@
 #include "rendering/camera_controller.hpp"
+#include "ui/keybinding_manager.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "rendering/movement_limits.hpp"
 #include <algorithm>
@@ -262,8 +263,12 @@ void CameraController::update(float deltaTime) {
 
     auto& input = core::Input::getInstance();
 
-    // Don't process keyboard input when UI text input (e.g. chat box) has focus
-    bool uiWantsKeyboard = ImGui::GetIO().WantTextInput;
+    // Don't process keyboard input when UI text input (e.g. chat box) has focus.
+    // Both interfaces are asked: the flag below is ImGui's own and says nothing
+    // about a chat box FrameXML draws, so on its own it let the character walk
+    // away while someone was typing.
+    bool uiWantsKeyboard = ImGui::GetIO().WantTextInput ||
+                           ui::interfaceTakingTypedInput();
 
     // Suppress movement input after teleport/portal (keys may still be held)
     if (movementSuppressTimer_ > 0.0f) {

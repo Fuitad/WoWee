@@ -1,3 +1,4 @@
+#include <functional>
 #include "ui/keybinding_manager.hpp"
 #include "core/logger.hpp"
 #include <fstream>
@@ -50,7 +51,7 @@ bool KeybindingManager::isActionPressed(Action action, bool repeat) {
     // hands the key to the box and stops. This is the other way in: every panel
     // polls its key from inside its own draw, and a poll never passed through
     // that path, so the key arrived twice.
-    if (textInputProbe_ && textInputProbe_()) return false;
+    if (interfaceTakingTypedInput()) return false;
 
     // When typing in a text field (e.g. chat input), never treat A-Z or 0-9 as shortcuts.
     const ImGuiIO& io = ImGui::GetIO();
@@ -64,8 +65,22 @@ bool KeybindingManager::isActionPressed(Action action, bool repeat) {
     return ImGui::IsKeyPressed(key, repeat);
 }
 
-void KeybindingManager::setTextInputProbe(std::function<bool()> probe) {
-    textInputProbe_ = std::move(probe);
+namespace {
+/// One probe for the whole client, set while the interface is built and read
+/// from every path that has to know whether someone is typing.
+std::function<bool()>& typedInputProbe() {
+    static std::function<bool()> probe;
+    return probe;
+}
+}  // namespace
+
+bool interfaceTakingTypedInput() {
+    const auto& probe = typedInputProbe();
+    return probe && probe();
+}
+
+void setTypedInputProbe(std::function<bool()> probe) {
+    typedInputProbe() = std::move(probe);
 }
 
 ImGuiKey KeybindingManager::getKeyForAction(Action action) const {

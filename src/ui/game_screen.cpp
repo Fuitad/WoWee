@@ -1355,11 +1355,16 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
     // OPENCHATSLASH bindings are not in this client's route table, so with the
     // chat owned there was no key at all that opened it.
     //
-    // Nothing needs to guard the keystrokes that follow. Once FrameXML's box
-    // has focus the application's key loop hands it every press and stops
-    // there, which is why typing into it does not also walk the character.
+    // The keystrokes that follow do need a guard, and the reason they were
+    // thought not to is worth keeping: the application's key loop does hand
+    // FrameXML's focused box every press and stop there — but only on the
+    // event path. What is below reads the key state directly, once a frame,
+    // and a poll never went through that loop to be stopped by it. So typing
+    // did walk the character and did fire bindings, and the one question both
+    // paths now ask is interfaceTakingTypedInput.
     const bool frameXmlChat = frameXmlOwns(UiElement::Chat);
-    if (!io.WantTextInput && !chatPanel_.isChatInputActive() && input.isKeyJustPressed(SDL_SCANCODE_SLASH)) {
+    if (!io.WantTextInput && !interfaceTakingTypedInput() &&
+        !chatPanel_.isChatInputActive() && input.isKeyJustPressed(SDL_SCANCODE_SLASH)) {
         if (frameXmlChat) gameHandler.runInterfaceCommand("ChatFrame_OpenChat(\"/\")");
         else              chatPanel_.activateSlashInput();
     }
@@ -1368,9 +1373,12 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
     // guards are reported too, because being refused before the branch is the
     // likeliest answer and is the one that leaves no other trace.
     if (KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_CHAT, false)) {
-        if (io.WantTextInput || chatPanel_.isChatInputActive()) {
+        if (io.WantTextInput || interfaceTakingTypedInput() ||
+            chatPanel_.isChatInputActive()) {
             LOG_INFO("Chat key: refused — ImGui wants text: ",
                      io.WantTextInput ? "yes" : "no",
+                     ", the interface's box has focus: ",
+                     interfaceTakingTypedInput() ? "yes" : "no",
                      ", this client's chat input: ",
                      chatPanel_.isChatInputActive() ? "active" : "idle");
         } else {
