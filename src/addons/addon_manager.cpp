@@ -228,7 +228,25 @@ std::vector<std::string> AddonManager::deferredAddonGlobals() const {
     for (const TocFile& addon : lodAddons_) {
         // A disabled addon is never going to load, so its names stay absent —
         // which is the same answer, arrived at for a different reason.
-        for (const std::string& rel : addon.files) {
+        //
+        // The manifest is not the whole addon. A .toc commonly lists only the
+        // XML and lets `<Script file="...">` inside it pull the Lua in — the
+        // calendar's lists Blizzard_Calendar.xml and Localization.lua and not
+        // Blizzard_Calendar.lua, where all 248 of its functions live. Reading
+        // only what the manifest names left every one of those absent from
+        // this list, so the stand-in answered for them: a truthy table.
+        //
+        // That is the shape this list exists to prevent. FrameXML guards a
+        // load-on-demand addon with `if ( Calendar_Toggle ) then
+        // Calendar_Toggle() end`, and a truthy table walks past the guard and
+        // raises on the call — so opening the calendar from the minimap
+        // errored rather than doing nothing. Twenty-four addons include their
+        // Lua this way.
+        std::vector<std::string> queue(addon.files.begin(), addon.files.end());
+        std::set<std::string> seen;
+        for (size_t qi = 0; qi < queue.size(); ++qi) {
+            const std::string& rel = queue[qi];
+            if (!seen.insert(rel).second) continue;
             const fs::path file = resolvePath(fs::path(addon.basePath), rel);
             if (file.empty()) continue;
             std::ifstream in(file, std::ios::binary);
@@ -236,10 +254,28 @@ std::vector<std::string> AddonManager::deferredAddonGlobals() const {
             const std::string text((std::istreambuf_iterator<char>(in)),
                                    std::istreambuf_iterator<char>());
             const std::string ext = file.extension().string();
-            if (ext == ".lua" || ext == ".Lua" || ext == ".LUA")
+            if (ext == ".lua" || ext == ".Lua" || ext == ".LUA") {
                 collectLuaGlobals(text, names);
-            else
-                collectXmlNames(text, names);
+                continue;
+            }
+            collectXmlNames(text, names);
+            // And whatever this XML pulls in, appended so an include that
+            // includes further files is walked as well. Bounded by `seen`,
+            // because two files in one addon naming each other would
+            // otherwise not stop.
+            for (size_t at = text.find("<Script"); at != std::string::npos;
+                 at = text.find("<Script", at + 1)) {
+                const size_t fileAt = text.find("file=\"", at);
+                if (fileAt == std::string::npos) continue;
+                const size_t close = text.find('>', at);
+                if (close != std::string::npos && fileAt > close) continue;
+                const size_t start = fileAt + 6;
+                const size_t end = text.find('"', start);
+                if (end == std::string::npos) break;
+                std::string inc = text.substr(start, end - start);
+                std::replace(inc.begin(), inc.end(), '\\', '/');
+                if (!inc.empty()) queue.push_back(inc);
+            }
         }
     }
     std::sort(names.begin(), names.end());
