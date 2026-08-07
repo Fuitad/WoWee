@@ -3254,7 +3254,17 @@ void registerQuestLuaAPI(lua_State* L) {
             std::string name = gh->getSpellName(sp.spellId);
             if (name.empty()) name = "Spell " + std::to_string(sp.spellId);
             lua_pushstring(L, name.c_str());
-            lua_pushstring(L, "");   // rank, which this list does not carry
+            // The rank, from the same place the name came from. The trainer
+            // list on the wire carries neither — both are looked up by spell id
+            // — so "this list does not carry it" was true of the packet and
+            // not of the client, which has had getSpellRank all along.
+            //
+            // It is what tells two rows apart. The panel writes it in
+            // parentheses after the name, so a trainer offering Fireball at
+            // three ranks listed Fireball three times, identically. An empty
+            // string still hides the line, which is right for a spell that has
+            // no rank.
+            lua_pushstring(L, gh->getSpellRank(sp.spellId).c_str());   // rank
             // The three words the panel colours by: green, grey, and already
             // trained.
             lua_pushstring(L, sp.state == 0   ? "available"
