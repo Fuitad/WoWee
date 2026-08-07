@@ -116,6 +116,7 @@ Something is missing, so a second place is written to cope, and the coping code 
 - **Autocomplete fought whoever kept typing.** It writes the completed name and highlights the part it added so the next character replaces it; with no way to select a run, typing "Thr" gave "Thrall" and the next keystroke made "Thralla"
 - **A chat message with links ran out of room early.** The limit is in characters shown, not bytes held, and a shift-clicked item link is about sixty bytes for eighteen visible — so three of them filled a message that would otherwise have carried a dozen
 - **A quest link in chat had no tooltip**, now that the log carries the giver's text
+- Not done, and worth writing down because the first reason given for not doing it was wrong: the chat input border's middle section is declared to repeat and is stretched instead. That art is 32 pixels wide across a box of four hundred, and it does vary along its length, so the stretch smears something real. It stays undone because the interface has one shared sampler that clamps, and repeating needs a second one, a texture cache that knows which is which, and the surrounding plumbing — for a difference on a chat border that cannot be checked from here
 - Four methods that answered nothing now answer: whether a frame is listening for an event, whether a tooltip is describing a given unit — which is the first line of the handler that colours a unit's name by reaction — stopping listening to everything at once, and clearing a box's typing history
 
 ### Fixed — the same field read two ways
