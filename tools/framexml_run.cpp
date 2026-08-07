@@ -67,6 +67,26 @@ int main(int argc, char** argv) {
     std::printf("== load: %zu error(s)\n", errors.size());
     for (const std::string& e : errors) std::printf("   %s\n", e.c_str());
 
+    // Then every addon that waits to be asked for, because loading one is
+    // where three faults were hiding and none of them was visible any other
+    // way. A load-on-demand addon is loaded whole or not at all: a raise
+    // during load loses the file, so the fault presents as a panel that does
+    // not exist rather than one that misbehaves — no error on screen, nothing
+    // in the log, just a window that never opens. Reported separately from the
+    // FrameXML load above, since a broken addon is a smaller thing than a
+    // broken interface.
+    std::vector<std::string> addonFailures;
+    for (const auto& addon : mgr.getLoadOnDemandAddons()) {
+        std::string why;
+        if (!mgr.loadAddOnByName(addon.addonName, why)) {
+            addonFailures.push_back(addon.addonName + " (" +
+                                    (why.empty() ? "?" : why) + ")");
+        }
+    }
+    std::printf("== addons: %zu of %zu load-on-demand failed\n",
+                addonFailures.size(), mgr.getLoadOnDemandAddons().size());
+    for (const std::string& f : addonFailures) std::printf("   %s\n", f.c_str());
+
     // Resolve the anchors, so a question about where something ended up has an
     // answer. Nothing drives a render loop here, and without this every frame
     // reports a bottom of zero and a top equal to its own height — which is

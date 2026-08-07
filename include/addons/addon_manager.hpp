@@ -40,6 +40,11 @@ public:
     void shutdown();
 
     const std::vector<TocFile>& getAddons() const { return addons_; }
+    /// The addons that wait to be asked for. Half the interface's own panels
+    /// are here — the talent tree, the achievements, the macro editor — and
+    /// each is loaded whole or not at all, so one of them raising during load
+    /// costs its entire panel rather than degrading it.
+    const std::vector<TocFile>& getLoadOnDemandAddons() const { return lodAddons_; }
 
     /// Load a load-on-demand addon by name. Names are matched without regard to
     /// case, because the interface asks for "Blizzard_TalentUI" and the
