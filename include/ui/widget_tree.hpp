@@ -559,6 +559,20 @@ struct Widget {
     /// — so becoming visible has to be noticed rather than announced at the
     /// point something was hidden three levels up.
     bool  reportedVisible = false;
+    /// How many times Lua has flipped `shown` since the last visibility pass.
+    ///
+    /// Noticing a change by comparing to the last reported state cannot see a
+    /// change that undoes itself first. `panel:Hide(); panel:Show()` is how
+    /// FrameXML says "rebuild yourself" — it is the whole of QuestFrame's
+    /// QUEST_DETAIL handler — and between the two calls nothing looks. The
+    /// frame ends the frame exactly as it started, so a comparison finds
+    /// nothing and OnShow, which is where the panel is actually filled in,
+    /// never runs.
+    ///
+    /// Counted only from the Show and Hide bindings, so that the renderer
+    /// forcing a suppressed window hidden cannot be mistaken for the interface
+    /// asking for a rebuild.
+    uint8_t shownToggles = 0;
     /// The nearest scroll frame above this one, or zero. Everything under a
     /// scroll frame is drawn clipped to it, which is what makes a window onto
     /// a taller child a window rather than a spill.

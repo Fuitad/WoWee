@@ -2767,12 +2767,22 @@ int lua_Button_IsEnabled(lua_State* L) {
 }
 
 int lua_Region_Show(lua_State* L) {
-    if (auto* w = widgetOf(L, 1)) w->shown = true;
+    if (auto* w = widgetOf(L, 1)) {
+        // Counted, not just set. A hide and a show in the same breath leave the
+        // flag where it started, and the pass that fires OnShow works by
+        // comparing against the last state it reported — so the rebuild the
+        // interface asked for is invisible to it. See Widget::shownToggles.
+        if (!w->shown && w->shownToggles < 200) ++w->shownToggles;
+        w->shown = true;
+    }
     lua_pushboolean(L, 1); lua_setfield(L, 1, "__visible");
     return 0;
 }
 int lua_Region_Hide(lua_State* L) {
-    if (auto* w = widgetOf(L, 1)) w->shown = false;
+    if (auto* w = widgetOf(L, 1)) {
+        if (w->shown && w->shownToggles < 200) ++w->shownToggles;
+        w->shown = false;
+    }
     lua_pushboolean(L, 0); lua_setfield(L, 1, "__visible");
     return 0;
 }
@@ -8653,7 +8663,33 @@ void LuaEngine::updateVisibility() {
     for (uint32_t id = 1; id < widgets_.size(); ++id) {
         auto* w = widgets_.get(id);
         if (!w || w->id == 0) continue;
-        if (w->visible == w->reportedVisible) continue;
+        const uint8_t toggles = w->shownToggles;
+        w->shownToggles = 0;
+        if (w->visible == w->reportedVisible) {
+            // Nothing changed overall — but if Lua hid this and showed it again
+            // before anything looked, something *did* happen and both handlers
+            // are owed. `panel:Hide(); panel:Show()` is the interface asking a
+            // panel to rebuild itself, and it is the entirety of QuestFrame's
+            // handler for QUEST_DETAIL, QUEST_PROGRESS, QUEST_COMPLETE and
+            // QUEST_GREETING — the four NPC dialogs, and the reason the vendor
+            // was the only one that still filled in. Everything those panels
+            // show is positioned by QuestInfo_Display, which runs from OnShow
+            // and from nowhere else, so with no OnShow the text kept the place
+            // its XML gave it: outside the scroll frame that clips it, drawn
+            // and clipped away. A blank parchment with working buttons.
+            //
+            // Only for a frame that is on screen at the end of it. A pair of
+            // calls on something that cannot be drawn is not a rebuild anyone
+            // can see, and waking those handlers is the risk this pass was
+            // written to avoid.
+            if (toggles < 2 || !w->visible) continue;
+            callFrameScript(id, "OnHide");
+            callFrameScript(id, "OnShow");
+            // Deliberately both, and in the order they happened. OnHide is
+            // where a panel drops what it was holding, and skipping it would
+            // leave the second OnShow building on top of the first one's state.
+            continue;
+        }
         w->reportedVisible = w->visible;
         callFrameScript(id, w->visible ? "OnShow" : "OnHide");
         // A box that asked for the keyboard takes it as it appears, and gives

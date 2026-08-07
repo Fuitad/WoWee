@@ -254,9 +254,29 @@ int main(int argc, char** argv) {
     wowee::ui::WidgetRenderer widgets;
     widgets.initialize(nullptr, nullptr);
 
+    // Layout, then the three passes the client runs off the back of it.
+    //
+    // Laying out alone was not the frame the client runs. OnShow is fired by
+    // LuaEngine::updateVisibility, which application.cpp calls once a frame and
+    // which nothing here called — so no handler that fills a panel in ever ran,
+    // and every panel measured here was measured empty. That is not a small
+    // gap: QuestFrame's whole QUEST_DETAIL path is `panel:Hide(); panel:Show()`
+    // and every element it positions is positioned from OnShow.
+    //
+    // Worse than the gap was what it did to a question asked of this harness.
+    // "Does OnShow fire?" answered no for the frame under test *and* for a
+    // frame known to be fine, because the pass that fires it was never reached
+    // — a clean-looking zero that meant only that nobody had looked.
+    //
+    // Same order as the client: visibility first, because a panel's OnShow is
+    // what fills it in, and the size of what it filled is what the range is
+    // then measured from.
     auto relayout = [&mgr, &widgets] {
         if (auto* engine = mgr.getLuaEngine()) {
             widgets.layout(engine->widgets(), 1920.0f, 1080.0f);
+            engine->updateVisibility();
+            engine->updateSizeChanges();
+            engine->updateScrollRanges();
         }
     };
     relayout();

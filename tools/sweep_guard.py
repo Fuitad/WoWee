@@ -806,6 +806,73 @@ def run(tool):
     return out.stdout + out.stderr
 
 
+def check_rebuild_idiom():
+    """`panel:Hide(); panel:Show()` must fire OnHide and then OnShow.
+
+    That pair is how FrameXML asks a panel to rebuild itself, and it is the
+    entire body of QuestFrame's handler for QUEST_DETAIL, QUEST_PROGRESS,
+    QUEST_COMPLETE and QUEST_GREETING — the four NPC dialogs. Everything those
+    panels display is positioned by QuestInfo_Display, which runs from OnShow
+    and nowhere else.
+
+    It is worth a guard of its own because of how it fails. Firing OnShow is
+    noticed by comparing a frame against the last state anything reported for
+    it, and a change that undoes itself before anything looks leaves nothing to
+    compare — the panel opens, the buttons work, and the text keeps the place
+    its XML gave it, outside the scroll frame that clips it. Nothing raises and
+    nothing is logged.
+
+    All three cases, because the middle one is only right if the outer two are:
+    a plain Show() must fire, the pair must fire both, and a redundant Show()
+    on something already shown must stay silent.
+    """
+    exe = ROOT / "build" / "bin" / "framexml_run"
+    data = ROOT / "Data"
+    what = "the Hide();Show() rebuild idiom fires OnHide and OnShow"
+    if not exe.exists() or not data.is_dir():
+        return None, what
+    setup = (
+        "P = CreateFrame('Frame', 'SweepRebuildProbe', UIParent)\n"
+        "P:SetPoint('TOPLEFT', UIParent, 'TOPLEFT', 10, -10)\n"
+        "P:SetWidth(50) P:SetHeight(50)\n"
+        "SHOWN = 0 HIDDEN = 0\n"
+        "P:SetScript('OnShow', function() SHOWN = SHOWN + 1 end)\n"
+        "P:SetScript('OnHide', function() HIDDEN = HIDDEN + 1 end)\n"
+        "P:Hide()\n"
+    )
+    argv = [
+        str(exe), str(data), setup,
+        "--tick:1",
+        "SHOWN = 0 HIDDEN = 0 P:Show()",
+        "--tick:1",
+        "if SHOWN ~= 1 then error('a plain Show() did not fire OnShow — this "
+        "check cannot see OnShow at all, so its other answers mean nothing') "
+        "end",
+        "SHOWN = 0 HIDDEN = 0 P:Hide() P:Show()",
+        "--tick:1",
+        "if HIDDEN ~= 1 or SHOWN ~= 1 then error('Hide();Show() fired OnHide x'"
+        "..HIDDEN..' OnShow x'..SHOWN..', wanted one of each — a panel asked to "
+        "rebuild itself will not') end",
+        "SHOWN = 0 P:Show()",
+        "--tick:1",
+        "if SHOWN ~= 0 then error('Show() on an already-shown frame fired "
+        "OnShow, which re-runs handlers retail does not') end",
+    ]
+    try:
+        out = subprocess.run(argv, capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        return False, what + " (timed out)"
+    if out.returncode == 0:
+        return True, what
+    # The runner echoes each expression back on its own `== ` line before
+    # running it, so the text of a failing check appears in the output whether
+    # or not it fired. Only the indented lines under it are what was raised —
+    # matching on the message alone reported this as broken while it worked.
+    detail = next((ln.strip() for ln in (out.stdout + out.stderr).splitlines()
+                   if ln.startswith("   ") and "OnShow" in ln), "")
+    return False, what + (" — " + detail if detail else "")
+
+
 def check_without_the_standin():
     """Load the whole interface with the missing-API stand-in turned off.
 
@@ -889,10 +956,10 @@ def main():
         if not clean:
             failures.append(f"{tool}: {what}")
 
-    ok, what = check_without_the_standin()
-    if ok is None:
-        print(f"  skip    -       {what} (framexml_run not built)")
-    else:
+    for ok, what in (check_without_the_standin(), check_rebuild_idiom()):
+        if ok is None:
+            print(f"  skip    -       {what} (framexml_run not built)")
+            continue
         print(f"  {'ok ' if ok else 'OVER'}    -       {what}")
         if not ok:
             failures.append(f"framexml_run: {what}")
