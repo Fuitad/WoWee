@@ -5972,7 +5972,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, calendarInviteStatusFor(cal, ev.eventId) + 1);
             lua_pushstring(L, "");                 // invitedBy
             lua_pushnumber(L, 0);                  // difficulty
-            lua_pushnumber(L, 0);                  // inviteType
+            lua_pushnumber(L, 1);                  // inviteType: NORMAL
             lua_pushnil(L);                        // sequenceIndex
             lua_pushnil(L);                        // numSequenceDays
             lua_pushstring(L, "");                 // difficultyName
@@ -6065,7 +6065,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushstring(L, ev.description.c_str());
             lua_pushstring(L, gh->lookupName(ev.creatorGuid).c_str());
             lua_pushnumber(L, ev.type + 1);          // wire counts from zero
-            lua_pushnumber(L, ev.repeatOption);
+            lua_pushnumber(L, ev.repeatOption + 1);  // and so does this
             lua_pushnumber(L, ev.maxInvites);
             lua_pushnumber(L, ev.dungeonId);        // textureIndex
             lua_pushnumber(L, ev.eventTime.weekday + 1);
@@ -6090,7 +6090,9 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushboolean(L, 0);              // pendingInvite
             lua_pushnumber(L, calendarInviteStatusFor(gh->getCalendarData(),
                                                       ev.eventId) + 1);
-            lua_pushnumber(L, 0);               // inviteType
+            // CALENDAR_INVITETYPE_NORMAL, which is 1 — the interface's range
+            // starts there, so zero is not "normal" but out of range.
+            lua_pushnumber(L, 1);
             lua_pushstring(L, (ev.flags & 0x0400u) ? "GUILD_EVENT" : "PLAYER");
             return 25;
         }},
@@ -6193,9 +6195,14 @@ void registerSystemLuaAPI(lua_State* L) {
             d.eventTime.minute = static_cast<int>(luaL_optnumber(L, 2, d.eventTime.minute));
             return 0;
         }},
+                // The same boundary as the type. The interface hands over a
+                // dropdown button id, which counts from one, and the wire's
+                // CalendarRepeatType counts from zero — so "Never" would have
+                // been sent as "Weekly".
                 {"CalendarEventSetRepeatOption", [](lua_State* L) -> int {
+            const int uiOption = static_cast<int>(luaL_optnumber(L, 1, 1));
             calendarDraft().repeatOption =
-                static_cast<uint8_t>(luaL_optnumber(L, 1, 0));
+                static_cast<uint8_t>(uiOption > 0 ? uiOption - 1 : 0);
             return 0;
         }},
                 {"CalendarEventSetTextureID", [](lua_State* L) -> int {
