@@ -230,3 +230,72 @@ TEST_CASE("A count larger than the packet reserves nothing", "[calendar]") {
         CHECK_FALSE(parseCalendarSendCalendar(p, cal));
     }
 }
+
+TEST_CASE("A day's rows are holidays first, then events by time", "[calendar]") {
+    // The interface reads a day through one index space: CalendarGetNumDayEvents
+    // counts the rows and three separate getters index into the same list. So
+    // the order is decided once, and a change to it moves every row the player
+    // clicks on.
+    CalendarData cal;
+
+    CalendarEvent late;
+    late.title = "Late";
+    late.eventTime.month = 8; late.eventTime.day = 12;
+    late.eventTime.yearSince2000 = 26;
+    late.eventTime.hour = 20; late.eventTime.minute = 30;
+    CalendarEvent early = late;
+    early.title = "Early";
+    early.eventTime.hour = 9; early.eventTime.minute = 0;
+    CalendarEvent otherDay = late;
+    otherDay.title = "Tomorrow";
+    otherDay.eventTime.day = 13;
+    // Pushed out of order on purpose: the wire order is the server's, not the
+    // player's, and the grid has to sort it.
+    cal.events = {late, early, otherDay};
+
+    CalendarHoliday festival;
+    festival.id = 141;
+    festival.textureFilename = "Calendar_HallowsEnd";
+    // Three days from 11 August 2026, 00:00.
+    festival.dates[0] = (26u << 24) | (7u << 20) | (10u << 14);
+    festival.durations[0] = 72;
+    cal.holidays = {festival};
+
+    const auto rows = calendarEntriesForDay(cal, 8, 12, 2026);
+    REQUIRE(rows.size() == 3);
+    CHECK(rows[0].kind == CalendarEntryKind::Holiday);
+    // The 12th is the holiday's second day, so its name is drawn once on the
+    // 11th and this row is skipped — FrameXML tests sequenceType ~= "ONGOING".
+    CHECK(rows[0].ongoing);
+    CHECK(rows[1].kind == CalendarEntryKind::Event);
+    CHECK(cal.events[rows[1].index].title == "Early");
+    CHECK(cal.events[rows[2].index].title == "Late");
+
+    // The first day of the holiday is not ongoing, and has no events.
+    const auto first = calendarEntriesForDay(cal, 8, 11, 2026);
+    REQUIRE(first.size() == 1);
+    CHECK_FALSE(first[0].ongoing);
+
+    // The day after it ends carries only its own event.
+    const auto after = calendarEntriesForDay(cal, 8, 14, 2026);
+    CHECK(after.empty());
+    const auto tomorrow = calendarEntriesForDay(cal, 8, 13, 2026);
+    REQUIRE(tomorrow.size() == 2);   // holiday's third day, plus the event
+    CHECK(cal.events[tomorrow[1].index].title == "Tomorrow");
+
+    // A different year is a different day, even on the same date.
+    CHECK(calendarEntriesForDay(cal, 8, 12, 2027).empty());
+}
+
+TEST_CASE("A holiday with no duration still happens on its day", "[calendar]") {
+    // Zero hours is what the server sends for a one-off, and rounding it to
+    // zero days would drop the holiday entirely rather than show it once.
+    CalendarData cal;
+    CalendarHoliday oneOff;
+    oneOff.dates[0] = (26u << 24) | (7u << 20) | (10u << 14);
+    oneOff.durations[0] = 0;
+    cal.holidays = {oneOff};
+
+    CHECK(calendarEntriesForDay(cal, 8, 11, 2026).size() == 1);
+    CHECK(calendarEntriesForDay(cal, 8, 12, 2026).empty());
+}

@@ -553,6 +553,37 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         "  end\n"
         "end\n");
 
+    // The three name tables the calendar reads its labels from.
+    //
+    // Blizzard_Calendar's own Localization.lua defines these in the real
+    // client; the copy here has the file but not the definitions, so the month
+    // title was blank and every weekday header with it. Built from the
+    // globalstrings the interface already carries rather than written out in
+    // English, so a localised data set names its own months.
+    //
+    // Before the addon loads, not after, so its Localization.lua still wins if
+    // a data set does define them. Sunday first, which is the order
+    // CALENDAR_WEEKDAY_NAMES is indexed in and the base CalendarGetDate
+    // already answers in.
+    luaEngine_.executeString(
+        "if not CALENDAR_MONTH_NAMES then\n"
+        "  local m = {'JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE',\n"
+        "             'JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'}\n"
+        "  local w = {'SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY',\n"
+        "             'FRIDAY','SATURDAY'}\n"
+        "  CALENDAR_MONTH_NAMES = {}\n"
+        "  CALENDAR_FULLDATE_MONTH_NAMES = {}\n"
+        "  CALENDAR_WEEKDAY_NAMES = {}\n"
+        "  for i, name in ipairs(m) do\n"
+        "    CALENDAR_MONTH_NAMES[i] = _G['MONTH_'..name] or name\n"
+        "    CALENDAR_FULLDATE_MONTH_NAMES[i] =\n"
+        "      _G['FULLDATE_MONTH_'..name] or CALENDAR_MONTH_NAMES[i]\n"
+        "  end\n"
+        "  for i, name in ipairs(w) do\n"
+        "    CALENDAR_WEEKDAY_NAMES[i] = _G['WEEKDAY_'..name] or name\n"
+        "  end\n"
+        "end\n");
+
     // The game-menu button opens this client's settings.
     //
     // ToggleGameMenu is FrameXML's own function and it shows GameMenuFrame,

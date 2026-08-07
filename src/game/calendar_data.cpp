@@ -1,5 +1,7 @@
 #include "game/calendar_data.hpp"
 
+#include <algorithm>
+
 #include "network/packet.hpp"
 
 namespace wowee {
@@ -141,6 +143,79 @@ bool parseCalendarSendCalendar(network::Packet& packet, CalendarData& out) {
     }
 
     return true;
+}
+
+
+namespace {
+
+/// A day number that can be compared and subtracted across month ends, so
+/// "does this holiday still run on the 3rd" does not need a calendar walk.
+/// Any consistent epoch will do — only differences are used.
+int64_t dayNumber(int year, int month, int day) {
+    // Howard Hinnant's days_from_civil, which is exact for the proleptic
+    // Gregorian calendar the server's clock uses.
+    year -= month <= 2;
+    const int64_t era = (year >= 0 ? year : year - 399) / 400;
+    const int64_t yoe = year - era * 400;
+    const int64_t doy = (153 * (month + (month > 2 ? -3 : 9)) + 2) / 5 + day - 1;
+    const int64_t doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    return era * 146097 + doe - 719468;
+}
+
+}  // namespace
+
+std::vector<CalendarDayEntry> calendarEntriesForDay(const CalendarData& data,
+                                                    int month, int day,
+                                                    int year) {
+    std::vector<CalendarDayEntry> out;
+    const int64_t wanted = dayNumber(year, month, day);
+
+    for (size_t h = 0; h < data.holidays.size(); ++h) {
+        const CalendarHoliday& holiday = data.holidays[h];
+        for (int i = 0; i < CalendarHoliday::kNumDates; ++i) {
+            if (holiday.dates[i] == 0) continue;
+            const WowDate start = unpackWowPackedTime(holiday.dates[i]);
+            const int64_t first = dayNumber(start.fullYear(), start.month, start.day);
+            if (wanted < first) continue;
+            // Hours, rounded up to whole days and never less than one: a
+            // holiday sent with a duration of zero still happens on its day.
+            const uint32_t hours = (i < CalendarHoliday::kNumDurations)
+                                       ? holiday.durations[i] : 0;
+            const int64_t days = hours > 0 ? static_cast<int64_t>((hours + 23) / 24) : 1;
+            if (wanted >= first + days) continue;
+            CalendarDayEntry entry;
+            entry.kind = CalendarEntryKind::Holiday;
+            entry.index = h;
+            entry.ongoing = wanted > first;
+            out.push_back(entry);
+            break;  // one row per holiday per day, whichever run covers it
+        }
+    }
+
+    for (size_t e = 0; e < data.events.size(); ++e) {
+        const WowDate when = data.events[e].eventTime;
+        if (when.month != month || when.day != day || when.fullYear() != year) {
+            continue;
+        }
+        CalendarDayEntry entry;
+        entry.kind = CalendarEntryKind::Event;
+        entry.index = e;
+        out.push_back(entry);
+    }
+
+    // Events by time of day, holidays left where they are at the front.
+    std::stable_sort(out.begin(), out.end(),
+                     [&data](const CalendarDayEntry& a, const CalendarDayEntry& b) {
+                         if (a.kind != b.kind) {
+                             return a.kind == CalendarEntryKind::Holiday;
+                         }
+                         if (a.kind == CalendarEntryKind::Holiday) return false;
+                         const WowDate& ta = data.events[a.index].eventTime;
+                         const WowDate& tb = data.events[b.index].eventTime;
+                         if (ta.hour != tb.hour) return ta.hour < tb.hour;
+                         return ta.minute < tb.minute;
+                     });
+    return out;
 }
 
 }  // namespace game

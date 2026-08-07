@@ -1216,3 +1216,11 @@ if(TARGET Vulkan::Vulkan)
 endif()
 add_test(NAME calendar_packet COMMAND test_calendar_packet)
 register_test_target(test_calendar_packet)
+
+# ── test_calendar_month ─────────────────────────────────────
+add_executable(test_calendar_month test_calendar_month.cpp)
+target_include_directories(test_calendar_month PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_calendar_month SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_calendar_month PRIVATE catch2_main)
+add_test(NAME calendar_month COMMAND test_calendar_month)
+register_test_target(test_calendar_month)

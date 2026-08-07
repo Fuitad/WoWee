@@ -4,9 +4,11 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <set>
+#include <utility>
 #include <vector>
 #include "core/config_paths.hpp"
 #include "imgui.h"
@@ -14,6 +16,7 @@
 #include "ui/display_modes.hpp"
 #include "addons/lua_engine.hpp"
 #include "game/bg_score_defs.hpp"
+#include "game/calendar_month.hpp"
 #include "game/pet_action.hpp"
 #include "audio/activity_sound_manager.hpp"
 #include "audio/ambient_sound_manager.hpp"
@@ -49,6 +52,107 @@ namespace wowee::addons {
 // combat log filters itself empty.
 //
 // A category the mask says nothing about is not a constraint.
+/// The month the calendar is looking at, as (month, year).
+///
+/// State, because it is state in WoW as well: CalendarSetMonth moves it by an
+/// offset and CalendarGetMonth reads it back. Recomputing it from the clock on
+/// every call would answer correctly once and make the month buttons do
+/// nothing. Seeded from the local clock the first time it is asked, which is
+/// the month the calendar opens on.
+static std::pair<int, int>& calendarViewedMonthState() {
+    static std::pair<int, int> viewed{0, 0};
+    if (viewed.first == 0) {
+        const std::time_t now = std::time(nullptr);
+        const std::tm* t = std::localtime(&now);
+        if (t) viewed = {t->tm_mon + 1, t->tm_year + 1900};
+        else   viewed = {1, 2000};
+    }
+    return viewed;
+}
+
+static std::pair<int, int> calendarViewedMonth() {
+    return calendarViewedMonthState();
+}
+
+static void calendarSetViewedMonth(int month, int year) {
+    if (month < 1 || month > 12) return;
+    calendarViewedMonthState() = {month, year};
+}
+
+/// One end of the range the calendar offers, as weekday, month, day, year —
+/// the order the interface unpacks it in.
+static int pushCalendarBoundDate(lua_State* L, int monthOffset) {
+    const auto viewedNow = calendarViewedMonth();
+    // From today's month rather than the viewed one: a bound that moved as the
+    // player paged would let them page for ever.
+    const std::time_t now = std::time(nullptr);
+    const std::tm* t = std::localtime(&now);
+    const int baseMonth = t ? t->tm_mon + 1 : viewedNow.first;
+    const int baseYear  = t ? t->tm_year + 1900 : viewedNow.second;
+    const auto info =
+        wowee::game::calendarMonthAt(baseMonth, baseYear, monthOffset);
+    // The first of that month at the near end, its last day at the far end, so
+    // the whole bounding month is inside the range rather than half of it.
+    const int day = (monthOffset < 0) ? 1 : info.numDays;
+    lua_pushnumber(L, wowee::game::weekdayOf(info.month, day, info.year));
+    lua_pushnumber(L, info.month);
+    lua_pushnumber(L, day);
+    lua_pushnumber(L, info.year);
+    return 4;
+}
+
+/// The rows on the day an interface call is asking about.
+///
+/// Every day-indexed calendar getter takes (monthOffset, day) and indexes the
+/// same list, so resolving it lives here once — three getters computing "which
+/// month is offset -1 of the viewed one" separately is how they would drift
+/// apart on the first month that ends on a Sunday.
+static std::vector<wowee::game::CalendarDayEntry> calendarDayRows(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return {};
+    const int monthOffset = static_cast<int>(luaL_optnumber(L, 1, 0));
+    const int day = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (day < 1) return {};
+    const auto viewed = calendarViewedMonth();
+    const auto info = wowee::game::calendarMonthAt(viewed.first, viewed.second,
+                                                   monthOffset);
+    if (day > info.numDays) return {};
+    return wowee::game::calendarEntriesForDay(gh->getCalendarData(), info.month,
+                                              day, info.year);
+}
+
+/// Which of the six kinds of row this event is, as the string the interface
+/// compares against. Guild events carry a flag; everything else the player can
+/// see on their own calendar is theirs.
+static const char* calendarTypeName(const wowee::game::CalendarEvent& ev) {
+    // CALENDAR_EVENTTYPE_* from the server: 4 is the guild announcement, and
+    // the guild flag distinguishes an event from an announcement.
+    constexpr uint32_t kGuildEventFlag = 0x0400;
+    if (ev.type == 4) return "GUILD_ANNOUNCEMENT";
+    if (ev.flags & kGuildEventFlag) return "GUILD_EVENT";
+    return "PLAYER";
+}
+
+/// "CREATOR" when this is the player's own event, otherwise nothing. The
+/// interface shows the edit controls on the first of those.
+static const char* calendarModStatus(lua_State* L,
+                                     const wowee::game::CalendarEvent& ev) {
+    auto* gh = getGameHandler(L);
+    return (gh && ev.creatorGuid != 0 && ev.creatorGuid == gh->getPlayerGuid())
+               ? "CREATOR" : "";
+}
+
+/// The player's own answer to an event, from the invite list that came with
+/// it. Zero is CALENDAR_INVITESTATUS_INVITED, which is what an event carries
+/// while it is unanswered.
+static double calendarInviteStatusFor(const wowee::game::CalendarData& cal,
+                                      uint64_t eventId) {
+    for (const auto& invite : cal.invites) {
+        if (invite.eventId == eventId) return static_cast<double>(invite.status);
+    }
+    return 0;
+}
+
 static int lua_CombatLog_Object_IsA(lua_State* L) {
     const auto flags = static_cast<uint32_t>(luaL_optnumber(L, 1, 0));
     const auto mask  = static_cast<uint32_t>(luaL_optnumber(L, 2, 0));
@@ -2528,28 +2632,17 @@ static int lua_LoadAddOn(lua_State* L) {
         lua_pushstring(L, "MISSING");
         return 2;
     }
-    // Blizzard_Calendar is refused, and refusing it is what keeps the calendar
-    // button working rather than raising.
+    // Blizzard_Calendar loads. It was refused for a long time, and the note
+    // that stood here is worth keeping in outline: the minimap's date button
+    // calls Calendar_LoadUI, whose CalendarFrame_OnShow calls OpenCalendar, so
+    // loading the addon with its verbs missing raised on one click. Saying no
+    // made the button do nothing, which was the truth.
     //
-    // Seventy-nine of the calendar's own globals are unbound, because this
-    // client has no calendar. GameTimeFrame_OnClick — the date button on the
-    // minimap, which FrameXML draws — calls Calendar_LoadUI and then the
-    // addon's CalendarFrame_OnShow calls OpenCalendar, so one click raised.
-    // FrameXML guards the step after: ToggleCalendar tests `if (Calendar_Toggle)`
-    // before calling it, and Calendar_Toggle only exists once the addon has
-    // loaded. Saying no here therefore makes the button do nothing, which is
-    // the truth, instead of half-opening a window whose every verb is missing.
-    //
-    // Binding the seventy-nine instead would need each one's arity right —
-    // CalendarGetMonth answers four values that go straight into arithmetic —
-    // and getting one wrong moves the raise rather than removing it. This
-    // comes out when there is a calendar behind it.
-    if (std::strcmp(name, "Blizzard_Calendar") == 0) {
-        lua_pushboolean(L, 0);
-        lua_pushstring(L, "DISABLED");
-        return 2;
-    }
-
+    // What changed is that there is a calendar behind it now — the packet is
+    // parsed into CalendarData, and the month grid, the day lists and the
+    // holidays are answered from it. The write side is still missing, and a
+    // missing global is a callable stand-in rather than a raise, so creating
+    // an event does nothing rather than breaking the window it is in.
     std::string reason;
     const bool ok = svc->loadAddOn(name, reason);
     lua_pushboolean(L, ok ? 1 : 0);
@@ -5751,7 +5844,210 @@ void registerSystemLuaAPI(lua_State* L) {
             return 1;
         }},
                 {"CalendarGetNumDayEvents", [](lua_State* L) -> int {
-            return luaReturnZero(L);
+            lua_pushnumber(L, static_cast<double>(calendarDayRows(L).size()));
+            return 1;
+        }},
+                // Fifteen values, in the order the interface unpacks them:
+                //
+                //   title, hour, minute, calendarType, sequenceType, eventType,
+                //   texture, modStatus, inviteStatus, invitedBy, difficulty,
+                //   inviteType, sequenceIndex, numSequenceDays, difficultyName
+                //
+                // A nil title is how the list ends — the interface tests
+                // `if ( title and sequenceType ~= "ONGOING" )` — so an index
+                // past the day's rows answers nothing at all rather than a row
+                // of blanks, which would draw an empty button on every day.
+                {"CalendarGetDayEvent", [](lua_State* L) -> int {
+            const auto rows = calendarDayRows(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 3, 0));
+            if (index < 1 || static_cast<size_t>(index) > rows.size()) return 0;
+            const auto& row = rows[static_cast<size_t>(index) - 1];
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const wowee::game::CalendarData& cal = gh->getCalendarData();
+
+            if (row.kind == wowee::game::CalendarEntryKind::Holiday) {
+                const auto& holiday = cal.holidays[row.index];
+                lua_pushstring(L, holiday.textureFilename.c_str());
+                lua_pushnumber(L, 0);              // hour
+                lua_pushnumber(L, 0);              // minute
+                lua_pushstring(L, "HOLIDAY");
+                // The one distinction the interface acts on: a holiday's name
+                // is drawn on its first day and its later days are skipped.
+                lua_pushstring(L, row.ongoing ? "ONGOING" : "START");
+                lua_pushnumber(L, 0);              // eventType
+                lua_pushnumber(L, static_cast<double>(holiday.id));  // texture
+                lua_pushstring(L, "");             // modStatus
+                lua_pushnumber(L, 0);              // inviteStatus
+                lua_pushstring(L, "");             // invitedBy
+                lua_pushnumber(L, 0);              // difficulty
+                lua_pushnumber(L, 0);              // inviteType
+                lua_pushnil(L);                    // sequenceIndex
+                lua_pushnil(L);                    // numSequenceDays
+                lua_pushstring(L, "");             // difficultyName
+                return 15;
+            }
+
+            const auto& ev = cal.events[row.index];
+            lua_pushstring(L, ev.title.c_str());
+            lua_pushnumber(L, ev.eventTime.hour);
+            lua_pushnumber(L, ev.eventTime.minute);
+            lua_pushstring(L, calendarTypeName(ev));
+            lua_pushstring(L, "");                 // sequenceType: single day
+            lua_pushnumber(L, static_cast<double>(ev.type));
+            lua_pushnumber(L, 0);                  // texture
+            lua_pushstring(L, calendarModStatus(L, ev));
+            lua_pushnumber(L, calendarInviteStatusFor(cal, ev.eventId));
+            lua_pushstring(L, "");                 // invitedBy
+            lua_pushnumber(L, 0);                  // difficulty
+            lua_pushnumber(L, 0);                  // inviteType
+            lua_pushnil(L);                        // sequenceIndex
+            lua_pushnil(L);                        // numSequenceDays
+            lua_pushstring(L, "");                 // difficultyName
+            return 15;
+        }},
+                // name, description, texture — indexed into the same day list
+                // as CalendarGetDayEvent, so a row that is not a holiday
+                // answers nothing rather than the wrong holiday.
+                {"CalendarGetHolidayInfo", [](lua_State* L) -> int {
+            const auto rows = calendarDayRows(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 3, 0));
+            if (index < 1 || static_cast<size_t>(index) > rows.size()) return 0;
+            const auto& row = rows[static_cast<size_t>(index) - 1];
+            if (row.kind != wowee::game::CalendarEntryKind::Holiday) return 0;
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const auto& holiday = gh->getCalendarData().holidays[row.index];
+            lua_pushstring(L, holiday.textureFilename.c_str());
+            lua_pushstring(L, "");
+            lua_pushstring(L, holiday.textureFilename.c_str());
+            return 3;
+        }},
+                // Ask the server for the calendar. The addon's OnShow calls
+                // this, and the answer arrives as CALENDAR_UPDATE_EVENT_LIST.
+                {"OpenCalendar", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->requestCalendar();
+            return 0;
+        }},
+                // Whether a request is in flight. Nothing here queues one, so
+                // the answer is no — and false rather than nothing, because
+                // the interface disables buttons on it and nil would read the
+                // same as false only by accident.
+                {"CalendarIsActionPending", [](lua_State* L) -> int {
+            lua_pushboolean(L, 0);
+            return 1;
+        }},
+                // minLevel, maxLevel, rank — the default filter a guild event
+                // is created with. The whole guild, which is what the server
+                // defaults to as well.
+                {"CalendarDefaultGuildFilter", [](lua_State* L) -> int {
+            lua_pushnumber(L, 1);
+            lua_pushnumber(L, 80);
+            lua_pushnumber(L, 0);
+            return 3;
+        }},
+                // Whether the player may put an event on the guild's calendar.
+                // The server decides for real; this is the guild-membership
+                // half of it, which is the half that gates the button.
+                {"CanEditGuildEvent", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L, (gh && !gh->getGuildName().empty()) ? 1 : 0);
+            return 1;
+        }},
+                // Arena team events need a team. No arena team is tracked, so
+                // the honest answer is no and the option stays out of the
+                // create menu rather than leading to a request that fails.
+                {"IsInArenaTeam", [](lua_State* L) -> int {
+            lua_pushboolean(L, 0);
+            return 1;
+        }},
+                // Which event is selected, as monthOffset, day, index.
+                //
+                // Nothing is selected until an event view exists to select
+                // into, so all three are nil — but three nils rather than no
+                // values at all. The interface unpacks it as a group, and a
+                // binding that answers short is the shape framexml_short_returns
+                // is pinned at zero to catch: it reads as correct here only
+                // because Lua happens to fill the rest with nil.
+                {"CalendarGetEventIndex", [](lua_State* L) -> int {
+            lua_pushnil(L);
+            lua_pushnil(L);
+            lua_pushnil(L);
+            return 3;
+        }},
+                // The first unanswered invite on a day, or zero.
+                //
+                // A number always, never nothing: the interface compares it
+                // straight away — `if ( pendingInviteIndex > 0 )` with no
+                // guard in front — so nil raises rather than reading as "no
+                // invite". The invite list the server sends is not per-day, so
+                // a day has one only when one of its events is in it.
+                {"CalendarGetFirstPendingInvite", [](lua_State* L) -> int {
+            const auto rows = calendarDayRows(L);
+            auto* gh = getGameHandler(L);
+            if (!gh) { lua_pushnumber(L, 0); return 1; }
+            const auto& cal = gh->getCalendarData();
+            for (size_t i = 0; i < rows.size(); ++i) {
+                if (rows[i].kind != wowee::game::CalendarEntryKind::Event) continue;
+                const uint64_t id = cal.events[rows[i].index].eventId;
+                for (const auto& invite : cal.invites) {
+                    // 0 is CALENDAR_INVITESTATUS_INVITED — still unanswered.
+                    if (invite.eventId == id && invite.status == 0) {
+                        lua_pushnumber(L, static_cast<double>(i + 1));
+                        return 1;
+                    }
+                }
+            }
+            lua_pushnumber(L, 0);
+            return 1;
+        }},
+                // ---- The month the grid is drawn from ----
+                //
+                // The viewed month is the interface's own state in WoW too:
+                // CalendarSetMonth and CalendarSetAbsMonth move it and
+                // CalendarGetMonth reads it back, so it is kept here rather
+                // than recomputed from the clock on every call — which would
+                // make the previous-month button do nothing.
+                {"CalendarGetMonth", [](lua_State* L) -> int {
+            // The offset is optional: CalendarGetMonth() means the viewed
+            // month, and the interface calls it that way and with -1 and 1 in
+            // the same breath to fill the leading and trailing cells.
+            const int offset = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const auto viewed = calendarViewedMonth();
+            const auto info = wowee::game::calendarMonthAt(
+                viewed.first, viewed.second, offset);
+            lua_pushnumber(L, info.month);
+            lua_pushnumber(L, info.year);
+            lua_pushnumber(L, info.numDays);
+            lua_pushnumber(L, info.firstWeekday);
+            return 4;
+        }},
+                {"CalendarSetMonth", [](lua_State* L) -> int {
+            const int offset = static_cast<int>(luaL_checknumber(L, 1));
+            const auto viewed = calendarViewedMonth();
+            const auto info = wowee::game::calendarMonthAt(
+                viewed.first, viewed.second, offset);
+            calendarSetViewedMonth(info.month, info.year);
+            return 0;
+        }},
+                {"CalendarSetAbsMonth", [](lua_State* L) -> int {
+            calendarSetViewedMonth(static_cast<int>(luaL_checknumber(L, 1)),
+                                   static_cast<int>(luaL_checknumber(L, 2)));
+            return 0;
+        }},
+                // The ends of the range, both as weekday, month, day, year.
+                //
+                // Nothing on the wire says how far the server will let the
+                // player look or book, so this client offers the year either
+                // side of today. A year ahead is the limit the interface
+                // already has a string for — CALENDAR_ERROR_CREATEDATE_AFTER_MAX
+                // — and the same span back keeps past events reachable, which
+                // is what the previous-month button is for.
+                {"CalendarGetMinDate", [](lua_State* L) -> int {
+            return pushCalendarBoundDate(L, -12);
+        }},
+                {"CalendarGetMaxCreateDate", [](lua_State* L) -> int {
+            return pushCalendarBoundDate(L, 12);
         }},
                 // Compared against a number the moment it is called —
                 // `CalendarEventGetNumInvites() > MAX_PARTY_MEMBERS + 1` — so

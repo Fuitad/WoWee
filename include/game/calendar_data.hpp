@@ -126,5 +126,36 @@ struct CalendarData {
  */
 bool parseCalendarSendCalendar(network::Packet& packet, CalendarData& out);
 
+/// What a row on a given day came from. The interface reads a day's rows
+/// through one index space — `CalendarGetNumDayEvents` counts them and
+/// `CalendarGetDayEvent`, `CalendarGetHolidayInfo` and `CalendarGetRaidInfo`
+/// all index into the same list — so the order has to be decided once, here,
+/// rather than in each of those.
+enum class CalendarEntryKind { Holiday, Event };
+
+struct CalendarDayEntry {
+    CalendarEntryKind kind = CalendarEntryKind::Event;
+    /// Into CalendarData::holidays or ::events, by kind.
+    size_t index = 0;
+    /// True on every day of a holiday after the first. FrameXML skips a row
+    /// whose sequenceType is "ONGOING" when drawing the day's list, so a
+    /// week-long holiday draws its name once rather than seven times.
+    bool ongoing = false;
+};
+
+/**
+ * The rows for one day, holidays first and then events by time.
+ *
+ * Holidays lead because that is the order WoW draws them in — a world event
+ * heads the day and the player's own events follow underneath.
+ *
+ * A holiday covers `durations[i]` hours from `dates[i]`, and both arrays are
+ * walked together: a holiday with several date/duration pairs is several
+ * separate runs in the same row, which is how a recurring one is sent.
+ */
+std::vector<CalendarDayEntry> calendarEntriesForDay(const CalendarData& data,
+                                                    int month, int day,
+                                                    int year);
+
 }  // namespace game
 }  // namespace wowee
