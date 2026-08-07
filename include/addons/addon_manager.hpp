@@ -87,6 +87,14 @@ private:
     // addonName -> enabled. Absent means enabled (default on).
     std::unordered_map<std::string, bool> addonEnabled_;
     std::string frameXmlDir_;
+    /// The same directory as it is actually spelled on disk.
+    ///
+    /// The caller says ".../interface/FrameXML" and this install has
+    /// ".../interface/framexml". loadFrameXml resolves that to open it, and
+    /// the resolved spelling was thrown away with the local it was kept in —
+    /// so every later use of the member was a path that does not exist, on any
+    /// filesystem that cares about case.
+    std::string frameXmlResolvedDir_;
     /// Why the last loadXmlFile returned false, so a caller loading many files
     /// can report the reasons together instead of leaving them scattered.
     std::string lastXmlError_;

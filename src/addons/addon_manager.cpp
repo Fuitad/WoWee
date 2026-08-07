@@ -373,6 +373,13 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         return false;
     }
     const std::string resolvedDir = dir.string();
+    // Kept, because an include that names a shared template by bare name is
+    // resolved against this and nothing else. Blizzard_InspectUI asks for
+    // PVPFrameTemplates.xml, which lives in FrameXML rather than beside it, and
+    // with an unopenable base the fallback below silently found nothing — the
+    // include failed, the file failed, and the whole addon failed to load, so
+    // inspecting another player did nothing at all.
+    frameXmlResolvedDir_ = resolvedDir;
 
     LOG_WARNING("FrameXML: attempting to load the original interface — ",
                 toc->files.size(), " files from ", resolvedDir);
@@ -717,7 +724,8 @@ bool AddonManager::loadXmlFile(const std::string& path, int depth) {
         // Then FrameXML itself. An addon includes a shared template by bare
         // name — inspectpvpframe.xml asks for PVPFrameTemplates.xml — and by a
         // path back out of its own folder, and both mean the same place.
-        const fs::path base = fs::path(frameXmlDir_);
+        const fs::path base = fs::path(frameXmlResolvedDir_.empty()
+                                           ? frameXmlDir_ : frameXmlResolvedDir_);
         if (!base.empty()) {
             if (fs::path p = resolvePath(base, fs::path(name).filename().string());
                 !p.empty()) {
