@@ -72,10 +72,28 @@ static int lua_IsCurrentQuestFailed(lua_State* L) {
 // an empty one.
 // GetRewardSpell() — the quest *giver's* reward spell.
 //
-// Still nil: SMSG_QUESTGIVER_QUEST_DETAILS is not parsed for one, and the log
-// form below cannot stand in for it — the panel that asks this is showing a
-// quest being offered, which is usually not the one selected in the log.
-static int lua_GetQuestRewardSpell(lua_State* L) { (void)L; return luaReturnNil(L); }
+// The offer's own, not the log's: the panel asking this is showing a quest
+// being offered, which is usually not the one selected in the log, so the log
+// form cannot stand in for it.
+//
+// It answered nil because the details packet was not read this far. It is now
+// — four fields past the XP — so a quest that teaches a recipe shows what it
+// teaches. Same four values and same three flags as the log form beside it.
+static int lua_GetQuestRewardSpell(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) return luaReturnNil(L);
+    const uint32_t spellId = gh->getQuestDetails().rewardSpellId;
+    if (spellId == 0) return luaReturnNil(L);
+    const std::string name = gh->getSpellName(spellId);
+    if (name.empty()) return luaReturnNil(L);
+    const std::string icon = gh->getSpellIconPath(spellId);
+    lua_pushstring(L, icon.empty() ? "Interface\\Icons\\INV_Misc_QuestionMark"
+                                   : icon.c_str());
+    lua_pushstring(L, name.c_str());
+    lua_pushboolean(L, gh->isProfessionSpell(spellId) ? 1 : 0);
+    lua_pushboolean(L, gh->getKnownSpells().count(spellId) > 0 ? 1 : 0);
+    return 4;
+}
 static int lua_GetQuestRewardTitle(lua_State* L) { (void)L; return luaReturnNil(L); }
 static int lua_ProcessQuestLogRewardFactions(lua_State* L) { (void)L; return 0; }
 static int lua_GetQuestLogRewardFactionInfo(lua_State* L) { (void)L; return luaReturnNil(L); }

@@ -2486,6 +2486,13 @@ struct QuestDetailsData {
     uint32_t rewardXp = 0;
     std::vector<QuestRewardItem> rewardChoiceItems;  // Player picks one of these
     std::vector<QuestRewardItem> rewardItems;         // These are always given
+    /// The spell shown under "You will learn:" on the offer. Sent three fields
+    /// past the XP — honor, an unused float, then this.
+    ///
+    /// The cast id and the title id follow it on the wire and are deliberately
+    /// not kept: nothing reads them, and a field stored for nobody is a claim
+    /// that something uses it.
+    uint32_t rewardSpellId = 0;
 };
 
 /** SMSG_QUESTGIVER_QUEST_DETAILS parser */

@@ -776,7 +776,28 @@ bool QuestDetailsParser::parse(network::Packet& packet, QuestDetailsData& data) 
     if (packet.hasRemaining(4))
         data.rewardXp = packet.readUInt32();
 
-    LOG_DEBUG("Quest details: id=", data.questId, " title='", data.title, "'");
+    // Then, unconditionally in GossipDef.cpp:472 onwards —
+    //
+    //     uint32 honor (already multiplied by ten)
+    //     float  unused, commented "honor multiplier?"
+    //     uint32 reward spell        <- the icon under "You will learn:"
+    //
+    // The cast id and the title id come next and are left on the wire: nothing
+    // reads them, and stopping here is honest about that.
+    //
+    // The offer panel gates its whole reward-spell row on being given one, so
+    // a quest that teaches a recipe showed no sign of it. Each read is guarded
+    // on its own: an older realm that stops short leaves the spell at zero
+    // rather than taking a value out of the next packet, and a realm whose
+    // layout differs here yields an id no spell answers to, which reads as
+    // no reward spell — the same as before.
+    if (packet.hasRemaining(4)) /*honor*/            packet.readUInt32();
+    if (packet.hasRemaining(4)) /*honorMultiplier*/  packet.readFloat();
+    if (packet.hasRemaining(4))
+        data.rewardSpellId = packet.readUInt32();
+
+    LOG_DEBUG("Quest details: id=", data.questId, " title='", data.title,
+              "' rewardSpell=", data.rewardSpellId);
     return true;
 }
 
