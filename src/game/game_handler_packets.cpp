@@ -2880,6 +2880,22 @@ void GameHandler::registerOpcodeHandlers() {
         }
         packet.skipAll();
     };
+    // One event in full, in answer to opening it.
+    dispatchTable_[Opcode::SMSG_CALENDAR_SEND_EVENT] = [this](network::Packet& packet) {
+        CalendarEventDetail parsed;
+        if (!parseCalendarSendEvent(packet, parsed)) {
+            LOG_WARNING("SMSG_CALENDAR_SEND_EVENT: could not be read whole; "
+                        "keeping the previous event rather than a partial one");
+            packet.skipAll();
+            return;
+        }
+        calendarEventDetail_ = std::move(parsed);
+        LOG_INFO("SMSG_CALENDAR_SEND_EVENT: '", calendarEventDetail_.title,
+                 "' with ", calendarEventDetail_.invitees.size(), " invitee(s)");
+        if (addonEventCallback_) addonEventCallback_("CALENDAR_UPDATE_EVENT", {});
+        packet.skipAll();
+    };
+
     // The whole calendar, in answer to a request for it.
     //
     // Six lists back to back with no length prefix on any of them, so this is
@@ -3296,7 +3312,6 @@ void GameHandler::registerOpcodeHandlers() {
         Opcode::SMSG_CALENDAR_EVENT_REMOVED_ALERT,
         Opcode::SMSG_CALENDAR_EVENT_UPDATED_ALERT,
         Opcode::SMSG_CALENDAR_FILTER_GUILD,
-        Opcode::SMSG_CALENDAR_SEND_EVENT,
         Opcode::SMSG_CHEAT_DUMP_ITEMS_DEBUG_ONLY_RESPONSE,
         Opcode::SMSG_CHEAT_DUMP_ITEMS_DEBUG_ONLY_RESPONSE_WRITE_FILE,
         Opcode::SMSG_CHEAT_PLAYER_LOOKUP,

@@ -126,6 +126,48 @@ struct CalendarData {
  */
 bool parseCalendarSendCalendar(network::Packet& packet, CalendarData& out);
 
+/// One person on an event's invite list.
+struct CalendarEventInvitee {
+    uint64_t guid = 0;
+    uint64_t inviteId = 0;
+    uint8_t level = 0;
+    uint8_t status = 0;        ///< CalendarInviteStatus
+    uint8_t rank = 0;          ///< CalendarModerationRank
+    bool isGuildMember = false;
+    WowDate statusTime;
+    std::string note;
+};
+
+/**
+ * One event in full, as SMSG_CALENDAR_SEND_EVENT sends it.
+ *
+ * The answer to opening an event. Laid out against CalendarMgr::
+ * SendCalendarEvent (CalendarMgr.cpp:627): a header, then a count and that
+ * many invitee rows — and every row carries a packed guid, a packed time and
+ * a string, so a row read wrong slides the rest exactly as the calendar packet
+ * does.
+ */
+struct CalendarEventDetail {
+    uint8_t sendType = 0;
+    uint64_t creatorGuid = 0;
+    uint64_t eventId = 0;
+    std::string title;
+    std::string description;
+    uint8_t type = 0;
+    uint8_t repeatOption = 0;
+    uint32_t maxInvites = 0;
+    int32_t dungeonId = -1;
+    uint32_t flags = 0;
+    WowDate eventTime;
+    uint32_t eventTimePacked = 0;
+    WowDate timeZoneTime;
+    uint32_t guildId = 0;
+    std::vector<CalendarEventInvitee> invitees;
+};
+
+/// Read one SMSG_CALENDAR_SEND_EVENT. False when it runs out mid-row.
+bool parseCalendarSendEvent(network::Packet& packet, CalendarEventDetail& out);
+
 /// An event being built up before it is sent.
 ///
 /// The interface fills this in over several calls — a title here, a date

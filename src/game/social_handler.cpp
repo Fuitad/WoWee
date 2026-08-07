@@ -4417,6 +4417,14 @@ void SocialHandler::requestBfMgrExit(uint32_t battleId) {
 // Calendar
 // ============================================================
 
+void SocialHandler::requestCalendarEvent(uint64_t eventId) {
+    if (!owner_.isInWorld()) return;
+    network::Packet pkt(wireOpcode(Opcode::CMSG_CALENDAR_GET_EVENT));
+    pkt.writeUInt64(eventId);
+    owner_.getSocket()->send(pkt);
+    LOG_INFO("requestCalendarEvent: ", eventId);
+}
+
 void SocialHandler::createCalendarEvent(const CalendarEventDraft& draft) {
     if (!owner_.isInWorld()) return;
     // title, description, type, repeatable, maxInvites, dungeonId, then two

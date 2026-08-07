@@ -6033,6 +6033,91 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushboolean(L, 0);
             return 1;
         }},
+                // ---- Opening one event ----
+                //
+                // The interface names a row, this turns it into an event id
+                // and asks the server; the answer arrives as
+                // CALENDAR_UPDATE_EVENT and CalendarGetEventInfo reads it.
+                {"CalendarOpenEvent", [](lua_State* L) -> int {
+            const auto rows = calendarDayRows(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 3, 0));
+            auto* gh = getGameHandler(L);
+            if (!gh || index < 1 || static_cast<size_t>(index) > rows.size()) return 0;
+            const auto& row = rows[static_cast<size_t>(index) - 1];
+            if (row.kind != wowee::game::CalendarEntryKind::Event) return 0;
+            gh->requestCalendarEvent(gh->getCalendarData().events[row.index].eventId);
+            return 0;
+        }},
+                {"CalendarCloseEvent", [](lua_State* L) -> int {
+            (void)L;
+            return 0;
+        }},
+                // Twenty-five values, in the order the view frame unpacks
+                // them. A nil title is how it knows there is nothing to show —
+                // `if ( not title ) then return end` — so an unopened event
+                // answers nothing rather than a row of blanks.
+                {"CalendarGetEventInfo", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const auto& ev = gh->getCalendarEventDetail();
+            if (ev.eventId == 0) return 0;
+            lua_pushstring(L, ev.title.c_str());
+            lua_pushstring(L, ev.description.c_str());
+            lua_pushstring(L, gh->lookupName(ev.creatorGuid).c_str());
+            lua_pushnumber(L, ev.type);
+            lua_pushnumber(L, ev.repeatOption);
+            lua_pushnumber(L, ev.maxInvites);
+            lua_pushnumber(L, ev.dungeonId);        // textureIndex
+            lua_pushnumber(L, ev.eventTime.weekday + 1);
+            lua_pushnumber(L, ev.eventTime.month);
+            lua_pushnumber(L, ev.eventTime.day);
+            lua_pushnumber(L, ev.eventTime.fullYear());
+            lua_pushnumber(L, ev.eventTime.hour);
+            lua_pushnumber(L, ev.eventTime.minute);
+            // The lockout date, which only a raid-reset event carries. The
+            // same date rather than nothing: the frame formats it without
+            // guarding, so nil there raises where a repeated date only reads
+            // oddly on an event that has no lockout to show.
+            lua_pushnumber(L, ev.eventTime.weekday + 1);
+            lua_pushnumber(L, ev.eventTime.month);
+            lua_pushnumber(L, ev.eventTime.day);
+            lua_pushnumber(L, ev.eventTime.fullYear());
+            lua_pushnumber(L, ev.eventTime.hour);
+            lua_pushnumber(L, ev.eventTime.minute);
+            constexpr uint32_t kFlagInvitesLocked = 0x1000;
+            lua_pushboolean(L, (ev.flags & kFlagInvitesLocked) ? 1 : 0);
+            lua_pushboolean(L, 0);              // autoApprove
+            lua_pushboolean(L, 0);              // pendingInvite
+            lua_pushnumber(L, calendarInviteStatusFor(gh->getCalendarData(),
+                                                      ev.eventId));
+            lua_pushnumber(L, 0);               // inviteType
+            lua_pushstring(L, (ev.flags & 0x0400u) ? "GUILD_EVENT" : "PLAYER");
+            return 25;
+        }},
+                {"CalendarEventGetNumInvites", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushnumber(L, gh ? static_cast<double>(
+                gh->getCalendarEventDetail().invitees.size()) : 0);
+            return 1;
+        }},
+                // name, level, className, classFilename, inviteStatus — the
+                // five the invite list reads.
+                {"CalendarEventGetInvite", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            if (!gh) return 0;
+            const auto& list = gh->getCalendarEventDetail().invitees;
+            if (index < 1 || static_cast<size_t>(index) > list.size()) return 0;
+            const auto& inv = list[static_cast<size_t>(index) - 1];
+            lua_pushstring(L, gh->lookupName(inv.guid).c_str());
+            lua_pushnumber(L, inv.level);
+            lua_pushstring(L, "");              // className
+            lua_pushstring(L, "");              // classFilename
+            lua_pushnumber(L, inv.status);
+            lua_pushnumber(L, inv.rank);
+            lua_pushboolean(L, inv.isGuildMember ? 1 : 0);
+            return 7;
+        }},
                 // ---- Creating an event ----
                 //
                 // The staging half of the calendar's write side. Each of these
@@ -6271,14 +6356,6 @@ void registerSystemLuaAPI(lua_State* L) {
         }},
                 {"CalendarGetMaxCreateDate", [](lua_State* L) -> int {
             return pushCalendarBoundDate(L, 12);
-        }},
-                // Compared against a number the moment it is called —
-                // `CalendarEventGetNumInvites() > MAX_PARTY_MEMBERS + 1` — so
-                // nil is not a quiet gap here but an error, and it took the
-                // event view down with it. No invite list is tracked, so none
-                // is the truth as well as the safe answer.
-                {"CalendarEventGetNumInvites", [](lua_State* L) -> int {
-            return luaReturnZero(L);
         }},
                 {"GetDifficultyInfo", [](lua_State* L) -> int {
             // GetDifficultyInfo(id) → name, groupType, isHeroic, maxPlayers

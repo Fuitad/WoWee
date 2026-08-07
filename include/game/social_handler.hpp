@@ -365,6 +365,8 @@ public:
 
     // Calendar
     void requestCalendar();
+    /// Ask for one event's detail: CMSG_CALENDAR_GET_EVENT.
+    void requestCalendarEvent(uint64_t eventId);
     /// Create an event: CMSG_CALENDAR_ADD_EVENT.
     void createCalendarEvent(const CalendarEventDraft& draft);
     /// Answer an invitation: CMSG_CALENDAR_EVENT_RSVP with a

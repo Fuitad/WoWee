@@ -299,3 +299,87 @@ TEST_CASE("A holiday with no duration still happens on its day", "[calendar]") {
     CHECK(calendarEntriesForDay(cal, 8, 11, 2026).size() == 1);
     CHECK(calendarEntriesForDay(cal, 8, 12, 2026).empty());
 }
+
+namespace {
+
+/// One SMSG_CALENDAR_SEND_EVENT, laid out as CalendarMgr::SendCalendarEvent
+/// writes it (CalendarMgr.cpp:627).
+Packet oneEvent() {
+    Packet p(0x043D);
+    p.writeUInt8(0);                          // sendType
+    p.writePackedGuid(0x070000000000ABCDull); // creator
+    p.writeUInt64(4242);                      // eventId
+    p.writeString("Raid Night");
+    p.writeString("Bring flasks");
+    p.writeUInt8(1);                          // type
+    p.writeUInt8(0);                          // repeatable
+    p.writeUInt32(100);                       // maxInvites
+    p.writeUInt32(static_cast<uint32_t>(-1)); // dungeonId
+    p.writeUInt32(0x0400);                    // flags
+    p.writeUInt32(0x09E1C000u);               // eventTime
+    p.writeUInt32(0x09E1C000u);               // timeZoneTime
+    p.writeUInt32(77);                        // guildId
+
+    p.writeUInt32(2);                         // invitees
+    p.writePackedGuid(0x11ull);
+    p.writeUInt8(80); p.writeUInt8(1); p.writeUInt8(2); p.writeUInt8(1);
+    p.writeUInt64(9001);
+    p.writeUInt32(0x09E1C000u);
+    p.writeString("see you there");
+    p.writePackedGuid(0x070000000000BEEFull);
+    p.writeUInt8(72); p.writeUInt8(0); p.writeUInt8(0); p.writeUInt8(0);
+    p.writeUInt64(9002);
+    p.writeUInt32(0);
+    p.writeString("");                        // an empty note is still a row
+    return p;
+}
+
+}  // namespace
+
+TEST_CASE("One event reads back with its invite list", "[calendar]") {
+    Packet p = oneEvent();
+    CalendarEventDetail ev;
+    REQUIRE(parseCalendarSendEvent(p, ev));
+    CHECK(p.getRemainingSize() == 0);
+
+    CHECK(ev.creatorGuid == 0x070000000000ABCDull);
+    CHECK(ev.eventId == 4242);
+    CHECK(ev.title == "Raid Night");
+    CHECK(ev.description == "Bring flasks");
+    CHECK(ev.maxInvites == 100);
+    // -1 is "no dungeon" and only reads that way signed; as a uint32 it is
+    // four billion and every guard on it inverts.
+    CHECK(ev.dungeonId == -1);
+    CHECK(ev.flags == 0x0400u);
+    CHECK(ev.guildId == 77);
+
+    REQUIRE(ev.invitees.size() == 2);
+    CHECK(ev.invitees[0].guid == 0x11ull);
+    CHECK(ev.invitees[0].level == 80);
+    CHECK(ev.invitees[0].status == 1);
+    CHECK(ev.invitees[0].rank == 2);
+    CHECK(ev.invitees[0].isGuildMember);
+    CHECK(ev.invitees[0].inviteId == 9001);
+    CHECK(ev.invitees[0].note == "see you there");
+    // The second row is what proves the first was read to its exact end: a
+    // packed guid, a packed time and a string all vary in length, so one field
+    // misread slides this row rather than failing.
+    CHECK(ev.invitees[1].guid == 0x070000000000BEEFull);
+    CHECK(ev.invitees[1].level == 72);
+    CHECK(ev.invitees[1].inviteId == 9002);
+    CHECK(ev.invitees[1].note.empty());
+}
+
+TEST_CASE("An event packet cut short is refused", "[calendar]") {
+    const Packet whole = oneEvent();
+    const std::vector<uint8_t>& bytes = whole.getData();
+    for (size_t len = 0; len < bytes.size(); ++len) {
+        Packet cut(0x043D, std::vector<uint8_t>(bytes.begin(), bytes.begin() + len));
+        CalendarEventDetail ev;
+        INFO("truncated to " << len << " of " << bytes.size());
+        CHECK_FALSE(parseCalendarSendEvent(cut, ev));
+    }
+    Packet full = oneEvent();
+    CalendarEventDetail ev;
+    CHECK(parseCalendarSendEvent(full, ev));
+}

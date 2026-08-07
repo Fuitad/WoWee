@@ -218,5 +218,51 @@ std::vector<CalendarDayEntry> calendarEntriesForDay(const CalendarData& data,
     return out;
 }
 
+bool parseCalendarSendEvent(network::Packet& packet, CalendarEventDetail& out) {
+    out = CalendarEventDetail{};
+
+    if (!packet.hasRemaining(1)) return false;
+    out.sendType = packet.readUInt8();
+    if (!packet.hasFullPackedGuid()) return false;
+    out.creatorGuid = packet.readPackedGuid();
+    if (!packet.hasRemaining(8 + 1)) return false;
+    out.eventId = packet.readUInt64();
+    if (!readTerminatedString(packet, out.title)) return false;
+    if (!readTerminatedString(packet, out.description)) return false;
+    if (!packet.hasRemaining(1 + 1 + 4 + 4 + 4 + 4 + 4 + 4)) return false;
+    out.type = packet.readUInt8();
+    out.repeatOption = packet.readUInt8();
+    out.maxInvites = packet.readUInt32();
+    out.dungeonId = static_cast<int32_t>(packet.readUInt32());
+    out.flags = packet.readUInt32();
+    out.eventTimePacked = packet.readUInt32();
+    out.eventTime = unpackWowPackedTime(out.eventTimePacked);
+    out.timeZoneTime = unpackWowPackedTime(packet.readUInt32());
+    out.guildId = packet.readUInt32();
+
+    if (!packet.hasRemaining(4)) return false;
+    const uint32_t numInvitees = packet.readUInt32();
+    // A guid is one byte at its shortest and the note one when empty, so this
+    // is a lower bound rather than a row size.
+    constexpr size_t kMinInviteeBytes = 1 + 1 + 1 + 1 + 1 + 8 + 4 + 1;
+    if (!countFits(packet, numInvitees, kMinInviteeBytes)) return false;
+    out.invitees.reserve(numInvitees);
+    for (uint32_t i = 0; i < numInvitees; ++i) {
+        CalendarEventInvitee inv;
+        if (!packet.hasFullPackedGuid()) return false;
+        inv.guid = packet.readPackedGuid();
+        if (!packet.hasRemaining(1 + 1 + 1 + 1 + 8 + 4)) return false;
+        inv.level = packet.readUInt8();
+        inv.status = packet.readUInt8();
+        inv.rank = packet.readUInt8();
+        inv.isGuildMember = packet.readUInt8() != 0;
+        inv.inviteId = packet.readUInt64();
+        inv.statusTime = unpackWowPackedTime(packet.readUInt32());
+        if (!readTerminatedString(packet, inv.note)) return false;
+        out.invitees.push_back(std::move(inv));
+    }
+    return true;
+}
+
 }  // namespace game
 }  // namespace wowee

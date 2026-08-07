@@ -716,6 +716,12 @@ public:
     void requestCalendar(); ///< Send CMSG_CALENDAR_GET_CALENDAR to the server
     /// The calendar the server last sent, empty until it has answered one.
     const CalendarData& getCalendarData() const { return calendarData_; }
+    /// The event the server last sent in full, empty until one is opened.
+    const CalendarEventDetail& getCalendarEventDetail() const {
+        return calendarEventDetail_;
+    }
+    /// Ask the server for one event's detail: CMSG_CALENDAR_GET_EVENT.
+    void requestCalendarEvent(uint64_t eventId);
     /// Send a staged event to the server.
     void createCalendarEvent(const CalendarEventDraft& draft);
     /// Answer an invitation. Status is a CalendarInviteStatus.
@@ -4934,6 +4940,8 @@ private:
     uint32_t    calendarPendingInvites_ = 0; ///< Unacknowledged calendar invites (SMSG_CALENDAR_SEND_NUM_PENDING)
     /// The whole calendar, as of the server's last answer to a request for it.
     CalendarData calendarData_;
+    /// One event in full, as of the last one opened.
+    CalendarEventDetail calendarEventDetail_;
 
     // ---- Spell modifiers (SMSG_SET_FLAT_SPELL_MODIFIER / SMSG_SET_PCT_SPELL_MODIFIER) ----
     // Keyed by (SpellModOp, groupIndex); cleared on logout/character change.
