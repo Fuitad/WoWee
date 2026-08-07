@@ -2749,9 +2749,23 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushnumber(L, n);
             return 1;
         }},
-                // The parchment behind the quest text. The caller substitutes
-                // "Parchment" for a nil, which is the only material this
-                // client has art for, so nil is both honest and correct.
+                // The parchment behind the quest text, and nil is right for a
+                // different reason than the one that used to be written here.
+                //
+                // That reason was "the only material this client has art for",
+                // and it is not: Data/interface/itemtextframe carries bronze,
+                // marble, silver, stone and valentine, and QuestFrame_GetMaterial
+                // builds exactly those names — Interface\ItemTextFrame\ItemText-
+                // <material>-TopLeft and its three corners. Parchment has no
+                // files because it is the frame's own art. The same set backs
+                // ItemTextGetMaterial, which does answer.
+                //
+                // What is missing is a source, not a texture. A book's material
+                // is on the item or the game object that opened it;
+                // SMSG_QUESTGIVER_QUEST_DETAILS carries no such field, and the
+                // quest giver's own is not the quest's. Answering from the
+                // giver would be a guess dressed as data, and the caller's
+                // substitution of Parchment is what nearly every quest wants.
                 {"GetQuestBackgroundMaterial", [](lua_State* L) -> int { return luaReturnNil(L); }},
                 // Whether the quest is flagged PvP, and whether the giver
                 // opened it without being asked. Neither is parsed from the
