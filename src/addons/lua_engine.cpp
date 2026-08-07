@@ -4057,8 +4057,14 @@ static int lua_CreateFrame(lua_State* L) {
             if (lua_isfunction(L, -1)) {
                 lua_pushvalue(L, -3);            // the frame
                 if (lua_pcall(L, 1, 0, 0) != 0) {
-                    LOG_WARNING("CreateFrame: OnLoad failed: ",
-                                lua_tostring(L, -1) ? lua_tostring(L, -1) : "?");
+                    const char* oerr = lua_tostring(L, -1);
+                    LOG_WARNING("CreateFrame: OnLoad failed: ", oerr ? oerr : "?");
+                    // Same weight as a template that will not apply: a frame
+                    // whose OnLoad stopped part way is built and half
+                    // configured, and everything the rest of that handler
+                    // would have done simply did not happen.
+                    if (auto* e = engineFrom(L))
+                        e->noteLuaError(std::string("OnLoad failed: ") + (oerr ? oerr : "?"));
                     lua_pop(L, 1);
                 }
             } else {
@@ -8613,8 +8619,10 @@ bool LuaEngine::dispatchSlashCommand(const std::string& command, const std::stri
                     lua_pushvalue(L_, -1); // copy handler
                     lua_pushstring(L_, args.c_str());
                     if (lua_pcall(L_, 1, 0, 0) != 0) {
+                        const char* serr = lua_tostring(L_, -1);
                         LOG_ERROR("LuaEngine: SlashCmdList['", name, "'] error: ",
-                                  lua_tostring(L_, -1));
+                                  serr ? serr : "?");
+                        noteLuaError(std::string("/") + name + ": " + (serr ? serr : "?"));
                         lua_pop(L_, 1);
                     }
                     lua_pop(L_, 3); // pop handler, key, SlashCmdList
@@ -8880,6 +8888,11 @@ void LuaEngine::bootstrap(const char* code) {
     const std::string head(code, std::min<size_t>(70, std::strlen(code)));
     LOG_ERROR("LuaEngine: bootstrap chunk failed: ", e ? e : "?",
               "  [chunk began: ", head, "]");
+    // The most consequential of all of them: bootstrap defines what FrameXML
+    // is loaded on top of, so a chunk that does not run takes out everything
+    // downstream of it and never says so again.
+    noteLuaError(std::string("bootstrap chunk failed: ") + (e ? e : "?") +
+                 "  [began: " + head + "]");
     lua_pop(L_, 1);
 }
 
@@ -8937,6 +8950,14 @@ bool LuaEngine::evaluateBoolean(const std::string& expression) {
     if (runChunk(L_, chunk.c_str(), chunk.size(), chunk.c_str()) != 0) {
         const char* err = lua_tostring(L_, -1);
         LOG_WARNING("LuaEngine: ", expression, " — ", err ? err : "(unknown)");
+        // Recorded, not only logged. This answers questions the client asks
+        // the interface, and a false is what it gets whether the answer was no
+        // or the question raised — the two are indistinguishable from the call
+        // site. Escape runs through here: it asks whether FrameXML closed a
+        // window before deciding to open the game menu, so a raise inside
+        // CloseAllWindows reads as "nothing was open" and the chain moves on
+        // as though nothing were wrong.
+        noteLuaError("evaluating '" + expression + "': " + (err ? err : "?"));
         lua_settop(L_, base);
         return false;
     }
