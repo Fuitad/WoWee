@@ -8495,7 +8495,14 @@ void LuaEngine::updateVisibility() {
 bool LuaEngine::editBoxHasFocus() const {
     if (focusedWid_ == 0) return false;
     const auto* w = widgets_.get(focusedWid_);
-    return w != nullptr && w->id != 0 && w->visible;
+    // An edit box, and not merely whatever holds the focus. This answer is
+    // what every keystroke in the client is gated on — bindings, the camera,
+    // the sheathe key and the Escape chain all defer to it — so a frame that
+    // is not a text field holding the focus would claim the keyboard outright
+    // and nothing would say why. The mouse path already refuses to focus
+    // anything else; SetFocus from Lua does not, and this is the same rule on
+    // the reading side.
+    return w != nullptr && w->id != 0 && w->isEditBox && w->visible;
 }
 
 void LuaEngine::updateScrollRanges() {

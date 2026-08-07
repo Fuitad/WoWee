@@ -1442,6 +1442,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             // situation. resolveEscape is that question on its own, and its
             // test states each situation directly.
             EscapeState st;
+            st.interfaceConsumedKey  = interfaceConsumedEscape();
             st.settingsWindowShown   = settingsPanel_.showSettingsWindow;
             st.clientMenuShown       = windowManager_.showEscapeMenu;
             st.casting               = gameHandler.isCasting();
@@ -1521,10 +1522,26 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                             // faults separate: shown but not on screen is a
                             // drawing problem, not shown is a problem in
                             // ToggleGameMenu — which runs clean headlessly.
-                            LOG_INFO("Escape: the interface's menu is now ",
-                                     gameHandler.askInterface(
-                                         "GameMenuFrame and GameMenuFrame:IsShown()")
-                                         ? "shown" : "not shown");
+                            //
+                            // At warning when it did not work, because that is
+                            // the one outcome nobody would think to look for.
+                            // The whole of this chain has been read seven
+                            // times and every link checks out; the interface
+                            // side is settled too — headlessly ToggleGameMenu
+                            // shows GameMenuFrame at 195x240, visible, alpha
+                            // one, parented to UIParent. So the answer is in
+                            // the running client, and a line only the info
+                            // level shows is a line nobody has. This says it
+                            // where the default log will keep it.
+                            if (gameHandler.askInterface(
+                                    "GameMenuFrame and GameMenuFrame:IsShown()")) {
+                                LOG_INFO("Escape: the interface's menu is now shown");
+                            } else {
+                                LOG_WARNING(
+                                    "Escape: asked the interface for its game "
+                                    "menu and GameMenuFrame is still not shown "
+                                    "— ToggleGameMenu ran and left it hidden");
+                            }
                             break;
                         case EscapeOutcome::OpenClientMenu:
                             windowManager_.showEscapeMenu = true;

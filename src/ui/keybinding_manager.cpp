@@ -83,6 +83,18 @@ void setTypedInputProbe(std::function<bool()> probe) {
     typedInputProbe() = std::move(probe);
 }
 
+namespace {
+/// Set by the pump, read by the poll, cleared between iterations.
+bool& consumedEscape() {
+    static bool flag = false;
+    return flag;
+}
+}  // namespace
+
+bool interfaceConsumedEscape() { return consumedEscape(); }
+void noteInterfaceConsumedEscape() { consumedEscape() = true; }
+void clearInterfaceConsumedEscape() { consumedEscape() = false; }
+
 ImGuiKey KeybindingManager::getKeyForAction(Action action) const {
     auto it = bindings_.find(static_cast<int>(action));
     if (it == bindings_.end()) return ImGuiKey_None;

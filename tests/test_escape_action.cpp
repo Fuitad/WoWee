@@ -44,6 +44,32 @@ TEST_CASE("And then opens whichever game menu is being drawn", "[escape]") {
     CHECK(resolveAfterInterface(true, false) == EscapeOutcome::InterfaceClosedAPanel);
 }
 
+TEST_CASE("A press the interface's edit box already took does nothing more",
+          "[escape]") {
+    // The two paths run in an order that hides this. The pump hands a focused
+    // box the key and stops; for Escape that closes the box, and closing it
+    // clears the focus. The poll runs later in the same iteration, asks
+    // whether anyone is typing, and is told no — by the box that let go on
+    // this very press. So the chain ran on a key that had already been spent
+    // and put the game menu up behind the box the player just dismissed.
+    EscapeState s;
+    s.interfaceConsumedKey = true;
+    CHECK(resolveEscape(s) == EscapeAction::None);
+
+    // And it beats everything, including the branches that send a packet. A
+    // press taken by an edit box must not close the vendor the box was drawn
+    // over, and must not cancel a cast either.
+    s.casting = true;
+    s.vendorOpen = true;
+    s.settingsWindowShown = true;
+    CHECK(resolveEscape(s) == EscapeAction::None);
+
+    // With the flag clear the same state resolves as it always did, so this
+    // guard cannot quietly disable the chain.
+    s.interfaceConsumedKey = false;
+    CHECK(resolveEscape(s) == EscapeAction::CloseSettingsWindow);
+}
+
 TEST_CASE("Each window closes itself when it is the only one open", "[escape]") {
     // One case per branch, so a branch that stops matching says which.
     struct Case { bool EscapeState::*flag; EscapeAction want; const char* what; };

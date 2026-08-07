@@ -63,6 +63,14 @@ enum class EscapeOutcome {
 /// Named for the question each answers rather than for the call that answers
 /// it, so the test can state a situation without a game handler.
 struct EscapeState {
+    /// The interface's focused edit box already took this press, in the event
+    /// pump, before the poll that asks this question ever ran. Taking it is
+    /// what closed the box — and it is also what cleared the focus, so the
+    /// typing guard the poll consults answers no by the time it is asked.
+    /// Without this the same press closes the box and then opens the game
+    /// menu behind it; WoW closes the box and stops.
+    bool interfaceConsumedKey = false;
+
     // This client's own windows.
     bool settingsWindowShown = false;
     bool clientMenuShown = false;

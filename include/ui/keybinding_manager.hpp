@@ -104,4 +104,31 @@ bool interfaceTakingTypedInput();
 /// How to answer the question above. Set once, while the interface is built.
 void setTypedInputProbe(std::function<bool()> probe);
 
+/**
+ * Whether the interface's focused edit box has already taken this frame's
+ * Escape.
+ *
+ * The guard above is not enough for this one key, because the two paths run in
+ * an order that hides the problem. The event pump hands a focused box every
+ * key and stops there — and for Escape, handing it over is what *clears the
+ * focus*. The per-frame poll then runs later in the same iteration, asks
+ * whether the interface is taking typed input, and is told no: the box it
+ * would have deferred to let go a moment ago, on this very press.
+ *
+ * So one press did two things. It closed the box, correctly, and then ran the
+ * whole Escape chain on top — which with nothing else open opens the game
+ * menu. WoW closes the box and stops.
+ *
+ * A flag rather than a consumed key, because ImGui's IsKeyPressed does not
+ * consume: both sites see the same press no matter what either does with it.
+ */
+bool interfaceConsumedEscape();
+
+/// Called by the pump when the interface's box took Escape.
+void noteInterfaceConsumedEscape();
+
+/// Cleared at the top of each event pump, so the flag only ever describes the
+/// iteration it was set in.
+void clearInterfaceConsumedEscape();
+
 }  // namespace wowee::ui

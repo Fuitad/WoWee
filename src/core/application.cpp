@@ -1145,6 +1145,11 @@ void Application::run() {
             }
 
             // Poll events
+            //
+            // Cleared here rather than after the draw, because the flag only
+            // ever describes the iteration it was set in: the pump sets it and
+            // the draw, further down this same iteration, is the only reader.
+            ui::clearInterfaceConsumedEscape();
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
                 // Pass event to UI manager first
@@ -1253,6 +1258,13 @@ void Application::run() {
                             engine && engine->editBoxHasFocus()) {
                             const bool ctrl =
                                 (event.key.keysym.mod & KMOD_CTRL) != 0;
+                            // Said before the dispatch, because dispatching
+                            // Escape is what lets go of the focus that the
+                            // check above just used — ask afterwards and the
+                            // box no longer admits to having taken anything.
+                            if (event.key.keysym.sym == SDLK_ESCAPE) {
+                                ui::noteInterfaceConsumedEscape();
+                            }
                             engine->dispatchKey(event.key.keysym.sym, ctrl);
                             continue;
                         }
