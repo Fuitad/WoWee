@@ -3682,10 +3682,31 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"GetGuildBankTabInfo", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int tab = static_cast<int>(luaL_optnumber(L, 1, 0));
-            if (!gh) return luaReturnNil(L);
-            const auto& tabs = gh->getGuildBankData().tabs;
-            if (tab < 1 || tab > static_cast<int>(tabs.size())) return luaReturnNil(L);
-            const auto& t = tabs[tab - 1];
+            const auto* tabs = gh ? &gh->getGuildBankData().tabs : nullptr;
+            // A tab the guild has not bought answers as an empty tab rather
+            // than as one nil, and the difference is a raise.
+            //
+            // Every caller unpacks all six and the panel walks 1..
+            // MAX_GUILDBANK_TABS whatever the guild owns, so the tail of that
+            // loop always lands here. With a single nil the sixth value is nil
+            // and GuildBankFrame_Update does `if remainingWithdrawals > 0`,
+            // which is a comparison against nil — it takes the whole update
+            // down part way, and a guild with no tabs at all never gets past
+            // it.
+            //
+            // The numbers are zeros and the strings empty, which is what the
+            // panel reads as "locked, nothing withdrawable"; it substitutes its
+            // own "Tab N" for the empty name a line later.
+            if (!tabs || tab < 1 || tab > static_cast<int>(tabs->size())) {
+                lua_pushstring(L, "");
+                lua_pushstring(L, "");
+                lua_pushboolean(L, 0);   // not viewable
+                lua_pushboolean(L, 0);   // cannot deposit
+                lua_pushnumber(L, 0);    // withdrawals allowed
+                lua_pushnumber(L, 0);    // withdrawals remaining
+                return 6;
+            }
+            const auto& t = (*tabs)[tab - 1];
             lua_pushstring(L, t.tabName.c_str());
             lua_pushstring(L, t.tabIcon.c_str());
             lua_pushboolean(L, 1);   // viewable: it was sent, so it is
