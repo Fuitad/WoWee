@@ -2581,6 +2581,24 @@ void InventoryHandler::mailMarkAsRead(uint32_t mailId) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket() || mailboxGuid_ == 0) return;
     auto packet = MailMarkAsReadPacket::build(mailboxGuid_, mailId);
     owner_.getSocket()->send(packet);
+
+    // And locally, because the server does not send the list again for this.
+    // Without it the letter stays bold and HasNewMail keeps answering true
+    // until something else refreshes the inbox — which, for a player who reads
+    // their mail and walks away, is never.
+    //
+    // The flag is set *before* the event, and that order is load-bearing:
+    // MailFrame answers MAIL_INBOX_UPDATE with OpenMail_Update, which asks
+    // GetInboxText, which is what marks a letter read. Setting the flag first
+    // makes the second pass find it already read and stop. Firing first would
+    // recur until the stack ran out.
+    for (auto& mail : mailInbox_) {
+        if (mail.messageId != mailId || mail.read) continue;
+        mail.read = true;
+        if (owner_.addonEventCallbackRef())
+            owner_.addonEventCallbackRef()("MAIL_INBOX_UPDATE", {});
+        break;
+    }
 }
 
 void InventoryHandler::handleShowMailbox(network::Packet& packet) {

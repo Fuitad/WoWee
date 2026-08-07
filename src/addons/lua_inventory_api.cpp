@@ -4501,10 +4501,23 @@ void registerInventoryLuaAPI(lua_State* L) {
                 // The stationery is answered with nothing: the id is known but
                 // what art belongs to it is not, and a nil texture is an empty
                 // background rather than a wrong one.
+                // Reading a letter is what marks it read, and nothing did it.
+                //
+                // mailMarkAsRead had one caller — this client's own mail
+                // window — and that window is not drawn once mail is handed
+                // over. So a letter opened through the interface was never
+                // marked, the envelope stayed bold, and HasNewMail answered
+                // true for the rest of the session however much was read.
+                //
+                // Here rather than on the click, because this is the call that
+                // means "the body is being shown": OpenMail_Update asks for it
+                // as the letter opens, and the real client marks read at the
+                // same point.
                 {"GetInboxText", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const auto* mail = mailAt(gh, static_cast<int>(luaL_optnumber(L, 1, 0)));
             if (!mail) { return luaReturnNil(L); }
+            if (!mail->read && mail->messageId != 0) gh->mailMarkAsRead(mail->messageId);
             lua_pushstring(L, mail->body.c_str());
             lua_pushnil(L);
             lua_pushboolean(L, (mail->money > 0 || !mail->attachments.empty()) ? 1 : 0);
