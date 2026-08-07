@@ -2349,3 +2349,57 @@ TEST_CASE("Button art fills the button on an axis its anchors leave open",
     CHECK(tree.get(sized)->rectW == Catch::Approx(5.0f));
     CHECK(tree.get(sized)->rectH == Catch::Approx(12.0f));
 }
+
+TEST_CASE("Edges that cross give no size rather than a negative one",
+          "[widget][layout]") {
+    // A scroll bar's middle piece stretches from the top piece's bottom edge to
+    // the bottom piece's top edge. On a bar shorter than the two end pieces
+    // together those are the wrong way round: the macro frame's bar is 146 tall
+    // and its ends are 102 and 106, so the middle solved to minus 55. Retail's
+    // art overlaps the same way on a short bar — the overlap is not the fault,
+    // carrying the negative onward is.
+    //
+    // A rect with a negative extent is inverted rather than empty, so every
+    // containment test it takes part in answers about a region that is not
+    // there: what clips it, what it clips, whether a click landed inside it.
+    WidgetTree tree;
+    const uint32_t bar = tree.create(WidgetKind::Frame, 0, "Bar");
+    tree.get(bar)->width = 31.0f;
+    tree.get(bar)->height = 146.0f;
+    tree.addPoint(bar, Anchor{});
+
+    auto piece = [&](const char* name, const char* point, float h) {
+        const uint32_t id = tree.create(WidgetKind::Texture, bar, name);
+        tree.get(id)->texturePath = "Interface\\ScrollBar.blp";
+        tree.get(id)->width = 31.0f;
+        tree.get(id)->height = h;
+        Anchor a;
+        a.point = point;
+        a.relativePoint = point;
+        a.relativeTo = bar;
+        tree.addPoint(id, a);
+        return id;
+    };
+    const uint32_t top = piece("Top", "TOP", 102.0f);
+    const uint32_t bottom = piece("Bottom", "BOTTOM", 106.0f);
+
+    const uint32_t middle = tree.create(WidgetKind::Texture, bar, "Middle");
+    tree.get(middle)->texturePath = "Interface\\ScrollBar.blp";
+    tree.get(middle)->width = 31.0f;
+    tree.get(middle)->height = 1.0f;
+    {
+        Anchor a;
+        a.point = "TOP"; a.relativePoint = "BOTTOM"; a.relativeTo = top;
+        tree.addPoint(middle, a);
+        Anchor b;
+        b.point = "BOTTOM"; b.relativePoint = "TOP"; b.relativeTo = bottom;
+        tree.addPoint(middle, b);
+    }
+
+    tree.layout(kScreenW, kScreenH);
+
+    // The two ends really do overlap here — that is the situation, not a bug.
+    REQUIRE(tree.get(top)->bottom < tree.get(bottom)->bottom + tree.get(bottom)->rectH);
+    CHECK(tree.get(middle)->rectH == Catch::Approx(0.0f));
+    CHECK(tree.get(middle)->rectH >= 0.0f);
+}

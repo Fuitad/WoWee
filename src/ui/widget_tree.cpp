@@ -706,6 +706,20 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
         if (cs[lo].f < 0.01f && cs[hi].f > 0.99f) {
             outSize = cs[hi].target - cs[lo].target;
             outOrigin = cs[lo].target;
+            // Two edges that have crossed describe nothing, not a negative
+            // region. It happens with art that assumes more room than it got:
+            // a scroll bar's middle stretches from the top piece's bottom to
+            // the bottom piece's top, and on a bar shorter than the two pieces
+            // together those are the wrong way round — the macro frame's bar
+            // is 146 tall and its two ends are 102 and 106, so the middle
+            // solved to minus 55. Retail's art overlaps the same way there;
+            // the overlap is not the fault, carrying the negative onward is.
+            //
+            // Nothing downstream means anything by it. A rect with a negative
+            // extent is inverted rather than empty, so every containment test
+            // it takes part in — what clips it, what it clips, whether a click
+            // is inside it — answers about a region that is not there.
+            if (outSize < 0.0f) outSize = 0.0f;
         } else {
             // Positioned by the first anchor that names an *edge* on this
             // axis, and only by the first anchor of any kind when none does.
