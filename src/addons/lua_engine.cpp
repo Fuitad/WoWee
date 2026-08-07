@@ -287,6 +287,24 @@ wowee::ui::Widget* widgetOf(lua_State* L, int index) {
     return tree->get(widgetIdOf(L, index));
 }
 
+LuaEngine* engineFrom(lua_State* L);
+
+/// Report a script that raised, from the free functions that call one.
+///
+/// Four of these swallowed the error outright — OnEnable, OnDisable,
+/// OnValueChanged and OnColorSelect each ended `!= 0) lua_pop(L, 1)`, so a
+/// raise in a slider's handler or a button's enable left no log line, no entry
+/// in the error report and no sign on screen. An error nothing records is the
+/// hardest kind to be asked about afterwards.
+void recordScriptError(lua_State* L, const char* script) {
+    const char* err = lua_tostring(L, -1);
+    const std::string msg = std::string(script ? script : "script") + ": " +
+                            (err ? err : "?");
+    LOG_ERROR("LuaEngine: ", msg);
+    if (auto* e = engineFrom(L)) e->noteLuaError(msg);
+    lua_pop(L, 1);
+}
+
 /// Whether the frame is shown, from the widget rather than a field beside it.
 ///
 /// Show and Hide write both, but they are not the only way a frame's
@@ -2353,7 +2371,7 @@ int lua_Button_Enable(lua_State* L) {
         lua_getfield(L, -1, "OnEnable");
         if (lua_isfunction(L, -1)) {
             lua_pushvalue(L, 1);
-            if (lua_pcall(L, 1, 0, 0) != 0) lua_pop(L, 1);
+            if (lua_pcall(L, 1, 0, 0) != 0) recordScriptError(L, "OnEnable");
         } else {
             lua_pop(L, 1);
         }
@@ -2370,7 +2388,7 @@ int lua_Button_Disable(lua_State* L) {
         lua_getfield(L, -1, "OnDisable");
         if (lua_isfunction(L, -1)) {
             lua_pushvalue(L, 1);
-            if (lua_pcall(L, 1, 0, 0) != 0) lua_pop(L, 1);
+            if (lua_pcall(L, 1, 0, 0) != 0) recordScriptError(L, "OnDisable");
         } else {
             lua_pop(L, 1);
         }
@@ -3286,7 +3304,7 @@ int lua_StatusBar_SetValue(lua_State* L) {
             if (lua_isfunction(L, -1)) {
                 lua_pushvalue(L, 1);
                 lua_pushnumber(L, value);
-                if (lua_pcall(L, 2, 0, 0) != 0) lua_pop(L, 1);
+                if (lua_pcall(L, 2, 0, 0) != 0) recordScriptError(L, "OnValueChanged");
             } else {
                 lua_pop(L, 1);
             }
@@ -3336,7 +3354,7 @@ int lua_ColorSelect_SetColorRGB(lua_State* L) {
             lua_pushnumber(L, r);
             lua_pushnumber(L, g);
             lua_pushnumber(L, b);
-            if (lua_pcall(L, 4, 0, 0) != 0) lua_pop(L, 1);
+            if (lua_pcall(L, 4, 0, 0) != 0) recordScriptError(L, "OnColorSelect");
         } else {
             lua_pop(L, 1);
         }
@@ -3998,8 +4016,21 @@ static int lua_CreateFrame(lua_State* L) {
                             // fault it was reporting.
                             static std::set<std::string> reported;
                             if (reported.insert(one).second) {
+                                const char* terr = lua_tostring(L, -1);
                                 LOG_WARNING("CreateFrame: template '", one, "' failed: ",
-                                            lua_tostring(L, -1) ? lua_tostring(L, -1) : "?");
+                                            terr ? terr : "?");
+                                // Recorded as well as logged. A template that
+                                // does not apply leaves every frame using it
+                                // built but unconfigured — no size, no
+                                // scripts, no children — which is the exact
+                                // shape of "the panel is there and does
+                                // nothing", and it belongs in the file a
+                                // player can send rather than only in a log
+                                // nobody captured.
+                                if (auto* e = engineFrom(L)) {
+                                    e->noteLuaError("template '" + one + "' failed: " +
+                                                    (terr ? terr : "?"));
+                                }
                             }
                             lua_pop(L, 1);               // error
                         }
@@ -6858,6 +6889,22 @@ namespace {
 int luaTracebackHandler(lua_State* L);
 }  // namespace
 
+/// "OnClick on GameMenuFrame" — what a recorded error needs to be actionable.
+///
+/// The traceback names the file and line inside FrameXML, which says what
+/// broke but not what was being poked when it broke. A raise in a shared
+/// handler is the common case and the frame is the only thing that
+/// distinguishes one caller from another.
+std::string scriptOrigin(const wowee::ui::WidgetTree& widgets, uint32_t wid,
+                         const char* script) {
+    std::string out = script ? script : "script";
+    if (const auto* w = widgets.get(wid); w && !w->name.empty()) {
+        out += " on ";
+        out += w->name;
+    }
+    return out;
+}
+
 void LuaEngine::callFrameScript(uint32_t wid, const char* script,
                                 const char* arg) {
     if (!L_ || wid == 0) return;
@@ -6882,8 +6929,9 @@ void LuaEngine::callFrameScript(uint32_t wid, const char* script,
     if (arg) { lua_pushstring(L_, arg); ++nargs; }
     if (lua_pcall(L_, nargs, 0, handlerIdx) != 0) {
         const char* err = lua_tostring(L_, -1);
-        LOG_ERROR("LuaEngine: ", script, " error: ", err ? err : "?");
-        noteLuaError(err ? err : "script error");
+        const std::string where = scriptOrigin(widgets_, wid, script);
+        LOG_ERROR("LuaEngine: ", where, " error: ", err ? err : "?");
+        noteLuaError(where + ": " + (err ? err : "script error"));
         if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
         lua_pop(L_, 1);
     }
@@ -6927,8 +6975,9 @@ void LuaEngine::callFrameScript3(uint32_t wid, const char* script,
     lua_pushstring(L_, c ? c : "");
     if (lua_pcall(L_, 4, 0, handlerIdx) != 0) {
         const char* err = lua_tostring(L_, -1);
-        LOG_ERROR("LuaEngine: ", script, " error: ", err ? err : "?");
-        noteLuaError(err ? err : "script error");
+        const std::string where = scriptOrigin(widgets_, wid, script);
+        LOG_ERROR("LuaEngine: ", where, " error: ", err ? err : "?");
+        noteLuaError(where + ": " + (err ? err : "script error"));
         if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
         lua_pop(L_, 1);
     }
@@ -6957,8 +7006,9 @@ void LuaEngine::callFrameScriptNumber(uint32_t wid, const char* script, double a
     lua_pushnumber(L_, arg);
     if (lua_pcall(L_, 2, 0, handlerIdx) != 0) {
         const char* err = lua_tostring(L_, -1);
-        LOG_ERROR("LuaEngine: ", script, " error: ", err ? err : "?");
-        noteLuaError(err ? err : "script error");
+        const std::string where = scriptOrigin(widgets_, wid, script);
+        LOG_ERROR("LuaEngine: ", where, " error: ", err ? err : "?");
+        noteLuaError(where + ": " + (err ? err : "script error"));
         if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
         lua_pop(L_, 1);
     }
@@ -6987,8 +7037,9 @@ void LuaEngine::callFrameScriptColor(uint32_t wid, const char* script,
     for (int i = 0; i < 3; ++i) lua_pushnumber(L_, rgb[i]);
     if (lua_pcall(L_, 4, 0, handlerIdx) != 0) {
         const char* err = lua_tostring(L_, -1);
-        LOG_ERROR("LuaEngine: ", script, " error: ", err ? err : "?");
-        noteLuaError(err ? err : "script error");
+        const std::string where = scriptOrigin(widgets_, wid, script);
+        LOG_ERROR("LuaEngine: ", where, " error: ", err ? err : "?");
+        noteLuaError(where + ": " + (err ? err : "script error"));
         if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
         lua_pop(L_, 1);
     }

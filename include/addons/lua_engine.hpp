@@ -203,6 +203,17 @@ public:
     using LuaErrorCallback = std::function<void(const std::string&)>;
     void setLuaErrorCallback(LuaErrorCallback cb) { luaErrorCallback_ = std::move(cb); }
 
+    /// Record a Lua error and keep it where a player can find it afterwards.
+    ///
+    /// Errors have always gone to the log with a traceback, and the log has to
+    /// be captured to be read — which means asking someone to re-run the game
+    /// down a pipe to answer "why does this panel do nothing". They go to
+    /// ~/.wowee/lua_errors.txt as well now, deduplicated with a count, beside
+    /// the missing-API report that is written the same way and for the same
+    /// reason.
+    void noteLuaError(const std::string& message);
+    void writeLuaErrorReport() const;
+
 private:
     lua_State* L_ = nullptr;
     ui::WidgetTree widgets_;
@@ -312,16 +323,7 @@ private:
     /// Log the names collected, once, at shutdown.
     void reportMissingApi() const;
 
-    /// Record a Lua error and keep it where a player can find it afterwards.
-    ///
-    /// Errors have always gone to the log with a traceback, and the log has to
-    /// be captured to be read — which means asking someone to re-run the game
-    /// down a pipe to answer "why does this panel do nothing". They go to
-    /// ~/.wowee/lua_errors.txt as well now, deduplicated with a count, beside
-    /// the missing-API report that is written the same way and for the same
-    /// reason.
-    void noteLuaError(const std::string& message);
-    void writeLuaErrorReport() const;
+
 
     void registerCoreAPI();
     void registerEventAPI();
