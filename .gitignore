@@ -123,3 +123,7 @@ wowee_editor_layout.ini
 #agents
 AGENTS.md
 codex-loop.sh
+
+# The headless runner keeps its config here so it cannot overwrite the
+# player's missing-API and Lua-error lists.
+logs/framexml_run_config/

@@ -55,6 +55,8 @@
 #include "ui/widget_renderer.hpp"
 #include "ui/interface_fonts.hpp"
 #include "ui/link_hit.hpp"
+#include "game/game_handler.hpp"
+#include "game/game_services.hpp"
 
 #include <imgui.h>
 
@@ -65,6 +67,30 @@
 #include <vector>
 
 int main(int argc, char** argv) {
+    // Its own log file, before anything can open one.
+    //
+    // The logger truncates whatever it opens, and every process using it took
+    // the same path — so running this from the repository root destroyed the
+    // session log of the client that had just been played, which is the one
+    // file a bug report needs. A tool that quietly deletes the evidence is
+    // worse than a tool that does not exist.
+    // And its own config corner, for the same reason: the missing-API list and
+    // the Lua error list are rewritten on exit, and both are read from when a
+    // report is being diagnosed.
+    if (!std::getenv("WOWEE_CONFIG_ROOT")) {
+#ifdef _WIN32
+        _putenv_s("WOWEE_CONFIG_ROOT", "logs/framexml_run_config");
+#else
+        setenv("WOWEE_CONFIG_ROOT", "logs/framexml_run_config", 0);
+#endif
+    }
+    if (!std::getenv("WOWEE_LOG_FILE")) {
+#ifdef _WIN32
+        _putenv_s("WOWEE_LOG_FILE", "framexml_run.log");
+#else
+        setenv("WOWEE_LOG_FILE", "framexml_run.log", 0);
+#endif
+    }
     if (argc < 2) {
         std::fprintf(stderr,
                      "usage: framexml_run <assetPath> [expression ...]\n"
@@ -250,6 +276,28 @@ int main(int argc, char** argv) {
         //
         // Sixteen milliseconds a tick, which is the frame this client aims at,
         // so anything measured in seconds advances at the rate it really would.
+        // --player attaches a game handler with a character in it.
+        //
+        // Every binding that matters starts with getGameHandler(L) and returns
+        // at once when it is null, which is what the runner has always had. So
+        // a check could reach a handler and never reach the thing the handler
+        // asks the client — UnitFactionGroup answers nothing, PickupSpell
+        // picks up nothing, and the failures that follow are the harness's,
+        // not the interface's.
+        //
+        // Nothing here talks to a server: the services are all null pointers,
+        // which GameHandler accepts, and the character is set directly.
+        if (std::strcmp(argv[i], "--player") == 0) {
+            static wowee::game::GameServices svc;
+            static wowee::game::GameHandler gh(svc);
+            gh.setPlayerGuid(0x0000000000000001ull);
+            gh.playerRaceRef() = wowee::game::Race::HUMAN;
+            if (auto* engine = mgr.getLuaEngine()) engine->setGameHandler(&gh);
+            std::printf("   attached a game handler: race=%u guid=%llu\n",
+                        static_cast<unsigned>(gh.getPlayerRace()),
+                        static_cast<unsigned long long>(gh.getPlayerGuid()));
+            continue;
+        }
         // --hit:X,Y says which frame the client's own hit test lands on.
         //
         // Window pixels like --mouse, so the two agree. Reimplementing the
