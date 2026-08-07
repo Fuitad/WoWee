@@ -2404,16 +2404,13 @@ void registerQuestLuaAPI(lua_State* L) {
             return 1;
         }},
                 {"GetQuestLogQuestText",    lua_GetQuestLogQuestText},
-                // The line a quest shows once its objectives are done. Not in
-                // anything this client parses — the quest log is built from
-                // SMSG_QUEST_QUERY_RESPONSE, which does not carry it.
-                //
-                // An empty string rather than nothing, because the world map
-                // hovers a finished quest's pin and writes
-                // AddLine("- "..GetQuestLogCompletionText(i)) without checking.
-                // Concatenating nil raises, so the pin would have taken the map
-                // down; concatenating an empty string draws a bare dash.
                 // GetQuestLogCompletionText(index) → what to do now it is done.
+                //
+                // An empty string rather than nothing when there is none,
+                // because the world map hovers a finished quest's pin and
+                // writes AddLine("- "..GetQuestLogCompletionText(i)) without
+                // checking. Concatenating nil raises, so the pin would have
+                // taken the map down; an empty string draws a bare dash.
                 //
                 // The world map's quest list puts this straight into the row's
                 // objectives line for any quest that is complete, so answering
