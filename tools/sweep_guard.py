@@ -79,6 +79,14 @@ CHECKS = [
     ("declared_vs_read_check.py",
      r"attributes declared, (\d+) the emitter never names", 16,
      "XML attributes the emitter never reads"),
+    # The other half. An attribute the emitter ignores is a wrong value on a
+    # frame; an element it ignores is a frame, region or animation that never
+    # exists at all, and nothing says so. Zero, and it has to stay zero — the
+    # one case that ever failed was FrameXML's own <Fontstring>, which is a
+    # typo for FontString and which the emitter folds before comparing.
+    ("declared_vs_read_check.py",
+     r"element\(s\) in the files that load, (\d+) the emitter never names", 0,
+     "XML elements the emitter never builds"),
     # Eight, not zero, and the number went up because the check started
     # working. It used to accept any "OnX" literal anywhere in src, and the
     # emitter carries a table naming every script type it knows a signature

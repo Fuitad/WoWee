@@ -132,6 +132,32 @@ def attributes():
     return out
 
 
+def elements():
+    """Element name -> the files it appears in, for the files that load.
+
+    The other half of the attribute check above. An element the emitter does
+    not know is not a wrong value on a frame — it is a frame, region or
+    animation that never exists, and nothing says so.
+
+    Scripts are excluded because they are handled by name rather than by a
+    literal: emitScripts reads whatever <OnX> it is given. So are the two
+    directories the loader never opens — GlueXML is the login screen and
+    lcdxml is the Logitech display layout, and between them they contribute
+    thirty-one element names that mean nothing here.
+    """
+    out = {}
+    for path in FRAMEXML.rglob("*.xml"):
+        low = str(path).lower()
+        if "gluexml" in low or "lcdxml" in low:
+            continue
+        text = strip_xml_comments(path.read_text(errors="ignore"))
+        for m in re.finditer(r"<([A-Z][A-Za-z0-9_]*)[\s/>]", text):
+            if re.match(r"^(On|Pre|Post)[A-Z]", m.group(1)):
+                continue
+            out.setdefault(m.group(1), set()).add(path.name)
+    return out
+
+
 def script_types():
     out = set()
     for path in FRAMEXML.rglob("*.xml"):
@@ -245,6 +271,13 @@ def main():
     named = set(re.findall(r'"(\w+)"', emitter))
     attrs = attributes()
     unread = sorted(a for a in attrs if a not in named)
+    # Case-insensitively, because the emitter folds an element name to the
+    # schema's spelling before it compares — FrameXML's own <Fontstring> is
+    # built that way, and a check that did not fold would report it as a gap
+    # for ever.
+    namedLower = {n.lower() for n in named}
+    els = elements()
+    unhandled = sorted(e for e in els if e.lower() not in namedLower)
 
     # Named where the script is *run*, not merely named. The emitter carries a
     # table of every script type it knows a signature for —
@@ -309,6 +342,13 @@ def main():
     for a in unread:
         print(f"  {a:<28} on {', '.join(sorted(attrs[a])[:2])}")
     if not unread:
+        print("  (none)")
+
+    print(f"\n{len(els)} element(s) in the files that load, {len(unhandled)} "
+          f"the emitter never names:\n")
+    for e in unhandled:
+        print(f"  {e:<28} in {', '.join(sorted(els[e])[:2])}")
+    if not unhandled:
         print("  (none)")
 
     print(f"\n{len(unfired)} script type(s) declared and never fired:\n")
