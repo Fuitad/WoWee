@@ -450,6 +450,77 @@ int main(int argc, char** argv) {
             }
             continue;
         }
+        // --clipped names content that is drawn and then clipped entirely away.
+        //
+        // Everything under a scroll frame is clipped to it, and a clip that
+        // does not overlap what it clips removes it from the screen leaving no
+        // other trace: the region is shown, sized, positioned, and simply not
+        // there. That is what a blank parchment with working buttons looks
+        // like, and it is how the quest dialog hid — its text sat at x=540 on
+        // a scroll frame spanning 23 to 323.
+        //
+        // Only worth running once panels actually build themselves, which
+        // means after OnShow works. Nothing here could have found that fault,
+        // because with no OnShow the panel had no content to be clipped.
+        if (std::strcmp(argv[i], "--clipped") == 0) {
+            relayout();
+            auto* engine = mgr.getLuaEngine();
+            if (!engine) { std::printf("   no engine\n"); continue; }
+            const auto& tree = engine->widgets();
+            int found = 0;
+            int clipped = 0;
+            for (uint32_t id = 1; id < tree.size(); ++id) {
+                const auto* w = tree.get(id);
+                if (!w || w->id == 0 || w->clipTo == 0) continue;
+                ++clipped;
+                if (!w->visible) continue;
+                // Only things that draw. A container frame outside the window
+                // is ordinary — a scroll child is routinely taller than what
+                // shows it — but a label or an image is content nobody sees.
+                const bool draws =
+                    (w->kind == wowee::ui::WidgetKind::FontString && !w->text.empty()) ||
+                    (w->kind == wowee::ui::WidgetKind::Texture && w->rectW > 0.0f);
+                if (!draws) continue;
+                const auto* clip = tree.get(w->clipTo);
+                if (!clip) continue;
+                // Scrolled out of view is normal and expected on the vertical
+                // axis, so only a miss on *both* axes counts: that cannot be
+                // scrolled back into sight and means the content was placed
+                // somewhere its own window can never reach.
+                const bool overlapX = w->left < clip->left + clip->rectW &&
+                                      w->left + w->rectW > clip->left;
+                const bool overlapY = w->bottom < clip->bottom + clip->rectH &&
+                                      w->bottom + w->rectH > clip->bottom;
+                if (overlapX && overlapY) continue;
+                if (!overlapX && !overlapY) {
+                    ++found;
+                    std::printf("   clipped away: '%s' at (%.0f,%.0f %.0fx%.0f) "
+                                "by '%s' at (%.0f,%.0f %.0fx%.0f)\n",
+                                w->name.empty() ? "(unnamed)" : w->name.c_str(),
+                                w->left, w->bottom, w->rectW, w->rectH,
+                                clip->name.empty() ? "(unnamed)" : clip->name.c_str(),
+                                clip->left, clip->bottom, clip->rectW, clip->rectH);
+                } else if (!overlapX) {
+                    // Sideways is the telling one. A scroll frame scrolls up
+                    // and down; nothing puts content back on screen that is
+                    // off to the side of its own window.
+                    ++found;
+                    std::printf("   clipped away sideways: '%s' x %.0f..%.0f "
+                                "outside '%s' x %.0f..%.0f\n",
+                                w->name.empty() ? "(unnamed)" : w->name.c_str(),
+                                w->left, w->left + w->rectW,
+                                clip->name.empty() ? "(unnamed)" : clip->name.c_str(),
+                                clip->left, clip->left + clip->rectW);
+                }
+            }
+            // Both numbers, because they fail in opposite directions. Zero
+            // clipped away is also what "nothing is clipped at all" looks
+            // like, and that would be the worse bug of the two — every scroll
+            // frame spilling its whole child across the window.
+            std::printf("   %d clipped away, of %d clipped to something\n",
+                        found, clipped);
+            continue;
+        }
         if (std::strncmp(argv[i], "--tick:", 7) == 0) {
             const int ticks = std::atoi(argv[i] + 7);
             relayout();

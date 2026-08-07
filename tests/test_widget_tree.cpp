@@ -2249,3 +2249,53 @@ TEST_CASE("Raise and Lower are idempotent", "[widget][level]") {
     }
     CHECK(tree.get(a)->effLevel >= 0);
 }
+
+TEST_CASE("A scroll frame clips its scroll child, not its scroll bar",
+          "[widget][layout][scroll]") {
+    // A scroll frame shows a window onto a taller child, and everything under
+    // that child is bounded by the window. Its *own* children are not all that
+    // child: the scroll bar is one too, and it sits alongside the window
+    // rather than inside it.
+    //
+    // Clipping every child put each bar entirely outside its own clip rect,
+    // which does not trim it — it deletes it. Bar, track, thumb and both
+    // buttons were laid out, drawn and cut away to nothing, and the same rect
+    // is what the hit test consults, so they could not be clicked either.
+    WidgetTree tree;
+    const uint32_t panel = tree.create(WidgetKind::Frame, 0, "Panel");
+    tree.get(panel)->width = 400.0f;
+    tree.get(panel)->height = 400.0f;
+    tree.addPoint(panel, Anchor{});
+
+    const uint32_t scroll = tree.create(WidgetKind::Frame, panel, "Scroll");
+    tree.markScrollFrame(scroll);
+    tree.get(scroll)->width = 300.0f;
+    tree.get(scroll)->height = 300.0f;
+    tree.addPoint(scroll, Anchor{});
+
+    const uint32_t child = tree.create(WidgetKind::Frame, scroll, "ScrollChild");
+    tree.get(scroll)->scrollChild = child;
+    tree.get(child)->width = 300.0f;
+    tree.get(child)->height = 900.0f;   // taller than the window, as it should be
+    tree.addPoint(child, Anchor{});
+
+    const uint32_t bar = tree.create(WidgetKind::Frame, scroll, "ScrollBar");
+    tree.get(bar)->width = 16.0f;
+    tree.get(bar)->height = 300.0f;
+    tree.addPoint(bar, Anchor{});
+
+    // Something inside the scroll child, however deep, is still bounded by the
+    // window — that is the whole point of a scroll frame.
+    const uint32_t deep = tree.create(WidgetKind::Frame, child, "Deep");
+    tree.get(deep)->width = 50.0f;
+    tree.get(deep)->height = 50.0f;
+    tree.addPoint(deep, Anchor{});
+
+    tree.layout(kScreenW, kScreenH);
+
+    CHECK(tree.get(child)->clipTo == scroll);
+    CHECK(tree.get(deep)->clipTo == scroll);
+    // The bar inherits whatever clips the scroll frame itself — here, nothing.
+    CHECK(tree.get(bar)->clipTo != scroll);
+    CHECK(tree.get(bar)->clipTo == tree.get(scroll)->clipTo);
+}

@@ -622,7 +622,20 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
     w->visible = w->shown && (!parent || parent->visible) && !unanchoredFrame;
     // Clipping is inherited: anything under a scroll frame is bounded by it,
     // however deep, because a scroll child holds frames of its own.
-    w->clipTo = parent ? (parent->isScrollFrame ? parent->id : parent->clipTo) : 0;
+    //
+    // But it starts at the scroll *child*, not at every child of the scroll
+    // frame. A scroll frame's own children include its scroll bar, and the bar
+    // sits alongside the window rather than inside it — 329 to 345 on a frame
+    // spanning 23 to 323 for the quest dialog. Clipping it to the window put
+    // every scroll bar in the interface entirely outside its own clip rect,
+    // which does not trim them, it deletes them: the bar, its track, its
+    // thumb and both buttons were laid out, drawn, and cut away to nothing.
+    // Found by sweeping for content clipped away sideways — vertical is
+    // ordinary, since a scroll child is meant to be taller than its window,
+    // but nothing scrolls back into view from beside it.
+    const bool clippedByParent = parent && parent->isScrollFrame &&
+                                 w->id == parent->scrollChild;
+    w->clipTo = parent ? (clippedByParent ? parent->id : parent->clipTo) : 0;
     // Strata and level are inherited unless the widget set its own. A child
     // frame sits one level above its parent so it draws over it, which is what
     // makes a button's own regions land on top of the frame holding it.
