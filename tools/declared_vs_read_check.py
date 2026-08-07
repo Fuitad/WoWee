@@ -225,6 +225,18 @@ EXPECTED_UNFIRED = {
     # render, because the frame staying shown is real even while it is
     # invisible.
     "OnAnimFinished": "no .mdx playback, so no end of one — frame left shown",
+    # Declared by nothing at all. There is no handler anywhere in the files
+    # that load, so there is nothing for firing these to reach.
+    "OnChar": "declared by no frame in the interface",
+    "OnMinMaxChanged": "declared by no frame in the interface",
+    "OnMovieShowSubtitle": "declared by no frame in the interface",
+    # GameTooltip declares it to put the sell price on with coin icons, through
+    # SetTooltipMoney. This client's own item builder already writes a
+    # "Sell Price:" line of its own — lua_engine.cpp, in the bootstrap Lua —
+    # so firing this would put the price on twice. Correctly unfired while that
+    # remains true; if the builder ever stops writing it, fire this instead
+    # rather than adding a second line of text.
+    "OnTooltipAddMoney": "the item builder writes the sell price itself",
 }
 
 
@@ -262,9 +274,24 @@ def main():
     OPEN = re.compile(r'(?:callFrameScript\w*|callScriptOnTable|frameHasScript'
                       r'|lua_getfield)\s*\(')
     NAME = re.compile(r'"(On[A-Z]\w+)"')
+    # The other half of the dispatch, and it does not look like a C call at
+    # all: a good deal of the widget layer is bootstrap Lua living in string
+    # literals inside these same .cpp files, and it runs a handler the Lua way.
+    # The animation tick does `if a.OnFinished then a:OnFinished() end`, and the
+    # secure attribute path reads `self.__scripts.OnAttributeChanged` — neither
+    # is a quoted name passed to a helper, so a sweep that only knows the C
+    # shape calls both dead. It did, for OnFinished and OnAttributeChanged,
+    # which is every fading alert banner and every action bar state driver.
+    # Two shapes, because a handler fetched off __scripts is often put in a
+    # local first and called on the next line:
+    #     local handler = self.__scripts and self.__scripts.OnAttributeChanged
+    LUA_DISPATCH = re.compile(r'__scripts\.(On[A-Z]\w+)'
+                              r'|\b[a-zA-Z_]\w*[.:](On[A-Z]\w+)\s*[({]')
     fired = set()
     for path in SRC.rglob("*.cpp"):
         text = path.read_text(errors="ignore")
+        for a, b in LUA_DISPATCH.findall(text):
+            fired.add(a or b)
         for m in OPEN.finditer(text):
             # To the end of the statement, so a call spanning lines is covered
             # and the next one is not.
