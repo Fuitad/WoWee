@@ -1415,12 +1415,23 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
         // is which branch actually runs — and that is the one thing reading
         // cannot tell you. One line per press, invisible unless someone asks
         // for info, and it names the branch rather than the key.
-        if (textFocus &&
-            KeybindingManager::getInstance().isActionPressed(
-                KeybindingManager::Action::TOGGLE_SETTINGS, true)) {
+        //
+        // Asked of the key rather than of the binding, deliberately. The
+        // binding declines to fire while either interface is taking typed
+        // input, so routing this through it means a press that was swallowed
+        // for that reason produces no line — which reads exactly like a press
+        // that never arrived, and those are the two remaining explanations.
+        // Every press of the bound key now says something.
+        const ImGuiKey escapeKey = KeybindingManager::getInstance().getKeyForAction(
+            KeybindingManager::Action::TOGGLE_SETTINGS);
+        const bool escapePressed =
+            escapeKey != ImGuiKey_None && ImGui::IsKeyPressed(escapeKey, true);
+        if (escapePressed && (textFocus || interfaceTakingTypedInput())) {
             LOG_INFO("Escape: swallowed before the chain — chat input ",
                      chatPanel_.isChatInputActive() ? "active" : "idle",
-                     ", ImGui wants text: ", io.WantTextInput ? "yes" : "no");
+                     ", ImGui wants text: ", io.WantTextInput ? "yes" : "no",
+                     ", the interface's box has focus: ",
+                     interfaceTakingTypedInput() ? "yes" : "no");
         }
         if (!textFocus &&
             KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_SETTINGS, true)) {
