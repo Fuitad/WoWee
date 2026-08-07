@@ -1484,6 +1484,19 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 // own way in, and it is the same function its Escape binding
                 // calls.
                 gameHandler.runInterfaceCommand("ToggleGameMenu()");
+                // And whether it worked, which is the question the earlier
+                // line cannot answer. Asked straight afterwards, so the two
+                // possible faults separate themselves: shown but not on
+                // screen is a drawing problem, and not shown is a problem in
+                // ToggleGameMenu — which runs clean headlessly, so it would
+                // mean the client's copy of the interface differs from the one
+                // measured. Without this line a run tells us the branch was
+                // reached and nothing more, which is where five readings of
+                // this chain already left it.
+                LOG_INFO("Escape: the interface's menu is now ",
+                         gameHandler.askInterface(
+                             "GameMenuFrame and GameMenuFrame:IsShown()")
+                             ? "shown" : "not shown");
             } else {
                 LOG_INFO("Escape: opening this client's own menu");
                 windowManager_.showEscapeMenu = true;
