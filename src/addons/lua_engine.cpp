@@ -960,11 +960,26 @@ int lua_ScrollFrame_SetScrollChild(lua_State* L) {
 
 /// How far the child can move before its far edge reaches the frame's. Zero
 /// when the child fits, which is how a scroll bar knows to disable itself.
-static float scrollRange(const wowee::ui::WidgetTree& tree, uint32_t id, bool vertical) {
+static float scrollRange(wowee::ui::WidgetTree& tree, uint32_t id, bool vertical) {
     const auto* w = tree.get(id);
     if (!w || w->scrollChild == 0) return 0.0f;
-    const auto* child = tree.get(w->scrollChild);
-    if (!child) return 0.0f;
+    // Both rects resolved first, the same way the measuring getters do it.
+    //
+    // Only matters for a scroll child whose height comes out of the solver —
+    // one anchored TOP and BOTTOM to something rather than given a height.
+    // SetHeight writes the rect directly, so a stated size was always readable
+    // here; a solved one was not, and answered zero.
+    //
+    // Which was worse than a wrong number, because the two disagreed: the
+    // child answered its full height when asked directly and the range
+    // answered nothing, and a range of nothing is how a scroll bar decides it
+    // is not needed.
+    const uint32_t childId = w->scrollChild;
+    tree.resolveWidget(id);
+    tree.resolveWidget(childId);
+    w = tree.get(id);
+    const auto* child = tree.get(childId);
+    if (!w || !child) return 0.0f;
     const float over = vertical ? (child->rectH - w->rectH) : (child->rectW - w->rectW);
     return over > 0.0f ? over : 0.0f;
 }
