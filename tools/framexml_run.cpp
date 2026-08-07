@@ -29,6 +29,7 @@
 
 #include "addons/addon_manager.hpp"
 #include "ui/widget_renderer.hpp"
+#include "ui/interface_fonts.hpp"
 
 #include <imgui.h>
 
@@ -152,7 +153,27 @@ int main(int argc, char** argv) {
         ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize = ImVec2(1920.0f, 1080.0f);
         io.DeltaTime = 1.0f / 60.0f;
-        io.Fonts->AddFontDefault();
+        // The game's own faces where they are on disk, so a label measures
+        // what it will really measure. Loading a TTF into an atlas is pure
+        // ImGui and needs no device, which is the whole reason this is
+        // possible here.
+        //
+        // Without them the substitute is ImGui's built-in face and widths are
+        // close rather than exact — close enough to answer "is this frame
+        // laid out at all", not close enough to answer "do these two overlap",
+        // which is the question that comes up about anything positioned
+        // against a caption's right edge.
+        int faces = 0;
+        for (const char* name : {"frizqt__.ttf", "morpheus.ttf", "skurri.ttf",
+                                 "arialn.ttf", "friends.ttf"}) {
+            const std::string file = assetPath + "/misc/fonts/" + name;
+            if (ImFont* f = io.Fonts->AddFontFromFileTTF(file.c_str(), 16.0f)) {
+                wowee::ui::registerInterfaceFace(name, f);
+                ++faces;
+            }
+        }
+        if (faces == 0) io.Fonts->AddFontDefault();
+        std::printf("== fonts: %d of 5 of the game's own faces\n", faces);
         io.Fonts->Build();
         unsigned char* pixels = nullptr;
         int fw = 0, fh = 0;
