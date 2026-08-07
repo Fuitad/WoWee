@@ -576,11 +576,17 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
         chatHistory_.erase(chatHistory_.begin());
     }
     logChatMessage(data, "server");
-    // The same event a locally generated message fires. Only that path had it,
-    // so an interface listening for chat heard this client talking to itself
-    // and nothing anyone else said — every whisper, channel, guild and say
-    // from the server arrived in the history and was never announced.
-    fireChatEvent(data);
+    // No fireChatEvent here. This function announces the message itself,
+    // further down and with the fuller argument list — the channel number and
+    // short name, the line id, the sender's guid. Calling fireChatEvent as
+    // well fired CHAT_MSG_* twice for every line the server sent, and the
+    // interface drew both: every whisper, say, guild and channel message
+    // appeared in the window doubled.
+    //
+    // The note that stood here said the event was fired only on the local
+    // path, which was true when it was written and stopped being true when
+    // this function grew its own. fireChatEvent stays for
+    // addLocalChatMessage's callers, which have no richer arguments to give.
 
     // Track whisper sender for /r command
     if (data.type == ChatType::WHISPER) {
@@ -677,13 +683,30 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
         const size_t dash = data.channelName.find(" - ");
         const std::string shortChannel = (dash == std::string::npos)
             ? data.channelName : data.channelName.substr(0, dash);
+        // arg5 is the *target*, not the sender. It was the sender's own name,
+        // which is only read by CHANNEL_NOTICE_USER — and read as "there are
+        // two names in this notice", so every kick and ban was formatted as
+        // though someone had done it to someone else. receiverName is what the
+        // packet carries for it, empty on an ordinary message.
+        //
+        // arg6 is the flag beside the name: FrameXML looks up CHAT_FLAG_<arg6>
+        // and prints <Away>, <Busy> or <GM>. The tag is on the packet and was
+        // being dropped, so nothing ever showed as away or as a game master.
+        // AzerothCore's values are a bitmask — AFK 0x01, DND 0x02, GM 0x04,
+        // COM 0x08, DEV 0x10 — and the interface takes one word, so the most
+        // significant is the one to name.
+        const char* chatFlag = (data.chatTag & 0x04) ? "GM"
+                             : (data.chatTag & 0x10) ? "DEV"
+                             : (data.chatTag & 0x02) ? "DND"
+                             : (data.chatTag & 0x01) ? "AFK"
+                                                     : "";
         owner_.addonEventCallbackRef()(eventName, {
             data.message,
             data.senderName,
             lang,
             data.channelName,
-            senderInfo,
-            "",
+            data.receiverName,
+            chatFlag,
             "0",
             std::to_string(channelNumber),
             shortChannel,
