@@ -716,6 +716,8 @@ public:
     void requestCalendar(); ///< Send CMSG_CALENDAR_GET_CALENDAR to the server
     /// The calendar the server last sent, empty until it has answered one.
     const CalendarData& getCalendarData() const { return calendarData_; }
+    /// Send a staged event to the server.
+    void createCalendarEvent(const CalendarEventDraft& draft);
     /// Answer an invitation. Status is a CalendarInviteStatus.
     void respondToCalendarInvite(uint64_t eventId, uint64_t inviteId,
                                  uint32_t status);

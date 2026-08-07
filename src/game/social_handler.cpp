@@ -4417,6 +4417,30 @@ void SocialHandler::requestBfMgrExit(uint32_t battleId) {
 // Calendar
 // ============================================================
 
+void SocialHandler::createCalendarEvent(const CalendarEventDraft& draft) {
+    if (!owner_.isInWorld()) return;
+    // title, description, type, repeatable, maxInvites, dungeonId, then two
+    // packed times and the flags — CalendarHandler.cpp:228.
+    //
+    // The second time is unused by the server (it is stored and never read),
+    // but it is read off the wire, so leaving it out shifts the flags into it
+    // and the flags off the end.
+    network::Packet pkt(wireOpcode(Opcode::CMSG_CALENDAR_ADD_EVENT));
+    pkt.writeString(draft.title);
+    pkt.writeString(draft.description);
+    pkt.writeUInt8(draft.type);
+    pkt.writeUInt8(draft.repeatOption);
+    pkt.writeUInt32(draft.maxInvites);
+    pkt.writeUInt32(static_cast<uint32_t>(draft.dungeonId));
+    pkt.writeUInt32(packWowPackedTime(draft.eventTime));
+    pkt.writeUInt32(packWowPackedTime(draft.eventTime));
+    pkt.writeUInt32(draft.flags);
+    owner_.getSocket()->send(pkt);
+    LOG_INFO("createCalendarEvent: '", draft.title, "' type ", draft.type,
+             " on ", draft.eventTime.day, "/", draft.eventTime.month, "/",
+             draft.eventTime.fullYear());
+}
+
 void SocialHandler::respondToCalendarInvite(uint64_t eventId, uint64_t inviteId,
                                             uint32_t status) {
     if (!owner_.isInWorld()) return;

@@ -14,6 +14,8 @@
 #include "game/packed_time.hpp"
 
 using wowee::game::unpackWowPackedTime;
+using wowee::game::packWowPackedTime;
+using wowee::game::WowDate;
 
 // Pack exactly as the server does, so a test failure means the reader is
 // wrong rather than that two hand-written constants disagree.
@@ -96,4 +98,37 @@ TEST_CASE("a wrong reading is plausible, which is why this is tested") {
     // And the shifts that were being used elsewhere do not produce it.
     CHECK(static_cast<int>((packed >> 17) & 0x1F) != d.day);
     CHECK(static_cast<int>(packed & 0xFFFF) != d.fullYear());
+}
+
+TEST_CASE("A date packs back into the field it came from", "[packedtime]") {
+    // The inverse matters because creating a calendar event *sends* two of
+    // these, and a field written one bit out is a date the server accepts and
+    // stores as something else entirely — there is no error to notice.
+    //
+    // Round-tripped rather than compared against hand-written constants: the
+    // constants are what the reader already asserts, and repeating them here
+    // would only prove the two were typed the same way.
+    for (uint32_t packed : {0x09E1C000u, 0x0A21C000u, 0u, 0xFFFFFFFFu,
+                            0x12345678u, 0x0BADF00Du}) {
+        const WowDate d = unpackWowPackedTime(packed);
+        INFO("packed 0x" << std::hex << packed);
+        CHECK(packWowPackedTime(d) == packed);
+    }
+}
+
+TEST_CASE("Packing masks each field to its own width", "[packedtime]") {
+    // A caller that hands over a month of 13 writes a wrong month, not a
+    // corrupted year above it.
+    WowDate d;
+    d.minute = 0; d.hour = 0; d.weekday = 0;
+    d.day = 1; d.month = 1; d.yearSince2000 = 0;
+    CHECK(packWowPackedTime(d) == 0u);
+
+    d.month = 13;                       // one past December
+    const uint32_t overflowed = packWowPackedTime(d);
+    CHECK(((overflowed >> 24) & 0xFFu) == 0u);   // the year is untouched
+
+    d.month = 1;
+    d.minute = 64;                      // one past the field
+    CHECK(((packWowPackedTime(d) >> 6) & 0x1Fu) == 0u);  // the hour is untouched
 }

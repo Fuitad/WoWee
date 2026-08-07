@@ -17,6 +17,7 @@
 #include "addons/lua_engine.hpp"
 #include "game/bg_score_defs.hpp"
 #include "game/calendar_month.hpp"
+#include "game/calendar_data.hpp"
 #include "game/pet_action.hpp"
 #include "audio/activity_sound_manager.hpp"
 #include "audio/ambient_sound_manager.hpp"
@@ -119,6 +120,17 @@ static std::vector<wowee::game::CalendarDayEntry> calendarDayRows(lua_State* L) 
     if (day > info.numDays) return {};
     return wowee::game::calendarEntriesForDay(gh->getCalendarData(), info.month,
                                               day, info.year);
+}
+
+/// The event being built up before it is sent.
+///
+/// State, because the interface builds one over several calls and commits it
+/// with another: CalendarNewEvent starts it, CalendarEventSetTitle and the
+/// rest fill it in, CalendarAddEvent sends it. Nothing is carried between
+/// those calls except this.
+static wowee::game::CalendarEventDraft& calendarDraft() {
+    static wowee::game::CalendarEventDraft draft;
+    return draft;
 }
 
 /// The row a right-click menu is about: which month, which day, which entry.
@@ -6020,6 +6032,91 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"IsInArenaTeam", [](lua_State* L) -> int {
             lua_pushboolean(L, 0);
             return 1;
+        }},
+                // ---- Creating an event ----
+                //
+                // The staging half of the calendar's write side. Each of these
+                // writes one field of the draft and CalendarAddEvent sends it;
+                // none of them talks to the server on its own, which is what
+                // lets the create form be filled in in any order and cancelled
+                // without trace.
+                {"CalendarNewEvent", [](lua_State* L) -> int {
+            (void)L;
+            calendarDraft() = wowee::game::CalendarEventDraft{};
+            // Today, so an event committed without touching the date lands
+            // somewhere real rather than on 1 January 2000.
+            const auto viewed = calendarViewedMonth();
+            const std::time_t now = std::time(nullptr);
+            const std::tm* t = std::localtime(&now);
+            auto& d = calendarDraft();
+            d.eventTime.month = viewed.first;
+            d.eventTime.yearSince2000 = viewed.second - 2000;
+            d.eventTime.day = t ? t->tm_mday : 1;
+            d.eventTime.hour = 12;
+            return 0;
+        }},
+                {"CalendarNewGuildEvent", [](lua_State* L) -> int {
+            (void)L;
+            calendarDraft() = wowee::game::CalendarEventDraft{};
+            // CALENDAR_FLAG_GUILD_EVENT, which is what the server reads to
+            // decide the event belongs to the guild rather than the player.
+            calendarDraft().flags |= 0x0400u;
+            return 0;
+        }},
+                {"CalendarEventSetTitle", [](lua_State* L) -> int {
+            // Clipped to what the server accepts. It refuses the whole packet
+            // over 31 characters rather than truncating, so a long title would
+            // silently create nothing at all.
+            std::string title(luaL_optstring(L, 1, ""));
+            if (title.size() > 31) title.resize(31);
+            calendarDraft().title = std::move(title);
+            return 0;
+        }},
+                {"CalendarEventSetDescription", [](lua_State* L) -> int {
+            std::string desc(luaL_optstring(L, 1, ""));
+            if (desc.size() > 255) desc.resize(255);
+            calendarDraft().description = std::move(desc);
+            return 0;
+        }},
+                {"CalendarEventSetType", [](lua_State* L) -> int {
+            calendarDraft().type =
+                static_cast<uint8_t>(luaL_optnumber(L, 1, 0));
+            return 0;
+        }},
+                {"CalendarEventSetDate", [](lua_State* L) -> int {
+            auto& d = calendarDraft();
+            d.eventTime.month = static_cast<int>(luaL_optnumber(L, 1, d.eventTime.month));
+            d.eventTime.day   = static_cast<int>(luaL_optnumber(L, 2, d.eventTime.day));
+            const int year    = static_cast<int>(luaL_optnumber(L, 3, d.eventTime.fullYear()));
+            d.eventTime.yearSince2000 = year - 2000;
+            // The weekday is part of the packed field, so it has to follow the
+            // date rather than be left at whatever the last one was.
+            d.eventTime.weekday = wowee::game::weekdayOf(
+                d.eventTime.month, d.eventTime.day, d.eventTime.fullYear()) - 1;
+            return 0;
+        }},
+                {"CalendarEventSetTime", [](lua_State* L) -> int {
+            auto& d = calendarDraft();
+            d.eventTime.hour   = static_cast<int>(luaL_optnumber(L, 1, d.eventTime.hour));
+            d.eventTime.minute = static_cast<int>(luaL_optnumber(L, 2, d.eventTime.minute));
+            return 0;
+        }},
+                {"CalendarEventSetRepeatOption", [](lua_State* L) -> int {
+            calendarDraft().repeatOption =
+                static_cast<uint8_t>(luaL_optnumber(L, 1, 0));
+            return 0;
+        }},
+                {"CalendarEventSetTextureID", [](lua_State* L) -> int {
+            calendarDraft().dungeonId =
+                static_cast<int32_t>(luaL_optnumber(L, 1, -1));
+            return 0;
+        }},
+                // And the commit.
+                {"CalendarAddEvent", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) {
+                gh->createCalendarEvent(calendarDraft());
+            }
+            return 0;
         }},
                 // ---- The right-click menu on a day's event ----
                 //

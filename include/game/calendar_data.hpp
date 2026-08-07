@@ -126,6 +126,23 @@ struct CalendarData {
  */
 bool parseCalendarSendCalendar(network::Packet& packet, CalendarData& out);
 
+/// An event being built up before it is sent.
+///
+/// The interface fills this in over several calls — a title here, a date
+/// there — and commits it with one, so it has to be held somewhere between
+/// them. That is how WoW works too: CalendarNewEvent starts one,
+/// CalendarEventSetTitle and friends fill it, CalendarAddEvent sends it.
+struct CalendarEventDraft {
+    std::string title;
+    std::string description;
+    uint8_t type = 0;            ///< CalendarEventType
+    uint8_t repeatOption = 0;    ///< CalendarRepeatType: 0 never, 1 weekly, 2 fortnightly
+    uint32_t maxInvites = 100;
+    int32_t dungeonId = -1;      ///< -1 for no dungeon, and signed for that reason
+    WowDate eventTime;
+    uint32_t flags = 0;
+};
+
 /// What a row on a given day came from. The interface reads a day's rows
 /// through one index space — `CalendarGetNumDayEvents` counts them and
 /// `CalendarGetDayEvent`, `CalendarGetHolidayInfo` and `CalendarGetRaidInfo`

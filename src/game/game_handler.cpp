@@ -3270,6 +3270,10 @@ void GameHandler::requestCalendar() {
     if (socialHandler_) socialHandler_->requestCalendar();
 }
 
+void GameHandler::createCalendarEvent(const CalendarEventDraft& draft) {
+    if (socialHandler_) socialHandler_->createCalendarEvent(draft);
+}
+
 void GameHandler::respondToCalendarInvite(uint64_t eventId, uint64_t inviteId,
                                           uint32_t status) {
     if (socialHandler_) {

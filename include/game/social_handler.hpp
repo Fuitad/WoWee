@@ -4,6 +4,7 @@
 #include "game/opcode_table.hpp"
 #include "game/group_defines.hpp"
 #include "game/handler_types.hpp"
+#include "game/calendar_data.hpp"
 #include "network/packet.hpp"
 #include <array>
 #include <chrono>
@@ -364,6 +365,8 @@ public:
 
     // Calendar
     void requestCalendar();
+    /// Create an event: CMSG_CALENDAR_ADD_EVENT.
+    void createCalendarEvent(const CalendarEventDraft& draft);
     /// Answer an invitation: CMSG_CALENDAR_EVENT_RSVP with a
     /// CalendarInviteStatus (1 accepted, 2 declined, 8 tentative, 9 removed).
     void respondToCalendarInvite(uint64_t eventId, uint64_t inviteId,
