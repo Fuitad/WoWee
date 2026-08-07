@@ -7861,11 +7861,29 @@ void LuaEngine::updateVisibility() {
         // it up when it goes. Only the two that ask: the rest say autoFocus
         // ="false" precisely so that opening a panel does not swallow the
         // player's next keystroke.
-        if (w->isEditBox && w->editAutoFocus) {
-            if (w->visible) setEditFocus(id);
-            else if (focusedWid_ == id) setEditFocus(0);
+        //
+        // Taking it is the autoFocus box's privilege; giving it up on the way
+        // out is every box's duty. Only the two that ask took it and only the
+        // two that ask released it, so a box focused by name — which is how
+        // the chat box and every dialog's box get it — kept the keyboard after
+        // it was hidden. Nothing on screen had focus and focusedWid_ was not
+        // zero, and that flag is what the client asks before it looks at a key
+        // at all: escape stopped opening the menu and every character typed
+        // went into a box that was not there.
+        if (w->isEditBox) {
+            if (w->visible) {
+                if (w->editAutoFocus) setEditFocus(id);
+            } else if (focusedWid_ == id) {
+                setEditFocus(0);
+            }
         }
     }
+}
+
+bool LuaEngine::editBoxHasFocus() const {
+    if (focusedWid_ == 0) return false;
+    const auto* w = widgets_.get(focusedWid_);
+    return w != nullptr && w->id != 0 && w->visible;
 }
 
 void LuaEngine::updateScrollRanges() {

@@ -158,7 +158,14 @@ public:
     bool dispatchFrameKey(int sdlKeycode, bool down);
     /// Whether an edit box currently has focus, so the client knows not to
     /// treat the same keystrokes as movement.
-    bool editBoxHasFocus() const { return focusedWid_ != 0; }
+    ///
+    /// A true answer sends the keystroke to the interface and nowhere else, so
+    /// a stale one costs the player every key they press. The box that holds
+    /// focus has to still be on screen: hiding one now releases it, and this
+    /// asks as well, because a box can leave without ever being hidden — a
+    /// panel destroyed with focus inside it, or one that went invisible
+    /// through a parent before the frame that would have noticed ran.
+    bool editBoxHasFocus() const;
     void setEditFocus(uint32_t wid);
 
     // SavedVariables: load globals from file, save globals to file
