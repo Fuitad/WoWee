@@ -1,0 +1,130 @@
+#pragma once
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+#include "game/packed_time.hpp"
+
+namespace wowee {
+namespace network { class Packet; }
+namespace game {
+
+/**
+ * The calendar the server sends in one packet, unpacked.
+ *
+ * SMSG_CALENDAR_SEND_CALENDAR is the answer to CMSG_CALENDAR_GET_CALENDAR and
+ * carries six lists back to back, each a count followed by its rows. Nothing
+ * in it is length-prefixed as a whole and four of the six rows contain a
+ * packed guid or a string, so a row read wrong does not fail — it slides
+ * everything after it, and the next count is read out of the middle of a
+ * string. That is why this is a parser with a test rather than a read done
+ * inline: the failure mode is silent and total.
+ *
+ * Layout, from AzerothCore's WorldSession::HandleCalendarGetCalendar
+ * (CalendarHandler.cpp:53) which is the writer this parses:
+ *
+ *     uint32 numInvites
+ *       uint64 eventId, uint64 inviteId, uint8 status, uint8 rank,
+ *       uint8 isGuildEvent, packedGuid creator
+ *     uint32 numEvents
+ *       uint64 eventId, cstring title, uint32 type, packedTime eventTime,
+ *       uint32 flags, int32 dungeonId, packedGuid creator
+ *     uint32 serverTime, packedTime zoneTime
+ *     uint32 numLockouts
+ *       uint32 mapId, uint32 difficulty, uint32 secondsLeft, uint64 instanceGuid
+ *     uint32 resetRelationTime
+ *     uint32 numResets
+ *       int32 mapId, int32 period, int32 offset
+ *     uint32 numHolidays
+ *       uint32 id, region, looping, priority, calendarFilterType,
+ *       uint32 date[26], uint32 duration[10], uint32 calendarFlags[10],
+ *       cstring textureFilename
+ *
+ * The holiday row is 49 uint32s and a string; the three array lengths are the
+ * server's MAX_HOLIDAY_DATES, MAX_HOLIDAY_DURATIONS and MAX_HOLIDAY_FLAGS
+ * (DBCStructure.h:1122). Getting one of those counts wrong misreads every
+ * holiday after the first and nothing says so.
+ */
+
+/// An invitation waiting on an answer.
+struct CalendarInvite {
+    uint64_t eventId = 0;
+    uint64_t inviteId = 0;
+    uint8_t status = 0;        ///< CalendarInviteStatus
+    uint8_t rank = 0;          ///< CalendarModerationRank
+    bool isGuildEvent = false;
+    uint64_t creatorGuid = 0;  ///< the sender's, when the event itself is gone
+};
+
+/// An event the player can see, whether or not they have answered it.
+struct CalendarEvent {
+    uint64_t eventId = 0;
+    std::string title;
+    uint32_t type = 0;         ///< CalendarEventType
+    WowDate eventTime;
+    uint32_t eventTimePacked = 0;  ///< kept raw: the interface sorts on it
+    uint32_t flags = 0;
+    int32_t dungeonId = 0;
+    uint64_t creatorGuid = 0;
+};
+
+/// A raid the player is saved to, and how long that lasts.
+struct CalendarRaidLockout {
+    uint32_t mapId = 0;
+    uint32_t difficulty = 0;
+    uint32_t secondsRemaining = 0;
+    uint64_t instanceGuid = 0;
+};
+
+/// When a raid's lock resets, and how often.
+struct CalendarRaidReset {
+    int32_t mapId = 0;
+    int32_t periodSeconds = 0;
+    int32_t offsetSeconds = 0;
+};
+
+/// A world holiday, with the dates it runs on.
+struct CalendarHoliday {
+    static constexpr int kNumDates = 26;      ///< server MAX_HOLIDAY_DATES
+    static constexpr int kNumDurations = 10;  ///< server MAX_HOLIDAY_DURATIONS
+    static constexpr int kNumFlags = 10;      ///< server MAX_HOLIDAY_FLAGS
+
+    uint32_t id = 0;
+    uint32_t region = 0;
+    uint32_t looping = 0;
+    uint32_t priority = 0;
+    uint32_t calendarFilterType = 0;
+    uint32_t dates[kNumDates] = {};
+    uint32_t durations[kNumDurations] = {};
+    uint32_t calendarFlags[kNumFlags] = {};
+    std::string textureFilename;
+};
+
+/// Everything the packet carried.
+struct CalendarData {
+    std::vector<CalendarInvite> invites;
+    std::vector<CalendarEvent> events;
+    /// The server's own clock, so a client whose clock is wrong still places
+    /// events on the right day.
+    uint32_t serverTimeUnix = 0;
+    WowDate zoneTime;
+    std::vector<CalendarRaidLockout> lockouts;
+    uint32_t resetRelationTime = 0;
+    std::vector<CalendarRaidReset> resets;
+    std::vector<CalendarHoliday> holidays;
+};
+
+/**
+ * Read one SMSG_CALENDAR_SEND_CALENDAR.
+ *
+ * False when the packet runs out mid-row, and `out` is then whatever had been
+ * read whole — a truncated calendar rather than a mixture of real values and
+ * values read past the end. Every count is checked against what is left before
+ * it is trusted: the counts are server-controlled uint32s and a corrupt one
+ * would otherwise reserve four billion rows.
+ */
+bool parseCalendarSendCalendar(network::Packet& packet, CalendarData& out);
+
+}  // namespace game
+}  // namespace wowee

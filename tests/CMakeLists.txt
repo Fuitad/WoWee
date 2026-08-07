@@ -1196,3 +1196,23 @@ if(TARGET glm::glm)
 endif()
 add_test(NAME m2_classifier_foliage COMMAND test_m2_classifier_foliage)
 register_test_target(test_m2_classifier_foliage)
+
+# ── test_calendar_packet ────────────────────────────────────
+add_executable(test_calendar_packet
+    test_calendar_packet.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/calendar_data.cpp
+)
+target_include_directories(test_calendar_packet PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_calendar_packet SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_calendar_packet PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
+                                                 OpenSSL::SSL OpenSSL::Crypto)
+if(TARGET glm::glm)
+    target_link_libraries(test_calendar_packet PRIVATE glm::glm)
+endif()
+if(TARGET Vulkan::Vulkan)
+    target_link_libraries(test_calendar_packet PRIVATE Vulkan::Vulkan)
+endif()
+add_test(NAME calendar_packet COMMAND test_calendar_packet)
+register_test_target(test_calendar_packet)

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "game/calendar_data.hpp"
 #include "game/game_interfaces.hpp"
 #include "game/world_packets.hpp"
 #include "game/character.hpp"
@@ -713,6 +714,8 @@ public:
     // WotLK Calendar
     uint32_t getCalendarPendingInvites() const { return calendarPendingInvites_; }
     void requestCalendar(); ///< Send CMSG_CALENDAR_GET_CALENDAR to the server
+    /// The calendar the server last sent, empty until it has answered one.
+    const CalendarData& getCalendarData() const { return calendarData_; }
     void queryGuildInfo(uint32_t guildId);
     void createGuild(const std::string& guildName);
     void addGuildRank(const std::string& rankName);
@@ -4925,6 +4928,8 @@ private:
 
     // ---- WotLK Calendar: pending invite counter ----
     uint32_t    calendarPendingInvites_ = 0; ///< Unacknowledged calendar invites (SMSG_CALENDAR_SEND_NUM_PENDING)
+    /// The whole calendar, as of the server's last answer to a request for it.
+    CalendarData calendarData_;
 
     // ---- Spell modifiers (SMSG_SET_FLAT_SPELL_MODIFIER / SMSG_SET_PCT_SPELL_MODIFIER) ----
     // Keyed by (SpellModOp, groupIndex); cleared on logout/character change.

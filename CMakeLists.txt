@@ -581,6 +581,7 @@ set(WOWEE_SOURCES
     src/game/world_packets_world.cpp
     src/game/world_packets_economy.cpp
     src/game/spline_packet.cpp
+    src/game/calendar_data.cpp
     src/game/faction_hostility.cpp
     src/game/packet_parsers_tbc.cpp
     src/game/packet_parsers_classic.cpp

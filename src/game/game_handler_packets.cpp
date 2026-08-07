@@ -2880,6 +2880,31 @@ void GameHandler::registerOpcodeHandlers() {
         }
         packet.skipAll();
     };
+    // The whole calendar, in answer to a request for it.
+    //
+    // Six lists back to back with no length prefix on any of them, so this is
+    // parsed in one place with a test rather than read inline — a row taken
+    // one field wrong slides everything after it and the next count is read
+    // out of the middle of a string, which fails silently and completely.
+    // See parseCalendarSendCalendar.
+    dispatchTable_[Opcode::SMSG_CALENDAR_SEND_CALENDAR] = [this](network::Packet& packet) {
+        CalendarData parsed;
+        if (!parseCalendarSendCalendar(packet, parsed)) {
+            LOG_WARNING("SMSG_CALENDAR_SEND_CALENDAR: could not be read whole; "
+                        "keeping the previous calendar rather than a partial one");
+            packet.skipAll();
+            return;
+        }
+        calendarData_ = std::move(parsed);
+        LOG_INFO("SMSG_CALENDAR_SEND_CALENDAR: ", calendarData_.events.size(),
+                 " event(s), ", calendarData_.invites.size(), " invite(s), ",
+                 calendarData_.lockouts.size(), " raid lockout(s), ",
+                 calendarData_.holidays.size(), " holiday(s)");
+        // The addon reads the whole thing on this event and nothing else
+        // announces that it arrived.
+        if (addonEventCallback_) addonEventCallback_("CALENDAR_UPDATE_EVENT_LIST", {});
+        packet.skipAll();
+    };
     // uint32 numPending — number of unacknowledged calendar invites
     dispatchTable_[Opcode::SMSG_CALENDAR_SEND_NUM_PENDING] = [this](network::Packet& packet) {
         // uint32 numPending — number of unacknowledged calendar invites
@@ -3271,7 +3296,6 @@ void GameHandler::registerOpcodeHandlers() {
         Opcode::SMSG_CALENDAR_EVENT_REMOVED_ALERT,
         Opcode::SMSG_CALENDAR_EVENT_UPDATED_ALERT,
         Opcode::SMSG_CALENDAR_FILTER_GUILD,
-        Opcode::SMSG_CALENDAR_SEND_CALENDAR,
         Opcode::SMSG_CALENDAR_SEND_EVENT,
         Opcode::SMSG_CHEAT_DUMP_ITEMS_DEBUG_ONLY_RESPONSE,
         Opcode::SMSG_CHEAT_DUMP_ITEMS_DEBUG_ONLY_RESPONSE_WRITE_FILE,
