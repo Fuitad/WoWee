@@ -96,6 +96,29 @@ static int lua_wow_message(lua_State* L) {
 
 // --- Frame system functions ---
 
+/// IsEventRegistered(event) → whether this frame asked for it.
+///
+/// Answered from the frame's own __events table, which RegisterEvent writes
+/// and UnregisterEvent clears — the same table the dispatch reads, so the
+/// answer cannot drift from the behaviour.
+///
+/// One caller in the interface: bnet.lua asks before it adds a conversation
+/// to a chat window. Addons use it more, and a no-op answering nothing is the
+/// wrong shape for a question — it reads as "no" for a frame that is
+/// registered, and re-registering is not always harmless.
+static int lua_Frame_IsEventRegistered(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    const char* eventName = luaL_optstring(L, 2, nullptr);
+    if (!eventName || !*eventName) { lua_pushboolean(L, 0); return 1; }
+    lua_getfield(L, 1, "__events");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); lua_pushboolean(L, 0); return 1; }
+    lua_getfield(L, -1, eventName);
+    const bool on = lua_toboolean(L, -1) != 0;
+    lua_pop(L, 2);
+    lua_pushboolean(L, on ? 1 : 0);
+    return 1;
+}
+
 static int lua_Frame_RegisterEvent(lua_State* L) {
     luaL_checktype(L, 1, LUA_TTABLE);  // self
     const char* eventName = luaL_checkstring(L, 2);
@@ -4594,6 +4617,7 @@ void LuaEngine::registerCoreAPI() {
 
     static const struct luaL_Reg frameMethods[] = {
         {"RegisterEvent",   lua_Frame_RegisterEvent},
+        {"IsEventRegistered", lua_Frame_IsEventRegistered},
         {"UnregisterEvent", lua_Frame_UnregisterEvent},
         {"SetScript",       lua_Frame_SetScript},
         {"GetScript",       lua_Frame_GetScript},

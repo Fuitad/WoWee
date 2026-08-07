@@ -84,6 +84,11 @@ EXPECTED_FIELD_ONLY = {
     "SetScript": "__scripts",
     "RegisterEvent": "__events",
     "UnregisterEvent": "__events",
+    # The reader for the pair above. Events are one of the few things that
+    # genuinely live in Lua rather than on the widget — the dispatch reads the
+    # same table — so answering from it is what keeps the answer and the
+    # behaviour from drifting apart.
+    "IsEventRegistered": "__events",
 }
 
 
