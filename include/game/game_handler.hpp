@@ -4117,7 +4117,6 @@ private:
     float inspectRateLimit_ = 0.0f;
 
     // ---- Combat ----
-    bool wasCombat_ = false;  // Previous frame combat state for PLAYER_REGEN edge detection
     std::deque<std::string>    areaTriggerMsgs_;
 
     WorldEntryCallback worldEntryCallback_;
