@@ -9082,11 +9082,20 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                     // Which frame took it, and — when none did — which one was
                     // under the cursor, since those are different questions and
                     // the second is what says why nothing happened.
+                    const auto* under = hit ? widgets_.get(hit) : nullptr;
                     LOG_WARNING("WidgetInput: drag dropped on ",
                                 target && !target->name.empty() ? target->name.c_str()
                                                                 : "nothing",
                                 dropOn == 0 && hit != 0
-                                    ? " — nothing there or above it takes a drop" : "");
+                                    ? " — nothing there or above it takes a drop" : "",
+                                // The frame actually under the cursor, always,
+                                // because "nothing" has two causes and they
+                                // need different fixes: no frame there at all,
+                                // or a frame there that no one up its chain
+                                // listens for.
+                                ", cursor was over ",
+                                under && !under->name.empty() ? under->name.c_str()
+                                       : (hit ? "(unnamed)" : "no frame"));
                     draggingWid_ = 0;
                     draggingButton_ = -1;
                 }

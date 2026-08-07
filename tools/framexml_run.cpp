@@ -54,6 +54,7 @@
 #include "addons/addon_manager.hpp"
 #include "ui/widget_renderer.hpp"
 #include "ui/interface_fonts.hpp"
+#include "ui/link_hit.hpp"
 
 #include <imgui.h>
 
@@ -249,6 +250,66 @@ int main(int argc, char** argv) {
         //
         // Sixteen milliseconds a tick, which is the frame this client aims at,
         // so anything measured in seconds advances at the rate it really would.
+        // --hit:X,Y says which frame the client's own hit test lands on.
+        //
+        // Window pixels like --mouse, so the two agree. Reimplementing the
+        // test in Lua to ask this answers a different question: the real one
+        // filters on the widget's own `visible`, its clip rect and its hit
+        // insets, and a Lua walk over IsVisible() sees none of that. The two
+        // disagreeing is itself the finding.
+        if (std::strncmp(argv[i], "--hit:", 6) == 0) {
+            float hx = 0.0f, hy = 0.0f;
+            std::sscanf(argv[i] + 6, "%f,%f", &hx, &hy);
+            relayout();
+            if (auto* engine = mgr.getLuaEngine()) {
+                // Through the client's own conversion, scale and all. A raw
+                // flip here answered a different question and made the two
+                // disagree — which read as the drop path being broken when it
+                // was this line.
+                float tx = hx, ty = hy;
+                wowee::ui::mouseToTreeSpace(tx, ty, 1080.0f, engine->widgets().uiScale());
+                const uint32_t id = engine->widgets().hitTest(tx, ty);
+                const auto* w = id ? engine->widgets().get(id) : nullptr;
+                std::printf("   hit at %.0f,%.0f -> %s\n", hx, hy,
+                            w ? (w->name.empty() ? "(unnamed)" : w->name.c_str())
+                              : "nothing");
+            }
+            continue;
+        }
+        // --mouse:X,Y,BUTTONS moves the cursor and sets the buttons held.
+        //
+        // Coordinates are window pixels from the top-left, the way ImGui
+        // reports them and the way the client passes them, so a position read
+        // off a frame's rect has to be flipped — the widget tree's y grows
+        // upward. BUTTONS is any of L, R, M; an empty field is all released.
+        //
+        // A drag is three of these: down on the source, moved far enough to
+        // pass the threshold, then up over the target. Nothing else here can
+        // exercise press-move-release, and that is where the drag machinery
+        // lives — which frame owns a drag, which frame is offered the drop,
+        // and whether either walks up its parents.
+        if (std::strncmp(argv[i], "--mouse:", 8) == 0) {
+            float mx = 0.0f, my = 0.0f;
+            char held[8] = {0};
+            std::sscanf(argv[i] + 8, "%f,%f,%7s", &mx, &my, held);
+            wowee::addons::LuaEngine::MouseButtons buttons;
+            buttons.left   = std::strchr(held, 'L') != nullptr;
+            buttons.right  = std::strchr(held, 'R') != nullptr;
+            buttons.middle = std::strchr(held, 'M') != nullptr;
+            relayout();
+            if (auto* engine = mgr.getLuaEngine()) {
+                engine->dispatchMouse(mx, my, 1080.0f, buttons);
+            }
+            std::printf("   mouse at %.0f,%.0f holding '%s'\n", mx, my,
+                        held[0] ? held : "nothing");
+            if (errors.size() != before) {
+                ++raised;
+                for (size_t k = before; k < errors.size(); ++k) {
+                    std::printf("   %s\n", errors[k].c_str());
+                }
+            }
+            continue;
+        }
         // --fire:EVENT sends one event through the engine's own dispatch.
         //
         // Calling a frame's OnEvent by hand tests the handler and nothing
