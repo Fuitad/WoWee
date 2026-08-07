@@ -1154,7 +1154,39 @@ bool TerrainManager::advanceFinalization(FinalizingTile& ft) {
                 if (!m2Renderer->hasModel(p.modelId)) {
                     continue;
                 }
-                uint32_t instId = m2Renderer->createInstance(p.modelId, p.position, p.rotation, p.scale);
+                // The order MDDF means, built here rather than by the shared
+                // euler path.
+                //
+                // A placement's three angles do not commute, and the server's
+                // own reader composes them yaw-outermost: AzerothCore builds
+                // the model's matrix with G3D's fromEulerAnglesZYX(rotY, rotX,
+                // rotZ), and that function returns Rz * (Ry * Rx). The shared
+                // path here applies Rx, then Ry, then Rz, which glm composes
+                // as Rx * Ry * Rz — the exact reverse. The axis assignment and
+                // the signs above already agree with the server's; only the
+                // order did not.
+                //
+                // This changes nothing for a doodad that is merely turned to
+                // face a direction, because with rotX and rotZ at zero every
+                // order gives the same matrix. It changes only the ones that
+                // are also tilted, which is exactly the set that has been
+                // reported as leaning wrongly — gravestones and their like.
+                //
+                // Built at the call site so it reaches nothing else. That
+                // shared path also orients game objects, spell effects and the
+                // level-up and charge effects, none of which come from MDDF or
+                // have any reason to follow its convention. Two earlier
+                // attempts changed the order for all of them at once and were
+                // reverted; both swapped Rx with Ry and left Rz innermost, so
+                // neither was this.
+                glm::mat4 doodadMatrix(1.0f);
+                doodadMatrix = glm::translate(doodadMatrix, p.position);
+                doodadMatrix = glm::rotate(doodadMatrix, p.rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+                doodadMatrix = glm::rotate(doodadMatrix, p.rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+                doodadMatrix = glm::rotate(doodadMatrix, p.rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+                doodadMatrix = glm::scale(doodadMatrix, glm::vec3(p.scale));
+                uint32_t instId = m2Renderer->createInstanceWithMatrix(p.modelId, doodadMatrix,
+                                                                       p.position);
                 if (instId) {
                     ft.m2InstanceIds.push_back(instId);
                     if (p.uniqueId != 0) {
