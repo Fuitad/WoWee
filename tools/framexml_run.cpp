@@ -450,6 +450,50 @@ int main(int argc, char** argv) {
             }
             continue;
         }
+        // --unsized names content that is on screen, has something to show, and
+        // has no room to show it in.
+        //
+        // A region with no width or no height is not drawn at all. Unlike a
+        // clip, nothing about it looks wrong from Lua: it is shown, it has its
+        // text or its texture, and every property reads back correctly. The
+        // only thing missing is the one number that decides whether any of it
+        // reaches the screen.
+        //
+        // Empty text is not interesting — most of the interface is labels
+        // waiting for data — so only regions that have something to say and
+        // nowhere to say it are counted.
+        if (std::strcmp(argv[i], "--unsized") == 0) {
+            relayout();
+            auto* engine = mgr.getLuaEngine();
+            if (!engine) { std::printf("   no engine\n"); continue; }
+            const auto& tree = engine->widgets();
+            int found = 0, carrying = 0;
+            for (uint32_t id = 1; id < tree.size(); ++id) {
+                const auto* w = tree.get(id);
+                if (!w || w->id == 0 || !w->visible) continue;
+                const bool hasSomething =
+                    (w->kind == wowee::ui::WidgetKind::FontString && !w->text.empty()) ||
+                    (w->kind == wowee::ui::WidgetKind::Texture && !w->texturePath.empty());
+                if (!hasSomething) continue;
+                ++carrying;
+                if (w->rectW > 0.0f && w->rectH > 0.0f) continue;
+                ++found;
+                if (found <= 25) {
+                    std::printf("   unsized: %-34s %s  %.0fx%.0f\n",
+                                w->name.empty() ? "(unnamed)" : w->name.c_str(),
+                                w->kind == wowee::ui::WidgetKind::FontString
+                                    ? "text " : "image",
+                                w->rectW, w->rectH);
+                }
+            }
+            if (found > 25) std::printf("   ... and %d more\n", found - 25);
+            // The second number for the same reason --clipped carries one: a
+            // zero here is also what "nothing on screen has anything to show"
+            // looks like, and that would mean the run proved nothing.
+            std::printf("   %d unsized, of %d carrying something\n",
+                        found, carrying);
+            continue;
+        }
         // --bind:KEY presses a key the way the client's binding dispatch does.
         //
         // Calling RunBinding by hand tests the script and nothing about whether

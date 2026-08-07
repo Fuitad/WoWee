@@ -2299,3 +2299,53 @@ TEST_CASE("A scroll frame clips its scroll child, not its scroll bar",
     CHECK(tree.get(bar)->clipTo != scroll);
     CHECK(tree.get(bar)->clipTo == tree.get(scroll)->clipTo);
 }
+
+TEST_CASE("Button art fills the button on an axis its anchors leave open",
+          "[widget][layout][buttonart]") {
+    // CharacterFrameTabButtonTemplate's highlight carries a LEFT and a RIGHT
+    // anchor and no <Size>. That pair is opposite edges on x, so the width
+    // comes out of it; on y both anchors are the same centre, which resizes
+    // nothing, and the height came out zero. A region with no height is not
+    // drawn, so the highlight behind every tab on the character sheet, the
+    // merchant, the mail, the friends list and the auction house was built,
+    // positioned and never seen.
+    WidgetTree tree;
+    const uint32_t button = tree.create(WidgetKind::Frame, 0, "Tab");
+    tree.get(button)->width = 120.0f;
+    tree.get(button)->height = 32.0f;
+    tree.addPoint(button, Anchor{});
+
+    auto edge = [&](uint32_t id, const char* point, float x) {
+        Anchor a;
+        a.point = point;
+        a.relativePoint = point;
+        a.relativeTo = button;
+        a.x = x;
+        tree.addPoint(id, a);
+    };
+
+    const uint32_t art = tree.create(WidgetKind::Texture, button, "Highlight");
+    tree.get(art)->texturePath = "Interface\\Buttons\\Highlight.blp";
+    tree.get(art)->buttonArt = ButtonArt::Highlight;
+    edge(art, "LEFT", 10.0f);
+    edge(art, "RIGHT", -10.0f);
+
+    // And one that states its own size, which must be left exactly as it is —
+    // TabButtonTemplate's highlight says 5 by 32 and means it.
+    const uint32_t sized = tree.create(WidgetKind::Texture, button, "SizedArt");
+    tree.get(sized)->texturePath = "Interface\\Buttons\\Highlight.blp";
+    tree.get(sized)->buttonArt = ButtonArt::Highlight;
+    tree.get(sized)->width = 5.0f;
+    tree.get(sized)->height = 12.0f;
+    tree.addPoint(sized, Anchor{});
+
+    tree.layout(kScreenW, kScreenH);
+
+    // The pair still decides the width; only the empty axis is filled in.
+    CHECK(tree.get(art)->rectW == Catch::Approx(100.0f));
+    CHECK(tree.get(art)->rectH == Catch::Approx(32.0f));
+    CHECK(tree.get(art)->bottom == Catch::Approx(tree.get(button)->bottom));
+
+    CHECK(tree.get(sized)->rectW == Catch::Approx(5.0f));
+    CHECK(tree.get(sized)->rectH == Catch::Approx(12.0f));
+}

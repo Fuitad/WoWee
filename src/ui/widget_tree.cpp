@@ -760,6 +760,26 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
     } else {
         solveAxis(cx, w->width * es,  pLeft,   pW, w->left,   w->rectW);
         solveAxis(cy, w->height * es, pBottom, pH, w->bottom, w->rectH);
+        // A button's art fills the button on any axis its anchors left open.
+        //
+        // The rule above covers art that says nothing at all about where it
+        // goes. This is the same thing said half way: CharacterFrameTabButton's
+        // highlight carries a LEFT and a RIGHT anchor and no <Size>, so its
+        // width comes out of the pair and its height out of nothing. A region
+        // with no height is not drawn, so the highlight behind every tab on the
+        // character sheet, the merchant, the mail, the friends list and the
+        // auction house — sixteen of them — was built, positioned, and never
+        // seen. Nothing about it reads wrong from Lua: it is shown, it has its
+        // texture, and only the one number that decides whether any of it
+        // reaches the screen is missing.
+        //
+        // Only for button art, and only for an axis that came out empty, so a
+        // highlight that does declare its own size — TabButtonTemplate's says
+        // 5 by 32 — keeps it.
+        if (w->buttonArt != ButtonArt::None && parent) {
+            if (w->rectW <= 0.0f) { w->left   = pLeft;   w->rectW = pW; }
+            if (w->rectH <= 0.0f) { w->bottom = pBottom; w->rectH = pH; }
+        }
     }
     // After the solve, so it displaces the result rather than becoming another
     // constraint on it.
