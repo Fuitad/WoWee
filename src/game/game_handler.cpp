@@ -3287,6 +3287,15 @@ void GameHandler::massInviteGuildToCalendarEvent(uint32_t minLevel,
     }
 }
 
+void GameHandler::updateCalendarEvent(uint64_t eventId, uint64_t inviteId,
+                                      const CalendarEventDraft& draft) {
+    if (socialHandler_) socialHandler_->updateCalendarEvent(eventId, inviteId, draft);
+}
+
+void GameHandler::removeCalendarEvent(uint64_t eventId, uint64_t inviteId) {
+    if (socialHandler_) socialHandler_->removeCalendarEvent(eventId, inviteId);
+}
+
 void GameHandler::requestCalendarEvent(uint64_t eventId) {
     if (socialHandler_) socialHandler_->requestCalendarEvent(eventId);
 }

@@ -6196,6 +6196,48 @@ void registerSystemLuaAPI(lua_State* L) {
                 static_cast<int32_t>(luaL_optnumber(L, 1, -1));
             return 0;
         }},
+                // Editing the open event, and deleting it.
+                //
+                // Both act on whichever event is open rather than on the
+                // draft, which is what the interface means: the edit form is
+                // filled from the open event and CalendarUpdateEvent commits
+                // it back. With nothing open there is nothing to change, so
+                // both do nothing rather than inventing an id.
+                {"CalendarUpdateEvent", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const auto& open = gh->getCalendarEventDetail();
+            if (open.eventId == 0) return 0;
+            gh->updateCalendarEvent(open.eventId, 0, calendarDraft());
+            return 0;
+        }},
+                {"CalendarRemoveEvent", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const auto& open = gh->getCalendarEventDetail();
+            if (open.eventId == 0) return 0;
+            gh->removeCalendarEvent(open.eventId, 0);
+            return 0;
+        }},
+                // Whether the edit form has anything to commit. The interface
+                // greys its save button on this, so answering true always
+                // would offer to save an event nobody had touched.
+                {"CalendarEventHaveSettingsChanged", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            if (!gh) { lua_pushboolean(L, 0); return 1; }
+            const auto& open = gh->getCalendarEventDetail();
+            const auto& d = calendarDraft();
+            const bool changed =
+                open.eventId != 0 &&
+                (d.title != open.title || d.description != open.description ||
+                 d.type != open.type ||
+                 d.eventTime.day != open.eventTime.day ||
+                 d.eventTime.month != open.eventTime.month ||
+                 d.eventTime.hour != open.eventTime.hour ||
+                 d.eventTime.minute != open.eventTime.minute);
+            lua_pushboolean(L, changed ? 1 : 0);
+            return 1;
+        }},
                 // Inviting someone.
                 //
                 // Two cases in one call, which is how WoW does it. An event

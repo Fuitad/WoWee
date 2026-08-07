@@ -370,6 +370,11 @@ public:
     void inviteToCalendarEvent(uint64_t eventId, uint64_t inviteId,
                                const std::string& name, bool isPreInvite,
                                bool isGuildEvent);
+    /// Edit an existing event: CMSG_CALENDAR_UPDATE_EVENT.
+    void updateCalendarEvent(uint64_t eventId, uint64_t inviteId,
+                             const CalendarEventDraft& draft);
+    /// Delete one: CMSG_CALENDAR_REMOVE_EVENT.
+    void removeCalendarEvent(uint64_t eventId, uint64_t inviteId);
     /// Invite the guild by filter: CMSG_CALENDAR_GUILD_FILTER.
     void massInviteGuildToCalendarEvent(uint32_t minLevel, uint32_t maxLevel,
                                         uint32_t minRank);

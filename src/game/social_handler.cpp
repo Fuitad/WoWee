@@ -4450,6 +4450,43 @@ void SocialHandler::massInviteGuildToCalendarEvent(uint32_t minLevel,
              ", rank ", minRank, " and above");
 }
 
+void SocialHandler::updateCalendarEvent(uint64_t eventId, uint64_t inviteId,
+                                        const CalendarEventDraft& draft) {
+    if (!owner_.isInWorld()) return;
+    // The same body as adding, with the event and invite ids in front of it
+    // (CalendarHandler.cpp:360). Written out rather than shared with
+    // createCalendarEvent: the two are the same shape today and are two
+    // different opcodes, and folding them together would make the next change
+    // to one silently change the other.
+    network::Packet pkt(wireOpcode(Opcode::CMSG_CALENDAR_UPDATE_EVENT));
+    pkt.writeUInt64(eventId);
+    pkt.writeUInt64(inviteId);
+    pkt.writeString(draft.title);
+    pkt.writeString(draft.description);
+    pkt.writeUInt8(draft.type);
+    pkt.writeUInt8(draft.repeatOption);
+    pkt.writeUInt32(draft.maxInvites);
+    pkt.writeUInt32(static_cast<uint32_t>(draft.dungeonId));
+    pkt.writeUInt32(packWowPackedTime(draft.eventTime));
+    pkt.writeUInt32(packWowPackedTime(draft.eventTime));
+    pkt.writeUInt32(draft.flags);
+    owner_.getSocket()->send(pkt);
+    LOG_INFO("updateCalendarEvent: ", eventId, " '", draft.title, "'");
+}
+
+void SocialHandler::removeCalendarEvent(uint64_t eventId, uint64_t inviteId) {
+    if (!owner_.isInWorld()) return;
+    // The server reads the id and discards the rest, but the rest is still
+    // written: it calls rfinish() rather than stopping, so a short packet is
+    // a short read on its side rather than a tidy one.
+    network::Packet pkt(wireOpcode(Opcode::CMSG_CALENDAR_REMOVE_EVENT));
+    pkt.writeUInt64(eventId);
+    pkt.writeUInt64(inviteId);
+    pkt.writeUInt32(0);   // flags
+    owner_.getSocket()->send(pkt);
+    LOG_INFO("removeCalendarEvent: ", eventId);
+}
+
 void SocialHandler::requestCalendarEvent(uint64_t eventId) {
     if (!owner_.isInWorld()) return;
     network::Packet pkt(wireOpcode(Opcode::CMSG_CALENDAR_GET_EVENT));
