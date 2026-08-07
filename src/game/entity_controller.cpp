@@ -1306,6 +1306,7 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
     bool statsChanged = false;
     bool ratingsChanged = false;
     bool powerChanged = false;
+    bool rangedPowerChanged = false;
     bool resistancesChanged = false;
     bool spellBonusChanged = false;
     for (const auto& [key, val] : fields) {
@@ -1463,7 +1464,8 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
         }
         else if (pfi.rangedAP != 0xFFFF && key == pfi.rangedAP) {
             const int32_t ap = static_cast<int32_t>(val);
-            if (owner_.playerRangedAPRef() != ap) powerChanged = true;
+            // Its own flag, because its own event is the one that lands.
+            if (owner_.playerRangedAPRef() != ap) rangedPowerChanged = true;
             owner_.playerRangedAPRef() = ap;
         }
         else if (pfi.spDmg1   != 0xFFFF && key >= pfi.spDmg1 && key < pfi.spDmg1 + 7) {
@@ -1524,6 +1526,21 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
         if (statsChanged)   pendingEvents_.emit("UNIT_STATS", {"player"});
         if (ratingsChanged) pendingEvents_.emit("COMBAT_RATING_UPDATE", {});
         if (powerChanged)   pendingEvents_.emit("UNIT_ATTACK_POWER", {"player"});
+        // The ranged half separately, because the two are not
+        // interchangeable to the sheet. PaperDollFrame registers
+        // UNIT_ATTACK_POWER and then handles it nowhere — it is absent from
+        // the branch that calls PaperDollFrame_UpdateStats and from every
+        // other branch in the file, in this FrameXML and in the pet one. So
+        // sending it for a ranged change refreshed nothing at all: a hunter
+        // could gain or lose ranged attack power and the character sheet went
+        // on showing the old number.
+        //
+        // UNIT_RANGED_ATTACK_POWER is in that branch, and is what the value
+        // actually changed, so it is both the effective event and the true
+        // one.
+        if (rangedPowerChanged) {
+            pendingEvents_.emit("UNIT_RANGED_ATTACK_POWER", {"player"});
+        }
         // Armor with the six resistances behind it, and the spell power and
         // healing bonus. The paperdoll refreshes its resistance panel from
         // UNIT_RESISTANCES alone — UNIT_DEFENSE is the *pet* sheet's event, not
