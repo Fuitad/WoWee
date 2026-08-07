@@ -835,6 +835,13 @@ static int lua_SetCVar(lua_State* L) {
         value = lua_tostring(L, 2);
     } else if (lua_isboolean(L, 2)) {
         value = lua_toboolean(L, 2) ? "1" : "0";
+    } else {
+        // nil is how an unticked box reports itself, and these are written
+        // straight through: SetCVar("questPOI", self:GetChecked()). Storing
+        // the empty string for it would make GetCVar answer something that is
+        // neither "0" nor a number, so tonumber(GetCVar(...)) — which the
+        // options panels do — would give nil where it wanted a zero.
+        value = "0";
     }
     // The same folding as the read side, or a value written as "uiScale"
     // would be invisible to a read of "uiscale".

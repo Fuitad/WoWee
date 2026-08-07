@@ -1026,9 +1026,21 @@ int lua_CheckButton_SetChecked(lua_State* L) {
     }
     return 0;
 }
+/// GetChecked. 1 when ticked and nil when not, which is what 3.3.5 answers and
+/// what this FrameXML is written against — the same 0/1 convention SetChecked
+/// takes, and forty SetChecked(0) calls in these files say which convention
+/// that is.
+///
+/// A boolean reads the same to every `if (box:GetChecked())`, which is most of
+/// the hundred and seventy call sites and why this looked right. It differs at
+/// the ones that hand the answer to something else: SetCVar("questPOI",
+/// self:GetChecked()) stored "true" instead of "1", and QueryAuctionItems took
+/// it as its isUsable and raised — false is not nil, so the unticked box
+/// raised too, and the auction browse never sent a search either way.
 int lua_CheckButton_GetChecked(lua_State* L) {
     const auto* w = widgetOf(L, 1);
-    lua_pushboolean(L, w && w->checked);
+    if (w && w->checked) lua_pushnumber(L, 1);
+    else lua_pushnil(L);
     return 1;
 }
 

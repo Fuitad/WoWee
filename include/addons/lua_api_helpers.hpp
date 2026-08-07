@@ -36,6 +36,30 @@ inline int luaReturnNil(lua_State* L)  { lua_pushnil(L); return 1; }
 inline int luaReturnZero(lua_State* L) { lua_pushnumber(L, 0); return 1; }
 inline int luaReturnFalse(lua_State* L){ lua_pushboolean(L, 0); return 1; }
 
+// ---- Lenient numeric argument, for values that came out of a widget ----
+//
+// FrameXML hands a widget's own output straight to bindings that want a
+// number: the auction browse passes BrowseMinLevel:GetText() and
+// IsUsableCheckButton:GetChecked() to QueryAuctionItems without touching
+// either. luaL_optnumber falls back to its default only for nil and none —
+// anything else that will not convert raises instead, and an empty edit box
+// gives "", not nil. So an untouched level box did not mean "no minimum": it
+// aborted QueryAuctionItems before it sent anything, and the browse tab
+// answered every search with no items and no error.
+//
+// Real WoW's C functions convert what they can and treat the rest as unset,
+// which is what lets Blizzard's own code pass raw widget output around.
+inline double luaOptNumberText(lua_State* L, int idx, double def) {
+    switch (lua_type(L, idx)) {
+        case LUA_TNUMBER:  return lua_tonumber(L, idx);
+        // lua_isnumber answers for the converted value rather than the stored
+        // type, so it is the test for "this string is a number".
+        case LUA_TSTRING:  return lua_isnumber(L, idx) ? lua_tonumber(L, idx) : def;
+        case LUA_TBOOLEAN: return lua_toboolean(L, idx) ? 1.0 : 0.0;
+        default:           return def;  // nil, none, and everything unconvertible
+    }
+}
+
 // ---- Shared GetTime() epoch ----
 //
 // The application's clock, not one of its own. Both are steady_clock seconds

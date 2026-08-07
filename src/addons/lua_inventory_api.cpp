@@ -4043,8 +4043,15 @@ void registerInventoryLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             if (!gh) return 0;
             const char* name = luaL_optstring(L, 1, "");
-            const uint8_t lo  = static_cast<uint8_t>(luaL_optnumber(L, 2, 0));
-            const uint8_t hi  = static_cast<uint8_t>(luaL_optnumber(L, 3, 0));
+            // Every argument here is a widget's own output, handed over
+            // untouched by AuctionFrameBrowse_SearchHelper — so the level
+            // bounds arrive as the text of an edit box. An empty box gives ""
+            // rather than nil, which luaL_optnumber does not treat as absent
+            // but as a string that will not convert, and raises on. The level
+            // boxes start empty, so the commonest search of all — type a name,
+            // press Search — died here before a single byte went out.
+            const uint8_t lo  = static_cast<uint8_t>(luaOptNumberText(L, 2, 0));
+            const uint8_t hi  = static_cast<uint8_t>(luaOptNumberText(L, 3, 0));
             // The three filters arrive as positions in the lists above, not as
             // the ids the wire wants — and nil, for "not filtered", arrives as
             // zero. Zero is a real item class, so this used to ask the server
@@ -4052,9 +4059,9 @@ void registerInventoryLuaAPI(lua_State* L) {
             // search by name found nothing but food. Row zero of each shared
             // list is "All", so the lookup turns both cases into the right
             // answer at once.
-            const int invIdx = static_cast<int>(luaL_optnumber(L, 4, 0));
-            const int clsIdx = static_cast<int>(luaL_optnumber(L, 5, 0));
-            const int subIdx = static_cast<int>(luaL_optnumber(L, 6, 0));
+            const int invIdx = static_cast<int>(luaOptNumberText(L, 4, 0));
+            const int clsIdx = static_cast<int>(luaOptNumberText(L, 5, 0));
+            const int subIdx = static_cast<int>(luaOptNumberText(L, 6, 0));
             const uint32_t inv = (invIdx > 0 && invIdx < game::kNumAuctionSlots)
                 ? game::kAuctionSlots[invIdx].invType : game::kAuctionAny;
             const uint32_t cls = (clsIdx > 0 && clsIdx < game::kNumAuctionClasses)
@@ -4065,13 +4072,13 @@ void registerInventoryLuaAPI(lua_State* L) {
                 const auto* subs = game::auctionSubsFor(cls, count);
                 if (subs && subIdx < count) sub = subs[subIdx].subId;
             }
-            const uint32_t page = static_cast<uint32_t>(luaL_optnumber(L, 7, 0));
+            const uint32_t page = static_cast<uint32_t>(luaOptNumberText(L, 7, 0));
             const uint8_t usable = lua_toboolean(L, 8) ? 1 : 0;
             // The rarity dropdown's "All" is -1, not nil, and casting a
             // negative double straight to uint32_t is undefined — it happens to
             // land on the 0xFFFFFFFF the server reads as "any quality" on the
             // machines this has run on, which is not the same as meaning to.
-            const int qualityIdx = static_cast<int>(luaL_optnumber(L, 9, -1));
+            const int qualityIdx = static_cast<int>(luaOptNumberText(L, 9, -1));
             const uint32_t quality = qualityIdx < 0
                 ? game::kAuctionAny : static_cast<uint32_t>(qualityIdx);
             // The page is a page; the wire wants the row it starts at.
