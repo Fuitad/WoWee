@@ -595,11 +595,35 @@ void WidgetTree::layoutWidget(uint32_t id, float screenW, float screenH) {
             outSize = cs[hi].target - cs[lo].target;
             outOrigin = cs[lo].target;
         } else {
-            // Positioned by the first anchor, which is the one the XML gave
-            // it: a point added later is refining where it sits, not replacing
-            // what it hangs from.
+            // Positioned by the first anchor that names an *edge* on this
+            // axis, and only by the first anchor of any kind when none does.
+            //
+            // An anchor constrains both axes whether or not it meant to. LEFT
+            // is the left edge and the vertical centre; BOTTOM is the bottom
+            // edge and the horizontal centre. So a frame given LEFT, RIGHT and
+            // BOTTOM — which is how the talent frame's points bar is written,
+            // and it is a common shape — has three constraints on y: two
+            // centres that came along with the horizontal pair, and the one
+            // that was actually about y. Taking the first put the bar at its
+            // parent's vertical centre and ignored the bottom edge it was
+            // given, which left it floating in the middle of the window with
+            // half the frame empty beneath it. The scroll frame above it is
+            // anchored to its top, so the talent tree was squeezed into the
+            // half above that, cut off, and unscrollable because the tree it
+            // was showing had been made shorter than its own content.
+            //
+            // An edge is the specific statement and a centre is the incidental
+            // one, so the edge wins. This does not change the case above,
+            // where two opposite edges size the axis, nor the one the
+            // reputation rows depend on — their y constraints are a top edge
+            // and a centre, and the top edge is both the first anchor and the
+            // edge, so it is chosen either way.
+            size_t pick = 0;
+            for (size_t i = 0; i < cs.size(); ++i) {
+                if (cs[i].f < 0.01f || cs[i].f > 0.99f) { pick = i; break; }
+            }
             outSize = explicitSize;
-            outOrigin = cs[0].target - cs[0].f * outSize;
+            outOrigin = cs[pick].target - cs[pick].f * outSize;
         }
     };
 

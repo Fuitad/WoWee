@@ -67,10 +67,35 @@ int main(int argc, char** argv) {
     std::printf("== load: %zu error(s)\n", errors.size());
     for (const std::string& e : errors) std::printf("   %s\n", e.c_str());
 
+    // Resolve the anchors, so a question about where something ended up has an
+    // answer. Nothing drives a render loop here, and without this every frame
+    // reports a bottom of zero and a top equal to its own height — which is
+    // not a layout, it is the absence of one, and reads as a fault in whatever
+    // is being examined.
+    //
+    // This is the tree's own layout and not the renderer's, so the two passes
+    // the renderer runs first are missing: a font string is sized from its text
+    // and a tooltip from its lines, and neither has a font here. Frames sized
+    // by their anchors and their own dimensions are right; anything whose size
+    // comes from text it holds will read as zero.
+    auto relayout = [&mgr] {
+        if (auto* engine = mgr.getLuaEngine()) {
+            engine->widgets().layout(1920.0f, 1080.0f);
+        }
+    };
+    relayout();
+
     int raised = 0;
     for (int i = 2; i < argc; ++i) {
         const size_t before = errors.size();
         std::printf("\n== %s\n", argv[i]);
+        // Before each one, not once after the load. An expression that opens a
+        // panel changes where things are, and the expression that measures it
+        // is the next one along — laying out only at the start meant every
+        // measurement described the interface as it was before anything had
+        // been asked of it. The client lays out every frame; this is the same
+        // thing at the only granularity there is here.
+        relayout();
         mgr.runInterfaceCommand(argv[i]);
         if (errors.size() == before) {
             std::printf("   no error\n");
