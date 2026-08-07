@@ -425,6 +425,29 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
             }
         }
 
+        // The guild roster, which was not among the places looked and is the
+        // one that holds the names this most often needs.
+        //
+        // Every other source here is someone nearby or in the party. A
+        // guildmate is characteristically neither: they are in another zone,
+        // which is the whole point of guild chat. So a guild line from anyone
+        // not recently met arrived with no name at all — "[Guild] : message" —
+        // and a guild achievement, which is announced by whoever earned it
+        // wherever they are, read "[] has earned the achievement".
+        //
+        // The roster is already held and already carries the name beside the
+        // guid; nothing had asked it. It is only populated once the roster has
+        // been requested, so this is a source rather than a guarantee, and the
+        // query below still runs when it misses.
+        if (data.senderName.empty()) {
+            for (const auto& member : owner_.getGuildRoster().members) {
+                if (member.guid == data.senderGuid && !member.name.empty()) {
+                    data.senderName = member.name;
+                    break;
+                }
+            }
+        }
+
         if (data.senderName.empty()) {
             owner_.queryPlayerName(data.senderGuid);
         }
