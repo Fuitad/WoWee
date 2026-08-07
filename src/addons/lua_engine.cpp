@@ -2725,10 +2725,20 @@ int lua_Texture_GetBlendMode(lua_State* L) {
 }
 int lua_Region_SetVertexColor(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) {
-        w->color[0] = static_cast<float>(luaL_optnumber(L, 2, 1.0));
-        w->color[1] = static_cast<float>(luaL_optnumber(L, 3, 1.0));
-        w->color[2] = static_cast<float>(luaL_optnumber(L, 4, 1.0));
-        w->color[3] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
+        // Lenient, because the interface passes junk into the fourth argument
+        // and the real client accepts it. GetMessageTypeColor ends
+        //
+        //     return info.r, info.g, info.b, group;
+        //
+        // where group is a *table*, and the chat settings panel spreads that
+        // straight into SetVertexColor — so the alpha is a table on every
+        // colour swatch it draws. luaL_optnumber falls back to its default for
+        // nil and none only; anything else that will not convert raises, which
+        // took the panel down as it opened.
+        w->color[0] = static_cast<float>(luaOptNumberText(L, 2, 1.0));
+        w->color[1] = static_cast<float>(luaOptNumberText(L, 3, 1.0));
+        w->color[2] = static_cast<float>(luaOptNumberText(L, 4, 1.0));
+        w->color[3] = static_cast<float>(luaOptNumberText(L, 5, 1.0));
     }
     return 0;
 }
