@@ -4564,7 +4564,18 @@ void registerInventoryLuaAPI(lua_State* L) {
             lua_pushstring(L, mail->body.c_str());
             lua_pushnil(L);
             lua_pushboolean(L, (mail->money > 0 || !mail->attachments.empty()) ? 1 : 0);
-            lua_pushboolean(L, 0);
+            // Whether this is an auction house invoice, which was answered no
+            // for every letter. OpenMail_Update asks here first and only calls
+            // GetInboxInvoiceInfo `if ( isInvoice )`, so saying no kept the
+            // whole invoice panel shut: a sale arrived as a letter with the
+            // raw colon-separated body in it and no breakdown at all.
+            //
+            // The body decides, not the sender: an auction mail's body parses
+            // as an invoice and nothing else does.
+            game::AuctionMailInvoice invoice;
+            const bool isInvoice = mail->messageType == 2 &&
+                                   game::parseAuctionMailBody(mail->body, invoice);
+            lua_pushboolean(L, isInvoice ? 1 : 0);
             return 4;
         }},
                 // Whether there is unread mail waiting, which is what the

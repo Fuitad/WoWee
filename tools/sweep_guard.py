@@ -294,7 +294,18 @@ CHECKS = [
     # The mirror of handler_announce_check: that one asks what a handler fails
     # to pass on, this asks what the wire carried that nothing collected.
     #
-    # Four, all in the charter-purchase path. Five were answered the day it was written and
+    # Three, all in the charter-purchase path: the signature counts and type on
+    # the charters a vendor lists, which that list does not display — the
+    # petition being signed reads its own requirement from a different struct.
+    #
+    # It was four. AuctionMailInvoice::ownerGuidLow came out when the auction
+    # mail invoice was wired to FrameXML: parseAuctionMailBody had been
+    # decoding those bodies all along and only this client's own mail window
+    # read them, so handing mail over left the breakdown behind and a sale
+    # arrived as a letter with the raw colon-separated body in it. A field
+    # nobody reads usually means a branch nobody runs.
+    #
+    # Five were answered the day it was written and
     # both were live — a loot row the player cannot take drawing as ordinary
     # loot, and a group invite the server had already refused raising the
     # accept popup. Both sat next to a comment saying the data was unavailable,
@@ -303,7 +314,7 @@ CHECKS = [
     # The tool carries its own canary, because two separate mistakes make it
     # report a clean zero while seeing nothing at all.
     ("parsed_never_read_check.py",
-     r"^(\d+) parsed and never read", 4,
+     r"^(\d+) parsed and never read", 3,
      "packet fields stored by the parser and read by nobody"),
     # The mirror of the row above: a field every reader agrees on and no writer
     # ever fills, so they all agree on the declaration's initialiser. Zero,

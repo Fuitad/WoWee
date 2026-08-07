@@ -1582,12 +1582,79 @@ void registerSocialLuaAPI(lua_State* L) {
                 // GetInboxInvoiceInfo(id) → invoiceType, itemName, playerName,
                 //   bid, buyout, deposit, consignment, moneyDelay, etaHour, etaMin
                 //
-                // Ten nils. The auction house sends these as mail and nothing
-                // here parses the invoice body, so there is no invoice to
-                // describe — and the caller compares the first against a string,
-                // which nil fails cleanly.
+                // This answered ten nils beside a comment saying nothing here
+                // parsed an invoice body. Something did: parseAuctionMailBody
+                // has been decoding them all along, and this client's own mail
+                // window has been printing the breakdown from it. Handing mail
+                // over left that behind, so a sale arrived as a letter with the
+                // raw colon-separated body and no figures.
+                //
+                // Found by asking which parsed fields nothing reads.
+                // AuctionMailInvoice::ownerGuidLow was one, and a field nobody
+                // reads usually means a branch nobody runs.
                 {"GetInboxInvoiceInfo", [](lua_State* L) -> int {
-            for (int i = 0; i < 10; ++i) lua_pushnil(L);
+            auto* gh = getGameHandler(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
+            const auto& inbox = gh ? gh->getMailInbox() : decltype(gh->getMailInbox()){};
+            if (!gh || index < 1 || index > static_cast<int>(inbox.size())) {
+                for (int i = 0; i < 10; ++i) lua_pushnil(L);
+                return 10;
+            }
+            const auto& mail = inbox[static_cast<size_t>(index) - 1];
+            game::AuctionMailInvoice invoice;
+            if (mail.messageType != 2 ||
+                !game::parseAuctionMailBody(mail.body, invoice)) {
+                for (int i = 0; i < 10; ++i) lua_pushnil(L);
+                return 10;
+            }
+
+            // Which side of the sale this letter is. The auction house sends
+            // the buyer a "won" mail and the seller a "sold" one, and the two
+            // halves of OpenMail_Update draw entirely different panels from it
+            // — the buyer's shows what was paid, the seller's the deposit and
+            // the house's cut.
+            //
+            // The subject carries the response code that says which.
+            game::AuctionMailSubject subject;
+            const bool haveSubject =
+                game::parseAuctionMailSubject(mail.subject, subject);
+            // A sold-auction invoice names a deposit and a cut; a purchase
+            // does not, which is the difference the panel is drawn from.
+            const bool seller = invoice.deposit > 0 || invoice.consignment > 0;
+            lua_pushstring(L, seller ? "seller" : "buyer");
+
+            const uint32_t entry = haveSubject ? subject.itemEntry : 0;
+            const auto* info = entry ? gh->getItemInfo(entry) : nullptr;
+            lua_pushstring(L, info ? info->name.c_str() : "");
+
+            // The other party. Their guid low is what the invoice carries, and
+            // the name cache is asked rather than the server: an invoice is
+            // read long after the sale and the seller may be anywhere.
+            std::string other;
+            if (invoice.ownerGuidLow != 0) {
+                for (const auto& [guid, name] : gh->getPlayerNameCache()) {
+                    if (static_cast<uint32_t>(guid & 0xFFFFFFFFu) != invoice.ownerGuidLow) {
+                        continue;
+                    }
+                    other = name;
+                    break;
+                }
+            }
+            // A name, even an unknown one: FrameXML draws the whole panel
+            // behind `if ( playerName )`, so answering nothing here would keep
+            // it shut for the sake of a label.
+            lua_pushstring(L, other.empty() ? "Unknown" : other.c_str());
+
+            lua_pushnumber(L, invoice.bid);
+            lua_pushnumber(L, invoice.buyout);
+            lua_pushnumber(L, invoice.deposit);
+            lua_pushnumber(L, invoice.consignment);
+            // The hour the money becomes available, which the server does not
+            // send. Nil rather than a guess: the panel guards each of these and
+            // shows "not yet sent" without them, which is true.
+            lua_pushnil(L);
+            lua_pushnil(L);
+            lua_pushnil(L);
             return 10;
         }},
                 // Stationery is the letterhead a mail is written on. The list
