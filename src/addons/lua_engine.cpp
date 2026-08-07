@@ -4811,6 +4811,11 @@ void LuaEngine::registerCoreAPI() {
         {"math", "floor", "floor"},    {"math", "max", "max"},
         {"math", "min", "min"},        {"math", "fmod", "mod"},
         {"math", "sqrt", "sqrt"},      {"math", "random", "random"},
+        {"math", "exp", "exp"},        {"math", "log", "log"},
+        {"math", "log10", "log10"},    {"math", "fmod", "fmod"},
+        {"math", "modf", "modf"},      {"math", "frexp", "frexp"},
+        {"math", "ldexp", "ldexp"},    {"math", "huge", "huge"},
+        {"math", "deg", "deg"},        {"math", "rad", "rad"},
         {"string", "gsub", "gsub"},    {"string", "sub", "strsub"},
         {"string", "len", "strlen"},   {"string", "upper", "strupper"},
         {"string", "lower", "strlower"}, {"string", "find", "strfind"},
@@ -4828,6 +4833,34 @@ void LuaEngine::registerCoreAPI() {
         }
         lua_pop(L_, 1);
     }
+    // The trigonometric globals, which take and answer **degrees**.
+    //
+    // Not aliases of math.cos and friends: WoW's bare globals work in degrees
+    // where the library works in radians, and the interface relies on it
+    // everywhere — `sin(elapsed*360)` for one cycle a second, `cos(degree)`,
+    // `sin(fraction*90)`. Aliasing them straight across would have left every
+    // one of those quietly wrong rather than absent, which is worse.
+    //
+    // They were missing outright, and the cost was not a wrong curve but a
+    // dead subsystem: CombatText_FountainScroll calls cos(), so every floating
+    // combat message raised, and after five consecutive failures the engine
+    // unhooks an OnUpdate — so the scroll stopped, and every message queued
+    // sat on screen for the rest of the session. That is exactly what
+    // "entering/leaving combat messages never clear" was.
+    executeString(
+        "do\n"
+        "  local m = math\n"
+        "  local toRad = m.pi / 180\n"
+        "  local toDeg = 180 / m.pi\n"
+        "  cos   = function(x) return m.cos(x * toRad) end\n"
+        "  sin   = function(x) return m.sin(x * toRad) end\n"
+        "  tan   = function(x) return m.tan(x * toRad) end\n"
+        "  acos  = function(x) return m.acos(x) * toDeg end\n"
+        "  asin  = function(x) return m.asin(x) * toDeg end\n"
+        "  atan  = function(x) return m.atan(x) * toDeg end\n"
+        "  atan2 = function(y, x) return m.atan2(y, x) * toDeg end\n"
+        "end\n");
+
     // A constant, not a function, so the fallback's rule for SCREAMING_SNAKE
     // names leaves it nil and gametime.lua does arithmetic on nothing.
     lua_getglobal(L_, "math");
