@@ -617,6 +617,42 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         "  end\n"
         "end\n");
 
+    // The calendar's three option lists, which are spreads rather than tables.
+    //
+    // Each is handed straight into a vararg call —
+    // CalendarCreateEventTypeDropDown_InitEventTypes(self,
+    // CalendarEventGetTypes()) — so the *number* of values is the payload and
+    // answering nothing leaves the dropdown with no entries at all rather than
+    // raising. There is no way to pick an event type from an empty list.
+    //
+    // In Lua because the strings are the interface's own: reading
+    // CALENDAR_TYPE_RAID and friends out of globalstrings keeps a localised
+    // data set naming its own types, where a list written in C++ would be
+    // English for everyone.
+    //
+    // The order is the wire's, which is also constants.lua's: Raid, Dungeon,
+    // PvP, Meeting, Other, indexed from one by the interface and from zero on
+    // the wire.
+    luaEngine_.executeString(
+        "function CalendarEventGetTypes()\n"
+        "  return CALENDAR_TYPE_RAID, CALENDAR_TYPE_DUNGEON, CALENDAR_TYPE_PVP,\n"
+        "         CALENDAR_TYPE_MEETING, CALENDAR_TYPE_OTHER\n"
+        "end\n"
+        "function CalendarEventGetRepeatOptions()\n"
+        "  return CALENDAR_REPEAT_NEVER, CALENDAR_REPEAT_WEEKLY,\n"
+        "         CALENDAR_REPEAT_BIWEEKLY\n"
+        "end\n"
+        // The nine the interface knows, in CALENDAR_INVITESTATUS_* order.
+        // Not the ten the server has: it also carries REMOVED, which is an
+        // instruction rather than a state and has no row to show.
+        "function CalendarEventGetStatusOptions()\n"
+        "  return CALENDAR_STATUS_INVITED, CALENDAR_STATUS_ACCEPTED,\n"
+        "         CALENDAR_STATUS_DECLINED, CALENDAR_STATUS_CONFIRMED,\n"
+        "         CALENDAR_STATUS_OUT, CALENDAR_STATUS_STANDBY,\n"
+        "         CALENDAR_STATUS_SIGNEDUP, CALENDAR_STATUS_NOT_SIGNEDUP,\n"
+        "         CALENDAR_STATUS_TENTATIVE\n"
+        "end\n");
+
     // The game-menu button opens this client's settings.
     //
     // ToggleGameMenu is FrameXML's own function and it shows GameMenuFrame,

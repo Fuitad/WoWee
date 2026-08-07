@@ -5966,10 +5966,10 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, ev.eventTime.minute);
             lua_pushstring(L, calendarTypeName(ev));
             lua_pushstring(L, "");                 // sequenceType: single day
-            lua_pushnumber(L, static_cast<double>(ev.type));
+            lua_pushnumber(L, static_cast<double>(ev.type) + 1);
             lua_pushnumber(L, 0);                  // texture
             lua_pushstring(L, calendarModStatus(L, ev));
-            lua_pushnumber(L, calendarInviteStatusFor(cal, ev.eventId));
+            lua_pushnumber(L, calendarInviteStatusFor(cal, ev.eventId) + 1);
             lua_pushstring(L, "");                 // invitedBy
             lua_pushnumber(L, 0);                  // difficulty
             lua_pushnumber(L, 0);                  // inviteType
@@ -6064,7 +6064,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushstring(L, ev.title.c_str());
             lua_pushstring(L, ev.description.c_str());
             lua_pushstring(L, gh->lookupName(ev.creatorGuid).c_str());
-            lua_pushnumber(L, ev.type);
+            lua_pushnumber(L, ev.type + 1);          // wire counts from zero
             lua_pushnumber(L, ev.repeatOption);
             lua_pushnumber(L, ev.maxInvites);
             lua_pushnumber(L, ev.dungeonId);        // textureIndex
@@ -6089,7 +6089,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushboolean(L, 0);              // autoApprove
             lua_pushboolean(L, 0);              // pendingInvite
             lua_pushnumber(L, calendarInviteStatusFor(gh->getCalendarData(),
-                                                      ev.eventId));
+                                                      ev.eventId) + 1);
             lua_pushnumber(L, 0);               // inviteType
             lua_pushstring(L, (ev.flags & 0x0400u) ? "GUILD_EVENT" : "PLAYER");
             return 25;
@@ -6113,7 +6113,7 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushnumber(L, inv.level);
             lua_pushstring(L, "");              // className
             lua_pushstring(L, "");              // classFilename
-            lua_pushnumber(L, inv.status);
+            lua_pushnumber(L, inv.status + 1);   // wire counts from zero
             lua_pushnumber(L, inv.rank);
             lua_pushboolean(L, inv.isGuildMember ? 1 : 0);
             return 7;
@@ -6163,9 +6163,16 @@ void registerSystemLuaAPI(lua_State* L) {
             calendarDraft().description = std::move(desc);
             return 0;
         }},
+                // Interface types count from one and the wire counts from
+                // zero, in the same order: constants.lua has
+                // CALENDAR_EVENTTYPE_RAID = 1 where CalendarMgr.h has
+                // CALENDAR_TYPE_RAID = 0. Passed straight through, every event
+                // would be created as the next type along — a raid saved as a
+                // dungeon, with nothing to see but the wrong icon.
                 {"CalendarEventSetType", [](lua_State* L) -> int {
+            const int uiType = static_cast<int>(luaL_optnumber(L, 1, 1));
             calendarDraft().type =
-                static_cast<uint8_t>(luaL_optnumber(L, 1, 0));
+                static_cast<uint8_t>(uiType > 0 ? uiType - 1 : 0);
             return 0;
         }},
                 {"CalendarEventSetDate", [](lua_State* L) -> int {

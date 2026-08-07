@@ -141,8 +141,15 @@ def main():
             commands += 1
             line = text.count("\n", 0, m.start()) + 1
             body = m.group(1).replace('\\"', '"')
+            # A definition is not a call. `function CalendarEventGetTypes()`
+            # in a bootstrap chunk looks exactly like a call to it, and
+            # reporting it says the name does not exist at the very moment it
+            # is being brought into existence.
+            declared = set(re.findall(r'\bfunction\s+([A-Za-z_]\w*)\s*\(', body))
             for call in CALL.finditer(body):
                 name = call.group(1)
+                if name in declared:
+                    continue
                 if name not in defined and name not in bindings:
                     dead.append((rel, line, name, body[:60]))
         if rel.as_posix() in REGISTRY:
