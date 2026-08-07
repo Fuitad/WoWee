@@ -76,3 +76,23 @@ TEST_CASE("The bar's pieces are owned through the whole bar", "[takeover]") {
     CHECK(frameXmlOwns(UiElement::BagBar));
     CHECK(frameXmlOwns(UiElement::MicroMenu));
 }
+
+TEST_CASE("Owning everything means suppressing nothing", "[takeover]") {
+    REQUIRE(kCleanEnvironment);
+    // The handover has two halves and the case above only pins one. Suppression
+    // is what stops FrameXML's own frames being drawn while this client draws
+    // its version, so with every element owned the list must be empty.
+    //
+    // The failure this guards is not subtle in effect and is entirely silent in
+    // cause: the renderer sets shown = false on every name in that list, every
+    // frame, so a suppression entry surviving for an element we own means the
+    // panel simply never appears — with nothing logged, because suppressing a
+    // frame is not an error.
+    std::string suppressed;
+    for (const std::string& name : frameXmlSuppressedFrames()) {
+        suppressed += name;
+        suppressed += ' ';
+    }
+    INFO("hidden despite being owned: " << suppressed);
+    CHECK(suppressed.empty());
+}
