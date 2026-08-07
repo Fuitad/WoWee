@@ -1116,6 +1116,21 @@ int lua_MessageFrame_AddMessage(lua_State* L) {
     m.color[1] = static_cast<float>(luaL_optnumber(L, 4, w->color[1]));
     m.color[2] = static_cast<float>(luaL_optnumber(L, 5, w->color[2]));
     m.color[3] = 1.0f;
+    // The three the chat history hangs off a line. FrameXML hands them over on
+    // the way in and reads them back with GetMessageInfo when it moves a
+    // conversation into a window of its own; dropping them here meant the copy
+    // had nothing to copy.
+    m.lineId   = luaL_optnumber(L, 6, 0.0);
+    m.accessId = luaL_optnumber(L, 8, 0.0);
+    // Kept apart by type, because the caller looks it up in a table on the way
+    // back out and a number written down as text finds nothing there.
+    if (lua_type(L, 9) == LUA_TNUMBER) {
+        m.hasExtra = m.extraIsNumber = true;
+        m.extraNumber = lua_tonumber(L, 9);
+    } else if (lua_type(L, 9) == LUA_TSTRING) {
+        m.hasExtra = true;
+        m.extra = lua_tostring(L, 9);
+    }
     w->isMessageFrame = true;
     // UIErrorsFrame asks for insertMode="TOP", which puts a new line above the
     // ones already there rather than below them.
@@ -1130,6 +1145,58 @@ int lua_MessageFrame_AddMessage(lua_State* L) {
     if (w->messageScroll > 0) ++w->messageScroll;
     return 0;
 }
+/// GetMessageInfo(index[, accessID]) → text, accessID, lineID, extraData.
+///
+/// What FCF_OpenTemporaryWindow reads when it moves a conversation into its
+/// own window. It walks GetNumMessages and copies each line across, and this
+/// answered nothing — so `ChatTypeInfo[cType]` was indexed with a nil key,
+/// came back nil, and the next line read a field off it. Opening a whisper in
+/// its own window raised on the first message it tried to carry.
+int lua_MessageFrame_GetMessageInfo(lua_State* L) {
+    const auto* w = widgetOf(L, 1);
+    const int index = static_cast<int>(luaL_optnumber(L, 2, 0));
+    if (!w || index < 1) return 0;
+    // Indexed within the conversation when one is named, to match the count
+    // GetNumMessages gave for it — the caller walks one and reads the other,
+    // so they have to be counting the same lines.
+    const wowee::ui::Widget::Message* found = nullptr;
+    if (lua_isnumber(L, 3)) {
+        const double id = lua_tonumber(L, 3);
+        int seen = 0;
+        for (const auto& msg : w->messages) {
+            if (msg.accessId != id) continue;
+            if (++seen == index) { found = &msg; break; }
+        }
+    } else if (index <= static_cast<int>(w->messages.size())) {
+        found = &w->messages[static_cast<size_t>(index) - 1];
+    }
+    if (!found) return 0;
+    const auto& m = *found;
+    lua_pushstring(L, m.text.c_str());
+    lua_pushnumber(L, m.accessId);
+    lua_pushnumber(L, m.lineId);
+    if (!m.hasExtra)          lua_pushnil(L);
+    else if (m.extraIsNumber) lua_pushnumber(L, m.extraNumber);
+    else                      lua_pushstring(L, m.extra.c_str());
+    return 4;
+}
+
+/// RemoveMessagesByAccessID(accessID) — the other half of that move.
+///
+/// The lines are copied to the new window and then taken out of the old one.
+/// Without this they stayed in both, so a conversation pulled out of the main
+/// window appeared twice.
+int lua_MessageFrame_RemoveMessagesByAccessID(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w) return 0;
+    const double id = luaL_optnumber(L, 2, 0.0);
+    for (auto it = w->messages.begin(); it != w->messages.end();) {
+        if (it->accessId == id) it = w->messages.erase(it);
+        else                    ++it;
+    }
+    return 0;
+}
+
 /// SetTimeVisible(seconds) — how long a line stays before it fades.
 ///
 /// Zero, the default, means for good, which is what a chat frame wants.
@@ -2367,9 +2434,26 @@ int lua_MessageFrame_Clear(lua_State* L) {
     if (auto* w = widgetOf(L, 1)) { w->messages.clear(); w->messageScroll = 0; }
     return 0;
 }
+/// GetNumMessages([accessID]) — how many lines, or how many belonging to one
+/// conversation.
+///
+/// The argument is not decoration. FCF_OpenTemporaryWindow walks this count
+/// and reads each line with GetMessageInfo, then looks the line's kind up in
+/// ChatTypeInfo — so counting *every* line here would walk it onto the ones
+/// that have no conversation behind them, hand back no kind for them, and
+/// leave it indexing that table with nil. Every plain AddMessage in the
+/// interface writes such a line.
 int lua_MessageFrame_GetNumMessages(lua_State* L) {
     const auto* w = widgetOf(L, 1);
-    lua_pushnumber(L, w ? static_cast<lua_Number>(w->messages.size()) : 0.0);
+    if (!w) { lua_pushnumber(L, 0.0); return 1; }
+    if (lua_isnumber(L, 2)) {
+        const double id = lua_tonumber(L, 2);
+        lua_Number n = 0;
+        for (const auto& m : w->messages) if (m.accessId == id) ++n;
+        lua_pushnumber(L, n);
+        return 1;
+    }
+    lua_pushnumber(L, static_cast<lua_Number>(w->messages.size()));
     return 1;
 }
 int lua_MessageFrame_SetMaxLines(lua_State* L) {
@@ -4058,6 +4142,17 @@ static int lua_CreateFrame(lua_State* L) {
         lua_setglobal(L, name);
     }
 
+    // The fifth argument is the frame's id, and it has to be in place before
+    // the templates and the OnLoad run — they are what read it. A frame built
+    // this way is usually one of a numbered set, and its handler finds the rest
+    // of the set through its own id: the temporary chat window opens with
+    // _G["ChatFrame"..self:GetID()], so an id of zero has it looking up a
+    // window that does not exist and indexing nothing.
+    if (lua_isnumber(L, 5)) {
+        lua_pushnumber(L, lua_tonumber(L, 5));
+        lua_setfield(L, -2, "__id");
+    }
+
     // Set initial visibility
     lua_pushboolean(L, 1);
     lua_setfield(L, -2, "__visible");
@@ -4486,6 +4581,8 @@ void LuaEngine::registerCoreAPI() {
         {"NumLines",        lua_Tooltip_NumLines},
         {"Clear",           lua_MessageFrame_Clear},
         {"GetNumMessages",  lua_MessageFrame_GetNumMessages},
+        {"GetMessageInfo",  lua_MessageFrame_GetMessageInfo},
+        {"RemoveMessagesByAccessID", lua_MessageFrame_RemoveMessagesByAccessID},
         {"SetMaxLines",     lua_MessageFrame_SetMaxLines},
         {"SetWordWrap",     lua_FontString_SetWordWrap},
         {"CanWordWrap",     lua_FontString_CanWordWrap},

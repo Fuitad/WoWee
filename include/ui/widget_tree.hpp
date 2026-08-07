@@ -356,7 +356,29 @@ struct Widget {
     /// string: chat is a list that grows at one end and falls off the other,
     /// and the frame draws as many as fit from the bottom up.
     bool  isMessageFrame = false;
-    struct Message { std::string text; float color[4]; float age = 0.0f; };
+    /// A line, and the three values the chat history hangs off it.
+    ///
+    /// FrameXML passes them to AddMessage and reads them back with
+    /// GetMessageInfo when it moves a conversation into its own window — so
+    /// they have to survive the round trip or the copy has nothing to copy.
+    /// accessId groups the lines of one conversation; extra is the token that
+    /// says which kind of chat it was.
+    ///
+    /// extra has to come back the same type it went in. The interface hands it
+    /// straight to a table lookup, and for chat lines it is a number — handed
+    /// back as text it keys nothing, which reads as "this line has no kind"
+    /// rather than as a mistake.
+    struct Message {
+        std::string text;
+        float color[4];
+        float age = 0.0f;
+        double lineId = 0.0;
+        double accessId = 0.0;
+        bool hasExtra = false;
+        bool extraIsNumber = false;
+        double extraNumber = 0.0;
+        std::string extra;
+    };
     std::deque<Message> messages;
     /// How long a message stays before it fades out, in seconds, and how long
     /// the fade itself takes. Zero means it never goes — which is what a chat
