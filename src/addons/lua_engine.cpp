@@ -9394,15 +9394,28 @@ void LuaEngine::dispatchOnUpdate(float elapsed) {
                     lua_pushinteger(L_, failures);
                     lua_setfield(L_, scriptsIdx, "__onUpdateFailures");
 
+                    // Which frame, by name. Disabling an OnUpdate stops
+                    // whatever that frame drives, for the rest of the session,
+                    // and the symptom is never an error message — it is a
+                    // thing on screen that has stopped moving. Blizzard_
+                    // CombatText is the shape of it: its OnUpdate is the only
+                    // thing that ages a floating message out, so a handler
+                    // that dies leaves every message that has been queued
+                    // sitting there for ever with nothing to say why.
+                    const auto* fw = widgetOf(L_, hIdx - 2);
+                    const char* fname = (fw && !fw->name.empty())
+                                            ? fw->name.c_str() : "(unnamed)";
                     if (failures >= kMaxConsecutiveFailures) {
                         lua_pushnil(L_);
                         lua_setfield(L_, scriptsIdx, "OnUpdate");
-                        LOG_ERROR("LuaEngine: OnUpdate disabled after ", failures,
-                                  " failures: ", uerrStr);
+                        LOG_ERROR("LuaEngine: OnUpdate disabled on '", fname,
+                                  "' after ", failures, " failures — whatever "
+                                  "it drives has stopped: ", uerrStr);
                         noteLuaError(uerrStr);
         if (luaErrorCallback_) luaErrorCallback_(uerrStr);
                     } else if (failures == 1) {
-                        LOG_ERROR("LuaEngine: OnUpdate error: ", uerrStr);
+                        LOG_ERROR("LuaEngine: OnUpdate error on '", fname,
+                                  "': ", uerrStr);
                         noteLuaError(uerrStr);
         if (luaErrorCallback_) luaErrorCallback_(uerrStr);
                     }

@@ -31,6 +31,30 @@ set(TEST_COMMON_SOURCES
 )
 
 # Include directories matching the main target
+# GLM, resolved the three ways find_package can present it.
+#
+# It is not vendored: it comes from find_package(glm QUIET), and its include
+# path arrives with the imported target rather than through any directory this
+# file lists. Three shapes exist in the wild — GLM 1.0 exposes the headers as
+# glm::glm-header-only and may build glm::glm as a real library beside it, and
+# some distributions provide neither target, only GLM_INCLUDE_DIRS. A target
+# that asks for glm::glm alone gets nothing in the third case and fails on
+# glm/glm.hpp.
+#
+# Linux has a system copy under /usr/include and compiles either way, so this
+# only ever shows up somewhere else — which is what makes it easy to leave
+# broken. The main target and the editor have walked all three branches since
+# they were written; this is the same ladder, once, for the tests.
+function(wowee_test_link_glm target)
+    if(TARGET glm::glm-header-only)
+        target_link_libraries(${target} PRIVATE glm::glm-header-only)
+    elseif(TARGET glm::glm)
+        target_link_libraries(${target} PRIVATE glm::glm)
+    elseif(glm_FOUND)
+        target_include_directories(${target} PRIVATE ${GLM_INCLUDE_DIRS})
+    endif()
+endfunction()
+
 set(TEST_INCLUDE_DIRS
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
@@ -54,11 +78,7 @@ target_link_libraries(test_hill_climbing PRIVATE catch2_main)
 # /usr/include and compiles either way, so only macOS ever reports it.
 # Same two-branch check as the top level, where GLM 1.0 may build glm::glm as a
 # real library and expose the headers as glm::glm-header-only.
-if(TARGET glm::glm-header-only)
-    target_link_libraries(test_hill_climbing PRIVATE glm::glm-header-only)
-elseif(TARGET glm::glm)
-    target_link_libraries(test_hill_climbing PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_hill_climbing)
 add_test(NAME hill_climbing COMMAND test_hill_climbing)
 register_test_target(test_hill_climbing)
 
@@ -291,9 +311,7 @@ add_executable(test_spline
 target_include_directories(test_spline PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_spline SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_spline PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_spline PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_spline)
 add_test(NAME spline COMMAND test_spline)
 register_test_target(test_spline)
 
@@ -308,9 +326,7 @@ add_executable(test_transport_path_repo
 target_include_directories(test_transport_path_repo PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_transport_path_repo SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_transport_path_repo PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_transport_path_repo PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_transport_path_repo)
 add_test(NAME transport_path_repo COMMAND test_transport_path_repo)
 register_test_target(test_transport_path_repo)
 
@@ -393,9 +409,7 @@ target_include_directories(test_taxi_packets PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_taxi_packets SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_taxi_packets PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
                                                 OpenSSL::SSL OpenSSL::Crypto)
-if(TARGET glm::glm)
-    target_link_libraries(test_taxi_packets PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_taxi_packets)
 if(TARGET Vulkan::Vulkan)
     target_link_libraries(test_taxi_packets PRIVATE Vulkan::Vulkan)
 endif()
@@ -424,9 +438,7 @@ target_include_directories(test_use_item_packet PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_use_item_packet SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_use_item_packet PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
                                                    OpenSSL::SSL OpenSSL::Crypto)
-if(TARGET glm::glm)
-    target_link_libraries(test_use_item_packet PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_use_item_packet)
 if(TARGET Vulkan::Vulkan)
     target_link_libraries(test_use_item_packet PRIVATE Vulkan::Vulkan)
 endif()
@@ -456,9 +468,7 @@ target_include_directories(test_item_query_sockets PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_item_query_sockets SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_item_query_sockets PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
                                                    OpenSSL::SSL OpenSSL::Crypto)
-if(TARGET glm::glm)
-    target_link_libraries(test_item_query_sockets PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_item_query_sockets)
 if(TARGET Vulkan::Vulkan)
     target_link_libraries(test_item_query_sockets PRIVATE Vulkan::Vulkan)
 endif()
@@ -487,9 +497,7 @@ target_include_directories(test_mail_packets PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_mail_packets SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_mail_packets PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
                                                  OpenSSL::SSL OpenSSL::Crypto)
-if(TARGET glm::glm)
-    target_link_libraries(test_mail_packets PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_mail_packets)
 if(TARGET Vulkan::Vulkan)
     target_link_libraries(test_mail_packets PRIVATE Vulkan::Vulkan)
 endif()
@@ -518,9 +526,7 @@ target_include_directories(test_raid_target_packets PRIVATE ${TEST_INCLUDE_DIRS}
 target_include_directories(test_raid_target_packets SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_raid_target_packets PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
                                                  OpenSSL::SSL OpenSSL::Crypto)
-if(TARGET glm::glm)
-    target_link_libraries(test_raid_target_packets PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_raid_target_packets)
 if(TARGET Vulkan::Vulkan)
     target_link_libraries(test_raid_target_packets PRIVATE Vulkan::Vulkan)
 endif()
@@ -537,9 +543,7 @@ add_executable(test_entity
 target_include_directories(test_entity PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_entity SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_entity PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_entity PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_entity)
 add_test(NAME entity COMMAND test_entity)
 register_test_target(test_entity)
 
@@ -564,9 +568,7 @@ add_executable(test_m2_structs
 target_include_directories(test_m2_structs PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_m2_structs SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_m2_structs PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_m2_structs PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_m2_structs)
 add_test(NAME m2_structs COMMAND test_m2_structs)
 register_test_target(test_m2_structs)
 
@@ -583,9 +585,7 @@ target_include_directories(test_m2_color_alpha SYSTEM PRIVATE ${TEST_SYSTEM_INCL
 target_compile_definitions(test_m2_color_alpha PRIVATE
     WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(test_m2_color_alpha PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_m2_color_alpha PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_m2_color_alpha)
 add_test(NAME m2_color_alpha COMMAND test_m2_color_alpha)
 register_test_target(test_m2_color_alpha)
 
@@ -602,9 +602,7 @@ target_include_directories(test_m2_footstep_events SYSTEM PRIVATE ${TEST_SYSTEM_
 target_compile_definitions(test_m2_footstep_events PRIVATE
     WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_link_libraries(test_m2_footstep_events PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_m2_footstep_events PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_m2_footstep_events)
 add_test(NAME m2_footstep_events COMMAND test_m2_footstep_events)
 register_test_target(test_m2_footstep_events)
 
@@ -628,9 +626,7 @@ add_executable(test_frustum
 target_include_directories(test_frustum PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_frustum SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_frustum PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_frustum PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_frustum)
 add_test(NAME frustum COMMAND test_frustum)
 register_test_target(test_frustum)
 
@@ -716,9 +712,7 @@ add_executable(test_indoor_shadows
 target_include_directories(test_indoor_shadows PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_indoor_shadows SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_indoor_shadows PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_indoor_shadows PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_indoor_shadows)
 add_test(NAME indoor_shadows COMMAND test_indoor_shadows)
 register_test_target(test_indoor_shadows)
 
@@ -730,9 +724,7 @@ add_executable(test_zone_ambience
 target_include_directories(test_zone_ambience PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_zone_ambience SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_zone_ambience PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_zone_ambience PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_zone_ambience)
 add_test(NAME zone_ambience COMMAND test_zone_ambience)
 register_test_target(test_zone_ambience)
 
@@ -747,9 +739,7 @@ add_executable(test_transport_components
 target_include_directories(test_transport_components PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_transport_components SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_transport_components PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_transport_components PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_transport_components)
 add_test(NAME transport_components COMMAND test_transport_components)
 register_test_target(test_transport_components)
 
@@ -760,9 +750,7 @@ add_executable(test_world_map
 target_include_directories(test_world_map PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_world_map SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_world_map PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_world_map PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_world_map)
 add_test(NAME world_map COMMAND test_world_map)
 register_test_target(test_world_map)
 
@@ -774,9 +762,7 @@ add_executable(test_world_map_coordinate_projection
 target_include_directories(test_world_map_coordinate_projection PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_world_map_coordinate_projection SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_world_map_coordinate_projection PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_world_map_coordinate_projection PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_world_map_coordinate_projection)
 add_test(NAME world_map_coordinate_projection COMMAND test_world_map_coordinate_projection)
 register_test_target(test_world_map_coordinate_projection)
 
@@ -790,9 +776,7 @@ add_executable(test_world_map_map_resolver
 target_include_directories(test_world_map_map_resolver PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_world_map_map_resolver SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_world_map_map_resolver PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_world_map_map_resolver PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_world_map_map_resolver)
 add_test(NAME world_map_map_resolver COMMAND test_world_map_map_resolver)
 register_test_target(test_world_map_map_resolver)
 
@@ -804,9 +788,7 @@ add_executable(test_world_map_view_state_machine
 target_include_directories(test_world_map_view_state_machine PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_world_map_view_state_machine SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_world_map_view_state_machine PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_world_map_view_state_machine PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_world_map_view_state_machine)
 add_test(NAME world_map_view_state_machine COMMAND test_world_map_view_state_machine)
 register_test_target(test_world_map_view_state_machine)
 
@@ -819,9 +801,7 @@ add_executable(test_world_map_exploration_state
 target_include_directories(test_world_map_exploration_state PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_world_map_exploration_state SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_world_map_exploration_state PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_world_map_exploration_state PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_world_map_exploration_state)
 add_test(NAME world_map_exploration_state COMMAND test_world_map_exploration_state)
 register_test_target(test_world_map_exploration_state)
 
@@ -833,9 +813,7 @@ add_executable(test_world_map_zone_metadata
 target_include_directories(test_world_map_zone_metadata PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_world_map_zone_metadata SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_world_map_zone_metadata PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_world_map_zone_metadata PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_world_map_zone_metadata)
 add_test(NAME world_map_zone_metadata COMMAND test_world_map_zone_metadata)
 register_test_target(test_world_map_zone_metadata)
 
@@ -960,9 +938,7 @@ add_executable(test_open_formats
 target_include_directories(test_open_formats PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_open_formats SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_open_formats PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_open_formats PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_open_formats)
 add_test(NAME open_formats COMMAND test_open_formats)
 register_test_target(test_open_formats)
 
@@ -990,9 +966,7 @@ target_include_directories(test_open_format_emitter SYSTEM PRIVATE
     ${CMAKE_SOURCE_DIR}/extern/nlohmann
 )
 target_link_libraries(test_open_format_emitter PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_open_format_emitter PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_open_format_emitter)
 add_test(NAME open_format_emitter COMMAND test_open_format_emitter)
 register_test_target(test_open_format_emitter)
 
@@ -1005,9 +979,7 @@ add_executable(test_camera
 target_include_directories(test_camera PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_camera SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_camera PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_camera PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_camera)
 add_test(NAME camera COMMAND test_camera)
 register_test_target(test_camera)
 
@@ -1033,9 +1005,7 @@ target_include_directories(test_editor_units SYSTEM PRIVATE
 target_link_libraries(test_editor_units PRIVATE catch2_main)
 # npc_spawner.hpp pulls in <glm/glm.hpp>; link it when available so the
 # test target builds on hosts where glm is system-installed (Homebrew etc).
-if(TARGET glm::glm)
-    target_link_libraries(test_editor_units PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_editor_units)
 add_test(NAME editor_units COMMAND test_editor_units)
 register_test_target(test_editor_units)
 
@@ -1137,9 +1107,7 @@ target_include_directories(test_quest_rewards PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_quest_rewards SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_quest_rewards PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
                                                  OpenSSL::SSL OpenSSL::Crypto)
-if(TARGET glm::glm)
-    target_link_libraries(test_quest_rewards PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_quest_rewards)
 if(TARGET Vulkan::Vulkan)
     target_link_libraries(test_quest_rewards PRIVATE Vulkan::Vulkan)
 endif()
@@ -1191,9 +1159,7 @@ add_executable(test_m2_classifier_foliage
 target_include_directories(test_m2_classifier_foliage PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_m2_classifier_foliage SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_m2_classifier_foliage PRIVATE catch2_main)
-if(TARGET glm::glm)
-    target_link_libraries(test_m2_classifier_foliage PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_m2_classifier_foliage)
 add_test(NAME m2_classifier_foliage COMMAND test_m2_classifier_foliage)
 register_test_target(test_m2_classifier_foliage)
 
@@ -1208,9 +1174,7 @@ target_include_directories(test_calendar_packet PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_calendar_packet SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_calendar_packet PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
                                                  OpenSSL::SSL OpenSSL::Crypto)
-if(TARGET glm::glm)
-    target_link_libraries(test_calendar_packet PRIVATE glm::glm)
-endif()
+wowee_test_link_glm(test_calendar_packet)
 if(TARGET Vulkan::Vulkan)
     target_link_libraries(test_calendar_packet PRIVATE Vulkan::Vulkan)
 endif()
