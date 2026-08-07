@@ -6282,6 +6282,31 @@ void LuaEngine::registerCoreAPI() {
         // whole without it.
         "function getglobal(n) return _G[n] end\n"
         "function setglobal(n, v) _G[n] = v end\n"
+        // The rest of the taint vocabulary, which is a no-op here for the same
+        // reason issecure is: nothing in this client is tainted, so nothing
+        // needs protecting from it. Both are called for their effect and their
+        // return value respectively, and both were missing — forceinsecure at
+        // nine call sites and scrub at ten.
+        //
+        // /dump found it. DevTools_DumpCommand calls forceinsecure() on its
+        // first line, so the command raised rather than dumping — which only
+        // became reachable at all once Blizzard_DebugTools started loading.
+        "function forceinsecure() end\n"
+        // scrub keeps what can cross the secure boundary and drops the rest:
+        // strings, numbers and booleans pass, everything else becomes nil.
+        // The count has to survive, because securehandlers.lua returns it
+        // straight out of a handler — dropping a value would shift every
+        // argument after it.
+        "function scrub(...)\n"
+        "    local n = select('#', ...)\n"
+        "    local out = {}\n"
+        "    for i = 1, n do\n"
+        "        local v = select(i, ...)\n"
+        "        local t = type(v)\n"
+        "        if t == 'string' or t == 'number' or t == 'boolean' then out[i] = v end\n"
+        "    end\n"
+        "    return unpack(out, 1, n)\n"
+        "end\n"
         // Iterating a table the secure way, which for our purposes is next.
         "SecureNext = next\n"
         "function issecurevariable(...) return false end\n"
