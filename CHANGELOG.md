@@ -86,6 +86,16 @@ A file that raises while loading is lost whole, so the fault reads as "that wind
 - **The talent tree was squeezed into the top third of its window**, cut off, and would not scroll — it had been made shorter than its own content. An anchor constrains both axes whether it means to or not, and the points bar's bottom edge was losing to the vertical centre that arrived with its LEFT and RIGHT anchors
 - **Names, health bars and minimap markers drew through the bags and the auction house.** Both go into the same list, where the last thing added is on top, and the panels were going in first
 
+### Fixed — a guard that asked the wrong interface
+There are two interfaces in this client and only one of them is ImGui. Every place that wanted to know whether someone was typing asked ImGui's own flag, which is about ImGui's own fields and reads false for the whole time someone types into a box FrameXML draws.
+- **Typing into chat did everything else as well.** `/logout` opened the quest log on the l and the social panel on the o, walked the character on the letters the movement keys sit under, sheathed the weapon on a z, and re-opened chat from inside itself on the slash — while the box it was all going into moved out from under the text, because each panel that opened re-laid out the frame beneath it
+- The event path had this right all along and stops at the focused box, which is why it went unseen: everything above reads the key state directly, once a frame, and a poll is never in that loop to be stopped by it. The question has one home now and every path asks it there
+
+### Fixed — a conversation that could not be moved to its own window
+- **Splitting a whisper into its own chat window raised** and left the window empty. The copy walks the source frame's lines for one conversation and reads each back; the count ignored which conversation was asked for and answered every line, so the walk reached lines belonging to none, got no kind back for them, and indexed the chat-type table with nothing. Every ordinary line in the interface is one of those
+- The values a line carries for the history — its id, its conversation, and the token saying what kind of chat it was — were dropped on the way in, so there was nothing to read back out. The token keeps its type now: it is a number and it is used as a table key, and one written down as text keys nothing there
+- **A frame built in Lua was not told its own id.** A frame made that way is one of a numbered set and its handler finds the rest of the set through its id, so the new chat window looked itself up as `ChatFrame0` and found nothing. The frames built from XML always knew theirs
+
 ### Added — capabilities the client had and the interface could not reach
 Each of these was already implemented and read by this client's own window, so handing the element over left it behind.
 - **The flight map has a map behind it.** The node buttons are placed as fractions of a continent that was never drawn
