@@ -473,6 +473,43 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         std::string("__WoweeOwnsGameMenu = ") +
         (ui::frameXmlOwns(ui::UiElement::GameMenu) ? "true" : "false") + "\n");
 
+    // The colour of every kind of chat message, which nothing had ever sent.
+    //
+    // chatframe.lua builds ChatTypeInfo with sticky and flashTab and no colour
+    // at all: r, g and b arrive from the client, one UPDATE_CHAT_COLOR per
+    // type, and the real client sends them as the interface comes up. This one
+    // never did, so every entry answered nil and every line of chat in the game
+    // drew white — guild, whisper, emote, loot and system alike, all of it
+    // indistinguishable.
+    //
+    // Through ChangeChatColor because that is the function that fires the
+    // event, and the event handler is what fills the table and repaints the
+    // lines already on screen. Sent after FrameXML has loaded, since
+    // ChatFrame_OnLoad is what registers for it.
+    //
+    // 3.3.5's own palette. Anything not named here keeps white, which is what
+    // it had before, so a type left out is no worse than it was.
+    luaEngine_.executeString(
+        "if ChangeChatColor then\n"
+        "  local c = {\n"
+        "    SYSTEM={1,1,0}, SAY={1,1,1}, YELL={1,.25,.25},\n"
+        "    GUILD={.25,1,.25}, OFFICER={.25,.75,.25},\n"
+        "    GUILD_ACHIEVEMENT={.25,1,.25}, ACHIEVEMENT={1,1,0},\n"
+        "    PARTY={.67,.67,1}, PARTY_LEADER={.46,.78,1},\n"
+        "    RAID={1,.5,0}, RAID_LEADER={1,.28,.04}, RAID_WARNING={1,.28,0},\n"
+        "    WHISPER={1,.5,1}, WHISPER_INFORM={1,.5,1},\n"
+        "    EMOTE={1,.5,.25}, TEXT_EMOTE={1,.5,.25},\n"
+        "    MONSTER_SAY={1,1,1}, MONSTER_YELL={1,.25,.25},\n"
+        "    MONSTER_EMOTE={1,.5,.25}, MONSTER_WHISPER={1,.72,.72},\n"
+        "    CHANNEL={1,.75,.75}, LOOT={0,.67,0}, MONEY={1,1,0},\n"
+        "    BG_SYSTEM_NEUTRAL={1,1,.5}, BG_SYSTEM_ALLIANCE={.25,.75,1},\n"
+        "    BG_SYSTEM_HORDE={1,.1,.1},\n"
+        "  }\n"
+        "  for kind, rgb in pairs(c) do\n"
+        "    ChangeChatColor(kind, rgb[1], rgb[2], rgb[3])\n"
+        "  end\n"
+        "end\n");
+
     // The game-menu button opens this client's settings.
     //
     // ToggleGameMenu is FrameXML's own function and it shows GameMenuFrame,
