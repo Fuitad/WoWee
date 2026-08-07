@@ -1385,8 +1385,23 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
         // opens the escape menu, since ImGui deactivates InputText on Escape but
         // the same press still propagates here. KeybindingManager only blocks
         // A-Z/0-9 during text input, not Escape.
+        // Said out loud, at info, because this chain has now been read end to
+        // end five times without the fault appearing in it. Every link checks
+        // out on paper and the key still does nothing, which means the answer
+        // is which branch actually runs — and that is the one thing reading
+        // cannot tell you. One line per press, invisible unless someone asks
+        // for info, and it names the branch rather than the key.
+        if (textFocus &&
+            KeybindingManager::getInstance().isActionPressed(
+                KeybindingManager::Action::TOGGLE_SETTINGS, true)) {
+            LOG_INFO("Escape: swallowed before the chain — chat input ",
+                     chatPanel_.isChatInputActive() ? "active" : "idle",
+                     ", ImGui wants text: ", io.WantTextInput ? "yes" : "no");
+        }
         if (!textFocus &&
             KeybindingManager::getInstance().isActionPressed(KeybindingManager::Action::TOGGLE_SETTINGS, true)) {
+            LOG_INFO("Escape: FrameXML owns the game menu: ",
+                     frameXmlOwns(UiElement::GameMenu) ? "yes" : "no");
             if (settingsPanel_.showSettingsWindow) {
                 settingsPanel_.showSettingsWindow = false;
             } else if (windowManager_.showEscapeMenu) {
@@ -1430,6 +1445,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                            "(CloseMenus and CloseMenus()) or "
                            "(CloseSpecialWindows and CloseSpecialWindows()) or "
                            "(CloseAllWindows and CloseAllWindows()) or false")) {
+                LOG_INFO("Escape: the interface closed a panel of its own");
                 // FrameXML had a panel open and closed it. Everything above
                 // this line is a window the *server* knows about, and each of
                 // those has to go through the client so the closing packet is
@@ -1444,6 +1460,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 // straight through to the game menu — so Escape opened a menu
                 // on top of the panel it should have closed.
             } else if (frameXmlOwns(UiElement::GameMenu)) {
+                LOG_INFO("Escape: asking the interface to toggle its menu");
                 // Whoever draws the menu is who Escape has to ask. This branch
                 // always set the flag behind *this* client's menu, and that
                 // menu is only drawn while FrameXML does not own the element —
@@ -1453,6 +1470,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                 // calls.
                 gameHandler.runInterfaceCommand("ToggleGameMenu()");
             } else {
+                LOG_INFO("Escape: opening this client's own menu");
                 windowManager_.showEscapeMenu = true;
             }
         }
