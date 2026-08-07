@@ -3297,6 +3297,34 @@ void installRegionMethods(lua_State* L, bool isTexture, bool isFontString) {
     // to the shared widget no-op — GetParent is in __WoweeWidgetMethods — so
     // every texture and font string in the interface answered nil for it, and
     // the region's own __parent, which CreateTexture writes, was never read.
+    // A region's parent can be changed as well as read. Both halves of the
+    // pair were missing and for the same reason: SetParent is a name in
+    // __WoweeWidgetMethods, so on a texture it fell to the shared no-op and
+    // did nothing at all.
+    //
+    // PlayerTalentFrameActiveSpecTabHighlight is a Texture and the talent
+    // frame moves it between the two spec tabs by reparenting it, so the
+    // highlight stayed wherever it was first put.
+    set("SetParent", [](lua_State* L) -> int {
+        luaL_checktype(L, 1, LUA_TTABLE);
+        if (lua_isstring(L, 2) && !lua_isnumber(L, 2)) {
+            lua_getglobal(L, lua_tostring(L, 2));
+            lua_replace(L, 2);
+        }
+        if (!lua_istable(L, 2) && !lua_isnil(L, 2)) return 0;
+        lua_pushvalue(L, 2);
+        lua_setfield(L, 1, "__parent");
+        // And the widget behind it, which is what layout and drawing follow.
+        if (auto* tree = wowee::addons::getWidgetTree(L)) {
+            const uint32_t id = widgetIdOf(L, 1);
+            const uint32_t np = lua_istable(L, 2) ? widgetIdOf(L, 2) : 0;
+            if (id != 0) tree->setParent(id, np);
+        }
+        return 0;
+    });
+    // A region has a centre like any other measured thing, and the frame
+    // table has answered this since it was written.
+    set("GetCenter", lua_Region_GetCenter);
     set("GetParent", [](lua_State* L) -> int {
         luaL_checktype(L, 1, LUA_TTABLE);
         lua_getfield(L, 1, "__parent");
@@ -9033,19 +9061,32 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                 if (wasDragged) {
                     callFrameScript(draggingWid_, "OnDragStop", b.name);
                     widgets_.setMovingWidget(0);
-                    if (hit != 0 && hit != draggingWid_) {
-                        callFrameScript(hit, "OnReceiveDrag", b.name);
+                    // Up through the parents to whatever is listening, the same
+                    // way a click resolves through clickOwnerOf.
+                    //
+                    // The two paths disagreeing is the whole of "the spell
+                    // stays on the cursor and never drops on the bar". A click
+                    // has walked up since it was written, so pressing a button
+                    // works however its rect is covered; the drop used the raw
+                    // hit, so a drag ended on whatever frame happened to be
+                    // topmost there and offered it to something with no
+                    // OnReceiveDrag. Nothing raises: the handler is absent, the
+                    // cursor keeps what it is carrying, and the bar looks like
+                    // it refused the spell.
+                    const uint32_t dropOn = dropOwnerOf(hit);
+                    if (dropOn != 0 && dropOn != draggingWid_) {
+                        callFrameScript(dropOn, "OnReceiveDrag", b.name);
                     }
-                    const auto* target = hit ? widgets_.get(hit) : nullptr;
-                    // Which frame, and whether it was listening. A drop on the
-                    // right frame that has no OnReceiveDrag is the other way
-                    // this ends in nothing happening, and it reads the same as
-                    // a drop on empty screen.
+                    const auto* target = dropOn ? widgets_.get(dropOn)
+                                                : (hit ? widgets_.get(hit) : nullptr);
+                    // Which frame took it, and — when none did — which one was
+                    // under the cursor, since those are different questions and
+                    // the second is what says why nothing happened.
                     LOG_WARNING("WidgetInput: drag dropped on ",
                                 target && !target->name.empty() ? target->name.c_str()
                                                                 : "nothing",
-                                hit != 0 && !frameHasScript(hit, "OnReceiveDrag")
-                                    ? " — which has no OnReceiveDrag" : "");
+                                dropOn == 0 && hit != 0
+                                    ? " — nothing there or above it takes a drop" : "");
                     draggingWid_ = 0;
                     draggingButton_ = -1;
                 }
@@ -9161,6 +9202,23 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
 /// Falls back to the frame that was hit when nothing above it wants the button,
 /// so the refusal is still reported against the frame the player actually
 /// clicked rather than against UIParent.
+/// The frame a drop belongs to: the first at or above `wid` with an
+/// OnReceiveDrag.
+///
+/// Zero when nothing up the chain takes one, which is a real answer — dropping
+/// on empty screen is how an item is destroyed, and that path needs to know the
+/// difference between "nobody wanted it" and "it went to the frame under the
+/// cursor".
+uint32_t LuaEngine::dropOwnerOf(uint32_t wid) {
+    for (uint32_t id = wid; id != 0;) {
+        const auto* cand = widgets_.get(id);
+        if (!cand) break;
+        if (frameHasScript(id, "OnReceiveDrag")) return id;
+        id = cand->parent;
+    }
+    return 0;
+}
+
 uint32_t LuaEngine::clickOwnerOf(uint32_t wid, const char* button) {
     for (uint32_t id = wid; id != 0;) {
         const auto* cand = widgets_.get(id);

@@ -271,6 +271,8 @@ private:
     /// The nearest frame at or above `wid` registered for this button, or `wid`
     /// itself when none is. A click lands on the topmost frame taking the
     /// mouse, which is not always the one meant to answer it.
+    /// The frame at or above this one that takes a drop, or zero.
+    uint32_t dropOwnerOf(uint32_t wid);
     uint32_t clickOwnerOf(uint32_t wid, const char* button);
 
     /// Whether the last dispatched mouse position landed on any FrameXML
