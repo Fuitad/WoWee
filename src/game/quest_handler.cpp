@@ -244,6 +244,10 @@ static bool readCStringAt(const std::vector<uint8_t>& data, size_t start, std::s
 struct QuestQueryTextCandidate {
     std::string title;
     std::string objectives;
+    /// The third string: what the quest giver says, shown above the objectives
+    /// in the quest log. It was being read and thrown away — the walk to the
+    /// fifth string passes straight over it.
+    std::string description;
     std::string completionText;
     int score = -1000;
 };
@@ -320,9 +324,20 @@ static QuestQueryTextCandidate pickBestQuestQueryTexts(const std::vector<uint8_t
                     size_t n3 = n2, n4 = n2, n5 = n2;
                     if (readCStringAt(data, n2, s3, n3) &&
                         readCStringAt(data, n3, s4, n4) &&
-                        readCStringAt(data, n4, s5, n5) &&
-                        isReadableQuestText(s5, 8, 600)) {
-                        c.completionText = normalizeQuestText(s5, false);
+                        readCStringAt(data, n4, s5, n5)) {
+                        // The third string, which this walk already had in hand
+                        // on its way to the fifth. It is what the quest giver
+                        // says, and the quest log draws it above the
+                        // objectives — GetQuestLogQuestText answered "" for it,
+                        // so every quest in the log had a blank where its text
+                        // belongs. Longer than a completion line, so the cap is
+                        // higher.
+                        if (isReadableQuestText(s3, 8, 4096)) {
+                            c.description = normalizeQuestText(s3, false);
+                        }
+                        if (isReadableQuestText(s5, 8, 600)) {
+                            c.completionText = normalizeQuestText(s5, false);
+                        }
                     }
                 }
                 if (c.score > best.score) best = c;
@@ -1053,6 +1068,7 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
                 q.objectives = parsed.objectives;
             }
             if (!parsed.completionText.empty()) q.completionText = parsed.completionText;
+            if (!parsed.description.empty()) q.description = parsed.description;
 
             // Store structured kill/item objectives for later kill-count restoration.
             if (objs.valid) {

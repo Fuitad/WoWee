@@ -279,8 +279,13 @@ static int lua_GetQuestLogQuestText(lua_State* L) {
     const auto& ql = gh->getQuestLog();
     if (index > static_cast<int>(ql.size())) { return luaReturnNil(L); }
     const auto& q = ql[index - 1];
-    lua_pushstring(L, "");                    // description (not stored)
-    lua_pushstring(L, q.objectives.c_str());  // objectives
+    // The quest giver's own text. It is the third string in the query
+    // response and the parser already walked over it to reach the fifth, so
+    // "not stored" was true only of the store — the bytes were in hand and
+    // discarded, and the quest log drew a blank panel above every objective
+    // list because of it.
+    lua_pushstring(L, q.description.c_str());  // description
+    lua_pushstring(L, q.objectives.c_str());   // objectives
     return 2;
 }
 

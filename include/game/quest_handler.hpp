@@ -82,6 +82,8 @@ public:
         uint32_t questId = 0;
         std::string title;
         std::string objectives;
+        /// What the quest giver says, drawn above the objectives in the log.
+        std::string description;
         /// Shown once every objective is done, in place of the objective list.
         std::string completionText;
         /// The spell the quest offers as a reward, or zero.
