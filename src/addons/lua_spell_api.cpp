@@ -421,12 +421,33 @@ static int lua_GetNumSpellTabs(lua_State* L) {
 static int lua_GetSpellTabInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
     int tabIdx = static_cast<int>(luaL_checknumber(L, 1));
+    // An empty tab rather than one nil, because the caller does arithmetic on
+    // what comes back without checking it.
+    //
+    // SpellBookFrame's own OnLoad ends with SpellBookSkillLineTab_OnClick(nil,
+    // 1), and three frames down that divides numSpells by the page size. In
+    // WoW tab one is General and always exists, so FrameXML never guards it —
+    // here it does not exist until the spell list has arrived, and a single
+    // nil made that a raise inside OnLoad, which loses the whole file.
+    // SpellBookFrame.xml was failing to load outright.
+    //
+    // Six zeroes give a book with no pages, which is what a player with no
+    // spells yet has, and the frame loads and fills in when they arrive.
+    auto emptyTab = [](lua_State* s) {
+        lua_pushstring(s, "");   // name
+        lua_pushstring(s, "");   // texture
+        lua_pushnumber(s, 0);    // offset
+        lua_pushnumber(s, 0);    // numSpells
+        lua_pushnumber(s, 0);    // highestRankOffset
+        lua_pushnumber(s, 0);    // highestRankNumSpells
+        return 6;
+    };
     if (!gh || tabIdx < 1) {
-        return luaReturnNil(L);
+        return emptyTab(L);
     }
     const auto& tabs = gh->getSpellBookTabs();
     if (tabIdx > static_cast<int>(tabs.size())) {
-        return luaReturnNil(L);
+        return emptyTab(L);
     }
     // Compute offset: sum of spells in all preceding tabs (1-based)
     int offset = 0;
