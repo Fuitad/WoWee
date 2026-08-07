@@ -3824,6 +3824,23 @@ int lua_EditBox_SetHistoryLines(lua_State* L) {
     }
     return 0;
 }
+/// ClearHistory() — forget what has been typed into this box.
+///
+/// The chat window does it twice: when a window is closed and reused, and when
+/// a temporary one is opened for a whisper. Both are the same intent — the box
+/// is being handed to a different conversation, and stepping up through the
+/// arrow keys should not walk into the previous one's lines.
+///
+/// The cap is left alone, since it is a property of the box rather than of
+/// what is in it.
+int lua_EditBox_ClearHistory(lua_State* L) {
+    auto* w = widgetOf(L, 1);
+    if (!w || !w->isEditBox) return 0;
+    w->editHistory.clear();
+    w->editHistoryPos = -1;
+    return 0;
+}
+
 int lua_EditBox_GetHistoryLines(lua_State* L) {
     const auto* w = widgetOf(L, 1);
     lua_pushnumber(L, w ? w->editHistoryLines : 0);
@@ -4919,6 +4936,7 @@ void LuaEngine::registerCoreAPI() {
         {"SetNumber",             lua_EditBox_SetNumber},
         {"AddHistoryLine",        lua_EditBox_AddHistoryLine},
         {"SetHistoryLines",       lua_EditBox_SetHistoryLines},
+        {"ClearHistory",          lua_EditBox_ClearHistory},
         {"GetHistoryLines",       lua_EditBox_GetHistoryLines},
         {"SetIgnoreArrows",       lua_EditBox_SetIgnoreArrows},
         {"Insert",                lua_EditBox_Insert},
