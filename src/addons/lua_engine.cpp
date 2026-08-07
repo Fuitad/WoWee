@@ -1853,11 +1853,67 @@ int lua_Tooltip_SetUnit(lua_State* L) {
 
     w->isTooltip = true;
     w->tooltipLines.clear();
-    wowee::ui::Widget::TooltipLine title;
-    title.left = name;
-    title.lc[0] = title.lc[1] = title.lc[2] = title.lc[3] = 1.0f;
-    title.rc[0] = title.rc[1] = title.rc[2] = title.rc[3] = 1.0f;
-    w->tooltipLines.push_back(std::move(title));
+
+    auto addLine = [&w](std::string text, float r, float g, float b) {
+        if (text.empty()) return;
+        wowee::ui::Widget::TooltipLine line;
+        line.left = std::move(text);
+        line.lc[0] = r; line.lc[1] = g; line.lc[2] = b; line.lc[3] = 1.0f;
+        line.rc[0] = line.rc[1] = line.rc[2] = line.rc[3] = 1.0f;
+        w->tooltipLines.push_back(std::move(line));
+    };
+
+    addLine(name, 1.0f, 1.0f, 1.0f);
+
+    // What the name alone does not say, which in WoW is most of a unit
+    // tooltip: the guild under a player's name, the trade under an NPC's, and
+    // the level line under both.
+    //
+    // This built the title and stopped, so every mouseover in the game showed
+    // a bare name. The client has all of it — its own nameplates draw the
+    // guild and the subtitle from these very accessors — so this is another
+    // case of handing an element over leaving behind what the window it
+    // replaced was already doing.
+    const auto entity = gh->getEntityManager().getEntity(guid);
+    const bool isPlayer = entity && entity->getType() == game::ObjectType::PLAYER;
+
+    if (isPlayer) {
+        if (const uint32_t guildId = gh->getEntityGuildId(guid); guildId != 0) {
+            const std::string& guildName = gh->lookupGuildName(guildId);
+            if (!guildName.empty()) addLine("<" + guildName + ">", 0.25f, 1.0f, 0.25f);
+        }
+    } else if (entity) {
+        // The trade an NPC plies, which is the line that tells a vendor from a
+        // guard: <Auctioneer>, <Innkeeper>, <Reagent Vendor>.
+        const auto unit = std::dynamic_pointer_cast<game::Unit>(entity);
+        if (unit) {
+            const std::string sub = gh->getCachedCreatureSubName(unit->getEntry());
+            if (!sub.empty()) addLine("<" + sub + ">", 1.0f, 1.0f, 1.0f);
+        }
+    }
+
+    // "Level 50", and the class after it for a player. Yellow, as WoW draws a
+    // level the player's own is a match for; the difficulty colouring proper
+    // needs the same table the nameplates use and is not invented here.
+    if (entity) {
+        const uint32_t level =
+            entity->getField(game::fieldIndex(game::UF::UNIT_FIELD_LEVEL));
+        if (level > 0) {
+            std::string levelLine = "Level " + std::to_string(level);
+            if (isPlayer) {
+                const uint32_t bytes0 =
+                    entity->getField(game::fieldIndex(game::UF::UNIT_FIELD_BYTES_0));
+                const unsigned classId = (bytes0 >> 8) & 0xFFu;
+                if (const char* cls = wowee::addons::luaClassToken(classId)) {
+                    (void)cls;
+                    levelLine += " ";
+                    levelLine += wowee::addons::kLuaClasses[classId];
+                }
+            }
+            addLine(levelLine, 1.0f, 0.82f, 0.0f);
+        }
+    }
+
     w->shown = true;
     lua_pushboolean(L, 1);
     return 1;
