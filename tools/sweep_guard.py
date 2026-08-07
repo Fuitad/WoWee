@@ -15,9 +15,13 @@ count passes and is meant to be followed by lowering the ceiling here — a
 ratchet, not a snapshot. Where the honest answer is none, the ceiling is zero
 and lowering it is not possible.
 
-The six here run in under three seconds together, which is why they are the
-ones wired into the build. The slower reports — element readiness, the unbound
-global scan, the ungated-draw walk — stay manual.
+These run in about a minute together, which is why they are the ones wired
+into the build; the slower reports — element readiness, the unbound global
+scan, the ungated-draw walk — stay manual. The line here used to say six of
+them in under three seconds, and had said so for long enough that the count was
+out by a factor of five: a comment about how much a thing costs stops being
+true the moment someone adds to it, and this one is worth keeping honest
+because it is the argument for what belongs here.
 """
 import argparse
 import pathlib
@@ -617,6 +621,20 @@ CHECKS = [
     ("framexml_bool_vs_number.py",
      r"^(\d+) boolean answer\(s\) handed to a binding that reads a number", 0,
      "booleans passed where the receiving binding reads a number"),
+    # The third face of the same fault, and the one that cost the most: a
+    # binding answering a number where FrameXML uses the answer as a name.
+    # GetGuildRosterInfo gave the class id where classFileName was wanted, so
+    # `if ( classFileName ) then RAID_CLASS_COLORS[classFileName]` passed its
+    # guard, found nothing, and read a field off nil inside GuildStatus_Update
+    # — which took the whole guild roster down, but only once somebody was
+    # online. GetWhoInfo had it too, from its own copy of the class table.
+    #
+    # Zero, because there is no benign version: the guard beside every one of
+    # these sites is the caller saying it already handles the value being
+    # absent, and an answer of the wrong kind walks straight past it.
+    ("framexml_key_returns.py",
+     r"^(\d+) binding return\(s\) used as a table key that are not strings", 0,
+     "bindings answering a number where the interface uses it as a name"),
     ("framexml_unaccounted_frames.py",
      r"^\d+ top-level frames, (\d+) unaccounted", 37,
      "FrameXML frames neither handed over nor suppressed"),
