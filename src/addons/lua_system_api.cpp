@@ -110,7 +110,8 @@ static int lua_PlaySound(lua_State* L) {
         sound = name;
         for (char& c : sound) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 
-        // FrameXML asks for sixty-eight names and nine of them were answered,
+        // FrameXML asks for eighty-nine names across the files that load —
+        // sixty-eight when this was written — and nine of them were answered,
         // so nearly every panel this branch has handed over opened, closed and
         // was clicked in silence. The sound manager already had most of these
         // under its own names; only the mapping was missing.
@@ -173,8 +174,28 @@ static int lua_PlaySound(lua_State* L) {
             {"LFG_DENIED",                  &audio::UiSoundManager::playError},
             {"LFG_REWARDS",                 &audio::UiSoundManager::playQuestComplete},
         };
+        bool mapped = false;
         for (const Mapping& m : kMappings) {
-            if (sound == m.name) { (sfx->*m.play)(); break; }
+            if (sound == m.name) { (sfx->*m.play)(); mapped = true; break; }
+        }
+        // Said once per name, because a sound that resolves to nothing is the
+        // one gap in this file that leaves no trace at all: the row is missing
+        // from the dbc and the name is not in the table above, so the call
+        // returns having done nothing and the panel is silent.
+        //
+        // Silence is the right answer — substituting a sound that merely
+        // exists would be wrong forever, where a missing one can still be
+        // heard — but it should be possible to find out which name it was
+        // without guessing from a quiet button. The interface asks for eighty
+        // nine of these across the files that load, and the table below covers
+        // the ones the client has an equivalent for.
+        if (!mapped) {
+            static std::set<std::string> saidAlready;
+            if (saidAlready.insert(sound).second) {
+                LOG_WARNING("PlaySound: '", name, "' names no row this install "
+                            "has and nothing here stands in for it, so it is "
+                            "silent");
+            }
         }
     }
     return 0;
