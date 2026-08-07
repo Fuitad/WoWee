@@ -1411,6 +1411,32 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
         bool clipped = false;
         if (w->clipTo != 0) {
             if (const Widget* clip = tree.get(w->clipTo)) {
+                // A clip that does not overlap what it is clipping removes it
+                // from the screen entirely, and leaves no other trace: the
+                // frame is shown, sized, positioned and simply not there.
+                //
+                // Every NPC dialog puts its text inside a scroll frame and the
+                // vendor does not, which is the one thing the blank ones share.
+                // Said once per clipping frame so a real mismatch names itself
+                // instead of being inferred from what is missing.
+                const bool overlaps =
+                    w->left < clip->left + clip->rectW &&
+                    w->left + w->rectW > clip->left &&
+                    w->bottom < clip->bottom + clip->rectH &&
+                    w->bottom + w->rectH > clip->bottom;
+                if (!overlaps && w->visible && w->rectW > 0.0f && w->rectH > 0.0f) {
+                    static std::set<uint32_t> saidClipped;
+                    if (saidClipped.insert(w->clipTo).second) {
+                        LOG_WARNING(
+                            "Clip: '", w->name.empty() ? "(unnamed)" : w->name,
+                            "' at (", w->left, ",", w->bottom, " ", w->rectW,
+                            "x", w->rectH, ") is entirely outside '",
+                            clip->name.empty() ? "(unnamed)" : clip->name,
+                            "' at (", clip->left, ",", clip->bottom, " ",
+                            clip->rectW, "x", clip->rectH,
+                            ") — it is shown and clipped away");
+                    }
+                }
                 dl->PushClipRect(ImVec2(clip->left * s,
                                         screenH - (clip->bottom + clip->rectH) * s),
                                  ImVec2((clip->left + clip->rectW) * s,

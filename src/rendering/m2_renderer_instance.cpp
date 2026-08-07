@@ -1159,6 +1159,20 @@ bool M2Renderer::checkCollision(const glm::vec3& from, const glm::vec3& to,
                 adjustedPos.x = worldSafe.x;
                 adjustedPos.y = worldSafe.y;
                 collided = true;
+                // The other way a doodad blocks, and the one that was missing.
+                //
+                // The first of these lines went inside the branch for models
+                // that carry a collision mesh. A model without one is stopped
+                // by its bounding box here instead, so the doodads reported as
+                // wrongly solid — grass among them — were exactly the ones the
+                // diagnostic could not see.
+                static std::set<std::string> saidBoxBlocked;
+                if (!model.name.empty() && saidBoxBlocked.insert(model.name).second) {
+                    LOG_WARNING("Collision: blocked by '", model.name,
+                                "' (bounding box, no collision mesh) — if this "
+                                "should be walked through, that is the name the "
+                                "classifier needs");
+                }
                 continue;
             }
         }

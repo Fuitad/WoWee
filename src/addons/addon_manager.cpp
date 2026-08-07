@@ -678,10 +678,8 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         // QuestFrame_ShowQuestDetail that FrameXML does not have. The wrapper
         // then reported the geometry of a dialog nothing had built and it
         // looked like the bug.
-        "if type(QuestFrameDetailPanel_OnShow) == 'function' then\n"
-        "  local real = QuestFrameDetailPanel_OnShow\n"
-        "  QuestFrameDetailPanel_OnShow = function(...)\n"
-        "    real(...)\n"
+        "if QuestFrameDetailPanel and QuestFrameDetailPanel.HookScript then\n"
+        "  QuestFrameDetailPanel:HookScript('OnShow', function()\n"
         "    local function where(f, n)\n"
         "      if not f then return n .. '=absent' end\n"
         "      local p = f.GetParent and f:GetParent()\n"
@@ -697,7 +695,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         "      where(QuestInfoFadingFrame, 'FadingFrame') .. ' | ' ..\n"
         "      where(QuestInfoRewardsFrame, 'Rewards') .. ' | ' ..\n"
         "      where(QuestInfoItem1, 'Item1'))\n"
-        "  end\n"
+        "  end)\n"
         "end\n");
 
     // The same for the progress panel, which is the one a blank parchment was
@@ -708,10 +706,15 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // that is empty is missing data, and a string that has text but no height
     // is missing a measurement.
     luaEngine_.executeString(
-        "if type(QuestFrameProgressPanel_OnShow) == 'function' then\n"
-        "  local real = QuestFrameProgressPanel_OnShow\n"
-        "  QuestFrameProgressPanel_OnShow = function(...)\n"
-        "    real(...)\n"
+        // HookScript on the frame, not a wrapper around the global.
+        //
+        // Wrapping QuestFrameProgressPanel_OnShow fired in the runner, where
+        // the function is called by name, and never once in a real session —
+        // because what runs on screen is the *widget's* stored script, and
+        // replacing the global afterwards does not touch it. The hook has to
+        // go where the client actually dispatches.
+        "if QuestFrameProgressPanel and QuestFrameProgressPanel.HookScript then\n"
+        "  QuestFrameProgressPanel:HookScript('OnShow', function()\n"
         "    local function say(f, n)\n"
         "      if not f then return n .. '=absent' end\n"
         "      local t = (f.GetText and f:GetText()) or ''\n"
@@ -724,7 +727,7 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         "      say(QuestProgressText, 'ProgressText') .. ' | ' ..\n"
         "      say(QuestProgressTitle, 'Title') .. ' | ' ..\n"
         "      say(QuestFrameProgressPanel, 'Panel'))\n"
-        "  end\n"
+        "  end)\n"
         "end\n");
 
     // The game-menu button opens this client's settings.
