@@ -7269,6 +7269,66 @@ void LuaEngine::callFrameScript3(uint32_t wid, const char* script,
     lua_pop(L_, 4);
 }
 
+/// Where the caret sits, as the interface's own scrolling edit boxes want it.
+///
+/// WoW fires OnCursorChanged(self, x, y, width, height) whenever the caret
+/// moves, and ScrollingEdit_OnCursorChanged is the only thing that ever sets
+/// `self.cursorOffset`. Nothing here fired it, so that field stayed nil — and
+/// ScrollingEdit_OnTextChanged, which every multi-line box in the interface
+/// calls, ends by running ScrollingEdit_OnUpdate, which opens with
+///
+///     cursorOffset = -self.cursorOffset;
+///
+/// So the first character typed into the mail body, the macro editor or the
+/// guild information box raised there, before anything was drawn.
+///
+/// y is negative going down and is the only value the interface reads besides
+/// the height: it scrolls the frame to keep the caret's line in view. Measured
+/// in lines rather than in laid-out pixels, because a line is what the caret
+/// moves by and the box has one height for all of them.
+void LuaEngine::fireCursorChanged(uint32_t wid) {
+    const auto* w = widgets_.get(wid);
+    if (!w || !w->isEditBox) return;
+    const size_t upTo = std::min(w->cursorPos, w->editText.size());
+    size_t line = 0;
+    for (size_t i = 0; i < upTo; ++i) {
+        if (w->editText[i] == '\n') ++line;
+    }
+    const double lineH = (w->fontHeight > 0.0f) ? w->fontHeight : 14.0;
+    callFrameScript4Numbers(wid, "OnCursorChanged", 0.0,
+                            -static_cast<double>(line) * lineH, 0.0, lineH);
+}
+
+void LuaEngine::callFrameScript4Numbers(uint32_t wid, const char* script,
+                                        double a, double b, double c, double d) {
+    if (!L_ || wid == 0) return;
+    lua_getglobal(L_, "__WoweeFramesByWid");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
+    lua_pushinteger(L_, static_cast<lua_Integer>(wid));
+    lua_rawget(L_, -2);
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 2); return; }
+    lua_getfield(L_, -1, "__scripts");
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 3); return; }
+    lua_pushcfunction(L_, luaTracebackHandler);
+    const int handlerIdx = lua_gettop(L_);
+    lua_getfield(L_, handlerIdx - 1, script);
+    if (!lua_isfunction(L_, -1)) { lua_pop(L_, 5); return; }
+    lua_pushvalue(L_, handlerIdx - 2);   // self
+    lua_pushnumber(L_, a);
+    lua_pushnumber(L_, b);
+    lua_pushnumber(L_, c);
+    lua_pushnumber(L_, d);
+    if (lua_pcall(L_, 5, 0, handlerIdx) != 0) {
+        const char* err = lua_tostring(L_, -1);
+        const std::string where = scriptOrigin(widgets_, wid, script);
+        LOG_ERROR("LuaEngine: ", where, " error: ", err ? err : "?");
+        noteLuaError(where + ": " + (err ? err : "script error"));
+        if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
+        lua_pop(L_, 1);
+    }
+    lua_pop(L_, 4);
+}
+
 void LuaEngine::callFrameScriptNumber(uint32_t wid, const char* script, double arg) {
     if (!L_ || wid == 0) return;
     lua_getglobal(L_, "__WoweeFramesByWid");
@@ -7802,7 +7862,8 @@ void LuaEngine::dispatchText(const char* utf8) {
     w->cursorPos = at + add.size();
     // The handler that tells a search field to filter, and a chat box to look
     // for a channel prefix.
-    callFrameScript(focusedWid_, "OnTextChanged");
+    fireCursorChanged(focusedWid_);
+                callFrameScript(focusedWid_, "OnTextChanged");
     // A space is its own handler, and the chat box is what wants it: typing
     // "/w Bob " is how a whisper gets its target, and ChatEdit_OnSpacePressed
     // is what reads the name out and turns the box into a whisper with a
@@ -7906,6 +7967,7 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
                 const size_t from = ui::caretStepLeft(w->editText, w->cursorPos);
                 w->editText.erase(from, w->cursorPos - from);
                 w->cursorPos = from;
+                fireCursorChanged(focusedWid_);
                 callFrameScript(focusedWid_, "OnTextChanged");
             }
             break;
@@ -7913,6 +7975,7 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
             if (w->cursorPos < len) {
                 const size_t to = ui::caretStepRight(w->editText, w->cursorPos);
                 w->editText.erase(w->cursorPos, to - w->cursorPos);
+                fireCursorChanged(focusedWid_);
                 callFrameScript(focusedWid_, "OnTextChanged");
             }
             break;
@@ -7926,6 +7989,7 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
                     ? last : std::max(0, w->editHistoryPos - 1);
                 w->editText = w->editHistory[static_cast<size_t>(w->editHistoryPos)];
                 w->cursorPos = w->editText.size();
+                fireCursorChanged(focusedWid_);
                 callFrameScript(focusedWid_, "OnTextChanged");
             }
             break;
@@ -7940,6 +8004,7 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
                     w->editText = w->editHistory[static_cast<size_t>(w->editHistoryPos)];
                 }
                 w->cursorPos = w->editText.size();
+                fireCursorChanged(focusedWid_);
                 callFrameScript(focusedWid_, "OnTextChanged");
             }
             break;
@@ -7979,6 +8044,7 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
                 const size_t at = std::min(w->cursorPos, w->editText.size());
                 w->editText.insert(at, 1, '\n');
                 w->cursorPos = at + 1;
+                fireCursorChanged(focusedWid_);
                 callFrameScript(focusedWid_, "OnTextChanged");
                 break;
             }
