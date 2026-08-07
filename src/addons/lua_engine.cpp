@@ -7853,8 +7853,23 @@ void LuaEngine::reportMissingApi() const {
     // behaviour and reads as working from every other angle.
     std::vector<std::string> noops;
     std::vector<std::string> globals;
+    // Three kinds, not two. A "widget:" entry is a *field* read off a widget
+    // that answered nothing — which FrameXML does on purpose and constantly:
+    // it reads a field before anything has set it, either to test whether it
+    // has been set or because the thing that sets it runs later. TextString is
+    // assigned by SetTextStatusBarText and read behind `if ( self.TextString )`;
+    // BGindex is put on a battleground row as the list is built and read when
+    // one is clicked. Neither is a missing API, and counting them beside the
+    // names nothing implements makes that number wrong in the direction that
+    // wastes someone's afternoon.
+    //
+    // The recorder cannot tell a field from a method at the point it fires —
+    // both arrive as an index on the widget — so the separation is here, where
+    // the prefix already says which is which.
+    std::vector<std::string> widgetFields;
     for (const auto& n : names) {
         if (n.rfind("noop:", 0) == 0) noops.push_back(n.substr(5));
+        else if (n.rfind("widget:", 0) == 0) widgetFields.push_back(n.substr(7));
         else globals.push_back(n);
     }
 
@@ -7924,7 +7939,8 @@ void LuaEngine::reportMissingApi() const {
                 "and are still not defined (", globals.size() - absent.size(),
                 " more were read before whatever defines them had loaded, and ",
                 partsOfFrames.size(), " were optional parts of frames that do "
-                "exist)");
+                "exist, and ", widgetFields.size(), " were fields read off a "
+                "widget before anything set them)");
     }
     std::string line;
     for (const auto& n : realGaps) {
@@ -7946,6 +7962,8 @@ void LuaEngine::reportMissingApi() const {
         for (const auto& n : realGaps) out << n << "\n";
         out << "\n-- optional parts of frames that exist, correctly absent --\n";
         for (const auto& n : partsOfFrames) out << n << "\n";
+        out << "\n-- fields read off a widget before anything set them --\n";
+        for (const auto& n : widgetFields) out << n << "\n";
         out << "\n-- read before whatever defines them had loaded --\n";
         for (const auto& n : definedLater) out << n << "\n";
         out << "\n-- widget methods that answered with a no-op --\n";
