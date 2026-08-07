@@ -52,10 +52,29 @@ void M2Instance::updateModelMatrix() {
     modelMatrix = glm::mat4(1.0f);
     modelMatrix = glm::translate(modelMatrix, position);
 
-    // Rotation in radians
-    modelMatrix = glm::rotate(modelMatrix, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-    modelMatrix = glm::rotate(modelMatrix, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+    // Rotation in radians, applied Z then Y then X — the same order the WMO
+    // placement uses, because it is the same rotation.
+    //
+    // MDDF and MODF store their rotation identically; the format says so and
+    // both readers in terrain_manager build the same triple from it,
+    // (-rot[2], -rot[0], rot[1] + 180). WoW composes that as
+    // Ry(B)*Rx(A)*Rz(C), which in this space is Rz(B)*Ry(-A)*Rx(-C) — so the
+    // stored triple has to be applied Z, Y, X, which is what
+    // WMOInstance::updateModelMatrix does and what the buildings on screen
+    // confirm.
+    //
+    // Here it was applied X, Y, Z: the exact reverse, on the same input. That
+    // is invisible for all but a few doodads, because with no pitch and no
+    // roll the two orders are the same rotation — a tree standing upright
+    // looks right either way, and only a placement that is actually tilted
+    // comes out wrong. Which is exactly the report.
+    //
+    // Nothing else is affected: every other caller of createInstance passes a
+    // zero rotation, and the portal spin writes only z, where the orders again
+    // agree.
     modelMatrix = glm::rotate(modelMatrix, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+    modelMatrix = glm::rotate(modelMatrix, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+    modelMatrix = glm::rotate(modelMatrix, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
 
     modelMatrix = glm::scale(modelMatrix, glm::vec3(scale));
     invModelMatrix = glm::inverse(modelMatrix);

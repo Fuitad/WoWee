@@ -212,6 +212,16 @@ target_link_libraries(test_widget_tree PRIVATE catch2_main)
 add_test(NAME widget_tree COMMAND test_widget_tree)
 register_test_target(test_widget_tree)
 
+# ── test_placement_rotation ─────────────────────────────────
+add_executable(test_placement_rotation
+    test_placement_rotation.cpp
+)
+target_include_directories(test_placement_rotation PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_placement_rotation SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_placement_rotation PRIVATE catch2_main)
+add_test(NAME placement_rotation COMMAND test_placement_rotation)
+register_test_target(test_placement_rotation)
+
 # ── test_water_mask ─────────────────────────────────────────
 add_executable(test_water_mask
     test_water_mask.cpp
