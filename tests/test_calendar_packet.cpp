@@ -16,6 +16,8 @@
 #include "game/calendar_data.hpp"
 #include "network/packet.hpp"
 
+#include <ctime>
+
 namespace wowee::core {
 Application* Application::instance = nullptr;
 }
@@ -382,4 +384,47 @@ TEST_CASE("An event packet cut short is refused", "[calendar]") {
     Packet full = oneEvent();
     CalendarEventDetail ev;
     CHECK(parseCalendarSendEvent(full, ev));
+}
+
+TEST_CASE("A raid lockout lands on the day it expires", "[calendar]") {
+    // The packet dates a lockout only by how long it has left, so the day it
+    // belongs to is the server's clock plus that remainder. Getting it wrong
+    // puts the lockout on the wrong day with no sign of it — the entry is
+    // there, it is simply on a day the player is not looking at.
+    CalendarData cal;
+    // A fixed instant, then a lockout expiring two days later. Both are
+    // converted through localtime here for the same reason the code does:
+    // the calendar grid is in local days, and a UTC day boundary would put
+    // the lockout on the wrong side of midnight for half the world.
+    const std::time_t base = 1300000000;
+    cal.serverTimeUnix = static_cast<uint32_t>(base);
+    CalendarRaidLockout lock;
+    lock.mapId = 533;
+    lock.difficulty = 1;
+    lock.secondsRemaining = 2 * 24 * 60 * 60;
+    cal.lockouts.push_back(lock);
+
+    const std::time_t expiry = base + lock.secondsRemaining;
+    std::tm tmv{};
+    localtime_r(&expiry, &tmv);
+
+    const auto onDay = calendarEntriesForDay(cal, tmv.tm_mon + 1, tmv.tm_mday,
+                                             tmv.tm_year + 1900);
+    REQUIRE(onDay.size() == 1);
+    CHECK(onDay[0].kind == CalendarEntryKind::RaidLockout);
+    CHECK(onDay[0].index == 0);
+    CHECK(onDay[0].hour == tmv.tm_hour);
+    CHECK(onDay[0].minute == tmv.tm_min);
+
+    // And on no other day.
+    const auto dayBefore = calendarEntriesForDay(cal, tmv.tm_mon + 1,
+                                                 tmv.tm_mday - 1,
+                                                 tmv.tm_year + 1900);
+    CHECK(dayBefore.empty());
+
+    // With no server clock there is nothing to count from, so it is placed
+    // nowhere rather than on 1 January 1970.
+    cal.serverTimeUnix = 0;
+    CHECK(calendarEntriesForDay(cal, tmv.tm_mon + 1, tmv.tm_mday,
+                                tmv.tm_year + 1900).empty());
 }

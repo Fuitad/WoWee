@@ -1,6 +1,7 @@
 #include "game/calendar_data.hpp"
 
 #include <algorithm>
+#include <ctime>
 
 #include "network/packet.hpp"
 
@@ -192,6 +193,36 @@ std::vector<CalendarDayEntry> calendarEntriesForDay(const CalendarData& data,
         }
     }
 
+    // Raid lockouts, which the packet dates only by how long they have left.
+    //
+    // serverTimeUnix is the server's own clock at the moment it sent the
+    // calendar, and every lockout counts down from there — so the expiry is
+    // that instant plus the remainder, and it is converted here rather than at
+    // each reader so the day it lands on and the time it shows cannot
+    // disagree.
+    if (data.serverTimeUnix != 0) {
+        for (size_t l = 0; l < data.lockouts.size(); ++l) {
+            const std::time_t expiry =
+                static_cast<std::time_t>(data.serverTimeUnix) +
+                static_cast<std::time_t>(data.lockouts[l].secondsRemaining);
+            std::tm tmv{};
+#ifdef _WIN32
+            localtime_s(&tmv, &expiry);
+#else
+            localtime_r(&expiry, &tmv);
+#endif
+            if (dayNumber(tmv.tm_year + 1900, tmv.tm_mon + 1, tmv.tm_mday) != wanted) {
+                continue;
+            }
+            CalendarDayEntry entry;
+            entry.kind = CalendarEntryKind::RaidLockout;
+            entry.index = l;
+            entry.hour = tmv.tm_hour;
+            entry.minute = tmv.tm_min;
+            out.push_back(entry);
+        }
+    }
+
     for (size_t e = 0; e < data.events.size(); ++e) {
         const WowDate when = data.events[e].eventTime;
         if (when.month != month || when.day != day || when.fullYear() != year) {
@@ -207,9 +238,12 @@ std::vector<CalendarDayEntry> calendarEntriesForDay(const CalendarData& data,
     std::stable_sort(out.begin(), out.end(),
                      [&data](const CalendarDayEntry& a, const CalendarDayEntry& b) {
                          if (a.kind != b.kind) {
-                             return a.kind == CalendarEntryKind::Holiday;
+                             // The enum is in drawing order: holidays head the
+                             // day, then raid lockouts, then the player's own
+                             // events.
+                             return a.kind < b.kind;
                          }
-                         if (a.kind == CalendarEntryKind::Holiday) return false;
+                         if (a.kind != CalendarEntryKind::Event) return false;
                          const WowDate& ta = data.events[a.index].eventTime;
                          const WowDate& tb = data.events[b.index].eventTime;
                          if (ta.hour != tb.hour) return ta.hour < tb.hour;

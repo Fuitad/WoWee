@@ -5938,6 +5938,25 @@ void registerSystemLuaAPI(lua_State* L) {
             if (!gh) return 0;
             const wowee::game::CalendarData& cal = gh->getCalendarData();
 
+            if (row.kind == wowee::game::CalendarEntryKind::RaidLockout) {
+                const auto& lock = cal.lockouts[row.index];
+                lua_pushstring(L, gh->getMapName(lock.mapId).c_str());
+                lua_pushnumber(L, row.hour);
+                lua_pushnumber(L, row.minute);
+                lua_pushstring(L, "RAID_LOCKOUT");
+                lua_pushstring(L, "");             // sequenceType
+                lua_pushnumber(L, 0);              // eventType
+                lua_pushnumber(L, 0);              // texture
+                lua_pushstring(L, "");             // modStatus
+                lua_pushnumber(L, 1);              // inviteStatus
+                lua_pushstring(L, "");             // invitedBy
+                lua_pushnumber(L, lock.difficulty);
+                lua_pushnumber(L, 1);              // inviteType
+                lua_pushnil(L);                    // sequenceIndex
+                lua_pushnil(L);                    // numSequenceDays
+                lua_pushstring(L, "");             // difficultyName
+                return 15;
+            }
             if (row.kind == wowee::game::CalendarEntryKind::Holiday) {
                 const auto& holiday = cal.holidays[row.index];
                 lua_pushstring(L, holiday.textureFilename.c_str());
@@ -5994,6 +6013,29 @@ void registerSystemLuaAPI(lua_State* L) {
             lua_pushstring(L, "");
             lua_pushstring(L, holiday.textureFilename.c_str());
             return 3;
+        }},
+                // name, calendarType, raidID, hour, minute, difficulty,
+                // difficultyName — the seven the raid view unpacks. Indexed
+                // into the same day list as the other two readers, so a row
+                // that is not a lockout answers nothing rather than the wrong
+                // raid.
+                {"CalendarGetRaidInfo", [](lua_State* L) -> int {
+            const auto rows = calendarDayRows(L);
+            const int index = static_cast<int>(luaL_optnumber(L, 3, 0));
+            if (index < 1 || static_cast<size_t>(index) > rows.size()) return 0;
+            const auto& row = rows[static_cast<size_t>(index) - 1];
+            if (row.kind != wowee::game::CalendarEntryKind::RaidLockout) return 0;
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            const auto& lock = gh->getCalendarData().lockouts[row.index];
+            lua_pushstring(L, gh->getMapName(lock.mapId).c_str());
+            lua_pushstring(L, "RAID_LOCKOUT");
+            lua_pushnumber(L, static_cast<double>(lock.mapId));
+            lua_pushnumber(L, row.hour);
+            lua_pushnumber(L, row.minute);
+            lua_pushnumber(L, lock.difficulty);
+            lua_pushstring(L, "");
+            return 7;
         }},
                 // Ask the server for the calendar. The addon's OnShow calls
                 // this, and the answer arrives as CALENDAR_UPDATE_EVENT_LIST.

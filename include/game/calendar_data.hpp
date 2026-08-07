@@ -190,12 +190,17 @@ struct CalendarEventDraft {
 /// `CalendarGetDayEvent`, `CalendarGetHolidayInfo` and `CalendarGetRaidInfo`
 /// all index into the same list — so the order has to be decided once, here,
 /// rather than in each of those.
-enum class CalendarEntryKind { Holiday, Event };
+enum class CalendarEntryKind { Holiday, RaidLockout, Event };
 
 struct CalendarDayEntry {
     CalendarEntryKind kind = CalendarEntryKind::Event;
-    /// Into CalendarData::holidays or ::events, by kind.
+    /// Into CalendarData::holidays, ::lockouts or ::events, by kind.
     size_t index = 0;
+    /// For a raid lockout, the hour and minute it expires. The packet gives
+    /// seconds remaining rather than a time, so it is worked out once here
+    /// with the rest of the day's placement rather than at each reader.
+    int hour = 0;
+    int minute = 0;
     /// True on every day of a holiday after the first. FrameXML skips a row
     /// whose sequenceType is "ONGOING" when drawing the day's list, so a
     /// week-long holiday draws its name once rather than seven times.
