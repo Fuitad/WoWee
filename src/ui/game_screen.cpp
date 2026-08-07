@@ -1442,8 +1442,25 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             KeybindingManager::Action::TOGGLE_SETTINGS);
         const bool escapePressed =
             escapeKey != ImGuiKey_None && ImGui::IsKeyPressed(escapeKey, true);
+        // Nothing bound is its own explanation and looks identical to every
+        // other one from a log: no line at all. The keybindings are read from a
+        // config file that can rebind or clear this, and setKeyForAction turns
+        // a movement key into ImGuiKey_None outright — so "the action has no
+        // key" is a state the client can genuinely be in, and it would make
+        // Escape do nothing while every branch below remains correct.
+        //
+        // Said once rather than per frame, since it is a fact about the
+        // configuration and not about a press.
+        if (escapeKey == ImGuiKey_None) {
+            static bool saidUnbound = false;
+            if (!saidUnbound) {
+                saidUnbound = true;
+                LOG_WARNING("Escape: nothing is bound to the game-menu action, "
+                            "so no press can reach the chain");
+            }
+        }
         if (escapePressed && (textFocus || interfaceTakingTypedInput())) {
-            LOG_INFO("Escape: swallowed before the chain — chat input ",
+            LOG_WARNING("Escape: swallowed before the chain — chat input ",
                      chatPanel_.isChatInputActive() ? "active" : "idle",
                      ", ImGui wants text: ", io.WantTextInput ? "yes" : "no",
                      ", the interface's box has focus: ",
@@ -1477,9 +1494,21 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
             st.tradeOpen             = gameHandler.isTradeOpen();
 
             const EscapeAction action = resolveEscape(st);
-            LOG_INFO("Escape: ", escapeActionName(action),
-                     " (the interface owns the game menu: ",
-                     frameXmlOwns(UiElement::GameMenu) ? "yes" : "no", ")");
+            // At warning, like the three in the pump it pairs with.
+            //
+            // This chain has been read end to end more times than any other in
+            // the client and every link checks out on paper; what is missing is
+            // which branch actually runs, and that is the one thing reading
+            // cannot tell you. It was said at info, and the log a report
+            // arrives with is warnings only — so a session that reproduced
+            // "Escape does nothing" came back with no Escape line in it at all,
+            // and silence there meant nothing, because it is also exactly what
+            // a working press sounds like.
+            //
+            // One line per press, and Escape is not a key anyone holds down.
+            LOG_WARNING("Escape: ", escapeActionName(action),
+                        " (the interface owns the game menu: ",
+                        frameXmlOwns(UiElement::GameMenu) ? "yes" : "no", ")");
             switch (action) {
                 case EscapeAction::CloseSettingsWindow:
                     settingsPanel_.showSettingsWindow = false;

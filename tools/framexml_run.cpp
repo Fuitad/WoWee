@@ -450,6 +450,42 @@ int main(int argc, char** argv) {
             }
             continue;
         }
+        // --keyfocus names the frame a key press would be handed to.
+        //
+        // dispatchFrameKey gives the key to the topmost visible frame that
+        // enabled the keyboard, and that frame swallows it unless it asked for
+        // propagation. Everything in FrameXML that declares a key handler is a
+        // dialog hidden until it is wanted, so at rest this should name nothing
+        // — and if it names something that is always on screen, that frame is
+        // eating every key in the game and the fault is here rather than in
+        // whatever the key was supposed to do.
+        if (std::strcmp(argv[i], "--keyfocus") == 0) {
+            relayout();
+            auto* engine = mgr.getLuaEngine();
+            if (!engine) { std::printf("   no engine\n"); continue; }
+            const auto& tree = engine->widgets();
+            const wowee::ui::Widget* best = nullptr;
+            int listening = 0;
+            for (uint32_t id = 1; id < tree.size(); ++id) {
+                const auto* w = tree.get(id);
+                if (!w || w->id == 0 || !w->keyboardEnabled || !w->visible) continue;
+                ++listening;
+                if (!best) { best = w; continue; }
+                if (w->effStrata > best->effStrata ||
+                    (w->effStrata == best->effStrata && w->effLevel >= best->effLevel)) {
+                    best = w;
+                }
+            }
+            if (!best) {
+                std::printf("   no frame is listening; the key falls through\n");
+            } else {
+                std::printf("   %d listening; key goes to '%s' and is %s\n",
+                            listening,
+                            best->name.empty() ? "(unnamed)" : best->name.c_str(),
+                            best->propagateKeys ? "passed on" : "swallowed");
+            }
+            continue;
+        }
         // --clipped names content that is drawn and then clipped entirely away.
         //
         // Everything under a scroll frame is clipped to it, and a clip that

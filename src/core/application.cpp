@@ -1269,6 +1269,14 @@ void Application::run() {
                             switch (event.key.keysym.sym) {
                                 case SDLK_ESCAPE:
                                     ui::noteInterfaceConsumedKey(ImGuiKey_Escape);
+                                    // The first of the three ways a press ends
+                                    // early, and the correct one: an edit box
+                                    // had the keyboard, so Escape closed the
+                                    // box and means nothing further. WoW stops
+                                    // here too.
+                                    LOG_WARNING("Escape: taken in the pump by a "
+                                                "focused edit box; it closes the "
+                                                "box and stops");
                                     break;
                                 case SDLK_RETURN:
                                 case SDLK_KP_ENTER:
@@ -1289,9 +1297,31 @@ void Application::run() {
                         // keys and every binding carry on exactly as before.
                         if (auto* engine = addonManager_->getLuaEngine()) {
                             if (engine->dispatchFrameKey(event.key.keysym.sym, true)) {
+                                // Escape says so, because "Escape does nothing"
+                                // is a live report and this is one of the three
+                                // ways the press can end before the chain that
+                                // decides what it means ever runs. At warning:
+                                // the default log carries nothing else, so an
+                                // info line here is a line nobody will ever
+                                // see. See the pair in GameScreen.
+                                if (event.key.keysym.sym == SDLK_ESCAPE) {
+                                    LOG_WARNING("Escape: taken in the pump by a "
+                                                "frame listening for keys; the "
+                                                "chain below never runs");
+                                }
                                 continue;
                             }
                         }
+                    }
+                    // The third way, and the ordinary one: nothing in the
+                    // interface wanted it, so the poll further down decides.
+                    // Said as well as the other two, because the whole value of
+                    // these lines is that exactly one of them appears per
+                    // press — silence would mean the key never arrived at all,
+                    // and that is a different fault in a different place.
+                    if (event.key.keysym.sym == SDLK_ESCAPE) {
+                        LOG_WARNING("Escape: through the pump untaken; the chain "
+                                    "below decides");
                     }
                     // Skip non-function-key input when UI (chat) has keyboard focus
                     bool uiHasKeyboard = ImGui::GetIO().WantCaptureKeyboard ||
