@@ -24,6 +24,14 @@
 // for: it means something is leaning on the stand-in and will fall over for
 // anyone who turns it off.
 //
+// Clicking is the other thing to do with it, and it found the Send Mail tab
+// raising before its frame was built. Walk the globals for tables carrying a
+// widget id and a script table, keep the Buttons and CheckButtons, and Click()
+// each one — but only where IsVisible() is true. Clicking a button in a panel
+// nobody opened raises for reasons that are not faults: 516 of them against
+// zero for the visible ones. Open a panel, click what became visible, hide it,
+// move on.
+//
 // This is that run, without the client. The addon manager loads the real
 // FrameXML through the real emitter into a real Lua state with the real
 // bindings, and the only thing missing is a game behind them — every binding
