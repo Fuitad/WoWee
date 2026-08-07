@@ -189,6 +189,18 @@ struct Widget {
     /// placeholder its XML shipped with, long after it read something else.
     bool autoSized = false;
     std::string measuredText;
+    /// A label that declared a width and left its height at zero: WoW's
+    /// wrapping paragraph. The width is the box to wrap inside and the height
+    /// is however many lines that takes — the opposite of autoSized, where the
+    /// text decides the width and there is nothing to wrap to.
+    ///
+    /// `<AbsDimension x="285" y="0"/>` is the idiom, and it is what every
+    /// block of prose in the interface is: quest descriptions and objectives,
+    /// mail bodies, gossip greetings. Sizing those from their text instead put
+    /// each on one line running far outside the frame that clips it, and left
+    /// whatever anchored below sitting on top of the lines that should have
+    /// pushed it down.
+    bool wrapsToWidth = false;
 
     FrameStrata strata = FrameStrata::Medium;
     bool strataExplicit = false;

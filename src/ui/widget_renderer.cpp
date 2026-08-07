@@ -153,13 +153,53 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
         // Two anchors on an axis give the size, and an explicit size was asked
         // for outright. Either way the string does not get a say.
         if (w->anchors.size() >= 2) continue;
+
+        // A width with no height is a paragraph, not a request to be measured.
+        //
+        // `<AbsDimension x="285" y="0"/>` is WoW's way of saying "wrap inside
+        // 285 and be as tall as that takes", and it is what every block of
+        // prose in the interface declares. Reading the zero height as "size
+        // yourself" and measuring the text on one unbounded line replaced the
+        // 285 with however wide the sentence happened to be — 424 for a short
+        // quest description, far more for a real one — and marked the string
+        // auto-sized, which is also what tells the draw below not to wrap it.
+        // So it drew one line out through the side of the scroll frame that
+        // clips it, and everything anchored beneath it sat on top of the lines
+        // that should have pushed it down.
+        const bool paragraph =
+            w->wrapsToWidth ||
+            (!w->autoSized && w->width > 0.0f && w->height <= 0.0f);
+
         // Already the right size for this text. A label that was measured
         // before and has since changed what it says is measured again; one
         // sized by its XML is left alone.
-        if (w->autoSized && w->measuredText == w->text) continue;
-        if (!w->autoSized && w->width > 0.0f && w->height > 0.0f) continue;
+        if (paragraph) {
+            if (w->measuredText == w->text) continue;
+        } else {
+            if (w->autoSized && w->measuredText == w->text) continue;
+            if (!w->autoSized && w->width > 0.0f && w->height > 0.0f) continue;
+        }
 
         const float size = (w->fontHeight > 0.0f) ? w->fontHeight : 12.0f;
+        const auto measureRun = [&](const std::string& piece) {
+            return font->CalcTextSizeA(size, FLT_MAX, 0.0f, piece.c_str()).x;
+        };
+
+        if (paragraph) {
+            // The width stays as declared and the height follows the wrap.
+            // autoSized stays false on purpose: it is what the draw reads to
+            // decide whether there is a box to wrap inside, and this string is
+            // exactly the kind that has one.
+            w->wrapsToWidth = true;
+            const int rows = static_cast<int>(
+                wrapText(parseMarkup(w->text), w->width, w->nonSpaceWrap,
+                         measureRun).size());
+            w->wrappedLines = rows > 0 ? rows : 1;
+            w->height = size * 1.2f * static_cast<float>(w->wrappedLines);
+            w->measuredText = w->text;
+            continue;
+        }
+
         const ImVec2 measured =
             font->CalcTextSizeA(size, FLT_MAX, 0.0f, strippedText(w->text).c_str());
         w->width = measured.x;
@@ -168,11 +208,7 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
         // single line's height put whatever anchors below it over the top of
         // the rest.
         const int rows = static_cast<int>(
-            wrapText(parseMarkup(w->text), 0.0f, false,
-                     [&](const std::string& piece) {
-                         return font->CalcTextSizeA(size, FLT_MAX, 0.0f,
-                                                    piece.c_str()).x;
-                     }).size());
+            wrapText(parseMarkup(w->text), 0.0f, false, measureRun).size());
         w->wrappedLines = rows > 0 ? rows : 1;
         if (w->height <= 0.0f || w->autoSized) {
             w->height = size * 1.2f * static_cast<float>(w->wrappedLines);

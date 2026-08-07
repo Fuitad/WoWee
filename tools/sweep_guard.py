@@ -873,6 +873,57 @@ def check_rebuild_idiom():
     return False, what + (" — " + detail if detail else "")
 
 
+def check_paragraph_wrapping():
+    """A font string with a declared width and no height wraps inside it.
+
+    `<AbsDimension x="285" y="0"/>` is WoW's wrapping paragraph and 240 font
+    strings across the interface declare one — every quest description and
+    objective, every mail body, every gossip greeting. The zero is not a
+    missing height, it is "however tall the wrap makes me".
+
+    Read as a request to be measured instead, the string keeps the width of
+    whatever sentence it happens to hold and one line's height: it draws out
+    through the side of the frame that clips it, and whatever anchors below it
+    sits on top of the lines that should have pushed it down. Nothing raises.
+
+    Both halves, because either alone can pass while the other is broken: the
+    declared width has to survive, and the height has to follow the text.
+    """
+    exe = ROOT / "build" / "bin" / "framexml_run"
+    data = ROOT / "Data"
+    what = "a font string with a declared width wraps inside it"
+    if not exe.exists() or not data.is_dir():
+        return None, what
+    # QuestInfoDescriptionText is the reported one and declares x=285 y=0.
+    argv = [
+        str(exe), str(data),
+        "T = QuestInfoDescriptionText T:SetText('Short.')",
+        "--tick:1",
+        "W1 = T:GetWidth() H1 = T:GetHeight()",
+        "T:SetText('A much longer line of prose that has to wrap onto at least "
+        "three separate lines inside the two hundred and eighty five pixels "
+        "its XML gave it.')",
+        "--tick:1",
+        "if T:GetWidth() ~= 285 or W1 ~= 285 then error('the declared width did "
+        "not survive: one line '..W1..', many lines '..T:GetWidth()..', wanted "
+        "285 for both — the string was sized from its text instead of wrapped "
+        "inside its box') end",
+        "if T:GetHeight() <= H1 then error('height did not grow with the text: "
+        "one line '..H1..', many lines '..T:GetHeight()..' — everything "
+        "anchored below this sits on top of it') end",
+    ]
+    try:
+        out = subprocess.run(argv, capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        return False, what + " (timed out)"
+    if out.returncode == 0:
+        return True, what
+    detail = next((ln.strip() for ln in (out.stdout + out.stderr).splitlines()
+                   if ln.startswith("   ") and ("width" in ln or "height" in ln)),
+                  "")
+    return False, what + (" — " + detail if detail else "")
+
+
 def check_without_the_standin():
     """Load the whole interface with the missing-API stand-in turned off.
 
@@ -956,7 +1007,8 @@ def main():
         if not clean:
             failures.append(f"{tool}: {what}")
 
-    for ok, what in (check_without_the_standin(), check_rebuild_idiom()):
+    for ok, what in (check_without_the_standin(), check_rebuild_idiom(),
+                     check_paragraph_wrapping()):
         if ok is None:
             print(f"  skip    -       {what} (framexml_run not built)")
             continue

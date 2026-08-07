@@ -216,6 +216,9 @@ void WidgetTree::setWidth(uint32_t id, float width) {
     if (width <= 0.0f && w->kind == WidgetKind::FontString) {
         w->autoSized = false;
         w->measuredText.clear();
+        // And it is no longer a paragraph: there is no width left to wrap
+        // inside, which is the whole of what that meant.
+        w->wrapsToWidth = false;
     }
     w->width = width;
     // Provisional, so a read before the next layout sees what was just set.
