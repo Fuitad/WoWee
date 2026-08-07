@@ -4567,12 +4567,27 @@ void registerInventoryLuaAPI(lua_State* L) {
             lua_pushboolean(L, 0);
             return 4;
         }},
+                // Whether there is unread mail waiting, which is what the
+                // envelope on the minimap reports.
+                //
+                // The server's flag first, because the inbox is only ever
+                // filled while standing at a mailbox: away from one this list
+                // is empty, and scanning it alone answered no to the only
+                // question the envelope exists to ask. SMSG_RECEIVED_MAIL and
+                // the next-mail-time poll are how a player standing in a field
+                // finds out at all.
+                //
+                // The list still gets a look, for the other direction: at the
+                // mailbox the flag is cleared on arrival, and what is unread
+                // there is what the letters themselves say.
                 {"HasNewMail", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             if (!gh) { return luaReturnFalse(L); }
-            bool hasNew = false;
-            for (const auto& m : gh->getMailInbox()) {
-                if (!m.read) { hasNew = true; break; }
+            bool hasNew = gh->hasNewMail();
+            if (!hasNew) {
+                for (const auto& m : gh->getMailInbox()) {
+                    if (!m.read) { hasNew = true; break; }
+                }
             }
             lua_pushboolean(L, hasNew ? 1 : 0);
             return 1;

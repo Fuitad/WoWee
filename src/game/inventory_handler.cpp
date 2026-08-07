@@ -2382,7 +2382,12 @@ void InventoryHandler::acceptSockets() {
 void InventoryHandler::openMailbox(uint64_t guid) {
     mailboxGuid_ = guid;
     mailboxOpen_ = true;
-    hasNewMail_ = false;
+    // Through the setter, which is the only thing that says so. Assigning the
+    // member cleared the flag and told nobody: this client's own minimap asks
+    // hasNewMail() again on every frame it draws, so it went out by itself,
+    // and an interface that is told once kept the envelope up for the rest of
+    // the session.
+    setHasNewMail(false);
     selectedMailIndex_ = -1;
     showMailCompose_ = false;
     clearMailAttachments();
@@ -2592,12 +2597,28 @@ void InventoryHandler::mailMarkAsRead(uint32_t mailId) {
     // GetInboxText, which is what marks a letter read. Setting the flag first
     // makes the second pass find it already read and stop. Firing first would
     // recur until the stack ran out.
+    bool marked = false;
     for (auto& mail : mailInbox_) {
         if (mail.messageId != mailId || mail.read) continue;
         mail.read = true;
+        marked = true;
         if (owner_.addonEventCallbackRef())
             owner_.addonEventCallbackRef()("MAIL_INBOX_UPDATE", {});
         break;
+    }
+
+    // And the envelope on the minimap, which is a different event and was
+    // never fired. MAIL_INBOX_UPDATE redraws the list of letters;
+    // MiniMapMailFrame does not listen to it and answers UPDATE_PENDING_MAIL
+    // alone. So the last unread letter could be read with the list in front of
+    // the player and the notification stayed up — nothing had said the thing
+    // it was reporting had stopped being true.
+    if (marked) {
+        bool anyUnread = false;
+        for (const auto& mail : mailInbox_) {
+            if (!mail.read) { anyUnread = true; break; }
+        }
+        if (anyUnread != hasNewMail_) setHasNewMail(anyUnread);
     }
 }
 
