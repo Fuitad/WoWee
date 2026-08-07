@@ -1,6 +1,7 @@
 #include "addons/lua_engine.hpp"
 #include "ui/link_hit.hpp"
 #include "ui/text_markup.hpp"
+#include "ui/plural_escape.hpp"
 #include "ui/widget_tree.hpp"
 #include "ui/ui_colors.hpp"
 #include "ui/framexml_takeover.hpp"
@@ -1093,7 +1094,11 @@ int lua_MessageFrame_AddMessage(lua_State* L) {
     auto* w = widgetOf(L, 1);
     if (!w) return 0;
     wowee::ui::Widget::Message m;
-    m.text = luaL_optstring(L, 2, "");
+    // The same escape a label gets. Chat and the error frame carry counted
+    // strings too — "you may not do that for another %d |4second:seconds;" —
+    // and a message frame never passes through SetText, so resolving it there
+    // alone would have left every one of these lines showing the escape.
+    m.text = wowee::ui::resolvePluralEscapes(luaL_optstring(L, 2, ""));
     // WoW's colours are optional and default to the frame's own.
     m.color[0] = static_cast<float>(luaL_optnumber(L, 3, w->color[0]));
     m.color[1] = static_cast<float>(luaL_optnumber(L, 4, w->color[1]));
@@ -2607,7 +2612,11 @@ int lua_FontString_SetText(lua_State* L) {
     // which costs far more than the empty label does: one such call took out
     // chatconfigframe's whole OnEvent.
     const char* text = lua_isstring(L, 2) ? lua_tostring(L, 2) : "";
-    if (auto* w = widgetOf(L, 1)) w->text = text;
+    const std::string shown = wowee::ui::resolvePluralEscapes(text);
+    if (auto* w = widgetOf(L, 1)) w->text = shown;
+    // GetText answers what was set, not what is drawn. WoW resolves the escape
+    // on the way to the screen and hands the original back, and FrameXML reads
+    // its own labels back in a few places to re-format them.
     lua_pushstring(L, text);
     lua_setfield(L, 1, "_text");
     return 0;

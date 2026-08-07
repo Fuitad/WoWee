@@ -876,6 +876,7 @@ set(WOWEE_SOURCES
     src/ui/chat/chat_tab_manager.cpp
     src/ui/chat/chat_bubble_manager.cpp
     src/ui/chat/chat_markup_parser.cpp
+    src/ui/plural_escape.cpp
     src/ui/chat/chat_markup_renderer.cpp
     src/ui/chat/item_tooltip_renderer.cpp
     src/ui/chat/chat_command_registry.cpp

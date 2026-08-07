@@ -845,6 +845,20 @@ target_link_libraries(test_chat_markup_parser PRIVATE catch2_main)
 add_test(NAME chat_markup_parser COMMAND test_chat_markup_parser)
 register_test_target(test_chat_markup_parser)
 
+# ── test_plural_escape ───────────────────────────────────────
+# WoW's |4singular:plural; escape, which nothing resolved — so the logout
+# prompt read "5 |4Second:Seconds; until logout" and seventy-four other
+# strings did the same.
+add_executable(test_plural_escape
+    test_plural_escape.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/plural_escape.cpp
+)
+target_include_directories(test_plural_escape PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_plural_escape SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_plural_escape PRIVATE catch2_main)
+add_test(NAME plural_escape COMMAND test_plural_escape)
+register_test_target(test_plural_escape)
+
 # ── test_macro_evaluator ─────────────────────────────────────
 add_executable(test_macro_evaluator
     test_macro_evaluator.cpp
