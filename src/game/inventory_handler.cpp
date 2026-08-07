@@ -3821,6 +3821,18 @@ void InventoryHandler::handleItemQueryResponse(network::Packet& packet) {
             }
         }
 
+        // The vendor list, which arrives the same way: SMSG_LIST_INVENTORY
+        // gives an item id and a price per row and nothing a player can read.
+        // Same shape, same cause, same gate — the window has to be open and a
+        // row has to be waiting on this entry.
+        if (vendorWindowOpen_ && owner_.addonEventCallbackRef()) {
+            for (const auto& v : currentVendorItems_.items) {
+                if (v.itemId != data.entry) continue;
+                owner_.addonEventCallbackRef()("MERCHANT_UPDATE", {});
+                break;
+            }
+        }
+
         // Flush any deferred loot notifications waiting on this item's name/quality.
         for (auto it = owner_.pendingItemPushNotifsRef().begin(); it != owner_.pendingItemPushNotifsRef().end(); ) {
             if (it->itemId == data.entry) {
