@@ -58,6 +58,7 @@
 #include <imgui.h>
 
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -235,6 +236,32 @@ int main(int argc, char** argv) {
     for (int i = 2; i < argc; ++i) {
         const size_t before = errors.size();
         std::printf("\n== %s\n", argv[i]);
+        // --tick:N runs N frames of the interface's own per-frame work rather
+        // than evaluating an expression.
+        //
+        // Everything else here calls a handler directly, which tests the
+        // handler and nothing about whether the client would ever reach it.
+        // OnUpdate is dispatched from a list, gated on the widget's visible
+        // chain, and unhooked after five consecutive failures — none of which
+        // a direct call goes near. A frame whose OnUpdate raises looks
+        // perfectly healthy when its function is invoked by hand, and is dead
+        // for the rest of the session in the running client.
+        //
+        // Sixteen milliseconds a tick, which is the frame this client aims at,
+        // so anything measured in seconds advances at the rate it really would.
+        if (std::strncmp(argv[i], "--tick:", 7) == 0) {
+            const int ticks = std::atoi(argv[i] + 7);
+            relayout();
+            for (int t = 0; t < ticks; ++t) mgr.update(1.0f / 60.0f);
+            std::printf("   ticked %d frame(s)\n", ticks);
+            if (errors.size() != before) {
+                ++raised;
+                for (size_t k = before; k < errors.size(); ++k) {
+                    std::printf("   %s\n", errors[k].c_str());
+                }
+            }
+            continue;
+        }
         // Before each one, not once after the load. An expression that opens a
         // panel changes where things are, and the expression that measures it
         // is the next one along — laying out only at the start meant every

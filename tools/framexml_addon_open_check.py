@@ -22,6 +22,15 @@ reported after the render in the real client and there is no render here; the
 handler is where the work is, and a check that only called Show would have
 reported the calendar clean while it was broken.
 
+Then the interface is **ticked** with every panel open. Opening a frame and
+calling one handler says nothing about the work it does every frame afterwards,
+and OnUpdate is where a panel dies quietly: it is dispatched from a list, gated
+on the widget's visible chain, and unhooked entirely after five consecutive
+failures. A frame whose OnUpdate raises looks perfectly healthy when its
+function is invoked by hand and is dead for the rest of the session in the
+running client — the symptom is something on screen that has simply stopped
+moving.
+
 Canaried against the fault it was written for: with the region GetParent
 binding removed, the calendar reports its raise and everything else stays
 clean.
@@ -96,8 +105,11 @@ def main():
     # back whole; the runner's own output is a report of its own.
     lua.append('error("QQPANELS " .. table.concat(out, " ~ "))')
 
+    # Four seconds of frames with everything open. Long enough for the timers
+    # FrameXML drives in seconds — fades, flashes, combat text ageing out — to
+    # run to completion rather than only to start.
     try:
-        run = subprocess.run([str(RUNNER), str(DATA), " ".join(lua)],
+        run = subprocess.run([str(RUNNER), str(DATA), " ".join(lua), "--tick:240"],
                              capture_output=True, text=True, timeout=900)
     except subprocess.TimeoutExpired:
         print("the runner did not finish — nothing opened.")
@@ -112,6 +124,25 @@ def main():
         print("no result from the runner — the chunk did not reach its report.")
         return 1
 
+    # Errors reported while ticking. The runner prints them under the tick's
+    # own heading, so anything between that line and the end of its block
+    # belongs to a per-frame handler rather than to opening a panel.
+    # The runner prints each new error under the tick as an indented line, and
+    # its own "ticked N frame(s)" beside them. Matching on the word "error"
+    # instead caught the engine's end-of-session summary — a count of errors,
+    # not an error — and reported a clean run as one failure.
+    tickErrors = []
+    inTick = False
+    for line in (run.stdout + run.stderr).splitlines():
+        if line.startswith("== --tick:"):
+            inTick = True
+            continue
+        if inTick:
+            if line.startswith("== "):
+                inTick = False
+            elif line.startswith("   ") and "ticked" not in line:
+                tickErrors.append(line.strip())
+
     bad = []
     for entry in payload.split(" ~ "):
         name, _, state = entry.partition("=")
@@ -123,10 +154,15 @@ def main():
     for name, state in bad:
         print(f"  {name}")
         print(f"      {state}")
-    if bad:
-        print(f"\n{len(bad)} panel(s) raise on being opened.")
+    for line in tickErrors:
+        print(f"  while ticking: {line}")
+
+    if bad or tickErrors:
+        print(f"\n{len(bad)} panel(s) raise on being opened, "
+              f"{len(tickErrors)} error(s) while ticking.")
     else:
-        print("every panel loads, shows and runs its OnShow without raising.")
+        print("every panel loads, shows and runs its OnShow without raising, "
+              "and none raises while the interface ticks.")
     return 0
 
 

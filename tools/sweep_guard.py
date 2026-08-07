@@ -792,8 +792,8 @@ SENTENCES = [
     # what kept the calendar shut. Canaried: with the region GetParent binding
     # removed, this reports the calendar and nothing else.
     ("framexml_addon_open_check.py",
-     "every panel loads, shows and runs its OnShow without raising",
-     "a load-on-demand panel that raises on being opened"),
+     "without raising, and none raises while the interface ticks",
+     "a load-on-demand panel that raises on being opened or ticked"),
     ("bootstrap_chunk_check.py",
      "every local they use is declared in the chunk that uses it",
      "a bootstrap chunk using a local another chunk declared"),
