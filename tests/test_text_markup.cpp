@@ -207,3 +207,60 @@ TEST_CASE("a position from outside is snapped to one the caret can occupy", "[ma
         }
     }
 }
+
+// Replacing a selected run, which is what makes autocomplete usable.
+//
+// The interface writes the completed name and highlights the part it added, so
+// the next character typed replaces the completion instead of landing after
+// it. Everything about that is byte offsets, and both ends are easy to get
+// wrong in ways nobody sees until a name comes out doubled.
+TEST_CASE("A selected run is replaced, and only that run", "[edit][selection]") {
+    using wowee::ui::EditSelection;
+    using wowee::ui::replaceSelection;
+
+    SECTION("the completion is taken and the typed prefix kept") {
+        // "Thr" was typed, autocomplete wrote "Thrall" and highlighted "all".
+        std::string t = "Thrall";
+        const size_t c = replaceSelection(t, 6, {true, 3, 6});
+        CHECK(t == "Thr");
+        CHECK(c == 3);
+    }
+    SECTION("a run in the middle leaves both sides") {
+        std::string t = "abcdef";
+        const size_t c = replaceSelection(t, 6, {true, 2, 4});
+        CHECK(t == "abef");
+        CHECK(c == 2);
+    }
+    SECTION("all of it") {
+        std::string t = "Thrall";
+        const size_t c = replaceSelection(t, 6, {true, 0, 6});
+        CHECK(t.empty());
+        CHECK(c == 0);
+    }
+
+    // The three shapes that must do nothing. FrameXML clears a highlight by
+    // passing equal offsets, and a zero-width run that still counted would eat
+    // the next character typed — somewhere far from whatever set it.
+    SECTION("no selection changes nothing") {
+        std::string t = "Thrall";
+        CHECK(replaceSelection(t, 4, {false, 0, 6}) == 4);
+        CHECK(t == "Thrall");
+    }
+    SECTION("an empty range changes nothing") {
+        std::string t = "Thrall";
+        CHECK(replaceSelection(t, 4, {true, 3, 3}) == 4);
+        CHECK(t == "Thrall");
+    }
+    SECTION("an inverted range changes nothing") {
+        std::string t = "Thrall";
+        CHECK(replaceSelection(t, 4, {true, 5, 2}) == 4);
+        CHECK(t == "Thrall");
+    }
+    SECTION("a range past the end changes nothing") {
+        // Rather than clamping: a stale range means the text moved under the
+        // selection, and erasing some other run is worse than erasing none.
+        std::string t = "Thr";
+        CHECK(replaceSelection(t, 3, {true, 1, 99}) == 3);
+        CHECK(t == "Thr");
+    }
+}

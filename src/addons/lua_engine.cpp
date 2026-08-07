@@ -8075,11 +8075,8 @@ void LuaEngine::dispatchText(const char* utf8) {
     // A selected run is replaced by what is typed, which is the whole point of
     // having one: autocomplete highlights the name it completed so the next
     // character overwrites it rather than following it.
-    if (w->hasSelection && w->selEnd > w->selStart &&
-        w->selEnd <= w->editText.size()) {
-        w->editText.erase(w->selStart, w->selEnd - w->selStart);
-        w->cursorPos = w->selStart;
-    }
+    w->cursorPos = ui::replaceSelection(
+        w->editText, w->cursorPos, {w->hasSelection, w->selStart, w->selEnd});
     w->hasSelection = false;
     const size_t at = std::min(w->cursorPos, w->editText.size());
     w->editText.insert(at, add);
@@ -8189,14 +8186,17 @@ void LuaEngine::dispatchKey(int sdlKeycode, bool ctrlHeld) {
         case kBackspace:
             // The selection first, if there is one: backspace over a
             // highlighted run removes the run, not the character before it.
-            if (w->hasSelection && w->selEnd > w->selStart &&
-                w->selEnd <= w->editText.size()) {
-                w->editText.erase(w->selStart, w->selEnd - w->selStart);
-                w->cursorPos = w->selStart;
+            if (w->hasSelection) {
+                const size_t was = w->cursorPos;
+                w->cursorPos = ui::replaceSelection(
+                    w->editText, w->cursorPos,
+                    {true, w->selStart, w->selEnd});
                 w->hasSelection = false;
-                fireCursorChanged(focusedWid_);
-                callFrameScript(focusedWid_, "OnTextChanged");
-                break;
+                if (w->cursorPos != was || w->selEnd > w->selStart) {
+                    fireCursorChanged(focusedWid_);
+                    callFrameScript(focusedWid_, "OnTextChanged");
+                    break;
+                }
             }
             if (w->cursorPos > 0 && len > 0) {
                 const size_t from = ui::caretStepLeft(w->editText, w->cursorPos);

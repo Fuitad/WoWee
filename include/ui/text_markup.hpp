@@ -182,5 +182,30 @@ inline size_t caretSnap(const std::string& s, size_t at) {
     return p;
 }
 
+/// What an edit box holds after a selected run is replaced.
+///
+/// The whole of it, because the pieces are where the mistakes are: a selection
+/// is a byte range and a caret is a byte offset, and getting either end wrong
+/// leaves a character behind or eats one that was not selected.
+///
+/// Returns the new caret. The text is edited in place. A range that is empty,
+/// inverted, or reaching past the end is treated as no selection at all —
+/// FrameXML clears a highlight by passing equal offsets, and a zero-width run
+/// that still counted would swallow the next character typed.
+struct EditSelection {
+    bool   active = false;
+    size_t start = 0;
+    size_t stop = 0;
+};
+
+inline size_t replaceSelection(std::string& text, size_t cursor,
+                               const EditSelection& sel) {
+    if (!sel.active) return cursor;
+    if (sel.stop <= sel.start) return cursor;
+    if (sel.stop > text.size()) return cursor;
+    text.erase(sel.start, sel.stop - sel.start);
+    return sel.start;
+}
+
 }  // namespace ui
 }  // namespace wowee
