@@ -25,11 +25,13 @@ because it is the argument for what belongs here.
 """
 import argparse
 import pathlib
+import os
 import re
 import subprocess
 import sys
 
 TOOLS = pathlib.Path(__file__).resolve().parent
+ROOT = TOOLS.parent
 
 # tool, pattern capturing the count, ceiling, what the count means
 CHECKS = [
@@ -744,6 +746,47 @@ def run(tool):
     return out.stdout + out.stderr
 
 
+def check_without_the_standin():
+    """Load the whole interface with the missing-API stand-in turned off.
+
+    By default an unknown global answers with a stand-in rather than nil, so a
+    file survives past a name nothing implements — and nothing says it was
+    needed. With the stand-in off, anything the interface actually depends on
+    raises and names itself.
+
+    That property was earned one addon at a time and is lost silently: a new
+    reference to something the client is supposed to create looks perfectly
+    fine on the default run. This is the only check here that runs the
+    interface rather than reading it, so it is also the only one that can see
+    that.
+
+    Skipped, not failed, when the runner has not been built —
+    WOWEE_BUILD_FRAMEXML_RUN is off by default and most builds will not have
+    it. A skip prints as a skip so it is never mistaken for a pass.
+    """
+    exe = ROOT / "build" / "bin" / "framexml_run"
+    data = ROOT / "Data"
+    if not exe.exists() or not data.is_dir():
+        return None, "the interface loads with no missing-API stand-in"
+    env = dict(os.environ, WOWEE_LUA_API_FALLBACK="0")
+    try:
+        out = subprocess.run([str(exe), str(data)], capture_output=True,
+                             text=True, timeout=300, env=env)
+    except subprocess.TimeoutExpired:
+        return False, "the interface loads with no missing-API stand-in (timed out)"
+    text = out.stdout + out.stderr
+    load = re.search(r"^== load: (\d+) error", text, re.M)
+    addons = re.search(r"^== addons: (\d+) of \d+ load-on-demand failed", text, re.M)
+    login = re.search(r"^== login events: (\d+) error", text, re.M)
+    if not (load and addons and login):
+        return False, ("the interface loads with no missing-API stand-in "
+                       "(could not read the run's own report)")
+    bad = int(load.group(1)) + int(addons.group(1)) + int(login.group(1))
+    return bad == 0, ("the interface loads with no missing-API stand-in "
+                      f"({load.group(1)} load, {addons.group(1)} addon, "
+                      f"{login.group(1)} login)")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--list", action="store_true",
@@ -785,6 +828,14 @@ def main():
         print(f"  {'ok ' if clean else 'OVER'}    -       {what}")
         if not clean:
             failures.append(f"{tool}: {what}")
+
+    ok, what = check_without_the_standin()
+    if ok is None:
+        print(f"  skip    -       {what} (framexml_run not built)")
+    else:
+        print(f"  {'ok ' if ok else 'OVER'}    -       {what}")
+        if not ok:
+            failures.append(f"framexml_run: {what}")
 
     if failures:
         print(f"\n{len(failures)} sweep(s) worse than the pinned ceiling:\n")
