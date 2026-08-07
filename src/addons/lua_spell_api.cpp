@@ -416,8 +416,19 @@ static int lua_GetNumSpellTabs(lua_State* L) {
     return 1;
 }
 
-// GetSpellTabInfo(tabIndex) → name, texture, offset, numSpells
+// GetSpellTabInfo(tabIndex) → name, texture, offset, numSpells,
+//                             highestRankOffset, highestRankNumSpells
 // tabIndex is 1-based; offset is 1-based global spell book slot
+//
+// Six values, and the last two are not optional. SpellBook_GetTabInfo unpacks
+// all six and then, when ShowAllSpellRanks is off — which is the default —
+// throws away offset and numSpells and uses the highest-rank pair instead. So
+// a four-value answer leaves both nil on the ordinary path and the spellbook
+// raises on the arithmetic, showing nothing at all.
+//
+// The comment here used to say four. Cutting the returns to match it would
+// have emptied the spellbook, which is exactly what a stubbed four-value
+// version did when it was tried.
 static int lua_GetSpellTabInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
     int tabIdx = static_cast<int>(luaL_checknumber(L, 1));
