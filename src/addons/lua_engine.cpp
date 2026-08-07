@@ -7859,6 +7859,13 @@ void LuaEngine::reportMissingApi() const {
     }
 
     std::vector<std::string> absent;
+    // Read while nothing answered for them, and answered by the time the run
+    // ended. Counted before this and never named, which made the number the
+    // one thing in this report nobody could act on: a name here is either a
+    // file that loads after its first reader — harmless, and most of them —
+    // or a value captured at load and kept, which is a permanent nil that
+    // nothing ever reports again.
+    std::vector<std::string> definedLater;
     absent.reserve(globals.size());
     for (const auto& n : globals) {
         lua_pushstring(L_, n.c_str());
@@ -7866,6 +7873,7 @@ void LuaEngine::reportMissingApi() const {
         const bool defined = !lua_isnil(L_, -1);
         lua_pop(L_, 1);
         if (!defined) absent.push_back(n);
+        else definedLater.push_back(n);
     }
     // Only the globals section has nothing to say. The no-op list is a
     // separate question and returning here took it down with it: once the
@@ -7938,6 +7946,8 @@ void LuaEngine::reportMissingApi() const {
         for (const auto& n : realGaps) out << n << "\n";
         out << "\n-- optional parts of frames that exist, correctly absent --\n";
         for (const auto& n : partsOfFrames) out << n << "\n";
+        out << "\n-- read before whatever defines them had loaded --\n";
+        for (const auto& n : definedLater) out << n << "\n";
         out << "\n-- widget methods that answered with a no-op --\n";
         for (const auto& n : noops) out << n << "\n";
         LOG_WARNING("LuaEngine: the full list is in ", path);
