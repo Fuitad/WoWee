@@ -1105,17 +1105,37 @@ static int lua_AutoLootMailItem(lua_State* L) {
 
 // GetSendMailItem(slot) → name, texture, stackCount, quality
 //
-// What is attached to the letter being written. The compose frame reads the
-// stack count and tests it against one without checking it first, so an absent
-// answer raises rather than drawing an empty attachment slot.
+// What is attached to the letter being written, and an empty slot is most of
+// them: the compose frame walks all twelve every time it updates.
+//
+// An empty one answers nil, nil, 0, nil — a count of zero rather than no
+// count. SendMailFrame_Update writes `if ( stackCount <= 1 )` with nothing in
+// front of it, so a nil there is not an empty slot but a comparison against
+// nothing, which raises on the first slot and takes the rest of the frame with
+// it. Opening the Send Mail tab did exactly that, so the compose frame could
+// never be built.
+//
+// The other three stay nil, which is what the frame wants: the name is tested
+// before use, and a nil texture is how a region is told it has nothing to
+// draw.
 static int lua_GetSendMailItem(lua_State* L) {
     auto* gh = getGameHandler(L);
+    // Every early exit answers the empty slot rather than answering nothing,
+    // for the reason above. Only the shape of the answer is different from a
+    // filled slot, never the number of values.
+    auto emptySlot = [](lua_State* s) {
+        lua_pushnil(s);            // name
+        lua_pushnil(s);            // texture
+        lua_pushnumber(s, 0);      // stackCount, and it is compared unguarded
+        lua_pushnil(s);            // quality
+        return 4;
+    };
     const int slot = static_cast<int>(luaL_optnumber(L, 1, 0));
-    if (!gh || slot < 1) { return luaReturnNil(L); }
+    if (!gh || slot < 1) { return emptySlot(L); }
     const auto& attachments = gh->getMailAttachments();
-    if (slot > static_cast<int>(attachments.size())) { return luaReturnNil(L); }
+    if (slot > static_cast<int>(attachments.size())) { return emptySlot(L); }
     const auto& att = attachments[slot - 1];
-    if (!att.occupied()) { return luaReturnNil(L); }
+    if (!att.occupied()) { return emptySlot(L); }
 
     const auto* info = gh->getItemInfo(att.item.itemId);
     lua_pushstring(L, info ? info->name.c_str() : "");
