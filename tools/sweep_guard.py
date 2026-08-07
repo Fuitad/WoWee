@@ -589,19 +589,34 @@ CHECKS = [
     ("global_vs_method_check.py",
      r"^(\d+) global\(s\) called by FrameXML and bound only", 0,
      "globals FrameXML calls that exist only as a widget method"),
-    # Three, and each is safe for its own reason — which is why they are listed
+    # Two, and each is safe for its own reason — which is why they are listed
     # rather than filtered. GetWintergraspWaitTime is guarded inside the same
     # expression that compares it (`nextBattleTime and nextBattleTime > 60`,
-    # and `and` short-circuits); GetGuildBankTabInfo is compared with ==, which
-    # nil survives; GetMapDebugObjectInfo would raise on `size > 1`, but the
-    # loop that calls it runs `for i=1, GetNumMapDebugObjects()` and that
-    # answers zero, so it never runs at all.
+    # and `and` short-circuits); GetMapDebugObjectInfo would raise on
+    # `size > 1`, but the loop that calls it runs
+    # `for i=1, GetNumMapDebugObjects()` and that answers zero, so it never
+    # runs at all.
     #
-    # It was two, from a search that could only see bindings written as named
-    # functions — 750 of 1322. A number from half a search is not a number.
+    # It was two, then three when the search stopped reading only bindings
+    # written as named functions — 750 of 1322 — and is two again now that it
+    # reads which *return position* was compared. A binding that answers a
+    # boolean first and numbers after is correct and common (GetLFGQueueStats
+    # leads with hasData, then thirteen numbers), and knowing only that the
+    # body pushes a boolean somewhere called five of those a fault.
     ("framexml_bool_vs_number.py",
-     r"^(\d+) binding\(s\) answer a boolean or nil", 3,
+     r"^(\d+) binding\(s\) answer a boolean or nil", 2,
      "bindings answering a boolean or nil where a number is compared"),
+    # The other half of the same fault, and the half that raises rather than
+    # quietly taking the wrong branch: FrameXML hands a widget's answer
+    # straight to another binding, and luaL_optnumber treats a boolean as
+    # neither absent nor convertible. GetChecked answered a boolean and
+    # QueryAuctionItems read it as isUsable, so the auction browse raised
+    # before sending and the search came back empty with nothing logged —
+    # false is not nil, so an unticked box raised too. Zero, because there is
+    # no benign version: the callee asked for a number.
+    ("framexml_bool_vs_number.py",
+     r"^(\d+) boolean answer\(s\) handed to a binding that reads a number", 0,
+     "booleans passed where the receiving binding reads a number"),
     ("framexml_unaccounted_frames.py",
      r"^\d+ top-level frames, (\d+) unaccounted", 37,
      "FrameXML frames neither handed over nor suppressed"),
