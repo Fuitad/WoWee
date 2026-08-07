@@ -278,6 +278,39 @@ std::vector<std::string> AddonManager::deferredAddonGlobals() const {
             }
         }
     }
+    // Every addon's saved variables, whether or not it loads on demand.
+    //
+    // A saved variable is nil in WoW until the saved file restores it or the
+    // addon creates it, and addons test exactly that:
+    //
+    //     if ( not BlizzardStopwatchOptions ) then
+    //         BlizzardStopwatchOptions = {}
+    //     end
+    //
+    // Answered by the stand-in, that name is a truthy table, so the guard
+    // never runs and the variable is never made. What follows is worse than a
+    // missing setting: the addon then writes its fields into the stand-in —
+    // and the stand-in is *one shared table* that every unknown global
+    // resolves to, so a position saved by the stopwatch would appear on every
+    // other unbound name in the interface.
+    //
+    // These come from all addons rather than only the deferred ones, and
+    // declaring them costs nothing when the variable does exist: the fallback
+    // is only consulted for a name nothing has set, so a restored variable is
+    // a real global and never reaches it.
+    // Both lists: an addon is in one or the other, never both, and the
+    // stopwatch — the case this was written for — is a load-on-demand one.
+    for (const auto* list : {&addons_, &lodAddons_}) {
+        for (const TocFile& addon : *list) {
+            for (const std::string& v : addon.getSavedVariables()) {
+                if (!v.empty()) names.push_back(v);
+            }
+            for (const std::string& v : addon.getSavedVariablesPerCharacter()) {
+                if (!v.empty()) names.push_back(v);
+            }
+        }
+    }
+
     std::sort(names.begin(), names.end());
     names.erase(std::unique(names.begin(), names.end()), names.end());
     return names;
