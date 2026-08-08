@@ -1433,14 +1433,18 @@ bool GameHandler::isTrainerWindowOpen() const {
 }
 const TrainerListData& GameHandler::getTrainerSpells() const {
     if (inventoryHandler_) return inventoryHandler_->getTrainerSpells();
-    return currentTrainerList_;
+    // inventoryHandler_ is always constructed; this is the empty answer for the
+    // theoretical null case, replacing a GameHandler-owned copy nothing wrote.
+    static const TrainerListData kEmpty;
+    return kEmpty;
 }
 const std::vector<GameHandler::TrainerTab>& GameHandler::getTrainerTabs() const {
     if (inventoryHandler_) {
         // Layout-identical structs (InventoryHandler::TrainerTab == GameHandler::TrainerTab)
         return reinterpret_cast<const std::vector<TrainerTab>&>(inventoryHandler_->getTrainerTabs());
     }
-    return trainerTabs_;
+    static const std::vector<TrainerTab> kEmpty;
+    return kEmpty;
 }
 
 void GameHandler::sendMinimapPing(float wowX, float wowY) {
@@ -3487,9 +3491,6 @@ const std::vector<GameHandler::SpellBookTab>& GameHandler::getSpellBookTabs() {
     return kEmpty;
 }
 
-void GameHandler::categorizeTrainerSpells() {
-    if (spellHandler_) spellHandler_->categorizeTrainerSpells();
-}
 
 void GameHandler::loadTalentDbc() {
     if (spellHandler_) spellHandler_->loadTalentDbc();

@@ -3321,52 +3321,14 @@ uint32_t SpellHandler::tradeskillOpenerSkillLine(uint32_t spellId) {
     return 0;
 }
 
-void SpellHandler::categorizeTrainerSpells() {
-    owner_.trainerTabsRef().clear();
-
-    static constexpr uint32_t SKILLLINE_CATEGORY_CLASS = 7;
-
-    std::map<uint32_t, std::vector<const TrainerSpell*>> specialtySpells;
-    std::vector<const TrainerSpell*> generalSpells;
-
-    for (const auto& spell : owner_.currentTrainerListRef().spells) {
-        auto slIt = owner_.spellToSkillLineRef().find(spell.spellId);
-        if (slIt != owner_.spellToSkillLineRef().end()) {
-            uint32_t skillLineId = slIt->second;
-            auto catIt = owner_.skillLineCategoriesRef().find(skillLineId);
-            if (catIt != owner_.skillLineCategoriesRef().end() && catIt->second == SKILLLINE_CATEGORY_CLASS) {
-                specialtySpells[skillLineId].push_back(&spell);
-                continue;
-            }
-        }
-        generalSpells.push_back(&spell);
-    }
-
-    auto byName = [this](const TrainerSpell* a, const TrainerSpell* b) {
-        return getSpellName(a->spellId) < getSpellName(b->spellId);
-    };
-
-    std::vector<std::pair<std::string, std::vector<const TrainerSpell*>>> named;
-    for (auto& [skillLineId, spells] : specialtySpells) {
-        auto nameIt = owner_.skillLineNamesRef().find(skillLineId);
-        std::string tabName = (nameIt != owner_.skillLineNamesRef().end()) ? nameIt->second : "Specialty";
-        std::sort(spells.begin(), spells.end(), byName);
-        named.push_back({std::move(tabName), std::move(spells)});
-    }
-    std::sort(named.begin(), named.end(),
-        [](const auto& a, const auto& b) { return a.first < b.first; });
-
-    for (auto& [name, spells] : named) {
-        owner_.trainerTabsRef().push_back({std::move(name), std::move(spells)});
-    }
-
-    if (!generalSpells.empty()) {
-        std::sort(generalSpells.begin(), generalSpells.end(), byName);
-        owner_.trainerTabsRef().push_back({"General", std::move(generalSpells)});
-    }
-
-    LOG_INFO("Trainer: Categorized into ", owner_.trainerTabsRef().size(), " tabs");
-}
+// Trainer spell categorisation lives in InventoryHandler::categorizeTrainerSpells,
+// which handleTrainerList calls and which reads InventoryHandler's own populated
+// currentTrainerList_. A stale duplicate here read GameHandler's copy of that
+// list — a copy nothing ever writes — so it always categorised an empty list;
+// it had no caller and its output (GameHandler's trainerTabs_) no reader, the
+// UI going through getTrainerTabs, which delegates to InventoryHandler. Removed
+// with the dead GameHandler members it was the only user of, so no one later
+// wires up the empty-copy version. See [[dead_duplicate_state]].
 
 const int32_t* SpellHandler::getSpellEffectBasePoints(uint32_t spellId) const {
     loadSpellNameCache();

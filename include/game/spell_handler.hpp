@@ -306,7 +306,6 @@ public:
     // DBC cache loading (called from GameHandler during login)
     void loadSpellNameCache() const;
     void loadSkillLineAbilityDbc();
-    void categorizeTrainerSpells();
 
     /// Ask the server what the pet is called.
     ///

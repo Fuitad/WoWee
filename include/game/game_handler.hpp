@@ -3501,8 +3501,6 @@ public:
     auto& stableWindowOpenRef() { return stableWindowOpen_; }
 
     // ── Trainer, GM & Misc ───────────────────────────────────────────
-    auto& currentTrainerListRef() { return currentTrainerList_; }
-    auto& trainerTabsRef() { return trainerTabs_; }
     auto& gmTicketActiveRef() { return gmTicketActive_; }
     auto& gmTicketTextRef() { return gmTicketText_; }
     auto& bookPagesRef() { return bookPages_; }
@@ -4579,7 +4577,6 @@ private:
 
     // Trainer
     bool trainerWindowOpen_ = false;
-    TrainerListData currentTrainerList_;
     mutable std::unordered_map<uint32_t, SpellNameEntry> spellNameCache_;
     mutable bool spellNameCacheLoaded_ = false;
 
@@ -4685,9 +4682,7 @@ private:
     void rebuildCompanions() const;
     mutable bool lfgDungeonNameCacheLoaded_ = false;
     void loadLfgDungeonDbc() const;
-    std::vector<TrainerTab> trainerTabs_;
     void preloadDBCCaches() const;
-    void categorizeTrainerSpells();
 
     // Callbacks
     WorldConnectSuccessCallback onSuccess;
