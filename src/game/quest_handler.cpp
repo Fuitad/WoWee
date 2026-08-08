@@ -249,6 +249,10 @@ struct QuestQueryTextCandidate {
     /// fifth string passes straight over it.
     std::string description;
     std::string completionText;
+    /// The raw third string as read from the wire, before the readability
+    /// check — a temporary probe into why the description comes back empty on
+    /// some realms even where the title and objectives read cleanly.
+    std::string debugThirdRaw;
     int score = -1000;
 };
 
@@ -334,6 +338,7 @@ static QuestQueryTextCandidate pickBestQuestQueryTexts(const std::vector<uint8_t
                     std::string s3, s4, s5;
                     size_t n3 = n2, n4 = n2, n5 = n2;
                     if (readCStringAt(data, n2, s3, n3)) {
+                        c.debugThirdRaw = s3;   // probe: what the third string held
                         // The details, above the objectives in the log.
                         if (isReadableQuestText(s3, 8, 4096)) {
                             c.description = normalizeQuestText(s3, false);
@@ -1067,7 +1072,9 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
                     "\" (", parsed.title.size(), " ch) objectives=",
                     parsed.objectives.size(), "ch description=",
                     parsed.description.size(), "ch completion=",
-                    parsed.completionText.size(), "ch score=", parsed.score);
+                    parsed.completionText.size(), "ch score=", parsed.score,
+                    " thirdRaw(", parsed.debugThirdRaw.size(), ")=\"",
+                    parsed.debugThirdRaw.substr(0, 50), "\"");
         const QuestQueryObjectives objs = extractQuestQueryObjectives(packet.getData(), questLogStride);
         const QuestQueryRewardsData rwds = QuestQueryRewardsParser::parse(packet.getData(), questLogStride);
 
