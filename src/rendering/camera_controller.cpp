@@ -1127,7 +1127,17 @@ void CameraController::update(float deltaTime) {
                         // player's own ground keeps them where they are; a real
                         // step onto a ledge still wins once the feet are level
                         // with it.
-                        const float feetRef = wmoBaseZ;
+                        //
+                        // The reference is the feet themselves, NOT wmoBaseZ:
+                        // wmoBaseZ is max(z, lastGroundZ) so the probe can reach
+                        // up for a step, but feeding that same raised value back
+                        // as the arbitration anchor ratchets the pick upward —
+                        // one stray upper-floor frame lifts lastGroundZ, and the
+                        // reference then stays on the level above even after the
+                        // server drags the player back down, which is the very
+                        // yo-yo this pick was meant to stop. Grounded, the true
+                        // feet are targetPos.z; airborne, aim at the last ground.
+                        const float feetRef = grounded ? targetPos.z : lastGroundZ;
                         wmoFuture = core::ThreadPool::frameWorkers().submit(
                             [this, px, py, wmoProbeZ, feetRef]() -> FloorResult {
                                 float nz = 1.0f;
@@ -1278,7 +1288,11 @@ void CameraController::update(float deltaTime) {
                     // competing — and whether both floors are even offered here
                     // or only one is, which decides whether the fix belongs in
                     // the selection or deeper in the WMO query.
-                    if (groundH && std::abs(*groundH - lastGroundZ) > 1.0f) {
+                    // Threshold sits below a floor gap (~1m) on purpose: the
+                    // ratchet oscillation the feetRef fix targets stays under a
+                    // metre frame to frame, so a 1.0 gate saw nothing while the
+                    // player visibly bobbed. 0.4 catches the sub-metre bob.
+                    if (groundH && std::abs(*groundH - lastGroundZ) > 0.4f) {
                         static std::chrono::steady_clock::time_point lastPlayerFloorLog{};
                         const auto now = std::chrono::steady_clock::now();
                         if (now - lastPlayerFloorLog > std::chrono::seconds(1)) {
