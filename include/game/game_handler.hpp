@@ -473,6 +473,12 @@ public:
         return playerStats_[idx];
     }
 
+    /// Melee critical-strike chance the player's Agility grants, as a percent,
+    /// the way the character sheet's stat flyout reads it: the class base plus
+    /// Agility times the per-class-per-level ratio, both from the combat game
+    /// tables. Zero until the tables and the player's stats are available.
+    float getMeleeCritFromAgility() const;
+
     // Server-authoritative attack power (WotLK: UNIT_FIELD_ATTACK_POWER / RANGED).
     // Returns -1 if not yet received.
     int32_t getMeleeAttackPower()  const { return playerMeleeAP_; }
@@ -4589,6 +4595,11 @@ private:
     mutable std::unordered_map<uint32_t, std::string> titleNameCache_;
     mutable std::unordered_map<uint32_t, std::string> titleFormatById_;  // CharTitles id -> format
     mutable bool titleNameCacheLoaded_ = false;
+    // Combat game tables for the stat flyout: per-class base crit, and the
+    // per-class-per-level Agility ratio (11 classes × 100 levels).
+    mutable std::vector<float> gtMeleeCritBase_;
+    mutable std::vector<float> gtMeleeCrit_;
+    mutable bool gtMeleeCritLoaded_ = false;
     // Substitutes the player's name into a title's "%s" slot; shared by the
     // by-bit (worn) and by-id (quest reward) title lookups.
     std::string formatTitleString(const std::string& fmt) const;

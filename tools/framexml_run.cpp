@@ -352,6 +352,14 @@ int main(int argc, char** argv) {
             gh.charactersRef().push_back(ch);
             gh.setActiveCharacterGuid(kGuid);
             gh.playerRaceRef() = wowee::game::Race::HUMAN;
+            // Base stats, so the character-sheet stat conversions (crit from
+            // agility, etc.) have something to read. str, agi, sta, int, spirit.
+            gh.playerStatsArr()[0] = 150;
+            gh.playerStatsArr()[1] = 200;  // agility
+            gh.playerStatsArr()[2] = 300;
+            gh.playerStatsArr()[3] = 50;
+            gh.playerStatsArr()[4] = 60;
+            gh.serverPlayerLevelRef() = 80;  // the level the game-table lookups use
             // A few spells, so the spellbook is not empty. getSpellBookTabs
             // rebuilds itself from the known set whenever the count changes,
             // so adding them is all that is needed — and without them

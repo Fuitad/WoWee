@@ -1556,6 +1556,15 @@ static int lua_ZeroPercent(lua_State* L) {
     return 1;
 }
 
+// GetCritChanceFromAgility([unit]) → the melee crit percent the player's Agility
+// gives, from the combat game tables. Was a flat zero, so the crit stat's
+// flyout read "0.00% from Agility" for every character.
+static int lua_GetCritChanceFromAgility(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushnumber(L, gh ? gh->getMeleeCritFromAgility() : 0.0);
+    return 1;
+}
+
 /// GetUnitMaxHealthModifier(unit) → the multiplier on maximum health. One,
 /// because nothing here modifies it — and one rather than zero because the
 /// sheet multiplies by it.
@@ -3145,7 +3154,7 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushnumber(L, known ? 1 : 0);
             return 1; }},
                 {"GetCombatRatingBonus",    lua_ZeroPercent},
-                {"GetCritChanceFromAgility", lua_ZeroPercent},
+                {"GetCritChanceFromAgility", lua_GetCritChanceFromAgility},
                 {"GetSpellCritChanceFromIntellect", lua_ZeroPercent},
                 // Three values — main hand, off hand, ranged — because the
                 // character sheet reads the second and concatenates it. One
