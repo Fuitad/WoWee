@@ -5,6 +5,7 @@
 #include "game/auction_filters.hpp"
 #include "game/game_utils.hpp"
 #include "game/packed_time.hpp"
+#include "ui/chat/chat_utils.hpp"
 
 #include <algorithm>
 #include <map>
@@ -2157,7 +2158,23 @@ QuestSource currentQuestSource(game::GameHandler* gh) {
 /// click.
 
 int pushQuestText(lua_State* L, const std::string* s) {
-    lua_pushstring(L, s ? s->c_str() : "");
+    if (!s || s->empty()) { lua_pushstring(L, ""); return 1; }
+    // Resolve WoW's in-text tokens against the player before the interface
+    // sees the string.
+    //
+    // These come off the wire as literals — $n for the player's name, $c for
+    // class, $r for race, $g male:female; for a gender-split phrase — and the
+    // parser only ever turned $b into a line break, because it has no player
+    // to resolve the rest against. So a quest that greeted "$n" showed the two
+    // characters, and "$glad:lass;" showed its own markup. The binding is the
+    // first point that has the player: replaceGenderPlaceholders is the same
+    // resolver chat and this client's own dialog already run.
+    if (auto* gh = getGameHandler(L)) {
+        const std::string resolved = ui::chat_utils::replaceGenderPlaceholders(*s, *gh);
+        lua_pushstring(L, resolved.c_str());
+    } else {
+        lua_pushstring(L, s->c_str());
+    }
     return 1;
 }
 

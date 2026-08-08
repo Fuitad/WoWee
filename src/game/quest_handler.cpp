@@ -1377,9 +1377,7 @@ void QuestHandler::acceptQuest() {
     if (pendingQuestAcceptTimeouts_.count(questId) != 0) {
         LOG_DEBUG("Ignoring duplicate quest accept while pending: questId=", questId);
         triggerQuestAcceptResync(questId, npcGuid, "duplicate-accept");
-        questDetailsOpen_ = false;
-        questDetailsOpenTime_ = std::chrono::steady_clock::time_point{};
-        currentQuestDetails_ = QuestDetailsData{};
+        dismissQuestDetails();
         return;
     }
     const bool inLocalLog = hasQuestInLog(questId);
@@ -1396,9 +1394,7 @@ void QuestHandler::acceptQuest() {
             qsPkt.writeUInt64(npcGuid);
             owner_.getSocket()->send(qsPkt);
         }
-        questDetailsOpen_ = false;
-        questDetailsOpenTime_ = std::chrono::steady_clock::time_point{};
-        currentQuestDetails_ = QuestDetailsData{};
+        dismissQuestDetails();
         return;
     }
     if (inLocalLog) {
@@ -1443,9 +1439,7 @@ void QuestHandler::acceptQuest() {
             sfx->playQuestActivate();
     }
 
-    questDetailsOpen_ = false;
-    questDetailsOpenTime_ = std::chrono::steady_clock::time_point{};
-    currentQuestDetails_ = QuestDetailsData{};
+    dismissQuestDetails();
 
     // Re-query quest giver status so marker updates (! → ?)
     if (npcGuid) {
@@ -1453,6 +1447,17 @@ void QuestHandler::acceptQuest() {
         qsPkt.writeUInt64(npcGuid);
         owner_.getSocket()->send(qsPkt);
     }
+}
+
+void QuestHandler::dismissQuestDetails() {
+    questDetailsOpen_ = false;
+    questDetailsOpenTime_ = std::chrono::steady_clock::time_point{};
+    currentQuestDetails_ = QuestDetailsData{};
+    // The same signal decline sends. The interface's quest frame opens on
+    // QUEST_DETAIL and closes on this and nothing else, so an accept that only
+    // reset the state left FrameXML's window open over the world while this
+    // client's own window — which reads isQuestDetailsOpen directly — closed.
+    if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("QUEST_FINISHED", {});
 }
 
 void QuestHandler::declineQuest() {

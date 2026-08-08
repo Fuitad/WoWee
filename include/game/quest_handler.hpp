@@ -36,6 +36,12 @@ public:
     void selectGossipQuest(uint32_t questId);
     void acceptQuest();
     void declineQuest();
+    /// Clear the open detail page and tell the interface it is done, so the
+    /// quest frame closes. Accepting a quest dismisses the page the same as
+    /// declining it does — the interface only closes on QUEST_FINISHED, and
+    /// the accept path used to reset the state without firing it, so this
+    /// client's own window shut and FrameXML's stayed open.
+    void dismissQuestDetails();
     void closeGossip();
     void offerQuestFromItem(uint64_t itemGuid, uint32_t questId);
 
