@@ -2743,6 +2743,22 @@ static int lua_PutItemInBag(lua_State* L) {
     const int bagIndex = inventoryId - 20;          // 0-3
     const auto& inv = gh->getInventory();
     const int size = inv.getBagSize(bagIndex);
+    // An empty bag slot equips the held bag rather than swallowing it.
+    //
+    // getBagSize is zero when nothing is worn in this slot, so the loop below
+    // — which finds a free content slot inside the equipped bag — had nothing
+    // to iterate and fell straight through, doing nothing. Dropping a bag onto
+    // an empty bag slot therefore looked dead. This is the equip: swap the held
+    // item into the worn-bag equipment slot, the same move PickupBagFromSlot's
+    // own drop makes, with 0xFF for the equipment container.
+    if (size == 0) {
+        gh->swapContainerItems(srcBag, srcSlot, 0xFF,
+                               static_cast<uint8_t>(game::slots::toWireSlot(inventoryId)));
+        cursorItemSlot() = {};
+        wowee::ui::frameXmlSetCursorItem(std::string());
+        lua_pushboolean(L, 1);
+        return 1;
+    }
     for (int i = 0; i < size; ++i) {
         if (!inv.getBagSlot(bagIndex, i).empty()) continue;
         gh->swapContainerItems(srcBag, srcSlot,
