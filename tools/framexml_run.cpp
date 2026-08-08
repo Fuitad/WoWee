@@ -355,6 +355,15 @@ int main(int argc, char** argv) {
             if (auto* sh = gh.getSpellHandler()) {
                 for (uint32_t id : {133u, 168u, 116u}) sh->addKnownSpell(id);
             }
+            // A spell icon path for every id, so GetSpellTexture answers
+            // non-empty. Without it SpellButton_UpdateButton hides the icon and
+            // SpellButton_OnDrag's `not IconTexture:IsShown()` guard returns
+            // before PickupSpell — a drag that looks broken but is only a
+            // spellbook with no icons, which is what the client draws over a
+            // realm and the harness cannot. The path need not resolve to pixels;
+            // the guard only asks whether the texture is shown.
+            gh.setSpellIconPathResolver(
+                [](uint32_t) { return std::string("Interface\\Icons\\INV_Misc_QuestionMark"); });
             // A quest in the log, with the text the server sends only on
             // query, so the quest-log detail has something real to lay out.
             // Without it GetQuestLogQuestText answers empty and "the
