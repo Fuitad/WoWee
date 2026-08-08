@@ -142,6 +142,10 @@ public:
         std::array<QuestRewardItem, 6> rewardChoiceItems{};
     };
     const std::vector<QuestLogEntry>& getQuestLog() const { return questLog_; }
+    /// Mutable access for the headless harness to seed a quest with text the
+    /// server would otherwise supply, so the quest-log flow can be driven and
+    /// drawn without a running realm. Not used on the live path.
+    std::vector<QuestLogEntry>& questLogRef() { return questLog_; }
 
     /// Where a quest sits in the log, counting from one, or zero if it is not
     /// in it. This is what the interface means by a quest index — every quest

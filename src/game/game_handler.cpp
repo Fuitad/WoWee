@@ -4193,6 +4193,9 @@ const QuestRequestItemsData& GameHandler::getQuestRequestItems() const {
 int GameHandler::getSelectedQuestLogIndex() const {
     return questHandler_ ? questHandler_->getSelectedQuestLogIndex() : 0;
 }
+void GameHandler::setSelectedQuestLogIndex(int idx) {
+    if (questHandler_) questHandler_->setSelectedQuestLogIndex(idx);
+}
 uint32_t GameHandler::getSharedQuestId() const {
     return questHandler_ ? questHandler_->getSharedQuestId() : 0;
 }

@@ -355,6 +355,27 @@ int main(int argc, char** argv) {
             if (auto* sh = gh.getSpellHandler()) {
                 for (uint32_t id : {133u, 168u, 116u}) sh->addKnownSpell(id);
             }
+            // A quest in the log, with the text the server sends only on
+            // query, so the quest-log detail has something real to lay out.
+            // Without it GetQuestLogQuestText answers empty and "the
+            // description is blank" cannot be told from "there was no quest".
+            if (auto* qh = gh.getQuestHandler()) {
+                auto& log = qh->questLogRef();
+                if (log.empty()) {
+                    wowee::game::QuestHandler::QuestLogEntry q{};
+                    q.questId = 375;
+                    q.title = "The Chill of Death";
+                    q.objectives = "Speak with Apothecary Johaan in Brill.";
+                    q.description =
+                        "It's so cold, now. The Plague of Undeath crawls "
+                        "through my veins, and yet I feel nothing but the "
+                        "endless winter of the grave. Seek out Johaan — he "
+                        "alone may know what has become of me.";
+                    q.zoneOrSort = 130;  // Silverpine Forest
+                    log.push_back(q);
+                    gh.setSelectedQuestLogIndex(1);
+                }
+            }
             if (auto* engine = mgr.getLuaEngine()) engine->setGameHandler(&gh);
             // And an entity, because a character alone is not a unit.
             //
@@ -484,6 +505,30 @@ int main(int argc, char** argv) {
                 ++raised;
                 for (size_t k = before; k < errors.size(); ++k) {
                     std::printf("   %s\n", errors[k].c_str());
+                }
+            }
+            continue;
+        }
+        // --lua:CODE runs one chunk through the interface's own Lua state.
+        //
+        // The direct handlers above each test one seam; a whole flow — show a
+        // panel, select a row, let the template lay itself out — is what a real
+        // report exercises, and only Lua can drive it the way the client does.
+        // ShowUIPanel(QuestLogFrame); QuestLog_SetSelection(1) is the quest log
+        // opening onto its first quest, which is exactly the path a "the
+        // description is blank" report walks.
+        if (std::strncmp(argv[i], "--lua:", 6) == 0) {
+            relayout();
+            if (auto* engine = mgr.getLuaEngine()) {
+                const bool ok = engine->executeString(argv[i] + 6);
+                if (ok && errors.size() == before) {
+                    std::printf("   ran\n");
+                } else {
+                    ++raised;
+                    if (!ok) std::printf("   %s\n", engine->lastError().c_str());
+                    for (size_t k = before; k < errors.size(); ++k) {
+                        std::printf("   %s\n", errors[k].c_str());
+                    }
                 }
             }
             continue;

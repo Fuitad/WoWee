@@ -2034,7 +2034,13 @@ public:
     // QuestSort.dbc name for negative ZoneOrSort values (class/profession/seasonal)
     const std::string& getQuestSortName(uint32_t sortId) const;
     int getSelectedQuestLogIndex() const;
-    void setSelectedQuestLogIndex(int idx) { selectedQuestLogIndex_ = idx; }
+    // Writes through to the QuestHandler, which is where getSelectedQuestLogIndex
+    // reads it from. The two used to touch different variables — the setter this
+    // GameHandler's own copy, the getter the decomposed QuestHandler's — so
+    // SelectQuestLogEntry set a selection the quest log never saw: the index
+    // read back 0, GetQuestLogQuestText answered nil for both description and
+    // objectives, and every quest's detail pane drew blank.
+    void setSelectedQuestLogIndex(int idx);
     void abandonQuest(uint32_t questId);
     void shareQuestWithParty(uint32_t questId);  // CMSG_PUSHQUESTTOPARTY
     bool requestQuestQuery(uint32_t questId, bool force = false);
@@ -4462,9 +4468,10 @@ private:
     bool questOfferRewardOpen_ = false;
     QuestOfferRewardData currentQuestOfferReward_;
 
-    // Quest log. The entries themselves live in QuestHandler and are reached
-    // through getQuestLog(); only the client-side selection state is here.
-    int selectedQuestLogIndex_ = 0;
+    // Quest log. The entries and the selection both live in QuestHandler now;
+    // the GameHandler selection copy this comment used to describe was dead —
+    // written by setSelectedQuestLogIndex, read by nobody, while the getter went
+    // to the QuestHandler — and has been removed.
     std::unordered_set<uint32_t> pendingQuestQueryIds_;
     std::unordered_set<uint32_t> trackedQuestIds_;
     std::unordered_set<uint32_t> mapVisibleQuestIds_;
