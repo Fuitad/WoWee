@@ -379,9 +379,36 @@ static QuestQueryTextCandidate pickBestQuestQueryTexts(const std::vector<uint8_t
 
         std::string s2, s3;
         size_t n2 = next, n3 = next;
+        size_t afterObj = next;
         if (readCStringAt(data, next, s2, n2)) {
-            if (isReadableQuestText(s2, 8, 600)) c.objectives = normalizeQuestText(s2, false);
-            else if (readCStringAt(data, n2, s3, n3) && isReadableQuestText(s3, 8, 600)) c.objectives = normalizeQuestText(s3, false);
+            if (isReadableQuestText(s2, 8, 600)) { c.objectives = normalizeQuestText(s2, false); afterObj = n2; }
+            else if (readCStringAt(data, n2, s3, n3) && isReadableQuestText(s3, 8, 600)) { c.objectives = normalizeQuestText(s3, false); afterObj = n3; }
+        }
+        // The fallback found the title by its printable content, so whatever
+        // follows is the same run the seeded path reads — Objectives, Details,
+        // AreaDescription, CompletedText — only reached without knowing the size
+        // of the numeric block ahead of it. AzerothCore's block is larger than
+        // either seed above (its reward/reputation arrays push the strings past
+        // the WotLK seed), so on a live 3.3.5 realm this scan is what wins, and
+        // it used to stop at the objectives and leave every quest's description
+        // panel blank while title and objectives came through fine — the exact
+        // shape the logs showed. Read the description and completed line here
+        // too, anchored to the end of the objectives string and guarded the
+        // same way, so the winner carries a description whichever path wins.
+        if (!c.objectives.empty()) {
+            std::string d3, d4, d5;
+            size_t m3 = afterObj, m4 = afterObj, m5 = afterObj;
+            if (readCStringAt(data, afterObj, d3, m3)) {
+                if (c.debugThirdRaw.empty()) c.debugThirdRaw = d3;
+                if (isReadableQuestText(d3, 8, 4096)) c.description = normalizeQuestText(d3, false);
+                if (readCStringAt(data, m3, d4, m4)) {
+                    readCStringAt(data, m4, d5, m5);
+                    const bool d5ok = isReadableQuestText(d5, 8, 600);
+                    const bool d4ok = isReadableQuestText(d4, 8, 600);
+                    if (d5ok && (!d4ok || d5.size() >= d4.size())) c.completionText = normalizeQuestText(d5, false);
+                    else if (d4ok) c.completionText = normalizeQuestText(d4, false);
+                }
+            }
         }
         if (c.score > best.score) best = c;
     }
