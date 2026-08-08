@@ -38,6 +38,20 @@ AnchorPoint resolveAnchorPoint(const std::string& rawName) {
     return p;
 }
 
+bool anchorsSpanAxis(const std::vector<Anchor>& anchors, bool xAxis) {
+    if (anchors.size() < 2) return false;
+    float lo = 2.0f, hi = -1.0f;
+    for (const Anchor& a : anchors) {
+        const AnchorPoint p = resolveAnchorPoint(a.point);
+        const float f = xAxis ? p.fx : p.fy;
+        lo = std::min(lo, f);
+        hi = std::max(hi, f);
+    }
+    // The same 0-and-1 test the solve uses. An edge and a centre are two
+    // different fractions and size nothing.
+    return lo < 0.01f && hi > 0.99f;
+}
+
 DrawLayer parseDrawLayer(const std::string& rawName) {
     const std::string n = upper(rawName);
     if (n == "BACKGROUND") return DrawLayer::Background;

@@ -53,6 +53,7 @@
 
 #include "addons/addon_manager.hpp"
 #include "ui/widget_renderer.hpp"
+#include "pipeline/asset_manager.hpp"
 #include "ui/interface_fonts.hpp"
 #include "ui/link_hit.hpp"
 #include "game/game_handler.hpp"
@@ -251,8 +252,24 @@ int main(int argc, char** argv) {
     // The renderer's layout rather than the tree's, so the passes that size a
     // label from its text and a tooltip from its lines run too. Drawing is the
     // other half and is not called: it needs a device.
+    // With the assets, without a device.
+    //
+    // Textures were out of reach here entirely: WidgetRenderer::texture()
+    // returns early without a Vulkan context, so nothing could be read and the
+    // pass that sizes a region from its own image could not be checked at all.
+    // Uploading needs a GPU; asking a file how big it is does not, and that
+    // split is now in the renderer.
+    //
+    // A failure to open the assets is not fatal — every other check here works
+    // without them, and this runs on machines with no game data.
+    wowee::pipeline::AssetManager assets;
+    const bool haveAssets = assets.initialize(assetPath);
+    if (!haveAssets) {
+        std::printf("== assets: none at %s; texture sizes are unavailable\n",
+                    assetPath.c_str());
+    }
     wowee::ui::WidgetRenderer widgets;
-    widgets.initialize(nullptr, nullptr);
+    widgets.initialize(haveAssets ? &assets : nullptr, nullptr);
 
     // Layout, then the three passes the client runs off the back of it.
     //

@@ -1081,6 +1081,55 @@ def check_npc_dialogs_fill():
     return True, what
 
 
+def check_nothing_unsized():
+    """Nothing on a panel is on screen with no room to draw in.
+
+    A region with no width or no height is not drawn, and nothing about it reads
+    wrong from Lua: it is shown, it has its texture, every property answers
+    correctly, and only the one number that decides whether any of it reaches
+    the screen is missing. Sixteen tab highlights and a status icon were in that
+    state.
+
+    These three panels between them cover both ways it happened — art whose
+    anchors size one axis and leave the other open, and a texture with one
+    anchor and no size at all, which takes the dimensions of its own image.
+    That last needs the assets, so this reports a skip rather than a pass when
+    they are not there: a clean answer from a run that could not read a single
+    texture would mean nothing.
+    """
+    exe = ROOT / "build" / "bin" / "framexml_run"
+    data = ROOT / "Data"
+    what = "nothing on a panel is drawn with no room to draw in"
+    if not exe.exists() or not data.is_dir():
+        return None, what
+    for panel in ("CharacterFrame", "FriendsFrame", "MerchantFrame"):
+        argv = [str(exe), str(data),
+                f"local f = {panel} if f and f ~= _G['QQNoSuchThing'] then "
+                f"ShowUIPanel(f) end",
+                "--tick:3", "--unsized"]
+        try:
+            out = subprocess.run(argv, capture_output=True, text=True, timeout=300)
+        except subprocess.TimeoutExpired:
+            return False, f"{what} ({panel} timed out)"
+        text = out.stdout + out.stderr
+        if "texture sizes are unavailable" in text:
+            return None, what + " (no assets)"
+        m = re.search(r"^\s+(\d+) unsized, of (\d+) carrying", text, re.M)
+        if not m:
+            return False, f"{what} — {panel} reported no count at all"
+        # The second number matters as much as the first: zero unsized is also
+        # what "nothing on screen has anything to show" looks like.
+        if int(m.group(2)) < 50:
+            return False, (f"{what} — {panel} had only {m.group(2)} regions "
+                           f"carrying anything, so a zero here proves nothing")
+        if int(m.group(1)) != 0:
+            names = [ln.strip() for ln in text.splitlines()
+                     if ln.strip().startswith("unsized:")]
+            return False, (f"{what} — {panel}: " +
+                           "; ".join(names[:4]))
+    return True, what
+
+
 def check_without_the_standin():
     """Load the whole interface with the missing-API stand-in turned off.
 
@@ -1166,7 +1215,7 @@ def main():
 
     for ok, what in (check_without_the_standin(), check_rebuild_idiom(),
                      check_paragraph_wrapping(), check_binding_dispatch(),
-                     check_npc_dialogs_fill()):
+                     check_npc_dialogs_fill(), check_nothing_unsized()):
         if ok is None:
             print(f"  skip    -       {what} (framexml_run not built)")
             continue

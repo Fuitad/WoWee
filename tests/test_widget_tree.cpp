@@ -2403,3 +2403,36 @@ TEST_CASE("Edges that cross give no size rather than a negative one",
     CHECK(tree.get(middle)->rectH == Catch::Approx(0.0f));
     CHECK(tree.get(middle)->rectH >= 0.0f);
 }
+
+TEST_CASE("Anchors decide a size only when they pin opposite edges",
+          "[widget][anchor]") {
+    // The rule the layout solves by, asked from the anchors alone so the passes
+    // that must know a size *before* the solve get the same answer. A texture
+    // sized from its own image must not overrule a pair of anchors, and must
+    // still fill in an axis those anchors say nothing about.
+    auto at = [](const char* point) {
+        Anchor a;
+        a.point = point;
+        a.relativePoint = point;
+        return a;
+    };
+
+    CHECK(anchorsSpanAxis({at("LEFT"), at("RIGHT")}, true));
+    CHECK_FALSE(anchorsSpanAxis({at("LEFT"), at("RIGHT")}, false));
+
+    CHECK(anchorsSpanAxis({at("TOP"), at("BOTTOM")}, false));
+    CHECK_FALSE(anchorsSpanAxis({at("TOP"), at("BOTTOM")}, true));
+
+    // Corners pin both.
+    CHECK(anchorsSpanAxis({at("TOPLEFT"), at("BOTTOMRIGHT")}, true));
+    CHECK(anchorsSpanAxis({at("TOPLEFT"), at("BOTTOMRIGHT")}, false));
+
+    // An edge and a centre are two different fractions and size nothing —
+    // the distinction that kept every reputation row from being stretched.
+    CHECK_FALSE(anchorsSpanAxis({at("TOP"), at("CENTER")}, false));
+    CHECK_FALSE(anchorsSpanAxis({at("LEFT"), at("CENTER")}, true));
+
+    // One anchor is a position, never a size.
+    CHECK_FALSE(anchorsSpanAxis({at("LEFT")}, true));
+    CHECK_FALSE(anchorsSpanAxis({}, true));
+}

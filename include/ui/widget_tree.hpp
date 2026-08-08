@@ -39,6 +39,7 @@ struct AnchorPoint {
 /// unanchored frame falls back to anyway.
 AnchorPoint resolveAnchorPoint(const std::string& name);
 
+
 enum class WidgetKind : uint8_t { Frame, Texture, FontString };
 
 /// Which of a button's several textures a region is, if any. A button carries
@@ -67,6 +68,17 @@ struct Anchor {
     float x = 0.0f;
     float y = 0.0f;
 };
+
+/// Whether a region's anchors pin *opposite edges* on one axis, which is the
+/// only arrangement that decides a size — a 0 and a 1, not any two fractions
+/// that differ. `xAxis` selects which axis to ask about.
+///
+/// The layout's own solve applies the same rule to the constraints it has
+/// already resolved. This answers the question earlier, from the anchors alone,
+/// for the passes that must know a size before the solve runs. The two must
+/// agree: an axis that reports a span here and is then solved some other way,
+/// or the reverse, is a region sized twice or not at all.
+bool anchorsSpanAxis(const std::vector<Anchor>& anchors, bool xAxis);
 
 struct Widget {
     uint32_t id = 0;

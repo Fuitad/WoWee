@@ -13,6 +13,8 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include <vulkan/vulkan.h>
 
@@ -77,6 +79,19 @@ private:
     /// text is set, correct, and invisible — the player frame's level number
     /// read text="14" in a rect of 0x0.
     void sizeFontStrings(WidgetTree& tree);
+    /// Gives a texture the dimensions of its own image on any axis nothing else
+    /// decides. WoW's rule, and FrameXML depends on it — the friends list's
+    /// status icon declares one anchor and no size whatsoever.
+    void sizeTextures(WidgetTree& tree);
+    /// How big the picture is, without uploading it. No Vulkan context needed:
+    /// asking a file its dimensions does not require a GPU, and requiring one
+    /// would put this beyond the reach of the headless harness.
+    bool textureSize(const std::string& path, float& w, float& h);
+    /// The bytes of a texture, with the extension and folder fallbacks applied.
+    /// Shared by the upload and the size query so the two cannot look in
+    /// different places.
+    std::vector<uint8_t> readTextureFile(const std::string& path,
+                                         std::string& resolvedOut);
 
     void sizeTooltips(WidgetTree& tree);
 
@@ -114,6 +129,9 @@ private:
     pipeline::AssetManager* assets_ = nullptr;
     rendering::VkContext* vkCtx_ = nullptr;
     std::unordered_map<std::string, VkDescriptorSet> textures_;
+    /// Image dimensions by path, including the ones that could not be read —
+    /// stored as zero so a missing file is looked for once and not once a frame.
+    std::unordered_map<std::string, std::pair<float, float>> textureSizes_;
     /// Which incarnation of ImGui's backend the cache above belongs to.
     uint32_t uiTextureGenerationSeen_ = 0;
 };

@@ -73,11 +73,9 @@ VkDescriptorSet WidgetRenderer::resident(const std::string& path, bool add) cons
     return (it == textures_.end()) ? kMissing : it->second;
 }
 
-VkDescriptorSet WidgetRenderer::texture(const std::string& path, bool add) {
-    const std::string key = cacheKey(path, add);
-    auto it = textures_.find(key);
-    if (it != textures_.end()) return it->second;
-    if (!assets_ || !vkCtx_ || path.empty()) return kMissing;
+std::vector<uint8_t> WidgetRenderer::readTextureFile(const std::string& path,
+                                                     std::string& resolvedOut) {
+    if (!assets_ || path.empty()) return {};
 
     // Addons write "Interface\\Foo\\Bar" without the extension as often as with
     // it, and the real client accepts both.
@@ -107,9 +105,21 @@ VkDescriptorSet WidgetRenderer::texture(const std::string& path, bool add) {
             std::string alt = resolved;
             alt.replace(at, std::strlen(swap.from), swap.to);
             data = assets_->readFile(alt);
-            if (!data.empty()) break;
+            if (!data.empty()) { resolved = alt; break; }
         }
     }
+    resolvedOut = resolved;
+    return data;
+}
+
+VkDescriptorSet WidgetRenderer::texture(const std::string& path, bool add) {
+    const std::string key = cacheKey(path, add);
+    auto it = textures_.find(key);
+    if (it != textures_.end()) return it->second;
+    if (!assets_ || !vkCtx_ || path.empty()) return kMissing;
+
+    std::string resolved;
+    auto data = readTextureFile(path, resolved);
     if (data.empty()) {
         LOG_WARNING("Widget texture not found: ", path);
         textures_[key] = kMissing;
@@ -140,6 +150,83 @@ VkDescriptorSet WidgetRenderer::texture(const std::string& path, bool add) {
     return set;
 }
 
+
+bool WidgetRenderer::textureSize(const std::string& path, float& w, float& h) {
+    if (path.empty()) return false;
+    auto known = textureSizes_.find(path);
+    if (known != textureSizes_.end()) {
+        if (known->second.first <= 0.0f) return false;   // looked up, no good
+        w = known->second.first;
+        h = known->second.second;
+        return true;
+    }
+    // Deliberately no vkCtx_ here. Asking how big a picture is does not need a
+    // GPU, and tying it to one would mean the headless harness could never
+    // check any of this — which is what kept this fix unwritten.
+    std::string resolved;
+    auto data = readTextureFile(path, resolved);
+    if (data.empty()) { textureSizes_[path] = {0.0f, 0.0f}; return false; }
+    const auto image = pipeline::BLPLoader::load(data);
+    if (!image.isValid() || image.width == 0 || image.height == 0) {
+        textureSizes_[path] = {0.0f, 0.0f};
+        return false;
+    }
+    w = static_cast<float>(image.width);
+    h = static_cast<float>(image.height);
+    textureSizes_[path] = {w, h};
+    return true;
+}
+
+/// A texture with nothing else to go on is as big as its own picture.
+///
+/// WoW sizes a region from its image when neither a <Size> nor a pair of
+/// opposing anchors says otherwise, and FrameXML leans on it: the status icon
+/// beside the friends list's dropdown carries one LEFT anchor and no size at
+/// all, so without this it is a region zero by zero and the player's online
+/// status never appears.
+///
+/// Only the axis that has nothing. A texture given a width by two anchors and
+/// left open vertically keeps the width and takes only the height, which is how
+/// a stretched border piece is meant to work.
+void WidgetRenderer::sizeTextures(WidgetTree& tree) {
+    if (!assets_) return;
+    for (size_t id = 1; id < tree.size(); ++id) {
+        Widget* w = tree.get(static_cast<uint32_t>(id));
+        if (!w || w->kind != WidgetKind::Texture) continue;
+        if (w->texturePath.empty()) continue;
+        // A texture with no anchors at all fills its parent, and that rule is
+        // older and stronger than this one. Sizing it from its image instead
+        // takes every portrait ring, action button icon and bag slot off the
+        // frame it is meant to cover and leaves it at whatever the artist
+        // happened to save the file at, centred — which warps the entire
+        // interface. Reported from a screenshot within minutes of this pass
+        // existing.
+        //
+        // SetAllPoints needs no such guard: it lays down two opposing corners,
+        // so the span test below already sees a size and stands aside.
+        if (w->anchors.empty()) continue;
+        // Button art has its own rule and it is the stronger one: it fills the
+        // button on any axis its anchors leave open. Sizing it from its image
+        // instead made InterfaceOptionsFrameTab's highlight 32 tall on a 24
+        // tall tab, overhanging it by eight. The two rules answer the same
+        // question, so only one of them may run.
+        if (w->buttonArt != ButtonArt::None) continue;
+        // Anything it already knows about itself wins. Two opposing anchors
+        // are a statement about size just as much as <Size> is, so a piece
+        // stretched between two others must not be pulled back to its file's
+        // dimensions — that is exactly the scroll bar middle, which would stop
+        // stretching and become 31 by 256.
+        const bool spanX = anchorsSpanAxis(w->anchors, true);
+        const bool spanY = anchorsSpanAxis(w->anchors, false);
+        const bool needsW = w->width <= 0.0f && !spanX;
+        const bool needsH = w->height <= 0.0f && !spanY;
+        if (!needsW && !needsH) continue;
+        float iw = 0.0f, ih = 0.0f;
+        if (!textureSize(w->texturePath, iw, ih)) continue;
+        if (needsW) w->width = iw;
+        if (needsH) w->height = ih;
+    }
+}
 
 void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
     ImFont* font = interfaceFace("frizqt__");
@@ -792,6 +879,9 @@ void WidgetRenderer::layout(WidgetTree& tree, float screenW, float screenH) {
     // Same reason, for every label that never stated a size: it takes the size
     // of its own text, and anything anchored to it is placed from that.
     sizeFontStrings(tree);
+    // Before the solve, like the two above: this decides a size the solve
+    // then places.
+    sizeTextures(tree);
 
     tree.layout(screenW, screenH);
 }
