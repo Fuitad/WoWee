@@ -330,6 +330,10 @@ int main(int argc, char** argv) {
         // which GameHandler accepts, and the character is set directly.
         if (std::strcmp(argv[i], "--player") == 0) {
             static wowee::game::GameServices svc;
+            // The real asset manager, so bindings that read a DBC — quest reward
+            // XP from QuestXP.dbc, zone names from AreaTable — answer for real
+            // rather than the empty they give with no assets behind them.
+            if (haveAssets) svc.assetManager = &assets;
             static wowee::game::GameHandler gh(svc);
             constexpr uint64_t kGuid = 0x0000000000000001ull;
             gh.setPlayerGuid(kGuid);
@@ -382,6 +386,8 @@ int main(int argc, char** argv) {
                         "endless winter of the grave. Seek out Johaan — he "
                         "alone may know what has become of me.";
                     q.zoneOrSort = 130;  // Silverpine Forest
+                    q.level = 1;
+                    q.rewardXPId = 5;    // QuestXP.dbc row 0 (level 1) col 5 = 80
                     log.push_back(q);
                     gh.setSelectedQuestLogIndex(1);
                 }

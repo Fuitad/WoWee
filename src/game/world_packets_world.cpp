@@ -1251,9 +1251,15 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
     // and a guess would put an arbitrary item on the watch frame.
     size_t sourceItemField = 0;
     size_t rewardSpellField = 0;
+    size_t xpIdField = 0;
     if (questLogStride >= 5) {        // WotLK
         moneyField = 11; rewardPairsField = 24; choicePairsField = 32;
         sourceItemField = 17;
+        // XPId sits immediately before the money field in the serializer
+        // (nextQuestInChain, XPId, RewOrReqMoney), so field 10 here — one below
+        // money's 11. Read only where the layout is confirmed, like the spell
+        // and start item above.
+        xpIdField = 10;
         // Counted from the same base as the four above: money is absolute 13
         // and the start item absolute 19, and the serializer writes
         // money(13), maxLevel(14), rewSpell(15) — so 13 here, which is 15 there.
@@ -1294,6 +1300,12 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
         // The same plausibility gate the items get: a layout that has slipped
         // lands in float or string data and answers something enormous.
         if (spell <= 0x000FFFFFu) out.rewardSpellId = spell;
+    }
+    if (xpIdField) {
+        // QuestXP.dbc has ten difficulty columns (indices 0..9), so a valid index
+        // is small; a slipped layout lands on an id or count and is far larger.
+        const uint32_t xp = readU32At(base + xpIdField * 4u);
+        if (xp <= 9u) out.xpId = xp;
     }
     if (sourceItemField) {
         const uint32_t srcItem = readU32At(base + sourceItemField * 4u);

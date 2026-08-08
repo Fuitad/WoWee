@@ -208,6 +208,9 @@ TEST_CASE("Quest query rewards: WotLK layout (AzerothCore)", "[quest_rewards]") 
     CHECK(r.choiceItemId[0] == 36926);
     CHECK(r.choiceItemId[1] == 36927);
     CHECK(r.choiceItemId[2] == 0);
+    // XPId sits one field below the money (field 10 vs 11); the packet wrote 5.
+    // This locks that offset so the reward-XP lookup reads the right column.
+    CHECK(r.xpId == 5);
 }
 
 TEST_CASE("Quest query rewards: implausible data rejected", "[quest_rewards]") {

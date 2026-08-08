@@ -112,6 +112,7 @@ public:
         std::string completionText;
         /// The spell the quest offers as a reward, or zero.
         uint32_t rewardSpellId = 0;
+        uint32_t rewardXPId = 0;  // QuestXP.dbc column; reward XP = that column at this quest's level
         int32_t level = 0;   // quest level from query response; 0 = unknown, -1 = player-scaling
         // ZoneOrSort from query response: >0 = AreaTable zone id, <0 = QuestSort.dbc
         // category (negated), 0 = unknown
@@ -166,6 +167,12 @@ public:
     // QuestSort.dbc name ("Seasonal", class/profession sorts, ...) for negative
     // ZoneOrSort values; empty if unknown
     const std::string& getQuestSortName(uint32_t sortId);
+
+    /// The reward experience a quest shows: QuestXP.dbc read at the quest's
+    /// level, in the column its XP-difficulty index selects. Zero when the
+    /// level or index is unknown (index 0 is genuinely no XP), so the reward
+    /// panel simply omits the line, as it does for a quest that gives none.
+    uint32_t getQuestRewardXP(int32_t level, uint32_t xpDifficulty);
     int getSelectedQuestLogIndex() const { return selectedQuestLogIndex_; }
     void setSelectedQuestLogIndex(int idx) { selectedQuestLogIndex_ = idx; }
     void abandonQuest(uint32_t questId);
@@ -295,6 +302,9 @@ private:
     // QuestSort.dbc names, loaded lazily
     std::unordered_map<uint32_t, std::string> questSortNames_;
     bool questSortDbcLoaded_ = false;
+    // QuestXP.dbc, keyed by level; each row is the ten difficulty columns.
+    std::unordered_map<int32_t, std::array<uint32_t, 10>> questXpByLevel_;
+    bool questXpDbcLoaded_ = false;
 
     std::unordered_map<uint32_t, float> pendingQuestAcceptTimeouts_;
     std::unordered_map<uint32_t, uint64_t> pendingQuestAcceptNpcGuids_;

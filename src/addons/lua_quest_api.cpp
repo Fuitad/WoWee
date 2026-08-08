@@ -419,6 +419,19 @@ static int lua_GetQuestLogPushable(lua_State* L) {
     return 1;
 }
 
+// GetQuestLogRewardXP() → the experience the reward panel shows for the
+// selected quest. It is in no packet — the client derives it from QuestXP.dbc
+// at the quest's level and the XP-difficulty index the query carried, which is
+// what this now does. Zero (the old hard-coded answer) hid the reward line on
+// every quest; a real value restores "You will receive N experience."
+static int lua_GetQuestLogRewardXP(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* q = gh ? selectedQuest(gh) : nullptr;
+    auto* qh = gh ? gh->getQuestHandler() : nullptr;
+    lua_pushnumber(L, (q && qh) ? qh->getQuestRewardXP(q->level, q->rewardXPId) : 0.0);
+    return 1;
+}
+
 // QuestLogPushQuest() — offer the selected quest to the party.
 static int lua_QuestLogPushQuest(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -2918,7 +2931,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetQuestLogRewardHonor",       lua_GetZeroReward},
                 {"GetQuestLogRewardArenaPoints", lua_GetZeroReward},
                 {"GetQuestLogRewardTalents",     lua_GetZeroReward},
-                {"GetQuestLogRewardXP",          lua_GetZeroReward},
+                {"GetQuestLogRewardXP",          lua_GetQuestLogRewardXP},
                 {"IsQuestCompletable",   lua_IsQuestCompletable},
                 {"GetQuestReward",       lua_GetQuestReward},
                 {"CloseQuest",           lua_CloseQuest},

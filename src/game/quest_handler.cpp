@@ -1195,6 +1195,7 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
             if (rwds.valid) {
                 q.rewardMoney = rwds.rewardMoney;
                 if (rwds.rewardSpellId != 0) q.rewardSpellId = rwds.rewardSpellId;
+                if (rwds.xpId != 0) q.rewardXPId = rwds.xpId;
                 q.sourceItemId = rwds.sourceItemId;
                 // The watch frame needs its name and icon to draw a button.
                 if (q.sourceItemId != 0) owner_.queryItemInfo(q.sourceItemId, 0);
@@ -1751,6 +1752,35 @@ const std::string& QuestHandler::getQuestSortName(uint32_t sortId) {
     }
     auto it = questSortNames_.find(sortId);
     return it != questSortNames_.end() ? it->second : kEmpty;
+}
+
+uint32_t QuestHandler::getQuestRewardXP(int32_t level, uint32_t xpDifficulty) {
+    // xpDifficulty is AzerothCore's RewardXPDifficulty, indexing the ten Exp
+    // columns directly (Exp[d] = column d = row[d] here). Index 0's column is
+    // zero at every level, and an unparsed layout leaves the index at 0 too, so
+    // both correctly answer no reward XP. Valid difficulty indices are 0..9.
+    if (level <= 0 || xpDifficulty > 9) return 0;
+    if (!questXpDbcLoaded_) {
+        questXpDbcLoaded_ = true;
+        auto* am = owner_.services().assetManager;
+        if (am && am->isInitialized()) {
+            auto dbc = am->loadDBC("QuestXP.dbc");
+            // Field 0 is the level; fields 1..10 are the ten difficulty columns.
+            if (dbc && dbc->isLoaded() && dbc->getFieldCount() >= 11) {
+                for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+                    const int32_t lvl = static_cast<int32_t>(dbc->getUInt32(i, 0));
+                    std::array<uint32_t, 10> row{};
+                    for (uint32_t c = 0; c < 10; ++c) row[c] = dbc->getUInt32(i, c + 1);
+                    questXpByLevel_[lvl] = row;
+                }
+                LOG_INFO("Loaded ", questXpByLevel_.size(), " quest XP levels");
+            }
+        }
+    }
+    auto it = questXpByLevel_.find(level);
+    if (it == questXpByLevel_.end()) return 0;
+    // The same column AzerothCore's Quest::XPValue reads: Exp[xpDifficulty].
+    return it->second[xpDifficulty];
 }
 
 bool QuestHandler::hasQuestInLog(uint32_t questId) const {

@@ -2557,6 +2557,11 @@ struct QuestQueryRewardsData {
     /// Same caveat as the start item: WotLK only, because that is the layout
     /// counted off a serializer here.
     uint32_t rewardSpellId = 0;
+    /// The quest's XP-difficulty index (GetXPId), which selects a column of
+    /// QuestXP.dbc; the reward experience is that column read at the quest's
+    /// level. Zero on the layouts not counted off a serializer here (classic,
+    /// TBC), which keeps their reward XP absent rather than guessed.
+    uint32_t xpId = 0;
     bool valid = false;
 };
 
