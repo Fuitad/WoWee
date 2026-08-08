@@ -132,32 +132,41 @@ static const game::QuestHandler::QuestLogEntry* selectedQuestForReward(game::Gam
     if (index < 1 || index > static_cast<int>(log.size())) return nullptr;
     return &log[static_cast<size_t>(index - 1)];
 }
+// The reputation reward slots for whichever panel is open — the offer's own
+// when it is up, the selected log quest's otherwise (same reason as the title:
+// the log selection is not the offered quest). Copied into a common shape so
+// the two source structs, identical in fields, are read the same way.
+struct RewardFaction { uint32_t factionId; int32_t valueId; int32_t override; };
+static std::vector<RewardFaction> currentFactionRewards(game::GameHandler* gh) {
+    std::vector<RewardFaction> out;
+    if (!gh) return out;
+    if (gh->isQuestOfferRewardOpen()) {
+        for (const auto& fr : gh->getQuestOfferReward().factionRewards)
+            if (fr.factionId != 0) out.push_back({fr.factionId, fr.valueId, fr.override});
+    } else if (const auto* q = selectedQuestForReward(gh)) {
+        for (const auto& fr : q->factionRewards)
+            if (fr.factionId != 0) out.push_back({fr.factionId, fr.valueId, fr.override});
+    }
+    return out;
+}
 // GetNumQuestLogRewardFactions() → how many faction rewards the quest carries.
 static int lua_GetNumQuestLogRewardFactions(lua_State* L) {
-    const auto* q = selectedQuestForReward(getGameHandler(L));
-    int n = 0;
-    if (q) for (const auto& fr : q->factionRewards) if (fr.factionId != 0) ++n;
-    lua_pushnumber(L, n);
+    lua_pushnumber(L, static_cast<double>(currentFactionRewards(getGameHandler(L)).size()));
     return 1;
 }
 // GetQuestLogRewardFactionInfo(i) → factionId, amount(in hundredths). The panel
 // pairs the id with GetFactionInfoByID and divides the amount by 100 itself.
 static int lua_GetQuestLogRewardFactionInfo(lua_State* L) {
     auto* gh = getGameHandler(L);
-    const auto* q = selectedQuestForReward(gh);
     const int want = static_cast<int>(luaL_optnumber(L, 1, 0));
-    if (!q || want < 1) { return luaReturnNil(L); }
-    int seen = 0;
-    for (const auto& fr : q->factionRewards) {
-        if (fr.factionId == 0) continue;
-        if (++seen != want) continue;
-        auto* qh = gh->getQuestHandler();
-        const int32_t amount = qh ? qh->getQuestRewardReputation(fr.valueId, fr.override) : 0;
-        lua_pushnumber(L, fr.factionId);
-        lua_pushnumber(L, amount);
-        return 2;
-    }
-    return luaReturnNil(L);
+    const auto list = currentFactionRewards(gh);
+    if (want < 1 || want > static_cast<int>(list.size())) { return luaReturnNil(L); }
+    const auto& fr = list[static_cast<size_t>(want - 1)];
+    auto* qh = gh->getQuestHandler();
+    const int32_t amount = qh ? qh->getQuestRewardReputation(fr.valueId, fr.override) : 0;
+    lua_pushnumber(L, fr.factionId);
+    lua_pushnumber(L, amount);
+    return 2;
 }
 
 // GetFactionInfoByID(id) — the same thirteen values GetFactionInfo gives by

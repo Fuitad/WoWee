@@ -461,7 +461,10 @@ TEST_CASE("Offer reward: WotLK layout (AzerothCore)", "[quest_rewards]") {
     putU32(b, 3);               // bonusTalents
     putU32(b, 100);             // arenaPoints
     putU32(b, 0);               // unk
-    for (int i = 0; i < 15; ++i) putU32(b, 0); // reputation arrays
+    // reputation arrays: one faction (id 69, value index 5)
+    putU32(b, 69); putU32(b, 0); putU32(b, 0); putU32(b, 0); putU32(b, 0);  // factionId
+    putU32(b, 5);  putU32(b, 0); putU32(b, 0); putU32(b, 0); putU32(b, 0);  // valueId
+    for (int i = 0; i < 5; ++i) putU32(b, 0);                               // override
 
     network::Packet pkt(0, b);
     QuestOfferRewardData d;
@@ -477,4 +480,7 @@ TEST_CASE("Offer reward: WotLK layout (AzerothCore)", "[quest_rewards]") {
     CHECK(d.rewardTitleId == 6);
     CHECK(d.rewardTalents == 3);
     CHECK(d.rewardArenaPoints == 100);
+    CHECK(d.factionRewards[0].factionId == 69);
+    CHECK(d.factionRewards[0].valueId == 5);
+    CHECK(d.factionRewards[1].factionId == 0);
 }

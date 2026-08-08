@@ -1068,6 +1068,15 @@ bool QuestOfferRewardParser::parse(network::Packet& packet, QuestOfferRewardData
         if (packet.hasRemaining(4)) data.rewardTitleId = packet.readUInt32();
         if (packet.hasRemaining(4)) data.rewardTalents = packet.readUInt32();
         if (packet.hasRemaining(4)) data.rewardArenaPoints = packet.readUInt32();
+        // An unused word, then the three reputation arrays as in the query
+        // response: five faction ids, five value indices, five overrides. Read
+        // as a block so a short packet leaves them all zero.
+        if (packet.hasRemaining(4)) packet.readUInt32();  // unused
+        if (packet.hasRemaining(60)) {  // 15 × uint32
+            for (auto& fr : data.factionRewards) fr.factionId = packet.readUInt32();
+            for (auto& fr : data.factionRewards) fr.valueId = static_cast<int32_t>(packet.readUInt32());
+            for (auto& fr : data.factionRewards) fr.override = static_cast<int32_t>(packet.readUInt32());
+        }
 
         LOG_INFO("Quest offer reward: id=", data.questId, " title='", data.title,
                  "' choices=", data.choiceRewards.size(), " fixed=", data.fixedRewards.size(),

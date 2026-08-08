@@ -2532,6 +2532,8 @@ struct QuestOfferRewardData {
     uint32_t rewardTalents = 0;
     uint32_t rewardArenaPoints = 0;
     uint32_t rewardTitleId = 0;  // CharTitles.dbc id of an awarded title, 0 = none
+    struct FactionReward { uint32_t factionId = 0; int32_t valueId = 0; int32_t override = 0; };
+    std::array<FactionReward, 5> factionRewards{};
     std::vector<QuestRewardItem> choiceRewards;  // Pick one
     std::vector<QuestRewardItem> fixedRewards;   // Always given
 };
