@@ -1268,6 +1268,31 @@ void CameraController::update(float deltaTime) {
                         groundH = selectReachableFloor3(terrainH, wmoH, m2H, targetPos.z, stepUpBudget);
                     }
 
+                    // The local player's own floor pick, named when it jumps.
+                    //
+                    // The movingEntityFloor log covers creatures and other
+                    // players; this is the reporter's own character in
+                    // Undercity. It says which floor was chosen for the player
+                    // and the three candidates it chose among, so a jump that
+                    // survived the closest-to-feet change shows what is still
+                    // competing — and whether both floors are even offered here
+                    // or only one is, which decides whether the fix belongs in
+                    // the selection or deeper in the WMO query.
+                    if (groundH && std::abs(*groundH - lastGroundZ) > 1.0f) {
+                        static std::chrono::steady_clock::time_point lastPlayerFloorLog{};
+                        const auto now = std::chrono::steady_clock::now();
+                        if (now - lastPlayerFloorLog > std::chrono::seconds(1)) {
+                            lastPlayerFloorLog = now;
+                            core::Logger::getInstance().warning(
+                                "Player floor jump: feet=", targetPos.z,
+                                " lastGround=", lastGroundZ, " -> chose ", *groundH,
+                                " (terrain=", terrainH ? *terrainH : -99999.0f,
+                                " wmo=", wmoH ? *wmoH : -99999.0f,
+                                " m2=", m2H ? *m2H : -99999.0f,
+                                " seam=", atTunnelSeam ? 1 : 0, ")");
+                        }
+                    }
+
                     // Update cache
                     lastCollisionCheckPos_ = targetPos;
                     if (groundH) {
