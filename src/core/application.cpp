@@ -1364,20 +1364,22 @@ void Application::run() {
                                     (mods & KMOD_SHIFT) != 0,
                                     (mods & KMOD_CTRL) != 0,
                                     (mods & KMOD_ALT) != 0, true)) {
-                                // The fourth way a press can end in the pump, and
-                                // the one that had no line: a key binding in the
-                                // interface claimed it. Retail binds Escape to
-                                // TOGGLEGAMEMENU, so if that binding is reachable
-                                // it is taken here and the poll chain below never
-                                // runs — which is indistinguishable, without this
-                                // line, from the key never arriving. A reported
-                                // "Escape does nothing" with no Escape line at all
-                                // is this case: the binding ran but its action did
-                                // not toggle the menu.
+                                // The fourth way a press can end in the pump — an
+                                // interface key binding claimed it — which had no
+                                // line. For the DEFAULT Escape this does not fire:
+                                // Escape binds to TOGGLEGAMEMENU, which
+                                // clientActsOnBinding lists, so dispatchBindingKey
+                                // yields (returns false) and the poll chain below
+                                // runs. It fires only if Escape has been rebound to
+                                // a FrameXML command a binding script handles — in
+                                // which case *that* is why the game menu never
+                                // opens, and this line names it. So it is a real
+                                // signal for a rebound Escape, not the default one.
                                 if (event.key.keysym.sym == SDLK_ESCAPE) {
                                     LOG_WARNING("Escape: taken in the pump by an "
-                                                "interface key binding; the chain "
-                                                "below never runs");
+                                                "interface key binding (rebound off "
+                                                "TOGGLEGAMEMENU); the game-menu chain "
+                                                "never runs");
                                 }
                                 continue;
                             }
