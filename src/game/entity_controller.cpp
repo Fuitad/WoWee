@@ -1109,11 +1109,29 @@ EntityController::UnitFieldUpdateResult EntityController::applyUnitFieldsOnUpdat
                 bool nowDead = (val & UNIT_DYNFLAG_DEAD) != 0;
                 if (!wasDead && nowDead) {
                     markPlayerDead("dynFlags");
+                    // And tell the interface, which the health=0 path did and
+                    // this one did not. The server marks a death either way —
+                    // sometimes by dropping health to zero, sometimes by
+                    // setting UNIT_DYNFLAG_DEAD, and not always both — and only
+                    // the health path fired PLAYER_DEAD. When death came by the
+                    // flag alone, the player was dead in every internal sense
+                    // (could not attack, health read zero) but the interface
+                    // never heard it: no release-spirit popup, until the server
+                    // gave up waiting and pulled the corpse to the graveyard.
+                    // FrameXML guards the popup on its own visibility, so a
+                    // second PLAYER_DEAD from the health path is harmless.
+                    owner_.stopAutoAttack();
+                    pendingEvents_.emit("PLAYER_DEAD", {});
                 } else if (wasDead && !nowDead) {
                     owner_.playerDeadRef() = false;
                     owner_.releasedSpiritRef() = false;
                     owner_.selfResAvailableRef() = false;
                     LOG_INFO("Player resurrected (dynamic flags)");
+                    // The other side of the same signal. PLAYER_ALIVE is what
+                    // hides the death popup and restores the interface, and
+                    // firing PLAYER_DEAD without ever firing this left the
+                    // popup up through a resurrection that came by the flag.
+                    pendingEvents_.emit("PLAYER_ALIVE", {});
                 }
             } else if (entity->getType() == ObjectType::UNIT || entity->getType() == ObjectType::PLAYER) {
                 bool wasDead = (oldDyn & UNIT_DYNFLAG_DEAD) != 0;

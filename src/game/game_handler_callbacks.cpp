@@ -1009,6 +1009,19 @@ void GameHandler::handleLoginVerifyWorld(network::Packet& packet) {
             fireAddonEvent(what, {"player"});
         }
         fireAddonEvent("PLAYER_XP_UPDATE", {"player"});
+        // Dead on arrival, said now.
+        //
+        // Logging in as a corpse is the one time death is not a transition the
+        // client watches happen — it is the state the player already has when
+        // the world loads, so no health-drop and no flag-flip fires PLAYER_DEAD
+        // and the interface never puts up the release-spirit popup. The player
+        // sits dead, unable to act, until the server tires of waiting and
+        // pulls them to the graveyard. Same reason every UNIT_ value above is
+        // re-sent here: a frame built after the fact has missed the event that
+        // would have filled it in.
+        if (isPlayerDead()) {
+            fireAddonEvent("PLAYER_DEAD", {});
+        }
         // The durability warnings hide themselves when nothing is damaged, and
         // this is the event that asks them to look. Without it the frame keeps
         // the state its XML was written with, which is shown.
