@@ -1055,6 +1055,19 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
         }
 
         const QuestQueryTextCandidate parsed = pickBestQuestQueryTexts(packet.getData(), isClassicLayout);
+        // What the text parse actually found, said at warning so it survives the
+        // default log. Reported as a blank quest-log description on a non-WotLK
+        // realm: this names whether the description was read at all, so a still-
+        // empty panel after the universal-parse fix points at the seed offset
+        // being wrong for that server's numeric block rather than at the gate.
+        // One line per query, and a query is not a per-frame thing.
+        LOG_WARNING("Quest text parse: id=", questId,
+                    " classicLayout=", isClassicLayout ? "yes" : "no",
+                    " title=\"", parsed.title.substr(0, 40),
+                    "\" (", parsed.title.size(), " ch) objectives=",
+                    parsed.objectives.size(), "ch description=",
+                    parsed.description.size(), "ch completion=",
+                    parsed.completionText.size(), "ch score=", parsed.score);
         const QuestQueryObjectives objs = extractQuestQueryObjectives(packet.getData(), questLogStride);
         const QuestQueryRewardsData rwds = QuestQueryRewardsParser::parse(packet.getData(), questLogStride);
 
