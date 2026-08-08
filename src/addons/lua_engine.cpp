@@ -1376,9 +1376,24 @@ int lua_Tooltip_AddLine(lua_State* L) {
     if (!w) return 0;
     wowee::ui::Widget::TooltipLine line;
     line.left = luaL_optstring(L, 2, "");
-    line.lc[0] = static_cast<float>(luaL_optnumber(L, 3, 1.0));
-    line.lc[1] = static_cast<float>(luaL_optnumber(L, 4, 1.0));
-    line.lc[2] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
+    // A colour that is not a number means "the default one", not an error.
+    //
+    // mailframe.lua does `AddLine(ENCLOSED_MONEY, "", 1, 1, 1)` — an empty
+    // string where the red goes. optnumber accepts a string it can convert and
+    // "" is not one, so it raised: the mail item's tooltip died on every hover,
+    // and after five the OnUpdate driving it was unhooked for the rest of the
+    // session. Nothing said so on screen; a raise inside a handler is
+    // swallowed.
+    //
+    // White rather than black, because that is what the line is meant to be —
+    // SetMoneyFrameColor is called with "white" two lines further down.
+    auto colour = [L](int arg) {
+        return lua_isnumber(L, arg) ? static_cast<float>(lua_tonumber(L, arg))
+                                    : 1.0f;
+    };
+    line.lc[0] = colour(3);
+    line.lc[1] = colour(4);
+    line.lc[2] = colour(5);
     line.lc[3] = 1.0f;
     line.rc[0] = line.rc[1] = line.rc[2] = line.rc[3] = 1.0f;
     // AddLine(text, r, g, b, wrapText). The sixth argument was read off the
@@ -1499,13 +1514,20 @@ int lua_Tooltip_AddDoubleLine(lua_State* L) {
     wowee::ui::Widget::TooltipLine line;
     line.left  = luaL_optstring(L, 2, "");
     line.right = luaL_optstring(L, 3, "");
-    line.lc[0] = static_cast<float>(luaL_optnumber(L, 4, 1.0));
-    line.lc[1] = static_cast<float>(luaL_optnumber(L, 5, 1.0));
-    line.lc[2] = static_cast<float>(luaL_optnumber(L, 6, 1.0));
+    // Six colours, same rule as AddLine: anything that is not a number means
+    // the default. Six arguments is six chances for the interface to pass one
+    // of them as something else, and the whole tooltip is lost to a raise.
+    auto colour = [L](int arg) {
+        return lua_isnumber(L, arg) ? static_cast<float>(lua_tonumber(L, arg))
+                                    : 1.0f;
+    };
+    line.lc[0] = colour(4);
+    line.lc[1] = colour(5);
+    line.lc[2] = colour(6);
     line.lc[3] = 1.0f;
-    line.rc[0] = static_cast<float>(luaL_optnumber(L, 7, 1.0));
-    line.rc[1] = static_cast<float>(luaL_optnumber(L, 8, 1.0));
-    line.rc[2] = static_cast<float>(luaL_optnumber(L, 9, 1.0));
+    line.rc[0] = colour(7);
+    line.rc[1] = colour(8);
+    line.rc[2] = colour(9);
     line.rc[3] = 1.0f;
     w->isTooltip = true;
     w->tooltipLines.push_back(std::move(line));

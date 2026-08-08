@@ -998,8 +998,23 @@ CLICK_EVERYTHING = (
     "  end "
     "end "
     "table.sort(names) "
+    # Hovered as well as clicked. A tooltip is built in OnEnter and nowhere
+    # else, and the mail tooltip died there on a colour argument the interface
+    # passes as an empty string — five hovers later the OnUpdate driving it was
+    # unhooked for the session, and nothing said so on screen.
     "for _, n in ipairs(names) do "
-    "  local b = _G[n] if b and b.Click then pcall(function() b:Click() end) end "
+    "  local b = _G[n] "
+    "  if b then "
+    "    if b.GetScript then "
+    "      local enter = b:GetScript('OnEnter') "
+    "      if enter then pcall(function() enter(b) end) end "
+    "    end "
+    "    if b.Click then pcall(function() b:Click() end) end "
+    "    if b.GetScript then "
+    "      local leave = b:GetScript('OnLeave') "
+    "      if leave then pcall(function() leave(b) end) end "
+    "    end "
+    "  end "
     "end")
 
 
@@ -1245,6 +1260,48 @@ def check_dialogs_without_the_standin():
     return True, what
 
 
+def check_tooltip_colour_arguments():
+    """A tooltip colour that is not a number is a default, not an error.
+
+    Blizzard writes `AddLine(ENCLOSED_MONEY, "", 1, 1, 1)` — an empty string
+    where the red goes — at seven places: the mail's money and COD lines, the
+    bag and paperdoll repair costs, the taxi map's "you are here", the pet
+    action bar, and uiparent. luaL_optnumber takes a string it can convert and
+    "" is not one, so every one of those raised.
+
+    What that costs is out of all proportion to the argument: a raise inside
+    OnEnter loses the whole tooltip, and the OnUpdate driving it is unhooked
+    after five failures — so the tooltip dies for the session, silently.
+
+    Not covered by the panel sweep, and worth saying why rather than assuming
+    it is: MailItem1Button's OnEnter only reaches that line when the mail
+    carries money, so with no mail behind it the hover walks straight past.
+    Checked directly instead.
+    """
+    exe = ROOT / "build" / "bin" / "framexml_run"
+    data = ROOT / "Data"
+    what = "a tooltip colour that is not a number is taken as a default"
+    if not exe.exists() or not data.is_dir():
+        return None, what
+    argv = [str(exe), str(data),
+            # The exact shapes the interface uses.
+            'GameTooltip:AddLine("Enclosed Money", "", 1, 1, 1)',
+            'GameTooltip:AddDoubleLine("left", "right", "", 1, 1, "", 1, 1)',
+            # And numbers still mean what they say, so this cannot pass by
+            # ignoring the colours altogether.
+            'GameTooltip:AddLine("coloured", 1, 0, 0)',
+            'GameTooltip:AddDoubleLine("a", "b", 1, 0, 0, 0, 1, 0)']
+    try:
+        out = subprocess.run(argv, capture_output=True, text=True, timeout=300)
+    except subprocess.TimeoutExpired:
+        return False, what + " (timed out)"
+    if out.returncode == 0:
+        return True, what
+    detail = next((ln.strip() for ln in (out.stdout + out.stderr).splitlines()
+                   if "AddLine" in ln and ":" in ln), "")
+    return False, what + (" — " + detail[:150] if detail else "")
+
+
 def check_without_the_standin():
     """Load the whole interface with the missing-API stand-in turned off.
 
@@ -1332,7 +1389,8 @@ def main():
                      check_paragraph_wrapping(), check_binding_dispatch(),
                      check_npc_dialogs_fill(), check_nothing_unsized(),
                      check_panels_without_the_standin(),
-                     check_dialogs_without_the_standin()):
+                     check_dialogs_without_the_standin(),
+                     check_tooltip_colour_arguments()):
         if ok is None:
             print(f"  skip    -       {what} (framexml_run not built)")
             continue
