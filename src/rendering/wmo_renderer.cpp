@@ -3518,6 +3518,10 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
 
         glm::vec3 localOrigin = glm::vec3(instance.invModelMatrix * glm::vec4(worldOrigin, 1.0f));
         glm::vec3 localDir = glm::normalize(glm::vec3(instance.invModelMatrix * glm::vec4(worldDir, 0.0f)));
+        // If the model is rotated, localDir is not straight down, so the vertical
+        // world ray drifts in local XY as it descends — the reason the grid query
+        // (a box at the ray ORIGIN's local xy) can miss a floor the full scan hits.
+        LOG_WARNING("    localDir=(", localDir.x, ",", localDir.y, ",", localDir.z, ")");
 
         for (size_t gi = 0; gi < model.groups.size(); ++gi) {
             // Check world-space group bounds
@@ -3563,6 +3567,31 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
                 }
             }
 
+            // The GRID path getFloorHeight actually uses (getTrianglesInRange, a
+            // box at the ray origin's local xy). If gridFloorTris/gridClosestZ
+            // differ from the full-scan floorHits/closestToFeetZ above, the grid
+            // is missing floors the ray really hits — the fall-through cause.
+            std::vector<uint32_t> gridTris;
+            group.getTrianglesInRange(localOrigin.x - 1.0f, localOrigin.y - 1.0f,
+                                      localOrigin.x + 1.0f, localOrigin.y + 1.0f, gridTris);
+            int gridFloorTris = 0;
+            float gridClosestZ = 0.0f, gridClosestDist = 1e30f;
+            for (uint32_t triStart : gridTris) {
+                if (triStart + 2 >= indices.size()) continue;
+                const glm::vec3& g0 = verts[indices[triStart]];
+                const glm::vec3& g1 = verts[indices[triStart + 1]];
+                const glm::vec3& g2 = verts[indices[triStart + 2]];
+                float gt = rayTriangleIntersect(localOrigin, localDir, g0, g1, g2);
+                if (gt <= 0.0f) gt = rayTriangleIntersect(localOrigin, localDir, g0, g2, g1);
+                if (gt > 0.0f) {
+                    glm::vec3 gHitLocal = localOrigin + localDir * gt;
+                    float gz = (instance.modelMatrix * glm::vec4(gHitLocal, 1.0f)).z;
+                    gridFloorTris++;
+                    const float gd = std::abs(gz - glZ);
+                    if (gd < gridClosestDist) { gridClosestDist = gz; gridClosestZ = gz; gridClosestDist = gd; }
+                }
+            }
+
             glm::vec3 gWorldMin(0), gWorldMax(0);
             if (gi < instance.worldGroupBounds.size()) {
                 gWorldMin = instance.worldGroupBounds[gi].first;
@@ -3577,6 +3606,8 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
                         " bestHitZ=", bestHitZ,
                         " lowestHitZ=", (floorTris ? lowestHitZ : -999999.0f),
                         " closestToFeetZ=", (floorTris ? closestHitZ : -999999.0f),
+                        " GRIDhits=", gridFloorTris,
+                        " GRIDclosestZ=", (gridFloorTris ? gridClosestZ : -999999.0f),
                         " wBounds=(", gWorldMin.x, ",", gWorldMin.y, ",", gWorldMin.z,
                         ")-(", gWorldMax.x, ",", gWorldMax.y, ",", gWorldMax.z, ")");
         }
