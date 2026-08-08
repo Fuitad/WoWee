@@ -52,6 +52,8 @@ enum class UF : uint16_t {
     UNIT_FIELD_MAXDAMAGE,            // ...and high end
     UNIT_FIELD_ATTACK_POWER,         // Melee attack power (int32)
     UNIT_FIELD_RANGED_ATTACK_POWER,  // Ranged attack power (int32)
+    UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER,             // Power regen while not casting (float[7], mana=0); PRIVATE/OWNER
+    UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER, // ...and the reduced rate during the five-second rule
 
     // Player fields
     PLAYER_FLAGS,

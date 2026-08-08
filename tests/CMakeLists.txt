@@ -1048,6 +1048,20 @@ target_link_libraries(test_dbc_layouts PRIVATE catch2_main)
 add_test(NAME dbc_layouts COMMAND test_dbc_layouts)
 register_test_target(test_dbc_layouts)
 
+# ── test_update_field_table ─────────────────────────────────
+add_executable(test_update_field_table
+    test_update_field_table.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/game/update_field_table.cpp
+)
+target_include_directories(test_update_field_table PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_update_field_table SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_compile_definitions(test_update_field_table PRIVATE
+    WOWEE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+target_link_libraries(test_update_field_table PRIVATE catch2_main)
+add_test(NAME update_field_table COMMAND test_update_field_table)
+register_test_target(test_update_field_table)
+
 # ── test_pet_action ─────────────────────────────────────────
 add_executable(test_pet_action
     test_pet_action.cpp

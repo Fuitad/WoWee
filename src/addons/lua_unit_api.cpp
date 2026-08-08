@@ -1548,10 +1548,15 @@ static int lua_UnitAttackBothHands(lua_State* L) {
     return 4;
 }
 
-/// GetManaRegen() → while not casting, while casting. Both per second.
+/// GetManaRegen() → while not casting, while casting. Both per second; the
+/// paperdoll multiplies by five to show mana-per-5-seconds. The server sends
+/// both figures already computed (UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER and its
+/// interrupted twin), so this reads them rather than modelling the spirit and
+/// intellect formula — it was a flat zero, so every caster's mana regen read 0.
 static int lua_GetManaRegen(lua_State* L) {
-    lua_pushnumber(L, 0);
-    lua_pushnumber(L, 0);
+    auto* gh = getGameHandler(L);
+    lua_pushnumber(L, gh ? gh->getManaRegen() : 0.0);
+    lua_pushnumber(L, gh ? gh->getManaRegenCasting() : 0.0);
     return 2;
 }
 

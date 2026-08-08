@@ -215,6 +215,7 @@ private:
         uint16_t blockPct, dodgePct, parryPct, critPct, rangedCritPct;
         uint16_t sCrit1, rating1;
         uint16_t expertise, offhandExpertise;
+        uint16_t manaRegen, manaRegenCasting;
         static PlayerFieldIndices resolve();
     };
     struct UnitFieldUpdateResult {

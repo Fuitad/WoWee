@@ -728,7 +728,11 @@ EntityController::PlayerFieldIndices EntityController::PlayerFieldIndices::resol
         fieldIndex(UF::PLAYER_SPELL_CRIT_PERCENTAGE1),
         fieldIndex(UF::PLAYER_FIELD_COMBAT_RATING_1),
         fieldIndex(UF::PLAYER_EXPERTISE),
-        fieldIndex(UF::PLAYER_OFFHAND_EXPERTISE)
+        fieldIndex(UF::PLAYER_OFFHAND_EXPERTISE),
+        // Mana is power index 0, so the flat modifier and its interrupted
+        // (while-casting) twin sit at the base of each seven-wide array.
+        fieldIndex(UF::UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER),
+        fieldIndex(UF::UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER)
     };
 }
 
@@ -1502,6 +1506,20 @@ bool EntityController::applyPlayerStatFields(const FlatFieldMap& fields,
         // corrupted packets reaching the UI (display-only, no gameplay logic depends on these).
         // Points, not a percentage, so read straight rather than through the
         // float reinterpretation the lines below need.
+        // Mana regen per second, sent already computed by the server (spirit,
+        // intellect, mp5 from gear and any while-casting talent are all folded
+        // in) as float bits, one figure while not casting and one during the
+        // five-second rule. A change refreshes the stat panel like any stat.
+        else if (pfi.manaRegen != 0xFFFF && key == pfi.manaRegen) {
+            float mr; std::memcpy(&mr, &val, 4);
+            if (owner_.playerManaRegenRef() != mr) statsChanged = true;
+            owner_.playerManaRegenRef() = mr;
+        }
+        else if (pfi.manaRegenCasting != 0xFFFF && key == pfi.manaRegenCasting) {
+            float mr; std::memcpy(&mr, &val, 4);
+            if (owner_.playerManaRegenCastingRef() != mr) statsChanged = true;
+            owner_.playerManaRegenCastingRef() = mr;
+        }
         else if (pfi.expertise != 0xFFFF && key == pfi.expertise) { owner_.playerExpertiseRef() = static_cast<int32_t>(val); }
         else if (pfi.offhandExpertise != 0xFFFF && key == pfi.offhandExpertise) { owner_.playerOffhandExpertiseRef() = static_cast<int32_t>(val); }
         else if (pfi.blockPct != 0xFFFF && key == pfi.blockPct) { std::memcpy(&owner_.playerBlockPctRef(), &val, 4); owner_.playerBlockPctRef() = std::clamp(owner_.playerBlockPctRef(), 0.0f, 100.0f); }

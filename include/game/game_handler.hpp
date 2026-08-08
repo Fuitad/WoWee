@@ -522,6 +522,10 @@ public:
     /// none — unlike the percentages above, where -1 has to mean "not told".
     int32_t getExpertise() const { return playerExpertise_; }
     int32_t getOffhandExpertise() const { return playerOffhandExpertise_; }
+    /// Mana regen per second, not-casting and while-casting — the server sends
+    /// both already computed. GetManaRegen returns them for the mana-regen stat.
+    float getManaRegen() const { return playerManaRegen_; }
+    float getManaRegenCasting() const { return playerManaRegenCasting_; }
     float getCritPct()   const { return playerCritPct_; }
     float getRangedCritPct() const { return playerRangedCritPct_; }
     // Spell crit by school (0=Physical,1=Holy,2=Fire,3=Nature,4=Frost,5=Shadow,6=Arcane)
@@ -3400,6 +3404,8 @@ public:
     auto& playerBlockPctRef() { return playerBlockPct_; }
     auto& playerExpertiseRef() { return playerExpertise_; }
     auto& playerOffhandExpertiseRef() { return playerOffhandExpertise_; }
+    auto& playerManaRegenRef() { return playerManaRegen_; }
+    auto& playerManaRegenCastingRef() { return playerManaRegenCasting_; }
     auto& playerCombatRatingsRef() { return playerCombatRatings_; }
     auto& playerCritPctRef() { return playerCritPct_; }
     auto& playerDodgePctRef() { return playerDodgePct_; }
@@ -4461,6 +4467,8 @@ private:
     float playerBlockPct_     = -1.0f;
     int32_t playerExpertise_        = 0;
     int32_t playerOffhandExpertise_ = 0;
+    float playerManaRegen_          = 0.0f;  // per second, while not casting
+    float playerManaRegenCasting_   = 0.0f;  // per second, during the five-second rule
     float playerCritPct_      = -1.0f;
     float playerRangedCritPct_ = -1.0f;
     float playerSpellCritPct_[7] = {-1.0f,-1.0f,-1.0f,-1.0f,-1.0f,-1.0f,-1.0f};

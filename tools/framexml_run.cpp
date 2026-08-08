@@ -363,6 +363,8 @@ int main(int argc, char** argv) {
             gh.playerCombatRatingsRef()[1] = 148;  // CR_DEFENSE_SKILL, for UnitDefense
             gh.playerCombatRatingsRef()[2] = 100;  // CR_DODGE, for GetCombatRatingBonus
             gh.playerCombatRatingsRef()[24] = 100; // CR_ARMOR_PENETRATION, for GetArmorPenetration
+            gh.playerManaRegenRef() = 172.5f;        // per second, not casting, for GetManaRegen
+            gh.playerManaRegenCastingRef() = 50.0f;  // per second, while casting
             // A few spells, so the spellbook is not empty. getSpellBookTabs
             // rebuilds itself from the known set whenever the count changes,
             // so adding them is all that is needed — and without them
