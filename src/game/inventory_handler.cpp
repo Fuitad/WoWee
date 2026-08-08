@@ -646,9 +646,27 @@ void InventoryHandler::registerOpcodes(DispatchTable& table) {
     table[Opcode::SMSG_BUY_ITEM] = [this](network::Packet& packet) {
         if (packet.hasRemaining(20)) {
             /*uint64_t vendorGuid =*/ packet.readUInt64();
-            /*uint32_t vendorSlot =*/ packet.readUInt32();
-            (void)packet.readUInt32(); // new count
+            const uint32_t vendorSlot = packet.readUInt32();   // 1-based, as the list numbers them
+            const uint32_t newCount   = packet.readUInt32();   // 0xFFFFFFFF for an unlimited item
             uint32_t itemCount  = packet.readUInt32();
+
+            // The stock left, said now rather than at the next reopen.
+            //
+            // The slot and the remaining count were read off this packet and
+            // dropped. For a limited item — a recipe the vendor has one of, a
+            // faction reward — that meant the count beside it never changed
+            // when it was bought: MERCHANT_UPDATE redrew from the list the
+            // window opened with, which still had the old number, and only
+            // closing and reopening the vendor pulled a fresh one. The server
+            // numbers the slot the same way here and in the list, so the two
+            // match directly; 0xFFFFFFFF is its way of saying unlimited, which
+            // is -1 here.
+            for (auto& vi : currentVendorItems_.items) {
+                if (vi.slot != vendorSlot) continue;
+                vi.maxCount = (newCount == 0xFFFFFFFFu)
+                                  ? -1 : static_cast<int32_t>(newCount);
+                break;
+            }
             // Successful buyback: remove the entry from the local buyback list.
             // Without this the pending slot lingered and a later unrelated
             // SMSG_BUY_FAILED could misread it as a buyback retry.
