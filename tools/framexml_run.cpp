@@ -388,6 +388,9 @@ int main(int argc, char** argv) {
                     q.zoneOrSort = 130;  // Silverpine Forest
                     q.level = 1;
                     q.rewardXPId = 5;    // QuestXP.dbc row 0 (level 1) col 5 = 80
+                    q.rewardHonor = 250;
+                    q.rewardTalents = 1;
+                    q.rewardArenaPoints = 100;
                     log.push_back(q);
                     gh.setSelectedQuestLogIndex(1);
                 }

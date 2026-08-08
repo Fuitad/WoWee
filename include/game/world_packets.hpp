@@ -2562,6 +2562,14 @@ struct QuestQueryRewardsData {
     /// level. Zero on the layouts not counted off a serializer here (classic,
     /// TBC), which keeps their reward XP absent rather than guessed.
     uint32_t xpId = 0;
+    /// Honor, bonus talent points and arena points a quest awards — direct
+    /// values in the query response (RewHonorAddition, BonusTalents,
+    /// RewArenaPoints). WotLK only, same caveat as the fields above; honor is
+    /// the flat addition, which is what most quests set (the multiplier path is
+    /// not derived here).
+    uint32_t rewardHonor = 0;
+    uint32_t bonusTalents = 0;
+    uint32_t arenaPoints = 0;
     bool valid = false;
 };
 

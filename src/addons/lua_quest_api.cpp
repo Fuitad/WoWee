@@ -432,6 +432,26 @@ static int lua_GetQuestLogRewardXP(lua_State* L) {
     return 1;
 }
 
+// Honor, talent points and arena points a quest awards — direct values the
+// query response carries, and hard zeros before, on a stale "not in any quest
+// packet" comment. WotLK-only, so classic/TBC keep zero until their layout is
+// read off a serializer.
+static int lua_GetQuestLogRewardHonor(lua_State* L) {
+    const auto* q = selectedQuest(getGameHandler(L));
+    lua_pushnumber(L, q ? q->rewardHonor : 0.0);
+    return 1;
+}
+static int lua_GetQuestLogRewardTalents(lua_State* L) {
+    const auto* q = selectedQuest(getGameHandler(L));
+    lua_pushnumber(L, q ? q->rewardTalents : 0.0);
+    return 1;
+}
+static int lua_GetQuestLogRewardArenaPoints(lua_State* L) {
+    const auto* q = selectedQuest(getGameHandler(L));
+    lua_pushnumber(L, q ? q->rewardArenaPoints : 0.0);
+    return 1;
+}
+
 // QuestLogPushQuest() — offer the selected quest to the party.
 static int lua_QuestLogPushQuest(lua_State* L) {
     auto* gh = getGameHandler(L);
@@ -2928,9 +2948,9 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetRewardHonor",              lua_GetZeroReward},
                 {"GetRewardArenaPoints",        lua_GetZeroReward},
                 {"GetRewardTalents",            lua_GetZeroReward},
-                {"GetQuestLogRewardHonor",       lua_GetZeroReward},
-                {"GetQuestLogRewardArenaPoints", lua_GetZeroReward},
-                {"GetQuestLogRewardTalents",     lua_GetZeroReward},
+                {"GetQuestLogRewardHonor",       lua_GetQuestLogRewardHonor},
+                {"GetQuestLogRewardArenaPoints", lua_GetQuestLogRewardArenaPoints},
+                {"GetQuestLogRewardTalents",     lua_GetQuestLogRewardTalents},
                 {"GetQuestLogRewardXP",          lua_GetQuestLogRewardXP},
                 {"IsQuestCompletable",   lua_IsQuestCompletable},
                 {"GetQuestReward",       lua_GetQuestReward},

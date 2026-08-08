@@ -113,6 +113,9 @@ public:
         /// The spell the quest offers as a reward, or zero.
         uint32_t rewardSpellId = 0;
         uint32_t rewardXPId = 0;  // QuestXP.dbc column; reward XP = that column at this quest's level
+        uint32_t rewardHonor = 0;
+        uint32_t rewardTalents = 0;
+        uint32_t rewardArenaPoints = 0;
         int32_t level = 0;   // quest level from query response; 0 = unknown, -1 = player-scaling
         // ZoneOrSort from query response: >0 = AreaTable zone id, <0 = QuestSort.dbc
         // category (negated), 0 = unknown

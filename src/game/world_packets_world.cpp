@@ -1251,7 +1251,7 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
     // and a guess would put an arbitrary item on the watch frame.
     size_t sourceItemField = 0;
     size_t rewardSpellField = 0;
-    size_t xpIdField = 0;
+    size_t xpIdField = 0, honorField = 0, talentsField = 0, arenaField = 0;
     if (questLogStride >= 5) {        // WotLK
         moneyField = 11; rewardPairsField = 24; choicePairsField = 32;
         sourceItemField = 17;
@@ -1260,6 +1260,10 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
         // money's 11. Read only where the layout is confirmed, like the spell
         // and start item above.
         xpIdField = 10;
+        // Counted off the same serializer: RewHonorAddition at 15 (two past the
+        // spell), BonusTalents at 21 and RewArenaPoints at 22 (four and five
+        // past the start item, three and two before the reward pairs).
+        honorField = 15; talentsField = 21; arenaField = 22;
         // Counted from the same base as the four above: money is absolute 13
         // and the start item absolute 19, and the serializer writes
         // money(13), maxLevel(14), rewSpell(15) — so 13 here, which is 15 there.
@@ -1306,6 +1310,22 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
         // is small; a slipped layout lands on an id or count and is far larger.
         const uint32_t xp = readU32At(base + xpIdField * 4u);
         if (xp <= 9u) out.xpId = xp;
+    }
+    // Honor, talents and arena points are direct amounts. A slipped layout lands
+    // on an item id or a float and reads as something enormous, so gate each on
+    // a generous ceiling — real quest honor is in the hundreds, talents are one
+    // or two, arena points a few hundred.
+    if (honorField) {
+        const uint32_t h = readU32At(base + honorField * 4u);
+        if (h <= 100000u) out.rewardHonor = h;
+    }
+    if (talentsField) {
+        const uint32_t t = readU32At(base + talentsField * 4u);
+        if (t <= 20u) out.bonusTalents = t;
+    }
+    if (arenaField) {
+        const uint32_t a = readU32At(base + arenaField * 4u);
+        if (a <= 100000u) out.arenaPoints = a;
     }
     if (sourceItemField) {
         const uint32_t srcItem = readU32At(base + sourceItemField * 4u);

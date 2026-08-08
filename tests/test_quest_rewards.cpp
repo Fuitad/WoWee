@@ -170,14 +170,14 @@ TEST_CASE("Quest query rewards: WotLK layout (AzerothCore)", "[quest_rewards]") 
     putU32(b, 19800); // rewMoneyMaxLevel
     putU32(b, 0);     // rewSpell
     putU32(b, 0);     // rewSpellCast
-    putU32(b, 0);     // rewHonorAddition
+    putU32(b, 250);   // rewHonorAddition
     putF(b, 0.0f);    // rewHonorMultiplier
     putU32(b, 0);     // srcItemId
     putU32(b, 8);     // flags
     putU32(b, 0);     // charTitleId
     putU32(b, 0);     // playersSlain
-    putU32(b, 0);     // bonusTalents
-    putU32(b, 0);     // rewArenaPoints
+    putU32(b, 1);     // bonusTalents
+    putU32(b, 100);   // rewArenaPoints
     putU32(b, 0);     // reviewRepShowMask
     // 4 reward pairs, interleaved
     putU32(b, 35953); putU32(b, 2);
@@ -211,6 +211,10 @@ TEST_CASE("Quest query rewards: WotLK layout (AzerothCore)", "[quest_rewards]") 
     // XPId sits one field below the money (field 10 vs 11); the packet wrote 5.
     // This locks that offset so the reward-XP lookup reads the right column.
     CHECK(r.xpId == 5);
+    // Honor (field 15), bonus talents (21) and arena points (22), also locked.
+    CHECK(r.rewardHonor == 250);
+    CHECK(r.bonusTalents == 1);
+    CHECK(r.arenaPoints == 100);
 }
 
 TEST_CASE("Quest query rewards: implausible data rejected", "[quest_rewards]") {
