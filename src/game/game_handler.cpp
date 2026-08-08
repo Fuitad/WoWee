@@ -2289,6 +2289,35 @@ float GameHandler::getSpellCritFromIntellect() const {
                                     /*STAT_INTELLECT=*/3);
 }
 
+float GameHandler::getCombatRatingBonus(int cr) const {
+    const uint8_t pclass = getPlayerClass();
+    uint32_t level = getPlayerLevel();
+    constexpr uint32_t kGtMaxLevel = 100, kGtMaxRating = 32;
+    if (pclass == 0 || pclass > 11 || level == 0 || cr < 0 ||
+        cr >= static_cast<int>(kGtMaxRating)) return 0.0f;
+    if (level > kGtMaxLevel) level = kGtMaxLevel;
+    if (!gtCombatRatingsLoaded_) {
+        gtCombatRatingsLoaded_ = true;
+        auto* am = services_.assetManager;
+        if (am && am->isInitialized()) {
+            if (auto t = am->loadDBC("gtCombatRatings.dbc"); t && t->isLoaded())
+                for (uint32_t i = 0; i < t->getRecordCount(); ++i)
+                    gtCombatRatings_.push_back(t->getFloat(i, 0));
+            // The scalar table is id + ratio; the ratio is the second column.
+            if (auto s = am->loadDBC("gtOCTClassCombatRatingScalar.dbc"); s && s->isLoaded())
+                for (uint32_t i = 0; i < s->getRecordCount(); ++i)
+                    gtClassRatingScalar_.push_back(s->getFloat(i, 1));
+        }
+    }
+    const size_t coefIdx   = static_cast<size_t>(cr) * kGtMaxLevel + (level - 1);
+    const size_t scalarIdx = static_cast<size_t>(pclass - 1) * kGtMaxRating + cr;
+    if (coefIdx >= gtCombatRatings_.size() || scalarIdx >= gtClassRatingScalar_.size()) return 0.0f;
+    const float coef = gtCombatRatings_[coefIdx];
+    if (coef == 0.0f) return 0.0f;
+    const float ratingValue = static_cast<float>(std::max(0, getCombatRating(cr)));
+    return ratingValue * (gtClassRatingScalar_[scalarIdx] / coef);
+}
+
 std::string GameHandler::formatTitleString(const std::string& fmt) const {
     const auto& ln2 = lookupName(playerGuid);
     static const std::string kUnknown = "unknown";

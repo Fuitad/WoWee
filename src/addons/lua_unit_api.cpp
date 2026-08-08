@@ -1573,6 +1573,16 @@ static int lua_GetSpellCritChanceFromIntellect(lua_State* L) {
     return 1;
 }
 
+// GetCombatRatingBonus(ratingIndex) → the percent that combat rating grants.
+// The paperdoll reads it for dodge, parry, haste, defense, weapon skill and the
+// other rating-based stats; it was a flat zero for all of them.
+static int lua_GetCombatRatingBonus(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const int cr = static_cast<int>(luaL_optnumber(L, 1, -1));
+    lua_pushnumber(L, gh ? gh->getCombatRatingBonus(cr) : 0.0);
+    return 1;
+}
+
 /// GetUnitMaxHealthModifier(unit) → the multiplier on maximum health. One,
 /// because nothing here modifies it — and one rather than zero because the
 /// sheet multiplies by it.
@@ -3161,7 +3171,7 @@ void registerUnitLuaAPI(lua_State* L) {
                                gh->getKnownTitleBits().count(static_cast<uint32_t>(bit)) > 0;
             lua_pushnumber(L, known ? 1 : 0);
             return 1; }},
-                {"GetCombatRatingBonus",    lua_ZeroPercent},
+                {"GetCombatRatingBonus",    lua_GetCombatRatingBonus},
                 {"GetCritChanceFromAgility", lua_GetCritChanceFromAgility},
                 {"GetSpellCritChanceFromIntellect", lua_GetSpellCritChanceFromIntellect},
                 // Three values — main hand, off hand, ranged — because the

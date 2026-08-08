@@ -360,6 +360,7 @@ int main(int argc, char** argv) {
             gh.playerStatsArr()[3] = 50;
             gh.playerStatsArr()[4] = 60;
             gh.serverPlayerLevelRef() = 80;  // the level the game-table lookups use
+            gh.playerCombatRatingsRef()[2] = 100;  // CR_DODGE, for GetCombatRatingBonus
             // A few spells, so the spellbook is not empty. getSpellBookTabs
             // rebuilds itself from the known set whenever the count changes,
             // so adding them is all that is needed — and without them

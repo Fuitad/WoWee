@@ -482,6 +482,12 @@ public:
     /// the spell-side twin of getMeleeCritFromAgility, read the same way from the
     /// spell-crit game tables. Zero for a class with no spell crit (a warrior).
     float getSpellCritFromIntellect() const;
+    /// The percent a combat rating grants — dodge, parry, haste, defense and the
+    /// rest of the rating-based stats the flyout shows. rating × (class scalar ÷
+    /// the level's coefficient), from gtCombatRatings and the class scalar table,
+    /// exactly as AzerothCore's GetRatingBonusValue reads it. Zero for an
+    /// out-of-range index or a rating the player has none of.
+    float getCombatRatingBonus(int cr) const;
 
     // Server-authoritative attack power (WotLK: UNIT_FIELD_ATTACK_POWER / RANGED).
     // Returns -1 if not yet received.
@@ -4607,6 +4613,9 @@ private:
     mutable std::vector<float> gtSpellCritBase_;
     mutable std::vector<float> gtSpellCrit_;
     mutable bool gtSpellCritLoaded_ = false;
+    mutable std::vector<float> gtCombatRatings_;       // 32 ratings × 100 levels
+    mutable std::vector<float> gtClassRatingScalar_;   // 11 classes × 32 ratings (ratio column)
+    mutable bool gtCombatRatingsLoaded_ = false;
     // Shared: class base + stat × per-class-per-level ratio, ×100 for a percent.
     float critPercentFromGameTable(std::vector<float>& baseCache,
                                    std::vector<float>& ratioCache, bool& loaded,
