@@ -1698,6 +1698,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                     return lines.empty() ? size_t{1} : lines.size();
                 };
                 float y = y1 - lineH;
+                int painted = 0;
                 const int scroll = w->messageScroll;
                 for (int i = static_cast<int>(w->messages.size()) - 1 - scroll;
                      i >= 0 && y >= y0 - lineH; --i) {
@@ -1726,6 +1727,43 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                                    packColor(rgba, w->alpha), w->alpha, m.text,
                                    wrapW, false, nullptr, false, &tree, w->id);
                     y -= lineH * static_cast<float>(rows);
+                    ++painted;
+                }
+                // A window holding lines and painting none of them.
+                //
+                // Reported as no visible text at all in the chat window, and
+                // every way of asking from outside says it is fine: the frame
+                // is shown, sized, in the draw order, its lines are there and
+                // lit. The harness agrees, because the harness never draws.
+                // This is the one place that knows the difference, so it is the
+                // one place that can say which of the reasons it was.
+                //
+                // Once per frame per session — it means nothing is on screen,
+                // so it cannot be noisy for long.
+                if (painted == 0) {
+                    int lit = 0;
+                    for (const auto& m : w->messages) {
+                        if (m.color[3] > 0.0f) ++lit;
+                    }
+                    // A frame that fades its lines and has none left lit is
+                    // doing its job, not failing at it — UIErrorsFrame holds
+                    // errors for five seconds and is supposed to end up empty.
+                    // The fault is lines that are lit and still not painted,
+                    // or any line at all in a frame that never fades.
+                    const bool fadesAndHasFaded = w->messageDuration > 0.0f && lit == 0;
+                    static std::set<uint32_t> saidBlank;
+                    if (!fadesAndHasFaded && saidBlank.insert(w->id).second) {
+                        LOG_WARNING("'", w->name.empty() ? "(unnamed)" : w->name,
+                                    "' holds ", w->messages.size(),
+                                    " message(s), ", lit,
+                                    " still lit, and painted none: box is (",
+                                    x0, ",", y0, " to ", x1, ",", y1,
+                                    "), line height ", lineH, ", scrolled back ",
+                                    w->messageScroll,
+                                    " — if the box has no height there is "
+                                    "nowhere to draw, and if nothing is lit "
+                                    "they have all faded");
+                    }
                 }
             }
 

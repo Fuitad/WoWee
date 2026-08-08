@@ -488,6 +488,74 @@ int main(int argc, char** argv) {
             }
             continue;
         }
+        // --draw actually paints, into ImGui's draw list and no further.
+        //
+        // Everything else here settles layout and state; drawing was the one
+        // half that could not be reached, and it is where a whole class of
+        // fault lives — a frame correct in every property and still not on
+        // screen. The chat window holding lit messages and painting none of
+        // them is exactly that shape, and no amount of asking from outside
+        // could tell it from a healthy one.
+        //
+        // A device is needed to *present*, not to build a draw list. Textures
+        // resolve to nothing without one, which costs the images and nothing
+        // else: the geometry, the wrapping, the clipping and every diagnostic
+        // along the way run as they do in the client.
+        if (std::strcmp(argv[i], "--draw") == 0) {
+            relayout();
+            if (auto* engine = mgr.getLuaEngine()) {
+                widgets.draw(engine->widgets(), 1920.0f, 1080.0f);
+                std::printf("   drew the tree\n");
+            }
+            continue;
+        }
+        // --drawn:NAME says whether a widget reaches the draw order, and if
+        // not, which test dropped it.
+        //
+        // "It is on screen and I cannot see it" has a dozen causes and they are
+        // indistinguishable from Lua: shown, sized, positioned, coloured, and
+        // absent. The draw order is where all of them end up, so asking it
+        // directly replaces the guessing. Reports the same conditions the
+        // builder applies, in the same order.
+        if (std::strncmp(argv[i], "--drawn:", 8) == 0) {
+            relayout();
+            auto* engine = mgr.getLuaEngine();
+            if (!engine) { std::printf("   no engine\n"); continue; }
+            const auto& tree = engine->widgets();
+            const std::string want = argv[i] + 8;
+            const wowee::ui::Widget* w = tree.findByName(want);
+            if (!w) { std::printf("   no widget named '%s'\n", want.c_str()); continue; }
+            bool inOrder = false;
+            for (const auto* d : tree.drawOrder()) {
+                if (d == w) { inOrder = true; break; }
+            }
+            const char* why = "it is in the draw order";
+            if (!w->visible)               why = "not visible (shown, or an ancestor, or unanchored)";
+            else if (w->alpha <= 0.001f)   why = "alpha is zero";
+            else if (w->kind == wowee::ui::WidgetKind::Frame && !w->hasBackdrop &&
+                     !w->isStatusBar && w->externalTexture == 0 &&
+                     !(w->isMessageFrame && !w->messages.empty()) &&
+                     !(w->isTooltip && !w->tooltipLines.empty()))
+                why = "a frame with nothing of its own to paint (no backdrop, no "
+                      "bar, no messages, no tooltip lines) — a container";
+            else if (w->rectW <= 0.0f || w->rectH <= 0.0f) why = "no width or no height";
+            else if (w->kind == wowee::ui::WidgetKind::Texture &&
+                     w->texturePath.empty() && !w->solidColor &&
+                     w->externalTexture == 0)
+                why = "a texture with no image and no colour";
+            else if (w->kind == wowee::ui::WidgetKind::FontString && w->text.empty())
+                why = "a font string with no text";
+            else if (w->buttonArt != wowee::ui::ButtonArt::None)
+                why = "button art for a state the button is not in";
+            std::printf("   %s: %s — %s\n", want.c_str(),
+                        inOrder ? "DRAWN" : "not drawn", why);
+            std::printf("      visible=%d alpha=%.2f rect=(%.0f,%.0f %.0fx%.0f) "
+                        "messages=%zu backdrop=%d\n",
+                        w->visible ? 1 : 0, w->alpha, w->left, w->bottom,
+                        w->rectW, w->rectH, w->messages.size(),
+                        w->hasBackdrop ? 1 : 0);
+            continue;
+        }
         // --messages dumps every message frame: how many lines it holds, how
         // long a line lives, and what alpha each is at.
         //
