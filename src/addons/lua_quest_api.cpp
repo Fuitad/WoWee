@@ -253,9 +253,9 @@ static int lua_GetQuestLogTitle(lua_State* L) {
     // that can be nil before anything has been selected, and raising there
     // loses whatever asked rather than answering that there is no such quest.
     const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
-    if (!gh || index < 1) { return luaReturnNil(L); }
+    if (!gh) { return luaReturnNil(L); }
     const auto& ql = gh->getQuestLog();
-    // A positive index past the end gets an empty row, not a bare nil.
+    // An index off either end gets an empty row, not a bare nil.
     //
     // QuestLog_Update reads the count once and then walks GetQuestLogTitle in a
     // loop; a server update landing between frames while the log is scrolled
@@ -264,8 +264,15 @@ static int lua_GetQuestLogTitle(lua_State* L) {
     // line is `title = "["..level.."] "..title`, and a nil title raised there
     // and tore down the whole redraw — which is what left the list a mess. An
     // empty title concatenates cleanly and the row corrects itself on the next
-    // pass; a raise does not. Only index < 1 is truly nothing, and stays nil.
-    if (index > static_cast<int>(ql.size())) {
+    // pass; a raise does not.
+    //
+    // The low end too, not just the high: the button loop guards only the upper
+    // bound (`if questIndex <= numEntries`), so a scroll offset that drives the
+    // index to zero or below still reaches here and hit `"  "..title` at a nil
+    // — the questlogframe.lua:430 raise seen driving the log headlessly. The
+    // `if title` callers all iterate 1..numEntries and never reach a low index,
+    // so an empty row here changes nothing for them.
+    if (index < 1 || index > static_cast<int>(ql.size())) {
         lua_pushstring(L, "");   // 1: title (empty, never nil)
         lua_pushnumber(L, 0);    // 2: level
         lua_pushnil(L);          // 3: questTag
