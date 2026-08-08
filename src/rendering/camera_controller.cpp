@@ -1305,6 +1305,24 @@ void CameraController::update(float deltaTime) {
                                 " m2=", m2H ? *m2H : -99999.0f,
                                 " seam=", atTunnelSeam ? 1 : 0, ")");
                         }
+                        // A large jump — the floor query landed a level away, not
+                        // a step — is the Undercity pull, and the one thing needed
+                        // to solve it is which WMO groups and floors exist under
+                        // the player when it happens. That is exactly what F8's
+                        // dump prints, so dump it here automatically on a big jump
+                        // (rate-limited hard, it is verbose): the log then carries
+                        // the answer from ordinary play, with no key to remember.
+                        if (wmoRenderer && std::abs(*groundH - lastGroundZ) > 2.0f) {
+                            static std::chrono::steady_clock::time_point lastFloorDump{};
+                            if (now - lastFloorDump > std::chrono::seconds(5)) {
+                                lastFloorDump = now;
+                                core::Logger::getInstance().warning(
+                                    "Player floor jump: dumping WMO groups at the "
+                                    "pull (feet ", targetPos.z, " -> ", *groundH, ")");
+                                wmoRenderer->debugDumpGroupsAtPosition(
+                                    targetPos.x, targetPos.y, targetPos.z);
+                            }
+                        }
                     }
 
                     // Update cache
