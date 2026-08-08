@@ -144,6 +144,37 @@ std::optional<float> movingEntityFloor(rendering::Renderer* renderer,
         consider(m2->getFloorHeight(renderPos.x, renderPos.y, probeZ));
     }
 
+    // A jump between floors, named once a second while it is happening.
+    //
+    // Reported as the character pulled between levels in Undercity — in
+    // portals, doorways, overhangs — which is this arbitration flipping between
+    // two floors that both sit inside the step-up/drop window near a level
+    // transition. Which floor won, from which source, and how far it moved the
+    // player is the thing a report cannot carry and this can. Warning level and
+    // rate-limited, because the default log is warnings only and a per-frame
+    // line would bury everything else.
+    if (best && previousRenderPos &&
+        std::abs(*best - previousRenderPos->z) > 1.0f) {
+        static std::chrono::steady_clock::time_point lastFloorJumpLog{};
+        const auto now = std::chrono::steady_clock::now();
+        if (now - lastFloorJumpLog > std::chrono::seconds(1)) {
+            lastFloorJumpLog = now;
+            std::optional<float> terrainF, wmoF, m2F;
+            if (auto* t = renderer->getTerrainManager())
+                terrainF = t->getHeightAt(renderPos.x, renderPos.y);
+            if (auto* w = renderer->getWMORenderer())
+                wmoF = w->getFloorHeight(renderPos.x, renderPos.y, probeZ);
+            if (auto* mm = renderer->getM2Renderer())
+                m2F = mm->getFloorHeight(renderPos.x, renderPos.y, probeZ);
+            LOG_WARNING("Floor jump: player z=", renderPos.z, " prev z=",
+                        previousRenderPos->z, " -> chose ", *best,
+                        " (terrain=", terrainF ? *terrainF : -99999.0f,
+                        " wmo=", wmoF ? *wmoF : -99999.0f,
+                        " m2=", m2F ? *m2F : -99999.0f,
+                        ") — moved ", *best - previousRenderPos->z);
+        }
+    }
+
     // A broader floor candidate is useful on stairs and uneven terrain, but it is
     // ambiguous near overlapping shells or non-collidable authored props. Require
     // continuity with the last rendered ground position before accepting it. This
