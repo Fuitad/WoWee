@@ -313,30 +313,46 @@ static QuestQueryTextCandidate pickBestQuestQueryTexts(const std::vector<uint8_t
                 // "" left a completed quest with a blank line where "Return to
                 // Marshal Dughan" belongs.
                 //
-                // Only from the seeded offsets, and only for the layout that
-                // order was read off. The scan below finds a title by scoring
-                // printable text, which says nothing about what follows it; and
-                // the earlier expansions' string order has not been read off a
-                // serializer here, so a guess would put an arbitrary sentence
-                // on a quest.
-                if (!classicHint && off == wotlkOffset) {
+                // The strings after the title read Title, Objectives, Details,
+                // (AreaDescription,) CompletedText in every expansion — the
+                // order is the same for vmangos classic and AzerothCore WotLK,
+                // which the quest-reward tests pin byte for byte. Only the
+                // numeric block before them changes size, and the seed offsets
+                // above already try both, with the score picking whichever read
+                // cleanly. So the third string is the description whatever the
+                // client is, and gating it to WotLK left classic and TBC quests
+                // with a blank description panel — the one thing a universal
+                // client cannot do.
+                //
+                // Still only from the seeded offsets, never the scored scan
+                // below: that finds a title by printability alone and says
+                // nothing about what follows it. And still guarded by
+                // readability, so a wrong offset — a title matched at the other
+                // expansion's seed — yields an unreadable third string and is
+                // dropped rather than pasted onto the quest.
+                {
                     std::string s3, s4, s5;
                     size_t n3 = n2, n4 = n2, n5 = n2;
-                    if (readCStringAt(data, n2, s3, n3) &&
-                        readCStringAt(data, n3, s4, n4) &&
-                        readCStringAt(data, n4, s5, n5)) {
-                        // The third string, which this walk already had in hand
-                        // on its way to the fifth. It is what the quest giver
-                        // says, and the quest log draws it above the
-                        // objectives — GetQuestLogQuestText answered "" for it,
-                        // so every quest in the log had a blank where its text
-                        // belongs. Longer than a completion line, so the cap is
-                        // higher.
+                    if (readCStringAt(data, n2, s3, n3)) {
+                        // The details, above the objectives in the log.
                         if (isReadableQuestText(s3, 8, 4096)) {
                             c.description = normalizeQuestText(s3, false);
                         }
-                        if (isReadableQuestText(s5, 8, 600)) {
-                            c.completionText = normalizeQuestText(s5, false);
+                        // The completed line sits one string later on WotLK
+                        // (past AreaDescription) than on the earlier clients,
+                        // where it follows the details directly. Read both and
+                        // take whichever is a readable sentence, longest first —
+                        // AreaDescription is usually empty, so it rarely wins,
+                        // and an empty one never does.
+                        if (readCStringAt(data, n3, s4, n4)) {
+                            readCStringAt(data, n4, s5, n5);
+                            const bool s5ok = isReadableQuestText(s5, 8, 600);
+                            const bool s4ok = isReadableQuestText(s4, 8, 600);
+                            if (s5ok && (!s4ok || s5.size() >= s4.size())) {
+                                c.completionText = normalizeQuestText(s5, false);
+                            } else if (s4ok) {
+                                c.completionText = normalizeQuestText(s4, false);
+                            }
                         }
                     }
                 }
