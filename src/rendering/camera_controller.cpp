@@ -1221,6 +1221,19 @@ void CameraController::update(float deltaTime) {
                         wmoH = std::nullopt;
                         centerWmoH = std::nullopt;
                     }
+                    // An M2 doodad's collision sitting well below a valid WMO
+                    // floor is BENEATH that floor — a decoration or structural
+                    // base under the walkway, not a surface to stand on. Letting
+                    // it win drops the player through the WMO floor: in Undercity
+                    // the pick took an m2 floor ~6m below the wmo one (feet -48.8,
+                    // wmo -48.15, m2 -54.23) and fell. When a WMO floor is present
+                    // here, reject an m2 floor more than 1.5m below it. (If the
+                    // player were standing ON the m2 platform, the higher WMO
+                    // floor would be above the probe and not returned, so this
+                    // cannot strand them off a legitimate lower deck.)
+                    if (m2H && wmoH && *m2H < *wmoH - 1.5f) {
+                        m2H = std::nullopt;
+                    }
                     // A terrain hole is the artist saying there is no ground
                     // here — it is how cave mouths and sunken entrances get
                     // opened up, and the mesh builder already skips those
