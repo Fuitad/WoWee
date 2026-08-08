@@ -52,6 +52,7 @@
 // script can ask "did this one still work" without reading the output.
 
 #include "addons/addon_manager.hpp"
+#include "core/app_clock.hpp"
 #include "ui/widget_renderer.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "ui/interface_fonts.hpp"
@@ -935,7 +936,15 @@ int main(int argc, char** argv) {
         if (std::strncmp(argv[i], "--tick:", 7) == 0) {
             const int ticks = std::atoi(argv[i] + 7);
             relayout();
-            for (int t = 0; t < ticks; ++t) mgr.update(1.0f / 60.0f);
+            // Move the shared clock forward with the tick loop, not just the
+            // per-frame elapsed: FadingFrame and cooldown sweeps read GetTime
+            // (the wall clock), which otherwise stands still through a
+            // synchronous tick run and freezes every fade the harness tries to
+            // age. Advance first, so this tick's OnUpdate sees the new "now".
+            for (int t = 0; t < ticks; ++t) {
+                wowee::core::advanceTestClock(1.0 / 60.0);
+                mgr.update(1.0f / 60.0f);
+            }
             std::printf("   ticked %d frame(s)\n", ticks);
             if (errors.size() != before) {
                 ++raised;
