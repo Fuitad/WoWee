@@ -457,7 +457,27 @@ int main(int argc, char** argv) {
         // listens. This goes the way the client goes.
         if (std::strncmp(argv[i], "--fire:", 7) == 0) {
             relayout();
-            mgr.fireEvent(argv[i] + 7);
+            // --fire:EVENT|arg1|arg2 — the arguments matter as much as the
+            // event. A handler is written against what the event carries, and
+            // an event fired empty makes most of them return at their first
+            // line: CHAT_MSG_SAY with no message adds nothing to the chat
+            // window, which reads exactly like a chat window that is broken.
+            // Pipe-separated, because a chat line is full of commas.
+            std::string spec = argv[i] + 7;
+            std::string event = spec;
+            std::vector<std::string> eventArgs;
+            if (const size_t bar = spec.find('|'); bar != std::string::npos) {
+                event = spec.substr(0, bar);
+                size_t at = bar + 1;
+                while (at <= spec.size()) {
+                    const size_t next = spec.find('|', at);
+                    eventArgs.push_back(spec.substr(
+                        at, next == std::string::npos ? std::string::npos : next - at));
+                    if (next == std::string::npos) break;
+                    at = next + 1;
+                }
+            }
+            mgr.fireEvent(event, eventArgs);
             if (errors.size() == before) {
                 std::printf("   no error\n");
             } else {
@@ -466,6 +486,85 @@ int main(int argc, char** argv) {
                     std::printf("   %s\n", errors[k].c_str());
                 }
             }
+            continue;
+        }
+        // --messages dumps every message frame: how many lines it holds, how
+        // long a line lives, and what alpha each is at.
+        //
+        // A chat window with nothing in it and a chat window whose lines have
+        // all faded to nothing look identical from Lua — GetNumMessages counts
+        // both, because a faded line is still in the history and comes back
+        // when the frame is scrolled. The alpha is the only thing that
+        // separates "nothing was said" from "everything said has gone".
+        if (std::strcmp(argv[i], "--messages") == 0) {
+            relayout();
+            auto* engine = mgr.getLuaEngine();
+            if (!engine) { std::printf("   no engine\n"); continue; }
+            const auto& tree = engine->widgets();
+            int frames = 0;
+            for (uint32_t id = 1; id < tree.size(); ++id) {
+                const auto* w = tree.get(id);
+                if (!w || w->id == 0 || !w->isMessageFrame) continue;
+                if (w->messages.empty()) continue;
+                ++frames;
+                int lit = 0;
+                for (const auto& m : w->messages) if (m.color[3] > 0.0f) ++lit;
+                std::printf("   %-22s %zu line(s), %d lit, duration %.0fs, "
+                            "fade %.0fs, scroll %d\n",
+                            w->name.empty() ? "(unnamed)" : w->name.c_str(),
+                            w->messages.size(), lit, w->messageDuration,
+                            w->messageFadeDuration, w->messageScroll);
+                int shown = 0;
+                for (const auto& m : w->messages) {
+                    if (++shown > 3) break;
+                    std::printf("      alpha %.2f age %.1fs  %.60s\n",
+                                m.color[3], m.age, m.text.c_str());
+                }
+            }
+            std::printf("   %d message frame(s) holding anything\n", frames);
+            continue;
+        }
+        // --offscreen names content that is on screen in every sense except
+        // where it is.
+        //
+        // "Off page and unreadable" is how this gets reported. A frame shown,
+        // sized and filled in, sitting entirely past an edge, is invisible in
+        // exactly the way a broken one is — and every property reads back
+        // correct, because being outside the screen is not a property.
+        //
+        // Wholly outside, not merely overhanging: the action bar's end caps and
+        // several borders hang off deliberately, and a frame half on screen is
+        // still being read.
+        if (std::strcmp(argv[i], "--offscreen") == 0) {
+            relayout();
+            auto* engine = mgr.getLuaEngine();
+            if (!engine) { std::printf("   no engine\n"); continue; }
+            const auto& tree = engine->widgets();
+            const float sw = 1920.0f / tree.uiScale();
+            const float sh = 1080.0f / tree.uiScale();
+            int found = 0, onscreen = 0;
+            for (uint32_t id = 1; id < tree.size(); ++id) {
+                const auto* w = tree.get(id);
+                if (!w || w->id == 0 || !w->visible) continue;
+                const bool draws =
+                    (w->kind == wowee::ui::WidgetKind::FontString && !w->text.empty()) ||
+                    (w->kind == wowee::ui::WidgetKind::Texture && !w->texturePath.empty());
+                if (!draws || w->rectW <= 0.0f || w->rectH <= 0.0f) continue;
+                ++onscreen;
+                const bool outside =
+                    w->left + w->rectW <= 0.0f || w->left >= sw ||
+                    w->bottom + w->rectH <= 0.0f || w->bottom >= sh;
+                if (!outside) continue;
+                ++found;
+                if (found <= 25) {
+                    std::printf("   offscreen: %-34s at (%.0f,%.0f %.0fx%.0f) "
+                                "on a %.0fx%.0f screen\n",
+                                w->name.empty() ? "(unnamed)" : w->name.c_str(),
+                                w->left, w->bottom, w->rectW, w->rectH, sw, sh);
+                }
+            }
+            if (found > 25) std::printf("   ... and %d more\n", found - 25);
+            std::printf("   %d offscreen, of %d drawing\n", found, onscreen);
             continue;
         }
         // --missingart names textures whose file this install does not carry.

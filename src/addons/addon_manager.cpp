@@ -698,6 +698,42 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
         "  end)\n"
         "end\n");
 
+    // Why the objectives tracker collapsed, when it collapses itself.
+    //
+    // Reported as "collapse the objectives and the text does not come back".
+    // FrameXML collapses that frame from two places and they mean opposite
+    // things: the button's OnClick, which is the player asking, and
+    // WatchFrame_Update, which does it when the objective handlers report that
+    // nothing was laid out — pixelsUsed of zero leaves totalOffset at its
+    // starting value, and that branch also *disables* the expand button. Since
+    // WatchFrame_Expand ends by calling WatchFrame_Update, an expand whose
+    // update measures nothing is undone in the same breath, which is exactly
+    // "it will not come back".
+    //
+    // userCollapsed is the discriminator and it is already there: the button's
+    // OnClick sets it, and the automatic path never does. One line, only when
+    // the tracker actually collapses, so it costs nothing until it happens.
+    //
+    // Wrapping the global rather than hooking a script, because
+    // WatchFrame_Collapse is called by name from FrameXML itself — this is the
+    // opposite case to the quest panels above, where what runs is the widget's
+    // stored script and only HookScript reaches it.
+    luaEngine_.executeString(
+        "if type(WatchFrame_Collapse) == 'function' then\n"
+        "  local original = WatchFrame_Collapse\n"
+        "  WatchFrame_Collapse = function(self)\n"
+        "    self = self or WatchFrame\n"
+        "    __WoweeWarn(string.format(\n"
+        "      'objectives tracker collapsing: %s (userCollapsed=%s, lines=%s)',\n"
+        "      self.userCollapsed and 'the player asked' or\n"
+        "        'BY ITSELF - an update measured nothing, and that also disables "
+        "the expand button',\n"
+        "      tostring(self.userCollapsed),\n"
+        "      tostring(WatchFrameLines and WatchFrameLines:IsShown())))\n"
+        "    return original(self)\n"
+        "  end\n"
+        "end\n");
+
     // The same for the progress panel, which is the one a blank parchment was
     // photographed on — Continue and Cancel, with nothing between them.
     //
