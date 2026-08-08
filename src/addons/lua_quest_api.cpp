@@ -1849,11 +1849,20 @@ static int lua_GetUnspentTalentPoints(lua_State* L) {
     const int group = static_cast<int>(luaL_optnumber(L, 3, 0));
     const uint8_t spec = (group >= 1 && group <= 2) ? static_cast<uint8_t>(group - 1)
                                                    : gh->getActiveTalentSpec();
-    int points = gh->getUnspentTalentPoints(spec);
-    // Less whatever is staged, or the frame shows points that are already
-    // committed in the preview and lets them be spent twice.
-    for (const auto& [id, n] : previewPoints()) { (void)id; points -= n; }
-    lua_pushnumber(L, points > 0 ? points : 0);
+    // The raw unspent total, before any staged preview points.
+    //
+    // The frame subtracts the preview itself: TalentFrame_UpdateTalentPoints is
+    // `GetUnspentTalentPoints() - GetGroupPreviewTalentPointsSpent()`. This
+    // binding used to subtract the staged points as well, so every point
+    // clicked came off the counter twice — stage one and the "Talent Points"
+    // line dropped by two. The overspend that subtraction was meant to stop is
+    // already stopped in AddPreviewTalentPoints, which bounds each stage by the
+    // handler's own raw unspent minus what is already staged, so nothing here
+    // needs to guard it. blizzard_talentui reads this raw too, to decide
+    // whether there are points left to commit — which must count the staged
+    // ones, or the Learn controls vanish the moment the last point is staged.
+    const int points = gh->getUnspentTalentPoints(spec);
+    lua_pushnumber(L, points);
     return 1;
 }
 
