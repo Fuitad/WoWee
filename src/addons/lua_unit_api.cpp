@@ -856,10 +856,14 @@ static int lua_GetSpellCritChance(lua_State* L) {
     return 1;
 }
 
-// GetCombatRating(ratingIndex) → value
+// GetCombatRating(ratingIndex) → value.
+// The FrameXML CR_* constants are 1-based (CR_WEAPON_SKILL=1 … CR_ARMOR_PENETRATION=25),
+// but the player-field array and the combat game tables are 0-based (AzerothCore's
+// CombatRating enum, weapon skill at 0). Convert at the boundary or every rating reads
+// its neighbour's slot.
 static int lua_GetCombatRating(lua_State* L) {
     auto* gh = getGameHandler(L);
-    int cr = static_cast<int>(luaL_checknumber(L, 1));
+    int cr = static_cast<int>(luaL_checknumber(L, 1)) - 1;
     int32_t v = gh ? gh->getCombatRating(cr) : 0;
     lua_pushnumber(L, v >= 0 ? v : 0);
     return 1;
@@ -1578,7 +1582,8 @@ static int lua_GetSpellCritChanceFromIntellect(lua_State* L) {
 // other rating-based stats; it was a flat zero for all of them.
 static int lua_GetCombatRatingBonus(lua_State* L) {
     auto* gh = getGameHandler(L);
-    const int cr = static_cast<int>(luaL_optnumber(L, 1, -1));
+    // Same 1-based CR_* → 0-based table convention as GetCombatRating above.
+    const int cr = static_cast<int>(luaL_optnumber(L, 1, 0)) - 1;
     lua_pushnumber(L, gh ? gh->getCombatRatingBonus(cr) : 0.0);
     return 1;
 }
