@@ -4265,9 +4265,34 @@ void registerInventoryLuaAPI(lua_State* L) {
             if (auto* gh = getGameHandler(L)) gh->closeAuctionHouse();
             return 0;
         }},
+                // SetAuctionsTabShowing(showing) — a *boolean*, not a tab index.
+                //
+                // It is the last statement in each branch of
+                // AuctionFrameTab_OnClick, and it was reading its argument with
+                // optnumber: `SetAuctionsTabShowing(false)` raised "number
+                // expected, got boolean" on every click of the Browse and Bids
+                // tabs, and the interface's own handler ended there.
+                //
+                // The name says what it means. It is not "which tab" but
+                // "is the Auctions tab the one on screen" — the interface calls
+                // it with false from Browse and from Bids, and true only from
+                // Auctions. So false cannot say which of the other two it is,
+                // and nothing here may pretend otherwise: the one reader is
+                // this client's own auction window, which is not drawn at all
+                // while the interface owns the panel.
+                //
+                // A number is still accepted, because an addon written against
+                // the older shape of this binding would otherwise start raising
+                // where it used to work.
                 {"SetAuctionsTabShowing", [](lua_State* L) -> int {
-            if (auto* gh = getGameHandler(L)) {
-                gh->setAuctionActiveTab(static_cast<int>(luaL_optnumber(L, 1, 0)));
+            auto* gh = getGameHandler(L);
+            if (!gh) return 0;
+            if (lua_isboolean(L, 1)) {
+                gh->setAuctionActiveTab(lua_toboolean(L, 1) ? 2 : 0);
+            } else if (lua_isnumber(L, 1)) {
+                gh->setAuctionActiveTab(static_cast<int>(lua_tonumber(L, 1)));
+            } else if (lua_isnoneornil(L, 1)) {
+                gh->setAuctionActiveTab(0);
             }
             return 0;
         }},

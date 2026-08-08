@@ -1130,6 +1130,48 @@ def check_nothing_unsized():
     return True, what
 
 
+def check_panels_without_the_standin():
+    """Open panels with a player, no stand-in, and draw them.
+
+    Three things that had only ever been done separately. The stand-in makes an
+    unknown global answer with a no-op, so anything leaning on one stays quiet;
+    a player makes the panels that read UnitClass work at all; and drawing is
+    where a whole class of fault lives and was unreachable until the harness
+    could paint into a draw list.
+
+    Together they found SetAuctionsTabShowing raising on the boolean the
+    interface actually passes it — from AuctionFrame's OnShow, so the auction
+    house raised the moment it opened, and again on every tab click. That is
+    not a stand-in fault and was not hidden by one: it raised in ordinary runs
+    too, and nothing had ever opened the panel to see it.
+
+    A raise inside a handler is swallowed by the client, so this is the only
+    way to see one. Skipped rather than passed without assets.
+    """
+    exe = ROOT / "build" / "bin" / "framexml_run"
+    data = ROOT / "Data"
+    what = "panels open, draw and raise nothing with no stand-in"
+    if not exe.exists() or not data.is_dir():
+        return None, what
+    env = dict(os.environ, WOWEE_LUA_API_FALLBACK="0")
+    for panel in ("AuctionFrame", "CharacterFrame", "MerchantFrame",
+                  "SpellBookFrame", "QuestLogFrame"):
+        argv = [str(exe), str(data), "--player",
+                f"local f = {panel} if f and f ~= _G['QQNoSuchThing'] then "
+                f"ShowUIPanel(f) end",
+                "--tick:3", "--draw"]
+        try:
+            out = subprocess.run(argv, capture_output=True, text=True,
+                                 timeout=300, env=env)
+        except subprocess.TimeoutExpired:
+            return False, f"{what} ({panel} timed out)"
+        raised = [ln.strip() for ln in (out.stdout + out.stderr).splitlines()
+                  if re.match(r"^\s+\S.*:\d+:", ln)]
+        if raised:
+            return False, f"{what} — {panel}: {raised[0][:150]}"
+    return True, what
+
+
 def check_without_the_standin():
     """Load the whole interface with the missing-API stand-in turned off.
 
@@ -1215,7 +1257,8 @@ def main():
 
     for ok, what in (check_without_the_standin(), check_rebuild_idiom(),
                      check_paragraph_wrapping(), check_binding_dispatch(),
-                     check_npc_dialogs_fill(), check_nothing_unsized()):
+                     check_npc_dialogs_fill(), check_nothing_unsized(),
+                     check_panels_without_the_standin()):
         if ok is None:
             print(f"  skip    -       {what} (framexml_run not built)")
             continue
