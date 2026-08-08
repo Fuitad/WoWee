@@ -1399,7 +1399,19 @@ void CameraController::update(float deltaTime) {
             // support height to avoid dropping through sparse collision seams.
             if (groundH && hasRealGround_ && nearStructureSpace && !nowJump) {
                 float dropFromLast = lastGroundZ - *groundH;
-                if (dropFromLast > 1.0f && verticalVelocity > -6.0f) {
+                // Only reject the lower sample while the feet are still up near
+                // lastGroundZ — that is the transient bad-ramp case this guard is
+                // for. Once the feet have actually descended below the clamp
+                // target the player is standing on the lower floor, and pinning
+                // groundH back up to lastGroundZ leaves the ground reference
+                // hanging above the feet so gravity and the snap fight over the
+                // gap forever. That is the Undercity overhang yo-yo: walk under
+                // the level above, lastGroundZ stays stuck on it (-43) while the
+                // real floor (-47) is refused, and the feet bob in between. If
+                // the feet are already past the target, let the real floor
+                // through so lastGroundZ can follow the player down onto it.
+                if (dropFromLast > 1.0f && verticalVelocity > -6.0f &&
+                    targetPos.z > lastGroundZ - 0.20f) {
                     *groundH = std::max(*groundH, lastGroundZ - 0.20f);
                 }
             }
