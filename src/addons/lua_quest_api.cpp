@@ -102,10 +102,18 @@ static int lua_GetQuestRewardSpell(lua_State* L) {
 static int lua_GetQuestRewardTitle(lua_State* L) {
     auto* gh = getGameHandler(L);
     if (!gh) { return luaReturnNil(L); }
-    const int index = gh->getSelectedQuestLogIndex();
-    const auto& log = gh->getQuestLog();
-    if (index < 1 || index > static_cast<int>(log.size())) { return luaReturnNil(L); }
-    const uint32_t titleId = log[static_cast<size_t>(index - 1)].rewardTitleId;
+    // The offer panel (GetRewardTitle) and the log panel (GetQuestLogRewardTitle)
+    // share this; read whichever is open, the offer's own title id when it is,
+    // else the selected log quest's — the log selection is not the offer's.
+    uint32_t titleId = 0;
+    if (gh->isQuestOfferRewardOpen()) {
+        titleId = gh->getQuestOfferReward().rewardTitleId;
+    } else {
+        const int index = gh->getSelectedQuestLogIndex();
+        const auto& log = gh->getQuestLog();
+        if (index >= 1 && index <= static_cast<int>(log.size()))
+            titleId = log[static_cast<size_t>(index - 1)].rewardTitleId;
+    }
     if (titleId == 0) { return luaReturnNil(L); }
     const std::string name = gh->getFormattedTitleById(titleId);
     if (name.empty()) { return luaReturnNil(L); }

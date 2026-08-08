@@ -1065,7 +1065,7 @@ bool QuestOfferRewardParser::parse(network::Packet& packet, QuestOfferRewardData
         if (packet.hasRemaining(4)) packet.readUInt32();  // unused
         if (packet.hasRemaining(4)) packet.readUInt32();  // reward spell
         if (packet.hasRemaining(4)) packet.readUInt32();  // reward spell cast
-        if (packet.hasRemaining(4)) packet.readUInt32();  // title id
+        if (packet.hasRemaining(4)) data.rewardTitleId = packet.readUInt32();
         if (packet.hasRemaining(4)) data.rewardTalents = packet.readUInt32();
         if (packet.hasRemaining(4)) data.rewardArenaPoints = packet.readUInt32();
 

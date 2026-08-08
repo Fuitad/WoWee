@@ -457,7 +457,7 @@ TEST_CASE("Offer reward: WotLK layout (AzerothCore)", "[quest_rewards]") {
     putU32(b, 0x08);            // unused
     putU32(b, 0);               // rewSpell
     putU32(b, 0);               // rewSpellCast
-    putU32(b, 0);               // titleId
+    putU32(b, 6);               // titleId
     putU32(b, 3);               // bonusTalents
     putU32(b, 100);             // arenaPoints
     putU32(b, 0);               // unk
@@ -474,6 +474,7 @@ TEST_CASE("Offer reward: WotLK layout (AzerothCore)", "[quest_rewards]") {
     CHECK(d.rewardMoney == 47400);
     CHECK(d.rewardXp == 20000);
     CHECK(d.rewardHonor == 250);   // 2500 on the wire, unscaled by ten
+    CHECK(d.rewardTitleId == 6);
     CHECK(d.rewardTalents == 3);
     CHECK(d.rewardArenaPoints == 100);
 }

@@ -2531,6 +2531,7 @@ struct QuestOfferRewardData {
     uint32_t rewardHonor = 0;   // honor points (the packet's ×10 value, unscaled)
     uint32_t rewardTalents = 0;
     uint32_t rewardArenaPoints = 0;
+    uint32_t rewardTitleId = 0;  // CharTitles.dbc id of an awarded title, 0 = none
     std::vector<QuestRewardItem> choiceRewards;  // Pick one
     std::vector<QuestRewardItem> fixedRewards;   // Always given
 };
