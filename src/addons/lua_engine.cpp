@@ -8108,9 +8108,42 @@ void LuaEngine::reportMissingApi() const {
     // them correctly absent, which is a report whose number means the opposite
     // of what it says. They are counted apart rather than dropped: a genuinely
     // missing sub-frame would hide here too, and the count is where it shows.
+    // Three names the interface asks for that the interface itself never
+    // provides, and that nothing here should.
+    //
+    // Checked by grepping Data/interface for a definition of each: there is
+    // none, so they are nil in the real client too and Blizzard's own code is
+    // written around that.
+    //
+    //   CaptureBar_Hide                 worldstateframe.lua does
+    //                                   `onHide = CaptureBar_Hide`, which
+    //                                   stores nil. A nil handler is a handler
+    //                                   nobody calls.
+    //   OptionsFrame_ToggleSubCategories  assigned to self.toggleSubCategories
+    //                                   in framexml, called in gluexml — the
+    //                                   glue side is the login screen, which
+    //                                   this client does not run.
+    //   ZonePVPType                     not a function at all. zonetext.lua
+    //                                   declares `ZonePVPType = nil` at the top
+    //                                   and assigns it later; reading it before
+    //                                   then is reading a variable that has not
+    //                                   been set, which is what it is for.
+    //
+    // Counted apart rather than dropped, for the same reason the frame parts
+    // are: the headline number is meant to be actionable, and three permanent
+    // entries in it teach whoever reads it that the number is always three.
+    static constexpr const char* kNeverDefinedByBlizzard[] = {
+        "CaptureBar_Hide", "OptionsFrame_ToggleSubCategories", "ZonePVPType",
+    };
     std::vector<std::string> partsOfFrames;
+    std::vector<std::string> blizzardsOwn;
     std::vector<std::string> realGaps;
     for (const auto& n : absent) {
+        bool never = false;
+        for (const char* known : kNeverDefinedByBlizzard) {
+            if (n == known) { never = true; break; }
+        }
+        if (never) { blizzardsOwn.push_back(n); continue; }
         bool isPart = false;
         // The suffixes in play are short — Top, Middle, Bottom, Count, Text —
         // and the frame they hang off is never tiny.
@@ -8131,13 +8164,14 @@ void LuaEngine::reportMissingApi() const {
                     "no-op: ", all);
     }
 
-    if (!realGaps.empty() || !partsOfFrames.empty()) {
+    if (!realGaps.empty() || !partsOfFrames.empty() || !blizzardsOwn.empty()) {
     LOG_WARNING("LuaEngine: ", realGaps.size(), " distinct API names were called "
                 "and are still not defined (", globals.size() - absent.size(),
                 " more were read before whatever defines them had loaded, and ",
                 partsOfFrames.size(), " were optional parts of frames that do "
                 "exist, and ", widgetFields.size(), " were fields read off a "
-                "widget before anything set them)");
+                "widget before anything set them, and ", blizzardsOwn.size(),
+                " the interface asks for and never defines itself)");
     }
     std::string line;
     for (const auto& n : realGaps) {
@@ -8157,6 +8191,9 @@ void LuaEngine::reportMissingApi() const {
     const std::string path = core::getConfigRoot() + "/missing_api.txt";
     if (std::ofstream out(path); out) {
         for (const auto& n : realGaps) out << n << "\n";
+        out << "\n-- the interface asks for these and never defines them; "
+               "they are nil in the real client too --\n";
+        for (const auto& n : blizzardsOwn) out << n << "\n";
         out << "\n-- optional parts of frames that exist, correctly absent --\n";
         for (const auto& n : partsOfFrames) out << n << "\n";
         out << "\n-- fields read off a widget before anything set them --\n";
