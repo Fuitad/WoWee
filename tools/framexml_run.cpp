@@ -67,6 +67,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <string>
+#include <set>
 #include <vector>
 
 int main(int argc, char** argv) {
@@ -465,6 +466,45 @@ int main(int argc, char** argv) {
                     std::printf("   %s\n", errors[k].c_str());
                 }
             }
+            continue;
+        }
+        // --missingart names textures whose file this install does not carry.
+        //
+        // A path that resolves to nothing is a blank where an icon should be,
+        // and nothing reports it: the draw substitutes nothing and carries on,
+        // so it looks exactly like art that is meant to be absent. Only
+        // askable now that the harness can read the assets.
+        //
+        // Distinct paths rather than regions, because one missing file is
+        // usually many regions — every action button shares a border.
+        if (std::strcmp(argv[i], "--missingart") == 0) {
+            relayout();
+            auto* engine = mgr.getLuaEngine();
+            if (!engine) { std::printf("   no engine\n"); continue; }
+            const auto& tree = engine->widgets();
+            std::set<std::string> seen, missing;
+            for (uint32_t id = 1; id < tree.size(); ++id) {
+                const auto* w = tree.get(id);
+                if (!w || w->id == 0 || w->kind != wowee::ui::WidgetKind::Texture) continue;
+                if (w->texturePath.empty()) continue;
+                if (!seen.insert(w->texturePath).second) continue;
+                float tw = 0.0f, th = 0.0f;
+                if (!widgets.artResolves(w->texturePath, tw, th)) {
+                    missing.insert(w->texturePath);
+                }
+            }
+            int shown = 0;
+            for (const std::string& p : missing) {
+                if (++shown > 25) break;
+                std::printf("   missing art: %s\n", p.c_str());
+            }
+            if (missing.size() > 25) {
+                std::printf("   ... and %zu more\n", missing.size() - 25);
+            }
+            // Both numbers again: nothing missing out of nothing looked at is
+            // not the same answer as nothing missing out of hundreds.
+            std::printf("   %zu missing, of %zu distinct paths\n",
+                        missing.size(), seen.size());
             continue;
         }
         // --unsized names content that is on screen, has something to show, and

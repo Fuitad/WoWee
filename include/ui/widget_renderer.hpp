@@ -58,6 +58,15 @@ public:
     /// evicts, because Interface\ art is small, bounded and reused constantly.
     size_t textureCount() const { return textures_.size(); }
 
+    /// Whether the art at this path can be read and decoded at all, and how big
+    /// it is. Public because it answers a question worth asking from outside:
+    /// FrameXML naming art the assets do not carry is a blank where an icon
+    /// should be, and nothing else reports it — the draw silently substitutes
+    /// nothing and carries on.
+    bool artResolves(const std::string& path, float& w, float& h) {
+        return textureSize(path, w, h);
+    }
+
 private:
     /// Descriptor set for an Interface\ path, loading it on first use. Returns
     /// VK_NULL_HANDLE for anything missing, and remembers the failure so a

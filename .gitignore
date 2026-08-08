@@ -127,3 +127,7 @@ codex-loop.sh
 # The headless runner keeps its config here so it cannot overwrite the
 # player's missing-API and Lua-error lists.
 logs/framexml_run_config/
+
+# Canary builds: deliberately broken binaries for watching a check fail.
+# Kept out of build/ because that is what the player runs.
+build-canary/
