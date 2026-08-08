@@ -1150,16 +1150,39 @@ def check_panels_without_the_standin():
     """
     exe = ROOT / "build" / "bin" / "framexml_run"
     data = ROOT / "Data"
-    what = "panels open, draw and raise nothing with no stand-in"
+    what = "panels open, click, draw and raise nothing with no stand-in"
     if not exe.exists() or not data.is_dir():
         return None, what
     env = dict(os.environ, WOWEE_LUA_API_FALLBACK="0")
     for panel in ("AuctionFrame", "CharacterFrame", "MerchantFrame",
                   "SpellBookFrame", "QuestLogFrame"):
+        # Clicked as well as opened. A handler only runs when something runs
+        # it, and clicking through a panel is what loads the calendar — which
+        # is where CalendarCanSendInvite was found missing. Visible and
+        # mouse-enabled only: clicking a button in a panel nobody opened raises
+        # for reasons that are not faults, and Click() bypasses the
+        # mouse-enabled check itself.
+        click_everything = (
+            "local names = {} "
+            "for k, v in pairs(_G) do "
+            "  if type(k) == 'string' and type(v) == 'table' and v.Click "
+            "     and v.IsVisible and v.IsMouseEnabled and v.GetObjectType then "
+            "    local ok, t = pcall(function() return v:GetObjectType() end) "
+            "    if ok and (t == 'Button' or t == 'CheckButton') then "
+            "      local vis, me = false, false "
+            "      pcall(function() vis = v:IsVisible() me = v:IsMouseEnabled() end) "
+            "      if vis and me then names[#names+1] = k end "
+            "    end "
+            "  end "
+            "end "
+            "table.sort(names) "
+            "for _, n in ipairs(names) do "
+            "  local b = _G[n] if b and b.Click then pcall(function() b:Click() end) end "
+            "end")
         argv = [str(exe), str(data), "--player",
                 f"local f = {panel} if f and f ~= _G['QQNoSuchThing'] then "
                 f"ShowUIPanel(f) end",
-                "--tick:3", "--draw"]
+                "--tick:3", click_everything, "--tick:2", "--draw"]
         try:
             out = subprocess.run(argv, capture_output=True, text=True,
                                  timeout=300, env=env)
