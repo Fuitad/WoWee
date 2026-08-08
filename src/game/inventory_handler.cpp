@@ -1047,6 +1047,15 @@ void InventoryHandler::handleLootResponse(network::Packet& packet) {
         }
         localLoot.itemAutoLootSent = true;
     }
+
+    // A corpse that held only money is already empty, so close it here rather
+    // than waiting for a slot to clear that will never clear. Only when there
+    // are no items: an item loot's slots have not been confirmed cleared yet,
+    // and releasing before the server stores them would drop them — that case
+    // closes from handleLootRemoved once the last slot is gone.
+    if (lootWindowOpen_ && currentLoot_.items.empty() && currentLoot_.gold == 0) {
+        closeLoot();
+    }
 }
 
 void InventoryHandler::handleLootReleaseResponse(network::Packet& packet) {
@@ -1075,6 +1084,20 @@ void InventoryHandler::handleLootRemoved(network::Packet& packet) {
                 owner_.addonEventCallbackRef()("LOOT_SLOT_CLEARED", {std::to_string(slotIndex + 1)});
             break;
         }
+    }
+    // An emptied corpse closes itself.
+    //
+    // The interface's loot window opens on LOOT_OPENED and closes on
+    // LOOT_CLOSED and nothing else — LOOT_SLOT_CLEARED only hides the one
+    // button. Autoloot sends an autostore for every slot at once, the server
+    // clears them one by one, and when the last one goes there is nothing left
+    // to loot but no close was ever sent: the window sat open and empty, which
+    // is what "autoloot doesn't close the bag" is. Money is grabbed and zeroed
+    // in the same breath at open, so items empty with no gold left is a corpse
+    // with nothing on it. Retail closes it here too, for a manual last-item
+    // loot as much as an automatic one.
+    if (lootWindowOpen_ && currentLoot_.items.empty() && currentLoot_.gold == 0) {
+        closeLoot();
     }
 }
 
