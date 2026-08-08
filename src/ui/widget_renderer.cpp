@@ -1559,12 +1559,26 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                 // vendor does not, which is the one thing the blank ones share.
                 // Said once per clipping frame so a real mismatch names itself
                 // instead of being inferred from what is missing.
-                const bool overlaps =
+                // Sideways only, or on both axes at once.
+                //
+                // A miss on the vertical alone is ordinary and is the whole
+                // point of a scroll frame: the child is taller than its window
+                // and the part above or below is meant to be out of sight until
+                // it is scrolled to. Reporting that called every scrolled list
+                // in the interface a fault — a macro button eighty pixels below
+                // its own window, sitting exactly where it belongs. A
+                // diagnostic that fires on correct behaviour is worse than none,
+                // because the next real one is read as more of the same.
+                //
+                // Nothing scrolls back into view from beside its window, so a
+                // horizontal miss is always wrong.
+                const bool overlapsX =
                     w->left < clip->left + clip->rectW &&
-                    w->left + w->rectW > clip->left &&
+                    w->left + w->rectW > clip->left;
+                const bool overlapsY =
                     w->bottom < clip->bottom + clip->rectH &&
                     w->bottom + w->rectH > clip->bottom;
-                if (!overlaps && w->visible && w->rectW > 0.0f && w->rectH > 0.0f) {
+                if (!overlapsX && w->visible && w->rectW > 0.0f && w->rectH > 0.0f) {
                     static std::set<uint32_t> saidClipped;
                     if (saidClipped.insert(w->clipTo).second) {
                         LOG_WARNING(
@@ -1574,7 +1588,10 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                             clip->name.empty() ? "(unnamed)" : clip->name,
                             "' at (", clip->left, ",", clip->bottom, " ",
                             clip->rectW, "x", clip->rectH,
-                            ") — it is shown and clipped away");
+                            ")", overlapsY ? " — off to the side of its own "
+                                             "window, which nothing scrolls back"
+                                           : " — outside it on both axes",
+                            "; it is shown and clipped away");
                     }
                 }
                 dl->PushClipRect(ImVec2(clip->left * s,
