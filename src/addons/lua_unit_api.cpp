@@ -1405,14 +1405,20 @@ static int lua_UnitRangedAttackPower(lua_State* L) {
     return 3;
 }
 
-/// UnitDefense(unit) → base, modifier. Defense skill is five per level for a
-/// character with none trained beyond the cap, which is what it is for
-/// everyone in practice; the server does not send the skill itself.
+/// UnitDefense(unit) → base, modifier. Base defense skill is five per level —
+/// the cap a character sits at in practice, which is all the server lets us
+/// infer since it does not send the trained skill. The modifier is the defense
+/// skill granted by defense rating: AzerothCore takes int32(GetRatingBonusValue(
+/// CR_DEFENSE_SKILL)) and each point is worth 0.04% avoidance. It was a flat
+/// zero, so a geared tank's defense showed only the level cap with no sign of
+/// the defence rating that pushes it to the crit-immunity threshold.
 static int lua_UnitDefense(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int level = gh ? static_cast<int>(gh->getPlayerLevel()) : 1;
+    constexpr int kCrDefenseSkill = 1;  // 0-based CombatRating enum
+    const int modifier = gh ? static_cast<int>(gh->getCombatRatingBonus(kCrDefenseSkill)) : 0;
     lua_pushnumber(L, level * 5);
-    lua_pushnumber(L, 0);
+    lua_pushnumber(L, modifier);
     return 2;
 }
 
