@@ -1053,6 +1053,21 @@ bool QuestOfferRewardParser::parse(network::Packet& packet, QuestOfferRewardData
             data.rewardMoney = packet.readUInt32();
         if (packet.hasRemaining(4))
             data.rewardXp = packet.readUInt32();
+        // The trailing block, in the wire's order (GossipDef.cpp): honour,
+        // an honour-multiplier float, an unused word, the reward spell and its
+        // cast id, the title id, then bonus talents and arena points. The
+        // honour is sent multiplied by ten and the panel shows honour points,
+        // so unscale it. Everything between is stepped over; each read is
+        // guarded so a short/older packet leaves the fields at zero rather than
+        // reading into the next packet.
+        if (packet.hasRemaining(4)) data.rewardHonor = packet.readUInt32() / 10u;
+        if (packet.hasRemaining(4)) packet.readFloat();   // honour multiplier
+        if (packet.hasRemaining(4)) packet.readUInt32();  // unused
+        if (packet.hasRemaining(4)) packet.readUInt32();  // reward spell
+        if (packet.hasRemaining(4)) packet.readUInt32();  // reward spell cast
+        if (packet.hasRemaining(4)) packet.readUInt32();  // title id
+        if (packet.hasRemaining(4)) data.rewardTalents = packet.readUInt32();
+        if (packet.hasRemaining(4)) data.rewardArenaPoints = packet.readUInt32();
 
         LOG_INFO("Quest offer reward: id=", data.questId, " title='", data.title,
                  "' choices=", data.choiceRewards.size(), " fixed=", data.fixedRewards.size(),

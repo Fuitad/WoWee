@@ -2276,6 +2276,9 @@ struct QuestSource {
     const std::vector<game::QuestRewardItem>* choices = nullptr;
     uint32_t money = 0;
     uint32_t xp = 0;
+    uint32_t honor = 0;
+    uint32_t talents = 0;
+    uint32_t arenaPoints = 0;
 };
 
 QuestSource currentQuestSource(game::GameHandler* gh) {
@@ -2283,7 +2286,8 @@ QuestSource currentQuestSource(game::GameHandler* gh) {
     if (!gh) return s;
     if (gh->isQuestOfferRewardOpen()) {
         const auto& d = gh->getQuestOfferReward();
-        s = {&d.title, &d.fixedRewards, &d.choiceRewards, d.rewardMoney, d.rewardXp};
+        s = {&d.title, &d.fixedRewards, &d.choiceRewards, d.rewardMoney, d.rewardXp,
+             d.rewardHonor, d.rewardTalents, d.rewardArenaPoints};
     } else if (gh->isQuestRequestItemsOpen()) {
         const auto& d = gh->getQuestRequestItems();
         s.title = &d.title;
@@ -2372,13 +2376,36 @@ static int lua_GetRewardXP(lua_State* L) {
     lua_pushnumber(L, currentQuestSource(getGameHandler(L)).xp);
     return 1;
 }
+// The offer panel's honour, talents and arena points — the quest-giver twins of
+// GetQuestLogReward*, read from the offer packet (which carries all three after
+// the money and XP) rather than the query. Were hard zero.
+static int lua_GetRewardHonor(lua_State* L) {
+    lua_pushnumber(L, currentQuestSource(getGameHandler(L)).honor);
+    return 1;
+}
+static int lua_GetRewardTalents(lua_State* L) {
+    lua_pushnumber(L, currentQuestSource(getGameHandler(L)).talents);
+    return 1;
+}
+static int lua_GetRewardArenaPoints(lua_State* L) {
+    lua_pushnumber(L, currentQuestSource(getGameHandler(L)).arenaPoints);
+    return 1;
+}
 
-// --- Rewards this client is not told about ---
+// --- The offer panel's reward fields, still zero ---
 //
-// Honour, arena points and talent points are not in any quest packet this
-// client parses, and the quest log is built from SMSG_QUEST_QUERY_RESPONSE,
-// which does not carry experience either — in 3.3.5a the client derives that
-// from a QuestXP.dbc row index and the quest's level, which nothing here reads.
+// This once claimed honour, arena points, talents and experience were "not in
+// any quest packet". That was wrong, and the quest LOG now proves it:
+// SMSG_QUEST_QUERY_RESPONSE carries the XP-difficulty index, honour, talents,
+// arena points, title and reputation, and GetQuestLogReward* read them all (see
+// the QuestXP/QuestFactionReward loaders and the reward-parser fields).
+//
+// What is still zero is the OFFER side — GetRewardHonor/Talents/ArenaPoints,
+// which read the quest-giver packets, not the query. The data is there too
+// (SMSG_QUESTGIVER_OFFER_REWARD sends honour ×10, BonusTalents and
+// RewArenaPoints; QUEST_DETAILS reads the honour and drops it), but wiring it
+// means storing those fields on QuestDetailsData across the WotLK and pre-WotLK
+// parsers and unscaling the honour — a follow-up, not done here.
 //
 // They answer zero rather than staying absent because the reward panel adds
 // and compares them without checking first:
@@ -2999,9 +3026,9 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetQuestMoneyToGet",   lua_GetQuestMoneyToGet},
                 {"GetRewardMoney",       lua_GetRewardMoney},
                 {"GetRewardXP",          lua_GetRewardXP},
-                {"GetRewardHonor",              lua_GetZeroReward},
-                {"GetRewardArenaPoints",        lua_GetZeroReward},
-                {"GetRewardTalents",            lua_GetZeroReward},
+                {"GetRewardHonor",              lua_GetRewardHonor},
+                {"GetRewardArenaPoints",        lua_GetRewardArenaPoints},
+                {"GetRewardTalents",            lua_GetRewardTalents},
                 {"GetQuestLogRewardHonor",       lua_GetQuestLogRewardHonor},
                 {"GetQuestLogRewardArenaPoints", lua_GetQuestLogRewardArenaPoints},
                 {"GetQuestLogRewardTalents",     lua_GetQuestLogRewardTalents},

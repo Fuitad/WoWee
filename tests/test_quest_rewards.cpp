@@ -452,14 +452,14 @@ TEST_CASE("Offer reward: WotLK layout (AzerothCore)", "[quest_rewards]") {
     putU32(b, 35953); putU32(b, 2); putU32(b, 9003);
     putU32(b, 47400);           // money
     putU32(b, 20000);           // xp
-    putU32(b, 0);               // honor
+    putU32(b, 2500);            // honor (×10 on the wire → 250 points)
     putF(b, 0.0f);              // honor multiplier
     putU32(b, 0x08);            // unused
     putU32(b, 0);               // rewSpell
     putU32(b, 0);               // rewSpellCast
     putU32(b, 0);               // titleId
-    putU32(b, 0);               // bonusTalents
-    putU32(b, 0);               // arenaPoints
+    putU32(b, 3);               // bonusTalents
+    putU32(b, 100);             // arenaPoints
     putU32(b, 0);               // unk
     for (int i = 0; i < 15; ++i) putU32(b, 0); // reputation arrays
 
@@ -473,4 +473,7 @@ TEST_CASE("Offer reward: WotLK layout (AzerothCore)", "[quest_rewards]") {
     CHECK(d.fixedRewards[0].itemId == 35953);
     CHECK(d.rewardMoney == 47400);
     CHECK(d.rewardXp == 20000);
+    CHECK(d.rewardHonor == 250);   // 2500 on the wire, unscaled by ten
+    CHECK(d.rewardTalents == 3);
+    CHECK(d.rewardArenaPoints == 100);
 }
