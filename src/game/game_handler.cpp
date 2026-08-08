@@ -2289,6 +2289,49 @@ float GameHandler::getSpellCritFromIntellect() const {
                                     /*STAT_INTELLECT=*/3);
 }
 
+namespace {
+// A single-column float game table into a flat vector.
+void loadFloatColumn(pipeline::AssetManager* am, const char* dbc, std::vector<float>& out) {
+    if (auto t = am->loadDBC(dbc); t && t->isLoaded())
+        for (uint32_t i = 0; i < t->getRecordCount(); ++i) out.push_back(t->getFloat(i, 0));
+}
+}  // namespace
+
+float GameHandler::getHealthRegenFromSpirit() const {
+    const uint8_t pclass = getPlayerClass();
+    uint32_t level = getPlayerLevel();
+    if (pclass == 0 || pclass > 11 || level == 0) return 0.0f;
+    constexpr uint32_t kGtMaxLevel = 100;
+    if (level > kGtMaxLevel) level = kGtMaxLevel;
+    if (!gtRegenLoaded_) {
+        gtRegenLoaded_ = true;
+        if (auto* am = services_.assetManager; am && am->isInitialized()) {
+            loadFloatColumn(am, "gtOCTRegenHP.dbc", gtOctRegenHp_);
+            loadFloatColumn(am, "gtRegenHPPerSpt.dbc", gtRegenHpPerSpt_);
+            loadFloatColumn(am, "gtRegenMPPerSpt.dbc", gtRegenMpPerSpt_);
+        }
+    }
+    const size_t idx = static_cast<size_t>(pclass - 1) * kGtMaxLevel + (level - 1);
+    if (idx >= gtOctRegenHp_.size() || idx >= gtRegenHpPerSpt_.size()) return 0.0f;
+    const float spirit = static_cast<float>(std::max(0, getPlayerStat(/*SPIRIT=*/4)));
+    const float baseSpirit = std::min(spirit, 50.0f);
+    const float moreSpirit = spirit - baseSpirit;
+    return (baseSpirit * gtOctRegenHp_[idx] + moreSpirit * gtRegenHpPerSpt_[idx]) * 2.0f;
+}
+
+float GameHandler::getManaRegenFromSpirit() const {
+    const uint8_t pclass = getPlayerClass();
+    uint32_t level = getPlayerLevel();
+    if (pclass == 0 || pclass > 11 || level == 0) return 0.0f;
+    constexpr uint32_t kGtMaxLevel = 100;
+    if (level > kGtMaxLevel) level = kGtMaxLevel;
+    if (!gtRegenLoaded_) { getHealthRegenFromSpirit(); }  // shares the same lazy load
+    const size_t idx = static_cast<size_t>(pclass - 1) * kGtMaxLevel + (level - 1);
+    if (idx >= gtRegenMpPerSpt_.size()) return 0.0f;
+    const float spirit = static_cast<float>(std::max(0, getPlayerStat(/*SPIRIT=*/4)));
+    return spirit * gtRegenMpPerSpt_[idx];
+}
+
 float GameHandler::getCombatRatingBonus(int cr) const {
     const uint8_t pclass = getPlayerClass();
     uint32_t level = getPlayerLevel();

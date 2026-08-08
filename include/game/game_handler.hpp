@@ -488,6 +488,12 @@ public:
     /// exactly as AzerothCore's GetRatingBonusValue reads it. Zero for an
     /// out-of-range index or a rating the player has none of.
     float getCombatRatingBonus(int cr) const;
+    /// Health and mana regenerated per second from Spirit, as the stat flyout
+    /// shows them. Health splits Spirit at 50 across two tables (gtOCTRegenHP,
+    /// gtRegenHPPerSpt) then doubles; mana is Spirit × gtRegenMPPerSpt — the
+    /// same as AzerothCore's OCTRegen*PerSpirit. Zero for a class with no mana.
+    float getHealthRegenFromSpirit() const;
+    float getManaRegenFromSpirit() const;
 
     // Server-authoritative attack power (WotLK: UNIT_FIELD_ATTACK_POWER / RANGED).
     // Returns -1 if not yet received.
@@ -4616,6 +4622,8 @@ private:
     mutable std::vector<float> gtCombatRatings_;       // 32 ratings × 100 levels
     mutable std::vector<float> gtClassRatingScalar_;   // 11 classes × 32 ratings (ratio column)
     mutable bool gtCombatRatingsLoaded_ = false;
+    mutable std::vector<float> gtOctRegenHp_, gtRegenHpPerSpt_, gtRegenMpPerSpt_;
+    mutable bool gtRegenLoaded_ = false;
     // Shared: class base + stat × per-class-per-level ratio, ×100 for a percent.
     float critPercentFromGameTable(std::vector<float>& baseCache,
                                    std::vector<float>& ratioCache, bool& loaded,

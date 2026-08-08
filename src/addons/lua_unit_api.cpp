@@ -1583,6 +1583,24 @@ static int lua_GetCombatRatingBonus(lua_State* L) {
     return 1;
 }
 
+// Health / mana regenerated per second from Spirit — the pair the Spirit stat
+// flyout shows. Were flat zeros. Only the player's Spirit and class are tracked,
+// so any other unit answers zero rather than the player's value under its name.
+static int lua_GetUnitHealthRegenRateFromSpirit(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    std::string unit(luaL_optstring(L, 1, "player"));
+    toLowerInPlace(unit);
+    lua_pushnumber(L, (gh && unit == "player") ? gh->getHealthRegenFromSpirit() : 0.0);
+    return 1;
+}
+static int lua_GetUnitManaRegenRateFromSpirit(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    std::string unit(luaL_optstring(L, 1, "player"));
+    toLowerInPlace(unit);
+    lua_pushnumber(L, (gh && unit == "player") ? gh->getManaRegenFromSpirit() : 0.0);
+    return 1;
+}
+
 /// GetUnitMaxHealthModifier(unit) → the multiplier on maximum health. One,
 /// because nothing here modifies it — and one rather than zero because the
 /// sheet multiplies by it.
@@ -3210,8 +3228,8 @@ void registerUnitLuaAPI(lua_State* L) {
                 {"GetArmorPenetration",     lua_ZeroPercent},
                 {"GetSpellPenetration",     lua_ZeroPercent},
                 {"GetShieldBlock",          lua_ZeroPercent},
-                {"GetUnitHealthRegenRateFromSpirit", lua_ZeroPercent},
-                {"GetUnitManaRegenRateFromSpirit",   lua_ZeroPercent},
+                {"GetUnitHealthRegenRateFromSpirit", lua_GetUnitHealthRegenRateFromSpirit},
+                {"GetUnitManaRegenRateFromSpirit",   lua_GetUnitManaRegenRateFromSpirit},
                 {"GetWatchedFactionInfo",   lua_GetWatchedFactionInfo},
                 {"GetNumBagSlots",          lua_GetNumBagSlots},
                 {"GetMirrorTimerProgress",  lua_GetMirrorTimerProgress},
