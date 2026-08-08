@@ -1060,12 +1060,21 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
         }
 
         const QuestQueryTextCandidate parsed = pickBestQuestQueryTexts(packet.getData(), isClassicLayout);
-        // What the text parse actually found, said at warning so it survives the
-        // default log. Reported as a blank quest-log description on a non-WotLK
-        // realm: this names whether the description was read at all, so a still-
-        // empty panel after the universal-parse fix points at the seed offset
-        // being wrong for that server's numeric block rather than at the gate.
-        // One line per query, and a query is not a per-frame thing.
+        const QuestQueryObjectives objs = extractQuestQueryObjectives(packet.getData(), questLogStride);
+        // What the text and objective parses actually found, at warning so it
+        // survives the default log. Two reports meet here: a blank description
+        // panel, and no objectives shown on screen or in the log. The text
+        // parse feeds the description; the objective parse feeds the leader
+        // boards the watch frame and log draw. Naming both — the description's
+        // raw third string, and how many kill and item objectives came out
+        // valid — says which parse missed on this realm. One line per query.
+        int objKills = 0, objItems = 0;
+        if (objs.valid) {
+            for (const auto& k : objs.kills)
+                if (k.npcOrGoId != 0 || k.required > 0) ++objKills;
+            for (const auto& it : objs.items)
+                if (it.itemId != 0 || it.required > 0) ++objItems;
+        }
         LOG_WARNING("Quest text parse: id=", questId,
                     " classicLayout=", isClassicLayout ? "yes" : "no",
                     " title=\"", parsed.title.substr(0, 40),
@@ -1074,8 +1083,9 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
                     parsed.description.size(), "ch completion=",
                     parsed.completionText.size(), "ch score=", parsed.score,
                     " thirdRaw(", parsed.debugThirdRaw.size(), ")=\"",
-                    parsed.debugThirdRaw.substr(0, 50), "\"");
-        const QuestQueryObjectives objs = extractQuestQueryObjectives(packet.getData(), questLogStride);
+                    parsed.debugThirdRaw.substr(0, 50), "\"",
+                    " objParse: valid=", objs.valid ? 1 : 0,
+                    " kills=", objKills, " items=", objItems);
         const QuestQueryRewardsData rwds = QuestQueryRewardsParser::parse(packet.getData(), questLogStride);
 
         for (auto& q : questLog_) {
