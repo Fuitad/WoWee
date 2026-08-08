@@ -3352,7 +3352,10 @@ void registerInventoryLuaAPI(lua_State* L) {
                 const std::string& name = gh->getSpellName(sp.spellId);
                 if (name.empty()) continue;
                 lua_pushstring(L, name.c_str());
-                lua_pushstring(L, "");   // rank — not tracked per item spell
+                // The spell's rank subtext, the same string the spellbook shows
+                // — empty for the many item spells that carry no rank, the real
+                // "Rank N" for those that do. It is tracked; it was hardcoded "".
+                lua_pushstring(L, gh->getSpellRank(sp.spellId).c_str());
                 return 2;
             }
             return luaReturnNil(L);
@@ -4410,11 +4413,6 @@ void registerInventoryLuaAPI(lua_State* L) {
             }
             return 0;
         }},
-                // The browse filters' category lists. Returning nothing leaves
-                // the drop-downs empty and every search unfiltered, which is
-                // honest: this client has no item-class table to name them
-                // from, and inventing the names would filter on numbers that
-                // mean nothing to the server.
                 // The browse tab's filter column, which was empty: it is built
                 // from whatever GetAuctionItemClasses returns —
                 // AuctionFrameBrowse_InitClasses copies the varargs straight
