@@ -1364,6 +1364,21 @@ void Application::run() {
                                     (mods & KMOD_SHIFT) != 0,
                                     (mods & KMOD_CTRL) != 0,
                                     (mods & KMOD_ALT) != 0, true)) {
+                                // The fourth way a press can end in the pump, and
+                                // the one that had no line: a key binding in the
+                                // interface claimed it. Retail binds Escape to
+                                // TOGGLEGAMEMENU, so if that binding is reachable
+                                // it is taken here and the poll chain below never
+                                // runs — which is indistinguishable, without this
+                                // line, from the key never arriving. A reported
+                                // "Escape does nothing" with no Escape line at all
+                                // is this case: the binding ran but its action did
+                                // not toggle the menu.
+                                if (event.key.keysym.sym == SDLK_ESCAPE) {
+                                    LOG_WARNING("Escape: taken in the pump by an "
+                                                "interface key binding; the chain "
+                                                "below never runs");
+                                }
                                 continue;
                             }
                         }
