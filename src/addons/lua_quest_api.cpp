@@ -341,7 +341,24 @@ static int lua_IsQuestComplete(lua_State* L) {
 static int lua_SelectQuestLogEntry(lua_State* L) {
     auto* gh = getGameHandler(L);
     int index = static_cast<int>(luaL_checknumber(L, 1));
-    if (gh) gh->setSelectedQuestLogIndex(index);
+    if (!gh) return 0;
+    gh->setSelectedQuestLogIndex(index);
+    // Fetch the full text if this quest arrived without it.
+    //
+    // A quest accepted this session carries its description from the offer
+    // packet, but a quest already in the log at login comes with only its id,
+    // title and objectives — the description is never sent with the log and
+    // has to be asked for. Selecting the entry is when the panel wants it, and
+    // nothing had ever requested it, so every quest carried from a previous
+    // session showed an empty description above its objectives. The query
+    // answers with QUEST_LOG_UPDATE, which the panel already redraws on.
+    const auto& ql = gh->getQuestLog();
+    if (index >= 1 && index <= static_cast<int>(ql.size())) {
+        const auto& q = ql[index - 1];
+        if (q.description.empty() && q.questId != 0) {
+            gh->requestQuestQuery(q.questId, false);
+        }
+    }
     return 0;
 }
 
