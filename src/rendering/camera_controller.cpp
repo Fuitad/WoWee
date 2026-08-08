@@ -1305,14 +1305,18 @@ void CameraController::update(float deltaTime) {
                                 " m2=", m2H ? *m2H : -99999.0f,
                                 " seam=", atTunnelSeam ? 1 : 0, ")");
                         }
-                        // A large jump — the floor query landed a level away, not
-                        // a step — is the Undercity pull, and the one thing needed
+                        // A jump — the floor query landed a level away, not a
+                        // step — is the Undercity pull, and the one thing needed
                         // to solve it is which WMO groups and floors exist under
                         // the player when it happens. That is exactly what F8's
-                        // dump prints, so dump it here automatically on a big jump
+                        // dump prints, so dump it here automatically on a jump
                         // (rate-limited hard, it is verbose): the log then carries
                         // the answer from ordinary play, with no key to remember.
-                        if (wmoRenderer && std::abs(*groundH - lastGroundZ) > 2.0f) {
+                        // Threshold is 0.9m, not 2m: the overhang gap the player
+                        // is pulled across is about a metre, so a 2m gate never
+                        // fired while the yo-yo bobbed under it. A metre is still
+                        // above a stair step, so ordinary walking does not trip it.
+                        if (wmoRenderer && std::abs(*groundH - lastGroundZ) > 0.9f) {
                             static std::chrono::steady_clock::time_point lastFloorDump{};
                             if (now - lastFloorDump > std::chrono::seconds(5)) {
                                 lastFloorDump = now;
