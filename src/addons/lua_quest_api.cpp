@@ -253,7 +253,29 @@ static int lua_GetQuestLogTitle(lua_State* L) {
     const int index = static_cast<int>(luaL_optnumber(L, 1, 0));
     if (!gh || index < 1) { return luaReturnNil(L); }
     const auto& ql = gh->getQuestLog();
-    if (index > static_cast<int>(ql.size())) { return luaReturnNil(L); }
+    // A positive index past the end gets an empty row, not a bare nil.
+    //
+    // QuestLog_Update reads the count once and then walks GetQuestLogTitle in a
+    // loop; a server update landing between frames while the log is scrolled
+    // can shrink the log under a count the frame still holds, so an index it
+    // believes valid comes back past the end. In colourblind mode the very next
+    // line is `title = "["..level.."] "..title`, and a nil title raised there
+    // and tore down the whole redraw — which is what left the list a mess. An
+    // empty title concatenates cleanly and the row corrects itself on the next
+    // pass; a raise does not. Only index < 1 is truly nothing, and stays nil.
+    if (index > static_cast<int>(ql.size())) {
+        lua_pushstring(L, "");   // 1: title (empty, never nil)
+        lua_pushnumber(L, 0);    // 2: level
+        lua_pushnil(L);          // 3: questTag
+        lua_pushnumber(L, 0);    // 4: suggestedGroup
+        lua_pushboolean(L, 0);   // 5: isHeader
+        lua_pushboolean(L, 0);   // 6: isCollapsed
+        lua_pushnil(L);          // 7: isComplete
+        lua_pushboolean(L, 0);   // 8: isDaily
+        lua_pushnumber(L, 0);    // 9: questID
+        lua_pushboolean(L, 0);   // 10: displayQuestID
+        return 10;
+    }
     const auto& q = ql[index - 1];  // 1-based
     // The client's ten, in its order:
     //
