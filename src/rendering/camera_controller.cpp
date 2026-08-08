@@ -1115,10 +1115,23 @@ void CameraController::update(float deltaTime) {
                     float px = targetPos.x, py = targetPos.y;
                     if (wmoRenderer) {
                         wmoAsync = true;
+                        // Closest to the feet, not the highest below the probe.
+                        //
+                        // Under an overhang — the doorways and portals of
+                        // Undercity — the floor of the level above sits about a
+                        // metre over the one you stand on, both inside the
+                        // step-up window. The default highest-floor pick snapped
+                        // the player up to the level above even standing still,
+                        // the server pulled them back to the real floor, and the
+                        // two fought once a second. Anchoring the pick to the
+                        // player's own ground keeps them where they are; a real
+                        // step onto a ledge still wins once the feet are level
+                        // with it.
+                        const float feetRef = wmoBaseZ;
                         wmoFuture = core::ThreadPool::frameWorkers().submit(
-                            [this, px, py, wmoProbeZ]() -> FloorResult {
+                            [this, px, py, wmoProbeZ, feetRef]() -> FloorResult {
                                 float nz = 1.0f;
-                                auto h = wmoRenderer->getFloorHeight(px, py, wmoProbeZ, &nz);
+                                auto h = wmoRenderer->getFloorHeight(px, py, wmoProbeZ, &nz, feetRef);
                                 return {h, nz};
                             });
                     }

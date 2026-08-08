@@ -138,7 +138,11 @@ std::optional<float> movingEntityFloor(rendering::Renderer* renderer,
         return best;
     }
     if (auto* wmo = renderer->getWMORenderer()) {
-        consider(wmo->getFloorHeight(renderPos.x, renderPos.y, probeZ));
+        // Closest to the mover's own feet, so a creature or another player
+        // under an overhang is not snapped up to the floor of the level above
+        // them — the same flip that pulled the local player between levels.
+        consider(wmo->getFloorHeight(renderPos.x, renderPos.y, probeZ, nullptr,
+                                     renderPos.z));
     }
     if (auto* m2 = renderer->getM2Renderer()) {
         consider(m2->getFloorHeight(renderPos.x, renderPos.y, probeZ));

@@ -3212,7 +3212,8 @@ void WMORenderer::GroupResources::getWallTrianglesInRange(
     }
 }
 
-std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ, float* outNormalZ) const {
+std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ, float* outNormalZ, float referenceZ) const {
+    const bool byReference = std::isfinite(referenceZ);
     // Per-frame cache disabled: camera and player query the same (x,y) at
     // different Z within a single frame. The allowAbove filter depends on glZ,
     // so caching by (x,y) alone returns wrong floors across Z contexts.
@@ -3260,7 +3261,13 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
                 // glZ by stepUpBudget to handle step-up range).  Among those,
                 // pick the highest (closest to feet).
                 if (hitWorld.z <= glZ) {
-                    if (!bestFloor || hitWorld.z > *bestFloor) {
+                    const bool better = !bestFloor
+                        ? true
+                        : (byReference
+                               ? std::abs(hitWorld.z - referenceZ) <
+                                     std::abs(*bestFloor - referenceZ)
+                               : hitWorld.z > *bestFloor);
+                    if (better) {
                         bestFloor = hitWorld.z;
                         bestFromLowPlatform = model.isLowPlatform;
 

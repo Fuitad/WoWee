@@ -11,6 +11,7 @@
 #include <vector>
 #include <string>
 #include <optional>
+#include <limits>
 #include <future>
 #include <algorithm>
 
@@ -304,7 +305,16 @@ public:
      * @param outNormalZ If not null, receives the Z component of the floor surface normal
      *                   (1.0 = flat, 0.0 = vertical). Useful for slope walkability checks.
      */
-    std::optional<float> getFloorHeight(float glX, float glY, float glZ, float* outNormalZ = nullptr) const;
+    /// The floor under (glX, glY), searching at or below glZ. By default it
+    /// returns the highest such floor, which is the step-up behaviour. Pass
+    /// `referenceZ` (the querier's actual feet height) to instead get the floor
+    /// closest to the feet — which is what keeps a player standing on the lower
+    /// of two stacked floors under an overhang, rather than being snapped up to
+    /// the level above them.
+    std::optional<float> getFloorHeight(float glX, float glY, float glZ,
+                                        float* outNormalZ = nullptr,
+                                        float referenceZ =
+                                            std::numeric_limits<float>::quiet_NaN()) const;
 
     /** Query floor collision from one moving WMO instance. */
     std::optional<float> getInstanceFloorHeight(uint32_t instanceId,
