@@ -3342,9 +3342,21 @@ void registerQuestLuaAPI(lua_State* L) {
             lua_pushstring(L, gh->getSpellRank(sp.spellId).c_str());   // rank
             // The three words the panel colours by: green, grey, and already
             // trained.
-            lua_pushstring(L, sp.state == 0   ? "available"
-                            : sp.state == 2   ? "used"
-                                              : "unavailable");
+            //
+            // "used" wins the moment the spell is known, not only when the
+            // trainer packet said so. The packet is a snapshot from when the
+            // list was opened; learning a service adds it to the known set and
+            // fires TRAINER_UPDATE, but the cached state stayed at 0. So the
+            // panel redrew the just-learned skill as still available — green,
+            // trainable, its cost still shown — and only a close and reopen,
+            // which fetches a fresh list, corrected it. Asking the known set
+            // makes the live redraw right.
+            const bool known = gh->getSpellHandler() &&
+                               gh->getSpellHandler()->hasKnownSpell(sp.spellId);
+            lua_pushstring(L, known             ? "used"
+                            : sp.state == 0     ? "available"
+                            : sp.state == 2     ? "used"
+                                                : "unavailable");
             lua_pushboolean(L, 1);   // expanded: the list here is flat
             return 4;
         }},
