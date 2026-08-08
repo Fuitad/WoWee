@@ -1588,6 +1588,19 @@ static int lua_GetCombatRatingBonus(lua_State* L) {
     return 1;
 }
 
+// GetArmorPenetration() → the percent of the target's armour the player ignores.
+// The server stores armour penetration as a rating in the combat-rating field
+// (Player::UpdateArmorPenetration writes PLAYER_FIELD_COMBAT_RATING_1 +
+// CR_ARMOR_PENETRATION), and the paperdoll shows the rating's converted percent
+// beside it — so this is the CR_ARMOR_PENETRATION rating bonus, index 24 in the
+// 0-based internal scheme. Takes no unit; the flyout only asks about the player.
+static int lua_GetArmorPenetration(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    constexpr int kCrArmorPenetration = 24;  // 0-based CombatRating enum
+    lua_pushnumber(L, gh ? gh->getCombatRatingBonus(kCrArmorPenetration) : 0.0);
+    return 1;
+}
+
 // Health / mana regenerated per second from Spirit — the pair the Spirit stat
 // flyout shows. Were flat zeros. Only the player's Spirit and class are tracked,
 // so any other unit answers zero rather than the player's value under its name.
@@ -3230,7 +3243,11 @@ void registerUnitLuaAPI(lua_State* L) {
             lua_pushnumber(L, (gh ? gh->getOffhandExpertise() : 0) * 0.25);
             return 2;
         }},
-                {"GetArmorPenetration",     lua_ZeroPercent},
+                {"GetArmorPenetration",     lua_GetArmorPenetration},
+                // Spell penetration and shield block value are summed from equipped-item
+                // stat mods (ITEM_MOD_SPELL_PENETRATION, the shield's block value), not
+                // any player field the server sends — the inventory does not yet total
+                // item stat mods, so these stay a genuine zero rather than a stale stub.
                 {"GetSpellPenetration",     lua_ZeroPercent},
                 {"GetShieldBlock",          lua_ZeroPercent},
                 {"GetUnitHealthRegenRateFromSpirit", lua_GetUnitHealthRegenRateFromSpirit},
