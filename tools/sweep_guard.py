@@ -972,6 +972,37 @@ def check_binding_dispatch():
     return True, what
 
 
+CLICK_EVERYTHING = (
+    # Everything visible and mouse-enabled, clicked once.
+    #
+    # Visible only: clicking a button in a panel nobody opened raises for
+    # reasons that are not faults. Mouse-enabled only: Click() bypasses that
+    # check itself, so a sweep that skips it presses buttons the cursor could
+    # never reach.
+    #
+    # The pcall here is not what reports a raise, and reading it is a mistake
+    # that cost one clean-looking sweep across eight panels: a raise inside a
+    # frame script is caught by the engine and handed to its error callback, so
+    # pcall never sees it. The runner's own error report is the count that
+    # means anything. This pcall only stops one dead button ending the sweep.
+    "local names = {} "
+    "for k, v in pairs(_G) do "
+    "  if type(k) == 'string' and type(v) == 'table' and v.Click "
+    "     and v.IsVisible and v.IsMouseEnabled and v.GetObjectType then "
+    "    local ok, t = pcall(function() return v:GetObjectType() end) "
+    "    if ok and (t == 'Button' or t == 'CheckButton') then "
+    "      local vis, me = false, false "
+    "      pcall(function() vis = v:IsVisible() me = v:IsMouseEnabled() end) "
+    "      if vis and me then names[#names+1] = k end "
+    "    end "
+    "  end "
+    "end "
+    "table.sort(names) "
+    "for _, n in ipairs(names) do "
+    "  local b = _G[n] if b and b.Click then pcall(function() b:Click() end) end "
+    "end")
+
+
 NPC_DIALOG_DATA = """
 local LONG = "Kobolds have overrun the mine to the east and the miners are afraid to return. Clear them out and bring me the candles they carry as proof of your work."
 GetTitleText     = function() return "A Test Quest" end
@@ -1158,31 +1189,11 @@ def check_panels_without_the_standin():
                   "SpellBookFrame", "QuestLogFrame"):
         # Clicked as well as opened. A handler only runs when something runs
         # it, and clicking through a panel is what loads the calendar — which
-        # is where CalendarCanSendInvite was found missing. Visible and
-        # mouse-enabled only: clicking a button in a panel nobody opened raises
-        # for reasons that are not faults, and Click() bypasses the
-        # mouse-enabled check itself.
-        click_everything = (
-            "local names = {} "
-            "for k, v in pairs(_G) do "
-            "  if type(k) == 'string' and type(v) == 'table' and v.Click "
-            "     and v.IsVisible and v.IsMouseEnabled and v.GetObjectType then "
-            "    local ok, t = pcall(function() return v:GetObjectType() end) "
-            "    if ok and (t == 'Button' or t == 'CheckButton') then "
-            "      local vis, me = false, false "
-            "      pcall(function() vis = v:IsVisible() me = v:IsMouseEnabled() end) "
-            "      if vis and me then names[#names+1] = k end "
-            "    end "
-            "  end "
-            "end "
-            "table.sort(names) "
-            "for _, n in ipairs(names) do "
-            "  local b = _G[n] if b and b.Click then pcall(function() b:Click() end) end "
-            "end")
+        # is where CalendarCanSendInvite was found missing.
         argv = [str(exe), str(data), "--player",
                 f"local f = {panel} if f and f ~= _G['QQNoSuchThing'] then "
                 f"ShowUIPanel(f) end",
-                "--tick:3", click_everything, "--tick:2", "--draw"]
+                "--tick:3", CLICK_EVERYTHING, "--tick:2", "--draw"]
         try:
             out = subprocess.run(argv, capture_output=True, text=True,
                                  timeout=300, env=env)
@@ -1192,6 +1203,45 @@ def check_panels_without_the_standin():
                   if re.match(r"^\s+\S.*:\d+:", ln)]
         if raised:
             return False, f"{what} — {panel}: {raised[0][:150]}"
+    return True, what
+
+
+def check_dialogs_without_the_standin():
+    """The event-driven dialogs open, take a click and raise nothing.
+
+    Panels are reached by opening them; dialogs are reached by an event, and
+    they are where the reported faults keep landing. Same three conditions as
+    the panel sweep — a player, no stand-in, a real draw — plus a click on
+    everything visible, because a handler only runs when something runs it.
+
+    PETITION_SHOW is deliberately absent. Fired with no petition stored,
+    GetPetitionInfo answers nothing and PetitionFrame_Update raises on
+    `for i=1, minSignatures`; but this client fires that event only after
+    parsing and storing the charter, from both of the two places that send it.
+    A harness that reaches a state the client cannot is worse than one that
+    reaches less, and a permanent failure here would drown the real ones.
+    """
+    exe = ROOT / "build" / "bin" / "framexml_run"
+    data = ROOT / "Data"
+    what = "the event-driven dialogs open, click and raise nothing"
+    if not exe.exists() or not data.is_dir():
+        return None, what
+    env = dict(os.environ, WOWEE_LUA_API_FALLBACK="0")
+    for event in ("QUEST_GREETING", "QUEST_DETAIL", "QUEST_PROGRESS",
+                  "QUEST_COMPLETE", "GOSSIP_SHOW", "MERCHANT_SHOW",
+                  "LOOT_OPENED", "TRADE_SHOW", "TRAINER_SHOW"):
+        argv = [str(exe), str(data), "--player", NPC_DIALOG_DATA,
+                "--fire:" + event, "--tick:3", CLICK_EVERYTHING, "--tick:2",
+                "--draw"]
+        try:
+            out = subprocess.run(argv, capture_output=True, text=True,
+                                 timeout=300, env=env)
+        except subprocess.TimeoutExpired:
+            return False, f"{what} ({event} timed out)"
+        raised = [ln.strip() for ln in (out.stdout + out.stderr).splitlines()
+                  if re.match(r"^\s+\S.*:\d+:", ln)]
+        if raised:
+            return False, f"{what} — {event}: {raised[0][:150]}"
     return True, what
 
 
@@ -1281,7 +1331,8 @@ def main():
     for ok, what in (check_without_the_standin(), check_rebuild_idiom(),
                      check_paragraph_wrapping(), check_binding_dispatch(),
                      check_npc_dialogs_fill(), check_nothing_unsized(),
-                     check_panels_without_the_standin()):
+                     check_panels_without_the_standin(),
+                     check_dialogs_without_the_standin()):
         if ok is None:
             print(f"  skip    -       {what} (framexml_run not built)")
             continue
