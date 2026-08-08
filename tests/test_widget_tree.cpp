@@ -2436,3 +2436,46 @@ TEST_CASE("Anchors decide a size only when they pin opposite edges",
     CHECK_FALSE(anchorsSpanAxis({at("LEFT")}, true));
     CHECK_FALSE(anchorsSpanAxis({}, true));
 }
+
+TEST_CASE("A scroll frame's child is visible without anchors of its own",
+          "[widget][layout][scroll]") {
+    // A scroll child carries no anchors: SetScrollChild positions it, the
+    // anchor solver does not. The unanchored-frame rule that hides a frame
+    // with nothing to anchor to must not catch it, or it takes every element
+    // inside it down with it — which blanked the whole quest dialog while
+    // every frame in it measured correct.
+    WidgetTree tree;
+    const uint32_t panel = tree.create(WidgetKind::Frame, 0, "Panel");
+    tree.get(panel)->width = 400.0f;
+    tree.get(panel)->height = 400.0f;
+    tree.addPoint(panel, Anchor{});
+
+    const uint32_t scroll = tree.create(WidgetKind::Frame, panel, "Scroll");
+    tree.markScrollFrame(scroll);
+    tree.get(scroll)->width = 300.0f;
+    tree.get(scroll)->height = 300.0f;
+    tree.addPoint(scroll, Anchor{});
+
+    // No anchors on the child — exactly as SetScrollChild leaves it.
+    const uint32_t child = tree.create(WidgetKind::Frame, scroll, "Child");
+    tree.get(scroll)->scrollChild = child;
+    tree.get(child)->width = 300.0f;
+    tree.get(child)->height = 900.0f;
+
+    const uint32_t text = tree.create(WidgetKind::FontString, child, "Text");
+    tree.get(text)->text = "Quest description";
+    tree.addPoint(text, Anchor{});
+
+    tree.layout(kScreenW, kScreenH);
+
+    CHECK(tree.get(child)->visible);
+    CHECK(tree.get(text)->visible);
+
+    // And an ordinary frame with no anchors and no scroll parent is still
+    // hidden — the rule this exempts one case from must otherwise hold.
+    const uint32_t stray = tree.create(WidgetKind::Frame, panel, "Stray");
+    tree.get(stray)->width = 50.0f;
+    tree.get(stray)->height = 50.0f;
+    tree.layout(kScreenW, kScreenH);
+    CHECK_FALSE(tree.get(stray)->visible);
+}

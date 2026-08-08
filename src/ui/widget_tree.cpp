@@ -622,8 +622,20 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
     //
     // The root is the exception: it is the screen, and has nothing to anchor
     // to.
+    // A scroll frame's scroll child is the other exception: it carries no
+    // anchors because SetScrollChild positions it, not the anchor solver — the
+    // scroll frame places it at its own top-left and slides it by the scroll
+    // offset. Treating it as unanchored marked it, and therefore every element
+    // inside it, invisible: the quest dialog's title, description and
+    // objectives are all children of QuestDetailScrollChildFrame, so the whole
+    // dialog read as blank while every frame in it measured correct. It draws
+    // where it is placed like any other frame, so it must not be hidden for
+    // lacking anchors it was never meant to have.
+    const bool isScrollChild = parent && parent->isScrollFrame &&
+                               parent->scrollChild == id;
     const bool unanchoredFrame = (w->kind == WidgetKind::Frame) &&
-                                 w->anchors.empty() && id != rootId_;
+                                 w->anchors.empty() && id != rootId_ &&
+                                 !isScrollChild;
     // Two questions, and they are not the same one. Running is shown with
     // every ancestor shown; drawing additionally needs somewhere to be drawn.
     // Inherited from the parent's chain rather than its `visible`, or a child
