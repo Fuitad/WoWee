@@ -113,7 +113,44 @@ static int lua_GetQuestRewardTitle(lua_State* L) {
     return 1;
 }
 static int lua_ProcessQuestLogRewardFactions(lua_State* L) { (void)L; return 0; }
-static int lua_GetQuestLogRewardFactionInfo(lua_State* L) { (void)L; return luaReturnNil(L); }
+
+// The selected quest's five reputation reward slots, packed to the front (the
+// panel walks 1..GetNumQuestLogRewardFactions expecting no gaps). Inlined
+// selection because selectedQuest is defined further down.
+static const game::QuestHandler::QuestLogEntry* selectedQuestForReward(game::GameHandler* gh) {
+    if (!gh) return nullptr;
+    const int index = gh->getSelectedQuestLogIndex();
+    const auto& log = gh->getQuestLog();
+    if (index < 1 || index > static_cast<int>(log.size())) return nullptr;
+    return &log[static_cast<size_t>(index - 1)];
+}
+// GetNumQuestLogRewardFactions() → how many faction rewards the quest carries.
+static int lua_GetNumQuestLogRewardFactions(lua_State* L) {
+    const auto* q = selectedQuestForReward(getGameHandler(L));
+    int n = 0;
+    if (q) for (const auto& fr : q->factionRewards) if (fr.factionId != 0) ++n;
+    lua_pushnumber(L, n);
+    return 1;
+}
+// GetQuestLogRewardFactionInfo(i) → factionId, amount(in hundredths). The panel
+// pairs the id with GetFactionInfoByID and divides the amount by 100 itself.
+static int lua_GetQuestLogRewardFactionInfo(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    const auto* q = selectedQuestForReward(gh);
+    const int want = static_cast<int>(luaL_optnumber(L, 1, 0));
+    if (!q || want < 1) { return luaReturnNil(L); }
+    int seen = 0;
+    for (const auto& fr : q->factionRewards) {
+        if (fr.factionId == 0) continue;
+        if (++seen != want) continue;
+        auto* qh = gh->getQuestHandler();
+        const int32_t amount = qh ? qh->getQuestRewardReputation(fr.valueId, fr.override) : 0;
+        lua_pushnumber(L, fr.factionId);
+        lua_pushnumber(L, amount);
+        return 2;
+    }
+    return luaReturnNil(L);
+}
 
 // GetFactionInfoByID(id) — the same thirteen values GetFactionInfo gives by
 // position, found by faction id instead. The reputation list carries the id
@@ -2525,6 +2562,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetRewardTitle",          lua_GetQuestRewardTitle},
                 {"GetQuestLogRewardTitle",  lua_GetQuestRewardTitle},
                 {"ProcessQuestLogRewardFactions", lua_ProcessQuestLogRewardFactions},
+                {"GetNumQuestLogRewardFactions",  lua_GetNumQuestLogRewardFactions},
                 {"GetQuestLogRewardFactionInfo",  lua_GetQuestLogRewardFactionInfo},
                 {"GetFactionInfoByID",      lua_GetFactionInfoByID},
                 {"GetQuestWatchIndex",      lua_GetQuestWatchIndex},

@@ -1252,6 +1252,7 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
     size_t sourceItemField = 0;
     size_t rewardSpellField = 0;
     size_t xpIdField = 0, honorField = 0, talentsField = 0, arenaField = 0, titleField = 0;
+    size_t repFactionField = 0, repValueField = 0, repOverrideField = 0;
     if (questLogStride >= 5) {        // WotLK
         moneyField = 11; rewardPairsField = 24; choicePairsField = 32;
         sourceItemField = 17;
@@ -1264,6 +1265,10 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
         // spell), CharTitleId at 19 (two past the start item), BonusTalents at
         // 21 and RewArenaPoints at 22 (three and two before the reward pairs).
         honorField = 15; titleField = 19; talentsField = 21; arenaField = 22;
+        // The three reputation arrays follow the choice pairs (which end at 44):
+        // RewardFactionId[5] at 44, RewardFactionValueId[5] at 49, and the
+        // override[5] at 54.
+        repFactionField = 44; repValueField = 49; repOverrideField = 54;
         // Counted from the same base as the four above: money is absolute 13
         // and the start item absolute 19, and the serializer writes
         // money(13), maxLevel(14), rewSpell(15) — so 13 here, which is 15 there.
@@ -1332,6 +1337,16 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
         // reads far larger and is dropped.
         const uint32_t t = readU32At(base + titleField * 4u);
         if (t <= 500u) out.rewardTitleId = t;
+    }
+    // The three reputation arrays, once the packet is long enough to hold the
+    // last override at field repOverrideField+4. Values are signed (a quest can
+    // cost reputation), so no plausibility gate beyond the length check.
+    if (repFactionField && data.size() >= base + (repOverrideField + 5) * 4u) {
+        for (size_t i = 0; i < 5; ++i) {
+            out.factionId[i]           = readU32At(base + (repFactionField + i) * 4u);
+            out.factionValueId[i]      = static_cast<int32_t>(readU32At(base + (repValueField + i) * 4u));
+            out.factionValueOverride[i]= static_cast<int32_t>(readU32At(base + (repOverrideField + i) * 4u));
+        }
     }
     if (sourceItemField) {
         const uint32_t srcItem = readU32At(base + sourceItemField * 4u);

@@ -117,6 +117,8 @@ public:
         uint32_t rewardTalents = 0;
         uint32_t rewardArenaPoints = 0;
         uint32_t rewardTitleId = 0;  // CharTitles.dbc id of an awarded title, 0 = none
+        struct FactionReward { uint32_t factionId = 0; int32_t valueId = 0; int32_t override = 0; };
+        std::array<FactionReward, 5> factionRewards{};
         int32_t level = 0;   // quest level from query response; 0 = unknown, -1 = player-scaling
         // ZoneOrSort from query response: >0 = AreaTable zone id, <0 = QuestSort.dbc
         // category (negated), 0 = unknown
@@ -177,6 +179,12 @@ public:
     /// level or index is unknown (index 0 is genuinely no XP), so the reward
     /// panel simply omits the line, as it does for a quest that gives none.
     uint32_t getQuestRewardXP(int32_t level, uint32_t xpDifficulty);
+
+    /// The reputation a quest reward shows for one faction entry: the override
+    /// in hundredths when set, otherwise QuestFactionReward.dbc read at the
+    /// value index (row 1 for a gain, row 2 for a loss), the same as
+    /// AzerothCore's Player::RewardReputation display value.
+    int32_t getQuestRewardReputation(int32_t valueId, int32_t override);
     int getSelectedQuestLogIndex() const { return selectedQuestLogIndex_; }
     void setSelectedQuestLogIndex(int idx) { selectedQuestLogIndex_ = idx; }
     void abandonQuest(uint32_t questId);
@@ -309,6 +317,10 @@ private:
     // QuestXP.dbc, keyed by level; each row is the ten difficulty columns.
     std::unordered_map<int32_t, std::array<uint32_t, 10>> questXpByLevel_;
     bool questXpDbcLoaded_ = false;
+    // QuestFactionReward.dbc, keyed by row id (1 = gains, 2 = losses); each row
+    // is the ten value columns the reputation index reads.
+    std::unordered_map<int32_t, std::array<int32_t, 10>> questFactionRew_;
+    bool questFactionRewDbcLoaded_ = false;
 
     std::unordered_map<uint32_t, float> pendingQuestAcceptTimeouts_;
     std::unordered_map<uint32_t, uint64_t> pendingQuestAcceptNpcGuids_;

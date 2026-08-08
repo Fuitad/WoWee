@@ -2572,6 +2572,12 @@ struct QuestQueryRewardsData {
     uint32_t arenaPoints = 0;
     /// CharTitles.dbc id of a title the quest awards (few quests do). WotLK only.
     uint32_t rewardTitleId = 0;
+    /// Up to five reputation rewards: the faction id, the QuestFactionReward.dbc
+    /// value index, and a direct override (hundredths). The reputation shown is
+    /// override/100 when set, else the dbc column at |valueId|. WotLK only.
+    std::array<uint32_t, 5> factionId{};
+    std::array<int32_t, 5>  factionValueId{};
+    std::array<int32_t, 5>  factionValueOverride{};
     bool valid = false;
 };
 

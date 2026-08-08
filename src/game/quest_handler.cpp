@@ -1200,6 +1200,11 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
                 q.rewardTalents = rwds.bonusTalents;
                 q.rewardArenaPoints = rwds.arenaPoints;
                 if (rwds.rewardTitleId != 0) q.rewardTitleId = rwds.rewardTitleId;
+                for (size_t i = 0; i < 5; ++i) {
+                    q.factionRewards[i].factionId = rwds.factionId[i];
+                    q.factionRewards[i].valueId   = rwds.factionValueId[i];
+                    q.factionRewards[i].override  = rwds.factionValueOverride[i];
+                }
                 q.sourceItemId = rwds.sourceItemId;
                 // The watch frame needs its name and icon to draw a button.
                 if (q.sourceItemId != 0) owner_.queryItemInfo(q.sourceItemId, 0);
@@ -1785,6 +1790,39 @@ uint32_t QuestHandler::getQuestRewardXP(int32_t level, uint32_t xpDifficulty) {
     if (it == questXpByLevel_.end()) return 0;
     // The same column AzerothCore's Quest::XPValue reads: Exp[xpDifficulty].
     return it->second[xpDifficulty];
+}
+
+int32_t QuestHandler::getQuestRewardReputation(int32_t valueId, int32_t override) {
+    // Returned in hundredths, the unit GetQuestLogRewardFactionInfo answers in
+    // and questinfo.lua divides back down by 100. The override is already in
+    // hundredths and wins when set — most WotLK quests use it. Otherwise the
+    // dbc: row 1 for a gain, row 2 for a loss, column at the absolute value
+    // index, a whole reputation scaled up to hundredths. Matches the display
+    // value in Player::RewardReputation.
+    if (override != 0) return override;
+    if (valueId == 0) return 0;
+    if (!questFactionRewDbcLoaded_) {
+        questFactionRewDbcLoaded_ = true;
+        auto* am = owner_.services().assetManager;
+        if (am && am->isInitialized()) {
+            auto dbc = am->loadDBC("QuestFactionReward.dbc");
+            if (dbc && dbc->isLoaded() && dbc->getFieldCount() >= 11) {
+                for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
+                    const int32_t id = static_cast<int32_t>(dbc->getUInt32(i, 0));
+                    std::array<int32_t, 10> row{};
+                    for (uint32_t c = 0; c < 10; ++c)
+                        row[c] = static_cast<int32_t>(dbc->getUInt32(i, c + 1));
+                    questFactionRew_[id] = row;
+                }
+            }
+        }
+    }
+    const int32_t rowId = (valueId < 0) ? 2 : 1;
+    const uint32_t field = static_cast<uint32_t>(std::abs(valueId));
+    if (field > 9) return 0;
+    auto it = questFactionRew_.find(rowId);
+    if (it == questFactionRew_.end()) return 0;
+    return it->second[field] * 100;
 }
 
 bool QuestHandler::hasQuestInLog(uint32_t questId) const {

@@ -191,8 +191,10 @@ TEST_CASE("Quest query rewards: WotLK layout (AzerothCore)", "[quest_rewards]") 
     putU32(b, 0);     putU32(b, 0);
     putU32(b, 0);     putU32(b, 0);
     putU32(b, 0);     putU32(b, 0);
-    // 3 × 5 reputation arrays
-    for (int i = 0; i < 15; ++i) putU32(b, 0);
+    // 3 × 5 reputation arrays: one faction (id 69, value index 5), rest empty
+    putU32(b, 69); putU32(b, 0); putU32(b, 0); putU32(b, 0); putU32(b, 0);  // factionId
+    putU32(b, 5);  putU32(b, 0); putU32(b, 0); putU32(b, 0); putU32(b, 0);  // valueId
+    for (int i = 0; i < 5; ++i) putU32(b, 0);                               // override
     putU32(b, 571); putF(b, 1.0f); putF(b, 2.0f); putU32(b, 0); // POI
     putStr(b, "The Last Rites");
     putStr(b, "Objectives");
@@ -216,6 +218,9 @@ TEST_CASE("Quest query rewards: WotLK layout (AzerothCore)", "[quest_rewards]") 
     CHECK(r.bonusTalents == 1);
     CHECK(r.arenaPoints == 100);
     CHECK(r.rewardTitleId == 47);  // CharTitleId at field 19
+    CHECK(r.factionId[0] == 69);      // RewardFactionId[0] at field 44
+    CHECK(r.factionValueId[0] == 5);  // RewardFactionValueId[0] at field 49
+    CHECK(r.factionId[1] == 0);
 }
 
 TEST_CASE("Quest query rewards: implausible data rejected", "[quest_rewards]") {
