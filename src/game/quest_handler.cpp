@@ -1209,6 +1209,16 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
                     if (rwds.choiceItemId[i] != 0) owner_.queryItemInfo(rwds.choiceItemId[i], 0);
                 }
             }
+
+            // The response arrives a beat after the log panel already drew,
+            // so the title, objectives and description it just filled in reach
+            // a quest the detail pane rendered while they were still blank.
+            // QuestLog_UpdateQuestDetails runs on QUEST_LOG_UPDATE for the
+            // selected quest, so firing it here repaints the pane with the text
+            // that just landed — without it a queried quest keeps its empty
+            // description until the log is closed and reopened, which is the
+            // "only after a relog" shape reported for the description panel.
+            owner_.addonEventCallbackRef()("QUEST_LOG_UPDATE", {});
             break;
         }
 

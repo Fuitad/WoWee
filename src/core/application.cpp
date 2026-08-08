@@ -2716,6 +2716,40 @@ void Application::update(float deltaTime) {
                         ac->setM2TransportRiding(hasM2RideLock_);
                     }
 
+                    // Model-Z reversal probe: the floor-selection log stays
+                    // quiet through the reported Undercity bob, so the bob is in
+                    // the Z that actually reaches the character, not the floor
+                    // chosen for it — gravity overshooting a stable floor, or a
+                    // server correction blended in. This watches the committed
+                    // render Z for a direction flip (up-then-down or the
+                    // reverse) where both legs clear 0.15, the unmistakable
+                    // signature of a yo-yo, and names the two steps so the next
+                    // Undercity walk says how far and how fast it bobs and
+                    // whether it moves while the feet are otherwise still.
+                    {
+                        static float lastZ = renderPos.z;
+                        static float lastDz = 0.0f;
+                        static std::chrono::steady_clock::time_point lastRevLog{};
+                        const float dz = renderPos.z - lastZ;
+                        if (std::abs(dz) > 0.15f && std::abs(lastDz) > 0.15f &&
+                            ((dz > 0.0f) != (lastDz > 0.0f))) {
+                            const auto now = std::chrono::steady_clock::now();
+                            if (now - lastRevLog > std::chrono::milliseconds(250)) {
+                                lastRevLog = now;
+                                LOG_WARNING("Player Z reversal: z=", renderPos.z,
+                                            " step=", dz, " prevStep=", lastDz,
+                                            " grounded=",
+                                            renderer->getCameraController() &&
+                                            renderer->getCameraController()->isGrounded() ? 1 : 0,
+                                            " moving=",
+                                            renderer->getCameraController() &&
+                                            renderer->getCameraController()->isMoving() ? 1 : 0);
+                            }
+                        }
+                        if (std::abs(dz) > 0.02f) lastDz = dz;
+                        lastZ = renderPos.z;
+                    }
+
                     glm::vec3 canonical = core::coords::renderToCanonical(renderPos);
                     gameHandler->setPosition(canonical.x, canonical.y, canonical.z);
 
