@@ -174,7 +174,7 @@ TEST_CASE("Quest query rewards: WotLK layout (AzerothCore)", "[quest_rewards]") 
     putF(b, 0.0f);    // rewHonorMultiplier
     putU32(b, 0);     // srcItemId
     putU32(b, 8);     // flags
-    putU32(b, 0);     // charTitleId
+    putU32(b, 47);    // charTitleId
     putU32(b, 0);     // playersSlain
     putU32(b, 1);     // bonusTalents
     putU32(b, 100);   // rewArenaPoints
@@ -215,6 +215,7 @@ TEST_CASE("Quest query rewards: WotLK layout (AzerothCore)", "[quest_rewards]") 
     CHECK(r.rewardHonor == 250);
     CHECK(r.bonusTalents == 1);
     CHECK(r.arenaPoints == 100);
+    CHECK(r.rewardTitleId == 47);  // CharTitleId at field 19
 }
 
 TEST_CASE("Quest query rewards: implausible data rejected", "[quest_rewards]") {

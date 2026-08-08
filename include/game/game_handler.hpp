@@ -2464,6 +2464,10 @@ public:
     int32_t getChosenTitleBit() const { return chosenTitleBit_; }
     /// Returns the formatted title string for a given bit (replaces %s with player name), or empty.
     std::string getFormattedTitle(uint32_t bit) const;
+    /// A title by its CharTitles.dbc id (what a quest reward carries), formatted
+    /// with the player's name where the "%s" sits — "%s the Explorer". Empty
+    /// when the id is unknown.
+    std::string getFormattedTitleById(uint32_t id) const;
     /// Send CMSG_SET_TITLE to activate a title (bit >= 0) or clear it (bit = -1).
     void sendSetTitle(int32_t bit);
 
@@ -4583,7 +4587,11 @@ private:
     // Title cache: maps titleBit → title string (lazy-loaded from CharTitles.dbc)
     // The strings use "%s" as a player-name placeholder (e.g. "Commander %s", "%s the Explorer").
     mutable std::unordered_map<uint32_t, std::string> titleNameCache_;
+    mutable std::unordered_map<uint32_t, std::string> titleFormatById_;  // CharTitles id -> format
     mutable bool titleNameCacheLoaded_ = false;
+    // Substitutes the player's name into a title's "%s" slot; shared by the
+    // by-bit (worn) and by-id (quest reward) title lookups.
+    std::string formatTitleString(const std::string& fmt) const;
     void loadTitleNameCache() const;
     // Set of title bit-indices known to the player (from SMSG_TITLE_EARNED).
     std::unordered_set<uint32_t> knownTitleBits_;

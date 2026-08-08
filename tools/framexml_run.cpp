@@ -391,6 +391,7 @@ int main(int argc, char** argv) {
                     q.rewardHonor = 250;
                     q.rewardTalents = 1;
                     q.rewardArenaPoints = 100;
+                    q.rewardTitleId = 6;  // CharTitles.dbc id 6 = "Knight %s"
                     log.push_back(q);
                     gh.setSelectedQuestLogIndex(1);
                 }

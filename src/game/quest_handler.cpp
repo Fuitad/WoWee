@@ -1199,6 +1199,7 @@ void QuestHandler::registerOpcodes(DispatchTable& table) {
                 q.rewardHonor = rwds.rewardHonor;
                 q.rewardTalents = rwds.bonusTalents;
                 q.rewardArenaPoints = rwds.arenaPoints;
+                if (rwds.rewardTitleId != 0) q.rewardTitleId = rwds.rewardTitleId;
                 q.sourceItemId = rwds.sourceItemId;
                 // The watch frame needs its name and icon to draw a button.
                 if (q.sourceItemId != 0) owner_.queryItemInfo(q.sourceItemId, 0);

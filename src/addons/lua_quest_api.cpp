@@ -95,7 +95,23 @@ static int lua_GetQuestRewardSpell(lua_State* L) {
     lua_pushboolean(L, gh->getKnownSpells().count(spellId) > 0 ? 1 : 0);
     return 4;
 }
-static int lua_GetQuestRewardTitle(lua_State* L) { (void)L; return luaReturnNil(L); }
+// GetQuestLogRewardTitle() → the title a quest awards, formatted with the
+// player's name, or nil for the many quests that award none. The CharTitleId is
+// in the query response (field 19) and the name in CharTitles.dbc, both of
+// which this now reads; the old answer was a flat nil.
+static int lua_GetQuestRewardTitle(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    if (!gh) { return luaReturnNil(L); }
+    const int index = gh->getSelectedQuestLogIndex();
+    const auto& log = gh->getQuestLog();
+    if (index < 1 || index > static_cast<int>(log.size())) { return luaReturnNil(L); }
+    const uint32_t titleId = log[static_cast<size_t>(index - 1)].rewardTitleId;
+    if (titleId == 0) { return luaReturnNil(L); }
+    const std::string name = gh->getFormattedTitleById(titleId);
+    if (name.empty()) { return luaReturnNil(L); }
+    lua_pushstring(L, name.c_str());
+    return 1;
+}
 static int lua_ProcessQuestLogRewardFactions(lua_State* L) { (void)L; return 0; }
 static int lua_GetQuestLogRewardFactionInfo(lua_State* L) { (void)L; return luaReturnNil(L); }
 

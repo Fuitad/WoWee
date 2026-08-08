@@ -2570,6 +2570,8 @@ struct QuestQueryRewardsData {
     uint32_t rewardHonor = 0;
     uint32_t bonusTalents = 0;
     uint32_t arenaPoints = 0;
+    /// CharTitles.dbc id of a title the quest awards (few quests do). WotLK only.
+    uint32_t rewardTitleId = 0;
     bool valid = false;
 };
 

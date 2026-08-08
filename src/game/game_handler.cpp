@@ -2222,10 +2222,14 @@ void GameHandler::loadTitleNameCache() const {
     if (bitField   == 0xFFFFFFFF) bitField   = static_cast<uint32_t>(dbc->getFieldCount() - 1);
 
     for (uint32_t i = 0; i < dbc->getRecordCount(); ++i) {
-        uint32_t bit = dbc->getUInt32(i, bitField);
-        if (bit == 0) continue;
+        const uint32_t id = dbc->getUInt32(i, 0);   // the row id a quest reward references
         std::string name = dbc->getString(i, titleField);
-        if (!name.empty()) titleNameCache_[bit] = std::move(name);
+        if (name.empty()) continue;
+        // By id for a quest reward (which carries the id), and by mask bit for
+        // the worn title (which is a bit off the player's own fields).
+        if (id != 0) titleFormatById_[id] = name;
+        uint32_t bit = dbc->getUInt32(i, bitField);
+        if (bit != 0) titleNameCache_[bit] = std::move(name);
     }
     LOG_INFO("CharTitles: loaded ", titleNameCache_.size(), " title names from DBC");
 }
@@ -2234,12 +2238,20 @@ std::string GameHandler::getFormattedTitle(uint32_t bit) const {
     loadTitleNameCache();
     auto it = titleNameCache_.find(bit);
     if (it == titleNameCache_.end() || it->second.empty()) return {};
+    return formatTitleString(it->second);
+}
 
+std::string GameHandler::getFormattedTitleById(uint32_t id) const {
+    loadTitleNameCache();
+    auto it = titleFormatById_.find(id);
+    if (it == titleFormatById_.end() || it->second.empty()) return {};
+    return formatTitleString(it->second);
+}
+
+std::string GameHandler::formatTitleString(const std::string& fmt) const {
     const auto& ln2 = lookupName(playerGuid);
     static const std::string kUnknown = "unknown";
     const std::string& pName = ln2.empty() ? kUnknown : ln2;
-
-    const std::string& fmt = it->second;
     size_t pos = fmt.find("%s");
     if (pos != std::string::npos) {
         return fmt.substr(0, pos) + pName + fmt.substr(pos + 2);

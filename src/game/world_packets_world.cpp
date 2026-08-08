@@ -1251,7 +1251,7 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
     // and a guess would put an arbitrary item on the watch frame.
     size_t sourceItemField = 0;
     size_t rewardSpellField = 0;
-    size_t xpIdField = 0, honorField = 0, talentsField = 0, arenaField = 0;
+    size_t xpIdField = 0, honorField = 0, talentsField = 0, arenaField = 0, titleField = 0;
     if (questLogStride >= 5) {        // WotLK
         moneyField = 11; rewardPairsField = 24; choicePairsField = 32;
         sourceItemField = 17;
@@ -1261,9 +1261,9 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
         // and start item above.
         xpIdField = 10;
         // Counted off the same serializer: RewHonorAddition at 15 (two past the
-        // spell), BonusTalents at 21 and RewArenaPoints at 22 (four and five
-        // past the start item, three and two before the reward pairs).
-        honorField = 15; talentsField = 21; arenaField = 22;
+        // spell), CharTitleId at 19 (two past the start item), BonusTalents at
+        // 21 and RewArenaPoints at 22 (three and two before the reward pairs).
+        honorField = 15; titleField = 19; talentsField = 21; arenaField = 22;
         // Counted from the same base as the four above: money is absolute 13
         // and the start item absolute 19, and the serializer writes
         // money(13), maxLevel(14), rewSpell(15) — so 13 here, which is 15 there.
@@ -1326,6 +1326,12 @@ QuestQueryRewardsData QuestQueryRewardsParser::parse(const std::vector<uint8_t>&
     if (arenaField) {
         const uint32_t a = readU32At(base + arenaField * 4u);
         if (a <= 100000u) out.arenaPoints = a;
+    }
+    if (titleField) {
+        // A CharTitles.dbc id — a few hundred rows, so small; a slipped layout
+        // reads far larger and is dropped.
+        const uint32_t t = readU32At(base + titleField * 4u);
+        if (t <= 500u) out.rewardTitleId = t;
     }
     if (sourceItemField) {
         const uint32_t srcItem = readU32At(base + sourceItemField * 4u);

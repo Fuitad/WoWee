@@ -3042,8 +3042,9 @@ void registerUnitLuaAPI(lua_State* L) {
                 // Zero rather than false: paperdollframe.lua asks
                 // `IsTitleKnown(i) ~= 0`, and `false ~= 0` compares two
                 // different types and is therefore true — so every title would
-                // have counted as known. Latent today only because
-                // GetNumTitles answers zero and the loop never runs.
+                // have counted as known. This matters live, not just in
+                // theory: GetNumTitles answers 192, so the 1..GetNumTitles
+                // loop does run and reads this on every title.
                 // IsTitleKnown(bit) — the client tracks these already, as a
                 // set of bits off the player's known-titles mask. Answering a
                 // constant zero meant the paperdoll's title dropdown listed

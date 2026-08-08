@@ -116,6 +116,7 @@ public:
         uint32_t rewardHonor = 0;
         uint32_t rewardTalents = 0;
         uint32_t rewardArenaPoints = 0;
+        uint32_t rewardTitleId = 0;  // CharTitles.dbc id of an awarded title, 0 = none
         int32_t level = 0;   // quest level from query response; 0 = unknown, -1 = player-scaling
         // ZoneOrSort from query response: >0 = AreaTable zone id, <0 = QuestSort.dbc
         // category (negated), 0 = unknown
