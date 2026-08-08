@@ -3511,6 +3511,7 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
         }
         totalInstancesChecked++;
         LOG_WARNING("  Instance modelId=", instance.modelId,
+                    " isTransport=", instance.isTransport ? 1 : 0,
                     " worldBounds=(", instance.worldBoundsMin.x, ",", instance.worldBoundsMin.y, ",", instance.worldBoundsMin.z,
                     ")-(", instance.worldBoundsMax.x, ",", instance.worldBoundsMax.y, ",", instance.worldBoundsMax.z,
                     ") groups=", model.groups.size());
