@@ -2,8 +2,6 @@
 // Extracted from lua_engine.cpp as part of §5.1 (Tame LuaEngine).
 #include "addons/lua_api_helpers.hpp"
 #include "addons/lua_engine.hpp"
-#include "core/app_clock.hpp"
-#include "core/logger.hpp"
 #include "game/auction_filters.hpp"
 #include "game/game_utils.hpp"
 #include "game/packed_time.hpp"
@@ -339,26 +337,6 @@ static int questLogIndexOrSelected(lua_State* L, int arg) {
 static int lua_GetQuestLogQuestText(lua_State* L) {
     auto* gh = getGameHandler(L);
     const int index = questLogIndexOrSelected(L, 1);
-    // The reported "description and objectives missing on screen" while the
-    // parse log shows both stored: this says whether the display path even
-    // reaches this binding, what the log has selected when it does, and the
-    // lengths it hands back — so a blank pane separates into "never asked",
-    // "asked with nothing selected", and "asked and answered but not drawn".
-    if (gh) {
-        static double lastQTextLog = 0.0;
-        const double now = wowee::core::appTimeSeconds();
-        if (now - lastQTextLog > 0.5) {
-            lastQTextLog = now;
-            const auto& qlD = gh->getQuestLog();
-            const bool inRange = index >= 1 && index <= static_cast<int>(qlD.size());
-            core::Logger::getInstance().warning(
-                "GetQuestLogQuestText: index=", index,
-                " selected=", gh->getSelectedQuestLogIndex(),
-                " logSize=", qlD.size(),
-                " desc=", inRange ? qlD[index - 1].description.size() : 0u,
-                "ch obj=", inRange ? qlD[index - 1].objectives.size() : 0u, "ch");
-        }
-    }
     if (!gh || index < 1) { return luaReturnNil(L); }
     const auto& ql = gh->getQuestLog();
     if (index > static_cast<int>(ql.size())) { return luaReturnNil(L); }
