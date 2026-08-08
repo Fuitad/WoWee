@@ -2248,35 +2248,45 @@ std::string GameHandler::getFormattedTitleById(uint32_t id) const {
     return formatTitleString(it->second);
 }
 
-float GameHandler::getMeleeCritFromAgility() const {
+float GameHandler::critPercentFromGameTable(std::vector<float>& baseCache,
+                                            std::vector<float>& ratioCache, bool& loaded,
+                                            const char* baseDbc, const char* ratioDbc,
+                                            int statIdx) const {
     const uint8_t pclass = getPlayerClass();
     uint32_t level = getPlayerLevel();
     if (pclass == 0 || pclass > 11 || level == 0) return 0.0f;
     constexpr uint32_t kGtMaxLevel = 100;
     if (level > kGtMaxLevel) level = kGtMaxLevel;
-    if (!gtMeleeCritLoaded_) {
-        gtMeleeCritLoaded_ = true;
+    if (!loaded) {
+        loaded = true;
         auto* am = services_.assetManager;
         if (am && am->isInitialized()) {
             // Single-column float game tables; getFloat reads that one column.
-            if (auto base = am->loadDBC("gtChanceToMeleeCritBase.dbc");
-                base && base->isLoaded()) {
+            if (auto base = am->loadDBC(baseDbc); base && base->isLoaded())
                 for (uint32_t i = 0; i < base->getRecordCount(); ++i)
-                    gtMeleeCritBase_.push_back(base->getFloat(i, 0));
-            }
-            if (auto ratio = am->loadDBC("gtChanceToMeleeCrit.dbc");
-                ratio && ratio->isLoaded()) {
+                    baseCache.push_back(base->getFloat(i, 0));
+            if (auto ratio = am->loadDBC(ratioDbc); ratio && ratio->isLoaded())
                 for (uint32_t i = 0; i < ratio->getRecordCount(); ++i)
-                    gtMeleeCrit_.push_back(ratio->getFloat(i, 0));
-            }
+                    ratioCache.push_back(ratio->getFloat(i, 0));
         }
     }
     const size_t baseIdx  = static_cast<size_t>(pclass - 1);
     const size_t ratioIdx = static_cast<size_t>(pclass - 1) * kGtMaxLevel + (level - 1);
-    if (baseIdx >= gtMeleeCritBase_.size() || ratioIdx >= gtMeleeCrit_.size()) return 0.0f;
-    const float agility = static_cast<float>(std::max(0, getPlayerStat(1)));
-    const float crit = gtMeleeCritBase_[baseIdx] + agility * gtMeleeCrit_[ratioIdx];
-    return crit * 100.0f;  // the sheet reads a percent
+    if (baseIdx >= baseCache.size() || ratioIdx >= ratioCache.size()) return 0.0f;
+    const float stat = static_cast<float>(std::max(0, getPlayerStat(statIdx)));
+    return (baseCache[baseIdx] + stat * ratioCache[ratioIdx]) * 100.0f;  // the sheet reads a percent
+}
+
+float GameHandler::getMeleeCritFromAgility() const {
+    return critPercentFromGameTable(gtMeleeCritBase_, gtMeleeCrit_, gtMeleeCritLoaded_,
+                                    "gtChanceToMeleeCritBase.dbc", "gtChanceToMeleeCrit.dbc",
+                                    /*STAT_AGILITY=*/1);
+}
+
+float GameHandler::getSpellCritFromIntellect() const {
+    return critPercentFromGameTable(gtSpellCritBase_, gtSpellCrit_, gtSpellCritLoaded_,
+                                    "gtChanceToSpellCritBase.dbc", "gtChanceToSpellCrit.dbc",
+                                    /*STAT_INTELLECT=*/3);
 }
 
 std::string GameHandler::formatTitleString(const std::string& fmt) const {

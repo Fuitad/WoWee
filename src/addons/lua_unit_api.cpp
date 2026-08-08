@@ -1565,6 +1565,14 @@ static int lua_GetCritChanceFromAgility(lua_State* L) {
     return 1;
 }
 
+// GetSpellCritChanceFromIntellect([unit]) → the spell crit percent Intellect
+// gives, from the spell-crit game tables. Was a flat zero.
+static int lua_GetSpellCritChanceFromIntellect(lua_State* L) {
+    auto* gh = getGameHandler(L);
+    lua_pushnumber(L, gh ? gh->getSpellCritFromIntellect() : 0.0);
+    return 1;
+}
+
 /// GetUnitMaxHealthModifier(unit) → the multiplier on maximum health. One,
 /// because nothing here modifies it — and one rather than zero because the
 /// sheet multiplies by it.
@@ -3155,7 +3163,7 @@ void registerUnitLuaAPI(lua_State* L) {
             return 1; }},
                 {"GetCombatRatingBonus",    lua_ZeroPercent},
                 {"GetCritChanceFromAgility", lua_GetCritChanceFromAgility},
-                {"GetSpellCritChanceFromIntellect", lua_ZeroPercent},
+                {"GetSpellCritChanceFromIntellect", lua_GetSpellCritChanceFromIntellect},
                 // Three values — main hand, off hand, ranged — because the
                 // character sheet reads the second and concatenates it. One
                 // value left it nil, and the line that prints "expertise /

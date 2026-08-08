@@ -478,6 +478,10 @@ public:
     /// Agility times the per-class-per-level ratio, both from the combat game
     /// tables. Zero until the tables and the player's stats are available.
     float getMeleeCritFromAgility() const;
+    /// Spell critical-strike chance the player's Intellect grants, as a percent —
+    /// the spell-side twin of getMeleeCritFromAgility, read the same way from the
+    /// spell-crit game tables. Zero for a class with no spell crit (a warrior).
+    float getSpellCritFromIntellect() const;
 
     // Server-authoritative attack power (WotLK: UNIT_FIELD_ATTACK_POWER / RANGED).
     // Returns -1 if not yet received.
@@ -4600,6 +4604,14 @@ private:
     mutable std::vector<float> gtMeleeCritBase_;
     mutable std::vector<float> gtMeleeCrit_;
     mutable bool gtMeleeCritLoaded_ = false;
+    mutable std::vector<float> gtSpellCritBase_;
+    mutable std::vector<float> gtSpellCrit_;
+    mutable bool gtSpellCritLoaded_ = false;
+    // Shared: class base + stat × per-class-per-level ratio, ×100 for a percent.
+    float critPercentFromGameTable(std::vector<float>& baseCache,
+                                   std::vector<float>& ratioCache, bool& loaded,
+                                   const char* baseDbc, const char* ratioDbc,
+                                   int statIdx) const;
     // Substitutes the player's name into a title's "%s" slot; shared by the
     // by-bit (worn) and by-id (quest reward) title lookups.
     std::string formatTitleString(const std::string& fmt) const;
