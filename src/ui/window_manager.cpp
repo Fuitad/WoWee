@@ -476,6 +476,12 @@ void WindowManager::renderQuestDetailsWindow(game::GameHandler& gameHandler,
                                           ChatPanel& chatPanel,
                                           InventoryScreen& inventoryScreen) {
     if (!gameHandler.isQuestDetailsOpen()) return;
+    // And not until the reward item names have had a moment to arrive. This
+    // window draws the icons itself, so opening the instant the packet lands
+    // shows a row of blanks that fill in a frame later. The wait used to be
+    // part of "is it open", which meant the interface's own bindings answered
+    // "no rewards" for the same hundred milliseconds — see isQuestDetailsOpen.
+    if (!gameHandler.questDetailsItemInfoReady()) return;
 
     auto* window = services_.window;
     float screenW = window ? static_cast<float>(window->getWidth()) : 1280.0f;

@@ -2301,7 +2301,12 @@ void QuestHandler::handleQuestDetails(network::Packet& packet) {
     // Pre-fetch item info for all reward items
     for (const auto& item : data.rewardChoiceItems) owner_.queryItemInfo(item.itemId, 0);
     for (const auto& item : data.rewardItems)       owner_.queryItemInfo(item.itemId, 0);
-    // Delay opening the window slightly to allow item queries to complete
+    // Open now, and let this client's own window wait for the item names.
+    //
+    // These two used to be one thing: the window was held shut for a hundred
+    // milliseconds so the queries above could answer, and "open" was what the
+    // interface's bindings read as well. See isQuestDetailsOpen.
+    questDetailsOpen_ = true;
     questDetailsOpenTime_ = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
     gossipWindowOpen_ = false;
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("QUEST_DETAIL", {});

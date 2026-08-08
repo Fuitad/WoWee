@@ -4129,6 +4129,10 @@ bool GameHandler::isQuestDetailsOpen() {
     if (questHandler_) return questHandler_->isQuestDetailsOpen();
     return questDetailsOpen;
 }
+bool GameHandler::questDetailsItemInfoReady() const {
+    if (questHandler_) return questHandler_->questDetailsItemInfoReady();
+    return true;
+}
 const QuestDetailsData& GameHandler::getQuestDetails() const {
     if (questHandler_) return questHandler_->getQuestDetails();
     return currentQuestDetails;

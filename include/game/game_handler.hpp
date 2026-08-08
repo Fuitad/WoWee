@@ -2000,6 +2000,10 @@ public:
     /// from SMSG_QUESTGIVER_QUEST_LIST rather than from gossip.
     const std::string& getQuestGreeting() const;
     bool isQuestDetailsOpen();
+    /// Whether the reward item names asked for when the details arrived have
+    /// had time to come back. Only this client's own quest window asks — see
+    /// QuestHandler::questDetailsItemInfoReady.
+    bool questDetailsItemInfoReady() const;
     const QuestDetailsData& getQuestDetails() const;
 
     // Gossip POI (aliased from handler_types.hpp)

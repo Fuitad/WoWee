@@ -48,16 +48,34 @@ public:
     const std::string& getQuestGreeting() const { return questGreeting_; }
 
     // Quest details
-    bool isQuestDetailsOpen() {
-        if (questDetailsOpen_) return true;
-        if (questDetailsOpenTime_ != std::chrono::steady_clock::time_point{}) {
-            if (std::chrono::steady_clock::now() >= questDetailsOpenTime_) {
-                questDetailsOpen_ = true;
-                questDetailsOpenTime_ = std::chrono::steady_clock::time_point{};
-                return true;
-            }
-        }
-        return false;
+    /// Whether a quest giver's detail page is up. True from the moment the
+    /// packet lands.
+    ///
+    /// It used to stay false for a hundred milliseconds after the details
+    /// arrived, to give the item queries fired alongside them time to come
+    /// back. That delay belonged to *this* client's own window, which draws
+    /// reward icons and wants their names first — but it gated every reader,
+    /// and the interface asks the instant it is told.
+    ///
+    /// What that cost: QUEST_DETAIL fires as the packet is handled, FrameXML
+    /// runs QuestInfo_Display, and QuestInfo_ShowRewards asks how many rewards
+    /// there are. For a hundred milliseconds the answer was none — so it hid
+    /// the rewards block and returned nil, and a nil return is what tells
+    /// QuestInfo_Display not to reparent it. The delay then expired, something
+    /// called QuestInfo_ShowRewards directly, and it filled the block in and
+    /// showed it — still parented to UIParent, still at the position its XML
+    /// gave it. The reward list appeared in the middle of the screen, outside
+    /// the quest frame, and closing the frame did not take it away because it
+    /// was never inside it.
+    bool isQuestDetailsOpen() const { return questDetailsOpen_; }
+
+    /// Whether the item queries sent when the details arrived have had time to
+    /// answer. Only this client's own quest window asks: it draws the reward
+    /// icons itself and they are blank until the names land. The interface
+    /// does not, because FrameXML redraws when the item info event arrives.
+    bool questDetailsItemInfoReady() const {
+        return questDetailsOpenTime_ == std::chrono::steady_clock::time_point{} ||
+               std::chrono::steady_clock::now() >= questDetailsOpenTime_;
     }
     const QuestDetailsData& getQuestDetails() const { return currentQuestDetails_; }
 
