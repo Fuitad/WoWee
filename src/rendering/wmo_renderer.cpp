@@ -3531,9 +3531,18 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
             totalGroupsOverlapping++;
             const auto& group = model.groups[gi];
 
-            // Count floor triangles in this group under the player
+            // Count floor triangles in this group under the player, and — this
+            // is what the fall-through needs — the hit CLOSEST to the query Z,
+            // which is the floor the by-reference player pick would want. If a
+            // group has a floorHit near the feet but the pick still dropped, the
+            // grid query (getTrianglesInRange) missed it; if the closest hit is
+            // the low one it dropped to, the floor at the feet is genuinely
+            // absent here.
             int floorTris = 0;
             float bestHitZ = -999999.0f;
+            float lowestHitZ = 999999.0f;
+            float closestHitZ = 0.0f;
+            float closestDist = 1e30f;
             const auto& verts = group.collisionVertices;
             const auto& indices = group.collisionIndices;
             for (size_t ti = 0; ti + 2 < indices.size(); ti += 3) {
@@ -3548,6 +3557,9 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
                     floorTris++;
                     totalFloorHits++;
                     if (hitWorld.z > bestHitZ) bestHitZ = hitWorld.z;
+                    if (hitWorld.z < lowestHitZ) lowestHitZ = hitWorld.z;
+                    const float d = std::abs(hitWorld.z - glZ);
+                    if (d < closestDist) { closestDist = d; closestHitZ = hitWorld.z; }
                 }
             }
 
@@ -3563,6 +3575,8 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
                         " isLOD=", group.isLOD,
                         " floorHits=", floorTris,
                         " bestHitZ=", bestHitZ,
+                        " lowestHitZ=", (floorTris ? lowestHitZ : -999999.0f),
+                        " closestToFeetZ=", (floorTris ? closestHitZ : -999999.0f),
                         " wBounds=(", gWorldMin.x, ",", gWorldMin.y, ",", gWorldMin.z,
                         ")-(", gWorldMax.x, ",", gWorldMax.y, ",", gWorldMax.z, ")");
         }
