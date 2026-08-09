@@ -1377,7 +1377,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
         if (io.WantTextInput || interfaceTakingTypedInput() ||
             interfaceConsumedKey(ImGuiKey_Enter) ||
             chatPanel_.isChatInputActive()) {
-            LOG_INFO("Chat key: refused — ImGui wants text: ",
+            LOG_WARNING("Chat key: refused — ImGui wants text: ",
                      io.WantTextInput ? "yes" : "no",
                      ", the interface's box has focus: ",
                      interfaceTakingTypedInput() ? "yes" : "no",
@@ -1386,7 +1386,7 @@ void GameScreen::processTargetInput(game::GameHandler& gameHandler) {
                      ", this client's chat input: ",
                      chatPanel_.isChatInputActive() ? "active" : "idle");
         } else {
-            LOG_INFO("Chat key: opening ",
+            LOG_WARNING("Chat key: opening ",
                      frameXmlChat ? "the interface's box" : "this client's box");
         }
     }

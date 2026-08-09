@@ -8,6 +8,7 @@
 #include "rendering/renderer.hpp"
 #include "rendering/animation_controller.hpp"
 #include "core/logger.hpp"
+#include "core/app_clock.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cctype>
@@ -723,6 +724,19 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
                              : (data.chatTag & 0x02) ? "DND"
                              : (data.chatTag & 0x01) ? "AFK"
                                                      : "";
+        // Says a line reached the interface at all. A blank chat window is
+        // either nothing arriving or something arriving and not being drawn,
+        // and those have opposite causes with the same appearance. Rate
+        // limited, because a busy channel would otherwise fill the log.
+        {
+            static double lastSaid = 0.0;
+            const double now = core::appTimeSeconds();
+            if (now - lastSaid > 2.0) {
+                lastSaid = now;
+                LOG_WARNING("Chat: fired ", eventName, " to the interface from '",
+                            data.senderName, "'");
+            }
+        }
         owner_.addonEventCallbackRef()(eventName, {
             data.message,
             data.senderName,
@@ -1013,6 +1027,14 @@ void ChatHandler::fireChatEvent(const MessageChatData& msg) {
              (unsigned long long)(msg.senderGuid != 0 ? msg.senderGuid : owner_.getPlayerGuid()));
     // The name, for the reason handleMessageChat gives: a number here is
     // printed as a language header in front of every line.
+    {
+        static double lastSaid = 0.0;
+        const double now = core::appTimeSeconds();
+        if (now - lastSaid > 2.0) {
+            lastSaid = now;
+            LOG_WARNING("Chat: fired ", eventName, " to the interface (local)");
+        }
+    }
     owner_.addonEventCallbackRef()(eventName, {
         msg.message, senderName,
         owner_.getLanguageName(static_cast<uint32_t>(msg.language)),
