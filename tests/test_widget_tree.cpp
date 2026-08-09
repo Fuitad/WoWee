@@ -2644,3 +2644,49 @@ TEST_CASE("A scroll child's reach is its contents, not its declared size",
         REQUIRE(h3 == Catch::Approx(50.0f));
     }
 }
+
+// An edit box paints its own text and caret, the way a status bar paints its
+// fill and a message frame its lines. Dropped from the draw order as "a frame
+// with nothing of its own to paint", the chat box still opened, took the focus
+// and filled with what was typed — every character going into a widget that was
+// never drawn. The bar looked empty rather than missing, because its art is
+// child textures and those draw on their own.
+TEST_CASE("An edit box is drawn for its own text, not skipped as a container",
+          "[widget][draworder][editbox]") {
+    WidgetTree tree;
+    const uint32_t box = tree.create(WidgetKind::Frame, tree.root(), "Box");
+    Widget* b = tree.get(box);
+    b->isEditBox = true;
+    b->width = 440.0f;
+    b->height = 32.0f;
+    Anchor a;
+    a.point = "BOTTOMLEFT";
+    a.relativePoint = "BOTTOMLEFT";
+    tree.addPoint(box, a);
+    tree.layout(kScreenW, kScreenH);
+
+    auto drawn = [&](uint32_t id) {
+        for (const Widget* w : tree.drawOrder()) if (w->id == id) return true;
+        return false;
+    };
+
+    // No backdrop and no text: the caret still has to show which box is
+    // listening, so it is drawn regardless.
+    REQUIRE(drawn(box));
+
+    SECTION("and with text in it") {
+        tree.get(box)->editText = "hello world";
+        tree.layout(kScreenW, kScreenH);
+        REQUIRE(drawn(box));
+    }
+
+    SECTION("a plain container beside it is still skipped") {
+        const uint32_t plain = tree.create(WidgetKind::Frame, tree.root(), "Plain");
+        Widget* p = tree.get(plain);
+        p->width = 100.0f;
+        p->height = 20.0f;
+        tree.addPoint(plain, a);
+        tree.layout(kScreenW, kScreenH);
+        REQUIRE_FALSE(drawn(plain));
+    }
+}

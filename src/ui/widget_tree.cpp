@@ -1052,8 +1052,21 @@ void WidgetTree::collectDrawOrder() {
         // A frame the client renders into paints itself, the same as one with
         // a backdrop. The paperdoll's model frame is a frame, not a texture,
         // so without this the character would be rendered and never drawn.
+        // An edit box paints its own text and its caret, the way a status bar
+        // paints its fill and a message frame its lines — so it belongs with
+        // them here and not with the containers.
+        //
+        // Without it the chat box was dropped as "a frame with nothing of its
+        // own to paint": the say bar opened, took the focus and filled with
+        // what was typed, and every character went into a widget that was never
+        // drawn. The bar itself still appeared, because its art is child
+        // textures and those draw on their own — so it looked like an empty box
+        // rather than a missing one.
+        //
+        // Not gated on holding text. The caret is what says which box is
+        // listening, and an empty box still has to show it.
         if (w.kind == WidgetKind::Frame && !w.hasBackdrop && !w.isStatusBar &&
-            w.externalTexture == 0 &&
+            !w.isEditBox && w.externalTexture == 0 &&
             !(w.isMessageFrame && !w.messages.empty()) &&
             !(w.isTooltip && !w.tooltipLines.empty())) continue;
         if (w.rectW <= 0.0f || w.rectH <= 0.0f) continue;

@@ -1282,24 +1282,10 @@ void Application::run() {
                 }
                 // Typed text, when an addon's edit box is listening for it.
                 else if (event.type == SDL_TEXTINPUT) {
-                    // Where a keystroke stops, once a second. Typing into a box
-                    // that shows nothing is either text that never arrives or
-                    // text that arrives and is not drawn, and the two look the
-                    // same from in front of the screen.
-                    auto* engine = addonManager_ ? addonManager_->getLuaEngine()
-                                                 : nullptr;
-                    const bool focused = engine && engine->editBoxHasFocus();
-                    if (addonManager_ && addonsLoaded_ && focused) {
-                        engine->dispatchText(event.text.text);
-                    } else {
-                        static double lastSaid = 0.0;
-                        const double now = core::appTimeSeconds();
-                        if (now - lastSaid > 1.0) {
-                            lastSaid = now;
-                            LOG_WARNING("Typed text dropped: addons loaded=",
-                                        addonsLoaded_ ? "yes" : "no",
-                                        ", an interface edit box has focus=",
-                                        focused ? "yes" : "no");
+                    if (addonManager_ && addonsLoaded_) {
+                        if (auto* engine = addonManager_->getLuaEngine();
+                            engine && engine->editBoxHasFocus()) {
+                            engine->dispatchText(event.text.text);
                         }
                     }
                 }

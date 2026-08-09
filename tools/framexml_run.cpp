@@ -611,8 +611,12 @@ int main(int argc, char** argv) {
             const char* why = "it is in the draw order";
             if (!w->visible)               why = "not visible (shown, or an ancestor, or unanchored)";
             else if (w->alpha <= 0.001f)   why = "alpha is zero";
+            // The same rule the tree applies in drawOrder(). It is written
+            // twice, so an edit box drawing its own text has to be excused in
+            // both — this copy said "a container" about a chat box that had
+            // just started drawing again.
             else if (w->kind == wowee::ui::WidgetKind::Frame && !w->hasBackdrop &&
-                     !w->isStatusBar && w->externalTexture == 0 &&
+                     !w->isStatusBar && !w->isEditBox && w->externalTexture == 0 &&
                      !(w->isMessageFrame && !w->messages.empty()) &&
                      !(w->isTooltip && !w->tooltipLines.empty()))
                 why = "a frame with nothing of its own to paint (no backdrop, no "

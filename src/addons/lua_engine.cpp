@@ -8387,20 +8387,6 @@ void LuaEngine::dispatchText(const char* utf8) {
     if (!L_ || focusedWid_ == 0 || !utf8) return;
     auto* w = widgets_.get(focusedWid_);
     if (!w || !w->isEditBox) return;
-    // What the box holds after the keystroke, once a second. If this counts up
-    // while the box still looks empty, the text is arriving and the draw is the
-    // fault; if it never appears, nothing is reaching the box at all.
-    {
-        static double lastSaid = 0.0;
-        const double now = wowee::core::appTimeSeconds();
-        if (now - lastSaid > 1.0) {
-            lastSaid = now;
-            LOG_WARNING("Typed into '", w->name.empty() ? "(unnamed)" : w->name,
-                        "': held ", w->editText.size(), " byte(s) before this key",
-                        ", visible=", w->visible ? 1 : 0,
-                        ", rect=", w->rectW, "x", w->rectH);
-        }
-    }
 
     std::string add(utf8);
     if (add.empty()) return;
