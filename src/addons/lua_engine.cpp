@@ -9122,7 +9122,20 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
             // PaperDollFrame covers the whole character sheet and takes the
             // mouse without taking drags, so every press on the sheet stopped
             // there and it could not be moved.
+            // A slider stops that walk. It is the one widget whose whole
+            // purpose is to be dragged, and it is already following the cursor
+            // for as long as the button is held — so the press belongs to it
+            // and must not be offered to anything above it. Without this, a
+            // scroll bar sits inside a movable window and dragging its grip
+            // found the window instead: the list scrolled and the whole panel
+            // came away with the cursor.
+            //
+            // Checked along the walk rather than only at the press, because a
+            // scroll bar's up and down buttons are its children — a drag off one
+            // of those would otherwise pass straight through the bar to the
+            // window behind it.
             uint32_t owner = 0;
+            bool stoppedAtSlider = false;
             for (uint32_t id = pressedWid_[i]; id != 0;) {
                 const auto* cand = widgets_.get(id);
                 if (!cand) break;
@@ -9130,6 +9143,7 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                                  : (i == 1) ? cand->dragRight
                                             : false;
                 if (takes) { owner = id; break; }
+                if (cand->isSlider) { stoppedAtSlider = true; break; }
                 id = cand->parent;
             }
             const float mx = x - pressX_[i], my = y - pressY_[i];
@@ -9141,7 +9155,9 @@ void LuaEngine::dispatchMouse(float x, float y, float screenH, MouseButtons butt
                 // nothing registered for one looks exactly like a press the
                 // interface never saw — and the two have opposite causes.
                 // Said once a second so holding the button does not flood it.
-                if (movedEnough) {
+                // Not for a slider: it took the press deliberately, and the
+                // drag it is doing is its own.
+                if (movedEnough && !stoppedAtSlider) {
                     const double now = wowee::core::appTimeSeconds();
                     if (now - lastNoDragOwnerSaid_ > 1.0) {
                         lastNoDragOwnerSaid_ = now;
