@@ -1582,6 +1582,12 @@ set_target_properties(blp_convert PROPERTIES
 install(TARGETS blp_convert RUNTIME DESTINATION bin)
 
 # ---- Tool: wowee_editor (Standalone World Editor) ----
+# Off the default build: it is a large standalone tool that compiles on every
+# `cmake --build build` for no benefit to ordinary client work. Still built on
+# demand with `cmake --build build --target wowee_editor`, or configured back
+# into the default build with -DWOWEE_BUILD_EDITOR=ON.
+option(WOWEE_BUILD_EDITOR
+       "Build the standalone world editor as part of the default build" OFF)
 add_executable(wowee_editor
     tools/editor/main.cpp
     tools/editor/cli_gen_audio.cpp
@@ -2081,9 +2087,16 @@ if(GLSLC)
 endif()
 set_target_properties(wowee_editor PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    EXCLUDE_FROM_ALL $<NOT:$<BOOL:${WOWEE_BUILD_EDITOR}>>
 )
-install(TARGETS wowee_editor RUNTIME DESTINATION bin)
-message(STATUS "  wowee_editor tool: ENABLED")
+if(WOWEE_BUILD_EDITOR)
+    # Only installable when it is part of the default build — installing a
+    # target excluded from ALL fails at install time on a missing binary.
+    install(TARGETS wowee_editor RUNTIME DESTINATION bin)
+    message(STATUS "  wowee_editor tool: ENABLED (in default build)")
+else()
+    message(STATUS "  wowee_editor tool: on demand only (--target wowee_editor)")
+endif()
 
 # Print configuration summary
 message(STATUS "")
