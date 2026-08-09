@@ -463,7 +463,12 @@ void GameScreen::renderWorldMap(game::GameHandler& gameHandler) {
     // mode: opening SMSG_SHOWTAXINODES opens the map, activating a flight or
     // closing the gossip closes it. A user-dismissed map (Escape / X) closes
     // the flight master window through the onClose handler.
-    const bool taxiWanted = gameHandler.isTaxiWindowOpen();
+    // Not while FrameXML is drawing the flight map itself. The legacy taxi
+    // list a few lines up already stands aside for that element; this mode did
+    // not, so talking to a flight master put both on screen at once — TaxiFrame
+    // over this client's own map, each with its own set of pins.
+    const bool taxiWanted = gameHandler.isTaxiWindowOpen() &&
+                            !frameXmlOwns(UiElement::Taxi);
     if (taxiWanted && !wm->isTaxiMapOpen()) {
         auto* gh = &gameHandler;
         wm->openTaxiMap(
