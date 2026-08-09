@@ -516,6 +516,40 @@ void WidgetTree::setAllPoints(uint32_t id, uint32_t relativeTo) {
     w->anchors.push_back(br);
 }
 
+void WidgetTree::scrollContentExtent(uint32_t childId, float& outW, float& outH) const {
+    outW = 0.0f;
+    outH = 0.0f;
+    const Widget* child = get(childId);
+    if (!child) return;
+
+    // Seeded with the child's own rect, so this can only ever report more room
+    // than it declares, never less.
+    float minX = child->left,   maxX = child->left + child->rectW;
+    float minY = child->bottom, maxY = child->bottom + child->rectH;
+
+    // Measured against the child's own frame rather than the screen: everything
+    // under a scroll child moves with it, so the span between the outermost
+    // edges is the same whatever the frame is scrolled to. Reading screen
+    // positions instead would grow the range as the view moved and never settle.
+    std::vector<uint32_t> stack(child->children.begin(), child->children.end());
+    while (!stack.empty()) {
+        const uint32_t id = stack.back();
+        stack.pop_back();
+        const Widget* w = get(id);
+        if (!w || !w->shown) continue;
+        if (w->rectW > 0.0f || w->rectH > 0.0f) {
+            minX = std::min(minX, w->left);
+            maxX = std::max(maxX, w->left + w->rectW);
+            minY = std::min(minY, w->bottom);
+            maxY = std::max(maxY, w->bottom + w->rectH);
+        }
+        stack.insert(stack.end(), w->children.begin(), w->children.end());
+    }
+
+    outW = maxX - minX;
+    outH = maxY - minY;
+}
+
 void WidgetTree::resolveWidget(uint32_t id) {
     if (layingOut_) return;
     // Nothing has run a full pass yet, so there is no screen size to resolve

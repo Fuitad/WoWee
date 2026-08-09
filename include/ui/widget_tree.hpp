@@ -750,6 +750,21 @@ public:
     /// resolved in, and a repeat asks nothing.
     void resolveWidget(uint32_t id);
 
+    /// How far a scroll child's contents actually reach, in interface units.
+    ///
+    /// A scroll child is very often smaller than what is inside it, because
+    /// nothing in the interface resizes it — the client does. The talent tree
+    /// is the plainest case: PlayerTalentFrameScrollChildFrame declares 320x50
+    /// and holds eleven rows of talents 63 apart, and no line of FrameXML ever
+    /// gives it a height. Taking the declared 50 meant a scroll range of zero
+    /// and a tree that could not be scrolled at all.
+    ///
+    /// Never smaller than the child's own rect, so a frame that does set its
+    /// own height (a HybridScrollFrame sets it from its rows) keeps it.
+    /// Hidden frames do not count: a pool of buttons parked out of the way is
+    /// not content, and counting it scrolls into empty space.
+    void scrollContentExtent(uint32_t childId, float& outW, float& outH) const;
+
     /// Something moved, resized or changed parent — every rect is stale.
     void markLayoutDirty() { layoutDirty_ = true; ++layoutGeneration_; }
 

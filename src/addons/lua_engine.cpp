@@ -1040,7 +1040,12 @@ static float scrollRange(wowee::ui::WidgetTree& tree, uint32_t id, bool vertical
     w = tree.get(id);
     const auto* child = tree.get(childId);
     if (!w || !child) return 0.0f;
-    const float over = vertical ? (child->rectH - w->rectH) : (child->rectW - w->rectW);
+    // What the child actually holds, not what it declares. Nothing in FrameXML
+    // sizes the talent tree's scroll child — the client does — so the declared
+    // 50 gave a range of zero on a tree eleven rows deep.
+    float contentW = child->rectW, contentH = child->rectH;
+    tree.scrollContentExtent(childId, contentW, contentH);
+    const float over = vertical ? (contentH - w->rectH) : (contentW - w->rectW);
     return over > 0.0f ? over : 0.0f;
 }
 
@@ -8871,8 +8876,13 @@ void LuaEngine::updateScrollRanges() {
         if (!w) continue;
         float rangeX = 0.0f, rangeY = 0.0f;
         if (const auto* child = widgets_.get(w->scrollChild)) {
-            rangeX = child->rectW - w->rectW;
-            rangeY = child->rectH - w->rectH;
+            // The child's contents, not its declared size — see
+            // scrollContentExtent. The two agree for a frame that sizes its own
+            // child and differ sharply for one the client is expected to size.
+            float contentW = child->rectW, contentH = child->rectH;
+            widgets_.scrollContentExtent(w->scrollChild, contentW, contentH);
+            rangeX = contentW - w->rectW;
+            rangeY = contentH - w->rectH;
             if (rangeX < 0.0f) rangeX = 0.0f;
             if (rangeY < 0.0f) rangeY = 0.0f;
         }

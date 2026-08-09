@@ -2591,3 +2591,56 @@ TEST_CASE("A slider's thumb sits where its value says", "[widget][slider]") {
         REQUIRE(t->left == Catch::Approx(253.0f));
     }
 }
+
+// A scroll child is very often smaller than what is inside it, because nothing
+// in the interface resizes it — the client does. The talent tree is the plainest
+// case: PlayerTalentFrameScrollChildFrame declares 320x50 and holds eleven rows
+// of talents 63 apart, and no line of FrameXML ever gives it a height. Taking
+// the declared 50 meant a scroll range of zero and a tree that would not scroll.
+TEST_CASE("A scroll child's reach is its contents, not its declared size",
+          "[widget][scroll]") {
+    WidgetTree tree;
+    const uint32_t child = tree.create(WidgetKind::Frame, 0, "Child");
+    Widget* c = tree.get(child);
+    c->width = 320.0f;
+    c->height = 50.0f;
+    Anchor ca;
+    ca.point = "TOPLEFT";
+    ca.relativePoint = "TOPLEFT";
+    tree.addPoint(child, ca);
+
+    const uint32_t tall = tree.create(WidgetKind::Frame, child, "Tall");
+    Widget* t = tree.get(tall);
+    t->width = 300.0f;
+    t->height = 600.0f;
+    Anchor ta;
+    ta.point = "TOPLEFT";
+    ta.relativePoint = "TOPLEFT";
+    ta.relativeTo = child;
+    tree.addPoint(tall, ta);
+    tree.layout(kScreenW, kScreenH);
+
+    float w = 0.0f, h = 0.0f;
+    tree.scrollContentExtent(child, w, h);
+    REQUIRE(h == Catch::Approx(600.0f));
+
+    SECTION("hidden content is not content") {
+        // A pool of buttons parked out of the way would otherwise scroll the
+        // view into empty space.
+        tree.get(tall)->shown = false;
+        tree.layout(kScreenW, kScreenH);
+        float w2 = 0.0f, h2 = 0.0f;
+        tree.scrollContentExtent(child, w2, h2);
+        REQUIRE(h2 == Catch::Approx(50.0f));
+    }
+
+    SECTION("a child that does size itself keeps its own height") {
+        // A HybridScrollFrame sets the child's height from its rows; this may
+        // only ever report more room than declared, never less.
+        tree.get(tall)->height = 20.0f;
+        tree.layout(kScreenW, kScreenH);
+        float w3 = 0.0f, h3 = 0.0f;
+        tree.scrollContentExtent(child, w3, h3);
+        REQUIRE(h3 == Catch::Approx(50.0f));
+    }
+}
