@@ -1584,7 +1584,18 @@ network::Packet TrainerBuySpellPacket::build(uint64_t trainerGuid, uint32_t spel
 network::Packet LearnTalentPacket::build(uint32_t talentId, uint32_t requestedRank) {
     network::Packet packet(wireOpcode(Opcode::CMSG_LEARN_TALENT));
     packet.writeUInt32(talentId);
-    packet.writeUInt32(requestedRank);
+    // Counted from zero on the wire, from one everywhere above it. The field is
+    // the index into TalentEntry::RankID, and the server reads it straight out
+    // of the packet: Player::LearnTalent spends
+    // `talentRank - currentTalentRank + 1` points, so the first rank of an
+    // untrained talent has to arrive as 0.
+    //
+    // Sent as 1 it reads as the SECOND rank — two points for a player holding
+    // one, and a rank whose predecessor is missing — so the handler returned
+    // without a word and answered the unchanged talents. That is exactly what
+    // learning a talent looked like: a confirmation, the staged point handed
+    // straight back, and nothing learned.
+    packet.writeUInt32(requestedRank > 0 ? requestedRank - 1 : 0);
     return packet;
 }
 
