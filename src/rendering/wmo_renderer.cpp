@@ -3229,6 +3229,24 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
     float bestNormalZ = 1.0f;
     bool bestFromLowPlatform = false;
 
+    // A moving transport (elevator, ship hull) IS ordinary collision — you walk
+    // up a docked ship's hull and you stand on a lift with no attachment at all
+    // (an elevator is neither an M2 nor a client-animated ship, so client-side
+    // boarding never fires for it — see GameHandler::updateM2TransportBoarding).
+    // Excluding transports outright therefore deletes the only floor those cases
+    // have. But an unrestricted transport hit is the Undercity elevator yo-yo: as
+    // the lift cycles through a bystander's (x,y) its deck enters the candidate
+    // set metres above or below them and the pick flips to it and back.
+    // So a transport deck counts only when it is genuinely underfoot, not
+    // anywhere along the shaft. referenceZ is the true feet when the caller
+    // supplies one (the player's physics query does); otherwise glZ stands in,
+    // and that is the probe rather than the feet — the caller raised it by its
+    // step-up budget — so back that lift out first.
+    constexpr float kTransportProbeLift = 2.0f;
+    constexpr float kTransportFloorReach = 3.0f;
+    const float transportFloorMinZ =
+        (byReference ? referenceZ : glZ - kTransportProbeLift) - kTransportFloorReach;
+
     // World-space ray: from high above, pointing straight down
     glm::vec3 worldOrigin(glX, glY, glZ + 500.0f);
     glm::vec3 worldDir(0.0f, 0.0f, -1.0f);
@@ -3266,7 +3284,8 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
                 // Accept floors at or below glZ (the caller already elevates
                 // glZ by stepUpBudget to handle step-up range).  Among those,
                 // pick the highest (closest to feet).
-                if (hitWorld.z <= glZ) {
+                if (hitWorld.z <= glZ &&
+                    (!instance.isTransport || hitWorld.z >= transportFloorMinZ)) {
                     const bool better = !bestFloor
                         ? true
                         : (byReference
@@ -3294,11 +3313,7 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
     if (activeGroup_.isValid() && activeGroup_.instanceIdx < instances.size()) {
         const auto& instance = instances[activeGroup_.instanceIdx];
         auto it = loadedModels.find(instance.modelId);
-        // A transport deck is never the static-world floor (it reaches a rider
-        // through getInstanceFloorHeight); skip it here so a moving elevator or
-        // ship hull cannot become the ground under someone on the fixed floor.
-        if (!instance.isTransport &&
-            it != loadedModels.end() && instance.modelId == activeGroup_.modelId) {
+        if (it != loadedModels.end() && instance.modelId == activeGroup_.modelId) {
             const ModelData& model = it->second;
             glm::vec3 localOrigin = glm::vec3(instance.invModelMatrix * glm::vec4(worldOrigin, 1.0f));
             glm::vec3 localDir = glm::normalize(glm::vec3(instance.invModelMatrix * glm::vec4(worldDir, 0.0f)));
@@ -3337,14 +3352,6 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
 
     for (size_t idx : tl_candidateScratch) {
         const auto& instance = instances[idx];
-        // Moving transport (elevator, ship hull): excluded from the static-world
-        // floor query. Its deck only belongs to a rider, through the dedicated
-        // getInstanceFloorHeight path — otherwise it sweeps through the floor of
-        // anyone standing nearby on the fixed ground (the Undercity elevator
-        // yo-yo, firing at the elevator's cycle).
-        if (instance.isTransport) {
-            continue;
-        }
         if (collisionFocusEnabled &&
             pointAABBDistanceSq(collisionFocusPos, instance.worldBoundsMin, instance.worldBoundsMax) > collisionFocusRadiusSq) {
             continue;
