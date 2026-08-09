@@ -1956,8 +1956,44 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             // the label a hundred lines tall — worse than the overflow this
             // exists to stop.
             const float boxWidth = x1 - x0;
-            const float wrapW = (!w->autoSized && w->wordWrap && boxWidth > size)
+            // A region one line tall cannot show two. Wrapping there does not
+            // fit the text, it spills it over whatever is drawn beneath — and
+            // in a list of fixed-height rows that is the next row.
+            //
+            // The quest log is the case. QuestLogTitleButton_Resize measures the
+            // title, works out how much of it would overrun the (Complete) tag,
+            // and calls SetWidth with the room that is actually left. That is a
+            // request to CUT the title there, not to reflow it: the row is 16
+            // tall and the font string declares 10, one line. Reflowing put the
+            // tail of every long quest name — and of any zone header wider than
+            // its box — on top of the row below it.
+            //
+            // Measured in pixels on both sides. rectH is in the interface's own
+            // units and `size` is already scaled, so comparing the two directly
+            // would read as one line or many purely by the window's size.
+            const float boxHeightPx = y1 - y0;
+            const bool fitsOneLineOnly = (boxHeightPx > 0.0f && boxHeightPx < size * 1.8f);
+            const float wrapW =
+                (!w->autoSized && w->wordWrap && !fitsOneLineOnly && boxWidth > size)
                 ? boxWidth : 0.0f;
+            // Held to its box when the box is what decides its width. A string
+            // sized from its own text has no box to be held to and is left
+            // alone; one given a width has been told how much room it gets, so
+            // the part that does not fit is cut rather than drawn over the tag
+            // sitting beside it.
+            //
+            // Across only, never down: a font string's declared height is the
+            // line it sits on rather than a box drawn around the glyphs — the
+            // quest log's is 10 for a 12-point line — so clipping vertically to
+            // it would shave the descenders off every label in the interface.
+            const bool clipToBox = !w->autoSized && boxWidth > 0.0f;
+            if (clipToBox) {
+                dl->PushClipRect(ImVec2(x0, y0 - size), ImVec2(x1, y1 + size), true);
+            }
+            struct ClipPop {
+                ImDrawList* dl; bool on;
+                ~ClipPop() { if (on) dl->PopClipRect(); }
+            } clipPop{dl, clipToBox};
             ImVec2 extent =
                 font ? font->CalcTextSizeA(size, FLT_MAX, 0.0f, w->text.c_str())
                      : ImGui::CalcTextSize(w->text.c_str());
