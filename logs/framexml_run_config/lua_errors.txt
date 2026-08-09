@@ -1,0 +1,11 @@
+-- Lua errors from the interface, most frequent first.
+--
+-- Each line is a handler that stopped part way through. What it had
+-- not done yet did not happen, which is why the symptom is usually a
+-- panel that is present and does nothing rather than an error on
+-- screen. The traceback names the file and line.
+
+[1 time] [string "local f=ChatFrame1 or _G['ChatFrame1']; loc..."]:1: full channel handler ok=true err=nil
+      at [C]:-1 in error
+      at [string "local f=ChatFrame1 or _G['ChatFrame1']; loc..."]:1
+

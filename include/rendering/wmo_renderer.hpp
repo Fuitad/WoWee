@@ -130,9 +130,10 @@ public:
      */
     void setInstanceTransform(uint32_t instanceId, const glm::mat4& transform);
 
-    /// Mark an instance as a moving transport so the static-world floor query
-    /// (getFloorHeight) skips it — its deck reaches a rider only through the
-    /// dedicated getInstanceFloorHeight path. Idempotent; safe on every register.
+    /// Mark an instance as a moving transport. Its collision still answers the
+    /// static-world floor query (you walk onto a hull, you stand on a lift), but
+    /// only when the deck is genuinely underfoot — see getFloorHeight. Idempotent;
+    /// safe on every register.
     void setInstanceIsTransport(uint32_t instanceId, bool isTransport);
 
     /**
@@ -618,11 +619,12 @@ private:
         };
         std::vector<DoodadInfo> doodads;
 
-        // A moving transport (ship hull, elevator). Its collision belongs to the
-        // rider through the dedicated getInstanceFloorHeight path, NOT to the
-        // ordinary static-world floor query — otherwise the moving deck sweeps
-        // through the floor pick of anyone standing on the fixed ground nearby,
-        // which is the Undercity elevator yo-yo.
+        // A moving transport (ship hull, elevator). It keeps ordinary collision —
+        // a rider gets exact deck height from getInstanceFloorHeight, but everyone
+        // else needs the hull solid to walk aboard in the first place. The flag
+        // only restricts how far from the feet the static floor query will accept
+        // this deck, so a lift cycling past a bystander cannot become their ground
+        // (the Undercity elevator yo-yo).
         bool isTransport = false;
 
         void updateModelMatrix();

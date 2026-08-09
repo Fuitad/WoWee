@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Wowee
+Comment=Custom World of Warcraft WotLK compatible game client
+Exec=wowee
+Icon=/usr/local/share/icons/hicolor/256x256/apps/wowee.png
+Terminal=false
+Categories=Game;

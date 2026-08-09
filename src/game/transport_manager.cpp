@@ -566,9 +566,10 @@ void TransportManager::pushTransform(ActiveTransport& transport) {
     } else {
         if (wmoRenderer_) {
             wmoRenderer_->setInstanceTransform(transport.wmoInstanceId, transport.transform);
-            // Keep this WMO instance out of the static-world floor query. Set
-            // here rather than once at register so it survives an instance
-            // rebuild from streaming — the call is idempotent and cheap.
+            // Tell the static-world floor query this deck is in motion, so it
+            // only counts as a floor when it is underfoot. Set here rather than
+            // once at register so it survives an instance rebuild from
+            // streaming — the call is idempotent and cheap.
             wmoRenderer_->setInstanceIsTransport(transport.wmoInstanceId, true);
         }
     }

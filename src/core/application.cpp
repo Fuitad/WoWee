@@ -2059,9 +2059,9 @@ void Application::update(float deltaTime) {
                             }
                         }
 
-                        // Moving WMO instances are intentionally excluded from the camera
-                        // controller's ordinary static-world floor query, so every WMO ship
-                        // needs its exact transport-instance floor held under the rider —
+                        // The camera controller's ordinary static-world floor query accepts a
+                        // moving WMO deck only when it is right under the feet, so every WMO
+                        // ship needs its exact transport-instance floor held under the rider —
                         // otherwise gravity folds into the attachment and pulls them through
                         // the hull, and multi-deck ships (stairs, ramps) can't be climbed
                         // because nothing raises the rider onto the upper geometry. This is
