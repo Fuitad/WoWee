@@ -1972,16 +1972,6 @@ static std::vector<TradeSkillRow> tradeSkillRows(game::GameHandler* gh) {
     cached = buildTradeSkillRows(gh);
     cachedGen = tradeSkillRowsGeneration();
     cachedFor = gh;
-    {
-        std::string shape;
-        for (size_t n = 0; n < cached.size(); ++n) {
-            shape += " " + std::to_string(n + 1) + "=";
-            shape += cached[n].isHeader ? "HDR:" : "";
-            shape += cached[n].isHeader ? cached[n].subclass : cached[n].recipe.name;
-        }
-        LOG_WARNING("tradeSkillRows rebuilt gen=", cachedGen,
-                    " rows=", cached.size(), shape);
-    }
     return cached;
 }
 
@@ -3345,13 +3335,10 @@ void registerQuestLuaAPI(lua_State* L) {
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh) return luaReturnNil(L);
             const auto rows = tradeSkillRows(gh);
-            if (i < 1 || i > static_cast<int>(rows.size())) {
-                // The frame clears `creatable` on a nil name here, which is
-                // what leaves both Create buttons disabled.
-                LOG_WARNING("GetTradeSkillInfo: no row ", i,
-                            " (rows=", rows.size(), ") — Create will stay greyed");
-                return luaReturnNil(L);
-            }
+            // The scroll frame asks past the end on every redraw — it walks a
+            // fixed number of buttons and hides the ones that answer nil — so
+            // this is routine and says nothing about anything being wrong.
+            if (i < 1 || i > static_cast<int>(rows.size())) return luaReturnNil(L);
             const auto& row = rows[static_cast<size_t>(i) - 1];
             if (row.isHeader) {
                 // "header" is what the panel branches on; the count and the
@@ -3513,15 +3500,13 @@ void registerQuestLuaAPI(lua_State* L) {
             // This names which, and it is the only place that knows the index
             // and the spell at the same time.
             if (!rec) {
-                LOG_WARNING("DoTradeSkill: no recipe at row ", i,
-                            " (rows=", tradeSkillRows(gh).size(),
-                            ") — the row is a heading or the index is past the end");
+                LOG_DEBUG("DoTradeSkill: no recipe at row ", i,
+                          " — the row is a heading or the index is past the end");
                 return 0;
             }
             if (count < 1) count = 1;
-            LOG_WARNING("DoTradeSkill: row ", i, " '", rec->name,
-                        "' spell=", rec->spellId, " count=", count,
-                        " canMake=", rec->canMake);
+            LOG_DEBUG("DoTradeSkill: row ", i, " '", rec->name,
+                      "' spell=", rec->spellId, " count=", count);
             gh->startCraftQueue(rec->spellId, count);
             return 0;
         }},
@@ -3567,9 +3552,27 @@ void registerQuestLuaAPI(lua_State* L) {
             return 1;
         }},
                 {"GetTradeSkillTools", [](lua_State* L) -> int {
-            // The tool requirement is not in what this client parses, and
-            // claiming a tool is missing would grey out recipes that work.
-            return luaReturnNil(L);
+            // NOTHING, not a nil. The tool requirement is not in what this
+            // client parses, and claiming a tool is missing would grey out
+            // recipes that work — but answering one nil is not the same as
+            // answering none, and the difference is the whole bug.
+            //
+            // The only caller is
+            //   local spellFocus = BuildColoredListString(GetTradeSkillTools(id));
+            // and BuildColoredListString gives up only on an empty argument
+            // list: `if ( select("#", ...) == 0 ) then return nil end`. One nil
+            // is a list of one, so it walked past that, took `text` as nil, and
+            // raised concatenating it.
+            //
+            // That line sits in TradeSkillFrame_SetSelection ABOVE
+            // `if ( creatable ) then TradeSkillCreateButton:Enable()`, so the
+            // raise took the selection down before either Create button was
+            // enabled again — they are disabled at the top of every trade skill
+            // update and re-enabled only there. Both stayed greyed with the
+            // reagents in the bag and the recipe drawn, because everything the
+            // panel had already filled in happened before the raise.
+            (void)L;
+            return 0;
         }},
                 // Links, which need an item this client does not resolve for a
                 // recipe, and the play-time limits that only Chinese realms set.
