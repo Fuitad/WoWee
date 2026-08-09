@@ -1972,6 +1972,16 @@ static std::vector<TradeSkillRow> tradeSkillRows(game::GameHandler* gh) {
     cached = buildTradeSkillRows(gh);
     cachedGen = tradeSkillRowsGeneration();
     cachedFor = gh;
+    {
+        std::string shape;
+        for (size_t n = 0; n < cached.size(); ++n) {
+            shape += " " + std::to_string(n + 1) + "=";
+            shape += cached[n].isHeader ? "HDR:" : "";
+            shape += cached[n].isHeader ? cached[n].subclass : cached[n].recipe.name;
+        }
+        LOG_WARNING("tradeSkillRows rebuilt gen=", cachedGen,
+                    " rows=", cached.size(), shape);
+    }
     return cached;
 }
 
@@ -3335,7 +3345,13 @@ void registerQuestLuaAPI(lua_State* L) {
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh) return luaReturnNil(L);
             const auto rows = tradeSkillRows(gh);
-            if (i < 1 || i > static_cast<int>(rows.size())) return luaReturnNil(L);
+            if (i < 1 || i > static_cast<int>(rows.size())) {
+                // The frame clears `creatable` on a nil name here, which is
+                // what leaves both Create buttons disabled.
+                LOG_WARNING("GetTradeSkillInfo: no row ", i,
+                            " (rows=", rows.size(), ") — Create will stay greyed");
+                return luaReturnNil(L);
+            }
             const auto& row = rows[static_cast<size_t>(i) - 1];
             if (row.isHeader) {
                 // "header" is what the panel branches on; the count and the
