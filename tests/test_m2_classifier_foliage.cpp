@@ -149,3 +149,76 @@ TEST_CASE("Blizzard's own misspellings are foliage too", "[m2][classifier]") {
         CHECK(cls.collisionNoBlock);
     }
 }
+
+// The Rut'theran Village portal to Darnassus is TeleportTree.m2 — an archway
+// you walk through, whose name ends in "tree". The file ships no collision
+// geometry at all (nBoundingTriangles = 0), so the real client lets you walk
+// straight in; our trunk-cylinder rule instead planted a solid block dead
+// centre in the arch and the portal became unreachable without /unstuck.
+//
+// The bounds here are the model's real ones (~45 wide, ~45 tall), which is what
+// put it over the trunk rule's horiz > 6 && vert > 4 threshold in the first
+// place.
+TEST_CASE("a teleport arch is a doorway, not a tree", "[m2][classifier][collision]") {
+    const auto portal = classify("TeleportTree", 45.0f, 45.0f);
+    CHECK_FALSE(portal.collisionTreeTrunk);
+    CHECK(portal.collisionNoBlock);
+
+    SECTION("the full path form resolves the same way") {
+        const auto viaPath = classify("WORLD\\GENERIC\\NIGHTELF\\PASSIVE DOODADS"
+                                      "\\TELEPORTTREE\\TELEPORTTREE.M2", 45.0f, 45.0f);
+        CHECK_FALSE(viaPath.collisionTreeTrunk);
+        CHECK(viaPath.collisionNoBlock);
+    }
+
+    SECTION("the rest of the family is walk-through too") {
+        for (const char* n : {"BG_Teleporter_Alliance_01", "UL_TeleportationPad",
+                              "SC_TeleportPad2", "BE_Teleporter_01",
+                              "G_GoblinTeleporter"}) {
+            INFO(n);
+            CHECK(classify(n, 8.0f, 8.0f).collisionNoBlock);
+        }
+    }
+
+    SECTION("an ordinary tree of the same size keeps its trunk") {
+        const auto tree = classify("KalidarTree07", 45.0f, 45.0f);
+        CHECK(tree.collisionTreeTrunk);
+        CHECK_FALSE(tree.collisionNoBlock);
+    }
+}
+
+// The second invisible wall at that same portal. AuraPurple.m2 is the glow
+// inside the arch; its VFX identity is only in the DIRECTORY, and tokens are
+// matched on the basename, so "particleemitter" in kEffectTokens never fired.
+// Its real unscaled bounds (1.96 x 1.96 x 3.08) land inside genericSolid's
+// window, so it became a solid prop — and the doodad is placed at scale 10.69,
+// making a ~21 x 21 x 33 unit block of solid nothing over the portal.
+TEST_CASE("models under PARTICLEEMITTERS are VFX, not props",
+          "[m2][classifier][collision]") {
+    const auto bareName = classify("AuraPurple", 1.96f, 3.08f);
+    CHECK(bareName.collisionSmallSolidProp);  // the name alone cannot tell
+
+    const auto aura = classify("WORLD\\GENERIC\\PASSIVEDOODADS\\PARTICLEEMITTERS"
+                               "\\AURAPURPLE.M2", 1.96f, 3.08f);
+    CHECK(aura.isSpellEffect);
+    CHECK(aura.collisionNoBlock);
+
+    SECTION("the whole directory, whichever separator the path uses") {
+        for (const char* p : {
+                 "WORLD\\GENERIC\\PASSIVEDOODADS\\PARTICLEEMITTERS\\AURABLUETALL.M2",
+                 "WORLD\\GENERIC\\PASSIVEDOODADS\\PARTICLEEMITTERS\\ASHENVALEWISPS.M2",
+                 "world/generic/passivedoodads/particleemitters/auragreen.m2"}) {
+            INFO(p);
+            const auto cls = classify(p, 1.96f, 3.08f);
+            CHECK(cls.isSpellEffect);
+            CHECK(cls.collisionNoBlock);
+        }
+    }
+
+    SECTION("a real prop of the same size elsewhere still blocks") {
+        const auto crate = classify("WORLD\\GENERIC\\HUMAN\\PASSIVE DOODADS"
+                                    "\\CRATES\\CRATE01.M2", 1.96f, 3.08f);
+        CHECK_FALSE(crate.isSpellEffect);
+        CHECK_FALSE(crate.collisionNoBlock);
+    }
+}
