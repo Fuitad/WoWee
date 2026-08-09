@@ -4797,6 +4797,26 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetChatWindowMessages", [](lua_State* L) -> int {
             const ChatWindowSettings* w = chatWindow(L, 1);
             if (!w) return 0;
+            // An empty General is unset, not configured, and answers the
+            // defaults — which is what the real client does and what FrameXML
+            // is written against.
+            //
+            // FCF_ResetChatWindows calls ChatFrame_RemoveAllMessageGroups on
+            // ChatFrame1 and never adds anything back; the defaults it expects
+            // to reappear come from the client. Ours took the removals
+            // literally, wrote "groups=" empty to disk, and answered nothing
+            // ever after — so ChatFrame_RegisterForMessages registered for no
+            // event at all and every line of chat was filtered out. The window
+            // was not blank because nothing arrived: it was blank because
+            // nothing was listening.
+            //
+            // Only window one, and only when it holds nothing. A window the
+            // player has emptied one group at a time is a real setting and is
+            // left alone; General with none at all is the wipe above.
+            if (w->messageGroups.empty() && lua_tonumber(L, 1) == 1) {
+                for (const char* g : kDefaultChatGroups) lua_pushstring(L, g);
+                return static_cast<int>(std::size(kDefaultChatGroups));
+            }
             for (const auto& g : w->messageGroups) lua_pushstring(L, g.c_str());
             return static_cast<int>(w->messageGroups.size());
         }},
@@ -4806,6 +4826,17 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"GetChatWindowChannels", [](lua_State* L) -> int {
             const ChatWindowSettings* w = chatWindow(L, 1);
             if (!w) return 0;
+            // Same rule, same reason: ChatFrame_RemoveAllChannels runs beside
+            // the group wipe in FCF_ResetChatWindows, and a General with no
+            // channels matched every channel line against nothing.
+            if (w->channels.empty() && lua_tonumber(L, 1) == 1) {
+                for (const char* c : {"General", "Trade", "LocalDefense",
+                                      "LookingForGroup", "GuildRecruitment"}) {
+                    lua_pushstring(L, c);
+                    lua_pushnumber(L, 0);
+                }
+                return 10;
+            }
             for (const auto& c : w->channels) {
                 lua_pushstring(L, c.first.c_str());
                 lua_pushnumber(L, c.second);
