@@ -6,6 +6,7 @@
 #include "game/game_utils.hpp"
 #include "game/packed_time.hpp"
 #include "ui/chat/chat_utils.hpp"
+#include "core/logger.hpp"
 
 #include <algorithm>
 #include <map>
@@ -3438,8 +3439,22 @@ void registerQuestLuaAPI(lua_State* L) {
             int count = static_cast<int>(luaL_optnumber(L, 2, 1));
             if (!gh) return 0;
             const auto* rec = tradeSkillRecipeAt(tradeSkillRows(gh), i);
-            if (!rec) return 0;
+            // Says what a press of Create resolved to, once per press. A craft
+            // that does nothing is indistinguishable from a button that was
+            // never wired: the row may be a heading, the index may be off the
+            // end, or the cast may go out and be refused with nothing shown.
+            // This names which, and it is the only place that knows the index
+            // and the spell at the same time.
+            if (!rec) {
+                LOG_WARNING("DoTradeSkill: no recipe at row ", i,
+                            " (rows=", tradeSkillRows(gh).size(),
+                            ") — the row is a heading or the index is past the end");
+                return 0;
+            }
             if (count < 1) count = 1;
+            LOG_WARNING("DoTradeSkill: row ", i, " '", rec->name,
+                        "' spell=", rec->spellId, " count=", count,
+                        " canMake=", rec->canMake);
             gh->startCraftQueue(rec->spellId, count);
             return 0;
         }},
