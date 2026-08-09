@@ -1992,6 +1992,17 @@ void InventoryHandler::fireBagUpdates() {
     // The character sheet redraws from this one rather than from BAG_UPDATE, so
     // both go out together — equipping something changes a bag and a slot.
     fire("UNIT_INVENTORY_CHANGED", {"player"});
+    // An open trade skill window is looking at the bags too, and it does not
+    // watch them: TradeSkillFrame_OnLoad registers TRADE_SKILL_UPDATE,
+    // TRADE_SKILL_FILTER_UPDATE, UNIT_PORTRAIT_UPDATE and
+    // UPDATE_TRADESKILL_RECAST, and nothing else. So the only thing that redraws
+    // a reagent's "12 /1" or a recipe's "[14]" is this event, and without it
+    // both stood still while the reagents were spent — craft after craft against
+    // numbers that never moved, until the window was closed and reopened.
+    //
+    // It also releases the row list, whose canMake comes from the same bag
+    // counts and is otherwise held between redraws.
+    if (owner_.isCraftingWindowOpen()) fire("TRADE_SKILL_UPDATE", {});
     // The first few only: enough to tell "the event never goes out" from "it
     // goes out and the interface ignores it", without a line every time the
     // inventory is rebuilt.
