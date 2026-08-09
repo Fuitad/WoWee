@@ -2479,3 +2479,49 @@ TEST_CASE("A scroll frame's child is visible without anchors of its own",
     tree.layout(kScreenW, kScreenH);
     CHECK_FALSE(tree.get(stray)->visible);
 }
+
+// A font string is only re-measured when the text it holds differs from the
+// text it was last measured with. So zeroing its height has to clear that mark,
+// exactly as zeroing its width already does — otherwise setting the SAME words
+// back skips the measure as a no-op and the zero stands, and a region with no
+// height is dropped from the draw order entirely.
+//
+// That is the quest tracker going blank. WatchFrameLineTemplate_Reset ends with
+// `self.text:SetHeight(0)`, WatchFrame_ClearDisplay calls it on every line, and
+// collapsing the tracker runs ClearDisplay through OnSizeChanged. The rebuild
+// wrote each objective back unchanged, so every line measured zero and the
+// tracker drew its POI badges over empty rows.
+TEST_CASE("Zeroing a font string's height lets it be measured again",
+          "[widget][fontstring]") {
+    WidgetTree tree;
+    const uint32_t fs = tree.create(WidgetKind::FontString, 0, "Label");
+    Widget* w = tree.get(fs);
+
+    w->text = "Kobold Vermin slain: 3/8";
+    w->measuredText = w->text;   // as though it had already been sized
+    w->width = 160.0f;
+    w->height = 14.4f;
+
+    tree.setHeight(fs, 0.0f);
+
+    // Cleared, so the next sizing pass measures it even though the text it is
+    // about to be given is the text it already had.
+    REQUIRE(w->measuredText.empty());
+    REQUIRE(w->height == Catch::Approx(0.0f));
+
+    SECTION("a real height leaves the mark alone") {
+        Widget* w2 = tree.get(fs);
+        w2->measuredText = w2->text;
+        tree.setHeight(fs, 20.0f);
+        REQUIRE(w2->measuredText == w2->text);
+        REQUIRE(w2->rectH == Catch::Approx(20.0f));
+    }
+
+    SECTION("a frame is not a font string and keeps its mark") {
+        const uint32_t f = tree.create(WidgetKind::Frame, 0, "F");
+        Widget* fw = tree.get(f);
+        fw->measuredText = "unchanged";
+        tree.setHeight(f, 0.0f);
+        REQUIRE(fw->measuredText == "unchanged");
+    }
+}

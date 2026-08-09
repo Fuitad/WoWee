@@ -245,6 +245,25 @@ void WidgetTree::setHeight(uint32_t id, float height) {
     markLayoutDirty();
     Widget* w = get(id);
     if (!w || !std::isfinite(height)) return;
+    // Zero height on a font string is "be as tall as your text needs", the
+    // same shape SetWidth(0) handles above — and it needs the same clearing of
+    // the measured mark, for a reason that is easy to miss: the string is only
+    // re-measured when the text it holds differs from the text it was last
+    // measured with. Zero the height, then set the SAME words back, and the
+    // measure is skipped as a no-op and the zero stands. A region with no
+    // height is dropped from the draw order outright, so the label goes
+    // silently blank while its frame keeps its size.
+    //
+    // That is the quest tracker. WatchFrameLineTemplate_Reset ends with
+    // `self.text:SetHeight(0)`, WatchFrame_ClearDisplay calls it on every line,
+    // and collapsing the tracker runs ClearDisplay through OnSizeChanged. The
+    // rebuild then writes each objective back unchanged, so every line measured
+    // zero and the tracker showed its POI badges over empty rows. Objectives
+    // whose text had changed in the meantime — a kill count ticking over — were
+    // re-measured and did appear, which is what made it look intermittent.
+    if (height <= 0.0f && w->kind == WidgetKind::FontString) {
+        w->measuredText.clear();
+    }
     w->height = height;
     w->rectH = height;
 }
