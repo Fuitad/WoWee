@@ -1,4 +1,8 @@
 #include "addons/addon_manager.hpp"
+
+extern "C" {
+#include <lua.h>
+}
 #include "addons/addon_globals.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "core/logger.hpp"
@@ -558,33 +562,89 @@ bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {
     // drew white — guild, whisper, emote, loot and system alike, all of it
     // indistinguishable.
     //
-    // Through ChangeChatColor because that is the function that fires the
-    // event, and the event handler is what fills the table and repaints the
-    // lines already on screen. Sent after FrameXML has loaded, since
-    // ChatFrame_OnLoad is what registers for it.
+    // Fired straight into the interface rather than through ChangeChatColor.
+    // That binding asks the game handler to fire the event, and the application
+    // drops every event it is handed until addonsLoaded_ is true — which
+    // happens at world entry, long after this runs. So all twenty-six went
+    // nowhere and the table kept the white that chatframe.lua writes over it at
+    // file scope, and every line of chat in the game drew the same colour.
+    //
+    // Sent after FrameXML has loaded, since ChatFrame_OnLoad is what registers
+    // for the event. Same engine either way: the handler is what fills
+    // ChatTypeInfo and repaints the lines already on screen.
     //
     // 3.3.5's own palette. Anything not named here keeps white, which is what
     // it had before, so a type left out is no worse than it was.
-    luaEngine_.executeString(
-        "if ChangeChatColor then\n"
-        "  local c = {\n"
-        "    SYSTEM={1,1,0}, SAY={1,1,1}, YELL={1,.25,.25},\n"
-        "    GUILD={.25,1,.25}, OFFICER={.25,.75,.25},\n"
-        "    GUILD_ACHIEVEMENT={.25,1,.25}, ACHIEVEMENT={1,1,0},\n"
-        "    PARTY={.67,.67,1}, PARTY_LEADER={.46,.78,1},\n"
-        "    RAID={1,.5,0}, RAID_LEADER={1,.28,.04}, RAID_WARNING={1,.28,0},\n"
-        "    WHISPER={1,.5,1}, WHISPER_INFORM={1,.5,1},\n"
-        "    EMOTE={1,.5,.25}, TEXT_EMOTE={1,.5,.25},\n"
-        "    MONSTER_SAY={1,1,1}, MONSTER_YELL={1,.25,.25},\n"
-        "    MONSTER_EMOTE={1,.5,.25}, MONSTER_WHISPER={1,.72,.72},\n"
-        "    CHANNEL={1,.75,.75}, LOOT={0,.67,0}, MONEY={1,1,0},\n"
-        "    BG_SYSTEM_NEUTRAL={1,1,.5}, BG_SYSTEM_ALLIANCE={.25,.75,1},\n"
-        "    BG_SYSTEM_HORDE={1,.1,.1},\n"
-        "  }\n"
-        "  for kind, rgb in pairs(c) do\n"
-        "    ChangeChatColor(kind, rgb[1], rgb[2], rgb[3])\n"
-        "  end\n"
-        "end\n");
+    //
+    // Three decimals, because an event argument is only read back as a number
+    // when it is short: a full float arrives as a string and would be assigned
+    // straight into a colour field.
+    {
+        struct ChatColour { const char* type; float r, g, b; };
+        static constexpr ChatColour kChatColours[] = {
+            {"SYSTEM", 1.0f, 1.0f, 0.0f},    {"SAY", 1.0f, 1.0f, 1.0f},
+            {"YELL", 1.0f, 0.25f, 0.25f},    {"GUILD", 0.25f, 1.0f, 0.25f},
+            {"OFFICER", 0.25f, 0.75f, 0.25f},
+            {"GUILD_ACHIEVEMENT", 0.25f, 1.0f, 0.25f},
+            {"ACHIEVEMENT", 1.0f, 1.0f, 0.0f},
+            {"PARTY", 0.67f, 0.67f, 1.0f},   {"PARTY_LEADER", 0.46f, 0.78f, 1.0f},
+            {"RAID", 1.0f, 0.5f, 0.0f},      {"RAID_LEADER", 1.0f, 0.28f, 0.04f},
+            {"RAID_WARNING", 1.0f, 0.28f, 0.0f},
+            {"WHISPER", 1.0f, 0.5f, 1.0f},   {"WHISPER_INFORM", 1.0f, 0.5f, 1.0f},
+            {"EMOTE", 1.0f, 0.5f, 0.25f},    {"TEXT_EMOTE", 1.0f, 0.5f, 0.25f},
+            {"MONSTER_SAY", 1.0f, 1.0f, 1.0f},
+            {"MONSTER_YELL", 1.0f, 0.25f, 0.25f},
+            {"MONSTER_EMOTE", 1.0f, 0.5f, 0.25f},
+            {"MONSTER_WHISPER", 1.0f, 0.72f, 0.72f},
+            {"CHANNEL", 1.0f, 0.75f, 0.75f}, {"LOOT", 0.0f, 0.67f, 0.0f},
+            {"MONEY", 1.0f, 1.0f, 0.0f},
+            {"BG_SYSTEM_NEUTRAL", 1.0f, 1.0f, 0.5f},
+            {"BG_SYSTEM_ALLIANCE", 0.25f, 0.75f, 1.0f},
+            {"BG_SYSTEM_HORDE", 1.0f, 0.1f, 0.1f},
+        };
+        char r[16], g[16], b[16];
+        for (const auto& c : kChatColours) {
+            std::snprintf(r, sizeof(r), "%.3f", c.r);
+            std::snprintf(g, sizeof(g), "%.3f", c.g);
+            std::snprintf(b, sizeof(b), "%.3f", c.b);
+            luaEngine_.fireEvent("UPDATE_CHAT_COLOR", {c.type, r, g, b});
+        }
+    }
+
+    // Whether that landed. chatframe.lua sets every ChatTypeInfo entry to white
+    // at file scope and the colours only arrive from here, so if this says
+    // GUILD is still 1,1,1 the seeding did not reach the table — and every line
+    // of chat draws the same colour with nothing else to show for it.
+    {
+        lua_State* L = luaEngine_.getState();
+        if (L) {
+            lua_getglobal(L, "ChatTypeInfo");
+            if (lua_istable(L, -1)) {
+                lua_getfield(L, -1, "GUILD");
+                if (lua_istable(L, -1)) {
+                    lua_getfield(L, -1, "r"); const double r = lua_tonumber(L, -1); lua_pop(L, 1);
+                    lua_getfield(L, -1, "g"); const double g = lua_tonumber(L, -1); lua_pop(L, 1);
+                    lua_getfield(L, -1, "b"); const double b = lua_tonumber(L, -1); lua_pop(L, 1);
+                    // Only when it did not take. chatframe.lua writes white
+                    // over every entry at file scope and the colours arrive
+                    // only from here, so a GUILD still at white means the
+                    // seeding never reached the table — and every line of chat
+                    // draws the same colour with nothing else to show for it.
+                    if (r > 0.9 && g > 0.9 && b > 0.9) {
+                        LOG_WARNING("Chat colours did not take: GUILD is still ",
+                                    r, ",", g, ",", b, " — every kind of chat "
+                                    "message will draw the same colour");
+                    }
+                } else {
+                    LOG_WARNING("Chat colours: ChatTypeInfo has no GUILD entry");
+                }
+                lua_pop(L, 1);
+            } else {
+                LOG_WARNING("Chat colours: ChatTypeInfo is not a table");
+            }
+            lua_pop(L, 1);
+        }
+    }
 
     // The three name tables the calendar reads its labels from.
     //
