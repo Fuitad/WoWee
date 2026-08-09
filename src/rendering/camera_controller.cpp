@@ -1231,7 +1231,18 @@ void CameraController::update(float deltaTime) {
                     // not fall back to terrain and kick the player up to the
                     // surface. Interior containment is false at entrances/seams,
                     // which the atTunnelSeam path below handles.
-                    if (cachedInsideInteriorWMO) {
+                    //
+                    // Only when it really is overhead. isInsideInteriorWMO is a
+                    // bounding-box containment test, and an underground WMO's
+                    // interior box reaches up through the ground above it — so
+                    // standing on the hillside over a cave counted as being
+                    // inside it, the terrain underfoot was discarded, and the
+                    // nearest WMO surface below open ground is the ceiling of
+                    // the room underneath. The rule lives in movement_limits.hpp
+                    // where a test pins it.
+                    if (terrainH && movement::terrainIsOverheadRoof(
+                            cachedInsideInteriorWMO, *terrainH,
+                            targetPos.z, stepUpBudget)) {
                         terrainH = std::nullopt;
                     }
 

@@ -81,3 +81,39 @@ TEST_CASE("character yaw and canonical yaw convert back to each other") {
         CHECK(diff < 0.01f);
     }
 }
+
+// Standing on the hillside over a cave used to drop the player onto the cave's
+// ceiling. Being "inside" a WMO is decided by bounding-box containment, and an
+// underground WMO's interior box reaches up through the ground above it — so
+// the terrain veto meant for Undercity's halls fired out in the open, leaving
+// the WMO as the only floor candidate and its ceiling as the nearest surface
+// below.
+TEST_CASE("the terrain veto only refuses ground overhead") {
+    using namespace wowee::rendering::movement;
+    constexpr float kStepUp = kMaxStepUp;
+
+    SECTION("Undercity: the surface is ~113m over the halls, and refused") {
+        REQUIRE(terrainIsOverheadRoof(true, 61.66f, -51.5f, kStepUp));
+    }
+
+    SECTION("the hillside over a cave is at the feet, and kept") {
+        // Same containment answer, entirely different situation.
+        REQUIRE_FALSE(terrainIsOverheadRoof(true, 120.0f, 120.0f, kStepUp));
+        REQUIRE_FALSE(terrainIsOverheadRoof(true, 120.4f, 120.0f, kStepUp));
+    }
+
+    SECTION("ground below the feet is never a roof") {
+        REQUIRE_FALSE(terrainIsOverheadRoof(true, 100.0f, 120.0f, kStepUp));
+    }
+
+    SECTION("outdoors nothing is vetoed, however far above") {
+        REQUIRE_FALSE(terrainIsOverheadRoof(false, 500.0f, 0.0f, kStepUp));
+    }
+
+    SECTION("the boundary is what the player could step onto") {
+        const float feet = 10.0f;
+        const float edge = feet + kStepUp + 0.5f;
+        REQUIRE_FALSE(terrainIsOverheadRoof(true, edge, feet, kStepUp));
+        REQUIRE(terrainIsOverheadRoof(true, edge + 0.01f, feet, kStepUp));
+    }
+}
