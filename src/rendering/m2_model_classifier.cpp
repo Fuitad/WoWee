@@ -270,8 +270,25 @@ M2ClassificationResult classifyM2Model(
     const bool treeLike     = treeHit.found && !structureHit.outranks(treeHit);
     const bool hardTreePart = has(n, "trunk") || has(n, "stump") || has(n, "log");
 
+    // A teleport structure is a doorway, not an object: you walk into or onto
+    // it. TeleportTree.m2 — the Rut'theran Village portal to Darnassus — is the
+    // case that proved it. The file carries no collision geometry at all
+    // (nBoundingTriangles = 0, zeroed bounding box), so the real client lets you
+    // walk straight through the arch into the portal. But the name ends in
+    // "tree", so treeLike fired and the trunk-cylinder rule planted a solid
+    // block dead centre in the archway — an invisible wall over the portal, only
+    // passable with /unstuck.
+    //
+    // The token-ranking mechanism cannot express this: outranks() needs the
+    // structure token to appear LATER in the name, and here "teleport" comes
+    // first. So this is checked ahead of the tree rules and wins outright.
+    // It covers the whole family — arches, pads and PvP/goblin teleporters —
+    // none of which is ever an obstacle.
+    const bool teleportStructure = has(n, "teleport");
+
     // Trees wide/tall enough to have a visible trunk → solid cylinder collision.
     const bool treeWithTrunk = treeLike && !hardTreePart && !foliageName
+                             && !teleportStructure
                              && horiz > 6.0f && vert > 4.0f;
     const bool softTree      = treeLike && !hardTreePart && !treeWithTrunk;
 
@@ -297,6 +314,9 @@ M2ClassificationResult classifyM2Model(
     const bool forceSolidCurb = r.collisionSteppedLowPlatform || knownSwPlanter
                               || likelyCurb || r.collisionPlanter;
     r.collisionNoBlock        = (foliageName || softTree || carpetOrRug) && !forceSolidCurb;
+    // Walk into the arch, walk onto the pad — never around either. Set after the
+    // curb override so nothing can put the block back.
+    if (teleportStructure) r.collisionNoBlock = true;
     // Ground-clutter detail cards are always non-blocking.
     if (r.isGroundDetail) r.collisionNoBlock = true;
     // Small doodads that aren't explicitly solid should not block movement.

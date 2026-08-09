@@ -149,3 +149,40 @@ TEST_CASE("Blizzard's own misspellings are foliage too", "[m2][classifier]") {
         CHECK(cls.collisionNoBlock);
     }
 }
+
+// The Rut'theran Village portal to Darnassus is TeleportTree.m2 — an archway
+// you walk through, whose name ends in "tree". The file ships no collision
+// geometry at all (nBoundingTriangles = 0), so the real client lets you walk
+// straight in; our trunk-cylinder rule instead planted a solid block dead
+// centre in the arch and the portal became unreachable without /unstuck.
+//
+// The bounds here are the model's real ones (~45 wide, ~45 tall), which is what
+// put it over the trunk rule's horiz > 6 && vert > 4 threshold in the first
+// place.
+TEST_CASE("a teleport arch is a doorway, not a tree", "[m2][classifier][collision]") {
+    const auto portal = classify("TeleportTree", 45.0f, 45.0f);
+    CHECK_FALSE(portal.collisionTreeTrunk);
+    CHECK(portal.collisionNoBlock);
+
+    SECTION("the full path form resolves the same way") {
+        const auto viaPath = classify("WORLD\\GENERIC\\NIGHTELF\\PASSIVE DOODADS"
+                                      "\\TELEPORTTREE\\TELEPORTTREE.M2", 45.0f, 45.0f);
+        CHECK_FALSE(viaPath.collisionTreeTrunk);
+        CHECK(viaPath.collisionNoBlock);
+    }
+
+    SECTION("the rest of the family is walk-through too") {
+        for (const char* n : {"BG_Teleporter_Alliance_01", "UL_TeleportationPad",
+                              "SC_TeleportPad2", "BE_Teleporter_01",
+                              "G_GoblinTeleporter"}) {
+            INFO(n);
+            CHECK(classify(n, 8.0f, 8.0f).collisionNoBlock);
+        }
+    }
+
+    SECTION("an ordinary tree of the same size keeps its trunk") {
+        const auto tree = classify("KalidarTree07", 45.0f, 45.0f);
+        CHECK(tree.collisionTreeTrunk);
+        CHECK_FALSE(tree.collisionNoBlock);
+    }
+}
