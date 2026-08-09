@@ -3779,7 +3779,21 @@ static bool taxiNodeMapPos(game::GameHandler* gh, uint32_t nodeId,
     const glm::vec2 uv =
         rendering::world_map::renderPosToMapUV(render, zb, /*isContinent=*/true);
     outU = uv.x;
-    outV = uv.y;
+    // Measured up from the bottom, which is not the convention the rest of the
+    // interface uses and is the whole of why the flight map was wrong.
+    //
+    // The world map anchors what it places to TOPLEFT and negates the y it was
+    // given — worldmapframe.lua:789 — so GetPlayerMapPosition counts down from
+    // the top. The flight map anchors to BOTTOMLEFT and adds it, for the nodes
+    // (taxiframe.lua:80) and for both ends of every route leg (140-142,
+    // 179-181), so TaxiNodePosition counts up from the bottom.
+    //
+    // renderPosToMapUV answers the world map's way, so handing it over
+    // unchanged mirrored the map vertically: Rut'theran sits 0.17 down from the
+    // top of Kalimdor and was drawn 0.17 up from the bottom, which is Tanaris.
+    // Every node was over somewhere it did not belong, which is what made them
+    // read as the wrong places rather than as merely misplaced.
+    outV = 1.0f - uv.y;
     return true;
 }
 
