@@ -1949,10 +1949,10 @@ int lua_Tooltip_SetQuestLogRewardSpell(lua_State* L) {
     auto* gh = wowee::addons::getGameHandler(L);
     uint32_t spellId = 0;
     if (gh) {
-        const int idx = gh->getSelectedQuestLogIndex();
-        const auto& log = gh->getQuestLog();
-        if (idx >= 1 && idx <= static_cast<int>(log.size()))
-            spellId = log[static_cast<size_t>(idx) - 1].rewardSpellId;
+        // Through the row mapper: the selected index is a display index into a
+        // log grouped under zone headers, not a position in getQuestLog().
+        if (const auto* q = wowee::addons::questAtLogRow(gh, gh->getSelectedQuestLogIndex()))
+            spellId = q->rewardSpellId;
     }
     lua_pushboolean(L, spellId && fillSpellTooltip(w, gh, spellId) ? 1 : 0);
     return 1;

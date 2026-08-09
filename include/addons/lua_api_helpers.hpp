@@ -828,4 +828,15 @@ void pickupMerchantItem(lua_State* L, int index);
 /// its normal handling.
 bool boughtHeldMerchantItem(lua_State* L);
 
+/// The quest at a quest log index, or null when that row is a zone header or
+/// the index is off either end.
+///
+/// A quest log index is a DISPLAY index: the log is grouped under zone headers
+/// and the headers are rows too, so index N is not the Nth entry of
+/// getQuestLog(). Anything handed an index by FrameXML — including the
+/// selected index, which the log sets from a row it drew — has to come through
+/// here rather than subscripting the log, or it answers about a different
+/// quest than the one asked about.
+const game::GameHandler::QuestLogEntry* questAtLogRow(game::GameHandler* gh, int index);
+
 } // namespace wowee::addons
