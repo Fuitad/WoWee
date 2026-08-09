@@ -2825,11 +2825,30 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
 
                 // Hair textures are authored as alpha-cut cards. If they use the
                 // translucent pipeline they form a soft shell around the head.
+                // M2Blend: 0 Opaque, 1 AlphaKey, 2 Alpha, 3 NoAlphaAdd, 4 Add,
+                // 5 Mod, 6 Mod2x, 7 BlendAdd. (6/Mod2x is kept on additive as it
+                // has been; the doodad path in M2Renderer already sends
+                // everything above 2 there.)
+                const bool additiveBlend = (blendMode == 3 || blendMode == 4 ||
+                                            blendMode == 6 || blendMode == 7);
+
                 VkPipeline desiredPipeline;
                 if (instance.isEffectModel) {
                     // Enchant visuals are glow cards drawn on black. Their materials
                     // declare Mod/alpha blending, which would composite that black
                     // background as an opaque quad — force additive so only the light adds.
+                    desiredPipeline = additivePipeline_;
+                } else if (additiveBlend) {
+                    // Decided before the fade branch below, not after it. An
+                    // additive card fades by adding less light — matData.opacity
+                    // already scales what it contributes — so a partial alpha is
+                    // not a reason to divert it to the translucent pipeline, and
+                    // diverting it composites the card's black backing as black.
+                    //
+                    // The Darnassus wisps are the case: their glow alpha is an
+                    // animated pulse, so the diversion tripped on almost every
+                    // frame the pulse was not at full, and the cards showed as
+                    // black roughly half the time.
                     desiredPipeline = additivePipeline_;
                 } else if (instance.opacity * batchColorAlpha < 0.999f) {
                     // Whole-instance fade (ghost form, spawn fade-in): the opaque and
@@ -2842,12 +2861,15 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 } else if (hairMaterial) {
                     desiredPipeline = alphaTestPipeline_;
                 } else {
+                    // additiveBlend (3/4/6/7) is handled above; only the
+                    // non-additive modes reach here. 4/Add is the one that used
+                    // to fall through to the alpha pipeline, which composited a
+                    // glow card's black backing as an actual black quad — every
+                    // material on Wisp.m2 declares it.
                     switch (blendMode) {
                         case 0: desiredPipeline = opaquePipeline_; break;
                         case 1: desiredPipeline = alphaTestPipeline_; break;
                         case 2: desiredPipeline = alphaPipeline_; break;
-                        case 3:
-                        case 6: desiredPipeline = additivePipeline_; break;
                         default: desiredPipeline = alphaPipeline_; break;
                     }
                 }
