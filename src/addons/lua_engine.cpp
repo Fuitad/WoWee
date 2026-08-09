@@ -4236,8 +4236,18 @@ int lua_Slider_SetThumbTexture(lua_State* L) {
         w->thumbTexture = lua_tostring(L, 2);
     } else if (lua_istable(L, 2)) {
         auto* tree = wowee::addons::getWidgetTree(L);
-        const auto* t = tree ? tree->get(widgetIdOf(L, 2)) : nullptr;
-        if (t) w->thumbTexture = t->texturePath;
+        const uint32_t tid = widgetIdOf(L, 2);
+        const auto* t = tree ? tree->get(tid) : nullptr;
+        if (t) {
+            w->thumbTexture = t->texturePath;
+            // Kept as a region too, not just a file path. It is the thing
+            // FrameXML shows and hides by name — ScrollFrame_OnScrollRangeChanged
+            // hides `<bar>ThumbTexture` when a list fits — and the thing the
+            // layout has to move along the track, since a <ThumbTexture>
+            // carries a size and no anchors and would otherwise sit centred on
+            // the bar forever.
+            w->thumbRegion = tid;
+        }
     }
     return 0;
 }
@@ -4529,6 +4539,17 @@ static int lua_CreateFrame(lua_State* L) {
             w->isStatusBar = (ft == "StatusBar");
             // A slider takes the mouse by nature: it exists to be dragged.
             w->isSlider = (ft == "Slider");
+            // And it runs top to bottom unless it says otherwise. A Slider's
+            // orientation defaults to VERTICAL in WoW, the opposite way round
+            // from a StatusBar — which is why UIPanelScrollBarTemplate declares
+            // no orientation at all while OptionsSliderTemplate, the horizontal
+            // one, spells out HORIZONTAL. Every scroll bar in the interface is
+            // built from that template, so defaulting them to horizontal read
+            // the cursor's x across a bar 16 units wide: dragging up and down
+            // moved nothing, and the grip had a negative span to travel. An
+            // explicit SetOrientation from the XML still overrides this, since
+            // the emitter writes it after the frame is created.
+            if (w->isSlider) w->barVertical = true;
             w->isCooldown = (ft == "Cooldown");
             // Marked at creation rather than only when a child is set, so a
             // scroll frame clips what is under it even while it is empty.

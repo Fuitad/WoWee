@@ -2525,3 +2525,69 @@ TEST_CASE("Zeroing a font string's height lets it be measured again",
         REQUIRE(fw->measuredText == "unchanged");
     }
 }
+
+// A <ThumbTexture> declares a size and no anchors at all — in WoW the slider is
+// what places it, at the point along the track its value names. The ordinary
+// solve has no anchors to work from and falls through to "centre it on the
+// parent", which left every scroll bar in the interface drawing its grip at the
+// middle of the track whatever the bar was worth: a scroll bar you cannot drag,
+// because the one part that should answer never moves.
+//
+// Value 0 belongs at the TOP of a vertical bar — it is the top of the content —
+// and that has to agree with how a drag reads the cursor back into a value, or
+// the grip walks the opposite way from the hand holding it.
+TEST_CASE("A slider's thumb sits where its value says", "[widget][slider]") {
+    WidgetTree tree;
+    const uint32_t bar = tree.create(WidgetKind::Frame, 0, "Bar");
+    Widget* b = tree.get(bar);
+    b->isSlider = true;
+    b->barVertical = true;
+    b->width = 16.0f;
+    b->height = 277.0f;
+    Anchor a;
+    a.point = "BOTTOMLEFT";
+    a.relativePoint = "BOTTOMLEFT";
+    a.x = 0.0f;
+    a.y = 272.0f;
+    tree.addPoint(bar, a);
+
+    const uint32_t thumb = tree.create(WidgetKind::Texture, bar, "BarThumbTexture");
+    Widget* t = tree.get(thumb);
+    t->width = 18.0f;
+    t->height = 24.0f;
+    b->thumbRegion = thumb;
+
+    // Track runs 272..549; the grip travels 277 - 24 = 253 of it.
+    b->barMin = 0.0f; b->barMax = 200.0f;
+
+    b->barValue = 0.0f;
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(t->bottom == Catch::Approx(525.0f));           // grip top == track top
+    REQUIRE(t->bottom + t->rectH == Catch::Approx(549.0f));
+
+    b->barValue = 100.0f;
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(t->bottom == Catch::Approx(398.5f));           // dead centre
+
+    b->barValue = 200.0f;
+    tree.layout(kScreenW, kScreenH);
+    REQUIRE(t->bottom == Catch::Approx(272.0f));           // grip bottom == track bottom
+
+    SECTION("it is centred across the bar, which is narrower than the grip") {
+        REQUIRE(t->left == Catch::Approx(-1.0f));          // (16 - 18) / 2
+    }
+
+    SECTION("a horizontal slider runs the other axis, minimum at the left") {
+        b->barVertical = false;
+        b->width = 277.0f;
+        b->height = 16.0f;
+        t->width = 24.0f;
+        t->height = 18.0f;
+        b->barValue = 0.0f;
+        tree.layout(kScreenW, kScreenH);
+        REQUIRE(t->left == Catch::Approx(0.0f));
+        b->barValue = 200.0f;
+        tree.layout(kScreenW, kScreenH);
+        REQUIRE(t->left == Catch::Approx(253.0f));
+    }
+}

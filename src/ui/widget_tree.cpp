@@ -853,6 +853,31 @@ void WidgetTree::layoutWidgetSelf(uint32_t id, float screenW, float screenH) {
         w->bottom += parent->scrollY;
     }
 
+    // A slider's grip goes where its value says. <ThumbTexture> declares a size
+    // and no anchors — in WoW the slider is what places it — so the ordinary
+    // solve fell through to "unanchored, centre it on the parent" and every
+    // scroll bar in the interface drew its knob at the middle of the track and
+    // left it there, whatever the bar was worth. It reads as a scroll bar you
+    // cannot drag, because the one part that should answer never moves.
+    //
+    // The far edge is the minimum on a vertical bar: value 0 is the top of the
+    // content and so the top of the track. That matches how a drag reads the
+    // cursor back into a value, and the two must agree or the grip walks the
+    // opposite way from the hand holding it.
+    if (parent && parent->isSlider && parent->thumbRegion == id &&
+        parent->rectW > 0.0f && parent->rectH > 0.0f) {
+        const float f = parent->barFraction();
+        if (parent->barVertical) {
+            const float span = parent->rectH - w->rectH;
+            w->bottom = parent->bottom + (span > 0.0f ? span * (1.0f - f) : 0.0f);
+            w->left   = parent->left + (parent->rectW - w->rectW) * 0.5f;
+        } else {
+            const float span = parent->rectW - w->rectW;
+            w->left   = parent->left + (span > 0.0f ? span * f : 0.0f);
+            w->bottom = parent->bottom + (parent->rectH - w->rectH) * 0.5f;
+        }
+    }
+
     // A clamped frame stays on screen however it was placed, not only when it
     // was dragged there.
     //

@@ -380,6 +380,12 @@ struct Widget {
     bool  cooldownDrawEdge = false;
     float sliderStep = 0.0f;
     std::string thumbTexture;
+    /// The slider's grip, as a region rather than a file. A <ThumbTexture>
+    /// declares a size and no anchors at all, because in WoW the slider is what
+    /// puts it where the value says — so the layout moves it along the track
+    /// (the same thing already done for the colour picker's thumbs). Left at 0
+    /// for a slider that never declared one.
+    uint32_t thumbRegion = 0;
     float barMin = 0.0f, barMax = 1.0f, barValue = 0.0f;
     std::string barTexture;
     float barColor[4] = {1.0f, 1.0f, 1.0f, 1.0f};

@@ -718,6 +718,14 @@ void WidgetRenderer::drawThumb(ImDrawList* dl, const Widget& w,
 
 void WidgetRenderer::drawSlider(ImDrawList* dl, const Widget& w,
                                 float x0, float y0, float x1, float y1) {
+    // A slider that declared a <ThumbTexture> has a real region for its grip,
+    // and the layout now moves that region to the value. Painting a second one
+    // here would double it — and worse, would ignore the region's own shown
+    // state: ScrollFrame_OnScrollRangeChanged hides `<bar>ThumbTexture` when the
+    // list fits, and a knob painted from the file path alone stayed on a bar
+    // with nothing to scroll.
+    if (w.thumbRegion != 0) return;
+
     VkDescriptorSet thumb = resident(w.thumbTexture);
     if (thumb == kMissing) return;
 
