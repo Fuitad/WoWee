@@ -107,6 +107,21 @@ M2ClassificationResult classifyM2Model(
     // ---------------------------------------------------------------
     r.isInvisibleTrap = has(n, "invisibletrap");
     r.isGroundDetail  = has(fullPath, "\\nodxt\\detail\\") || has(fullPath, "\\detail\\");
+    // A model under PARTICLEEMITTERS\ is pure VFX — the 61 models there are
+    // auras, wisps and splashes, and not one of them is a physical object.
+    // kEffectTokens already carries "particleemitter", but tokens are matched
+    // on the BASENAME, and for these the word is only ever in the directory:
+    // the basename is "AuraPurple". So the token never fired and the aura fell
+    // through to the generic-solid shape rule instead.
+    //
+    // That is the Rut'theran portal's second invisible wall. AuraPurple.m2 is
+    // the glow inside the arch, placed at scale 10.69, and its unscaled 1.96 x
+    // 1.96 x 3.08 bounds land squarely in genericSolid's window — so it became
+    // a small solid prop, and at that scale a ~21 x 21 x 33 unit block of solid
+    // nothing centred on the portal. The player was stopped exactly where the
+    // glow begins.
+    const bool particleEmitterVfx = has(fullPath, "\\particleemitters\\")
+                                 || has(fullPath, "/particleemitters/");
     r.isSmoke         = has(n, "smoke");
     r.isLavaModel     = has(n, "forgelava") || has(n, "lavapot") || has(n, "lavaflow")
                     || has(n, "lavapool");
@@ -274,10 +289,9 @@ M2ClassificationResult classifyM2Model(
     // it. TeleportTree.m2 — the Rut'theran Village portal to Darnassus — is the
     // case that proved it. The file carries no collision geometry at all
     // (nBoundingTriangles = 0, zeroed bounding box), so the real client lets you
-    // walk straight through the arch into the portal. But the name ends in
-    // "tree", so treeLike fired and the trunk-cylinder rule planted a solid
-    // block dead centre in the archway — an invisible wall over the portal, only
-    // passable with /unstuck.
+    // walk straight through the arch. But the name ends in "tree", so treeLike
+    // fired and the trunk-cylinder rule planted a solid block dead centre in the
+    // archway — an invisible wall over the portal, only passable with /unstuck.
     //
     // The token-ranking mechanism cannot express this: outranks() needs the
     // structure token to appear LATER in the name, and here "teleport" comes
@@ -317,6 +331,9 @@ M2ClassificationResult classifyM2Model(
     // Walk into the arch, walk onto the pad — never around either. Set after the
     // curb override so nothing can put the block back.
     if (teleportStructure) r.collisionNoBlock = true;
+    // isSpellEffect already excludes VFX from every collision path; say it
+    // outright too, so a future path that reads only this flag agrees.
+    if (particleEmitterVfx) r.collisionNoBlock = true;
     // Ground-clutter detail cards are always non-blocking.
     if (r.isGroundDetail) r.collisionNoBlock = true;
     // Small doodads that aren't explicitly solid should not block movement.
@@ -392,7 +409,7 @@ M2ClassificationResult classifyM2Model(
     const bool steamVehicle = has(n, "tonk") || has(n, "tank");
     const bool steamVfx = has(n, "steam") && !steamVehicle
                         && emitterCount >= 1 && vertexCount <= 200;
-    r.isSpellEffect = hasAny(n, kEffectTokens) || steamVfx
+    r.isSpellEffect = hasAny(n, kEffectTokens) || steamVfx || particleEmitterVfx
                     || (emitterCount >= 3 && vertexCount <= 200);
     // Instance portals are spell effects too.
     if (r.isInstancePortal) r.isSpellEffect = true;

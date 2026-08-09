@@ -186,3 +186,39 @@ TEST_CASE("a teleport arch is a doorway, not a tree", "[m2][classifier][collisio
         CHECK_FALSE(tree.collisionNoBlock);
     }
 }
+
+// The second invisible wall at that same portal. AuraPurple.m2 is the glow
+// inside the arch; its VFX identity is only in the DIRECTORY, and tokens are
+// matched on the basename, so "particleemitter" in kEffectTokens never fired.
+// Its real unscaled bounds (1.96 x 1.96 x 3.08) land inside genericSolid's
+// window, so it became a solid prop — and the doodad is placed at scale 10.69,
+// making a ~21 x 21 x 33 unit block of solid nothing over the portal.
+TEST_CASE("models under PARTICLEEMITTERS are VFX, not props",
+          "[m2][classifier][collision]") {
+    const auto bareName = classify("AuraPurple", 1.96f, 3.08f);
+    CHECK(bareName.collisionSmallSolidProp);  // the name alone cannot tell
+
+    const auto aura = classify("WORLD\\GENERIC\\PASSIVEDOODADS\\PARTICLEEMITTERS"
+                               "\\AURAPURPLE.M2", 1.96f, 3.08f);
+    CHECK(aura.isSpellEffect);
+    CHECK(aura.collisionNoBlock);
+
+    SECTION("the whole directory, whichever separator the path uses") {
+        for (const char* p : {
+                 "WORLD\\GENERIC\\PASSIVEDOODADS\\PARTICLEEMITTERS\\AURABLUETALL.M2",
+                 "WORLD\\GENERIC\\PASSIVEDOODADS\\PARTICLEEMITTERS\\ASHENVALEWISPS.M2",
+                 "world/generic/passivedoodads/particleemitters/auragreen.m2"}) {
+            INFO(p);
+            const auto cls = classify(p, 1.96f, 3.08f);
+            CHECK(cls.isSpellEffect);
+            CHECK(cls.collisionNoBlock);
+        }
+    }
+
+    SECTION("a real prop of the same size elsewhere still blocks") {
+        const auto crate = classify("WORLD\\GENERIC\\HUMAN\\PASSIVE DOODADS"
+                                    "\\CRATES\\CRATE01.M2", 1.96f, 3.08f);
+        CHECK_FALSE(crate.isSpellEffect);
+        CHECK_FALSE(crate.collisionNoBlock);
+    }
+}
