@@ -7494,6 +7494,16 @@ void LuaEngine::fireEvent(const std::string& eventName,
                            const std::vector<std::string>& args) {
     if (!L_) return;
 
+    // The trade skill list may change shape now, and only now. It is held still
+    // between these events because the frame reads it many times to draw one
+    // selection and its shape depends on item data that arrives while those
+    // reads run — see tradeSkillRows in lua_quest_api.cpp. Released here so a
+    // late reply lands at a redraw rather than between two lookups of the same
+    // index.
+    if (eventName == "TRADE_SKILL_UPDATE" || eventName == "TRADE_SKILL_SHOW") {
+        invalidateTradeSkillRows();
+    }
+
     // An event handler may cause another event, which is ordinary and has to
     // keep working — but a cycle between two of them recurses through both this
     // stack and Lua's, inside one frame, until the process dies. Reporting a

@@ -839,4 +839,12 @@ bool boughtHeldMerchantItem(lua_State* L);
 /// quest than the one asked about.
 const game::GameHandler::QuestLogEntry* questAtLogRow(game::GameHandler* gh, int index);
 
+/// Let the trade skill row list be rebuilt on the next read.
+///
+/// The list is held still between redraws: the frame reads it many times to
+/// draw one selection, and its shape depends on item data that arrives while
+/// those reads run, so rebuilding per call changed what an index meant halfway
+/// through. Called when the game says the trade skill data moved.
+void invalidateTradeSkillRows();
+
 } // namespace wowee::addons

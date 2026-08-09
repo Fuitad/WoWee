@@ -1911,7 +1911,13 @@ static std::set<std::string>& collapsedTradeSkillSubClasses() {
     return closed;
 }
 
-static std::vector<TradeSkillRow> tradeSkillRows(game::GameHandler* gh) {
+/// Bumped whenever the list is allowed to change shape. See tradeSkillRows.
+static uint64_t& tradeSkillRowsGeneration() {
+    static uint64_t gen = 1;
+    return gen;
+}
+
+static std::vector<TradeSkillRow> buildTradeSkillRows(game::GameHandler* gh) {
     std::vector<TradeSkillRow> rows;
     if (!gh) return rows;
     std::map<std::string, std::vector<game::GameHandler::CraftRecipe>> grouped;
@@ -1937,6 +1943,40 @@ static std::vector<TradeSkillRow> tradeSkillRows(game::GameHandler* gh) {
     return rows;
 }
 
+/// The drawn rows, held still between the events that may change them.
+///
+/// Every trade skill binding indexes into this list, and the frame reads it
+/// many times to draw one selection — GetNumTradeSkills for the count,
+/// GetTradeSkillInfo for the row, GetTradeSkillReagentInfo for each reagent.
+/// Rebuilding it per call let it change shape *between* those reads, because
+/// its shape depends on data that arrives while they run: the headings come
+/// from the subclass of the item each recipe makes, craftedItem() asks for that
+/// item the first time it is missed, and the answer lands some frames later.
+/// So the list starts flat, and grows a heading — and one row — for each reply.
+///
+/// The frame has no way to survive that. An index means a different recipe on
+/// either side of a reply, so the selection's own row read back as a heading:
+/// `creatable` was cleared, both Create buttons stayed disabled, the detail
+/// pane described one recipe while the highlight sat on another, and a recipe
+/// row was drawn with a heading's expand box beside it.
+///
+/// So the list is built once and held until something the player did is meant
+/// to change it — a filter, a heading opened or closed — or the game says the
+/// trade skill data itself moved. Late item info then lands at the next
+/// TRADE_SKILL_UPDATE rather than in the middle of a redraw.
+static std::vector<TradeSkillRow> tradeSkillRows(game::GameHandler* gh) {
+    static std::vector<TradeSkillRow> cached;
+    static uint64_t cachedGen = 0;
+    static const game::GameHandler* cachedFor = nullptr;
+    if (cachedGen == tradeSkillRowsGeneration() && cachedFor == gh) return cached;
+    cached = buildTradeSkillRows(gh);
+    cachedGen = tradeSkillRowsGeneration();
+    cachedFor = gh;
+    return cached;
+}
+
+void invalidateTradeSkillRows() { ++tradeSkillRowsGeneration(); }
+
 /// The recipe at a drawn-row index, or null for a heading or no such row.
 /// Every binding taking a trade skill index goes through this, because an
 /// index that lands on a heading must not be treated as the recipe that used
@@ -1961,6 +2001,7 @@ static int tradeSkillHeaderSetCollapsed(lua_State* L, bool collapsed) {
     if (!row.isHeader) return 0;
     if (collapsed) collapsedTradeSkillSubClasses().insert(row.subclass);
     else           collapsedTradeSkillSubClasses().erase(row.subclass);
+    ++tradeSkillRowsGeneration();
     return 0;
 }
 
@@ -3409,7 +3450,17 @@ void registerQuestLuaAPI(lua_State* L) {
                 // GetTradeSkillLine() → name, rank, maxRank
                 {"GetTradeSkillLine", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
-            if (!gh) return luaReturnNil(L);
+            if (!gh) {
+                // The same three values, not one nil. TradeSkillFrame_Update
+                // reads the rank straight into `if ( rank < 75 )`, so a nil
+                // there raises and takes the rest of the update with it —
+                // including the re-selection that is the only thing which
+                // re-enables the Create buttons after the Disable at the top.
+                lua_pushstring(L, "Trade Skill");
+                lua_pushnumber(L, 0);
+                lua_pushnumber(L, 0);
+                return 3;
+            }
             const uint32_t line = gh->getCraftingSkillLine();
             std::string name = gh->getSkillLineName(line);
             if (name.empty()) name = "Trade Skill";
@@ -3591,10 +3642,12 @@ void registerQuestLuaAPI(lua_State* L) {
         }},
                 {"SetTradeSkillSubClassFilter", [](lua_State* L) -> int {
             tradeSkillSubClassPick() = static_cast<int>(luaL_optnumber(L, 1, 0));
+            ++tradeSkillRowsGeneration();
             return 0;
         }},
                 {"SetTradeSkillInvSlotFilter", [](lua_State* L) -> int {
             tradeSkillInvSlotPick() = static_cast<int>(luaL_optnumber(L, 1, 0));
+            ++tradeSkillRowsGeneration();
             return 0;
         }},
                 // The search box above the recipe list. It matched nothing
@@ -3602,6 +3655,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 // straight after, so the list redraws against the new view.
                 {"SetTradeSkillItemNameFilter", [](lua_State* L) -> int {
             tradeSkillNameFilter() = luaL_optstring(L, 1, "");
+            ++tradeSkillRowsGeneration();
             return 0;
         }},
                 // A number in the search box filters by the level of what the
@@ -3616,6 +3670,7 @@ void registerQuestLuaAPI(lua_State* L) {
             const int lo = static_cast<int>(luaL_optnumber(L, 1, 0));
             const int hi = static_cast<int>(luaL_optnumber(L, 2, 0));
             tradeSkillLevelRange() = {lo, hi};
+            ++tradeSkillRowsGeneration();
             return 0;
         }},
                 // The "Have Materials" checkbox, which had nothing behind it.
@@ -3623,6 +3678,7 @@ void registerQuestLuaAPI(lua_State* L) {
                 // reagent lines, so the filter is the same number read twice.
                 {"TradeSkillOnlyShowMakeable",  [](lua_State* L) -> int {
             tradeSkillOnlyMakeable() = lua_toboolean(L, 1) != 0;
+            ++tradeSkillRowsGeneration();
             return 0;
         }},
                 {"CollapseTradeSkillSubClass",  [](lua_State* L) -> int {
