@@ -1258,13 +1258,29 @@ void CameraController::update(float deltaTime) {
 
                     // Inside an interior WMO group — Undercity's halls, a
                     // building's rooms — the outdoor heightfield is the roof far
-                    // overhead, never the floor. Veto it here (the seam case is
-                    // handled above and keeps cachedInsideInteriorWMO false at
-                    // entrances) so that when the WMO floor query briefly finds
-                    // nothing at a spot, the pick does not fall back to terrain
-                    // and kick the player up to the surface — the residual left
-                    // once the elevator no longer polluted the query.
-                    if (cachedInsideInteriorWMO) {
+                    // overhead, never the floor. Veto it there so a brief gap in
+                    // the WMO floor query does not kick the player up to the
+                    // surface. (The seam case is handled above and keeps
+                    // cachedInsideInteriorWMO false at entrances.)
+                    //
+                    // Only when it really is overhead, though. isInsideInteriorWMO
+                    // is a bounding-box containment test, and an underground WMO's
+                    // interior box reaches up through the ground above it — so
+                    // standing on the grass over a cave counted as being inside
+                    // it. Vetoing terrain there left the WMO as the only
+                    // candidate, and the nearest WMO surface below is the cave's
+                    // ceiling: the player dropped through the hillside they were
+                    // walking on and stood on the roof of the room underneath.
+                    //
+                    // Higher than the player could step onto is the test, because
+                    // that is the whole of what the veto meant: ground you cannot
+                    // reach is not the ground you are standing on. Undercity's
+                    // surface sits ~113m over the halls and is still vetoed; the
+                    // hillside at your feet is not. The rule itself lives in
+                    // movement_limits.hpp, where it is pinned by a test.
+                    if (terrainH && movement::terrainIsOverheadRoof(
+                            cachedInsideInteriorWMO, *terrainH,
+                            targetPos.z, stepUpBudget)) {
                         terrainH = std::nullopt;
                     }
 
