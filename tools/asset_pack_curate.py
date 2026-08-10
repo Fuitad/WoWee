@@ -503,6 +503,21 @@ def curate(overlay_root, apply_changes, keep_hd=False):
             except OSError:
                 return None
 
+        # CAVEAT, learned after this shipped: size alone does not separate the
+        # two cases it is being used to separate.
+        #
+        # A dwarf's HD faceLower is a faithful 2x of the stock one — same
+        # profile, same ear, same eye and mouth insets in the same places. Down-
+        # sampling it gives back the stock picture, so it was never broken, and
+        # reverting it costs resolution for nothing.
+        #
+        # A draenei's is not. The stock one is a side profile with the ear and
+        # horn beside it; the HD one is a front-facing whole head. Different
+        # layout, so no scaling puts it right, and reverting it is the only fix.
+        #
+        # Both are 2x, so this test catches both and only one deserves it.
+        # Telling them apart means comparing the pictures, not their sizes.
+        #
         # Measured against the REGION the art goes in, not against the file it
         # sits beside. Comparing the two files flags any race whose HD art is
         # merely higher resolution than the stock art, which is most of them and
