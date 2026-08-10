@@ -1797,7 +1797,11 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                 //
                 // Nothing is the right answer when nothing is what was asked
                 // for and the model has no way to say so.
-                const bool asksForNone = (variant == 1);
+                // 0 as well as 1. CharFacialHairStyles stores the variant, and
+                // zero there means none — so group*100 + 0 asks for x00, which
+                // is not a geoset any model has, and the fallback below then
+                // supplies a beard to a character that asked for no beard.
+                const bool asksForNone = (variant == 0 || variant == 1);
                 const bool facialGroup = (group >= 1 && group <= 3);
                 if (asksForNone && facialGroup) {
                     return;
@@ -1840,8 +1844,14 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             auto itFacial = facialHairGeosetMap_.find(facialKey);
             if (itFacial != facialHairGeosetMap_.end()) {
                 const auto& fhg = itFacial->second;
-                addSafeGeoset(static_cast<uint16_t>(200 + fhg.geoset200));
-                addSafeGeoset(static_cast<uint16_t>(300 + fhg.geoset300));
+                // A zero means the character has none of that feature. Asked
+                // for as x00 it is a geoset nothing has, and the group fallback
+                // turns "none" into "the first one" — which is how a
+                // clean-shaven NPC ends up bearded.
+                if (fhg.geoset200 != 0)
+                    addSafeGeoset(static_cast<uint16_t>(200 + fhg.geoset200));
+                if (fhg.geoset300 != 0)
+                    addSafeGeoset(static_cast<uint16_t>(300 + fhg.geoset300));
             } else {
                 addSafeGeoset(201);
                 addSafeGeoset(301);
@@ -1930,9 +1940,14 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             if (itFacial != facialHairGeosetMap_.end()) {
                 const auto& fhg = itFacial->second;
                 // DBC values are variation indices within each group; add group base
-                activeGeosets.insert(static_cast<uint16_t>(100 + fhg.geoset100));
-                activeGeosets.insert(static_cast<uint16_t>(300 + fhg.geoset300));
-                activeGeosets.insert(static_cast<uint16_t>(200 + fhg.geoset200));
+                // Same rule on the other-player path: zero is none, and an
+                // id ending in 00 is not a geoset to ask for.
+                if (fhg.geoset100 != 0)
+                    activeGeosets.insert(static_cast<uint16_t>(100 + fhg.geoset100));
+                if (fhg.geoset300 != 0)
+                    activeGeosets.insert(static_cast<uint16_t>(300 + fhg.geoset300));
+                if (fhg.geoset200 != 0)
+                    activeGeosets.insert(static_cast<uint16_t>(200 + fhg.geoset200));
             } else {
                 activeGeosets.insert(kGeosetDefaultConnector); // Default group 1: no extra
                 activeGeosets.insert(201); // Default group 2: no facial hair
@@ -2573,9 +2588,14 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                 if (hasRenderableCape) {
                     uint16_t capeSid = pickFromGroup(kGeosetWithCape, 15);
                     if (capeSid != 0) normalizedGeosets.insert(capeSid);
-                } else {
-                    uint16_t noCape = pickFromGroup(kGeosetNoCape, 15);
-                    if (noCape != 0) normalizedGeosets.insert(noCape);
+                } else if (allGeosets.count(kGeosetNoCape) > 0) {
+                    // Only the real "no cape" panel, never a substitute. The
+                    // group's other members are cloaks, so falling back to the
+                    // first one hands a cape to a character wearing none — and
+                    // with no cloak texture bound, a white sheet. The HD models
+                    // have no 1501 at all, which is how every one of them came
+                    // to be wearing one.
+                    normalizedGeosets.insert(kGeosetNoCape);
                 }
             }
 

@@ -441,7 +441,14 @@ std::unordered_set<uint16_t> AppearanceComposer::buildDefaultPlayerGeosets(uint8
     activeGeosets.insert(kGeosetBareSleeves);
     activeGeosets.insert(kGeosetDefaultKneepads);
     activeGeosets.insert(kGeosetBarePants);
-    activeGeosets.insert(kGeosetWithCape);
+    // NOT kGeosetWithCape. This is the default set, built before any equipment
+    // is known, and it was asking for the cloak mesh unconditionally — so a
+    // character wearing no cloak still had one, untextured. The cape is added
+    // by the equipment pass when a cloak is actually worn.
+    //
+    // The "no cape" panel is named instead, and only if the model has it: the
+    // stock models carry 1501 and the HD replacements do not, and substituting
+    // anything else in that group means substituting a cape.
     // Group 20 is the feet, and which member of it a model carries is not
     // fixed. The stock models have no group 20 at all — the feet are part of
     // the body — so naming one number was free. An HD replacement splits them
