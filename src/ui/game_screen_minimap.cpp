@@ -181,6 +181,29 @@ void GameScreen::refreshQuestObjectiveCache(game::GameHandler& gameHandler) {
 // frame for a party member, a flight master or a corpse, because in WoW those
 // come from the C client. Gating the whole thing left the ring drawn and
 // nothing on it.
+bool GameScreen::MinimapFrame::project(const glm::vec3& worldRenderPos,
+                                       float& sx, float& sy) const {
+    const float dx = worldRenderPos.x - playerRender.x;
+    const float dy = worldRenderPos.y - playerRender.y;
+    const glm::vec2 off = renderDeltaToMinimapOffset(dx, dy, view);
+    if (std::sqrt(off.x * off.x + off.y * off.y) > mapRadius - 3.0f) return false;
+    sx = centerX + off.x;
+    sy = centerY + off.y;
+    return true;
+}
+
+bool GameScreen::MinimapFrame::projectEntity(const game::Entity& entity,
+                                             float& sx, float& sy) const {
+    return project(core::coords::canonicalToRender(
+                       glm::vec3(entity.getX(), entity.getY(), entity.getZ())),
+                   sx, sy);
+}
+
+bool GameScreen::MinimapFrame::projectCanonical(float wowX, float wowY,
+                                                float& sx, float& sy) const {
+    return project(core::coords::canonicalToRender(glm::vec3(wowX, wowY, 0.0f)), sx, sy);
+}
+
 void GameScreen::renderMinimapChrome(game::GameHandler& gameHandler, float centerX,
                                      float centerY, float mapRadius) {
     // The caller already has both; taking the handler by reference rather than
@@ -665,51 +688,10 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         }
     }
 
-    // A render position onto the minimap disc, or false when it falls outside.
-    //
-    // The bottom of the three: everything else here converts to render
-    // coordinates and then comes through this. Answers false past the rim minus
-    // three units, which is what keeps a blip from being drawn half over the
-    // border.
-    auto projectToMinimap = [&](const glm::vec3& worldRenderPos, float& sx, float& sy) -> bool {
-        float dx = worldRenderPos.x - playerRender.x;
-        float dy = worldRenderPos.y - playerRender.y;
-
-        const glm::vec2 off = renderDeltaToMinimapOffset(dx, dy, minimapView);
-        float px = off.x;
-        float py = off.y;
-
-        float distFromCenter = std::sqrt(px * px + py * py);
-        if (distFromCenter > mapRadius - 3.0f) {
-            return false;
-        }
-
-        sx = centerX + px;
-        sy = centerY + py;
-        return true;
-    };
-
-    // Where an entity sits on the minimap, if it is on it at all.
-    //
-    // Fourteen loops below wanted the same three lines: take the entity's
-    // canonical position, convert it to render coordinates, project it, and skip
-    // the entity when it falls outside the disc. That conversion is one fact —
-    // that the two coordinate systems are not the same one — and it was spelled
-    // out at every one of them.
-    auto projectEntityToMinimap = [&](const game::Entity& entity, float& sx, float& sy) {
-        const glm::vec3 renderPos = core::coords::canonicalToRender(
-            glm::vec3(entity.getX(), entity.getY(), entity.getZ()));
-        return projectToMinimap(renderPos, sx, sy);
-    };
-
-    // The same, for the things that arrive as a bare pair of canonical
-    // coordinates rather than as an entity: party members, pings, gossip points,
-    // battleground positions. They have no height and do not need one — the
-    // minimap is flat.
-    auto projectCanonicalToMinimap = [&](float wowX, float wowY, float& sx, float& sy) {
-        return projectToMinimap(core::coords::canonicalToRender(glm::vec3(wowX, wowY, 0.0f)),
-                                sx, sy);
-    };
+    // Everything a marker needs to place itself, in one place — the categories
+    // below take this rather than eight locals each.
+    const MinimapFrame frame{drawList, centerX, centerY, mapRadius, bearing,
+                             playerRender, minimapView};
 
     // Build sets of entries that are incomplete objectives for tracked quests.
     // minimapQuestEntries: NPC creature entries (npcOrGoId > 0)
@@ -727,7 +709,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             if (!unit || unit->getHealth() == 0) continue;
 
             float sx = 0.0f, sy = 0.0f;
-            if (!projectEntityToMinimap(*entity, sx, sy)) continue;
+            if (!frame.projectEntity(*entity, sx, sy)) continue;
 
             bool isQuestTarget = minimapQuestEntries.count(unit->getEntry()) != 0;
             if (isQuestTarget) {
@@ -760,7 +742,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             }
 
             float sx = 0.0f, sy = 0.0f;
-            if (!projectEntityToMinimap(*entity, sx, sy)) continue;
+            if (!frame.projectEntity(*entity, sx, sy)) continue;
 
             constexpr float halfSize = 5.5f;
             const ImVec2 top(sx, sy - halfSize);
@@ -795,7 +777,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             if (rank != 2 && rank != 4) continue; // 2 = Rare Elite, 4 = Rare
 
             float sx = 0.0f, sy = 0.0f;
-            if (!projectEntityToMinimap(*entity, sx, sy)) continue;
+            if (!frame.projectEntity(*entity, sx, sy)) continue;
 
             // Match the world-map tracker: gold for Rare, silver for Rare Elite.
             const bool isElite = rank == 2;
@@ -836,7 +818,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             if (isPartyMember) continue;
 
             float sx = 0.0f, sy = 0.0f;
-            if (!projectEntityToMinimap(*entity, sx, sy)) continue;
+            if (!frame.projectEntity(*entity, sx, sy)) continue;
 
             // Blue dot for other nearby players
             drawList->AddCircleFilled(ImVec2(sx, sy), 2.0f, IM_COL32(80, 160, 255, 220));
@@ -854,7 +836,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             if (!(unit->getDynamicFlags() & game::UNIT_DYNFLAG_LOOTABLE)) continue;
 
             float sx = 0.0f, sy = 0.0f;
-            if (!projectEntityToMinimap(*entity, sx, sy)) continue;
+            if (!frame.projectEntity(*entity, sx, sy)) continue;
 
             // Draw a small diamond (rotated square) in light yellow-green
             const float dr = 3.5f;
@@ -895,7 +877,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             if (goInfo->type == 11 || goInfo->type == 15) continue;
 
             float sx = 0.0f, sy = 0.0f;
-            if (!projectEntityToMinimap(*entity, sx, sy)) continue;
+            if (!frame.projectEntity(*entity, sx, sy)) continue;
 
             // Triangle size and color: bright cyan for quest objectives, amber for others
             bool isQuestGO = minimapQuestGoEntries.count(go->getEntry()) != 0;
@@ -933,7 +915,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             if (gameHandler.isGatherGameObject(chest->getGuid())) continue;
 
             float sx = 0.0f, sy = 0.0f;
-            if (!projectEntityToMinimap(*entity, sx, sy)) continue;
+            if (!frame.projectEntity(*entity, sx, sy)) continue;
 
             constexpr float halfW = 5.5f;
             constexpr float halfH = 4.0f;
@@ -973,7 +955,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             // posY is canonical X and posX is canonical Y: the party packet
             // names its fields for the axes of the map, not of the world.
             float sx = 0.0f, sy = 0.0f;
-            if (!projectCanonicalToMinimap(static_cast<float>(member.posY),
+            if (!frame.projectCanonical(static_cast<float>(member.posY),
                                            static_cast<float>(member.posX), sx, sy)) continue;
 
             // Determine dot color: class color > leader gold > light blue
@@ -1033,7 +1015,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         if (!entity) continue;
 
         float sx = 0.0f, sy = 0.0f;
-        if (!projectEntityToMinimap(*entity, sx, sy)) continue;
+        if (!frame.projectEntity(*entity, sx, sy)) continue;
 
         // Draw dot with marker text
         drawList->AddCircleFilled(ImVec2(sx, sy), 5.0f, dotColor);
@@ -1094,7 +1076,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
                 if (infoIt == killInfoMap.end()) continue;
 
                 float sx = 0.0f, sy = 0.0f;
-                if (!projectEntityToMinimap(*entity, sx, sy)) continue;
+                if (!frame.projectEntity(*entity, sx, sy)) continue;
 
                 // Gold circle with a dark "x" mark — indicates a quest kill target
                 drawList->AddCircleFilled(ImVec2(sx, sy), 5.0f, IM_COL32(255, 185, 0, 240));
@@ -1131,7 +1113,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         }
         // Convert WoW canonical coords to render coords for minimap projection
         float sx = 0.0f, sy = 0.0f;
-        if (!projectCanonicalToMinimap(poi.x, poi.y, sx, sy)) continue;
+        if (!frame.projectCanonical(poi.x, poi.y, sx, sy)) continue;
 
         // Draw as a cyan diamond with tooltip on hover
         const float d = 5.0f;
@@ -1155,7 +1137,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     // Minimap pings from party members
     for (const auto& ping : gameHandler.getMinimapPings()) {
         float sx = 0.0f, sy = 0.0f;
-        if (!projectCanonicalToMinimap(ping.wowX, ping.wowY, sx, sy)) continue;
+        if (!frame.projectCanonical(ping.wowX, ping.wowY, sx, sy)) continue;
 
         float t = ping.age / game::GameHandler::MinimapPing::LIFETIME;
         float alpha = 1.0f - t;
@@ -1184,7 +1166,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             float wowX = static_cast<float>(member.posY);
             float wowY = static_cast<float>(member.posX);
             float sx = 0.0f, sy = 0.0f;
-            if (!projectCanonicalToMinimap(wowX, wowY, sx, sy)) continue;
+            if (!frame.projectCanonical(wowX, wowY, sx, sy)) continue;
 
             ImU32 dotColor;
             {
@@ -1240,7 +1222,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             for (const auto& bp : bgPositions) {
                 // Packet coords: wowX=canonical X (north), wowY=canonical Y (west)
                 float sx = 0.0f, sy = 0.0f;
-                if (!projectCanonicalToMinimap(bp.wowX, bp.wowY, sx, sy)) continue;
+                if (!frame.projectCanonical(bp.wowX, bp.wowY, sx, sy)) continue;
 
                 ImU32 col = kBgGroupColors[bp.group & 1];
 
@@ -1284,7 +1266,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             const glm::vec3 corpseRender =
                 core::coords::canonicalToRender(glm::vec3(corpseCanX, corpseCanY, 0.0f));
             float csx = 0.0f, csy = 0.0f;
-            const bool onMap = projectToMinimap(corpseRender, csx, csy);
+            const bool onMap = frame.project(corpseRender, csx, csy);
 
             if (onMap) {
                 // Draw a small skull-like X marker at the corpse position

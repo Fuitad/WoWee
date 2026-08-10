@@ -13,6 +13,7 @@
 #include "ui/toast_manager.hpp"
 #include "ui/dialog_manager.hpp"
 #include "ui/settings_panel.hpp"
+#include "ui/minimap_projection.hpp"
 #include "ui/combat_ui.hpp"
 #include "ui/social_panel.hpp"
 #include "ui/action_bar_panel.hpp"
@@ -260,6 +261,35 @@ private:
     /// clock, and the stack of indicators below it. Separate from the marker
     /// pass because it answers the ownership question the other way: FrameXML's
     /// cluster brings its own, and the blips it does not bring at all.
+    /// Where the minimap is this frame, and how to put a thing on it.
+    ///
+    /// Every marker category needs the same eight values and the same three
+    /// projections. They were locals of one thousand-line function, which is
+    /// what kept the categories in it.
+    struct MinimapFrame {
+        ImDrawList* drawList = nullptr;
+        float centerX = 0.0f;
+        float centerY = 0.0f;
+        float mapRadius = 0.0f;
+        float bearing = 0.0f;
+        glm::vec3 playerRender{0.0f};
+        MinimapView view{};
+
+        /// A render position onto the disc, or false when it falls outside.
+        /// The rim minus three units, which keeps a blip off the border.
+        bool project(const glm::vec3& worldRenderPos, float& sx, float& sy) const;
+
+        /// An entity's own position, converted on the way. The conversion is one
+        /// fact — these two coordinate systems are not the same one — and it was
+        /// written at fourteen call sites before it was here.
+        bool projectEntity(const game::Entity& entity, float& sx, float& sy) const;
+
+        /// For the things that arrive as a bare pair of canonical coordinates:
+        /// party members, pings, gossip points, battleground positions. They
+        /// have no height and need none — the minimap is flat.
+        bool projectCanonical(float wowX, float wowY, float& sx, float& sy) const;
+    };
+
     void renderMinimapChrome(game::GameHandler& gameHandler, float centerX,
                              float centerY, float mapRadius);
     void refreshQuestObjectiveCache(game::GameHandler& gameHandler);
