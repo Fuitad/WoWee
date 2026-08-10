@@ -1,4 +1,5 @@
 #include "core/entity_spawner.hpp"
+#include "core/appearance_composer.hpp"
 #include "core/helm_visual.hpp"
 
 // M2 attachment 11 is the helm; 0 is the shield mount.
@@ -32,21 +33,17 @@ namespace { constexpr uint32_t kAttachHelm = 11; }
 namespace wowee {
 namespace core {
 
-namespace {
-// Default (bare) geoset IDs per equipment group.
-// Each group's base is groupNumber * 100; variant 01 is typically bare/default.
-constexpr uint16_t kGeosetDefaultConnector = 101;   // Group  1: default hair connector
-constexpr uint16_t kGeosetBareForearms     = 401;   // Group  4: no gloves
-constexpr uint16_t kGeosetBareShins        = 501;   // Group  5: no boots
-constexpr uint16_t kGeosetDefaultEars      = 702;   // Group  7: ears
-constexpr uint16_t kGeosetBareSleeves      = 801;   // Group  8: no chest armor sleeves
-constexpr uint16_t kGeosetDefaultKneepads  = 902;   // Group  9: kneepads
-constexpr uint16_t kGeosetDefaultTabard    = 1201;  // Group 12: tabard base
-constexpr uint16_t kGeosetBarePants        = 1301;  // Group 13: no leggings
-constexpr uint16_t kGeosetNoCape           = 1501;  // Group 15: no cape
-constexpr uint16_t kGeosetWithCape         = 1502;  // Group 15: with cape
-constexpr uint16_t kGeosetBareFeet         = 2002;  // Group 20: bare feet
-} // namespace
+// The geoset numbers come from appearance_composer.hpp, which this file used to
+// keep its own copy of.
+//
+// They were identical when written and stopped being so the moment one of them
+// was corrected: group 20 is the feet, an HD human female carries 2001 where an
+// HD human male carries 2002, and the fix that names both went into the header's
+// copy. This file kept asking for 2002 alone, so every character it draws — an
+// NPC, and another player — lost their feet on exactly the models the header's
+// copy had been taught about.
+//
+// One definition, so the next correction cannot land in only half the client.
 
 // --- Constructor / Destructor ---
 
@@ -1861,6 +1858,7 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             addSafeGeoset(kGeosetDefaultTabard);
             addSafeGeoset(kGeosetBarePants);
             addSafeGeoset(kGeosetBareFeet);
+            addSafeGeoset(kGeosetBareFeetAlt);
 
             // A geoset filter that keeps none of the body is not a filter, it is
             // an invisible NPC — targetable, audible, and not drawn. The comment
@@ -2119,6 +2117,7 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             activeGeosets.insert(pickGeoset(kGeosetDefaultEars, 7));
             activeGeosets.insert(pickGeoset(kGeosetDefaultKneepads, 9));
             activeGeosets.insert(pickGeoset(kGeosetBareFeet, 20));
+            activeGeosets.insert(kGeosetBareFeetAlt);
             // Keep all model-present torso variants active to avoid missing male
             // abdomen/waist sections when a single 5xx pick is wrong.
             for (uint16_t sid : modelGeosets) {

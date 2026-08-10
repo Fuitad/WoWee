@@ -1565,56 +1565,19 @@ VkTexture* CharacterRenderer::compositeWithRegions(const std::string& basePath,
     int width = base.width;
     int height = base.height;
 
-    // The same rule compositeTextures uses: an overlay that does not fit its
-    // region wants a bigger atlas, not to be shrunk into the one it was given.
+    // No atlas growth on this path, and the reason is the equipment.
     //
-    // This path only knew how to go from 256 to 512, so a face authored for a
-    // 1024 atlas was resampled down here no matter what — and this is the path
-    // an NPC with equipment takes, which is most of them. That is why a race
-    // whose face art fits, human or orc, came right and one whose art is twice
-    // its region, dwarf, did not.
-    {
-        // baseLayers, not regionLayers. The face and the underwear are the
-        // base layers; regionLayers is the equipment, which is placed by an
-        // index rather than by a name and whose art is sized to its own slot.
-        // Scanning the equipment asks a question about the wrong pictures — and
-        // any oversized piece of armour would then have grown the atlas for the
-        // whole body, which is a blurrier character for no reason at all.
-        int wanted = 1;
-        for (const auto& bl : baseLayers) {
-            if (bl.empty()) continue;
-            const AtlasRegion256 region = regionFor(lowerPath(bl));
-            if (!region.known) continue;
-            pipeline::BLPImage probe = assetManager->loadTexture(bl);
-            if (!probe.isValid()) continue;
-            wanted = std::max(wanted, impliedScale(region, probe.width));
-        }
-        const int have = width / 256;
-        if (wanted > have && have >= 1) {
-            const int newSize = 256 * wanted;
-            std::vector<uint8_t> grown(static_cast<size_t>(newSize) * newSize * 4);
-            const int factor = newSize / width;
-            for (int y = 0; y < newSize; y++) {
-                const int sy = y / factor;
-                for (int x = 0; x < newSize; x++) {
-                    const size_t s = (static_cast<size_t>(sy) * width + x / factor) * 4;
-                    const size_t d = (static_cast<size_t>(y) * newSize + x) * 4;
-                    grown[d + 0] = base.data[s + 0];
-                    grown[d + 1] = base.data[s + 1];
-                    grown[d + 2] = base.data[s + 2];
-                    grown[d + 3] = base.data[s + 3];
-                }
-            }
-            base.data = std::move(grown);
-            base.width = newSize;
-            base.height = newSize;
-            // The working size is read from base above, so it moves with it.
-            // Missing this leaves every later coordinate computed against the
-            // old atlas while the pixels are the new one.
-            width = newSize;
-            height = newSize;
-        }
-    }
+    // Growing it here scales the region coordinates but not the art placed into
+    // them: the equipment layers are authored for a 512 atlas, so on a 1024 one
+    // they land at quarter size in the right corner of the right region, and a
+    // fully armoured NPC comes out naked with fragments of armour scattered
+    // over it. That is what growing this path did, and it is worse than what it
+    // was meant to fix.
+    //
+    // The face it was meant to fix is a dwarf's, and a dwarf's HD faceLower is
+    // a faithful 2x of the stock one — same parts in the same places — so
+    // resampling it down gives back the stock picture. Softer, and right.
+    // compositeTextures still grows, because it has no equipment to misplace.
 
     // If base texture is 256x256 (e.g., baked NPC texture), upscale to 512x512
     // so equipment regions can be composited at correct coordinates
