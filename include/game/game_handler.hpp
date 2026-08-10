@@ -3007,6 +3007,16 @@ public:
     void destroyItem(uint8_t bag, uint8_t slot, uint8_t count = 1);
     void splitItem(uint8_t srcBag, uint8_t srcSlot, uint8_t count);
     void swapContainerItems(uint8_t srcBag, uint8_t srcSlot, uint8_t dstBag, uint8_t dstSlot);
+
+    /// Merge partial stacks, then order every bag slot, and send the moves.
+    ///
+    /// Lives here rather than in the window that used to own it because two
+    /// things ask for it now: this client's own bag screen and the interface's
+    /// SortBags(). One queue, drained a swap per tick — the server refuses a
+    /// burst of them, and a sort is dozens.
+    void sortBags();
+    /// Whether a sort is still sending. The button reads it to disable itself.
+    bool isSortingBags() const { return !sortSwapQueue_.empty(); }
     void swapBagSlots(int srcBagIndex, int dstBagIndex);
     void useItemById(uint32_t itemId, uint64_t unitTarget = 0);
     /// Put a glyph from a bag slot into a socket, counted from zero.
@@ -4706,6 +4716,9 @@ private:
     // Key: inspected player's GUID; value: set of earned achievement IDs
     std::unordered_map<uint64_t, std::unordered_map<uint32_t, uint32_t>> inspectedPlayerAchievements_;
     uint64_t achievementComparisonGuid_ = 0;
+
+    /// Sort moves still to send, one per tick. See sortBags.
+    std::deque<Inventory::SwapOp> sortSwapQueue_;
 
     // Area name cache (lazy-loaded from WorldMapArea.dbc; maps AreaTable ID → display name)
     mutable std::unordered_map<uint32_t, std::string> areaNameCache_;

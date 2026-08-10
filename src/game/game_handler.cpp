@@ -315,7 +315,30 @@ bool GameHandler::isConnected() const {
     return socket && socket->isConnected();
 }
 
+void GameHandler::sortBags() {
+    if (!sortSwapQueue_.empty()) return;   // one sort at a time
+    auto& inv = getInventory();
+    // Pour partial stacks together first, so the sort places one stack of
+    // twenty rather than two of ten. Merging both plans and applies, so the
+    // swaps below are computed from the merged layout.
+    auto merges = inv.mergePartialStacks();
+    auto swaps = inv.computeSortSwaps();
+    // The local layout changes now so the bags read as sorted immediately; the
+    // server is told the same thing over the following ticks.
+    inv.sortBags();
+    for (auto& m : merges) sortSwapQueue_.push_back(m);
+    for (auto& s : swaps)  sortSwapQueue_.push_back(s);
+}
+
 void GameHandler::updateNetworking(float deltaTime) {
+    // One queued sort move per tick. A sort is dozens of swaps and the server
+    // drops a burst of them, so they go out at the rate anything else does.
+    if (!sortSwapQueue_.empty()) {
+        const auto op = sortSwapQueue_.front();
+        sortSwapQueue_.pop_front();
+        swapContainerItems(op.srcBag, op.srcSlot, op.dstBag, op.dstSlot);
+    }
+
     // Reset per-tick monster-move budget tracking (Classic/Turtle flood protection).
     if (movementHandler_) {
         movementHandler_->monsterMovePacketsThisTickRef() = 0;

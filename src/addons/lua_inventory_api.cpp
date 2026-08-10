@@ -3437,6 +3437,24 @@ void registerInventoryLuaAPI(lua_State* L) {
                 {"SetCurrencyUnused",   [](lua_State* L) -> int { (void)L; return 0; }},
                 {"GetItemCount",      lua_GetItemCount},
                 {"UseContainerItem",  lua_UseContainerItem},
+                // SortBags() — merge partial stacks, then order every bag slot.
+                //
+                // Not a 3.3.5 function: sorting arrived years later, so nothing
+                // in FrameXML calls this. It is here for the bundled all-bags
+                // addon, and it is the same sort this client's own bag window
+                // has always had rather than a second implementation of it.
+                {"SortBags", [](lua_State* L) -> int {
+            if (auto* gh = getGameHandler(L)) gh->sortBags();
+            return 0;
+        }},
+                // Whether that sort is still sending its moves, so a button can
+                // say so rather than looking dead while dozens of swaps go out
+                // a tick at a time.
+                {"IsSortingBags", [](lua_State* L) -> int {
+            auto* gh = getGameHandler(L);
+            lua_pushboolean(L, (gh && gh->isSortingBags()) ? 1 : 0);
+            return 1;
+        }},
                 {"GetContainerNumSlots",    lua_GetContainerNumSlots},
                 {"GetKeyRingSize",          lua_GetKeyRingSize},
                 // PurchaseSlot() — buying the next bank bag slot, which the
