@@ -467,6 +467,98 @@ def curate(overlay_root, apply_changes, keep_hd=False):
             open(cdi_path, "wb").write(bytes(data))
             print("  rewrote %s" % cdi_path)
 
+    # CharSections: face rows for races whose HD face art does not fit the model.
+    #
+    # Four races ship a faceLower at twice the region's size, and it is a whole
+    # head on one sheet rather than a strip of one. The models' head UVs are the
+    # stock layout, so that art cannot be placed correctly at any canvas size.
+    # The game's own face art does fit, and is still on disk beside it — the HD
+    # art was ADDED under _HD names rather than replacing anything — so those
+    # rows are pointed back at it.
+    cs_key = "dbfilesclient\\charsections.dbc"
+    face_patch = []
+    if cs_key in kept:
+        cs_path = os.path.join(files_root, kept[cs_key]["p"])
+        cs_rows, cs_rec, cs_fld, cs_rsize = load_dbc(cs_path)
+        # stock WotLK layout: tex1=4 tex2=5 tex3=6 flags=7 variation=8 colour=9
+        TEX1, SECTION, RACE, SEX = 4, 3, 1, 2
+
+        def stock_name(path):
+            if not path.lower().endswith("_hd.blp"):
+                return None
+            return path[:-len("_HD.blp")] + ".blp"
+
+        def blp_width(rel):
+            key = rel.replace("/", "\\").lower()
+            if key in entries:
+                full = os.path.join(files_root, entries[key]["p"])
+            elif key in base:
+                full = os.path.join(base_root, base[key]["p"])
+            else:
+                return None
+            try:
+                with open(full, "rb") as f:
+                    head = f.read(20)
+                return struct.unpack("<I", head[12:16])[0] if head[:4] == b"BLP2" else None
+            except OSError:
+                return None
+
+        # Measured against the REGION the art goes in, not against the file it
+        # sits beside. Comparing the two files flags any race whose HD art is
+        # merely higher resolution than the stock art, which is most of them and
+        # is not the fault — seventeen of twenty pairs came back, including
+        # human female, whose face is correct.
+        #
+        # faceLower occupies 128 of the 256-wide reference atlas, so on a body of
+        # width W its region is 128 * W/256 wide. Art wider than that cannot fit
+        # whatever it contains.
+        body_width = {}
+        for _id, (vals, resolve, _i) in cs_rows.items():
+            if vals[SECTION] != 0:
+                continue
+            w = blp_width(resolve(vals[TEX1]))
+            if w:
+                body_width[(vals[RACE], vals[SEX])] = w
+
+        oversized = set()
+        for _id, (vals, resolve, _i) in cs_rows.items():
+            if vals[SECTION] != 1:
+                continue
+            pair = (vals[RACE], vals[SEX])
+            body = body_width.get(pair)
+            if not body:
+                continue
+            w_hd = blp_width(resolve(vals[TEX1]))
+            if w_hd and w_hd > (128 * body) // 256:
+                oversized.add(pair)
+
+        for _id, (vals, resolve, index) in cs_rows.items():
+            if vals[SECTION] != 1 or (vals[RACE], vals[SEX]) not in oversized:
+                continue
+            for f in (TEX1, TEX1 + 1):
+                hd = resolve(vals[f])
+                stock = stock_name(hd)
+                if stock and blp_width(stock):
+                    face_patch.append((index, f, stock))
+        print("  face rows pointed back at the game's own art  : %d in %d race/sex pairs"
+              % (len({i for i, _f, _n in face_patch}), len(oversized)))
+
+    if apply_changes and face_patch:
+        cs_data = bytearray(open(cs_path, "rb").read())
+        cs_start = 20 + cs_rec * cs_rsize
+        cs_block = bytearray(cs_data[cs_start:])
+        cs_added = {}
+        for _i, _f, name in face_patch:
+            if name not in cs_added:
+                cs_added[name] = len(cs_block)
+                cs_block += name.encode("utf-8") + b"\0"
+        for index, f, name in face_patch:
+            off = 20 + index * cs_rsize + f * 4
+            cs_data[off:off + 4] = struct.pack("<I", cs_added[name])
+        cs_data[16:20] = struct.pack("<I", len(cs_block))
+        open(cs_path, "wb").write(bytes(cs_data[:cs_start] + cs_block))
+        print("  rewrote %s" % cs_path)
+
     if not apply_changes:
         print("\n(dry run — pass --apply to write)")
         return 0
