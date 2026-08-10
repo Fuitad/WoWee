@@ -1574,11 +1574,18 @@ VkTexture* CharacterRenderer::compositeWithRegions(const std::string& basePath,
     // whose face art fits, human or orc, came right and one whose art is twice
     // its region, dwarf, did not.
     {
+        // baseLayers, not regionLayers. The face and the underwear are the
+        // base layers; regionLayers is the equipment, which is placed by an
+        // index rather than by a name and whose art is sized to its own slot.
+        // Scanning the equipment asks a question about the wrong pictures — and
+        // any oversized piece of armour would then have grown the atlas for the
+        // whole body, which is a blurrier character for no reason at all.
         int wanted = 1;
-        for (const auto& rl : regionLayers) {
-            const AtlasRegion256 region = regionFor(lowerPath(rl.second));
+        for (const auto& bl : baseLayers) {
+            if (bl.empty()) continue;
+            const AtlasRegion256 region = regionFor(lowerPath(bl));
             if (!region.known) continue;
-            pipeline::BLPImage probe = assetManager->loadTexture(rl.second);
+            pipeline::BLPImage probe = assetManager->loadTexture(bl);
             if (!probe.isValid()) continue;
             wanted = std::max(wanted, impliedScale(region, probe.width));
         }
