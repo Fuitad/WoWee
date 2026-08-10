@@ -1666,16 +1666,28 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                             // and a wrong face looks the same whichever failed:
                             // the table having the art, the art loading, and the
                             // model having a slot to put it in.
-                            if (npcHeadDetailCanaryCount_ < 5) {
+                            if (npcHeadDetailCanaryCount_ < 8) {
                                 ++npcHeadDetailCanaryCount_;
+                                // The face art this NPC was given, beside the
+                                // face it was asked for. CharSections is keyed
+                                // on (variation, colour) and a lookup that misses
+                                // does not fail — it returns another row, and
+                                // another row is another face.
+                                const std::string faceLower = lookupCharSection(
+                                    extra.raceId, extra.sexId, 1, extra.faceId, extra.skinId, 0);
+                                const std::string faceUpper = lookupCharSection(
+                                    extra.raceId, extra.sexId, 1, extra.faceId, extra.skinId, 1);
                                 LOG_WARNING("NPC head detail: displayId=", displayId,
                                             " race=", static_cast<int>(extra.raceId),
                                             " sex=", static_cast<int>(extra.sexId),
                                             " skin=", static_cast<int>(extra.skinId),
+                                            " face=", static_cast<int>(extra.faceId),
                                             " extra='", extraPath,
                                             "' loaded=", (extraTex && extraTex != whiteTex ? "yes" : "NO"),
                                             " type8 slots=", extraSlots,
-                                            " of ", md->textures.size(), " textures");
+                                            " of ", md->textures.size(), " textures",
+                                            " | faceLower='", faceLower,
+                                            "' faceUpper='", faceUpper, "'");
                             }
                         }
 
