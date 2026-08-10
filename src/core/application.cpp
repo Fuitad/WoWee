@@ -437,8 +437,14 @@ bool Application::initialize() {
         luaSvc.getClientSetting = [uim = uiManager.get()](const std::string& key) -> std::string {
             if (!uim) return {};
             auto& sp = uim->getGameScreen().getSettingsPanel();
+            // Whole numbers without a decimal point, fractions without the
+            // trailing zeros — the options panels compare some of these as
+            // strings, so "1.000000" is not the same answer as "1".
             auto num = [](double v) {
+                if (v == static_cast<long long>(v)) return std::to_string(static_cast<long long>(v));
                 std::string s = std::to_string(v);
+                while (s.size() > 1 && s.back() == '0') s.pop_back();
+                if (!s.empty() && s.back() == '.') s.pop_back();
                 return s;
             };
             if (key == "viewdistance")   return num(sp.pendingViewDistance);

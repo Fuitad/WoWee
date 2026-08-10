@@ -762,6 +762,7 @@ set(WOWEE_SOURCES
     src/pipeline/wowee_chat_links.cpp
     src/pipeline/custom_zone_discovery.cpp
     src/pipeline/char_sections.cpp
+    src/ui/settings_schema.cpp
     src/pipeline/item_textures.cpp
     src/pipeline/m2_asset_loader.cpp
     src/pipeline/dbc_layout.cpp
@@ -1852,6 +1853,7 @@ add_executable(wowee_editor
     src/pipeline/blp_loader.cpp
     src/pipeline/dbc_loader.cpp
     src/pipeline/char_sections.cpp
+    src/ui/settings_schema.cpp
     src/pipeline/item_textures.cpp
     src/pipeline/m2_asset_loader.cpp
     src/pipeline/dbc_layout.cpp

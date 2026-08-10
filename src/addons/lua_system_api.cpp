@@ -884,6 +884,20 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else lua_pushstring(L, "0");
 }
 
+/// A number as a CVar carries it: no trailing zeros, and a whole number with no
+/// point at all.
+///
+/// std::to_string gives six decimals for everything, and the options panels
+/// compare some of these as strings — a checkbox tests `value == "1"`, which
+/// "1.000000" fails.
+std::string formatCVarNumber(double v) {
+    if (v == static_cast<long long>(v)) return std::to_string(static_cast<long long>(v));
+    std::string s = std::to_string(v);
+    while (s.size() > 1 && s.back() == '0') s.pop_back();
+    if (!s.empty() && s.back() == '.') s.pop_back();
+    return s;
+}
+
 /// The CVars whose value is a client setting.
 ///
 /// FrameXML's Video and Interface panels are bound to CVar names. The values
@@ -962,11 +976,21 @@ static int lua_GetCVar(lua_State* L) {
         // last wrote and drift from what is actually playing — the same fault
         // the nameplate and minimap entries above exist for.
         if (auto* svc = getLuaServices(L); svc && svc->getAudioSetting) {
+            const bool isSwitch = (n == "sound_enableallsound");
             const char* key = n == "sound_mastervolume"   ? "master"
                             : n == "sound_musicvolume"    ? "music"
                             : n == "sound_ambiencevolume" ? "ambient"
                                                           : "enableall";
-            lua_pushstring(L, std::to_string(svc->getAudioSetting(key)).c_str());
+            const float v = svc->getAudioSetting(key);
+            // A switch answers "1" or "0" and nothing else. The options panels
+            // compare the string exactly — `if ( value == "1" )` — so a float
+            // formatted as "1.000000" reads as off, and the box unticks itself
+            // the moment the panel is opened again.
+            if (isSwitch) {
+                lua_pushstring(L, v != 0.0f ? "1" : "0");
+            } else {
+                lua_pushstring(L, formatCVarNumber(v).c_str());
+            }
             return 1;
         }
     } else if (n == "autolootdefault") {
