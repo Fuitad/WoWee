@@ -1304,7 +1304,7 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
         uint16_t selectedFacial100 = 100;
         uint16_t selectedFacial200 = 200;
         uint16_t selectedFacial300 = 300;
-        uint32_t equipChestGG = 0, equipLegsGG = 0, equipFeetGG = 0;
+        uint32_t equipChestGG = 0, equipLegsGG = 0, equipFeetGG = 0, equipGlovesGG = 0;
         if (itDisplayData != displayDataMap_.end() &&
             itDisplayData->second.extraDisplayId != 0) {
             auto itExtra = humanoidExtraMap_.find(itDisplayData->second.extraDisplayId);
@@ -1323,6 +1323,9 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
                     extraRaceId, extraSexId, itExtra->second.facialHairId);
                 auto itFacial = facialHairGeosetMap_.find(facialKey);
                 if (itFacial != facialHairGeosetMap_.end()) {
+                    // A zero variant means the character has none of that
+                    // feature, and x00 is an id no model carries — which is
+                    // what resolveGeoset reads as "none" further down.
                     selectedFacial100 = static_cast<uint16_t>(100 + itFacial->second.geoset100);
                     selectedFacial200 = static_cast<uint16_t>(200 + itFacial->second.geoset200);
                     selectedFacial300 = static_cast<uint16_t>(300 + itFacial->second.geoset300);
@@ -1411,6 +1414,7 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
                     if (equipChestGG == 0) equipChestGG = readGG(itExtra->second.equipDisplayId[2]); // shirt fallback
                     equipLegsGG = readGG(itExtra->second.equipDisplayId[5]);
                     equipFeetGG = readGG(itExtra->second.equipDisplayId[6]);
+                    equipGlovesGG = readGG(itExtra->second.equipDisplayId[8]);
                 }
             }
         }
@@ -1454,25 +1458,24 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
             normalizedGeosets.insert(sid);
         }
 
-        // core/geoset_rules.hpp. The group argument stays for the call
-        // sites' readability; the id already implies it.
-        auto pickFromGroup = [&](uint16_t preferredSid, uint16_t /*group*/) -> uint16_t {
-            return resolveGeoset(preferredSid, allGeosets);
-        };
-
         // Intentionally do not add group 3 (glove/forearm accessory meshes).
         // Even "bare" variants can produce unwanted looped arm geometry on NPCs.
 
+        // Group 4 is the forearms, so it is driven by the gloves. It used to be
+        // driven by the boots — the feet value applied to the arm group, one
+        // variant low — which the player and portrait paths never did.
         if (hasGroup4) {
-            uint16_t wantBoots = (equipFeetGG > 0) ? static_cast<uint16_t>(400 + equipFeetGG) : kGeosetBareForearms;
-            uint16_t bootsSid = pickFromGroup(wantBoots, 4);
-            if (bootsSid != 0) normalizedGeosets.insert(bootsSid);
+            uint16_t wantForearms = (equipGlovesGG > 0)
+                ? equippedGeoset(equipment::kGlovesBare, equipGlovesGG)
+                : kGeosetBareForearms;
+            uint16_t forearmSid = resolveGeoset(wantForearms, allGeosets);
+            if (forearmSid != 0) normalizedGeosets.insert(forearmSid);
         }
 
         // Add sleeve/wrist meshes when chest armor calls for them.
         if (hasGroup8 && equipChestGG > 0) {
-            uint16_t wantSleeves = static_cast<uint16_t>(800 + equipChestGG);
-            uint16_t sleeveSid = pickFromGroup(wantSleeves, 8);
+            uint16_t wantSleeves = equippedGeoset(equipment::kChestBare, equipChestGG);
+            uint16_t sleeveSid = resolveGeoset(wantSleeves, allGeosets);
             if (sleeveSid != 0) normalizedGeosets.insert(sleeveSid);
         }
 
@@ -1497,7 +1500,7 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
                                 const uint32_t ggField = (*idiL)["GeosetGroup1"];
                                 uint32_t tabardGG = itemDisplayDbc->getUInt32(static_cast<uint32_t>(tabardIdx), ggField);
                                 if (tabardGG > 0) {
-                                    wantTabard = static_cast<uint16_t>(1200 + tabardGG);
+                                    wantTabard = equippedGeoset(equipment::kTabardBase, tabardGG);
                                 }
                             }
                         }
@@ -1505,14 +1508,14 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
                 }
             }
 
-            uint16_t tabardSid = pickFromGroup(wantTabard, 12);
+            uint16_t tabardSid = resolveGeoset(wantTabard, allGeosets);
             if (tabardSid != 0) normalizedGeosets.insert(tabardSid);
         }
 
         // Some mustache/goatee variants are authored in facial group 3xx.
         // Re-add selected facial 3xx plus low-index facial fallbacks.
         if (hasHumanoidExtra) {
-            uint16_t facial300Sid = pickFromGroup(selectedFacial300, 3);
+            uint16_t facial300Sid = resolveGeoset(selectedFacial300, allGeosets);
             if (facial300Sid != 0) normalizedGeosets.insert(facial300Sid);
             if (facial300Sid == 0) {
                 if (allGeosets.count(300) > 0) normalizedGeosets.insert(300);
@@ -1524,14 +1527,16 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
         // strip it from other humanoids, but restore exactly one variant
         // for the race that actually uses it.
         if (hasHumanoidExtra && extraRaceId == 4) {
-            uint16_t eyeGlowSid = pickFromGroup(1701, 17);
+            uint16_t eyeGlowSid = resolveGeoset(1701, allGeosets);
             if (eyeGlowSid != 0) normalizedGeosets.insert(eyeGlowSid);
         }
 
         // Prefer trousers geoset; use covered variant when legs armor exists.
         if (hasGroup13) {
-            uint16_t wantPants = (equipLegsGG > 0) ? static_cast<uint16_t>(1300 + equipLegsGG) : kGeosetBarePants;
-            uint16_t pantsSid = pickFromGroup(wantPants, 13);
+            uint16_t wantPants = (equipLegsGG > 0)
+                ? equippedGeoset(equipment::kLegsBare, equipLegsGG)
+                : kGeosetBarePants;
+            uint16_t pantsSid = resolveGeoset(wantPants, allGeosets);
             if (pantsSid != 0) normalizedGeosets.insert(pantsSid);
         }
 
@@ -1539,7 +1544,7 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
         // use "no cape" back panel to cover the single-sided torso.
         if (hasGroup15) {
             if (hasRenderableCape) {
-                uint16_t capeSid = pickFromGroup(kGeosetWithCape, 15);
+                uint16_t capeSid = resolveGeoset(kGeosetWithCape, allGeosets);
                 if (capeSid != 0) normalizedGeosets.insert(capeSid);
             } else if (allGeosets.count(kGeosetNoCape) > 0) {
                 // Only the real "no cape" panel, never a substitute. The

@@ -1,5 +1,6 @@
 #include "core/entity_spawner.hpp"
 #include "core/helm_visual.hpp"
+#include "core/geoset_rules.hpp"
 
 // M2 attachment 11 is the helm. 0 is the shield mount, which is where head gear
 // was going: it attached, reported success, and hung off the forearm.
@@ -35,27 +36,39 @@ namespace wowee {
 namespace core {
 
 namespace {
-// Default (bare) geoset IDs per equipment group.
-// Each group's base is groupNumber * 100; variant 01 is typically bare/default.
-constexpr uint16_t kGeosetDefaultConnector = 101;   // Group  1: default hair connector
-constexpr uint16_t kGeosetBareForearms     = 401;   // Group  4: no gloves
-constexpr uint16_t kGeosetBareShins        = 501;   // Group  5: no boots
-constexpr uint16_t kGeosetDefaultEars      = 702;   // Group  7: ears
-constexpr uint16_t kGeosetBareSleeves      = 801;   // Group  8: no chest armor sleeves
-constexpr uint16_t kGeosetDefaultKneepads  = 902;   // Group  9: kneepads
-constexpr uint16_t kGeosetDefaultTabard    = 1201;  // Group 12: tabard base
-constexpr uint16_t kGeosetBarePants        = 1301;  // Group 13: no leggings
-constexpr uint16_t kGeosetNoCape           = 1501;  // Group 15: no cape
-constexpr uint16_t kGeosetWithCape         = 1502;  // Group 15: with cape
-constexpr uint16_t kGeosetBareFeet         = 2002;  // Group 20: bare feet
+// The bare geoset ids, the group arithmetic and the appearance key all live in
+// core/geoset_rules.hpp. This file used to carry its own copy of the constants,
+// and the copy went stale: it named 2002 as "the" bare feet and never learned
+// about 2001, which is how an HD model that spells its feet the other way lost
+// them here while keeping them in the portrait.
+
+// The head of a character's bare geoset set: the body, the one scalp it wears,
+// and its facial hair.
+//
+// Two places build a player's geosets — one for a player seen across the world,
+// one for the equipped composition — and they had already drifted: only one of
+// them knew about the second bare-feet id, and only one of them treated a zero
+// facial variant as "none" rather than as geoset x00.
+void insertBodyAndHeadGeosets(std::unordered_set<uint16_t>& out, uint16_t scalp,
+                              const EntitySpawner::FacialHairGeosets* facial) {
+    out.insert(0);
+    out.insert(scalp);
+    if (facial) {
+        addFacialHairGeosets(out, facial->geoset100, facial->geoset200, facial->geoset300);
+    } else {
+        // No row for this character. The first variant of each group is the
+        // safe default, and on most models it is the absence of the feature.
+        out.insert(kGeosetDefaultConnector);
+        out.insert(201);
+        out.insert(301);
+    }
+}
 
 uint16_t selectHairScalpGeoset(const std::unordered_map<uint32_t, uint16_t>& hairGeosets,
                                uint8_t raceId,
                                uint8_t genderId,
                                uint8_t hairStyleId) {
-    const uint32_t key = (static_cast<uint32_t>(raceId) << 16) |
-                         (static_cast<uint32_t>(genderId) << 8) |
-                         static_cast<uint32_t>(hairStyleId);
+    const uint32_t key = appearanceKey(raceId, genderId, hairStyleId);
     auto it = hairGeosets.find(key);
     if (it != hairGeosets.end() && it->second > 0) {
         return it->second;
@@ -352,21 +365,9 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
     // submesh; that activates all hair scalp variants at once.
     std::unordered_set<uint16_t> activeGeosets;
     const uint16_t selectedHairScalp = selectHairScalpGeoset(hairGeosetMap_, raceId, genderId, hairStyleId);
-    activeGeosets.insert(0);
-    activeGeosets.insert(selectedHairScalp);
-    const uint32_t facialKey = (static_cast<uint32_t>(raceId) << 16) |
-                               (static_cast<uint32_t>(genderId) << 8) |
-                               static_cast<uint32_t>(facialFeatures);
-    auto itFacial = facialHairGeosetMap_.find(facialKey);
-    if (itFacial != facialHairGeosetMap_.end()) {
-        activeGeosets.insert(static_cast<uint16_t>(100 + itFacial->second.geoset100));
-        activeGeosets.insert(static_cast<uint16_t>(200 + itFacial->second.geoset200));
-        activeGeosets.insert(static_cast<uint16_t>(300 + itFacial->second.geoset300));
-    } else {
-        activeGeosets.insert(101);
-        activeGeosets.insert(201);
-        activeGeosets.insert(301);
-    }
+    auto itFacial = facialHairGeosetMap_.find(appearanceKey(raceId, genderId, facialFeatures));
+    insertBodyAndHeadGeosets(activeGeosets, selectedHairScalp,
+                             itFacial != facialHairGeosetMap_.end() ? &itFacial->second : nullptr);
     activeGeosets.insert(kGeosetBareForearms);
     activeGeosets.insert(kGeosetBareShins);
     activeGeosets.insert(kGeosetDefaultEars);
@@ -375,6 +376,7 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
     activeGeosets.insert(kGeosetBarePants);
     activeGeosets.insert(kGeosetNoCape);
     activeGeosets.insert(kGeosetBareFeet);
+    activeGeosets.insert(kGeosetBareFeetAlt);
     charRenderer->setActiveGeosets(instanceId, activeGeosets);
 
     if (deadCreatureGuids_.count(guid)) {
@@ -489,24 +491,14 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
     std::unordered_set<uint16_t> geosets;
     uint8_t hairStyleId = static_cast<uint8_t>((st.appearanceBytes >> 16) & 0xFF);
     const uint16_t selectedHairScalp = selectHairScalpGeoset(hairGeosetMap_, st.raceId, st.genderId, hairStyleId);
-    geosets.insert(0);
-    geosets.insert(selectedHairScalp);
-    const uint32_t facialKey = (static_cast<uint32_t>(st.raceId) << 16) |
-                               (static_cast<uint32_t>(st.genderId) << 8) |
-                               static_cast<uint32_t>(st.facialFeatures);
-    auto itFacial = facialHairGeosetMap_.find(facialKey);
-    if (itFacial != facialHairGeosetMap_.end()) {
-        geosets.insert(static_cast<uint16_t>(100 + itFacial->second.geoset100));
-        geosets.insert(static_cast<uint16_t>(200 + itFacial->second.geoset200));
-        geosets.insert(static_cast<uint16_t>(300 + itFacial->second.geoset300));
-    } else {
-        geosets.insert(101);
-        geosets.insert(201);
-        geosets.insert(301);
-    }
+    auto itFacial = facialHairGeosetMap_.find(
+        appearanceKey(st.raceId, st.genderId, st.facialFeatures));
+    insertBodyAndHeadGeosets(geosets, selectedHairScalp,
+                             itFacial != facialHairGeosetMap_.end() ? &itFacial->second : nullptr);
     geosets.insert(701);                  // Ears
     geosets.insert(kGeosetDefaultKneepads); // Kneepads
-    geosets.insert(kGeosetBareFeet);        // Bare feet mesh
+    geosets.insert(kGeosetBareFeet);        // Bare feet mesh, both spellings:
+    geosets.insert(kGeosetBareFeetAlt);     // the HD models disagree on the number
 
     const uint32_t geosetGroup1Field = idiL ? (*idiL)["GeosetGroup1"] : 7;
     const uint32_t geosetGroup3Field = idiL ? (*idiL)["GeosetGroup3"] : 9;
@@ -554,31 +546,31 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
     {
         uint32_t did = findDisplayIdByInvType({4, 5, 20});
         uint32_t gg1 = getGeosetGroup(did, geosetGroup1Field);
-        if (gg1 > 0) geosetSleeves = pickGeoset(static_cast<uint16_t>(kGeosetBareSleeves + gg1), kGeosetBareSleeves);
+        if (gg1 > 0) geosetSleeves = pickGeoset(equippedGeoset(equipment::kChestBare, gg1), kGeosetBareSleeves);
         // Robe kilt → leg group 13
         uint32_t gg3 = getGeosetGroup(did, geosetGroup3Field);
-        if (gg3 > 0) geosetPants = pickGeoset(static_cast<uint16_t>(kGeosetBarePants + gg3), kGeosetBarePants);
+        if (gg3 > 0) geosetPants = pickGeoset(equippedGeoset(equipment::kRobeKiltBare, gg3), kGeosetBarePants);
     }
 
     // Legs (invType 7) → leg group 13
     {
         uint32_t did = findDisplayIdByInvType({7});
         uint32_t gg1 = getGeosetGroup(did, geosetGroup1Field);
-        if (gg1 > 0) geosetPants = pickGeoset(static_cast<uint16_t>(kGeosetBarePants + gg1), kGeosetBarePants);
+        if (gg1 > 0) geosetPants = pickGeoset(equippedGeoset(equipment::kLegsBare, gg1), kGeosetBarePants);
     }
 
     // Feet/Boots (invType 8) → shin group 5
     {
         uint32_t did = findDisplayIdByInvType({8});
         uint32_t gg1 = getGeosetGroup(did, geosetGroup1Field);
-        if (gg1 > 0) geosetBoots = pickGeoset(static_cast<uint16_t>(501 + gg1), lowestInGroup(5));
+        if (gg1 > 0) geosetBoots = pickGeoset(equippedGeoset(equipment::kBootsBare, gg1), lowestInGroup(5));
     }
 
     // Hands/Gloves (invType 10) → forearm group 4
     {
         uint32_t did = findDisplayIdByInvType({10});
         uint32_t gg1 = getGeosetGroup(did, geosetGroup1Field);
-        if (gg1 > 0) geosetGloves = pickGeoset(static_cast<uint16_t>(kGeosetBareForearms + gg1), kGeosetBareForearms);
+        if (gg1 > 0) geosetGloves = pickGeoset(equippedGeoset(equipment::kGlovesBare, gg1), kGeosetBareForearms);
     }
 
     // Wrists/Bracers (invType 9) → sleeve group 8 (only if chest/shirt didn't set it)
@@ -586,7 +578,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
         uint32_t did = findDisplayIdByInvType({9});
         if (did != 0 && geosetSleeves == kGeosetBareSleeves) {
             uint32_t gg1 = getGeosetGroup(did, geosetGroup1Field);
-            if (gg1 > 0) geosetSleeves = pickGeoset(static_cast<uint16_t>(kGeosetBareSleeves + gg1), kGeosetBareSleeves);
+            if (gg1 > 0) geosetSleeves = pickGeoset(equippedGeoset(equipment::kChestBare, gg1), kGeosetBareSleeves);
         }
     }
 
@@ -595,7 +587,7 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
     {
         uint32_t did = findDisplayIdByInvType({6});
         uint32_t gg1 = getGeosetGroup(did, geosetGroup1Field);
-        if (gg1 > 0) geosetBelt = pickGeoset(static_cast<uint16_t>(1801 + gg1), 0);
+        if (gg1 > 0) geosetBelt = pickGeoset(equippedGeoset(equipment::kBeltBase, gg1), 0);
     }
 
     eraseGroup(4);
