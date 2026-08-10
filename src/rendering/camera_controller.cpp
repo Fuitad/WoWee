@@ -3,6 +3,7 @@
 #include "ui/framexml_takeover.hpp"
 #include "rendering/movement_limits.hpp"
 #include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <fstream>
 #include <future>
@@ -89,6 +90,59 @@ std::optional<float> selectReachableFloor3(const std::optional<float>& a,
     consider(a);
     consider(b);
     consider(c);
+    return best;
+}
+
+
+/// The points around the feet a floor probe samples.
+///
+/// One ray straight down at the character's centre falls between two planks, or
+/// misses a stair tread, and the character drops through a floor that is plainly
+/// there. Sampling a ring around the feet instead is what stops it. Five points
+/// for a cheap check, nine when something has already gone wrong and a wider
+/// footprint is worth the queries.
+///
+/// The ring was written out five times, each with its own footprint constant
+/// spelled into nine brace pairs.
+std::array<glm::vec2, 5> feetCross(float footprint) {
+    return {{ {0.0f, 0.0f},
+              { footprint, 0.0f}, {-footprint, 0.0f},
+              {0.0f,  footprint}, {0.0f, -footprint} }};
+}
+
+std::array<glm::vec2, 9> feetRing(float footprint) {
+    return {{ {0.0f, 0.0f},
+              { footprint, 0.0f}, {-footprint, 0.0f},
+              {0.0f,  footprint}, {0.0f, -footprint},
+              { footprint,  footprint}, { footprint, -footprint},
+              {-footprint,  footprint}, {-footprint, -footprint} }};
+}
+
+/// The band a floor has to be in to be believed: high enough to step onto,
+/// low enough not to be the ceiling or another storey.
+struct FloorBand {
+    float minZ;
+    float maxZ;
+};
+
+/// The highest walkable floor among the sampled points, if any.
+///
+/// `query` is a renderer's getFloorHeight — it answers a height and writes the
+/// surface normal's Z, and a normal flatter than `minNormalZ` is a wall rather
+/// than something to stand on.
+template <typename Offsets, typename Query>
+std::optional<float> highestWalkableFloor(Query&& query, float x, float y,
+                                          const Offsets& offsets, float probeZ,
+                                          float minNormalZ, FloorBand band) {
+    std::optional<float> best;
+    for (const auto& o : offsets) {
+        float normalZ = 1.0f;
+        auto h = query(x + o.x, y + o.y, probeZ, &normalZ);
+        if (!h) continue;
+        if (normalZ < minNormalZ) continue;
+        if (*h > band.maxZ || *h < band.minZ) continue;
+        if (!best || *h > *best) best = h;
+    }
     return best;
 }
 
@@ -1137,96 +1191,50 @@ void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
         // 1b. Multi-sample WMO floors when in/near WMO space to avoid
         // falling through narrow board/plank gaps where center ray misses.
         if (wmoRenderer && nearWmoSpace) {
-            constexpr float WMO_FOOTPRINT = 0.35f;
-            const glm::vec2 wmoOffsets[] = {
-                {0.0f, 0.0f},
-                { WMO_FOOTPRINT, 0.0f}, {-WMO_FOOTPRINT, 0.0f},
-                {0.0f,  WMO_FOOTPRINT}, {0.0f, -WMO_FOOTPRINT}
-            };
+            const float wmoMultiBaseZ = grounded ? std::max(targetPos.z, lastGroundZ) : lastGroundZ;
+            const float wmoProbeZ = wmoMultiBaseZ + stepUpBudget + 0.6f;
+            const float minWalkableWmo =
+                cachedInsideWMO ? MIN_WALKABLE_NORMAL_WMO : MIN_WALKABLE_NORMAL_TERRAIN;
+            // Airborne, anything above the last known ground is a roof rather
+            // than a step, so the ceiling of the band comes down.
+            float maxZ = targetPos.z + stepUpBudget;
+            if (!grounded) maxZ = std::min(maxZ, lastGroundZ + stepUpBudget + 0.5f);
 
-            float wmoMultiBaseZ = grounded ? std::max(targetPos.z, lastGroundZ) : lastGroundZ;
-            float wmoProbeZ = wmoMultiBaseZ + stepUpBudget + 0.6f;
-            float minWalkableWmo = cachedInsideWMO ? MIN_WALKABLE_NORMAL_WMO : MIN_WALKABLE_NORMAL_TERRAIN;
-
-            for (const auto& o : wmoOffsets) {
-                float nz = 1.0f;
-                auto wh = wmoRenderer->getFloorHeight(targetPos.x + o.x, targetPos.y + o.y, wmoProbeZ, &nz);
-                if (!wh) continue;
-                if (nz < minWalkableWmo) continue;
-
-                // Reject roof/ceiling surfaces when airborne
-                if (!grounded && *wh > lastGroundZ + stepUpBudget + 0.5f) continue;
-
-                // Keep to nearby, walkable steps only.
-                if (*wh > targetPos.z + stepUpBudget) continue;
-                if (*wh < lastGroundZ - 3.5f) continue;
-
-                if (!groundH || *wh > *groundH) {
-                    groundH = wh;
-                }
-            }
+            auto wh = highestWalkableFloor(
+                [this](float x, float y, float z, float* nz) {
+                    return wmoRenderer->getFloorHeight(x, y, z, nz);
+                },
+                targetPos.x, targetPos.y, feetCross(0.35f), wmoProbeZ, minWalkableWmo,
+                {lastGroundZ - 3.5f, maxZ});
+            if (wh && (!groundH || *wh > *groundH)) groundH = wh;
         }
 
         // WMO recovery probe: when no floor is found while descending, do a wider
         // footprint sample around the player to catch narrow plank/stair misses.
         if (!groundH && wmoRenderer && hasRealGround_ && verticalVelocity <= 0.0f) {
-            constexpr float RESCUE_FOOTPRINT = 0.65f;
-            const glm::vec2 rescueOffsets[] = {
-                {0.0f, 0.0f},
-                { RESCUE_FOOTPRINT, 0.0f}, {-RESCUE_FOOTPRINT, 0.0f},
-                {0.0f,  RESCUE_FOOTPRINT}, {0.0f, -RESCUE_FOOTPRINT},
-                { RESCUE_FOOTPRINT,  RESCUE_FOOTPRINT},
-                { RESCUE_FOOTPRINT, -RESCUE_FOOTPRINT},
-                {-RESCUE_FOOTPRINT,  RESCUE_FOOTPRINT},
-                {-RESCUE_FOOTPRINT, -RESCUE_FOOTPRINT}
-            };
-            float rescueProbeZ = std::max(lastGroundZ, targetPos.z) + stepUpBudget + 1.2f;
-            std::optional<float> rescueFloor;
-            for (const auto& o : rescueOffsets) {
-                float nz = 1.0f;
-                auto wh = wmoRenderer->getFloorHeight(targetPos.x + o.x, targetPos.y + o.y, rescueProbeZ, &nz);
-                if (!wh) continue;
-                if (nz < MIN_WALKABLE_NORMAL_WMO) continue;
-                if (*wh > lastGroundZ + stepUpBudget + 0.75f) continue;
-                if (*wh < lastGroundZ - 6.0f) continue;
-                if (!rescueFloor || *wh > *rescueFloor) {
-                    rescueFloor = wh;
-                }
-            }
-            if (rescueFloor) {
-                groundH = rescueFloor;
-            }
+            const float rescueProbeZ = std::max(lastGroundZ, targetPos.z) + stepUpBudget + 1.2f;
+            auto rescueFloor = highestWalkableFloor(
+                [this](float x, float y, float z, float* nz) {
+                    return wmoRenderer->getFloorHeight(x, y, z, nz);
+                },
+                targetPos.x, targetPos.y, feetRing(0.65f), rescueProbeZ,
+                MIN_WALKABLE_NORMAL_WMO,
+                {lastGroundZ - 6.0f, lastGroundZ + stepUpBudget + 0.75f});
+            if (rescueFloor) groundH = rescueFloor;
         }
 
         // M2 recovery probe: Booty Bay-style wooden platforms can be represented
         // as M2 collision where center probes intermittently miss.
         if (!groundH && m2Renderer && !externalFollow_ && hasRealGround_ && verticalVelocity <= 0.0f) {
-            constexpr float RESCUE_FOOTPRINT = 0.75f;
-            const glm::vec2 rescueOffsets[] = {
-                {0.0f, 0.0f},
-                { RESCUE_FOOTPRINT, 0.0f}, {-RESCUE_FOOTPRINT, 0.0f},
-                {0.0f,  RESCUE_FOOTPRINT}, {0.0f, -RESCUE_FOOTPRINT},
-                { RESCUE_FOOTPRINT,  RESCUE_FOOTPRINT},
-                { RESCUE_FOOTPRINT, -RESCUE_FOOTPRINT},
-                {-RESCUE_FOOTPRINT,  RESCUE_FOOTPRINT},
-                {-RESCUE_FOOTPRINT, -RESCUE_FOOTPRINT}
-            };
-            float rescueProbeZ = std::max(lastGroundZ, targetPos.z) + stepUpBudget + 1.4f;
-            std::optional<float> rescueFloor;
-            for (const auto& o : rescueOffsets) {
-                float nz = 1.0f;
-                auto mh = m2Renderer->getFloorHeight(targetPos.x + o.x, targetPos.y + o.y, rescueProbeZ, &nz);
-                if (!mh) continue;
-                if (nz < MIN_WALKABLE_NORMAL_M2) continue;
-                if (*mh > lastGroundZ + stepUpBudget + 0.90f) continue;
-                if (*mh < lastGroundZ - 6.0f) continue;
-                if (!rescueFloor || *mh > *rescueFloor) {
-                    rescueFloor = mh;
-                }
-            }
-            if (rescueFloor) {
-                groundH = rescueFloor;
-            }
+            const float rescueProbeZ = std::max(lastGroundZ, targetPos.z) + stepUpBudget + 1.4f;
+            auto rescueFloor = highestWalkableFloor(
+                [this](float x, float y, float z, float* nz) {
+                    return m2Renderer->getFloorHeight(x, y, z, nz);
+                },
+                targetPos.x, targetPos.y, feetRing(0.75f), rescueProbeZ,
+                MIN_WALKABLE_NORMAL_M2,
+                {lastGroundZ - 6.0f, lastGroundZ + stepUpBudget + 0.90f});
+            if (rescueFloor) groundH = rescueFloor;
         }
 
         // Path recovery probe: sample structure floors along the movement segment
@@ -1266,14 +1274,10 @@ void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
         // 2. Multi-sample for M2 objects (rugs, planks, bridges, ships) —
         //    these are narrow and need offset probes to detect reliably.
         if (m2Renderer && !externalFollow_) {
-            constexpr float FOOTPRINT = 0.6f;
-            const glm::vec2 offsets[] = {
-                {0.0f, 0.0f},
-                {FOOTPRINT, 0.0f}, {-FOOTPRINT, 0.0f},
-                {0.0f, FOOTPRINT}, {0.0f, -FOOTPRINT},
-                {FOOTPRINT, FOOTPRINT}, {FOOTPRINT, -FOOTPRINT},
-                {-FOOTPRINT, FOOTPRINT}, {-FOOTPRINT, -FOOTPRINT}
-            };
+            // Not highestWalkableFloor: this one prefers an M2 floor even when
+            // it is slightly lower than the terrain, so a ship's deck wins over
+            // the water under it.
+            const auto offsets = feetRing(0.6f);
             float m2ProbeZ = std::max(targetPos.z, lastGroundZ) + 6.0f;
             for (const auto& o : offsets) {
                 float m2NormalZ = 1.0f;
