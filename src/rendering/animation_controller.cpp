@@ -86,6 +86,18 @@ void AnimationController::playEmote(const std::string& emoteName) {
         }
     }
 
+    // What an emote resolved to, and whether the model can play it. An emote
+    // that does nothing is either a name that resolved to no animation or an
+    // animation the model does not carry, and from outside those look the same.
+    {
+        auto* cr = renderer_ ? renderer_->getCharacterRenderer() : nullptr;
+        uint32_t ci = renderer_ ? renderer_->getCharacterInstanceId() : 0;
+        const bool has = (cr && ci > 0) ? cr->hasAnimation(ci, animId) : false;
+        LOG_WARNING("Emote '", emoteName, "' -> animation ", animId,
+                    (loop ? " (looping)" : " (one shot)"),
+                    " model has it: ", (has ? "yes" : "NO"));
+    }
+
     // Forward to CharacterAnimator (ActivityFSM handles emote state)
     characterAnimator_.playEmote(animId, loop);
 

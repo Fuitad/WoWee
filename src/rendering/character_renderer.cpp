@@ -1165,6 +1165,48 @@ static void blitOverlayDownscaleN(std::vector<uint8_t>& composite, int compW, in
     }
 }
 
+namespace {
+
+/// Where a character-texture overlay belongs on the body atlas, in the
+/// coordinates of the 256x256 reference atlas everything is expressed in.
+///
+/// One table, consulted twice: once to work out how big the canvas has to be
+/// for the art being laid on it, and once to place each layer. It was written
+/// out inline at the placement site alone, and then the size question could
+/// only be answered by guessing.
+struct AtlasRegion256 { int x, y, w, h; bool known; };
+
+AtlasRegion256 regionFor(const std::string& pathLower) {
+    if (pathLower.find("faceupper") != std::string::npos) return {  0, 160, 128, 32, true};
+    if (pathLower.find("facelower") != std::string::npos) return {  0, 192, 128, 64, true};
+    if (pathLower.find("pelvis")    != std::string::npos) return {128,  96, 128, 64, true};
+    if (pathLower.find("torso")     != std::string::npos) return {128,   0, 128, 64, true};
+    if (pathLower.find("armupper")  != std::string::npos) return {  0,   0, 128, 64, true};
+    if (pathLower.find("armlower")  != std::string::npos) return {  0,  64, 128, 64, true};
+    if (pathLower.find("hand")      != std::string::npos) return {  0, 128, 128, 32, true};
+    if (pathLower.find("foot")      != std::string::npos ||
+        pathLower.find("feet")      != std::string::npos) return {128, 224, 128, 32, true};
+    if (pathLower.find("legupper")  != std::string::npos ||
+        pathLower.find("leg")       != std::string::npos) return {128, 160, 128, 64, true};
+    return {0, 0, 0, 0, false};
+}
+
+std::string lowerPath(const std::string& s) {
+    std::string out = s;
+    for (auto& c : out) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return out;
+}
+
+/// The atlas scale a layer of this size implies for its region. A face authored
+/// at 512x256 belongs in a 128x64 region, so it is asking for a 1024 atlas.
+int impliedScale(const AtlasRegion256& region, int overlayWidth) {
+    if (!region.known || region.w <= 0 || overlayWidth <= 0) return 1;
+    int scale = overlayWidth / region.w;
+    return scale < 1 ? 1 : scale;
+}
+
+}  // namespace
+
 VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& layerPaths) {
     if (layerPaths.empty() || !assetManager || !assetManager->isInitialized()) {
         return whiteTexture_.get();
@@ -1226,15 +1268,24 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
     int coordScale = width / 256;
     if (coordScale < 1) coordScale = 1;
 
-    // Atlas region sizes at 256x256 base (w, h) for known regions
-    struct AtlasRegion { int x, y, w, h; };
-    static const AtlasRegion faceLowerRegion256 = {0, 192, 128, 64};
-    static const AtlasRegion faceUpperRegion256 = {0, 160, 128, 32};
-
-    // Alpha-blend each overlay onto the composite
+    // Load every overlay before deciding how big the canvas is.
+    //
+    // The body decided the atlas size on its own, and each overlay was then
+    // squeezed into whatever region that gave it. An HD art set ships a body at
+    // the size the stock one uses and a face at twice it — so a 512x256 face was
+    // resampled down to 256x128 to fit a 512 body, which throws away exactly the
+    // detail the art exists for and lands it soft next to a crisp body.
+    //
+    // The canvas is sized to the most demanding layer instead. Nothing changes
+    // for art that agrees with its body, which is every set that shipped with
+    // the game; a set that asks for more gets a bigger atlas and is placed at
+    // its own resolution.
+    struct LoadedOverlay { std::string path; pipeline::BLPImage image; };
+    std::vector<LoadedOverlay> overlays;
+    overlays.reserve(layerPaths.size());
+    int requiredScale = coordScale;
     for (size_t layer = 1; layer < layerPaths.size(); layer++) {
         if (layerPaths[layer].empty()) continue;
-
         pipeline::BLPImage overlay;
         if (predecodedBLPCache_) {
             std::string key = layerPaths[layer];
@@ -1249,61 +1300,72 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
         }
         if (!overlay.isValid()) overlay = assetManager->loadTexture(layerPaths[layer]);
         if (!overlay.isValid()) {
-            core::Logger::getInstance().warning("Composite: FAILED to load overlay: ", layerPaths[layer]);
+            core::Logger::getInstance().warning("Composite: FAILED to load overlay: ",
+                                                layerPaths[layer]);
             continue;
         }
         applyMagentaKeyIfNeeded(overlay, layerPaths[layer]);
+        // A full-atlas layer speaks for itself and is not a region at all.
+        if (overlay.width != width || overlay.height != height) {
+            const int want = impliedScale(regionFor(lowerPath(layerPaths[layer])), overlay.width);
+            if (want > requiredScale) requiredScale = want;
+        }
+        overlays.push_back({layerPaths[layer], std::move(overlay)});
+    }
 
-        core::Logger::getInstance().info("Composite: overlay ", layerPaths[layer],
+    if (requiredScale > coordScale) {
+        const int newSize = 256 * requiredScale;
+        std::vector<uint8_t> grown(static_cast<size_t>(newSize) * newSize * 4);
+        const int factor = newSize / width;
+        for (int y = 0; y < newSize; y++) {
+            const int srcY = y / factor;
+            for (int x = 0; x < newSize; x++) {
+                const int srcIdx = (srcY * width + x / factor) * 4;
+                const int dstIdx = (y * newSize + x) * 4;
+                grown[dstIdx + 0] = composite[srcIdx + 0];
+                grown[dstIdx + 1] = composite[srcIdx + 1];
+                grown[dstIdx + 2] = composite[srcIdx + 2];
+                grown[dstIdx + 3] = composite[srcIdx + 3];
+            }
+        }
+        core::Logger::getInstance().info("Composite: body is ", width, "x", height,
+                                         " but its art asks for ", newSize, "x", newSize,
+                                         " — growing the atlas to keep the detail");
+        composite = std::move(grown);
+        width = height = newSize;
+        coordScale = requiredScale;
+    }
+
+    // Atlas region sizes at 256x256 base (w, h) for known regions
+    struct AtlasRegion { int x, y, w, h; };
+    static const AtlasRegion faceLowerRegion256 = {0, 192, 128, 64};
+    static const AtlasRegion faceUpperRegion256 = {0, 160, 128, 32};
+
+    // Alpha-blend each overlay onto the composite
+    for (auto& loaded : overlays) {
+        const pipeline::BLPImage& overlay = loaded.image;
+
+        core::Logger::getInstance().info("Composite: overlay ", loaded.path,
             " (", overlay.width, "x", overlay.height, ")");
 
         if (overlay.width == width && overlay.height == height) {
             // Same size: full alpha-blend
             blitOverlay(composite, width, height, overlay, 0, 0);
         } else {
-            // Determine region by filename keywords
-            // Coordinates scale with base texture size (256x256 is reference)
-            int dstX = 0, dstY = 0;
-            int expectedW256 = 0, expectedH256 = 0; // Expected size at 256-base
-            std::string pathLower = layerPaths[layer];
-            for (auto& c : pathLower) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-
-            if (pathLower.find("faceupper") != std::string::npos) {
-                dstX = faceUpperRegion256.x; dstY = faceUpperRegion256.y;
-                expectedW256 = faceUpperRegion256.w; expectedH256 = faceUpperRegion256.h;
-            } else if (pathLower.find("facelower") != std::string::npos) {
-                dstX = faceLowerRegion256.x; dstY = faceLowerRegion256.y;
-                expectedW256 = faceLowerRegion256.w; expectedH256 = faceLowerRegion256.h;
-            } else if (pathLower.find("pelvis") != std::string::npos) {
-                dstX = 128; dstY = 96;
-                expectedW256 = 128; expectedH256 = 64;
-            } else if (pathLower.find("torso") != std::string::npos) {
-                dstX = 128; dstY = 0;
-                expectedW256 = 128; expectedH256 = 64;
-            } else if (pathLower.find("armupper") != std::string::npos) {
-                dstX = 0; dstY = 0;
-                expectedW256 = 128; expectedH256 = 64;
-            } else if (pathLower.find("armlower") != std::string::npos) {
-                dstX = 0; dstY = 64;
-                expectedW256 = 128; expectedH256 = 64;
-            } else if (pathLower.find("hand") != std::string::npos) {
-                dstX = 0; dstY = 128;
-                expectedW256 = 128; expectedH256 = 32;
-            } else if (pathLower.find("foot") != std::string::npos || pathLower.find("feet") != std::string::npos) {
-                dstX = 128; dstY = 224;
-                expectedW256 = 128; expectedH256 = 32;
-            } else if (pathLower.find("legupper") != std::string::npos || pathLower.find("leg") != std::string::npos) {
-                dstX = 128; dstY = 160;
-                expectedW256 = 128; expectedH256 = 64;
-            } else {
+            // Where this layer belongs, from the one table that also sized the
+            // canvas above.
+            const AtlasRegion256 region = regionFor(lowerPath(loaded.path));
+            if (!region.known) {
                 // Unknown -- center placement as fallback
-                dstX = (width - overlay.width) / 2;
-                dstY = (height - overlay.height) / 2;
+                const int cx = (width - overlay.width) / 2;
+                const int cy = (height - overlay.height) / 2;
                 core::Logger::getInstance().info("Composite: UNKNOWN region for '",
-                    layerPaths[layer], "', centering at (", dstX, ",", dstY, ")");
-                blitOverlay(composite, width, height, overlay, dstX, dstY);
+                    loaded.path, "', centering at (", cx, ",", cy, ")");
+                blitOverlay(composite, width, height, overlay, cx, cy);
                 continue;
             }
+            int dstX = region.x, dstY = region.y;
+            const int expectedW256 = region.w, expectedH256 = region.h;
 
             // Scale coordinates from 256-base to actual canvas
             dstX *= coordScale;
@@ -1330,12 +1392,12 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
                 // resolution face stretched over an HD head is soft and muddy
                 // next to a crisp body, and that reads as the face not fitting.
                 core::Logger::getInstance().warning(
-                    "Composite: '", layerPaths[layer], "' is ", overlay.width, "x",
+                    "Composite: '", loaded.path, "' is ", overlay.width, "x",
                     overlay.height, " but its region on this ", width, "x", height,
                     " body is ", expectedW, "x", expectedH,
                     " — mismatched art sets; resampling to fit");
             } else {
-                core::Logger::getInstance().info("Composite: placing '", layerPaths[layer],
+                core::Logger::getInstance().info("Composite: placing '", loaded.path,
                     "' (", overlay.width, "x", overlay.height,
                     ") at (", dstX, ",", dstY, ") on ", width, "x", height);
             }

@@ -264,6 +264,10 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
             // does not carry the extra art, which is every stock one.
             if (!result.skinExtraPath.empty()) {
                 tex.filename = result.skinExtraPath;
+                // Which art the head detail — eyes, mouth, ears, eyelashes —
+                // is being drawn from. Skin-coloured lashes mean this landed on
+                // the body art rather than the extra sheet.
+                LOG_WARNING("Character skin-extra (texture type 8) <- ", tex.filename);
             } else if (!result.underwearPaths.empty()) {
                 tex.filename = result.underwearPaths[0];
             } else {
