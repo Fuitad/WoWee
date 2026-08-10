@@ -119,6 +119,17 @@ struct BgQueueSlot {
     uint32_t inviteTimeout = 80;
     uint32_t avgWaitTimeSec = 0;
     uint32_t timeInQueueSec = 0;
+    // The level range comes with the status, so a queued battleground can say
+    // what it is without the available-battleground list having arrived — that
+    // list only turns up at a battlemaster, and the interface asks for the range
+    // every time it draws the queue.
+    uint32_t minLevel = 0;
+    uint32_t maxLevel = 0;
+    // Both are in the status packet too. The instance number is what makes the
+    // queue read "Warsong Gulch 2" rather than "Warsong Gulch", and rated is
+    // what tells a rated arena from a casual one.
+    uint32_t instanceId = 0;
+    bool     isRated = false;
     std::chrono::steady_clock::time_point inviteReceivedTime{};
     std::string bgName;
 };

@@ -2499,28 +2499,15 @@ void SocialHandler::handleLogoutComplete(network::Packet& /*packet*/) {
 // ============================================================
 
 void SocialHandler::handleBattlefieldStatus(network::Packet& packet) {
-    if (!packet.hasRemaining(4)) return;
-    uint32_t queueSlot = packet.readUInt32();
-    const bool classicFormat = isClassicLikeExpansion();
-    uint8_t arenaType = 0;
-    if (!classicFormat) {
-        if (!packet.hasRemaining(1)) return;
-        arenaType = packet.readUInt8();
-        if (!packet.hasRemaining(1)) return;
-        packet.readUInt8();
-    } else {
-        if (!packet.hasRemaining(4)) return;
+    BattlefieldStatusData status;
+    if (!BattlefieldStatusPacket::parse(packet, status, isClassicLikeExpansion(),
+                                        !isPreWotlk())) {
+        return;
     }
-    if (!packet.hasRemaining(4)) return;
-    uint32_t bgTypeId = packet.readUInt32();
-    if (!packet.hasRemaining(2)) return;
-    packet.readUInt16();
-    if (!packet.hasRemaining(4)) return;
-    packet.readUInt32(); // instanceId
-    if (!packet.hasRemaining(1)) return;
-    packet.readUInt8(); // isRated
-    if (!packet.hasRemaining(4)) return;
-    uint32_t statusId = packet.readUInt32();
+    const uint32_t queueSlot = status.queueSlot;
+    const uint8_t arenaType = status.arenaType;
+    const uint32_t bgTypeId = status.bgTypeId;
+    const uint32_t statusId = status.statusId;
 
     static const std::pair<uint32_t, const char*> kBgNames[] = {
         {1,"Alterac Valley"},{2,"Warsong Gulch"},{3,"Arathi Basin"},
@@ -2536,15 +2523,12 @@ void SocialHandler::handleBattlefieldStatus(network::Packet& packet) {
         for (const auto& kv : kBgNames) { if (kv.first == bgTypeId) { bgName += " (" + std::string(kv.second) + ")"; break; } }
     }
 
-    uint32_t inviteTimeout = 80, avgWaitSec = 0, timeInQueueSec = 0;
-    if (statusId == 1 && packet.hasRemaining(8)) {
-        avgWaitSec = packet.readUInt32() / 1000; timeInQueueSec = packet.readUInt32() / 1000;
-    } else if (statusId == 2) {
-        if (packet.hasRemaining(4)) inviteTimeout = packet.readUInt32();
-        if (packet.hasRemaining(4)) packet.readUInt32();
-    } else if (statusId == 3 && packet.hasRemaining(8)) {
-        packet.readUInt32(); packet.readUInt32();
-    }
+    // An invitation with no timeout in it still has to count down from
+    // something, and eighty seconds is what the server gives one.
+    const uint32_t inviteTimeout =
+        status.inviteTimeoutMs ? status.inviteTimeoutMs / 1000 : 80;
+    const uint32_t avgWaitSec = status.avgWaitMs / 1000;
+    const uint32_t timeInQueueSec = status.timeInQueueMs / 1000;
 
     // Server pushes SMSG_BATTLEFIELD_STATUS periodically (~30s ticks while queued)
     // and also for each queue slot at zone change / login. Only emit a chat line
@@ -2560,6 +2544,10 @@ void SocialHandler::handleBattlefieldStatus(network::Packet& packet) {
         bgQueues_[queueSlot].arenaType = arenaType;
         bgQueues_[queueSlot].statusId = statusId;
         bgQueues_[queueSlot].bgName = bgName;
+        bgQueues_[queueSlot].minLevel = status.minLevel;
+        bgQueues_[queueSlot].maxLevel = status.maxLevel;
+        bgQueues_[queueSlot].instanceId = status.instanceId;
+        bgQueues_[queueSlot].isRated = status.isRated;
         if (statusId == 1) { bgQueues_[queueSlot].avgWaitTimeSec = avgWaitSec; bgQueues_[queueSlot].timeInQueueSec = timeInQueueSec; }
         if (statusId == 2 && !wasInvite) { bgQueues_[queueSlot].inviteTimeout = inviteTimeout; bgQueues_[queueSlot].inviteReceivedTime = std::chrono::steady_clock::now(); }
     } else {
