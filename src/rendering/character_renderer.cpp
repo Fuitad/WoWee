@@ -2823,7 +2823,14 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                 // player and an NPC use the same model, the same art and the
                 // same pairing, and one of them draws a face — so the answer is
                 // in what each batch actually got, which nothing has yet shown.
-                if (batch.submeshId == 0 && headBatchCanaryCount_ < 24) {
+                // Only instances that are actually a character in the world: one
+                // with per-instance texture overrides is an NPC, and the player
+                // is the one that draws its head detail. The first run of this
+                // spent all its lines on the character-select models before a
+                // single NPC had spawned.
+                const bool worldCharacter =
+                    !instance.textureSlotOverrides.empty() || instance.drawSkinExtra;
+                if (batch.submeshId == 0 && worldCharacter && headBatchCanaryCount_ < 24) {
                     ++headBatchCanaryCount_;
                     uint32_t chosenType = 0;
                     if (batch.textureIndex != 0xFFFF && !gpuModel.data.textureLookup.empty()) {
@@ -2839,7 +2846,8 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                                        : (rt == nullptr ? "null" : "texture")),
                         " ptr=", static_cast<const void*>(rt),
                         " overrides=", instance.textureSlotOverrides.size(),
-                        " drawSkinExtra=", (instance.drawSkinExtra ? 1 : 0));
+                        " drawSkinExtra=", (instance.drawSkinExtra ? 1 : 0),
+                        " verts=", gpuModel.data.vertices.size());
                 }
                 // Note on the Skin Extra batch, since it has been misread twice:
                 // it is NOT a layer over the head. On an HD character model it
