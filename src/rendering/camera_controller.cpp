@@ -200,6 +200,45 @@ void CameraController::triggerShake(float magnitude, float frequency, float dura
     }
 }
 
+glm::vec3 CameraController::sweepAgainstWalls(const glm::vec3& from, const glm::vec3& to,
+                                              bool includeDoodads) {
+    const glm::vec3 delta = to - from;
+    const float distSq = glm::dot(delta, delta);
+    if (distSq <= 1e-4f) return to;   // stationary: not worth a collision call
+
+    const float dist = std::sqrt(distSq);
+    // Tighter steps indoors, where the geometry is closer together.
+    const float stepSize = cachedInsideWMO ? 0.20f : 0.35f;
+    const int steps = std::max(1, std::min(8, static_cast<int>(std::ceil(dist / stepSize))));
+    const glm::vec3 stepDelta = delta / static_cast<float>(steps);
+
+    glm::vec3 stepPos = from;
+    for (int i = 0; i < steps; i++) {
+        glm::vec3 candidate = stepPos + stepDelta;
+
+        if (wmoRenderer) {
+            glm::vec3 adjusted;
+            if (wmoRenderer->checkWallCollision(stepPos, candidate, adjusted, cachedInsideWMO)) {
+                candidate.x = adjusted.x;
+                candidate.y = adjusted.y;
+                // Up is a ramp; down would be a wall pulling the feet under the floor.
+                candidate.z = std::max(candidate.z, adjusted.z);
+            }
+        }
+
+        if (includeDoodads && m2Renderer && !externalFollow_) {
+            glm::vec3 adjusted;
+            if (m2Renderer->checkCollision(stepPos, candidate, adjusted)) {
+                candidate.x = adjusted.x;
+                candidate.y = adjusted.y;
+            }
+        }
+
+        stepPos = candidate;
+    }
+    return stepPos;
+}
+
 void CameraController::update(float deltaTime) {
     if (!enabled || !camera) {
         return;
@@ -845,41 +884,8 @@ void CameraController::update(float deltaTime) {
 
             // Enforce collision while swimming too (horizontal only), skip when stationary.
             {
-                glm::vec3 swimFrom = *followTarget;
-                glm::vec3 swimTo = targetPos;
-                glm::vec3 swimDelta = swimTo - swimFrom;
-                float swimMoveDistSq = glm::dot(swimDelta, swimDelta);
-                glm::vec3 stepPos = swimFrom;
-
-                if (swimMoveDistSq > 1e-4f) {
-                    float swimMoveDist = std::sqrt(swimMoveDistSq);
-                    float swimStepSize = cachedInsideWMO ? 0.20f : 0.35f;
-                    int swimSteps = std::max(1, std::min(8, static_cast<int>(std::ceil(swimMoveDist / swimStepSize))));
-                    glm::vec3 stepDelta = (swimTo - swimFrom) / static_cast<float>(swimSteps);
-
-                    for (int i = 0; i < swimSteps; i++) {
-                        glm::vec3 candidate = stepPos + stepDelta;
-
-                        if (wmoRenderer) {
-                            glm::vec3 adjusted;
-                            if (wmoRenderer->checkWallCollision(stepPos, candidate, adjusted, cachedInsideWMO)) {
-                                candidate.x = adjusted.x;
-                                candidate.y = adjusted.y;
-                                candidate.z = std::max(candidate.z, adjusted.z);
-                            }
-                        }
-
-                        if (m2Renderer && !externalFollow_) {
-                            glm::vec3 adjusted;
-                            if (m2Renderer->checkCollision(stepPos, candidate, adjusted)) {
-                                candidate.x = adjusted.x;
-                                candidate.y = adjusted.y;
-                            }
-                        }
-
-                        stepPos = candidate;
-                    }
-                }
+                // Horizontal only: the swim clamp owns the vertical.
+                const glm::vec3 stepPos = sweepAgainstWalls(*followTarget, targetPos, true);
 
                 targetPos.x = stepPos.x;
                 targetPos.y = stepPos.y;
@@ -1018,47 +1024,7 @@ void CameraController::update(float deltaTime) {
         // Sweep collisions in small steps to reduce tunneling through thin walls/floors.
         // Skip entirely when stationary to avoid wasting collision calls.
         // Use tighter steps when inside WMO for more precise collision.
-        {
-            glm::vec3 startPos = *followTarget;
-            glm::vec3 desiredPos = targetPos;
-            glm::vec3 moveDelta = desiredPos - startPos;
-            float moveDistSq = glm::dot(moveDelta, moveDelta);
-
-            if (moveDistSq > 1e-4f) {
-                float moveDist = std::sqrt(moveDistSq);
-                // Smaller step size when inside buildings for tighter collision
-                float stepSize = cachedInsideWMO ? 0.20f : 0.35f;
-                int sweepSteps = std::max(1, std::min(8, static_cast<int>(std::ceil(moveDist / stepSize))));
-                glm::vec3 stepPos = startPos;
-                glm::vec3 stepDelta = (desiredPos - startPos) / static_cast<float>(sweepSteps);
-
-                for (int i = 0; i < sweepSteps; i++) {
-                    glm::vec3 candidate = stepPos + stepDelta;
-
-                    if (wmoRenderer) {
-                        glm::vec3 adjusted;
-                        if (wmoRenderer->checkWallCollision(stepPos, candidate, adjusted, cachedInsideWMO)) {
-                            candidate.x = adjusted.x;
-                            candidate.y = adjusted.y;
-                            // Accept upward Z correction (ramps), reject downward
-                            candidate.z = std::max(candidate.z, adjusted.z);
-                        }
-                    }
-
-                    if (m2Renderer && !externalFollow_) {
-                        glm::vec3 adjusted;
-                        if (m2Renderer->checkCollision(stepPos, candidate, adjusted)) {
-                            candidate.x = adjusted.x;
-                            candidate.y = adjusted.y;
-                        }
-                    }
-
-                    stepPos = candidate;
-                }
-
-                targetPos = stepPos;
-            }
-        }
+        targetPos = sweepAgainstWalls(*followTarget, targetPos, true);
 
         // Ground the character to terrain or WMO floor
         // Skip entirely while swimming — the swim floor clamp handles vertical bounds.
@@ -2270,32 +2236,12 @@ void CameraController::update(float deltaTime) {
         }
 
         // Wall sweep collision before grounding (skip when stationary).
-        if (wmoRenderer) {
-            glm::vec3 startFeet = camera->getPosition() - glm::vec3(0, 0, eyeHeight);
-            glm::vec3 desiredFeet = newPos - glm::vec3(0, 0, eyeHeight);
-            glm::vec3 feetDelta = desiredFeet - startFeet;
-            float moveDistSq2 = glm::dot(feetDelta, feetDelta);
-
-            if (moveDistSq2 > 1e-4f) {
-                float moveDist = std::sqrt(moveDistSq2);
-                float stepSize = cachedInsideWMO ? 0.20f : 0.35f;
-                int sweepSteps = std::max(1, std::min(8, static_cast<int>(std::ceil(moveDist / stepSize))));
-                glm::vec3 stepPos = startFeet;
-                glm::vec3 stepDelta = (desiredFeet - startFeet) / static_cast<float>(sweepSteps);
-
-                for (int i = 0; i < sweepSteps; i++) {
-                    glm::vec3 candidate = stepPos + stepDelta;
-                    glm::vec3 adjusted;
-                    if (wmoRenderer->checkWallCollision(stepPos, candidate, adjusted, cachedInsideWMO)) {
-                        candidate.x = adjusted.x;
-                        candidate.y = adjusted.y;
-                        candidate.z = std::max(candidate.z, adjusted.z);
-                    }
-                    stepPos = candidate;
-                }
-
-                newPos = stepPos + glm::vec3(0, 0, eyeHeight);
-            }
+        {
+            // Swept at the feet, not the eyes. Doodads are left out here, which
+            // is the one thing this camera does differently.
+            const glm::vec3 eyeOffset(0, 0, eyeHeight);
+            newPos = sweepAgainstWalls(camera->getPosition() - eyeOffset,
+                                       newPos - eyeOffset, false) + eyeOffset;
         }
 
         // Ground to terrain or WMO floor

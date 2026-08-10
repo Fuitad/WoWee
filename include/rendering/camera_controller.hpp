@@ -194,6 +194,18 @@ public:
 private:
     Camera* camera;
     TerrainManager* terrainManager = nullptr;
+    /// Move from `from` to `to` in small steps, letting the walls push back.
+    ///
+    /// A single long move tunnels through thin geometry, so it is broken into
+    /// steps of 20cm inside a building and 35cm outside, capped at eight. An
+    /// upward Z correction is kept — that is a ramp — and a downward one is
+    /// dropped, because a wall must never pull the character into the floor.
+    ///
+    /// Written out three times, for walking, for swimming, and for the free-fly
+    /// camera, with the step sizes and the cap repeated in each.
+    /// `includeDoodads` adds M2 collision, which the free-fly camera does not use.
+    glm::vec3 sweepAgainstWalls(const glm::vec3& from, const glm::vec3& to, bool includeDoodads);
+
     WMORenderer* wmoRenderer = nullptr;
     M2Renderer* m2Renderer = nullptr;
     WaterRenderer* waterRenderer = nullptr;
