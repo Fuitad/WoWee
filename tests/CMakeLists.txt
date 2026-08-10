@@ -82,6 +82,22 @@ wowee_test_link_glm(test_hill_climbing)
 add_test(NAME hill_climbing COMMAND test_hill_climbing)
 register_test_target(test_hill_climbing)
 
+# ── test_shared_rules ───────────────────────────────────────
+# The rules this codebase collapsed out of many copies into one. A rule with a
+# single home is a rule one mistake breaks everywhere, so the cases that were
+# actually wrong in one of the copies are pinned here.
+# Pure rules only — the item texture paths and the settings vocabulary are
+# header-only, and skinPathForM2 comes from m2_loader, which knows nothing about
+# where bytes come from.
+add_executable(test_shared_rules test_shared_rules.cpp
+    ${CMAKE_SOURCE_DIR}/src/pipeline/m2_loader.cpp
+    ${TEST_COMMON_SOURCES})
+target_include_directories(test_shared_rules PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_shared_rules SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_shared_rules PRIVATE catch2_main)
+add_test(NAME shared_rules COMMAND test_shared_rules)
+register_test_target(test_shared_rules)
+
 # ── test_geoset_rules ────────────────────────────────────────
 # Choosing a geoset when the model lacks the one asked for. Pure header, so the
 # test needs nothing but Catch.

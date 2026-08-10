@@ -23,6 +23,8 @@
  * kept by luck.
  */
 
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -38,7 +40,22 @@ constexpr int kItemTextureRegionCount = 8;
 
 /// The folder under Item\TextureComponents for one region. Out-of-range answers
 /// an empty string rather than reading past the table.
-const char* itemComponentDir(int region);
+///
+/// Inline, with the cape list below it, so the rules can be tested without an
+/// asset tree to point at — the same reason m2_loader is kept apart from the
+/// thing that reads files.
+inline const char* itemComponentDir(int region) {
+    // In ItemDisplayInfo's own column order. Region 0 is the upper arm and
+    // region 7 the foot; the numbering indexes a character's composite atlas,
+    // so the order is not free.
+    static const char* const kDirs[kItemTextureRegionCount] = {
+        "ArmUpperTexture", "ArmLowerTexture", "HandTexture",
+        "TorsoUpperTexture", "TorsoLowerTexture",
+        "LegUpperTexture", "LegLowerTexture", "FootTexture",
+    };
+    if (region < 0 || region >= kItemTextureRegionCount) return "";
+    return kDirs[region];
+}
 
 /// The path to one region's art for this wearer, or empty if none of the three
 /// spellings is on disk.
@@ -71,7 +88,42 @@ ItemDisplayArt readItemDisplayArt(const DBCFile& itemDisplayInfo, uint32_t recor
 /// A name that already carries a folder is taken as given. Otherwise both
 /// component folders are tried, unsuffixed first — which is what the shipped art
 /// mostly uses — and then with the wearer's suffix and the unisex one.
-std::vector<std::string> capeTextureCandidates(const std::string& rawName, bool isFemale);
+inline std::vector<std::string> capeTextureCandidates(const std::string& rawName, bool isFemale) {
+    std::vector<std::string> candidates;
+    if (rawName.empty()) return candidates;
+
+    std::string name = rawName;
+    std::replace(name.begin(), name.end(), '/', '\\');
+    const bool hasDir = name.find('\\') != std::string::npos;
+    bool hasExt = false;
+    if (name.size() >= 4) {
+        std::string tail = name.substr(name.size() - 4);
+        std::transform(tail.begin(), tail.end(), tail.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        hasExt = (tail == ".blp");
+    }
+
+    if (hasDir) {
+        candidates.push_back(hasExt ? name : name + ".blp");
+        return candidates;
+    }
+
+    const std::string baseObj = "Item\\ObjectComponents\\Cape\\" + name;
+    const std::string baseTex = "Item\\TextureComponents\\Cape\\" + name;
+    if (hasExt) {
+        candidates.push_back(baseObj);
+        candidates.push_back(baseTex);
+    } else {
+        candidates.push_back(baseObj + ".blp");
+        candidates.push_back(baseTex + ".blp");
+    }
+    const char* suffix = isFemale ? "_F.blp" : "_M.blp";
+    candidates.push_back(baseObj + suffix);
+    candidates.push_back(baseObj + "_U.blp");
+    candidates.push_back(baseTex + suffix);
+    candidates.push_back(baseTex + "_U.blp");
+    return candidates;
+}
 
 }  // namespace pipeline
 }  // namespace wowee
