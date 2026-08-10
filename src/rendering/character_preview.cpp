@@ -10,6 +10,7 @@
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/dbc_loader.hpp"
+#include "pipeline/char_sections.hpp"
 #include "pipeline/dbc_layout.hpp"
 #include "core/appearance_composer.hpp"
 #include "core/geoset_rules.hpp"
@@ -568,75 +569,45 @@ bool CharacterPreview::loadCharacter(game::Race race, game::Gender gender,
 
     auto charSectionsDbc = assetManager_->loadDBC("CharSections.dbc");
     if (charSectionsDbc) {
-        bool foundSkin = false;
-        bool foundFace = false;
-        bool foundHair = false;
-        bool foundUnderwear = false;
+        const auto* csL = pipeline::getActiveDBCLayout()
+            ? pipeline::getActiveDBCLayout()->getLayout("CharSections") : nullptr;
+        const auto csF = pipeline::detectCharSectionsFields(charSectionsDbc.get(), csL);
 
-        const auto* csL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("CharSections") : nullptr;
-        auto csF = pipeline::detectCharSectionsFields(charSectionsDbc.get(), csL);
+        // The one reader, in pipeline/char_sections.hpp. This copy had no
+        // fallback for a face the table does not carry — a character created
+        // with a face number that has no row simply had no face — and it
+        // matched the skin and underwear rows on variation 0, which the other
+        // readers do not, so a table that numbers those rows any other way
+        // found nothing here and everything there.
+        pipeline::CharacterAppearance who;
+        who.raceId = targetRaceId;
+        who.sexId = targetSexId;
+        who.skinId = static_cast<uint8_t>(skin);
+        who.faceId = static_cast<uint8_t>(face);
+        who.hairStyleId = static_cast<uint8_t>(hairStyle);
+        who.hairColorId = static_cast<uint8_t>(hairColor);
 
-        for (uint32_t r = 0; r < charSectionsDbc->getRecordCount(); r++) {
-            uint32_t raceId = charSectionsDbc->getUInt32(r, csF.raceId);
-            uint32_t sexId = charSectionsDbc->getUInt32(r, csF.sexId);
-            uint32_t baseSection = charSectionsDbc->getUInt32(r, csF.baseSection);
-            uint32_t variationIndex = charSectionsDbc->getUInt32(r, csF.variationIndex);
-            uint32_t colorIndex = charSectionsDbc->getUInt32(r, csF.colorIndex);
+        const auto sections = pipeline::resolveCharacterSections(
+            charSectionsDbc.get(), csF, who,
+            [](const std::string& path, void* ctx) {
+                return static_cast<pipeline::AssetManager*>(ctx)->fileExists(path);
+            },
+            assetManager_);
 
-            if (raceId != targetRaceId || sexId != targetSexId) continue;
+        bodySkinPath_   = sections.bodySkin;
+        skinExtraPath_  = sections.skinExtra;
+        faceLowerPath   = sections.faceLower;
+        faceUpperPath   = sections.faceUpper;
+        hairScalpPath   = sections.hair;
+        underwearPaths  = sections.underwear;
 
-            // Section 0: Body skin (variation=0, colorIndex = skin color)
-            if (baseSection == 0 && !foundSkin &&
-                variationIndex == 0 && colorIndex == static_cast<uint32_t>(skin)) {
-                std::string tex1 = charSectionsDbc->getString(r, csF.texture1);
-                if (!tex1.empty()) {
-                    bodySkinPath_ = tex1;
-                    foundSkin = true;
-                }
-                // The skin row's second texture is the Skin Extra art — what an
-                // HD model draws its ears from, and its eyes and mouth with
-                // them. The preview never read it, so the slot kept whatever
-                // the model was authored with, which in this pack is a name
-                // that is not a file: the ears came out white.
-                skinExtraPath_ = charSectionsDbc->getString(r, csF.texture2);
-            }
-            // Section 1: Face (variation = face index, colorIndex = skin color)
-            else if (baseSection == 1 && !foundFace &&
-                     variationIndex == static_cast<uint32_t>(face) &&
-                     colorIndex == static_cast<uint32_t>(skin)) {
-                std::string tex1 = charSectionsDbc->getString(r, csF.texture1);
-                std::string tex2 = charSectionsDbc->getString(r, csF.texture2);
-                if (!tex1.empty()) faceLowerPath = tex1;
-                if (!tex2.empty()) faceUpperPath = tex2;
-                foundFace = true;
-            }
-            // Section 3: Hair (variation = hair style, colorIndex = hair color)
-            else if (baseSection == 3 && !foundHair &&
-                     variationIndex == static_cast<uint32_t>(hairStyle) &&
-                     colorIndex == static_cast<uint32_t>(hairColor)) {
-                std::string tex1 = charSectionsDbc->getString(r, csF.texture1);
-                if (!tex1.empty()) {
-                    hairScalpPath = tex1;
-                    foundHair = true;
-                }
-            }
-            // Section 4: Underwear (variation=0, colorIndex = skin color)
-            else if (baseSection == 4 && !foundUnderwear &&
-                     variationIndex == 0 && colorIndex == static_cast<uint32_t>(skin)) {
-                for (uint32_t f = csF.texture1; f <= csF.texture1 + 2; f++) {
-                    std::string tex = charSectionsDbc->getString(r, f);
-                    if (!tex.empty() && assetManager_->fileExists(tex)) {
-                        underwearPaths.push_back(tex);
-                    }
-                }
-                foundUnderwear = !underwearPaths.empty();
-            }
-        }
-
-        LOG_INFO("CharSections lookup: skin=", foundSkin ? bodySkinPath_ : "(not found)",
-                 " face=", foundFace ? (faceLowerPath.empty() ? "(empty)" : faceLowerPath) : "(not found)",
-                 " hair=", foundHair ? (hairScalpPath.empty() ? "(empty)" : hairScalpPath) : "(not found)",
-                 " underwear=", foundUnderwear, " (", underwearPaths.size(), " textures)");
+        LOG_INFO("CharSections lookup: skin=",
+                 bodySkinPath_.empty() ? "(not found)" : bodySkinPath_,
+                 " face=", sections.haveFace
+                     ? (sections.exactFace ? faceLowerPath : faceLowerPath + " (nearest)")
+                     : "(not found)",
+                 " hair=", sections.haveHair ? hairScalpPath : "(not found)",
+                 " underwear=", underwearPaths.size(), " textures");
     } else {
         LOG_WARNING("CharSections.dbc not loaded — no character textures");
     }
