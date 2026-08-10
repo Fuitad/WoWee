@@ -132,6 +132,15 @@ private:
     /// switch. updateCheckpoint travels by reference because the caller's catch
     /// reports it: an exception here has to say where here was.
     void updateInGame(float deltaTime, const char*& updateCheckpoint);
+
+    /// Everything the server says about how the player moves — speeds, rooting,
+    /// gravity, feather fall, water walking — handed to the camera that owns it.
+    void applyServerMovementState(float deltaTime);
+
+    /// Keep render instances on top of what the server says. A model is placed
+    /// once at spawn and would otherwise stay there while its target circle
+    /// follows the entity, which reads as a ring sliding off a still NPC.
+    void syncRenderInstancesToEntities(float deltaTime);
     void render();
     void performLogoutToLogin();
     void processDeferredLogoutToLogin();

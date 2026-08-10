@@ -2023,807 +2023,616 @@ void Application::performLogoutToLogin() {
 //
 // updateCheckpoint travels by reference because the caller's catch reports it:
 // an exception here has to say where here was.
-void Application::updateInGame(float deltaTime, const char*& updateCheckpoint) {
-    updateCheckpoint = "in_game: enter";
-    const char* inGameStep = "begin";
-    try {
-    auto runInGameStage = [&](const char* stageName, auto&& fn) {
-        auto stageStart = std::chrono::steady_clock::now();
-        try {
-            fn();
-        } catch (const std::bad_alloc& e) {
-            LOG_ERROR("OOM during IN_GAME update stage '", stageName, "': ", e.what());
-            throw;
-        } catch (const std::exception& e) {
-            LOG_ERROR("Exception during IN_GAME update stage '", stageName, "': ", e.what());
-            throw;
-        }
-        auto stageEnd = std::chrono::steady_clock::now();
-        float stageMs = std::chrono::duration<float, std::milli>(stageEnd - stageStart).count();
-        if (stageMs > 50.0f) {
-            LOG_WARNING("SLOW update stage '", stageName, "': ", stageMs, "ms");
-        }
-    };
-    inGameStep = "gameHandler update";
-    updateCheckpoint = "in_game: gameHandler update";
-    runInGameStage("gameHandler->update", [&] {
-        if (gameHandler) {
-            gameHandler->update(deltaTime);
-        }
-    });
-    if (addonManager_ && addonsLoaded_) {
-        addonManager_->update(deltaTime);
-    }
-    // Always unsheath on combat engage.
-    inGameStep = "auto-unsheathe";
-    updateCheckpoint = "in_game: auto-unsheathe";
-    if (gameHandler) {
-        const bool autoAttacking = gameHandler->isAutoAttacking();
-        // Keep the attachment state consistent with the ongoing attack, not
-        // just the initial false -> true transition. Z can be pressed after
-        // combat has already started, and pre-WotLK servers briefly send
-        // ATTACKSTOP while the client retains attack intent for a retry.
-        const bool attackWeaponNeeded = autoAttacking || gameHandler->hasAutoAttackIntent();
-        const auto& inventory = gameHandler->getInventory();
-        const auto& mainHand = inventory.getEquipSlot(game::EquipSlot::MAIN_HAND);
-        const auto& offHand = inventory.getEquipSlot(game::EquipSlot::OFF_HAND);
-        const auto& ranged = inventory.getEquipSlot(game::EquipSlot::RANGED);
-        const bool hasOffHandWeapon = !offHand.empty() &&
-            offHand.item.inventoryType == game::InvType::ONE_HAND;
-        const bool hasRangedWeapon = !ranged.empty() &&
-            (ranged.item.inventoryType == game::InvType::RANGED_BOW ||
-             ranged.item.inventoryType == game::InvType::RANGED_GUN ||
-             ranged.item.inventoryType == game::InvType::THROWN);
-        const bool hasDrawableWeapon = !mainHand.empty() || hasOffHandWeapon || hasRangedWeapon;
-        if (attackWeaponNeeded && hasDrawableWeapon && appearanceComposer_ &&
-            appearanceComposer_->isWeaponsSheathed()) {
-            if (renderer && renderer->getAnimationController()) {
-                renderer->getAnimationController()->playWeaponSheathAnimation(false);
-            }
-            appearanceComposer_->setWeaponsSheathed(false);
-            appearanceComposer_->loadEquippedWeapons();
-        }
-        // Swap back to melee weapon when auto-attack stops
-        if (!autoAttacking && wasAutoAttacking_ && appearanceComposer_ && appearanceComposer_->isShowingRanged()) {
-            appearanceComposer_->showRangedWeapon(false);
-        }
-        wasAutoAttacking_ = autoAttacking;
-    }
+// Everything the server says about how the player moves, handed to the camera.
+//
+// Run, walk, swim, flight and turn speeds, rooting, gravity, feather fall,
+// water walking, and which of them the current mount, taxi or transport
+// overrides. The camera owns the movement, so this is where the server's word
+// about it lands.
+void Application::applyServerMovementState(float deltaTime) {
+    if (renderer && gameHandler && renderer->getCameraController()) {
+        renderer->getCameraController()->setRunSpeedOverride(gameHandler->getServerRunSpeed());
+        renderer->getCameraController()->setWalkSpeedOverride(gameHandler->getServerWalkSpeed());
+        renderer->getCameraController()->setSwimSpeedOverride(gameHandler->getServerSwimSpeed());
+        renderer->getCameraController()->setSwimBackSpeedOverride(gameHandler->getServerSwimBackSpeed());
+        renderer->getCameraController()->setFlightSpeedOverride(gameHandler->getServerFlightSpeed());
+        renderer->getCameraController()->setFlightBackSpeedOverride(gameHandler->getServerFlightBackSpeed());
+        renderer->getCameraController()->setRunBackSpeedOverride(gameHandler->getServerRunBackSpeed());
+        renderer->getCameraController()->setTurnRateOverride(gameHandler->getServerTurnRate());
+        renderer->getCameraController()->setMovementRooted(gameHandler->isPlayerRooted());
+        renderer->getCameraController()->setGravityDisabled(gameHandler->isGravityDisabled());
+        renderer->getCameraController()->setFeatherFallActive(gameHandler->isFeatherFalling());
+        renderer->getCameraController()->setWaterWalkActive(gameHandler->isWaterWalking());
+        // Flight physics engage on the CAN_FLY ability (flying mount
+        // or .gm fly), not isPlayerFlying() which also needs the
+        // FLYING flag the client only sets once already airborne.
+        renderer->getCameraController()->setFlyingActive(gameHandler->canFly());
+        renderer->getCameraController()->setHoverActive(gameHandler->isHovering());
 
-    // Toggle weapon sheathe state with Z (ignored while UI captures keyboard).
-    inGameStep = "weapon-toggle input";
-    updateCheckpoint = "in_game: weapon-toggle input";
-    {
-        const bool uiWantsKeyboard = ImGui::GetIO().WantCaptureKeyboard ||
-                                     ui::interfaceTakingTypedInput();
-        auto& input = Input::getInstance();
-        if (!uiWantsKeyboard && input.isKeyJustPressed(SDL_SCANCODE_Z) && appearanceComposer_) {
-            const bool sheathing = !appearanceComposer_->isWeaponsSheathed();
-            if (renderer && renderer->getAnimationController()) {
-                renderer->getAnimationController()->playWeaponSheathAnimation(sheathing);
-            }
-            appearanceComposer_->toggleWeaponsSheathed();
-            appearanceComposer_->loadEquippedWeapons();
-        }
-    }
-
-    inGameStep = "world update";
-    updateCheckpoint = "in_game: world update";
-    runInGameStage("world->update", [&] {
-        if (world) {
-            world->update(deltaTime);
-        }
-    });
-    inGameStep = "spawn/equipment queues";
-    updateCheckpoint = "in_game: spawn/equipment queues";
-    runInGameStage("spawn/equipment queues", [&] {
-        if (entitySpawner_) entitySpawner_->update();
-        if (auto* cr = renderer ? renderer->getCharacterRenderer() : nullptr) {
-            cr->processPendingNormalMaps(4);
-        }
-    });
-    // Self-heal missing creature visuals: if a nearby UNIT exists in
-    // entity state but has no render instance, queue a spawn retry.
-    inGameStep = "creature resync scan";
-    updateCheckpoint = "in_game: creature resync scan";
-    if (gameHandler) {
-        static float creatureResyncTimer = 0.0f;
-        creatureResyncTimer += deltaTime;
-        if (creatureResyncTimer >= 3.0f) {
-            creatureResyncTimer = 0.0f;
-
-            glm::vec3 playerPos(0.0f);
-            bool havePlayerPos = false;
-            uint64_t playerGuid = gameHandler->getPlayerGuid();
-            if (auto playerEntity = gameHandler->getEntityManager().getEntity(playerGuid)) {
-                playerPos = glm::vec3(playerEntity->getX(), playerEntity->getY(), playerEntity->getZ());
-                havePlayerPos = true;
-            }
-
-            // Counters for the summary below. "No NPCs at all" has three
-            // possible causes that look identical in-world — the server
-            // sent no units, the units exist but carry no display id, or
-            // they exist and the spawner is refusing them — and the
-            // difference decides where to look.
-            int unitsSeen = 0, unitsNoDisplay = 0, unitsSpawned = 0, unitsQueued = 0;
-
-            const float kResyncRadiusSq = 260.0f * 260.0f;
-            for (const auto& pair : gameHandler->getEntityManager().getEntities()) {
-                uint64_t guid = pair.first;
-                const auto& entity = pair.second;
-                if (!entity || guid == playerGuid) continue;
-                if (entity->getType() != game::ObjectType::UNIT) continue;
-                unitsSeen++;
-                auto unit = std::dynamic_pointer_cast<game::Unit>(entity);
-                if (!unit || unit->getDisplayId() == 0) { unitsNoDisplay++; continue; }
-                if (entitySpawner_->isCreatureSpawned(guid)) { unitsSpawned++; continue; }
-                if (entitySpawner_->isCreaturePending(guid)) { unitsQueued++; continue; }
-
-                if (havePlayerPos) {
-                    glm::vec3 pos(unit->getX(), unit->getY(), unit->getZ());
-                    glm::vec3 delta = pos - playerPos;
-                    float distSq = glm::dot(delta, delta);
-                    if (distSq > kResyncRadiusSq) continue;
-                }
-
-                float retryScale = 1.0f;
-                {
-                    using game::fieldIndex; using game::UF;
-                    uint16_t si = fieldIndex(UF::OBJECT_FIELD_SCALE_X);
-                    if (si != 0xFFFF) {
-                        uint32_t raw = unit->getField(si);
-                        if (raw != 0) {
-                            float s2 = 1.0f;
-                            std::memcpy(&s2, &raw, sizeof(float));
-                            if (s2 > 0.01f && s2 < 100.0f) retryScale = s2;
-                        }
+        // Sync camera forward pitch to movement packets during flight / swimming.
+        // The server writes the pitch field when FLYING or SWIMMING flags are set;
+        // without this sync it would always be 0 (horizontal), causing other
+        // players to see the character flying flat even when pitching up/down.
+        if (gameHandler->isPlayerFlying() || gameHandler->isSwimming()) {
+            if (auto* cam = renderer->getCamera()) {
+                glm::vec3 fwd = cam->getForward();
+                float len = glm::length(fwd);
+                if (len > 1e-4f) {
+                    float pitchRad = std::asin(std::clamp(fwd.z / len, -1.0f, 1.0f));
+                    gameHandler->setMovementPitch(pitchRad);
+                    // Tilt the mount/character model to match flight direction
+                    // (taxi flight uses setTaxiOrientationCallback for this instead)
+                    if (gameHandler->isPlayerFlying() && gameHandler->isMounted()) {
+                        if (auto* ac = renderer->getAnimationController()) ac->setMountPitchRoll(pitchRad, 0.0f);
                     }
                 }
-                entitySpawner_->queueCreatureSpawn(guid, unit->getDisplayId(),
-                    unit->getX(), unit->getY(), unit->getZ(),
-                    unit->getOrientation(), retryScale);
             }
-
-            // Silent during normal play: this only speaks up when the
-            // world holds units and none of them have a model.
-            if (unitsSeen > 0 && unitsSpawned == 0) {
-                LOG_WARNING("No creature models for ", unitsSeen,
-                            " units in range (", unitsNoDisplay,
-                            " without a display id, ", unitsQueued,
-                            " queued, lookups built=",
-                            entitySpawner_->areCreatureLookupsBuilt() ? "yes" : "no", ")");
-            } else if (unitsSeen == 0) {
-                static float noUnitsFor = 0.0f;
-                noUnitsFor += 3.0f;
-                if (noUnitsFor >= 9.0f) {
-                    noUnitsFor = 0.0f;
-                    LOG_WARNING("No UNIT entities in range at all — the server has "
-                                "sent no creatures, or their update blocks were dropped");
-                }
-            }
+        } else if (gameHandler->isMounted()) {
+            // Reset mount pitch when not flying
+            if (auto* ac = renderer->getAnimationController()) ac->setMountPitchRoll(0.0f, 0.0f);
         }
     }
 
-    inGameStep = "gameobject/transport queues";
-    updateCheckpoint = "in_game: gameobject/transport queues";
-    runInGameStage("gameobject/transport queues", [&] {
-        // GO/transport queues handled by entitySpawner_->update() above
-    });
-    inGameStep = "pending mount";
-    updateCheckpoint = "in_game: pending mount";
-    runInGameStage("processPendingMount", [&] {
-        // Mount processing handled by entitySpawner_->update() above
-    });
-    // Update 3D quest markers above NPCs
-    inGameStep = "quest markers";
-    updateCheckpoint = "in_game: quest markers";
-    runInGameStage("updateQuestMarkers", [&] {
-        updateQuestMarkers();
-    });
-    // Sync server run speed to camera controller
-    inGameStep = "post-update sync";
-    updateCheckpoint = "in_game: post-update sync";
-    runInGameStage("post-update sync", [&] {
-        if (renderer && gameHandler && renderer->getCameraController()) {
-            renderer->getCameraController()->setRunSpeedOverride(gameHandler->getServerRunSpeed());
-            renderer->getCameraController()->setWalkSpeedOverride(gameHandler->getServerWalkSpeed());
-            renderer->getCameraController()->setSwimSpeedOverride(gameHandler->getServerSwimSpeed());
-            renderer->getCameraController()->setSwimBackSpeedOverride(gameHandler->getServerSwimBackSpeed());
-            renderer->getCameraController()->setFlightSpeedOverride(gameHandler->getServerFlightSpeed());
-            renderer->getCameraController()->setFlightBackSpeedOverride(gameHandler->getServerFlightBackSpeed());
-            renderer->getCameraController()->setRunBackSpeedOverride(gameHandler->getServerRunBackSpeed());
-            renderer->getCameraController()->setTurnRateOverride(gameHandler->getServerTurnRate());
-            renderer->getCameraController()->setMovementRooted(gameHandler->isPlayerRooted());
-            renderer->getCameraController()->setGravityDisabled(gameHandler->isGravityDisabled());
-            renderer->getCameraController()->setFeatherFallActive(gameHandler->isFeatherFalling());
-            renderer->getCameraController()->setWaterWalkActive(gameHandler->isWaterWalking());
-            // Flight physics engage on the CAN_FLY ability (flying mount
-            // or .gm fly), not isPlayerFlying() which also needs the
-            // FLYING flag the client only sets once already airborne.
-            renderer->getCameraController()->setFlyingActive(gameHandler->canFly());
-            renderer->getCameraController()->setHoverActive(gameHandler->isHovering());
-
-            // Sync camera forward pitch to movement packets during flight / swimming.
-            // The server writes the pitch field when FLYING or SWIMMING flags are set;
-            // without this sync it would always be 0 (horizontal), causing other
-            // players to see the character flying flat even when pitching up/down.
-            if (gameHandler->isPlayerFlying() || gameHandler->isSwimming()) {
-                if (auto* cam = renderer->getCamera()) {
-                    glm::vec3 fwd = cam->getForward();
-                    float len = glm::length(fwd);
-                    if (len > 1e-4f) {
-                        float pitchRad = std::asin(std::clamp(fwd.z / len, -1.0f, 1.0f));
-                        gameHandler->setMovementPitch(pitchRad);
-                        // Tilt the mount/character model to match flight direction
-                        // (taxi flight uses setTaxiOrientationCallback for this instead)
-                        if (gameHandler->isPlayerFlying() && gameHandler->isMounted()) {
-                            if (auto* ac = renderer->getAnimationController()) ac->setMountPitchRoll(pitchRad, 0.0f);
-                        }
-                    }
-                }
-            } else if (gameHandler->isMounted()) {
-                // Reset mount pitch when not flying
-                if (auto* ac = renderer->getAnimationController()) ac->setMountPitchRoll(0.0f, 0.0f);
-            }
+    bool onTaxi = gameHandler &&
+                  (gameHandler->isOnTaxiFlight() ||
+                   gameHandler->isTaxiMountActive() ||
+                   gameHandler->isTaxiActivationPending());
+    // Deliberately narrower than onTaxi: only true once the flight is
+    // actually happening (mounted/flying), not merely pending a reply.
+    // A rejected CMSG_ACTIVATETAXI sets isTaxiActivationPending() true
+    // for one or two frames and then clears it - if that alone counted
+    // as "was taxiing", the landing clamp below would arm on every
+    // rejected activation and snap the player onto whatever floor
+    // candidate is closest to their current (never-actually-flown-from)
+    // position, exactly as if a real flight had just landed. Live-hit
+    // this at Booty Bay (multi-level WMO): a rejected activation while
+    // standing on the upper platform snapped the character down to the
+    // level below, with a "Cannot take that flight path" chat message
+    // and zero actual movement in between.
+    bool actuallyFlying = gameHandler &&
+                          (gameHandler->isOnTaxiFlight() ||
+                           gameHandler->isTaxiMountActive());
+    bool onTransportNow = gameHandler && gameHandler->isOnTransport();
+    // Clear stale client-side transport state when the tracked transport no longer exists.
+    if (onTransportNow && gameHandler->getTransportManager()) {
+        auto* currentTracked = gameHandler->getTransportManager()->getTransport(
+            gameHandler->getPlayerTransportGuid());
+        if (!currentTracked) {
+            gameHandler->clearPlayerTransport();
+            onTransportNow = false;
         }
-
-        bool onTaxi = gameHandler &&
-                      (gameHandler->isOnTaxiFlight() ||
-                       gameHandler->isTaxiMountActive() ||
-                       gameHandler->isTaxiActivationPending());
-        // Deliberately narrower than onTaxi: only true once the flight is
-        // actually happening (mounted/flying), not merely pending a reply.
-        // A rejected CMSG_ACTIVATETAXI sets isTaxiActivationPending() true
-        // for one or two frames and then clears it - if that alone counted
-        // as "was taxiing", the landing clamp below would arm on every
-        // rejected activation and snap the player onto whatever floor
-        // candidate is closest to their current (never-actually-flown-from)
-        // position, exactly as if a real flight had just landed. Live-hit
-        // this at Booty Bay (multi-level WMO): a rejected activation while
-        // standing on the upper platform snapped the character down to the
-        // level below, with a "Cannot take that flight path" chat message
-        // and zero actual movement in between.
-        bool actuallyFlying = gameHandler &&
-                              (gameHandler->isOnTaxiFlight() ||
-                               gameHandler->isTaxiMountActive());
-        bool onTransportNow = gameHandler && gameHandler->isOnTransport();
-        // Clear stale client-side transport state when the tracked transport no longer exists.
-        if (onTransportNow && gameHandler->getTransportManager()) {
-            auto* currentTracked = gameHandler->getTransportManager()->getTransport(
-                gameHandler->getPlayerTransportGuid());
-            if (!currentTracked) {
-                gameHandler->clearPlayerTransport();
-                onTransportNow = false;
-            }
-        }
-        // M2 transports (trams) use position-delta approach: player keeps normal
-        // movement and the transport's frame-to-frame delta is applied on top.
-        // Only WMO transports (ships) use full external-driven mode.
-        bool isM2Transport = false;
-        if (onTransportNow && gameHandler->getTransportManager()) {
-            auto* tr = gameHandler->getTransportManager()->getTransport(gameHandler->getPlayerTransportGuid());
-            isM2Transport = (tr && tr->isM2);
-        }
-        bool onWMOTransport = onTransportNow && !isM2Transport;
-        if (worldEntryCallbacks_ && worldEntryCallbacks_->getWorldEntryMovementGraceTimer() > 0.0f) {
-            worldEntryCallbacks_->setWorldEntryMovementGraceTimer(
-                worldEntryCallbacks_->getWorldEntryMovementGraceTimer() - deltaTime);
-            // Clear stale movement from before teleport each frame
-            // until grace period expires (keys may still be held)
-            if (renderer && renderer->getCameraController())
-                renderer->getCameraController()->clearMovementInputs();
-        }
-        // Hearth teleport: delegated to WorldEntryCallbackHandler
+    }
+    // M2 transports (trams) use position-delta approach: player keeps normal
+    // movement and the transport's frame-to-frame delta is applied on top.
+    // Only WMO transports (ships) use full external-driven mode.
+    bool isM2Transport = false;
+    if (onTransportNow && gameHandler->getTransportManager()) {
+        auto* tr = gameHandler->getTransportManager()->getTransport(gameHandler->getPlayerTransportGuid());
+        isM2Transport = (tr && tr->isM2);
+    }
+    bool onWMOTransport = onTransportNow && !isM2Transport;
+    if (worldEntryCallbacks_ && worldEntryCallbacks_->getWorldEntryMovementGraceTimer() > 0.0f) {
+        worldEntryCallbacks_->setWorldEntryMovementGraceTimer(
+            worldEntryCallbacks_->getWorldEntryMovementGraceTimer() - deltaTime);
+        // Clear stale movement from before teleport each frame
+        // until grace period expires (keys may still be held)
+        if (renderer && renderer->getCameraController())
+            renderer->getCameraController()->clearMovementInputs();
+    }
+    // Hearth teleport: delegated to WorldEntryCallbackHandler
+    if (worldEntryCallbacks_) {
+        worldEntryCallbacks_->update(deltaTime);
+    }
+    if (renderer && renderer->getCameraController()) {
+    // A ship carries the player's reference frame, but it must not
+    // freeze local controls like a taxi flight. On-deck walking is
+    // folded into the transport-local offset in the sync block below.
+    const bool externallyDrivenMotion = onTaxi ||
+        (animationCallbacks_ && animationCallbacks_->isCharging());
+    // Keep physics frozen (externalFollow) during landing clamp when terrain
+    // hasn't loaded yet — prevents gravity from pulling player through void.
+    bool hearthFreeze = worldEntryCallbacks_ && worldEntryCallbacks_->isHearthTeleportPending();
+    const bool transportTransferFreeze = gameHandler &&
+        gameHandler->hasPendingPlayerTransportWorldTransfer();
+    bool landingClampActive = !onTaxi && worldEntryCallbacks_ && worldEntryCallbacks_->getTaxiLandingClampTimer() > 0.0f &&
+                              worldEntryCallbacks_->getWorldEntryMovementGraceTimer() <= 0.0f &&
+                              !gameHandler->isMounted();
+    renderer->getCameraController()->setExternalFollow(
+        externallyDrivenMotion || landingClampActive || hearthFreeze ||
+        transportTransferFreeze || deckFloorPending_);
+    renderer->getCameraController()->setExternalMoving(externallyDrivenMotion);
+    if (externallyDrivenMotion) {
+        // Drop any stale local movement toggles while server drives taxi motion.
+        renderer->getCameraController()->clearMovementInputs();
+        if (worldEntryCallbacks_) worldEntryCallbacks_->setTaxiLandingClampTimer(0.0f);
+    }
+    if (worldEntryCallbacks_ && worldEntryCallbacks_->getLastTaxiFlight() && !onTaxi) {
+        renderer->getCameraController()->clearMovementInputs();
+        // Keep clamping until terrain loads at landing position.
+        // Timer only counts down once a valid floor is found.
         if (worldEntryCallbacks_) {
-            worldEntryCallbacks_->update(deltaTime);
-        }
-        if (renderer && renderer->getCameraController()) {
-        // A ship carries the player's reference frame, but it must not
-        // freeze local controls like a taxi flight. On-deck walking is
-        // folded into the transport-local offset in the sync block below.
-        const bool externallyDrivenMotion = onTaxi ||
-            (animationCallbacks_ && animationCallbacks_->isCharging());
-        // Keep physics frozen (externalFollow) during landing clamp when terrain
-        // hasn't loaded yet — prevents gravity from pulling player through void.
-        bool hearthFreeze = worldEntryCallbacks_ && worldEntryCallbacks_->isHearthTeleportPending();
-        const bool transportTransferFreeze = gameHandler &&
-            gameHandler->hasPendingPlayerTransportWorldTransfer();
-        bool landingClampActive = !onTaxi && worldEntryCallbacks_ && worldEntryCallbacks_->getTaxiLandingClampTimer() > 0.0f &&
-                                  worldEntryCallbacks_->getWorldEntryMovementGraceTimer() <= 0.0f &&
-                                  !gameHandler->isMounted();
-        renderer->getCameraController()->setExternalFollow(
-            externallyDrivenMotion || landingClampActive || hearthFreeze ||
-            transportTransferFreeze || deckFloorPending_);
-        renderer->getCameraController()->setExternalMoving(externallyDrivenMotion);
-        if (externallyDrivenMotion) {
-            // Drop any stale local movement toggles while server drives taxi motion.
-            renderer->getCameraController()->clearMovementInputs();
-            if (worldEntryCallbacks_) worldEntryCallbacks_->setTaxiLandingClampTimer(0.0f);
-        }
-        if (worldEntryCallbacks_ && worldEntryCallbacks_->getLastTaxiFlight() && !onTaxi) {
-            renderer->getCameraController()->clearMovementInputs();
-            // Keep clamping until terrain loads at landing position.
-            // Timer only counts down once a valid floor is found.
-            if (worldEntryCallbacks_) {
-                worldEntryCallbacks_->setTaxiLandingClampTimer(2.0f);
-                // Capture where the flight itself left the player, before terrain/WMO
-                // streaming has a chance to move things around - this is the ground
-                // truth the floor-selection below picks the closest candidate to.
-                if (renderer) {
-                    worldEntryCallbacks_->setTaxiLandingReferenceZ(renderer->getCharacterPosition().z);
-                }
+            worldEntryCallbacks_->setTaxiLandingClampTimer(2.0f);
+            // Capture where the flight itself left the player, before terrain/WMO
+            // streaming has a chance to move things around - this is the ground
+            // truth the floor-selection below picks the closest candidate to.
+            if (renderer) {
+                worldEntryCallbacks_->setTaxiLandingReferenceZ(renderer->getCharacterPosition().z);
             }
         }
-        if (landingClampActive) {
-            if (renderer && gameHandler) {
-                glm::vec3 p = renderer->getCharacterPosition();
-                std::optional<float> terrainFloor;
-                std::optional<float> wmoFloor;
-                std::optional<float> m2Floor;
-                if (renderer->getTerrainManager()) {
-                    terrainFloor = renderer->getTerrainManager()->getHeightAt(p.x, p.y);
-                }
-                // Ground truth for this landing: where the flight itself left
-                // the player, captured once when the clamp armed. Both the probe
-                // height and the candidate selection below key off it.
-                const float referenceZ = worldEntryCallbacks_
-                    ? worldEntryCallbacks_->getTaxiLandingReferenceZ() : p.z;
-
-                // Probe from a height that does not move, because this clamp
-                // rewrites p.z every frame and the structure query only looks
-                // for candidates within roughly ten yards of where it is asked.
-                //
-                // Probing p.z + 40 therefore only found a floor while the
-                // player was still far below it. Snapping them onto it lifted
-                // the probe out of range, the floor stopped being reported, the
-                // clamp fell back to terrain and dropped them again — landing
-                // at Booty Bay flip-flopped between the WMO deck at 36.5 and
-                // the terrain at 4.5 twelve times over, and whichever the last
-                // frame chose is where the player was abandoned as the timer
-                // ran out, which is how they ended up thrown up and then under
-                // the structure.
-                //
-                // referenceZ is captured once when the clamp arms, from where
-                // the flight itself left the player, and is already the value
-                // the selection below measures candidates against. Anchoring
-                // the probe to it keeps the candidate set the same every frame,
-                // so the choice is stable and the streaming re-query it exists
-                // for still works.
-                constexpr float kLandingProbeAbove = 2.0f;
-                const float probeZ = referenceZ + kLandingProbeAbove;
-                if (renderer->getWMORenderer()) {
-                    wmoFloor = renderer->getWMORenderer()->getFloorHeight(p.x, p.y, probeZ);
-                }
-                if (renderer->getM2Renderer()) {
-                    // Include M2 floors (bridges/platforms) in landing recovery.
-                    m2Floor = renderer->getM2Renderer()->getFloorHeight(p.x, p.y, probeZ);
-                }
-
-                // Pick whichever floor candidate is closest to where the taxi flight
-                // itself left the player, rather than unconditionally preferring
-                // WMO/M2 over terrain. Unconditionally preferring WMO/M2 fixed
-                // underground landings (terrain has no notion of being underground -
-                // e.g. a WMO tunnel beneath a mountain, like Ironforge's flight point,
-                // where terrainFloor=769 the mountain surface beat the correct
-                // wmoFloor=502 the tunnel floor with "highest wins"), but could just as
-                // easily snap an *outdoor* landing down onto an unrelated structure
-                // sitting underneath it. referenceZ - captured once when the clamp
-                // armed, from wherever the flight simulation actually left the player -
-                // is ground truth for which candidate is plausible.
-                std::optional<float> targetFloor;
-                const char* pickedFrom = "none";
-                float bestDist = std::numeric_limits<float>::max();
-                const std::pair<std::optional<float>, const char*> floorCandidates[] = {
-                    {wmoFloor, "wmo"}, {m2Floor, "m2"}, {terrainFloor, "terrain"}};
-                for (const auto& [candidate, name] : floorCandidates) {
-                    if (!candidate) continue;
-                    float dist = std::abs(*candidate - referenceZ);
-                    if (dist < bestDist) {
-                        bestDist = dist;
-                        targetFloor = candidate;
-                        pickedFrom = name;
-                    }
-                }
-
-                LOG_INFO("Taxi landing clamp: pos=(", p.x, ", ", p.y, ", ", p.z, ") ",
-                         "referenceZ=", referenceZ, " probeZ=", probeZ, " ",
-                         "terrainFloor=", terrainFloor ? std::to_string(*terrainFloor) : "none", " ",
-                         "wmoFloor=", wmoFloor ? std::to_string(*wmoFloor) : "none", " ",
-                         "m2Floor=", m2Floor ? std::to_string(*m2Floor) : "none", " ",
-                         "picked=", pickedFrom, " ",
-                         "timer=", worldEntryCallbacks_ ? worldEntryCallbacks_->getTaxiLandingClampTimer() : 0.0f);
-
-                if (targetFloor) {
-                    // Floor found — snap player to it and start countdown to release
-                    float targetZ = *targetFloor + 0.10f;
-                    if (std::abs(p.z - targetZ) > 0.05f) {
-                        LOG_INFO("Taxi landing clamp: snapping z ", p.z, " -> ", targetZ,
-                                 " (source=", pickedFrom, ")");
-                        p.z = targetZ;
-                        renderer->getCharacterPosition() = p;
-                        glm::vec3 canonical = core::coords::renderToCanonical(p);
-                        gameHandler->setPosition(canonical.x, canonical.y, canonical.z);
-                        gameHandler->sendMovement(game::Opcode::MSG_MOVE_HEARTBEAT);
-                    }
-                    float clampTimer = worldEntryCallbacks_ ? worldEntryCallbacks_->getTaxiLandingClampTimer() : 0.0f;
-                    clampTimer -= deltaTime;
-                    if (worldEntryCallbacks_) worldEntryCallbacks_->setTaxiLandingClampTimer(clampTimer);
-                }
-                // No floor found: don't decrement timer, keep player frozen until terrain loads
-            }
-        }
-        bool idleOrbit = renderer->getCameraController()->isIdleOrbit();
-        if (idleOrbit && !idleYawned_ && renderer) {
-            if (auto* ac = renderer->getAnimationController()) ac->playEmote("yawn");
-            idleYawned_ = true;
-        } else if (!idleOrbit) {
-            idleYawned_ = false;
-        }
-        }
-        if (renderer) {
-            if (auto* ac = renderer->getAnimationController()) ac->setTaxiFlight(onTaxi);
-        }
-        if (renderer && renderer->getTerrainManager()) {
-        renderer->getTerrainManager()->setStreamingEnabled(true);
-        // Taxi flights move fast (32 u/s) — load further ahead so terrain is ready
-        // before the camera arrives.  Keep updates frequent to spot new tiles early.
-        renderer->getTerrainManager()->setUpdateInterval(onTaxi ? 0.033f : 0.033f);
-        const int configuredLoadRadius = renderer->getTerrainLoadRadius();
-        const int configuredUnloadRadius = renderer->getTerrainUnloadRadius();
-        renderer->getTerrainManager()->setLoadRadius(
-            onTaxi ? std::max(8, configuredLoadRadius) : configuredLoadRadius);
-        renderer->getTerrainManager()->setUnloadRadius(
-            onTaxi ? std::max(12, configuredUnloadRadius) : configuredUnloadRadius);
-        renderer->getTerrainManager()->setTaxiStreamingMode(onTaxi);
-        }
-        if (worldEntryCallbacks_) worldEntryCallbacks_->setLastTaxiFlight(actuallyFlying);
-
-        // Sync character render position ↔ canonical WoW coords each frame
+    }
+    if (landingClampActive) {
         if (renderer && gameHandler) {
-        // For position sync branching, only WMO transports use the dedicated
-        // onTransport branch. M2 transports use the normal movement else branch
-        // with a position-delta correction applied on top.
-        bool onTransport = onWMOTransport;
+            glm::vec3 p = renderer->getCharacterPosition();
+            std::optional<float> terrainFloor;
+            std::optional<float> wmoFloor;
+            std::optional<float> m2Floor;
+            if (renderer->getTerrainManager()) {
+                terrainFloor = renderer->getTerrainManager()->getHeightAt(p.x, p.y);
+            }
+            // Ground truth for this landing: where the flight itself left
+            // the player, captured once when the clamp armed. Both the probe
+            // height and the candidate selection below key off it.
+            const float referenceZ = worldEntryCallbacks_
+                ? worldEntryCallbacks_->getTaxiLandingReferenceZ() : p.z;
 
-        static bool wasOnTransport = false;
-        bool onTransportNowDbg = gameHandler->isOnTransport();
-        if (onTransportNowDbg != wasOnTransport) {
-            LOG_DEBUG("Transport state changed: onTransport=", onTransportNowDbg,
-                     " isM2=", isM2Transport,
-                     " guid=0x", std::hex, gameHandler->getPlayerTransportGuid(), std::dec);
-            wasOnTransport = onTransportNowDbg;
+            // Probe from a height that does not move, because this clamp
+            // rewrites p.z every frame and the structure query only looks
+            // for candidates within roughly ten yards of where it is asked.
+            //
+            // Probing p.z + 40 therefore only found a floor while the
+            // player was still far below it. Snapping them onto it lifted
+            // the probe out of range, the floor stopped being reported, the
+            // clamp fell back to terrain and dropped them again — landing
+            // at Booty Bay flip-flopped between the WMO deck at 36.5 and
+            // the terrain at 4.5 twelve times over, and whichever the last
+            // frame chose is where the player was abandoned as the timer
+            // ran out, which is how they ended up thrown up and then under
+            // the structure.
+            //
+            // referenceZ is captured once when the clamp arms, from where
+            // the flight itself left the player, and is already the value
+            // the selection below measures candidates against. Anchoring
+            // the probe to it keeps the candidate set the same every frame,
+            // so the choice is stable and the streaming re-query it exists
+            // for still works.
+            constexpr float kLandingProbeAbove = 2.0f;
+            const float probeZ = referenceZ + kLandingProbeAbove;
+            if (renderer->getWMORenderer()) {
+                wmoFloor = renderer->getWMORenderer()->getFloorHeight(p.x, p.y, probeZ);
+            }
+            if (renderer->getM2Renderer()) {
+                // Include M2 floors (bridges/platforms) in landing recovery.
+                m2Floor = renderer->getM2Renderer()->getFloorHeight(p.x, p.y, probeZ);
+            }
+
+            // Pick whichever floor candidate is closest to where the taxi flight
+            // itself left the player, rather than unconditionally preferring
+            // WMO/M2 over terrain. Unconditionally preferring WMO/M2 fixed
+            // underground landings (terrain has no notion of being underground -
+            // e.g. a WMO tunnel beneath a mountain, like Ironforge's flight point,
+            // where terrainFloor=769 the mountain surface beat the correct
+            // wmoFloor=502 the tunnel floor with "highest wins"), but could just as
+            // easily snap an *outdoor* landing down onto an unrelated structure
+            // sitting underneath it. referenceZ - captured once when the clamp
+            // armed, from wherever the flight simulation actually left the player -
+            // is ground truth for which candidate is plausible.
+            std::optional<float> targetFloor;
+            const char* pickedFrom = "none";
+            float bestDist = std::numeric_limits<float>::max();
+            const std::pair<std::optional<float>, const char*> floorCandidates[] = {
+                {wmoFloor, "wmo"}, {m2Floor, "m2"}, {terrainFloor, "terrain"}};
+            for (const auto& [candidate, name] : floorCandidates) {
+                if (!candidate) continue;
+                float dist = std::abs(*candidate - referenceZ);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    targetFloor = candidate;
+                    pickedFrom = name;
+                }
+            }
+
+            LOG_INFO("Taxi landing clamp: pos=(", p.x, ", ", p.y, ", ", p.z, ") ",
+                     "referenceZ=", referenceZ, " probeZ=", probeZ, " ",
+                     "terrainFloor=", terrainFloor ? std::to_string(*terrainFloor) : "none", " ",
+                     "wmoFloor=", wmoFloor ? std::to_string(*wmoFloor) : "none", " ",
+                     "m2Floor=", m2Floor ? std::to_string(*m2Floor) : "none", " ",
+                     "picked=", pickedFrom, " ",
+                     "timer=", worldEntryCallbacks_ ? worldEntryCallbacks_->getTaxiLandingClampTimer() : 0.0f);
+
+            if (targetFloor) {
+                // Floor found — snap player to it and start countdown to release
+                float targetZ = *targetFloor + 0.10f;
+                if (std::abs(p.z - targetZ) > 0.05f) {
+                    LOG_INFO("Taxi landing clamp: snapping z ", p.z, " -> ", targetZ,
+                             " (source=", pickedFrom, ")");
+                    p.z = targetZ;
+                    renderer->getCharacterPosition() = p;
+                    glm::vec3 canonical = core::coords::renderToCanonical(p);
+                    gameHandler->setPosition(canonical.x, canonical.y, canonical.z);
+                    gameHandler->sendMovement(game::Opcode::MSG_MOVE_HEARTBEAT);
+                }
+                float clampTimer = worldEntryCallbacks_ ? worldEntryCallbacks_->getTaxiLandingClampTimer() : 0.0f;
+                clampTimer -= deltaTime;
+                if (worldEntryCallbacks_) worldEntryCallbacks_->setTaxiLandingClampTimer(clampTimer);
+            }
+            // No floor found: don't decrement timer, keep player frozen until terrain loads
         }
+    }
+    bool idleOrbit = renderer->getCameraController()->isIdleOrbit();
+    if (idleOrbit && !idleYawned_ && renderer) {
+        if (auto* ac = renderer->getAnimationController()) ac->playEmote("yawn");
+        idleYawned_ = true;
+    } else if (!idleOrbit) {
+        idleYawned_ = false;
+    }
+    }
+    if (renderer) {
+        if (auto* ac = renderer->getAnimationController()) ac->setTaxiFlight(onTaxi);
+    }
+    if (renderer && renderer->getTerrainManager()) {
+    renderer->getTerrainManager()->setStreamingEnabled(true);
+    // Taxi flights move fast (32 u/s) — load further ahead so terrain is ready
+    // before the camera arrives.  Keep updates frequent to spot new tiles early.
+    renderer->getTerrainManager()->setUpdateInterval(onTaxi ? 0.033f : 0.033f);
+    const int configuredLoadRadius = renderer->getTerrainLoadRadius();
+    const int configuredUnloadRadius = renderer->getTerrainUnloadRadius();
+    renderer->getTerrainManager()->setLoadRadius(
+        onTaxi ? std::max(8, configuredLoadRadius) : configuredLoadRadius);
+    renderer->getTerrainManager()->setUnloadRadius(
+        onTaxi ? std::max(12, configuredUnloadRadius) : configuredUnloadRadius);
+    renderer->getTerrainManager()->setTaxiStreamingMode(onTaxi);
+    }
+    if (worldEntryCallbacks_) worldEntryCallbacks_->setLastTaxiFlight(actuallyFlying);
 
-        if (onTaxi) {
-            auto playerEntity = gameHandler->getEntityManager().getEntity(gameHandler->getPlayerGuid());
-            glm::vec3 canonical(0.0f);
-            bool haveCanonical = false;
-            if (playerEntity) {
-                canonical = glm::vec3(playerEntity->getX(), playerEntity->getY(), playerEntity->getZ());
-                haveCanonical = true;
-            } else {
-                // Fallback for brief entity gaps during taxi start/updates:
-                // movementInfo is still updated by client taxi simulation.
-                const auto& move = gameHandler->getMovementInfo();
-                canonical = glm::vec3(move.x, move.y, move.z);
-                haveCanonical = true;
-            }
-            if (haveCanonical) {
-                glm::vec3 renderPos = core::coords::canonicalToRender(canonical);
-                renderer->getCharacterPosition() = renderPos;
-                if (renderer->getCameraController()) {
-                    glm::vec3* followTarget = renderer->getCameraController()->getFollowTargetMutable();
-                    if (followTarget) {
-                        *followTarget = renderPos;
-                    }
-                }
-            }
-        } else if (onTransport) {
-            // WMO transport mode (ships): keep the transport-local
-            // attachment, while folding real WASD/jump movement since
-            // last frame into that offset. Treating ships as fully
-            // externally driven cleared movement input and reapplied the
-            // boarding-time offset forever, freezing the player in a
-            // running pose at the point where they stepped aboard.
-            auto* tm = gameHandler->getTransportManager();
-            auto* tr = tm ? tm->getTransport(gameHandler->getPlayerTransportGuid()) : nullptr;
-            if (tr) {
-                const uint64_t transportGuid = gameHandler->getPlayerTransportGuid();
-                const uint32_t mapId = gameHandler->getCurrentMapId();
-                glm::vec3 localOffset = gameHandler->getPlayerTransportOffset();
-                const glm::vec3 tentativeRender = renderer->getCharacterPosition();
-                const glm::vec3 expectedRender(
-                    tr->transform * glm::vec4(localOffset, 1.0f));
-                glm::vec3 intendedRender = expectedRender;
+    // Sync character render position ↔ canonical WoW coords each frame
+    if (renderer && gameHandler) {
+    // For position sync branching, only WMO transports use the dedicated
+    // onTransport branch. M2 transports use the normal movement else branch
+    // with a position-delta correction applied on top.
+    bool onTransport = onWMOTransport;
 
-                // A cross-map ship transfer can reuse the same synthetic GO
-                // GUID on the destination map. Never interpret the continent-
-                // sized difference from the previous map's ride lock as deck
-                // walking: doing so rewrites a valid server transport offset
-                // into a huge negative Z and drops the rider underwater.
-                const bool sameRideFrame = hasWMORideLock_ &&
-                    lastWMORideTransportGuid_ == transportGuid &&
-                    lastWMORideMapId_ == mapId;
-                if (!sameRideFrame && !tr->isM2) {
-                    deckFloorPending_ = true;
-                }
-                if (sameRideFrame && renderer->getCameraController()) {
-                    const glm::vec3 localMotion =
-                        tentativeRender - lastWMORideLockedRender_;
-                    if (renderer->getCameraController()->isMoving()) {
-                        intendedRender.x += localMotion.x;
-                        intendedRender.y += localMotion.y;
-                    }
-                    if (!renderer->getCameraController()->isGrounded()) {
-                        intendedRender.z += localMotion.z;
-                    }
-                }
+    static bool wasOnTransport = false;
+    bool onTransportNowDbg = gameHandler->isOnTransport();
+    if (onTransportNowDbg != wasOnTransport) {
+        LOG_DEBUG("Transport state changed: onTransport=", onTransportNowDbg,
+                 " isM2=", isM2Transport,
+                 " guid=0x", std::hex, gameHandler->getPlayerTransportGuid(), std::dec);
+        wasOnTransport = onTransportNowDbg;
+    }
 
-                // The camera controller's ordinary static-world floor query accepts a
-                // moving WMO deck only when it is right under the feet, so every WMO
-                // ship needs its exact transport-instance floor held under the rider —
-                // otherwise gravity folds into the attachment and pulls them through
-                // the hull, and multi-deck ships (stairs, ramps) can't be climbed
-                // because nothing raises the rider onto the upper geometry. This is
-                // the walkable-deck query for ANY ship, keyed on the transport being
-                // a WMO (not M2), not on a specific ship entry. getInstanceFloorHeight
-                // returns the height of whatever deck/stair is under the player, so
-                // walking up onto a higher deck just follows the collision. An upward
-                // jump remains fully controlled by vertical physics (skipped below).
-                auto* cameraController = renderer->getCameraController();
-                if (!tr->isM2 && cameraController &&
-                    !cameraController->isJumping()) {
-                    const glm::vec3 intendedCanonical =
-                        core::coords::renderToCanonical(intendedRender);
-                    const auto deckFloor = tm->getTransportDeckFloorHeight(
-                        transportGuid, intendedCanonical);
-                    if (deckFloor && intendedRender.z >= *deckFloor - 3.0f &&
-                        intendedRender.z <= *deckFloor + 0.35f) {
-                        intendedRender.z = *deckFloor + 0.10f;
-                        cameraController->suppressVerticalPhysics();
-                        deckFloorPending_ = false;
-                    } else if (deckFloorPending_ &&
-                               !tm->isTransportCollisionReady(transportGuid)) {
-                        // A continent transfer registers the transport GO
-                        // before its WMO collision necessarily finishes loading.
-                        // Preserve the local offset until this exact instance's
-                        // deck exists instead of releasing gravity after a timer.
-                        intendedRender = expectedRender;
-                        cameraController->suppressVerticalPhysics();
-                    } else if (deckFloorPending_) {
-                        // Collision is loaded and still found no deck underfoot,
-                        // which is a real answer, not a not-ready one. The hold
-                        // above waits for geometry to arrive; it must not
-                        // outlive its own premise.
-                        //
-                        // It did, and there was no way out of it: the flag is set
-                        // on boarding and cleared only by a successful deck query,
-                        // so boarding somewhere the query never succeeds — a
-                        // gangway that belongs to the pier rather than the hull —
-                        // reapplied the boarding offset every frame forever. That
-                        // is a rider running on the spot, unable to walk far
-                        // enough to trigger disembark and so unable to get off.
-                        deckFloorPending_ = false;
-                    }
-                }
-
-                localOffset = glm::vec3(
-                    tr->invTransform * glm::vec4(intendedRender, 1.0f));
-                gameHandler->setPlayerTransportOffset(localOffset);
-            }
-
-            glm::vec3 canonical = gameHandler->getComposedWorldPosition();
+    if (onTaxi) {
+        auto playerEntity = gameHandler->getEntityManager().getEntity(gameHandler->getPlayerGuid());
+        glm::vec3 canonical(0.0f);
+        bool haveCanonical = false;
+        if (playerEntity) {
+            canonical = glm::vec3(playerEntity->getX(), playerEntity->getY(), playerEntity->getZ());
+            haveCanonical = true;
+        } else {
+            // Fallback for brief entity gaps during taxi start/updates:
+            // movementInfo is still updated by client taxi simulation.
+            const auto& move = gameHandler->getMovementInfo();
+            canonical = glm::vec3(move.x, move.y, move.z);
+            haveCanonical = true;
+        }
+        if (haveCanonical) {
             glm::vec3 renderPos = core::coords::canonicalToRender(canonical);
             renderer->getCharacterPosition() = renderPos;
-            lastWMORideLockedRender_ = renderPos;
-            hasWMORideLock_ = true;
-            lastWMORideTransportGuid_ = gameHandler->getPlayerTransportGuid();
-            lastWMORideMapId_ = gameHandler->getCurrentMapId();
-            gameHandler->setPosition(canonical.x, canonical.y, canonical.z);
             if (renderer->getCameraController()) {
                 glm::vec3* followTarget = renderer->getCameraController()->getFollowTargetMutable();
                 if (followTarget) {
                     *followTarget = renderPos;
                 }
             }
-            gameHandler->updateM2TransportBoarding(canonical);
-        } else if (animationCallbacks_ && animationCallbacks_->isCharging()) {
-            // Warrior Charge: interpolation delegated to AnimationCallbackHandler
-            animationCallbacks_->updateCharge(deltaTime);
+        }
+    } else if (onTransport) {
+        // WMO transport mode (ships): keep the transport-local
+        // attachment, while folding real WASD/jump movement since
+        // last frame into that offset. Treating ships as fully
+        // externally driven cleared movement input and reapplied the
+        // boarding-time offset forever, freezing the player in a
+        // running pose at the point where they stepped aboard.
+        auto* tm = gameHandler->getTransportManager();
+        auto* tr = tm ? tm->getTransport(gameHandler->getPlayerTransportGuid()) : nullptr;
+        if (tr) {
+            const uint64_t transportGuid = gameHandler->getPlayerTransportGuid();
+            const uint32_t mapId = gameHandler->getCurrentMapId();
+            glm::vec3 localOffset = gameHandler->getPlayerTransportOffset();
+            const glm::vec3 tentativeRender = renderer->getCharacterPosition();
+            const glm::vec3 expectedRender(
+                tr->transform * glm::vec4(localOffset, 1.0f));
+            glm::vec3 intendedRender = expectedRender;
+
+            // A cross-map ship transfer can reuse the same synthetic GO
+            // GUID on the destination map. Never interpret the continent-
+            // sized difference from the previous map's ride lock as deck
+            // walking: doing so rewrites a valid server transport offset
+            // into a huge negative Z and drops the rider underwater.
+            const bool sameRideFrame = hasWMORideLock_ &&
+                lastWMORideTransportGuid_ == transportGuid &&
+                lastWMORideMapId_ == mapId;
+            if (!sameRideFrame && !tr->isM2) {
+                deckFloorPending_ = true;
+            }
+            if (sameRideFrame && renderer->getCameraController()) {
+                const glm::vec3 localMotion =
+                    tentativeRender - lastWMORideLockedRender_;
+                if (renderer->getCameraController()->isMoving()) {
+                    intendedRender.x += localMotion.x;
+                    intendedRender.y += localMotion.y;
+                }
+                if (!renderer->getCameraController()->isGrounded()) {
+                    intendedRender.z += localMotion.z;
+                }
+            }
+
+            // The camera controller's ordinary static-world floor query accepts a
+            // moving WMO deck only when it is right under the feet, so every WMO
+            // ship needs its exact transport-instance floor held under the rider —
+            // otherwise gravity folds into the attachment and pulls them through
+            // the hull, and multi-deck ships (stairs, ramps) can't be climbed
+            // because nothing raises the rider onto the upper geometry. This is
+            // the walkable-deck query for ANY ship, keyed on the transport being
+            // a WMO (not M2), not on a specific ship entry. getInstanceFloorHeight
+            // returns the height of whatever deck/stair is under the player, so
+            // walking up onto a higher deck just follows the collision. An upward
+            // jump remains fully controlled by vertical physics (skipped below).
+            auto* cameraController = renderer->getCameraController();
+            if (!tr->isM2 && cameraController &&
+                !cameraController->isJumping()) {
+                const glm::vec3 intendedCanonical =
+                    core::coords::renderToCanonical(intendedRender);
+                const auto deckFloor = tm->getTransportDeckFloorHeight(
+                    transportGuid, intendedCanonical);
+                if (deckFloor && intendedRender.z >= *deckFloor - 3.0f &&
+                    intendedRender.z <= *deckFloor + 0.35f) {
+                    intendedRender.z = *deckFloor + 0.10f;
+                    cameraController->suppressVerticalPhysics();
+                    deckFloorPending_ = false;
+                } else if (deckFloorPending_ &&
+                           !tm->isTransportCollisionReady(transportGuid)) {
+                    // A continent transfer registers the transport GO
+                    // before its WMO collision necessarily finishes loading.
+                    // Preserve the local offset until this exact instance's
+                    // deck exists instead of releasing gravity after a timer.
+                    intendedRender = expectedRender;
+                    cameraController->suppressVerticalPhysics();
+                } else if (deckFloorPending_) {
+                    // Collision is loaded and still found no deck underfoot,
+                    // which is a real answer, not a not-ready one. The hold
+                    // above waits for geometry to arrive; it must not
+                    // outlive its own premise.
+                    //
+                    // It did, and there was no way out of it: the flag is set
+                    // on boarding and cleared only by a successful deck query,
+                    // so boarding somewhere the query never succeeds — a
+                    // gangway that belongs to the pier rather than the hull —
+                    // reapplied the boarding offset every frame forever. That
+                    // is a rider running on the spot, unable to walk far
+                    // enough to trigger disembark and so unable to get off.
+                    deckFloorPending_ = false;
+                }
+            }
+
+            localOffset = glm::vec3(
+                tr->invTransform * glm::vec4(intendedRender, 1.0f));
+            gameHandler->setPlayerTransportOffset(localOffset);
+        }
+
+        glm::vec3 canonical = gameHandler->getComposedWorldPosition();
+        glm::vec3 renderPos = core::coords::canonicalToRender(canonical);
+        renderer->getCharacterPosition() = renderPos;
+        lastWMORideLockedRender_ = renderPos;
+        hasWMORideLock_ = true;
+        lastWMORideTransportGuid_ = gameHandler->getPlayerTransportGuid();
+        lastWMORideMapId_ = gameHandler->getCurrentMapId();
+        gameHandler->setPosition(canonical.x, canonical.y, canonical.z);
+        if (renderer->getCameraController()) {
+            glm::vec3* followTarget = renderer->getCameraController()->getFollowTargetMutable();
+            if (followTarget) {
+                *followTarget = renderPos;
+            }
+        }
+        gameHandler->updateM2TransportBoarding(canonical);
+    } else if (animationCallbacks_ && animationCallbacks_->isCharging()) {
+        // Warrior Charge: interpolation delegated to AnimationCallbackHandler
+        animationCallbacks_->updateCharge(deltaTime);
+    } else {
+        hasWMORideLock_ = false;
+        lastWMORideTransportGuid_ = 0;
+        lastWMORideMapId_ = 0xFFFFFFFFu;
+        deckFloorPending_ = false;
+        glm::vec3 renderPos = renderer->getCharacterPosition();
+
+        // M2 transport riding: resolve in canonical space and lock once per frame.
+        // This avoids visible jitter from mixed render/canonical delta application.
+        if (isM2Transport && gameHandler->getTransportManager()) {
+            auto* tr = gameHandler->getTransportManager()->getTransport(
+                gameHandler->getPlayerTransportGuid());
+            if (tr) {
+                // Ride along at a fixed offset from the transport's current position
+                // (set once at boarding - see GameHandler::updateM2TransportBoarding),
+                // plus whatever the player has walked on the deck since then. WASD
+                // input runs earlier in the frame and moves renderer's character
+                // position directly; comparing that (tentativeCanonical) against
+                // where *we* locked it last frame isolates just that walked delta,
+                // so standing still holds a fixed deck position while active input
+                // still moves the player, instead of either (a) fully locking
+                // movement or (b) recomputing offset from the absolute position,
+                // which is a no-op identity once fed back into
+                // lockedCanonical = tr->position + offset: the character's render
+                // position could never actually change due to the tram moving, so
+                // riding appeared to "float" in place no matter how far the tram
+                // traveled underneath.
+                const bool isDeeprunTram =
+                    game::TransportManager::isDeeprunTramTransport(*tr);
+                glm::vec3 localOffset = gameHandler->getPlayerTransportOffset();
+                glm::vec3 tentativeCanonical = core::coords::renderToCanonical(renderPos);
+                if (hasM2RideLock_) {
+                    glm::vec3 walkDelta = tentativeCanonical - lastM2RideLockedCanonical_;
+                    // Root cause found: the 60-unit clamp added last round was a backstop
+                    // that treated the symptom, not the cause - live data showed it
+                    // getting maxed out exactly (horizDist=60.0 at the eventual disembark),
+                    // meaning the runaway drift reaches whatever ceiling is set as long as
+                    // that ceiling is above the 18-unit disembark threshold, so it still
+                    // ended the ride ("I still got kicked off... but at least I didn't die
+                    // this time" reported live). The actual bug: there's no real floor
+                    // under a moving M2 car, so gravity keeps trying to pull the character
+                    // down every frame even while standing still; since Z is locked, that
+                    // shows up as horizontal render-position drift, and this code
+                    // previously couldn't tell that apart from real WASD input - it baked
+                    // ANY frame-to-frame position change into localOffset, compounding
+                    // forever. Gate on genuine movement input (the same signal driving the
+                    // walking animation) so gravity noise while stationary is ignored
+                    // instead of accumulated; only apply the delta when the player is
+                    // actually pressing a movement key.
+                    const bool hasMovementInput = renderer->getCameraController() &&
+                        renderer->getCameraController()->isMoving();
+                    if (hasMovementInput) {
+                        localOffset.x += walkDelta.x;
+                        localOffset.y += walkDelta.y;
+                    }
+                    // Keep a generous distance clamp as a secondary backstop for any
+                    // other source of drift (e.g. knockback, server-forced movement)
+                    // this input gate doesn't cover.
+                    if (isDeeprunTram) {
+                        constexpr float kMaxRideOffsetDist = 60.0f;
+                        const float offsetLen = std::sqrt(localOffset.x * localOffset.x + localOffset.y * localOffset.y);
+                        if (offsetLen > kMaxRideOffsetDist) {
+                            const float scale = kMaxRideOffsetDist / offsetLen;
+                            localOffset.x *= scale;
+                            localOffset.y *= scale;
+                        }
+                    }
+                }
+                // Z is fully locked for the Deeprun tram (see below), so
+                // CameraController's own gravity integration never sees a
+                // grounded frame and silently accumulates fall velocity the
+                // entire ride - reported live as clipping through the world
+                // "at a weird angle" right after disembarking, and as being
+                // unable to jump while riding (coyote time never has a
+                // grounded frame to key off). Suppress it every frame the
+                // lock is active so nothing is queued up to unleash later.
+                if (isDeeprunTram && renderer->getCameraController()) {
+                    renderer->getCameraController()->suppressVerticalPhysics();
+                }
+                // Thunder Bluff lifts have real floor at both ends of their travel,
+                // so letting Z track physics while airborne (jumping) is recoverable -
+                // the player lands back on the platform. The Deeprun Tram tunnel has
+                // no floor at all except at the two station platforms; if this ran for
+                // it, isGrounded() ever reporting false mid-tunnel (e.g. because M2
+                // collision for a moving instance isn't recognized as ground the same
+                // way static terrain is) would let gravity pull the player away from
+                // the tram with nothing to land on - reported live as falling through
+                // the tram/tunnel and dying. Keep Z fully locked for the tram; only
+                // lifts get the airborne exception.
+                if (!isDeeprunTram && renderer->getCameraController() &&
+                    !renderer->getCameraController()->isGrounded()) {
+                    // While airborne (jump/fall), let vertical offset track normal
+                    // physics instead of staying pinned to the boarding-time value.
+                    // Without this, floor clamping can hold world-Z static unless the
+                    // player is jumping, which makes lifts appear to not move vertically.
+                    localOffset.z = tentativeCanonical.z - tr->position.z;
+                }
+                gameHandler->setPlayerTransportOffset(localOffset);
+
+                glm::vec3 lockedCanonical = tr->position + localOffset;
+                renderPos = core::coords::canonicalToRender(lockedCanonical);
+                renderer->getCharacterPosition() = renderPos;
+                lastM2RideLockedCanonical_ = lockedCanonical;
+                hasM2RideLock_ = true;
+            }
         } else {
-            hasWMORideLock_ = false;
-            lastWMORideTransportGuid_ = 0;
-            lastWMORideMapId_ = 0xFFFFFFFFu;
-            deckFloorPending_ = false;
-            glm::vec3 renderPos = renderer->getCharacterPosition();
+            hasM2RideLock_ = false;
+        }
+        if (auto* ac = renderer->getAnimationController()) {
+            ac->setM2TransportRiding(hasM2RideLock_);
+        }
 
-            // M2 transport riding: resolve in canonical space and lock once per frame.
-            // This avoids visible jitter from mixed render/canonical delta application.
-            if (isM2Transport && gameHandler->getTransportManager()) {
-                auto* tr = gameHandler->getTransportManager()->getTransport(
-                    gameHandler->getPlayerTransportGuid());
-                if (tr) {
-                    // Ride along at a fixed offset from the transport's current position
-                    // (set once at boarding - see GameHandler::updateM2TransportBoarding),
-                    // plus whatever the player has walked on the deck since then. WASD
-                    // input runs earlier in the frame and moves renderer's character
-                    // position directly; comparing that (tentativeCanonical) against
-                    // where *we* locked it last frame isolates just that walked delta,
-                    // so standing still holds a fixed deck position while active input
-                    // still moves the player, instead of either (a) fully locking
-                    // movement or (b) recomputing offset from the absolute position,
-                    // which is a no-op identity once fed back into
-                    // lockedCanonical = tr->position + offset: the character's render
-                    // position could never actually change due to the tram moving, so
-                    // riding appeared to "float" in place no matter how far the tram
-                    // traveled underneath.
-                    const bool isDeeprunTram =
-                        game::TransportManager::isDeeprunTramTransport(*tr);
-                    glm::vec3 localOffset = gameHandler->getPlayerTransportOffset();
-                    glm::vec3 tentativeCanonical = core::coords::renderToCanonical(renderPos);
-                    if (hasM2RideLock_) {
-                        glm::vec3 walkDelta = tentativeCanonical - lastM2RideLockedCanonical_;
-                        // Root cause found: the 60-unit clamp added last round was a backstop
-                        // that treated the symptom, not the cause - live data showed it
-                        // getting maxed out exactly (horizDist=60.0 at the eventual disembark),
-                        // meaning the runaway drift reaches whatever ceiling is set as long as
-                        // that ceiling is above the 18-unit disembark threshold, so it still
-                        // ended the ride ("I still got kicked off... but at least I didn't die
-                        // this time" reported live). The actual bug: there's no real floor
-                        // under a moving M2 car, so gravity keeps trying to pull the character
-                        // down every frame even while standing still; since Z is locked, that
-                        // shows up as horizontal render-position drift, and this code
-                        // previously couldn't tell that apart from real WASD input - it baked
-                        // ANY frame-to-frame position change into localOffset, compounding
-                        // forever. Gate on genuine movement input (the same signal driving the
-                        // walking animation) so gravity noise while stationary is ignored
-                        // instead of accumulated; only apply the delta when the player is
-                        // actually pressing a movement key.
-                        const bool hasMovementInput = renderer->getCameraController() &&
-                            renderer->getCameraController()->isMoving();
-                        if (hasMovementInput) {
-                            localOffset.x += walkDelta.x;
-                            localOffset.y += walkDelta.y;
-                        }
-                        // Keep a generous distance clamp as a secondary backstop for any
-                        // other source of drift (e.g. knockback, server-forced movement)
-                        // this input gate doesn't cover.
-                        if (isDeeprunTram) {
-                            constexpr float kMaxRideOffsetDist = 60.0f;
-                            const float offsetLen = std::sqrt(localOffset.x * localOffset.x + localOffset.y * localOffset.y);
-                            if (offsetLen > kMaxRideOffsetDist) {
-                                const float scale = kMaxRideOffsetDist / offsetLen;
-                                localOffset.x *= scale;
-                                localOffset.y *= scale;
-                            }
-                        }
-                    }
-                    // Z is fully locked for the Deeprun tram (see below), so
-                    // CameraController's own gravity integration never sees a
-                    // grounded frame and silently accumulates fall velocity the
-                    // entire ride - reported live as clipping through the world
-                    // "at a weird angle" right after disembarking, and as being
-                    // unable to jump while riding (coyote time never has a
-                    // grounded frame to key off). Suppress it every frame the
-                    // lock is active so nothing is queued up to unleash later.
-                    if (isDeeprunTram && renderer->getCameraController()) {
-                        renderer->getCameraController()->suppressVerticalPhysics();
-                    }
-                    // Thunder Bluff lifts have real floor at both ends of their travel,
-                    // so letting Z track physics while airborne (jumping) is recoverable -
-                    // the player lands back on the platform. The Deeprun Tram tunnel has
-                    // no floor at all except at the two station platforms; if this ran for
-                    // it, isGrounded() ever reporting false mid-tunnel (e.g. because M2
-                    // collision for a moving instance isn't recognized as ground the same
-                    // way static terrain is) would let gravity pull the player away from
-                    // the tram with nothing to land on - reported live as falling through
-                    // the tram/tunnel and dying. Keep Z fully locked for the tram; only
-                    // lifts get the airborne exception.
-                    if (!isDeeprunTram && renderer->getCameraController() &&
-                        !renderer->getCameraController()->isGrounded()) {
-                        // While airborne (jump/fall), let vertical offset track normal
-                        // physics instead of staying pinned to the boarding-time value.
-                        // Without this, floor clamping can hold world-Z static unless the
-                        // player is jumping, which makes lifts appear to not move vertically.
-                        localOffset.z = tentativeCanonical.z - tr->position.z;
-                    }
-                    gameHandler->setPlayerTransportOffset(localOffset);
-
-                    glm::vec3 lockedCanonical = tr->position + localOffset;
-                    renderPos = core::coords::canonicalToRender(lockedCanonical);
-                    renderer->getCharacterPosition() = renderPos;
-                    lastM2RideLockedCanonical_ = lockedCanonical;
-                    hasM2RideLock_ = true;
-                }
-            } else {
-                hasM2RideLock_ = false;
-            }
-            if (auto* ac = renderer->getAnimationController()) {
-                ac->setM2TransportRiding(hasM2RideLock_);
-            }
-
-            // Model-Z reversal probe: the floor-selection log stays
-            // quiet through the reported Undercity bob, so the bob is in
-            // the Z that actually reaches the character, not the floor
-            // chosen for it — gravity overshooting a stable floor, or a
-            // server correction blended in. This watches the committed
-            // render Z for a direction flip (up-then-down or the
-            // reverse) where both legs clear 0.15, the unmistakable
-            // signature of a yo-yo, and names the two steps so the next
-            // Undercity walk says how far and how fast it bobs and
-            // whether it moves while the feet are otherwise still.
-            {
-                static float lastZ = renderPos.z;
-                static float lastDz = 0.0f;
-                static std::chrono::steady_clock::time_point lastRevLog{};
-                const float dz = renderPos.z - lastZ;
-                if (std::abs(dz) > 0.15f && std::abs(lastDz) > 0.15f &&
-                    ((dz > 0.0f) != (lastDz > 0.0f))) {
-                    const auto now = std::chrono::steady_clock::now();
-                    if (now - lastRevLog > std::chrono::milliseconds(250)) {
-                        lastRevLog = now;
-                        LOG_WARNING("Player Z reversal: z=", renderPos.z,
-                                    " step=", dz, " prevStep=", lastDz,
-                                    " grounded=",
-                                    renderer->getCameraController() &&
-                                    renderer->getCameraController()->isGrounded() ? 1 : 0,
-                                    " moving=",
-                                    renderer->getCameraController() &&
-                                    renderer->getCameraController()->isMoving() ? 1 : 0);
-                    }
-                }
-                if (std::abs(dz) > 0.02f) lastDz = dz;
-                lastZ = renderPos.z;
-            }
-
-            glm::vec3 canonical = core::coords::renderToCanonical(renderPos);
-            gameHandler->setPosition(canonical.x, canonical.y, canonical.z);
-
-            // Sync orientation: camera yaw (degrees) → WoW orientation (radians)
-            float yawDeg = renderer->getCharacterYaw();
-            // Keep all game-side orientation in canonical space.
-            // We historically sent serverYaw = radians(yawDeg - 90). With the new
-            // canonical<->server mapping (serverYaw = PI/2 - canonicalYaw), the
-            // equivalent canonical yaw is radians(180 - yawDeg).
-            float canonicalYaw = core::coords::characterYawDegToCanonical(yawDeg);
-            gameHandler->setOrientation(canonicalYaw);
-
-            // Send MSG_MOVE_SET_FACING when the player changes facing direction
-            // (e.g. via mouse-look). Without this, the server predicts movement in
-            // the old facing and position-corrects on the next heartbeat — the
-            // micro-teleporting the GM observed.
-            // Skip while keyboard-turning: the server tracks that via TURN_LEFT/RIGHT flags.
-            facingSendCooldown_ -= deltaTime;
-            const auto& mi = gameHandler->getMovementInfo();
-            constexpr uint32_t kTurnFlags =
-                static_cast<uint32_t>(game::MovementFlags::TURN_LEFT) |
-                static_cast<uint32_t>(game::MovementFlags::TURN_RIGHT);
-            bool keyboardTurning = (mi.flags & kTurnFlags) != 0;
-            if (!keyboardTurning && facingSendCooldown_ <= 0.0f) {
-                float yawDiff = core::coords::normalizeAngleRad(canonicalYaw - lastSentCanonicalYaw_);
-                if (std::abs(yawDiff) > glm::radians(3.0f)) {
-                    gameHandler->sendMovement(game::Opcode::MSG_MOVE_SET_FACING);
-                    lastSentCanonicalYaw_ = canonicalYaw;
-                    facingSendCooldown_ = 0.1f;  // max 10 Hz
+        // Model-Z reversal probe: the floor-selection log stays
+        // quiet through the reported Undercity bob, so the bob is in
+        // the Z that actually reaches the character, not the floor
+        // chosen for it — gravity overshooting a stable floor, or a
+        // server correction blended in. This watches the committed
+        // render Z for a direction flip (up-then-down or the
+        // reverse) where both legs clear 0.15, the unmistakable
+        // signature of a yo-yo, and names the two steps so the next
+        // Undercity walk says how far and how fast it bobs and
+        // whether it moves while the feet are otherwise still.
+        {
+            static float lastZ = renderPos.z;
+            static float lastDz = 0.0f;
+            static std::chrono::steady_clock::time_point lastRevLog{};
+            const float dz = renderPos.z - lastZ;
+            if (std::abs(dz) > 0.15f && std::abs(lastDz) > 0.15f &&
+                ((dz > 0.0f) != (lastDz > 0.0f))) {
+                const auto now = std::chrono::steady_clock::now();
+                if (now - lastRevLog > std::chrono::milliseconds(250)) {
+                    lastRevLog = now;
+                    LOG_WARNING("Player Z reversal: z=", renderPos.z,
+                                " step=", dz, " prevStep=", lastDz,
+                                " grounded=",
+                                renderer->getCameraController() &&
+                                renderer->getCameraController()->isGrounded() ? 1 : 0,
+                                " moving=",
+                                renderer->getCameraController() &&
+                                renderer->getCameraController()->isMoving() ? 1 : 0);
                 }
             }
+            if (std::abs(dz) > 0.02f) lastDz = dz;
+            lastZ = renderPos.z;
+        }
 
-            // Client-side transport board/disembark check - shared
-            // with any other driver that knows the player's canonical position (see
-            // GameHandler::updateM2TransportBoarding).
-            if (gameHandler->getTransportManager()) {
-                glm::vec3 playerCanonical = core::coords::renderToCanonical(renderPos);
-                gameHandler->updateM2TransportBoarding(playerCanonical);
+        glm::vec3 canonical = core::coords::renderToCanonical(renderPos);
+        gameHandler->setPosition(canonical.x, canonical.y, canonical.z);
+
+        // Sync orientation: camera yaw (degrees) → WoW orientation (radians)
+        float yawDeg = renderer->getCharacterYaw();
+        // Keep all game-side orientation in canonical space.
+        // We historically sent serverYaw = radians(yawDeg - 90). With the new
+        // canonical<->server mapping (serverYaw = PI/2 - canonicalYaw), the
+        // equivalent canonical yaw is radians(180 - yawDeg).
+        float canonicalYaw = core::coords::characterYawDegToCanonical(yawDeg);
+        gameHandler->setOrientation(canonicalYaw);
+
+        // Send MSG_MOVE_SET_FACING when the player changes facing direction
+        // (e.g. via mouse-look). Without this, the server predicts movement in
+        // the old facing and position-corrects on the next heartbeat — the
+        // micro-teleporting the GM observed.
+        // Skip while keyboard-turning: the server tracks that via TURN_LEFT/RIGHT flags.
+        facingSendCooldown_ -= deltaTime;
+        const auto& mi = gameHandler->getMovementInfo();
+        constexpr uint32_t kTurnFlags =
+            static_cast<uint32_t>(game::MovementFlags::TURN_LEFT) |
+            static_cast<uint32_t>(game::MovementFlags::TURN_RIGHT);
+        bool keyboardTurning = (mi.flags & kTurnFlags) != 0;
+        if (!keyboardTurning && facingSendCooldown_ <= 0.0f) {
+            float yawDiff = core::coords::normalizeAngleRad(canonicalYaw - lastSentCanonicalYaw_);
+            if (std::abs(yawDiff) > glm::radians(3.0f)) {
+                gameHandler->sendMovement(game::Opcode::MSG_MOVE_SET_FACING);
+                lastSentCanonicalYaw_ = canonicalYaw;
+                facingSendCooldown_ = 0.1f;  // max 10 Hz
             }
         }
-        }
-    });
 
-    // Keep creature render instances aligned with authoritative entity positions.
-    // This prevents desync where target circles move with server entities but
-    // creature models remain at stale spawn positions.
-    inGameStep = "creature render sync";
-    updateCheckpoint = "in_game: creature render sync";
+        // Client-side transport board/disembark check - shared
+        // with any other driver that knows the player's canonical position (see
+        // GameHandler::updateM2TransportBoarding).
+        if (gameHandler->getTransportManager()) {
+            glm::vec3 playerCanonical = core::coords::renderToCanonical(renderPos);
+            gameHandler->updateM2TransportBoarding(playerCanonical);
+        }
+    }
+    }
+}
+
+// Keep the render instances on top of what the server says.
+//
+// A creature's model is placed once when it spawns and would stay there, while
+// the target circle follows the entity — a drift between the two reads as a
+// ring sliding off an NPC that never moved. Player instances need the same for
+// a different reason: without it they never leave the run animation when they
+// stop.
+void Application::syncRenderInstancesToEntities(float deltaTime) {
     auto creatureSyncStart = std::chrono::steady_clock::now();
     if (renderer && gameHandler && renderer->getCharacterRenderer()) {
         auto* charRenderer = renderer->getCharacterRenderer();
@@ -3311,6 +3120,216 @@ void Application::updateInGame(float deltaTime, const char*& updateCheckpoint) {
         }
     }
 
+}
+
+void Application::updateInGame(float deltaTime, const char*& updateCheckpoint) {
+    updateCheckpoint = "in_game: enter";
+    const char* inGameStep = "begin";
+    try {
+    auto runInGameStage = [&](const char* stageName, auto&& fn) {
+        auto stageStart = std::chrono::steady_clock::now();
+        try {
+            fn();
+        } catch (const std::bad_alloc& e) {
+            LOG_ERROR("OOM during IN_GAME update stage '", stageName, "': ", e.what());
+            throw;
+        } catch (const std::exception& e) {
+            LOG_ERROR("Exception during IN_GAME update stage '", stageName, "': ", e.what());
+            throw;
+        }
+        auto stageEnd = std::chrono::steady_clock::now();
+        float stageMs = std::chrono::duration<float, std::milli>(stageEnd - stageStart).count();
+        if (stageMs > 50.0f) {
+            LOG_WARNING("SLOW update stage '", stageName, "': ", stageMs, "ms");
+        }
+    };
+    inGameStep = "gameHandler update";
+    updateCheckpoint = "in_game: gameHandler update";
+    runInGameStage("gameHandler->update", [&] {
+        if (gameHandler) {
+            gameHandler->update(deltaTime);
+        }
+    });
+    if (addonManager_ && addonsLoaded_) {
+        addonManager_->update(deltaTime);
+    }
+    // Always unsheath on combat engage.
+    inGameStep = "auto-unsheathe";
+    updateCheckpoint = "in_game: auto-unsheathe";
+    if (gameHandler) {
+        const bool autoAttacking = gameHandler->isAutoAttacking();
+        // Keep the attachment state consistent with the ongoing attack, not
+        // just the initial false -> true transition. Z can be pressed after
+        // combat has already started, and pre-WotLK servers briefly send
+        // ATTACKSTOP while the client retains attack intent for a retry.
+        const bool attackWeaponNeeded = autoAttacking || gameHandler->hasAutoAttackIntent();
+        const auto& inventory = gameHandler->getInventory();
+        const auto& mainHand = inventory.getEquipSlot(game::EquipSlot::MAIN_HAND);
+        const auto& offHand = inventory.getEquipSlot(game::EquipSlot::OFF_HAND);
+        const auto& ranged = inventory.getEquipSlot(game::EquipSlot::RANGED);
+        const bool hasOffHandWeapon = !offHand.empty() &&
+            offHand.item.inventoryType == game::InvType::ONE_HAND;
+        const bool hasRangedWeapon = !ranged.empty() &&
+            (ranged.item.inventoryType == game::InvType::RANGED_BOW ||
+             ranged.item.inventoryType == game::InvType::RANGED_GUN ||
+             ranged.item.inventoryType == game::InvType::THROWN);
+        const bool hasDrawableWeapon = !mainHand.empty() || hasOffHandWeapon || hasRangedWeapon;
+        if (attackWeaponNeeded && hasDrawableWeapon && appearanceComposer_ &&
+            appearanceComposer_->isWeaponsSheathed()) {
+            if (renderer && renderer->getAnimationController()) {
+                renderer->getAnimationController()->playWeaponSheathAnimation(false);
+            }
+            appearanceComposer_->setWeaponsSheathed(false);
+            appearanceComposer_->loadEquippedWeapons();
+        }
+        // Swap back to melee weapon when auto-attack stops
+        if (!autoAttacking && wasAutoAttacking_ && appearanceComposer_ && appearanceComposer_->isShowingRanged()) {
+            appearanceComposer_->showRangedWeapon(false);
+        }
+        wasAutoAttacking_ = autoAttacking;
+    }
+
+    // Toggle weapon sheathe state with Z (ignored while UI captures keyboard).
+    inGameStep = "weapon-toggle input";
+    updateCheckpoint = "in_game: weapon-toggle input";
+    {
+        const bool uiWantsKeyboard = ImGui::GetIO().WantCaptureKeyboard ||
+                                     ui::interfaceTakingTypedInput();
+        auto& input = Input::getInstance();
+        if (!uiWantsKeyboard && input.isKeyJustPressed(SDL_SCANCODE_Z) && appearanceComposer_) {
+            const bool sheathing = !appearanceComposer_->isWeaponsSheathed();
+            if (renderer && renderer->getAnimationController()) {
+                renderer->getAnimationController()->playWeaponSheathAnimation(sheathing);
+            }
+            appearanceComposer_->toggleWeaponsSheathed();
+            appearanceComposer_->loadEquippedWeapons();
+        }
+    }
+
+    inGameStep = "world update";
+    updateCheckpoint = "in_game: world update";
+    runInGameStage("world->update", [&] {
+        if (world) {
+            world->update(deltaTime);
+        }
+    });
+    inGameStep = "spawn/equipment queues";
+    updateCheckpoint = "in_game: spawn/equipment queues";
+    runInGameStage("spawn/equipment queues", [&] {
+        if (entitySpawner_) entitySpawner_->update();
+        if (auto* cr = renderer ? renderer->getCharacterRenderer() : nullptr) {
+            cr->processPendingNormalMaps(4);
+        }
+    });
+    // Self-heal missing creature visuals: if a nearby UNIT exists in
+    // entity state but has no render instance, queue a spawn retry.
+    inGameStep = "creature resync scan";
+    updateCheckpoint = "in_game: creature resync scan";
+    if (gameHandler) {
+        static float creatureResyncTimer = 0.0f;
+        creatureResyncTimer += deltaTime;
+        if (creatureResyncTimer >= 3.0f) {
+            creatureResyncTimer = 0.0f;
+
+            glm::vec3 playerPos(0.0f);
+            bool havePlayerPos = false;
+            uint64_t playerGuid = gameHandler->getPlayerGuid();
+            if (auto playerEntity = gameHandler->getEntityManager().getEntity(playerGuid)) {
+                playerPos = glm::vec3(playerEntity->getX(), playerEntity->getY(), playerEntity->getZ());
+                havePlayerPos = true;
+            }
+
+            // Counters for the summary below. "No NPCs at all" has three
+            // possible causes that look identical in-world — the server
+            // sent no units, the units exist but carry no display id, or
+            // they exist and the spawner is refusing them — and the
+            // difference decides where to look.
+            int unitsSeen = 0, unitsNoDisplay = 0, unitsSpawned = 0, unitsQueued = 0;
+
+            const float kResyncRadiusSq = 260.0f * 260.0f;
+            for (const auto& pair : gameHandler->getEntityManager().getEntities()) {
+                uint64_t guid = pair.first;
+                const auto& entity = pair.second;
+                if (!entity || guid == playerGuid) continue;
+                if (entity->getType() != game::ObjectType::UNIT) continue;
+                unitsSeen++;
+                auto unit = std::dynamic_pointer_cast<game::Unit>(entity);
+                if (!unit || unit->getDisplayId() == 0) { unitsNoDisplay++; continue; }
+                if (entitySpawner_->isCreatureSpawned(guid)) { unitsSpawned++; continue; }
+                if (entitySpawner_->isCreaturePending(guid)) { unitsQueued++; continue; }
+
+                if (havePlayerPos) {
+                    glm::vec3 pos(unit->getX(), unit->getY(), unit->getZ());
+                    glm::vec3 delta = pos - playerPos;
+                    float distSq = glm::dot(delta, delta);
+                    if (distSq > kResyncRadiusSq) continue;
+                }
+
+                float retryScale = 1.0f;
+                {
+                    using game::fieldIndex; using game::UF;
+                    uint16_t si = fieldIndex(UF::OBJECT_FIELD_SCALE_X);
+                    if (si != 0xFFFF) {
+                        uint32_t raw = unit->getField(si);
+                        if (raw != 0) {
+                            float s2 = 1.0f;
+                            std::memcpy(&s2, &raw, sizeof(float));
+                            if (s2 > 0.01f && s2 < 100.0f) retryScale = s2;
+                        }
+                    }
+                }
+                entitySpawner_->queueCreatureSpawn(guid, unit->getDisplayId(),
+                    unit->getX(), unit->getY(), unit->getZ(),
+                    unit->getOrientation(), retryScale);
+            }
+
+            // Silent during normal play: this only speaks up when the
+            // world holds units and none of them have a model.
+            if (unitsSeen > 0 && unitsSpawned == 0) {
+                LOG_WARNING("No creature models for ", unitsSeen,
+                            " units in range (", unitsNoDisplay,
+                            " without a display id, ", unitsQueued,
+                            " queued, lookups built=",
+                            entitySpawner_->areCreatureLookupsBuilt() ? "yes" : "no", ")");
+            } else if (unitsSeen == 0) {
+                static float noUnitsFor = 0.0f;
+                noUnitsFor += 3.0f;
+                if (noUnitsFor >= 9.0f) {
+                    noUnitsFor = 0.0f;
+                    LOG_WARNING("No UNIT entities in range at all — the server has "
+                                "sent no creatures, or their update blocks were dropped");
+                }
+            }
+        }
+    }
+
+    inGameStep = "gameobject/transport queues";
+    updateCheckpoint = "in_game: gameobject/transport queues";
+    runInGameStage("gameobject/transport queues", [&] {
+        // GO/transport queues handled by entitySpawner_->update() above
+    });
+    inGameStep = "pending mount";
+    updateCheckpoint = "in_game: pending mount";
+    runInGameStage("processPendingMount", [&] {
+        // Mount processing handled by entitySpawner_->update() above
+    });
+    // Update 3D quest markers above NPCs
+    inGameStep = "quest markers";
+    updateCheckpoint = "in_game: quest markers";
+    runInGameStage("updateQuestMarkers", [&] {
+        updateQuestMarkers();
+    });
+    // Sync server run speed to camera controller
+    inGameStep = "post-update sync";
+    updateCheckpoint = "in_game: post-update sync";
+    runInGameStage("post-update sync", [&] { applyServerMovementState(deltaTime); });
+
+    // Keep creature render instances aligned with authoritative entity positions.
+    // This prevents desync where target circles move with server entities but
+    // creature models remain at stale spawn positions.
+    inGameStep = "creature render sync";
+    updateCheckpoint = "in_game: creature render sync";
+    syncRenderInstancesToEntities(deltaTime);
     // Movement heartbeat is sent from GameHandler::update() to avoid
     // duplicate packets from multiple update loops.
 
