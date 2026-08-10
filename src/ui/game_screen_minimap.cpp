@@ -699,6 +699,13 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         }
     }
 
+    // Where an entity sits on the minimap, if it is on it at all.
+    //
+    // Fourteen loops below wanted the same three lines: take the entity's
+    // canonical position, convert it to render coordinates, project, and skip
+    // the entity when it falls outside the disc. The conversion in particular is
+    // one fact — that these two coordinate systems are not the same one — and it
+    // was written out at every one of them.
     auto projectToMinimap = [&](const glm::vec3& worldRenderPos, float& sx, float& sy) -> bool {
         float dx = worldRenderPos.x - playerRender.x;
         float dy = worldRenderPos.y - playerRender.y;
@@ -717,6 +724,28 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         return true;
     };
 
+    // Where an entity sits on the minimap, if it is on it at all.
+    //
+    // Fourteen loops below wanted the same three lines: take the entity's
+    // canonical position, convert it to render coordinates, project it, and skip
+    // the entity when it falls outside the disc. That conversion is one fact —
+    // that the two coordinate systems are not the same one — and it was spelled
+    // out at every one of them.
+    auto projectEntityToMinimap = [&](const game::Entity& entity, float& sx, float& sy) {
+        const glm::vec3 renderPos = core::coords::canonicalToRender(
+            glm::vec3(entity.getX(), entity.getY(), entity.getZ()));
+        return projectToMinimap(renderPos, sx, sy);
+    };
+
+    // The same, for the things that arrive as a bare pair of canonical
+    // coordinates rather than as an entity: party members, pings, gossip points,
+    // battleground positions. They have no height and do not need one — the
+    // minimap is flat.
+    auto projectCanonicalToMinimap = [&](float wowX, float wowY, float& sx, float& sy) {
+        return projectToMinimap(core::coords::canonicalToRender(glm::vec3(wowX, wowY, 0.0f)),
+                                sx, sy);
+    };
+
     // Build sets of entries that are incomplete objectives for tracked quests.
     // minimapQuestEntries: NPC creature entries (npcOrGoId > 0)
     // minimapQuestGoEntries: game object entries (npcOrGoId < 0, stored as abs value)
@@ -732,9 +761,8 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             auto unit = std::static_pointer_cast<game::Unit>(entity);
             if (!unit || unit->getHealth() == 0) continue;
 
-            glm::vec3 npcRender = core::coords::canonicalToRender(glm::vec3(entity->getX(), entity->getY(), entity->getZ()));
             float sx = 0.0f, sy = 0.0f;
-            if (!projectToMinimap(npcRender, sx, sy)) continue;
+            if (!projectEntityToMinimap(*entity, sx, sy)) continue;
 
             bool isQuestTarget = minimapQuestEntries.count(unit->getEntry()) != 0;
             if (isQuestTarget) {
@@ -766,10 +794,8 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
                 continue;
             }
 
-            glm::vec3 flightMasterRender = core::coords::canonicalToRender(
-                glm::vec3(entity->getX(), entity->getY(), entity->getZ()));
             float sx = 0.0f, sy = 0.0f;
-            if (!projectToMinimap(flightMasterRender, sx, sy)) continue;
+            if (!projectEntityToMinimap(*entity, sx, sy)) continue;
 
             constexpr float halfSize = 5.5f;
             const ImVec2 top(sx, sy - halfSize);
@@ -803,10 +829,8 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             const int rank = gameHandler.getCreatureRank(unit->getEntry());
             if (rank != 2 && rank != 4) continue; // 2 = Rare Elite, 4 = Rare
 
-            glm::vec3 rareRender = core::coords::canonicalToRender(
-                glm::vec3(entity->getX(), entity->getY(), entity->getZ()));
             float sx = 0.0f, sy = 0.0f;
-            if (!projectToMinimap(rareRender, sx, sy)) continue;
+            if (!projectEntityToMinimap(*entity, sx, sy)) continue;
 
             // Match the world-map tracker: gold for Rare, silver for Rare Elite.
             const bool isElite = rank == 2;
@@ -846,10 +870,8 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             }
             if (isPartyMember) continue;
 
-            glm::vec3 pRender = core::coords::canonicalToRender(
-                glm::vec3(entity->getX(), entity->getY(), entity->getZ()));
             float sx = 0.0f, sy = 0.0f;
-            if (!projectToMinimap(pRender, sx, sy)) continue;
+            if (!projectEntityToMinimap(*entity, sx, sy)) continue;
 
             // Blue dot for other nearby players
             drawList->AddCircleFilled(ImVec2(sx, sy), 2.0f, IM_COL32(80, 160, 255, 220));
@@ -866,10 +888,8 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             if (unit->getHealth() != 0) continue;
             if (!(unit->getDynamicFlags() & game::UNIT_DYNFLAG_LOOTABLE)) continue;
 
-            glm::vec3 npcRender = core::coords::canonicalToRender(
-                glm::vec3(entity->getX(), entity->getY(), entity->getZ()));
             float sx = 0.0f, sy = 0.0f;
-            if (!projectToMinimap(npcRender, sx, sy)) continue;
+            if (!projectEntityToMinimap(*entity, sx, sy)) continue;
 
             // Draw a small diamond (rotated square) in light yellow-green
             const float dr = 3.5f;
@@ -909,10 +929,8 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             // Skip transport objects (boats/zeppelins): type 15 = MO_TRANSPORT, 11 = TRANSPORT
             if (goInfo->type == 11 || goInfo->type == 15) continue;
 
-            glm::vec3 goRender = core::coords::canonicalToRender(
-                glm::vec3(entity->getX(), entity->getY(), entity->getZ()));
             float sx = 0.0f, sy = 0.0f;
-            if (!projectToMinimap(goRender, sx, sy)) continue;
+            if (!projectEntityToMinimap(*entity, sx, sy)) continue;
 
             // Triangle size and color: bright cyan for quest objectives, amber for others
             bool isQuestGO = minimapQuestGoEntries.count(go->getEntry()) != 0;
@@ -949,10 +967,8 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             if (!info || !info->isValid() || info->type != 3) continue;
             if (gameHandler.isGatherGameObject(chest->getGuid())) continue;
 
-            glm::vec3 chestRender = core::coords::canonicalToRender(
-                glm::vec3(entity->getX(), entity->getY(), entity->getZ()));
             float sx = 0.0f, sy = 0.0f;
-            if (!projectToMinimap(chestRender, sx, sy)) continue;
+            if (!projectEntityToMinimap(*entity, sx, sy)) continue;
 
             constexpr float halfW = 5.5f;
             constexpr float halfH = 4.0f;
@@ -989,11 +1005,11 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             if (member.posX == 0 && member.posY == 0) continue;
 
             // Party stat positions: posY = canonical X (north), posX = canonical Y (west)
-            glm::vec3 memberRender = core::coords::canonicalToRender(
-                glm::vec3(static_cast<float>(member.posY),
-                          static_cast<float>(member.posX), 0.0f));
+            // posY is canonical X and posX is canonical Y: the party packet
+            // names its fields for the axes of the map, not of the world.
             float sx = 0.0f, sy = 0.0f;
-            if (!projectToMinimap(memberRender, sx, sy)) continue;
+            if (!projectCanonicalToMinimap(static_cast<float>(member.posY),
+                                           static_cast<float>(member.posX), sx, sy)) continue;
 
             // Determine dot color: class color > leader gold > light blue
             ImU32 dotCol;
@@ -1051,11 +1067,8 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         auto entity = gameHandler.getEntityManager().getEntity(guid);
         if (!entity) continue;
 
-        glm::vec3 canonical(entity->getX(), entity->getY(), entity->getZ());
-        glm::vec3 npcRender = core::coords::canonicalToRender(canonical);
-
         float sx = 0.0f, sy = 0.0f;
-        if (!projectToMinimap(npcRender, sx, sy)) continue;
+        if (!projectEntityToMinimap(*entity, sx, sy)) continue;
 
         // Draw dot with marker text
         drawList->AddCircleFilled(ImVec2(sx, sy), 5.0f, dotColor);
@@ -1115,10 +1128,8 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
                 auto infoIt = killInfoMap.find(unit->getEntry());
                 if (infoIt == killInfoMap.end()) continue;
 
-                glm::vec3 unitRender = core::coords::canonicalToRender(
-                    glm::vec3(entity->getX(), entity->getY(), entity->getZ()));
                 float sx = 0.0f, sy = 0.0f;
-                if (!projectToMinimap(unitRender, sx, sy)) continue;
+                if (!projectEntityToMinimap(*entity, sx, sy)) continue;
 
                 // Gold circle with a dark "x" mark — indicates a quest kill target
                 drawList->AddCircleFilled(ImVec2(sx, sy), 5.0f, IM_COL32(255, 185, 0, 240));
@@ -1154,9 +1165,8 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             continue;
         }
         // Convert WoW canonical coords to render coords for minimap projection
-        glm::vec3 poiRender = core::coords::canonicalToRender(glm::vec3(poi.x, poi.y, 0.0f));
         float sx = 0.0f, sy = 0.0f;
-        if (!projectToMinimap(poiRender, sx, sy)) continue;
+        if (!projectCanonicalToMinimap(poi.x, poi.y, sx, sy)) continue;
 
         // Draw as a cyan diamond with tooltip on hover
         const float d = 5.0f;
@@ -1179,9 +1189,8 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
 
     // Minimap pings from party members
     for (const auto& ping : gameHandler.getMinimapPings()) {
-        glm::vec3 pingRender = core::coords::canonicalToRender(glm::vec3(ping.wowX, ping.wowY, 0.0f));
         float sx = 0.0f, sy = 0.0f;
-        if (!projectToMinimap(pingRender, sx, sy)) continue;
+        if (!projectCanonicalToMinimap(ping.wowX, ping.wowY, sx, sy)) continue;
 
         float t = ping.age / game::GameHandler::MinimapPing::LIFETIME;
         float alpha = 1.0f - t;
@@ -1209,10 +1218,8 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             // server posY = north/south axis → canonical X (north)
             float wowX = static_cast<float>(member.posY);
             float wowY = static_cast<float>(member.posX);
-            glm::vec3 memberRender = core::coords::canonicalToRender(glm::vec3(wowX, wowY, 0.0f));
-
             float sx = 0.0f, sy = 0.0f;
-            if (!projectToMinimap(memberRender, sx, sy)) continue;
+            if (!projectCanonicalToMinimap(wowX, wowY, sx, sy)) continue;
 
             ImU32 dotColor;
             {
@@ -1267,9 +1274,8 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             };
             for (const auto& bp : bgPositions) {
                 // Packet coords: wowX=canonical X (north), wowY=canonical Y (west)
-                glm::vec3 bpRender = core::coords::canonicalToRender(glm::vec3(bp.wowX, bp.wowY, 0.0f));
                 float sx = 0.0f, sy = 0.0f;
-                if (!projectToMinimap(bpRender, sx, sy)) continue;
+                if (!projectCanonicalToMinimap(bp.wowX, bp.wowY, sx, sy)) continue;
 
                 ImU32 col = kBgGroupColors[bp.group & 1];
 
@@ -1307,9 +1313,13 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     if (gameHandler.isPlayerGhost()) {
         float corpseCanX = 0.0f, corpseCanY = 0.0f;
         if (gameHandler.getCorpseCanonicalPos(corpseCanX, corpseCanY)) {
-            glm::vec3 corpseRender = core::coords::canonicalToRender(glm::vec3(corpseCanX, corpseCanY, 0.0f));
+            // The render position is kept: unlike the loops above, a corpse off
+            // the edge is not skipped — it gets a direction arrow at the rim,
+            // and that needs the direction.
+            const glm::vec3 corpseRender =
+                core::coords::canonicalToRender(glm::vec3(corpseCanX, corpseCanY, 0.0f));
             float csx = 0.0f, csy = 0.0f;
-            bool onMap = projectToMinimap(corpseRender, csx, csy);
+            const bool onMap = projectToMinimap(corpseRender, csx, csy);
 
             if (onMap) {
                 // Draw a small skull-like X marker at the corpse position
