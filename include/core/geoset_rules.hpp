@@ -27,6 +27,26 @@
 namespace wowee {
 namespace core {
 
+// Default (bare) geoset IDs per equipment group.
+// Each group's base is groupNumber * 100; variant 01 is typically bare/default.
+constexpr uint16_t kGeosetDefaultConnector = 101;   // Group  1: default hair connector
+constexpr uint16_t kGeosetBareForearms     = 401;   // Group  4: no gloves
+constexpr uint16_t kGeosetBareShins        = 501;   // Group  5: no boots
+constexpr uint16_t kGeosetDefaultEars      = 702;   // Group  7: ears
+constexpr uint16_t kGeosetBareSleeves      = 801;   // Group  8: no chest armor sleeves
+constexpr uint16_t kGeosetDefaultKneepads  = 902;   // Group  9: kneepads
+constexpr uint16_t kGeosetDefaultTabard    = 1201;  // Group 12: tabard base
+constexpr uint16_t kGeosetBarePants        = 1301;  // Group 13: no leggings
+constexpr uint16_t kGeosetNoCape           = 1501;  // Group 15: no cape
+constexpr uint16_t kGeosetWithCape         = 1502;  // Group 15: with cape
+constexpr uint16_t kGeosetBareFeet         = 2002;  // Group 20: bare feet
+/// The other half of group 20. Models that split the feet out of the body do
+/// not agree on which number to use — an HD human male carries 2002 and an HD
+/// human female carries 2001 — so both are asked for and the model draws the
+/// one it has. Stock models carry neither and are unaffected.
+constexpr uint16_t kGeosetBareFeetAlt      = 2001;
+
+
 /// The body part a geoset id belongs to: 501 and 505 are both group 5, boots.
 constexpr uint16_t geosetGroup(uint16_t id) { return static_cast<uint16_t>(id / 100); }
 
@@ -97,6 +117,45 @@ constexpr uint32_t appearanceKey(uint8_t race, uint8_t sex, uint8_t variation) {
     return (static_cast<uint32_t>(race) << 16) |
            (static_cast<uint32_t>(sex) << 8) |
            static_cast<uint32_t>(variation);
+}
+
+/// The geosets a character shows with nothing equipped, before any armour is
+/// known: the body, the chosen hair scalp, the chosen facial features, and the
+/// bare variant of every equipment group.
+///
+/// Written twice before this — once for the player and once for the portrait —
+/// and the two had drifted apart in exactly the ways that cost something. The
+/// portrait named one of the two feet variants, so an HD model spelling its feet
+/// the other way lost them there while the player kept his. The player named the
+/// cloak mesh and the portrait named the no-cloak panel.
+///
+/// `hairScalp` and the three facial variants come from the DBC maps; a zero
+/// facial variant means the character has none of that feature and adds nothing.
+inline std::unordered_set<uint16_t> bareCharacterGeosets(uint16_t hairScalp,
+                                                         uint16_t facial100,
+                                                         uint16_t facial200,
+                                                         uint16_t facial300) {
+    std::unordered_set<uint16_t> geosets;
+    geosets.insert(0);                      // the body
+    if (hairScalp != 0) geosets.insert(hairScalp);
+    addFacialHairGeosets(geosets, facial100, facial200, facial300);
+
+    geosets.insert(kGeosetBareForearms);    // no gloves
+    geosets.insert(kGeosetBareShins);       // no boots
+    geosets.insert(kGeosetDefaultEars);
+    geosets.insert(kGeosetBareSleeves);     // no chest sleeves
+    geosets.insert(kGeosetDefaultKneepads);
+    geosets.insert(kGeosetBarePants);       // no leggings
+    // The feet, both spellings. The models the game shipped have no group 20 at
+    // all and are unaffected; the replacements split the feet out and do not
+    // agree on the number, so naming one loses them on half of them.
+    geosets.insert(kGeosetBareFeet);
+    geosets.insert(kGeosetBareFeetAlt);
+    // No cloak geoset at all. This set is built before equipment is known, so
+    // naming the cloak mesh gives an untextured cape to a character wearing
+    // none, and naming the no-cloak panel is wrong on the models that have no
+    // such panel. The equipment pass adds the cape when there is one.
+    return geosets;
 }
 
 }  // namespace core

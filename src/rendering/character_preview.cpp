@@ -149,31 +149,22 @@ std::unordered_set<uint16_t> CharacterPreview::buildBaseGeosets() {
                            (gender_ == game::Gender::NONBINARY && useFemaleModel_)) ? 1u : 0u;
     const uint16_t selectedHairScalp = selectedHairScalpGeoset();
 
-    std::unordered_set<uint16_t> activeGeosets;
-    activeGeosets.insert(0); // body base
-    activeGeosets.insert(selectedHairScalp);
-
-    const uint32_t facialKey = core::appearanceKey(raceId, sexId, static_cast<uint8_t>(facialHair_));
-    auto itFacial = facialHairGeosetMap_.find(facialKey);
+    uint16_t facial100 = 1, facial200 = 1, facial300 = 1;
+    auto itFacial = facialHairGeosetMap_.find(
+        core::appearanceKey(raceId, sexId, static_cast<uint8_t>(facialHair_)));
     if (itFacial != facialHairGeosetMap_.end()) {
-        core::addFacialHairGeosets(activeGeosets,
-                                   itFacial->second.geoset100,
-                                   itFacial->second.geoset200,
-                                   itFacial->second.geoset300);
-    } else {
-        activeGeosets.insert(101);
-        activeGeosets.insert(201);
-        activeGeosets.insert(301);
+        facial100 = itFacial->second.geoset100;
+        facial200 = itFacial->second.geoset200;
+        facial300 = itFacial->second.geoset300;
     }
 
-    activeGeosets.insert(core::kGeosetBareForearms);
-    activeGeosets.insert(core::kGeosetBareShins);
-    activeGeosets.insert(core::kGeosetDefaultEars);
-    activeGeosets.insert(core::kGeosetBareSleeves);
-    activeGeosets.insert(core::kGeosetDefaultKneepads);
-    activeGeosets.insert(core::kGeosetBarePants);
-    activeGeosets.insert(core::kGeosetNoCape);
-    activeGeosets.insert(core::kGeosetBareFeet);
+    // The same bare set the player gets. This used to be its own list and had
+    // drifted: it named one of the two feet variants, so an HD model spelling
+    // its feet the other way stood in the portrait without them, and it named
+    // the no-cloak panel, which the HD models do not carry.
+    std::unordered_set<uint16_t> activeGeosets =
+        core::bareCharacterGeosets(selectedHairScalp, facial100, facial200, facial300);
+
     return activeGeosets;
 }
 

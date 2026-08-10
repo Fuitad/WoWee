@@ -138,3 +138,36 @@ TEST_CASE("the appearance key packs three bytes and nothing else", "[geoset]") {
         CHECK(appearanceKey(255, 0, 0) != appearanceKey(0, 255, 0));
     }
 }
+
+TEST_CASE("the bare set a character shows with nothing equipped", "[geoset]") {
+    const auto bare = bareCharacterGeosets(1, 1, 1, 1);
+
+    SECTION("the body and the chosen scalp") {
+        CHECK(bare.count(0) == 1);
+        CHECK(bare.count(1) == 1);
+    }
+
+    SECTION("both spellings of the feet") {
+        // The models the game shipped have no group 20 at all and are
+        // unaffected; the replacements split the feet out and do not agree on
+        // the number, so naming one loses them on half of them.
+        CHECK(bare.count(kGeosetBareFeet) == 1);
+        CHECK(bare.count(kGeosetBareFeetAlt) == 1);
+    }
+
+    SECTION("no cloak of any kind") {
+        // Built before equipment is known. Naming the cloak mesh gives an
+        // untextured cape to a character wearing none; naming the no-cloak
+        // panel is wrong on a model that has no such panel.
+        CHECK(bare.count(kGeosetWithCape) == 0);
+        CHECK(bare.count(kGeosetNoCape) == 0);
+    }
+
+    SECTION("a clean-shaven character adds no facial geoset") {
+        const auto shaven = bareCharacterGeosets(1, 0, 0, 0);
+        for (uint16_t id : shaven) {
+            const uint16_t group = geosetGroup(id);
+            CHECK((group < 1 || group > 3));
+        }
+    }
+}

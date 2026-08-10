@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/geoset_rules.hpp"
 #include "game/character.hpp"
 #include <string>
 #include <vector>
@@ -15,25 +16,6 @@ namespace game { class GameHandler; class Inventory; }
 namespace core {
 
 class EntitySpawner;
-
-// Default (bare) geoset IDs per equipment group.
-// Each group's base is groupNumber * 100; variant 01 is typically bare/default.
-constexpr uint16_t kGeosetDefaultConnector = 101;   // Group  1: default hair connector
-constexpr uint16_t kGeosetBareForearms     = 401;   // Group  4: no gloves
-constexpr uint16_t kGeosetBareShins        = 501;   // Group  5: no boots
-constexpr uint16_t kGeosetDefaultEars      = 702;   // Group  7: ears
-constexpr uint16_t kGeosetBareSleeves      = 801;   // Group  8: no chest armor sleeves
-constexpr uint16_t kGeosetDefaultKneepads  = 902;   // Group  9: kneepads
-constexpr uint16_t kGeosetDefaultTabard    = 1201;  // Group 12: tabard base
-constexpr uint16_t kGeosetBarePants        = 1301;  // Group 13: no leggings
-constexpr uint16_t kGeosetNoCape           = 1501;  // Group 15: no cape
-constexpr uint16_t kGeosetWithCape         = 1502;  // Group 15: with cape
-constexpr uint16_t kGeosetBareFeet         = 2002;  // Group 20: bare feet
-/// The other half of group 20. Models that split the feet out of the body do
-/// not agree on which number to use — an HD human male carries 2002 and an HD
-/// human female carries 2001 — so both are asked for and the model draws the
-/// one it has. Stock models carry neither and are unaffected.
-constexpr uint16_t kGeosetBareFeetAlt      = 2001;
 
 /// Resolved texture paths from CharSections.dbc for player character compositing.
 struct PlayerTextureInfo {

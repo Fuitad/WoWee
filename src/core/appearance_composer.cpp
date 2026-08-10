@@ -292,74 +292,35 @@ void AppearanceComposer::compositePlayerSkin(uint32_t modelSlotId, const PlayerT
 
 std::unordered_set<uint16_t> AppearanceComposer::buildDefaultPlayerGeosets(uint8_t raceId, uint8_t sexId,
                                                                            uint8_t hairStyleId, uint8_t facialId) {
-    std::unordered_set<uint16_t> activeGeosets;
-
-    // Look up the correct hair scalp geoset from CharHairGeosets.dbc
-    uint16_t selectedHairScalp = 1; // default
+    // Look up the hair scalp and the facial features this character wears, then
+    // ask for the bare set around them. Which geosets a character shows with
+    // nothing equipped is one answer, in core/geoset_rules.hpp, shared with the
+    // portrait — the two used to keep their own and had drifted.
+    uint16_t selectedHairScalp = 1;
+    uint16_t facial100 = 0, facial200 = 0, facial300 = 0;
+    bool haveFacial = false;
     if (entitySpawner_) {
         const auto& hairMap = entitySpawner_->getHairGeosetMap();
-        const uint32_t hairKey = appearanceKey(raceId, sexId, hairStyleId);
-        auto it = hairMap.find(hairKey);
-        if (it != hairMap.end() && it->second > 0)
-            selectedHairScalp = it->second;
-    }
+        auto itHair = hairMap.find(appearanceKey(raceId, sexId, hairStyleId));
+        if (itHair != hairMap.end() && itHair->second > 0) selectedHairScalp = itHair->second;
 
-    // Group 0: body base plus exactly one selected hair scalp. Do not enable
-    // every non-mapped group-0 submesh as a fallback; if the hair DBC map is
-    // unavailable or incomplete, that path activates multiple hair variants.
-    activeGeosets.insert(0);  // body base
-    activeGeosets.insert(selectedHairScalp);
-
-    // Groups 1xx, 2xx and 3xx are independent facial-feature channels from
-    // CharacterFacialHairStyles. They must not be derived from the hairstyle.
-    if (entitySpawner_) {
         const auto& facialMap = entitySpawner_->getFacialHairGeosetMap();
-        const uint32_t facialKey = appearanceKey(raceId, sexId, facialId);
-        auto it = facialMap.find(facialKey);
-        if (it != facialMap.end()) {
-            // A zero means this channel has no feature — a night elf female has
-            // none on any of the three. Clamping to 1 handed every character the
-            // first variant of all three channels instead.
-            activeGeosets.insert(static_cast<uint16_t>(100 + it->second.geoset100));
-            activeGeosets.insert(static_cast<uint16_t>(200 + it->second.geoset200));
-            activeGeosets.insert(static_cast<uint16_t>(300 + it->second.geoset300));
-        } else {
-            activeGeosets.insert(101);
-            activeGeosets.insert(201);
-            activeGeosets.insert(301);
+        auto itFacial = facialMap.find(appearanceKey(raceId, sexId, facialId));
+        if (itFacial != facialMap.end()) {
+            facial100 = itFacial->second.geoset100;
+            facial200 = itFacial->second.geoset200;
+            facial300 = itFacial->second.geoset300;
+            haveFacial = true;
         }
-    } else {
-        activeGeosets.insert(101);
-        activeGeosets.insert(201);
-        activeGeosets.insert(301);
+    }
+    if (!haveFacial) {
+        // No row for this character: the "none" variant of all three channels.
+        facial100 = facial200 = facial300 = 1;
     }
 
-    activeGeosets.insert(kGeosetBareForearms);
-    activeGeosets.insert(kGeosetBareShins);
-    activeGeosets.insert(kGeosetDefaultEars);
-    activeGeosets.insert(kGeosetBareSleeves);
-    activeGeosets.insert(kGeosetDefaultKneepads);
-    activeGeosets.insert(kGeosetBarePants);
-    // NOT kGeosetWithCape. This is the default set, built before any equipment
-    // is known, and it was asking for the cloak mesh unconditionally — so a
-    // character wearing no cloak still had one, untextured. The cape is added
-    // by the equipment pass when a cloak is actually worn.
-    //
-    // The "no cape" panel is named instead, and only if the model has it: the
-    // stock models carry 1501 and the HD replacements do not, and substituting
-    // anything else in that group means substituting a cape.
-    // Group 20 is the feet, and which member of it a model carries is not
-    // fixed. The stock models have no group 20 at all — the feet are part of
-    // the body — so naming one number was free. An HD replacement splits them
-    // out, and then human male and night elf female carry 2002 while human
-    // female carries 2001 and nothing else: asking for 2002 there selects a
-    // geoset the model does not have, and she stands with no feet.
-    //
-    // Both are named, so whichever the model has is the one it draws. A model
-    // with neither is unaffected, which is every model that shipped with the
-    // game.
-    activeGeosets.insert(kGeosetBareFeet);
-    activeGeosets.insert(kGeosetBareFeetAlt);
+    std::unordered_set<uint16_t> activeGeosets =
+        bareCharacterGeosets(selectedHairScalp, facial100, facial200, facial300);
+
     return activeGeosets;
 }
 
