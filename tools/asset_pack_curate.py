@@ -48,8 +48,14 @@ import re
 import struct
 import sys
 
+# Textures a model lays over itself rather than draws itself with. Missing one
+# costs an effect, not the surface. "glow" earns its place the hard way: an HD
+# character model carries deathKnightEyeGlow.blp in slot 0 — the first slot is
+# the body's on most models and an eye effect on these — so treating slot 0 as
+# decisive without this disabled both gnome female models and left a display row
+# pointing at nothing.
 REFLECTION_WORDS = ("reflect", "envmap", "fresnel", "glass", "caustic",
-                    "spec", "smooth", "orbreflect")
+                    "spec", "smooth", "orbreflect", "glow", "eyeglow")
 
 
 def load_dbc(path):
@@ -314,6 +320,37 @@ def curate(overlay_root, apply_changes, keep_hd=False):
         print("  display re-points reverted to the base game : %d" % reverted)
         print("  display re-points kept (creature models)    : %d" % kept_repoints)
 
+        # The pack ships humanoids at two levels of detail: the full model, and a
+        # reduced one under an NPC\ folder for crowds. Its display table points
+        # every humanoid NPC at the reduced one, and for some races that is no
+        # better than what the game already had — a human female NPC is 6558
+        # vertices against the stock 6305, which is why they still looked old
+        # standing next to a player at 17878.
+        #
+        # With --keep-hd-characters the full models are wanted, so the NPC rows
+        # are pointed at them. It costs what it sounds like it costs: a crowded
+        # city draws NPCs at two to three times the vertices. Without the flag
+        # this is not done, and the reduced models stay.
+        npc_upgrade = []
+        if keep_hd:
+            for model_id, (mvals, mresolve, mindex) in model_rows.items():
+                path = mresolve(mvals[2])
+                lower = path.replace("/", "\\").lower()
+                if "\\npc\\" not in lower:
+                    continue
+                # Character\Human\Female\NPC\HumanFemaleNPC.mdx
+                #   -> Character\Human\Female\HumanFemale.mdx
+                parts = path.replace("/", "\\").split("\\")
+                if len(parts) < 2:
+                    continue
+                stem = parts[-1]
+                if stem.lower().endswith(".mdx") and stem[:-4].lower().endswith("npc"):
+                    full = "\\".join(parts[:-2] + [stem[:-7] + ".mdx"])
+                    key = full.lower()[:-4] + ".m2"
+                    if key in kept:
+                        npc_upgrade.append((mindex, full))
+            print("  humanoid NPC rows pointed at the full model  : %d" % len(npc_upgrade))
+
         # A display row's skin names belong to the model it draws. The pack
         # changes both together; reverting the model alone leaves art authored
         # for a mesh that is no longer there, wrapped onto one it does not fit.
@@ -341,6 +378,22 @@ def curate(overlay_root, apply_changes, keep_hd=False):
                     skin_patch.append((index, f, want))
         print("  skin names put back with their model            : %d" %
               len({i for i, _f, _w in skin_patch}))
+
+        if apply_changes and npc_upgrade:
+            mdata = bytearray(open(cmd_path, "rb").read())
+            mrec, mfld, mrsize = struct.unpack("<III", mdata[4:16])
+            mstart = 20 + mrec * mrsize
+            mblock = bytearray(mdata[mstart:])
+            madded = {}
+            for _mi, full in npc_upgrade:
+                if full not in madded:
+                    madded[full] = len(mblock)
+                    mblock += full.encode("utf-8") + b"\0"
+            for mi, full in npc_upgrade:
+                off = 20 + mi * mrsize + 2 * 4     # field 2 is the model path
+                mdata[off:off + 4] = struct.pack("<I", madded[full])
+            open(cmd_path, "wb").write(bytes(mdata[:mstart] + mblock))
+            print("  rewrote %s" % cmd_path)
 
         if apply_changes and (patch or skin_patch):
             data = bytearray(open(cdi_path, "rb").read())

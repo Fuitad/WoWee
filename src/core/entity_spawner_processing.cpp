@@ -547,10 +547,16 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
                     // big it is. A path that resolves to the model wanted and a
                     // model that is drawn are two different claims, and only the
                     // second one is what is on screen.
-                    if (m2Path.find("\\NPC\\") != std::string::npos ||
-                        m2Path.find("\\npc\\") != std::string::npos) {
-                        LOG_WARNING("NPC model loaded: displayId=", s.displayId, " ", m2Path,
-                                    " vertices=", model->vertices.size());
+                    {
+                        std::string lower = m2Path;
+                        std::transform(lower.begin(), lower.end(), lower.begin(),
+                                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                        if (lower.rfind("character\\", 0) == 0) {
+                            LOG_WARNING("Humanoid NPC model loaded: displayId=", s.displayId,
+                                        " ", m2Path, " vertices=", model->vertices.size(),
+                                        " bones=", model->bones.size(),
+                                        " submeshes=", model->batches.size());
+                        }
                     }
 
                     // Load skin file

@@ -1757,6 +1757,29 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             addSafeGeoset(kGeosetBarePants);
             addSafeGeoset(kGeosetBareFeet);
 
+            // A geoset filter that keeps none of the body is not a filter, it is
+            // an invisible NPC — targetable, audible, and not drawn. The comment
+            // below says this path has done that before, and the set is built
+            // from ids that are only true of some models: swap the model an NPC
+            // display points at and the numbering can move under it.
+            //
+            // So the filter has to justify itself against the model it will be
+            // applied to. Group 0 is the body; if nothing in the set is in the
+            // model's group 0, the set is wrong and the model's own geosets are
+            // better than nothing.
+            size_t bodyKept = 0;
+            for (uint16_t sid : safeGeosets) {
+                if (sid < 100 && (modelGeosets.empty() || modelGeosets.count(sid) > 0)) {
+                    ++bodyKept;
+                }
+            }
+            if (bodyKept == 0) {
+                LOG_WARNING("Humanoid NPC geosets would have hidden the body: displayId=",
+                            displayId, " model has ", modelGeosets.size(),
+                            " geosets, filter kept ", safeGeosets.size(),
+                            " and none of them a body part — drawing unfiltered");
+                safeGeosets.clear();
+            }
             charRenderer->setActiveGeosets(instanceId, safeGeosets);
         }
     }
