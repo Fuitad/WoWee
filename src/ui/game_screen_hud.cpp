@@ -36,6 +36,7 @@
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_loader.hpp"
 #include "pipeline/dbc_layout.hpp"
+#include "core/geoset_rules.hpp"
 #include "pipeline/item_textures.hpp"
 
 #include "game/expansion_profile.hpp"
@@ -189,19 +190,10 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
         }
     }
 
-    auto pickGeoset = [&](uint16_t preferred, uint16_t fallback) -> uint16_t {
-        if (modelGeosets.empty()) return preferred;
-        if (preferred != 0 && modelGeosets.count(preferred) > 0) return preferred;
-        if (fallback != 0 && modelGeosets.count(fallback) > 0) return fallback;
-        return preferred;
-    };
-
-    auto lowestInGroup = [&](uint16_t group) -> uint16_t {
-        uint16_t best = 0;
-        for (uint16_t g : modelGeosets) {
-            if (g / 100 == group && (best == 0 || g < best)) best = g;
-        }
-        return best;
+    // The same rule the player, NPC and portrait paths use, from
+    // core::geoset_rules — ask for a variant, get the one this model has.
+    auto pickGeoset = [&](uint16_t preferred) {
+        return core::resolveGeoset(preferred, modelGeosets);
     };
 
     eraseGroup(4);
@@ -224,14 +216,16 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
     {
         uint32_t did = findEquippedDisplayId({10});
         uint32_t gg = getGeosetGroup(did, geosetGroup1Field);
-        geosets.insert(pickGeoset(static_cast<uint16_t>(gg > 0 ? 401 + gg : 401), lowestInGroup(4)));
+        geosets.insert(pickGeoset(gg > 0 ? core::equippedGeoset(core::equipment::kGlovesBare, gg)
+                                          : core::kGeosetBareForearms));
     }
 
     // Boots: inventoryType 8 → group 5 (shins/lower legs)
     {
         uint32_t did = findEquippedDisplayId({8});
         uint32_t gg = getGeosetGroup(did, geosetGroup1Field);
-        uint16_t selectedShin = pickGeoset(static_cast<uint16_t>(gg > 0 ? 501 + gg : core::kGeosetBareShins), lowestInGroup(5));
+        uint16_t selectedShin = pickGeoset(gg > 0 ? core::equippedGeoset(core::equipment::kBootsBare, gg)
+                                                  : core::kGeosetBareShins);
         geosets.insert(selectedShin);
     }
 
@@ -241,15 +235,16 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
     {
         uint32_t did = findEquippedDisplayId({4, 5, 20});
         uint32_t gg = getGeosetGroup(did, geosetGroup1Field);
-        geosets.insert(static_cast<uint16_t>(gg > 0 ? 801 + gg : 801));
+        geosets.insert(gg > 0 ? core::equippedGeoset(core::equipment::kChestBare, gg)
+                              : core::kGeosetBareSleeves);
         uint32_t gg3 = getGeosetGroup(did, geosetGroup3Field);
         if (gg3 > 0) {
-            geosets.insert(static_cast<uint16_t>(1301 + gg3));
+            geosets.insert(core::equippedGeoset(core::equipment::kRobeKiltBare, gg3));
         }
     }
 
     // Kneepads: group 9 (always default 902)
-    geosets.insert(902);
+    geosets.insert(core::kGeosetDefaultKneepads);
 
     // Legs/Pants: inventoryType 7 → group 13 (trousers/thighs)
     // 1301=bare legs, 1302+=pant/kilt styles
@@ -257,8 +252,17 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
         uint32_t did = findEquippedDisplayId({7});
         uint32_t gg = getGeosetGroup(did, geosetGroup1Field);
         // Only add if robe hasn't already set a kilt geoset
-        if (geosets.count(1302) == 0 && geosets.count(1303) == 0) {
-            geosets.insert(static_cast<uint16_t>(gg > 0 ? 1301 + gg : 1301));
+        // Only when the robe above has not already put a kilt on the legs.
+        // 1302 and 1303 are the first two kilt variants; anything in group 13
+        // beyond the bare one means something is already covering them.
+        const bool kiltAlreadySet = std::any_of(
+            geosets.begin(), geosets.end(), [](uint16_t g) {
+                return core::geosetGroup(g) == core::geosetGroup(core::kGeosetBarePants) &&
+                       !core::geosetMeansNone(g);
+            });
+        if (!kiltAlreadySet) {
+            geosets.insert(gg > 0 ? core::equippedGeoset(core::equipment::kLegsBare, gg)
+                                  : core::kGeosetBarePants);
         }
     }
 
@@ -273,11 +277,12 @@ void GameScreen::updateCharacterGeosets(game::Inventory& inventory) {
     }
 
     // Back/Cloak: inventoryType 16 → group 15
-    geosets.insert((hasEquippedType({16}) && cloakShown) ? 1502 : 1501);
+    geosets.insert((hasEquippedType({16}) && cloakShown) ? core::kGeosetWithCape
+                                                         : core::kGeosetNoCape);
 
     // Tabard: inventoryType 19 → group 12
     if (hasEquippedType({19})) {
-        geosets.insert(1201);
+        geosets.insert(core::kGeosetDefaultTabard);
     }
 
     // Hide hair under a helm: drop the style scalp and put the bald cap on.
