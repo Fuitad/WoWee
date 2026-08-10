@@ -743,16 +743,10 @@ bool WorldMapFacade::mapUVForCanonical(float wowX, float wowY, float wowZ,
     const Zone& zone = zones[static_cast<size_t>(idx)];
     const bool isContinent = (zone.areaID == 0);
 
-    // A continent is drawn against bounds derived from its children rather than
-    // its own, which is what the party dot layer does before projecting.
-    ZoneBounds bounds = zone.bounds;
-    if (isContinent) {
-        float l, r, t, b;
-        if (getContinentProjectionBounds(zones, impl_->viewState.continentIdx(),
-                                         l, r, t, b)) {
-            bounds = {l, r, t, b};
-        }
-    }
+    // The same bounds every marker layer projects against.
+    bool boundsAreContinent = false;
+    const ZoneBounds bounds = projectionBoundsFor(
+        zones, impl_->viewState.continentIdx(), boundsAreContinent);
     const glm::vec2 uv = renderPosToMapUV(
         core::coords::canonicalToRender(glm::vec3(wowX, wowY, wowZ)),
         bounds, isContinent);

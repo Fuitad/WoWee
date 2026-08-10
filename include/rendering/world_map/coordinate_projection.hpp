@@ -23,6 +23,19 @@ bool getContinentProjectionBounds(const std::vector<Zone>& zones,
                                    float& left, float& right,
                                    float& top, float& bottom);
 
+/// The bounds a zone is projected against, and whether it is a continent.
+///
+/// A continent is drawn against bounds derived from its child zones, not its
+/// own: WorldMapArea gives a continent a box that does not match where its zones
+/// actually are, so projecting against that box puts every marker in the wrong
+/// place. A zone uses its own bounds.
+///
+/// Nine places worked this out for themselves — every marker layer and the
+/// facade — which is nine chances for one of them to project against the wrong
+/// rectangle and put its markers somewhere the others do not.
+ZoneBounds projectionBoundsFor(const std::vector<Zone>& zones, int zoneIdx,
+                               bool& isContinent);
+
 /// Find the best-fit continent index for a player position.
 /// Prefers the smallest containing continent; falls back to nearest center.
 int findBestContinentForPlayer(const std::vector<Zone>& zones,

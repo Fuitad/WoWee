@@ -76,18 +76,18 @@ void PlayerMarkerLayer::render(const LayerContext& ctx) {
     if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
     if (!ctx.zones) return;
 
-    const auto& zone = (*ctx.zones)[ctx.currentZoneIdx];
-    ZoneBounds bounds = zone.bounds;
-    bool isContinent = zone.areaID == 0;
+    bool isContinent = false;
+    const ZoneBounds bounds =
+        projectionBoundsFor(*ctx.zones, ctx.currentZoneIdx, isContinent);
 
+    // The one extra question this layer asks: on a continent, the player is
+    // only drawn when they are actually somewhere on it. The marker layers
+    // around it draw things whose position is already known to belong here.
     if (isContinent) {
-        int playerZone = findZoneForPlayer(*ctx.zones, ctx.playerRenderPos, ctx.playerZoneId);
+        const int playerZone =
+            findZoneForPlayer(*ctx.zones, ctx.playerRenderPos, ctx.playerZoneId);
         if (playerZone < 0 || !zoneBelongsToContinent(*ctx.zones, playerZone, ctx.currentZoneIdx))
             return;
-        float l, r, t, b;
-        if (getContinentProjectionBounds(*ctx.zones, ctx.currentZoneIdx, l, r, t, b)) {
-            bounds = {l, r, t, b};
-        }
     }
 
     glm::vec2 playerUV = renderPosToMapUV(ctx.playerRenderPos, bounds, isContinent);

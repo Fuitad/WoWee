@@ -97,15 +97,9 @@ void TaxiNodeLayer::render(const LayerContext& ctx) {
     if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
     if (!ctx.zones) return;
 
-    const auto& zone = (*ctx.zones)[ctx.currentZoneIdx];
-    ZoneBounds bounds = zone.bounds;
-    bool isContinent = zone.areaID == 0;
-    if (isContinent) {
-        float l, r, t, b;
-        if (getContinentProjectionBounds(*ctx.zones, ctx.currentZoneIdx, l, r, t, b)) {
-            bounds = {l, r, t, b};
-        }
-    }
+    bool isContinent = false;
+    const ZoneBounds bounds =
+        projectionBoundsFor(*ctx.zones, ctx.currentZoneIdx, isContinent);
 
     if (taxiMode_) {
         renderFlightMap(ctx, bounds, isContinent);

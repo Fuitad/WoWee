@@ -13,16 +13,9 @@ void ChestTrackerLayer::render(const LayerContext& ctx) {
     if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
     if (!ctx.zones) return;
 
-    const auto& zone = (*ctx.zones)[ctx.currentZoneIdx];
-    ZoneBounds bounds = zone.bounds;
-    const bool isContinent = zone.areaID == 0;
-    if (isContinent) {
-        float left, right, top, bottom;
-        if (getContinentProjectionBounds(*ctx.zones, ctx.currentZoneIdx,
-                                         left, right, top, bottom)) {
-            bounds = {left, right, top, bottom};
-        }
-    }
+    bool isContinent = false;
+    const ZoneBounds bounds =
+        projectionBoundsFor(*ctx.zones, ctx.currentZoneIdx, isContinent);
 
     constexpr ImU32 fill = IM_COL32(205, 125, 35, 255);
     constexpr ImU32 outline = IM_COL32(45, 25, 5, 230);

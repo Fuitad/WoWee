@@ -25,13 +25,15 @@ void CoordinateDisplay::render(const LayerContext& ctx) {
     float mv = (mp.y - ctx.imgMin.y) / ctx.displayH;
 
     const auto& zone = (*ctx.zones)[ctx.currentZoneIdx];
-    float left = zone.bounds.locLeft, right = zone.bounds.locRight;
-    float top = zone.bounds.locTop, bottom = zone.bounds.locBottom;
-    if (zone.areaID == 0) {
-        float l, r, t, b;
-        getContinentProjectionBounds(*ctx.zones, ctx.currentZoneIdx, l, r, t, b);
-        left = l; right = r; top = t; bottom = b;
-    }
+    // Through the shared helper, which keeps the zone's own bounds when the
+    // continent lookup fails. This read the four floats out of the call without
+    // checking it succeeded — and on failure it leaves them untouched, so the
+    // coordinates under the cursor were computed from uninitialised stack.
+    bool isContinent = false;
+    const ZoneBounds bounds =
+        projectionBoundsFor(*ctx.zones, ctx.currentZoneIdx, isContinent);
+    const float left = bounds.locLeft, right = bounds.locRight;
+    const float top = bounds.locTop, bottom = bounds.locBottom;
 
     float hWowX = left - mu * (left - right);
     float hWowY = top  - mv * (top  - bottom);
