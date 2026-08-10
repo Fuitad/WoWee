@@ -191,6 +191,9 @@ private:
     uint8_t hairStyle_ = 0;
     uint8_t facialHair_ = 0;
     std::string bodySkinPath_;
+    /// CharSections' second texture on the skin row: the Skin Extra art an
+    /// HD model draws its ears, eyes and mouth from.
+    std::string skinExtraPath_;
     std::vector<std::string> baseLayers_; // face + underwear, etc.
     uint32_t skinTextureSlotIndex_ = 0;
 

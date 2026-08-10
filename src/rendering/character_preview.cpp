@@ -592,6 +592,12 @@ bool CharacterPreview::loadCharacter(game::Race race, game::Gender gender,
                     bodySkinPath_ = tex1;
                     foundSkin = true;
                 }
+                // The skin row's second texture is the Skin Extra art — what an
+                // HD model draws its ears from, and its eyes and mouth with
+                // them. The preview never read it, so the slot kept whatever
+                // the model was authored with, which in this pack is a name
+                // that is not a file: the ears came out white.
+                skinExtraPath_ = charSectionsDbc->getString(r, csF.texture2);
             }
             // Section 1: Face (variation = face index, colorIndex = skin color)
             else if (baseSection == 1 && !foundFace &&
@@ -645,6 +651,16 @@ bool CharacterPreview::loadCharacter(game::Race race, game::Gender gender,
             tex.filename = bodySkinPath_;
         } else if (tex.type == 6 && tex.filename.empty() && !hairScalpPath.empty()) {
             tex.filename = hairScalpPath;
+        } else if (tex.type == 8) {
+            // Not "if empty". A runtime slot's authored name is not a filename,
+            // and leaving a non-empty one alone is exactly what left the ears
+            // unbound. Falls back to the body skin where the table offers no
+            // extra art, which is seven of the twenty race and sex pairs.
+            if (!skinExtraPath_.empty()) {
+                tex.filename = skinExtraPath_;
+            } else if (!bodySkinPath_.empty()) {
+                tex.filename = bodySkinPath_;
+            }
         }
     }
 
