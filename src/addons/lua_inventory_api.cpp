@@ -815,7 +815,24 @@ void registerInventoryLuaAPI(lua_State* L) {
             return 2;
         }},
                 {"GetAuctionItemInfo", [](lua_State* L) -> int {
-            // GetAuctionItemInfo(type, index) → name, texture, count, quality, canUse, level, levelColHeader, minBid, minIncrement, buyoutPrice, bidAmount, highBidder, bidderFullName, owner, ownerFullName, saleStatus, itemId
+            // GetAuctionItemInfo(type, index) → name, texture, count, quality,
+            // canUse, level, minBid, minIncrement, buyoutPrice, bidAmount,
+            // highBidder, owner, saleStatus
+            //
+            // 3.3.5's thirteen, in 3.3.5's order. This answered Cataclysm's
+            // seventeen — levelColHeader after level, and bidderFullName and
+            // ownerFullName around owner — while a 3.3.5 auction interface asks
+            // for:
+            //
+            //   name, texture, count, quality, canUse, level, minBid,
+            //   minIncrement, buyoutPrice, bidAmount, highBidder, owner
+            //
+            // so every value from the seventh on landed one place early. minBid
+            // received the empty levelColHeader, minIncrement received minBid,
+            // buyoutPrice received minIncrement — so no row showed a buyout —
+            // bidAmount received the buyout, and owner received a boolean.
+            // Bidding and buying read the prices they were given, so both were
+            // computed from the wrong number and refused.
             auto* gh = getGameHandler(L);
             const char* listType = luaL_checkstring(L, 1);
             int index = static_cast<int>(luaL_checknumber(L, 2));
@@ -837,18 +854,14 @@ void registerInventoryLuaAPI(lua_State* L) {
             lua_pushnumber(L, quality);             // quality
             lua_pushboolean(L, 1);                  // canUse
             lua_pushnumber(L, info ? info->requiredLevel : 0); // level
-            lua_pushstring(L, "");                  // levelColHeader
             lua_pushnumber(L, a.startBid);          // minBid
             lua_pushnumber(L, a.minBidIncrement);   // minIncrement
             lua_pushnumber(L, a.buyoutPrice);       // buyoutPrice
             lua_pushnumber(L, a.currentBid);        // bidAmount
             lua_pushboolean(L, a.bidderGuid != 0 ? 1 : 0); // highBidder
-            lua_pushstring(L, "");                  // bidderFullName
             lua_pushstring(L, "");                  // owner
-            lua_pushstring(L, "");                  // ownerFullName
             lua_pushnumber(L, 0);                   // saleStatus
-            lua_pushnumber(L, a.itemEntry);         // itemId
-            return 17;
+            return 13;
         }},
                 {"GetAuctionItemTimeLeft", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
