@@ -1,4 +1,5 @@
 #include "cli_hearth_binds_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWhrtExt(std::string base) {
-    stripExt(base, ".whrt");
-    return base;
-}
 
 const char* bindKindName(uint8_t k) {
     using H = wowee::pipeline::WoweeHearthBinds;
@@ -68,7 +64,7 @@ int handleGenStarterCities(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterCityBinds";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWhrtExt(base);
+    base = cli::withoutExt(base, ".whrt");
     auto c = wowee::pipeline::WoweeHearthBindsLoader::makeStarterCities(name);
     if (!saveOrError(c, base, "gen-hrt")) return 1;
     printGenSummary(c, base);
@@ -79,7 +75,7 @@ int handleGenCapitals(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CapitalBinds";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWhrtExt(base);
+    base = cli::withoutExt(base, ".whrt");
     auto c = wowee::pipeline::WoweeHearthBindsLoader::makeCapitals(name);
     if (!saveOrError(c, base, "gen-hrt-capitals")) return 1;
     printGenSummary(c, base);
@@ -90,7 +86,7 @@ int handleGenStarterInns(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterInns";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWhrtExt(base);
+    base = cli::withoutExt(base, ".whrt");
     auto c = wowee::pipeline::WoweeHearthBindsLoader::makeStarterInns(name);
     if (!saveOrError(c, base, "gen-hrt-inns")) return 1;
     printGenSummary(c, base);
@@ -100,7 +96,7 @@ int handleGenStarterInns(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWhrtExt(base);
+    base = cli::withoutExt(base, ".whrt");
     if (!wowee::pipeline::WoweeHearthBindsLoader::exists(base)) {
         std::fprintf(stderr, "WHRT not found: %s.whrt\n", base.c_str());
         return 1;
@@ -175,7 +171,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWhrtExt(base);
+    base = cli::withoutExt(base, ".whrt");
     if (out.empty()) out = base + ".whrt.json";
     if (!wowee::pipeline::WoweeHearthBindsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -225,16 +221,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".whrt.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".whrt");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".whrt");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -333,7 +320,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWhrtExt(base);
+    base = cli::withoutExt(base, ".whrt");
     if (!wowee::pipeline::WoweeHearthBindsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-whrt: WHRT not found: %s.whrt\n", base.c_str());

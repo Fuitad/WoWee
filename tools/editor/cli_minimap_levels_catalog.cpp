@@ -1,4 +1,5 @@
 #include "cli_minimap_levels_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -22,11 +23,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWmnlExt(std::string base) {
-    stripExt(base, ".wmnl");
-    return base;
-}
-
 bool saveOrError(const wowee::pipeline::WoweeMinimapLevels& c,
                  const std::string& base, const char* cmd) {
     if (!wowee::pipeline::WoweeMinimapLevelsLoader::save(c, base)) {
@@ -48,7 +44,7 @@ int handleGenStormwind(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StormwindMinimapLevels";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmnlExt(base);
+    base = cli::withoutExt(base, ".wmnl");
     auto c = wowee::pipeline::WoweeMinimapLevelsLoader::makeStormwind(name);
     if (!saveOrError(c, base, "gen-mnl")) return 1;
     printGenSummary(c, base);
@@ -59,7 +55,7 @@ int handleGenDalaran(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DalaranMinimapLevels";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmnlExt(base);
+    base = cli::withoutExt(base, ".wmnl");
     auto c = wowee::pipeline::WoweeMinimapLevelsLoader::makeDalaran(name);
     if (!saveOrError(c, base, "gen-mnl-dalaran")) return 1;
     printGenSummary(c, base);
@@ -70,7 +66,7 @@ int handleGenUndercity(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "UndercityMinimapLevels";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmnlExt(base);
+    base = cli::withoutExt(base, ".wmnl");
     auto c = wowee::pipeline::WoweeMinimapLevelsLoader::makeUndercity(name);
     if (!saveOrError(c, base, "gen-mnl-undercity")) return 1;
     printGenSummary(c, base);
@@ -80,7 +76,7 @@ int handleGenUndercity(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmnlExt(base);
+    base = cli::withoutExt(base, ".wmnl");
     if (!wowee::pipeline::WoweeMinimapLevelsLoader::exists(base)) {
         std::fprintf(stderr, "WMNL not found: %s.wmnl\n", base.c_str());
         return 1;
@@ -130,7 +126,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWmnlExt(base);
+    base = cli::withoutExt(base, ".wmnl");
     if (out.empty()) out = base + ".wmnl.json";
     if (!wowee::pipeline::WoweeMinimapLevelsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -177,16 +173,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wmnl.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wmnl");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wmnl");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -238,7 +225,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmnlExt(base);
+    base = cli::withoutExt(base, ".wmnl");
     if (!wowee::pipeline::WoweeMinimapLevelsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wmnl: WMNL not found: %s.wmnl\n",

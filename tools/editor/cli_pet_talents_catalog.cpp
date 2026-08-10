@@ -1,4 +1,5 @@
 #include "cli_pet_talents_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWpttExt(std::string base) {
-    stripExt(base, ".wptt");
-    return base;
-}
 
 const char* treeKindName(uint8_t k) {
     using P = wowee::pipeline::WoweePetTalents;
@@ -60,7 +56,7 @@ int handleGenFerocity(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FerocityPetTree";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpttExt(base);
+    base = cli::withoutExt(base, ".wptt");
     auto c = wowee::pipeline::WoweePetTalentsLoader::makeFerocity(name);
     if (!saveOrError(c, base, "gen-ptt")) return 1;
     printGenSummary(c, base);
@@ -71,7 +67,7 @@ int handleGenCunning(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CunningPetTree";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpttExt(base);
+    base = cli::withoutExt(base, ".wptt");
     auto c = wowee::pipeline::WoweePetTalentsLoader::makeCunning(name);
     if (!saveOrError(c, base, "gen-ptt-cunning")) return 1;
     printGenSummary(c, base);
@@ -82,7 +78,7 @@ int handleGenTenacity(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TenacityPetTree";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpttExt(base);
+    base = cli::withoutExt(base, ".wptt");
     auto c = wowee::pipeline::WoweePetTalentsLoader::makeTenacity(name);
     if (!saveOrError(c, base, "gen-ptt-tenacity")) return 1;
     printGenSummary(c, base);
@@ -92,7 +88,7 @@ int handleGenTenacity(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpttExt(base);
+    base = cli::withoutExt(base, ".wptt");
     if (!wowee::pipeline::WoweePetTalentsLoader::exists(base)) {
         std::fprintf(stderr, "WPTT not found: %s.wptt\n", base.c_str());
         return 1;
@@ -157,7 +153,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWpttExt(base);
+    base = cli::withoutExt(base, ".wptt");
     if (out.empty()) out = base + ".wptt.json";
     if (!wowee::pipeline::WoweePetTalentsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -205,16 +201,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wptt.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wptt");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wptt");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -297,7 +284,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpttExt(base);
+    base = cli::withoutExt(base, ".wptt");
     if (!wowee::pipeline::WoweePetTalentsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wptt: WPTT not found: %s.wptt\n",

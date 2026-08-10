@@ -1,4 +1,5 @@
 #include "cli_factions_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWfacExt(std::string base) {
-    stripExt(base, ".wfac");
-    return base;
-}
 
 void appendRepFlagsStr(std::string& s, uint32_t flags) {
     if (flags & wowee::pipeline::WoweeFaction::VisibleOnTab) s += "visible ";
@@ -55,7 +51,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterFactions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWfacExt(base);
+    base = cli::withoutExt(base, ".wfac");
     auto c = wowee::pipeline::WoweeFactionLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-factions")) return 1;
     printGenSummary(c, base);
@@ -66,7 +62,7 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllianceFactions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWfacExt(base);
+    base = cli::withoutExt(base, ".wfac");
     auto c = wowee::pipeline::WoweeFactionLoader::makeAlliance(name);
     if (!saveOrError(c, base, "gen-factions-alliance")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenWildlife(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WildlifeFactions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWfacExt(base);
+    base = cli::withoutExt(base, ".wfac");
     auto c = wowee::pipeline::WoweeFactionLoader::makeWildlife(name);
     if (!saveOrError(c, base, "gen-factions-wildlife")) return 1;
     printGenSummary(c, base);
@@ -87,7 +83,7 @@ int handleGenWildlife(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWfacExt(base);
+    base = cli::withoutExt(base, ".wfac");
     if (!wowee::pipeline::WoweeFactionLoader::exists(base)) {
         std::fprintf(stderr, "WFAC not found: %s.wfac\n", base.c_str());
         return 1;
@@ -149,7 +145,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWfacExt(base);
+    base = cli::withoutExt(base, ".wfac");
     if (outPath.empty()) outPath = base + ".wfac.json";
     if (!wowee::pipeline::WoweeFactionLoader::exists(base)) {
         std::fprintf(stderr,
@@ -216,7 +212,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWfacExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wfac");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -299,7 +295,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWfacExt(base);
+    base = cli::withoutExt(base, ".wfac");
     if (!wowee::pipeline::WoweeFactionLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wfac: WFAC not found: %s.wfac\n", base.c_str());

@@ -1,4 +1,5 @@
 #include "cli_loot_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWlotExt(std::string base) {
-    stripExt(base, ".wlot");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeLoot& c,
                  const std::string& base, const char* cmd) {
@@ -53,7 +49,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterLoot";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlotExt(base);
+    base = cli::withoutExt(base, ".wlot");
     auto c = wowee::pipeline::WoweeLootLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-loot")) return 1;
     printGenSummary(c, base);
@@ -64,7 +60,7 @@ int handleGenBandit(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BanditLoot";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlotExt(base);
+    base = cli::withoutExt(base, ".wlot");
     auto c = wowee::pipeline::WoweeLootLoader::makeBandit(name);
     if (!saveOrError(c, base, "gen-loot-bandit")) return 1;
     printGenSummary(c, base);
@@ -75,7 +71,7 @@ int handleGenBoss(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BossLoot";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlotExt(base);
+    base = cli::withoutExt(base, ".wlot");
     auto c = wowee::pipeline::WoweeLootLoader::makeBoss(name);
     if (!saveOrError(c, base, "gen-loot-boss")) return 1;
     printGenSummary(c, base);
@@ -101,7 +97,7 @@ void appendTableFlagsStr(std::string& s, uint32_t flags) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlotExt(base);
+    base = cli::withoutExt(base, ".wlot");
     if (!wowee::pipeline::WoweeLootLoader::exists(base)) {
         std::fprintf(stderr, "WLOT not found: %s.wlot\n", base.c_str());
         return 1;
@@ -181,7 +177,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWlotExt(base);
+    base = cli::withoutExt(base, ".wlot");
     if (outPath.empty()) outPath = base + ".wlot.json";
     if (!wowee::pipeline::WoweeLootLoader::exists(base)) {
         std::fprintf(stderr,
@@ -258,7 +254,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWlotExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wlot");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -337,7 +333,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlotExt(base);
+    base = cli::withoutExt(base, ".wlot");
     if (!wowee::pipeline::WoweeLootLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wlot: WLOT not found: %s.wlot\n", base.c_str());

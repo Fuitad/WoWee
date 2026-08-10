@@ -1,4 +1,5 @@
 #include "cli_glyph_slots_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWgfsExt(std::string base) {
-    stripExt(base, ".wgfs");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeGlyphSlot& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterGlyphSlots";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgfsExt(base);
+    base = cli::withoutExt(base, ".wgfs");
     auto c = wowee::pipeline::WoweeGlyphSlotLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-gfs")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenWotlk(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WotlkGlyphSlots";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgfsExt(base);
+    base = cli::withoutExt(base, ".wgfs");
     auto c = wowee::pipeline::WoweeGlyphSlotLoader::makeWotlk(name);
     if (!saveOrError(c, base, "gen-gfs-wotlk")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenCata(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CataclysmGlyphSlots";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgfsExt(base);
+    base = cli::withoutExt(base, ".wgfs");
     auto c = wowee::pipeline::WoweeGlyphSlotLoader::makeCata(name);
     if (!saveOrError(c, base, "gen-gfs-cata")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenCata(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgfsExt(base);
+    base = cli::withoutExt(base, ".wgfs");
     if (!wowee::pipeline::WoweeGlyphSlotLoader::exists(base)) {
         std::fprintf(stderr, "WGFS not found: %s.wgfs\n", base.c_str());
         return 1;
@@ -128,7 +124,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWgfsExt(base);
+    base = cli::withoutExt(base, ".wgfs");
     if (!wowee::pipeline::WoweeGlyphSlotLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wgfs-json: WGFS not found: %s.wgfs\n",
@@ -232,21 +228,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wgfs.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWgfsExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wgfs");
+    outBase = cli::withoutExt(outBase, ".wgfs");
     if (!wowee::pipeline::WoweeGlyphSlotLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wgfs-json: failed to save %s.wgfs\n",
@@ -262,7 +245,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgfsExt(base);
+    base = cli::withoutExt(base, ".wgfs");
     if (!wowee::pipeline::WoweeGlyphSlotLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wgfs: WGFS not found: %s.wgfs\n", base.c_str());

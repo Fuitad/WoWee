@@ -1,4 +1,5 @@
 #include "cli_creature_equipment_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWceqExt(std::string base) {
-    stripExt(base, ".wceq");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeCreatureEquipment& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterCreatureEq";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWceqExt(base);
+    base = cli::withoutExt(base, ".wceq");
     auto c = wowee::pipeline::WoweeCreatureEquipmentLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-ceq")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenBosses(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BossLoadouts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWceqExt(base);
+    base = cli::withoutExt(base, ".wceq");
     auto c = wowee::pipeline::WoweeCreatureEquipmentLoader::makeBosses(name);
     if (!saveOrError(c, base, "gen-ceq-bosses")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenRanged(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RangedLoadouts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWceqExt(base);
+    base = cli::withoutExt(base, ".wceq");
     auto c = wowee::pipeline::WoweeCreatureEquipmentLoader::makeRanged(name);
     if (!saveOrError(c, base, "gen-ceq-ranged")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenRanged(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWceqExt(base);
+    base = cli::withoutExt(base, ".wceq");
     if (!wowee::pipeline::WoweeCreatureEquipmentLoader::exists(base)) {
         std::fprintf(stderr, "WCEQ not found: %s.wceq\n", base.c_str());
         return 1;
@@ -132,7 +128,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWceqExt(base);
+    base = cli::withoutExt(base, ".wceq");
     if (outPath.empty()) outPath = base + ".wceq.json";
     if (!wowee::pipeline::WoweeCreatureEquipmentLoader::exists(base)) {
         std::fprintf(stderr,
@@ -189,7 +185,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWceqExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wceq");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -245,7 +241,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWceqExt(base);
+    base = cli::withoutExt(base, ".wceq");
     if (!wowee::pipeline::WoweeCreatureEquipmentLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wceq: WCEQ not found: %s.wceq\n", base.c_str());

@@ -1,4 +1,5 @@
 #include "cli_maps_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWmsExt(std::string base) {
-    stripExt(base, ".wms");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeMaps& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterMaps";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmsExt(base);
+    base = cli::withoutExt(base, ".wms");
     auto c = wowee::pipeline::WoweeMapsLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-maps")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenClassic(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ClassicMaps";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmsExt(base);
+    base = cli::withoutExt(base, ".wms");
     auto c = wowee::pipeline::WoweeMapsLoader::makeClassic(name);
     if (!saveOrError(c, base, "gen-maps-classic")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenBgArena(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BgArenaMaps";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmsExt(base);
+    base = cli::withoutExt(base, ".wms");
     auto c = wowee::pipeline::WoweeMapsLoader::makeBgArena(name);
     if (!saveOrError(c, base, "gen-maps-bgarena")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenBgArena(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmsExt(base);
+    base = cli::withoutExt(base, ".wms");
     if (!wowee::pipeline::WoweeMapsLoader::exists(base)) {
         std::fprintf(stderr, "WMS not found: %s.wms\n", base.c_str());
         return 1;
@@ -163,7 +159,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWmsExt(base);
+    base = cli::withoutExt(base, ".wms");
     if (outPath.empty()) outPath = base + ".wms.json";
     if (!wowee::pipeline::WoweeMapsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -233,7 +229,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWmsExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wms");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -329,7 +325,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmsExt(base);
+    base = cli::withoutExt(base, ".wms");
     if (!wowee::pipeline::WoweeMapsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wms: WMS not found: %s.wms\n", base.c_str());

@@ -1,4 +1,5 @@
 #include "cli_liquids_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWliqExt(std::string base) {
-    stripExt(base, ".wliq");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeLiquid& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterLiquids";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWliqExt(base);
+    base = cli::withoutExt(base, ".wliq");
     auto c = wowee::pipeline::WoweeLiquidLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-liquids")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenMagical(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MagicalLiquids";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWliqExt(base);
+    base = cli::withoutExt(base, ".wliq");
     auto c = wowee::pipeline::WoweeLiquidLoader::makeMagical(name);
     if (!saveOrError(c, base, "gen-liquids-magical")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenHazardous(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HazardousLiquids";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWliqExt(base);
+    base = cli::withoutExt(base, ".wliq");
     auto c = wowee::pipeline::WoweeLiquidLoader::makeHazardous(name);
     if (!saveOrError(c, base, "gen-liquids-hazardous")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenHazardous(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWliqExt(base);
+    base = cli::withoutExt(base, ".wliq");
     if (!wowee::pipeline::WoweeLiquidLoader::exists(base)) {
         std::fprintf(stderr, "WLIQ not found: %s.wliq\n", base.c_str());
         return 1;
@@ -142,7 +138,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWliqExt(base);
+    base = cli::withoutExt(base, ".wliq");
     if (outPath.empty()) outPath = base + ".wliq.json";
     if (!wowee::pipeline::WoweeLiquidLoader::exists(base)) {
         std::fprintf(stderr,
@@ -206,7 +202,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWliqExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wliq");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -282,7 +278,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWliqExt(base);
+    base = cli::withoutExt(base, ".wliq");
     if (!wowee::pipeline::WoweeLiquidLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wliq: WLIQ not found: %s.wliq\n", base.c_str());

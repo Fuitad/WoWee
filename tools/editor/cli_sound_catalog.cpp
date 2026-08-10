@@ -1,4 +1,5 @@
 #include "cli_sound_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWsndExt(std::string base) {
-    stripExt(base, ".wsnd");
-    return base;
-}
 
 void appendFlagsStr(std::string& s, uint32_t flags) {
     if (flags & wowee::pipeline::WoweeSound::Loop)   s += "loop ";
@@ -54,7 +50,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterCatalog";
     if (i + 1 < argc && argv[i + 1][0] != '-') name = argv[++i];
-    base = stripWsndExt(base);
+    base = cli::withoutExt(base, ".wsnd");
     auto c = wowee::pipeline::WoweeSoundLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-sound-catalog")) return 1;
     printGenSummary(c, base);
@@ -65,7 +61,7 @@ int handleGenAmbient(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AmbientCatalog";
     if (i + 1 < argc && argv[i + 1][0] != '-') name = argv[++i];
-    base = stripWsndExt(base);
+    base = cli::withoutExt(base, ".wsnd");
     auto c = wowee::pipeline::WoweeSoundLoader::makeAmbient(name);
     if (!saveOrError(c, base, "gen-sound-catalog-ambient")) return 1;
     printGenSummary(c, base);
@@ -76,7 +72,7 @@ int handleGenTavern(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TavernCatalog";
     if (i + 1 < argc && argv[i + 1][0] != '-') name = argv[++i];
-    base = stripWsndExt(base);
+    base = cli::withoutExt(base, ".wsnd");
     auto c = wowee::pipeline::WoweeSoundLoader::makeTavern(name);
     if (!saveOrError(c, base, "gen-sound-catalog-tavern")) return 1;
     printGenSummary(c, base);
@@ -86,7 +82,7 @@ int handleGenTavern(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsndExt(base);
+    base = cli::withoutExt(base, ".wsnd");
     if (!wowee::pipeline::WoweeSoundLoader::exists(base)) {
         std::fprintf(stderr, "WSND not found: %s.wsnd\n", base.c_str());
         return 1;
@@ -147,7 +143,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWsndExt(base);
+    base = cli::withoutExt(base, ".wsnd");
     if (outPath.empty()) outPath = base + ".wsnd.json";
     if (!wowee::pipeline::WoweeSoundLoader::exists(base)) {
         std::fprintf(stderr,
@@ -212,7 +208,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWsndExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wsnd");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -284,7 +280,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsndExt(base);
+    base = cli::withoutExt(base, ".wsnd");
     if (!wowee::pipeline::WoweeSoundLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wsnd: WSND not found: %s.wsnd\n", base.c_str());

@@ -1,4 +1,5 @@
 #include "cli_glyphs_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWglyExt(std::string base) {
-    stripExt(base, ".wgly");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeGlyph& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterGlyphs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWglyExt(base);
+    base = cli::withoutExt(base, ".wgly");
     auto c = wowee::pipeline::WoweeGlyphLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-glyphs")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorGlyphs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWglyExt(base);
+    base = cli::withoutExt(base, ".wgly");
     auto c = wowee::pipeline::WoweeGlyphLoader::makeWarrior(name);
     if (!saveOrError(c, base, "gen-glyphs-warrior")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenUniversal(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "UniversalGlyphs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWglyExt(base);
+    base = cli::withoutExt(base, ".wgly");
     auto c = wowee::pipeline::WoweeGlyphLoader::makeUniversal(name);
     if (!saveOrError(c, base, "gen-glyphs-universal")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenUniversal(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWglyExt(base);
+    base = cli::withoutExt(base, ".wgly");
     if (!wowee::pipeline::WoweeGlyphLoader::exists(base)) {
         std::fprintf(stderr, "WGLY not found: %s.wgly\n", base.c_str());
         return 1;
@@ -130,7 +126,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWglyExt(base);
+    base = cli::withoutExt(base, ".wgly");
     if (outPath.empty()) outPath = base + ".wgly.json";
     if (!wowee::pipeline::WoweeGlyphLoader::exists(base)) {
         std::fprintf(stderr,
@@ -185,7 +181,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWglyExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wgly");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -246,7 +242,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWglyExt(base);
+    base = cli::withoutExt(base, ".wgly");
     if (!wowee::pipeline::WoweeGlyphLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wgly: WGLY not found: %s.wgly\n", base.c_str());

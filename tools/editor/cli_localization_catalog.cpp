@@ -1,4 +1,5 @@
 #include "cli_localization_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWlanExt(std::string base) {
-    stripExt(base, ".wlan");
-    return base;
-}
 
 const char* languageCodeName(uint8_t l) {
     using L = wowee::pipeline::WoweeLocalization;
@@ -80,7 +76,7 @@ int handleGenUI(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "UIBasicsLocalization";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlanExt(base);
+    base = cli::withoutExt(base, ".wlan");
     auto c = wowee::pipeline::WoweeLocalizationLoader::makeUIBasics(name);
     if (!saveOrError(c, base, "gen-lan")) return 1;
     printGenSummary(c, base);
@@ -91,7 +87,7 @@ int handleGenQuest(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "QuestSampleLocalization";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlanExt(base);
+    base = cli::withoutExt(base, ".wlan");
     auto c = wowee::pipeline::WoweeLocalizationLoader::makeQuestSample(name);
     if (!saveOrError(c, base, "gen-lan-quest")) return 1;
     printGenSummary(c, base);
@@ -102,7 +98,7 @@ int handleGenTooltip(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TooltipSetLocalization";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlanExt(base);
+    base = cli::withoutExt(base, ".wlan");
     auto c = wowee::pipeline::WoweeLocalizationLoader::makeTooltipSet(name);
     if (!saveOrError(c, base, "gen-lan-tooltip")) return 1;
     printGenSummary(c, base);
@@ -112,7 +108,7 @@ int handleGenTooltip(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlanExt(base);
+    base = cli::withoutExt(base, ".wlan");
     if (!wowee::pipeline::WoweeLocalizationLoader::exists(base)) {
         std::fprintf(stderr, "WLAN not found: %s.wlan\n", base.c_str());
         return 1;
@@ -230,7 +226,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWlanExt(base);
+    base = cli::withoutExt(base, ".wlan");
     if (out.empty()) out = base + ".wlan.json";
     if (!wowee::pipeline::WoweeLocalizationLoader::exists(base)) {
         std::fprintf(stderr,
@@ -277,16 +273,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wlan.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wlan");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wlan");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -341,7 +328,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlanExt(base);
+    base = cli::withoutExt(base, ".wlan");
     if (!wowee::pipeline::WoweeLocalizationLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wlan: WLAN not found: %s.wlan\n",

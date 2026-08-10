@@ -1,4 +1,5 @@
 #include "cli_achievements_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWachExt(std::string base) {
-    stripExt(base, ".wach");
-    return base;
-}
 
 void appendAchFlagsStr(std::string& s, uint32_t flags) {
     if (flags & wowee::pipeline::WoweeAchievement::HiddenUntilEarned) s += "hidden ";
@@ -63,7 +59,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterAchievements";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWachExt(base);
+    base = cli::withoutExt(base, ".wach");
     auto c = wowee::pipeline::WoweeAchievementLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-achievements")) return 1;
     printGenSummary(c, base);
@@ -74,7 +70,7 @@ int handleGenBandit(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BanditAchievements";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWachExt(base);
+    base = cli::withoutExt(base, ".wach");
     auto c = wowee::pipeline::WoweeAchievementLoader::makeBandit(name);
     if (!saveOrError(c, base, "gen-achievements-bandit")) return 1;
     printGenSummary(c, base);
@@ -85,7 +81,7 @@ int handleGenMeta(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MetaAchievements";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWachExt(base);
+    base = cli::withoutExt(base, ".wach");
     auto c = wowee::pipeline::WoweeAchievementLoader::makeMeta(name);
     if (!saveOrError(c, base, "gen-achievements-meta")) return 1;
     printGenSummary(c, base);
@@ -95,7 +91,7 @@ int handleGenMeta(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWachExt(base);
+    base = cli::withoutExt(base, ".wach");
     if (!wowee::pipeline::WoweeAchievementLoader::exists(base)) {
         std::fprintf(stderr, "WACH not found: %s.wach\n", base.c_str());
         return 1;
@@ -179,7 +175,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWachExt(base);
+    base = cli::withoutExt(base, ".wach");
     if (outPath.empty()) outPath = base + ".wach.json";
     if (!wowee::pipeline::WoweeAchievementLoader::exists(base)) {
         std::fprintf(stderr,
@@ -255,7 +251,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWachExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wach");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -354,7 +350,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWachExt(base);
+    base = cli::withoutExt(base, ".wach");
     if (!wowee::pipeline::WoweeAchievementLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wach: WACH not found: %s.wach\n", base.c_str());

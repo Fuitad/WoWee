@@ -1,4 +1,5 @@
 #include "cli_events_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWseaExt(std::string base) {
-    stripExt(base, ".wsea");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeEvent& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterEvents";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWseaExt(base);
+    base = cli::withoutExt(base, ".wsea");
     auto c = wowee::pipeline::WoweeEventLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-events")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenYearly(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "YearlyEvents";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWseaExt(base);
+    base = cli::withoutExt(base, ".wsea");
     auto c = wowee::pipeline::WoweeEventLoader::makeYearly(name);
     if (!saveOrError(c, base, "gen-events-yearly")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenBonusWeekends(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BonusWeekends";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWseaExt(base);
+    base = cli::withoutExt(base, ".wsea");
     auto c = wowee::pipeline::WoweeEventLoader::makeBonusWeekends(name);
     if (!saveOrError(c, base, "gen-events-weekends")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenBonusWeekends(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWseaExt(base);
+    base = cli::withoutExt(base, ".wsea");
     if (!wowee::pipeline::WoweeEventLoader::exists(base)) {
         std::fprintf(stderr, "WSEA not found: %s.wsea\n", base.c_str());
         return 1;
@@ -137,7 +133,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWseaExt(base);
+    base = cli::withoutExt(base, ".wsea");
     if (outPath.empty()) outPath = base + ".wsea.json";
     if (!wowee::pipeline::WoweeEventLoader::exists(base)) {
         std::fprintf(stderr,
@@ -196,7 +192,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWseaExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wsea");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -273,7 +269,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWseaExt(base);
+    base = cli::withoutExt(base, ".wsea");
     if (!wowee::pipeline::WoweeEventLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wsea: WSEA not found: %s.wsea\n", base.c_str());

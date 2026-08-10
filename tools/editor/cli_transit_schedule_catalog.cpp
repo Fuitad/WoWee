@@ -1,4 +1,5 @@
 #include "cli_transit_schedule_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWtscExt(std::string base) {
-    stripExt(base, ".wtsc");
-    return base;
-}
 
 const char* vehicleTypeName(uint8_t v) {
     using T = wowee::pipeline::WoweeTransitSchedule;
@@ -68,7 +64,7 @@ int handleGenZeppelins(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "VanillaZeppelins";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtscExt(base);
+    base = cli::withoutExt(base, ".wtsc");
     auto c = wowee::pipeline::WoweeTransitScheduleLoader::
         makeZeppelins(name);
     if (!saveOrError(c, base, "gen-trn-zeppelins")) return 1;
@@ -80,7 +76,7 @@ int handleGenBoats(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "VanillaBoats";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtscExt(base);
+    base = cli::withoutExt(base, ".wtsc");
     auto c = wowee::pipeline::WoweeTransitScheduleLoader::
         makeBoats(name);
     if (!saveOrError(c, base, "gen-trn-boats")) return 1;
@@ -92,7 +88,7 @@ int handleGenTaxis(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "VanillaTaxis";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtscExt(base);
+    base = cli::withoutExt(base, ".wtsc");
     auto c = wowee::pipeline::WoweeTransitScheduleLoader::
         makeTaxis(name);
     if (!saveOrError(c, base, "gen-trn-taxis")) return 1;
@@ -103,7 +99,7 @@ int handleGenTaxis(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtscExt(base);
+    base = cli::withoutExt(base, ".wtsc");
     if (!wowee::pipeline::WoweeTransitScheduleLoader::exists(base)) {
         std::fprintf(stderr, "WTSC not found: %s.wtsc\n",
                      base.c_str());
@@ -220,7 +216,7 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtscExt(base);
+    base = cli::withoutExt(base, ".wtsc");
     if (!wowee::pipeline::WoweeTransitScheduleLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wtsc: WTSC not found: %s.wtsc\n",
@@ -333,7 +329,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWtscExt(base);
+    base = cli::withoutExt(base, ".wtsc");
     if (out.empty()) out = base + ".wtsc.json";
     if (!wowee::pipeline::WoweeTransitScheduleLoader::exists(base)) {
         std::fprintf(stderr,
@@ -389,16 +385,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wtsc.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wtsc");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wtsc");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

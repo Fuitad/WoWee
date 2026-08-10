@@ -1,4 +1,5 @@
 #include "cli_guild_bank_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -21,11 +22,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWgbkExt(std::string base) {
-    stripExt(base, ".wgbk");
-    return base;
-}
-
 bool saveOrError(const wowee::pipeline::WoweeGuildBank& c,
                  const std::string& base, const char* cmd) {
     if (!wowee::pipeline::WoweeGuildBankLoader::save(c, base)) {
@@ -47,7 +43,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardGuildBank";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgbkExt(base);
+    base = cli::withoutExt(base, ".wgbk");
     auto c = wowee::pipeline::WoweeGuildBankLoader::
         makeStandardBank(name);
     if (!saveOrError(c, base, "gen-gbk")) return 1;
@@ -59,7 +55,7 @@ int handleGenRaid(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidGuildBank";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgbkExt(base);
+    base = cli::withoutExt(base, ".wgbk");
     auto c = wowee::pipeline::WoweeGuildBankLoader::
         makeRaidGuild(name);
     if (!saveOrError(c, base, "gen-gbk-raid")) return 1;
@@ -71,7 +67,7 @@ int handleGenSmall(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "SmallGuildBank";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgbkExt(base);
+    base = cli::withoutExt(base, ".wgbk");
     auto c = wowee::pipeline::WoweeGuildBankLoader::
         makeSmallGuild(name);
     if (!saveOrError(c, base, "gen-gbk-small")) return 1;
@@ -88,7 +84,7 @@ std::string formatLimit(uint32_t v) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgbkExt(base);
+    base = cli::withoutExt(base, ".wgbk");
     if (!wowee::pipeline::WoweeGuildBankLoader::exists(base)) {
         std::fprintf(stderr, "WGBK not found: %s.wgbk\n",
                      base.c_str());
@@ -146,7 +142,7 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgbkExt(base);
+    base = cli::withoutExt(base, ".wgbk");
     if (!wowee::pipeline::WoweeGuildBankLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wgbk: WGBK not found: %s.wgbk\n",
@@ -267,7 +263,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWgbkExt(base);
+    base = cli::withoutExt(base, ".wgbk");
     if (out.empty()) out = base + ".wgbk.json";
     if (!wowee::pipeline::WoweeGuildBankLoader::exists(base)) {
         std::fprintf(stderr,
@@ -316,16 +312,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wgbk.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wgbk");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wgbk");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

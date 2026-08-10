@@ -1,4 +1,5 @@
 #include "cli_loot_modes_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWlmaExt(std::string base) {
-    stripExt(base, ".wlma");
-    return base;
-}
 
 const char* modeKindName(uint8_t k) {
     using L = wowee::pipeline::WoweeLootModes;
@@ -73,7 +69,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardLootModes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlmaExt(base);
+    base = cli::withoutExt(base, ".wlma");
     auto c = wowee::pipeline::WoweeLootModesLoader::makeStandard(name);
     if (!saveOrError(c, base, "gen-lma")) return 1;
     printGenSummary(c, base);
@@ -84,7 +80,7 @@ int handleGenRaid(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidLootPolicies";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlmaExt(base);
+    base = cli::withoutExt(base, ".wlma");
     auto c = wowee::pipeline::WoweeLootModesLoader::makeRaidPolicies(name);
     if (!saveOrError(c, base, "gen-lma-raid")) return 1;
     printGenSummary(c, base);
@@ -95,7 +91,7 @@ int handleGenAFK(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AFKPreventionLootModes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlmaExt(base);
+    base = cli::withoutExt(base, ".wlma");
     auto c = wowee::pipeline::WoweeLootModesLoader::makeAFKPrevention(name);
     if (!saveOrError(c, base, "gen-lma-afk")) return 1;
     printGenSummary(c, base);
@@ -105,7 +101,7 @@ int handleGenAFK(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlmaExt(base);
+    base = cli::withoutExt(base, ".wlma");
     if (!wowee::pipeline::WoweeLootModesLoader::exists(base)) {
         std::fprintf(stderr, "WLMA not found: %s.wlma\n", base.c_str());
         return 1;
@@ -210,7 +206,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWlmaExt(base);
+    base = cli::withoutExt(base, ".wlma");
     if (out.empty()) out = base + ".wlma.json";
     if (!wowee::pipeline::WoweeLootModesLoader::exists(base)) {
         std::fprintf(stderr,
@@ -261,16 +257,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wlma.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wlma");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wlma");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -335,7 +322,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlmaExt(base);
+    base = cli::withoutExt(base, ".wlma");
     if (!wowee::pipeline::WoweeLootModesLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wlma: WLMA not found: %s.wlma\n",

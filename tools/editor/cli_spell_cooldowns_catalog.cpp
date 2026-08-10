@@ -1,4 +1,5 @@
 #include "cli_spell_cooldowns_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWscdExt(std::string base) {
-    stripExt(base, ".wscd");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeSpellCooldown& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterCooldowns";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWscdExt(base);
+    base = cli::withoutExt(base, ".wscd");
     auto c = wowee::pipeline::WoweeSpellCooldownLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-cdb")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenClass(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageClassCooldowns";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWscdExt(base);
+    base = cli::withoutExt(base, ".wscd");
     auto c = wowee::pipeline::WoweeSpellCooldownLoader::makeClass(name);
     if (!saveOrError(c, base, "gen-cdb-class")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenItems(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ItemCooldowns";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWscdExt(base);
+    base = cli::withoutExt(base, ".wscd");
     auto c = wowee::pipeline::WoweeSpellCooldownLoader::makeItems(name);
     if (!saveOrError(c, base, "gen-cdb-items")) return 1;
     printGenSummary(c, base);
@@ -91,7 +87,7 @@ void appendFlagNames(uint32_t flags, std::string& out) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWscdExt(base);
+    base = cli::withoutExt(base, ".wscd");
     if (!wowee::pipeline::WoweeSpellCooldownLoader::exists(base)) {
         std::fprintf(stderr, "WSCD not found: %s.wscd\n", base.c_str());
         return 1;
@@ -144,7 +140,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWscdExt(base);
+    base = cli::withoutExt(base, ".wscd");
     if (!wowee::pipeline::WoweeSpellCooldownLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wscd-json: WSCD not found: %s.wscd\n",
@@ -284,21 +280,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wscd.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWscdExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wscd");
+    outBase = cli::withoutExt(outBase, ".wscd");
     if (!wowee::pipeline::WoweeSpellCooldownLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wscd-json: failed to save %s.wscd\n",
@@ -314,7 +297,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWscdExt(base);
+    base = cli::withoutExt(base, ".wscd");
     if (!wowee::pipeline::WoweeSpellCooldownLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wscd: WSCD not found: %s.wscd\n", base.c_str());

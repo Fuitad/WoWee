@@ -1,4 +1,5 @@
 #include "cli_mounts_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWmouExt(std::string base) {
-    stripExt(base, ".wmou");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeMount& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterMounts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmouExt(base);
+    base = cli::withoutExt(base, ".wmou");
     auto c = wowee::pipeline::WoweeMountLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-mounts")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenRacial(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RacialMounts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmouExt(base);
+    base = cli::withoutExt(base, ".wmou");
     auto c = wowee::pipeline::WoweeMountLoader::makeRacial(name);
     if (!saveOrError(c, base, "gen-mounts-racial")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenFlying(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FlyingMounts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmouExt(base);
+    base = cli::withoutExt(base, ".wmou");
     auto c = wowee::pipeline::WoweeMountLoader::makeFlying(name);
     if (!saveOrError(c, base, "gen-mounts-flying")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenFlying(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmouExt(base);
+    base = cli::withoutExt(base, ".wmou");
     if (!wowee::pipeline::WoweeMountLoader::exists(base)) {
         std::fprintf(stderr, "WMOU not found: %s.wmou\n", base.c_str());
         return 1;
@@ -139,7 +135,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWmouExt(base);
+    base = cli::withoutExt(base, ".wmou");
     if (outPath.empty()) outPath = base + ".wmou.json";
     if (!wowee::pipeline::WoweeMountLoader::exists(base)) {
         std::fprintf(stderr,
@@ -201,7 +197,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWmouExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wmou");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -294,7 +290,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmouExt(base);
+    base = cli::withoutExt(base, ".wmou");
     if (!wowee::pipeline::WoweeMountLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wmou: WMOU not found: %s.wmou\n", base.c_str());

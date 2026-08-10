@@ -1,4 +1,5 @@
 #include "cli_auction_houses_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -20,11 +21,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWauhExt(std::string base) {
-    stripExt(base, ".wauh");
-    return base;
-}
 
 const char* factionAccessName(uint8_t f) {
     using A = wowee::pipeline::WoweeAuctionHouses;
@@ -58,7 +54,7 @@ int handleGenStormwind(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StormwindAH";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWauhExt(base);
+    base = cli::withoutExt(base, ".wauh");
     auto c = wowee::pipeline::WoweeAuctionHousesLoader::
         makeStormwindAH(name);
     if (!saveOrError(c, base, "gen-auh-stormwind")) return 1;
@@ -70,7 +66,7 @@ int handleGenOrgrimmar(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "OrgrimmarAH";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWauhExt(base);
+    base = cli::withoutExt(base, ".wauh");
     auto c = wowee::pipeline::WoweeAuctionHousesLoader::
         makeOrgrimmarAH(name);
     if (!saveOrError(c, base, "gen-auh-orgrimmar")) return 1;
@@ -82,7 +78,7 @@ int handleGenBootyBay(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BootyBayAH";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWauhExt(base);
+    base = cli::withoutExt(base, ".wauh");
     auto c = wowee::pipeline::WoweeAuctionHousesLoader::
         makeBootyBayAH(name);
     if (!saveOrError(c, base, "gen-auh-bootybay")) return 1;
@@ -93,7 +89,7 @@ int handleGenBootyBay(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWauhExt(base);
+    base = cli::withoutExt(base, ".wauh");
     if (!wowee::pipeline::WoweeAuctionHousesLoader::exists(base)) {
         std::fprintf(stderr, "WAUH not found: %s.wauh\n",
                      base.c_str());
@@ -197,7 +193,7 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWauhExt(base);
+    base = cli::withoutExt(base, ".wauh");
     if (!wowee::pipeline::WoweeAuctionHousesLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wauh: WAUH not found: %s.wauh\n",
@@ -337,7 +333,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWauhExt(base);
+    base = cli::withoutExt(base, ".wauh");
     if (out.empty()) out = base + ".wauh.json";
     if (!wowee::pipeline::WoweeAuctionHousesLoader::exists(base)) {
         std::fprintf(stderr,
@@ -386,16 +382,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wauh.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wauh");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wauh");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

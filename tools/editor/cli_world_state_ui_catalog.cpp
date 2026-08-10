@@ -1,4 +1,5 @@
 #include "cli_world_state_ui_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWwuiExt(std::string base) {
-    stripExt(base, ".wwui");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeWorldStateUI& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterWorldStateUI";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWwuiExt(base);
+    base = cli::withoutExt(base, ".wwui");
     auto c = wowee::pipeline::WoweeWorldStateUILoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-wsui")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenWintergrasp(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WintergraspUI";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWwuiExt(base);
+    base = cli::withoutExt(base, ".wwui");
     auto c = wowee::pipeline::WoweeWorldStateUILoader::makeWintergrasp(name);
     if (!saveOrError(c, base, "gen-wsui-wintergrasp")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenDungeon(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DungeonUI";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWwuiExt(base);
+    base = cli::withoutExt(base, ".wwui");
     auto c = wowee::pipeline::WoweeWorldStateUILoader::makeDungeon(name);
     if (!saveOrError(c, base, "gen-wsui-dungeon")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenDungeon(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWwuiExt(base);
+    base = cli::withoutExt(base, ".wwui");
     if (!wowee::pipeline::WoweeWorldStateUILoader::exists(base)) {
         std::fprintf(stderr, "WWUI not found: %s.wwui\n", base.c_str());
         return 1;
@@ -137,7 +133,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWwuiExt(base);
+    base = cli::withoutExt(base, ".wwui");
     if (outPath.empty()) outPath = base + ".wwui.json";
     if (!wowee::pipeline::WoweeWorldStateUILoader::exists(base)) {
         std::fprintf(stderr,
@@ -197,7 +193,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWwuiExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wwui");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -280,7 +276,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWwuiExt(base);
+    base = cli::withoutExt(base, ".wwui");
     if (!wowee::pipeline::WoweeWorldStateUILoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wwui: WWUI not found: %s.wwui\n", base.c_str());

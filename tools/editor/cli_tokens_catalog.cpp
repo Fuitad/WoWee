@@ -1,4 +1,5 @@
 #include "cli_tokens_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWtknExt(std::string base) {
-    stripExt(base, ".wtkn");
-    return base;
-}
 
 void appendTknFlagsStr(std::string& s, uint32_t flags) {
     if (flags & wowee::pipeline::WoweeToken::AccountWide)       s += "account ";
@@ -55,7 +51,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterTokens";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtknExt(base);
+    base = cli::withoutExt(base, ".wtkn");
     auto c = wowee::pipeline::WoweeTokenLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-tokens")) return 1;
     printGenSummary(c, base);
@@ -66,7 +62,7 @@ int handleGenPvp(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PvpTokens";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtknExt(base);
+    base = cli::withoutExt(base, ".wtkn");
     auto c = wowee::pipeline::WoweeTokenLoader::makePvp(name);
     if (!saveOrError(c, base, "gen-tokens-pvp")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenSeasonal(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "SeasonalTokens";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtknExt(base);
+    base = cli::withoutExt(base, ".wtkn");
     auto c = wowee::pipeline::WoweeTokenLoader::makeSeasonal(name);
     if (!saveOrError(c, base, "gen-tokens-seasonal")) return 1;
     printGenSummary(c, base);
@@ -87,7 +83,7 @@ int handleGenSeasonal(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtknExt(base);
+    base = cli::withoutExt(base, ".wtkn");
     if (!wowee::pipeline::WoweeTokenLoader::exists(base)) {
         std::fprintf(stderr, "WTKN not found: %s.wtkn\n", base.c_str());
         return 1;
@@ -144,7 +140,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWtknExt(base);
+    base = cli::withoutExt(base, ".wtkn");
     if (outPath.empty()) outPath = base + ".wtkn.json";
     if (!wowee::pipeline::WoweeTokenLoader::exists(base)) {
         std::fprintf(stderr,
@@ -205,7 +201,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWtknExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wtkn");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -277,7 +273,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtknExt(base);
+    base = cli::withoutExt(base, ".wtkn");
     if (!wowee::pipeline::WoweeTokenLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wtkn: WTKN not found: %s.wtkn\n", base.c_str());

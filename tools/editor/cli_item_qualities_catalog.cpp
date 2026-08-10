@@ -1,4 +1,5 @@
 #include "cli_item_qualities_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWiqrExt(std::string base) {
-    stripExt(base, ".wiqr");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeItemQuality& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardQualities";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWiqrExt(base);
+    base = cli::withoutExt(base, ".wiqr");
     auto c = wowee::pipeline::WoweeItemQualityLoader::makeStandard(name);
     if (!saveOrError(c, base, "gen-iqr")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenServerCustom(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ServerCustomQualities";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWiqrExt(base);
+    base = cli::withoutExt(base, ".wiqr");
     auto c = wowee::pipeline::WoweeItemQualityLoader::makeServerCustom(name);
     if (!saveOrError(c, base, "gen-iqr-server")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenRaidTiers(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidProgressionQualities";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWiqrExt(base);
+    base = cli::withoutExt(base, ".wiqr");
     auto c = wowee::pipeline::WoweeItemQualityLoader::makeRaidTiers(name);
     if (!saveOrError(c, base, "gen-iqr-raid")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenRaidTiers(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWiqrExt(base);
+    base = cli::withoutExt(base, ".wiqr");
     if (!wowee::pipeline::WoweeItemQualityLoader::exists(base)) {
         std::fprintf(stderr, "WIQR not found: %s.wiqr\n", base.c_str());
         return 1;
@@ -128,7 +124,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWiqrExt(base);
+    base = cli::withoutExt(base, ".wiqr");
     if (!wowee::pipeline::WoweeItemQualityLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wiqr-json: WIQR not found: %s.wiqr\n",
@@ -213,21 +209,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wiqr.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWiqrExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wiqr");
+    outBase = cli::withoutExt(outBase, ".wiqr");
     if (!wowee::pipeline::WoweeItemQualityLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wiqr-json: failed to save %s.wiqr\n",
@@ -243,7 +226,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWiqrExt(base);
+    base = cli::withoutExt(base, ".wiqr");
     if (!wowee::pipeline::WoweeItemQualityLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wiqr: WIQR not found: %s.wiqr\n", base.c_str());

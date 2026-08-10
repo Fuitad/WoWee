@@ -1,4 +1,5 @@
 #include "cli_voiceovers_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWvoxExt(std::string base) {
-    stripExt(base, ".wvox");
-    return base;
-}
 
 const char* eventKindName(uint8_t k) {
     using V = wowee::pipeline::WoweeVoiceovers;
@@ -72,7 +68,7 @@ int handleGenQuest(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "QuestgiverVoices";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWvoxExt(base);
+    base = cli::withoutExt(base, ".wvox");
     auto c = wowee::pipeline::WoweeVoiceoversLoader::makeQuestgiver(name);
     if (!saveOrError(c, base, "gen-vox")) return 1;
     printGenSummary(c, base);
@@ -83,7 +79,7 @@ int handleGenBoss(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "LichKingVoices";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWvoxExt(base);
+    base = cli::withoutExt(base, ".wvox");
     auto c = wowee::pipeline::WoweeVoiceoversLoader::makeBoss(name);
     if (!saveOrError(c, base, "gen-vox-boss")) return 1;
     printGenSummary(c, base);
@@ -94,7 +90,7 @@ int handleGenVendor(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "VendorVoices";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWvoxExt(base);
+    base = cli::withoutExt(base, ".wvox");
     auto c = wowee::pipeline::WoweeVoiceoversLoader::makeVendor(name);
     if (!saveOrError(c, base, "gen-vox-vendor")) return 1;
     printGenSummary(c, base);
@@ -104,7 +100,7 @@ int handleGenVendor(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWvoxExt(base);
+    base = cli::withoutExt(base, ".wvox");
     if (!wowee::pipeline::WoweeVoiceoversLoader::exists(base)) {
         std::fprintf(stderr, "WVOX not found: %s.wvox\n", base.c_str());
         return 1;
@@ -222,7 +218,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWvoxExt(base);
+    base = cli::withoutExt(base, ".wvox");
     if (out.empty()) out = base + ".wvox.json";
     if (!wowee::pipeline::WoweeVoiceoversLoader::exists(base)) {
         std::fprintf(stderr,
@@ -272,16 +268,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wvox.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wvox");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wvox");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -339,7 +326,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWvoxExt(base);
+    base = cli::withoutExt(base, ".wvox");
     if (!wowee::pipeline::WoweeVoiceoversLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wvox: WVOX not found: %s.wvox\n",

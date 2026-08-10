@@ -1,4 +1,5 @@
 #include "cli_creatures_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWcrtExt(std::string base) {
-    stripExt(base, ".wcrt");
-    return base;
-}
 
 void appendNpcFlagsStr(std::string& s, uint32_t flags) {
     if (flags & wowee::pipeline::WoweeCreature::Vendor)       s += "vendor ";
@@ -69,7 +65,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterCreatures";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcrtExt(base);
+    base = cli::withoutExt(base, ".wcrt");
     auto c = wowee::pipeline::WoweeCreatureLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-creatures")) return 1;
     printGenSummary(c, base);
@@ -80,7 +76,7 @@ int handleGenBandit(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BanditCreatures";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcrtExt(base);
+    base = cli::withoutExt(base, ".wcrt");
     auto c = wowee::pipeline::WoweeCreatureLoader::makeBandit(name);
     if (!saveOrError(c, base, "gen-creatures-bandit")) return 1;
     printGenSummary(c, base);
@@ -91,7 +87,7 @@ int handleGenMerchants(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "VillageMerchants";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcrtExt(base);
+    base = cli::withoutExt(base, ".wcrt");
     auto c = wowee::pipeline::WoweeCreatureLoader::makeMerchants(name);
     if (!saveOrError(c, base, "gen-creatures-merchants")) return 1;
     printGenSummary(c, base);
@@ -101,7 +97,7 @@ int handleGenMerchants(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcrtExt(base);
+    base = cli::withoutExt(base, ".wcrt");
     if (!wowee::pipeline::WoweeCreatureLoader::exists(base)) {
         std::fprintf(stderr, "WCRT not found: %s.wcrt\n", base.c_str());
         return 1;
@@ -181,7 +177,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWcrtExt(base);
+    base = cli::withoutExt(base, ".wcrt");
     if (outPath.empty()) outPath = base + ".wcrt.json";
     if (!wowee::pipeline::WoweeCreatureLoader::exists(base)) {
         std::fprintf(stderr,
@@ -271,7 +267,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWcrtExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wcrt");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -398,7 +394,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcrtExt(base);
+    base = cli::withoutExt(base, ".wcrt");
     if (!wowee::pipeline::WoweeCreatureLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wcrt: WCRT not found: %s.wcrt\n", base.c_str());

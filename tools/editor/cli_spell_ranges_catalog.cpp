@@ -1,4 +1,5 @@
 #include "cli_spell_ranges_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWsrgExt(std::string base) {
-    stripExt(base, ".wsrg");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeSpellRange& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterRanges";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsrgExt(base);
+    base = cli::withoutExt(base, ".wsrg");
     auto c = wowee::pipeline::WoweeSpellRangeLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-srg")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenRanged(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RangedSpellBuckets";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsrgExt(base);
+    base = cli::withoutExt(base, ".wsrg");
     auto c = wowee::pipeline::WoweeSpellRangeLoader::makeRanged(name);
     if (!saveOrError(c, base, "gen-srg-ranged")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenFriendly(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FriendlyOnlyRanges";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsrgExt(base);
+    base = cli::withoutExt(base, ".wsrg");
     auto c = wowee::pipeline::WoweeSpellRangeLoader::makeFriendly(name);
     if (!saveOrError(c, base, "gen-srg-friendly")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenFriendly(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsrgExt(base);
+    base = cli::withoutExt(base, ".wsrg");
     if (!wowee::pipeline::WoweeSpellRangeLoader::exists(base)) {
         std::fprintf(stderr, "WSRG not found: %s.wsrg\n", base.c_str());
         return 1;
@@ -128,7 +124,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWsrgExt(base);
+    base = cli::withoutExt(base, ".wsrg");
     if (!wowee::pipeline::WoweeSpellRangeLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wsrg-json: WSRG not found: %s.wsrg\n",
@@ -256,7 +252,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase.resize(outBase.size() - suffix2.size());
         }
     }
-    outBase = stripWsrgExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wsrg");
     if (!wowee::pipeline::WoweeSpellRangeLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wsrg-json: failed to save %s.wsrg\n",
@@ -272,7 +268,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsrgExt(base);
+    base = cli::withoutExt(base, ".wsrg");
     if (!wowee::pipeline::WoweeSpellRangeLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wsrg: WSRG not found: %s.wsrg\n", base.c_str());

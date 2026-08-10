@@ -1,4 +1,5 @@
 #include "cli_creature_resists_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWcreExt(std::string base) {
-    stripExt(base, ".wcre");
-    return base;
-}
 
 std::string ccImmunityString(uint16_t mask) {
     using R = wowee::pipeline::WoweeCreatureResists;
@@ -72,7 +68,7 @@ int handleGenBosses(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidBossResists";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcreExt(base);
+    base = cli::withoutExt(base, ".wcre");
     auto c = wowee::pipeline::WoweeCreatureResistsLoader::makeRaidBosses(name);
     if (!saveOrError(c, base, "gen-cre")) return 1;
     printGenSummary(c, base);
@@ -83,7 +79,7 @@ int handleGenElites(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "EliteResists";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcreExt(base);
+    base = cli::withoutExt(base, ".wcre");
     auto c = wowee::pipeline::WoweeCreatureResistsLoader::makeElites(name);
     if (!saveOrError(c, base, "gen-cre-elites")) return 1;
     printGenSummary(c, base);
@@ -94,7 +90,7 @@ int handleGenImmunities(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CCImmunityProfiles";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcreExt(base);
+    base = cli::withoutExt(base, ".wcre");
     auto c = wowee::pipeline::WoweeCreatureResistsLoader::makeImmunities(name);
     if (!saveOrError(c, base, "gen-cre-immune")) return 1;
     printGenSummary(c, base);
@@ -104,7 +100,7 @@ int handleGenImmunities(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcreExt(base);
+    base = cli::withoutExt(base, ".wcre");
     if (!wowee::pipeline::WoweeCreatureResistsLoader::exists(base)) {
         std::fprintf(stderr, "WCRE not found: %s.wcre\n", base.c_str());
         return 1;
@@ -197,7 +193,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWcreExt(base);
+    base = cli::withoutExt(base, ".wcre");
     if (out.empty()) out = base + ".wcre.json";
     if (!wowee::pipeline::WoweeCreatureResistsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -250,16 +246,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wcre.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wcre");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wcre");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -349,7 +336,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcreExt(base);
+    base = cli::withoutExt(base, ".wcre");
     if (!wowee::pipeline::WoweeCreatureResistsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wcre: WCRE not found: %s.wcre\n",

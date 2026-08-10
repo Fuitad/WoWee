@@ -1,4 +1,5 @@
 #include "cli_group_compositions_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWgrpExt(std::string base) {
-    stripExt(base, ".wgrp");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeGroupComposition& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenFiveMan(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FiveManComps";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgrpExt(base);
+    base = cli::withoutExt(base, ".wgrp");
     auto c = wowee::pipeline::WoweeGroupCompositionLoader::makeFiveMan(name);
     if (!saveOrError(c, base, "gen-grp")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenRaid10(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "Raid10Comps";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgrpExt(base);
+    base = cli::withoutExt(base, ".wgrp");
     auto c = wowee::pipeline::WoweeGroupCompositionLoader::makeRaid10(name);
     if (!saveOrError(c, base, "gen-grp-raid10")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenRaid25(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "Raid25Comps";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgrpExt(base);
+    base = cli::withoutExt(base, ".wgrp");
     auto c = wowee::pipeline::WoweeGroupCompositionLoader::makeRaid25(name);
     if (!saveOrError(c, base, "gen-grp-raid25")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenRaid25(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgrpExt(base);
+    base = cli::withoutExt(base, ".wgrp");
     if (!wowee::pipeline::WoweeGroupCompositionLoader::exists(base)) {
         std::fprintf(stderr, "WGRP not found: %s.wgrp\n", base.c_str());
         return 1;
@@ -144,7 +140,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWgrpExt(base);
+    base = cli::withoutExt(base, ".wgrp");
     if (out.empty()) out = base + ".wgrp.json";
     if (!wowee::pipeline::WoweeGroupCompositionLoader::exists(base)) {
         std::fprintf(stderr,
@@ -193,16 +189,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wgrp.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wgrp");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wgrp");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -267,7 +254,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgrpExt(base);
+    base = cli::withoutExt(base, ".wgrp");
     if (!wowee::pipeline::WoweeGroupCompositionLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wgrp: WGRP not found: %s.wgrp\n", base.c_str());

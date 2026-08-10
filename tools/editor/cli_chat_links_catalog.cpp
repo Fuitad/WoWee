@@ -1,4 +1,5 @@
 #include "cli_chat_links_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWlnkExt(std::string base) {
-    stripExt(base, ".wlnk");
-    return base;
-}
 
 const char* linkKindName(uint8_t k) {
     using L = wowee::pipeline::WoweeChatLinks;
@@ -59,7 +55,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardChatLinks";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlnkExt(base);
+    base = cli::withoutExt(base, ".wlnk");
     auto c = wowee::pipeline::WoweeChatLinksLoader::
         makeStandardLinks(name);
     if (!saveOrError(c, base, "gen-lnk-std")) return 1;
@@ -71,7 +67,7 @@ int handleGenTalentTrade(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TalentTradeChatLinks";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlnkExt(base);
+    base = cli::withoutExt(base, ".wlnk");
     auto c = wowee::pipeline::WoweeChatLinksLoader::
         makeTalentTrade(name);
     if (!saveOrError(c, base, "gen-lnk-talent")) return 1;
@@ -83,7 +79,7 @@ int handleGenColorVariants(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ItemQualityColorVariants";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlnkExt(base);
+    base = cli::withoutExt(base, ".wlnk");
     auto c = wowee::pipeline::WoweeChatLinksLoader::
         makeColorVariants(name);
     if (!saveOrError(c, base, "gen-lnk-quality")) return 1;
@@ -94,7 +90,7 @@ int handleGenColorVariants(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlnkExt(base);
+    base = cli::withoutExt(base, ".wlnk");
     if (!wowee::pipeline::WoweeChatLinksLoader::exists(base)) {
         std::fprintf(stderr, "WLNK not found: %s.wlnk\n",
                      base.c_str());
@@ -213,7 +209,7 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlnkExt(base);
+    base = cli::withoutExt(base, ".wlnk");
     if (!wowee::pipeline::WoweeChatLinksLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wlnk: WLNK not found: %s.wlnk\n",
@@ -318,7 +314,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWlnkExt(base);
+    base = cli::withoutExt(base, ".wlnk");
     if (out.empty()) out = base + ".wlnk.json";
     if (!wowee::pipeline::WoweeChatLinksLoader::exists(base)) {
         std::fprintf(stderr,
@@ -364,16 +360,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wlnk.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wlnk");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wlnk");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

@@ -1,4 +1,5 @@
 #include "cli_spell_schools_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWschExt(std::string base) {
-    stripExt(base, ".wsch");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeSpellSchool& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterSchools";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWschExt(base);
+    base = cli::withoutExt(base, ".wsch");
     auto c = wowee::pipeline::WoweeSpellSchoolLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-sch")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenMagical(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MagicalSchools";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWschExt(base);
+    base = cli::withoutExt(base, ".wsch");
     auto c = wowee::pipeline::WoweeSpellSchoolLoader::makeMagical(name);
     if (!saveOrError(c, base, "gen-sch-magical")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenCombined(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CombinedSchools";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWschExt(base);
+    base = cli::withoutExt(base, ".wsch");
     auto c = wowee::pipeline::WoweeSpellSchoolLoader::makeCombined(name);
     if (!saveOrError(c, base, "gen-sch-combined")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenCombined(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWschExt(base);
+    base = cli::withoutExt(base, ".wsch");
     if (!wowee::pipeline::WoweeSpellSchoolLoader::exists(base)) {
         std::fprintf(stderr, "WSCH not found: %s.wsch\n", base.c_str());
         return 1;
@@ -133,7 +129,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWschExt(base);
+    base = cli::withoutExt(base, ".wsch");
     if (outPath.empty()) outPath = base + ".wsch.json";
     if (!wowee::pipeline::WoweeSpellSchoolLoader::exists(base)) {
         std::fprintf(stderr,
@@ -191,7 +187,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWschExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wsch");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -249,7 +245,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWschExt(base);
+    base = cli::withoutExt(base, ".wsch");
     if (!wowee::pipeline::WoweeSpellSchoolLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wsch: WSCH not found: %s.wsch\n", base.c_str());

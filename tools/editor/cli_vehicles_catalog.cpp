@@ -1,4 +1,5 @@
 #include "cli_vehicles_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWvhcExt(std::string base) {
-    stripExt(base, ".wvhc");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeVehicle& c,
                  const std::string& base, const char* cmd) {
@@ -52,7 +48,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterVehicles";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWvhcExt(base);
+    base = cli::withoutExt(base, ".wvhc");
     auto c = wowee::pipeline::WoweeVehicleLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-vehicles")) return 1;
     printGenSummary(c, base);
@@ -63,7 +59,7 @@ int handleGenSiege(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "SiegeVehicles";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWvhcExt(base);
+    base = cli::withoutExt(base, ".wvhc");
     auto c = wowee::pipeline::WoweeVehicleLoader::makeSiege(name);
     if (!saveOrError(c, base, "gen-vehicles-siege")) return 1;
     printGenSummary(c, base);
@@ -74,7 +70,7 @@ int handleGenFlying(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FlyingVehicles";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWvhcExt(base);
+    base = cli::withoutExt(base, ".wvhc");
     auto c = wowee::pipeline::WoweeVehicleLoader::makeFlying(name);
     if (!saveOrError(c, base, "gen-vehicles-flying")) return 1;
     printGenSummary(c, base);
@@ -84,7 +80,7 @@ int handleGenFlying(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWvhcExt(base);
+    base = cli::withoutExt(base, ".wvhc");
     if (!wowee::pipeline::WoweeVehicleLoader::exists(base)) {
         std::fprintf(stderr, "WVHC not found: %s.wvhc\n", base.c_str());
         return 1;
@@ -156,7 +152,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWvhcExt(base);
+    base = cli::withoutExt(base, ".wvhc");
     if (outPath.empty()) outPath = base + ".wvhc.json";
     if (!wowee::pipeline::WoweeVehicleLoader::exists(base)) {
         std::fprintf(stderr,
@@ -228,7 +224,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWvhcExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wvhc");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -344,7 +340,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWvhcExt(base);
+    base = cli::withoutExt(base, ".wvhc");
     if (!wowee::pipeline::WoweeVehicleLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wvhc: WVHC not found: %s.wvhc\n", base.c_str());

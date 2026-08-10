@@ -1,4 +1,5 @@
 #include "cli_talent_tabs_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWtleExt(std::string base) {
-    stripExt(base, ".wtle");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeTalentTab& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorTalentTabs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtleExt(base);
+    base = cli::withoutExt(base, ".wtle");
     auto c = wowee::pipeline::WoweeTalentTabLoader::makeWarrior(name);
     if (!saveOrError(c, base, "gen-tle")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenMage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageTalentTabs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtleExt(base);
+    base = cli::withoutExt(base, ".wtle");
     auto c = wowee::pipeline::WoweeTalentTabLoader::makeMage(name);
     if (!saveOrError(c, base, "gen-tle-mage")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenPaladin(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PaladinTalentTabs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtleExt(base);
+    base = cli::withoutExt(base, ".wtle");
     auto c = wowee::pipeline::WoweeTalentTabLoader::makePaladin(name);
     if (!saveOrError(c, base, "gen-tle-paladin")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenPaladin(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtleExt(base);
+    base = cli::withoutExt(base, ".wtle");
     if (!wowee::pipeline::WoweeTalentTabLoader::exists(base)) {
         std::fprintf(stderr, "WTLE not found: %s.wtle\n", base.c_str());
         return 1;
@@ -128,7 +124,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWtleExt(base);
+    base = cli::withoutExt(base, ".wtle");
     if (!wowee::pipeline::WoweeTalentTabLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wtle-json: WTLE not found: %s.wtle\n",
@@ -233,21 +229,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wtle.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWtleExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wtle");
+    outBase = cli::withoutExt(outBase, ".wtle");
     if (!wowee::pipeline::WoweeTalentTabLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wtle-json: failed to save %s.wtle\n",
@@ -263,7 +246,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtleExt(base);
+    base = cli::withoutExt(base, ".wtle");
     if (!wowee::pipeline::WoweeTalentTabLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wtle: WTLE not found: %s.wtle\n", base.c_str());

@@ -1,4 +1,5 @@
 #include "cli_token_rewards_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWtbrExt(std::string base) {
-    stripExt(base, ".wtbr");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeTokenReward& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenRaid(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidTokenRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtbrExt(base);
+    base = cli::withoutExt(base, ".wtbr");
     auto c = wowee::pipeline::WoweeTokenRewardLoader::makeRaidTokens(name);
     if (!saveOrError(c, base, "gen-tbr")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenPvP(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PvPTokenRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtbrExt(base);
+    base = cli::withoutExt(base, ".wtbr");
     auto c = wowee::pipeline::WoweeTokenRewardLoader::makePvP(name);
     if (!saveOrError(c, base, "gen-tbr-pvp")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenFaction(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FactionTokenRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtbrExt(base);
+    base = cli::withoutExt(base, ".wtbr");
     auto c = wowee::pipeline::WoweeTokenRewardLoader::makeFaction(name);
     if (!saveOrError(c, base, "gen-tbr-faction")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenFaction(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtbrExt(base);
+    base = cli::withoutExt(base, ".wtbr");
     if (!wowee::pipeline::WoweeTokenRewardLoader::exists(base)) {
         std::fprintf(stderr, "WTBR not found: %s.wtbr\n", base.c_str());
         return 1;
@@ -137,7 +133,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWtbrExt(base);
+    base = cli::withoutExt(base, ".wtbr");
     if (!wowee::pipeline::WoweeTokenRewardLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wtbr-json: WTBR not found: %s.wtbr\n",
@@ -278,21 +274,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wtbr.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWtbrExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wtbr");
+    outBase = cli::withoutExt(outBase, ".wtbr");
     if (!wowee::pipeline::WoweeTokenRewardLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wtbr-json: failed to save %s.wtbr\n",
@@ -308,7 +291,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtbrExt(base);
+    base = cli::withoutExt(base, ".wtbr");
     if (!wowee::pipeline::WoweeTokenRewardLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wtbr: WTBR not found: %s.wtbr\n", base.c_str());

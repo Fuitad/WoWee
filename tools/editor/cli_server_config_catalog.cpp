@@ -1,4 +1,5 @@
 #include "cli_server_config_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWcfgExt(std::string base) {
-    stripExt(base, ".wcfg");
-    return base;
-}
 
 const char* configKindName(uint8_t k) {
     using C = wowee::pipeline::WoweeServerConfig;
@@ -98,7 +94,7 @@ int handleGenRates(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RateMultipliers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcfgExt(base);
+    base = cli::withoutExt(base, ".wcfg");
     auto c = wowee::pipeline::WoweeServerConfigLoader::makeRates(name);
     if (!saveOrError(c, base, "gen-cfg")) return 1;
     printGenSummary(c, base);
@@ -109,7 +105,7 @@ int handleGenPerf(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PerformanceTuning";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcfgExt(base);
+    base = cli::withoutExt(base, ".wcfg");
     auto c = wowee::pipeline::WoweeServerConfigLoader::makePerformance(name);
     if (!saveOrError(c, base, "gen-cfg-perf")) return 1;
     printGenSummary(c, base);
@@ -120,7 +116,7 @@ int handleGenSecurity(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "SecurityPolicy";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcfgExt(base);
+    base = cli::withoutExt(base, ".wcfg");
     auto c = wowee::pipeline::WoweeServerConfigLoader::makeSecurity(name);
     if (!saveOrError(c, base, "gen-cfg-sec")) return 1;
     printGenSummary(c, base);
@@ -130,7 +126,7 @@ int handleGenSecurity(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcfgExt(base);
+    base = cli::withoutExt(base, ".wcfg");
     if (!wowee::pipeline::WoweeServerConfigLoader::exists(base)) {
         std::fprintf(stderr, "WCFG not found: %s.wcfg\n", base.c_str());
         return 1;
@@ -244,7 +240,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWcfgExt(base);
+    base = cli::withoutExt(base, ".wcfg");
     if (out.empty()) out = base + ".wcfg.json";
     if (!wowee::pipeline::WoweeServerConfigLoader::exists(base)) {
         std::fprintf(stderr,
@@ -293,16 +289,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wcfg.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wcfg");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wcfg");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -363,7 +350,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcfgExt(base);
+    base = cli::withoutExt(base, ".wcfg");
     if (!wowee::pipeline::WoweeServerConfigLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wcfg: WCFG not found: %s.wcfg\n",

@@ -1,4 +1,5 @@
 #include "cli_items_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWitExt(std::string base) {
-    stripExt(base, ".wit");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeItem& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterItems";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWitExt(base);
+    base = cli::withoutExt(base, ".wit");
     auto c = wowee::pipeline::WoweeItemLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-items")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenWeapons(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WeaponCatalog";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWitExt(base);
+    base = cli::withoutExt(base, ".wit");
     auto c = wowee::pipeline::WoweeItemLoader::makeWeapons(name);
     if (!saveOrError(c, base, "gen-items-weapons")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenArmor(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ArmorCatalog";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWitExt(base);
+    base = cli::withoutExt(base, ".wit");
     auto c = wowee::pipeline::WoweeItemLoader::makeArmor(name);
     if (!saveOrError(c, base, "gen-items-armor")) return 1;
     printGenSummary(c, base);
@@ -84,7 +80,7 @@ void printPriceCopper(uint32_t copper) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWitExt(base);
+    base = cli::withoutExt(base, ".wit");
     if (!wowee::pipeline::WoweeItemLoader::exists(base)) {
         std::fprintf(stderr, "WIT not found: %s.wit\n", base.c_str());
         return 1;
@@ -160,7 +156,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWitExt(base);
+    base = cli::withoutExt(base, ".wit");
     if (outPath.empty()) outPath = base + ".wit.json";
     if (!wowee::pipeline::WoweeItemLoader::exists(base)) {
         std::fprintf(stderr,
@@ -235,7 +231,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWitExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wit");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -358,7 +354,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWitExt(base);
+    base = cli::withoutExt(base, ".wit");
     if (!wowee::pipeline::WoweeItemLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wit: WIT not found: %s.wit\n", base.c_str());

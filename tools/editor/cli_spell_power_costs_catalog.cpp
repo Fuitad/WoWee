@@ -1,4 +1,5 @@
 #include "cli_spell_power_costs_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWspcExt(std::string base) {
-    stripExt(base, ".wspc");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeSpellPowerCost& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterPowerCosts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspcExt(base);
+    base = cli::withoutExt(base, ".wspc");
     auto c = wowee::pipeline::WoweeSpellPowerCostLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-spc")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenRage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorRageCosts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspcExt(base);
+    base = cli::withoutExt(base, ".wspc");
     auto c = wowee::pipeline::WoweeSpellPowerCostLoader::makeRage(name);
     if (!saveOrError(c, base, "gen-spc-rage")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenMixed(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MixedClassPowerCosts";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspcExt(base);
+    base = cli::withoutExt(base, ".wspc");
     auto c = wowee::pipeline::WoweeSpellPowerCostLoader::makeMixed(name);
     if (!saveOrError(c, base, "gen-spc-mixed")) return 1;
     printGenSummary(c, base);
@@ -91,7 +87,7 @@ void appendCostFlagNames(uint32_t flags, std::string& out) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspcExt(base);
+    base = cli::withoutExt(base, ".wspc");
     if (!wowee::pipeline::WoweeSpellPowerCostLoader::exists(base)) {
         std::fprintf(stderr, "WSPC not found: %s.wspc\n", base.c_str());
         return 1;
@@ -147,7 +143,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWspcExt(base);
+    base = cli::withoutExt(base, ".wspc");
     if (!wowee::pipeline::WoweeSpellPowerCostLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wspc-json: WSPC not found: %s.wspc\n",
@@ -293,21 +289,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wspc.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWspcExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wspc");
+    outBase = cli::withoutExt(outBase, ".wspc");
     if (!wowee::pipeline::WoweeSpellPowerCostLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wspc-json: failed to save %s.wspc\n",
@@ -323,7 +306,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspcExt(base);
+    base = cli::withoutExt(base, ".wspc");
     if (!wowee::pipeline::WoweeSpellPowerCostLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wspc: WSPC not found: %s.wspc\n", base.c_str());

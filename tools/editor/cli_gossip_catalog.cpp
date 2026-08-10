@@ -1,4 +1,5 @@
 #include "cli_gossip_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWgspExt(std::string base) {
-    stripExt(base, ".wgsp");
-    return base;
-}
 
 void appendOptFlagsStr(std::string& s, uint32_t flags) {
     if (flags & wowee::pipeline::WoweeGossip::AllianceOnly) s += "alliance ";
@@ -62,7 +58,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterGossip";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgspExt(base);
+    base = cli::withoutExt(base, ".wgsp");
     auto c = wowee::pipeline::WoweeGossipLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-gossip")) return 1;
     printGenSummary(c, base);
@@ -73,7 +69,7 @@ int handleGenInnkeeper(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "InnkeeperGossip";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgspExt(base);
+    base = cli::withoutExt(base, ".wgsp");
     auto c = wowee::pipeline::WoweeGossipLoader::makeInnkeeper(name);
     if (!saveOrError(c, base, "gen-gossip-innkeeper")) return 1;
     printGenSummary(c, base);
@@ -84,7 +80,7 @@ int handleGenQuestGiver(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "QuestGiverGossip";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgspExt(base);
+    base = cli::withoutExt(base, ".wgsp");
     auto c = wowee::pipeline::WoweeGossipLoader::makeQuestGiver(name);
     if (!saveOrError(c, base, "gen-gossip-questgiver")) return 1;
     printGenSummary(c, base);
@@ -94,7 +90,7 @@ int handleGenQuestGiver(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgspExt(base);
+    base = cli::withoutExt(base, ".wgsp");
     if (!wowee::pipeline::WoweeGossipLoader::exists(base)) {
         std::fprintf(stderr, "WGSP not found: %s.wgsp\n", base.c_str());
         return 1;
@@ -165,7 +161,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWgspExt(base);
+    base = cli::withoutExt(base, ".wgsp");
     if (outPath.empty()) outPath = base + ".wgsp.json";
     if (!wowee::pipeline::WoweeGossipLoader::exists(base)) {
         std::fprintf(stderr,
@@ -232,7 +228,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWgspExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wgsp");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -320,7 +316,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgspExt(base);
+    base = cli::withoutExt(base, ".wgsp");
     if (!wowee::pipeline::WoweeGossipLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wgsp: WGSP not found: %s.wgsp\n", base.c_str());

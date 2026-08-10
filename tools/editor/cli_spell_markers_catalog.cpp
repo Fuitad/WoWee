@@ -1,4 +1,5 @@
 #include "cli_spell_markers_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWspmExt(std::string base) {
-    stripExt(base, ".wspm");
-    return base;
-}
 
 const char* edgeFadeModeName(uint8_t m) {
     using S = wowee::pipeline::WoweeSpellMarkers;
@@ -56,7 +52,7 @@ int handleGenMage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageAoEMarkers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspmExt(base);
+    base = cli::withoutExt(base, ".wspm");
     auto c = wowee::pipeline::WoweeSpellMarkersLoader::makeMageAoE(name);
     if (!saveOrError(c, base, "gen-spm")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenRaid(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidHazardMarkers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspmExt(base);
+    base = cli::withoutExt(base, ".wspm");
     auto c = wowee::pipeline::WoweeSpellMarkersLoader::makeRaidHazards(name);
     if (!saveOrError(c, base, "gen-spm-raid")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenEnvironment(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "EnvironmentMarkers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspmExt(base);
+    base = cli::withoutExt(base, ".wspm");
     auto c = wowee::pipeline::WoweeSpellMarkersLoader::makeEnvironment(name);
     if (!saveOrError(c, base, "gen-spm-env")) return 1;
     printGenSummary(c, base);
@@ -88,7 +84,7 @@ int handleGenEnvironment(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspmExt(base);
+    base = cli::withoutExt(base, ".wspm");
     if (!wowee::pipeline::WoweeSpellMarkersLoader::exists(base)) {
         std::fprintf(stderr, "WSPM not found: %s.wspm\n", base.c_str());
         return 1;
@@ -153,7 +149,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWspmExt(base);
+    base = cli::withoutExt(base, ".wspm");
     if (out.empty()) out = base + ".wspm.json";
     if (!wowee::pipeline::WoweeSpellMarkersLoader::exists(base)) {
         std::fprintf(stderr,
@@ -205,16 +201,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wspm.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wspm");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wspm");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -308,7 +295,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspmExt(base);
+    base = cli::withoutExt(base, ".wspm");
     if (!wowee::pipeline::WoweeSpellMarkersLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wspm: WSPM not found: %s.wspm\n",

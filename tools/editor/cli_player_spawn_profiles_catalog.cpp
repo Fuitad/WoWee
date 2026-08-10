@@ -1,4 +1,5 @@
 #include "cli_player_spawn_profiles_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWpspExt(std::string base) {
-    stripExt(base, ".wpsp");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweePlayerSpawnProfile& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllianceStartingProfiles";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpspExt(base);
+    base = cli::withoutExt(base, ".wpsp");
     auto c = wowee::pipeline::WoweePlayerSpawnProfileLoader::makeAlliance(name);
     if (!saveOrError(c, base, "gen-psp")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenHorde(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HordeStartingProfiles";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpspExt(base);
+    base = cli::withoutExt(base, ".wpsp");
     auto c = wowee::pipeline::WoweePlayerSpawnProfileLoader::makeHorde(name);
     if (!saveOrError(c, base, "gen-psp-horde")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenDeathKnight(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DeathKnightProfiles";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpspExt(base);
+    base = cli::withoutExt(base, ".wpsp");
     auto c = wowee::pipeline::WoweePlayerSpawnProfileLoader::makeDeathKnight(name);
     if (!saveOrError(c, base, "gen-psp-dk")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenDeathKnight(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpspExt(base);
+    base = cli::withoutExt(base, ".wpsp");
     if (!wowee::pipeline::WoweePlayerSpawnProfileLoader::exists(base)) {
         std::fprintf(stderr, "WPSP not found: %s.wpsp\n", base.c_str());
         return 1;
@@ -145,7 +141,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWpspExt(base);
+    base = cli::withoutExt(base, ".wpsp");
     if (!wowee::pipeline::WoweePlayerSpawnProfileLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wpsp-json: WPSP not found: %s.wpsp\n",
@@ -258,21 +254,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wpsp.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWpspExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wpsp");
+    outBase = cli::withoutExt(outBase, ".wpsp");
     if (!wowee::pipeline::WoweePlayerSpawnProfileLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wpsp-json: failed to save %s.wpsp\n",
@@ -288,7 +271,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpspExt(base);
+    base = cli::withoutExt(base, ".wpsp");
     if (!wowee::pipeline::WoweePlayerSpawnProfileLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wpsp: WPSP not found: %s.wpsp\n", base.c_str());

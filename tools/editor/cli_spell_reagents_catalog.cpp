@@ -1,4 +1,5 @@
 #include "cli_spell_reagents_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWsprExt(std::string base) {
-    stripExt(base, ".wspr");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeSpellReagent& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenMage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageReagents";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsprExt(base);
+    base = cli::withoutExt(base, ".wspr");
     auto c = wowee::pipeline::WoweeSpellReagentLoader::makeMage(name);
     if (!saveOrError(c, base, "gen-spr")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenWarlock(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarlockReagents";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsprExt(base);
+    base = cli::withoutExt(base, ".wspr");
     auto c = wowee::pipeline::WoweeSpellReagentLoader::makeWarlock(name);
     if (!saveOrError(c, base, "gen-spr-warlock")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenRez(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ResurrectionReagents";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsprExt(base);
+    base = cli::withoutExt(base, ".wspr");
     auto c = wowee::pipeline::WoweeSpellReagentLoader::makeRez(name);
     if (!saveOrError(c, base, "gen-spr-rez")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenRez(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsprExt(base);
+    base = cli::withoutExt(base, ".wspr");
     if (!wowee::pipeline::WoweeSpellReagentLoader::exists(base)) {
         std::fprintf(stderr, "WSPR not found: %s.wspr\n", base.c_str());
         return 1;
@@ -141,7 +137,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWsprExt(base);
+    base = cli::withoutExt(base, ".wspr");
     if (!wowee::pipeline::WoweeSpellReagentLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wspr-json: WSPR not found: %s.wspr\n",
@@ -269,21 +265,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wspr.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWsprExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wspr");
+    outBase = cli::withoutExt(outBase, ".wspr");
     if (!wowee::pipeline::WoweeSpellReagentLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wspr-json: failed to save %s.wspr\n",
@@ -299,7 +282,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsprExt(base);
+    base = cli::withoutExt(base, ".wspr");
     if (!wowee::pipeline::WoweeSpellReagentLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wspr: WSPR not found: %s.wspr\n", base.c_str());

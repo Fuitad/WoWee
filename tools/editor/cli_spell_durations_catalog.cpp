@@ -1,4 +1,5 @@
 #include "cli_spell_durations_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWsdrExt(std::string base) {
-    stripExt(base, ".wsdr");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeSpellDuration& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterDurations";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsdrExt(base);
+    base = cli::withoutExt(base, ".wsdr");
     auto c = wowee::pipeline::WoweeSpellDurationLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-sdr")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenBuffs(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "LongDurationBuffs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsdrExt(base);
+    base = cli::withoutExt(base, ".wsdr");
     auto c = wowee::pipeline::WoweeSpellDurationLoader::makeBuffs(name);
     if (!saveOrError(c, base, "gen-sdr-buffs")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenDot(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DoTHoTDurations";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsdrExt(base);
+    base = cli::withoutExt(base, ".wsdr");
     auto c = wowee::pipeline::WoweeSpellDurationLoader::makeDot(name);
     if (!saveOrError(c, base, "gen-sdr-dot")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenDot(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsdrExt(base);
+    base = cli::withoutExt(base, ".wsdr");
     if (!wowee::pipeline::WoweeSpellDurationLoader::exists(base)) {
         std::fprintf(stderr, "WSDR not found: %s.wsdr\n", base.c_str());
         return 1;
@@ -127,7 +123,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWsdrExt(base);
+    base = cli::withoutExt(base, ".wsdr");
     if (!wowee::pipeline::WoweeSpellDurationLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wsdr-json: WSDR not found: %s.wsdr\n",
@@ -232,21 +228,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wsdr.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWsdrExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wsdr");
+    outBase = cli::withoutExt(outBase, ".wsdr");
     if (!wowee::pipeline::WoweeSpellDurationLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wsdr-json: failed to save %s.wsdr\n",
@@ -262,7 +245,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsdrExt(base);
+    base = cli::withoutExt(base, ".wsdr");
     if (!wowee::pipeline::WoweeSpellDurationLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wsdr: WSDR not found: %s.wsdr\n", base.c_str());

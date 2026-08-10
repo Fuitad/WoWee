@@ -1,4 +1,5 @@
 #include "cli_trade_rules_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWtrdExt(std::string base) {
-    stripExt(base, ".wtrd");
-    return base;
-}
 
 const char* ruleKindName(uint8_t k) {
     using T = wowee::pipeline::WoweeTradeRules;
@@ -72,7 +68,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardTradeRules";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrdExt(base);
+    base = cli::withoutExt(base, ".wtrd");
     auto c = wowee::pipeline::WoweeTradeRulesLoader::makeStandard(name);
     if (!saveOrError(c, base, "gen-trd")) return 1;
     printGenSummary(c, base);
@@ -83,7 +79,7 @@ int handleGenServerAdmin(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ServerAdminTradeRules";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrdExt(base);
+    base = cli::withoutExt(base, ".wtrd");
     auto c = wowee::pipeline::WoweeTradeRulesLoader::makeServerAdmin(name);
     if (!saveOrError(c, base, "gen-trd-admin")) return 1;
     printGenSummary(c, base);
@@ -94,7 +90,7 @@ int handleGenRMT(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AntiRMTTradeRules";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrdExt(base);
+    base = cli::withoutExt(base, ".wtrd");
     auto c = wowee::pipeline::WoweeTradeRulesLoader::makeRMTPrevent(name);
     if (!saveOrError(c, base, "gen-trd-rmt")) return 1;
     printGenSummary(c, base);
@@ -104,7 +100,7 @@ int handleGenRMT(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtrdExt(base);
+    base = cli::withoutExt(base, ".wtrd");
     if (!wowee::pipeline::WoweeTradeRulesLoader::exists(base)) {
         std::fprintf(stderr, "WTRD not found: %s.wtrd\n", base.c_str());
         return 1;
@@ -219,7 +215,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWtrdExt(base);
+    base = cli::withoutExt(base, ".wtrd");
     if (out.empty()) out = base + ".wtrd.json";
     if (!wowee::pipeline::WoweeTradeRulesLoader::exists(base)) {
         std::fprintf(stderr,
@@ -268,16 +264,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wtrd.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wtrd");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wtrd");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -335,7 +322,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtrdExt(base);
+    base = cli::withoutExt(base, ".wtrd");
     if (!wowee::pipeline::WoweeTradeRulesLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wtrd: WTRD not found: %s.wtrd\n",

@@ -1,4 +1,5 @@
 #include "cli_word_filters_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWwflExt(std::string base) {
-    stripExt(base, ".wwfl");
-    return base;
-}
 
 const char* filterKindName(uint8_t k) {
     using F = wowee::pipeline::WoweeWordFilters;
@@ -71,7 +67,7 @@ int handleGenSpam(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "SpamRMTFilters";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWwflExt(base);
+    base = cli::withoutExt(base, ".wwfl");
     auto c = wowee::pipeline::WoweeWordFiltersLoader::makeSpamRMT(name);
     if (!saveOrError(c, base, "gen-wfl")) return 1;
     printGenSummary(c, base);
@@ -82,7 +78,7 @@ int handleGenCaps(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllCapsFilters";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWwflExt(base);
+    base = cli::withoutExt(base, ".wwfl");
     auto c = wowee::pipeline::WoweeWordFiltersLoader::makeAllCaps(name);
     if (!saveOrError(c, base, "gen-wfl-caps")) return 1;
     printGenSummary(c, base);
@@ -93,7 +89,7 @@ int handleGenURL(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "URLDetectFilters";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWwflExt(base);
+    base = cli::withoutExt(base, ".wwfl");
     auto c = wowee::pipeline::WoweeWordFiltersLoader::makeURLDetect(name);
     if (!saveOrError(c, base, "gen-wfl-url")) return 1;
     printGenSummary(c, base);
@@ -103,7 +99,7 @@ int handleGenURL(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWwflExt(base);
+    base = cli::withoutExt(base, ".wwfl");
     if (!wowee::pipeline::WoweeWordFiltersLoader::exists(base)) {
         std::fprintf(stderr, "WWFL not found: %s.wwfl\n", base.c_str());
         return 1;
@@ -213,7 +209,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWwflExt(base);
+    base = cli::withoutExt(base, ".wwfl");
     if (out.empty()) out = base + ".wwfl.json";
     if (!wowee::pipeline::WoweeWordFiltersLoader::exists(base)) {
         std::fprintf(stderr,
@@ -260,16 +256,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wwfl.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wwfl");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wwfl");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -329,7 +316,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWwflExt(base);
+    base = cli::withoutExt(base, ".wwfl");
     if (!wowee::pipeline::WoweeWordFiltersLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wwfl: WWFL not found: %s.wwfl\n",

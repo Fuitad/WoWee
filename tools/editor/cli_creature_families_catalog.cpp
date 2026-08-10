@@ -1,4 +1,5 @@
 #include "cli_creature_families_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWcefExt(std::string base) {
-    stripExt(base, ".wcef");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeCreatureFamily& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterFamilies";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcefExt(base);
+    base = cli::withoutExt(base, ".wcef");
     auto c = wowee::pipeline::WoweeCreatureFamilyLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-cef")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenFerocity(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FerocityPets";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcefExt(base);
+    base = cli::withoutExt(base, ".wcef");
     auto c = wowee::pipeline::WoweeCreatureFamilyLoader::makeFerocity(name);
     if (!saveOrError(c, base, "gen-cef-ferocity")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenExotic(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ExoticBeastMaster";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcefExt(base);
+    base = cli::withoutExt(base, ".wcef");
     auto c = wowee::pipeline::WoweeCreatureFamilyLoader::makeExotic(name);
     if (!saveOrError(c, base, "gen-cef-exotic")) return 1;
     printGenSummary(c, base);
@@ -94,7 +90,7 @@ void appendFoodNames(uint32_t flags, std::string& out) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcefExt(base);
+    base = cli::withoutExt(base, ".wcef");
     if (!wowee::pipeline::WoweeCreatureFamilyLoader::exists(base)) {
         std::fprintf(stderr, "WCEF not found: %s.wcef\n", base.c_str());
         return 1;
@@ -152,7 +148,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWcefExt(base);
+    base = cli::withoutExt(base, ".wcef");
     if (!wowee::pipeline::WoweeCreatureFamilyLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wcef-json: WCEF not found: %s.wcef\n",
@@ -320,21 +316,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wcef.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWcefExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wcef");
+    outBase = cli::withoutExt(outBase, ".wcef");
     if (!wowee::pipeline::WoweeCreatureFamilyLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wcef-json: failed to save %s.wcef\n",
@@ -350,7 +333,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcefExt(base);
+    base = cli::withoutExt(base, ".wcef");
     if (!wowee::pipeline::WoweeCreatureFamilyLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wcef: WCEF not found: %s.wcef\n", base.c_str());

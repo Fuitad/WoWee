@@ -1,4 +1,5 @@
 #include "cli_sky_params_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -22,11 +23,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWskpExt(std::string base) {
-    stripExt(base, ".wskp");
-    return base;
-}
-
 bool saveOrError(const wowee::pipeline::WoweeSkyParams& c,
                  const std::string& base, const char* cmd) {
     if (!wowee::pipeline::WoweeSkyParamsLoader::save(c, base)) {
@@ -48,7 +44,7 @@ int handleGenStormwind(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StormwindSkyDay";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWskpExt(base);
+    base = cli::withoutExt(base, ".wskp");
     auto c = wowee::pipeline::WoweeSkyParamsLoader::makeStormwindDay(name);
     if (!saveOrError(c, base, "gen-skp")) return 1;
     printGenSummary(c, base);
@@ -59,7 +55,7 @@ int handleGenArctic(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "NorthrendArcticSky";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWskpExt(base);
+    base = cli::withoutExt(base, ".wskp");
     auto c = wowee::pipeline::WoweeSkyParamsLoader::makeNorthrendArctic(name);
     if (!saveOrError(c, base, "gen-skp-arctic")) return 1;
     printGenSummary(c, base);
@@ -70,7 +66,7 @@ int handleGenHellfire(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "OutlandHellfireSky";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWskpExt(base);
+    base = cli::withoutExt(base, ".wskp");
     auto c = wowee::pipeline::WoweeSkyParamsLoader::makeOutlandHellfire(name);
     if (!saveOrError(c, base, "gen-skp-hellfire")) return 1;
     printGenSummary(c, base);
@@ -80,7 +76,7 @@ int handleGenHellfire(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWskpExt(base);
+    base = cli::withoutExt(base, ".wskp");
     if (!wowee::pipeline::WoweeSkyParamsLoader::exists(base)) {
         std::fprintf(stderr, "WSKP not found: %s.wskp\n", base.c_str());
         return 1;
@@ -137,7 +133,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWskpExt(base);
+    base = cli::withoutExt(base, ".wskp");
     if (out.empty()) out = base + ".wskp.json";
     if (!wowee::pipeline::WoweeSkyParamsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -189,16 +185,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wskp.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wskp");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wskp");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -269,7 +256,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWskpExt(base);
+    base = cli::withoutExt(base, ".wskp");
     if (!wowee::pipeline::WoweeSkyParamsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wskp: WSKP not found: %s.wskp\n",

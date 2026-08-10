@@ -1,4 +1,5 @@
 #include "cli_chars_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWchcExt(std::string base) {
-    stripExt(base, ".wchc");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeChars& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterChars";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWchcExt(base);
+    base = cli::withoutExt(base, ".wchc");
     auto c = wowee::pipeline::WoweeCharsLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-chars")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllianceChars";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWchcExt(base);
+    base = cli::withoutExt(base, ".wchc");
     auto c = wowee::pipeline::WoweeCharsLoader::makeAlliance(name);
     if (!saveOrError(c, base, "gen-chars-alliance")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenAllRaces(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllRacesChars";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWchcExt(base);
+    base = cli::withoutExt(base, ".wchc");
     auto c = wowee::pipeline::WoweeCharsLoader::makeAllRaces(name);
     if (!saveOrError(c, base, "gen-chars-allraces")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenAllRaces(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWchcExt(base);
+    base = cli::withoutExt(base, ".wchc");
     if (!wowee::pipeline::WoweeCharsLoader::exists(base)) {
         std::fprintf(stderr, "WCHC not found: %s.wchc\n", base.c_str());
         return 1;
@@ -200,7 +196,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWchcExt(base);
+    base = cli::withoutExt(base, ".wchc");
     if (outPath.empty()) outPath = base + ".wchc.json";
     if (!wowee::pipeline::WoweeCharsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -298,7 +294,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWchcExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wchc");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -422,7 +418,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWchcExt(base);
+    base = cli::withoutExt(base, ".wchc");
     if (!wowee::pipeline::WoweeCharsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wchc: WCHC not found: %s.wchc\n", base.c_str());

@@ -1,4 +1,5 @@
 #include "cli_bags_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWbnkExt(std::string base) {
-    stripExt(base, ".wbnk");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeBagSlot& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterBags";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbnkExt(base);
+    base = cli::withoutExt(base, ".wbnk");
     auto c = wowee::pipeline::WoweeBagSlotLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-bnk")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenBank(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BankBags";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbnkExt(base);
+    base = cli::withoutExt(base, ".wbnk");
     auto c = wowee::pipeline::WoweeBagSlotLoader::makeBank(name);
     if (!saveOrError(c, base, "gen-bnk-bank")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenSpecial(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "SpecialBags";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbnkExt(base);
+    base = cli::withoutExt(base, ".wbnk");
     auto c = wowee::pipeline::WoweeBagSlotLoader::makeSpecial(name);
     if (!saveOrError(c, base, "gen-bnk-special")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenSpecial(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbnkExt(base);
+    base = cli::withoutExt(base, ".wbnk");
     if (!wowee::pipeline::WoweeBagSlotLoader::exists(base)) {
         std::fprintf(stderr, "WBNK not found: %s.wbnk\n", base.c_str());
         return 1;
@@ -135,7 +131,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWbnkExt(base);
+    base = cli::withoutExt(base, ".wbnk");
     if (outPath.empty()) outPath = base + ".wbnk.json";
     if (!wowee::pipeline::WoweeBagSlotLoader::exists(base)) {
         std::fprintf(stderr,
@@ -191,7 +187,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWbnkExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wbnk");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -268,7 +264,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbnkExt(base);
+    base = cli::withoutExt(base, ".wbnk");
     if (!wowee::pipeline::WoweeBagSlotLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wbnk: WBNK not found: %s.wbnk\n", base.c_str());

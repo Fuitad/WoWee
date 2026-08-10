@@ -1,4 +1,5 @@
 #include "cli_battleground_rewards_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -20,11 +21,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWbrdExt(std::string base) {
-    stripExt(base, ".wbrd");
-    return base;
-}
 
 const char* bgName(uint16_t bgId) {
     switch (bgId) {
@@ -59,7 +55,7 @@ int handleGenAV(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AlteracValleyRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbrdExt(base);
+    base = cli::withoutExt(base, ".wbrd");
     auto c = wowee::pipeline::WoweeBattlegroundRewardsLoader::
         makeAlteracValley(name);
     if (!saveOrError(c, base, "gen-brd-av")) return 1;
@@ -71,7 +67,7 @@ int handleGenWSG(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarsongRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbrdExt(base);
+    base = cli::withoutExt(base, ".wbrd");
     auto c = wowee::pipeline::WoweeBattlegroundRewardsLoader::
         makeWarsong(name);
     if (!saveOrError(c, base, "gen-brd-wsg")) return 1;
@@ -83,7 +79,7 @@ int handleGenAB(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ArathiBasinRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbrdExt(base);
+    base = cli::withoutExt(base, ".wbrd");
     auto c = wowee::pipeline::WoweeBattlegroundRewardsLoader::
         makeArathiBasin(name);
     if (!saveOrError(c, base, "gen-brd-ab")) return 1;
@@ -94,7 +90,7 @@ int handleGenAB(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbrdExt(base);
+    base = cli::withoutExt(base, ".wbrd");
     if (!wowee::pipeline::WoweeBattlegroundRewardsLoader::exists(base)) {
         std::fprintf(stderr, "WBRD not found: %s.wbrd\n",
                      base.c_str());
@@ -146,7 +142,7 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbrdExt(base);
+    base = cli::withoutExt(base, ".wbrd");
     if (!wowee::pipeline::WoweeBattlegroundRewardsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wbrd: WBRD not found: %s.wbrd\n",
@@ -253,7 +249,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWbrdExt(base);
+    base = cli::withoutExt(base, ".wbrd");
     if (out.empty()) out = base + ".wbrd.json";
     if (!wowee::pipeline::WoweeBattlegroundRewardsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -301,16 +297,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wbrd.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wbrd");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wbrd");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

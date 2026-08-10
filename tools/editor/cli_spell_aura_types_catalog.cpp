@@ -1,4 +1,5 @@
 #include "cli_spell_aura_types_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWaurExt(std::string base) {
-    stripExt(base, ".waur");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeSpellAuraType& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenPeriodic(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PeriodicAuras";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWaurExt(base);
+    base = cli::withoutExt(base, ".waur");
     auto c = wowee::pipeline::WoweeSpellAuraTypeLoader::makePeriodic(name);
     if (!saveOrError(c, base, "gen-aur")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenStatMod(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StatModAuras";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWaurExt(base);
+    base = cli::withoutExt(base, ".waur");
     auto c = wowee::pipeline::WoweeSpellAuraTypeLoader::makeStatMod(name);
     if (!saveOrError(c, base, "gen-aur-stats")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenMovement(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MovementCCAuras";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWaurExt(base);
+    base = cli::withoutExt(base, ".waur");
     auto c = wowee::pipeline::WoweeSpellAuraTypeLoader::makeMovement(name);
     if (!saveOrError(c, base, "gen-aur-movement")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenMovement(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWaurExt(base);
+    base = cli::withoutExt(base, ".waur");
     if (!wowee::pipeline::WoweeSpellAuraTypeLoader::exists(base)) {
         std::fprintf(stderr, "WAUR not found: %s.waur\n", base.c_str());
         return 1;
@@ -130,7 +126,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWaurExt(base);
+    base = cli::withoutExt(base, ".waur");
     if (!wowee::pipeline::WoweeSpellAuraTypeLoader::exists(base)) {
         std::fprintf(stderr,
             "export-waur-json: WAUR not found: %s.waur\n",
@@ -275,21 +271,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".waur.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWaurExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".waur");
+    outBase = cli::withoutExt(outBase, ".waur");
     if (!wowee::pipeline::WoweeSpellAuraTypeLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-waur-json: failed to save %s.waur\n",
@@ -305,7 +288,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWaurExt(base);
+    base = cli::withoutExt(base, ".waur");
     if (!wowee::pipeline::WoweeSpellAuraTypeLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-waur: WAUR not found: %s.waur\n", base.c_str());

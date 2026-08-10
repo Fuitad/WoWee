@@ -1,4 +1,5 @@
 #include "cli_holidays_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWholExt(std::string base) {
-    stripExt(base, ".whol");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeHoliday& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterHolidays";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWholExt(base);
+    base = cli::withoutExt(base, ".whol");
     auto c = wowee::pipeline::WoweeHolidayLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-holidays")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenWeekly(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WeeklyHolidays";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWholExt(base);
+    base = cli::withoutExt(base, ".whol");
     auto c = wowee::pipeline::WoweeHolidayLoader::makeWeekly(name);
     if (!saveOrError(c, base, "gen-holidays-weekly")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenSpecial(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "SpecialHolidays";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWholExt(base);
+    base = cli::withoutExt(base, ".whol");
     auto c = wowee::pipeline::WoweeHolidayLoader::makeSpecial(name);
     if (!saveOrError(c, base, "gen-holidays-special")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenSpecial(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWholExt(base);
+    base = cli::withoutExt(base, ".whol");
     if (!wowee::pipeline::WoweeHolidayLoader::exists(base)) {
         std::fprintf(stderr, "WHOL not found: %s.whol\n", base.c_str());
         return 1;
@@ -141,7 +137,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWholExt(base);
+    base = cli::withoutExt(base, ".whol");
     if (outPath.empty()) outPath = base + ".whol.json";
     if (!wowee::pipeline::WoweeHolidayLoader::exists(base)) {
         std::fprintf(stderr,
@@ -202,7 +198,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWholExt(outBase);
+    outBase = cli::withoutExt(outBase, ".whol");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -286,7 +282,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWholExt(base);
+    base = cli::withoutExt(base, ".whol");
     if (!wowee::pipeline::WoweeHolidayLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-whol: WHOL not found: %s.whol\n", base.c_str());

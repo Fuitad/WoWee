@@ -1,4 +1,5 @@
 #include "cli_trade_skills_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWtskExt(std::string base) {
-    stripExt(base, ".wtsk");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeTradeSkill& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterRecipes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtskExt(base);
+    base = cli::withoutExt(base, ".wtsk");
     auto c = wowee::pipeline::WoweeTradeSkillLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-tsk")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenBlacksmithing(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BlacksmithingRecipes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtskExt(base);
+    base = cli::withoutExt(base, ".wtsk");
     auto c = wowee::pipeline::WoweeTradeSkillLoader::makeBlacksmithing(name);
     if (!saveOrError(c, base, "gen-tsk-blacksmithing")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenAlchemy(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AlchemyRecipes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtskExt(base);
+    base = cli::withoutExt(base, ".wtsk");
     auto c = wowee::pipeline::WoweeTradeSkillLoader::makeAlchemy(name);
     if (!saveOrError(c, base, "gen-tsk-alchemy")) return 1;
     printGenSummary(c, base);
@@ -109,7 +105,7 @@ void appendEntryJson(nlohmann::json& arr,
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtskExt(base);
+    base = cli::withoutExt(base, ".wtsk");
     if (!wowee::pipeline::WoweeTradeSkillLoader::exists(base)) {
         std::fprintf(stderr, "WTSK not found: %s.wtsk\n", base.c_str());
         return 1;
@@ -158,7 +154,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWtskExt(base);
+    base = cli::withoutExt(base, ".wtsk");
     if (outPath.empty()) outPath = base + ".wtsk.json";
     if (!wowee::pipeline::WoweeTradeSkillLoader::exists(base)) {
         std::fprintf(stderr,
@@ -200,7 +196,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWtskExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wtsk");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -299,7 +295,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtskExt(base);
+    base = cli::withoutExt(base, ".wtsk");
     if (!wowee::pipeline::WoweeTradeSkillLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wtsk: WTSK not found: %s.wtsk\n", base.c_str());

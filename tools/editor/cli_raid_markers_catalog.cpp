@@ -1,4 +1,5 @@
 #include "cli_raid_markers_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -20,11 +21,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWmarExt(std::string base) {
-    stripExt(base, ".wmar");
-    return base;
-}
 
 const char* markerKindName(uint8_t k) {
     using M = wowee::pipeline::WoweeRaidMarkers;
@@ -58,7 +54,7 @@ int handleGenRaid(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidTargetMarkers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmarExt(base);
+    base = cli::withoutExt(base, ".wmar");
     auto c = wowee::pipeline::WoweeRaidMarkersLoader::makeRaidTargets(name);
     if (!saveOrError(c, base, "gen-mar")) return 1;
     printGenSummary(c, base);
@@ -69,7 +65,7 @@ int handleGenWorld(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WorldMapPinMarkers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmarExt(base);
+    base = cli::withoutExt(base, ".wmar");
     auto c = wowee::pipeline::WoweeRaidMarkersLoader::makeWorldMapPins(name);
     if (!saveOrError(c, base, "gen-mar-world")) return 1;
     printGenSummary(c, base);
@@ -80,7 +76,7 @@ int handleGenParty(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PartyRoleMarkers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmarExt(base);
+    base = cli::withoutExt(base, ".wmar");
     auto c = wowee::pipeline::WoweeRaidMarkersLoader::makeParty(name);
     if (!saveOrError(c, base, "gen-mar-party")) return 1;
     printGenSummary(c, base);
@@ -90,7 +86,7 @@ int handleGenParty(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmarExt(base);
+    base = cli::withoutExt(base, ".wmar");
     if (!wowee::pipeline::WoweeRaidMarkersLoader::exists(base)) {
         std::fprintf(stderr, "WMAR not found: %s.wmar\n", base.c_str());
         return 1;
@@ -148,7 +144,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWmarExt(base);
+    base = cli::withoutExt(base, ".wmar");
     if (out.empty()) out = base + ".wmar.json";
     if (!wowee::pipeline::WoweeRaidMarkersLoader::exists(base)) {
         std::fprintf(stderr,
@@ -193,16 +189,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wmar.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wmar");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wmar");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -274,7 +261,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmarExt(base);
+    base = cli::withoutExt(base, ".wmar");
     if (!wowee::pipeline::WoweeRaidMarkersLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wmar: WMAR not found: %s.wmar\n",

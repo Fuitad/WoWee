@@ -1,4 +1,5 @@
 #include "cli_triggers_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWtrgExt(std::string base) {
-    stripExt(base, ".wtrg");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeTrigger& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterTriggers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrgExt(base);
+    base = cli::withoutExt(base, ".wtrg");
     auto c = wowee::pipeline::WoweeTriggerLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-triggers")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenDungeon(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DungeonTriggers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrgExt(base);
+    base = cli::withoutExt(base, ".wtrg");
     auto c = wowee::pipeline::WoweeTriggerLoader::makeDungeon(name);
     if (!saveOrError(c, base, "gen-triggers-dungeon")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenFlightPath(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FlightPathTriggers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrgExt(base);
+    base = cli::withoutExt(base, ".wtrg");
     auto c = wowee::pipeline::WoweeTriggerLoader::makeFlightPath(name);
     if (!saveOrError(c, base, "gen-triggers-flightpath")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenFlightPath(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtrgExt(base);
+    base = cli::withoutExt(base, ".wtrg");
     if (!wowee::pipeline::WoweeTriggerLoader::exists(base)) {
         std::fprintf(stderr, "WTRG not found: %s.wtrg\n", base.c_str());
         return 1;
@@ -160,7 +156,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWtrgExt(base);
+    base = cli::withoutExt(base, ".wtrg");
     if (outPath.empty()) outPath = base + ".wtrg.json";
     if (!wowee::pipeline::WoweeTriggerLoader::exists(base)) {
         std::fprintf(stderr,
@@ -222,7 +218,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWtrgExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wtrg");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -304,7 +300,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtrgExt(base);
+    base = cli::withoutExt(base, ".wtrg");
     if (!wowee::pipeline::WoweeTriggerLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wtrg: WTRG not found: %s.wtrg\n", base.c_str());

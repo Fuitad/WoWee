@@ -1,4 +1,5 @@
 #include "cli_skills_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWsklExt(std::string base) {
-    stripExt(base, ".wskl");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeSkill& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterSkills";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsklExt(base);
+    base = cli::withoutExt(base, ".wskl");
     auto c = wowee::pipeline::WoweeSkillLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-skills")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenProfessions(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ProfessionSkills";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsklExt(base);
+    base = cli::withoutExt(base, ".wskl");
     auto c = wowee::pipeline::WoweeSkillLoader::makeProfessions(name);
     if (!saveOrError(c, base, "gen-skills-professions")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenWeapons(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WeaponSkills";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsklExt(base);
+    base = cli::withoutExt(base, ".wskl");
     auto c = wowee::pipeline::WoweeSkillLoader::makeWeapons(name);
     if (!saveOrError(c, base, "gen-skills-weapons")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenWeapons(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsklExt(base);
+    base = cli::withoutExt(base, ".wskl");
     if (!wowee::pipeline::WoweeSkillLoader::exists(base)) {
         std::fprintf(stderr, "WSKL not found: %s.wskl\n", base.c_str());
         return 1;
@@ -129,7 +125,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWsklExt(base);
+    base = cli::withoutExt(base, ".wskl");
     if (outPath.empty()) outPath = base + ".wskl.json";
     if (!wowee::pipeline::WoweeSkillLoader::exists(base)) {
         std::fprintf(stderr,
@@ -183,7 +179,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWsklExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wskl");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -243,7 +239,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsklExt(base);
+    base = cli::withoutExt(base, ".wskl");
     if (!wowee::pipeline::WoweeSkillLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wskl: WSKL not found: %s.wskl\n", base.c_str());

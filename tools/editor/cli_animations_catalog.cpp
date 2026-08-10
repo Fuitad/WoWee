@@ -1,4 +1,5 @@
 #include "cli_animations_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWaniExt(std::string base) {
-    stripExt(base, ".wani");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeAnimation& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterAnimations";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWaniExt(base);
+    base = cli::withoutExt(base, ".wani");
     auto c = wowee::pipeline::WoweeAnimationLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-animations")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenCombat(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CombatAnimations";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWaniExt(base);
+    base = cli::withoutExt(base, ".wani");
     auto c = wowee::pipeline::WoweeAnimationLoader::makeCombat(name);
     if (!saveOrError(c, base, "gen-animations-combat")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenMovement(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MovementAnimations";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWaniExt(base);
+    base = cli::withoutExt(base, ".wani");
     auto c = wowee::pipeline::WoweeAnimationLoader::makeMovement(name);
     if (!saveOrError(c, base, "gen-animations-movement")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenMovement(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWaniExt(base);
+    base = cli::withoutExt(base, ".wani");
     if (!wowee::pipeline::WoweeAnimationLoader::exists(base)) {
         std::fprintf(stderr, "WANI not found: %s.wani\n", base.c_str());
         return 1;
@@ -130,7 +126,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWaniExt(base);
+    base = cli::withoutExt(base, ".wani");
     if (outPath.empty()) outPath = base + ".wani.json";
     if (!wowee::pipeline::WoweeAnimationLoader::exists(base)) {
         std::fprintf(stderr,
@@ -185,7 +181,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWaniExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wani");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -248,7 +244,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWaniExt(base);
+    base = cli::withoutExt(base, ".wani");
     if (!wowee::pipeline::WoweeAnimationLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wani: WANI not found: %s.wani\n", base.c_str());

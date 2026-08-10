@@ -1,4 +1,5 @@
 #include "cli_spell_procs_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWspsExt(std::string base) {
-    stripExt(base, ".wsps");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeSpellProc& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenWeapon(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WeaponProcs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspsExt(base);
+    base = cli::withoutExt(base, ".wsps");
     auto c = wowee::pipeline::WoweeSpellProcLoader::makeWeapon(name);
     if (!saveOrError(c, base, "gen-sps")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenAura(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AuraProcs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspsExt(base);
+    base = cli::withoutExt(base, ".wsps");
     auto c = wowee::pipeline::WoweeSpellProcLoader::makeAura(name);
     if (!saveOrError(c, base, "gen-sps-aura")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenTalent(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TalentProcs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspsExt(base);
+    base = cli::withoutExt(base, ".wsps");
     auto c = wowee::pipeline::WoweeSpellProcLoader::makeTalent(name);
     if (!saveOrError(c, base, "gen-sps-talent")) return 1;
     printGenSummary(c, base);
@@ -100,7 +96,7 @@ void appendProcFlagNames(uint32_t flags, std::string& out) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspsExt(base);
+    base = cli::withoutExt(base, ".wsps");
     if (!wowee::pipeline::WoweeSpellProcLoader::exists(base)) {
         std::fprintf(stderr, "WSPS not found: %s.wsps\n", base.c_str());
         return 1;
@@ -157,7 +153,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWspsExt(base);
+    base = cli::withoutExt(base, ".wsps");
     if (!wowee::pipeline::WoweeSpellProcLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wsps-json: WSPS not found: %s.wsps\n",
@@ -277,21 +273,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wsps.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWspsExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wsps");
+    outBase = cli::withoutExt(outBase, ".wsps");
     if (!wowee::pipeline::WoweeSpellProcLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wsps-json: failed to save %s.wsps\n",
@@ -307,7 +290,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspsExt(base);
+    base = cli::withoutExt(base, ".wsps");
     if (!wowee::pipeline::WoweeSpellProcLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wsps: WSPS not found: %s.wsps\n", base.c_str());

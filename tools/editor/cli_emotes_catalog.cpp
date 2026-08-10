@@ -1,4 +1,5 @@
 #include "cli_emotes_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWemoExt(std::string base) {
-    stripExt(base, ".wemo");
-    return base;
-}
 
 const char* emoteKindName(uint8_t k) {
     using E = wowee::pipeline::WoweeEmotes;
@@ -78,7 +74,7 @@ int handleGenBasic(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BasicSocialEmotes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWemoExt(base);
+    base = cli::withoutExt(base, ".wemo");
     auto c = wowee::pipeline::WoweeEmotesLoader::makeBasic(name);
     if (!saveOrError(c, base, "gen-emo")) return 1;
     printGenSummary(c, base);
@@ -89,7 +85,7 @@ int handleGenCombat(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CombatEmotes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWemoExt(base);
+    base = cli::withoutExt(base, ".wemo");
     auto c = wowee::pipeline::WoweeEmotesLoader::makeCombat(name);
     if (!saveOrError(c, base, "gen-emo-combat")) return 1;
     printGenSummary(c, base);
@@ -100,7 +96,7 @@ int handleGenRolePlay(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RolePlayEmotes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWemoExt(base);
+    base = cli::withoutExt(base, ".wemo");
     auto c = wowee::pipeline::WoweeEmotesLoader::makeRolePlay(name);
     if (!saveOrError(c, base, "gen-emo-rp")) return 1;
     printGenSummary(c, base);
@@ -110,7 +106,7 @@ int handleGenRolePlay(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWemoExt(base);
+    base = cli::withoutExt(base, ".wemo");
     if (!wowee::pipeline::WoweeEmotesLoader::exists(base)) {
         std::fprintf(stderr, "WEMO not found: %s.wemo\n", base.c_str());
         return 1;
@@ -235,7 +231,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWemoExt(base);
+    base = cli::withoutExt(base, ".wemo");
     if (out.empty()) out = base + ".wemo.json";
     if (!wowee::pipeline::WoweeEmotesLoader::exists(base)) {
         std::fprintf(stderr,
@@ -287,16 +283,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wemo.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wemo");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wemo");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -357,7 +344,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWemoExt(base);
+    base = cli::withoutExt(base, ".wemo");
     if (!wowee::pipeline::WoweeEmotesLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wemo: WEMO not found: %s.wemo\n", base.c_str());

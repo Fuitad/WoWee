@@ -1,4 +1,5 @@
 #include "cli_macros_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWmacExt(std::string base) {
-    stripExt(base, ".wmac");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeMacro& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterMacros";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmacExt(base);
+    base = cli::withoutExt(base, ".wmac");
     auto c = wowee::pipeline::WoweeMacroLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-mac")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenCombat(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CombatMacros";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmacExt(base);
+    base = cli::withoutExt(base, ".wmac");
     auto c = wowee::pipeline::WoweeMacroLoader::makeCombat(name);
     if (!saveOrError(c, base, "gen-mac-combat")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenUtility(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "UtilityMacros";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmacExt(base);
+    base = cli::withoutExt(base, ".wmac");
     auto c = wowee::pipeline::WoweeMacroLoader::makeUtility(name);
     if (!saveOrError(c, base, "gen-mac-utility")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenUtility(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmacExt(base);
+    base = cli::withoutExt(base, ".wmac");
     if (!wowee::pipeline::WoweeMacroLoader::exists(base)) {
         std::fprintf(stderr, "WMAC not found: %s.wmac\n", base.c_str());
         return 1;
@@ -134,7 +130,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWmacExt(base);
+    base = cli::withoutExt(base, ".wmac");
     if (outPath.empty()) outPath = base + ".wmac.json";
     if (!wowee::pipeline::WoweeMacroLoader::exists(base)) {
         std::fprintf(stderr,
@@ -189,7 +185,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWmacExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wmac");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -254,7 +250,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmacExt(base);
+    base = cli::withoutExt(base, ".wmac");
     if (!wowee::pipeline::WoweeMacroLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wmac: WMAC not found: %s.wmac\n", base.c_str());

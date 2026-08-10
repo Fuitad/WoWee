@@ -1,4 +1,5 @@
 #include "cli_objects_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWgotExt(std::string base) {
-    stripExt(base, ".wgot");
-    return base;
-}
 
 void appendObjFlagsStr(std::string& s, uint32_t flags) {
     if (flags & wowee::pipeline::WoweeGameObject::Disabled)        s += "disabled ";
@@ -56,7 +52,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterObjects";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgotExt(base);
+    base = cli::withoutExt(base, ".wgot");
     auto c = wowee::pipeline::WoweeGameObjectLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-objects")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenDungeon(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DungeonObjects";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgotExt(base);
+    base = cli::withoutExt(base, ".wgot");
     auto c = wowee::pipeline::WoweeGameObjectLoader::makeDungeon(name);
     if (!saveOrError(c, base, "gen-objects-dungeon")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenGather(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "GatheringNodes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgotExt(base);
+    base = cli::withoutExt(base, ".wgot");
     auto c = wowee::pipeline::WoweeGameObjectLoader::makeGather(name);
     if (!saveOrError(c, base, "gen-objects-gather")) return 1;
     printGenSummary(c, base);
@@ -88,7 +84,7 @@ int handleGenGather(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgotExt(base);
+    base = cli::withoutExt(base, ".wgot");
     if (!wowee::pipeline::WoweeGameObjectLoader::exists(base)) {
         std::fprintf(stderr, "WGOT not found: %s.wgot\n", base.c_str());
         return 1;
@@ -148,7 +144,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWgotExt(base);
+    base = cli::withoutExt(base, ".wgot");
     if (outPath.empty()) outPath = base + ".wgot.json";
     if (!wowee::pipeline::WoweeGameObjectLoader::exists(base)) {
         std::fprintf(stderr,
@@ -215,7 +211,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWgotExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wgot");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -303,7 +299,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgotExt(base);
+    base = cli::withoutExt(base, ".wgot");
     if (!wowee::pipeline::WoweeGameObjectLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wgot: WGOT not found: %s.wgot\n", base.c_str());

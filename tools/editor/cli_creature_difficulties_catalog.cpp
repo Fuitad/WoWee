@@ -1,4 +1,5 @@
 #include "cli_creature_difficulties_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -21,11 +22,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWcdfExt(std::string base) {
-    stripExt(base, ".wcdf");
-    return base;
-}
-
 bool saveOrError(const wowee::pipeline::WoweeCreatureDifficulty& c,
                  const std::string& base, const char* cmd) {
     if (!wowee::pipeline::WoweeCreatureDifficultyLoader::save(c, base)) {
@@ -47,7 +43,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterDifficulties";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcdfExt(base);
+    base = cli::withoutExt(base, ".wcdf");
     auto c = wowee::pipeline::WoweeCreatureDifficultyLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-cdf")) return 1;
     printGenSummary(c, base);
@@ -58,7 +54,7 @@ int handleGenWotlkRaid(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WotlkICCBosses";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcdfExt(base);
+    base = cli::withoutExt(base, ".wcdf");
     auto c = wowee::pipeline::WoweeCreatureDifficultyLoader::makeWotlkRaid(name);
     if (!saveOrError(c, base, "gen-cdf-wotlk-raid")) return 1;
     printGenSummary(c, base);
@@ -69,7 +65,7 @@ int handleGenFiveMan(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FiveManDungeons";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcdfExt(base);
+    base = cli::withoutExt(base, ".wcdf");
     auto c = wowee::pipeline::WoweeCreatureDifficultyLoader::makeFiveMan(name);
     if (!saveOrError(c, base, "gen-cdf-fiveman")) return 1;
     printGenSummary(c, base);
@@ -79,7 +75,7 @@ int handleGenFiveMan(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcdfExt(base);
+    base = cli::withoutExt(base, ".wcdf");
     if (!wowee::pipeline::WoweeCreatureDifficultyLoader::exists(base)) {
         std::fprintf(stderr, "WCDF not found: %s.wcdf\n", base.c_str());
         return 1;
@@ -131,7 +127,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWcdfExt(base);
+    base = cli::withoutExt(base, ".wcdf");
     if (!wowee::pipeline::WoweeCreatureDifficultyLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wcdf-json: WCDF not found: %s.wcdf\n",
@@ -242,21 +238,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wcdf.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWcdfExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wcdf");
+    outBase = cli::withoutExt(outBase, ".wcdf");
     if (!wowee::pipeline::WoweeCreatureDifficultyLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wcdf-json: failed to save %s.wcdf\n",
@@ -272,7 +255,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcdfExt(base);
+    base = cli::withoutExt(base, ".wcdf");
     if (!wowee::pipeline::WoweeCreatureDifficultyLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wcdf: WCDF not found: %s.wcdf\n", base.c_str());

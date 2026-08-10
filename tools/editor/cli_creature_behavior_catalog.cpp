@@ -1,4 +1,5 @@
 #include "cli_creature_behavior_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWbhvExt(std::string base) {
-    stripExt(base, ".wbhv");
-    return base;
-}
 
 const char* creatureKindName(uint8_t k) {
     using B = wowee::pipeline::WoweeCreatureBehavior;
@@ -70,7 +66,7 @@ int handleGenMelee(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MeleeBehaviors";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbhvExt(base);
+    base = cli::withoutExt(base, ".wbhv");
     auto c = wowee::pipeline::WoweeCreatureBehaviorLoader::
         makeMeleeBehaviors(name);
     if (!saveOrError(c, base, "gen-bhv-melee")) return 1;
@@ -82,7 +78,7 @@ int handleGenCaster(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CasterBehaviors";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbhvExt(base);
+    base = cli::withoutExt(base, ".wbhv");
     auto c = wowee::pipeline::WoweeCreatureBehaviorLoader::
         makeCasterBehaviors(name);
     if (!saveOrError(c, base, "gen-bhv-caster")) return 1;
@@ -94,7 +90,7 @@ int handleGenBoss(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BossBehaviors";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbhvExt(base);
+    base = cli::withoutExt(base, ".wbhv");
     auto c = wowee::pipeline::WoweeCreatureBehaviorLoader::
         makeBossBehaviors(name);
     if (!saveOrError(c, base, "gen-bhv-boss")) return 1;
@@ -105,7 +101,7 @@ int handleGenBoss(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbhvExt(base);
+    base = cli::withoutExt(base, ".wbhv");
     if (!wowee::pipeline::WoweeCreatureBehaviorLoader::exists(base)) {
         std::fprintf(stderr, "WBHV not found: %s.wbhv\n",
                      base.c_str());
@@ -227,7 +223,7 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbhvExt(base);
+    base = cli::withoutExt(base, ".wbhv");
     if (!wowee::pipeline::WoweeCreatureBehaviorLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wbhv: WBHV not found: %s.wbhv\n",
@@ -353,7 +349,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWbhvExt(base);
+    base = cli::withoutExt(base, ".wbhv");
     if (out.empty()) out = base + ".wbhv.json";
     if (!wowee::pipeline::WoweeCreatureBehaviorLoader::exists(base)) {
         std::fprintf(stderr,
@@ -410,16 +406,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wbhv.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wbhv");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wbhv");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

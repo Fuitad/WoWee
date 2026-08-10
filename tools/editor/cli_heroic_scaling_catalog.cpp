@@ -1,4 +1,5 @@
 #include "cli_heroic_scaling_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWhrdExt(std::string base) {
-    stripExt(base, ".whrd");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeHeroicScaling& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGen5man(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WotLK5manHeroicScaling";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWhrdExt(base);
+    base = cli::withoutExt(base, ".whrd");
     auto c = wowee::pipeline::WoweeHeroicScalingLoader::makeWotLK5manHeroic(name);
     if (!saveOrError(c, base, "gen-hrd")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenRaid25(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "Raid25HeroicScaling";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWhrdExt(base);
+    base = cli::withoutExt(base, ".whrd");
     auto c = wowee::pipeline::WoweeHeroicScalingLoader::makeRaid25Heroic(name);
     if (!saveOrError(c, base, "gen-hrd-raid25")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenChallenge(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ChallengeModeScaling";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWhrdExt(base);
+    base = cli::withoutExt(base, ".whrd");
     auto c = wowee::pipeline::WoweeHeroicScalingLoader::makeChallengeMode(name);
     if (!saveOrError(c, base, "gen-hrd-cm")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenChallenge(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWhrdExt(base);
+    base = cli::withoutExt(base, ".whrd");
     if (!wowee::pipeline::WoweeHeroicScalingLoader::exists(base)) {
         std::fprintf(stderr, "WHRD not found: %s.whrd\n", base.c_str());
         return 1;
@@ -132,7 +128,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWhrdExt(base);
+    base = cli::withoutExt(base, ".whrd");
     if (out.empty()) out = base + ".whrd.json";
     if (!wowee::pipeline::WoweeHeroicScalingLoader::exists(base)) {
         std::fprintf(stderr,
@@ -181,16 +177,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".whrd.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".whrd");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".whrd");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -259,7 +246,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWhrdExt(base);
+    base = cli::withoutExt(base, ".whrd");
     if (!wowee::pipeline::WoweeHeroicScalingLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-whrd: WHRD not found: %s.whrd\n",

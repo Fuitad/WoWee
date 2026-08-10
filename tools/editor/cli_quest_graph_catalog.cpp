@@ -1,4 +1,5 @@
 #include "cli_quest_graph_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -22,11 +23,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWqgrExt(std::string base) {
-    stripExt(base, ".wqgr");
-    return base;
-}
 
 const char* questTypeName(uint8_t t) {
     using G = wowee::pipeline::WoweeQuestGraph;
@@ -72,7 +68,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "NorthshireStarterChain";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWqgrExt(base);
+    base = cli::withoutExt(base, ".wqgr");
     auto c = wowee::pipeline::WoweeQuestGraphLoader::
         makeStarterChain(name);
     if (!saveOrError(c, base, "gen-qgr-starter")) return 1;
@@ -84,7 +80,7 @@ int handleGenBranched(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BranchedConvergingChain";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWqgrExt(base);
+    base = cli::withoutExt(base, ".wqgr");
     auto c = wowee::pipeline::WoweeQuestGraphLoader::
         makeBranchedChain(name);
     if (!saveOrError(c, base, "gen-qgr-branched")) return 1;
@@ -96,7 +92,7 @@ int handleGenDailies(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DailyQuests";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWqgrExt(base);
+    base = cli::withoutExt(base, ".wqgr");
     auto c = wowee::pipeline::WoweeQuestGraphLoader::
         makeDailies(name);
     if (!saveOrError(c, base, "gen-qgr-dailies")) return 1;
@@ -107,7 +103,7 @@ int handleGenDailies(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWqgrExt(base);
+    base = cli::withoutExt(base, ".wqgr");
     if (!wowee::pipeline::WoweeQuestGraphLoader::exists(base)) {
         std::fprintf(stderr, "WQGR not found: %s.wqgr\n",
                      base.c_str());
@@ -265,7 +261,7 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWqgrExt(base);
+    base = cli::withoutExt(base, ".wqgr");
     if (!wowee::pipeline::WoweeQuestGraphLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wqgr: WQGR not found: %s.wqgr\n",
@@ -384,7 +380,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWqgrExt(base);
+    base = cli::withoutExt(base, ".wqgr");
     if (out.empty()) out = base + ".wqgr.json";
     if (!wowee::pipeline::WoweeQuestGraphLoader::exists(base)) {
         std::fprintf(stderr,
@@ -435,16 +431,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wqgr.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wqgr");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wqgr");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

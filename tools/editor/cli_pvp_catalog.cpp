@@ -1,4 +1,5 @@
 #include "cli_pvp_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWpvpExt(std::string base) {
-    stripExt(base, ".wpvp");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweePVPRank& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterPvPRanks";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpvpExt(base);
+    base = cli::withoutExt(base, ".wpvp");
     auto c = wowee::pipeline::WoweePVPRankLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-pvp")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenAllianceFull(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllianceVanillaRanks";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpvpExt(base);
+    base = cli::withoutExt(base, ".wpvp");
     auto c = wowee::pipeline::WoweePVPRankLoader::makeAllianceFull(name);
     if (!saveOrError(c, base, "gen-pvp-alliance")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenArena(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ArenaTiers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpvpExt(base);
+    base = cli::withoutExt(base, ".wpvp");
     auto c = wowee::pipeline::WoweePVPRankLoader::makeArenaTiers(name);
     if (!saveOrError(c, base, "gen-pvp-arena")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenArena(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpvpExt(base);
+    base = cli::withoutExt(base, ".wpvp");
     if (!wowee::pipeline::WoweePVPRankLoader::exists(base)) {
         std::fprintf(stderr, "WPVP not found: %s.wpvp\n", base.c_str());
         return 1;
@@ -140,7 +136,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWpvpExt(base);
+    base = cli::withoutExt(base, ".wpvp");
     if (outPath.empty()) outPath = base + ".wpvp.json";
     if (!wowee::pipeline::WoweePVPRankLoader::exists(base)) {
         std::fprintf(stderr,
@@ -201,7 +197,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWpvpExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wpvp");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -277,7 +273,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpvpExt(base);
+    base = cli::withoutExt(base, ".wpvp");
     if (!wowee::pipeline::WoweePVPRankLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wpvp: WPVP not found: %s.wpvp\n", base.c_str());

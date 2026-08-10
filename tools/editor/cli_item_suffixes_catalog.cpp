@@ -1,4 +1,5 @@
 #include "cli_item_suffixes_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWsufExt(std::string base) {
-    stripExt(base, ".wsuf");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeItemSuffix& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterSuffixes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsufExt(base);
+    base = cli::withoutExt(base, ".wsuf");
     auto c = wowee::pipeline::WoweeItemSuffixLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-suf")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenMagical(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MagicalSuffixes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsufExt(base);
+    base = cli::withoutExt(base, ".wsuf");
     auto c = wowee::pipeline::WoweeItemSuffixLoader::makeMagical(name);
     if (!saveOrError(c, base, "gen-suf-magical")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenPvP(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PvPSuffixes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsufExt(base);
+    base = cli::withoutExt(base, ".wsuf");
     auto c = wowee::pipeline::WoweeItemSuffixLoader::makePvP(name);
     if (!saveOrError(c, base, "gen-suf-pvp")) return 1;
     printGenSummary(c, base);
@@ -101,7 +97,7 @@ void appendEntryJson(nlohmann::json& arr,
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsufExt(base);
+    base = cli::withoutExt(base, ".wsuf");
     if (!wowee::pipeline::WoweeItemSuffixLoader::exists(base)) {
         std::fprintf(stderr, "WSUF not found: %s.wsuf\n", base.c_str());
         return 1;
@@ -145,7 +141,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWsufExt(base);
+    base = cli::withoutExt(base, ".wsuf");
     if (outPath.empty()) outPath = base + ".wsuf.json";
     if (!wowee::pipeline::WoweeItemSuffixLoader::exists(base)) {
         std::fprintf(stderr,
@@ -187,7 +183,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWsufExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wsuf");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -266,7 +262,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsufExt(base);
+    base = cli::withoutExt(base, ".wsuf");
     if (!wowee::pipeline::WoweeItemSuffixLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wsuf: WSUF not found: %s.wsuf\n", base.c_str());

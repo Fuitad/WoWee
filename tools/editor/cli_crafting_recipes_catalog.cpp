@@ -1,4 +1,5 @@
 #include "cli_crafting_recipes_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWcraExt(std::string base) {
-    stripExt(base, ".wcra");
-    return base;
-}
 
 const char* tradeSkillName(uint16_t s) {
     switch (s) {
@@ -60,7 +56,7 @@ int handleGenAlchemy(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AlchemyPotions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcraExt(base);
+    base = cli::withoutExt(base, ".wcra");
     auto c = wowee::pipeline::WoweeCraftingRecipesLoader::
         makeAlchemyPotions(name);
     if (!saveOrError(c, base, "gen-cra-alchemy")) return 1;
@@ -72,7 +68,7 @@ int handleGenEngineering(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "EngineeringRecipes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcraExt(base);
+    base = cli::withoutExt(base, ".wcra");
     auto c = wowee::pipeline::WoweeCraftingRecipesLoader::
         makeEngineering(name);
     if (!saveOrError(c, base, "gen-cra-engineering")) return 1;
@@ -84,7 +80,7 @@ int handleGenBlacksmithing(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BlacksmithingRecipes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcraExt(base);
+    base = cli::withoutExt(base, ".wcra");
     auto c = wowee::pipeline::WoweeCraftingRecipesLoader::
         makeBlacksmithing(name);
     if (!saveOrError(c, base, "gen-cra-blacksmithing")) return 1;
@@ -95,7 +91,7 @@ int handleGenBlacksmithing(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcraExt(base);
+    base = cli::withoutExt(base, ".wcra");
     if (!wowee::pipeline::WoweeCraftingRecipesLoader::exists(base)) {
         std::fprintf(stderr, "WCRA not found: %s.wcra\n",
                      base.c_str());
@@ -154,7 +150,7 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcraExt(base);
+    base = cli::withoutExt(base, ".wcra");
     if (!wowee::pipeline::WoweeCraftingRecipesLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wcra: WCRA not found: %s.wcra\n",
@@ -288,7 +284,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWcraExt(base);
+    base = cli::withoutExt(base, ".wcra");
     if (out.empty()) out = base + ".wcra.json";
     if (!wowee::pipeline::WoweeCraftingRecipesLoader::exists(base)) {
         std::fprintf(stderr,
@@ -343,16 +339,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wcra.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wcra");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wcra");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

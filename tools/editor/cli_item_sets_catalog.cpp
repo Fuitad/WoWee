@@ -1,4 +1,5 @@
 #include "cli_item_sets_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWsetExt(std::string base) {
-    stripExt(base, ".wset");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeItemSet& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterItemSets";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsetExt(base);
+    base = cli::withoutExt(base, ".wset");
     auto c = wowee::pipeline::WoweeItemSetLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-itset")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenTier(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TierItemSets";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsetExt(base);
+    base = cli::withoutExt(base, ".wset");
     auto c = wowee::pipeline::WoweeItemSetLoader::makeTier(name);
     if (!saveOrError(c, base, "gen-itset-tier")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenPvP(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PvPItemSets";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsetExt(base);
+    base = cli::withoutExt(base, ".wset");
     auto c = wowee::pipeline::WoweeItemSetLoader::makePvP(name);
     if (!saveOrError(c, base, "gen-itset-pvp")) return 1;
     printGenSummary(c, base);
@@ -106,7 +102,7 @@ void appendEntryJson(nlohmann::json& arr,
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsetExt(base);
+    base = cli::withoutExt(base, ".wset");
     if (!wowee::pipeline::WoweeItemSetLoader::exists(base)) {
         std::fprintf(stderr, "WSET not found: %s.wset\n", base.c_str());
         return 1;
@@ -149,7 +145,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWsetExt(base);
+    base = cli::withoutExt(base, ".wset");
     if (outPath.empty()) outPath = base + ".wset.json";
     if (!wowee::pipeline::WoweeItemSetLoader::exists(base)) {
         std::fprintf(stderr,
@@ -191,7 +187,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWsetExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wset");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -271,7 +267,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsetExt(base);
+    base = cli::withoutExt(base, ".wset");
     if (!wowee::pipeline::WoweeItemSetLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wset: WSET not found: %s.wset\n", base.c_str());

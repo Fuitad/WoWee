@@ -1,4 +1,5 @@
 #include "cli_npc_services_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWbkdExt(std::string base) {
-    stripExt(base, ".wbkd");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeNPCService& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenCity(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CityServices";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbkdExt(base);
+    base = cli::withoutExt(base, ".wbkd");
     auto c = wowee::pipeline::WoweeNPCServiceLoader::makeCity(name);
     if (!saveOrError(c, base, "gen-bkd")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenBattle(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BattleServices";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbkdExt(base);
+    base = cli::withoutExt(base, ".wbkd");
     auto c = wowee::pipeline::WoweeNPCServiceLoader::makeBattle(name);
     if (!saveOrError(c, base, "gen-bkd-battle")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenProfession(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ProfessionServices";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbkdExt(base);
+    base = cli::withoutExt(base, ".wbkd");
     auto c = wowee::pipeline::WoweeNPCServiceLoader::makeProfession(name);
     if (!saveOrError(c, base, "gen-bkd-profession")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenProfession(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbkdExt(base);
+    base = cli::withoutExt(base, ".wbkd");
     if (!wowee::pipeline::WoweeNPCServiceLoader::exists(base)) {
         std::fprintf(stderr, "WBKD not found: %s.wbkd\n", base.c_str());
         return 1;
@@ -126,7 +122,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWbkdExt(base);
+    base = cli::withoutExt(base, ".wbkd");
     if (!wowee::pipeline::WoweeNPCServiceLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wbkd-json: WBKD not found: %s.wbkd\n",
@@ -240,21 +236,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wbkd.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWbkdExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wbkd");
+    outBase = cli::withoutExt(outBase, ".wbkd");
     if (!wowee::pipeline::WoweeNPCServiceLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wbkd-json: failed to save %s.wbkd\n",
@@ -270,7 +253,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbkdExt(base);
+    base = cli::withoutExt(base, ".wbkd");
     if (!wowee::pipeline::WoweeNPCServiceLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wbkd: WBKD not found: %s.wbkd\n", base.c_str());

@@ -1,4 +1,5 @@
 #include "cli_spell_effect_types_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWsefExt(std::string base) {
-    stripExt(base, ".wsef");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeSpellEffectType& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenDamage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "DamageEffects";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsefExt(base);
+    base = cli::withoutExt(base, ".wsef");
     auto c = wowee::pipeline::WoweeSpellEffectTypeLoader::makeDamage(name);
     if (!saveOrError(c, base, "gen-sef")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenHealing(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HealingEffects";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsefExt(base);
+    base = cli::withoutExt(base, ".wsef");
     auto c = wowee::pipeline::WoweeSpellEffectTypeLoader::makeHealing(name);
     if (!saveOrError(c, base, "gen-sef-healing")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenAura(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AuraEffects";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWsefExt(base);
+    base = cli::withoutExt(base, ".wsef");
     auto c = wowee::pipeline::WoweeSpellEffectTypeLoader::makeAura(name);
     if (!saveOrError(c, base, "gen-sef-aura")) return 1;
     printGenSummary(c, base);
@@ -93,7 +89,7 @@ void appendBehaviorFlagNames(uint8_t flags, std::string& out) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsefExt(base);
+    base = cli::withoutExt(base, ".wsef");
     if (!wowee::pipeline::WoweeSpellEffectTypeLoader::exists(base)) {
         std::fprintf(stderr, "WSEF not found: %s.wsef\n", base.c_str());
         return 1;
@@ -146,7 +142,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWsefExt(base);
+    base = cli::withoutExt(base, ".wsef");
     if (!wowee::pipeline::WoweeSpellEffectTypeLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wsef-json: WSEF not found: %s.wsef\n",
@@ -283,21 +279,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wsef.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWsefExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wsef");
+    outBase = cli::withoutExt(outBase, ".wsef");
     if (!wowee::pipeline::WoweeSpellEffectTypeLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wsef-json: failed to save %s.wsef\n",
@@ -313,7 +296,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWsefExt(base);
+    base = cli::withoutExt(base, ".wsef");
     if (!wowee::pipeline::WoweeSpellEffectTypeLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wsef: WSEF not found: %s.wsef\n", base.c_str());

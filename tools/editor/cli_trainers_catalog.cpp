@@ -1,4 +1,5 @@
 #include "cli_trainers_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWtrnExt(std::string base) {
-    stripExt(base, ".wtrn");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeTrainer& c,
                  const std::string& base, const char* cmd) {
@@ -60,7 +56,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterTrainers";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrnExt(base);
+    base = cli::withoutExt(base, ".wtrn");
     auto c = wowee::pipeline::WoweeTrainerLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-trainers")) return 1;
     printGenSummary(c, base);
@@ -71,7 +67,7 @@ int handleGenMage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageTrainer";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrnExt(base);
+    base = cli::withoutExt(base, ".wtrn");
     auto c = wowee::pipeline::WoweeTrainerLoader::makeMageTrainer(name);
     if (!saveOrError(c, base, "gen-trainers-mage")) return 1;
     printGenSummary(c, base);
@@ -82,7 +78,7 @@ int handleGenWeaponVendor(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WeaponVendor";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtrnExt(base);
+    base = cli::withoutExt(base, ".wtrn");
     auto c = wowee::pipeline::WoweeTrainerLoader::makeWeaponVendor(name);
     if (!saveOrError(c, base, "gen-trainers-weapons")) return 1;
     printGenSummary(c, base);
@@ -92,7 +88,7 @@ int handleGenWeaponVendor(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtrnExt(base);
+    base = cli::withoutExt(base, ".wtrn");
     if (!wowee::pipeline::WoweeTrainerLoader::exists(base)) {
         std::fprintf(stderr, "WTRN not found: %s.wtrn\n", base.c_str());
         return 1;
@@ -188,7 +184,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWtrnExt(base);
+    base = cli::withoutExt(base, ".wtrn");
     if (outPath.empty()) outPath = base + ".wtrn.json";
     if (!wowee::pipeline::WoweeTrainerLoader::exists(base)) {
         std::fprintf(stderr,
@@ -270,7 +266,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWtrnExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wtrn");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -360,7 +356,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtrnExt(base);
+    base = cli::withoutExt(base, ".wtrn");
     if (!wowee::pipeline::WoweeTrainerLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wtrn: WTRN not found: %s.wtrn\n", base.c_str());

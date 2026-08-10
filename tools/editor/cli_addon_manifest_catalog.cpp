@@ -1,4 +1,5 @@
 #include "cli_addon_manifest_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -23,11 +24,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWmodExt(std::string base) {
-    stripExt(base, ".wmod");
-    return base;
-}
-
 bool saveOrError(const wowee::pipeline::WoweeAddonManifest& c,
                  const std::string& base, const char* cmd) {
     if (!wowee::pipeline::WoweeAddonManifestLoader::save(c, base)) {
@@ -49,7 +45,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardAddons";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmodExt(base);
+    base = cli::withoutExt(base, ".wmod");
     auto c = wowee::pipeline::WoweeAddonManifestLoader::
         makeStandardAddons(name);
     if (!saveOrError(c, base, "gen-mod")) return 1;
@@ -61,7 +57,7 @@ int handleGenUI(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "UIReplacement";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmodExt(base);
+    base = cli::withoutExt(base, ".wmod");
     auto c = wowee::pipeline::WoweeAddonManifestLoader::
         makeUIReplacement(name);
     if (!saveOrError(c, base, "gen-mod-ui")) return 1;
@@ -73,7 +69,7 @@ int handleGenUtility(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "UtilityAddons";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmodExt(base);
+    base = cli::withoutExt(base, ".wmod");
     auto c = wowee::pipeline::WoweeAddonManifestLoader::
         makeUtility(name);
     if (!saveOrError(c, base, "gen-mod-util")) return 1;
@@ -84,7 +80,7 @@ int handleGenUtility(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmodExt(base);
+    base = cli::withoutExt(base, ".wmod");
     if (!wowee::pipeline::WoweeAddonManifestLoader::exists(base)) {
         std::fprintf(stderr, "WMOD not found: %s.wmod\n", base.c_str());
         return 1;
@@ -179,7 +175,7 @@ std::vector<uint32_t> findFirstCycle(
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmodExt(base);
+    base = cli::withoutExt(base, ".wmod");
     if (!wowee::pipeline::WoweeAddonManifestLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wmod: WMOD not found: %s.wmod\n",
@@ -280,7 +276,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWmodExt(base);
+    base = cli::withoutExt(base, ".wmod");
     if (out.empty()) out = base + ".wmod.json";
     if (!wowee::pipeline::WoweeAddonManifestLoader::exists(base)) {
         std::fprintf(stderr,
@@ -327,16 +323,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wmod.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wmod");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wmod");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

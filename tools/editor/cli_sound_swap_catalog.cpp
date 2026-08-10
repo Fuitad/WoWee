@@ -1,4 +1,5 @@
 #include "cli_sound_swap_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -20,11 +21,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWswpExt(std::string base) {
-    stripExt(base, ".wswp");
-    return base;
-}
 
 const char* conditionKindName(uint8_t k) {
     using S = wowee::pipeline::WoweeSoundSwap;
@@ -59,7 +55,7 @@ int handleGenBosses(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BossSoundOverrides";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWswpExt(base);
+    base = cli::withoutExt(base, ".wswp");
     auto c = wowee::pipeline::WoweeSoundSwapLoader::
         makeBossOverrides(name);
     if (!saveOrError(c, base, "gen-swp-bosses")) return 1;
@@ -71,7 +67,7 @@ int handleGenRace(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaceVoiceOverrides";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWswpExt(base);
+    base = cli::withoutExt(base, ".wswp");
     auto c = wowee::pipeline::WoweeSoundSwapLoader::
         makeRaceVoices(name);
     if (!saveOrError(c, base, "gen-swp-race")) return 1;
@@ -83,7 +79,7 @@ int handleGenUI(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "GlobalUISoundOverrides";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWswpExt(base);
+    base = cli::withoutExt(base, ".wswp");
     auto c = wowee::pipeline::WoweeSoundSwapLoader::
         makeGlobalUI(name);
     if (!saveOrError(c, base, "gen-swp-ui")) return 1;
@@ -94,7 +90,7 @@ int handleGenUI(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWswpExt(base);
+    base = cli::withoutExt(base, ".wswp");
     if (!wowee::pipeline::WoweeSoundSwapLoader::exists(base)) {
         std::fprintf(stderr, "WSWP not found: %s.wswp\n",
                      base.c_str());
@@ -194,7 +190,7 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWswpExt(base);
+    base = cli::withoutExt(base, ".wswp");
     if (!wowee::pipeline::WoweeSoundSwapLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wswp: WSWP not found: %s.wswp\n",
@@ -351,7 +347,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWswpExt(base);
+    base = cli::withoutExt(base, ".wswp");
     if (out.empty()) out = base + ".wswp.json";
     if (!wowee::pipeline::WoweeSoundSwapLoader::exists(base)) {
         std::fprintf(stderr,
@@ -397,16 +393,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wswp.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wswp");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wswp");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

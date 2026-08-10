@@ -1,4 +1,5 @@
 #include "cli_cinematics_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWcmsExt(std::string base) {
-    stripExt(base, ".wcms");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeCinematic& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterCinematics";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcmsExt(base);
+    base = cli::withoutExt(base, ".wcms");
     auto c = wowee::pipeline::WoweeCinematicLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-cinematics")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenIntros(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ClassIntros";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcmsExt(base);
+    base = cli::withoutExt(base, ".wcms");
     auto c = wowee::pipeline::WoweeCinematicLoader::makeIntros(name);
     if (!saveOrError(c, base, "gen-cinematics-intros")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenQuests(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "QuestCinematics";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcmsExt(base);
+    base = cli::withoutExt(base, ".wcms");
     auto c = wowee::pipeline::WoweeCinematicLoader::makeQuestCinematics(name);
     if (!saveOrError(c, base, "gen-cinematics-quests")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenQuests(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcmsExt(base);
+    base = cli::withoutExt(base, ".wcms");
     if (!wowee::pipeline::WoweeCinematicLoader::exists(base)) {
         std::fprintf(stderr, "WCMS not found: %s.wcms\n", base.c_str());
         return 1;
@@ -136,7 +132,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWcmsExt(base);
+    base = cli::withoutExt(base, ".wcms");
     if (outPath.empty()) outPath = base + ".wcms.json";
     if (!wowee::pipeline::WoweeCinematicLoader::exists(base)) {
         std::fprintf(stderr,
@@ -193,7 +189,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWcmsExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wcms");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -273,7 +269,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcmsExt(base);
+    base = cli::withoutExt(base, ".wcms");
     if (!wowee::pipeline::WoweeCinematicLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wcms: WCMS not found: %s.wcms\n", base.c_str());

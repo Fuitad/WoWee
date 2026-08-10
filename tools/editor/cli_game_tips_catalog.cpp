@@ -1,4 +1,5 @@
 #include "cli_game_tips_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWgtpExt(std::string base) {
-    stripExt(base, ".wgtp");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeGameTip& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterTips";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgtpExt(base);
+    base = cli::withoutExt(base, ".wgtp");
     auto c = wowee::pipeline::WoweeGameTipLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-tips")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenNewPlayer(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "NewPlayerTips";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgtpExt(base);
+    base = cli::withoutExt(base, ".wgtp");
     auto c = wowee::pipeline::WoweeGameTipLoader::makeNewPlayer(name);
     if (!saveOrError(c, base, "gen-tips-new-player")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenAdvanced(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AdvancedTips";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgtpExt(base);
+    base = cli::withoutExt(base, ".wgtp");
     auto c = wowee::pipeline::WoweeGameTipLoader::makeAdvanced(name);
     if (!saveOrError(c, base, "gen-tips-advanced")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenAdvanced(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgtpExt(base);
+    base = cli::withoutExt(base, ".wgtp");
     if (!wowee::pipeline::WoweeGameTipLoader::exists(base)) {
         std::fprintf(stderr, "WGTP not found: %s.wgtp\n", base.c_str());
         return 1;
@@ -135,7 +131,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWgtpExt(base);
+    base = cli::withoutExt(base, ".wgtp");
     if (outPath.empty()) outPath = base + ".wgtp.json";
     if (!wowee::pipeline::WoweeGameTipLoader::exists(base)) {
         std::fprintf(stderr,
@@ -192,7 +188,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWgtpExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wgtp");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -260,7 +256,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgtpExt(base);
+    base = cli::withoutExt(base, ".wgtp");
     if (!wowee::pipeline::WoweeGameTipLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wgtp: WGTP not found: %s.wgtp\n", base.c_str());

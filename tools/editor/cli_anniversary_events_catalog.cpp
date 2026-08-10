@@ -1,4 +1,5 @@
 #include "cli_anniversary_events_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWanvExt(std::string base) {
-    stripExt(base, ".wanv");
-    return base;
-}
 
 const char* eventKindName(uint8_t k) {
     using A = wowee::pipeline::WoweeAnniversaryEvents;
@@ -80,7 +76,7 @@ int handleGenHolidays(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardHolidays";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWanvExt(base);
+    base = cli::withoutExt(base, ".wanv");
     auto c = wowee::pipeline::WoweeAnniversaryEventsLoader::
         makeStandardHolidays(name);
     if (!saveOrError(c, base, "gen-anv")) return 1;
@@ -92,7 +88,7 @@ int handleGenBonus(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WeeklyBonusEvents";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWanvExt(base);
+    base = cli::withoutExt(base, ".wanv");
     auto c = wowee::pipeline::WoweeAnniversaryEventsLoader::
         makeBonusEvents(name);
     if (!saveOrError(c, base, "gen-anv-bonus")) return 1;
@@ -104,7 +100,7 @@ int handleGenAnniversary(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "GameLaunchAnniversaries";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWanvExt(base);
+    base = cli::withoutExt(base, ".wanv");
     auto c = wowee::pipeline::WoweeAnniversaryEventsLoader::
         makeAnniversary(name);
     if (!saveOrError(c, base, "gen-anv-launch")) return 1;
@@ -115,7 +111,7 @@ int handleGenAnniversary(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWanvExt(base);
+    base = cli::withoutExt(base, ".wanv");
     if (!wowee::pipeline::WoweeAnniversaryEventsLoader::exists(
             base)) {
         std::fprintf(stderr, "WANV not found: %s.wanv\n", base.c_str());
@@ -244,7 +240,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWanvExt(base);
+    base = cli::withoutExt(base, ".wanv");
     if (out.empty()) out = base + ".wanv.json";
     if (!wowee::pipeline::WoweeAnniversaryEventsLoader::exists(
             base)) {
@@ -296,16 +292,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wanv.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wanv");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wanv");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -367,7 +354,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWanvExt(base);
+    base = cli::withoutExt(base, ".wanv");
     if (!wowee::pipeline::WoweeAnniversaryEventsLoader::exists(
             base)) {
         std::fprintf(stderr,

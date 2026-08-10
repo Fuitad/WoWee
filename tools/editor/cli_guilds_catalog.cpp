@@ -1,4 +1,5 @@
 #include "cli_guilds_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWgldExt(std::string base) {
-    stripExt(base, ".wgld");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeGuild& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterGuilds";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgldExt(base);
+    base = cli::withoutExt(base, ".wgld");
     auto c = wowee::pipeline::WoweeGuildLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-guilds")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenFull(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FullGuild";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgldExt(base);
+    base = cli::withoutExt(base, ".wgld");
     auto c = wowee::pipeline::WoweeGuildLoader::makeFull(name);
     if (!saveOrError(c, base, "gen-guilds-full")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenFactionPair(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FactionPair";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgldExt(base);
+    base = cli::withoutExt(base, ".wgld");
     auto c = wowee::pipeline::WoweeGuildLoader::makeFactionPair(name);
     if (!saveOrError(c, base, "gen-guilds-pair")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenFactionPair(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgldExt(base);
+    base = cli::withoutExt(base, ".wgld");
     if (!wowee::pipeline::WoweeGuildLoader::exists(base)) {
         std::fprintf(stderr, "WGLD not found: %s.wgld\n", base.c_str());
         return 1;
@@ -180,7 +176,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWgldExt(base);
+    base = cli::withoutExt(base, ".wgld");
     if (outPath.empty()) outPath = base + ".wgld.json";
     if (!wowee::pipeline::WoweeGuildLoader::exists(base)) {
         std::fprintf(stderr,
@@ -280,7 +276,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWgldExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wgld");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -385,7 +381,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgldExt(base);
+    base = cli::withoutExt(base, ".wgld");
     if (!wowee::pipeline::WoweeGuildLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wgld: WGLD not found: %s.wgld\n", base.c_str());

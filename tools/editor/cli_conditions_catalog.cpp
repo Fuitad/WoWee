@@ -1,4 +1,5 @@
 #include "cli_conditions_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWpcdExt(std::string base) {
-    stripExt(base, ".wpcd");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeCondition& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterConditions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpcdExt(base);
+    base = cli::withoutExt(base, ".wpcd");
     auto c = wowee::pipeline::WoweeConditionLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-conditions")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenGated(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "GatedConditions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpcdExt(base);
+    base = cli::withoutExt(base, ".wpcd");
     auto c = wowee::pipeline::WoweeConditionLoader::makeGated(name);
     if (!saveOrError(c, base, "gen-conditions-gated")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenEvent(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "EventConditions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpcdExt(base);
+    base = cli::withoutExt(base, ".wpcd");
     auto c = wowee::pipeline::WoweeConditionLoader::makeEvent(name);
     if (!saveOrError(c, base, "gen-conditions-event")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenEvent(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpcdExt(base);
+    base = cli::withoutExt(base, ".wpcd");
     if (!wowee::pipeline::WoweeConditionLoader::exists(base)) {
         std::fprintf(stderr, "WPCD not found: %s.wpcd\n", base.c_str());
         return 1;
@@ -132,7 +128,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWpcdExt(base);
+    base = cli::withoutExt(base, ".wpcd");
     if (outPath.empty()) outPath = base + ".wpcd.json";
     if (!wowee::pipeline::WoweeConditionLoader::exists(base)) {
         std::fprintf(stderr,
@@ -189,7 +185,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWpcdExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wpcd");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -270,7 +266,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpcdExt(base);
+    base = cli::withoutExt(base, ".wpcd");
     if (!wowee::pipeline::WoweeConditionLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wpcd: WPCD not found: %s.wpcd\n", base.c_str());

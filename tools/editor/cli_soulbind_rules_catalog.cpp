@@ -1,4 +1,5 @@
 #include "cli_soulbind_rules_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -20,11 +21,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWbndExt(std::string base) {
-    stripExt(base, ".wbnd");
-    return base;
-}
 
 const char* bindKindName(uint8_t k) {
     using B = wowee::pipeline::WoweeSoulbindRules;
@@ -75,7 +71,7 @@ int handleGenVanilla(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "VanillaSoulbindPolicy";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbndExt(base);
+    base = cli::withoutExt(base, ".wbnd");
     auto c = wowee::pipeline::WoweeSoulbindRulesLoader::
         makeVanillaPolicy(name);
     if (!saveOrError(c, base, "gen-bnd-vanilla")) return 1;
@@ -87,7 +83,7 @@ int handleGenTBC(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TBCSoulbindPolicy";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbndExt(base);
+    base = cli::withoutExt(base, ".wbnd");
     auto c = wowee::pipeline::WoweeSoulbindRulesLoader::
         makeTBCPolicy(name);
     if (!saveOrError(c, base, "gen-bnd-tbc")) return 1;
@@ -99,7 +95,7 @@ int handleGenWotLK(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WotLKSoulbindPolicy";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbndExt(base);
+    base = cli::withoutExt(base, ".wbnd");
     auto c = wowee::pipeline::WoweeSoulbindRulesLoader::
         makeWotLKPolicy(name);
     if (!saveOrError(c, base, "gen-bnd-wotlk")) return 1;
@@ -110,7 +106,7 @@ int handleGenWotLK(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbndExt(base);
+    base = cli::withoutExt(base, ".wbnd");
     if (!wowee::pipeline::WoweeSoulbindRulesLoader::exists(base)) {
         std::fprintf(stderr, "WBND not found: %s.wbnd\n",
                      base.c_str());
@@ -229,7 +225,7 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbndExt(base);
+    base = cli::withoutExt(base, ".wbnd");
     if (!wowee::pipeline::WoweeSoulbindRulesLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wbnd: WBND not found: %s.wbnd\n",
@@ -349,7 +345,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWbndExt(base);
+    base = cli::withoutExt(base, ".wbnd");
     if (out.empty()) out = base + ".wbnd.json";
     if (!wowee::pipeline::WoweeSoulbindRulesLoader::exists(base)) {
         std::fprintf(stderr,
@@ -399,16 +395,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wbnd.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wbnd");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wbnd");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

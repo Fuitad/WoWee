@@ -1,4 +1,5 @@
 #include "cli_keybindings_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWkbdExt(std::string base) {
-    stripExt(base, ".wkbd");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeKeyBinding& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterKeybindings";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWkbdExt(base);
+    base = cli::withoutExt(base, ".wkbd");
     auto c = wowee::pipeline::WoweeKeyBindingLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-kbd")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenMovement(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MovementKeybindings";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWkbdExt(base);
+    base = cli::withoutExt(base, ".wkbd");
     auto c = wowee::pipeline::WoweeKeyBindingLoader::makeMovement(name);
     if (!saveOrError(c, base, "gen-kbd-movement")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenUI(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "UIPanelKeybindings";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWkbdExt(base);
+    base = cli::withoutExt(base, ".wkbd");
     auto c = wowee::pipeline::WoweeKeyBindingLoader::makeUIPanels(name);
     if (!saveOrError(c, base, "gen-kbd-ui")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenUI(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWkbdExt(base);
+    base = cli::withoutExt(base, ".wkbd");
     if (!wowee::pipeline::WoweeKeyBindingLoader::exists(base)) {
         std::fprintf(stderr, "WKBD not found: %s.wkbd\n", base.c_str());
         return 1;
@@ -132,7 +128,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWkbdExt(base);
+    base = cli::withoutExt(base, ".wkbd");
     if (outPath.empty()) outPath = base + ".wkbd.json";
     if (!wowee::pipeline::WoweeKeyBindingLoader::exists(base)) {
         std::fprintf(stderr,
@@ -186,7 +182,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWkbdExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wkbd");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -256,7 +252,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWkbdExt(base);
+    base = cli::withoutExt(base, ".wkbd");
     if (!wowee::pipeline::WoweeKeyBindingLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wkbd: WKBD not found: %s.wkbd\n", base.c_str());

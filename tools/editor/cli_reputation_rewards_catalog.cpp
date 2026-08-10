@@ -1,4 +1,5 @@
 #include "cli_reputation_rewards_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -20,11 +21,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWrprExt(std::string base) {
-    stripExt(base, ".wrpr");
-    return base;
-}
 
 const char* standingTierName(int32_t standing) {
     if (standing >= 42000) return "Exalted";
@@ -66,7 +62,7 @@ int handleGenArgent(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ArgentCrusadeRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWrprExt(base);
+    base = cli::withoutExt(base, ".wrpr");
     auto c = wowee::pipeline::WoweeReputationRewardsLoader::
         makeArgentCrusade(name);
     if (!saveOrError(c, base, "gen-rpr")) return 1;
@@ -78,7 +74,7 @@ int handleGenKaluak(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "KaluakRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWrprExt(base);
+    base = cli::withoutExt(base, ".wrpr");
     auto c = wowee::pipeline::WoweeReputationRewardsLoader::
         makeKaluak(name);
     if (!saveOrError(c, base, "gen-rpr-kaluak")) return 1;
@@ -90,7 +86,7 @@ int handleGenAccord(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WyrmrestAccordRewards";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWrprExt(base);
+    base = cli::withoutExt(base, ".wrpr");
     auto c = wowee::pipeline::WoweeReputationRewardsLoader::
         makeAccordTabard(name);
     if (!saveOrError(c, base, "gen-rpr-accord")) return 1;
@@ -101,7 +97,7 @@ int handleGenAccord(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWrprExt(base);
+    base = cli::withoutExt(base, ".wrpr");
     if (!wowee::pipeline::WoweeReputationRewardsLoader::exists(
             base)) {
         std::fprintf(stderr, "WRPR not found: %s.wrpr\n", base.c_str());
@@ -162,7 +158,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWrprExt(base);
+    base = cli::withoutExt(base, ".wrpr");
     if (out.empty()) out = base + ".wrpr.json";
     if (!wowee::pipeline::WoweeReputationRewardsLoader::exists(
             base)) {
@@ -212,16 +208,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wrpr.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wrpr");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wrpr");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -301,7 +288,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWrprExt(base);
+    base = cli::withoutExt(base, ".wrpr");
     if (!wowee::pipeline::WoweeReputationRewardsLoader::exists(
             base)) {
         std::fprintf(stderr,

@@ -1,4 +1,5 @@
 #include "cli_mage_portals_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWprtExt(std::string base) {
-    stripExt(base, ".wprt");
-    return base;
-}
 
 const char* factionAccessName(uint8_t f) {
     using P = wowee::pipeline::WoweeMagePortals;
@@ -66,7 +62,7 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllianceCityPortals";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprtExt(base);
+    base = cli::withoutExt(base, ".wprt");
     auto c = wowee::pipeline::WoweeMagePortalsLoader::
         makeAllianceCities(name);
     if (!saveOrError(c, base, "gen-prt-alliance")) return 1;
@@ -78,7 +74,7 @@ int handleGenHorde(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HordeCityPortals";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprtExt(base);
+    base = cli::withoutExt(base, ".wprt");
     auto c = wowee::pipeline::WoweeMagePortalsLoader::
         makeHordeCities(name);
     if (!saveOrError(c, base, "gen-prt-horde")) return 1;
@@ -90,7 +86,7 @@ int handleGenTeleports(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TeleportSpells";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprtExt(base);
+    base = cli::withoutExt(base, ".wprt");
     auto c = wowee::pipeline::WoweeMagePortalsLoader::
         makeTeleports(name);
     if (!saveOrError(c, base, "gen-prt-teleports")) return 1;
@@ -101,7 +97,7 @@ int handleGenTeleports(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWprtExt(base);
+    base = cli::withoutExt(base, ".wprt");
     if (!wowee::pipeline::WoweeMagePortalsLoader::exists(base)) {
         std::fprintf(stderr, "WPRT not found: %s.wprt\n",
                      base.c_str());
@@ -212,7 +208,7 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWprtExt(base);
+    base = cli::withoutExt(base, ".wprt");
     if (!wowee::pipeline::WoweeMagePortalsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wprt: WPRT not found: %s.wprt\n",
@@ -343,7 +339,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWprtExt(base);
+    base = cli::withoutExt(base, ".wprt");
     if (out.empty()) out = base + ".wprt.json";
     if (!wowee::pipeline::WoweeMagePortalsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -396,16 +392,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wprt.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wprt");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wprt");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

@@ -1,4 +1,5 @@
 #include "cli_global_channels_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWgchExt(std::string base) {
-    stripExt(base, ".wgch");
-    return base;
-}
 
 const char* channelKindName(uint8_t k) {
     using G = wowee::pipeline::WoweeGlobalChannels;
@@ -124,7 +120,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardChatChannels";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgchExt(base);
+    base = cli::withoutExt(base, ".wgch");
     auto c = wowee::pipeline::WoweeGlobalChannelsLoader::
         makeStandardChannels(name);
     if (!saveOrError(c, base, "gen-gch")) return 1;
@@ -136,7 +132,7 @@ int handleGenRoleplay(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RoleplayChannels";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgchExt(base);
+    base = cli::withoutExt(base, ".wgch");
     auto c = wowee::pipeline::WoweeGlobalChannelsLoader::
         makeRoleplay(name);
     if (!saveOrError(c, base, "gen-gch-rp")) return 1;
@@ -148,7 +144,7 @@ int handleGenAdmin(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AdminChannels";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWgchExt(base);
+    base = cli::withoutExt(base, ".wgch");
     auto c = wowee::pipeline::WoweeGlobalChannelsLoader::
         makeAdminChannels(name);
     if (!saveOrError(c, base, "gen-gch-admin")) return 1;
@@ -159,7 +155,7 @@ int handleGenAdmin(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgchExt(base);
+    base = cli::withoutExt(base, ".wgch");
     if (!wowee::pipeline::WoweeGlobalChannelsLoader::exists(base)) {
         std::fprintf(stderr, "WGCH not found: %s.wgch\n", base.c_str());
         return 1;
@@ -211,7 +207,7 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWgchExt(base);
+    base = cli::withoutExt(base, ".wgch");
     if (!wowee::pipeline::WoweeGlobalChannelsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wgch: WGCH not found: %s.wgch\n",
@@ -298,7 +294,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWgchExt(base);
+    base = cli::withoutExt(base, ".wgch");
     if (out.empty()) out = base + ".wgch.json";
     if (!wowee::pipeline::WoweeGlobalChannelsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -347,16 +343,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wgch.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wgch");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wgch");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

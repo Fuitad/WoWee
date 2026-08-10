@@ -1,4 +1,5 @@
 #include "cli_server_broadcasts_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWscbExt(std::string base) {
-    stripExt(base, ".wscb");
-    return base;
-}
 
 const char* channelKindName(uint8_t k) {
     using S = wowee::pipeline::WoweeServerBroadcasts;
@@ -67,7 +63,7 @@ int handleGenMotd(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ServerMOTD";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWscbExt(base);
+    base = cli::withoutExt(base, ".wscb");
     auto c = wowee::pipeline::WoweeServerBroadcastsLoader::makeMotd(name);
     if (!saveOrError(c, base, "gen-scb")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenMaintenance(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MaintenanceWarnings";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWscbExt(base);
+    base = cli::withoutExt(base, ".wscb");
     auto c = wowee::pipeline::WoweeServerBroadcastsLoader::makeMaintenance(name);
     if (!saveOrError(c, base, "gen-scb-maintenance")) return 1;
     printGenSummary(c, base);
@@ -89,7 +85,7 @@ int handleGenHelpTips(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HelpChannelTips";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWscbExt(base);
+    base = cli::withoutExt(base, ".wscb");
     auto c = wowee::pipeline::WoweeServerBroadcastsLoader::makeHelpTips(name);
     if (!saveOrError(c, base, "gen-scb-helptips")) return 1;
     printGenSummary(c, base);
@@ -99,7 +95,7 @@ int handleGenHelpTips(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWscbExt(base);
+    base = cli::withoutExt(base, ".wscb");
     if (!wowee::pipeline::WoweeServerBroadcastsLoader::exists(base)) {
         std::fprintf(stderr, "WSCB not found: %s.wscb\n", base.c_str());
         return 1;
@@ -174,7 +170,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWscbExt(base);
+    base = cli::withoutExt(base, ".wscb");
     if (out.empty()) out = base + ".wscb.json";
     if (!wowee::pipeline::WoweeServerBroadcastsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -223,16 +219,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wscb.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wscb");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wscb");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -328,7 +315,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWscbExt(base);
+    base = cli::withoutExt(base, ".wscb");
     if (!wowee::pipeline::WoweeServerBroadcastsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wscb: WSCB not found: %s.wscb\n", base.c_str());

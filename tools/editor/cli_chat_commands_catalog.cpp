@@ -1,4 +1,5 @@
 #include "cli_chat_commands_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -20,11 +21,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWcmdExt(std::string base) {
-    stripExt(base, ".wcmd");
-    return base;
-}
 
 const char* securityLevelName(uint8_t s) {
     using W = wowee::pipeline::WoweeChatCommands;
@@ -71,7 +67,7 @@ int handleGenBasic(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BasicChatCommands";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcmdExt(base);
+    base = cli::withoutExt(base, ".wcmd");
     auto c = wowee::pipeline::WoweeChatCommandsLoader::
         makeBasicCommands(name);
     if (!saveOrError(c, base, "gen-cmd-basic")) return 1;
@@ -83,7 +79,7 @@ int handleGenMovement(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MovementChatCommands";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcmdExt(base);
+    base = cli::withoutExt(base, ".wcmd");
     auto c = wowee::pipeline::WoweeChatCommandsLoader::
         makeMovementCommands(name);
     if (!saveOrError(c, base, "gen-cmd-movement")) return 1;
@@ -95,7 +91,7 @@ int handleGenAdmin(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AdminChatCommands";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcmdExt(base);
+    base = cli::withoutExt(base, ".wcmd");
     auto c = wowee::pipeline::WoweeChatCommandsLoader::
         makeAdminCommands(name);
     if (!saveOrError(c, base, "gen-cmd-admin")) return 1;
@@ -106,7 +102,7 @@ int handleGenAdmin(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcmdExt(base);
+    base = cli::withoutExt(base, ".wcmd");
     if (!wowee::pipeline::WoweeChatCommandsLoader::exists(base)) {
         std::fprintf(stderr, "WCMD not found: %s.wcmd\n",
                      base.c_str());
@@ -219,7 +215,7 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcmdExt(base);
+    base = cli::withoutExt(base, ".wcmd");
     if (!wowee::pipeline::WoweeChatCommandsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wcmd: WCMD not found: %s.wcmd\n",
@@ -351,7 +347,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWcmdExt(base);
+    base = cli::withoutExt(base, ".wcmd");
     if (out.empty()) out = base + ".wcmd.json";
     if (!wowee::pipeline::WoweeChatCommandsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -399,16 +395,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wcmd.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wcmd");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wcmd");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

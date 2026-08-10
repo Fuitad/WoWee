@@ -1,4 +1,5 @@
 #include "cli_loading_screens_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWldsExt(std::string base) {
-    stripExt(base, ".wlds");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeLoadingScreen& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterLoadingScreens";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWldsExt(base);
+    base = cli::withoutExt(base, ".wlds");
     auto c = wowee::pipeline::WoweeLoadingScreenLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-lds")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenInstances(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "InstanceLoadingScreens";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWldsExt(base);
+    base = cli::withoutExt(base, ".wlds");
     auto c = wowee::pipeline::WoweeLoadingScreenLoader::makeInstances(name);
     if (!saveOrError(c, base, "gen-lds-instances")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenRaidIntros(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RaidIntroLoadingScreens";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWldsExt(base);
+    base = cli::withoutExt(base, ".wlds");
     auto c = wowee::pipeline::WoweeLoadingScreenLoader::makeRaidIntros(name);
     if (!saveOrError(c, base, "gen-lds-raid")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenRaidIntros(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWldsExt(base);
+    base = cli::withoutExt(base, ".wlds");
     if (!wowee::pipeline::WoweeLoadingScreenLoader::exists(base)) {
         std::fprintf(stderr, "WLDS not found: %s.wlds\n", base.c_str());
         return 1;
@@ -134,7 +130,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWldsExt(base);
+    base = cli::withoutExt(base, ".wlds");
     if (outPath.empty()) outPath = base + ".wlds.json";
     if (!wowee::pipeline::WoweeLoadingScreenLoader::exists(base)) {
         std::fprintf(stderr,
@@ -193,7 +189,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWldsExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wlds");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -261,7 +257,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWldsExt(base);
+    base = cli::withoutExt(base, ".wlds");
     if (!wowee::pipeline::WoweeLoadingScreenLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wlds: WLDS not found: %s.wlds\n", base.c_str());

@@ -1,4 +1,5 @@
 #include "cli_item_flags_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWifsExt(std::string base) {
-    stripExt(base, ".wifs");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeItemFlags& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardItemFlags";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWifsExt(base);
+    base = cli::withoutExt(base, ".wifs");
     auto c = wowee::pipeline::WoweeItemFlagsLoader::makeStandard(name);
     if (!saveOrError(c, base, "gen-ifs")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenBinding(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BindingItemFlags";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWifsExt(base);
+    base = cli::withoutExt(base, ".wifs");
     auto c = wowee::pipeline::WoweeItemFlagsLoader::makeBinding(name);
     if (!saveOrError(c, base, "gen-ifs-binding")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenServer(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ServerCustomItemFlags";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWifsExt(base);
+    base = cli::withoutExt(base, ".wifs");
     auto c = wowee::pipeline::WoweeItemFlagsLoader::makeServer(name);
     if (!saveOrError(c, base, "gen-ifs-server")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenServer(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWifsExt(base);
+    base = cli::withoutExt(base, ".wifs");
     if (!wowee::pipeline::WoweeItemFlagsLoader::exists(base)) {
         std::fprintf(stderr, "WIFS not found: %s.wifs\n", base.c_str());
         return 1;
@@ -125,7 +121,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWifsExt(base);
+    base = cli::withoutExt(base, ".wifs");
     if (!wowee::pipeline::WoweeItemFlagsLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wifs-json: WIFS not found: %s.wifs\n",
@@ -232,21 +228,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wifs.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWifsExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wifs");
+    outBase = cli::withoutExt(outBase, ".wifs");
     if (!wowee::pipeline::WoweeItemFlagsLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wifs-json: failed to save %s.wifs\n",
@@ -262,7 +245,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWifsExt(base);
+    base = cli::withoutExt(base, ".wifs");
     if (!wowee::pipeline::WoweeItemFlagsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wifs: WIFS not found: %s.wifs\n", base.c_str());

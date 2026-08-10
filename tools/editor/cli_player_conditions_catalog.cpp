@@ -1,4 +1,5 @@
 #include "cli_player_conditions_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWpcnExt(std::string base) {
-    stripExt(base, ".wpcn");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweePlayerCondition& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterConditions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpcnExt(base);
+    base = cli::withoutExt(base, ".wpcn");
     auto c = wowee::pipeline::WoweePlayerConditionLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-pcn")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenQuestGates(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "QuestGateConditions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpcnExt(base);
+    base = cli::withoutExt(base, ".wpcn");
     auto c = wowee::pipeline::WoweePlayerConditionLoader::makeQuestGates(name);
     if (!saveOrError(c, base, "gen-pcn-quest-gates")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenComposite(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CompositeConditions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpcnExt(base);
+    base = cli::withoutExt(base, ".wpcn");
     auto c = wowee::pipeline::WoweePlayerConditionLoader::makeComposite(name);
     if (!saveOrError(c, base, "gen-pcn-composite")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenComposite(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpcnExt(base);
+    base = cli::withoutExt(base, ".wpcn");
     if (!wowee::pipeline::WoweePlayerConditionLoader::exists(base)) {
         std::fprintf(stderr, "WPCN not found: %s.wpcn\n", base.c_str());
         return 1;
@@ -138,7 +134,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWpcnExt(base);
+    base = cli::withoutExt(base, ".wpcn");
     if (outPath.empty()) outPath = base + ".wpcn.json";
     if (!wowee::pipeline::WoweePlayerConditionLoader::exists(base)) {
         std::fprintf(stderr,
@@ -198,7 +194,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWpcnExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wpcn");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -308,7 +304,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpcnExt(base);
+    base = cli::withoutExt(base, ".wpcn");
     if (!wowee::pipeline::WoweePlayerConditionLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wpcn: WPCN not found: %s.wpcn\n", base.c_str());

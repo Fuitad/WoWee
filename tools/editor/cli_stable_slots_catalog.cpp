@@ -1,4 +1,5 @@
 #include "cli_stable_slots_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWstcExt(std::string base) {
-    stripExt(base, ".wstc");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeStableSlot& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStandard(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StandardStableSlots";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWstcExt(base);
+    base = cli::withoutExt(base, ".wstc");
     auto c = wowee::pipeline::WoweeStableSlotLoader::makeStandard(name);
     if (!saveOrError(c, base, "gen-stc")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenCata(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CataStableSlots";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWstcExt(base);
+    base = cli::withoutExt(base, ".wstc");
     auto c = wowee::pipeline::WoweeStableSlotLoader::makeCata(name);
     if (!saveOrError(c, base, "gen-stc-cata")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenPremium(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PremiumStableSlots";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWstcExt(base);
+    base = cli::withoutExt(base, ".wstc");
     auto c = wowee::pipeline::WoweeStableSlotLoader::makePremium(name);
     if (!saveOrError(c, base, "gen-stc-premium")) return 1;
     printGenSummary(c, base);
@@ -87,7 +83,7 @@ void formatGold(uint32_t copper, char* buf, size_t bufSize) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWstcExt(base);
+    base = cli::withoutExt(base, ".wstc");
     if (!wowee::pipeline::WoweeStableSlotLoader::exists(base)) {
         std::fprintf(stderr, "WSTC not found: %s.wstc\n", base.c_str());
         return 1;
@@ -135,7 +131,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWstcExt(base);
+    base = cli::withoutExt(base, ".wstc");
     if (!wowee::pipeline::WoweeStableSlotLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wstc-json: WSTC not found: %s.wstc\n",
@@ -215,21 +211,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wstc.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWstcExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wstc");
+    outBase = cli::withoutExt(outBase, ".wstc");
     if (!wowee::pipeline::WoweeStableSlotLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wstc-json: failed to save %s.wstc\n",
@@ -245,7 +228,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWstcExt(base);
+    base = cli::withoutExt(base, ".wstc");
     if (!wowee::pipeline::WoweeStableSlotLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wstc: WSTC not found: %s.wstc\n", base.c_str());

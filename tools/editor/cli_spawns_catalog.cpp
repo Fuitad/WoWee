@@ -1,4 +1,5 @@
 #include "cli_spawns_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWspnExt(std::string base) {
-    stripExt(base, ".wspn");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeSpawns& c,
                  const std::string& base, const char* cmd) {
@@ -50,7 +46,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterSpawns";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspnExt(base);
+    base = cli::withoutExt(base, ".wspn");
     auto c = wowee::pipeline::WoweeSpawnsLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-spawns")) return 1;
     printGenSummary(c, base);
@@ -61,7 +57,7 @@ int handleGenCamp(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BanditCamp";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspnExt(base);
+    base = cli::withoutExt(base, ".wspn");
     auto c = wowee::pipeline::WoweeSpawnsLoader::makeCamp(name);
     if (!saveOrError(c, base, "gen-spawns-camp")) return 1;
     printGenSummary(c, base);
@@ -72,7 +68,7 @@ int handleGenVillage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "VillageSpawns";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspnExt(base);
+    base = cli::withoutExt(base, ".wspn");
     auto c = wowee::pipeline::WoweeSpawnsLoader::makeVillage(name);
     if (!saveOrError(c, base, "gen-spawns-village")) return 1;
     printGenSummary(c, base);
@@ -82,7 +78,7 @@ int handleGenVillage(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspnExt(base);
+    base = cli::withoutExt(base, ".wspn");
     if (!wowee::pipeline::WoweeSpawnsLoader::exists(base)) {
         std::fprintf(stderr, "WSPN not found: %s.wspn\n", base.c_str());
         return 1;
@@ -151,7 +147,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWspnExt(base);
+    base = cli::withoutExt(base, ".wspn");
     if (outPath.empty()) outPath = base + ".wspn.json";
     if (!wowee::pipeline::WoweeSpawnsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -216,7 +212,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWspnExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wspn");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -294,7 +290,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspnExt(base);
+    base = cli::withoutExt(base, ".wspn");
     if (!wowee::pipeline::WoweeSpawnsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wspn: WSPN not found: %s.wspn\n", base.c_str());

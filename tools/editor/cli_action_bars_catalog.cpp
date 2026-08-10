@@ -1,4 +1,5 @@
 #include "cli_action_bars_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWactExt(std::string base) {
-    stripExt(base, ".wact");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeActionBar& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorActionBar";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWactExt(base);
+    base = cli::withoutExt(base, ".wact");
     auto c = wowee::pipeline::WoweeActionBarLoader::makeWarrior(name);
     if (!saveOrError(c, base, "gen-act")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenMage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageActionBar";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWactExt(base);
+    base = cli::withoutExt(base, ".wact");
     auto c = wowee::pipeline::WoweeActionBarLoader::makeMage(name);
     if (!saveOrError(c, base, "gen-act-mage")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenHunterPet(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HunterPetBar";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWactExt(base);
+    base = cli::withoutExt(base, ".wact");
     auto c = wowee::pipeline::WoweeActionBarLoader::makeHunterPet(name);
     if (!saveOrError(c, base, "gen-act-pet")) return 1;
     printGenSummary(c, base);
@@ -78,7 +74,7 @@ int handleGenHunterPet(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWactExt(base);
+    base = cli::withoutExt(base, ".wact");
     if (!wowee::pipeline::WoweeActionBarLoader::exists(base)) {
         std::fprintf(stderr, "WACT not found: %s.wact\n", base.c_str());
         return 1;
@@ -127,7 +123,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWactExt(base);
+    base = cli::withoutExt(base, ".wact");
     if (!wowee::pipeline::WoweeActionBarLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wact-json: WACT not found: %s.wact\n",
@@ -232,21 +228,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wact.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWactExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wact");
+    outBase = cli::withoutExt(outBase, ".wact");
     if (!wowee::pipeline::WoweeActionBarLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wact-json: failed to save %s.wact\n",
@@ -262,7 +245,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWactExt(base);
+    base = cli::withoutExt(base, ".wact");
     if (!wowee::pipeline::WoweeActionBarLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wact: WACT not found: %s.wact\n", base.c_str());

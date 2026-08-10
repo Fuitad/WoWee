@@ -1,4 +1,5 @@
 #include "cli_pet_care_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWpcrExt(std::string base) {
-    stripExt(base, ".wpcr");
-    return base;
-}
 
 const char* actionKindName(uint8_t k) {
     using P = wowee::pipeline::WoweePetCare;
@@ -64,7 +60,7 @@ int handleGenHunter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HunterPetCare";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpcrExt(base);
+    base = cli::withoutExt(base, ".wpcr");
     auto c = wowee::pipeline::WoweePetCareLoader::makeHunterCare(name);
     if (!saveOrError(c, base, "gen-pcr")) return 1;
     printGenSummary(c, base);
@@ -75,7 +71,7 @@ int handleGenStable(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StableMasterActions";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpcrExt(base);
+    base = cli::withoutExt(base, ".wpcr");
     auto c = wowee::pipeline::WoweePetCareLoader::makeStableActions(name);
     if (!saveOrError(c, base, "gen-pcr-stable")) return 1;
     printGenSummary(c, base);
@@ -86,7 +82,7 @@ int handleGenWarlock(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarlockMinionSummons";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWpcrExt(base);
+    base = cli::withoutExt(base, ".wpcr");
     auto c = wowee::pipeline::WoweePetCareLoader::makeWarlockMinions(name);
     if (!saveOrError(c, base, "gen-pcr-warlock")) return 1;
     printGenSummary(c, base);
@@ -96,7 +92,7 @@ int handleGenWarlock(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpcrExt(base);
+    base = cli::withoutExt(base, ".wpcr");
     if (!wowee::pipeline::WoweePetCareLoader::exists(base)) {
         std::fprintf(stderr, "WPCR not found: %s.wpcr\n", base.c_str());
         return 1;
@@ -169,7 +165,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWpcrExt(base);
+    base = cli::withoutExt(base, ".wpcr");
     if (out.empty()) out = base + ".wpcr.json";
     if (!wowee::pipeline::WoweePetCareLoader::exists(base)) {
         std::fprintf(stderr,
@@ -220,16 +216,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wpcr.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wpcr");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wpcr");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -322,7 +309,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWpcrExt(base);
+    base = cli::withoutExt(base, ".wpcr");
     if (!wowee::pipeline::WoweePetCareLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wpcr: WPCR not found: %s.wpcr\n",

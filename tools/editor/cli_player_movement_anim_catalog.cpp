@@ -1,4 +1,5 @@
 #include "cli_player_movement_anim_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -21,11 +22,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWphmExt(std::string base) {
-    stripExt(base, ".wphm");
-    return base;
-}
 
 const char* movementStateName(uint8_t s) {
     using P = wowee::pipeline::WoweePlayerMovementAnim;
@@ -82,7 +78,7 @@ int handleGenHuman(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HumanMovementAnim";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWphmExt(base);
+    base = cli::withoutExt(base, ".wphm");
     auto c = wowee::pipeline::WoweePlayerMovementAnimLoader::
         makeHumanMovement(name);
     if (!saveOrError(c, base, "gen-phm-human")) return 1;
@@ -94,7 +90,7 @@ int handleGenOrc(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "OrcMovementAnim";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWphmExt(base);
+    base = cli::withoutExt(base, ".wphm");
     auto c = wowee::pipeline::WoweePlayerMovementAnimLoader::
         makeOrcMovement(name);
     if (!saveOrError(c, base, "gen-phm-orc")) return 1;
@@ -106,7 +102,7 @@ int handleGenUndead(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "UndeadMovementAnim";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWphmExt(base);
+    base = cli::withoutExt(base, ".wphm");
     auto c = wowee::pipeline::WoweePlayerMovementAnimLoader::
         makeUndeadMovement(name);
     if (!saveOrError(c, base, "gen-phm-undead")) return 1;
@@ -117,7 +113,7 @@ int handleGenUndead(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWphmExt(base);
+    base = cli::withoutExt(base, ".wphm");
     if (!wowee::pipeline::WoweePlayerMovementAnimLoader::exists(base)) {
         std::fprintf(stderr, "WPHM not found: %s.wphm\n",
                      base.c_str());
@@ -220,7 +216,7 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWphmExt(base);
+    base = cli::withoutExt(base, ".wphm");
     if (!wowee::pipeline::WoweePlayerMovementAnimLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wphm: WPHM not found: %s.wphm\n",
@@ -326,7 +322,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWphmExt(base);
+    base = cli::withoutExt(base, ".wphm");
     if (out.empty()) out = base + ".wphm.json";
     if (!wowee::pipeline::WoweePlayerMovementAnimLoader::exists(base)) {
         std::fprintf(stderr,
@@ -373,16 +369,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wphm.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wphm");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wphm");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

@@ -1,4 +1,5 @@
 #include "cli_spell_pack_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -21,11 +22,6 @@ namespace cli {
 
 namespace {
 
-std::string stripWspkExt(std::string base) {
-    stripExt(base, ".wspk");
-    return base;
-}
-
 bool saveOrError(const wowee::pipeline::WoweeSpellPack& c,
                  const std::string& base, const char* cmd) {
     if (!wowee::pipeline::WoweeSpellPackLoader::save(c, base)) {
@@ -47,7 +43,7 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorSpellPack";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspkExt(base);
+    base = cli::withoutExt(base, ".wspk");
     auto c = wowee::pipeline::WoweeSpellPackLoader::
         makeWarriorPack(name);
     if (!saveOrError(c, base, "gen-spk-warrior")) return 1;
@@ -59,7 +55,7 @@ int handleGenMage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MageSpellPack";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspkExt(base);
+    base = cli::withoutExt(base, ".wspk");
     auto c = wowee::pipeline::WoweeSpellPackLoader::
         makeMagePack(name);
     if (!saveOrError(c, base, "gen-spk-mage")) return 1;
@@ -71,7 +67,7 @@ int handleGenRogue(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RogueSpellPack";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspkExt(base);
+    base = cli::withoutExt(base, ".wspk");
     auto c = wowee::pipeline::WoweeSpellPackLoader::
         makeRoguePack(name);
     if (!saveOrError(c, base, "gen-spk-rogue")) return 1;
@@ -99,7 +95,7 @@ const char* classIdName(uint8_t c) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspkExt(base);
+    base = cli::withoutExt(base, ".wspk");
     if (!wowee::pipeline::WoweeSpellPackLoader::exists(base)) {
         std::fprintf(stderr, "WSPK not found: %s.wspk\n",
                      base.c_str());
@@ -145,7 +141,7 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspkExt(base);
+    base = cli::withoutExt(base, ".wspk");
     if (!wowee::pipeline::WoweeSpellPackLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wspk: WSPK not found: %s.wspk\n",
@@ -247,7 +243,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWspkExt(base);
+    base = cli::withoutExt(base, ".wspk");
     if (out.empty()) out = base + ".wspk.json";
     if (!wowee::pipeline::WoweeSpellPackLoader::exists(base)) {
         std::fprintf(stderr,
@@ -290,16 +286,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wspk.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wspk");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wspk");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

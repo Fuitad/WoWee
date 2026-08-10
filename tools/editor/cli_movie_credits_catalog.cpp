@@ -1,4 +1,5 @@
 #include "cli_movie_credits_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWmvcExt(std::string base) {
-    stripExt(base, ".wmvc");
-    return base;
-}
 
 const char* categoryName(uint8_t k) {
     using M = wowee::pipeline::WoweeMovieCredits;
@@ -63,7 +59,7 @@ int handleGenWotLK(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WotLKIntroCredits";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmvcExt(base);
+    base = cli::withoutExt(base, ".wmvc");
     auto c = wowee::pipeline::WoweeMovieCreditsLoader::makeWotLKIntro(name);
     if (!saveOrError(c, base, "gen-mvc")) return 1;
     printGenSummary(c, base);
@@ -74,7 +70,7 @@ int handleGenQuest(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "QuestCinematicCredits";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmvcExt(base);
+    base = cli::withoutExt(base, ".wmvc");
     auto c = wowee::pipeline::WoweeMovieCreditsLoader::makeQuestCinema(name);
     if (!saveOrError(c, base, "gen-mvc-quest")) return 1;
     printGenSummary(c, base);
@@ -85,7 +81,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterRollCredits";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmvcExt(base);
+    base = cli::withoutExt(base, ".wmvc");
     auto c = wowee::pipeline::WoweeMovieCreditsLoader::makeStarterRoll(name);
     if (!saveOrError(c, base, "gen-mvc-starter")) return 1;
     printGenSummary(c, base);
@@ -95,7 +91,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmvcExt(base);
+    base = cli::withoutExt(base, ".wmvc");
     if (!wowee::pipeline::WoweeMovieCreditsLoader::exists(base)) {
         std::fprintf(stderr, "WMVC not found: %s.wmvc\n", base.c_str());
         return 1;
@@ -158,7 +154,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWmvcExt(base);
+    base = cli::withoutExt(base, ".wmvc");
     if (out.empty()) out = base + ".wmvc.json";
     if (!wowee::pipeline::WoweeMovieCreditsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -203,16 +199,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wmvc.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wmvc");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wmvc");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -290,7 +277,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmvcExt(base);
+    base = cli::withoutExt(base, ".wmvc");
     if (!wowee::pipeline::WoweeMovieCreditsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wmvc: WMVC not found: %s.wmvc\n",

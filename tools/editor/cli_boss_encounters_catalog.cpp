@@ -1,4 +1,5 @@
 #include "cli_boss_encounters_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWbosExt(std::string base) {
-    stripExt(base, ".wbos");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeBossEncounter& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenFiveMan(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FiveManBosses";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbosExt(base);
+    base = cli::withoutExt(base, ".wbos");
     auto c = wowee::pipeline::WoweeBossEncounterLoader::makeFiveMan(name);
     if (!saveOrError(c, base, "gen-bos")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenRaid10(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ICC10NormalBosses";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbosExt(base);
+    base = cli::withoutExt(base, ".wbos");
     auto c = wowee::pipeline::WoweeBossEncounterLoader::makeRaid10(name);
     if (!saveOrError(c, base, "gen-bos-raid10")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenWorldBoss(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WorldBosses";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWbosExt(base);
+    base = cli::withoutExt(base, ".wbos");
     auto c = wowee::pipeline::WoweeBossEncounterLoader::makeWorldBoss(name);
     if (!saveOrError(c, base, "gen-bos-world")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenWorldBoss(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbosExt(base);
+    base = cli::withoutExt(base, ".wbos");
     if (!wowee::pipeline::WoweeBossEncounterLoader::exists(base)) {
         std::fprintf(stderr, "WBOS not found: %s.wbos\n", base.c_str());
         return 1;
@@ -136,7 +132,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWbosExt(base);
+    base = cli::withoutExt(base, ".wbos");
     if (!wowee::pipeline::WoweeBossEncounterLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wbos-json: WBOS not found: %s.wbos\n",
@@ -219,21 +215,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wbos.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWbosExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wbos");
+    outBase = cli::withoutExt(outBase, ".wbos");
     if (!wowee::pipeline::WoweeBossEncounterLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wbos-json: failed to save %s.wbos\n",
@@ -249,7 +232,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWbosExt(base);
+    base = cli::withoutExt(base, ".wbos");
     if (!wowee::pipeline::WoweeBossEncounterLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wbos: WBOS not found: %s.wbos\n", base.c_str());

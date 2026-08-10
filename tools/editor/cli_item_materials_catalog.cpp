@@ -1,4 +1,5 @@
 #include "cli_item_materials_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWmatExt(std::string base) {
-    stripExt(base, ".wmat");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeItemMaterial& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenArmor(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ArmorMaterials";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmatExt(base);
+    base = cli::withoutExt(base, ".wmat");
     auto c = wowee::pipeline::WoweeItemMaterialLoader::makeArmor(name);
     if (!saveOrError(c, base, "gen-mat")) return 1;
     printGenSummary(c, base);
@@ -57,7 +53,7 @@ int handleGenWeapon(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WeaponMaterials";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmatExt(base);
+    base = cli::withoutExt(base, ".wmat");
     auto c = wowee::pipeline::WoweeItemMaterialLoader::makeWeapon(name);
     if (!saveOrError(c, base, "gen-mat-weapon")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenMagical(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MagicalMaterials";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmatExt(base);
+    base = cli::withoutExt(base, ".wmat");
     auto c = wowee::pipeline::WoweeItemMaterialLoader::makeMagical(name);
     if (!saveOrError(c, base, "gen-mat-magical")) return 1;
     printGenSummary(c, base);
@@ -93,7 +89,7 @@ void appendMaterialFlagNames(uint32_t flags, std::string& out) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmatExt(base);
+    base = cli::withoutExt(base, ".wmat");
     if (!wowee::pipeline::WoweeItemMaterialLoader::exists(base)) {
         std::fprintf(stderr, "WMAT not found: %s.wmat\n", base.c_str());
         return 1;
@@ -150,7 +146,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWmatExt(base);
+    base = cli::withoutExt(base, ".wmat");
     if (!wowee::pipeline::WoweeItemMaterialLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wmat-json: WMAT not found: %s.wmat\n",
@@ -319,21 +315,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wmat.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWmatExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wmat");
+    outBase = cli::withoutExt(outBase, ".wmat");
     if (!wowee::pipeline::WoweeItemMaterialLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wmat-json: failed to save %s.wmat\n",
@@ -349,7 +332,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmatExt(base);
+    base = cli::withoutExt(base, ".wmat");
     if (!wowee::pipeline::WoweeItemMaterialLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wmat: WMAT not found: %s.wmat\n", base.c_str());

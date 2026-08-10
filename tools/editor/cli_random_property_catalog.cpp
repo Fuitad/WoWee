@@ -1,4 +1,5 @@
 #include "cli_random_property_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWircExt(std::string base) {
-    stripExt(base, ".wirc");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeRandomProperty& c,
                  const std::string& base, const char* cmd) {
@@ -46,7 +42,7 @@ int handleGenBear(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "OfTheBearPool";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWircExt(base);
+    base = cli::withoutExt(base, ".wirc");
     auto c = wowee::pipeline::WoweeRandomPropertyLoader::
         makeOfTheBear(name);
     if (!saveOrError(c, base, "gen-irc-bear")) return 1;
@@ -58,7 +54,7 @@ int handleGenEagle(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "OfTheEaglePool";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWircExt(base);
+    base = cli::withoutExt(base, ".wirc");
     auto c = wowee::pipeline::WoweeRandomPropertyLoader::
         makeOfTheEagle(name);
     if (!saveOrError(c, base, "gen-irc-eagle")) return 1;
@@ -70,7 +66,7 @@ int handleGenTiger(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "OfTheTigerPool";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWircExt(base);
+    base = cli::withoutExt(base, ".wirc");
     auto c = wowee::pipeline::WoweeRandomPropertyLoader::
         makeOfTheTiger(name);
     if (!saveOrError(c, base, "gen-irc-tiger")) return 1;
@@ -98,7 +94,7 @@ std::string slotsMaskString(uint8_t mask) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWircExt(base);
+    base = cli::withoutExt(base, ".wirc");
     if (!wowee::pipeline::WoweeRandomPropertyLoader::exists(base)) {
         std::fprintf(stderr, "WIRC not found: %s.wirc\n",
                      base.c_str());
@@ -155,7 +151,7 @@ int handleInfo(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWircExt(base);
+    base = cli::withoutExt(base, ".wirc");
     if (!wowee::pipeline::WoweeRandomPropertyLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wirc: WIRC not found: %s.wirc\n",
@@ -264,7 +260,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWircExt(base);
+    base = cli::withoutExt(base, ".wirc");
     if (out.empty()) out = base + ".wirc.json";
     if (!wowee::pipeline::WoweeRandomPropertyLoader::exists(base)) {
         std::fprintf(stderr,
@@ -316,16 +312,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wirc.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wirc");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wirc");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

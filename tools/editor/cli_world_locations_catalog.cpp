@@ -1,4 +1,5 @@
 #include "cli_world_locations_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWlocExt(std::string base) {
-    stripExt(base, ".wloc");
-    return base;
-}
 
 const char* locKindName(uint8_t k) {
     using L = wowee::pipeline::WoweeWorldLocations;
@@ -81,7 +77,7 @@ int handleGenAlliancePOIs(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AlliancePOIs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlocExt(base);
+    base = cli::withoutExt(base, ".wloc");
     auto c = wowee::pipeline::WoweeWorldLocationsLoader::
         makeAlliancePOIs(name);
     if (!saveOrError(c, base, "gen-loc-poi")) return 1;
@@ -93,7 +89,7 @@ int handleGenHerbalism(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HerbalismNodes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlocExt(base);
+    base = cli::withoutExt(base, ".wloc");
     auto c = wowee::pipeline::WoweeWorldLocationsLoader::
         makeHerbalismNodes(name);
     if (!saveOrError(c, base, "gen-loc-herb")) return 1;
@@ -105,7 +101,7 @@ int handleGenRareSpawns(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RareSpawns";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWlocExt(base);
+    base = cli::withoutExt(base, ".wloc");
     auto c = wowee::pipeline::WoweeWorldLocationsLoader::
         makeRareSpawns(name);
     if (!saveOrError(c, base, "gen-loc-rare")) return 1;
@@ -116,7 +112,7 @@ int handleGenRareSpawns(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlocExt(base);
+    base = cli::withoutExt(base, ".wloc");
     if (!wowee::pipeline::WoweeWorldLocationsLoader::exists(base)) {
         std::fprintf(stderr, "WLOC not found: %s.wloc\n",
                      base.c_str());
@@ -236,7 +232,7 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWlocExt(base);
+    base = cli::withoutExt(base, ".wloc");
     if (!wowee::pipeline::WoweeWorldLocationsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wloc: WLOC not found: %s.wloc\n",
@@ -341,7 +337,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWlocExt(base);
+    base = cli::withoutExt(base, ".wloc");
     if (out.empty()) out = base + ".wloc.json";
     if (!wowee::pipeline::WoweeWorldLocationsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -396,16 +392,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wloc.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wloc");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wloc");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

@@ -1,4 +1,5 @@
 #include "cli_titles_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWtitExt(std::string base) {
-    stripExt(base, ".wtit");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeTitle& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterTitles";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtitExt(base);
+    base = cli::withoutExt(base, ".wtit");
     auto c = wowee::pipeline::WoweeTitleLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-titles")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenPvp(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PvpTitles";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtitExt(base);
+    base = cli::withoutExt(base, ".wtit");
     auto c = wowee::pipeline::WoweeTitleLoader::makePvp(name);
     if (!saveOrError(c, base, "gen-titles-pvp")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenAchievement(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AchievementTitles";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWtitExt(base);
+    base = cli::withoutExt(base, ".wtit");
     auto c = wowee::pipeline::WoweeTitleLoader::makeAchievement(name);
     if (!saveOrError(c, base, "gen-titles-achievement")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenAchievement(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtitExt(base);
+    base = cli::withoutExt(base, ".wtit");
     if (!wowee::pipeline::WoweeTitleLoader::exists(base)) {
         std::fprintf(stderr, "WTIT not found: %s.wtit\n", base.c_str());
         return 1;
@@ -129,7 +125,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWtitExt(base);
+    base = cli::withoutExt(base, ".wtit");
     if (outPath.empty()) outPath = base + ".wtit.json";
     if (!wowee::pipeline::WoweeTitleLoader::exists(base)) {
         std::fprintf(stderr,
@@ -184,7 +180,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWtitExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wtit");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -248,7 +244,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWtitExt(base);
+    base = cli::withoutExt(base, ".wtit");
     if (!wowee::pipeline::WoweeTitleLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wtit: WTIT not found: %s.wtit\n", base.c_str());

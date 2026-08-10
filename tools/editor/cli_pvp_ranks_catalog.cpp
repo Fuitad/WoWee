@@ -1,4 +1,5 @@
 #include "cli_pvp_ranks_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -21,11 +22,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWprgExt(std::string base) {
-    stripExt(base, ".wprg");
-    return base;
-}
 
 const char* factionFilterName(uint8_t f) {
     using P = wowee::pipeline::WoweePvPRanks;
@@ -57,7 +53,7 @@ int handleGenAlliance(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AllianceLowerRanks";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprgExt(base);
+    base = cli::withoutExt(base, ".wprg");
     auto c = wowee::pipeline::WoweePvPRanksLoader::makeAllianceRanks(name);
     if (!saveOrError(c, base, "gen-prg")) return 1;
     printGenSummary(c, base);
@@ -68,7 +64,7 @@ int handleGenHorde(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HordeLowerRanks";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprgExt(base);
+    base = cli::withoutExt(base, ".wprg");
     auto c = wowee::pipeline::WoweePvPRanksLoader::makeHordeRanks(name);
     if (!saveOrError(c, base, "gen-prg-horde")) return 1;
     printGenSummary(c, base);
@@ -79,7 +75,7 @@ int handleGenHigh(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "HighRanks";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprgExt(base);
+    base = cli::withoutExt(base, ".wprg");
     auto c = wowee::pipeline::WoweePvPRanksLoader::makeHighRanks(name);
     if (!saveOrError(c, base, "gen-prg-high")) return 1;
     printGenSummary(c, base);
@@ -89,7 +85,7 @@ int handleGenHigh(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWprgExt(base);
+    base = cli::withoutExt(base, ".wprg");
     if (!wowee::pipeline::WoweePvPRanksLoader::exists(base)) {
         std::fprintf(stderr, "WPRG not found: %s.wprg\n", base.c_str());
         return 1;
@@ -147,7 +143,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWprgExt(base);
+    base = cli::withoutExt(base, ".wprg");
     if (out.empty()) out = base + ".wprg.json";
     if (!wowee::pipeline::WoweePvPRanksLoader::exists(base)) {
         std::fprintf(stderr,
@@ -195,16 +191,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wprg.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wprg");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wprg");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -280,7 +267,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWprgExt(base);
+    base = cli::withoutExt(base, ".wprg");
     if (!wowee::pipeline::WoweePvPRanksLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wprg: WPRG not found: %s.wprg\n",

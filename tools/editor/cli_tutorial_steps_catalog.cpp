@@ -1,4 +1,5 @@
 #include "cli_tutorial_steps_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -20,11 +21,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWturExt(std::string base) {
-    stripExt(base, ".wtur");
-    return base;
-}
 
 const char* triggerEventName(uint8_t e) {
     using T = wowee::pipeline::WoweeTutorialSteps;
@@ -59,7 +55,7 @@ int handleGenNewbie(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "NewbieTutorialFlow";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWturExt(base);
+    base = cli::withoutExt(base, ".wtur");
     auto c = wowee::pipeline::WoweeTutorialStepsLoader::
         makeNewbieFlow(name);
     if (!saveOrError(c, base, "gen-tut-newbie")) return 1;
@@ -71,7 +67,7 @@ int handleGenLevelUp(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "LevelUpTutorialFlow";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWturExt(base);
+    base = cli::withoutExt(base, ".wtur");
     auto c = wowee::pipeline::WoweeTutorialStepsLoader::
         makeLevelUpFlow(name);
     if (!saveOrError(c, base, "gen-tut-levelup")) return 1;
@@ -83,7 +79,7 @@ int handleGenBg(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BattlegroundTutorialFlow";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWturExt(base);
+    base = cli::withoutExt(base, ".wtur");
     auto c = wowee::pipeline::WoweeTutorialStepsLoader::
         makeBgFlow(name);
     if (!saveOrError(c, base, "gen-tut-bg")) return 1;
@@ -94,7 +90,7 @@ int handleGenBg(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWturExt(base);
+    base = cli::withoutExt(base, ".wtur");
     if (!wowee::pipeline::WoweeTutorialStepsLoader::exists(base)) {
         std::fprintf(stderr, "WTUR not found: %s.wtur\n",
                      base.c_str());
@@ -194,7 +190,7 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWturExt(base);
+    base = cli::withoutExt(base, ".wtur");
     if (!wowee::pipeline::WoweeTutorialStepsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wtur: WTUR not found: %s.wtur\n",
@@ -322,7 +318,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWturExt(base);
+    base = cli::withoutExt(base, ".wtur");
     if (out.empty()) out = base + ".wtur.json";
     if (!wowee::pipeline::WoweeTutorialStepsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -371,16 +367,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wtur.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wtur");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wtur");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

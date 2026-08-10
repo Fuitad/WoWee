@@ -1,4 +1,5 @@
 #include "cli_spell_proc_rules_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWprcExt(std::string base) {
-    stripExt(base, ".wprc");
-    return base;
-}
 
 const char* triggerEventName(uint8_t e) {
     using P = wowee::pipeline::WoweeSpellProcRules;
@@ -62,7 +58,7 @@ int handleGenWeapon(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WeaponEnchantProcs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprcExt(base);
+    base = cli::withoutExt(base, ".wprc");
     auto c = wowee::pipeline::WoweeSpellProcRulesLoader::
         makeWeaponProcs(name);
     if (!saveOrError(c, base, "gen-prc-weapon")) return 1;
@@ -74,7 +70,7 @@ int handleGenRet(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RetributionPaladinProcs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprcExt(base);
+    base = cli::withoutExt(base, ".wprc");
     auto c = wowee::pipeline::WoweeSpellProcRulesLoader::
         makeRetPaladin(name);
     if (!saveOrError(c, base, "gen-prc-ret")) return 1;
@@ -86,7 +82,7 @@ int handleGenRage(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RageGenerationProcs";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWprcExt(base);
+    base = cli::withoutExt(base, ".wprc");
     auto c = wowee::pipeline::WoweeSpellProcRulesLoader::
         makeRageGen(name);
     if (!saveOrError(c, base, "gen-prc-rage")) return 1;
@@ -97,7 +93,7 @@ int handleGenRage(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWprcExt(base);
+    base = cli::withoutExt(base, ".wprc");
     if (!wowee::pipeline::WoweeSpellProcRulesLoader::exists(base)) {
         std::fprintf(stderr, "WPRC not found: %s.wprc\n",
                      base.c_str());
@@ -201,7 +197,7 @@ bool readEnumField(const nlohmann::json& je,
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWprcExt(base);
+    base = cli::withoutExt(base, ".wprc");
     if (!wowee::pipeline::WoweeSpellProcRulesLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wprc: WPRC not found: %s.wprc\n",
@@ -306,7 +302,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWprcExt(base);
+    base = cli::withoutExt(base, ".wprc");
     if (out.empty()) out = base + ".wprc.json";
     if (!wowee::pipeline::WoweeSpellProcRulesLoader::exists(base)) {
         std::fprintf(stderr,
@@ -353,16 +349,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wprc.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wprc");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wprc");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,

@@ -1,4 +1,5 @@
 #include "cli_auction_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -18,11 +19,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWaucExt(std::string base) {
-    stripExt(base, ".wauc");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeAuction& c,
                  const std::string& base, const char* cmd) {
@@ -45,7 +41,7 @@ int handleGenStarter(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "StarterAuction";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWaucExt(base);
+    base = cli::withoutExt(base, ".wauc");
     auto c = wowee::pipeline::WoweeAuctionLoader::makeStarter(name);
     if (!saveOrError(c, base, "gen-auction")) return 1;
     printGenSummary(c, base);
@@ -56,7 +52,7 @@ int handleGenPair(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "FactionPairAuction";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWaucExt(base);
+    base = cli::withoutExt(base, ".wauc");
     auto c = wowee::pipeline::WoweeAuctionLoader::makeFactionPair(name);
     if (!saveOrError(c, base, "gen-auction-pair")) return 1;
     printGenSummary(c, base);
@@ -67,7 +63,7 @@ int handleGenRestricted(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RestrictedAuction";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWaucExt(base);
+    base = cli::withoutExt(base, ".wauc");
     auto c = wowee::pipeline::WoweeAuctionLoader::makeRestricted(name);
     if (!saveOrError(c, base, "gen-auction-restricted")) return 1;
     printGenSummary(c, base);
@@ -77,7 +73,7 @@ int handleGenRestricted(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWaucExt(base);
+    base = cli::withoutExt(base, ".wauc");
     if (!wowee::pipeline::WoweeAuctionLoader::exists(base)) {
         std::fprintf(stderr, "WAUC not found: %s.wauc\n", base.c_str());
         return 1;
@@ -138,7 +134,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWaucExt(base);
+    base = cli::withoutExt(base, ".wauc");
     if (outPath.empty()) outPath = base + ".wauc.json";
     if (!wowee::pipeline::WoweeAuctionLoader::exists(base)) {
         std::fprintf(stderr,
@@ -198,7 +194,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             outBase = outBase.substr(0, outBase.size() - 5);
         }
     }
-    outBase = stripWaucExt(outBase);
+    outBase = cli::withoutExt(outBase, ".wauc");
     std::ifstream in(jsonPath);
     if (!in) {
         std::fprintf(stderr,
@@ -264,7 +260,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWaucExt(base);
+    base = cli::withoutExt(base, ".wauc");
     if (!wowee::pipeline::WoweeAuctionLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wauc: WAUC not found: %s.wauc\n", base.c_str());

@@ -1,4 +1,5 @@
 #include "cli_spell_variants_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -20,11 +21,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWspvExt(std::string base) {
-    stripExt(base, ".wspv");
-    return base;
-}
 
 const char* conditionKindName(uint8_t k) {
     using V = wowee::pipeline::WoweeSpellVariants;
@@ -60,7 +56,7 @@ int handleGenWarrior(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "WarriorStanceVariants";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspvExt(base);
+    base = cli::withoutExt(base, ".wspv");
     auto c = wowee::pipeline::WoweeSpellVariantsLoader::makeWarriorStance(name);
     if (!saveOrError(c, base, "gen-spv")) return 1;
     printGenSummary(c, base);
@@ -71,7 +67,7 @@ int handleGenTalent(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "TalentModifiedVariants";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspvExt(base);
+    base = cli::withoutExt(base, ".wspv");
     auto c = wowee::pipeline::WoweeSpellVariantsLoader::makeTalentMod(name);
     if (!saveOrError(c, base, "gen-spv-talent")) return 1;
     printGenSummary(c, base);
@@ -82,7 +78,7 @@ int handleGenRacial(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "RacialVariants";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWspvExt(base);
+    base = cli::withoutExt(base, ".wspv");
     auto c = wowee::pipeline::WoweeSpellVariantsLoader::makeRacial(name);
     if (!saveOrError(c, base, "gen-spv-racial")) return 1;
     printGenSummary(c, base);
@@ -92,7 +88,7 @@ int handleGenRacial(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspvExt(base);
+    base = cli::withoutExt(base, ".wspv");
     if (!wowee::pipeline::WoweeSpellVariantsLoader::exists(base)) {
         std::fprintf(stderr, "WSPV not found: %s.wspv\n", base.c_str());
         return 1;
@@ -154,7 +150,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWspvExt(base);
+    base = cli::withoutExt(base, ".wspv");
     if (out.empty()) out = base + ".wspv.json";
     if (!wowee::pipeline::WoweeSpellVariantsLoader::exists(base)) {
         std::fprintf(stderr,
@@ -200,16 +196,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wspv.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wspv");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wspv");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -284,7 +271,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWspvExt(base);
+    base = cli::withoutExt(base, ".wspv");
     if (!wowee::pipeline::WoweeSpellVariantsLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wspv: WSPV not found: %s.wspv\n",

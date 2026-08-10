@@ -1,4 +1,5 @@
 #include "cli_realm_list_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWmspExt(std::string base) {
-    stripExt(base, ".wmsp");
-    return base;
-}
 
 const char* realmTypeName(uint8_t t) {
     using R = wowee::pipeline::WoweeRealmList;
@@ -92,7 +88,7 @@ int handleGenSingle(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "SingleRealm";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmspExt(base);
+    base = cli::withoutExt(base, ".wmsp");
     auto c = wowee::pipeline::WoweeRealmListLoader::makeSingleRealm(name);
     if (!saveOrError(c, base, "gen-msp")) return 1;
     printGenSummary(c, base);
@@ -103,7 +99,7 @@ int handleGenCluster(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PvPCluster";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmspExt(base);
+    base = cli::withoutExt(base, ".wmsp");
     auto c = wowee::pipeline::WoweeRealmListLoader::makePvPCluster(name);
     if (!saveOrError(c, base, "gen-msp-cluster")) return 1;
     printGenSummary(c, base);
@@ -114,7 +110,7 @@ int handleGenMultiExp(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "MultiExpansion";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWmspExt(base);
+    base = cli::withoutExt(base, ".wmsp");
     auto c = wowee::pipeline::WoweeRealmListLoader::makeMultiExpansion(name);
     if (!saveOrError(c, base, "gen-msp-multi")) return 1;
     printGenSummary(c, base);
@@ -124,7 +120,7 @@ int handleGenMultiExp(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmspExt(base);
+    base = cli::withoutExt(base, ".wmsp");
     if (!wowee::pipeline::WoweeRealmListLoader::exists(base)) {
         std::fprintf(stderr, "WMSP not found: %s.wmsp\n", base.c_str());
         return 1;
@@ -278,7 +274,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWmspExt(base);
+    base = cli::withoutExt(base, ".wmsp");
     if (out.empty()) out = base + ".wmsp.json";
     if (!wowee::pipeline::WoweeRealmListLoader::exists(base)) {
         std::fprintf(stderr,
@@ -340,16 +336,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wmsp.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wmsp");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wmsp");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -427,7 +414,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWmspExt(base);
+    base = cli::withoutExt(base, ".wmsp");
     if (!wowee::pipeline::WoweeRealmListLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wmsp: WMSP not found: %s.wmsp\n",

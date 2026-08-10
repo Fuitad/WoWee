@@ -1,4 +1,5 @@
 #include "cli_learning_notifications_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWldnExt(std::string base) {
-    stripExt(base, ".wldn");
-    return base;
-}
 
 const char* triggerKindName(uint8_t k) {
     using L = wowee::pipeline::WoweeLearningNotifications;
@@ -82,7 +78,7 @@ int handleGenLevels(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "LevelMilestones";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWldnExt(base);
+    base = cli::withoutExt(base, ".wldn");
     auto c = wowee::pipeline::WoweeLearningNotificationsLoader::
         makeLevelMilestones(name);
     if (!saveOrError(c, base, "gen-ldn")) return 1;
@@ -94,7 +90,7 @@ int handleGenAccount(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "AccountUnlocks";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWldnExt(base);
+    base = cli::withoutExt(base, ".wldn");
     auto c = wowee::pipeline::WoweeLearningNotificationsLoader::
         makeAccountUnlocks(name);
     if (!saveOrError(c, base, "gen-ldn-account")) return 1;
@@ -106,7 +102,7 @@ int handleGenReputation(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "ReputationMilestones";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWldnExt(base);
+    base = cli::withoutExt(base, ".wldn");
     auto c = wowee::pipeline::WoweeLearningNotificationsLoader::
         makeReputation(name);
     if (!saveOrError(c, base, "gen-ldn-rep")) return 1;
@@ -117,7 +113,7 @@ int handleGenReputation(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWldnExt(base);
+    base = cli::withoutExt(base, ".wldn");
     if (!wowee::pipeline::WoweeLearningNotificationsLoader::exists(
             base)) {
         std::fprintf(stderr, "WLDN not found: %s.wldn\n", base.c_str());
@@ -243,7 +239,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string out;
     if (parseOptArg(i, argc, argv)) out = argv[++i];
-    base = stripWldnExt(base);
+    base = cli::withoutExt(base, ".wldn");
     if (out.empty()) out = base + ".wldn.json";
     if (!wowee::pipeline::WoweeLearningNotificationsLoader::exists(
             base)) {
@@ -296,16 +292,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string in = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = in;
-        if (outBase.size() >= 10 &&
-            outBase.substr(outBase.size() - 10) == ".wldn.json") {
-            outBase.resize(outBase.size() - 10);
-        } else {
-            stripExt(outBase, ".json");
-            stripExt(outBase, ".wldn");
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(in, ".wldn");
     std::ifstream is(in);
     if (!is) {
         std::fprintf(stderr,
@@ -368,7 +355,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWldnExt(base);
+    base = cli::withoutExt(base, ".wldn");
     if (!wowee::pipeline::WoweeLearningNotificationsLoader::exists(
             base)) {
         std::fprintf(stderr,

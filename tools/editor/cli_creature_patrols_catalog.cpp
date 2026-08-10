@@ -1,4 +1,5 @@
 #include "cli_creature_patrols_catalog.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
@@ -19,11 +20,6 @@ namespace editor {
 namespace cli {
 
 namespace {
-
-std::string stripWcmrExt(std::string base) {
-    stripExt(base, ".wcmr");
-    return base;
-}
 
 bool saveOrError(const wowee::pipeline::WoweeCreaturePatrol& c,
                  const std::string& base, const char* cmd) {
@@ -49,7 +45,7 @@ int handleGenPatrol(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "PatrolPaths";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcmrExt(base);
+    base = cli::withoutExt(base, ".wcmr");
     auto c = wowee::pipeline::WoweeCreaturePatrolLoader::makePatrol(name);
     if (!saveOrError(c, base, "gen-cmr")) return 1;
     printGenSummary(c, base);
@@ -60,7 +56,7 @@ int handleGenCity(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "CityGuardRoutes";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcmrExt(base);
+    base = cli::withoutExt(base, ".wcmr");
     auto c = wowee::pipeline::WoweeCreaturePatrolLoader::makeCity(name);
     if (!saveOrError(c, base, "gen-cmr-city")) return 1;
     printGenSummary(c, base);
@@ -71,7 +67,7 @@ int handleGenBoss(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string name = "BossPatrols";
     if (parseOptArg(i, argc, argv)) name = argv[++i];
-    base = stripWcmrExt(base);
+    base = cli::withoutExt(base, ".wcmr");
     auto c = wowee::pipeline::WoweeCreaturePatrolLoader::makeBoss(name);
     if (!saveOrError(c, base, "gen-cmr-boss")) return 1;
     printGenSummary(c, base);
@@ -81,7 +77,7 @@ int handleGenBoss(int& i, int argc, char** argv) {
 int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcmrExt(base);
+    base = cli::withoutExt(base, ".wcmr");
     if (!wowee::pipeline::WoweeCreaturePatrolLoader::exists(base)) {
         std::fprintf(stderr, "WCMR not found: %s.wcmr\n", base.c_str());
         return 1;
@@ -141,7 +137,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     std::string outPath;
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
-    base = stripWcmrExt(base);
+    base = cli::withoutExt(base, ".wcmr");
     if (!wowee::pipeline::WoweeCreaturePatrolLoader::exists(base)) {
         std::fprintf(stderr,
             "export-wcmr-json: WCMR not found: %s.wcmr\n",
@@ -284,21 +280,8 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        const std::string suffix1 = ".wcmr.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
-    outBase = stripWcmrExt(outBase);
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wcmr");
+    outBase = cli::withoutExt(outBase, ".wcmr");
     if (!wowee::pipeline::WoweeCreaturePatrolLoader::save(c, outBase)) {
         std::fprintf(stderr,
             "import-wcmr-json: failed to save %s.wcmr\n",
@@ -314,7 +297,7 @@ int handleImportJson(int& i, int argc, char** argv) {
 int handleValidate(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
-    base = stripWcmrExt(base);
+    base = cli::withoutExt(base, ".wcmr");
     if (!wowee::pipeline::WoweeCreaturePatrolLoader::exists(base)) {
         std::fprintf(stderr,
             "validate-wcmr: WCMR not found: %s.wcmr\n", base.c_str());
