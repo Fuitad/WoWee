@@ -237,21 +237,7 @@ int handleImportJson(int& i, int argc, char** argv) {
             c.entries.push_back(e);
         }
     }
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        // strip trailing ".json" or ".wsrg.json"
-        const std::string suffix1 = ".wsrg.json";
-        const std::string suffix2 = ".json";
-        if (outBase.size() >= suffix1.size() &&
-            outBase.compare(outBase.size() - suffix1.size(),
-                            suffix1.size(), suffix1) == 0) {
-            outBase.resize(outBase.size() - suffix1.size());
-        } else if (outBase.size() >= suffix2.size() &&
-                   outBase.compare(outBase.size() - suffix2.size(),
-                                   suffix2.size(), suffix2) == 0) {
-            outBase.resize(outBase.size() - suffix2.size());
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wsrg");
     outBase = cli::withoutExt(outBase, ".wsrg");
     if (!wowee::pipeline::WoweeSpellRangeLoader::save(c, outBase)) {
         std::fprintf(stderr,

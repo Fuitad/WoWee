@@ -256,17 +256,7 @@ int handleImportJson(int& i, int argc, char** argv) {
     std::string jsonPath = argv[++i];
     std::string outBase;
     if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) {
-        outBase = jsonPath;
-        std::string suffix = ".wcrt.json";
-        if (outBase.size() > suffix.size() &&
-            outBase.substr(outBase.size() - suffix.size()) == suffix) {
-            outBase = outBase.substr(0, outBase.size() - suffix.size());
-        } else if (outBase.size() > 5 &&
-                   outBase.substr(outBase.size() - 5) == ".json") {
-            outBase = outBase.substr(0, outBase.size() - 5);
-        }
-    }
+    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wcrt");
     outBase = cli::withoutExt(outBase, ".wcrt");
     std::ifstream in(jsonPath);
     if (!in) {
