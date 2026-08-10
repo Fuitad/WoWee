@@ -392,6 +392,13 @@ def curate(overlay_root, apply_changes, keep_hd=False):
             for mi, full in npc_upgrade:
                 off = 20 + mi * mrsize + 2 * 4     # field 2 is the model path
                 mdata[off:off + 4] = struct.pack("<I", madded[full])
+            # The header's fifth word is how long the string block is, and a
+            # reader that trusts it — this client's does — treats an offset past
+            # the end as no string at all. Growing the block without saying so
+            # left every patched row with an empty path, and a display whose
+            # model has no path does not render: the NPCs went invisible and the
+            # log said "No model path for modelId 6001".
+            mdata[16:20] = struct.pack("<I", len(mblock))
             open(cmd_path, "wb").write(bytes(mdata[:mstart] + mblock))
             print("  rewrote %s" % cmd_path)
 
@@ -420,6 +427,7 @@ def curate(overlay_root, apply_changes, keep_hd=False):
                 for index, f, want in skin_patch:
                     off = 20 + index * rsize + f * 4
                     data[off:off + 4] = struct.pack("<I", added[want])
+                data[16:20] = struct.pack("<I", len(block))
                 data = data[:strings_start] + block
             open(cdi_path, "wb").write(bytes(data))
             print("  rewrote %s" % cdi_path)
