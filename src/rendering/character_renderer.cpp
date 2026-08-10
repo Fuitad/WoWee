@@ -1565,6 +1565,50 @@ VkTexture* CharacterRenderer::compositeWithRegions(const std::string& basePath,
     int width = base.width;
     int height = base.height;
 
+    // The same rule compositeTextures uses: an overlay that does not fit its
+    // region wants a bigger atlas, not to be shrunk into the one it was given.
+    //
+    // This path only knew how to go from 256 to 512, so a face authored for a
+    // 1024 atlas was resampled down here no matter what — and this is the path
+    // an NPC with equipment takes, which is most of them. That is why a race
+    // whose face art fits, human or orc, came right and one whose art is twice
+    // its region, dwarf, did not.
+    {
+        int wanted = 1;
+        for (const auto& rl : regionLayers) {
+            const AtlasRegion256 region = regionFor(lowerPath(rl.second));
+            if (!region.known) continue;
+            pipeline::BLPImage probe = assetManager->loadTexture(rl.second);
+            if (!probe.isValid()) continue;
+            wanted = std::max(wanted, impliedScale(region, probe.width));
+        }
+        const int have = width / 256;
+        if (wanted > have && have >= 1) {
+            const int newSize = 256 * wanted;
+            std::vector<uint8_t> grown(static_cast<size_t>(newSize) * newSize * 4);
+            const int factor = newSize / width;
+            for (int y = 0; y < newSize; y++) {
+                const int sy = y / factor;
+                for (int x = 0; x < newSize; x++) {
+                    const size_t s = (static_cast<size_t>(sy) * width + x / factor) * 4;
+                    const size_t d = (static_cast<size_t>(y) * newSize + x) * 4;
+                    grown[d + 0] = base.data[s + 0];
+                    grown[d + 1] = base.data[s + 1];
+                    grown[d + 2] = base.data[s + 2];
+                    grown[d + 3] = base.data[s + 3];
+                }
+            }
+            base.data = std::move(grown);
+            base.width = newSize;
+            base.height = newSize;
+            // The working size is read from base above, so it moves with it.
+            // Missing this leaves every later coordinate computed against the
+            // old atlas while the pixels are the new one.
+            width = newSize;
+            height = newSize;
+        }
+    }
+
     // If base texture is 256x256 (e.g., baked NPC texture), upscale to 512x512
     // so equipment regions can be composited at correct coordinates
     if (width == kBaseTexSize && height == kBaseTexSize && !regionLayers.empty()) {

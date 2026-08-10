@@ -1791,6 +1791,20 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                     return;
                 }
                 const uint16_t group = static_cast<uint16_t>(preferredId / 100);
+                const uint16_t variant = static_cast<uint16_t>(preferredId % 100);
+                // Variant 01 of the facial groups means NONE — no beard, no
+                // moustache, no sideburns. Every other variant in the group is
+                // some hair, so falling back to "the first one this model has"
+                // does not approximate none, it contradicts it: a clean-shaven
+                // NPC on a model without an explicit 101 came out bearded.
+                //
+                // Nothing is the right answer when nothing is what was asked
+                // for and the model has no way to say so.
+                const bool asksForNone = (variant == 1);
+                const bool facialGroup = (group >= 1 && group <= 3);
+                if (asksForNone && facialGroup) {
+                    return;
+                }
                 auto it = firstGeosetByGroup.find(group);
                 if (it != firstGeosetByGroup.end()) {
                     safeGeosets.insert(it->second);
