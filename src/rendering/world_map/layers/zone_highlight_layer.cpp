@@ -151,10 +151,14 @@ void ZoneHighlightLayer::render(const LayerContext& ctx) {
     if (ctx.viewLevel != ViewLevel::CONTINENT || ctx.continentIdx < 0) return;
     if (!ctx.zones) return;
 
-    const auto& cont = (*ctx.zones)[ctx.continentIdx];
-    float cLeft = cont.bounds.locLeft, cRight = cont.bounds.locRight;
-    float cTop = cont.bounds.locTop, cBottom = cont.bounds.locBottom;
-    getContinentProjectionBounds(*ctx.zones, ctx.continentIdx, cLeft, cRight, cTop, cBottom);
+    // The same bounds every marker layer projects against. This spelled the
+    // fallback out instead — seeding the four from the continent's own bounds
+    // and letting the call leave them alone on failure — which is correct, and
+    // is the eleventh place to say so.
+    bool isContinent = false;
+    const ZoneBounds cb = projectionBoundsFor(*ctx.zones, ctx.continentIdx, isContinent);
+    const float cLeft = cb.locLeft, cRight = cb.locRight;
+    const float cTop = cb.locTop, cBottom = cb.locBottom;
     float cDenomU = cLeft - cRight;
     float cDenomV = cTop - cBottom;
 
