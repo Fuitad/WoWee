@@ -985,57 +985,6 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     renderMinimapLootCorpses(frame, minimapUnits);
     renderMinimapObjectDots(frame, minimapGameObjects, minimapQuestGoEntries, gameHandler);
     renderMinimapChests(frame, minimapGameObjects, gameHandler);
-    // Party member dots on minimap — small colored squares with name tooltip on hover
-    if (gameHandler.isInGroup()) {
-        const auto& partyData = gameHandler.getPartyData();
-        ImVec2 mouse = ImGui::GetMousePos();
-        for (const auto& member : partyData.members) {
-            if (!member.hasPartyStats) continue;
-            bool isOnline = (member.onlineStatus & 0x0001) != 0;
-            bool isDead   = (member.onlineStatus & 0x0020) != 0;
-            bool isGhost  = (member.onlineStatus & 0x0010) != 0;
-            if (!isOnline) continue;
-            if (member.posX == 0 && member.posY == 0) continue;
-
-            // Party stat positions: posY = canonical X (north), posX = canonical Y (west)
-            // posY is canonical X and posX is canonical Y: the party packet
-            // names its fields for the axes of the map, not of the world.
-            float sx = 0.0f, sy = 0.0f;
-            if (!frame.projectCanonical(static_cast<float>(member.posY),
-                                           static_cast<float>(member.posX), sx, sy)) continue;
-
-            // Determine dot color: class color > leader gold > light blue
-            ImU32 dotCol;
-            if (isDead || isGhost) {
-                dotCol = IM_COL32(140, 140, 140, 200);  // gray for dead
-            } else {
-                auto mEnt = gameHandler.getEntityManager().getEntity(member.guid);
-                uint8_t cid = entityClassId(mEnt.get());
-                if (cid != 0) {
-                    ImVec4 cv = classColorVec4(cid);
-                    dotCol = IM_COL32(
-                        static_cast<int>(cv.x * 255),
-                        static_cast<int>(cv.y * 255),
-                        static_cast<int>(cv.z * 255), 230);
-                } else if (member.guid == partyData.leaderGuid) {
-                    dotCol = IM_COL32(255, 210, 0, 230);  // gold for leader
-                } else {
-                    dotCol = IM_COL32(100, 180, 255, 230); // blue for others
-                }
-            }
-
-            // Draw a small square (WoW-style party member dot)
-            const float hs = 3.5f;
-            drawList->AddRectFilled(ImVec2(sx - hs, sy - hs), ImVec2(sx + hs, sy + hs), dotCol, 1.0f);
-            drawList->AddRect(ImVec2(sx - hs, sy - hs), ImVec2(sx + hs, sy + hs),
-                              IM_COL32(0, 0, 0, 180), 1.0f, 0, 1.0f);
-
-            // Name tooltip on hover
-            if (cursorNearBlip(sx, sy) && !member.name.empty()) {
-                ImGui::SetTooltip("%s", member.name.c_str());
-            }
-        }
-    }
 
     for (const auto& [guid, status] : statuses) {
         ImU32 dotColor;
@@ -1216,13 +1165,19 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
 
             ImU32 dotColor;
             {
+                // Grey for a corpse or a ghost, which the other party-dot pass
+                // that used to draw over this one was the only thing saying.
+                const bool isDead  = (member.onlineStatus & 0x0020) != 0;
+                const bool isGhost = (member.onlineStatus & 0x0010) != 0;
                 auto mEnt = gameHandler.getEntityManager().getEntity(member.guid);
                 uint8_t cid = entityClassId(mEnt.get());
-                dotColor = (cid != 0)
-                    ? classColorU32(cid, 235)
-                    : (member.guid == leaderGuid)
-                        ? IM_COL32(255, 210, 0, 235)
-                        : IM_COL32(100, 180, 255, 235);
+                dotColor = (isDead || isGhost)
+                    ? IM_COL32(140, 140, 140, 200)
+                    : (cid != 0)
+                        ? classColorU32(cid, 235)
+                        : (member.guid == leaderGuid)
+                            ? IM_COL32(255, 210, 0, 235)
+                            : IM_COL32(100, 180, 255, 235);
             }
             drawList->AddCircleFilled(ImVec2(sx, sy), 4.0f, dotColor);
             drawList->AddCircle(ImVec2(sx, sy), 4.0f, IM_COL32(255, 255, 255, 160), 12, 1.0f);

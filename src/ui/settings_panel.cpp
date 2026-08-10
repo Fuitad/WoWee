@@ -212,11 +212,7 @@ ImGui::BeginChild("GameplaySettings", ImVec2(0, -1), true);
 ImGui::Text("Controls");
 ImGui::Separator();
 if (ImGui::SliderFloat("Mouse Sensitivity", &pendingMouseSensitivity, 0.05f, 1.0f, "%.2f")) {
-    if (renderer) {
-        if (auto* cameraController = renderer->getCameraController()) {
-            applySettingSideEffects("mousespeed");
-        }
-    }
+    applySettingSideEffects("mousespeed");
     saveCallback();
 }
 if (ImGui::Checkbox("Invert Mouse", &pendingInvertMouse)) {
@@ -228,39 +224,23 @@ if (ImGui::Checkbox("Invert Mouse", &pendingInvertMouse)) {
     saveCallback();
 }
 if (ImGui::Checkbox("Extended Camera Zoom", &pendingExtendedZoom)) {
-    if (renderer) {
-        if (auto* cameraController = renderer->getCameraController()) {
-            applySettingSideEffects("extendedzoom");
-        }
-    }
+    applySettingSideEffects("extendedzoom");
     saveCallback();
 }
 if (ImGui::SliderFloat("Camera Stiffness", &pendingCameraStiffness, 5.0f, 100.0f, "%.0f")) {
-    if (renderer) {
-        if (auto* cameraController = renderer->getCameraController()) {
-            applySettingSideEffects("camerastiffness");
-        }
-    }
+    applySettingSideEffects("camerastiffness");
     saveCallback();
 }
 ImGui::SetItemTooltip("Higher = tighter camera with less sway. Default: 30");
 if (ImGui::Checkbox("Smooth Camera Follow", &pendingSmoothCameraFollow)) {
-    if (renderer) {
-        if (auto* cameraController = renderer->getCameraController()) {
-            applySettingSideEffects("smoothfollow");
-        }
-    }
+    applySettingSideEffects("smoothfollow");
     saveCallback();
 }
 ImGui::SetItemTooltip("Camera keeps drifting toward its position even while turning,\n"
                       "for a floaty, slightly detached follow. Off = turning moves the\n"
                       "camera 1:1 with your input.");
 if (ImGui::SliderFloat("Camera Pivot Height", &pendingPivotHeight, 0.0f, 3.0f, "%.1f")) {
-    if (renderer) {
-        if (auto* cameraController = renderer->getCameraController()) {
-            applySettingSideEffects("pivotheight");
-        }
-    }
+    applySettingSideEffects("pivotheight");
     saveCallback();
 }
 ImGui::SetItemTooltip("Height of camera orbit point above feet. Lower = less detached feel. Default: 1.8");
@@ -268,11 +248,7 @@ if (ImGui::IsItemHovered())
     ImGui::SetTooltip("Allow the camera to zoom out further than normal");
 
 if (ImGui::Checkbox("Idle Camera Orbit", &pendingIdleCameraOrbit)) {
-    if (renderer) {
-        if (auto* cameraController = renderer->getCameraController()) {
-            applySettingSideEffects("idleorbit");
-        }
-    }
+    applySettingSideEffects("idleorbit");
     saveCallback();
 }
 
