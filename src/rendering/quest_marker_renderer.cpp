@@ -79,33 +79,16 @@ bool QuestMarkerRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFr
     }
 
     // --- Vertex input: vec3 pos (offset 0) + vec2 uv (offset 12), stride 20 ---
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 5 * sizeof(float); // 20 bytes
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-    VkVertexInputAttributeDescription posAttr{};
-    posAttr.location = 0;
-    posAttr.binding = 0;
-    posAttr.format = VK_FORMAT_R32G32B32_SFLOAT;
-    posAttr.offset = 0;
-
-    VkVertexInputAttributeDescription uvAttr{};
-    uvAttr.location = 1;
-    uvAttr.binding = 0;
-    uvAttr.format = VK_FORMAT_R32G32_SFLOAT;
-    uvAttr.offset = 3 * sizeof(float); // 12
+    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusUvAttrs();
 
     // Dynamic viewport and scissor
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     // --- Build pipeline: alpha blending, no cull, depth test on / write off ---
     pipeline_ = PipelineBuilder()
         .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, {posAttr, uvAttr})
+        .setVertexInput({binding}, attrs)
         .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
         .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
         .setDepthTest(true, false, VK_COMPARE_OP_LESS) // depth test on, write off
@@ -203,31 +186,14 @@ void QuestMarkerRenderer::recreatePipelines() {
     VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
     VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 5 * sizeof(float);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusUvAttrs();
 
-    VkVertexInputAttributeDescription posAttr{};
-    posAttr.location = 0;
-    posAttr.binding = 0;
-    posAttr.format = VK_FORMAT_R32G32B32_SFLOAT;
-    posAttr.offset = 0;
-
-    VkVertexInputAttributeDescription uvAttr{};
-    uvAttr.location = 1;
-    uvAttr.binding = 0;
-    uvAttr.format = VK_FORMAT_R32G32_SFLOAT;
-    uvAttr.offset = 3 * sizeof(float);
-
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     pipeline_ = PipelineBuilder()
         .setShaders(vertStage, fragStage)
-        .setVertexInput({binding}, {posAttr, uvAttr})
+        .setVertexInput({binding}, attrs)
         .setTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
         .setRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE)
         .setDepthTest(true, false, VK_COMPARE_OP_LESS)

@@ -750,7 +750,7 @@ bool PostProcessPipeline::initFSRResources() {
         .setMultisample(VK_SAMPLE_COUNT_1_BIT)
         .setLayout(fsr_.pipelineLayout)
         .setRenderPass(vkCtx_->getOverlayRenderPass())
-        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx_->getPipelineCache());
 
     vertMod.destroy();
@@ -1245,7 +1245,7 @@ bool PostProcessPipeline::initFSR2Resources() {
             // pass. getImGuiRenderPass() is the scene pass, which carries the
             // scene's sample count — an 8x pass for a 1x pipeline.
             .setRenderPass(vkCtx_->getOverlayRenderPass())
-            .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+            .setDynamicStates(viewportAndScissorDynamic())
             .build(device, vkCtx_->getPipelineCache());
 
         vertMod.destroy();
@@ -1862,7 +1862,7 @@ bool PostProcessPipeline::initFXAAResources() {
         .setMultisample(VK_SAMPLE_COUNT_1_BIT)  // the overlay pass is always 1x
         .setLayout(fxaa_.pipelineLayout)
         .setRenderPass(vkCtx_->getOverlayRenderPass())
-        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx_->getPipelineCache());
 
     vertMod.destroy();

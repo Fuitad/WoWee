@@ -127,7 +127,7 @@ void OverlaySystem::initSelectionCircle() {
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(selCirclePipelineLayout_)
         .setRenderPass(vkCtx_->getImGuiRenderPass())
-        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx_->getPipelineCache());
 
     vertShader.destroy();
@@ -229,7 +229,7 @@ void OverlaySystem::initOverlayPipeline() {
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(overlayPipelineLayout_)
         .setRenderPass(vkCtx_->getImGuiRenderPass())
-        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx_->getPipelineCache());
 
     vertMod.destroy(); fragMod.destroy();
@@ -296,7 +296,7 @@ void OverlaySystem::initBrightnessPipeline() {
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(overlayPipelineLayout_)
         .setRenderPass(vkCtx_->getImGuiRenderPass())
-        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx_->getPipelineCache());
 
     vertMod.destroy(); fragMod.destroy();

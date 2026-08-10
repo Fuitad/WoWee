@@ -93,10 +93,7 @@ bool LensFlare::initialize(VkContext* ctx, VkDescriptorSetLayout /*perFrameLayou
     uvAttr.offset = 2 * sizeof(float);
 
     // Dynamic viewport and scissor
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     pipeline = PipelineBuilder()
         .setShaders(vertStage, fragStage)
@@ -185,10 +182,7 @@ void LensFlare::recreatePipelines() {
     uvAttr.format = VK_FORMAT_R32G32_SFLOAT;
     uvAttr.offset = 2 * sizeof(float);
 
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     pipeline = PipelineBuilder()
         .setShaders(vertStage, fragStage)

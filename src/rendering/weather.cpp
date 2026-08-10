@@ -82,10 +82,7 @@ bool Weather::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
     posAttr.offset = 0;
 
     // Dynamic viewport and scissor
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     pipeline = PipelineBuilder()
         .setShaders(vertStage, fragStage)
@@ -162,10 +159,7 @@ void Weather::recreatePipelines() {
     posAttr.format = VK_FORMAT_R32G32B32_SFLOAT;
     posAttr.offset = 0;
 
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     pipeline = PipelineBuilder()
         .setShaders(vertStage, fragStage)

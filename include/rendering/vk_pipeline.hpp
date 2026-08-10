@@ -114,6 +114,54 @@ private:
     VkPipeline basePipelineHandle_ = VK_NULL_HANDLE;
 };
 
+// ---------------------------------------------------------------------------
+// Vertex layouts that several effects share
+//
+// Two layouts account for every point-and-quad effect in the renderer, and both
+// happen to be twenty bytes: a position and two per-vertex floats, or a position
+// and a texture coordinate. Each was written out by hand at the twelve places
+// that build such a pipeline — binding, stride, then one struct per attribute
+// with its location, format and offset.
+//
+// The offsets have to agree with the shader that reads them, and nothing checks
+// that they do. A stride or offset wrong in one of twelve copies is not a
+// crash; it is a vertex stream read at the wrong places, which draws something
+// that looks nearly right.
+
+/// A binding that packs vertices back to back, with nothing between them.
+inline VkVertexInputBindingDescription tightVertexBinding(uint32_t strideBytes,
+                                                          uint32_t binding = 0) {
+    VkVertexInputBindingDescription desc{};
+    desc.binding = binding;
+    desc.stride = strideBytes;
+    desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    return desc;
+}
+
+/// vec3 position, then two single floats — size and alpha, or brightness and
+/// twinkle phase, depending on what is being drawn. Stride 20.
+inline std::vector<VkVertexInputAttributeDescription> positionPlusTwoFloatsAttrs() {
+    return {
+        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},
+        {1, 0, VK_FORMAT_R32_SFLOAT, 3 * sizeof(float)},
+        {2, 0, VK_FORMAT_R32_SFLOAT, 4 * sizeof(float)},
+    };
+}
+
+/// vec3 position, then a vec2 texture coordinate. Stride 20.
+inline std::vector<VkVertexInputAttributeDescription> positionPlusUvAttrs() {
+    return {
+        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0},
+        {1, 0, VK_FORMAT_R32G32_SFLOAT, 3 * sizeof(float)},
+    };
+}
+
+/// Viewport and scissor set per command buffer rather than baked into the
+/// pipeline — which is every pipeline here, because the window can resize.
+inline std::vector<VkDynamicState> viewportAndScissorDynamic() {
+    return {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+}
+
 // Helper to create a pipeline layout from descriptor set layouts and push constant ranges
 VkPipelineLayout createPipelineLayout(VkDevice device,
     const std::vector<VkDescriptorSetLayout>& setLayouts,

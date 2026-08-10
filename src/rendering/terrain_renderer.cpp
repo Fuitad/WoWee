@@ -142,7 +142,7 @@ bool TerrainRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameL
         .setMultisample(vkCtx->getMsaaSamples())
         .setLayout(pipelineLayout)
         .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT)
         .build(device, vkCtx->getPipelineCache());
 
@@ -165,7 +165,7 @@ bool TerrainRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameL
         .setMultisample(vkCtx->getMsaaSamples())
         .setLayout(pipelineLayout)
         .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
         .setBasePipeline(pipeline)
         .build(device, vkCtx->getPipelineCache());
@@ -305,7 +305,7 @@ void TerrainRenderer::recreatePipelines() {
         .setMultisample(vkCtx->getMsaaSamples())
         .setLayout(pipelineLayout)
         .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT)
         .build(device, vkCtx->getPipelineCache());
 
@@ -325,7 +325,7 @@ void TerrainRenderer::recreatePipelines() {
         .setMultisample(vkCtx->getMsaaSamples())
         .setLayout(pipelineLayout)
         .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
         .setBasePipeline(pipeline)
         .build(device, vkCtx->getPipelineCache());
@@ -1091,7 +1091,7 @@ bool TerrainRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
         .setNoColorAttachment()
         .setLayout(shadowPipelineLayout_)
         .setRenderPass(shadowRenderPass)
-        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx->getPipelineCache());
 
     vertShader.destroy();

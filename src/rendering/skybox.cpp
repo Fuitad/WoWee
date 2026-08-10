@@ -65,10 +65,7 @@ bool Skybox::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
 
     // Fullscreen triangle — no vertex buffer, no vertex input.
     // Dynamic viewport and scissor
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     pipeline = PipelineBuilder()
         .setShaders(vertStage, fragStage)
@@ -117,10 +114,7 @@ void Skybox::recreatePipelines() {
     VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
     VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     pipeline = PipelineBuilder()
         .setShaders(vertStage, fragStage)

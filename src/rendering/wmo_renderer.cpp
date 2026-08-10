@@ -190,7 +190,7 @@ bool WMORenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(pipelineLayout_)
         .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT)
         .build(device, vkCtx_->getPipelineCache());
 
@@ -213,7 +213,7 @@ bool WMORenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(pipelineLayout_)
         .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
         .setBasePipeline(opaquePipeline_)
         .build(device, vkCtx_->getPipelineCache());
@@ -234,7 +234,7 @@ bool WMORenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(pipelineLayout_)
         .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
         .setBasePipeline(opaquePipeline_)
         .build(device, vkCtx_->getPipelineCache());
@@ -251,7 +251,7 @@ bool WMORenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayou
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(pipelineLayout_)
         .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
         .setBasePipeline(opaquePipeline_)
         .build(device, vkCtx_->getPipelineCache());
@@ -1959,7 +1959,7 @@ bool WMORenderer::initializeShadow(VkRenderPass shadowRenderPass) {
         .setNoColorAttachment()
         .setLayout(shadowPipelineLayout_)
         .setRenderPass(shadowRenderPass)
-        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx_->getPipelineCache());
 
     vertShader.destroy();
@@ -4250,7 +4250,7 @@ void WMORenderer::recreatePipelines() {
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(pipelineLayout_)
         .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_ALLOW_DERIVATIVES_BIT)
         .build(device, vkCtx_->getPipelineCache());
 
@@ -4265,7 +4265,7 @@ void WMORenderer::recreatePipelines() {
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(pipelineLayout_)
         .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
         .setBasePipeline(opaquePipeline_)
         .build(device, vkCtx_->getPipelineCache());
@@ -4281,7 +4281,7 @@ void WMORenderer::recreatePipelines() {
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(pipelineLayout_)
         .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
         .setBasePipeline(opaquePipeline_)
         .build(device, vkCtx_->getPipelineCache());
@@ -4297,7 +4297,7 @@ void WMORenderer::recreatePipelines() {
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(pipelineLayout_)
         .setRenderPass(mainPass)
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .setFlags(VK_PIPELINE_CREATE_DERIVATIVE_BIT)
         .setBasePipeline(opaquePipeline_)
         .build(device, vkCtx_->getPipelineCache());

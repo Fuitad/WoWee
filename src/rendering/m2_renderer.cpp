@@ -820,7 +820,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
         return builder
             .setLayout(pipelineLayout_)
             .setRenderPass(mainPass)
-            .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+            .setDynamicStates(viewportAndScissorDynamic())
             .setFlags(flags)
             .setBasePipeline(basePipeline)
             .build(device, vkCtx_->getPipelineCache());
@@ -862,7 +862,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
                 .setMultisample(vkCtx_->getMsaaSamples())
                 .setLayout(particlePipelineLayout_)
                 .setRenderPass(mainPass)
-                .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+                .setDynamicStates(viewportAndScissorDynamic())
                 .build(device, vkCtx_->getPipelineCache());
         };
 
@@ -895,7 +895,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
             .setMultisample(vkCtx_->getMsaaSamples())
             .setLayout(smokePipelineLayout_)
             .setRenderPass(mainPass)
-            .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+            .setDynamicStates(viewportAndScissorDynamic())
             .build(device, vkCtx_->getPipelineCache());
     }
 
@@ -937,7 +937,7 @@ bool M2Renderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout
                     .setMultisample(vkCtx_->getMsaaSamples())
                     .setLayout(ribbonPipelineLayout_)
                     .setRenderPass(mainPass)
-                    .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+                    .setDynamicStates(viewportAndScissorDynamic())
                     .build(device, vkCtx_->getPipelineCache());
             };
 

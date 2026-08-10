@@ -66,10 +66,7 @@ bool Clouds::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
     posAttr.format   = VK_FORMAT_R32G32B32_SFLOAT;
     posAttr.offset   = 0;
 
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     // ------------------------------------------------------------------ pipeline
     pipeline_ = PipelineBuilder()
@@ -133,10 +130,7 @@ void Clouds::recreatePipelines() {
     posAttr.format   = VK_FORMAT_R32G32B32_SFLOAT;
     posAttr.offset   = 0;
 
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     pipeline_ = PipelineBuilder()
         .setShaders(vertStage, fragStage)

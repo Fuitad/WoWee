@@ -3390,7 +3390,7 @@ bool CharacterRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
         .setNoColorAttachment()
         .setLayout(shadowPipelineLayout_)
         .setRenderPass(shadowRenderPass)
-        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx_->getPipelineCache());
 
     vertShader.destroy();

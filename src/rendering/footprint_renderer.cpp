@@ -166,7 +166,7 @@ bool FootprintRenderer::createPipeline() {
         .setMultisample(vkCtx_->getMsaaSamples())
         .setLayout(pipelineLayout_)
         .setRenderPass(vkCtx_->getImGuiRenderPass())
-        .setDynamicStates({VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR})
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx_->getPipelineCache());
     vert.destroy();
     frag.destroy();

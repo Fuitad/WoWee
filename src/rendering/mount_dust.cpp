@@ -57,29 +57,10 @@ bool MountDust::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
     }
 
     // Vertex input: pos(vec3) + size(float) + alpha(float) = 5 floats, stride = 20 bytes
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 5 * sizeof(float);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
 
-    std::vector<VkVertexInputAttributeDescription> attrs(3);
-    attrs[0].location = 0;
-    attrs[0].binding = 0;
-    attrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attrs[0].offset = 0;
-    attrs[1].location = 1;
-    attrs[1].binding = 0;
-    attrs[1].format = VK_FORMAT_R32_SFLOAT;
-    attrs[1].offset = 3 * sizeof(float);
-    attrs[2].location = 2;
-    attrs[2].binding = 0;
-    attrs[2].format = VK_FORMAT_R32_SFLOAT;
-    attrs[2].offset = 4 * sizeof(float);
-
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     pipeline = PipelineBuilder()
         .setShaders(vertStage, fragStage)
@@ -167,29 +148,10 @@ void MountDust::recreatePipelines() {
     VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
     VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
 
-    VkVertexInputBindingDescription binding{};
-    binding.binding = 0;
-    binding.stride = 5 * sizeof(float);
-    binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
+    std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
 
-    std::vector<VkVertexInputAttributeDescription> attrs(3);
-    attrs[0].location = 0;
-    attrs[0].binding = 0;
-    attrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attrs[0].offset = 0;
-    attrs[1].location = 1;
-    attrs[1].binding = 0;
-    attrs[1].format = VK_FORMAT_R32_SFLOAT;
-    attrs[1].offset = 3 * sizeof(float);
-    attrs[2].location = 2;
-    attrs[2].binding = 0;
-    attrs[2].format = VK_FORMAT_R32_SFLOAT;
-    attrs[2].offset = 4 * sizeof(float);
-
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     pipeline = PipelineBuilder()
         .setShaders(vertStage, fragStage)

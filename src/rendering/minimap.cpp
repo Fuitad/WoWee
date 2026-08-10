@@ -168,7 +168,7 @@ bool Minimap::initialize(VkContext* ctx, VkDescriptorSetLayout /*perFrameLayout*
             .setColorBlendAttachment(PipelineBuilder::blendDisabled())
             .setLayout(tilePipelineLayout)
             .setRenderPass(compositeTarget->getRenderPass())
-            .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+            .setDynamicStates(viewportAndScissorDynamic())
             .build(device, vkCtx->getPipelineCache());
 
         vs.destroy();
@@ -195,7 +195,7 @@ bool Minimap::initialize(VkContext* ctx, VkDescriptorSetLayout /*perFrameLayout*
             .setMultisample(vkCtx->getMsaaSamples())
             .setLayout(displayPipelineLayout)
             .setRenderPass(vkCtx->getImGuiRenderPass())
-            .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+            .setDynamicStates(viewportAndScissorDynamic())
             .build(device, vkCtx->getPipelineCache());
 
         vs.destroy();
@@ -273,7 +273,7 @@ void Minimap::recreatePipelines() {
         .setMultisample(vkCtx->getMsaaSamples())
         .setLayout(displayPipelineLayout)
         .setRenderPass(vkCtx->getImGuiRenderPass())
-        .setDynamicStates({ VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR })
+        .setDynamicStates(viewportAndScissorDynamic())
         .build(device, vkCtx->getPipelineCache());
 
     vs.destroy();

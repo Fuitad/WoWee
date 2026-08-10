@@ -51,10 +51,7 @@ bool Lightning::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
     vkCtx = ctx;
     VkDevice device = vkCtx->getDevice();
 
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     // ---- Bolt pipeline (LINE_STRIP) ----
     {
@@ -269,10 +266,7 @@ void Lightning::recreatePipelines() {
         flashPipeline = VK_NULL_HANDLE;
     }
 
-    std::vector<VkDynamicState> dynamicStates = {
-        VK_DYNAMIC_STATE_VIEWPORT,
-        VK_DYNAMIC_STATE_SCISSOR
-    };
+    std::vector<VkDynamicState> dynamicStates = viewportAndScissorDynamic();
 
     // ---- Rebuild bolt pipeline (LINE_STRIP) ----
     {
