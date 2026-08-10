@@ -908,97 +908,42 @@ void WidgetRenderer::layout(WidgetTree& tree, float screenW, float screenH) {
     tree.layout(screenW, screenH);
 }
 
-void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
-    // Cleared here rather than in layout(), which is the half that runs before
-    // the frame's clicks are resolved. Emptying the list there and refilling it
-    // here would leave nothing to click against in between, and a chat link
-    // would never be hit at all. Clicks now test the rects this pass laid down
-    // last frame — a frame behind, where a link that stopped being drawn stays
-    // clickable for one more, which is the smaller of the two faults.
-    tree.clearLinkRects();
+// What is on screen, and what should be but is not.
+//
+// None of this draws anything. It is the instrumentation the FrameXML
+// transition is being carried out with: a list of every drawn widget with its
+// rect and its text, so a stray label can be traced back to the frame that put
+// it there; a check that the elements handed over actually arrived; and a
+// report of frames FrameXML is drawing that no element accounts for.
+//
+// Split out of draw() because it was 536 of its 1193 lines — a function named
+// draw that spent nearly half its length not drawing.
+namespace {
 
-    // The item on the cursor, drawn over everything. FrameXML never draws this
-    // — in WoW the client does — so without it picking something up looked
-    // exactly like nothing happening.
-    if (const std::string& carried = frameXmlCursorItem(); !carried.empty()) {
-        if (VkDescriptorSet icon = texture(carried); icon != kMissing) {
-            const ImVec2 at = ImGui::GetIO().MousePos;
-            const float side = 32.0f * tree.uiScale();
-            ImDrawList* fg = ImGui::GetForegroundDrawList();
-            fg->AddImage(reinterpret_cast<ImTextureID>(icon),
-                         ImVec2(at.x, at.y),
-                         ImVec2(at.x + side, at.y + side));
-        }
-    }
+/// WOWEE_WIDGET_DUMP — how much this renderer says about what it drew.
+///
+/// 1 lists what is drawn; 2 lists every named widget whether drawn or not,
+/// which is what shows a container's own rect — a frame paints nothing itself,
+/// so the thing that mispositioned everything under it never appears in a list
+/// of what was painted. 3 and 4 outline widgets in place, and 5 draws ImGui's
+/// own font atlas as a control.
+///
+/// Read once. It was a static local of draw(), which is where the reporting
+/// used to live too; the reporting moved out and the drawing still needs it.
+int widgetDumpLevel() {
+    static const int level = [] {
+        const char* v = std::getenv("WOWEE_WIDGET_DUMP");
+        if (!v || !*v) return 0;
+        return std::atoi(v);
+    }();
+    return level;
+}
 
-    const auto& order = tree.drawOrder();
-    if (order.empty()) return;
+}  // namespace
 
-    // Resolve textures before recording anything, and only a few per frame.
-    //
-    // Uploading one ends in vkDeviceWaitIdle. Doing that from inside the draw
-    // loop stalls the whole device in the middle of building a frame, which is
-    // the shape of problem this renderer has already been bitten by once —
-    // enough synchronous submits in a row and the main loop stalls, a fence wait
-    // fails, and the device is lost. Hoisting them out means the wait happens
-    // between frames instead of during one, and the budget means a screen full
-    // of new art costs several quiet frames rather than one very long one.
-    // Three, not eight.
-    //
-    // Each one is a BLP decode, a staging buffer, a copy and a wait — and the
-    // batch around them is synchronous, so the whole cost lands inside
-    // uiManager->render. A live log shows that stage reaching 186ms while the
-    // terrain was uploading M2 instances on the same queue, and the device was
-    // lost shortly after with images reported as never having left
-    // VK_IMAGE_LAYOUT_UNDEFINED.
-    //
-    // FrameXML wants far more distinct art than this client's own interface
-    // did — icons per spellbook tab, per tracking type, per dropdown entry —
-    // so the budget that was comfortable before is now reached every frame
-    // during a load. Spreading the same work over more frames costs a texture
-    // appearing a frame or two later, which is invisible, and shortens each
-    // stall to something that cannot sit across a driver's patience.
-    constexpr int kUploadsPerFrame = 3;
-    std::vector<std::pair<const std::string*, bool>> wanted;
-    wanted.reserve(kUploadsPerFrame);
-    auto want = [&](const std::string& path, bool add = false) {
-        if (static_cast<int>(wanted.size()) >= kUploadsPerFrame || path.empty()) return;
-        if (textures_.find(cacheKey(path, add)) != textures_.end()) return;
-        for (const auto& p : wanted) if (*p.first == path && p.second == add) return;
-        wanted.emplace_back(&path, add);
-    };
-    for (const Widget* w : order) {
-        if (static_cast<int>(wanted.size()) >= kUploadsPerFrame) break;
-        if (w->kind == WidgetKind::Texture && !w->solidColor)
-            want(w->texturePath, w->blendAdd);
-        if (w->kind == WidgetKind::Frame) {
-            if (w->hasBackdrop) { want(w->bgFile); want(w->edgeFile); }
-            if (w->isStatusBar) want(w->barTexture);
-            if (w->isSlider) want(w->thumbTexture);
-        }
-    }
-
-    // One submit and one wait for the whole batch rather than one of each per
-    // texture. Every upload used to be its own immediate submit, and with
-    // FrameXML asking for hundreds of distinct files the seconds after a load
-    // cost 70-140ms a frame. Batched, how many go in a frame stops mattering
-    // much, which is why the budget can be larger and the burst shorter.
-    //
-    // Synchronous, because the draw below uses whatever was just uploaded; the
-    // asynchronous form would let this frame sample an image whose copy has not
-    // landed. Nothing to upload means no batch at all, so an idle frame does
-    // not allocate a command buffer to record nothing into.
-    if (!wanted.empty() && vkCtx_) {
-        vkCtx_->beginUploadBatch();
-        for (const auto& p : wanted) texture(*p.first, p.second);
-        vkCtx_->endUploadBatchSync();
-    }
-
-    // Interface units to pixels. The tree is laid out against a virtual screen
-    // 768 units tall so a frame is the same apparent size on every display;
-    // this is the one place that becomes pixels.
-    const float s = tree.uiScale();
-
+void WidgetRenderer::reportWidgetDiagnostics(WidgetTree& tree,
+                                             const std::vector<const Widget*>& order,
+                                             float s, float screenW, float screenH) {
     // What is actually on screen, named, once, when asked for.
     //
     // A stray label is very hard to identify from a screenshot: the text says
@@ -1009,11 +954,6 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
     // which is what shows a container's own rect — a frame paints nothing
     // itself, so the thing that mispositioned everything under it never
     // appears in a list of what was painted.
-    static const int dumpWidgets = [] {
-        const char* v = std::getenv("WOWEE_WIDGET_DUMP");
-        if (!v || !*v) return 0;
-        return std::atoi(v);
-    }();
     // Not on the first frame. Textures upload a few per frame, so a dump taken
     // immediately reports nothing resident and says only that the load had not
     // finished — which is true and useless. A couple of seconds in, what is
@@ -1481,7 +1421,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
         }
     }
 
-    if (dumpWidgets && !dumped && framesSeen > 180) {
+    if (widgetDumpLevel() && !dumped && framesSeen > 180) {
         dumped = true;
         // The screen it was laid out against, because a coordinate means
         // nothing without it: 1920 is the middle of one display and off
@@ -1521,7 +1461,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
                         (w->text.empty() ? "" : " text='"), w->text,
                         (w->text.empty() ? "" : "'"));
         }
-        if (dumpWidgets >= 2) {
+        if (widgetDumpLevel() >= 2) {
             LOG_WARNING("WidgetDump: every named widget, drawn or not");
             for (size_t id = 1; id < tree.size(); ++id) {
                 const Widget* w = tree.get(static_cast<uint32_t>(id));
@@ -1535,6 +1475,101 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             }
         }
     }
+}
+
+void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
+    // Cleared here rather than in layout(), which is the half that runs before
+    // the frame's clicks are resolved. Emptying the list there and refilling it
+    // here would leave nothing to click against in between, and a chat link
+    // would never be hit at all. Clicks now test the rects this pass laid down
+    // last frame — a frame behind, where a link that stopped being drawn stays
+    // clickable for one more, which is the smaller of the two faults.
+    tree.clearLinkRects();
+
+    // The item on the cursor, drawn over everything. FrameXML never draws this
+    // — in WoW the client does — so without it picking something up looked
+    // exactly like nothing happening.
+    if (const std::string& carried = frameXmlCursorItem(); !carried.empty()) {
+        if (VkDescriptorSet icon = texture(carried); icon != kMissing) {
+            const ImVec2 at = ImGui::GetIO().MousePos;
+            const float side = 32.0f * tree.uiScale();
+            ImDrawList* fg = ImGui::GetForegroundDrawList();
+            fg->AddImage(reinterpret_cast<ImTextureID>(icon),
+                         ImVec2(at.x, at.y),
+                         ImVec2(at.x + side, at.y + side));
+        }
+    }
+
+    const auto& order = tree.drawOrder();
+    if (order.empty()) return;
+
+    // Resolve textures before recording anything, and only a few per frame.
+    //
+    // Uploading one ends in vkDeviceWaitIdle. Doing that from inside the draw
+    // loop stalls the whole device in the middle of building a frame, which is
+    // the shape of problem this renderer has already been bitten by once —
+    // enough synchronous submits in a row and the main loop stalls, a fence wait
+    // fails, and the device is lost. Hoisting them out means the wait happens
+    // between frames instead of during one, and the budget means a screen full
+    // of new art costs several quiet frames rather than one very long one.
+    // Three, not eight.
+    //
+    // Each one is a BLP decode, a staging buffer, a copy and a wait — and the
+    // batch around them is synchronous, so the whole cost lands inside
+    // uiManager->render. A live log shows that stage reaching 186ms while the
+    // terrain was uploading M2 instances on the same queue, and the device was
+    // lost shortly after with images reported as never having left
+    // VK_IMAGE_LAYOUT_UNDEFINED.
+    //
+    // FrameXML wants far more distinct art than this client's own interface
+    // did — icons per spellbook tab, per tracking type, per dropdown entry —
+    // so the budget that was comfortable before is now reached every frame
+    // during a load. Spreading the same work over more frames costs a texture
+    // appearing a frame or two later, which is invisible, and shortens each
+    // stall to something that cannot sit across a driver's patience.
+    constexpr int kUploadsPerFrame = 3;
+    std::vector<std::pair<const std::string*, bool>> wanted;
+    wanted.reserve(kUploadsPerFrame);
+    auto want = [&](const std::string& path, bool add = false) {
+        if (static_cast<int>(wanted.size()) >= kUploadsPerFrame || path.empty()) return;
+        if (textures_.find(cacheKey(path, add)) != textures_.end()) return;
+        for (const auto& p : wanted) if (*p.first == path && p.second == add) return;
+        wanted.emplace_back(&path, add);
+    };
+    for (const Widget* w : order) {
+        if (static_cast<int>(wanted.size()) >= kUploadsPerFrame) break;
+        if (w->kind == WidgetKind::Texture && !w->solidColor)
+            want(w->texturePath, w->blendAdd);
+        if (w->kind == WidgetKind::Frame) {
+            if (w->hasBackdrop) { want(w->bgFile); want(w->edgeFile); }
+            if (w->isStatusBar) want(w->barTexture);
+            if (w->isSlider) want(w->thumbTexture);
+        }
+    }
+
+    // One submit and one wait for the whole batch rather than one of each per
+    // texture. Every upload used to be its own immediate submit, and with
+    // FrameXML asking for hundreds of distinct files the seconds after a load
+    // cost 70-140ms a frame. Batched, how many go in a frame stops mattering
+    // much, which is why the budget can be larger and the burst shorter.
+    //
+    // Synchronous, because the draw below uses whatever was just uploaded; the
+    // asynchronous form would let this frame sample an image whose copy has not
+    // landed. Nothing to upload means no batch at all, so an idle frame does
+    // not allocate a command buffer to record nothing into.
+    if (!wanted.empty() && vkCtx_) {
+        vkCtx_->beginUploadBatch();
+        for (const auto& p : wanted) texture(*p.first, p.second);
+        vkCtx_->endUploadBatchSync();
+    }
+
+    // Interface units to pixels. The tree is laid out against a virtual screen
+    // 768 units tall so a frame is the same apparent size on every display;
+    // this is the one place that becomes pixels.
+    const float s = tree.uiScale();
+
+    // Instrumentation, not drawing.
+    reportWidgetDiagnostics(tree, order, s, screenW, screenH);
 
     // Behind ImGui's own windows, so the existing interface stays on top while
     // the two coexist, but still over the 3D scene.
@@ -1547,7 +1582,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
     // works on this draw list at all, and whether the descriptor sets this
     // renderer uploads are good. If the glyph sheet appears, the call is fine
     // and the textures are not.
-    if (dumpWidgets >= 5) {
+    if (widgetDumpLevel() >= 5) {
         dl->AddImage(ImGui::GetIO().Fonts->TexRef, ImVec2(40.0f, 40.0f),
                      ImVec2(440.0f, 440.0f));
     }
@@ -1840,7 +1875,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
         // neither appears, the whole layer is being covered or discarded. That
         // is two possibilities told apart by looking, rather than inferred from
         // a screenshot.
-        if (dumpWidgets >= 3) {
+        if (widgetDumpLevel() >= 3) {
             dl->AddRect(ImVec2(x0, y0), ImVec2(x1, y1), IM_COL32(255, 0, 255, 200));
         }
         // Level 4 paints every widget solid instead of drawing its art. An
@@ -1848,7 +1883,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
         // mistaken for nothing at all; a solid block either covers the bottom
         // of the screen or it does not, and that answers whether these pixels
         // are reached without anyone having to squint at a screenshot.
-        if (dumpWidgets >= 4) {
+        if (widgetDumpLevel() >= 4) {
             dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, y1),
                               IM_COL32(255, 0, 255, 255));
             continue;

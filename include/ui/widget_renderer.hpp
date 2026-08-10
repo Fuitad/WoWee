@@ -54,6 +54,11 @@ public:
     void layout(WidgetTree& tree, float screenW, float screenH);
     void draw(WidgetTree& tree, float screenW, float screenH);
 
+    /// What is on screen, and what should be but is not — the instrumentation
+    /// the FrameXML transition is being carried out with. Draws nothing.
+    void reportWidgetDiagnostics(WidgetTree& tree, const std::vector<const Widget*>& order,
+                                 float s, float screenW, float screenH);
+
     /// Number of distinct textures resident. Cheap diagnostic; the cache never
     /// evicts, because Interface\ art is small, bounded and reused constantly.
     size_t textureCount() const { return textures_.size(); }
