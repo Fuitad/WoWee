@@ -445,6 +445,36 @@ endif()
 add_test(NAME use_item_packet COMMAND test_use_item_packet)
 register_test_target(test_use_item_packet)
 
+# ── test_battlefield_status_packet ─────────────────────────────────────
+# SMSG_BATTLEFIELD_STATUS, whose header was read two bytes short.
+add_executable(test_battlefield_status_packet
+    test_battlefield_status_packet.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/opcode_table.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/expansion_profile.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/character.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_world.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_entity.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_social.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/world_packets_economy.cpp
+    ${CMAKE_SOURCE_DIR}/src/auth/crypto.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_classic.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/packet_parsers_tbc.cpp
+)
+target_include_directories(test_battlefield_status_packet PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_battlefield_status_packet SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_battlefield_status_packet PRIVATE catch2_main SDL2::SDL2 ZLIB::ZLIB
+                                                   OpenSSL::SSL OpenSSL::Crypto)
+wowee_test_link_glm(test_battlefield_status_packet)
+if(TARGET Vulkan::Vulkan)
+    target_link_libraries(test_battlefield_status_packet PRIVATE Vulkan::Vulkan)
+endif()
+add_test(NAME battlefield_status_packet COMMAND test_battlefield_status_packet)
+register_test_target(test_battlefield_status_packet)
+
 # ── test_lfg_join_packet ─────────────────────────────────────
 # Every field of CMSG_LFG_JOIN, which was wrong in every field and silent.
 add_executable(test_lfg_join_packet

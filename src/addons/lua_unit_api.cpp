@@ -2633,8 +2633,9 @@ void registerUnitLuaAPI(lua_State* L) {
             const int idx = static_cast<int>(luaL_optnumber(L, 1, 0));
             const char* status = "none";
             std::string mapName;
-            uint32_t minLevel = 0, maxLevel = 0;
+            uint32_t minLevel = 0, maxLevel = 0, instanceId = 0;
             uint8_t teamSize = 0;
+            bool isRated = false;
             if (gh && idx >= 1 && idx <= 3) {
                 const auto& q = gh->getBgQueues()[static_cast<size_t>(idx) - 1];
                 switch (q.statusId) {
@@ -2646,13 +2647,23 @@ void registerUnitLuaAPI(lua_State* L) {
                 if (q.statusId != 0) {
                     mapName = q.bgName;
                     teamSize = q.arenaType;
-                    // The level range belongs to the battleground rather than to
-                    // the queue, and the available list is where it arrives.
-                    for (const auto& bg : gh->getAvailableBgs()) {
-                        if (bg.bgTypeId != q.bgTypeId) continue;
-                        minLevel = bg.minLevel;
-                        maxLevel = bg.maxLevel;
-                        break;
+                    instanceId = q.instanceId;
+                    isRated = q.isRated;
+                    // The range arrives with the status itself. It used to be
+                    // looked up in the available-battleground list, which only
+                    // turns up at a battlemaster — so a queue joined anywhere
+                    // else answered a range of zero to zero for as long as it
+                    // lasted. The list is still the fallback, for a queue
+                    // carried over from a login where the status came first.
+                    minLevel = q.minLevel;
+                    maxLevel = q.maxLevel;
+                    if (minLevel == 0 && maxLevel == 0) {
+                        for (const auto& bg : gh->getAvailableBgs()) {
+                            if (bg.bgTypeId != q.bgTypeId) continue;
+                            minLevel = bg.minLevel;
+                            maxLevel = bg.maxLevel;
+                            break;
+                        }
                     }
                 }
             }
@@ -2669,16 +2680,26 @@ void registerUnitLuaAPI(lua_State* L) {
                 lua_pushnumber(L, 0);
                 lua_pushnumber(L, 0);
                 lua_pushnumber(L, 0);
-                lua_pushnumber(L, 0);
+                lua_pushboolean(L, 0);
                 return 7;
             }
             lua_pushstring(L, status);
             lua_pushstring(L, mapName.c_str());
-            lua_pushnumber(L, 0);        // instance id: not on this wire
+            // Both were answered as a flat zero with a comment saying the wire
+            // does not carry them. It carries both — they sit between the map
+            // type and the status, in the stretch this used to read two bytes
+            // short of. The interface uses them: battlefieldframe.lua appends a
+            // non-zero instance to the name, which is what makes a queue read
+            // "Warsong Gulch 2".
+            lua_pushnumber(L, instanceId);
             lua_pushnumber(L, minLevel);
             lua_pushnumber(L, maxLevel);
             lua_pushnumber(L, teamSize);
-            lua_pushnumber(L, 0);        // rated match: arenas only, untracked
+            // A boolean, not a number. The real binding answers true or false
+            // and the interface asks `if ( registeredMatch )` — and zero is
+            // true in Lua, so answering 0 for "not rated" labelled every arena
+            // queue a rated match.
+            lua_pushboolean(L, isRated ? 1 : 0);
             return 7;
         }},
                 // The money a quest asks for, which the tracker compares

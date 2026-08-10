@@ -3211,8 +3211,24 @@ static int lua_IsActiveBattlefieldArena(lua_State* L) {
 static int lua_CanHearthAndResurrectFromArea(lua_State* L) { lua_pushboolean(L, 0); return 1; }
 
 // GetWorldPVPQueueStatus(i) → status, mapName, queueID
+//
+// "none", not nil. An empty world PvP queue is a status of its own, and the
+// interface tests for it by name:
+//
+//     status, mapName, queueID = GetWorldPVPQueueStatus(i);
+//     if ( status ~= "none" ) then numberQueues = numberQueues + 1; end
+//
+// nil is not "none", so this counted a queue that did not exist on every pass —
+// and BattlefieldFrame_UpdateStatus ends by hiding the minimap's battlefield
+// icon only when numberQueues reaches zero, which it now never did. The icon
+// sat beside the minimap permanently, with no queue behind it and so nothing in
+// its tooltip: a queue tracker that was always there and never tracked
+// anything.
+//
+// There is no Wintergrasp queue in this client, so "none" is also the true
+// answer. mapName and queueID stay nil, which is what an empty slot answers.
 static int lua_GetWorldPVPQueueStatus(lua_State* L) {
-    lua_pushnil(L);
+    lua_pushstring(L, "none");
     lua_pushnil(L);
     lua_pushnil(L);
     return 3;
