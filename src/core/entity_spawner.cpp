@@ -1284,6 +1284,15 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
 
                 // Collect model texture slot info (type 1 = skin, type 6 = hair)
                 std::vector<uint32_t> skinSlots, hairSlots;
+                // A model carrying a Skin Extra slot is one of the HD character
+                // models. The baked NPC textures were composited for the models
+                // the game shipped, and are not interchangeable with these.
+                bool isHdCharacterModel = false;
+                if (modelData) {
+                    for (const auto& t : modelData->textures) {
+                        if (t.type == 8) { isHdCharacterModel = true; break; }
+                    }
+                }
                 if (modelData) {
                     for (size_t ti = 0; ti < modelData->textures.size(); ti++) {
                         uint32_t texType = modelData->textures[ti].type;
@@ -1304,7 +1313,7 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                 AsyncNpcCompositeLoad load;
                 load.future = std::async(std::launch::async,
                     [am, extraCopy, skinSlots = std::move(skinSlots),
-                     hairSlots = std::move(hairSlots), modelId, displayId]() mutable -> PreparedNpcComposite {
+                     hairSlots = std::move(hairSlots), modelId, displayId, isHdCharacterModel]() mutable -> PreparedNpcComposite {
                         PreparedNpcComposite result;
                         DeferredNpcComposite& def = result.info;
                         def.modelId = modelId;
@@ -1315,7 +1324,20 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                         std::vector<std::string> allPaths;  // paths to pre-decode
 
                         // --- Baked skin texture ---
-                        if (!extraCopy.bakeName.empty()) {
+                        //
+                        // A bake is one image with the skin, the face and the
+                        // armour already composited into it, made for a
+                        // particular model. Taking it means CharSections is
+                        // never read at all — which is the whole difference
+                        // between this path and the portrait's, and why a
+                        // portrait's face is right where the same NPC's is not.
+                        //
+                        // It is only right for the model it was baked for. These
+                        // displays now point at the HD character models, whose
+                        // faces the bakes know nothing about, so those composite
+                        // from the table instead — the same way the portrait
+                        // always has.
+                        if (!extraCopy.bakeName.empty() && !isHdCharacterModel) {
                             def.bakedSkinPath = "Textures\\BakedNpcTextures\\" + extraCopy.bakeName;
                             def.hasBakedSkin = true;
                             allPaths.push_back(def.bakedSkinPath);
