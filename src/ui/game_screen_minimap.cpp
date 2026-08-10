@@ -592,6 +592,284 @@ void GameScreen::renderMinimapChrome(game::GameHandler& gameHandler, float cente
 
 }
 
+// Every nearby unit as a dot, and a quest objective as a larger gold one.
+void GameScreen::renderMinimapNpcDots(const MinimapFrame& frame, const EntityList& minimapUnits,
+                                      const EntrySet& minimapQuestEntries) {
+    // Optional base nearby NPC dots (independent of quest status packets).
+    if (settingsPanel_.minimapNpcDots_) {
+        ImVec2 mouse = ImGui::GetMousePos();
+        for (const auto& entity : minimapUnits) {
+
+            auto unit = std::static_pointer_cast<game::Unit>(entity);
+            if (!unit || unit->getHealth() == 0) continue;
+
+            float sx = 0.0f, sy = 0.0f;
+            if (!frame.projectEntity(*entity, sx, sy)) continue;
+
+            bool isQuestTarget = minimapQuestEntries.count(unit->getEntry()) != 0;
+            if (isQuestTarget) {
+                // Quest kill objective: larger gold dot with dark outline
+                frame.drawList->AddCircleFilled(ImVec2(sx, sy), 3.5f, IM_COL32(255, 210, 30, 240));
+                frame.drawList->AddCircle(ImVec2(sx, sy), 3.5f, IM_COL32(80, 50, 0, 180), 0, 1.0f);
+                // Tooltip on hover showing unit name
+                if (cursorNearBlip(sx, sy)) {
+                    const std::string& nm = unit->getName();
+                    if (!nm.empty()) ImGui::SetTooltip("%s (quest)", nm.c_str());
+                }
+            } else {
+                ImU32 baseDot = unit->isHostile() ? IM_COL32(220, 70, 70, 220) : IM_COL32(245, 245, 245, 210);
+                frame.drawList->AddCircleFilled(ImVec2(sx, sy), 1.0f, baseDot);
+            }
+        }
+    }
+
+}
+
+// A standard service marker, independent of the optional NPC dots — and read
+// from the live NPC flags, so an undiscovered flight master shows before the
+// taxi window has ever been opened.
+void GameScreen::renderMinimapFlightMasters(const MinimapFrame& frame, const EntityList& minimapUnits) {
+    // Flight masters are a standard minimap service marker, independent of
+    // the optional generic NPC-dot overlay. Use the live UNIT_NPC_FLAGS value
+    // so an undiscovered flight master is visible before the taxi window has
+    // ever been opened (and therefore before the known-node mask is available).
+    {
+        ImVec2 mouse = ImGui::GetMousePos();
+        for (const auto& entity : minimapUnits) {
+            auto unit = std::static_pointer_cast<game::Unit>(entity);
+            if (!unit || unit->getHealth() == 0 ||
+                (unit->getNpcFlags() & game::NPC_FLAG_FLIGHT_MASTER) == 0) {
+                continue;
+            }
+
+            float sx = 0.0f, sy = 0.0f;
+            if (!frame.projectEntity(*entity, sx, sy)) continue;
+
+            constexpr float halfSize = 5.5f;
+            const ImVec2 top(sx, sy - halfSize);
+            const ImVec2 right(sx + halfSize, sy);
+            const ImVec2 bottom(sx, sy + halfSize);
+            const ImVec2 left(sx - halfSize, sy);
+            frame.drawList->AddQuadFilled(top, right, bottom, left,
+                                    IM_COL32(255, 215, 0, 245));
+            frame.drawList->AddQuad(top, right, bottom, left,
+                              IM_COL32(70, 45, 0, 230), 1.5f);
+            frame.drawList->AddCircleFilled(ImVec2(sx, sy), 1.7f,
+                                      IM_COL32(255, 250, 205, 255));
+
+            if (cursorNearBlip(sx, sy)) {
+                const std::string& name = unit->getName();
+                ImGui::SetTooltip("%s\nFlight Master",
+                                  name.empty() ? "Flight Master" : name.c_str());
+            }
+        }
+    }
+
+}
+
+// The same live creature-rank classification the world map uses.
+void GameScreen::renderMinimapRares(const MinimapFrame& frame, const EntityList& minimapUnits,
+                                     game::GameHandler& gameHandler) {
+    // Rare tracker: use the same live creature-rank classification as the world map.
+    // This is independent of generic NPC dots so enabling rare tracking consistently
+    // shows spawned rares on both maps without adding every nearby creature.
+    if (settingsPanel_.showRareTracker_) {
+        ImVec2 mouse = ImGui::GetMousePos();
+        for (const auto& entity : minimapUnits) {
+            auto unit = std::static_pointer_cast<game::Unit>(entity);
+            if (!unit || unit->getHealth() == 0) continue;
+
+            const int rank = gameHandler.getCreatureRank(unit->getEntry());
+            if (rank != 2 && rank != 4) continue; // 2 = Rare Elite, 4 = Rare
+
+            float sx = 0.0f, sy = 0.0f;
+            if (!frame.projectEntity(*entity, sx, sy)) continue;
+
+            // Match the world-map tracker: gold for Rare, silver for Rare Elite.
+            const bool isElite = rank == 2;
+            const ImU32 fill = isElite
+                ? IM_COL32(210, 210, 225, 255)
+                : IM_COL32(255, 190, 60, 255);
+            constexpr float halfSize = 5.0f;
+            const ImVec2 top(sx, sy - halfSize);
+            const ImVec2 right(sx + halfSize, sy);
+            const ImVec2 bottom(sx, sy + halfSize);
+            const ImVec2 left(sx - halfSize, sy);
+            frame.drawList->AddQuadFilled(top, right, bottom, left, fill);
+            frame.drawList->AddQuad(top, right, bottom, left, IM_COL32(0, 0, 0, 220), 1.5f);
+
+            if (cursorNearBlip(sx, sy, kSmallBlipHoverRadius)) {
+                const std::string& name = unit->getName();
+                ImGui::SetTooltip("%s\n%s",
+                                  name.empty() ? "Unknown creature" : name.c_str(),
+                                  isElite ? "Rare Elite" : "Rare");
+            }
+        }
+    }
+
+}
+
+// Other players nearby. Party members are squares, drawn elsewhere; these are
+// the small circles for everyone else.
+void GameScreen::renderMinimapPlayerDots(const MinimapFrame& frame, const EntityList& minimapPlayers,
+                                          game::GameHandler& gameHandler) {
+    // Nearby other-player dots — shown when NPC dots are enabled.
+    // Party members are already drawn as squares above; other players get a small circle.
+    if (settingsPanel_.minimapNpcDots_) {
+        const uint64_t selfGuid = gameHandler.getPlayerGuid();
+        const auto& partyData = gameHandler.getPartyData();
+        for (const auto& entity : minimapPlayers) {
+            const uint64_t guid = entity->getGuid();
+            if (entity->getGuid() == selfGuid) continue;  // skip self (already drawn as arrow)
+
+            // Skip party members (already drawn as squares above)
+            bool isPartyMember = false;
+            for (const auto& m : partyData.members) {
+                if (m.guid == guid) { isPartyMember = true; break; }
+            }
+            if (isPartyMember) continue;
+
+            float sx = 0.0f, sy = 0.0f;
+            if (!frame.projectEntity(*entity, sx, sy)) continue;
+
+            // Blue dot for other nearby players
+            frame.drawList->AddCircleFilled(ImVec2(sx, sy), 2.0f, IM_COL32(80, 160, 255, 220));
+        }
+    }
+
+}
+
+// Dead and lootable, as a small yellow-green diamond.
+void GameScreen::renderMinimapLootCorpses(const MinimapFrame& frame, const EntityList& minimapUnits) {
+    // Lootable corpse dots: small yellow-green diamonds on dead, lootable units.
+    // Shown whenever NPC dots are enabled (or always, since they're always useful).
+    {
+        for (const auto& entity : minimapUnits) {
+            auto unit = std::static_pointer_cast<game::Unit>(entity);
+            if (!unit) continue;
+            // Must be dead (health == 0) and marked lootable
+            if (unit->getHealth() != 0) continue;
+            if (!(unit->getDynamicFlags() & game::UNIT_DYNFLAG_LOOTABLE)) continue;
+
+            float sx = 0.0f, sy = 0.0f;
+            if (!frame.projectEntity(*entity, sx, sy)) continue;
+
+            // Draw a small diamond (rotated square) in light yellow-green
+            const float dr = 3.5f;
+            ImVec2 top  (sx,      sy - dr);
+            ImVec2 right(sx + dr, sy     );
+            ImVec2 bot  (sx,      sy + dr);
+            ImVec2 left (sx - dr, sy     );
+            frame.drawList->AddQuadFilled(top, right, bot, left, IM_COL32(180, 230, 80, 230));
+            frame.drawList->AddQuad      (top, right, bot, left, IM_COL32(60,  80,  20, 200), 1.0f);
+
+            // Tooltip on hover
+            if (ImGui::IsMouseHoveringRect(ImVec2(sx - dr, sy - dr), ImVec2(sx + dr, sy + dr))) {
+                const std::string& nm = unit->getName();
+                ImGui::BeginTooltip();
+                ImGui::TextColored(ImVec4(0.7f, 0.9f, 0.3f, 1.0f), "%s",
+                                   nm.empty() ? "Lootable corpse" : nm.c_str());
+                ImGui::EndTooltip();
+            }
+        }
+    }
+
+}
+
+// Chests and resource nodes, as orange triangles — a different shape from the
+// unit dots on purpose, because they are a different thing to walk to.
+void GameScreen::renderMinimapObjectDots(const MinimapFrame& frame, const EntityList& minimapGameObjects,
+                                          const EntrySet& minimapQuestGoEntries,
+                                          game::GameHandler& gameHandler) {
+    // Interactable game object dots (chests, resource nodes) when NPC dots are enabled.
+    // Shown as small orange triangles to distinguish from unit dots and loot corpses.
+    if (settingsPanel_.minimapNpcDots_) {
+        ImVec2 mouse = ImGui::GetMousePos();
+        for (const auto& entity : minimapGameObjects) {
+
+            // Only show objects that are likely interactive (chests/nodes: type 3;
+            // also show type 0=Door when open, but filter by dynamic-flag ACTIVATED).
+            // For simplicity, show all game objects that have a non-empty cached name.
+            auto go = std::static_pointer_cast<game::GameObject>(entity);
+            if (!go) continue;
+
+            // Only show if we have name data (avoids cluttering with unknown objects)
+            const auto* goInfo = gameHandler.getCachedGameObjectInfo(go->getEntry());
+            if (!goInfo || !goInfo->isValid()) continue;
+            // Skip transport objects (boats/zeppelins): type 15 = MO_TRANSPORT, 11 = TRANSPORT
+            if (goInfo->type == 11 || goInfo->type == 15) continue;
+
+            float sx = 0.0f, sy = 0.0f;
+            if (!frame.projectEntity(*entity, sx, sy)) continue;
+
+            // Triangle size and color: bright cyan for quest objectives, amber for others
+            bool isQuestGO = minimapQuestGoEntries.count(go->getEntry()) != 0;
+            const float ts = isQuestGO ? 4.5f : 3.5f;
+            ImVec2 goTip  (sx,        sy - ts);
+            ImVec2 goLeft (sx - ts,   sy + ts * 0.6f);
+            ImVec2 goRight(sx + ts,   sy + ts * 0.6f);
+            if (isQuestGO) {
+                frame.drawList->AddTriangleFilled(goTip, goLeft, goRight, IM_COL32(50, 230, 255, 240));
+                frame.drawList->AddTriangle(goTip, goLeft, goRight, IM_COL32(0, 60, 80, 200), 1.5f);
+            } else {
+                frame.drawList->AddTriangleFilled(goTip, goLeft, goRight, IM_COL32(255, 185, 30, 220));
+                frame.drawList->AddTriangle(goTip, goLeft, goRight, IM_COL32(100, 60, 0, 180), 1.0f);
+            }
+
+            // Tooltip on hover
+            if (cursorNearBlip(sx, sy)) {
+                if (isQuestGO)
+                    ImGui::SetTooltip("%s (quest)", goInfo->name.c_str());
+                else
+                    ImGui::SetTooltip("%s", goInfo->name.c_str());
+            }
+        }
+    }
+
+}
+
+// GAMEOBJECT_TYPE_CHEST covers gathering nodes on WoW servers, so the mining
+// and herbalism classification is excluded explicitly rather than by luck.
+void GameScreen::renderMinimapChests(const MinimapFrame& frame, const EntityList& minimapGameObjects,
+                                      game::GameHandler& gameHandler) {
+    // Chest tracker: GAMEOBJECT_TYPE_CHEST also covers gathering nodes on WoW
+    // servers, so explicitly exclude the existing mining/herbalism classification.
+    if (settingsPanel_.showChestTracker_) {
+        ImVec2 mouse = ImGui::GetMousePos();
+        for (const auto& entity : minimapGameObjects) {
+            auto chest = std::static_pointer_cast<game::GameObject>(entity);
+            if (!chest) continue;
+            const auto* info = gameHandler.getCachedGameObjectInfo(chest->getEntry());
+            if (!info || !info->isValid() || info->type != 3) continue;
+            if (gameHandler.isGatherGameObject(chest->getGuid())) continue;
+
+            float sx = 0.0f, sy = 0.0f;
+            if (!frame.projectEntity(*entity, sx, sy)) continue;
+
+            constexpr float halfW = 5.5f;
+            constexpr float halfH = 4.0f;
+            constexpr ImU32 fill = IM_COL32(205, 125, 35, 255);
+            constexpr ImU32 outline = IM_COL32(45, 25, 5, 230);
+            frame.drawList->AddRectFilled(ImVec2(sx - halfW, sy - halfH),
+                                    ImVec2(sx + halfW, sy + halfH), fill, 1.5f);
+            frame.drawList->AddRect(ImVec2(sx - halfW, sy - halfH),
+                              ImVec2(sx + halfW, sy + halfH), outline, 1.5f, 0, 1.5f);
+            frame.drawList->AddLine(ImVec2(sx - halfW, sy - 0.8f),
+                              ImVec2(sx + halfW, sy - 0.8f), outline, 1.0f);
+            frame.drawList->AddRectFilled(ImVec2(sx - 1.0f, sy - 1.2f),
+                                    ImVec2(sx + 1.0f, sy + 1.3f),
+                                    IM_COL32(255, 220, 80, 255), 0.5f);
+
+            if (mouse.x >= sx - halfW - 2.0f && mouse.x <= sx + halfW + 2.0f &&
+                mouse.y >= sy - halfH - 2.0f && mouse.y <= sy + halfH + 2.0f) {
+                const std::string& name = chest->getName().empty() ? info->name : chest->getName();
+                ImGui::SetTooltip("%s\nChest", name.empty() ? "Chest" : name.c_str());
+            }
+        }
+    }
+
+}
+
 void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     const auto& statuses = gameHandler.getNpcQuestStatuses();
     auto* renderer = services_.renderer;
@@ -700,245 +978,13 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     const auto& minimapQuestEntries = minimapQuestCreatureEntries_;
     const auto& minimapQuestGoEntries = minimapQuestGameObjectEntries_;
 
-    // Optional base nearby NPC dots (independent of quest status packets).
-    if (settingsPanel_.minimapNpcDots_) {
-        ImVec2 mouse = ImGui::GetMousePos();
-        for (const auto& entity : minimapUnits) {
-
-            auto unit = std::static_pointer_cast<game::Unit>(entity);
-            if (!unit || unit->getHealth() == 0) continue;
-
-            float sx = 0.0f, sy = 0.0f;
-            if (!frame.projectEntity(*entity, sx, sy)) continue;
-
-            bool isQuestTarget = minimapQuestEntries.count(unit->getEntry()) != 0;
-            if (isQuestTarget) {
-                // Quest kill objective: larger gold dot with dark outline
-                drawList->AddCircleFilled(ImVec2(sx, sy), 3.5f, IM_COL32(255, 210, 30, 240));
-                drawList->AddCircle(ImVec2(sx, sy), 3.5f, IM_COL32(80, 50, 0, 180), 0, 1.0f);
-                // Tooltip on hover showing unit name
-                if (cursorNearBlip(sx, sy)) {
-                    const std::string& nm = unit->getName();
-                    if (!nm.empty()) ImGui::SetTooltip("%s (quest)", nm.c_str());
-                }
-            } else {
-                ImU32 baseDot = unit->isHostile() ? IM_COL32(220, 70, 70, 220) : IM_COL32(245, 245, 245, 210);
-                drawList->AddCircleFilled(ImVec2(sx, sy), 1.0f, baseDot);
-            }
-        }
-    }
-
-    // Flight masters are a standard minimap service marker, independent of
-    // the optional generic NPC-dot overlay. Use the live UNIT_NPC_FLAGS value
-    // so an undiscovered flight master is visible before the taxi window has
-    // ever been opened (and therefore before the known-node mask is available).
-    {
-        ImVec2 mouse = ImGui::GetMousePos();
-        for (const auto& entity : minimapUnits) {
-            auto unit = std::static_pointer_cast<game::Unit>(entity);
-            if (!unit || unit->getHealth() == 0 ||
-                (unit->getNpcFlags() & game::NPC_FLAG_FLIGHT_MASTER) == 0) {
-                continue;
-            }
-
-            float sx = 0.0f, sy = 0.0f;
-            if (!frame.projectEntity(*entity, sx, sy)) continue;
-
-            constexpr float halfSize = 5.5f;
-            const ImVec2 top(sx, sy - halfSize);
-            const ImVec2 right(sx + halfSize, sy);
-            const ImVec2 bottom(sx, sy + halfSize);
-            const ImVec2 left(sx - halfSize, sy);
-            drawList->AddQuadFilled(top, right, bottom, left,
-                                    IM_COL32(255, 215, 0, 245));
-            drawList->AddQuad(top, right, bottom, left,
-                              IM_COL32(70, 45, 0, 230), 1.5f);
-            drawList->AddCircleFilled(ImVec2(sx, sy), 1.7f,
-                                      IM_COL32(255, 250, 205, 255));
-
-            if (cursorNearBlip(sx, sy)) {
-                const std::string& name = unit->getName();
-                ImGui::SetTooltip("%s\nFlight Master",
-                                  name.empty() ? "Flight Master" : name.c_str());
-            }
-        }
-    }
-
-    // Rare tracker: use the same live creature-rank classification as the world map.
-    // This is independent of generic NPC dots so enabling rare tracking consistently
-    // shows spawned rares on both maps without adding every nearby creature.
-    if (settingsPanel_.showRareTracker_) {
-        ImVec2 mouse = ImGui::GetMousePos();
-        for (const auto& entity : minimapUnits) {
-            auto unit = std::static_pointer_cast<game::Unit>(entity);
-            if (!unit || unit->getHealth() == 0) continue;
-
-            const int rank = gameHandler.getCreatureRank(unit->getEntry());
-            if (rank != 2 && rank != 4) continue; // 2 = Rare Elite, 4 = Rare
-
-            float sx = 0.0f, sy = 0.0f;
-            if (!frame.projectEntity(*entity, sx, sy)) continue;
-
-            // Match the world-map tracker: gold for Rare, silver for Rare Elite.
-            const bool isElite = rank == 2;
-            const ImU32 fill = isElite
-                ? IM_COL32(210, 210, 225, 255)
-                : IM_COL32(255, 190, 60, 255);
-            constexpr float halfSize = 5.0f;
-            const ImVec2 top(sx, sy - halfSize);
-            const ImVec2 right(sx + halfSize, sy);
-            const ImVec2 bottom(sx, sy + halfSize);
-            const ImVec2 left(sx - halfSize, sy);
-            drawList->AddQuadFilled(top, right, bottom, left, fill);
-            drawList->AddQuad(top, right, bottom, left, IM_COL32(0, 0, 0, 220), 1.5f);
-
-            if (cursorNearBlip(sx, sy, kSmallBlipHoverRadius)) {
-                const std::string& name = unit->getName();
-                ImGui::SetTooltip("%s\n%s",
-                                  name.empty() ? "Unknown creature" : name.c_str(),
-                                  isElite ? "Rare Elite" : "Rare");
-            }
-        }
-    }
-
-    // Nearby other-player dots — shown when NPC dots are enabled.
-    // Party members are already drawn as squares above; other players get a small circle.
-    if (settingsPanel_.minimapNpcDots_) {
-        const uint64_t selfGuid = gameHandler.getPlayerGuid();
-        const auto& partyData = gameHandler.getPartyData();
-        for (const auto& entity : minimapPlayers) {
-            const uint64_t guid = entity->getGuid();
-            if (entity->getGuid() == selfGuid) continue;  // skip self (already drawn as arrow)
-
-            // Skip party members (already drawn as squares above)
-            bool isPartyMember = false;
-            for (const auto& m : partyData.members) {
-                if (m.guid == guid) { isPartyMember = true; break; }
-            }
-            if (isPartyMember) continue;
-
-            float sx = 0.0f, sy = 0.0f;
-            if (!frame.projectEntity(*entity, sx, sy)) continue;
-
-            // Blue dot for other nearby players
-            drawList->AddCircleFilled(ImVec2(sx, sy), 2.0f, IM_COL32(80, 160, 255, 220));
-        }
-    }
-
-    // Lootable corpse dots: small yellow-green diamonds on dead, lootable units.
-    // Shown whenever NPC dots are enabled (or always, since they're always useful).
-    {
-        for (const auto& entity : minimapUnits) {
-            auto unit = std::static_pointer_cast<game::Unit>(entity);
-            if (!unit) continue;
-            // Must be dead (health == 0) and marked lootable
-            if (unit->getHealth() != 0) continue;
-            if (!(unit->getDynamicFlags() & game::UNIT_DYNFLAG_LOOTABLE)) continue;
-
-            float sx = 0.0f, sy = 0.0f;
-            if (!frame.projectEntity(*entity, sx, sy)) continue;
-
-            // Draw a small diamond (rotated square) in light yellow-green
-            const float dr = 3.5f;
-            ImVec2 top  (sx,      sy - dr);
-            ImVec2 right(sx + dr, sy     );
-            ImVec2 bot  (sx,      sy + dr);
-            ImVec2 left (sx - dr, sy     );
-            drawList->AddQuadFilled(top, right, bot, left, IM_COL32(180, 230, 80, 230));
-            drawList->AddQuad      (top, right, bot, left, IM_COL32(60,  80,  20, 200), 1.0f);
-
-            // Tooltip on hover
-            if (ImGui::IsMouseHoveringRect(ImVec2(sx - dr, sy - dr), ImVec2(sx + dr, sy + dr))) {
-                const std::string& nm = unit->getName();
-                ImGui::BeginTooltip();
-                ImGui::TextColored(ImVec4(0.7f, 0.9f, 0.3f, 1.0f), "%s",
-                                   nm.empty() ? "Lootable corpse" : nm.c_str());
-                ImGui::EndTooltip();
-            }
-        }
-    }
-
-    // Interactable game object dots (chests, resource nodes) when NPC dots are enabled.
-    // Shown as small orange triangles to distinguish from unit dots and loot corpses.
-    if (settingsPanel_.minimapNpcDots_) {
-        ImVec2 mouse = ImGui::GetMousePos();
-        for (const auto& entity : minimapGameObjects) {
-
-            // Only show objects that are likely interactive (chests/nodes: type 3;
-            // also show type 0=Door when open, but filter by dynamic-flag ACTIVATED).
-            // For simplicity, show all game objects that have a non-empty cached name.
-            auto go = std::static_pointer_cast<game::GameObject>(entity);
-            if (!go) continue;
-
-            // Only show if we have name data (avoids cluttering with unknown objects)
-            const auto* goInfo = gameHandler.getCachedGameObjectInfo(go->getEntry());
-            if (!goInfo || !goInfo->isValid()) continue;
-            // Skip transport objects (boats/zeppelins): type 15 = MO_TRANSPORT, 11 = TRANSPORT
-            if (goInfo->type == 11 || goInfo->type == 15) continue;
-
-            float sx = 0.0f, sy = 0.0f;
-            if (!frame.projectEntity(*entity, sx, sy)) continue;
-
-            // Triangle size and color: bright cyan for quest objectives, amber for others
-            bool isQuestGO = minimapQuestGoEntries.count(go->getEntry()) != 0;
-            const float ts = isQuestGO ? 4.5f : 3.5f;
-            ImVec2 goTip  (sx,        sy - ts);
-            ImVec2 goLeft (sx - ts,   sy + ts * 0.6f);
-            ImVec2 goRight(sx + ts,   sy + ts * 0.6f);
-            if (isQuestGO) {
-                drawList->AddTriangleFilled(goTip, goLeft, goRight, IM_COL32(50, 230, 255, 240));
-                drawList->AddTriangle(goTip, goLeft, goRight, IM_COL32(0, 60, 80, 200), 1.5f);
-            } else {
-                drawList->AddTriangleFilled(goTip, goLeft, goRight, IM_COL32(255, 185, 30, 220));
-                drawList->AddTriangle(goTip, goLeft, goRight, IM_COL32(100, 60, 0, 180), 1.0f);
-            }
-
-            // Tooltip on hover
-            if (cursorNearBlip(sx, sy)) {
-                if (isQuestGO)
-                    ImGui::SetTooltip("%s (quest)", goInfo->name.c_str());
-                else
-                    ImGui::SetTooltip("%s", goInfo->name.c_str());
-            }
-        }
-    }
-
-    // Chest tracker: GAMEOBJECT_TYPE_CHEST also covers gathering nodes on WoW
-    // servers, so explicitly exclude the existing mining/herbalism classification.
-    if (settingsPanel_.showChestTracker_) {
-        ImVec2 mouse = ImGui::GetMousePos();
-        for (const auto& entity : minimapGameObjects) {
-            auto chest = std::static_pointer_cast<game::GameObject>(entity);
-            if (!chest) continue;
-            const auto* info = gameHandler.getCachedGameObjectInfo(chest->getEntry());
-            if (!info || !info->isValid() || info->type != 3) continue;
-            if (gameHandler.isGatherGameObject(chest->getGuid())) continue;
-
-            float sx = 0.0f, sy = 0.0f;
-            if (!frame.projectEntity(*entity, sx, sy)) continue;
-
-            constexpr float halfW = 5.5f;
-            constexpr float halfH = 4.0f;
-            constexpr ImU32 fill = IM_COL32(205, 125, 35, 255);
-            constexpr ImU32 outline = IM_COL32(45, 25, 5, 230);
-            drawList->AddRectFilled(ImVec2(sx - halfW, sy - halfH),
-                                    ImVec2(sx + halfW, sy + halfH), fill, 1.5f);
-            drawList->AddRect(ImVec2(sx - halfW, sy - halfH),
-                              ImVec2(sx + halfW, sy + halfH), outline, 1.5f, 0, 1.5f);
-            drawList->AddLine(ImVec2(sx - halfW, sy - 0.8f),
-                              ImVec2(sx + halfW, sy - 0.8f), outline, 1.0f);
-            drawList->AddRectFilled(ImVec2(sx - 1.0f, sy - 1.2f),
-                                    ImVec2(sx + 1.0f, sy + 1.3f),
-                                    IM_COL32(255, 220, 80, 255), 0.5f);
-
-            if (mouse.x >= sx - halfW - 2.0f && mouse.x <= sx + halfW + 2.0f &&
-                mouse.y >= sy - halfH - 2.0f && mouse.y <= sy + halfH + 2.0f) {
-                const std::string& name = chest->getName().empty() ? info->name : chest->getName();
-                ImGui::SetTooltip("%s\nChest", name.empty() ? "Chest" : name.c_str());
-            }
-        }
-    }
-
+    renderMinimapNpcDots(frame, minimapUnits, minimapQuestEntries);
+    renderMinimapFlightMasters(frame, minimapUnits);
+    renderMinimapRares(frame, minimapUnits, gameHandler);
+    renderMinimapPlayerDots(frame, minimapPlayers, gameHandler);
+    renderMinimapLootCorpses(frame, minimapUnits);
+    renderMinimapObjectDots(frame, minimapGameObjects, minimapQuestGoEntries, gameHandler);
+    renderMinimapChests(frame, minimapGameObjects, gameHandler);
     // Party member dots on minimap — small colored squares with name tooltip on hover
     if (gameHandler.isInGroup()) {
         const auto& partyData = gameHandler.getPartyData();

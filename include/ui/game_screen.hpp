@@ -290,6 +290,28 @@ private:
         bool projectCanonical(float wowX, float wowY, float& sx, float& sy) const;
     };
 
+    /// The entity lists the marker categories walk, partitioned once per frame.
+    using EntityList = std::vector<std::shared_ptr<game::Entity>>;
+    using EntrySet = std::unordered_set<uint32_t>;
+
+    /// One marker category each. They were fourteen blocks of one function and
+    /// are independent of each other — each walks its own list and draws its own
+    /// shape — so the only thing that kept them together was the locals they
+    /// shared, which MinimapFrame now carries.
+    void renderMinimapNpcDots(const MinimapFrame& frame, const EntityList& units,
+                              const EntrySet& questEntries);
+    void renderMinimapFlightMasters(const MinimapFrame& frame, const EntityList& units);
+    void renderMinimapRares(const MinimapFrame& frame, const EntityList& units,
+                            game::GameHandler& gameHandler);
+    void renderMinimapPlayerDots(const MinimapFrame& frame, const EntityList& players,
+                                 game::GameHandler& gameHandler);
+    void renderMinimapLootCorpses(const MinimapFrame& frame, const EntityList& units);
+    void renderMinimapObjectDots(const MinimapFrame& frame, const EntityList& objects,
+                                 const EntrySet& questGoEntries,
+                                 game::GameHandler& gameHandler);
+    void renderMinimapChests(const MinimapFrame& frame, const EntityList& objects,
+                             game::GameHandler& gameHandler);
+
     void renderMinimapChrome(game::GameHandler& gameHandler, float centerX,
                              float centerY, float mapRadius);
     void refreshQuestObjectiveCache(game::GameHandler& gameHandler);
