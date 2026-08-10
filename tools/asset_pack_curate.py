@@ -525,14 +525,25 @@ def curate(overlay_root, apply_changes, keep_hd=False):
         #
         # So it is a list, and it is a list because the distinction is visual.
         # A size test was tried first and reverted dwarf and troll for nothing.
-        # Empty, now that the compositor sizes its atlas to the art.
+        # Tauren and draenei, and the reason is now a tested one rather than a
+        # theory.
         #
-        # Reverting these races to the game's own face art was a way of coping
-        # with a canvas that could not hold theirs. The canvas grows for them
-        # instead, so the art they ship is placed at its own size and nothing
-        # has to be given up. Left as a list rather than deleted: a pack whose
-        # face art neither fits nor scales would go here.
-        LAYOUT_MISMATCH_RACES = set()
+        # Their HD faceLower is a different picture from the stock one, not a
+        # larger one: a front-facing head where the stock is a side profile, a
+        # muzzle seen head on where the stock is the side of a head. The obvious
+        # answer was that it wanted a bigger canvas — 512x256 is exactly the
+        # faceLower region of a 1024 atlas — so the compositor was taught to
+        # grow, and it was placed at its own size with nothing resampled.
+        #
+        # It is still wrong. So the sheet does not belong in that region at any
+        # size, and where it does belong is not something the region table
+        # knows. Until that is found, these two use the art the game shipped,
+        # which fits the models exactly.
+        #
+        # Dwarf and troll are NOT here. Their HD art is a faithful 2x of the
+        # stock art — same parts in the same places — so the grown canvas gives
+        # them theirs at full resolution, which is the whole point of it.
+        LAYOUT_MISMATCH_RACES = {6, 11}   # Tauren, Draenei
 
         oversized = {(vals[RACE], vals[SEX])
                      for _id, (vals, _r, _i) in cs_rows.items()
