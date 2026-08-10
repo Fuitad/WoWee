@@ -667,19 +667,6 @@ static void applySoundCVars(lua_State* L) {
 /// button restored each control to whatever it had been when the panel was
 /// opened. Nothing looked broken: the button worked, it just always agreed
 /// with wherever the controls already were.
-/// A number as a CVar carries it: no trailing zeros, and a whole number with no
-/// point at all.
-///
-/// std::to_string gives six decimals for everything, and the options panels
-/// compare some of these as strings — a checkbox tests `value == "1"`, which
-/// "1.000000" fails.
-std::string formatCVarNumber(double v) {
-    if (v == static_cast<long long>(v)) return std::to_string(static_cast<long long>(v));
-    std::string s = std::to_string(v);
-    while (s.size() > 1 && s.back() == '0') s.pop_back();
-    if (!s.empty() && s.back() == '.') s.pop_back();
-    return s;
-}
 
 static void pushCvarDefault(lua_State* L, const std::string& n) {
     // Return sensible defaults for commonly queried CVars
@@ -1001,7 +988,7 @@ static int lua_GetCVar(lua_State* L) {
             if (isSwitch) {
                 lua_pushstring(L, v != 0.0f ? "1" : "0");
             } else {
-                lua_pushstring(L, formatCVarNumber(v).c_str());
+                lua_pushstring(L, ui::settingNumberText(v).c_str());
             }
             return 1;
         }
@@ -1038,7 +1025,7 @@ static int lua_GetCVar(lua_State* L) {
         // rather than what was applied — which is how a control comes to show a
         // number the interface is not using.
         if (auto* tree = getWidgetTree(L)) {
-            lua_pushstring(L, formatCVarNumber(tree->userScale()).c_str());
+            lua_pushstring(L, ui::settingNumberText(tree->userScale()).c_str());
             return 1;
         }
     }

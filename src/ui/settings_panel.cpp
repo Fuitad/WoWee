@@ -4,6 +4,7 @@
 // graphics preset logic.
 // ============================================================
 #include "ui/settings_panel.hpp"
+#include "ui/settings_schema.hpp"
 #include "ui/display_modes.hpp"
 #include "ui/inventory_screen.hpp"
 #include "ui/chat_panel.hpp"
@@ -1453,52 +1454,36 @@ std::string SettingsPanel::getSettingsPath() {
     return core::getConfigRoot() + "/settings.cfg";
 }
 
-namespace {
-
-/// A number as a CVar carries it: whole numbers with no point, fractions
-/// without the trailing zeros. The options panels compare some of these as
-/// strings, so "1.000000" is not the same answer as "1".
-std::string settingNumber(double v) {
-    if (v == static_cast<long long>(v)) return std::to_string(static_cast<long long>(v));
-    std::string s = std::to_string(v);
-    while (s.size() > 1 && s.back() == '0') s.pop_back();
-    if (!s.empty() && s.back() == '.') s.pop_back();
-    return s;
-}
-
-bool settingTruth(const std::string& v) { return !v.empty() && v != "0"; }
-
-}  // namespace
 
 std::string SettingsPanel::settingValue(const std::string& key) const {
     // Bound to a Blizzard control as well, through kClientCVars.
-    if (key == "viewdistance")    return settingNumber(pendingViewDistance);
-    if (key == "mousespeed")      return settingNumber(pendingMouseSensitivity);
+    if (key == "viewdistance")    return settingNumberText(pendingViewDistance);
+    if (key == "mousespeed")      return settingNumberText(pendingMouseSensitivity);
     if (key == "minimapclock")    return pendingShowMinimapClock ? "1" : "0";
     if (key == "friendlyplates")  return showFriendlyNameplates_ ? "1" : "0";
-    if (key == "groundclutter")   return settingNumber(pendingGroundClutterDensity / 100.0);
-    if (key == "effectsvolume")   return settingNumber(pendingEffectsVolume / 100.0);
+    if (key == "groundclutter")   return settingNumberText(pendingGroundClutterDensity / 100.0);
+    if (key == "effectsvolume")   return settingNumberText(pendingEffectsVolume / 100.0);
 
     // This client's own, with no Blizzard equivalent — the Wowee category.
     if (key == "waterrefraction") return pendingWaterRefraction ? "1" : "0";
     if (key == "shadows")         return pendingShadows ? "1" : "0";
-    if (key == "shadowdistance")  return settingNumber(pendingShadowDistance);
-    if (key == "fov")             return settingNumber(pendingFov);
+    if (key == "shadowdistance")  return settingNumberText(pendingShadowDistance);
+    if (key == "fov")             return settingNumberText(pendingFov);
     if (key == "extendedzoom")    return pendingExtendedZoom ? "1" : "0";
-    if (key == "camerastiffness") return settingNumber(pendingCameraStiffness);
-    if (key == "pivotheight")     return settingNumber(pendingPivotHeight);
+    if (key == "camerastiffness") return settingNumberText(pendingCameraStiffness);
+    if (key == "pivotheight")     return settingNumberText(pendingPivotHeight);
     if (key == "smoothfollow")    return pendingSmoothCameraFollow ? "1" : "0";
     if (key == "idleorbit")       return pendingIdleCameraOrbit ? "1" : "0";
-    if (key == "uiopacity")       return settingNumber(pendingUiOpacity);
+    if (key == "uiopacity")       return settingNumberText(pendingUiOpacity);
     if (key == "minimapsquare")   return pendingMinimapSquare ? "1" : "0";
     if (key == "minimapnpcdots")  return pendingMinimapNpcDots ? "1" : "0";
     if (key == "minimapcoords")   return pendingShowMinimapCoordinates ? "1" : "0";
     if (key == "latencymeter")    return pendingShowLatencyMeter ? "1" : "0";
     if (key == "separatebags")    return pendingSeparateBags ? "1" : "0";
     if (key == "showkeyring")     return pendingShowKeyring ? "1" : "0";
-    if (key == "bagscale")        return settingNumber(pendingBagScale);
-    if (key == "buffbarscale")    return settingNumber(pendingBuffBarScale);
-    if (key == "actionbarscale")  return settingNumber(pendingActionBarScale);
+    if (key == "bagscale")        return settingNumberText(pendingBagScale);
+    if (key == "buffbarscale")    return settingNumberText(pendingBuffBarScale);
+    if (key == "actionbarscale")  return settingNumberText(pendingActionBarScale);
     if (key == "autosellgrey")    return pendingAutoSellGrey ? "1" : "0";
     if (key == "autorepair")      return pendingAutoRepair ? "1" : "0";
     if (key == "woweemusic")      return pendingUseOriginalSoundtrack ? "1" : "0";
@@ -1508,7 +1493,7 @@ std::string SettingsPanel::settingValue(const std::string& key) const {
 
 bool SettingsPanel::setSettingValue(const std::string& key, const std::string& value) {
     const double v = std::atof(value.c_str());
-    const bool on = settingTruth(value);
+    const bool on = settingIsOn(value);
 
     if (key == "viewdistance")         pendingViewDistance = static_cast<float>(v);
     else if (key == "mousespeed")      pendingMouseSensitivity = static_cast<float>(v);
