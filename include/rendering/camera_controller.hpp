@@ -230,6 +230,19 @@ private:
     /// The camera that flies itself, used when nothing is being followed.
     void updateFreeFlyCamera(float deltaTime, FrameInput& f);
 
+    /// Where the followed character wants to be this frame: the movement
+    /// intent and the swept wall collision. The floor is not consulted yet.
+    glm::vec3 moveFollowedCharacter(float deltaTime, FrameInput& f, glm::vec3& prevTargetPos);
+
+    /// Put the character on the floor and publish where it ended up — the
+    /// expensive half, with the floor queries and the cache that skips them.
+    void groundFollowedCharacter(float deltaTime, FrameInput& f, glm::vec3& targetPos,
+                                 const glm::vec3& prevTargetPos);
+
+    /// Where the camera sits relative to the character it follows: pivot, zoom,
+    /// the pullback that keeps it out of walls, and the first-person threshold.
+    void updateOrbitCamera(float deltaTime, FrameInput& f, const glm::vec3& targetPos);
+
     /// Move from `from` to `to` in small steps, letting the walls push back.
     ///
     /// A single long move tunnels through thin geometry, so it is broken into

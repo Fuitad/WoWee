@@ -244,10 +244,16 @@ glm::vec3 CameraController::sweepAgainstWalls(const glm::vec3& from, const glm::
 // Collision, grounding, swimming, flight, the zoom, and the pullback that keeps
 // the camera out of walls. This was the larger half of a two-thousand-line
 // update(), and everything it needs from the half before it arrives in `f`.
-void CameraController::updateThirdPersonCamera(float deltaTime, FrameInput& f) {
+// Where the followed character wants to be this frame.
+//
+// The movement intent — walking, swimming, flying, jumping, falling — and the
+// swept wall collision that keeps it out of geometry. Answers the position it
+// arrived at; the floor has not been consulted yet.
+glm::vec3 CameraController::moveFollowedCharacter(float deltaTime, FrameInput& f,
+                                                  glm::vec3& prevTargetPos) {
     // Move the follow target (character position) instead of the camera
+    prevTargetPos = *followTarget;
     glm::vec3 targetPos = *followTarget;
-    const glm::vec3 prevTargetPos = *followTarget;
     if (!externalFollow_) {
         if (wmoRenderer) {
             wmoRenderer->setCollisionFocus(targetPos, COLLISION_FOCUS_RADIUS_THIRD_PERSON);
@@ -670,6 +676,17 @@ void CameraController::updateThirdPersonCamera(float deltaTime, FrameInput& f) {
     // Use tighter steps when inside WMO for more precise collision.
     targetPos = sweepAgainstWalls(*followTarget, targetPos, true);
 
+    return targetPos;
+}
+
+// Put the character on the floor, and publish where it ended up.
+//
+// The expensive half: terrain, WMO and doodad floor queries, the step-up
+// budget, the slope limit, the cache that skips all of it when barely moving.
+// Then the follow target is written, and a fall through the world is caught.
+void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
+                                               glm::vec3& targetPos,
+                                               const glm::vec3& prevTargetPos) {
     // Ground the character to terrain or WMO floor
     // Skip entirely while swimming — the swim floor clamp handles vertical bounds.
     if (!swimming) {
@@ -1524,7 +1541,15 @@ void CameraController::updateThirdPersonCamera(float deltaTime, FrameInput& f) {
             }
         }
     }
+}
 
+// The camera itself: where it sits relative to the character it follows.
+//
+// Pivot at the neck, zoom smoothing, the raycast that pulls the camera in when
+// a wall is behind it, the floor clearance that stops it sinking through a
+// tunnel roof, and the first-person threshold where the character is hidden.
+void CameraController::updateOrbitCamera(float deltaTime, FrameInput& f,
+                                         const glm::vec3& targetPos) {
     // ===== WoW-style orbit camera =====
     // Pivot point at upper chest/neck.
     float mountedOffset = mounted_ ? mountHeightOffset_ : 0.0f;
@@ -1759,6 +1784,13 @@ void CameraController::updateThirdPersonCamera(float deltaTime, FrameInput& f) {
         // Note: the Renderer's CharAnimState machine drives player character animations
         // (Run, Walk, Jump, Swim, etc.) — no additional animation driving needed here.
     }
+}
+
+void CameraController::updateThirdPersonCamera(float deltaTime, FrameInput& f) {
+    glm::vec3 prevTargetPos(0.0f);
+    glm::vec3 targetPos = moveFollowedCharacter(deltaTime, f, prevTargetPos);
+    groundFollowedCharacter(deltaTime, f, targetPos, prevTargetPos);
+    updateOrbitCamera(deltaTime, f, targetPos);
 }
 
 // The camera that flies itself, used when nothing is being followed.
