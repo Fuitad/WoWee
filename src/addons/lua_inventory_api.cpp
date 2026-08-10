@@ -4462,7 +4462,24 @@ void registerInventoryLuaAPI(lua_State* L) {
             return 2;
         }},
                 {"GetAuctionItemInfo", [](lua_State* L) -> int {
-            // GetAuctionItemInfo(type, index) → name, texture, count, quality, canUse, level, levelColHeader, minBid, minIncrement, buyoutPrice, bidAmount, highBidder, bidderFullName, owner, ownerFullName, saleStatus, itemId
+            // GetAuctionItemInfo(type, index) → name, texture, count, quality,
+            // canUse, level, minBid, minIncrement, buyoutPrice, bidAmount,
+            // highBidder, owner, saleStatus
+            //
+            // 3.3.5's thirteen, in 3.3.5's order. This answered Cataclysm's
+            // seventeen — levelColHeader after level, and bidderFullName and
+            // ownerFullName around owner — and the interface reading it is
+            // 3.3.5's:
+            //
+            //   name, texture, count, quality, canUse, level, minBid,
+            //   minIncrement, buyoutPrice, bidAmount, highBidder, owner
+            //
+            // so every value from the seventh on landed one place early. minBid
+            // received the empty levelColHeader, minIncrement received minBid,
+            // buyoutPrice received minIncrement — which is why no row showed a
+            // buyout — bidAmount received the buyout, and owner received a
+            // boolean. Bidding and buying read the prices they were given, so
+            // both were computed from the wrong number and refused.
             auto* gh = getGameHandler(L);
             const char* listType = luaL_checkstring(L, 1);
             int index = static_cast<int>(luaL_checknumber(L, 2));
@@ -4484,7 +4501,6 @@ void registerInventoryLuaAPI(lua_State* L) {
             lua_pushnumber(L, quality);             // quality
             lua_pushboolean(L, 1);                  // canUse
             lua_pushnumber(L, info ? info->requiredLevel : 0); // level
-            lua_pushstring(L, "");                  // levelColHeader
             lua_pushnumber(L, a.startBid);          // minBid
             lua_pushnumber(L, a.minBidIncrement);   // minIncrement
             lua_pushnumber(L, a.buyoutPrice);       // buyoutPrice
@@ -4501,16 +4517,11 @@ void registerInventoryLuaAPI(lua_State* L) {
             // every owner guid it does not know), so by the time a row is
             // drawn twice this has an answer; before that it is empty, which
             // is what an unknown seller looks like anyway.
-            const std::string bidderName =
-                a.bidderGuid ? gh->lookupName(a.bidderGuid) : std::string();
             const std::string ownerName =
                 a.ownerGuid ? gh->lookupName(a.ownerGuid) : std::string();
-            lua_pushstring(L, bidderName.c_str());  // bidderFullName
             lua_pushstring(L, ownerName.c_str());   // owner
-            lua_pushstring(L, ownerName.c_str());   // ownerFullName
             lua_pushnumber(L, 0);                   // saleStatus
-            lua_pushnumber(L, a.itemEntry);         // itemId
-            return 17;
+            return 13;
         }},
                 {"GetAuctionItemTimeLeft", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
