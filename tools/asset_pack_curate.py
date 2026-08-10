@@ -188,9 +188,16 @@ def curate(overlay_root, apply_changes, keep_hd=False):
         if not key.endswith(".m2") or key in drop:
             continue
         textures = m2_textures(os.path.join(files_root, val["p"]))
-        missing = [name for typ, name in textures
-                   if typ == 0 and name and not resolves(name)]
-        hard = [name for name in missing if not is_reflection(name)]
+        # Only the FIRST texture slot decides. That is the one that covers the
+        # mesh; the slots after it are what a model adds on top — a reflection,
+        # a glow, waterfall spray. The Stormwind lion statue lost slot 0 and
+        # rendered white, which is the case this rule is for. The gryphon roost
+        # lost slots 1 and 2 — spray and a reflection — and was disabled beside
+        # it for no reason, which is why the roosting gryphons outside a flight
+        # master were still the stock ones.
+        first = [name for typ, name in textures[:1] if typ == 0 and name]
+        hard = [name for name in first
+                if not resolves(name) and not is_reflection(name)]
         # A name in a runtime skin slot is NOT a reason to disable the model.
         # Types 11, 12 and 13 are filled from CreatureDisplayInfo at spawn, over
         # whatever the file says — so a leftover name that resolves to nothing

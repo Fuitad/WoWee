@@ -538,8 +538,19 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
                     auto model = std::make_shared<pipeline::M2Model>(pipeline::M2Loader::load(m2Data));
                     if (model->name.empty()) model->name = m2Path;
                     if (model->vertices.empty()) {
+                        LOG_WARNING("Creature model parsed to nothing: displayId=",
+                                    s.displayId, " ", m2Path, " (", m2Data.size(), " bytes)");
                         result.permanent_failure = true;
                         return result;
+                    }
+                    // What was actually read off disk for this display, and how
+                    // big it is. A path that resolves to the model wanted and a
+                    // model that is drawn are two different claims, and only the
+                    // second one is what is on screen.
+                    if (m2Path.find("\\NPC\\") != std::string::npos ||
+                        m2Path.find("\\npc\\") != std::string::npos) {
+                        LOG_WARNING("NPC model loaded: displayId=", s.displayId, " ", m2Path,
+                                    " vertices=", model->vertices.size());
                     }
 
                     // Load skin file
