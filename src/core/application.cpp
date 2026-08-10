@@ -437,6 +437,10 @@ bool Application::initialize() {
             if (!uim || !gh) return false;
             return uim->getGameScreen().getChatPanel().runRegistryCommand(*gh, alias, args);
         };
+        luaSvc.playEmoteAnimation = [rend = renderer.get()](const std::string& name) {
+            if (!rend) return;
+            if (auto* ac = rend->getAnimationController()) ac->playEmote(name);
+        };
         luaSvc.getGamma = [uim = uiManager.get()]() -> float {
             return uim ? uim->getGameScreen().getGamma() : 1.0f;
         };

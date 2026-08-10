@@ -2270,6 +2270,13 @@ void registerSocialLuaAPI(lua_State* L) {
                 target = gh->hasTarget() ? gh->getTargetGuid() : 0;
             }
             gh->sendTextEmote(emoteId, target);
+            // And the animation, which this did not do. Telling the server is
+            // the half that is seen by everyone else; playing it is the half
+            // seen by the player, and standing still while the room is told you
+            // danced is what an emote that "does nothing" looks like.
+            if (auto* svc = getLuaServices(L); svc && svc->playEmoteAnimation) {
+                svc->playEmoteAnimation(name);
+            }
             return 0;
         }},
                 {"AddFriend", [](lua_State* L) -> int {

@@ -264,16 +264,30 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
             // does not carry the extra art, which is every stock one.
             if (!result.skinExtraPath.empty()) {
                 tex.filename = result.skinExtraPath;
-                // Which art the head detail — eyes, mouth, ears, eyelashes —
-                // is being drawn from. Skin-coloured lashes mean this landed on
-                // the body art rather than the extra sheet.
-                LOG_WARNING("Character skin-extra (texture type 8) <- ", tex.filename);
             } else if (!result.underwearPaths.empty()) {
                 tex.filename = result.underwearPaths[0];
             } else {
                 tex.filename = pelvisPath;
             }
         }
+    }
+
+    // Everything the head detail depends on, in one line, whichever way it went.
+    // Skin-coloured eyelashes are what you see when type 8 falls back to the
+    // body or pelvis art, and the three things that decide it — whether the
+    // model asks for type 8, whether CharSections offered an extra texture, and
+    // what was bound in the end — cannot be told apart from a screenshot.
+    {
+        bool modelWantsExtra = false;
+        std::string bound;
+        for (const auto& tex : model.textures) {
+            if (tex.type == 8) { modelWantsExtra = true; bound = tex.filename; break; }
+        }
+        LOG_WARNING("Character head detail: model asks for type 8: ",
+                    (modelWantsExtra ? "yes" : "no"),
+                    " | CharSections extra: '", result.skinExtraPath,
+                    "' | bound: '", bound,
+                    "' | body: '", result.bodySkinPath, "'");
     }
 
     return result;
