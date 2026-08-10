@@ -2547,6 +2547,9 @@ public:
 /** CMSG_LEARN_TALENT packet builder */
 class LearnTalentPacket {
 public:
+    /// requestedRank counts from ONE — rank 1 is a talent's first rank, which is
+    /// how the rest of the client counts them and what SMSG_TALENTS_INFO is
+    /// stored as. The wire counts from zero; the builder converts.
     static network::Packet build(uint32_t talentId, uint32_t requestedRank);
 };
 

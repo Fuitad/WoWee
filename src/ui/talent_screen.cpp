@@ -200,7 +200,11 @@ void TalentScreen::renderTalentTrees(game::GameHandler& gameHandler) {
         ImGui::TextWrapped("Spend a talent point?");
         ImGui::Spacing();
         if (ImGui::Button("Learn", ImVec2(80, 0))) {
-            gameHandler.learnTalent(pendingTalentId_, pendingTalentRank_);
+            // pendingTalentRank_ holds how many ranks are already learned, which
+            // is the wire's index for the next one. learnTalent counts a talent's
+            // first rank as 1 — the same as everywhere above the wire — so this
+            // is the rank being asked for, and the builder converts.
+            gameHandler.learnTalent(pendingTalentId_, pendingTalentRank_ + 1);
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
