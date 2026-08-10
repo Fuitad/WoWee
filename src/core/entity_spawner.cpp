@@ -1955,8 +1955,14 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             if (itemDisplayDbc) {
                 // Equipment slots: 0=helm, 1=shoulder, 2=shirt, 3=chest, 4=belt, 5=legs, 6=feet, 7=wrist, 8=hands, 9=tabard, 10=cape
                 const uint32_t fGG1 = idiL ? (*idiL)["GeosetGroup1"] : 7;
+                // An item can drive a second group as well as its own. A robe's
+                // chest piece names group 13 here — the kilt over the legs —
+                // and this path never read it, so an NPC in a robe wore
+                // trousers under it while a player in the same robe did not.
+                const uint32_t fGG3 = idiL ? (*idiL)["GeosetGroup3"] : 9;
 
-                auto readGeosetGroup = [&](int slot, const char* slotName) -> uint32_t {
+                auto readGeosetGroupField = [&](int slot, const char* slotName,
+                                                uint32_t field) -> uint32_t {
                     uint32_t did = extra.equipDisplayId[slot];
                     if (did == 0) return 0;
                     int32_t idx = itemDisplayDbc->findRecordById(did);
@@ -1964,52 +1970,60 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                         LOG_DEBUG("NPC equip slot ", slotName, " displayId=", did, " NOT FOUND in ItemDisplayInfo.dbc");
                         return 0;
                     }
-                    uint32_t gg = itemDisplayDbc->getUInt32(static_cast<uint32_t>(idx), fGG1);
-                    LOG_DEBUG("NPC equip slot ", slotName, " displayId=", did, " GeosetGroup1=", gg);
+                    return itemDisplayDbc->getUInt32(static_cast<uint32_t>(idx), field);
+                };
+                auto readGeosetGroup = [&](int slot, const char* slotName) -> uint32_t {
+                    const uint32_t gg = readGeosetGroupField(slot, slotName, fGG1);
+                    LOG_DEBUG("NPC equip slot ", slotName, " displayId=",
+                              extra.equipDisplayId[slot], " GeosetGroup1=", gg);
                     return gg;
                 };
 
-                // Chest (slot 3) → group 8 (sleeves/wristbands)
+                // Chest (slot 3) → group 8 (sleeves/wristbands), and group 13
+                // when the piece is a robe: the kilt is named by the chest item,
+                // not by the legs.
                 {
                     uint32_t gg = readGeosetGroup(3, "chest");
-                    if (gg > 0) geosetSleeves = pickGeoset(equippedGeoset(kGeosetBareSleeves, gg), 8);
+                    if (gg > 0) geosetSleeves = pickGeoset(equippedGeoset(equipment::kChestBare, gg), 8);
+                    uint32_t gg3 = readGeosetGroupField(3, "chest", fGG3);
+                    if (gg3 > 0) geosetPants = pickGeoset(equippedGeoset(equipment::kRobeKiltBare, gg3), 13);
                 }
 
                 // Legs (slot 5) → group 13 (trousers)
                 {
                     uint32_t gg = readGeosetGroup(5, "legs");
-                    if (gg > 0) geosetPants = pickGeoset(equippedGeoset(kGeosetBarePants, gg), 13);
+                    if (gg > 0) geosetPants = pickGeoset(equippedGeoset(equipment::kLegsBare, gg), 13);
                 }
 
                 // Feet (slot 6) → group 5 (boots/shins)
                 {
                     uint32_t gg = readGeosetGroup(6, "feet");
-                    if (gg > 0) geosetBoots = pickGeoset(equippedGeoset(kGeosetBareShins, gg), 5);
+                    if (gg > 0) geosetBoots = pickGeoset(equippedGeoset(equipment::kBootsBare, gg), 5);
                 }
 
                 // Hands (slot 8) → group 4 (gloves/forearms)
                 {
                     uint32_t gg = readGeosetGroup(8, "hands");
-                    if (gg > 0) geosetGloves = pickGeoset(equippedGeoset(kGeosetBareForearms, gg), 4);
+                    if (gg > 0) geosetGloves = pickGeoset(equippedGeoset(equipment::kGlovesBare, gg), 4);
                 }
 
                 // Wrists (slot 7) → group 8 (sleeves, only if chest didn't set it)
                 {
                     uint32_t gg = readGeosetGroup(7, "wrist");
                     if (gg > 0 && geosetSleeves == pickGeoset(kGeosetBareSleeves, 8))
-                        geosetSleeves = pickGeoset(equippedGeoset(kGeosetBareSleeves, gg), 8);
+                        geosetSleeves = pickGeoset(equippedGeoset(equipment::kChestBare, gg), 8);
                 }
 
                 // Belt (slot 4) → group 18 (buckle)
                 {
                     uint32_t gg = readGeosetGroup(4, "belt");
-                    if (gg > 0) geosetBelt = equippedGeoset(1801, gg);
+                    if (gg > 0) geosetBelt = equippedGeoset(equipment::kBeltBase, gg);
                 }
 
                 // Tabard (slot 9) → group 12 (tabard/robe mesh)
                 {
                     uint32_t gg = readGeosetGroup(9, "tabard");
-                    if (gg > 0) geosetTabard = pickGeoset(equippedGeoset(1200, gg), 12);
+                    if (gg > 0) geosetTabard = pickGeoset(equippedGeoset(equipment::kTabardBase, gg), 12);
                 }
 
                 // Cape (slot 10) → group 15

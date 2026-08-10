@@ -173,5 +173,30 @@ constexpr uint16_t equippedGeoset(uint16_t bareId, uint32_t geosetGroupValue) {
     return static_cast<uint16_t>(bareId + geosetGroupValue);
 }
 
+/// Which geoset group each worn item drives, and the bare variant it replaces.
+///
+/// The two paths that read equipment come at it from different directions — a
+/// player's inventory is numbered one way and an NPC's CreatureDisplayInfoExtra
+/// array another — so the slot numbers cannot be shared. What they were both
+/// restating is this: which part of the body a given piece of armour changes.
+///
+/// Kept as named constants rather than a table, because each call site reads one
+/// of them and a table would only be looked up by an enum that says the same
+/// thing. What matters is that "a chest changes the sleeves" is written once.
+namespace equipment {
+constexpr uint16_t kChestBare  = kGeosetBareSleeves;   ///< group 8
+constexpr uint16_t kLegsBare   = kGeosetBarePants;     ///< group 13
+constexpr uint16_t kBootsBare  = kGeosetBareShins;     ///< group 5
+constexpr uint16_t kGlovesBare = kGeosetBareForearms;  ///< group 4
+constexpr uint16_t kWristBare  = kGeosetBareSleeves;   ///< group 8, same as chest
+constexpr uint16_t kBeltBase   = 1801;                 ///< group 18, the buckle
+constexpr uint16_t kTabardBase = 1200;                 ///< group 12
+
+/// A robe's chest piece also names the kilt over the legs, in its second geoset
+/// column rather than its first. Reading only the first is why an NPC in a robe
+/// wore trousers under it while a player in the same robe did not.
+constexpr uint16_t kRobeKiltBare = kGeosetBarePants;   ///< group 13
+}  // namespace equipment
+
 }  // namespace core
 }  // namespace wowee
