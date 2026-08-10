@@ -1,4 +1,5 @@
 #include "core/appearance_composer.hpp"
+#include "core/geoset_rules.hpp"
 #include "core/helm_visual.hpp"
 #include "core/entity_spawner.hpp"
 #include "core/logger.hpp"
@@ -297,9 +298,7 @@ std::unordered_set<uint16_t> AppearanceComposer::buildDefaultPlayerGeosets(uint8
     uint16_t selectedHairScalp = 1; // default
     if (entitySpawner_) {
         const auto& hairMap = entitySpawner_->getHairGeosetMap();
-        uint32_t hairKey = (static_cast<uint32_t>(raceId) << 16) |
-                           (static_cast<uint32_t>(sexId) << 8) |
-                           static_cast<uint32_t>(hairStyleId);
+        const uint32_t hairKey = appearanceKey(raceId, sexId, hairStyleId);
         auto it = hairMap.find(hairKey);
         if (it != hairMap.end() && it->second > 0)
             selectedHairScalp = it->second;
@@ -315,9 +314,7 @@ std::unordered_set<uint16_t> AppearanceComposer::buildDefaultPlayerGeosets(uint8
     // CharacterFacialHairStyles. They must not be derived from the hairstyle.
     if (entitySpawner_) {
         const auto& facialMap = entitySpawner_->getFacialHairGeosetMap();
-        uint32_t facialKey = (static_cast<uint32_t>(raceId) << 16) |
-                             (static_cast<uint32_t>(sexId) << 8) |
-                             static_cast<uint32_t>(facialId);
+        const uint32_t facialKey = appearanceKey(raceId, sexId, facialId);
         auto it = facialMap.find(facialKey);
         if (it != facialMap.end()) {
             // A zero means this channel has no feature — a night elf female has

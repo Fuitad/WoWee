@@ -86,5 +86,18 @@ inline void addFacialHairGeosets(std::unordered_set<uint16_t>& out,
     if (variant300 != 0) out.insert(static_cast<uint16_t>(300 + variant300));
 }
 
+/// Key for the (race, sex, variation) maps built from CharHairGeosets.dbc and
+/// CharFacialHairStyles.dbc.
+///
+/// It was packed by hand in ten places across three files. Every one of them had
+/// to agree bit for bit with every other, or a lookup would miss and say
+/// nothing — and a hair or beard lookup that misses does not report a fault, it
+/// quietly draws the default.
+constexpr uint32_t appearanceKey(uint8_t race, uint8_t sex, uint8_t variation) {
+    return (static_cast<uint32_t>(race) << 16) |
+           (static_cast<uint32_t>(sex) << 8) |
+           static_cast<uint32_t>(variation);
+}
+
 }  // namespace core
 }  // namespace wowee

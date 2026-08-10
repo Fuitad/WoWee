@@ -93,7 +93,9 @@ void CharacterPreview::ensureAppearanceGeosetsLoaded() {
             uint32_t variation = chg->getUInt32(i, chgL ? (*chgL)["Variation"] : 3);
             uint32_t geosetId = chg->getUInt32(i, chgL ? (*chgL)["GeosetID"] : 4);
             const bool useDefaultScalp = chg->getFieldCount() > 5 && chg->getUInt32(i, 5) != 0;
-            uint32_t key = (raceId << 16) | (sexId << 8) | variation;
+            const uint32_t key = core::appearanceKey(static_cast<uint8_t>(raceId),
+                                                    static_cast<uint8_t>(sexId),
+                                                    static_cast<uint8_t>(variation));
             hairGeosetMap_[key] = static_cast<uint16_t>(useDefaultScalp ? 1 : geosetId);
         }
         LOG_INFO("CharacterPreview: loaded ", hairGeosetMap_.size(), " hair geoset mappings");
@@ -107,7 +109,9 @@ void CharacterPreview::ensureAppearanceGeosetsLoaded() {
             uint32_t raceId = cfh->getUInt32(i, cfhL ? (*cfhL)["RaceID"] : 0);
             uint32_t sexId = cfh->getUInt32(i, cfhL ? (*cfhL)["SexID"] : 1);
             uint32_t variation = cfh->getUInt32(i, cfhL ? (*cfhL)["Variation"] : 2);
-            uint32_t key = (raceId << 16) | (sexId << 8) | variation;
+            const uint32_t key = core::appearanceKey(static_cast<uint8_t>(raceId),
+                                                    static_cast<uint8_t>(sexId),
+                                                    static_cast<uint8_t>(variation));
 
             FacialHairGeosets geosets;
             // Whichever columns this copy of the DBC keeps them in — see
@@ -125,9 +129,7 @@ uint16_t CharacterPreview::selectedHairScalpGeoset() const {
     const uint8_t raceId = static_cast<uint8_t>(race_);
     const uint8_t sexId = (gender_ == game::Gender::FEMALE ||
                            (gender_ == game::Gender::NONBINARY && useFemaleModel_)) ? 1u : 0u;
-    const uint32_t key = (static_cast<uint32_t>(raceId) << 16) |
-                         (static_cast<uint32_t>(sexId) << 8) |
-                         static_cast<uint32_t>(hairStyle_);
+    const uint32_t key = core::appearanceKey(raceId, sexId, static_cast<uint8_t>(hairStyle_));
 
     auto it = hairGeosetMap_.find(key);
     if (it != hairGeosetMap_.end() && it->second > 0) {
@@ -151,9 +153,7 @@ std::unordered_set<uint16_t> CharacterPreview::buildBaseGeosets() {
     activeGeosets.insert(0); // body base
     activeGeosets.insert(selectedHairScalp);
 
-    const uint32_t facialKey = (static_cast<uint32_t>(raceId) << 16) |
-                               (static_cast<uint32_t>(sexId) << 8) |
-                               static_cast<uint32_t>(facialHair_);
+    const uint32_t facialKey = core::appearanceKey(raceId, sexId, static_cast<uint8_t>(facialHair_));
     auto itFacial = facialHairGeosetMap_.find(facialKey);
     if (itFacial != facialHairGeosetMap_.end()) {
         core::addFacialHairGeosets(activeGeosets,

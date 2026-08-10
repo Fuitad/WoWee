@@ -738,7 +738,9 @@ void EntitySpawner::buildCreatureDisplayLookups() {
             // of the extra hair-cap mesh. Ignoring it makes the cap physically
             // poke through hair authored to expose the normal scalp.
             const bool useDefaultScalp = chg->getFieldCount() > 5 && chg->getUInt32(i, 5) != 0;
-            uint32_t key = (raceId << 16) | (sexId << 8) | variation;
+            const uint32_t key = appearanceKey(static_cast<uint8_t>(raceId),
+                                              static_cast<uint8_t>(sexId),
+                                              static_cast<uint8_t>(variation));
             hairGeosetMap_[key] = static_cast<uint16_t>(useDefaultScalp ? 1 : geosetId);
         }
         LOG_INFO("Loaded ", hairGeosetMap_.size(), " hair geoset mappings from CharHairGeosets.dbc");
@@ -754,7 +756,9 @@ void EntitySpawner::buildCreatureDisplayLookups() {
             uint32_t raceId = cfh->getUInt32(i, cfhL ? (*cfhL)["RaceID"] : 0);
             uint32_t sexId = cfh->getUInt32(i, cfhL ? (*cfhL)["SexID"] : 1);
             uint32_t variation = cfh->getUInt32(i, cfhL ? (*cfhL)["Variation"] : 2);
-            uint32_t key = (raceId << 16) | (sexId << 8) | variation;
+            const uint32_t key = appearanceKey(static_cast<uint8_t>(raceId),
+                                              static_cast<uint8_t>(sexId),
+                                              static_cast<uint8_t>(variation));
             FacialHairGeosets fhg;
             // Which columns those are depends on the copy of the DBC. The
             // nine-column file keeps them at 6-8 with three unused columns
@@ -1789,9 +1793,7 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             };
 
             uint16_t hairGeoset = 1;
-            uint32_t hairKey = (static_cast<uint32_t>(extra.raceId) << 16) |
-                               (static_cast<uint32_t>(extra.sexId) << 8) |
-                               static_cast<uint32_t>(extra.hairStyleId);
+            const uint32_t hairKey = appearanceKey(extra.raceId, extra.sexId, extra.hairStyleId);
             auto itHairGeo = hairGeosetMap_.find(hairKey);
             if (itHairGeo != hairGeosetMap_.end() && itHairGeo->second > 0) {
                 hairGeoset = itHairGeo->second;
@@ -1815,9 +1817,7 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             safeGeosets.insert(selectedHairScalp);
             addSafeGeoset(static_cast<uint16_t>(100 + std::max<uint16_t>(hairGeoset, 1)));
 
-            uint32_t facialKey = (static_cast<uint32_t>(extra.raceId) << 16) |
-                                 (static_cast<uint32_t>(extra.sexId) << 8) |
-                                 static_cast<uint32_t>(extra.facialHairId);
+            const uint32_t facialKey = appearanceKey(extra.raceId, extra.sexId, extra.facialHairId);
             auto itFacial = facialHairGeosetMap_.find(facialKey);
             if (itFacial != facialHairGeosetMap_.end()) {
                 const auto& fhg = itFacial->second;
@@ -1891,9 +1891,7 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             activeGeosets.insert(0);  // Body base mesh
 
             // Hair: CharHairGeosets.dbc maps (race, sex, hairStyleId) → group 0 scalp submeshId
-            uint32_t hairKey = (static_cast<uint32_t>(extra.raceId) << 16) |
-                               (static_cast<uint32_t>(extra.sexId) << 8) |
-                               static_cast<uint32_t>(extra.hairStyleId);
+            const uint32_t hairKey = appearanceKey(extra.raceId, extra.sexId, extra.hairStyleId);
             auto itHairGeo = hairGeosetMap_.find(hairKey);
             uint16_t hairScalpId = (itHairGeo != hairGeosetMap_.end()) ? itHairGeo->second : 0;
             if (hairScalpId > 0) {
@@ -1908,9 +1906,7 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             uint16_t hairGeoset = (hairScalpId > 0) ? hairScalpId : 1;
 
             // Facial hair geosets from CharFacialHairStyles.dbc lookup
-            uint32_t facialKey = (static_cast<uint32_t>(extra.raceId) << 16) |
-                                 (static_cast<uint32_t>(extra.sexId) << 8) |
-                                 static_cast<uint32_t>(extra.facialHairId);
+            const uint32_t facialKey = appearanceKey(extra.raceId, extra.sexId, extra.facialHairId);
             auto itFacial = facialHairGeosetMap_.find(facialKey);
             if (itFacial != facialHairGeosetMap_.end()) {
                 const auto& fhg = itFacial->second;
@@ -2324,16 +2320,14 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                     extraRaceId = itExtra->second.raceId;
                     extraSexId = itExtra->second.sexId;
                     hasEquippedTabard = (itExtra->second.equipDisplayId[9] != 0);
-                    uint32_t hairKey = (static_cast<uint32_t>(extraRaceId) << 16) |
-                                       (static_cast<uint32_t>(extraSexId) << 8) |
-                                       static_cast<uint32_t>(itExtra->second.hairStyleId);
+                    const uint32_t hairKey = appearanceKey(
+                        extraRaceId, extraSexId, itExtra->second.hairStyleId);
                     auto itHairGeo = hairGeosetMap_.find(hairKey);
                     if (itHairGeo != hairGeosetMap_.end() && itHairGeo->second > 0) {
                         selectedHairScalp = itHairGeo->second;
                     }
-                    uint32_t facialKey = (static_cast<uint32_t>(extraRaceId) << 16) |
-                                         (static_cast<uint32_t>(extraSexId) << 8) |
-                                         static_cast<uint32_t>(itExtra->second.facialHairId);
+                    const uint32_t facialKey = appearanceKey(
+                        extraRaceId, extraSexId, itExtra->second.facialHairId);
                     auto itFacial = facialHairGeosetMap_.find(facialKey);
                     if (itFacial != facialHairGeosetMap_.end()) {
                         selectedFacial100 = static_cast<uint16_t>(100 + itFacial->second.geoset100);

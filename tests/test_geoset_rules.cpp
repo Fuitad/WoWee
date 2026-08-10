@@ -118,3 +118,23 @@ TEST_CASE("facial hair: zero is none, and none is not an id", "[geoset]") {
         CHECK(set.count(300) == 0);
     }
 }
+
+TEST_CASE("the appearance key packs three bytes and nothing else", "[geoset]") {
+    // Ten hand-written copies of this expression had to agree bit for bit. A
+    // lookup that misses because one of them did not does not report a fault —
+    // it quietly draws the default hair, or the default beard.
+    CHECK(appearanceKey(1, 1, 5) == ((1u << 16) | (1u << 8) | 5u));
+    CHECK(appearanceKey(0, 0, 0) == 0u);
+
+    SECTION("no two characters share a key") {
+        CHECK(appearanceKey(1, 0, 3) != appearanceKey(1, 1, 3));   // sex
+        CHECK(appearanceKey(1, 1, 3) != appearanceKey(2, 1, 3));   // race
+        CHECK(appearanceKey(1, 1, 3) != appearanceKey(1, 1, 4));   // variation
+    }
+
+    SECTION("a byte in one field cannot reach another") {
+        // Race 0 with variation 255 must not collide with race 0 sex 255.
+        CHECK(appearanceKey(0, 0, 255) != appearanceKey(0, 255, 0));
+        CHECK(appearanceKey(255, 0, 0) != appearanceKey(0, 255, 0));
+    }
+}
