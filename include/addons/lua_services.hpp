@@ -42,6 +42,14 @@ struct LuaServices {
     /// it between frames instead.
     std::function<void()> requestReloadUI;
 
+    /// Open this client's settings window, on a named tab when one is given.
+    ///
+    /// FrameXML's GameMenuFrame has Video, Sound and Interface buttons that
+    /// call ShowUIPanel on option frames the shim only creates as shells. This
+    /// is where those go instead — the settings themselves live in this
+    /// client's panel, and handing over the menu must not hide them.
+    std::function<void(const std::string&)> openSettings;
+
     /// Play an emote's animation on the player, by emote name.
     ///
     /// DoEmote sent the emote to the server and stopped there, so the player

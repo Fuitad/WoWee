@@ -3598,6 +3598,22 @@ static int lua_ReloadUI(lua_State* L) {
     return 0;
 }
 
+// WoweeShowSettings(tab) — open this client's settings window.
+//
+// FrameXML's game menu has Video, Sound and Interface buttons, and the frames
+// they open are shells in this shim: InterfaceOptionsFrame exists so addons can
+// register panels against it, and nothing draws it. The settings themselves —
+// sixty-odd of them — are in this client's own window, so the menu's buttons
+// come here instead of opening an empty frame.
+//
+// The tab name is optional and matches the window's own tab labels.
+static int lua_WoweeShowSettings(lua_State* L) {
+    auto* svc = getLuaServices(L);
+    const char* tab = lua_isstring(L, 1) ? lua_tostring(L, 1) : nullptr;
+    if (svc && svc->openSettings) svc->openSettings(tab ? tab : "");
+    return 0;
+}
+
 // GetGamma() / SetGamma(value) — screen brightness, as the video options mean
 // it. One is neutral. Backed by the client's own brightness setting, so the
 // two sliders move together instead of disagreeing.
@@ -3855,6 +3871,7 @@ void registerSystemLuaAPI(lua_State* L) {
     loadInterfaceState();
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"Screenshot",               lua_Screenshot},
+                {"WoweeShowSettings",        lua_WoweeShowSettings},
                 {"HasLFGRestrictions",       lua_HasLFGRestrictions},
                 {"GetLFGProposal",           lua_GetLFGProposal},
                 {"GetLFGInfoServer",         lua_GetLFGInfoServer},

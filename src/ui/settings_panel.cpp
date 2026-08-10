@@ -841,11 +841,19 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
         // visible regardless of which tab or section is active.
         const float footerHeight = ImGui::GetFrameHeightWithSpacing() + 18.0f;
         ImGui::BeginChild("SettingsTabRegion", ImVec2(0, -footerHeight), false);
+        // A tab named by whoever opened the window wins for exactly one frame.
+        // FrameXML's game menu asks for Video, Audio or Interface depending on
+        // which of its three buttons was pressed.
+        auto tabFlagFor = [this](const char* name) -> ImGuiTabItemFlags {
+            if (requestedTab_.empty() || requestedTab_ != name) return ImGuiTabItemFlags_None;
+            requestedTab_.clear();
+            return ImGuiTabItemFlags_SetSelected;
+        };
         if (ImGui::BeginTabBar("SettingsTabs", ImGuiTabBarFlags_None)) {
             // ============================================================
             // VIDEO TAB
             // ============================================================
-            if (ImGui::BeginTabItem("Video")) {
+            if (ImGui::BeginTabItem("Video", nullptr, tabFlagFor("Video"))) {
                 ImGui::Spacing();
 
                 // Graphics Quality Presets
@@ -1169,7 +1177,7 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
             // ============================================================
             // INTERFACE TAB
             // ============================================================
-            if (ImGui::BeginTabItem("Interface")) {
+            if (ImGui::BeginTabItem("Interface", nullptr, tabFlagFor("Interface"))) {
                 renderSettingsInterfaceTab(saveCallback);
                 ImGui::EndTabItem();
             }
@@ -1177,7 +1185,7 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
             // ============================================================
             // AUDIO TAB
             // ============================================================
-            if (ImGui::BeginTabItem("Audio")) {
+            if (ImGui::BeginTabItem("Audio", nullptr, tabFlagFor("Audio"))) {
                 renderSettingsAudioTab(saveCallback);
                 ImGui::EndTabItem();
             }
@@ -1185,7 +1193,7 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
             // ============================================================
             // GAMEPLAY TAB
             // ============================================================
-            if (ImGui::BeginTabItem("Gameplay")) {
+            if (ImGui::BeginTabItem("Gameplay", nullptr, tabFlagFor("Gameplay"))) {
                 renderSettingsGameplayTab(inventoryScreen, saveCallback);
                 ImGui::EndTabItem();
             }
@@ -1193,7 +1201,7 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
             // ============================================================
             // CONTROLS TAB
             // ============================================================
-            if (ImGui::BeginTabItem("Controls")) {
+            if (ImGui::BeginTabItem("Controls", nullptr, tabFlagFor("Controls"))) {
                 renderSettingsControlsTab(saveCallback);
                 ImGui::EndTabItem();
             }
@@ -1201,7 +1209,7 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
             // ============================================================
             // CHAT TAB
             // ============================================================
-            if (ImGui::BeginTabItem("Chat")) {
+            if (ImGui::BeginTabItem("Chat", nullptr, tabFlagFor("Chat"))) {
                 chatPanel.renderSettingsTab(saveCallback);
                 ImGui::EndTabItem();
             }
@@ -1209,7 +1217,7 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
             // ============================================================
             // ABOUT TAB
             // ============================================================
-            if (ImGui::BeginTabItem("About")) {
+            if (ImGui::BeginTabItem("About", nullptr, tabFlagFor("About"))) {
                 renderSettingsAboutTab();
                 ImGui::EndTabItem();
             }

@@ -711,9 +711,11 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     if (!frameXmlOwns(UiElement::GameMenu)) {
         windowManager_.renderEscapeMenu(settingsPanel_, gameHandler);
     }
-    if (!frameXmlOwns(UiElement::GameMenu)) {
-        settingsPanel_.renderSettingsWindow(inventoryScreen, chatPanel_, [this]() { saveSettings(); });
-    }
+    // Not gated on GameMenu ownership. FrameXML's own options frames are shells
+    // — its menu buttons are routed here through ShowUIPanel — and this window
+    // draws nothing unless something opened it, so leaving it out cost every
+    // setting in it the moment the menu was handed over.
+    settingsPanel_.renderSettingsWindow(inventoryScreen, chatPanel_, [this]() { saveSettings(); });
     toastManager_.renderLateToasts(gameHandler);
     renderWeatherOverlay(gameHandler);
 

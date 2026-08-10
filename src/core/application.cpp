@@ -426,6 +426,9 @@ bool Application::initialize() {
         luaSvc.audioCoordinator  = audioCoordinator_.get();
         luaSvc.expansionRegistry = expansionRegistry_.get();
         luaSvc.requestReloadUI = [this]() { reloadUiPending_ = true; };
+        luaSvc.openSettings = [uim = uiManager.get()](const std::string& tab) {
+            if (uim) uim->getGameScreen().openSettings(tab.empty() ? nullptr : tab.c_str());
+        };
         luaSvc.runMacroText = [uim = uiManager.get(), gh = gameHandler.get()](const std::string& body) {
             if (uim && gh) uim->getGameScreen().getChatPanel().executeMacroText(*gh, body);
         };
