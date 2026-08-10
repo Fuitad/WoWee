@@ -25,20 +25,10 @@ bool Celestial::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
     VkDevice device = vkCtx_->getDevice();
 
     // ------------------------------------------------------------------ shaders
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/celestial.vert.spv")) {
-        LOG_ERROR("Failed to load celestial vertex shader");
-        return false;
-    }
-
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/celestial.frag.spv")) {
-        LOG_ERROR("Failed to load celestial fragment shader");
-        return false;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/celestial.vert.spv", "assets/shaders/celestial.frag.spv", "celestial");
+    if (!shaders) return false;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     // ------------------------------------------------------------------ push constants
     // Layout: mat4(64) + vec4(16) + float*3(12) + pad(4) = 96 bytes
@@ -75,8 +65,6 @@ bool Celestial::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx_->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline_ == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create celestial pipeline");
@@ -104,7 +92,6 @@ void Celestial::recreatePipelines() {
     VkShaderModule fragModule;
     if (!fragModule.loadFromFile(device, "assets/shaders/celestial.frag.spv")) {
         LOG_ERROR("Celestial::recreatePipelines: failed to load fragment shader");
-        vertModule.destroy();
         return;
     }
 
@@ -130,8 +117,6 @@ void Celestial::recreatePipelines() {
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx_->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline_ == VK_NULL_HANDLE) {
         LOG_ERROR("Celestial::recreatePipelines: failed to create pipeline");

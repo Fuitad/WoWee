@@ -35,19 +35,10 @@ bool MountDust::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
     VkDevice device = vkCtx->getDevice();
 
     // Load SPIR-V shaders
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/mount_dust.vert.spv")) {
-        LOG_ERROR("Failed to load mount_dust vertex shader");
-        return false;
-    }
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/mount_dust.frag.spv")) {
-        LOG_ERROR("Failed to load mount_dust fragment shader");
-        return false;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/mount_dust.vert.spv", "assets/shaders/mount_dust.frag.spv", "mount_dust");
+    if (!shaders) return false;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     // No push constants needed for mount dust (all data is per-vertex)
     pipelineLayout = createPipelineLayout(device, {perFrameLayout}, {});
@@ -75,8 +66,6 @@ bool MountDust::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create mount dust pipeline");
@@ -166,8 +155,6 @@ void MountDust::recreatePipelines() {
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 }
 
 void MountDust::spawnDust(const glm::vec3& position, const glm::vec3& velocity, bool isMoving) {

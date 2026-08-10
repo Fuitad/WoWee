@@ -41,20 +41,10 @@ bool Weather::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
     VkDevice device = vkCtx->getDevice();
 
     // Load SPIR-V shaders
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/weather.vert.spv")) {
-        LOG_ERROR("Failed to load weather vertex shader");
-        return false;
-    }
-
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/weather.frag.spv")) {
-        LOG_ERROR("Failed to load weather fragment shader");
-        return false;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/weather.vert.spv", "assets/shaders/weather.frag.spv", "weather");
+    if (!shaders) return false;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     // Push constant range: { float particleSize; float pad0; float pad1; float pad2; vec4 particleColor; } = 32 bytes
     VkPushConstantRange pushRange{};
@@ -97,8 +87,6 @@ bool Weather::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create weather pipeline");
@@ -140,7 +128,6 @@ void Weather::recreatePipelines() {
     VkShaderModule fragModule;
     if (!fragModule.loadFromFile(device, "assets/shaders/weather.frag.spv")) {
         LOG_ERROR("Weather::recreatePipelines: failed to load fragment shader");
-        vertModule.destroy();
         return;
     }
 
@@ -174,8 +161,6 @@ void Weather::recreatePipelines() {
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline == VK_NULL_HANDLE) {
         LOG_ERROR("Weather::recreatePipelines: failed to create pipeline");

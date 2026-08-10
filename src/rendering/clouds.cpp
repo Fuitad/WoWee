@@ -25,20 +25,10 @@ bool Clouds::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
     VkDevice device = vkCtx_->getDevice();
 
     // ------------------------------------------------------------------ shaders
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/clouds.vert.spv")) {
-        LOG_ERROR("Failed to load clouds vertex shader");
-        return false;
-    }
-
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/clouds.frag.spv")) {
-        LOG_ERROR("Failed to load clouds fragment shader");
-        return false;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/clouds.vert.spv", "assets/shaders/clouds.frag.spv", "clouds");
+    if (!shaders) return false;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     // ------------------------------------------------------------------ push constants
     // Fragment-only push: 3 x vec4 = 48 bytes
@@ -82,8 +72,6 @@ bool Clouds::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx_->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline_ == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create clouds pipeline");
@@ -112,7 +100,6 @@ void Clouds::recreatePipelines() {
     VkShaderModule fragModule;
     if (!fragModule.loadFromFile(device, "assets/shaders/clouds.frag.spv")) {
         LOG_ERROR("Clouds::recreatePipelines: failed to load fragment shader");
-        vertModule.destroy();
         return;
     }
 
@@ -145,8 +132,6 @@ void Clouds::recreatePipelines() {
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx_->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline_ == VK_NULL_HANDLE) {
         LOG_ERROR("Clouds::recreatePipelines: failed to create pipeline");

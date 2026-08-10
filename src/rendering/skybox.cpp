@@ -35,20 +35,10 @@ bool Skybox::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
     VkDevice device = vkCtx->getDevice();
 
     // Load SPIR-V shaders
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/skybox.vert.spv")) {
-        LOG_ERROR("Failed to load skybox vertex shader");
-        return false;
-    }
-
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/skybox.frag.spv")) {
-        LOG_ERROR("Failed to load skybox fragment shader");
-        return false;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/skybox.vert.spv", "assets/shaders/skybox.frag.spv", "skybox");
+    if (!shaders) return false;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     // Push constant range: 5 x vec4 = 80 bytes
     VkPushConstantRange pushRange{};
@@ -81,8 +71,6 @@ bool Skybox::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout) {
         .build(device, vkCtx->getPipelineCache());
 
     // Shader modules can be freed after pipeline creation
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create skybox pipeline");
@@ -107,7 +95,6 @@ void Skybox::recreatePipelines() {
     VkShaderModule fragModule;
     if (!fragModule.loadFromFile(device, "assets/shaders/skybox.frag.spv")) {
         LOG_ERROR("Skybox::recreatePipelines: failed to load fragment shader");
-        vertModule.destroy();
         return;
     }
 
@@ -129,8 +116,6 @@ void Skybox::recreatePipelines() {
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline == VK_NULL_HANDLE) {
         LOG_ERROR("Skybox::recreatePipelines: failed to create pipeline");

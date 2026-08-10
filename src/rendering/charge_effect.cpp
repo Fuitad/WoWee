@@ -39,19 +39,10 @@ bool ChargeEffect::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayo
 
     // ---- Ribbon trail pipeline (TRIANGLE_STRIP) ----
     {
-        VkShaderModule vertModule;
-        if (!vertModule.loadFromFile(device, "assets/shaders/charge_ribbon.vert.spv")) {
-            LOG_ERROR("Failed to load charge_ribbon vertex shader");
-            return false;
-        }
-        VkShaderModule fragModule;
-        if (!fragModule.loadFromFile(device, "assets/shaders/charge_ribbon.frag.spv")) {
-            LOG_ERROR("Failed to load charge_ribbon fragment shader");
-            return false;
-        }
-
-        VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-        VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto shaders = loadShaderPair(device, "assets/shaders/charge_ribbon.vert.spv", "assets/shaders/charge_ribbon.frag.spv", "charge_ribbon");
+        if (!shaders) return false;
+        const auto& vertStage = shaders.vertStage;
+        const auto& fragStage = shaders.fragStage;
 
         ribbonPipelineLayout_ = createPipelineLayout(device, {perFrameLayout}, {});
         if (ribbonPipelineLayout_ == VK_NULL_HANDLE) {
@@ -100,8 +91,6 @@ bool ChargeEffect::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayo
             .setDynamicStates(dynamicStates)
             .build(device, vkCtx_->getPipelineCache());
 
-        vertModule.destroy();
-        fragModule.destroy();
 
         if (ribbonPipeline_ == VK_NULL_HANDLE) {
             LOG_ERROR("Failed to create charge ribbon pipeline");
@@ -111,19 +100,10 @@ bool ChargeEffect::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayo
 
     // ---- Dust puff pipeline (POINT_LIST) ----
     {
-        VkShaderModule vertModule;
-        if (!vertModule.loadFromFile(device, "assets/shaders/charge_dust.vert.spv")) {
-            LOG_ERROR("Failed to load charge_dust vertex shader");
-            return false;
-        }
-        VkShaderModule fragModule;
-        if (!fragModule.loadFromFile(device, "assets/shaders/charge_dust.frag.spv")) {
-            LOG_ERROR("Failed to load charge_dust fragment shader");
-            return false;
-        }
-
-        VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-        VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto shaders = loadShaderPair(device, "assets/shaders/charge_dust.vert.spv", "assets/shaders/charge_dust.frag.spv", "charge_dust");
+        if (!shaders) return false;
+        const auto& vertStage = shaders.vertStage;
+        const auto& fragStage = shaders.fragStage;
 
         dustPipelineLayout_ = createPipelineLayout(device, {perFrameLayout}, {});
         if (dustPipelineLayout_ == VK_NULL_HANDLE) {
@@ -148,8 +128,6 @@ bool ChargeEffect::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayo
             .setDynamicStates(dynamicStates)
             .build(device, vkCtx_->getPipelineCache());
 
-        vertModule.destroy();
-        fragModule.destroy();
 
         if (dustPipeline_ == VK_NULL_HANDLE) {
             LOG_ERROR("Failed to create charge dust pipeline");
@@ -297,8 +275,6 @@ void ChargeEffect::recreatePipelines() {
             .setDynamicStates(dynamicStates)
             .build(device, vkCtx_->getPipelineCache());
 
-        vertModule.destroy();
-        fragModule.destroy();
     }
 
     // ---- Rebuild dust puff pipeline (POINT_LIST) ----
@@ -330,8 +306,6 @@ void ChargeEffect::recreatePipelines() {
             .setDynamicStates(dynamicStates)
             .build(device, vkCtx_->getPipelineCache());
 
-        vertModule.destroy();
-        fragModule.destroy();
     }
 }
 

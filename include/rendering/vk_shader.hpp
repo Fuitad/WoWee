@@ -37,6 +37,29 @@ private:
     ::VkShaderModule module_ = VK_NULL_HANDLE;
 };
 
+/// A pipeline's vertex and fragment shaders, loaded together.
+///
+/// The stage infos carry the module handles, so this has to outlive the
+/// pipeline creation that reads them — keep it a local of whatever builds the
+/// pipeline, which is what every call site already does.
+struct ShaderPair {
+    VkShaderModule vert;
+    VkShaderModule frag;
+    VkPipelineShaderStageCreateInfo vertStage{};
+    VkPipelineShaderStageCreateInfo fragStage{};
+
+    /// False when either failed to load, which is when the caller gives up.
+    explicit operator bool() const { return vert.isValid() && frag.isValid(); }
+};
+
+/// Load a vertex and fragment shader, naming what they were for if one fails.
+///
+/// Twenty-six places did this by hand: two loads, two error logs, two stage
+/// infos. The error message was the only thing that varied, and half of them
+/// said the same words with a different noun.
+ShaderPair loadShaderPair(VkDevice device, const std::string& vertPath,
+                          const std::string& fragPath, const char* what);
+
 // Convenience: load a shader stage directly from a .spv file
 VkPipelineShaderStageCreateInfo loadShaderStage(VkDevice device,
     const std::string& path, VkShaderStageFlagBits stage);

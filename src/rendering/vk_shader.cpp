@@ -111,5 +111,22 @@ VkPipelineShaderStageCreateInfo loadShaderStage(VkDevice device,
     return info;
 }
 
+
+ShaderPair loadShaderPair(VkDevice device, const std::string& vertPath,
+                          const std::string& fragPath, const char* what) {
+    ShaderPair pair;
+    if (!pair.vert.loadFromFile(device, vertPath)) {
+        LOG_ERROR("Failed to load ", what, " vertex shader: ", vertPath);
+        return pair;
+    }
+    if (!pair.frag.loadFromFile(device, fragPath)) {
+        LOG_ERROR("Failed to load ", what, " fragment shader: ", fragPath);
+        return pair;
+    }
+    pair.vertStage = pair.vert.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
+    pair.fragStage = pair.frag.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    return pair;
+}
+
 } // namespace rendering
 } // namespace wowee

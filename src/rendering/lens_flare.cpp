@@ -46,20 +46,10 @@ bool LensFlare::initialize(VkContext* ctx, VkDescriptorSetLayout /*perFrameLayou
     vertexAlloc  = vbuf.allocation;
 
     // Load SPIR-V shaders
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/lens_flare.vert.spv")) {
-        LOG_ERROR("Failed to load lens flare vertex shader");
-        return false;
-    }
-
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/lens_flare.frag.spv")) {
-        LOG_ERROR("Failed to load lens flare fragment shader");
-        return false;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/lens_flare.vert.spv", "assets/shaders/lens_flare.frag.spv", "lens_flare");
+    if (!shaders) return false;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     // Push constant range: FlarePushConstants = 32 bytes, used by both vert and frag
     VkPushConstantRange pushRange{};
@@ -109,8 +99,6 @@ bool LensFlare::initialize(VkContext* ctx, VkDescriptorSetLayout /*perFrameLayou
         .build(device, vkCtx->getPipelineCache());
 
     // Shader modules can be freed after pipeline creation
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create lens flare pipeline");
@@ -197,8 +185,6 @@ void LensFlare::recreatePipelines() {
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 }
 
 void LensFlare::generateFlareElements() {

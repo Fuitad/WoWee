@@ -55,19 +55,10 @@ bool Lightning::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
 
     // ---- Bolt pipeline (LINE_STRIP) ----
     {
-        VkShaderModule vertModule;
-        if (!vertModule.loadFromFile(device, "assets/shaders/lightning_bolt.vert.spv")) {
-            core::Logger::getInstance().error("Failed to load lightning_bolt vertex shader");
-            return false;
-        }
-        VkShaderModule fragModule;
-        if (!fragModule.loadFromFile(device, "assets/shaders/lightning_bolt.frag.spv")) {
-            core::Logger::getInstance().error("Failed to load lightning_bolt fragment shader");
-            return false;
-        }
-
-        VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-        VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto shaders = loadShaderPair(device, "assets/shaders/lightning_bolt.vert.spv", "assets/shaders/lightning_bolt.frag.spv", "lightning_bolt");
+        if (!shaders) return false;
+        const auto& vertStage = shaders.vertStage;
+        const auto& fragStage = shaders.fragStage;
 
         // Push constant: { float brightness; } = 4 bytes
         VkPushConstantRange pushRange{};
@@ -106,8 +97,6 @@ bool Lightning::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
             .setDynamicStates(dynamicStates)
             .build(device, vkCtx->getPipelineCache());
 
-        vertModule.destroy();
-        fragModule.destroy();
 
         if (boltPipeline == VK_NULL_HANDLE) {
             core::Logger::getInstance().error("Failed to create bolt pipeline");
@@ -117,19 +106,10 @@ bool Lightning::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
 
     // ---- Flash pipeline (fullscreen quad, TRIANGLE_STRIP) ----
     {
-        VkShaderModule vertModule;
-        if (!vertModule.loadFromFile(device, "assets/shaders/lightning_flash.vert.spv")) {
-            core::Logger::getInstance().error("Failed to load lightning_flash vertex shader");
-            return false;
-        }
-        VkShaderModule fragModule;
-        if (!fragModule.loadFromFile(device, "assets/shaders/lightning_flash.frag.spv")) {
-            core::Logger::getInstance().error("Failed to load lightning_flash fragment shader");
-            return false;
-        }
-
-        VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-        VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto shaders = loadShaderPair(device, "assets/shaders/lightning_flash.vert.spv", "assets/shaders/lightning_flash.frag.spv", "lightning_flash");
+        if (!shaders) return false;
+        const auto& vertStage = shaders.vertStage;
+        const auto& fragStage = shaders.fragStage;
 
         // Push constant: { float intensity; } = 4 bytes
         VkPushConstantRange pushRange{};
@@ -168,8 +148,6 @@ bool Lightning::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
             .setDynamicStates(dynamicStates)
             .build(device, vkCtx->getPipelineCache());
 
-        vertModule.destroy();
-        fragModule.destroy();
 
         if (flashPipeline == VK_NULL_HANDLE) {
             core::Logger::getInstance().error("Failed to create flash pipeline");
@@ -305,8 +283,6 @@ void Lightning::recreatePipelines() {
             .setDynamicStates(dynamicStates)
             .build(device, vkCtx->getPipelineCache());
 
-        vertModule.destroy();
-        fragModule.destroy();
     }
 
     // ---- Rebuild flash pipeline (TRIANGLE_STRIP) ----
@@ -346,8 +322,6 @@ void Lightning::recreatePipelines() {
             .setDynamicStates(dynamicStates)
             .build(device, vkCtx->getPipelineCache());
 
-        vertModule.destroy();
-        fragModule.destroy();
     }
 }
 

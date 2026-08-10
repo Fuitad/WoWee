@@ -34,20 +34,10 @@ bool StarField::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
     VkDevice device = vkCtx->getDevice();
 
     // Load SPIR-V shaders
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/starfield.vert.spv")) {
-        LOG_ERROR("Failed to load starfield vertex shader");
-        return false;
-    }
-
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/starfield.frag.spv")) {
-        LOG_ERROR("Failed to load starfield fragment shader");
-        return false;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/starfield.vert.spv", "assets/shaders/starfield.frag.spv", "starfield");
+    if (!shaders) return false;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     // Push constants: float time + float intensity = 8 bytes
     VkPushConstantRange pushRange{};
@@ -81,8 +71,6 @@ bool StarField::initialize(VkContext* ctx, VkDescriptorSetLayout perFrameLayout)
         .setRenderPass(vkCtx->getImGuiRenderPass())
         .build(device, vkCtx->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create starfield pipeline");
@@ -111,7 +99,6 @@ void StarField::recreatePipelines() {
     VkShaderModule fragModule;
     if (!fragModule.loadFromFile(device, "assets/shaders/starfield.frag.spv")) {
         LOG_ERROR("StarField::recreatePipelines: failed to load fragment shader");
-        vertModule.destroy();
         return;
     }
 
@@ -134,8 +121,6 @@ void StarField::recreatePipelines() {
         .setRenderPass(vkCtx->getImGuiRenderPass())
         .build(device, vkCtx->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline == VK_NULL_HANDLE) {
         LOG_ERROR("StarField::recreatePipelines: failed to create pipeline");
