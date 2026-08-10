@@ -111,6 +111,10 @@ public:
     ChatPanel& getChatPanel() { return chatPanel_; }
 
     void saveSettings();
+
+    /// The settings the client owns. Exposed so the Lua bridge can drive the
+    /// same values FrameXML's own options panels are bound to.
+    SettingsPanel& getSettingsPanel() { return settingsPanel_; }
     void loadSettings();
 
     // Dependency injection for extracted classes (Phase A singleton breaking)

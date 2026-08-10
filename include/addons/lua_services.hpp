@@ -42,6 +42,17 @@ struct LuaServices {
     /// it between frames instead.
     std::function<void()> requestReloadUI;
 
+    /// Read and write this client's audio settings by name, so FrameXML's own
+    /// Sound options drive the same values the settings window does rather than
+    /// writing to a CVar store nothing reads.
+    ///
+    /// Volumes are 0..1, which is what Blizzard's sliders use; the client keeps
+    /// them as percentages and converts at this boundary. Known keys: master,
+    /// music, ambient. "enableall" is the mute, inverted — the panel's checkbox
+    /// asks whether sound is on.
+    std::function<float(const std::string&)> getAudioSetting;
+    std::function<void(const std::string&, float)> setAudioSetting;
+
     /// Open this client's settings window, on a named tab when one is given.
     ///
     /// FrameXML's GameMenuFrame has Video, Sound and Interface buttons that

@@ -620,20 +620,23 @@ static void applySoundCVars(lua_State* L) {
     auto* ac = svc ? svc->audioCoordinator : nullptr;
     if (!ac) return;
 
-    const bool allSound = soundCVar("sound_enableallsound", 1.0f) != 0.0f;
-    const float master  = std::clamp(soundCVar("sound_mastervolume", 1.0f), 0.0f, 1.0f);
-    audio::AudioEngine::instance().setMasterVolume(allSound ? master : 0.0f);
+    // Master, music and ambience are the client's own settings now, reached
+    // through SetCVar above — this function must not write them too, or the two
+    // fight and the last writer wins.
+    //
+    // What is left here are the three enable switches, which the client's panel
+    // has no equivalent for. They multiply whatever the settings applied.
+    const bool musicOn = soundCVar("sound_enablemusic", 1.0f) != 0.0f;
+    if (!musicOn) {
+        if (auto* music = ac->getMusicManager()) music->setVolume(0);
+    }
 
-    const bool  musicOn  = soundCVar("sound_enablemusic", 1.0f) != 0.0f;
-    const float musicVol = std::clamp(soundCVar("sound_musicvolume", 1.0f), 0.0f, 1.0f);
-    if (auto* music = ac->getMusicManager())
-        music->setVolume(static_cast<int>((musicOn ? musicVol : 0.0f) * 100.0f));
-
-    const bool  ambOn  = soundCVar("sound_enableambience", 1.0f) != 0.0f;
-    const float ambVol = std::clamp(soundCVar("sound_ambiencevolume", 1.0f), 0.0f, 1.0f);
-    if (auto* ambient = ac->getAmbientSoundManager()) {
-        ambient->setVolumeScale(ambOn ? ambVol : 0.0f);
-        ambient->setBellVolumeScale(ambOn ? ambVol : 0.0f);
+    const bool ambOn = soundCVar("sound_enableambience", 1.0f) != 0.0f;
+    if (!ambOn) {
+        if (auto* ambient = ac->getAmbientSoundManager()) {
+            ambient->setVolumeScale(0.0f);
+            ambient->setBellVolumeScale(0.0f);
+        }
     }
 
     const bool  sfxOn  = soundCVar("sound_enablesfx", 1.0f) != 0.0f;
@@ -920,6 +923,20 @@ static int lua_GetCVar(lua_State* L) {
             lua_pushstring(L, svc->getChatBubblesShown() ? "1" : "0");
             return 1;
         }
+    } else if (n == "sound_mastervolume" || n == "sound_musicvolume" ||
+               n == "sound_ambiencevolume" || n == "sound_enableallsound") {
+        // FrameXML's Sound options are bound to these, and the client owns the
+        // values. Answering from the CVar store would report whatever the panel
+        // last wrote and drift from what is actually playing — the same fault
+        // the nameplate and minimap entries above exist for.
+        if (auto* svc = getLuaServices(L); svc && svc->getAudioSetting) {
+            const char* key = n == "sound_mastervolume"   ? "master"
+                            : n == "sound_musicvolume"    ? "music"
+                            : n == "sound_ambiencevolume" ? "ambient"
+                                                          : "enableall";
+            lua_pushstring(L, std::to_string(svc->getAudioSetting(key)).c_str());
+            return 1;
+        }
     } else if (n == "autolootdefault") {
         // Asked of the client, like its neighbours. The interface options put
         // a checkbox on this and the client has a real auto-loot setting, and
@@ -1068,7 +1085,25 @@ static int lua_SetCVar(lua_State* L) {
     // A sound CVar is a setting, not a note. Without this the interface's
     // volume keys and its Sound options both wrote to a map nobody read, so
     // turning music off left it playing.
-    if (key.rfind("sound_", 0) == 0) applySoundCVars(L);
+    // The four the client owns go to its settings, which then apply and save.
+    // Both systems used to write the same AudioEngine — the CVar store from
+    // here and the settings panel from its own sliders — and whichever ran last
+    // won. A client left muted by its own setting came back silent however the
+    // interface's Sound panel was set, because the next thing to touch the
+    // settings slammed the master volume back to zero.
+    if (key == "sound_mastervolume" || key == "sound_musicvolume" ||
+        key == "sound_ambiencevolume" || key == "sound_enableallsound") {
+        if (auto* svc = getLuaServices(L); svc && svc->setAudioSetting) {
+            const char* which = key == "sound_mastervolume"   ? "master"
+                              : key == "sound_musicvolume"    ? "music"
+                              : key == "sound_ambiencevolume" ? "ambient"
+                                                              : "enableall";
+            svc->setAudioSetting(which, static_cast<float>(std::atof(value.c_str())));
+            return 0;
+        }
+        applySoundCVars(L);
+    }
+    else if (key.rfind("sound_", 0) == 0) applySoundCVars(L);
     // The two other CVars this client can act on. "0" is the only false value
     // a CVar carries — and it arrives as a string, which in Lua would be true.
     else if (key == "nameplateshowenemies") {

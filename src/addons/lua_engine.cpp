@@ -7017,17 +7017,7 @@ void LuaEngine::registerCoreAPI() {
         "function StaticPopup_Hide() end\n"
         // UI Panel management — Show/Hide standard WoW panels
         "UIPanelWindows = {}\n"
-        // The game menu's three options buttons call ShowUIPanel on frames this
-        // shim only creates as shells, so they opened nothing. They open this
-        // client's settings window instead, on the matching tab — that is where
-        // the settings are, and handing the menu to FrameXML must not take them
-        // away with it.
         "function ShowUIPanel(frame, force)\n"
-        "    if frame and WoweeShowSettings then\n"
-        "        if frame == VideoOptionsFrame then WoweeShowSettings('Video') return end\n"
-        "        if frame == AudioOptionsFrame then WoweeShowSettings('Audio') return end\n"
-        "        if frame == InterfaceOptionsFrame then WoweeShowSettings('Interface') return end\n"
-        "    end\n"
         "    if frame and frame.Show then frame:Show() end\n"
         "end\n"
         "function HideUIPanel(frame)\n"
@@ -7228,10 +7218,7 @@ void LuaEngine::registerCoreAPI() {
         "Tooltip_Small             = font(10, 1.00, 1.00, 1.00)\n"
         // InterfaceOptionsFrame: addons register settings panels here
         "InterfaceOptionsFrame = CreateFrame('Frame', 'InterfaceOptionsFrame')\n"
-        // Created so the game menu's buttons have something to compare against;
-        // ShowUIPanel routes all three to this client's settings window.
-        "VideoOptionsFrame = CreateFrame('Frame', 'VideoOptionsFrame')\n"
-        "AudioOptionsFrame = CreateFrame('Frame', 'AudioOptionsFrame')\n"
+
         "InterfaceOptionsFramePanelContainer = CreateFrame('Frame', 'InterfaceOptionsFramePanelContainer')\n"
         "function InterfaceOptions_AddCategory(panel) end\n"
         "function InterfaceOptionsFrame_OpenToCategory(panel) end\n"
