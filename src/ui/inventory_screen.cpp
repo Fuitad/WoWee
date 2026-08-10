@@ -3374,16 +3374,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
         if (info) {
             for (const auto& sp : info->spells) {
                 if (sp.spellId == 0) continue;
-                const char* trigger = nullptr;
-                switch (sp.spellTrigger) {
-                    case 0: trigger = "Use"; break;        // on use
-                    case 1: trigger = "Equip"; break;      // on equip
-                    case 2: trigger = "Chance on Hit"; break; // proc on melee hit
-                    case 4: trigger = "Use"; break;        // soulstone (still shows as Use)
-                    case 5: trigger = "Use"; break;        // on use, no delay
-                    case 6: trigger = "Use"; break;        // learn spell (recipe/pattern)
-                    default: break;
-                }
+                const char* trigger = game::itemSpellTriggerText(sp.spellTrigger);
                 if (!trigger) continue;
                 const std::string& spDesc = gameHandler_->getSpellDescription(sp.spellId);
                 std::string spText = spDesc.empty()
@@ -3904,16 +3895,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
     // Spell effects
     for (const auto& sp : info.spells) {
         if (sp.spellId == 0) continue;
-        const char* trigger = nullptr;
-        switch (sp.spellTrigger) {
-            case 0: trigger = "Use"; break;        // on use
-            case 1: trigger = "Equip"; break;      // on equip
-            case 2: trigger = "Chance on Hit"; break; // proc on melee hit
-            case 4: trigger = "Use"; break;        // soulstone (still shows as Use)
-            case 5: trigger = "Use"; break;        // on use, no delay
-            case 6: trigger = "Use"; break;        // learn spell (recipe/pattern)
-            default: break;
-        }
+        const char* trigger = game::itemSpellTriggerText(sp.spellTrigger);
         if (!trigger) continue;
         if (gameHandler_) {
             // Prefer the spell's tooltip text (the actual effect description).

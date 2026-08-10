@@ -15,6 +15,29 @@
 namespace wowee {
 namespace game {
 
+/// The word an item's spell line starts with — "Use", "Equip", "Chance on Hit".
+///
+/// Three tooltips render this and their tables disagreed. The chat item link
+/// called trigger 5 "Teaches" where the other two call it "Use", and WoW writes
+/// a recipe as "Use: Teaches you how to make..." — the word is Use and the
+/// teaching is in the spell's own description. The chat link also had no entry
+/// for triggers 4 and 6 and skipped the line entirely, so an item whose spell
+/// fires on use with no delay showed no spell at all there.
+///
+/// Null for a trigger with nothing to say. The values are the same in Classic,
+/// TBC and WotLK.
+inline const char* itemSpellTriggerText(uint32_t spellTrigger) {
+    switch (spellTrigger) {
+        case 0: return "Use";            // on use
+        case 1: return "Equip";          // on equip
+        case 2: return "Chance on Hit";  // proc on melee hit
+        case 4: return "Use";            // soulstone, still a use
+        case 5: return "Use";            // on use, no delay
+        case 6: return "Use";            // learn spell — recipe or pattern
+        default: return nullptr;
+    }
+}
+
 /// What a spell's powerType is called, or null for one with no name.
 ///
 /// Four places wrote this out: the combat log twice, the spellbook, and the

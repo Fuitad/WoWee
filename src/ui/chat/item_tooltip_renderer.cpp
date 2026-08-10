@@ -294,13 +294,9 @@ void ItemTooltipRenderer::render(
     // Item spell effects (Use / Equip / Chance on Hit / Teaches)
     for (const auto& sp : info->spells) {
         if (sp.spellId == 0) continue;
-        const char* triggerLabel = nullptr;
-        switch (sp.spellTrigger) {
-            case 0: triggerLabel = "Use";          break;
-            case 1: triggerLabel = "Equip";        break;
-            case 2: triggerLabel = "Chance on Hit"; break;
-            case 5: triggerLabel = "Teaches";      break;
-        }
+        // Was its own table: it called trigger 5 "Teaches" and had no entry for
+        // 4 or 6, so those spell lines were skipped entirely here.
+        const char* triggerLabel = game::itemSpellTriggerText(sp.spellTrigger);
         if (!triggerLabel) continue;
         const std::string& spDesc = gameHandler.getSpellDescription(sp.spellId);
         std::string spText = !spDesc.empty()
