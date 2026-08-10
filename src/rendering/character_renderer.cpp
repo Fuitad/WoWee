@@ -36,6 +36,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <algorithm>
+#include <climits>
 #include <cmath>
 #include <filesystem>
 #include <future>
@@ -1297,6 +1298,8 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
     std::vector<LoadedOverlay> overlays;
     overlays.reserve(layerPaths.size());
     int requiredScale = coordScale;
+    int smallestRegionScale = INT_MAX;
+    bool sawRegionLayer = false;
     for (size_t layer = 1; layer < layerPaths.size(); layer++) {
         if (layerPaths[layer].empty()) continue;
         pipeline::BLPImage overlay;
@@ -1320,10 +1323,30 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
         applyMagentaKeyIfNeeded(overlay, layerPaths[layer]);
         // A full-atlas layer speaks for itself and is not a region at all.
         if (overlay.width != width || overlay.height != height) {
-            const int want = impliedScale(regionFor(lowerPath(layerPaths[layer])), overlay.width);
-            if (want > requiredScale) requiredScale = want;
+            const AtlasRegion256 region = regionFor(lowerPath(layerPaths[layer]));
+            if (region.known) {
+                const int want = impliedScale(region, overlay.width);
+                if (want < smallestRegionScale) smallestRegionScale = want;
+                sawRegionLayer = true;
+            }
         }
         overlays.push_back({layerPaths[layer], std::move(overlay)});
+    }
+
+    // Grow only when EVERY region layer asks for it.
+    //
+    // Taking the most demanding layer was wrong, and wrong in a way that made
+    // things worse rather than leaving them alone. Some races in an HD set ship
+    // a face at twice the atlas scale and everything else at one — dwarf,
+    // tauren, troll and draenei do — so growing the canvas for the face then
+    // upscaled the pelvis and the torso to fit it. One layer resampled down
+    // became several resampled up, which is a blurrier body for a sharper face.
+    //
+    // The case worth growing for is a set where the art all agrees and only the
+    // body is behind it. Then the smallest thing asked for is still larger than
+    // the body has, and nothing gets stretched.
+    if (sawRegionLayer && smallestRegionScale > coordScale) {
+        requiredScale = smallestRegionScale;
     }
 
     if (requiredScale > coordScale) {
