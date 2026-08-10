@@ -1,5 +1,6 @@
 #include "core/appearance_composer.hpp"
 #include "core/geoset_rules.hpp"
+#include "core/character_paths.hpp"
 #include "core/helm_visual.hpp"
 #include "core/entity_spawner.hpp"
 #include "core/logger.hpp"
@@ -102,30 +103,14 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
     uint32_t targetRaceId = static_cast<uint32_t>(race);
     uint32_t targetSexId = (gender == game::Gender::FEMALE) ? 1u : 0u;
 
-    // Race name for fallback texture paths
-    const char* raceFolderName = "Human";
-    switch (race) {
-        case game::Race::HUMAN:    raceFolderName = "Human"; break;
-        case game::Race::ORC:      raceFolderName = "Orc"; break;
-        case game::Race::DWARF:    raceFolderName = "Dwarf"; break;
-        case game::Race::NIGHT_ELF: raceFolderName = "NightElf"; break;
-        case game::Race::UNDEAD:    raceFolderName = "Scourge"; break;
-        case game::Race::TAUREN:    raceFolderName = "Tauren"; break;
-        case game::Race::GNOME:     raceFolderName = "Gnome"; break;
-        case game::Race::TROLL:     raceFolderName = "Troll"; break;
-        case game::Race::BLOOD_ELF: raceFolderName = "BloodElf"; break;
-        case game::Race::DRAENEI:   raceFolderName = "Draenei"; break;
-        default: break;
-    }
-    const char* genderFolder = (gender == game::Gender::FEMALE) ? "Female" : "Male";
-    std::string raceGender = std::string(raceFolderName) + genderFolder;
-    result.bodySkinPath = std::string("Character\\") + raceFolderName + "\\" + genderFolder + "\\" + raceGender + "Skin00_00.blp";
+    const char* raceFolderName = raceModelFolder(targetRaceId);
+    result.bodySkinPath = defaultBodySkinPath(targetRaceId, targetSexId);
 
-    // Extract appearance bytes for texture lookups
-    uint8_t charSkinId = appearanceBytes & 0xFF;
-    uint8_t charFaceId = (appearanceBytes >> 8) & 0xFF;
-    uint8_t charHairStyleId = (appearanceBytes >> 16) & 0xFF;
-    uint8_t charHairColorId = (appearanceBytes >> 24) & 0xFF;
+    const AppearanceBytes look = unpackAppearanceBytes(appearanceBytes);
+    const uint8_t charSkinId = look.skinId;
+    const uint8_t charFaceId = look.faceId;
+    const uint8_t charHairStyleId = look.hairStyleId;
+    const uint8_t charHairColorId = look.hairColorId;
     LOG_INFO("Appearance: skin=", static_cast<int>(charSkinId), " face=", static_cast<int>(charFaceId),
              " hairStyle=", static_cast<int>(charHairStyleId), " hairColor=", static_cast<int>(charHairColorId));
 

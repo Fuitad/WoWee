@@ -544,7 +544,10 @@ private:
         const std::array<uint32_t, 19>& displayInfoIds,
         const std::array<uint8_t, 19>& inventoryTypes) const;
     std::unordered_map<uint32_t, uint32_t> playerModelCache_;
-    struct PlayerTextureSlots { int skin = -1; int hair = -1; int underwear = -1; };
+    /// Which runtime texture slot of a player model takes which art. Type 8 is
+    /// Skin Extra — the head detail sheet, not the underwear, though on the
+    /// models the game shipped the underwear art is what ends up in it.
+    struct PlayerTextureSlots { int skin = -1; int hair = -1; int skinExtra = -1; };
     std::unordered_map<uint32_t, PlayerTextureSlots> playerTextureSlotsByModelId_;
     uint32_t nextPlayerModelId_ = 60000;
 

@@ -1,6 +1,8 @@
 #include "core/entity_spawner.hpp"
 #include "core/helm_visual.hpp"
 #include "core/geoset_rules.hpp"
+#include "core/character_paths.hpp"
+#include "pipeline/char_sections.hpp"
 
 // M2 attachment 11 is the helm. 0 is the shield mount, which is where head gear
 // was going: it attached, reported success, and hung off the forearm.
@@ -201,7 +203,7 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
                     uint32_t t = md->textures[ti].type;
                     if (t == 1 && slots.skin < 0) slots.skin = static_cast<int>(ti);
                     else if (t == 6 && slots.hair < 0) slots.hair = static_cast<int>(ti);
-                    else if (t == 8 && slots.underwear < 0) slots.underwear = static_cast<int>(ti);
+                    else if (t == 8 && slots.skinExtra < 0) slots.skinExtra = static_cast<int>(ti);
                 }
             }
             slotIt->second = slots;
@@ -214,116 +216,57 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
     uint32_t instanceId = charRenderer->createInstance(modelId, renderPos, glm::vec3(0.0f, 0.0f, renderYaw), 1.0f);
     if (instanceId == 0) return;
 
-    // Resolve skin/hair texture paths via CharSections, then apply as per-instance overrides
-    const char* raceFolderName = "Human";
-    switch (static_cast<game::Race>(raceId)) {
-        case game::Race::HUMAN: raceFolderName = "Human"; break;
-        case game::Race::ORC: raceFolderName = "Orc"; break;
-        case game::Race::DWARF: raceFolderName = "Dwarf"; break;
-        case game::Race::NIGHT_ELF: raceFolderName = "NightElf"; break;
-        case game::Race::UNDEAD: raceFolderName = "Scourge"; break;
-        case game::Race::TAUREN: raceFolderName = "Tauren"; break;
-        case game::Race::GNOME: raceFolderName = "Gnome"; break;
-        case game::Race::TROLL: raceFolderName = "Troll"; break;
-        case game::Race::BLOOD_ELF: raceFolderName = "BloodElf"; break;
-        case game::Race::DRAENEI: raceFolderName = "Draenei"; break;
-        default: break;
-    }
-    const char* genderFolder = (genderId == 1) ? "Female" : "Male";
-    std::string raceGender = std::string(raceFolderName) + genderFolder;
-    std::string bodySkinPath = std::string("Character\\") + raceFolderName + "\\" + genderFolder + "\\" + raceGender + "Skin00_00.blp";
-    std::string pelvisPath = std::string("Character\\") + raceFolderName + "\\" + genderFolder + "\\" + raceGender + "NakedPelvisSkin00_00.blp";
+    // The character's textures, through the one reader in
+    // pipeline/char_sections.hpp — the same scan the local player, the NPCs and
+    // the portrait use. This path used to carry a fourth copy of it, and the
+    // copy did not read the skin row's second texture, which is the head detail
+    // an HD model draws its ears and eyelashes from. Every other player in the
+    // world had skin-coloured eyelashes for exactly that reason.
+    const std::string defaultSkin = defaultBodySkinPath(raceId, genderId);
+    const std::string pelvisPath = defaultPelvisPath(raceId, genderId);
+    const AppearanceBytes look = unpackAppearanceBytes(appearanceBytes);
+    const uint8_t hairStyleId = look.hairStyleId;
+
+    std::string bodySkinPath = defaultSkin;
+    std::string skinExtraPath, hairTexturePath, faceLowerPath, faceUpperPath;
     std::vector<std::string> underwearPaths;
-    std::string hairTexturePath;
-    std::string faceLowerPath;
-    std::string faceUpperPath;
 
-    uint8_t skinId = appearanceBytes & 0xFF;
-    uint8_t faceId = (appearanceBytes >> 8) & 0xFF;
-    uint8_t hairStyleId = (appearanceBytes >> 16) & 0xFF;
-    uint8_t hairColorId = (appearanceBytes >> 24) & 0xFF;
+    if (auto charSectionsDbc = assetManager_->loadDBC("CharSections.dbc");
+        charSectionsDbc && charSectionsDbc->isLoaded()) {
+        const auto* csL = pipeline::getActiveDBCLayout()
+            ? pipeline::getActiveDBCLayout()->getLayout("CharSections") : nullptr;
+        const auto csF = pipeline::detectCharSectionsFields(charSectionsDbc.get(), csL);
 
-    if (auto charSectionsDbc = assetManager_->loadDBC("CharSections.dbc"); charSectionsDbc && charSectionsDbc->isLoaded()) {
-        const auto* csL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("CharSections") : nullptr;
-        auto csF = pipeline::detectCharSectionsFields(charSectionsDbc.get(), csL);
-        uint32_t targetRaceId = raceId;
-        uint32_t targetSexId = genderId;
+        pipeline::CharacterAppearance who;
+        who.raceId = raceId;
+        who.sexId = genderId;
+        who.skinId = look.skinId;
+        who.faceId = look.faceId;
+        who.hairStyleId = look.hairStyleId;
+        who.hairColorId = look.hairColorId;
 
-        bool foundSkin = false;
-        bool foundUnderwear = false;
-        bool foundHair = false;
-        bool foundFaceLower = false;
-        // Same nearest-face fallback the local player's composer uses. These two
-        // appearance paths have to stay in step: one is every other player in
-        // the world, the other is you, and a face that resolves for one and not
-        // the other is exactly the kind of difference nobody thinks to check.
-        std::string faceAltLower, faceAltUpper;
-        bool haveFaceAlt = false;
+        // The underwear rows name art that was never shipped for some skin
+        // colours — Draenei 10 to 16 among them — and this caller can check.
+        const auto sections = pipeline::resolveCharacterSections(
+            charSectionsDbc.get(), csF, who,
+            [](const std::string& path, void* ctx) {
+                return static_cast<pipeline::AssetManager*>(ctx)->fileExists(path);
+            },
+            assetManager_);
 
-        for (uint32_t r = 0; r < charSectionsDbc->getRecordCount(); r++) {
-            uint32_t rRace = charSectionsDbc->getUInt32(r, csF.raceId);
-            uint32_t rSex = charSectionsDbc->getUInt32(r, csF.sexId);
-            uint32_t baseSection = charSectionsDbc->getUInt32(r, csF.baseSection);
-            uint32_t variationIndex = charSectionsDbc->getUInt32(r, csF.variationIndex);
-            uint32_t colorIndex = charSectionsDbc->getUInt32(r, csF.colorIndex);
+        if (!sections.bodySkin.empty()) bodySkinPath = sections.bodySkin;
+        skinExtraPath = sections.skinExtra;
+        faceLowerPath = sections.faceLower;
+        faceUpperPath = sections.faceUpper;
+        hairTexturePath = sections.hair;
+        underwearPaths = sections.underwear;
 
-            if (rRace != targetRaceId || rSex != targetSexId) continue;
-
-            if (baseSection == 0 && !foundSkin && colorIndex == skinId) {
-                std::string tex1 = charSectionsDbc->getString(r, csF.texture1);
-                if (!tex1.empty()) { bodySkinPath = tex1; foundSkin = true; }
-            } else if (baseSection == 3 && !foundHair &&
-                       variationIndex == hairStyleId && colorIndex == hairColorId) {
-                hairTexturePath = charSectionsDbc->getString(r, csF.texture1);
-                if (!hairTexturePath.empty()) foundHair = true;
-            } else if (baseSection == 4 && !foundUnderwear && colorIndex == skinId) {
-                // Verify textures exist — some DBC entries reference BLPs
-                // that were never shipped (e.g. Draenei skin colors 10-16).
-                bool allExist = true;
-                std::vector<std::string> candidateUW;
-                for (uint32_t f = csF.texture1; f <= csF.texture1 + 2; f++) {
-                    std::string tex = charSectionsDbc->getString(r, f);
-                    if (!tex.empty()) {
-                        if (assetManager_->fileExists(tex))
-                            candidateUW.push_back(tex);
-                        else
-                            allExist = false;
-                    }
-                }
-                if (allExist || !candidateUW.empty()) {
-                    underwearPaths = std::move(candidateUW);
-                    foundUnderwear = true;
-                }
-            } else if (baseSection == 1 && !foundFaceLower &&
-                       variationIndex == faceId && colorIndex == skinId) {
-                std::string tex1 = charSectionsDbc->getString(r, csF.texture1);
-                std::string tex2 = charSectionsDbc->getString(r, csF.texture2);
-                if (!tex1.empty()) faceLowerPath = tex1;
-                if (!tex2.empty()) faceUpperPath = tex2;
-                foundFaceLower = true;
-            } else if (baseSection == 1 && !foundFaceLower && !haveFaceAlt &&
-                       (variationIndex == faceId || colorIndex == skinId)) {
-                std::string tex1 = charSectionsDbc->getString(r, csF.texture1);
-                if (!tex1.empty()) {
-                    faceAltLower = tex1;
-                    faceAltUpper = charSectionsDbc->getString(r, csF.texture2);
-                    haveFaceAlt = true;
-                }
-            }
-
-            if (foundSkin && foundUnderwear && foundHair && foundFaceLower) break;
-        }
-
-        if (!foundFaceLower) {
+        if (!sections.exactFace) {
             LOG_WARNING("spawnOnlinePlayer: no DBC face match for face=",
-                        static_cast<int>(faceId), " skin=", static_cast<int>(skinId),
-                        " race=", targetRaceId, " sex=", targetSexId,
-                        haveFaceAlt ? " — using the nearest face instead"
-                                    : " — this player will render with no face");
-            if (haveFaceAlt) {
-                faceLowerPath = faceAltLower;
-                faceUpperPath = faceAltUpper;
-            }
+                        static_cast<int>(look.faceId), " skin=", static_cast<int>(look.skinId),
+                        " race=", raceId, " sex=", genderId,
+                        sections.haveFace ? " — using the nearest face instead"
+                                          : " — this player will render with no face");
         }
     }
 
@@ -346,9 +289,14 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
     if (!hairTexturePath.empty()) {
         hairTex = charRenderer->loadTexture(hairTexturePath);
     }
-    rendering::VkTexture* underwearTex = nullptr;
-    if (!underwearPaths.empty()) underwearTex = charRenderer->loadTexture(underwearPaths[0]);
-    else underwearTex = charRenderer->loadTexture(pelvisPath);
+    // Texture type 8 is Skin Extra: the head detail sheet an HD model draws its
+    // ears, eyes and eyelashes from. CharSections names it in the skin row's
+    // second texture, which the tables the game shipped leave blank — so on a
+    // stock model this still falls through to the underwear art it always used.
+    rendering::VkTexture* skinExtraTex = nullptr;
+    if (!skinExtraPath.empty()) skinExtraTex = charRenderer->loadTexture(skinExtraPath);
+    else if (!underwearPaths.empty()) skinExtraTex = charRenderer->loadTexture(underwearPaths[0]);
+    else skinExtraTex = charRenderer->loadTexture(pelvisPath);
 
     const PlayerTextureSlots& slots = playerTextureSlotsByModelId_[modelId];
     if (slots.skin >= 0 && compositeTex) {
@@ -357,8 +305,8 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
     if (slots.hair >= 0 && hairTex) {
         charRenderer->setTextureSlotOverride(instanceId, static_cast<uint16_t>(slots.hair), hairTex);
     }
-    if (slots.underwear >= 0 && underwearTex) {
-        charRenderer->setTextureSlotOverride(instanceId, static_cast<uint16_t>(slots.underwear), underwearTex);
+    if (slots.skinExtra >= 0 && skinExtraTex) {
+        charRenderer->setTextureSlotOverride(instanceId, static_cast<uint16_t>(slots.skinExtra), skinExtraTex);
     }
 
     // Geosets: body + selected hair/facial hair. Do not enable every group-0

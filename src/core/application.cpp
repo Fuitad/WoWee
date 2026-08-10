@@ -1,4 +1,5 @@
 #include "core/application.hpp"
+#include "core/character_paths.hpp"
 #include "core/coordinates.hpp"
 #include "ui/minimap_projection.hpp"
 #include "core/profiler.hpp"
@@ -4472,21 +4473,11 @@ void Application::spawnPlayerCharacter() {
 
         // Set voice profile to match character race/gender
         if (auto* asm_ = audioCoordinator_ ? audioCoordinator_->getActivitySoundManager() : nullptr) {
-            const char* raceFolder = "Human";
-            const char* raceBase = "Human";
-            switch (playerRace_) {
-                case game::Race::HUMAN:    raceFolder = "Human"; raceBase = "Human"; break;
-                case game::Race::ORC:      raceFolder = "Orc"; raceBase = "Orc"; break;
-                case game::Race::DWARF:    raceFolder = "Dwarf"; raceBase = "Dwarf"; break;
-                case game::Race::NIGHT_ELF: raceFolder = "NightElf"; raceBase = "NightElf"; break;
-                case game::Race::UNDEAD:    raceFolder = "Scourge"; raceBase = "Scourge"; break;
-                case game::Race::TAUREN:    raceFolder = "Tauren"; raceBase = "Tauren"; break;
-                case game::Race::GNOME:     raceFolder = "Gnome"; raceBase = "Gnome"; break;
-                case game::Race::TROLL:     raceFolder = "Troll"; raceBase = "Troll"; break;
-                case game::Race::BLOOD_ELF: raceFolder = "BloodElf"; raceBase = "BloodElf"; break;
-                case game::Race::DRAENEI:   raceFolder = "Draenei"; raceBase = "Draenei"; break;
-                default: break;
-            }
+            // Voice art is filed under the same race folder as the models —
+            // Scourge for the Undead — so it comes from the one table in
+            // core/character_paths.hpp. The two names here were always equal.
+            const char* raceFolder = core::raceModelFolder(static_cast<uint32_t>(playerRace_));
+            const char* raceBase = raceFolder;
             bool useFemaleVoice = (playerGender_ == game::Gender::FEMALE);
             if (playerGender_ == game::Gender::NONBINARY && gameHandler) {
                 if (const game::Character* ch = gameHandler->getActiveCharacter()) {
