@@ -46,21 +46,11 @@ bool QuestMarkerRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFr
     createDescriptorResources();
 
     // --- Load shaders ---
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/quest_marker.vert.spv")) {
-        LOG_ERROR("Failed to load quest_marker vertex shader");
-        return false;
-    }
-
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/quest_marker.frag.spv")) {
-        LOG_ERROR("Failed to load quest_marker fragment shader");
-        vertModule.destroy();
-        return false;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/quest_marker.vert.spv",
+                                  "assets/shaders/quest_marker.frag.spv", "quest_marker");
+    if (!shaders) return false;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     // --- Push constant range: mat4 model (64) + float alpha (4) = 68 bytes ---
     VkPushConstantRange pushRange{};
@@ -73,8 +63,6 @@ bool QuestMarkerRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFr
         {perFrameLayout, materialSetLayout_}, {pushRange});
     if (pipelineLayout_ == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create quest marker pipeline layout");
-        vertModule.destroy();
-        fragModule.destroy();
         return false;
     }
 
@@ -99,8 +87,6 @@ bool QuestMarkerRenderer::initialize(VkContext* ctx, VkDescriptorSetLayout perFr
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx_->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 
     if (pipeline_ == VK_NULL_HANDLE) {
         LOG_ERROR("Failed to create quest marker pipeline");
@@ -175,16 +161,10 @@ void QuestMarkerRenderer::recreatePipelines() {
         pipeline_ = VK_NULL_HANDLE;
     }
 
-    VkShaderModule vertModule;
-    VkShaderModule fragModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/quest_marker.vert.spv") ||
-        !fragModule.loadFromFile(device, "assets/shaders/quest_marker.frag.spv")) {
-        LOG_ERROR("QuestMarkerRenderer::recreatePipelines: failed to load shader modules");
-        return;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/quest_marker.vert.spv", "assets/shaders/quest_marker.frag.spv", "quest_marker");
+    if (!shaders) return;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
     std::vector<VkVertexInputAttributeDescription> attrs = positionPlusUvAttrs();
@@ -204,8 +184,6 @@ void QuestMarkerRenderer::recreatePipelines() {
         .setDynamicStates(dynamicStates)
         .build(device, vkCtx_->getPipelineCache());
 
-    vertModule.destroy();
-    fragModule.destroy();
 }
 
 void QuestMarkerRenderer::createDescriptorResources() {

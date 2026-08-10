@@ -92,19 +92,10 @@ void Clouds::recreatePipelines() {
 
     if (pipeline_ != VK_NULL_HANDLE) { vkDestroyPipeline(device, pipeline_, nullptr); pipeline_ = VK_NULL_HANDLE; }
 
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/clouds.vert.spv")) {
-        LOG_ERROR("Clouds::recreatePipelines: failed to load vertex shader");
-        return;
-    }
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/clouds.frag.spv")) {
-        LOG_ERROR("Clouds::recreatePipelines: failed to load fragment shader");
-        return;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/clouds.vert.spv", "assets/shaders/clouds.frag.spv", "clouds");
+    if (!shaders) return;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     VkVertexInputBindingDescription binding{};
     binding.binding   = 0;

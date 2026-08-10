@@ -91,19 +91,10 @@ void StarField::recreatePipelines() {
 
     if (pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, pipeline, nullptr); pipeline = VK_NULL_HANDLE; }
 
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/starfield.vert.spv")) {
-        LOG_ERROR("StarField::recreatePipelines: failed to load vertex shader");
-        return;
-    }
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/starfield.frag.spv")) {
-        LOG_ERROR("StarField::recreatePipelines: failed to load fragment shader");
-        return;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/starfield.vert.spv", "assets/shaders/starfield.frag.spv", "starfield");
+    if (!shaders) return;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     // Vertex input (same as initialize)
     VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));

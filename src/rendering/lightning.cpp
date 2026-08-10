@@ -248,16 +248,10 @@ void Lightning::recreatePipelines() {
 
     // ---- Rebuild bolt pipeline (LINE_STRIP) ----
     {
-        VkShaderModule vertModule;
-        VkShaderModule fragModule;
-        if (!vertModule.loadFromFile(device, "assets/shaders/lightning_bolt.vert.spv") ||
-            !fragModule.loadFromFile(device, "assets/shaders/lightning_bolt.frag.spv")) {
-            LOG_ERROR("Lightning::recreatePipelines: failed to load bolt shader modules");
-            return;
-        }
-
-        VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-        VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto shaders = loadShaderPair(device, "assets/shaders/lightning_bolt.vert.spv", "assets/shaders/lightning_bolt.frag.spv", "lightning_bolt");
+        if (!shaders) return;
+        const auto& vertStage = shaders.vertStage;
+        const auto& fragStage = shaders.fragStage;
 
         VkVertexInputBindingDescription binding{};
         binding.binding = 0;
@@ -287,16 +281,10 @@ void Lightning::recreatePipelines() {
 
     // ---- Rebuild flash pipeline (TRIANGLE_STRIP) ----
     {
-        VkShaderModule vertModule;
-        VkShaderModule fragModule;
-        if (!vertModule.loadFromFile(device, "assets/shaders/lightning_flash.vert.spv") ||
-            !fragModule.loadFromFile(device, "assets/shaders/lightning_flash.frag.spv")) {
-            LOG_ERROR("Lightning::recreatePipelines: failed to load flash shader modules");
-            return;
-        }
-
-        VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-        VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto shaders = loadShaderPair(device, "assets/shaders/lightning_flash.vert.spv", "assets/shaders/lightning_flash.frag.spv", "lightning_flash");
+        if (!shaders) return;
+        const auto& vertStage = shaders.vertStage;
+        const auto& fragStage = shaders.fragStage;
 
         VkVertexInputBindingDescription binding{};
         binding.binding = 0;

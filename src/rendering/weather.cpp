@@ -120,19 +120,10 @@ void Weather::recreatePipelines() {
 
     if (pipeline != VK_NULL_HANDLE) { vkDestroyPipeline(device, pipeline, nullptr); pipeline = VK_NULL_HANDLE; }
 
-    VkShaderModule vertModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/weather.vert.spv")) {
-        LOG_ERROR("Weather::recreatePipelines: failed to load vertex shader");
-        return;
-    }
-    VkShaderModule fragModule;
-    if (!fragModule.loadFromFile(device, "assets/shaders/weather.frag.spv")) {
-        LOG_ERROR("Weather::recreatePipelines: failed to load fragment shader");
-        return;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/weather.vert.spv", "assets/shaders/weather.frag.spv", "weather");
+    if (!shaders) return;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     // Vertex input (same as initialize)
     VkVertexInputBindingDescription binding{};

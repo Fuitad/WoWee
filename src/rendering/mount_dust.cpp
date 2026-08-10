@@ -126,16 +126,10 @@ void MountDust::recreatePipelines() {
         pipeline = VK_NULL_HANDLE;
     }
 
-    VkShaderModule vertModule;
-    VkShaderModule fragModule;
-    if (!vertModule.loadFromFile(device, "assets/shaders/mount_dust.vert.spv") ||
-        !fragModule.loadFromFile(device, "assets/shaders/mount_dust.frag.spv")) {
-        LOG_ERROR("MountDust::recreatePipelines: failed to load shader modules");
-        return;
-    }
-
-    VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-    VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto shaders = loadShaderPair(device, "assets/shaders/mount_dust.vert.spv", "assets/shaders/mount_dust.frag.spv", "mount_dust");
+    if (!shaders) return;
+    const auto& vertStage = shaders.vertStage;
+    const auto& fragStage = shaders.fragStage;
 
     VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
     std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();

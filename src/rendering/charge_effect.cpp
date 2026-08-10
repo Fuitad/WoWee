@@ -228,16 +228,10 @@ void ChargeEffect::recreatePipelines() {
 
     // ---- Rebuild ribbon trail pipeline (TRIANGLE_STRIP) ----
     {
-        VkShaderModule vertModule;
-        VkShaderModule fragModule;
-        if (!vertModule.loadFromFile(device, "assets/shaders/charge_ribbon.vert.spv") ||
-            !fragModule.loadFromFile(device, "assets/shaders/charge_ribbon.frag.spv")) {
-            LOG_ERROR("ChargeEffect::recreatePipelines: failed to load ribbon shader modules");
-            return;
-        }
-
-        VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-        VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto shaders = loadShaderPair(device, "assets/shaders/charge_ribbon.vert.spv", "assets/shaders/charge_ribbon.frag.spv", "charge_ribbon");
+        if (!shaders) return;
+        const auto& vertStage = shaders.vertStage;
+        const auto& fragStage = shaders.fragStage;
 
         VkVertexInputBindingDescription binding{};
         binding.binding = 0;
@@ -279,16 +273,10 @@ void ChargeEffect::recreatePipelines() {
 
     // ---- Rebuild dust puff pipeline (POINT_LIST) ----
     {
-        VkShaderModule vertModule;
-        VkShaderModule fragModule;
-        if (!vertModule.loadFromFile(device, "assets/shaders/charge_dust.vert.spv") ||
-            !fragModule.loadFromFile(device, "assets/shaders/charge_dust.frag.spv")) {
-            LOG_ERROR("ChargeEffect::recreatePipelines: failed to load dust shader modules");
-            return;
-        }
-
-        VkPipelineShaderStageCreateInfo vertStage = vertModule.stageInfo(VK_SHADER_STAGE_VERTEX_BIT);
-        VkPipelineShaderStageCreateInfo fragStage = fragModule.stageInfo(VK_SHADER_STAGE_FRAGMENT_BIT);
+        auto shaders = loadShaderPair(device, "assets/shaders/charge_dust.vert.spv", "assets/shaders/charge_dust.frag.spv", "charge_dust");
+        if (!shaders) return;
+        const auto& vertStage = shaders.vertStage;
+        const auto& fragStage = shaders.fragStage;
 
         VkVertexInputBindingDescription binding = tightVertexBinding(5 * sizeof(float));
         std::vector<VkVertexInputAttributeDescription> attrs = positionPlusTwoFloatsAttrs();
