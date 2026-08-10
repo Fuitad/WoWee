@@ -2869,8 +2869,16 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                     // Even without a geoset filter, skip eye glow (group 17)
                     // and group 18 unless explicitly opted in. These geosets are
                     // only for DK/NE eye glow and should be off by default.
+                    //
+                    // Group 15 joins them, for the same reason and a visible
+                    // one: it is the cloak, and its variants above 1501 are
+                    // cloaks that exist. A model drawn with no filter drew one
+                    // whether or not the character wore anything — and with no
+                    // cloak texture to bind, a white sheet. An NPC that owns a
+                    // cape says so by naming the geoset; one that says nothing
+                    // has none.
                     uint16_t grp = batch.submeshId / 100;
-                    if (grp == 17 || grp == 18) continue;
+                    if (grp == 17 || grp == 18 || grp == 15) continue;
                 }
                 // One line per head batch, for the first few instances: which
                 // texture slot it resolved to and what type that slot is. The
