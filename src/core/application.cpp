@@ -1,5 +1,6 @@
 #include "core/application.hpp"
 #include "core/character_paths.hpp"
+#include "ui/settings_schema.hpp"
 #include "pipeline/m2_asset_loader.hpp"
 #include "core/coordinates.hpp"
 #include "ui/minimap_projection.hpp"
@@ -443,6 +444,24 @@ bool Application::initialize() {
             auto& gs = uim->getGameScreen();
             if (gs.getSettingsPanel().setSettingValue(key, value)) gs.saveSettings();
         };
+
+        // Every schema key must be answered, or its control is drawn and inert.
+        //
+        // The schema names the settings, the panel answers them, and the two are
+        // in different files — so a setting added to one and not the other gives
+        // a checkbox that does nothing, with nothing to say why. Checked once at
+        // startup rather than left to be noticed.
+        {
+            std::size_t count = 0;
+            const auto* schema = ui::clientSettingsSchema(count);
+            for (std::size_t i = 0; i < count; ++i) {
+                if (luaSvc.getClientSetting(schema[i].key).empty()) {
+                    LOG_WARNING("Setting '", schema[i].key, "' (", schema[i].label,
+                                ") is in the schema but nothing answers it — its "
+                                "control in the interface options will do nothing");
+                }
+            }
+        }
 
         // FrameXML's Sound options, driving this client's own audio settings.
         // Its sliders are 0..1 and these are percentages, so the conversion
