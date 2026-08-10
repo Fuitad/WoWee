@@ -16,6 +16,7 @@
 #include "pipeline/dbc_loader.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
+#include "pipeline/char_sections.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_services.hpp"
 #include "game/game_utils.hpp"
@@ -434,42 +435,34 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
                             if (!he.bakeName.empty()) {
                                 displaySkinPaths.push_back("Textures\\BakedNpcTextures\\" + he.bakeName);
                             }
-                            // CharSections: skin, face, underwear
+                            // CharSections, through the one reader in
+                            // pipeline/char_sections.hpp. This was a fifth
+                            // hand-written copy of that scan, and a prefetch
+                            // that names different paths than the spawn will
+                            // ask for is a prefetch that does nothing — it
+                            // never collected the skin row's second texture,
+                            // so the head detail sheet was always decoded on
+                            // the main thread at spawn time.
                             auto csDbc = am->loadDBC("CharSections.dbc");
                             if (csDbc) {
                                 const auto* csL = pipeline::getActiveDBCLayout()
                                     ? pipeline::getActiveDBCLayout()->getLayout("CharSections") : nullptr;
-                                auto csF = pipeline::detectCharSectionsFields(csDbc.get(), csL);
-                                uint32_t nRace = static_cast<uint32_t>(he.raceId);
-                                uint32_t nSex = static_cast<uint32_t>(he.sexId);
-                                uint32_t nSkin = static_cast<uint32_t>(he.skinId);
-                                uint32_t nFace = static_cast<uint32_t>(he.faceId);
-                                for (uint32_t r = 0; r < csDbc->getRecordCount(); r++) {
-                                    uint32_t rId = csDbc->getUInt32(r, csF.raceId);
-                                    uint32_t sId = csDbc->getUInt32(r, csF.sexId);
-                                    if (rId != nRace || sId != nSex) continue;
-                                    uint32_t section = csDbc->getUInt32(r, csF.baseSection);
-                                    uint32_t variation = csDbc->getUInt32(r, csF.variationIndex);
-                                    uint32_t color = csDbc->getUInt32(r, csF.colorIndex);
-                                    if (section == 0 && color == nSkin) {
-                                        std::string t = csDbc->getString(r, csF.texture1);
-                                        if (!t.empty()) displaySkinPaths.push_back(t);
-                                    } else if (section == 1 && variation == nFace && color == nSkin) {
-                                        std::string t1 = csDbc->getString(r, csF.texture1);
-                                        std::string t2 = csDbc->getString(r, csF.texture2);
-                                        if (!t1.empty()) displaySkinPaths.push_back(t1);
-                                        if (!t2.empty()) displaySkinPaths.push_back(t2);
-                                    } else if (section == 3 && variation == static_cast<uint32_t>(he.hairStyleId)
-                                               && color == static_cast<uint32_t>(he.hairColorId)) {
-                                        std::string t = csDbc->getString(r, csF.texture1);
-                                        if (!t.empty()) displaySkinPaths.push_back(t);
-                                    } else if (section == 4 && color == nSkin) {
-                                        for (uint32_t f = csF.texture1; f <= csF.texture1 + 2; f++) {
-                                            std::string t = csDbc->getString(r, f);
-                                            if (!t.empty()) displaySkinPaths.push_back(t);
-                                        }
-                                    }
+                                const auto csF = pipeline::detectCharSectionsFields(csDbc.get(), csL);
+                                pipeline::CharacterAppearance who;
+                                who.raceId = he.raceId;
+                                who.sexId = he.sexId;
+                                who.skinId = he.skinId;
+                                who.faceId = he.faceId;
+                                who.hairStyleId = he.hairStyleId;
+                                who.hairColorId = he.hairColorId;
+                                const auto sections =
+                                    pipeline::resolveCharacterSections(csDbc.get(), csF, who);
+                                for (const std::string* path : {&sections.bodySkin, &sections.skinExtra,
+                                                                &sections.faceLower, &sections.faceUpper,
+                                                                &sections.hair}) {
+                                    if (!path->empty()) displaySkinPaths.push_back(*path);
                                 }
+                                for (const auto& uw : sections.underwear) displaySkinPaths.push_back(uw);
                             }
                             // Equipment region textures
                             auto idiDbc = am->loadDBC("ItemDisplayInfo.dbc");

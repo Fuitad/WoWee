@@ -1941,29 +1941,24 @@ void EntitySpawner::applyCreatureDisplayTextures(uint32_t displayId, uint32_t mo
                         }
                     }
 
-                    // --- Hair texture from CharSections (section 3) ---
+                    // --- Hair texture from CharSections ---
+                    // The one reader again, rather than a sixth scan of the
+                    // table written out by hand. Only the hair is wanted here.
                     {
                         auto csDbc = am->loadDBC("CharSections.dbc");
                         if (csDbc) {
                             const auto* csL = pipeline::getActiveDBCLayout()
                                 ? pipeline::getActiveDBCLayout()->getLayout("CharSections") : nullptr;
-                            auto csF = pipeline::detectCharSectionsFields(csDbc.get(), csL);
-                            uint32_t targetRace = static_cast<uint32_t>(extraCopy.raceId);
-                            uint32_t targetSex = static_cast<uint32_t>(extraCopy.sexId);
-
-                            for (uint32_t r = 0; r < csDbc->getRecordCount(); r++) {
-                                uint32_t raceId = csDbc->getUInt32(r, csF.raceId);
-                                uint32_t sexId = csDbc->getUInt32(r, csF.sexId);
-                                if (raceId != targetRace || sexId != targetSex) continue;
-                                uint32_t section = csDbc->getUInt32(r, csF.baseSection);
-                                if (section != 3) continue;
-                                uint32_t variation = csDbc->getUInt32(r, csF.variationIndex);
-                                uint32_t colorIdx = csDbc->getUInt32(r, csF.colorIndex);
-                                if (variation != static_cast<uint32_t>(extraCopy.hairStyleId)) continue;
-                                if (colorIdx != static_cast<uint32_t>(extraCopy.hairColorId)) continue;
-                                def.hairTexturePath = csDbc->getString(r, csF.texture1);
-                                break;
-                            }
+                            const auto csF = pipeline::detectCharSectionsFields(csDbc.get(), csL);
+                            pipeline::CharacterAppearance who;
+                            who.raceId = extraCopy.raceId;
+                            who.sexId = extraCopy.sexId;
+                            who.skinId = extraCopy.skinId;
+                            who.faceId = extraCopy.faceId;
+                            who.hairStyleId = extraCopy.hairStyleId;
+                            who.hairColorId = extraCopy.hairColorId;
+                            def.hairTexturePath =
+                                pipeline::resolveCharacterSections(csDbc.get(), csF, who).hair;
 
                             if (!def.hairTexturePath.empty()) {
                                 allPaths.push_back(def.hairTexturePath);
