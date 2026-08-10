@@ -1385,6 +1385,24 @@ void InventoryScreen::renderSeparateBags(game::Inventory& inventory, uint64_t mo
     float stackBottom = bagBarTop - stackGap;
     float stackX = screenW - baseWindowW - 10.0f;
 
+    // Where the next bag of this height goes, starting a new column to the
+    // left when it would run off the top. Without the wrap a fifth bag simply
+    // went above the screen; with every bag in one column and no wrap, tall
+    // bags overlapped the ones already placed.
+    //
+    // The real client tiles the same way — updateContainerFrameAnchors fills a
+    // column upward from the bottom right and steps left when the next bag no
+    // longer fits.
+    auto placeNext = [&](float height) {
+        if (stackBottom - height < 0.0f && stackBottom < bagBarTop - stackGap) {
+            stackX -= baseWindowW + stackGap;
+            stackBottom = bagBarTop - stackGap;
+        }
+        const float y = stackBottom - height;
+        stackBottom = y - stackGap;
+        return y;
+    };
+
     // Backpack window (bottom of stack)
     if (backpackOpen_) {
         int bpTotal = inventory.getBackpackSize();
@@ -1407,9 +1425,9 @@ void InventoryScreen::renderSeparateBags(game::Inventory& inventory, uint64_t mo
                 bpH += 30.0f * scale + keyRows * (keySlotSize + 4.0f * scale);
             }
         }
-        float defaultY = stackBottom - bpH;
-        renderBagWindow(bpTitle, backpackOpen_, inventory, -1, stackX, defaultY, moneyCopper);
-        stackBottom = defaultY - stackGap;
+        const float bpX = stackX;
+        const float bpY = placeNext(bpH);
+        renderBagWindow(bpTitle, backpackOpen_, inventory, -1, bpX, bpY, moneyCopper);
     }
 
     // Extra bag windows in right-to-left bag-bar order (closest to backpack first).
@@ -1427,8 +1445,8 @@ void InventoryScreen::renderSeparateBags(game::Inventory& inventory, uint64_t mo
 
         int bagRows = (bagSize + columns - 1) / columns;
         float bagH = bagRows * (slotSize + 4.0f * scale) + 60.0f * scale;
-        float defaultY = stackBottom - bagH;
-        stackBottom = defaultY - stackGap;
+        const float bagX = stackX;
+        const float defaultY = placeNext(bagH);
 
         // Build title from equipped bag item name, with used/total slot counts
         int bagUsed = 0;
@@ -1442,7 +1460,7 @@ void InventoryScreen::renderSeparateBags(game::Inventory& inventory, uint64_t mo
             snprintf(title, sizeof(title), "Bag Slot %d (%d/%d)###bag%d", bag + 1, bagUsed, bagSize, bag);
         }
 
-        renderBagWindow(title, bagOpen_[bag], inventory, bag, stackX, defaultY, 0);
+        renderBagWindow(title, bagOpen_[bag], inventory, bag, bagX, defaultY, 0);
     }
 
     // Update open state based on individual windows
@@ -1489,11 +1507,17 @@ void InventoryScreen::renderBagWindow(const char* title, bool& isOpen,
     float windowW = std::max(gridW, titleW);
     float windowH = contentH + 40.0f * scale;
 
-    ImGui::SetNextWindowPos(ImVec2(defaultX, defaultY), ImGuiCond_FirstUseEver);
+    // Always, and unmovable with it. These are tiled: the caller works out
+    // where each one goes so they sit in a column above the bag bar without
+    // touching. FirstUseEver meant that was only ever a starting suggestion —
+    // one drag and the window kept its own position for the rest of the
+    // install, sitting over whichever bag was placed there afterwards. The real
+    // client does not let a bag be dragged out of its stack either.
+    ImGui::SetNextWindowPos(ImVec2(defaultX, defaultY), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(windowW, windowH), ImGuiCond_Always);
 
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize;
-    if (holdingItem || pickupPending_) flags |= ImGuiWindowFlags_NoMove;
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+                             ImGuiWindowFlags_NoMove;
 
     bool windowVisible = ImGui::Begin(title, &isOpen, flags);
     if (!windowVisible) {
