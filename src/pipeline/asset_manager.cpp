@@ -550,7 +550,20 @@ bool AssetManager::fileExists(const std::string& path) const {
         return false;
     }
     std::string normalized = normalizePath(path);
-    return manifest_.hasEntry(normalized);
+    // Resolved the same way a read is, not looked up in the primary manifest.
+    //
+    // A read walks override, primary manifest, base fallback manifest, then the
+    // loose file; this asked the primary manifest alone. With one asset source
+    // the two agree, which is why it stood. The moment an expansion overlay
+    // becomes the primary — an overlay holding a few thousand models over a
+    // two-hundred-thousand file base — this answered NO for every file in the
+    // base game, while the read that follows would have found it.
+    //
+    // Fifty-eight callers ask this before deciding what to read, so every one
+    // of them took the wrong branch at once: a weapon texture that is present
+    // under Weapon\ was declared missing and looked for under Shield\, where
+    // it has never been, and the weapon drew white.
+    return !resolveFile(normalized).empty();
 }
 
 std::vector<uint8_t> AssetManager::readFile(const std::string& path) const {

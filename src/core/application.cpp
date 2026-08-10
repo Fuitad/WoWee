@@ -638,8 +638,29 @@ bool Application::initialize() {
         widgetRenderer_.initialize(assetManager.get(),
                                    window ? window->getVkContext() : nullptr);
         if (addonManager_->initialize(gameHandler.get(), luaSvc)) {
-            std::string addonsDir = assetPath + "/interface/AddOns";
-            addonManager_->setFrameXmlDir(assetPath + "/interface/FrameXML");
+            // FrameXML and the AddOns folder are loose directories on disk, not
+            // assets reached through the manifest, and they belong to the
+            // installation rather than to whichever expansion happens to supply
+            // asset overrides. assetPath is the expansion's directory whenever
+            // one carries its own manifest — and an overlay holding models and
+            // a DBC has no interface/ at all, so taking it here meant the whole
+            // Blizzard interface stopped loading the moment any overlay
+            // existed, with one warning to say so.
+            //
+            // The expansion still wins if it does ship an interface, which is
+            // what an expansion-specific FrameXML would be for.
+            std::string interfaceRoot = dataPath;
+            if (assetPath != dataPath) {
+                std::error_code ec;
+                for (const char* cased : {"/interface", "/Interface"}) {
+                    if (std::filesystem::is_directory(assetPath + cased, ec)) {
+                        interfaceRoot = assetPath;
+                        break;
+                    }
+                }
+            }
+            std::string addonsDir = interfaceRoot + "/interface/AddOns";
+            addonManager_->setFrameXmlDir(interfaceRoot + "/interface/FrameXML");
             addonManager_->scanAddons(addonsDir);
             // Wire Lua errors to UI error display
             addonManager_->getLuaEngine()->setLuaErrorCallback([gh = gameHandler.get()](const std::string& err) {

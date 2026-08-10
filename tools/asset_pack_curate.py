@@ -98,12 +98,40 @@ def is_reflection(name):
     return any(word in base for word in REFLECTION_WORDS)
 
 
+def find_overlays(data_root="Data"):
+    """Every expansion under Data/ that carries its own asset manifest."""
+    found = []
+    expansions = os.path.join(data_root, "expansions")
+    if not os.path.isdir(expansions):
+        return found
+    for name in sorted(os.listdir(expansions)):
+        path = os.path.join(expansions, name)
+        if os.path.exists(os.path.join(path, "manifest.json")):
+            found.append(path)
+    return found
+
+
 def main():
-    if len(sys.argv) < 2:
-        print(__doc__)
-        return 2
-    overlay_root = sys.argv[1].rstrip("/")
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
     apply_changes = "--apply" in sys.argv
+    keep_hd = "--keep-hd-characters" in sys.argv
+
+    # No argument audits whatever overlays this install has, and reports
+    # nothing to do when it has none. A tool that cannot be run without being
+    # told where to look is a tool nobody runs.
+    if not args:
+        overlays = find_overlays()
+        if not overlays:
+            print("no asset overlay in Data/expansions — nothing to audit")
+            return 0
+        rc = 0
+        for path in overlays:
+            rc |= curate(path, apply_changes, keep_hd)
+        return rc
+    return curate(args[0].rstrip("/"), apply_changes, keep_hd)
+
+
+def curate(overlay_root, apply_changes, keep_hd=False):
 
     manifest_path = os.path.join(overlay_root, "manifest.json")
     manifest = json.load(open(manifest_path))
@@ -130,13 +158,18 @@ def main():
     # (1) every character file that replaces one the base game already had.
     # Additions under character/ — the pack's separate NPC models — are not
     # touched here; they are judged on their textures like anything else.
-    for key in list(entries):
-        if key.startswith("character\\") and key in base:
-            mark(key, "character replacement (HD geosets and art set)")
+    if not keep_hd:
+        for key in list(entries):
+            if key.startswith("character\\") and key in base:
+                mark(key, "character replacement (HD geosets and art set)")
 
     # (3) the DBCs that are not about models at all, or that carry the HD art set
-    for key in ("dbfilesclient\\charsections.dbc",
-                "dbfilesclient\\emotestextsound.dbc"):
+    unwanted_dbcs = ["dbfilesclient\\emotestextsound.dbc"]
+    if not keep_hd:
+        # CharSections is what aims the compositor at _HD art; it belongs with
+        # the HD models and goes with them either way.
+        unwanted_dbcs.append("dbfilesclient\\charsections.dbc")
+    for key in unwanted_dbcs:
         mark(key, "DBC unrelated to models, or pointing at HD art")
 
     # (2) models missing a texture that is not merely a reflection map
@@ -227,7 +260,7 @@ def main():
             # leaves any re-point onto it aiming at nothing, and a display id
             # whose model file is missing does not fall back — the creature
             # simply does not appear, which is worse than the old model.
-            usable = (not target.upper().startswith("CHARACTER\\")
+            usable = ((keep_hd or not target.upper().startswith("CHARACTER\\"))
                       and model_file_resolves(target))
             if usable:
                 kept_repoints += 1
