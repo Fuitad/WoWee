@@ -193,6 +193,14 @@ public:
     std::string settingValue(const std::string& key) const;
     bool setSettingValue(const std::string& key, const std::string& value);
 
+    /// Push a setting that has just changed at the thing it affects.
+    ///
+    /// The settings window does this at each slider. A change arriving from
+    /// FrameXML's options or the Wowee panel comes through setSettingValue
+    /// instead, and without this it would update the number, save it, and
+    /// change nothing on screen.
+    void applySettingSideEffects(const std::string& key);
+
     /// Apply the persisted global ImGui window scale without compounding ratios.
     void applyWindowUiScale();
 

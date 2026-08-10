@@ -1455,6 +1455,58 @@ std::string SettingsPanel::getSettingsPath() {
 }
 
 
+void SettingsPanel::applySettingSideEffects(const std::string& key) {
+    // The settings window applies each value where its slider is, so a change
+    // made through FrameXML or the Wowee options panel used to update the number
+    // and save it and nothing else — the option looked dead until the client was
+    // restarted or the same slider was touched in the other window.
+    //
+    // These are the same calls the sliders make, and nothing more: a setting
+    // whose only effect is to be read later, like auto-repair, has no line here
+    // and needs none.
+    auto* renderer = services_.renderer;
+    auto* camera = renderer ? renderer->getCamera() : nullptr;
+    auto* cameraController = renderer ? renderer->getCameraController() : nullptr;
+
+    if (key == "viewdistance") {
+        if (renderer) renderer->setViewDistance(pendingViewDistance);
+    } else if (key == "shadows") {
+        if (renderer) renderer->setShadowsEnabled(pendingShadows);
+    } else if (key == "shadowdistance") {
+        if (renderer) renderer->setShadowDistance(pendingShadowDistance);
+    } else if (key == "waterrefraction") {
+        if (renderer) renderer->setWaterRefractionEnabled(pendingWaterRefraction);
+    } else if (key == "groundclutter") {
+        if (renderer) {
+            if (auto* tm = renderer->getTerrainManager()) {
+                tm->setGroundClutterDensityScale(
+                    static_cast<float>(pendingGroundClutterDensity) / 100.0f);
+            }
+        }
+    } else if (key == "fov") {
+        if (camera) camera->setFov(pendingFov);
+    } else if (key == "mousespeed") {
+        if (cameraController) cameraController->setMouseSensitivity(pendingMouseSensitivity);
+    } else if (key == "extendedzoom") {
+        if (cameraController) cameraController->setExtendedZoom(pendingExtendedZoom);
+    } else if (key == "camerastiffness") {
+        if (cameraController) cameraController->setCameraSmoothSpeed(pendingCameraStiffness);
+    } else if (key == "smoothfollow") {
+        if (cameraController) cameraController->setSmoothCameraFollow(pendingSmoothCameraFollow);
+    } else if (key == "pivotheight") {
+        if (cameraController) cameraController->setPivotHeight(pendingPivotHeight);
+    } else if (key == "idleorbit") {
+        if (cameraController) cameraController->setIdleOrbitEnabled(pendingIdleCameraOrbit);
+    } else if (key == "uiopacity") {
+        uiOpacity_ = static_cast<float>(pendingUiOpacity) / 100.0f;
+    } else if (key == "minimapsquare") {
+        minimapSquare_ = pendingMinimapSquare;
+        if (renderer) {
+            if (auto* mm = renderer->getMinimap()) mm->setSquareShape(pendingMinimapSquare);
+        }
+    }
+}
+
 std::string SettingsPanel::settingValue(const std::string& key) const {
     // Bound to a Blizzard control as well, through kClientCVars.
     if (key == "viewdistance")    return settingNumberText(pendingViewDistance);
@@ -1525,6 +1577,7 @@ bool SettingsPanel::setSettingValue(const std::string& key, const std::string& v
     else if (key == "woweemusic")      pendingUseOriginalSoundtrack = on;
     else if (key == "characterspeech") pendingCharacterSpeech = on;
     else return false;
+    applySettingSideEffects(key);
     return true;
 }
 
