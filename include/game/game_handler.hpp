@@ -3809,6 +3809,17 @@ private:
      */
     void handlePacket(network::Packet& packet);
     void registerOpcodeHandlers();
+
+    /// The opcodes this handler answers itself, grouped by subject.
+    void registerCoreOpcodes();
+
+    /// Everything else — inspects, auctions, calendars, voice, and a long tail
+    /// that is consumed and ignored. Named for what it is.
+    void registerRemainingOpcodes();
+
+    /// The domain handlers registering their own. Disjoint from the two above,
+    /// so the order between them carries no meaning.
+    void registerDomainOpcodes();
     void registerSkipHandler(LogicalOpcode op);
     void registerErrorHandler(LogicalOpcode op, const char* msg);
     void registerHandler(LogicalOpcode op, void (GameHandler::*handler)(network::Packet&));

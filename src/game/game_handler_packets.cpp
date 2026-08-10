@@ -152,7 +152,11 @@ void GameHandler::fireRuneUpdate(uint32_t index) {
     }
 }
 
-void GameHandler::registerOpcodeHandlers() {
+// The opcodes this handler answers itself, grouped by what they are about: the
+// session handshake, XP and exploration, corpses and combat state, guilds and
+// loot and vendors, teleports and taxis and battlegrounds, world states, action
+// buttons, levelling.
+void GameHandler::registerCoreOpcodes() {
     // -----------------------------------------------------------------------
     // Auth / session / pre-world handshake
     // -----------------------------------------------------------------------
@@ -1549,6 +1553,15 @@ void GameHandler::registerOpcodeHandlers() {
         }
     };
 
+}
+
+// Everything else — inspects, quests, auctions, spells, calendars,
+// battlefields, voice, and a long tail that is consumed and ignored.
+//
+// Named for what it is rather than given a theme it does not have: it arrived
+// as five batches of whatever was left over, and the honest description of that
+// is 'the rest'.
+void GameHandler::registerRemainingOpcodes() {
     // -----------------------------------------------------------------------
     // Batch 8-12: Remaining opcodes (inspects, quests, auctions, spells,
     //             calendars, battlefields, voice, misc consume-only)
@@ -3377,9 +3390,15 @@ void GameHandler::registerOpcodeHandlers() {
         Opcode::SMSG_VOICE_SET_TALKER_MUTED
     }) { registerSkipHandler(op); }
 
-    // -----------------------------------------------------------------------
-    // Domain handler registrations (override duplicate entries above)
-    // -----------------------------------------------------------------------
+}
+
+// The domain handlers registering their own.
+//
+// This used to be described as overriding duplicate entries above, which has
+// not been true since those were moved out. The two sets are disjoint — checked
+// opcode by opcode, 182 here against 320 there, no overlap — so the order
+// between them carries no meaning and a reader need not look for one.
+void GameHandler::registerDomainOpcodes() {
     chatHandler_->registerOpcodes(dispatchTable_);
     movementHandler_->registerOpcodes(dispatchTable_);
     combatHandler_->registerOpcodes(dispatchTable_);
@@ -3388,6 +3407,12 @@ void GameHandler::registerOpcodeHandlers() {
     socialHandler_->registerOpcodes(dispatchTable_);
     questHandler_->registerOpcodes(dispatchTable_);
     wardenHandler_->registerOpcodes(dispatchTable_);
+}
+
+void GameHandler::registerOpcodeHandlers() {
+    registerCoreOpcodes();
+    registerRemainingOpcodes();
+    registerDomainOpcodes();
 }
 
 void GameHandler::handlePacket(network::Packet& packet) {
