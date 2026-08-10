@@ -314,6 +314,12 @@ private:
     /// Apply the textures a creature display names: its own skin variations,
     /// and for a humanoid the composited body, face, hair and equipment. Once
     /// per display, since the model is shared by every creature using it.
+    /// Per-instance colouring of a humanoid NPC: hair, skin, and the
+    /// head-detail sheet. Per instance rather than per model, so two NPCs
+    /// sharing a model still get their own hair colour.
+    void applyHumanoidInstanceOverrides(uint32_t instanceId, uint32_t modelId,
+                                        uint32_t displayId);
+
     void applyCreatureDisplayTextures(uint32_t displayId, uint32_t modelId,
                                       const CreatureDisplayData& dispData);
 

@@ -1186,6 +1186,130 @@ EntitySpawner::getCreatureSkinPaths(uint32_t displayId,
 //
 // Lifted out of spawnOnlineCreature, which was 1477 lines and is now under a
 // thousand. Nothing here changed; it moved.
+// The per-instance colouring of a humanoid NPC: its hair, its skin, and the
+// head-detail sheet an HD model draws its ears and eyes from.
+//
+// Per instance rather than per model, because two NPCs sharing one model still
+// have their own hair colour — which is why these are texture slot overrides on
+// the instance and not textures on the model.
+void EntitySpawner::applyHumanoidInstanceOverrides(uint32_t instanceId, uint32_t modelId,
+                                                   uint32_t displayId) {
+    auto* charRenderer = renderer_->getCharacterRenderer();
+    if (!charRenderer) return;
+    auto itDisplayData = displayDataMap_.find(displayId);
+    if (!charSectionsCacheBuilt_) buildCharSectionsCache();
+    auto itDD = displayDataMap_.find(displayId);
+    if (itDD != displayDataMap_.end() && itDD->second.extraDisplayId != 0) {
+        auto itExtra2 = humanoidExtraMap_.find(itDD->second.extraDisplayId);
+        if (itExtra2 != humanoidExtraMap_.end()) {
+            const auto& extra = itExtra2->second;
+            const auto* md = charRenderer->getModelData(modelId);
+            if (md) {
+                    // Look up hair texture (section 3) via cache
+                    rendering::VkTexture* whiteTex = charRenderer->loadTexture("");
+                    std::string hairPath = lookupCharSection(
+                        extra.raceId, extra.sexId, 3, extra.hairStyleId, extra.hairColorId, 0);
+                    if (!hairPath.empty()) {
+                        rendering::VkTexture* hairTex = charRenderer->loadTexture(hairPath);
+                        if (hairTex && hairTex != whiteTex) {
+                            for (size_t ti = 0; ti < md->textures.size(); ti++) {
+                                if (md->textures[ti].type == 6) {
+                                    charRenderer->setTextureSlotOverride(instanceId, static_cast<uint16_t>(ti), hairTex);
+                                }
+                            }
+                        }
+                    }
+
+                    // The head detail sheet — eyes, mouth, ears, eyelashes —
+                    // which an HD humanoid model asks for as texture type 8
+                    // and the stock ones have no slot for. CharSections'
+                    // second texture on the skin row is where it comes from,
+                    // the same as for the player. Without it these slots
+                    // keep whatever the model was authored with, and one of
+                    // these models was authored with the word 'Ohren' — so
+                    // the face detail fell back to the body art and every
+                    // NPC wore its skin colour where its eyes should be.
+                    {
+                        std::string extraPath = lookupCharSection(
+                            extra.raceId, extra.sexId, 0, 0, extra.skinId, 1);
+                        int extraSlots = 0;
+                        // Seven race and sex pairs name no extra art, and
+                        // their models still carry 'Ohren' in the slot — a
+                        // name that is not a file. The body skin is a poor
+                        // substitute for an ear texture and a far better one
+                        // than nothing, which is what those ears had.
+                        if (extraPath.empty()) {
+                            extraPath = lookupCharSection(
+                                extra.raceId, extra.sexId, 0, 0, extra.skinId, 0);
+                        }
+                        rendering::VkTexture* extraTex =
+                            extraPath.empty() ? nullptr : charRenderer->loadTexture(extraPath);
+                        if (extraTex && extraTex != whiteTex) {
+                            for (size_t ti = 0; ti < md->textures.size(); ti++) {
+                                if (md->textures[ti].type == 8) {
+                                    charRenderer->setTextureSlotOverride(
+                                        instanceId, static_cast<uint16_t>(ti), extraTex);
+                                    ++extraSlots;
+                                }
+                            }
+                        }
+                        // Three things decide whether an NPC's face is right,
+                        // and a wrong face looks the same whichever failed:
+                        // the table having the art, the art loading, and the
+                        // model having a slot to put it in.
+                        if (npcHeadDetailCanaryCount_ < 8) {
+                            ++npcHeadDetailCanaryCount_;
+                            // The face art this NPC was given, beside the
+                            // face it was asked for. CharSections is keyed
+                            // on (variation, colour) and a lookup that misses
+                            // does not fail — it returns another row, and
+                            // another row is another face.
+                            const std::string faceLower = lookupCharSection(
+                                extra.raceId, extra.sexId, 1, extra.faceId, extra.skinId, 0);
+                            const std::string faceUpper = lookupCharSection(
+                                extra.raceId, extra.sexId, 1, extra.faceId, extra.skinId, 1);
+                            LOG_WARNING("NPC head detail: displayId=", displayId,
+                                        " race=", static_cast<int>(extra.raceId),
+                                        " sex=", static_cast<int>(extra.sexId),
+                                        " skin=", static_cast<int>(extra.skinId),
+                                        " face=", static_cast<int>(extra.faceId),
+                                        " extra='", extraPath,
+                                        "' loaded=", (extraTex && extraTex != whiteTex ? "yes" : "NO"),
+                                        " type8 slots=", extraSlots,
+                                        " of ", md->textures.size(), " textures",
+                                        " | faceLower='", faceLower,
+                                        "' faceUpper='", faceUpper, "'");
+                        }
+                    }
+
+                    // Look up skin texture (section 0) for per-instance skin color.
+                    // Skip when the NPC has a baked texture or composited equipment —
+                    // those already encode armor over skin and must not be replaced.
+                    bool hasEquipOrBake = !extra.bakeName.empty();
+                    if (!hasEquipOrBake) {
+                        for (int s = 0; s < 11 && !hasEquipOrBake; s++)
+                            if (extra.equipDisplayId[s] != 0) hasEquipOrBake = true;
+                    }
+                    if (!hasEquipOrBake) {
+                        std::string skinPath = lookupCharSection(
+                            extra.raceId, extra.sexId, 0, 0, extra.skinId, 0);
+                        if (!skinPath.empty()) {
+                            rendering::VkTexture* skinTex = charRenderer->loadTexture(skinPath);
+                            if (skinTex) {
+                                for (size_t ti = 0; ti < md->textures.size(); ti++) {
+                                    uint32_t tt = md->textures[ti].type;
+                                    if (tt == 1 || tt == 11) {
+                                        charRenderer->setTextureSlotOverride(instanceId, static_cast<uint16_t>(ti), skinTex);
+                                    }
+                                }
+                            }
+                        }
+                    }
+            }
+        }
+    }
+}
+
 void EntitySpawner::applyCreatureDisplayTextures(uint32_t displayId, uint32_t modelId,
                                                  const CreatureDisplayData& dispData) {
     auto* charRenderer = renderer_->getCharacterRenderer();
@@ -1653,123 +1777,10 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
         return;
     }
 
-    // Per-instance hair/skin texture overrides — runs for ALL NPCs (including cached models)
-    // so that each NPC gets its own hair/skin color regardless of model sharing.
-    // Uses pre-built CharSections cache (O(1) lookup instead of O(N) DBC scan).
-    {
-        if (!charSectionsCacheBuilt_) buildCharSectionsCache();
-        auto itDD = displayDataMap_.find(displayId);
-        if (itDD != displayDataMap_.end() && itDD->second.extraDisplayId != 0) {
-            auto itExtra2 = humanoidExtraMap_.find(itDD->second.extraDisplayId);
-            if (itExtra2 != humanoidExtraMap_.end()) {
-                const auto& extra = itExtra2->second;
-                const auto* md = charRenderer->getModelData(modelId);
-                if (md) {
-                        // Look up hair texture (section 3) via cache
-                        rendering::VkTexture* whiteTex = charRenderer->loadTexture("");
-                        std::string hairPath = lookupCharSection(
-                            extra.raceId, extra.sexId, 3, extra.hairStyleId, extra.hairColorId, 0);
-                        if (!hairPath.empty()) {
-                            rendering::VkTexture* hairTex = charRenderer->loadTexture(hairPath);
-                            if (hairTex && hairTex != whiteTex) {
-                                for (size_t ti = 0; ti < md->textures.size(); ti++) {
-                                    if (md->textures[ti].type == 6) {
-                                        charRenderer->setTextureSlotOverride(instanceId, static_cast<uint16_t>(ti), hairTex);
-                                    }
-                                }
-                            }
-                        }
-
-                        // The head detail sheet — eyes, mouth, ears, eyelashes —
-                        // which an HD humanoid model asks for as texture type 8
-                        // and the stock ones have no slot for. CharSections'
-                        // second texture on the skin row is where it comes from,
-                        // the same as for the player. Without it these slots
-                        // keep whatever the model was authored with, and one of
-                        // these models was authored with the word 'Ohren' — so
-                        // the face detail fell back to the body art and every
-                        // NPC wore its skin colour where its eyes should be.
-                        {
-                            std::string extraPath = lookupCharSection(
-                                extra.raceId, extra.sexId, 0, 0, extra.skinId, 1);
-                            int extraSlots = 0;
-                            // Seven race and sex pairs name no extra art, and
-                            // their models still carry 'Ohren' in the slot — a
-                            // name that is not a file. The body skin is a poor
-                            // substitute for an ear texture and a far better one
-                            // than nothing, which is what those ears had.
-                            if (extraPath.empty()) {
-                                extraPath = lookupCharSection(
-                                    extra.raceId, extra.sexId, 0, 0, extra.skinId, 0);
-                            }
-                            rendering::VkTexture* extraTex =
-                                extraPath.empty() ? nullptr : charRenderer->loadTexture(extraPath);
-                            if (extraTex && extraTex != whiteTex) {
-                                for (size_t ti = 0; ti < md->textures.size(); ti++) {
-                                    if (md->textures[ti].type == 8) {
-                                        charRenderer->setTextureSlotOverride(
-                                            instanceId, static_cast<uint16_t>(ti), extraTex);
-                                        ++extraSlots;
-                                    }
-                                }
-                            }
-                            // Three things decide whether an NPC's face is right,
-                            // and a wrong face looks the same whichever failed:
-                            // the table having the art, the art loading, and the
-                            // model having a slot to put it in.
-                            if (npcHeadDetailCanaryCount_ < 8) {
-                                ++npcHeadDetailCanaryCount_;
-                                // The face art this NPC was given, beside the
-                                // face it was asked for. CharSections is keyed
-                                // on (variation, colour) and a lookup that misses
-                                // does not fail — it returns another row, and
-                                // another row is another face.
-                                const std::string faceLower = lookupCharSection(
-                                    extra.raceId, extra.sexId, 1, extra.faceId, extra.skinId, 0);
-                                const std::string faceUpper = lookupCharSection(
-                                    extra.raceId, extra.sexId, 1, extra.faceId, extra.skinId, 1);
-                                LOG_WARNING("NPC head detail: displayId=", displayId,
-                                            " race=", static_cast<int>(extra.raceId),
-                                            " sex=", static_cast<int>(extra.sexId),
-                                            " skin=", static_cast<int>(extra.skinId),
-                                            " face=", static_cast<int>(extra.faceId),
-                                            " extra='", extraPath,
-                                            "' loaded=", (extraTex && extraTex != whiteTex ? "yes" : "NO"),
-                                            " type8 slots=", extraSlots,
-                                            " of ", md->textures.size(), " textures",
-                                            " | faceLower='", faceLower,
-                                            "' faceUpper='", faceUpper, "'");
-                            }
-                        }
-
-                        // Look up skin texture (section 0) for per-instance skin color.
-                        // Skip when the NPC has a baked texture or composited equipment —
-                        // those already encode armor over skin and must not be replaced.
-                        bool hasEquipOrBake = !extra.bakeName.empty();
-                        if (!hasEquipOrBake) {
-                            for (int s = 0; s < 11 && !hasEquipOrBake; s++)
-                                if (extra.equipDisplayId[s] != 0) hasEquipOrBake = true;
-                        }
-                        if (!hasEquipOrBake) {
-                            std::string skinPath = lookupCharSection(
-                                extra.raceId, extra.sexId, 0, 0, extra.skinId, 0);
-                            if (!skinPath.empty()) {
-                                rendering::VkTexture* skinTex = charRenderer->loadTexture(skinPath);
-                                if (skinTex) {
-                                    for (size_t ti = 0; ti < md->textures.size(); ti++) {
-                                        uint32_t tt = md->textures[ti].type;
-                                        if (tt == 1 || tt == 11) {
-                                            charRenderer->setTextureSlotOverride(instanceId, static_cast<uint16_t>(ti), skinTex);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                }
-            }
-        }
-    }
-
+    // Per-instance hair, skin and head-detail overrides. These run for every
+    // NPC, cached model or not, so two NPCs sharing a model still get their own
+    // colouring.
+    applyHumanoidInstanceOverrides(instanceId, modelId, displayId);
     // A humanoid NPC geoset mask used to be built here, behind
     // `static constexpr bool kEnableNpcSafeGeosetMask = false`. Same story as
     // the block below: disabled, unreachable, and edited tonight as though it
