@@ -1,4 +1,5 @@
 #include "pipeline/wowee_world_map.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,24 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'M', 'P', 'X'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".womx") {
-        base += ".womx";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".womx";
 
 size_t bitmapBytesFor(uint32_t gridSize) {
     return (static_cast<size_t>(gridSize) * gridSize + 7) / 8;
@@ -78,7 +62,7 @@ const char* WoweeWorldMap::worldTypeName(uint8_t t) {
 bool WoweeWorldMapLoader::save(const WoweeWorldMap& m,
                                const std::string& basePath) {
     if (m.gridSize == 0 || m.gridSize > 128) return false;
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
+    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
     if (!os) return false;
     os.write(kMagic, 4);
     writePOD(os, kVersion);
@@ -116,7 +100,7 @@ bool WoweeWorldMapLoader::save(const WoweeWorldMap& m,
 
 WoweeWorldMap WoweeWorldMapLoader::load(const std::string& basePath) {
     WoweeWorldMap out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
+    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
     char magic[4];
     is.read(magic, 4);
@@ -165,7 +149,7 @@ WoweeWorldMap WoweeWorldMapLoader::load(const std::string& basePath) {
 }
 
 bool WoweeWorldMapLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
+    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     return is.good();
 }
 

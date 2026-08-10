@@ -1,4 +1,5 @@
 #include "pipeline/wowee_light.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -12,17 +13,6 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'O', 'L', 'A'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
 
 } // namespace
 

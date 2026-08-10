@@ -1,4 +1,5 @@
 #include "pipeline/wowee_spell_markers.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -11,45 +12,7 @@ namespace {
 
 constexpr char kMagic[4] = {'W', 'S', 'P', 'M'};
 constexpr uint32_t kVersion = 1;
-
-template <typename T>
-void writePOD(std::ofstream& os, const T& v) {
-    os.write(reinterpret_cast<const char*>(&v), sizeof(T));
-}
-
-template <typename T>
-bool readPOD(std::ifstream& is, T& v) {
-    is.read(reinterpret_cast<char*>(&v), sizeof(T));
-    return is.gcount() == static_cast<std::streamsize>(sizeof(T));
-}
-
-void writeStr(std::ofstream& os, const std::string& s) {
-    uint32_t n = static_cast<uint32_t>(s.size());
-    writePOD(os, n);
-    if (n > 0) os.write(s.data(), n);
-}
-
-bool readStr(std::ifstream& is, std::string& s) {
-    uint32_t n = 0;
-    if (!readPOD(is, n)) return false;
-    if (n > (1u << 20)) return false;
-    s.resize(n);
-    if (n > 0) {
-        is.read(s.data(), n);
-        if (is.gcount() != static_cast<std::streamsize>(n)) {
-            s.clear();
-            return false;
-        }
-    }
-    return true;
-}
-
-std::string normalizePath(std::string base) {
-    if (base.size() < 5 || base.substr(base.size() - 5) != ".wspm") {
-        base += ".wspm";
-    }
-    return base;
-}
+constexpr char kExtension[] = ".wspm";
 
 uint32_t packRgba(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 0xFF) {
     return (static_cast<uint32_t>(a) << 24) |
@@ -76,7 +39,7 @@ WoweeSpellMarkers::findBySpell(uint32_t spellId) const {
 
 bool WoweeSpellMarkersLoader::save(const WoweeSpellMarkers& cat,
                                      const std::string& basePath) {
-    std::ofstream os(normalizePath(basePath), std::ios::binary);
+    std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
     if (!os) return false;
     os.write(kMagic, 4);
     writePOD(os, kVersion);
@@ -106,7 +69,7 @@ bool WoweeSpellMarkersLoader::save(const WoweeSpellMarkers& cat,
 WoweeSpellMarkers WoweeSpellMarkersLoader::load(
     const std::string& basePath) {
     WoweeSpellMarkers out;
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
+    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
     char magic[4];
     is.read(magic, 4);
@@ -144,7 +107,7 @@ WoweeSpellMarkers WoweeSpellMarkersLoader::load(
 }
 
 bool WoweeSpellMarkersLoader::exists(const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath), std::ios::binary);
+    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     return is.good();
 }
 
