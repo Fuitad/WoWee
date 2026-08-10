@@ -14,6 +14,7 @@
 #include "pipeline/dbc_layout.hpp"
 #include "core/appearance_composer.hpp"
 #include "core/geoset_rules.hpp"
+#include "pipeline/item_textures.hpp"
 #include "core/logger.hpp"
 #include "core/application.hpp"
 #include <imgui.h>
@@ -922,11 +923,6 @@ bool CharacterPreview::applyEquipment(const std::vector<game::EquipmentItem>& eq
     // --- Textures (equipment overlays onto body skin) ---
     if (bodySkinPath_.empty()) return true; // geosets applied, but can't composite
 
-    static constexpr const char* componentDirs[] = {
-        "ArmUpperTexture", "ArmLowerTexture", "HandTexture",
-        "TorsoUpperTexture", "TorsoLowerTexture",
-        "LegUpperTexture", "LegLowerTexture", "FootTexture",
-    };
 
     // Texture component region fields — use DBC layout when available, fall back to binary offsets.
     uint32_t texRegionFields[8];
@@ -944,23 +940,9 @@ bool CharacterPreview::applyEquipment(const std::vector<game::EquipmentItem>& eq
             std::string texName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), texRegionFields[region]);
             if (texName.empty()) continue;
 
-            std::string base = "Item\\TextureComponents\\" +
-                std::string(componentDirs[region]) + "\\" + texName;
-
-            std::string genderSuffix = (gender_ == game::Gender::FEMALE) ? "_F.blp" : "_M.blp";
-            std::string genderPath = base + genderSuffix;
-            std::string unisexPath = base + "_U.blp";
-            std::string fullPath;
-            std::string basePath = base + ".blp";
-            if (assetManager_->fileExists(genderPath)) {
-                fullPath = genderPath;
-            } else if (assetManager_->fileExists(unisexPath)) {
-                fullPath = unisexPath;
-            } else if (assetManager_->fileExists(basePath)) {
-                fullPath = basePath;
-            } else {
-                continue;
-            }
+            const std::string fullPath = pipeline::resolveItemRegionTexture(
+                *assetManager_, region, texName, gender_ == game::Gender::FEMALE);
+            if (fullPath.empty()) continue;
             regionLayers.emplace_back(region, fullPath);
         }
     }
@@ -994,41 +976,15 @@ bool CharacterPreview::applyEquipment(const std::vector<game::EquipmentItem>& eq
                     addName(rightName);
                 }
 
-                auto hasBlpExt = [](const std::string& p) {
-                    if (p.size() < 4) return false;
-                    std::string ext = p.substr(p.size() - 4);
-                    std::transform(ext.begin(), ext.end(), ext.begin(),
-                                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                    return ext == ".blp";
-                };
+                // pipeline/item_textures.hpp knows where a cape's art is and
+                // in what order to try for it.
                 std::vector<std::string> candidates;
-                auto addCandidate = [&](const std::string& p) {
-                    if (!p.empty() && std::find(candidates.begin(), candidates.end(), p) == candidates.end()) {
-                        candidates.push_back(p);
-                    }
-                };
                 for (const auto& nameRaw : capeNames) {
-                    std::string name = nameRaw;
-                    std::replace(name.begin(), name.end(), '/', '\\');
-                    bool hasDir = (name.find('\\') != std::string::npos);
-                    bool hasExt = hasBlpExt(name);
-                    if (hasDir) {
-                        if (hasExt) addCandidate(name);
-                        else addCandidate(name + ".blp");
-                    } else {
-                        std::string baseObj = "Item\\ObjectComponents\\Cape\\" + name;
-                        std::string baseTex = "Item\\TextureComponents\\Cape\\" + name;
-                        if (hasExt) {
-                            addCandidate(baseObj);
-                            addCandidate(baseTex);
-                        } else {
-                            addCandidate(baseObj + ".blp");
-                            addCandidate(baseTex + ".blp");
+                    for (auto& c : pipeline::capeTextureCandidates(
+                             nameRaw, gender_ == game::Gender::FEMALE)) {
+                        if (std::find(candidates.begin(), candidates.end(), c) == candidates.end()) {
+                            candidates.push_back(std::move(c));
                         }
-                        addCandidate(baseObj + (gender_ == game::Gender::FEMALE ? "_F.blp" : "_M.blp"));
-                        addCandidate(baseObj + "_U.blp");
-                        addCandidate(baseTex + (gender_ == game::Gender::FEMALE ? "_F.blp" : "_M.blp"));
-                        addCandidate(baseTex + "_U.blp");
                     }
                 }
                 VkTexture* whiteTex = charRenderer_->loadTexture("");

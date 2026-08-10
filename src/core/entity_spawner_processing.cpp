@@ -17,6 +17,7 @@
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
 #include "pipeline/char_sections.hpp"
+#include "pipeline/item_textures.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_services.hpp"
 #include "game/game_utils.hpp"
@@ -467,11 +468,6 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
                             // Equipment region textures
                             auto idiDbc = am->loadDBC("ItemDisplayInfo.dbc");
                             if (idiDbc) {
-                                static constexpr const char* compDirs[] = {
-                                    "ArmUpperTexture", "ArmLowerTexture", "HandTexture",
-                                    "TorsoUpperTexture", "TorsoLowerTexture",
-                                    "LegUpperTexture", "LegLowerTexture", "FootTexture",
-                                };
                                 const auto* idiL = pipeline::getActiveDBCLayout()
                                     ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
                                 const uint32_t trf[8] = {
@@ -493,14 +489,9 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
                                     for (int region = 0; region < 8; region++) {
                                         std::string texName = idiDbc->getString(static_cast<uint32_t>(recIdx), trf[region]);
                                         if (texName.empty()) continue;
-                                        std::string base = "Item\\TextureComponents\\" +
-                                            std::string(compDirs[region]) + "\\" + texName;
-                                        std::string gp = base + (isFem ? "_F.blp" : "_M.blp");
-                                        std::string up = base + "_U.blp";
-                                        std::string bp = base + ".blp";
-                                        if (am->fileExists(gp)) displaySkinPaths.push_back(gp);
-                                        else if (am->fileExists(up)) displaySkinPaths.push_back(up);
-                                        else if (am->fileExists(bp)) displaySkinPaths.push_back(bp);
+                                        std::string path = pipeline::resolveItemRegionTexture(
+                                            *am, region, texName, isFem);
+                                        if (!path.empty()) displaySkinPaths.push_back(path);
                                     }
                                 }
                             }
@@ -730,11 +721,6 @@ std::vector<std::string> EntitySpawner::resolveEquipmentTexturePaths(uint64_t gu
     const auto* idiL = pipeline::getActiveDBCLayout()
         ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
 
-    static constexpr const char* componentDirs[] = {
-        "ArmUpperTexture", "ArmLowerTexture", "HandTexture",
-        "TorsoUpperTexture", "TorsoLowerTexture",
-        "LegUpperTexture", "LegLowerTexture", "FootTexture",
-    };
     uint32_t texRegionFields[8];
     pipeline::getItemDisplayInfoTextureFields(*displayInfoDbc, idiL, texRegionFields);
     const bool isFemale = (st.genderId == 1);
@@ -748,14 +734,9 @@ std::vector<std::string> EntitySpawner::resolveEquipmentTexturePaths(uint64_t gu
             std::string texName = displayInfoDbc->getString(
                 static_cast<uint32_t>(recIdx), texRegionFields[region]);
             if (texName.empty()) continue;
-            std::string base = "Item\\TextureComponents\\" +
-                std::string(componentDirs[region]) + "\\" + texName;
-            std::string genderPath = base + (isFemale ? "_F.blp" : "_M.blp");
-            std::string unisexPath = base + "_U.blp";
-            std::string basePath = base + ".blp";
-            if (assetManager_->fileExists(genderPath)) paths.push_back(genderPath);
-            else if (assetManager_->fileExists(unisexPath)) paths.push_back(unisexPath);
-            else if (assetManager_->fileExists(basePath)) paths.push_back(basePath);
+            std::string path = pipeline::resolveItemRegionTexture(
+                *assetManager_, region, texName, isFemale);
+            if (!path.empty()) paths.push_back(path);
         }
     }
     return paths;

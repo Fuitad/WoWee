@@ -22,6 +22,7 @@ namespace { constexpr uint32_t kAttachHelm = 11; }
 #include "pipeline/dbc_loader.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
+#include "pipeline/item_textures.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_services.hpp"
 #include "game/transport_manager.hpp"
@@ -741,43 +742,17 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
                 else                  { addCapeName(leftName);  addCapeName(rightName); }
 
                 if (!capeNames.empty()) {
-                    auto hasBlpExt = [](const std::string& p) {
-                        if (p.size() < 4) return false;
-                        std::string ext = p.substr(p.size() - 4);
-                        std::transform(ext.begin(), ext.end(), ext.begin(),
-                                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                        return ext == ".blp";
-                    };
-
+                    // Where a cape's art might be, in the order to try it —
+                    // pipeline/item_textures.hpp. Written out here, in the NPC
+                    // path and in the portrait, identically, which is the only
+                    // reason the three agreed.
                     std::vector<std::string> capeCandidates;
-                    auto addCapeCandidate = [&](const std::string& p) {
-                        if (p.empty()) return;
-                        if (std::find(capeCandidates.begin(), capeCandidates.end(), p) == capeCandidates.end()) {
-                            capeCandidates.push_back(p);
-                        }
-                    };
-
-                    for (std::string capeName : capeNames) {
-                        std::replace(capeName.begin(), capeName.end(), '/', '\\');
-                        const bool hasDir = (capeName.find('\\') != std::string::npos);
-                        const bool hasExt = hasBlpExt(capeName);
-                        if (hasDir) {
-                            if (hasExt) addCapeCandidate(capeName);
-                            else addCapeCandidate(capeName + ".blp");
-                        } else {
-                            std::string baseObj = "Item\\ObjectComponents\\Cape\\" + capeName;
-                            std::string baseTex = "Item\\TextureComponents\\Cape\\" + capeName;
-                            if (hasExt) {
-                                addCapeCandidate(baseObj);
-                                addCapeCandidate(baseTex);
-                            } else {
-                                addCapeCandidate(baseObj + ".blp");
-                                addCapeCandidate(baseTex + ".blp");
+                    for (const auto& capeName : capeNames) {
+                        for (auto& c : pipeline::capeTextureCandidates(capeName, st.genderId == 1)) {
+                            if (std::find(capeCandidates.begin(), capeCandidates.end(), c) ==
+                                capeCandidates.end()) {
+                                capeCandidates.push_back(std::move(c));
                             }
-                            addCapeCandidate(baseObj + (st.genderId == 1 ? "_F.blp" : "_M.blp"));
-                            addCapeCandidate(baseObj + "_U.blp");
-                            addCapeCandidate(baseTex + (st.genderId == 1 ? "_F.blp" : "_M.blp"));
-                            addCapeCandidate(baseTex + "_U.blp");
                         }
                     }
 
@@ -808,16 +783,6 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
     }
 
     // --- Textures (skin atlas compositing) ---
-    static constexpr const char* componentDirs[] = {
-        "ArmUpperTexture",
-        "ArmLowerTexture",
-        "HandTexture",
-        "TorsoUpperTexture",
-        "TorsoLowerTexture",
-        "LegUpperTexture",
-        "LegLowerTexture",
-        "FootTexture",
-    };
 
     uint32_t texRegionFields[8];
     pipeline::getItemDisplayInfoTextureFields(*displayInfoDbc, idiL, texRegionFields);
@@ -836,15 +801,9 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
                 static_cast<uint32_t>(recIdx), texRegionFields[region]);
             if (texName.empty()) continue;
 
-            std::string base = "Item\\TextureComponents\\" + std::string(componentDirs[region]) + "\\" + texName;
-            std::string genderPath = base + (isFemale ? "_F.blp" : "_M.blp");
-            std::string unisexPath = base + "_U.blp";
-            std::string basePath = base + ".blp";
-            std::string fullPath;
-            if (assetManager_->fileExists(genderPath)) fullPath = genderPath;
-            else if (assetManager_->fileExists(unisexPath)) fullPath = unisexPath;
-            else if (assetManager_->fileExists(basePath)) fullPath = basePath;
-            else continue;
+            std::string fullPath = pipeline::resolveItemRegionTexture(
+                *assetManager_, region, texName, isFemale);
+            if (fullPath.empty()) continue;
 
             regionLayers.emplace_back(region, fullPath);
         }

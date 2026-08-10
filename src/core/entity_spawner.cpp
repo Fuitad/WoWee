@@ -2,6 +2,7 @@
 #include "core/appearance_composer.hpp"
 #include "pipeline/char_sections.hpp"
 #include "core/geoset_rules.hpp"
+#include "pipeline/item_textures.hpp"
 #include "core/helm_visual.hpp"
 
 // M2 attachment 11 is the helm; 0 is the shield mount.
@@ -1350,45 +1351,16 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
                             addName(itemDisplayDbc->getString(static_cast<uint32_t>(recIdx), leftTexField));
                             addName(itemDisplayDbc->getString(static_cast<uint32_t>(recIdx), rightTexField));
 
-                            auto hasBlpExt = [](const std::string& p) {
-                                if (p.size() < 4) return false;
-                                std::string ext = p.substr(p.size() - 4);
-                                std::transform(ext.begin(), ext.end(), ext.begin(),
-                                               [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                                return ext == ".blp";
-                            };
-
                             const bool npcIsFemale = (itExtra->second.sexId == 1);
+                            // Same list, same order, one place:
+                            // pipeline/item_textures.hpp.
                             std::vector<std::string> candidates;
-                            auto addCandidate = [&](const std::string& p) {
-                                if (p.empty()) return;
-                                if (std::find(candidates.begin(), candidates.end(), p) == candidates.end()) {
-                                    candidates.push_back(p);
-                                }
-                            };
-
                             for (const auto& raw : capeNames) {
-                                std::string name = raw;
-                                std::replace(name.begin(), name.end(), '/', '\\');
-                                const bool hasDir = (name.find('\\') != std::string::npos);
-                                const bool hasExt = hasBlpExt(name);
-                                if (hasDir) {
-                                    if (hasExt) addCandidate(name);
-                                    else addCandidate(name + ".blp");
-                                } else {
-                                    std::string baseObj = "Item\\ObjectComponents\\Cape\\" + name;
-                                    std::string baseTex = "Item\\TextureComponents\\Cape\\" + name;
-                                    if (hasExt) {
-                                        addCandidate(baseObj);
-                                        addCandidate(baseTex);
-                                    } else {
-                                        addCandidate(baseObj + ".blp");
-                                        addCandidate(baseTex + ".blp");
+                                for (auto& c : pipeline::capeTextureCandidates(raw, npcIsFemale)) {
+                                    if (std::find(candidates.begin(), candidates.end(), c) ==
+                                        candidates.end()) {
+                                        candidates.push_back(std::move(c));
                                     }
-                                    addCandidate(baseObj + (npcIsFemale ? "_F.blp" : "_M.blp"));
-                                    addCandidate(baseObj + "_U.blp");
-                                    addCandidate(baseTex + (npcIsFemale ? "_F.blp" : "_M.blp"));
-                                    addCandidate(baseTex + "_U.blp");
                                 }
                             }
 
@@ -1876,11 +1848,6 @@ void EntitySpawner::applyCreatureDisplayTextures(uint32_t displayId, uint32_t mo
                     // --- Equipment region layers (ItemDisplayInfo DBC) ---
                     auto idiDbc = am->loadDBC("ItemDisplayInfo.dbc");
                     if (idiDbc) {
-                        static constexpr const char* componentDirs[] = {
-                            "ArmUpperTexture", "ArmLowerTexture", "HandTexture",
-                            "TorsoUpperTexture", "TorsoLowerTexture",
-                            "LegUpperTexture", "LegLowerTexture", "FootTexture",
-                        };
                         const auto* idiL = pipeline::getActiveDBCLayout()
                             ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
                         uint32_t texRegionFields[8];
@@ -1914,16 +1881,9 @@ void EntitySpawner::applyCreatureDisplayTextures(uint32_t displayId, uint32_t mo
                                     static_cast<uint32_t>(recIdx), texRegionFields[region]);
                                 if (texName.empty()) continue;
 
-                                std::string base = "Item\\TextureComponents\\" +
-                                    std::string(componentDirs[region]) + "\\" + texName;
-                                std::string genderPath = base + (npcIsFemale ? "_F.blp" : "_M.blp");
-                                std::string unisexPath = base + "_U.blp";
-                                std::string basePath = base + ".blp";
-                                std::string fullPath;
-                                if (am->fileExists(genderPath)) fullPath = genderPath;
-                                else if (am->fileExists(unisexPath)) fullPath = unisexPath;
-                                else if (am->fileExists(basePath)) fullPath = basePath;
-                                else continue;
+                                std::string fullPath = pipeline::resolveItemRegionTexture(
+                                    *am, region, texName, npcIsFemale);
+                                if (fullPath.empty()) continue;
 
                                 def.regionLayers.emplace_back(region, fullPath);
                                 allPaths.push_back(fullPath);

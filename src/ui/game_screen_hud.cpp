@@ -36,6 +36,7 @@
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_loader.hpp"
 #include "pipeline/dbc_layout.hpp"
+#include "pipeline/item_textures.hpp"
 
 #include "game/expansion_profile.hpp"
 #include "game/character.hpp"
@@ -340,16 +341,6 @@ void GameScreen::updateCharacterTextures(game::Inventory& inventory) {
     if (bodySkinPath.empty()) return;
 
     // Component directory names indexed by region
-    static constexpr const char* componentDirs[] = {
-        "ArmUpperTexture",   // 0
-        "ArmLowerTexture",   // 1
-        "HandTexture",       // 2
-        "TorsoUpperTexture", // 3
-        "TorsoLowerTexture", // 4
-        "LegUpperTexture",   // 5
-        "LegLowerTexture",   // 6
-        "FootTexture",       // 7
-    };
 
     // Load ItemDisplayInfo.dbc
     auto displayInfoDbc = assetManager->loadDBC("ItemDisplayInfo.dbc");
@@ -374,11 +365,8 @@ void GameScreen::updateCharacterTextures(game::Inventory& inventory) {
                 static_cast<uint32_t>(recIdx), texRegionFields[region]);
             if (texName.empty()) continue;
 
-            // Actual MPQ files have a gender suffix: _M (male), _F (female), _U (unisex)
-            // Try gender-specific first, then unisex fallback
-            std::string base = "Item\\TextureComponents\\" +
-                std::string(componentDirs[region]) + "\\" + texName;
-            // Determine gender suffix from active character
+            // Which of _M, _F, _U exists is not recorded anywhere, so the
+            // order they are asked in is the rule — pipeline/item_textures.hpp.
             bool isFemale = false;
             if (auto* gh = app.getGameHandler()) {
                 if (auto* ch = gh->getActiveCharacter()) {
@@ -386,18 +374,9 @@ void GameScreen::updateCharacterTextures(game::Inventory& inventory) {
                                (ch->gender == game::Gender::NONBINARY && ch->useFemaleModel);
                 }
             }
-            std::string genderPath = base + (isFemale ? "_F.blp" : "_M.blp");
-            std::string unisexPath = base + "_U.blp";
-            std::string fullPath;
-            if (assetManager->fileExists(genderPath)) {
-                fullPath = genderPath;
-            } else if (assetManager->fileExists(unisexPath)) {
-                fullPath = unisexPath;
-            } else if (assetManager->fileExists(base + ".blp")) {
-                fullPath = base + ".blp";
-            } else {
-                continue;
-            }
+            const std::string fullPath = pipeline::resolveItemRegionTexture(
+                *assetManager, region, texName, isFemale);
+            if (fullPath.empty()) continue;
             regionLayers.emplace_back(region, fullPath);
         }
     }
@@ -432,11 +411,25 @@ void GameScreen::updateCharacterTextures(game::Inventory& inventory) {
                 const auto* dispL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
                 std::string capeName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), dispL ? (*dispL)["LeftModelTexture"] : 3);
                 if (!capeName.empty()) {
-                    std::string capePath = "Item\\ObjectComponents\\Cape\\" + capeName + ".blp";
-                    auto* capeTex = charRenderer->loadTexture(capePath);
-                    if (capeTex != nullptr) {
+                    // This asked for one path only — ObjectComponents, no
+                    // suffix — and a cape whose art is filed anywhere else
+                    // showed white. The full list, in order, is in
+                    // pipeline/item_textures.hpp, and the other three places
+                    // that load a cape have always used all of it.
+                    bool isFemale = false;
+                    if (auto* gh = app.getGameHandler()) {
+                        if (auto* ch = gh->getActiveCharacter()) {
+                            isFemale = (ch->gender == game::Gender::FEMALE) ||
+                                       (ch->gender == game::Gender::NONBINARY && ch->useFemaleModel);
+                        }
+                    }
+                    const rendering::VkTexture* whiteTex = charRenderer->loadTexture("");
+                    for (const auto& capePath : pipeline::capeTextureCandidates(capeName, isFemale)) {
+                        auto* capeTex = charRenderer->loadTexture(capePath);
+                        if (capeTex == nullptr || capeTex == whiteTex) continue;
                         charRenderer->setTextureSlotOverride(instanceId, static_cast<uint16_t>(cloakSlot), capeTex);
                         LOG_INFO("Cloak texture applied: ", capePath);
+                        break;
                     }
                 }
             }
