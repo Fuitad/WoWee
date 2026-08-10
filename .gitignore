@@ -105,6 +105,11 @@ Data/*
 
 ingest/
 
+# Asset archives dropped at the repo root rather than into ingest/. An MPQ is
+# hundreds of megabytes and `git add -A` will take one without complaint.
+*.MPQ
+*.mpq
+
 # Asset pipeline state and texture packs
 asset_pipeline/
 
