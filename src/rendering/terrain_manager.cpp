@@ -618,7 +618,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
         // The asset path carries foliage semantics; embedded names frequently
         // do not. Always classify ADT doodads using the path.
         m2Model.name = m2Path;
-        std::string skinPath = m2Path.substr(0, m2Path.size() - 3) + "00.skin";
+        std::string skinPath = pipeline::skinPathForM2(m2Path);
         std::vector<uint8_t> skinData = assetManager->readFileOptional(skinPath);
         if (!skinData.empty() && m2Model.version >= 264) {
             pipeline::M2Loader::loadSkin(skinData, m2Model);
@@ -860,7 +860,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
 
                             m2Model = pipeline::M2Loader::load(m2Data);
                             m2Model.name = m2Path;
-                            std::string skinPath = m2Path.substr(0, m2Path.size() - 3) + "00.skin";
+                            std::string skinPath = pipeline::skinPathForM2(m2Path);
                             std::vector<uint8_t> skinData = assetManager->readFile(skinPath);
                             if (!skinData.empty() && m2Model.version >= 264) {
                                 pipeline::M2Loader::loadSkin(skinData, m2Model);
@@ -2065,7 +2065,7 @@ void TerrainManager::generateGroundClutterPlacements(std::shared_ptr<PendingTile
 
         pipeline::M2Model m2Model = pipeline::M2Loader::load(m2Data);
         m2Model.name = m2Path;
-        std::string skinPath = m2Path.substr(0, m2Path.size() - 3) + "00.skin";
+        std::string skinPath = pipeline::skinPathForM2(m2Path);
         std::vector<uint8_t> skinData = assetManager->readFileOptional(skinPath);
         if (!skinData.empty() && m2Model.version >= 264) {
             pipeline::M2Loader::loadSkin(skinData, m2Model);

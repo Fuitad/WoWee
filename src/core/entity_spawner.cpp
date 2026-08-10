@@ -1008,7 +1008,7 @@ EntitySpawner::getOrLoadAttachmentModel(const std::vector<std::string>& candidat
         if (parsed->name.empty()) parsed->name = path;
         // Skin is a sidecar file for WotLK M2s; vanilla embeds it.
         if (parsed->version >= 264) {
-            std::string skinPath = path.substr(0, path.size() - 3) + "00.skin";
+            std::string skinPath = pipeline::skinPathForM2(path);
             auto skinData = assetManager_->readFile(skinPath);
             if (!skinData.empty()) pipeline::M2Loader::loadSkin(skinData, *parsed);
         }

@@ -17,6 +17,7 @@
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
 #include "pipeline/char_sections.hpp"
+#include "pipeline/m2_asset_loader.hpp"
 #include "pipeline/item_textures.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_services.hpp"
@@ -545,7 +546,7 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
 
                     // Load skin file
                     if (model->version >= 264) {
-                        std::string skinPath = m2Path.substr(0, m2Path.size() - 3) + "00.skin";
+                        std::string skinPath = pipeline::skinPathForM2(m2Path);
                         auto skinData = am->readFile(skinPath);
                         if (!skinData.empty()) {
                             pipeline::M2Loader::loadSkin(skinData, *model);
@@ -1336,7 +1337,7 @@ void EntitySpawner::processPendingTransportDoodads() {
 
             pipeline::M2Model m2Model = pipeline::M2Loader::load(m2Data);
             if (m2Model.name.empty()) m2Model.name = doodadTemplate.m2Path;
-            std::string skinPath = doodadTemplate.m2Path.substr(0, doodadTemplate.m2Path.size() - 3) + "00.skin";
+            std::string skinPath = pipeline::skinPathForM2(doodadTemplate.m2Path);
             std::vector<uint8_t> skinData = assetManager_->readFile(skinPath);
             if (!skinData.empty() && m2Model.version >= 264) {
                 pipeline::M2Loader::loadSkin(skinData, m2Model);
@@ -1461,7 +1462,7 @@ void EntitySpawner::processPendingMount() {
 
         // Load skin file (only for WotLK M2s - vanilla has embedded skin)
         if (model.version >= 264) {
-            std::string skinPath = m2Path.substr(0, m2Path.size() - 3) + "00.skin";
+            std::string skinPath = pipeline::skinPathForM2(m2Path);
             auto skinData = assetManager_->readFile(skinPath);
             if (!skinData.empty()) {
                 pipeline::M2Loader::loadSkin(skinData, model);
@@ -1798,7 +1799,7 @@ bool EntitySpawner::loadRemoteMountModel(uint32_t displayId, uint32_t& modelId,
         if (model.vertices.empty()) return false;
 
         if (model.version >= 264 && modelPath.size() >= 3) {
-            std::string skinPath = modelPath.substr(0, modelPath.size() - 3) + "00.skin";
+            std::string skinPath = pipeline::skinPathForM2(modelPath);
             auto skinData = assetManager_->readFile(skinPath);
             if (!skinData.empty()) pipeline::M2Loader::loadSkin(skinData, model);
         }
@@ -2096,18 +2097,10 @@ void EntitySpawner::despawnGameObject(uint64_t guid) {
 }
 
 bool EntitySpawner::loadWeaponM2(const std::string& m2Path, pipeline::M2Model& outModel) {
-    auto m2Data = assetManager_->readFile(m2Path);
-    if (m2Data.empty()) return false;
-    outModel = pipeline::M2Loader::load(m2Data);
-    // Load skin (WotLK+ M2 format): strip .m2, append 00.skin
-    std::string skinPath = m2Path;
-    size_t dotPos = skinPath.rfind('.');
-    if (dotPos != std::string::npos) skinPath = skinPath.substr(0, dotPos);
-    skinPath += "00.skin";
-    auto skinData = assetManager_->readFile(skinPath);
-    if (!skinData.empty() && outModel.version >= 264)
-        pipeline::M2Loader::loadSkin(skinData, outModel);
-    return outModel.isValid();
+    // pipeline/m2_asset_loader.hpp. This copy did not name the model after its
+    // path, so a weapon loaded here was a model nothing downstream could
+    // identify.
+    return pipeline::loadM2WithSkin(*assetManager_, m2Path, outModel);
 }
 
 

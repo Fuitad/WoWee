@@ -15,6 +15,7 @@
 #include "core/appearance_composer.hpp"
 #include "core/geoset_rules.hpp"
 #include "pipeline/item_textures.hpp"
+#include "pipeline/m2_asset_loader.hpp"
 #include "core/logger.hpp"
 #include "core/application.hpp"
 #include <imgui.h>
@@ -515,7 +516,7 @@ bool CharacterPreview::loadCharacter(game::Race race, game::Gender gender,
 
     // M2 version 264+ (WotLK) stores submesh/bone data in external .skin files.
     // Earlier versions (Classic ≤256, TBC ≤263) have skin data embedded in the M2.
-    std::string skinPath = modelDir + baseName + "00.skin";
+    std::string skinPath = pipeline::skinPathForM2(m2Path);
     auto skinData = assetManager_->readFile(skinPath);
     if (!skinData.empty() && model.version >= 264) {
         pipeline::M2Loader::loadSkin(skinData, model);
@@ -1120,23 +1121,7 @@ bool CharacterPreview::loadCreature(
 
 bool CharacterPreview::loadPreviewM2(const std::string& m2Path, pipeline::M2Model& outModel) {
     if (!assetManager_) return false;
-
-    auto m2Data = assetManager_->readFile(m2Path);
-    if (m2Data.empty()) return false;
-
-    outModel = pipeline::M2Loader::load(m2Data);
-    if (outModel.name.empty()) outModel.name = m2Path;
-
-    // WotLK-era models (version 264+) keep submesh data in an external .skin.
-    std::string skinPath = m2Path;
-    size_t dot = skinPath.rfind('.');
-    if (dot != std::string::npos) skinPath = skinPath.substr(0, dot);
-    skinPath += "00.skin";
-    auto skinData = assetManager_->readFile(skinPath);
-    if (!skinData.empty() && outModel.version >= 264) {
-        pipeline::M2Loader::loadSkin(skinData, outModel);
-    }
-    return outModel.isValid();
+    return pipeline::loadM2WithSkin(*assetManager_, m2Path, outModel);  // m2_asset_loader.hpp
 }
 
 void CharacterPreview::attachWeapons(const std::vector<game::EquipmentItem>& equipment) {

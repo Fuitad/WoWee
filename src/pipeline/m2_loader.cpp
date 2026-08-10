@@ -2058,5 +2058,17 @@ void M2Loader::loadAnimFile(const std::vector<uint8_t>& m2Data,
         " (id=", model.sequences[sequenceIndex].id, "): patched ", patchedTracks, " bone tracks");
 }
 
+
+std::string skinPathForM2(const std::string& m2Path) {
+    const size_t dot = m2Path.rfind('.');
+    const size_t slash = m2Path.find_last_of("\\/");
+    // Only an extension in the last component counts; a dot in a folder name is
+    // part of the folder.
+    const bool hasExt = dot != std::string::npos &&
+                        (slash == std::string::npos || dot > slash);
+    return (hasExt ? m2Path.substr(0, dot) : m2Path) + "00.skin";
+}
+
+
 } // namespace pipeline
 } // namespace wowee

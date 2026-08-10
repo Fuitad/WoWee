@@ -1,6 +1,7 @@
 #include "core/appearance_composer.hpp"
 #include "core/geoset_rules.hpp"
 #include "pipeline/item_textures.hpp"
+#include "pipeline/m2_asset_loader.hpp"
 #include "core/character_paths.hpp"
 #include "core/helm_visual.hpp"
 #include "core/entity_spawner.hpp"
@@ -363,19 +364,9 @@ void AppearanceComposer::applyEnchantVisuals(uint32_t charInstanceId, int equipS
 }
 
 bool AppearanceComposer::loadWeaponM2(const std::string& m2Path, pipeline::M2Model& outModel) {
-    auto m2Data = assetManager_->readFile(m2Path);
-    if (m2Data.empty()) return false;
-    outModel = pipeline::M2Loader::load(m2Data);
-    if (outModel.name.empty()) outModel.name = m2Path;
-    // Load skin (WotLK+ M2 format): strip .m2, append 00.skin
-    std::string skinPath = m2Path;
-    size_t dotPos = skinPath.rfind('.');
-    if (dotPos != std::string::npos) skinPath = skinPath.substr(0, dotPos);
-    skinPath += "00.skin";
-    auto skinData = assetManager_->readFile(skinPath);
-    if (!skinData.empty() && outModel.version >= 264)
-        pipeline::M2Loader::loadSkin(skinData, outModel);
-    return outModel.isValid();
+    // pipeline/m2_asset_loader.hpp. Kept as a method because a dozen call sites
+    // read better for it.
+    return pipeline::loadM2WithSkin(*assetManager_, m2Path, outModel);
 }
 
 // Head gear, which only other players used to get. The local character's

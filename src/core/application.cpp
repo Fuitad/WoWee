@@ -4308,7 +4308,7 @@ void Application::spawnPlayerCharacter() {
             if (model.name.empty()) model.name = m2Path;
 
             // Load skin file for submesh/batch data
-            std::string skinPath = modelDir + baseName + "00.skin";
+            std::string skinPath = pipeline::skinPathForM2(m2Path);
             auto skinData = assetManager->readFile(skinPath);
             if (!skinData.empty() && model.version >= 264) {
                 pipeline::M2Loader::loadSkin(skinData, model);

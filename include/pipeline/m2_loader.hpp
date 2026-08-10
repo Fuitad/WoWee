@@ -310,5 +310,7 @@ public:
                              M2Model& model);
 };
 
+std::string skinPathForM2(const std::string& m2Path);
+
 } // namespace pipeline
 } // namespace wowee

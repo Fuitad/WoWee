@@ -1264,9 +1264,7 @@ bool Renderer::ensureOutlandSkybox() {
 
     pipeline::M2Model model = pipeline::M2Loader::load(modelData);
     model.name = resolvedPath + "#original-sky";
-    const size_t resolvedDot = resolvedPath.find_last_of('.');
-    const std::string skinPath = (resolvedDot == std::string::npos
-        ? resolvedPath : resolvedPath.substr(0, resolvedDot)) + "00.skin";
+    const std::string skinPath = pipeline::skinPathForM2(resolvedPath);
     auto skinData = cachedAssetManager->readFileOptional(skinPath);
     if (!skinData.empty() && model.version >= 264) {
         pipeline::M2Loader::loadSkin(skinData, model);

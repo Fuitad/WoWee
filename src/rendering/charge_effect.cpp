@@ -389,11 +389,8 @@ void ChargeEffect::tryLoadM2Models(M2Renderer* m2Renderer, pipeline::AssetManage
         pipeline::M2Model model = pipeline::M2Loader::load(m2Data);
         if (model.name.empty()) model.name = path;
         if (model.vertices.empty() && model.particleEmitters.empty()) continue;
-        std::string skinPath = std::string(path);
-        auto dotPos = skinPath.rfind('.');
-        if (dotPos != std::string::npos) {
-            std::string skinFile = skinPath.substr(0, dotPos) + "00.skin";
-            auto skinData = assets->readFile(skinFile);
+        {
+            auto skinData = assets->readFile(pipeline::skinPathForM2(path));
             if (!skinData.empty() && model.version >= 264)
                 pipeline::M2Loader::loadSkin(skinData, model);
         }
@@ -415,11 +412,8 @@ void ChargeEffect::tryLoadM2Models(M2Renderer* m2Renderer, pipeline::AssetManage
         pipeline::M2Model model = pipeline::M2Loader::load(m2Data);
         if (model.name.empty()) model.name = path;
         if (model.vertices.empty() && model.particleEmitters.empty()) continue;
-        std::string skinPath = std::string(path);
-        auto dotPos = skinPath.rfind('.');
-        if (dotPos != std::string::npos) {
-            std::string skinFile = skinPath.substr(0, dotPos) + "00.skin";
-            auto skinData = assets->readFile(skinFile);
+        {
+            auto skinData = assets->readFile(pipeline::skinPathForM2(path));
             if (!skinData.empty() && model.version >= 264)
                 pipeline::M2Loader::loadSkin(skinData, model);
         }

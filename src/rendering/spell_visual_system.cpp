@@ -281,7 +281,7 @@ void SpellVisualSystem::playSpellVisualPrecast(uint32_t visualId, const glm::vec
             return;
         }
         if (model.version >= 264) {
-            std::string skinPath = modelPath.substr(0, modelPath.rfind('.')) + "00.skin";
+            std::string skinPath = pipeline::skinPathForM2(modelPath);
             auto skinData = cachedAssetManager_->readFile(skinPath);
             if (!skinData.empty()) {
                 pipeline::M2Loader::loadSkin(skinData, model);
@@ -433,7 +433,7 @@ void SpellVisualSystem::playSpellVisual(uint32_t visualId, const glm::vec3& worl
         }
         // Load skin file for WotLK-format M2s
         if (model.version >= 264) {
-            std::string skinPath = modelPath.substr(0, modelPath.rfind('.')) + "00.skin";
+            std::string skinPath = pipeline::skinPathForM2(modelPath);
             auto skinData = cachedAssetManager_->readFile(skinPath);
             if (!skinData.empty()) pipeline::M2Loader::loadSkin(skinData, model);
         }
@@ -539,9 +539,7 @@ void SpellVisualSystem::playPhysicalProjectile(const std::string& modelPath,
         pipeline::M2Model model = pipeline::M2Loader::load(bytes);
         if (model.name.empty()) model.name = modelPath;
         if (model.version >= 264) {
-            const size_t dot = modelPath.rfind('.');
-            const std::string skinPath =
-                (dot == std::string::npos ? modelPath : modelPath.substr(0, dot)) + "00.skin";
+            const std::string skinPath = pipeline::skinPathForM2(modelPath);
             auto skin = cachedAssetManager_->readFile(skinPath);
             if (!skin.empty()) pipeline::M2Loader::loadSkin(skin, model);
         }

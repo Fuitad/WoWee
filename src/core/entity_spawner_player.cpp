@@ -154,7 +154,7 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
         }
 
         // Skin file (only for WotLK M2s - vanilla has embedded skin)
-        std::string skinPath = modelDir + baseName + "00.skin";
+        std::string skinPath = pipeline::skinPathForM2(m2Path);
         auto skinData = assetManager_->readFile(skinPath);
         if (!skinData.empty() && model.version >= 264) {
             pipeline::M2Loader::loadSkin(skinData, model);
@@ -1254,7 +1254,7 @@ void EntitySpawner::spawnOnlineGameObject(uint64_t guid, uint32_t entry, uint32_
                 return;
             }
 
-            std::string skinPath = modelPath.substr(0, modelPath.size() - 3) + "00.skin";
+            std::string skinPath = pipeline::skinPathForM2(modelPath);
             auto skinData = assetManager_->readFile(skinPath);
             if (!skinData.empty() && model.version >= 264) {
                 pipeline::M2Loader::loadSkin(skinData, model);

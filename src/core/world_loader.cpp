@@ -77,10 +77,7 @@ void spawnInstancePortalVisuals(uint32_t mapId,
         pipeline::M2Model model = pipeline::M2Loader::load(m2Data);
         model.name = kPortalModelName;
 
-        std::string skinPath = std::string(kPortalPath);
-        size_t dotPos = skinPath.rfind('.');
-        if (dotPos != std::string::npos) skinPath = skinPath.substr(0, dotPos);
-        skinPath += "00.skin";
+        const std::string skinPath = pipeline::skinPathForM2(std::string(kPortalPath));
         auto skinData = assetManager->readFile(skinPath);
         if (!skinData.empty() && model.version >= 264) {
             pipeline::M2Loader::loadSkin(skinData, model);
@@ -753,7 +750,7 @@ void WorldLoader::loadOnlineWorldTerrain(uint32_t mapId, float x, float y, float
                                 pipeline::M2Model m2Model = pipeline::M2Loader::load(m2Data);
                                 m2Model.name = m2Path;
 
-                                std::string skinPath = m2Path.substr(0, m2Path.size() - 3) + "00.skin";
+                                std::string skinPath = pipeline::skinPathForM2(m2Path);
                                 std::vector<uint8_t> skinData = assetManager_->readFile(skinPath);
                                 if (!skinData.empty() && m2Model.version >= 264) {
                                     pipeline::M2Loader::loadSkin(skinData, m2Model);
