@@ -18,6 +18,7 @@
  */
 
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <string>
 
@@ -65,6 +66,43 @@ inline bool readStr(std::ifstream& is, std::string& s) {
             return false;
         }
     }
+    return true;
+}
+
+/// Write the header every .w* file starts with: magic, version, the catalog's
+/// name, and how many entries follow.
+inline void writeCatalogHeader(std::ofstream& os, const char magic[4], uint32_t version,
+                               const std::string& name, uint32_t entryCount) {
+    os.write(magic, 4);
+    writePOD(os, version);
+    writeStr(os, name);
+    writePOD(os, entryCount);
+}
+
+/// Read that header back, and say whether this is the file it claims to be.
+///
+/// False means the magic is wrong — this is some other format, or not one of
+/// ours at all — or the version is not the one this build reads, or the file
+/// ended inside the header.
+///
+/// The entry count is capped for the same reason a string length is: it is the
+/// next thing a corrupt file gets to choose, and it is about to become a
+/// resize(). A million entries is far past anything real and far short of a
+/// number that allocates the machine.
+inline bool readCatalogHeader(std::ifstream& is, const char magic[4], uint32_t version,
+                              std::string& name, uint32_t& entryCount) {
+    char fileMagic[4];
+    is.read(fileMagic, 4);
+    if (is.gcount() != 4) return false;
+    if (std::memcmp(fileMagic, magic, 4) != 0) return false;
+
+    uint32_t fileVersion = 0;
+    if (!readPOD(is, fileVersion) || fileVersion != version) return false;
+    if (!readStr(is, name)) return false;
+
+    entryCount = 0;
+    if (!readPOD(is, entryCount)) return false;
+    if (entryCount > (1u << 20)) return false;
     return true;
 }
 

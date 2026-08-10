@@ -27,11 +27,8 @@ bool WoweeLootLoader::save(const WoweeLoot& cat,
                            const std::string& basePath) {
     std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
     if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
+    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
+    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
     for (const auto& e : cat.entries) {
         writePOD(os, e.creatureId);
         writePOD(os, e.flags);
@@ -59,15 +56,8 @@ WoweeLoot WoweeLootLoader::load(const std::string& basePath) {
     WoweeLoot out;
     std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
     uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
     out.entries.resize(entryCount);
     for (auto& e : out.entries) {
         if (!readPOD(is, e.creatureId) ||

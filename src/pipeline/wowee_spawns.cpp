@@ -36,11 +36,8 @@ bool WoweeSpawnsLoader::save(const WoweeSpawns& cat,
                              const std::string& basePath) {
     std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
     if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
-    writePOD(os, entryCount);
+    const uint32_t entryCount = static_cast<uint32_t>(cat.entries.size());
+    writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
     for (const auto& e : cat.entries) {
         writePOD(os, e.kind);
         uint8_t pad[3] = {0, 0, 0};
