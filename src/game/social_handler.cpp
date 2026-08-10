@@ -3795,15 +3795,22 @@ void SocialHandler::handleLfgTeleportDenied(network::Packet& packet) {
 void SocialHandler::lfgJoin(const std::vector<uint32_t>& dungeonIds, uint8_t roles) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
     if (dungeonIds.empty()) return;   // the server drops a join with no slots
+    // The dungeon finder is Wrath's. Classic and TBC have no CMSG_LFG_JOIN at
+    // all — TBC's 0x35C is CMSG_LFG_SET_AUTOJOIN, an unrelated packet — so the
+    // logical opcode is unmapped there and wireOpcode answers 0xFFFF. Sending
+    // that would put a packet the server has no handler for on the wire.
+    if (wireOpcode(Opcode::CMSG_LFG_JOIN) == 0xFFFF) return;
     owner_.getSocket()->send(LfgJoinPacket::build(dungeonIds, roles));
 }
 
 void SocialHandler::lfgLeave() {
     if (!owner_.getSocket()) return;
-    network::Packet pkt(wireOpcode(Opcode::CMSG_LFG_LEAVE));
+    lfgState_ = LfgState::None;
+    const uint16_t wire = wireOpcode(Opcode::CMSG_LFG_LEAVE);
+    if (wire == 0xFFFF) return;   // no dungeon finder before Wrath
+    network::Packet pkt(wire);
     pkt.writeUInt32(0); pkt.writeUInt32(0); pkt.writeUInt32(0);
     owner_.getSocket()->send(pkt);
-    lfgState_ = LfgState::None;
 }
 
 void SocialHandler::lfgSetRoles(uint8_t roles) {
@@ -3827,14 +3834,18 @@ void SocialHandler::lfgSetRoles(uint8_t roles) {
 
 void SocialHandler::lfgAcceptProposal(uint32_t proposalId, bool accept) {
     if (!owner_.getSocket()) return;
-    network::Packet pkt(wireOpcode(Opcode::CMSG_LFG_PROPOSAL_RESULT));
+    const uint16_t wire = wireOpcode(Opcode::CMSG_LFG_PROPOSAL_RESULT);
+    if (wire == 0xFFFF) return;   // no dungeon finder before Wrath
+    network::Packet pkt(wire);
     pkt.writeUInt32(proposalId); pkt.writeUInt8(accept ? 1 : 0);
     owner_.getSocket()->send(pkt);
 }
 
 void SocialHandler::lfgTeleport(bool toLfgDungeon) {
     if (!owner_.getSocket()) return;
-    network::Packet pkt(wireOpcode(Opcode::CMSG_LFG_TELEPORT));
+    const uint16_t wire = wireOpcode(Opcode::CMSG_LFG_TELEPORT);
+    if (wire == 0xFFFF) return;   // no dungeon finder before Wrath
+    network::Packet pkt(wire);
     pkt.writeUInt8(toLfgDungeon ? 0 : 1);
     owner_.getSocket()->send(pkt);
 }
