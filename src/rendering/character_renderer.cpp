@@ -2818,6 +2818,29 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                     uint16_t grp = batch.submeshId / 100;
                     if (grp == 17 || grp == 18) continue;
                 }
+                // One line per head batch, for the first few instances: which
+                // texture slot it resolved to and what type that slot is. The
+                // player and an NPC use the same model, the same art and the
+                // same pairing, and one of them draws a face — so the answer is
+                // in what each batch actually got, which nothing has yet shown.
+                if (batch.submeshId == 0 && headBatchCanaryCount_ < 24) {
+                    ++headBatchCanaryCount_;
+                    uint32_t chosenType = 0;
+                    if (batch.textureIndex != 0xFFFF && !gpuModel.data.textureLookup.empty()) {
+                        uint16_t sl = gpuModel.data.textureLookup[batch.textureIndex];
+                        if (sl < gpuModel.data.textures.size())
+                            chosenType = gpuModel.data.textures[sl].type;
+                    }
+                    VkTexture* rt = resolveBatchTexture(instance, gpuModel, batch);
+                    core::Logger::getInstance().warning(
+                        "Head batch: instance=", pair.first, " model=", instance.modelId,
+                        " geoset=", batch.submeshId, " firstSlotType=", chosenType,
+                        " resolved=", (rt == whiteTexture_.get() ? "WHITE"
+                                       : (rt == nullptr ? "null" : "texture")),
+                        " ptr=", static_cast<const void*>(rt),
+                        " overrides=", instance.textureSlotOverrides.size(),
+                        " drawSkinExtra=", (instance.drawSkinExtra ? 1 : 0));
+                }
                 // Note on the Skin Extra batch, since it has been misread twice:
                 // it is NOT a layer over the head. On an HD character model it
                 // is its own section — 703 vertices and 634 triangles of the

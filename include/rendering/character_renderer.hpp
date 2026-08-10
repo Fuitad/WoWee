@@ -102,6 +102,9 @@ public:
     /// Opt an instance into the Skin Extra head-detail batch. Only a character
     /// whose type 8 slot has been filled from CharSections should ask for it.
     void setDrawSkinExtra(uint32_t instanceId, bool enabled);
+
+    /// Counts the head-batch diagnostic lines so it stops after a few.
+    int headBatchCanaryCount_ = 0;
     void setGroupTextureOverride(uint32_t instanceId, uint16_t geosetGroup, VkTexture* texture);
     void setTextureSlotOverride(uint32_t instanceId, uint16_t textureSlot, VkTexture* texture);
     void clearTextureSlotOverride(uint32_t instanceId, uint16_t textureSlot);
