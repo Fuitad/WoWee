@@ -769,7 +769,24 @@ public:
     void markLayoutDirty() { layoutDirty_ = true; ++layoutGeneration_; }
 
     /// Pixels per interface unit, from the last layout.
+    /// How many pixels one interface unit is worth, after the player's own
+    /// scale. Everything that converts between units and pixels uses this, so
+    /// hit testing and drawing stay in step.
     float uiScale() const { return uiScale_; }
+
+    /// The player's UI Scale, as WoW's video options mean it.
+    ///
+    /// One is the size the screen's height alone would give. Below one the
+    /// interface is smaller and there is more room, which is what the slider is
+    /// for. Clamped to the range Blizzard's own control offers, because a scale
+    /// outside it lays the interface out somewhere nobody can reach.
+    void setUserScale(float scale) {
+        const float clamped = scale < 0.64f ? 0.64f : (scale > 1.0f ? 1.0f : scale);
+        if (clamped == userScale_) return;
+        userScale_ = clamped;
+        layoutDirty_ = true;
+    }
+    float userScale() const { return userScale_; }
 
     /// The screen-filling frame everything else hangs off.
     uint32_t rootId() const { return rootId_; }
@@ -896,6 +913,7 @@ private:
     /// caller that holds a Widget* across creating a child. A deque keeps
     /// references valid when it grows, which is the guarantee this needs.
     float uiScale_ = 1.0f;
+    float userScale_ = 1.0f;
     std::vector<uint32_t> scrollFrames_;
     /// Which unit each portrait texture is showing, and the reverse. Two maps
     /// rather than one because both questions are asked every frame: the draw

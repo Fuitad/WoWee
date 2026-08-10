@@ -611,7 +611,10 @@ void WidgetTree::layout(float pixelW, float pixelH) {
     layoutDirty_ = false;
     // How many pixels one interface unit is worth. Everything below works in
     // units; only the renderer and hit testing convert.
-    uiScale_ = (pixelH > 0.0f) ? (pixelH / kInterfaceHeight) : 1.0f;
+    // The screen's height decides the base, and the player's UI Scale
+    // multiplies it. A smaller scale means a smaller interface and more units
+    // of room, which is what the slider is understood to do.
+    uiScale_ = ((pixelH > 0.0f) ? (pixelH / kInterfaceHeight) : 1.0f) * userScale_;
     const float screenW = (uiScale_ > 0.0f) ? (pixelW / uiScale_) : pixelW;
     const float screenH = kInterfaceHeight;
 
