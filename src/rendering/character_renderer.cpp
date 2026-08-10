@@ -1298,7 +1298,7 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
     std::vector<LoadedOverlay> overlays;
     overlays.reserve(layerPaths.size());
     int requiredScale = coordScale;
-    int smallestRegionScale = INT_MAX;
+    int largestRegionScale = 1;
     bool sawRegionLayer = false;
     for (size_t layer = 1; layer < layerPaths.size(); layer++) {
         if (layerPaths[layer].empty()) continue;
@@ -1326,27 +1326,30 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
             const AtlasRegion256 region = regionFor(lowerPath(layerPaths[layer]));
             if (region.known) {
                 const int want = impliedScale(region, overlay.width);
-                if (want < smallestRegionScale) smallestRegionScale = want;
+                if (want > largestRegionScale) largestRegionScale = want;
                 sawRegionLayer = true;
             }
         }
         overlays.push_back({layerPaths[layer], std::move(overlay)});
     }
 
-    // Grow only when EVERY region layer asks for it.
+    // Grow to the most demanding layer.
     //
-    // Taking the most demanding layer was wrong, and wrong in a way that made
-    // things worse rather than leaving them alone. Some races in an HD set ship
-    // a face at twice the atlas scale and everything else at one — dwarf,
-    // tauren, troll and draenei do — so growing the canvas for the face then
-    // upscaled the pelvis and the torso to fit it. One layer resampled down
-    // became several resampled up, which is a blurrier body for a sharper face.
+    // A layer that does not fit its region is not merely higher resolution. A
+    // draenei's HD faceLower is a front-facing head where the stock one is a
+    // side profile, and a tauren's is a muzzle seen head on where the stock one
+    // is the side of a head — different pictures, not larger ones, and shrinking
+    // them into a region sized for the stock art puts the wrong thing on the
+    // face. At 512x256 they are exactly their region on a 1024 atlas, which is
+    // the size their scale is asking for.
     //
-    // The case worth growing for is a set where the art all agrees and only the
-    // body is behind it. Then the smallest thing asked for is still larger than
-    // the body has, and nothing gets stretched.
-    if (sawRegionLayer && smallestRegionScale > coordScale) {
-        requiredScale = smallestRegionScale;
+    // The cost is the layers that do fit: a body, a pelvis and a torso authored
+    // for a 512 atlas get upscaled to sit beside them. That is softer, and
+    // softer in the right place beats sharp in the wrong one. It applies only
+    // to the four race and sex pairs that ship such a layer; every other set
+    // agrees with its body and is untouched.
+    if (sawRegionLayer && largestRegionScale > coordScale) {
+        requiredScale = largestRegionScale;
     }
 
     if (requiredScale > coordScale) {

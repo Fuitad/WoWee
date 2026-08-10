@@ -503,49 +503,40 @@ def curate(overlay_root, apply_changes, keep_hd=False):
             except OSError:
                 return None
 
-        # CAVEAT, learned after this shipped: size alone does not separate the
-        # two cases it is being used to separate.
+        # Which races' HD face art does not fit, decided by looking at the
+        # pictures rather than by their size.
         #
-        # A dwarf's HD faceLower is a faithful 2x of the stock one — same
-        # profile, same ear, same eye and mouth insets in the same places. Down-
-        # sampling it gives back the stock picture, so it was never broken, and
-        # reverting it costs resolution for nothing.
+        # Size cannot separate the two cases. All four of these ship a faceLower
+        # at twice the region's width, and only two of them are wrong:
         #
-        # A draenei's is not. The stock one is a side profile with the ear and
-        # horn beside it; the HD one is a front-facing whole head. Different
-        # layout, so no scaling puts it right, and reverting it is the only fix.
+        #   dwarf male    stock is a side profile with an ear, an eye inset and
+        #                 a mouth interior; the HD one is the same sheet at twice
+        #                 the resolution, same parts in the same places.
+        #                 Downsampling hands back the stock picture. Not a fault.
+        #   troll male    the same story.
         #
-        # Both are 2x, so this test catches both and only one deserves it.
-        # Telling them apart means comparing the pictures, not their sizes.
+        #   draenei       stock is a side profile with the ear and horn beside
+        #                 it; the HD one is a front-facing whole head with two
+        #                 eyes and a mouth. A different layout, so no scaling
+        #                 puts it right.
+        #   tauren        stock is a side profile of the head; the HD one is a
+        #                 front-facing muzzle with nostrils and rows of teeth.
+        #                 The same different-layout fault.
         #
-        # Measured against the REGION the art goes in, not against the file it
-        # sits beside. Comparing the two files flags any race whose HD art is
-        # merely higher resolution than the stock art, which is most of them and
-        # is not the fault — seventeen of twenty pairs came back, including
-        # human female, whose face is correct.
+        # So it is a list, and it is a list because the distinction is visual.
+        # A size test was tried first and reverted dwarf and troll for nothing.
+        # Empty, now that the compositor sizes its atlas to the art.
         #
-        # faceLower occupies 128 of the 256-wide reference atlas, so on a body of
-        # width W its region is 128 * W/256 wide. Art wider than that cannot fit
-        # whatever it contains.
-        body_width = {}
-        for _id, (vals, resolve, _i) in cs_rows.items():
-            if vals[SECTION] != 0:
-                continue
-            w = blp_width(resolve(vals[TEX1]))
-            if w:
-                body_width[(vals[RACE], vals[SEX])] = w
+        # Reverting these races to the game's own face art was a way of coping
+        # with a canvas that could not hold theirs. The canvas grows for them
+        # instead, so the art they ship is placed at its own size and nothing
+        # has to be given up. Left as a list rather than deleted: a pack whose
+        # face art neither fits nor scales would go here.
+        LAYOUT_MISMATCH_RACES = set()
 
-        oversized = set()
-        for _id, (vals, resolve, _i) in cs_rows.items():
-            if vals[SECTION] != 1:
-                continue
-            pair = (vals[RACE], vals[SEX])
-            body = body_width.get(pair)
-            if not body:
-                continue
-            w_hd = blp_width(resolve(vals[TEX1]))
-            if w_hd and w_hd > (128 * body) // 256:
-                oversized.add(pair)
+        oversized = {(vals[RACE], vals[SEX])
+                     for _id, (vals, _r, _i) in cs_rows.items()
+                     if vals[SECTION] == 1 and vals[RACE] in LAYOUT_MISMATCH_RACES}
 
         for _id, (vals, resolve, index) in cs_rows.items():
             if vals[SECTION] != 1 or (vals[RACE], vals[SEX]) not in oversized:
