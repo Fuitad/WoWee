@@ -57,6 +57,7 @@
 #include "pipeline/asset_manager.hpp"
 #include "ui/interface_fonts.hpp"
 #include "ui/link_hit.hpp"
+#include "game/expansion_profile.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_services.hpp"
 #include "game/character.hpp"
@@ -65,6 +66,7 @@
 #include <imgui.h>
 
 #include <cstdio>
+#include <filesystem>
 #include <cstring>
 #include <cstdlib>
 #include <string>
@@ -264,11 +266,39 @@ int main(int argc, char** argv) {
     //
     // A failure to open the assets is not fatal — every other check here works
     // without them, and this runs on machines with no game data.
+    // The client does not open the data path it is given. An expansion that
+    // carries its own manifest.json becomes the primary asset source, with the
+    // path given here as the fallback behind it — which is how an overlay that
+    // replaces models or a DBC for one expansion reaches the client at all.
+    // Opening the base path directly, as this used to, reads straight past
+    // every such overlay and reports the unmodified game.
+    wowee::game::ExpansionRegistry assetExpansions;
+    std::string primaryAssetPath = assetPath;
+    std::string assetFallbackPath;
+    if (assetExpansions.initialize(assetPath) > 0) {
+        if (const auto* active = assetExpansions.getActive()) {
+            const std::string expansionManifest = active->dataPath + "/manifest.json";
+            if (!active->dataPath.empty() &&
+                std::filesystem::exists(expansionManifest) &&
+                active->dataPath != assetPath) {
+                primaryAssetPath = active->dataPath;
+                assetFallbackPath = assetPath;
+            }
+        }
+    }
+
     wowee::pipeline::AssetManager assets;
-    const bool haveAssets = assets.initialize(assetPath);
+    // Before initialize, exactly as application.cpp does it — the fallback
+    // manifest is loaded here and initialize does not clear it.
+    if (!assetFallbackPath.empty()) assets.setBaseFallbackPath(assetFallbackPath);
+    const bool haveAssets = assets.initialize(primaryAssetPath);
     if (!haveAssets) {
         std::printf("== assets: none at %s; texture sizes are unavailable\n",
-                    assetPath.c_str());
+                    primaryAssetPath.c_str());
+    } else if (!assetFallbackPath.empty()) {
+        std::printf("== assets: %s over %s (expansion '%s')\n",
+                    primaryAssetPath.c_str(), assetFallbackPath.c_str(),
+                    assetExpansions.getActiveId().c_str());
     }
     wowee::ui::WidgetRenderer widgets;
     widgets.initialize(haveAssets ? &assets : nullptr, nullptr);
