@@ -340,6 +340,12 @@ void AddonManager::loadAllAddons() {
     const bool loadIt = wantFrameXml ? (std::string(wantFrameXml) != "0") : true;
     if (loadIt && !frameXmlDir_.empty()) {
         loadFrameXml(frameXmlDir_);
+        // The client's own options, as a category in FrameXML's Interface
+        // Options. After FrameXML rather than in the bootstrap, because
+        // InterfaceOptions_AddCategory is FrameXML's — the bootstrap's stub for
+        // it is overwritten when the real one loads, and registering against the
+        // stub would put the panel nowhere.
+        registerWoweeOptionsPanel();
         // Said once, after the interface is up: anything neither handed over
         // nor hidden is about to be on screen twice.
         ui::frameXmlReportUnaccountedElements();
@@ -425,6 +431,90 @@ std::string AddonManager::getSavedVariablesPath(const TocFile& addon) const {
 std::string AddonManager::getSavedVariablesPerCharacterPath(const TocFile& addon) const {
     if (characterName_.empty()) return "";
     return addon.basePath + "/" + addon.addonName + "." + characterName_ + ".lua.saved";
+}
+
+// The client's settings, as a panel in FrameXML's Interface Options.
+//
+// Built from WoweeSettingList() rather than written out here, so a setting
+// added to the schema appears without anyone editing Lua. Only the settings
+// with no Blizzard control of their own are in that list — the rest are bound
+// to the CVar their own Blizzard control already drives.
+void AddonManager::registerWoweeOptionsPanel() {
+    static const char* kPanelScript = R"LUA(
+local list = WoweeSettingList and WoweeSettingList()
+if not list or #list == 0 then return end
+
+-- One panel per category, in the order the schema first mentions each.
+local order, byCategory = {}, {}
+for _, s in ipairs(list) do
+    if not byCategory[s.category] then
+        byCategory[s.category] = {}
+        table.insert(order, s.category)
+    end
+    table.insert(byCategory[s.category], s)
+end
+
+for _, category in ipairs(order) do
+    local panel = CreateFrame("Frame", "WoweeOptions"..category)
+    panel.name = (category == order[1]) and "WoWee" or category
+    if category ~= order[1] then panel.parent = "WoWee" end
+
+    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+    title:SetPoint("TOPLEFT", 16, -16)
+    title:SetText("WoWee - "..category)
+
+    local y = -48
+    for _, s in ipairs(byCategory[category]) do
+        if s.kind == "bool" then
+            local cb = CreateFrame("CheckButton", "$parent"..s.key, panel,
+                                   "InterfaceOptionsCheckButtonTemplate")
+            cb:SetPoint("TOPLEFT", 16, y)
+            _G[cb:GetName().."Text"]:SetText(s.label)
+            cb:SetChecked(WoweeGetSetting(s.key) == "1")
+            cb:SetScript("OnClick", function(self)
+                WoweeSetSetting(s.key, self:GetChecked() and "1" or "0")
+            end)
+            y = y - 28
+        else
+            local sl = CreateFrame("Slider", "$parent"..s.key, panel,
+                                   "OptionsSliderTemplate")
+            sl:SetPoint("TOPLEFT", 20, y - 12)
+            sl:SetMinMaxValues(s.min, s.max)
+            sl:SetValueStep(s.step)
+            sl:SetWidth(240)
+            _G[sl:GetName().."Text"]:SetText(s.label)
+            _G[sl:GetName().."Low"]:SetText(tostring(s.min))
+            _G[sl:GetName().."High"]:SetText(tostring(s.max))
+            sl:SetValue(tonumber(WoweeGetSetting(s.key)) or s.min)
+            sl:SetScript("OnValueChanged", function(self, value)
+                WoweeSetSetting(s.key, tostring(value))
+            end)
+            y = y - 52
+        end
+    end
+
+    -- The four the options system calls on this panel. Everything is applied
+    -- as it is changed, so okay and cancel have nothing left to do; refresh
+    -- matters because the settings window can change the same values.
+    panel.okay = function() end
+    panel.cancel = function() end
+    panel.default = function() end
+    panel.refresh = function()
+        for _, s in ipairs(byCategory[category]) do
+            local w = _G["WoweeOptions"..category..s.key]
+            if w then
+                if s.kind == "bool" then w:SetChecked(WoweeGetSetting(s.key) == "1")
+                else w:SetValue(tonumber(WoweeGetSetting(s.key)) or s.min) end
+            end
+        end
+    end
+
+    InterfaceOptions_AddCategory(panel, true)
+end
+)LUA";
+    if (!luaEngine_.executeString(kPanelScript)) {
+        LOG_WARNING("Wowee options panel did not register: ", luaEngine_.lastError());
+    }
 }
 
 bool AddonManager::loadFrameXml(const std::string& frameXmlDir) {

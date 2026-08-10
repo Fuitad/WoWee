@@ -174,6 +174,18 @@ public:
     /// Apply audio volume levels to all audio coordinator sound managers
     void applyAudioVolumes(audio::AudioCoordinator* ac);
 
+    /// Read or write a setting by the key the schema names it with.
+    ///
+    /// Here rather than in the Lua bridge because this is where the fields are.
+    /// The bridge was growing a second copy of the mapping — a branch per
+    /// setting in a lambda in Application — which is the shape that ends with
+    /// two lists of settings that disagree about which ones exist.
+    ///
+    /// Values are strings, because a CVar is a string. Unknown keys answer
+    /// empty and change nothing.
+    std::string settingValue(const std::string& key) const;
+    bool setSettingValue(const std::string& key, const std::string& value);
+
     /// Apply the persisted global ImGui window scale without compounding ratios.
     void applyWindowUiScale();
 

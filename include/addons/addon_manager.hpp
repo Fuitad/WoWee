@@ -23,6 +23,11 @@ public:
     bool loadXmlFile(const std::string& path, int depth);
     /// Load the original interface from its own manifest, in the order it
     /// states. Opt-in through WOWEE_LOAD_FRAMEXML; see loadAllAddons.
+    /// Register this client's own settings as a category in FrameXML's
+    /// Interface Options, built from the schema. Runs after FrameXML, because
+    /// InterfaceOptions_AddCategory is FrameXML's.
+    void registerWoweeOptionsPanel();
+
     bool loadFrameXml(const std::string& frameXmlDir);
     /// Where FrameXML lives, remembered at scan time so the loader can find it.
     void setFrameXmlDir(const std::string& dir) { frameXmlDir_ = dir; }

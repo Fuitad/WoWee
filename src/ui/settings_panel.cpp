@@ -1446,6 +1446,97 @@ std::string SettingsPanel::getSettingsPath() {
     return core::getConfigRoot() + "/settings.cfg";
 }
 
+namespace {
+
+/// A number as a CVar carries it: whole numbers with no point, fractions
+/// without the trailing zeros. The options panels compare some of these as
+/// strings, so "1.000000" is not the same answer as "1".
+std::string settingNumber(double v) {
+    if (v == static_cast<long long>(v)) return std::to_string(static_cast<long long>(v));
+    std::string s = std::to_string(v);
+    while (s.size() > 1 && s.back() == '0') s.pop_back();
+    if (!s.empty() && s.back() == '.') s.pop_back();
+    return s;
+}
+
+bool settingTruth(const std::string& v) { return !v.empty() && v != "0"; }
+
+}  // namespace
+
+std::string SettingsPanel::settingValue(const std::string& key) const {
+    // Bound to a Blizzard control as well, through kClientCVars.
+    if (key == "viewdistance")    return settingNumber(pendingViewDistance);
+    if (key == "mousespeed")      return settingNumber(pendingMouseSensitivity);
+    if (key == "minimapclock")    return pendingShowMinimapClock ? "1" : "0";
+    if (key == "friendlyplates")  return showFriendlyNameplates_ ? "1" : "0";
+    // gxWindow asks whether the game is windowed, the opposite of what is kept.
+    if (key == "windowed")        return pendingFullscreen ? "0" : "1";
+    if (key == "groundclutter")   return settingNumber(pendingGroundClutterDensity / 100.0);
+
+    // This client's own, with no Blizzard equivalent — the Wowee category.
+    if (key == "waterrefraction") return pendingWaterRefraction ? "1" : "0";
+    if (key == "shadows")         return pendingShadows ? "1" : "0";
+    if (key == "shadowdistance")  return settingNumber(pendingShadowDistance);
+    if (key == "fov")             return settingNumber(pendingFov);
+    if (key == "extendedzoom")    return pendingExtendedZoom ? "1" : "0";
+    if (key == "camerastiffness") return settingNumber(pendingCameraStiffness);
+    if (key == "pivotheight")     return settingNumber(pendingPivotHeight);
+    if (key == "smoothfollow")    return pendingSmoothCameraFollow ? "1" : "0";
+    if (key == "idleorbit")       return pendingIdleCameraOrbit ? "1" : "0";
+    if (key == "uiopacity")       return settingNumber(pendingUiOpacity);
+    if (key == "minimapsquare")   return pendingMinimapSquare ? "1" : "0";
+    if (key == "minimapnpcdots")  return pendingMinimapNpcDots ? "1" : "0";
+    if (key == "minimapcoords")   return pendingShowMinimapCoordinates ? "1" : "0";
+    if (key == "latencymeter")    return pendingShowLatencyMeter ? "1" : "0";
+    if (key == "separatebags")    return pendingSeparateBags ? "1" : "0";
+    if (key == "showkeyring")     return pendingShowKeyring ? "1" : "0";
+    if (key == "bagscale")        return settingNumber(pendingBagScale);
+    if (key == "buffbarscale")    return settingNumber(pendingBuffBarScale);
+    if (key == "actionbarscale")  return settingNumber(pendingActionBarScale);
+    if (key == "autosellgrey")    return pendingAutoSellGrey ? "1" : "0";
+    if (key == "autorepair")      return pendingAutoRepair ? "1" : "0";
+    if (key == "woweemusic")      return pendingUseOriginalSoundtrack ? "1" : "0";
+    if (key == "characterspeech") return pendingCharacterSpeech ? "1" : "0";
+    return {};
+}
+
+bool SettingsPanel::setSettingValue(const std::string& key, const std::string& value) {
+    const double v = std::atof(value.c_str());
+    const bool on = settingTruth(value);
+
+    if (key == "viewdistance")         pendingViewDistance = static_cast<float>(v);
+    else if (key == "mousespeed")      pendingMouseSensitivity = static_cast<float>(v);
+    else if (key == "minimapclock")    pendingShowMinimapClock = on;
+    else if (key == "friendlyplates")  showFriendlyNameplates_ = on;
+    else if (key == "windowed")        pendingFullscreen = !on;
+    else if (key == "groundclutter")   pendingGroundClutterDensity = static_cast<int>(v * 100.0 + 0.5);
+    else if (key == "waterrefraction") pendingWaterRefraction = on;
+    else if (key == "shadows")         pendingShadows = on;
+    else if (key == "shadowdistance")  pendingShadowDistance = static_cast<float>(v);
+    else if (key == "fov")             pendingFov = static_cast<float>(v);
+    else if (key == "extendedzoom")    pendingExtendedZoom = on;
+    else if (key == "camerastiffness") pendingCameraStiffness = static_cast<float>(v);
+    else if (key == "pivotheight")     pendingPivotHeight = static_cast<float>(v);
+    else if (key == "smoothfollow")    pendingSmoothCameraFollow = on;
+    else if (key == "idleorbit")       pendingIdleCameraOrbit = on;
+    else if (key == "uiopacity")       pendingUiOpacity = static_cast<int>(v + 0.5);
+    else if (key == "minimapsquare")   pendingMinimapSquare = on;
+    else if (key == "minimapnpcdots")  pendingMinimapNpcDots = on;
+    else if (key == "minimapcoords")   pendingShowMinimapCoordinates = on;
+    else if (key == "latencymeter")    pendingShowLatencyMeter = on;
+    else if (key == "separatebags")    pendingSeparateBags = on;
+    else if (key == "showkeyring")     pendingShowKeyring = on;
+    else if (key == "bagscale")        pendingBagScale = static_cast<float>(v);
+    else if (key == "buffbarscale")    pendingBuffBarScale = static_cast<float>(v);
+    else if (key == "actionbarscale")  pendingActionBarScale = static_cast<float>(v);
+    else if (key == "autosellgrey")    pendingAutoSellGrey = on;
+    else if (key == "autorepair")      pendingAutoRepair = on;
+    else if (key == "woweemusic")      pendingUseOriginalSoundtrack = on;
+    else if (key == "characterspeech") pendingCharacterSpeech = on;
+    else return false;
+    return true;
+}
+
 void SettingsPanel::applyAudioVolumes(audio::AudioCoordinator* ac) {
     if (!ac) return;
     float masterScale = soundMuted_ ? 0.0f : static_cast<float>(pendingMasterVolume) / 100.0f;

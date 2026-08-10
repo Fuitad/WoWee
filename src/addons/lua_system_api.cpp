@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 #include "core/config_paths.hpp"
+#include "ui/settings_schema.hpp"
 #include "imgui.h"
 #include "addons/lua_api_helpers.hpp"
 #include "ui/display_modes.hpp"
@@ -3701,6 +3702,58 @@ static int lua_ReloadUI(lua_State* L) {
     return 0;
 }
 
+// WoweeSettingList() — every client setting FrameXML has no control for.
+//
+// Answers an array of { key, label, kind, min, max, step, category }, from the
+// one schema in ui/settings_schema.hpp. The Wowee options category is built
+// from this rather than written out in Lua, so adding a setting is a row in the
+// schema and nothing else.
+static int lua_WoweeSettingList(lua_State* L) {
+    std::size_t count = 0;
+    const auto* schema = ui::clientSettingsSchema(count);
+    lua_newtable(L);
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto& d = schema[i];
+        lua_newtable(L);
+        lua_pushstring(L, d.key);      lua_setfield(L, -2, "key");
+        lua_pushstring(L, d.label);    lua_setfield(L, -2, "label");
+        lua_pushstring(L, d.kind == ui::SettingKind::Bool  ? "bool"
+                        : d.kind == ui::SettingKind::Int   ? "int"
+                                                           : "float");
+        lua_setfield(L, -2, "kind");
+        lua_pushnumber(L, d.minValue); lua_setfield(L, -2, "min");
+        lua_pushnumber(L, d.maxValue); lua_setfield(L, -2, "max");
+        lua_pushnumber(L, d.step);     lua_setfield(L, -2, "step");
+        lua_pushstring(L, d.category); lua_setfield(L, -2, "category");
+        lua_rawseti(L, -2, static_cast<int>(i) + 1);
+    }
+    return 1;
+}
+
+// WoweeGetSetting(key) / WoweeSetSetting(key, value) — the values behind that
+// list. Strings both ways, as a CVar is.
+static int lua_WoweeGetSetting(lua_State* L) {
+    const char* key = luaL_checkstring(L, 1);
+    auto* svc = getLuaServices(L);
+    if (svc && svc->getClientSetting) {
+        lua_pushstring(L, svc->getClientSetting(key).c_str());
+        return 1;
+    }
+    return luaReturnNil(L);
+}
+
+static int lua_WoweeSetSetting(lua_State* L) {
+    const char* key = luaL_checkstring(L, 1);
+    std::string value;
+    if (lua_isboolean(L, 2)) value = lua_toboolean(L, 2) ? "1" : "0";
+    else if (lua_isstring(L, 2) || lua_isnumber(L, 2)) value = lua_tostring(L, 2);
+    else value = "0";
+    if (auto* svc = getLuaServices(L); svc && svc->setClientSetting) {
+        svc->setClientSetting(key, value);
+    }
+    return 0;
+}
+
 // WoweeShowSettings(tab) — open this client's settings window.
 //
 // FrameXML's game menu has Video, Sound and Interface buttons, and the frames
@@ -3975,6 +4028,9 @@ void registerSystemLuaAPI(lua_State* L) {
     static const struct { const char* name; lua_CFunction func; } api[] = {
                 {"Screenshot",               lua_Screenshot},
                 {"WoweeShowSettings",        lua_WoweeShowSettings},
+                {"WoweeSettingList",         lua_WoweeSettingList},
+                {"WoweeGetSetting",          lua_WoweeGetSetting},
+                {"WoweeSetSetting",          lua_WoweeSetSetting},
                 {"HasLFGRestrictions",       lua_HasLFGRestrictions},
                 {"GetLFGProposal",           lua_GetLFGProposal},
                 {"GetLFGInfoServer",         lua_GetLFGInfoServer},
