@@ -194,6 +194,42 @@ public:
 private:
     Camera* camera;
     TerrainManager* terrainManager = nullptr;
+    /// One frame's input and physics setup, handed to whichever camera mode is
+    /// running.
+    ///
+    /// update() reads the keyboard, works out the speed and the axes, and then
+    /// splits into two branches — the third-person camera that moves a character
+    /// and the free-fly camera that moves itself. The branches were fifteen
+    /// hundred lines and two hundred lines of one function, and this is what
+    /// they both need from the part before the split.
+    struct FrameInput {
+        float physicsDeltaTime = 0.0f;
+        float gravity = 0.0f;
+        float jumpVel = 0.0f;
+        float speed = 0.0f;
+        glm::vec3 forward{0.0f};      ///< movement axes, flattened onto XY
+        glm::vec3 right{0.0f};
+        glm::vec3 forward3D{0.0f};    ///< the camera's own forward, with pitch
+        glm::vec3 movement{0.0f};     ///< the horizontal move this frame; the modes adjust it
+        bool nowForward = false;
+        bool nowBackward = false;
+        bool nowStrafeLeft = false;
+        bool nowStrafeRight = false;
+        bool nowTurnLeft = false;
+        bool nowTurnRight = false;
+        bool nowJump = false;
+        bool swimUpHeld = false;
+        bool xDown = false;
+        bool uiWantsKeyboard = false;
+    };
+
+    /// The camera that orbits a character and moves it: collision, grounding,
+    /// swimming, zoom, and the pullback that keeps the camera out of walls.
+    void updateThirdPersonCamera(float deltaTime, FrameInput& f);
+
+    /// The camera that flies itself, used when nothing is being followed.
+    void updateFreeFlyCamera(float deltaTime, FrameInput& f);
+
     /// Move from `from` to `to` in small steps, letting the walls push back.
     ///
     /// A single long move tunnels through thin geometry, so it is broken into
