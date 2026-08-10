@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 #include "game/inventory.hpp"
+#include "game/item_text.hpp"
 
 namespace wowee::ui {
 
@@ -142,13 +143,8 @@ inline const char* getInventorySlotName(uint32_t inventoryType) {
 
 // ---- Binding type display ----
 inline void renderBindingType(uint32_t bindType) {
-    const auto& kBindColor = colors::kTooltipGold;
-    switch (bindType) {
-        case 1: ImGui::TextColored(kBindColor, "Binds when picked up"); break;
-        case 2: ImGui::TextColored(kBindColor, "Binds when equipped"); break;
-        case 3: ImGui::TextColored(kBindColor, "Binds when used"); break;
-        case 4: ImGui::TextColored(kBindColor, "Quest Item"); break;
-        default: break;
+    if (const char* text = game::itemBindText(bindType)) {
+        ImGui::TextColored(colors::kTooltipGold, "%s", text);
     }
 }
 

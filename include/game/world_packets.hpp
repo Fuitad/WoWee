@@ -1,6 +1,7 @@
 #pragma once
 
 #include "network/packet.hpp"
+#include "game/item_text.hpp"
 #include "game/opcodes.hpp"
 #include "game/character.hpp"
 #include "game/entity.hpp"
@@ -1829,41 +1830,6 @@ struct ItemQueryResponseData {
     uint32_t requiredReputationRank    = 0;  // 0=Hated..8=Exalted
     bool valid = false;
 };
-
-/// The name of an ItemQueryResponseData::ExtraStat type, or null for one there
-/// is nothing to say about.
-///
-/// Shared because two tooltips read it — this client's own bag tooltip and the
-/// one FrameXML asks for through GameTooltip:SetBagItem — and a second copy of
-/// this table would drift the first time a rating was added to one of them.
-/// Several ids map to the same words on purpose: 16, 17, 18 and 31 are melee,
-/// ranged, spell and generic hit, and WoW writes all four as "Hit Rating".
-inline const char* itemStatName(uint32_t statType) {
-    switch (statType) {
-        case 0:  return "Mana";
-        case 1:  return "Health";
-        case 12: return "Defense Rating";
-        case 13: return "Dodge Rating";
-        case 14: return "Parry Rating";
-        case 15: return "Block Rating";
-        case 16: case 17: case 18: case 31: return "Hit Rating";
-        case 19: case 20: case 21: case 32: return "Crit Rating";
-        case 28: case 29: case 30: case 36: return "Haste Rating";
-        case 35: return "Resilience";
-        case 37: return "Expertise Rating";
-        case 38: return "Attack Power";
-        case 39: return "Ranged Attack Power";
-        case 41: return "Healing Power";
-        case 42: return "Spell Damage";
-        case 43: return "Mana per 5 sec";
-        case 44: return "Armor Penetration";
-        case 45: return "Spell Power";
-        case 46: return "Health per 5 sec";
-        case 47: return "Spell Penetration";
-        case 48: return "Block Value";
-        default: return nullptr;
-    }
-}
 
 /** SMSG_ITEM_QUERY_SINGLE_RESPONSE parser */
 class ItemQueryResponseParser {

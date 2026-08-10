@@ -2285,12 +2285,9 @@ static void appendItemStats(wowee::ui::Widget* w, const game::ItemQueryResponseD
     auto gold  = [&](std::string s) { line(std::move(s), kGold, 0.82f, 0.0f); };
     auto green = [&](std::string s) { line(std::move(s), 0.0f, 1.0f, 0.0f); };
 
-    switch (info.bindType) {
-        case 1: white("Binds when picked up"); break;
-        case 2: white("Binds when equipped"); break;
-        case 3: white("Binds when used"); break;
-        default: break;
-    }
+    // This one used to stop at 3, so a quest item's tooltip said nothing about
+    // being one here while the other two tooltips said so.
+    if (const char* bindText = game::itemBindText(info.bindType)) white(bindText);
     if (info.maxCount == 1)                     gold("Unique");
     else if (info.itemFlags & 0x1000000u)       gold("Unique-Equipped");
 
@@ -6673,6 +6670,11 @@ void LuaEngine::registerCoreAPI() {
         "        if data.isHeroic then self:AddLine('Heroic', 0, 1, 0) end\n"
         "        if data.isUnique then self:AddLine('Unique', 1, 1, 1)\n"
         "        elseif data.isUniqueEquipped then self:AddLine('Unique-Equipped', 1, 1, 1) end\n"
+        // The fourth copy of this table, and the one that cannot share: it is
+        // Lua source compiled into the tooltip shim. It stops at 3, like the C++
+        // copy beside it used to, so a quest item says nothing here about being
+        // one. Left as it is rather than changed on inference — what FrameXML's
+        // tooltip shows is a question about FrameXML.
         "        if data.bindType == 1 then self:AddLine('Binds when picked up', 1, 1, 1)\n"
         "        elseif data.bindType == 2 then self:AddLine('Binds when equipped', 1, 1, 1)\n"
         "        elseif data.bindType == 3 then self:AddLine('Binds when used', 1, 1, 1) end\n"

@@ -99,11 +99,8 @@ void ItemTooltipRenderer::render(
         ImGui::TextColored(ImVec4(0.0f, 0.8f, 0.0f, 1.0f), "Heroic");
 
     // Bind type (appears right under name in WoW)
-    switch (info->bindType) {
-        case 1: ImGui::TextDisabled("Binds when picked up");   break;
-        case 2: ImGui::TextDisabled("Binds when equipped");    break;
-        case 3: ImGui::TextDisabled("Binds when used");        break;
-        case 4: ImGui::TextDisabled("Quest Item");             break;
+    if (const char* bindText = game::itemBindText(info->bindType)) {
+        ImGui::TextDisabled("%s", bindText);
     }
     // Unique / Unique-Equipped
     if (info->maxCount == 1)

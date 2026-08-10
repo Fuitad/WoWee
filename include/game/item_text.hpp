@@ -1,0 +1,75 @@
+#pragma once
+
+/**
+ * item_text.hpp — the words an item's numbers are displayed with.
+ *
+ * Kept apart from world_packets.hpp so a tooltip can ask for a stat's name
+ * without pulling in every packet structure in the game. Four things render item
+ * tooltips — this client's bag, the chat item link, the one built for FrameXML,
+ * and a shim written in Lua — and each of them had its own copy of these tables
+ * until the copies were found to disagree.
+ */
+
+#include <cstdint>
+
+namespace wowee {
+namespace game {
+
+/// What an item's bindType says, or null for one that binds to nobody.
+///
+/// Four places render this line — this client's own bag tooltip, the chat item
+/// link, the tooltip built for FrameXML, and a fourth copy written in Lua inside
+/// the tooltip shim. The three in C++ share this now. They did not all agree:
+/// two knew that 4 is a quest item and one did not, so a quest item's tooltip
+/// said nothing about being one, depending on which tooltip you were looking at.
+///
+/// The colour stays with each renderer. They genuinely differ — one draws this
+/// line gold and one draws it dimmed — and that is a decision about a tooltip,
+/// not about what bindType 4 means.
+inline const char* itemBindText(uint32_t bindType) {
+    switch (bindType) {
+        case 1: return "Binds when picked up";
+        case 2: return "Binds when equipped";
+        case 3: return "Binds when used";
+        case 4: return "Quest Item";
+        default: return nullptr;
+    }
+}
+
+/// The name of an ItemQueryResponseData::ExtraStat type, or null for one there
+/// is nothing to say about.
+///
+/// Shared because two tooltips read it — this client's own bag tooltip and the
+/// one FrameXML asks for through GameTooltip:SetBagItem — and a second copy of
+/// this table would drift the first time a rating was added to one of them.
+/// Several ids map to the same words on purpose: 16, 17, 18 and 31 are melee,
+/// ranged, spell and generic hit, and WoW writes all four as "Hit Rating".
+inline const char* itemStatName(uint32_t statType) {
+    switch (statType) {
+        case 0:  return "Mana";
+        case 1:  return "Health";
+        case 12: return "Defense Rating";
+        case 13: return "Dodge Rating";
+        case 14: return "Parry Rating";
+        case 15: return "Block Rating";
+        case 16: case 17: case 18: case 31: return "Hit Rating";
+        case 19: case 20: case 21: case 32: return "Crit Rating";
+        case 28: case 29: case 30: case 36: return "Haste Rating";
+        case 35: return "Resilience";
+        case 37: return "Expertise Rating";
+        case 38: return "Attack Power";
+        case 39: return "Ranged Attack Power";
+        case 41: return "Healing Power";
+        case 42: return "Spell Damage";
+        case 43: return "Mana per 5 sec";
+        case 44: return "Armor Penetration";
+        case 45: return "Spell Power";
+        case 46: return "Health per 5 sec";
+        case 47: return "Spell Penetration";
+        case 48: return "Block Value";
+        default: return nullptr;
+    }
+}
+
+}  // namespace game
+}  // namespace wowee
