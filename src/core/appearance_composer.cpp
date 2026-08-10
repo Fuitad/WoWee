@@ -246,28 +246,36 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
         LOG_WARNING("Failed to load CharSections.dbc, using hardcoded textures");
     }
 
-    // Fill model texture slots with resolved paths
+    // Fill model texture slots with resolved paths.
+    //
+    // A non-zero texture type means the client supplies the art — that is what
+    // the type is for, and only type 0 carries a filename that means anything.
+    // So a name found in one of these slots is not authoritative, and filling
+    // them "if empty" let a name that is not a file win over the one the client
+    // had resolved. A model in the wild had 'Ohren' baked into its Skin Extra
+    // slot; it resolved to nothing, the slot came out blank, and the eyelashes
+    // drawn from it fell back to the body art and came out skin-coloured. The
+    // hair slot already worked this way and was the only one that did.
     for (auto& tex : model.textures) {
-        if (tex.type == 1 && tex.filename.empty()) {
-            tex.filename = result.bodySkinPath;
+        if (tex.type == 1) {
+            if (!result.bodySkinPath.empty()) tex.filename = result.bodySkinPath;
         } else if (tex.type == 6) {
             if (!result.hairTexturePath.empty()) {
                 tex.filename = result.hairTexturePath;
             } else if (tex.filename.empty()) {
                 tex.filename = std::string("Character\\") + raceFolderName + "\\Hair00_00.blp";
             }
-        } else if (tex.type == 8 && tex.filename.empty()) {
-            // Skin Extra. The skin row's own second texture when the table has
-            // one — an HD model's eyelashes are a submesh textured from it, and
-            // handing them the underwear instead is what left them looking
-            // untextured. The underwear stays as the fallback for a table that
-            // does not carry the extra art, which is every stock one.
+        } else if (tex.type == 8) {
+            // Skin Extra: the head-detail sheet an HD model draws its eyes,
+            // mouth, ears and eyelashes from. CharSections' second texture on
+            // the skin row is where it comes from; the underwear stays as the
+            // fallback for a table that does not carry it, which is every stock
+            // one — those models have no type 8 slot to fill anyway.
             if (!result.skinExtraPath.empty()) {
                 tex.filename = result.skinExtraPath;
-            } else if (!result.underwearPaths.empty()) {
-                tex.filename = result.underwearPaths[0];
-            } else {
-                tex.filename = pelvisPath;
+            } else if (tex.filename.empty()) {
+                tex.filename = !result.underwearPaths.empty() ? result.underwearPaths[0]
+                                                             : pelvisPath;
             }
         }
     }

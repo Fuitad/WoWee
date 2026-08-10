@@ -270,12 +270,60 @@ def curate(overlay_root, apply_changes, keep_hd=False):
         print("  display re-points reverted to the base game : %d" % reverted)
         print("  display re-points kept (creature models)    : %d" % kept_repoints)
 
-        if apply_changes and patch:
+        # A display row's skin names belong to the model it draws. The pack
+        # changes both together; reverting the model alone leaves art authored
+        # for a mesh that is no longer there, wrapped onto one it does not fit.
+        # So the skins go back wherever the model did — and wherever the model
+        # this row ends up using is not one the pack supplies, since a
+        # replacement the rules above disabled leaves exactly the same
+        # disagreement.
+        skin_fields = (6, 7, 8)   # Skin1, Skin2, Skin3
+        skin_patch = []
+        for disp_id, (vals, resolve, index) in pack_rows.items():
+            base_row = base_rows.get(disp_id)
+            if not base_row:
+                continue
+            final_model = vals[1]
+            for idx, was in patch:
+                if idx == index:
+                    final_model = was
+                    break
+            if model_file_resolves(model_path(final_model)) and \
+               model_path(final_model).replace("/", "\\").lower()[:-4] + ".m2" in kept:
+                continue  # the pack supplies this model; its own art belongs on it
+            for f in skin_fields:
+                want = base_row[1](base_row[0][f])
+                if resolve(vals[f]) != want:
+                    skin_patch.append((index, f, want))
+        print("  skin names put back with their model            : %d" %
+              len({i for i, _f, _w in skin_patch}))
+
+        if apply_changes and (patch or skin_patch):
             data = bytearray(open(cdi_path, "rb").read())
             for index, was in patch:
                 # field 1 is ModelID; the header is 20 bytes
                 off = 20 + index * rsize + 4
                 data[off:off + 4] = struct.pack("<I", was)
+            if skin_patch:
+                # Reverted names have to live somewhere the record can point at,
+                # and the base table's offsets mean nothing in this file's string
+                # block. Append them here and point at the copy; records keep
+                # their size, so only the block grows.
+                strings_start = 20 + rec * rsize
+                block = bytearray(data[strings_start:])
+                added = {}
+                for _index, _f, want in skin_patch:
+                    if want in added:
+                        continue
+                    if want == "":
+                        added[want] = 0
+                        continue
+                    added[want] = len(block)
+                    block += want.encode("utf-8") + b"\0"
+                for index, f, want in skin_patch:
+                    off = 20 + index * rsize + f * 4
+                    data[off:off + 4] = struct.pack("<I", added[want])
+                data = data[:strings_start] + block
             open(cdi_path, "wb").write(bytes(data))
             print("  rewrote %s" % cdi_path)
 
