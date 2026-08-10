@@ -1599,6 +1599,29 @@ network::Packet LearnTalentPacket::build(uint32_t talentId, uint32_t requestedRa
     return packet;
 }
 
+network::Packet LfgJoinPacket::build(const std::vector<uint32_t>& dungeonIds,
+                                    uint32_t roles,
+                                    const std::string& comment) {
+    network::Packet packet(wireOpcode(Opcode::CMSG_LFG_JOIN));
+    // The order and the widths the server reads, which this had wrong in every
+    // field: roles went out as one byte rather than four, and the three needs
+    // between the slots and the comment were missing entirely. The four bytes
+    // taken for Roles therefore swallowed the roles, both flags and the slot
+    // count, the slot list came out empty, and HandleLfgJoinOpcode returns
+    // without a word when it is — so the queue was discarded in silence.
+    packet.writeUInt32(roles);
+    packet.writeUInt8(0);                    // NoPartialClear
+    packet.writeUInt8(0);                    // Achievements
+    packet.writeUInt8(static_cast<uint8_t>(dungeonIds.size()));
+    for (uint32_t id : dungeonIds) packet.writeUInt32(id);
+    packet.writeUInt8(3);                    // Needs count, always three
+    packet.writeUInt8(0);
+    packet.writeUInt8(0);
+    packet.writeUInt8(0);
+    packet.writeString(comment);
+    return packet;
+}
+
 network::Packet TalentWipeConfirmPacket::build(bool accept) {
     network::Packet packet(wireOpcode(Opcode::MSG_TALENT_WIPE_CONFIRM));
     packet.writeUInt32(accept ? 1 : 0);

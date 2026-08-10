@@ -450,7 +450,9 @@ public:
     }
 
     // LFG / Dungeon Finder
-    void lfgJoin(uint32_t dungeonId, uint8_t roles);
+    /// Queue for every dungeon the player ticked. CMSG_LFG_JOIN carries a
+    /// list, and the server queues for all of them at once.
+    void lfgJoin(const std::vector<uint32_t>& dungeonIds, uint8_t roles);
     void lfgLeave();
     void lfgSetRoles(uint8_t roles);
     void lfgAcceptProposal(uint32_t proposalId, bool accept);

@@ -3792,12 +3792,10 @@ void SocialHandler::handleLfgTeleportDenied(network::Packet& packet) {
 // LFG Outgoing Packets
 // ============================================================
 
-void SocialHandler::lfgJoin(uint32_t dungeonId, uint8_t roles) {
+void SocialHandler::lfgJoin(const std::vector<uint32_t>& dungeonIds, uint8_t roles) {
     if (owner_.getState() != WorldState::IN_WORLD || !owner_.getSocket()) return;
-    network::Packet pkt(wireOpcode(Opcode::CMSG_LFG_JOIN));
-    pkt.writeUInt8(roles); pkt.writeUInt8(0); pkt.writeUInt8(0);
-    pkt.writeUInt8(1); pkt.writeUInt32(dungeonId); pkt.writeString("");
-    owner_.getSocket()->send(pkt);
+    if (dungeonIds.empty()) return;   // the server drops a join with no slots
+    owner_.getSocket()->send(LfgJoinPacket::build(dungeonIds, roles));
 }
 
 void SocialHandler::lfgLeave() {

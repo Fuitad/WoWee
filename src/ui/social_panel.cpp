@@ -2339,7 +2339,7 @@ void SocialPanel::renderDungeonFinderWindow(game::GameHandler& gameHandler,
             ImGui::BeginDisabled();
         }
         if (ImGui::Button("Join Dungeon Finder", ImVec2(-1, 0))) {
-            gameHandler.lfgJoin(lfgSelectedDungeon_, lfgRoles_);
+            gameHandler.lfgJoin({lfgSelectedDungeon_}, lfgRoles_);
         }
         if (!canJoin) {
             ImGui::EndDisabled();

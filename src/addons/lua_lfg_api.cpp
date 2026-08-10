@@ -359,15 +359,19 @@ void registerLfgLuaAPI(lua_State* L) {
     {"JoinLFG", [](lua_State* L) -> int {
         auto* gh = getGameHandler(L);
         if (!gh) return 0;
-        // Whatever is ticked. The server takes one dungeon per join here, so
-        // the first ticked entry is the one queued for — a multi-select queue
-        // needs CMSG_LFG_JOIN to carry a list, which lfgJoin does not.
+        // Everything ticked, in a settled order. CMSG_LFG_JOIN carries a list
+        // and the server queues for all of it, so a multi-select queue is one
+        // join rather than a choice between them.
+        //
+        // This used to send the first entry of an unordered map and stop, which
+        // is not the first dungeon the player picked — it is whichever one the
+        // container happened to hand back, and a different one between runs.
+        std::vector<uint32_t> chosen;
         for (const auto& [id, on] : enabledDungeons()) {
-            if (on && id > 0) {
-                gh->lfgJoin(static_cast<uint32_t>(id), offeredRoles(gh));
-                break;
-            }
+            if (on && id > 0) chosen.push_back(static_cast<uint32_t>(id));
         }
+        std::sort(chosen.begin(), chosen.end());
+        gh->lfgJoin(chosen, offeredRoles(gh));
         return 0;
     }},
     // The two buttons on the dungeon-ready dialog, and the same pair on the

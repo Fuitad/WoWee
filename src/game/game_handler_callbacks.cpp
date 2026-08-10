@@ -2272,8 +2272,8 @@ void GameHandler::acceptBattlefield(uint32_t queueSlot) {
 // LFG outgoing packets
 // ---------------------------------------------------------------------------
 
-void GameHandler::lfgJoin(uint32_t dungeonId, uint8_t roles) {
-    if (socialHandler_) socialHandler_->lfgJoin(dungeonId, roles);
+void GameHandler::lfgJoin(const std::vector<uint32_t>& dungeonIds, uint8_t roles) {
+    if (socialHandler_) socialHandler_->lfgJoin(dungeonIds, roles);
 }
 
 void GameHandler::lfgLeave() {
