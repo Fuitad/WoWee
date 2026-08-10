@@ -761,6 +761,7 @@ set(WOWEE_SOURCES
     src/pipeline/wowee_combat_formulas.cpp
     src/pipeline/wowee_chat_links.cpp
     src/pipeline/custom_zone_discovery.cpp
+    src/pipeline/char_sections.cpp
     src/pipeline/dbc_layout.cpp
 
     src/pipeline/terrain_mesh.cpp
@@ -1848,6 +1849,7 @@ add_executable(wowee_editor
     # Pipeline (asset loading)
     src/pipeline/blp_loader.cpp
     src/pipeline/dbc_loader.cpp
+    src/pipeline/char_sections.cpp
     src/pipeline/dbc_layout.cpp
     src/pipeline/asset_manager.cpp
     src/pipeline/asset_manifest.cpp
