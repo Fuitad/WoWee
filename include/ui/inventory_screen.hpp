@@ -201,6 +201,15 @@ private:
     void placeInEquipment(game::Inventory& inv, game::EquipSlot slot);
     void placeInKeyring(game::Inventory& inv, int index);
     void cancelPickup(game::Inventory& inv);
+
+    /// Where the held item came from, as the (container, slot) pair the server
+    /// addresses. False when nothing usable is held.
+    ///
+    /// Four places worked this out and they did not agree on how many places an
+    /// item can be picked up from: two knew all seven, one knew five and one
+    /// six. The keyring was missing from two of them, so dragging a key onto an
+    /// equipment slot or into the bank did nothing at all.
+    bool heldItemWireSource(uint8_t& srcBag, uint8_t& srcSlot) const;
     game::EquipSlot getEquipSlotForType(uint8_t inventoryType, game::Inventory& inv);
     void renderHeldItem();
     void renderEquipConfirmationPopup(game::Inventory& inventory);
