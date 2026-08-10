@@ -2818,22 +2818,14 @@ void CharacterRenderer::render(VkCommandBuffer cmd, VkDescriptorSet perFrameSet,
                     uint16_t grp = batch.submeshId / 100;
                     if (grp == 17 || grp == 18) continue;
                 }
-                // The head-detail layer, off unless the instance asks for it.
-                //
-                // An HD character model draws its head twice: once with the body
-                // composite, and once more with the Skin Extra sheet — the eyes,
-                // mouth, ears and eyelashes — as a second batch over the same
-                // geometry. That second pass is the difference between a face
-                // with lashes and a face wearing an atlas, and this renderer
-                // binds one texture per batch and draws it opaque, so it lands
-                // as the latter unless the instance is set up for it.
-                //
-                // The player is. An NPC composited from CharSections is not, and
-                // a face wearing an atlas is worse than a face without lashes,
-                // so the layer is skipped rather than drawn wrong.
-                if (!instance.drawSkinExtra && batchUsesTextureType(gpuModel, batch, 8)) {
-                    continue;
-                }
+                // Note on the Skin Extra batch, since it has been misread twice:
+                // it is NOT a layer over the head. On an HD character model it
+                // is its own section — 703 vertices and 634 triangles of the
+                // human female's head, separate from the 403 and 877 of the
+                // sections beside it — carrying the eyes, the mouth, the ears
+                // and the eyelashes. Skipping it does not remove a detail pass,
+                // it removes a face's features. Whatever is wrong with an NPC
+                // face, it is not this batch existing.
                 // M2 color-alpha animation gates prop submeshes per animation —
                 // e.g. the peasant lumberjack carry model has two wood-bundle
                 // submeshes and only one is alpha-1 in any given animation.
