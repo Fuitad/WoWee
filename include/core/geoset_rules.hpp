@@ -158,5 +158,20 @@ inline std::unordered_set<uint16_t> bareCharacterGeosets(uint16_t hairScalp,
     return geosets;
 }
 
+/// The geoset a piece of equipment selects within its group.
+///
+/// ItemDisplayInfo's GeosetGroup columns hold a small number G meaning "the Gth
+/// variant after the bare one" — so a chest with G=2 wants group 8 variant 3,
+/// which is the bare sleeves id plus 2. The arithmetic is a single addition and
+/// was written out at a dozen call sites, half of them against the named bare
+/// constant and half against the literal number it holds, with the convention
+/// itself recorded nowhere.
+///
+/// G of zero means the item does not touch that group, and the caller keeps
+/// whatever it had.
+constexpr uint16_t equippedGeoset(uint16_t bareId, uint32_t geosetGroupValue) {
+    return static_cast<uint16_t>(bareId + geosetGroupValue);
+}
+
 }  // namespace core
 }  // namespace wowee

@@ -1972,44 +1972,44 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                 // Chest (slot 3) → group 8 (sleeves/wristbands)
                 {
                     uint32_t gg = readGeosetGroup(3, "chest");
-                    if (gg > 0) geosetSleeves = pickGeoset(static_cast<uint16_t>(kGeosetBareSleeves + gg), 8);
+                    if (gg > 0) geosetSleeves = pickGeoset(equippedGeoset(kGeosetBareSleeves, gg), 8);
                 }
 
                 // Legs (slot 5) → group 13 (trousers)
                 {
                     uint32_t gg = readGeosetGroup(5, "legs");
-                    if (gg > 0) geosetPants = pickGeoset(static_cast<uint16_t>(kGeosetBarePants + gg), 13);
+                    if (gg > 0) geosetPants = pickGeoset(equippedGeoset(kGeosetBarePants, gg), 13);
                 }
 
                 // Feet (slot 6) → group 5 (boots/shins)
                 {
                     uint32_t gg = readGeosetGroup(6, "feet");
-                    if (gg > 0) geosetBoots = pickGeoset(static_cast<uint16_t>(501 + gg), 5);
+                    if (gg > 0) geosetBoots = pickGeoset(equippedGeoset(kGeosetBareShins, gg), 5);
                 }
 
                 // Hands (slot 8) → group 4 (gloves/forearms)
                 {
                     uint32_t gg = readGeosetGroup(8, "hands");
-                    if (gg > 0) geosetGloves = pickGeoset(static_cast<uint16_t>(kGeosetBareForearms + gg), 4);
+                    if (gg > 0) geosetGloves = pickGeoset(equippedGeoset(kGeosetBareForearms, gg), 4);
                 }
 
                 // Wrists (slot 7) → group 8 (sleeves, only if chest didn't set it)
                 {
                     uint32_t gg = readGeosetGroup(7, "wrist");
                     if (gg > 0 && geosetSleeves == pickGeoset(kGeosetBareSleeves, 8))
-                        geosetSleeves = pickGeoset(static_cast<uint16_t>(kGeosetBareSleeves + gg), 8);
+                        geosetSleeves = pickGeoset(equippedGeoset(kGeosetBareSleeves, gg), 8);
                 }
 
                 // Belt (slot 4) → group 18 (buckle)
                 {
                     uint32_t gg = readGeosetGroup(4, "belt");
-                    if (gg > 0) geosetBelt = static_cast<uint16_t>(1801 + gg);
+                    if (gg > 0) geosetBelt = equippedGeoset(1801, gg);
                 }
 
                 // Tabard (slot 9) → group 12 (tabard/robe mesh)
                 {
                     uint32_t gg = readGeosetGroup(9, "tabard");
-                    if (gg > 0) geosetTabard = pickGeoset(static_cast<uint16_t>(1200 + gg), 12);
+                    if (gg > 0) geosetTabard = pickGeoset(equippedGeoset(1200, gg), 12);
                 }
 
                 // Cape (slot 10) → group 15

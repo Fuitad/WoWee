@@ -171,3 +171,24 @@ TEST_CASE("the bare set a character shows with nothing equipped", "[geoset]") {
         }
     }
 }
+
+TEST_CASE("equipment selects a variant after the bare one", "[geoset]") {
+    // ItemDisplayInfo's GeosetGroup columns hold "the Gth variant after bare".
+    // A chest with G=2 wants group 8 variant 3.
+    CHECK(equippedGeoset(kGeosetBareSleeves, 2) == 803);
+    CHECK(equippedGeoset(kGeosetBareShins, 1) == 502);
+    CHECK(equippedGeoset(kGeosetBarePants, 4) == 1305);
+
+    SECTION("zero leaves the bare variant") {
+        // The caller only applies this when G is non-zero, and the identity is
+        // what makes that safe to read.
+        CHECK(equippedGeoset(kGeosetBareForearms, 0) == kGeosetBareForearms);
+    }
+
+    SECTION("it stays inside its group") {
+        // A group holds well under a hundred variants, so the arithmetic cannot
+        // carry into the next one for any value a table actually holds.
+        CHECK(geosetGroup(equippedGeoset(kGeosetBareSleeves, 9)) == 8);
+        CHECK(geosetGroup(equippedGeoset(kGeosetBareShins, 9)) == 5);
+    }
+}
