@@ -99,6 +99,9 @@ public:
     const pipeline::M2Model* getModelData(uint32_t modelId) const;
     const pipeline::M2Model* getInstanceModelData(uint32_t instanceId) const;
     void setActiveGeosets(uint32_t instanceId, const std::unordered_set<uint16_t>& geosets);
+    /// Opt an instance into the Skin Extra head-detail batch. Only a character
+    /// whose type 8 slot has been filled from CharSections should ask for it.
+    void setDrawSkinExtra(uint32_t instanceId, bool enabled);
     void setGroupTextureOverride(uint32_t instanceId, uint16_t geosetGroup, VkTexture* texture);
     void setTextureSlotOverride(uint32_t instanceId, uint16_t textureSlot, VkTexture* texture);
     void clearTextureSlotOverride(uint32_t instanceId, uint16_t textureSlot);
@@ -235,6 +238,9 @@ private:
         // Geoset visibility — which submesh IDs to render
         // Empty = render all (for non-character models)
         std::unordered_set<uint16_t> activeGeosets;
+        /// Draw the Skin Extra (texture type 8) head-detail batch. True only
+        /// where the instance has been set up to composite it — the player.
+        bool drawSkinExtra = false;
 
         // Per-geoset-group texture overrides (group → VkTexture*)
         std::unordered_map<uint16_t, VkTexture*> groupTextureOverrides;

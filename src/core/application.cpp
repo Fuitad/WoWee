@@ -4457,6 +4457,10 @@ void Application::spawnPlayerCharacter() {
 	            ? appearanceComposer_->buildDefaultPlayerGeosets(raceId, sexId, hairStyleId, facialId)
 	            : std::unordered_set<uint16_t>{};
 	        charRenderer->setActiveGeosets(instanceId, activeGeosets);
+	        // The player's type 8 slot is filled from CharSections by
+	        // resolvePlayerTextures above, so the head-detail batch has art to
+	        // draw and is worth drawing. Nothing else is set up for it.
+	        charRenderer->setDrawSkinExtra(instanceId, true);
 
         // Play idle animation
         charRenderer->playAnimation(instanceId, rendering::anim::STAND, true);
