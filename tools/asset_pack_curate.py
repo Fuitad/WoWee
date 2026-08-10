@@ -72,7 +72,14 @@ def load_dbc(path):
 
 
 def m2_textures(path):
-    """(type, filename) per texture. Only type 0 carries a name in the file."""
+    """(type, filename) per texture, whatever the type.
+
+    Only type 0 is *supposed* to carry a name — every other type is art the
+    client supplies at runtime. Reading the name for type 0 alone was therefore
+    reasonable and wrong: a model can carry a name in a runtime slot anyway, and
+    one that does is telling you it was built for that art rather than for
+    whatever it is handed.
+    """
     try:
         data = open(path, "rb").read()
     except OSError:
@@ -87,7 +94,7 @@ def m2_textures(path):
             break
         typ, _flags, length, offset = struct.unpack("<IIII", rec)
         name = ""
-        if typ == 0 and length > 1:
+        if length > 1:
             name = data[offset:offset + length].split(b"\0")[0].decode("ascii", "ignore")
         out.append((typ, name))
     return out
@@ -173,14 +180,32 @@ def curate(overlay_root, apply_changes, keep_hd=False):
         mark(key, "DBC unrelated to models, or pointing at HD art")
 
     # (2) models missing a texture that is not merely a reflection map
+    #
+    # Two slots to check, not one. A type-0 slot names its own art. Types 11, 12
+    # and 13 are the creature skins the client fills in from CreatureDisplayInfo
+    # — but a model can carry a name there anyway, and one that does is a mesh
+    # built for particular art rather than for whatever the display hands it.
+    # The pack's gryphon is the EliteGryphon mesh, 2184 vertices against the
+    # stock 846, with ELITEGRYPHON.BLP named in its skin slot and never shipped.
+    # It draws with the old gryphon's texture wrapped round a different animal.
+    RUNTIME_SKIN_TYPES = (11, 12, 13)
     for key, val in list(entries.items()):
         if not key.endswith(".m2") or key in drop:
             continue
-        missing = [name for typ, name in m2_textures(os.path.join(files_root, val["p"]))
+        textures = m2_textures(os.path.join(files_root, val["p"]))
+        missing = [name for typ, name in textures
                    if typ == 0 and name and not resolves(name)]
         hard = [name for name in missing if not is_reflection(name)]
+        why = None
         if hard:
-            mark(key, "model missing a base texture (renders white)")
+            why = "model missing a base texture (renders white)"
+        else:
+            named_skin = [name for typ, name in textures
+                          if typ in RUNTIME_SKIN_TYPES and name and not resolves(name)]
+            if named_skin:
+                why = "mesh built for art the pack did not ship (wrong texture wrap)"
+        if why:
+            mark(key, why)
             stem = key[:-3]
             for i in range(6):
                 mark("%s%02d.skin" % (stem, i), "skin of a disabled model")

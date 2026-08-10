@@ -743,6 +743,44 @@ std::unique_ptr<VkTexture> CharacterRenderer::generateNormalHeightMap(
 }
 
 // Static, thread-safe CPU-only normal map generation (no GPU access)
+bool CharacterRenderer::queueNormalMapGeneration(const std::string& cacheKey,
+                                                std::vector<uint8_t> pixels,
+                                                uint32_t width, uint32_t height) {
+    // Every surface this renderer draws derives its normal map from its own
+    // diffuse art, and this is the one place that starts that work. It used to
+    // be spelled out inside the file-loading path alone — so a texture that
+    // never came from a file never got one, and a character's body is exactly
+    // that: composited in memory from a skin, a face and whatever armour is
+    // worn. The largest lit surface on screen was the one surface with no
+    // normal map, which reads as the lighting working everywhere except on
+    // people.
+    if (width < 32 || height < 32) return false;
+    // Use acq_rel so the increment is visible to shutdown()'s acquire load
+    // before the thread body begins (relaxed could delay visibility and cause
+    // shutdown() to see 0 and proceed while a thread is still running).
+    pendingNormalMapCount_.fetch_add(1, std::memory_order_acq_rel);
+    auto* self = this;
+    std::thread([self, ck = cacheKey, px = std::move(pixels), width, height]() mutable {
+        // try-catch guarantees the counter is decremented even if the compute
+        // throws (e.g., bad_alloc). Without this, shutdown() would deadlock
+        // waiting for a count that never reaches zero.
+        try {
+            auto result = generateNormalHeightMapCPU(std::move(ck), std::move(px),
+                                                     width, height);
+            {
+                std::lock_guard<std::mutex> lock(self->normalMapResultsMutex_);
+                self->completedNormalMaps_.push_back(std::move(result));
+            }
+        } catch (const std::exception& e) {
+            LOG_ERROR("Normal map generation failed: ", e.what());
+        }
+        if (self->pendingNormalMapCount_.fetch_sub(1, std::memory_order_release) == 1) {
+            self->normalMapDoneCV_.notify_one();
+        }
+    }).detach();
+    return true;
+}
+
 CharacterRenderer::NormalMapResult CharacterRenderer::generateNormalHeightMapCPU(
         std::string cacheKey, std::vector<uint8_t> srcPixels, uint32_t width, uint32_t height) {
     NormalMapResult result;
@@ -929,34 +967,9 @@ VkTexture* CharacterRenderer::loadTexture(const std::string& path) {
 
     // Launch normal map generation on background thread — CPU work is pure compute,
     // only the GPU upload (in processPendingNormalMaps) needs the main thread (~1-2ms).
-    if (blpImage.width >= 32 && blpImage.height >= 32) {
-        uint32_t w = blpImage.width, h = blpImage.height;
-        std::string ck = key;
-        std::vector<uint8_t> px(blpImage.data.begin(), blpImage.data.end());
-        // Use acq_rel so the increment is visible to shutdown()'s acquire load
-        // before the thread body begins (relaxed could delay visibility and cause
-        // shutdown() to see 0 and proceed while a thread is still running).
-        pendingNormalMapCount_.fetch_add(1, std::memory_order_acq_rel);
-        auto* self = this;
-        std::thread([self, ck = std::move(ck), px = std::move(px), w, h]() mutable {
-            // try-catch guarantees the counter is decremented even if the compute
-            // throws (e.g., bad_alloc). Without this, shutdown() would deadlock
-            // waiting for a count that never reaches zero.
-            try {
-                auto result = generateNormalHeightMapCPU(std::move(ck), std::move(px), w, h);
-                {
-                    std::lock_guard<std::mutex> lock(self->normalMapResultsMutex_);
-                    self->completedNormalMaps_.push_back(std::move(result));
-                }
-            } catch (const std::exception& e) {
-                LOG_ERROR("Normal map generation failed: ", e.what());
-            }
-            if (self->pendingNormalMapCount_.fetch_sub(1, std::memory_order_release) == 1) {
-                self->normalMapDoneCV_.notify_one();
-            }
-        }).detach();
-        e.normalMapPending = true;
-    }
+    e.normalMapPending = queueNormalMapGeneration(
+        key, std::vector<uint8_t>(blpImage.data.begin(), blpImage.data.end()),
+        blpImage.width, blpImage.height);
 
     textureCacheBytes_ += e.approxBytes;
     texturePropsByPtr_[texPtr] = {hasAlpha, colorKeyBlackHint};
@@ -1432,6 +1445,7 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
     e.hasAlpha = hasAlpha;
     e.colorKeyBlack = false;
     texturePropsByPtr_[texPtr] = {hasAlpha, false};
+    e.normalMapPending = queueNormalMapGeneration(cacheKey, composite, width, height);
     textureCache.emplace(cacheKey, std::move(e));
 
     core::Logger::getInstance().info("Composite texture created: ", width, "x", height, " from ", layerPaths.size(), " layers");
@@ -1714,6 +1728,8 @@ VkTexture* CharacterRenderer::compositeWithRegions(const std::string& basePath,
     entry.hasAlpha = hasAlpha;
     entry.colorKeyBlack = false;
     texturePropsByPtr_[texPtr] = {hasAlpha, false};
+    // The body with its armour on it — the surface a player actually looks at.
+    entry.normalMapPending = queueNormalMapGeneration(storageKey, composite, width, height);
     auto ins = textureCache.emplace(storageKey, std::move(entry));
     if (!ins.second) {
         // Existing texture already owns this key; keep pointer stable.
