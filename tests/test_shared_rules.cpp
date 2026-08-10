@@ -10,9 +10,11 @@
 // actually wrong in one of the copies.
 #include <catch_amalgamated.hpp>
 
+#include "core/character_paths.hpp"
 #include "game/item_text.hpp"
 #include "pipeline/item_textures.hpp"
 #include "pipeline/m2_loader.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 #include "ui/settings_schema.hpp"
 
 using namespace wowee;
@@ -160,5 +162,59 @@ TEST_CASE("the eight texture regions are in ItemDisplayInfo's own order", "[item
     SECTION("out of range reads nothing rather than past the table") {
         CHECK(std::string(pipeline::itemComponentDir(-1)).empty());
         CHECK(std::string(pipeline::itemComponentDir(8)).empty());
+    }
+}
+
+TEST_CASE("the folder a race's art lives in", "[character]") {
+    // The entry nobody remembers, and the reason this is a table rather than a
+    // convention: the Undead are filed under Scourge.
+    CHECK(std::string(core::raceModelFolder(5)) == "Scourge");
+    CHECK(std::string(core::raceModelFolder(4)) == "NightElf");
+    CHECK(std::string(core::raceModelFolder(11)) == "Draenei");
+
+    SECTION("an unknown race answers Human rather than nothing") {
+        // A wrong body is more useful than no body while something upstream is
+        // wrong — and 9 is the id no race has.
+        CHECK(std::string(core::raceModelFolder(9)) == "Human");
+        CHECK(std::string(core::raceModelFolder(0)) == "Human");
+    }
+
+    SECTION("the art path is the folder twice and the sex between") {
+        CHECK(core::defaultBodySkinPath(4, 1) ==
+              "Character\\NightElf\\Female\\NightElfFemaleSkin00_00.blp");
+        CHECK(core::defaultPelvisPath(5, 0) ==
+              "Character\\Scourge\\Male\\ScourgeMaleNakedPelvisSkin00_00.blp");
+    }
+}
+
+TEST_CASE("the four appearance choices packed into PLAYER_BYTES", "[character]") {
+    // Which byte is which is not guessable, and reading face where skin was
+    // meant does not fail — it draws a face.
+    const auto a = core::unpackAppearanceBytes(0x04030201u);
+    CHECK(a.skinId == 1);
+    CHECK(a.faceId == 2);
+    CHECK(a.hairStyleId == 3);
+    CHECK(a.hairColorId == 4);
+
+    SECTION("the top byte is the hair colour, not a sign") {
+        CHECK(core::unpackAppearanceBytes(0xFF000000u).hairColorId == 255);
+        CHECK(core::unpackAppearanceBytes(0xFF000000u).skinId == 0);
+    }
+}
+
+TEST_CASE("a format's extension is added only when it is missing", "[formats]") {
+    CHECK(pipeline::normalizePath("zones", ".wtkn") == "zones.wtkn");
+    CHECK(pipeline::normalizePath("zones.wtkn", ".wtkn") == "zones.wtkn");
+
+    SECTION("an extension that is not four letters") {
+        // Every per-format copy compared the last five characters against a
+        // four-letter extension, which is right for fifty of them and wrong for
+        // .wol — so that format wrote its own and lost the string cap with it.
+        CHECK(pipeline::normalizePath("sky", ".wol") == "sky.wol");
+        CHECK(pipeline::normalizePath("sky.wol", ".wol") == "sky.wol");
+    }
+
+    SECTION("a name shorter than the extension") {
+        CHECK(pipeline::normalizePath("a", ".wtkn") == "a.wtkn");
     }
 }

@@ -82,6 +82,17 @@ wowee_test_link_glm(test_hill_climbing)
 add_test(NAME hill_climbing COMMAND test_hill_climbing)
 register_test_target(test_hill_climbing)
 
+# ── test_cli_catalog_paths ──────────────────────────────────
+# Working a catalog's base name back out of a path the user typed. Pure header
+# in tools/editor, so the test reaches into that directory for it.
+add_executable(test_cli_catalog_paths test_cli_catalog_paths.cpp ${TEST_COMMON_SOURCES})
+target_include_directories(test_cli_catalog_paths PRIVATE
+    ${TEST_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/tools/editor)
+target_include_directories(test_cli_catalog_paths SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_cli_catalog_paths PRIVATE catch2_main)
+add_test(NAME cli_catalog_paths COMMAND test_cli_catalog_paths)
+register_test_target(test_cli_catalog_paths)
+
 # ── test_shared_rules ───────────────────────────────────────
 # The rules this codebase collapsed out of many copies into one. A rule with a
 # single home is a rule one mistake breaks everywhere, so the cases that were
