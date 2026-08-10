@@ -1677,6 +1677,7 @@ void GameScreen::saveSettings() {
     out << "sound_muted=" << (settingsPanel_.soundMuted_ ? 1 : 0) << "\n";
     out << "use_original_soundtrack=" << (settingsPanel_.pendingUseOriginalSoundtrack ? 1 : 0) << "\n";
     out << "master_volume=" << settingsPanel_.pendingMasterVolume << "\n";
+    out << "effects_volume=" << settingsPanel_.pendingEffectsVolume << "\n";
     out << "music_volume=" << settingsPanel_.pendingMusicVolume << "\n";
     out << "ambient_volume=" << settingsPanel_.pendingAmbientVolume << "\n";
     out << "bell_volume=" << settingsPanel_.pendingBellVolume << "\n";
@@ -1878,6 +1879,7 @@ void GameScreen::loadSettings() {
             }
             else if (key == "use_original_soundtrack") settingsPanel_.pendingUseOriginalSoundtrack = (std::stoi(val) != 0);
             else if (key == "master_volume") settingsPanel_.pendingMasterVolume = std::clamp(std::stoi(val), 0, 100);
+            else if (key == "effects_volume") settingsPanel_.pendingEffectsVolume = std::clamp(std::stoi(val), 0, 100);
             else if (key == "music_volume") settingsPanel_.pendingMusicVolume = std::clamp(std::stoi(val), 0, 100);
             else if (key == "ambient_volume") settingsPanel_.pendingAmbientVolume = std::clamp(std::stoi(val), 0, 100);
             else if (key == "bell_volume") settingsPanel_.pendingBellVolume = std::clamp(std::stoi(val), 0, 100);

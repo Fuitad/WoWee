@@ -640,18 +640,22 @@ static void applySoundCVars(lua_State* L) {
         }
     }
 
-    const bool  sfxOn  = soundCVar("sound_enablesfx", 1.0f) != 0.0f;
-    const float sfxVol = std::clamp(soundCVar("sound_sfxvolume", 1.0f), 0.0f, 1.0f);
-    const float sfx    = sfxOn ? sfxVol : 0.0f;
-    if (auto* m = ac->getUiSoundManager())        m->setVolumeScale(sfx);
-    if (auto* m = ac->getCombatSoundManager())    m->setVolumeScale(sfx);
-    if (auto* m = ac->getSpellSoundManager())     m->setVolumeScale(sfx);
-    if (auto* m = ac->getMovementSoundManager())  m->setVolumeScale(sfx);
-    if (auto* m = ac->getFootstepManager())       m->setVolumeScale(sfx);
-    if (auto* m = ac->getActivitySoundManager())  m->setVolumeScale(sfx);
-    if (auto* m = ac->getMountSoundManager())     m->setVolumeScale(sfx);
-    if (auto* m = ac->getNpcVoiceManager())       m->setVolumeScale(sfx);
-    if (auto* m = ac->getPlayerVoiceManager())    m->setVolumeScale(sfx);
+    // The volume itself is a client setting now, reached through SetCVar, and
+    // applied by applyAudioVolumes as one scale over the seven effect volumes
+    // this client keeps separately. Only the switch is left here, and it zeroes
+    // them on top of whatever that applied.
+    const bool sfxOn = soundCVar("sound_enablesfx", 1.0f) != 0.0f;
+    if (!sfxOn) {
+        if (auto* m = ac->getUiSoundManager())        m->setVolumeScale(0.0f);
+        if (auto* m = ac->getCombatSoundManager())    m->setVolumeScale(0.0f);
+        if (auto* m = ac->getSpellSoundManager())     m->setVolumeScale(0.0f);
+        if (auto* m = ac->getMovementSoundManager())  m->setVolumeScale(0.0f);
+        if (auto* m = ac->getFootstepManager())       m->setVolumeScale(0.0f);
+        if (auto* m = ac->getActivitySoundManager())  m->setVolumeScale(0.0f);
+        if (auto* m = ac->getMountSoundManager())     m->setVolumeScale(0.0f);
+        if (auto* m = ac->getNpcVoiceManager())       m->setVolumeScale(0.0f);
+        if (auto* m = ac->getPlayerVoiceManager())    m->setVolumeScale(0.0f);
+    }
 }
 
 
@@ -670,7 +674,7 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     // nothing leaves those keys inert rather than merely at a default.
     if (n.rfind("sound_enable", 0) == 0) lua_pushstring(L, "1");
     else if (n == "sound_mastervolume" || n == "sound_musicvolume" ||
-             n == "sound_sfxvolume" || n == "sound_ambiencevolume") {
+             n == "sound_ambiencevolume") {
         lua_pushstring(L, "1");
     }
     // Windowed, as one — the way round the checkbox is labelled. Answered from
@@ -920,8 +924,14 @@ constexpr ClientCVarBinding kClientCVars[] = {
     {"mousespeed",           "mousespeed"},
     {"showclock",            "minimapclock"},
     {"nameplateshowfriends", "friendlyplates"},
-    {"gxwindow",             "windowed"},
+    // Deliberately not gxWindow. It is answered further down, from the store
+    // first and the window only as a default — RestartGx applies it after the
+    // panel has written it, so between the tick and the Okay the stored value
+    // is the truth and the window is still showing the old state. A binding
+    // here would sit above the store and hand RestartGx back what it was about
+    // to set.
     {"groundeffectdensity",  "groundclutter"},
+    {"sound_sfxvolume",      "effectsvolume"},
 };
 
 const ClientCVarBinding* findClientCVar(const std::string& lowerName) {

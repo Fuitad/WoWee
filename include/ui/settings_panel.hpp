@@ -49,6 +49,13 @@ public:
     int pendingMusicVolume = 30;
     int pendingAmbientVolume = 100;
     int pendingBellVolume = 50;
+    /// One scale over every sound that is not music or ambience.
+    ///
+    /// WoW has a single Sound Effects slider and this client has seven — ui,
+    /// combat, spell, movement, footsteps, activity, mount — plus the two voice
+    /// managers. This multiplies them all, so Blizzard's slider has something to
+    /// be, and the individual ones stay as the balance between them.
+    int pendingEffectsVolume = 100;
     int pendingUiVolume = 100;
     int pendingCombatVolume = 100;
     int pendingSpellVolume = 100;

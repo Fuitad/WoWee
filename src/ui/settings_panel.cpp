@@ -563,6 +563,13 @@ if (ImGui::SliderInt("##MasterVolume", &pendingMasterVolume, 0, 100, "%d%%")) {
     if (pendingMasterVolume > 0) soundMuted_ = false;
     applyAudioSettings();
 }
+ImGui::Text("Sound Effects");
+if (ImGui::SliderInt("##EffectsVolume", &pendingEffectsVolume, 0, 100, "%d%%")) {
+    applyAudioSettings();
+}
+if (ImGui::IsItemHovered())
+    ImGui::SetTooltip("One scale over every sound below. WoW's Sound Effects slider is this one.");
+
 ImGui::Separator();
 
 if (ImGui::Checkbox("Enable WoWee Music", &pendingUseOriginalSoundtrack)) {
@@ -1469,9 +1476,8 @@ std::string SettingsPanel::settingValue(const std::string& key) const {
     if (key == "mousespeed")      return settingNumber(pendingMouseSensitivity);
     if (key == "minimapclock")    return pendingShowMinimapClock ? "1" : "0";
     if (key == "friendlyplates")  return showFriendlyNameplates_ ? "1" : "0";
-    // gxWindow asks whether the game is windowed, the opposite of what is kept.
-    if (key == "windowed")        return pendingFullscreen ? "0" : "1";
     if (key == "groundclutter")   return settingNumber(pendingGroundClutterDensity / 100.0);
+    if (key == "effectsvolume")   return settingNumber(pendingEffectsVolume / 100.0);
 
     // This client's own, with no Blizzard equivalent — the Wowee category.
     if (key == "waterrefraction") return pendingWaterRefraction ? "1" : "0";
@@ -1508,8 +1514,8 @@ bool SettingsPanel::setSettingValue(const std::string& key, const std::string& v
     else if (key == "mousespeed")      pendingMouseSensitivity = static_cast<float>(v);
     else if (key == "minimapclock")    pendingShowMinimapClock = on;
     else if (key == "friendlyplates")  showFriendlyNameplates_ = on;
-    else if (key == "windowed")        pendingFullscreen = !on;
     else if (key == "groundclutter")   pendingGroundClutterDensity = static_cast<int>(v * 100.0 + 0.5);
+    else if (key == "effectsvolume")   pendingEffectsVolume = static_cast<int>(v * 100.0 + 0.5);
     else if (key == "waterrefraction") pendingWaterRefraction = on;
     else if (key == "shadows")         pendingShadows = on;
     else if (key == "shadowdistance")  pendingShadowDistance = static_cast<float>(v);
@@ -1539,6 +1545,9 @@ bool SettingsPanel::setSettingValue(const std::string& key, const std::string& v
 
 void SettingsPanel::applyAudioVolumes(audio::AudioCoordinator* ac) {
     if (!ac) return;
+    // Every effect volume is its own balance; this is the one slider over them,
+    // which is what Blizzard's Sound Effects control drives.
+    const float fx = static_cast<float>(pendingEffectsVolume) / 100.0f;
     float masterScale = soundMuted_ ? 0.0f : static_cast<float>(pendingMasterVolume) / 100.0f;
     audio::AudioEngine::instance().setMasterVolume(masterScale);
     if (auto* music = ac->getMusicManager())
@@ -1549,23 +1558,23 @@ void SettingsPanel::applyAudioVolumes(audio::AudioCoordinator* ac) {
         ambient->setBellVolumeScale(pendingBellVolume / 100.0f);
     }
     if (auto* ui = ac->getUiSoundManager())
-        ui->setVolumeScale(pendingUiVolume / 100.0f);
+        ui->setVolumeScale(fx * pendingUiVolume / 100.0f);
     if (auto* combat = ac->getCombatSoundManager())
-        combat->setVolumeScale(pendingCombatVolume / 100.0f);
+        combat->setVolumeScale(fx * pendingCombatVolume / 100.0f);
     if (auto* spell = ac->getSpellSoundManager())
-        spell->setVolumeScale(pendingSpellVolume / 100.0f);
+        spell->setVolumeScale(fx * pendingSpellVolume / 100.0f);
     if (auto* movement = ac->getMovementSoundManager())
-        movement->setVolumeScale(pendingMovementVolume / 100.0f);
+        movement->setVolumeScale(fx * pendingMovementVolume / 100.0f);
     if (auto* footstep = ac->getFootstepManager())
-        footstep->setVolumeScale(pendingFootstepVolume / 100.0f);
+        footstep->setVolumeScale(fx * pendingFootstepVolume / 100.0f);
     if (auto* npcVoice = ac->getNpcVoiceManager())
-        npcVoice->setVolumeScale(pendingNpcVoiceVolume / 100.0f);
+        npcVoice->setVolumeScale(fx * pendingNpcVoiceVolume / 100.0f);
     if (auto* playerVoice = ac->getPlayerVoiceManager())
         playerVoice->setEnabled(pendingCharacterSpeech);
     if (auto* mount = ac->getMountSoundManager())
-        mount->setVolumeScale(pendingMountVolume / 100.0f);
+        mount->setVolumeScale(fx * pendingMountVolume / 100.0f);
     if (auto* activity = ac->getActivitySoundManager())
-        activity->setVolumeScale(pendingActivityVolume / 100.0f);
+        activity->setVolumeScale(fx * pendingActivityVolume / 100.0f);
 }
 
 
