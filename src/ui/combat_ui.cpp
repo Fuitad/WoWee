@@ -1594,15 +1594,8 @@ void CombatUI::renderCombatLog(game::GameHandler& gameHandler,
                     break;
                 }
                 case T::ENERGIZE: {
-                    const char* pwrName = "power";
-                    switch (e.powerType) {
-                        case 0: pwrName = "Mana"; break;
-                        case 1: pwrName = "Rage"; break;
-                        case 2: pwrName = "Focus"; break;
-                        case 3: pwrName = "Energy"; break;
-                        case 4: pwrName = "Happiness"; break;
-                        case 6: pwrName = "Runic Power"; break;
-                    }
+                    const char* pwrName = game::powerTypeName(e.powerType);
+                    if (!pwrName) pwrName = "power";
                     if (spell)
                         snprintf(desc, sizeof(desc), "%s gains %d %s (%s)", tgt, e.amount, pwrName, spell);
                     else
@@ -1611,15 +1604,8 @@ void CombatUI::renderCombatLog(game::GameHandler& gameHandler,
                     break;
                 }
                 case T::POWER_DRAIN: {
-                    const char* drainName = "power";
-                    switch (e.powerType) {
-                        case 0: drainName = "Mana"; break;
-                        case 1: drainName = "Rage"; break;
-                        case 2: drainName = "Focus"; break;
-                        case 3: drainName = "Energy"; break;
-                        case 4: drainName = "Happiness"; break;
-                        case 6: drainName = "Runic Power"; break;
-                    }
+                    const char* drainName = game::powerTypeName(e.powerType);
+                    if (!drainName) drainName = "power";
                     if (spell)
                         snprintf(desc, sizeof(desc), "%s loses %d %s to %s's %s", tgt, e.amount, drainName, src, spell);
                     else

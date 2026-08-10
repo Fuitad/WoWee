@@ -1725,9 +1725,8 @@ static bool fillSpellTooltip(wowee::ui::Widget* w, game::GameHandler* gh,
     const auto info = gh->getSpellData(spellId);
     std::string cost, range;
     if (info.manaCost > 0) {
-        static const char* kPower[] = {"Mana", "Rage", "Focus", "Energy",
-                                       "Happiness", "", "Runic Power"};
-        const char* unit = info.powerType < 7 ? kPower[info.powerType] : "Mana";
+        const char* named = game::powerTypeName(info.powerType);
+        const char* unit = named ? named : "";
         cost = std::to_string(info.manaCost) + (*unit ? std::string(" ") + unit : "");
     }
     if (info.maxRange > 0.0f) {

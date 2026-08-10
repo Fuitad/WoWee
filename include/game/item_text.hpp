@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * item_text.hpp — the words an item's numbers are displayed with.
+ * item_text.hpp — the words an item's and a spell's numbers are displayed with.
  *
  * Kept apart from world_packets.hpp so a tooltip can ask for a stat's name
  * without pulling in every packet structure in the game. Four things render item
@@ -14,6 +14,29 @@
 
 namespace wowee {
 namespace game {
+
+/// What a spell's powerType is called, or null for one with no name.
+///
+/// Four places wrote this out: the combat log twice, the spellbook, and the
+/// tooltip built for FrameXML. The spellbook's copy had Focus at 4, which is
+/// Happiness — so a spell costing Focus fell through to "Mana" and one costing
+/// Happiness said "Focus".
+///
+/// 5 is the death knight's runes, which are drawn as runes rather than written
+/// as a number, so it has no word here. 5 and 6 exist only from WotLK; naming
+/// them costs the earlier expansions nothing, because their servers never send
+/// them.
+inline const char* powerTypeName(uint32_t powerType) {
+    switch (powerType) {
+        case 0: return "Mana";
+        case 1: return "Rage";
+        case 2: return "Focus";
+        case 3: return "Energy";
+        case 4: return "Happiness";
+        case 6: return "Runic Power";
+        default: return nullptr;
+    }
+}
 
 /// What an item's bindType says, or null for one that binds to nobody.
 ///

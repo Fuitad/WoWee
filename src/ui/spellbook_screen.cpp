@@ -571,13 +571,10 @@ void SpellbookScreen::renderSpellTooltip(const SpellInfo* info, game::GameHandle
         // Left: resource cost (with talent flat/pct modifier applied)
         char costBuf[64] = "";
         if (info->manaCost > 0) {
-            const char* powerName = "Mana";
-            switch (info->powerType) {
-                case 1: powerName = "Rage";   break;
-                case 3: powerName = "Energy"; break;
-                case 4: powerName = "Focus";  break;
-                default: break;
-            }
+            // Was its own table with Focus at 4, which is Happiness — a spell
+            // costing Focus said "Mana" and one costing Happiness said "Focus".
+            const char* powerName = game::powerTypeName(info->powerType);
+            if (!powerName) powerName = "Mana";
             // Apply SMSG_SET_FLAT/PCT_SPELL_MODIFIER Cost modifier (SpellModOp::Cost = 14)
             int32_t flatCost = gameHandler.getSpellFlatMod(game::GameHandler::SpellModOp::Cost);
             int32_t pctCost  = gameHandler.getSpellPctMod(game::GameHandler::SpellModOp::Cost);
