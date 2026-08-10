@@ -23,6 +23,7 @@
  * kept by luck.
  */
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -30,6 +31,7 @@ namespace wowee {
 namespace pipeline {
 
 class AssetManager;
+class DBCFile;
 
 /// The eight texture regions of ItemDisplayInfo, in the order its columns run.
 constexpr int kItemTextureRegionCount = 8;
@@ -45,6 +47,24 @@ const char* itemComponentDir(int region);
 /// `texName` is the value out of ItemDisplayInfo, without a folder or extension.
 std::string resolveItemRegionTexture(AssetManager& assets, int region,
                                      const std::string& texName, bool isFemale);
+
+/// The model and texture an item display names.
+///
+/// ItemDisplayInfo carries two pairs, left and right. The left one is the whole
+/// item and the right one is often just a hilt, so the left is asked for first
+/// and the right taken only when there is no left — a rule three of the five
+/// readers had and two did not, which is a weapon that renders for an NPC and
+/// not for the player holding the same one.
+///
+/// `modelFile` comes back with the extension normalised to .m2: the tables name
+/// .mdx, which is the format the models were in before they were converted, and
+/// every caller renamed it itself.
+struct ItemDisplayArt {
+    std::string modelFile;
+    std::string textureName;   ///< no folder and no extension, as the table has it
+};
+
+ItemDisplayArt readItemDisplayArt(const DBCFile& itemDisplayInfo, uint32_t recordIndex);
 
 /// Every path a cape's texture might be at, in the order to try them.
 ///

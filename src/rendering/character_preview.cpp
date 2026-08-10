@@ -1149,10 +1149,6 @@ void CharacterPreview::attachWeapons(const std::vector<game::EquipmentItem>& equ
     auto displayInfoDbc = assetManager_->loadDBC("ItemDisplayInfo.dbc");
     if (!displayInfoDbc || !displayInfoDbc->isLoaded()) return;
 
-    const auto* idiL = pipeline::getActiveDBCLayout()
-        ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
-    const uint32_t modelField   = idiL ? (*idiL)["LeftModel"]        : 1u;
-    const uint32_t textureField = idiL ? (*idiL)["LeftModelTexture"] : 3u;
 
     struct WeaponSlot {
         std::initializer_list<uint8_t> invTypes;
@@ -1184,13 +1180,11 @@ void CharacterPreview::attachWeapons(const std::vector<game::EquipmentItem>& equ
         int32_t recIdx = displayInfoDbc->findRecordById(displayId);
         if (recIdx < 0) continue;
 
-        std::string modelName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), modelField);
-        std::string textureName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), textureField);
-        if (modelName.empty()) continue;
-
-        // DBC names the .mdx; the shipped assets are .m2.
-        size_t dot = modelName.rfind('.');
-        std::string modelFile = (dot != std::string::npos ? modelName.substr(0, dot) : modelName) + ".m2";
+        const auto art = pipeline::readItemDisplayArt(*displayInfoDbc,
+                                                      static_cast<uint32_t>(recIdx));
+        if (art.modelFile.empty()) continue;
+        const std::string& modelFile = art.modelFile;
+        const std::string& textureName = art.textureName;
 
         pipeline::M2Model weaponModel;
         std::string m2Path = "Item\\ObjectComponents\\Weapon\\" + modelFile;

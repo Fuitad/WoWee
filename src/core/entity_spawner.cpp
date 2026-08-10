@@ -408,8 +408,6 @@ bool EntitySpawner::tryAttachCreatureVirtualWeapons(uint64_t guid, uint32_t inst
     // Item.dbc is not distributed to clients in Vanilla 1.12; on those expansions
     // item display IDs are resolved via the server-sent item cache instead.
     auto itemDbc = assetManager_->loadDBCOptional("Item.dbc");
-    const auto* idiL = pipeline::getActiveDBCLayout()
-        ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
     const auto* itemL = pipeline::getActiveDBCLayout()
         ? pipeline::getActiveDBCLayout()->getLayout("Item") : nullptr;
 
@@ -448,24 +446,11 @@ bool EntitySpawner::tryAttachCreatureVirtualWeapons(uint64_t guid, uint32_t inst
         int32_t recIdx = itemDisplayDbc->findRecordById(resolvedDisplayId);
         if (recIdx < 0) return false;
 
-        const uint32_t modelFieldL = idiL ? (*idiL)["LeftModel"] : 1u;
-        const uint32_t modelFieldR = idiL ? (*idiL)["RightModel"] : 2u;
-        const uint32_t texFieldL = idiL ? (*idiL)["LeftModelTexture"] : 3u;
-        const uint32_t texFieldR = idiL ? (*idiL)["RightModelTexture"] : 4u;
-        // Prefer LeftModel (stock player equipment path uses LeftModel and avoids
-        // the "hilt-only" variants seen when forcing RightModel).
-        std::string modelName = itemDisplayDbc->getString(static_cast<uint32_t>(recIdx), modelFieldL);
-        std::string textureName = itemDisplayDbc->getString(static_cast<uint32_t>(recIdx), texFieldL);
-        if (modelName.empty()) {
-            modelName = itemDisplayDbc->getString(static_cast<uint32_t>(recIdx), modelFieldR);
-            textureName = itemDisplayDbc->getString(static_cast<uint32_t>(recIdx), texFieldR);
-        }
-        if (modelName.empty()) return false;
-
-        std::string modelFile = modelName;
-        size_t dotPos = modelFile.rfind('.');
-        if (dotPos != std::string::npos) modelFile = modelFile.substr(0, dotPos);
-        modelFile += ".m2";
+        const auto art = pipeline::readItemDisplayArt(*itemDisplayDbc,
+                                                      static_cast<uint32_t>(recIdx));
+        if (art.modelFile.empty()) return false;
+        const std::string& modelFile = art.modelFile;
+        const std::string& textureName = art.textureName;
 
         // Main-hand NPC weapon path: only use actual weapon models.
         std::string m2Path = "Item\\ObjectComponents\\Weapon\\" + modelFile;
@@ -487,17 +472,10 @@ bool EntitySpawner::tryAttachCreatureVirtualWeapons(uint64_t guid, uint32_t inst
         if (resolvedDisplayId == 0) return false;
         int32_t recIdx = itemDisplayDbc->findRecordById(resolvedDisplayId);
         if (recIdx < 0) return false;
-        const uint32_t modelFieldL = idiL ? (*idiL)["LeftModel"] : 1u;
-        const uint32_t modelFieldR = idiL ? (*idiL)["RightModel"] : 2u;
-        std::string modelName = itemDisplayDbc->getString(static_cast<uint32_t>(recIdx), modelFieldL);
-        if (modelName.empty()) {
-            modelName = itemDisplayDbc->getString(static_cast<uint32_t>(recIdx), modelFieldR);
-        }
-        if (modelName.empty()) return false;
-        std::string modelFile = modelName;
-        size_t dotPos = modelFile.rfind('.');
-        if (dotPos != std::string::npos) modelFile = modelFile.substr(0, dotPos);
-        modelFile += ".m2";
+        const auto art = pipeline::readItemDisplayArt(*itemDisplayDbc,
+                                                      static_cast<uint32_t>(recIdx));
+        if (art.modelFile.empty()) return false;
+        const std::string& modelFile = art.modelFile;
         return assetManager_->fileExists("Item\\ObjectComponents\\Weapon\\" + modelFile);
     };
 

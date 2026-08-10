@@ -1,5 +1,6 @@
 #include "core/appearance_composer.hpp"
 #include "core/geoset_rules.hpp"
+#include "pipeline/item_textures.hpp"
 #include "core/character_paths.hpp"
 #include "core/helm_visual.hpp"
 #include "core/entity_spawner.hpp"
@@ -504,26 +505,20 @@ void AppearanceComposer::loadEquippedWeapons() {
             continue;
         }
 
-        const auto* idiL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
-        std::string modelName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), idiL ? (*idiL)["LeftModel"] : 1);
-        std::string textureName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), idiL ? (*idiL)["LeftModelTexture"] : 3);
+        // The left pair first, the right one when there is none — the rule this
+        // copy did not have, which is why a weapon whose display names only the
+        // right model rendered on an NPC and not on the player holding it.
+        const auto art = pipeline::readItemDisplayArt(*displayInfoDbc,
+                                                      static_cast<uint32_t>(recIdx));
+        const std::string& textureName = art.textureName;
 
-        if (modelName.empty()) {
+        if (art.modelFile.empty()) {
             LOG_WARNING("loadEquippedWeapons: empty model name for displayInfoId ", displayInfoId);
             charRenderer->detachWeapon(charInstanceId, ws.attachmentId);
             continue;
         }
 
-        // Convert .mdx → .m2
-        std::string modelFile = modelName;
-        {
-            size_t dotPos = modelFile.rfind('.');
-            if (dotPos != std::string::npos) {
-                modelFile = modelFile.substr(0, dotPos) + ".m2";
-            } else {
-                modelFile += ".m2";
-            }
-        }
+        const std::string& modelFile = art.modelFile;
 
         // Try Weapon directory first, then Shield
         std::string m2Path = "Item\\ObjectComponents\\Weapon\\" + modelFile;
@@ -567,20 +562,12 @@ void AppearanceComposer::loadEquippedWeapons() {
         uint32_t displayInfoId = rangedSlot.item.displayInfoId;
         int32_t recIdx = displayInfoDbc->findRecordById(displayInfoId);
         if (recIdx >= 0) {
-            const auto* idiL = pipeline::getActiveDBCLayout() ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
-            std::string modelName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), idiL ? (*idiL)["LeftModel"] : 1);
-            std::string textureName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), idiL ? (*idiL)["LeftModelTexture"] : 3);
+            const auto art = pipeline::readItemDisplayArt(*displayInfoDbc,
+                                                          static_cast<uint32_t>(recIdx));
+            const std::string& textureName = art.textureName;
 
-            if (!modelName.empty()) {
-                std::string modelFile = modelName;
-                {
-                    size_t dotPos = modelFile.rfind('.');
-                    if (dotPos != std::string::npos) {
-                        modelFile = modelFile.substr(0, dotPos) + ".m2";
-                    } else {
-                        modelFile += ".m2";
-                    }
-                }
+            if (!art.modelFile.empty()) {
+                const std::string& modelFile = art.modelFile;
 
                 std::string m2Path = "Item\\ObjectComponents\\Weapon\\" + modelFile;
                 pipeline::M2Model weaponModel;

@@ -832,11 +832,6 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
         { 16, 2 },  // OFF_HAND  → left hand
     };
 
-    const uint32_t modelFieldL = idiL ? (*idiL)["LeftModel"] : 1u;
-    const uint32_t modelFieldR = idiL ? (*idiL)["RightModel"] : 2u;
-    const uint32_t texFieldL   = idiL ? (*idiL)["LeftModelTexture"] : 3u;
-    const uint32_t texFieldR   = idiL ? (*idiL)["RightModelTexture"] : 4u;
-
     for (const auto& ws : weaponSlots) {
         uint32_t weapDisplayId = displayInfoIds[ws.slotIndex];
         if (weapDisplayId == 0) {
@@ -850,25 +845,14 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
             continue;
         }
 
-        // Prefer LeftModel (full weapon), fall back to RightModel (hilt variants)
-        std::string modelName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), modelFieldL);
-        std::string textureName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), texFieldL);
-        if (modelName.empty()) {
-            modelName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), modelFieldR);
-            textureName = displayInfoDbc->getString(static_cast<uint32_t>(recIdx), texFieldR);
-        }
-        if (modelName.empty()) {
+        const auto art = pipeline::readItemDisplayArt(*displayInfoDbc,
+                                                      static_cast<uint32_t>(recIdx));
+        if (art.modelFile.empty()) {
             charRenderer->detachWeapon(st.instanceId, ws.attachmentId);
             continue;
         }
-
-        // Convert .mdx → .m2
-        std::string modelFile = modelName;
-        {
-            size_t dotPos = modelFile.rfind('.');
-            if (dotPos != std::string::npos) modelFile = modelFile.substr(0, dotPos);
-            modelFile += ".m2";
-        }
+        const std::string& modelFile = art.modelFile;
+        const std::string& textureName = art.textureName;
 
         // Try Weapon directory first, then Shield
         std::string m2Path = "Item\\ObjectComponents\\Weapon\\" + modelFile;
