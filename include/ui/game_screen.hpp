@@ -242,6 +242,13 @@ private:
     void renderUIErrors(game::GameHandler& gameHandler, float deltaTime);
     void renderQuestMarkers(game::GameHandler& gameHandler);
     void renderMinimapMarkers(game::GameHandler& gameHandler);
+
+    /// The furniture around the minimap — mute, friends and zoom buttons, the
+    /// clock, and the stack of indicators below it. Separate from the marker
+    /// pass because it answers the ownership question the other way: FrameXML's
+    /// cluster brings its own, and the blips it does not bring at all.
+    void renderMinimapChrome(game::GameHandler& gameHandler, float centerX,
+                             float centerY, float mapRadius);
     void refreshQuestObjectiveCache(game::GameHandler& gameHandler);
     void renderMicroMenu(game::GameHandler& gameHandler);
     void renderQuestObjectiveTracker(game::GameHandler& gameHandler);

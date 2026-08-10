@@ -166,6 +166,443 @@ void GameScreen::refreshQuestObjectiveCache(game::GameHandler& gameHandler) {
     }
 }
 
+// The furniture around the minimap, as opposed to the marks on it.
+//
+// The mute button, the friends button, the zoom buttons, the clock, and the
+// stack of indicators below — new mail, unspent talent points, a battleground
+// queue, the Dungeon Finder, calendar invites, a taxi flight, latency and low
+// durability.
+//
+// Split from the marker pass because the two answer the ownership question
+// differently. When FrameXML draws the minimap the cluster brings its own zoom
+// buttons, clock and mail icons, and this client's would sit on top of them —
+// so none of this runs. The blips are the opposite case and the reason the
+// marker pass runs at all when the element is owned: minimap.xml declares no
+// frame for a party member, a flight master or a corpse, because in WoW those
+// come from the C client. Gating the whole thing left the ring drawn and
+// nothing on it.
+void GameScreen::renderMinimapChrome(game::GameHandler& gameHandler, float centerX,
+                                     float centerY, float mapRadius) {
+    // The caller already has both; taking the handler by reference rather than
+    // dereferencing services_ keeps this from being the one place that assumes
+    // it is there.
+    auto* renderer = services_.renderer;
+    auto* minimap = renderer ? renderer->getMinimap() : nullptr;
+    if (!minimap) return;
+    auto applyMuteState = [&]() {
+        auto* ac = services_.audioCoordinator;
+        float masterScale = settingsPanel_.soundMuted_ ? 0.0f : static_cast<float>(settingsPanel_.pendingMasterVolume) / 100.0f;
+        audio::AudioEngine::instance().setMasterVolume(masterScale);
+        if (!ac) return;
+        if (auto* music = ac->getMusicManager()) {
+            music->setVolume(settingsPanel_.pendingMusicVolume);
+        }
+        if (auto* ambient = ac->getAmbientSoundManager()) {
+            ambient->setVolumeScale(settingsPanel_.pendingAmbientVolume / 100.0f);
+            ambient->setBellVolumeScale(settingsPanel_.pendingBellVolume / 100.0f);
+        }
+        if (auto* ui = ac->getUiSoundManager()) {
+            ui->setVolumeScale(settingsPanel_.pendingUiVolume / 100.0f);
+        }
+        if (auto* combat = ac->getCombatSoundManager()) {
+            combat->setVolumeScale(settingsPanel_.pendingCombatVolume / 100.0f);
+        }
+        if (auto* spell = ac->getSpellSoundManager()) {
+            spell->setVolumeScale(settingsPanel_.pendingSpellVolume / 100.0f);
+        }
+        if (auto* movement = ac->getMovementSoundManager()) {
+            movement->setVolumeScale(settingsPanel_.pendingMovementVolume / 100.0f);
+        }
+        if (auto* footstep = ac->getFootstepManager()) {
+            footstep->setVolumeScale(settingsPanel_.pendingFootstepVolume / 100.0f);
+        }
+        if (auto* npcVoice = ac->getNpcVoiceManager()) {
+            npcVoice->setVolumeScale(settingsPanel_.pendingNpcVoiceVolume / 100.0f);
+        }
+        if (auto* playerVoice = ac->getPlayerVoiceManager()) {
+            playerVoice->setEnabled(settingsPanel_.pendingCharacterSpeech);
+        }
+        if (auto* mount = ac->getMountSoundManager()) {
+            mount->setVolumeScale(settingsPanel_.pendingMountVolume / 100.0f);
+        }
+        if (auto* activity = ac->getActivitySoundManager()) {
+            activity->setVolumeScale(settingsPanel_.pendingActivityVolume / 100.0f);
+        }
+    };
+
+    // Speaker mute button at the minimap top-right corner
+    ImGui::SetNextWindowPos(ImVec2(centerX + mapRadius - 26.0f, centerY - mapRadius + 4.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(22.0f, 22.0f), ImGuiCond_Always);
+    ImGuiWindowFlags muteFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+                                 ImGuiWindowFlags_NoBackground;
+    if (ImGui::Begin("##MinimapMute", nullptr, muteFlags)) {
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        ImVec2 size(20.0f, 20.0f);
+        if (ImGui::InvisibleButton("##MinimapMuteButton", size)) {
+            settingsPanel_.soundMuted_ = !settingsPanel_.soundMuted_;
+            if (settingsPanel_.soundMuted_) {
+                settingsPanel_.preMuteVolume_ = audio::AudioEngine::instance().getMasterVolume();
+            }
+            applyMuteState();
+            saveSettings();
+        }
+        bool hovered = ImGui::IsItemHovered();
+        ImU32 bg = settingsPanel_.soundMuted_ ? IM_COL32(135, 42, 42, 230) : IM_COL32(38, 38, 38, 210);
+        if (hovered) bg = settingsPanel_.soundMuted_ ? IM_COL32(160, 58, 58, 230) : IM_COL32(65, 65, 65, 220);
+        ImU32 fg = IM_COL32(255, 255, 255, 245);
+        draw->AddRectFilled(p, ImVec2(p.x + size.x, p.y + size.y), bg, 4.0f);
+        draw->AddRect(ImVec2(p.x + 0.5f, p.y + 0.5f), ImVec2(p.x + size.x - 0.5f, p.y + size.y - 0.5f),
+                      IM_COL32(255, 255, 255, 42), 4.0f);
+        draw->AddRectFilled(ImVec2(p.x + 4.0f, p.y + 8.0f), ImVec2(p.x + 7.0f, p.y + 12.0f), fg, 1.0f);
+        draw->AddTriangleFilled(ImVec2(p.x + 7.0f, p.y + 7.0f),
+                                ImVec2(p.x + 7.0f, p.y + 13.0f),
+                                ImVec2(p.x + 11.8f, p.y + 10.0f), fg);
+        if (settingsPanel_.soundMuted_) {
+            draw->AddLine(ImVec2(p.x + 13.5f, p.y + 6.2f), ImVec2(p.x + 17.2f, p.y + 13.8f), fg, 1.8f);
+            draw->AddLine(ImVec2(p.x + 17.2f, p.y + 6.2f), ImVec2(p.x + 13.5f, p.y + 13.8f), fg, 1.8f);
+        } else {
+            draw->PathArcTo(ImVec2(p.x + 11.8f, p.y + 10.0f), 3.6f, -0.7f, 0.7f, 12);
+            draw->PathStroke(fg, 0, 1.4f);
+            draw->PathArcTo(ImVec2(p.x + 11.8f, p.y + 10.0f), 5.5f, -0.7f, 0.7f, 12);
+            draw->PathStroke(fg, 0, 1.2f);
+        }
+        if (hovered) ImGui::SetTooltip(settingsPanel_.soundMuted_ ? "Unmute" : "Mute");
+    }
+    ImGui::End();
+
+    // Friends button at top-left of minimap
+    {
+        const auto& contacts = gameHandler.getContacts();
+        int onlineCount = 0;
+        for (const auto& c : contacts)
+            if (c.isFriend() && c.isOnline()) ++onlineCount;
+
+        ImGui::SetNextWindowPos(ImVec2(centerX - mapRadius + 4.0f, centerY - mapRadius + 4.0f), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(22.0f, 22.0f), ImGuiCond_Always);
+        ImGuiWindowFlags friendsBtnFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                                           ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+                                           ImGuiWindowFlags_NoBackground;
+        if (ImGui::Begin("##MinimapFriendsBtn", nullptr, friendsBtnFlags)) {
+            ImDrawList* draw = ImGui::GetWindowDrawList();
+            ImVec2 p = ImGui::GetCursorScreenPos();
+            ImVec2 sz(20.0f, 20.0f);
+            if (ImGui::InvisibleButton("##FriendsBtnInv", sz)) {
+                // One branch, not two nested. The same routing was applied to
+                // this button twice at some point and the second copy landed
+                // inside the first's else, where the condition it tests is
+                // already known false — dead, and it read as though the two
+                // halves disagreed.
+                if (frameXmlOwns(UiElement::Social)) {
+                    gameHandler.runInterfaceCommand("ToggleFriendsFrame(1)");
+                } else {
+                    socialPanel_.showSocialFrame_ = !socialPanel_.showSocialFrame_;
+                }
+            }
+            bool hovered = ImGui::IsItemHovered();
+            ImU32 bg = socialPanel_.showSocialFrame_
+                ? IM_COL32(42, 100, 42, 230)
+                : IM_COL32(38, 38, 38, 210);
+            if (hovered) bg = socialPanel_.showSocialFrame_ ? IM_COL32(58, 130, 58, 230) : IM_COL32(65, 65, 65, 220);
+            draw->AddRectFilled(p, ImVec2(p.x + sz.x, p.y + sz.y), bg, 4.0f);
+            draw->AddRect(ImVec2(p.x + 0.5f, p.y + 0.5f),
+                          ImVec2(p.x + sz.x - 0.5f, p.y + sz.y - 0.5f),
+                          IM_COL32(255, 255, 255, 42), 4.0f);
+            // Simple smiley-face dots as "social" icon
+            ImU32 fg = IM_COL32(255, 255, 255, 245);
+            draw->AddCircle(ImVec2(p.x + 10.0f, p.y + 10.0f), 6.5f, fg, 16, 1.2f);
+            draw->AddCircleFilled(ImVec2(p.x + 7.5f, p.y + 8.0f), 1.2f, fg);
+            draw->AddCircleFilled(ImVec2(p.x + 12.5f, p.y + 8.0f), 1.2f, fg);
+            draw->PathArcTo(ImVec2(p.x + 10.0f, p.y + 11.5f), 3.0f, 0.2f, 2.9f, 8);
+            draw->PathStroke(fg, 0, 1.2f);
+            // Small green dot if friends online
+            if (onlineCount > 0) {
+                draw->AddCircleFilled(ImVec2(p.x + sz.x - 3.5f, p.y + 3.5f),
+                                      3.5f, IM_COL32(50, 220, 50, 255));
+            }
+            if (hovered) {
+                if (onlineCount > 0)
+                    ImGui::SetTooltip("Friends (%d online)", onlineCount);
+                else
+                    ImGui::SetTooltip("Friends");
+            }
+        }
+        ImGui::End();
+    }
+
+    // Zoom buttons at the bottom edge of the minimap
+    ImGui::SetNextWindowPos(ImVec2(centerX - 22, centerY + mapRadius - 30), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(44, 24), ImGuiCond_Always);
+    ImGuiWindowFlags zoomFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                                  ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+                                  ImGuiWindowFlags_NoBackground;
+    if (ImGui::Begin("##MinimapZoom", nullptr, zoomFlags)) {
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 2));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 0));
+        if (ImGui::SmallButton("-")) {
+            if (minimap) minimap->zoomOut();
+        }
+        ImGui::SameLine();
+        if (ImGui::SmallButton("+")) {
+            if (minimap) minimap->zoomIn();
+        }
+        ImGui::PopStyleVar(2);
+    }
+    ImGui::End();
+
+    // Optional clock display at bottom-right of minimap (local time).
+    if (settingsPanel_.showMinimapClock_) {
+        auto now = std::chrono::system_clock::now();
+        auto tt  = std::chrono::system_clock::to_time_t(now);
+        std::tm tmBuf{};
+#ifdef _WIN32
+        localtime_s(&tmBuf, &tt);
+#else
+        localtime_r(&tt, &tmBuf);
+#endif
+        char clockText[16];
+        std::snprintf(clockText, sizeof(clockText), "%d:%02d %s",
+                      (tmBuf.tm_hour % 12 == 0) ? 12 : tmBuf.tm_hour % 12,
+                      tmBuf.tm_min,
+                      tmBuf.tm_hour >= 12 ? "PM" : "AM");
+        ImVec2 clockSz = ImGui::CalcTextSize(clockText);
+        float clockW = clockSz.x + 10.0f;
+        float clockH = clockSz.y + 6.0f;
+        ImGui::SetNextWindowPos(ImVec2(centerX + mapRadius - clockW - 2.0f,
+                                       centerY + mapRadius - clockH - 2.0f), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(clockW, clockH), ImGuiCond_Always);
+        ImGui::SetNextWindowBgAlpha(0.45f);
+        ImGuiWindowFlags clockFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+                                      ImGuiWindowFlags_NoInputs;
+        if (ImGui::Begin("##MinimapClock", nullptr, clockFlags)) {
+            ImGui::TextColored(ImVec4(0.9f, 0.9f, 0.8f, 0.85f), "%s", clockText);
+        }
+        ImGui::End();
+    }
+
+    // Indicators below the minimap (stacked: new mail, then BG queue, then latency)
+
+    float indicatorX = centerX - mapRadius;
+    float nextIndicatorY = centerY + mapRadius + 4.0f;
+    const float indicatorW = mapRadius * 2.0f;
+    constexpr float kIndicatorH = 22.0f;
+    ImGuiWindowFlags indicatorFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                                       ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+                                       ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoInputs;
+
+    // "New Mail" indicator
+    if (gameHandler.hasNewMail()) {
+        ImGui::SetNextWindowPos(ImVec2(indicatorX, nextIndicatorY), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(indicatorW, kIndicatorH), ImGuiCond_Always);
+        if (ImGui::Begin("##NewMailIndicator", nullptr, indicatorFlags)) {
+            float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(ImGui::GetTime()) * 3.0f);
+            ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, pulse), "New Mail!");
+        }
+        ImGui::End();
+        nextIndicatorY += kIndicatorH;
+    }
+
+    // Unspent talent points indicator
+    {
+        uint8_t unspent = gameHandler.getUnspentTalentPoints();
+        if (unspent > 0) {
+            ImGui::SetNextWindowPos(ImVec2(indicatorX, nextIndicatorY), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(indicatorW, kIndicatorH), ImGuiCond_Always);
+            if (ImGui::Begin("##TalentIndicator", nullptr, indicatorFlags)) {
+                float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(ImGui::GetTime()) * 2.5f);
+                char talentBuf[40];
+                snprintf(talentBuf, sizeof(talentBuf), "! %u Talent Point%s Available",
+                         static_cast<unsigned>(unspent), unspent == 1 ? "" : "s");
+                ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f * pulse, pulse), "%s", talentBuf);
+            }
+            ImGui::End();
+            nextIndicatorY += kIndicatorH;
+        }
+    }
+
+    // BG queue status indicator (when in queue but not yet invited)
+    for (const auto& slot : gameHandler.getBgQueues()) {
+        if (slot.statusId != 1) continue;  // STATUS_WAIT_QUEUE only
+
+        std::string bgName;
+        if (slot.arenaType > 0) {
+            bgName = std::to_string(slot.arenaType) + "v" + std::to_string(slot.arenaType) + " Arena";
+        } else {
+            switch (slot.bgTypeId) {
+                case 1: bgName = "AV"; break;
+                case 2: bgName = "WSG"; break;
+                case 3: bgName = "AB"; break;
+                case 7: bgName = "EotS"; break;
+                case 9: bgName = "SotA"; break;
+                case 11: bgName = "IoC"; break;
+                default: bgName = "BG"; break;
+            }
+        }
+
+        ImGui::SetNextWindowPos(ImVec2(indicatorX, nextIndicatorY), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(indicatorW, kIndicatorH), ImGuiCond_Always);
+        if (ImGui::Begin("##BgQueueIndicator", nullptr, indicatorFlags)) {
+            float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(ImGui::GetTime()) * 1.5f);
+            if (slot.avgWaitTimeSec > 0) {
+                int avgMin = static_cast<int>(slot.avgWaitTimeSec) / 60;
+                int avgSec = static_cast<int>(slot.avgWaitTimeSec) % 60;
+                ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, pulse),
+                    "Queue: %s (~%d:%02d)", bgName.c_str(), avgMin, avgSec);
+            } else {
+                ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, pulse),
+                    "In Queue: %s", bgName.c_str());
+            }
+        }
+        ImGui::End();
+        nextIndicatorY += kIndicatorH;
+        break;  // Show at most one queue slot indicator
+    }
+
+    // LFG queue indicator — shown when Dungeon Finder queue is active (Queued or RoleCheck)
+    {
+        using LfgState = game::GameHandler::LfgState;
+        LfgState lfgSt = gameHandler.getLfgState();
+        if (lfgSt == LfgState::Queued || lfgSt == LfgState::RoleCheck) {
+            ImGui::SetNextWindowPos(ImVec2(indicatorX, nextIndicatorY), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(indicatorW, kIndicatorH), ImGuiCond_Always);
+            if (ImGui::Begin("##LfgQueueIndicator", nullptr, indicatorFlags)) {
+                if (lfgSt == LfgState::RoleCheck) {
+                    float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(ImGui::GetTime()) * 3.0f);
+                    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, pulse), "LFG: Role Check...");
+                } else {
+                    uint32_t qMs  = gameHandler.getLfgTimeInQueueMs();
+                    int      qMin = static_cast<int>(qMs / 60000);
+                    int      qSec = static_cast<int>((qMs % 60000) / 1000);
+                    float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(ImGui::GetTime()) * 1.2f);
+                    ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, pulse),
+                        "LFG: %d:%02d", qMin, qSec);
+                }
+            }
+            ImGui::End();
+            nextIndicatorY += kIndicatorH;
+        }
+    }
+
+    // Calendar pending invites indicator (WotLK only)
+    {
+        auto* expReg = services_.expansionRegistry;
+        bool isWotLK = expReg && expReg->getActive() && expReg->getActive()->id == "wotlk";
+        if (isWotLK) {
+            uint32_t calPending = gameHandler.getCalendarPendingInvites();
+            if (calPending > 0) {
+                ImGui::SetNextWindowPos(ImVec2(indicatorX, nextIndicatorY), ImGuiCond_Always);
+                ImGui::SetNextWindowSize(ImVec2(indicatorW, kIndicatorH), ImGuiCond_Always);
+                if (ImGui::Begin("##CalendarIndicator", nullptr, indicatorFlags)) {
+                    float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(ImGui::GetTime()) * 2.0f);
+                    char calBuf[48];
+                    snprintf(calBuf, sizeof(calBuf), "Calendar: %u Invite%s",
+                             calPending, calPending == 1 ? "" : "s");
+                    ImGui::TextColored(ImVec4(0.6f, 0.5f, 1.0f, pulse), "%s", calBuf);
+                }
+                ImGui::End();
+                nextIndicatorY += kIndicatorH;
+            }
+        }
+    }
+
+    // Taxi flight indicator — shown while on a flight path
+    if (gameHandler.isOnTaxiFlight()) {
+        ImGui::SetNextWindowPos(ImVec2(indicatorX, nextIndicatorY), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(indicatorW, kIndicatorH), ImGuiCond_Always);
+        if (ImGui::Begin("##TaxiIndicator", nullptr, indicatorFlags)) {
+            const std::string& dest = gameHandler.getTaxiDestName();
+            float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(ImGui::GetTime()) * 1.0f);
+            if (dest.empty()) {
+                ImGui::TextColored(ImVec4(0.6f, 0.85f, 1.0f, pulse), "\xe2\x9c\x88 In Flight");
+            } else {
+                char buf[64];
+                snprintf(buf, sizeof(buf), "\xe2\x9c\x88 \xe2\x86\x92 %s", dest.c_str());
+                ImGui::TextColored(ImVec4(0.6f, 0.85f, 1.0f, pulse), "%s", buf);
+            }
+        }
+        ImGui::End();
+        nextIndicatorY += kIndicatorH;
+    }
+
+    // Latency + FPS indicator — centered at top of screen
+    uint32_t latMs = gameHandler.getLatencyMs();
+    if (settingsPanel_.showLatencyMeter_ && gameHandler.getState() == game::WorldState::IN_WORLD) {
+        float currentFps = ImGui::GetIO().Framerate;
+        ImVec4 latColor;
+        if      (latMs < 100) latColor = ImVec4(0.3f, 1.0f, 0.3f, 0.9f);
+        else if (latMs < 250) latColor = ImVec4(1.0f, 1.0f, 0.3f, 0.9f);
+        else if (latMs < 500) latColor = ImVec4(1.0f, 0.6f, 0.1f, 0.9f);
+        else                  latColor = ImVec4(1.0f, 0.2f, 0.2f, 0.9f);
+
+        ImVec4 fpsColor;
+        if      (currentFps >= 60.0f) fpsColor = ImVec4(0.3f, 1.0f, 0.3f, 0.9f);
+        else if (currentFps >= 30.0f) fpsColor = ImVec4(1.0f, 1.0f, 0.3f, 0.9f);
+        else                          fpsColor = ImVec4(1.0f, 0.3f, 0.3f, 0.9f);
+
+        char infoText[64];
+        if (latMs > 0)
+            snprintf(infoText, sizeof(infoText), "%.0f fps  |  %u ms", currentFps, latMs);
+        else
+            snprintf(infoText, sizeof(infoText), "%.0f fps", currentFps);
+
+        ImVec2 textSize = ImGui::CalcTextSize(infoText);
+        float latW = textSize.x + 16.0f;
+        float latH = textSize.y + 8.0f;
+        ImGuiIO& lio = ImGui::GetIO();
+        float latX = (lio.DisplaySize.x - latW) * 0.5f;
+        ImGui::SetNextWindowPos(ImVec2(latX, 4.0f), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(latW, latH), ImGuiCond_Always);
+        ImGui::SetNextWindowBgAlpha(0.45f);
+        if (ImGui::Begin("##LatencyIndicator", nullptr, indicatorFlags)) {
+            // Color the FPS and latency portions differently
+            ImGui::TextColored(fpsColor, "%.0f fps", currentFps);
+            if (latMs > 0) {
+                ImGui::SameLine(0, 4);
+                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 0.7f), "|");
+                ImGui::SameLine(0, 4);
+                ImGui::TextColored(latColor, "%u ms", latMs);
+            }
+        }
+        ImGui::End();
+    }
+
+    // Low durability warning — shown when any equipped item has < 20% durability
+    if (gameHandler.getState() == game::WorldState::IN_WORLD) {
+        const auto& inv = gameHandler.getInventory();
+        float lowestDurPct = 1.0f;
+        for (int i = 0; i < game::Inventory::NUM_EQUIP_SLOTS; ++i) {
+            const auto& slot = inv.getEquipSlot(static_cast<game::EquipSlot>(i));
+            if (slot.empty()) continue;
+            const auto& it = slot.item;
+            if (it.maxDurability > 0) {
+                float pct = static_cast<float>(it.curDurability) / static_cast<float>(it.maxDurability);
+                if (pct < lowestDurPct) lowestDurPct = pct;
+            }
+        }
+        if (lowestDurPct < 0.20f) {
+            bool critical = (lowestDurPct < 0.05f);
+            float pulse = critical
+                ? (0.7f + 0.3f * std::sin(static_cast<float>(ImGui::GetTime()) * 4.0f))
+                : 1.0f;
+            ImVec4 durWarnColor = critical
+                ? ImVec4(1.0f, 0.2f, 0.2f, pulse)
+                : ImVec4(1.0f, 0.65f, 0.1f, 0.9f);
+            const char* durWarnText = critical ? "Item breaking!" : "Low durability";
+
+            ImGui::SetNextWindowPos(ImVec2(indicatorX, nextIndicatorY), ImGuiCond_Always);
+            ImGui::SetNextWindowSize(ImVec2(indicatorW, kIndicatorH), ImGuiCond_Always);
+            if (ImGui::Begin("##DurabilityIndicator", nullptr, indicatorFlags)) {
+                ImGui::TextColored(durWarnColor, "%s", durWarnText);
+            }
+            ImGui::End();
+            nextIndicatorY += kIndicatorH;
+        }
+    }
+
+}
+
 void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     const auto& statuses = gameHandler.getNpcQuestStatuses();
     auto* renderer = services_.renderer;
@@ -1198,432 +1635,14 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         }
     }
 
-    auto applyMuteState = [&]() {
-        auto* ac = services_.audioCoordinator;
-        float masterScale = settingsPanel_.soundMuted_ ? 0.0f : static_cast<float>(settingsPanel_.pendingMasterVolume) / 100.0f;
-        audio::AudioEngine::instance().setMasterVolume(masterScale);
-        if (!ac) return;
-        if (auto* music = ac->getMusicManager()) {
-            music->setVolume(settingsPanel_.pendingMusicVolume);
-        }
-        if (auto* ambient = ac->getAmbientSoundManager()) {
-            ambient->setVolumeScale(settingsPanel_.pendingAmbientVolume / 100.0f);
-            ambient->setBellVolumeScale(settingsPanel_.pendingBellVolume / 100.0f);
-        }
-        if (auto* ui = ac->getUiSoundManager()) {
-            ui->setVolumeScale(settingsPanel_.pendingUiVolume / 100.0f);
-        }
-        if (auto* combat = ac->getCombatSoundManager()) {
-            combat->setVolumeScale(settingsPanel_.pendingCombatVolume / 100.0f);
-        }
-        if (auto* spell = ac->getSpellSoundManager()) {
-            spell->setVolumeScale(settingsPanel_.pendingSpellVolume / 100.0f);
-        }
-        if (auto* movement = ac->getMovementSoundManager()) {
-            movement->setVolumeScale(settingsPanel_.pendingMovementVolume / 100.0f);
-        }
-        if (auto* footstep = ac->getFootstepManager()) {
-            footstep->setVolumeScale(settingsPanel_.pendingFootstepVolume / 100.0f);
-        }
-        if (auto* npcVoice = ac->getNpcVoiceManager()) {
-            npcVoice->setVolumeScale(settingsPanel_.pendingNpcVoiceVolume / 100.0f);
-        }
-        if (auto* playerVoice = ac->getPlayerVoiceManager()) {
-            playerVoice->setEnabled(settingsPanel_.pendingCharacterSpeech);
-        }
-        if (auto* mount = ac->getMountSoundManager()) {
-            mount->setVolumeScale(settingsPanel_.pendingMountVolume / 100.0f);
-        }
-        if (auto* activity = ac->getActivitySoundManager()) {
-            activity->setVolumeScale(settingsPanel_.pendingActivityVolume / 100.0f);
-        }
-    };
 
-    // Everything past here is chrome around the minimap rather than marks on
-    // it, and chrome is FrameXML's when FrameXML draws the ring: the cluster
-    // carries its own zoom buttons, its own clock, and its own mail, LFG and
-    // battlefield icons, and this client's would sit on top of them.
-    //
-    // The blips above are the opposite case and the reason this function runs
-    // at all when the element is owned — minimap.xml declares no frame for a
-    // party member, a flight master or a corpse, because in WoW those come
-    // from the C client. Gating the whole pass left the ring drawn and nothing
-    // on it.
-    if (frameXmlOwns(UiElement::Minimap)) return;
-
-    // Speaker mute button at the minimap top-right corner
-    ImGui::SetNextWindowPos(ImVec2(centerX + mapRadius - 26.0f, centerY - mapRadius + 4.0f), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(22.0f, 22.0f), ImGuiCond_Always);
-    ImGuiWindowFlags muteFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
-                                 ImGuiWindowFlags_NoBackground;
-    if (ImGui::Begin("##MinimapMute", nullptr, muteFlags)) {
-        ImDrawList* draw = ImGui::GetWindowDrawList();
-        ImVec2 p = ImGui::GetCursorScreenPos();
-        ImVec2 size(20.0f, 20.0f);
-        if (ImGui::InvisibleButton("##MinimapMuteButton", size)) {
-            settingsPanel_.soundMuted_ = !settingsPanel_.soundMuted_;
-            if (settingsPanel_.soundMuted_) {
-                settingsPanel_.preMuteVolume_ = audio::AudioEngine::instance().getMasterVolume();
-            }
-            applyMuteState();
-            saveSettings();
-        }
-        bool hovered = ImGui::IsItemHovered();
-        ImU32 bg = settingsPanel_.soundMuted_ ? IM_COL32(135, 42, 42, 230) : IM_COL32(38, 38, 38, 210);
-        if (hovered) bg = settingsPanel_.soundMuted_ ? IM_COL32(160, 58, 58, 230) : IM_COL32(65, 65, 65, 220);
-        ImU32 fg = IM_COL32(255, 255, 255, 245);
-        draw->AddRectFilled(p, ImVec2(p.x + size.x, p.y + size.y), bg, 4.0f);
-        draw->AddRect(ImVec2(p.x + 0.5f, p.y + 0.5f), ImVec2(p.x + size.x - 0.5f, p.y + size.y - 0.5f),
-                      IM_COL32(255, 255, 255, 42), 4.0f);
-        draw->AddRectFilled(ImVec2(p.x + 4.0f, p.y + 8.0f), ImVec2(p.x + 7.0f, p.y + 12.0f), fg, 1.0f);
-        draw->AddTriangleFilled(ImVec2(p.x + 7.0f, p.y + 7.0f),
-                                ImVec2(p.x + 7.0f, p.y + 13.0f),
-                                ImVec2(p.x + 11.8f, p.y + 10.0f), fg);
-        if (settingsPanel_.soundMuted_) {
-            draw->AddLine(ImVec2(p.x + 13.5f, p.y + 6.2f), ImVec2(p.x + 17.2f, p.y + 13.8f), fg, 1.8f);
-            draw->AddLine(ImVec2(p.x + 17.2f, p.y + 6.2f), ImVec2(p.x + 13.5f, p.y + 13.8f), fg, 1.8f);
-        } else {
-            draw->PathArcTo(ImVec2(p.x + 11.8f, p.y + 10.0f), 3.6f, -0.7f, 0.7f, 12);
-            draw->PathStroke(fg, 0, 1.4f);
-            draw->PathArcTo(ImVec2(p.x + 11.8f, p.y + 10.0f), 5.5f, -0.7f, 0.7f, 12);
-            draw->PathStroke(fg, 0, 1.2f);
-        }
-        if (hovered) ImGui::SetTooltip(settingsPanel_.soundMuted_ ? "Unmute" : "Mute");
+    // The furniture around the map — zoom buttons, clock, indicators — is
+    // FrameXML's when FrameXML draws the ring, so it answers the ownership
+    // question separately from the blips above.
+    if (!frameXmlOwns(UiElement::Minimap)) {
+        renderMinimapChrome(gameHandler, centerX, centerY, mapRadius);
     }
-    ImGui::End();
-
-    // Friends button at top-left of minimap
-    {
-        const auto& contacts = gameHandler.getContacts();
-        int onlineCount = 0;
-        for (const auto& c : contacts)
-            if (c.isFriend() && c.isOnline()) ++onlineCount;
-
-        ImGui::SetNextWindowPos(ImVec2(centerX - mapRadius + 4.0f, centerY - mapRadius + 4.0f), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(22.0f, 22.0f), ImGuiCond_Always);
-        ImGuiWindowFlags friendsBtnFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                                           ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
-                                           ImGuiWindowFlags_NoBackground;
-        if (ImGui::Begin("##MinimapFriendsBtn", nullptr, friendsBtnFlags)) {
-            ImDrawList* draw = ImGui::GetWindowDrawList();
-            ImVec2 p = ImGui::GetCursorScreenPos();
-            ImVec2 sz(20.0f, 20.0f);
-            if (ImGui::InvisibleButton("##FriendsBtnInv", sz)) {
-                // One branch, not two nested. The same routing was applied to
-                // this button twice at some point and the second copy landed
-                // inside the first's else, where the condition it tests is
-                // already known false — dead, and it read as though the two
-                // halves disagreed.
-                if (frameXmlOwns(UiElement::Social)) {
-                    gameHandler.runInterfaceCommand("ToggleFriendsFrame(1)");
-                } else {
-                    socialPanel_.showSocialFrame_ = !socialPanel_.showSocialFrame_;
-                }
-            }
-            bool hovered = ImGui::IsItemHovered();
-            ImU32 bg = socialPanel_.showSocialFrame_
-                ? IM_COL32(42, 100, 42, 230)
-                : IM_COL32(38, 38, 38, 210);
-            if (hovered) bg = socialPanel_.showSocialFrame_ ? IM_COL32(58, 130, 58, 230) : IM_COL32(65, 65, 65, 220);
-            draw->AddRectFilled(p, ImVec2(p.x + sz.x, p.y + sz.y), bg, 4.0f);
-            draw->AddRect(ImVec2(p.x + 0.5f, p.y + 0.5f),
-                          ImVec2(p.x + sz.x - 0.5f, p.y + sz.y - 0.5f),
-                          IM_COL32(255, 255, 255, 42), 4.0f);
-            // Simple smiley-face dots as "social" icon
-            ImU32 fg = IM_COL32(255, 255, 255, 245);
-            draw->AddCircle(ImVec2(p.x + 10.0f, p.y + 10.0f), 6.5f, fg, 16, 1.2f);
-            draw->AddCircleFilled(ImVec2(p.x + 7.5f, p.y + 8.0f), 1.2f, fg);
-            draw->AddCircleFilled(ImVec2(p.x + 12.5f, p.y + 8.0f), 1.2f, fg);
-            draw->PathArcTo(ImVec2(p.x + 10.0f, p.y + 11.5f), 3.0f, 0.2f, 2.9f, 8);
-            draw->PathStroke(fg, 0, 1.2f);
-            // Small green dot if friends online
-            if (onlineCount > 0) {
-                draw->AddCircleFilled(ImVec2(p.x + sz.x - 3.5f, p.y + 3.5f),
-                                      3.5f, IM_COL32(50, 220, 50, 255));
-            }
-            if (hovered) {
-                if (onlineCount > 0)
-                    ImGui::SetTooltip("Friends (%d online)", onlineCount);
-                else
-                    ImGui::SetTooltip("Friends");
-            }
-        }
-        ImGui::End();
-    }
-
-    // Zoom buttons at the bottom edge of the minimap
-    ImGui::SetNextWindowPos(ImVec2(centerX - 22, centerY + mapRadius - 30), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(44, 24), ImGuiCond_Always);
-    ImGuiWindowFlags zoomFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                                  ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
-                                  ImGuiWindowFlags_NoBackground;
-    if (ImGui::Begin("##MinimapZoom", nullptr, zoomFlags)) {
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(2, 2));
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 0));
-        if (ImGui::SmallButton("-")) {
-            if (minimap) minimap->zoomOut();
-        }
-        ImGui::SameLine();
-        if (ImGui::SmallButton("+")) {
-            if (minimap) minimap->zoomIn();
-        }
-        ImGui::PopStyleVar(2);
-    }
-    ImGui::End();
-
-    // Optional clock display at bottom-right of minimap (local time).
-    if (settingsPanel_.showMinimapClock_) {
-        auto now = std::chrono::system_clock::now();
-        auto tt  = std::chrono::system_clock::to_time_t(now);
-        std::tm tmBuf{};
-#ifdef _WIN32
-        localtime_s(&tmBuf, &tt);
-#else
-        localtime_r(&tt, &tmBuf);
-#endif
-        char clockText[16];
-        std::snprintf(clockText, sizeof(clockText), "%d:%02d %s",
-                      (tmBuf.tm_hour % 12 == 0) ? 12 : tmBuf.tm_hour % 12,
-                      tmBuf.tm_min,
-                      tmBuf.tm_hour >= 12 ? "PM" : "AM");
-        ImVec2 clockSz = ImGui::CalcTextSize(clockText);
-        float clockW = clockSz.x + 10.0f;
-        float clockH = clockSz.y + 6.0f;
-        ImGui::SetNextWindowPos(ImVec2(centerX + mapRadius - clockW - 2.0f,
-                                       centerY + mapRadius - clockH - 2.0f), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(clockW, clockH), ImGuiCond_Always);
-        ImGui::SetNextWindowBgAlpha(0.45f);
-        ImGuiWindowFlags clockFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
-                                      ImGuiWindowFlags_NoInputs;
-        if (ImGui::Begin("##MinimapClock", nullptr, clockFlags)) {
-            ImGui::TextColored(ImVec4(0.9f, 0.9f, 0.8f, 0.85f), "%s", clockText);
-        }
-        ImGui::End();
-    }
-
-    // Indicators below the minimap (stacked: new mail, then BG queue, then latency)
-
-    float indicatorX = centerX - mapRadius;
-    float nextIndicatorY = centerY + mapRadius + 4.0f;
-    const float indicatorW = mapRadius * 2.0f;
-    constexpr float kIndicatorH = 22.0f;
-    ImGuiWindowFlags indicatorFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                                       ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
-                                       ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoInputs;
-
-    // "New Mail" indicator
-    if (gameHandler.hasNewMail()) {
-        ImGui::SetNextWindowPos(ImVec2(indicatorX, nextIndicatorY), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(indicatorW, kIndicatorH), ImGuiCond_Always);
-        if (ImGui::Begin("##NewMailIndicator", nullptr, indicatorFlags)) {
-            float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(ImGui::GetTime()) * 3.0f);
-            ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, pulse), "New Mail!");
-        }
-        ImGui::End();
-        nextIndicatorY += kIndicatorH;
-    }
-
-    // Unspent talent points indicator
-    {
-        uint8_t unspent = gameHandler.getUnspentTalentPoints();
-        if (unspent > 0) {
-            ImGui::SetNextWindowPos(ImVec2(indicatorX, nextIndicatorY), ImGuiCond_Always);
-            ImGui::SetNextWindowSize(ImVec2(indicatorW, kIndicatorH), ImGuiCond_Always);
-            if (ImGui::Begin("##TalentIndicator", nullptr, indicatorFlags)) {
-                float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(ImGui::GetTime()) * 2.5f);
-                char talentBuf[40];
-                snprintf(talentBuf, sizeof(talentBuf), "! %u Talent Point%s Available",
-                         static_cast<unsigned>(unspent), unspent == 1 ? "" : "s");
-                ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f * pulse, pulse), "%s", talentBuf);
-            }
-            ImGui::End();
-            nextIndicatorY += kIndicatorH;
-        }
-    }
-
-    // BG queue status indicator (when in queue but not yet invited)
-    for (const auto& slot : gameHandler.getBgQueues()) {
-        if (slot.statusId != 1) continue;  // STATUS_WAIT_QUEUE only
-
-        std::string bgName;
-        if (slot.arenaType > 0) {
-            bgName = std::to_string(slot.arenaType) + "v" + std::to_string(slot.arenaType) + " Arena";
-        } else {
-            switch (slot.bgTypeId) {
-                case 1: bgName = "AV"; break;
-                case 2: bgName = "WSG"; break;
-                case 3: bgName = "AB"; break;
-                case 7: bgName = "EotS"; break;
-                case 9: bgName = "SotA"; break;
-                case 11: bgName = "IoC"; break;
-                default: bgName = "BG"; break;
-            }
-        }
-
-        ImGui::SetNextWindowPos(ImVec2(indicatorX, nextIndicatorY), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(indicatorW, kIndicatorH), ImGuiCond_Always);
-        if (ImGui::Begin("##BgQueueIndicator", nullptr, indicatorFlags)) {
-            float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(ImGui::GetTime()) * 1.5f);
-            if (slot.avgWaitTimeSec > 0) {
-                int avgMin = static_cast<int>(slot.avgWaitTimeSec) / 60;
-                int avgSec = static_cast<int>(slot.avgWaitTimeSec) % 60;
-                ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, pulse),
-                    "Queue: %s (~%d:%02d)", bgName.c_str(), avgMin, avgSec);
-            } else {
-                ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, pulse),
-                    "In Queue: %s", bgName.c_str());
-            }
-        }
-        ImGui::End();
-        nextIndicatorY += kIndicatorH;
-        break;  // Show at most one queue slot indicator
-    }
-
-    // LFG queue indicator — shown when Dungeon Finder queue is active (Queued or RoleCheck)
-    {
-        using LfgState = game::GameHandler::LfgState;
-        LfgState lfgSt = gameHandler.getLfgState();
-        if (lfgSt == LfgState::Queued || lfgSt == LfgState::RoleCheck) {
-            ImGui::SetNextWindowPos(ImVec2(indicatorX, nextIndicatorY), ImGuiCond_Always);
-            ImGui::SetNextWindowSize(ImVec2(indicatorW, kIndicatorH), ImGuiCond_Always);
-            if (ImGui::Begin("##LfgQueueIndicator", nullptr, indicatorFlags)) {
-                if (lfgSt == LfgState::RoleCheck) {
-                    float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(ImGui::GetTime()) * 3.0f);
-                    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, pulse), "LFG: Role Check...");
-                } else {
-                    uint32_t qMs  = gameHandler.getLfgTimeInQueueMs();
-                    int      qMin = static_cast<int>(qMs / 60000);
-                    int      qSec = static_cast<int>((qMs % 60000) / 1000);
-                    float pulse = 0.6f + 0.4f * std::sin(static_cast<float>(ImGui::GetTime()) * 1.2f);
-                    ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, pulse),
-                        "LFG: %d:%02d", qMin, qSec);
-                }
-            }
-            ImGui::End();
-            nextIndicatorY += kIndicatorH;
-        }
-    }
-
-    // Calendar pending invites indicator (WotLK only)
-    {
-        auto* expReg = services_.expansionRegistry;
-        bool isWotLK = expReg && expReg->getActive() && expReg->getActive()->id == "wotlk";
-        if (isWotLK) {
-            uint32_t calPending = gameHandler.getCalendarPendingInvites();
-            if (calPending > 0) {
-                ImGui::SetNextWindowPos(ImVec2(indicatorX, nextIndicatorY), ImGuiCond_Always);
-                ImGui::SetNextWindowSize(ImVec2(indicatorW, kIndicatorH), ImGuiCond_Always);
-                if (ImGui::Begin("##CalendarIndicator", nullptr, indicatorFlags)) {
-                    float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(ImGui::GetTime()) * 2.0f);
-                    char calBuf[48];
-                    snprintf(calBuf, sizeof(calBuf), "Calendar: %u Invite%s",
-                             calPending, calPending == 1 ? "" : "s");
-                    ImGui::TextColored(ImVec4(0.6f, 0.5f, 1.0f, pulse), "%s", calBuf);
-                }
-                ImGui::End();
-                nextIndicatorY += kIndicatorH;
-            }
-        }
-    }
-
-    // Taxi flight indicator — shown while on a flight path
-    if (gameHandler.isOnTaxiFlight()) {
-        ImGui::SetNextWindowPos(ImVec2(indicatorX, nextIndicatorY), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(indicatorW, kIndicatorH), ImGuiCond_Always);
-        if (ImGui::Begin("##TaxiIndicator", nullptr, indicatorFlags)) {
-            const std::string& dest = gameHandler.getTaxiDestName();
-            float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(ImGui::GetTime()) * 1.0f);
-            if (dest.empty()) {
-                ImGui::TextColored(ImVec4(0.6f, 0.85f, 1.0f, pulse), "\xe2\x9c\x88 In Flight");
-            } else {
-                char buf[64];
-                snprintf(buf, sizeof(buf), "\xe2\x9c\x88 \xe2\x86\x92 %s", dest.c_str());
-                ImGui::TextColored(ImVec4(0.6f, 0.85f, 1.0f, pulse), "%s", buf);
-            }
-        }
-        ImGui::End();
-        nextIndicatorY += kIndicatorH;
-    }
-
-    // Latency + FPS indicator — centered at top of screen
-    uint32_t latMs = gameHandler.getLatencyMs();
-    if (settingsPanel_.showLatencyMeter_ && gameHandler.getState() == game::WorldState::IN_WORLD) {
-        float currentFps = ImGui::GetIO().Framerate;
-        ImVec4 latColor;
-        if      (latMs < 100) latColor = ImVec4(0.3f, 1.0f, 0.3f, 0.9f);
-        else if (latMs < 250) latColor = ImVec4(1.0f, 1.0f, 0.3f, 0.9f);
-        else if (latMs < 500) latColor = ImVec4(1.0f, 0.6f, 0.1f, 0.9f);
-        else                  latColor = ImVec4(1.0f, 0.2f, 0.2f, 0.9f);
-
-        ImVec4 fpsColor;
-        if      (currentFps >= 60.0f) fpsColor = ImVec4(0.3f, 1.0f, 0.3f, 0.9f);
-        else if (currentFps >= 30.0f) fpsColor = ImVec4(1.0f, 1.0f, 0.3f, 0.9f);
-        else                          fpsColor = ImVec4(1.0f, 0.3f, 0.3f, 0.9f);
-
-        char infoText[64];
-        if (latMs > 0)
-            snprintf(infoText, sizeof(infoText), "%.0f fps  |  %u ms", currentFps, latMs);
-        else
-            snprintf(infoText, sizeof(infoText), "%.0f fps", currentFps);
-
-        ImVec2 textSize = ImGui::CalcTextSize(infoText);
-        float latW = textSize.x + 16.0f;
-        float latH = textSize.y + 8.0f;
-        ImGuiIO& lio = ImGui::GetIO();
-        float latX = (lio.DisplaySize.x - latW) * 0.5f;
-        ImGui::SetNextWindowPos(ImVec2(latX, 4.0f), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(latW, latH), ImGuiCond_Always);
-        ImGui::SetNextWindowBgAlpha(0.45f);
-        if (ImGui::Begin("##LatencyIndicator", nullptr, indicatorFlags)) {
-            // Color the FPS and latency portions differently
-            ImGui::TextColored(fpsColor, "%.0f fps", currentFps);
-            if (latMs > 0) {
-                ImGui::SameLine(0, 4);
-                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 0.7f), "|");
-                ImGui::SameLine(0, 4);
-                ImGui::TextColored(latColor, "%u ms", latMs);
-            }
-        }
-        ImGui::End();
-    }
-
-    // Low durability warning — shown when any equipped item has < 20% durability
-    if (gameHandler.getState() == game::WorldState::IN_WORLD) {
-        const auto& inv = gameHandler.getInventory();
-        float lowestDurPct = 1.0f;
-        for (int i = 0; i < game::Inventory::NUM_EQUIP_SLOTS; ++i) {
-            const auto& slot = inv.getEquipSlot(static_cast<game::EquipSlot>(i));
-            if (slot.empty()) continue;
-            const auto& it = slot.item;
-            if (it.maxDurability > 0) {
-                float pct = static_cast<float>(it.curDurability) / static_cast<float>(it.maxDurability);
-                if (pct < lowestDurPct) lowestDurPct = pct;
-            }
-        }
-        if (lowestDurPct < 0.20f) {
-            bool critical = (lowestDurPct < 0.05f);
-            float pulse = critical
-                ? (0.7f + 0.3f * std::sin(static_cast<float>(ImGui::GetTime()) * 4.0f))
-                : 1.0f;
-            ImVec4 durWarnColor = critical
-                ? ImVec4(1.0f, 0.2f, 0.2f, pulse)
-                : ImVec4(1.0f, 0.65f, 0.1f, 0.9f);
-            const char* durWarnText = critical ? "Item breaking!" : "Low durability";
-
-            ImGui::SetNextWindowPos(ImVec2(indicatorX, nextIndicatorY), ImGuiCond_Always);
-            ImGui::SetNextWindowSize(ImVec2(indicatorW, kIndicatorH), ImGuiCond_Always);
-            if (ImGui::Begin("##DurabilityIndicator", nullptr, indicatorFlags)) {
-                ImGui::TextColored(durWarnColor, "%s", durWarnText);
-            }
-            ImGui::End();
-            nextIndicatorY += kIndicatorH;
-        }
-    }
-
 }
-
 void GameScreen::saveSettings() {
     std::string path = SettingsPanel::getSettingsPath();
     std::filesystem::path dir = std::filesystem::path(path).parent_path();
