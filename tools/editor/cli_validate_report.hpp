@@ -1,0 +1,64 @@
+#pragma once
+
+/**
+ * cli_validate_report.hpp — how a --validate-* handler reports what it found.
+ *
+ * Every catalog format validates the same way: collect errors, collect
+ * warnings, then say so either as JSON for a script or as text for a person,
+ * and exit non-zero if there were errors.
+ *
+ * Only two things differ between the 138 formats — the file's extension, and
+ * the one line describing what "OK" means for that format ("3 slots, all
+ * slotIds unique, no UI overlaps"). Everything around those was copied into
+ * every handler, which is why a format's JSON report and its text report could
+ * ever disagree about anything.
+ */
+
+#include <cstdio>
+#include <string>
+#include <vector>
+
+#include <nlohmann/json.hpp>
+
+namespace wowee {
+namespace editor {
+namespace cli {
+
+/// The machine-readable report. Answers the process exit code.
+///
+/// `tag` is the extension without its dot, and is used as the JSON key holding
+/// the file path — which is how a caller tells which format answered.
+inline int printValidationJson(const std::string& tag, const std::string& base,
+                               const std::vector<std::string>& errors,
+                               const std::vector<std::string>& warnings) {
+    const bool ok = errors.empty();
+    nlohmann::json j;
+    j[tag] = base + "." + tag;
+    j["ok"] = ok;
+    j["errors"] = errors;
+    j["warnings"] = warnings;
+    std::printf("%s\n", j.dump(2).c_str());
+    return ok ? 0 : 1;
+}
+
+/// The human-readable list of what was wrong. Answers the process exit code.
+///
+/// Called only when there is something to say: a handler prints its own "OK"
+/// line when there are neither errors nor warnings, because what counts as OK
+/// is the one thing each format knows and this does not.
+inline int printValidationIssues(const std::vector<std::string>& errors,
+                                 const std::vector<std::string>& warnings) {
+    if (!warnings.empty()) {
+        std::printf("  warnings (%zu):\n", warnings.size());
+        for (const auto& w : warnings) std::printf("    - %s\n", w.c_str());
+    }
+    if (!errors.empty()) {
+        std::printf("  ERRORS (%zu):\n", errors.size());
+        for (const auto& e : errors) std::printf("    - %s\n", e.c_str());
+    }
+    return errors.empty() ? 0 : 1;
+}
+
+}  // namespace cli
+}  // namespace editor
+}  // namespace wowee

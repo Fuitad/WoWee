@@ -1,4 +1,5 @@
 #include "cli_action_bars_catalog.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -334,33 +335,15 @@ int handleValidate(int& i, int argc, char** argv) {
                 " for overlapping classMask — slot collision");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wact"] = base + ".wact";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
+    const bool ok = errors.empty();
+    if (jsonOut) return cli::printValidationJson("wact", base, errors, warnings);
     std::printf("validate-wact: %s.wact\n", base.c_str());
     if (ok && warnings.empty()) {
         std::printf("  OK — %zu bindings, all bindingIds unique, no slot collisions\n",
                     c.entries.size());
         return 0;
     }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::printValidationIssues(errors, warnings);
 }
 
 } // namespace

@@ -1,4 +1,5 @@
 #include "cli_events_catalog.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -321,33 +322,15 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         idsSeen.push_back(e.eventId);
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wsea"] = base + ".wsea";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
+    const bool ok = errors.empty();
+    if (jsonOut) return cli::printValidationJson("wsea", base, errors, warnings);
     std::printf("validate-wsea: %s.wsea\n", base.c_str());
     if (ok && warnings.empty()) {
         std::printf("  OK — %zu events, all eventIds unique\n",
                     c.entries.size());
         return 0;
     }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::printValidationIssues(errors, warnings);
 }
 
 } // namespace

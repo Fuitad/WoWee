@@ -1,4 +1,5 @@
 #include "cli_pet_talents_catalog.hpp"
+#include "cli_validate_report.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 
@@ -431,16 +432,8 @@ int handleValidate(int& i, int argc, char** argv) {
                 " — prereqs must be in earlier tiers");
         }
     }
-    bool ok = errors.empty();
-    if (jsonOut) {
-        nlohmann::json j;
-        j["wptt"] = base + ".wptt";
-        j["ok"] = ok;
-        j["errors"] = errors;
-        j["warnings"] = warnings;
-        std::printf("%s\n", j.dump(2).c_str());
-        return ok ? 0 : 1;
-    }
+    const bool ok = errors.empty();
+    if (jsonOut) return cli::printValidationJson("wptt", base, errors, warnings);
     std::printf("validate-wptt: %s.wptt\n", base.c_str());
     if (ok && warnings.empty()) {
         size_t totalSpells = 0;
@@ -452,17 +445,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     c.entries.size(), totalSpells);
         return 0;
     }
-    if (!warnings.empty()) {
-        std::printf("  warnings (%zu):\n", warnings.size());
-        for (const auto& w : warnings)
-            std::printf("    - %s\n", w.c_str());
-    }
-    if (!errors.empty()) {
-        std::printf("  ERRORS (%zu):\n", errors.size());
-        for (const auto& e : errors)
-            std::printf("    - %s\n", e.c_str());
-    }
-    return ok ? 0 : 1;
+    return cli::printValidationIssues(errors, warnings);
 }
 
 } // namespace
