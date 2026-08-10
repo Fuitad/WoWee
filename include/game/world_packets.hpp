@@ -2550,6 +2550,18 @@ public:
     static network::Packet build(uint32_t talentId, uint32_t requestedRank);
 };
 
+/** CMSG_LFG_JOIN packet builder */
+class LfgJoinPacket {
+public:
+    /// Roles is a uint32 on the wire, and the three "needs" bytes after the
+    /// slot list are not optional — the server reads Comment after them, so
+    /// leaving them out moves every field. Slots carries every dungeon the
+    /// player picked; the server queues for all of them in one join.
+    static network::Packet build(const std::vector<uint32_t>& dungeonIds,
+                                 uint32_t roles,
+                                 const std::string& comment = "");
+};
+
 /** MSG_TALENT_WIPE_CONFIRM packet builder */
 class TalentWipeConfirmPacket {
 public:
