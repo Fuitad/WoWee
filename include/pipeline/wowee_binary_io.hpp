@@ -97,6 +97,21 @@ inline bool skipPadding(std::ifstream& is, size_t bytes) {
     return true;
 }
 
+/// Read the magic and version a .w* file opens with, and nothing after them.
+///
+/// For the formats whose header does not continue into a name and a count —
+/// world map carries a world type and a grid size there instead — so they get
+/// the length-checked magic without the fields they do not have. Reading those
+/// with readCatalogHeader would consume four bytes of the next field.
+inline bool readMagicAndVersion(std::ifstream& is, const char magic[4], uint32_t version) {
+    char fileMagic[4];
+    is.read(fileMagic, 4);
+    if (is.gcount() != 4) return false;
+    if (std::memcmp(fileMagic, magic, 4) != 0) return false;
+    uint32_t fileVersion = 0;
+    return readPOD(is, fileVersion) && fileVersion == version;
+}
+
 /// Write the header every .w* file starts with: magic, version, the catalog's
 /// name, and how many entries follow.
 inline void writeCatalogHeader(std::ofstream& os, const char magic[4], uint32_t version,

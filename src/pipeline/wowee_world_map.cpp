@@ -100,11 +100,10 @@ WoweeWorldMap WoweeWorldMapLoader::load(const std::string& basePath) {
     WoweeWorldMap out;
     std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
+    // Magic and version only. This format's header does not continue into a
+    // name and an entry count — a world type and a grid size follow instead —
+    // so readCatalogHeader would eat four bytes of the world type.
+    if (!readMagicAndVersion(is, kMagic, kVersion)) return out;
     // readStr rather than a hand-rolled length-and-bytes: this is the one place
     // that spelled it out itself, and so the one place with no cap on the length.
     if (!readStr(is, out.name)) return out;

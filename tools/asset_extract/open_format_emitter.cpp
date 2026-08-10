@@ -117,10 +117,7 @@ bool emitWomFromM2(const std::string& m2Path, const std::string& womBase) {
     // it sits next to the .m2 (usual case after extraction).
     std::vector<uint8_t> skinBytes;
     {
-        std::string skinPath = m2Path;
-        auto dot = skinPath.rfind('.');
-        if (dot != std::string::npos)
-            skinPath = skinPath.substr(0, dot) + "00.skin";
+        std::string skinPath = pipeline::skinPathForM2(m2Path);
         skinBytes = readBytes(skinPath);
     }
     auto wom = pipeline::WoweeModelLoader::fromM2Bytes(m2Bytes, skinBytes);

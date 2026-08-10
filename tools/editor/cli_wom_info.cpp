@@ -311,10 +311,7 @@ int handleInfoAttachParticleSequence(int& i, int argc, char** argv) {
     // Auto-merge skin for vertex/index counts to match render.
     std::vector<uint8_t> skinBytes;
     {
-        std::string skinPath = path;
-        auto dot = skinPath.rfind('.');
-        if (dot != std::string::npos)
-            skinPath = skinPath.substr(0, dot) + "00.skin";
+        std::string skinPath = pipeline::skinPathForM2(path);
         std::ifstream sf(skinPath, std::ios::binary);
         if (sf) {
             skinBytes.assign((std::istreambuf_iterator<char>(sf)),

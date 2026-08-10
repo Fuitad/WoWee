@@ -168,10 +168,7 @@ void EditorViewport::rebuildObjects(const std::vector<PlacedObject>& objects,
                     model = pipeline::M2Loader::load(data);
                     // Always load skin (WotLK M2s need it for geometry)
                     {
-                        std::string skinPath = obj.path;
-                        auto dotPos = skinPath.rfind('.');
-                        if (dotPos != std::string::npos)
-                            skinPath = skinPath.substr(0, dotPos) + "00.skin";
+                        std::string skinPath = pipeline::skinPathForM2(obj.path);
                         auto skinData = assetManager_->readFile(skinPath);
                         if (!skinData.empty())
                             pipeline::M2Loader::loadSkin(skinData, model);
@@ -306,10 +303,7 @@ void EditorViewport::rebuildObjects(const std::vector<PlacedObject>& objects,
                     }
                     model = pipeline::M2Loader::load(data);
                     {
-                        std::string skinPath = npc.modelPath;
-                        auto dotPos = skinPath.rfind('.');
-                        if (dotPos != std::string::npos)
-                            skinPath = skinPath.substr(0, dotPos) + "00.skin";
+                        std::string skinPath = pipeline::skinPathForM2(npc.modelPath);
                         auto skinData = assetManager_->readFile(skinPath);
                         if (!skinData.empty())
                             pipeline::M2Loader::loadSkin(skinData, model);
@@ -674,10 +668,7 @@ void EditorViewport::setGhostPreview(const std::string& path, const glm::vec3& p
         if (data.empty()) { LOG_WARNING("Ghost: file not found: ", path); return; }
         auto model = pipeline::M2Loader::load(data);
         if (!model.isValid()) {
-            std::string skinPath = path;
-            auto dotPos = skinPath.rfind('.');
-            if (dotPos != std::string::npos)
-                skinPath = skinPath.substr(0, dotPos) + "00.skin";
+            std::string skinPath = pipeline::skinPathForM2(path);
             auto skinData = assetManager_->readFile(skinPath);
             if (!skinData.empty())
                 pipeline::M2Loader::loadSkin(skinData, model);
