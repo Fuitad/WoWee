@@ -50,6 +50,18 @@ struct LuaServices {
     /// them as percentages and converts at this boundary. Known keys: master,
     /// music, ambient. "enableall" is the mute, inverted — the panel's checkbox
     /// asks whether sound is on.
+    /// Read and write a client setting by name, as a string.
+    ///
+    /// FrameXML's options panels are bound to CVar names and their values live
+    /// in this client's settings. One bridge rather than a getter and a setter
+    /// per setting: the specific hooks below were seven pairs and growing, and
+    /// each new option meant a field here, a lambda in Application, and a branch
+    /// in each of GetCVar and SetCVar.
+    ///
+    /// Strings both ways because that is what a CVar is. A bool is "0" or "1".
+    std::function<std::string(const std::string&)> getClientSetting;
+    std::function<void(const std::string&, const std::string&)> setClientSetting;
+
     std::function<float(const std::string&)> getAudioSetting;
     std::function<void(const std::string&, float)> setAudioSetting;
 

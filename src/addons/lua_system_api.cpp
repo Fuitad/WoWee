@@ -884,6 +884,38 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
     else lua_pushstring(L, "0");
 }
 
+/// The CVars whose value is a client setting.
+///
+/// FrameXML's Video and Interface panels are bound to CVar names. The values
+/// behind these names are settings this client already had — they simply had
+/// never been introduced, so the panels wrote to a store nothing read and the
+/// controls did nothing.
+///
+/// A row here, a key in Application's bridge, and the control works. The
+/// alternative — which the entries below this table still are — is a getter and
+/// a setter on LuaServices, a lambda in Application, and a branch in each of
+/// GetCVar and SetCVar, four places per option.
+struct ClientCVarBinding {
+    const char* cvar;      ///< lower case, as both sides fold it
+    const char* setting;   ///< the key Application's bridge answers to
+};
+
+constexpr ClientCVarBinding kClientCVars[] = {
+    {"farclip",              "viewdistance"},
+    {"mousespeed",           "mousespeed"},
+    {"showclock",            "minimapclock"},
+    {"nameplateshowfriends", "friendlyplates"},
+    {"gxwindow",             "windowed"},
+    {"groundeffectdensity",  "groundclutter"},
+};
+
+const ClientCVarBinding* findClientCVar(const std::string& lowerName) {
+    for (const auto& b : kClientCVars) {
+        if (lowerName == b.cvar) return &b;
+    }
+    return nullptr;
+}
+
 static int lua_GetCVar(lua_State* L) {
     const char* name = luaL_checkstring(L, 1);
     // Folded to lower case, because the client's CVar names are not
@@ -962,6 +994,12 @@ static int lua_GetCVar(lua_State* L) {
             (it->second.empty() || it->second == "0")) {
             lua_pushstring(L, "none");
             return 1;
+        }
+    }
+    if (const auto* binding = findClientCVar(n)) {
+        if (auto* svc = getLuaServices(L); svc && svc->getClientSetting) {
+            const std::string v = svc->getClientSetting(binding->setting);
+            if (!v.empty()) { lua_pushstring(L, v.c_str()); return 1; }
         }
     }
     if (auto it = cvarStore().find(n); it != cvarStore().end()) {
@@ -1085,6 +1123,12 @@ static int lua_SetCVar(lua_State* L) {
     // A sound CVar is a setting, not a note. Without this the interface's
     // volume keys and its Sound options both wrote to a map nobody read, so
     // turning music off left it playing.
+    // The table first: these are settings the client owns and the panels drive.
+    if (const auto* binding = findClientCVar(key)) {
+        if (auto* svc = getLuaServices(L); svc && svc->setClientSetting) {
+            svc->setClientSetting(binding->setting, value);
+        }
+    }
     // The four the client owns go to its settings, which then apply and save.
     // Both systems used to write the same AudioEngine — the CVar store from
     // here and the settings panel from its own sliders — and whichever ran last

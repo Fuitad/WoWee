@@ -429,6 +429,46 @@ bool Application::initialize() {
         luaSvc.openSettings = [uim = uiManager.get()](const std::string& tab) {
             if (uim) uim->getGameScreen().openSettings(tab.empty() ? nullptr : tab.c_str());
         };
+        // FrameXML's options panels, driving this client's own settings.
+        //
+        // One table rather than a hook per setting. Every row is a CVar the
+        // Blizzard panels already have a control for, and a field this client
+        // already had — they simply had never been introduced.
+        luaSvc.getClientSetting = [uim = uiManager.get()](const std::string& key) -> std::string {
+            if (!uim) return {};
+            auto& sp = uim->getGameScreen().getSettingsPanel();
+            auto num = [](double v) {
+                std::string s = std::to_string(v);
+                return s;
+            };
+            if (key == "viewdistance")   return num(sp.pendingViewDistance);
+            if (key == "mousespeed")     return num(sp.pendingMouseSensitivity);
+            if (key == "minimapclock")   return sp.pendingShowMinimapClock ? "1" : "0";
+            if (key == "friendlyplates") return sp.showFriendlyNameplates_ ? "1" : "0";
+            // gxWindow asks whether the game is windowed, which is the opposite
+            // of what this client stores.
+            if (key == "windowed")       return sp.pendingFullscreen ? "0" : "1";
+            if (key == "groundclutter")  return num(sp.pendingGroundClutterDensity / 100.0);
+            return {};
+        };
+        luaSvc.setClientSetting = [uim = uiManager.get()](const std::string& key,
+                                                          const std::string& value) {
+            if (!uim) return;
+            auto& gs = uim->getGameScreen();
+            auto& sp = gs.getSettingsPanel();
+            const double v = std::atof(value.c_str());
+            const bool on = (value != "0" && !value.empty());
+            if (key == "viewdistance")        sp.pendingViewDistance = static_cast<float>(v);
+            else if (key == "mousespeed")     sp.pendingMouseSensitivity = static_cast<float>(v);
+            else if (key == "minimapclock")   sp.pendingShowMinimapClock = on;
+            else if (key == "friendlyplates") sp.showFriendlyNameplates_ = on;
+            else if (key == "windowed")       sp.pendingFullscreen = !on;
+            else if (key == "groundclutter")  sp.pendingGroundClutterDensity =
+                                                  static_cast<int>(v * 100.0 + 0.5);
+            else return;
+            gs.saveSettings();
+        };
+
         // FrameXML's Sound options, driving this client's own audio settings.
         // Its sliders are 0..1 and these are percentages, so the conversion
         // happens here rather than in the binding.
