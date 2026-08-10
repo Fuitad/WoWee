@@ -542,8 +542,25 @@ auto applyAudioSettings = [&]() {
     saveCallback();
 };
 
+// Mute is a saved setting that forces the master volume to zero, and until now
+// the only control for it was a 20x20 invisible button at the corner of the
+// minimap. A client that starts silent because of a flag set by a stray click
+// gives no way to find out why from the place a player looks — here.
+if (ImGui::Checkbox("Mute All Sound", &soundMuted_)) {
+    if (soundMuted_) {
+        preMuteVolume_ = audio::AudioEngine::instance().getMasterVolume();
+    }
+    applyAudioSettings();
+}
+if (ImGui::IsItemHovered())
+    ImGui::SetTooltip("Silences everything. The speaker button by the minimap does the same.");
+
 ImGui::Text("Master Volume");
 if (ImGui::SliderInt("##MasterVolume", &pendingMasterVolume, 0, 100, "%d%%")) {
+    // Raising the volume means the player wants to hear something, so it clears
+    // the mute rather than being silently ignored. Dragging this while muted
+    // used to do nothing at all, with nothing on screen saying why.
+    if (pendingMasterVolume > 0) soundMuted_ = false;
     applyAudioSettings();
 }
 ImGui::Separator();

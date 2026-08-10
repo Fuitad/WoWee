@@ -189,45 +189,11 @@ void GameScreen::renderMinimapChrome(game::GameHandler& gameHandler, float cente
     auto* renderer = services_.renderer;
     auto* minimap = renderer ? renderer->getMinimap() : nullptr;
     if (!minimap) return;
+    // The same work the settings panel does when a volume changes — it was a
+    // second copy of applyAudioVolumes, every manager listed again, which is two
+    // places to remember when a manager is added.
     auto applyMuteState = [&]() {
-        auto* ac = services_.audioCoordinator;
-        float masterScale = settingsPanel_.soundMuted_ ? 0.0f : static_cast<float>(settingsPanel_.pendingMasterVolume) / 100.0f;
-        audio::AudioEngine::instance().setMasterVolume(masterScale);
-        if (!ac) return;
-        if (auto* music = ac->getMusicManager()) {
-            music->setVolume(settingsPanel_.pendingMusicVolume);
-        }
-        if (auto* ambient = ac->getAmbientSoundManager()) {
-            ambient->setVolumeScale(settingsPanel_.pendingAmbientVolume / 100.0f);
-            ambient->setBellVolumeScale(settingsPanel_.pendingBellVolume / 100.0f);
-        }
-        if (auto* ui = ac->getUiSoundManager()) {
-            ui->setVolumeScale(settingsPanel_.pendingUiVolume / 100.0f);
-        }
-        if (auto* combat = ac->getCombatSoundManager()) {
-            combat->setVolumeScale(settingsPanel_.pendingCombatVolume / 100.0f);
-        }
-        if (auto* spell = ac->getSpellSoundManager()) {
-            spell->setVolumeScale(settingsPanel_.pendingSpellVolume / 100.0f);
-        }
-        if (auto* movement = ac->getMovementSoundManager()) {
-            movement->setVolumeScale(settingsPanel_.pendingMovementVolume / 100.0f);
-        }
-        if (auto* footstep = ac->getFootstepManager()) {
-            footstep->setVolumeScale(settingsPanel_.pendingFootstepVolume / 100.0f);
-        }
-        if (auto* npcVoice = ac->getNpcVoiceManager()) {
-            npcVoice->setVolumeScale(settingsPanel_.pendingNpcVoiceVolume / 100.0f);
-        }
-        if (auto* playerVoice = ac->getPlayerVoiceManager()) {
-            playerVoice->setEnabled(settingsPanel_.pendingCharacterSpeech);
-        }
-        if (auto* mount = ac->getMountSoundManager()) {
-            mount->setVolumeScale(settingsPanel_.pendingMountVolume / 100.0f);
-        }
-        if (auto* activity = ac->getActivitySoundManager()) {
-            activity->setVolumeScale(settingsPanel_.pendingActivityVolume / 100.0f);
-        }
+        settingsPanel_.applyAudioVolumes(services_.audioCoordinator);
     };
 
     // Speaker mute button at the minimap top-right corner
