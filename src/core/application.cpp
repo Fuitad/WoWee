@@ -1,5 +1,6 @@
 #include "core/application.hpp"
 #include "core/character_paths.hpp"
+#include "pipeline/m2_asset_loader.hpp"
 #include "core/coordinates.hpp"
 #include "ui/minimap_projection.hpp"
 #include "core/profiler.hpp"
@@ -4284,21 +4285,6 @@ void Application::spawnPlayerCharacter() {
     auto* camera = renderer->getCamera();
     bool loaded = false;
     std::string m2Path = appearanceComposer_->getPlayerModelPath(playerRace_, playerGender_);
-    std::string modelDir;
-    std::string baseName;
-    {
-        size_t slash = m2Path.rfind('\\');
-        if (slash != std::string::npos) {
-            modelDir = m2Path.substr(0, slash + 1);
-            baseName = m2Path.substr(slash + 1);
-        } else {
-            baseName = m2Path;
-        }
-        size_t dot = baseName.rfind('.');
-        if (dot != std::string::npos) {
-            baseName = baseName.substr(0, dot);
-        }
-    }
 
     // Try loading selected character model from MPQ
     if (assetManager && assetManager->isInitialized()) {
@@ -4338,23 +4324,7 @@ void Application::spawnPlayerCharacter() {
                 // Load external .anim files for sequences with external data.
                 // Sequences WITH flag 0x20 have their animation data inline in the M2 file.
                 // Sequences WITHOUT flag 0x20 store data in external .anim files.
-                for (uint32_t si = 0; si < model.sequences.size(); si++) {
-                    if (!(model.sequences[si].flags & 0x20)) {
-                        // File naming: <ModelPath><AnimId>-<VariationIndex>.anim
-                        // e.g. Character\Human\Male\HumanMale0097-00.anim
-                        char animFileName[256];
-                        snprintf(animFileName, sizeof(animFileName),
-                            "%s%s%04u-%02u.anim",
-                            modelDir.c_str(),
-                            baseName.c_str(),
-                            model.sequences[si].id,
-                            model.sequences[si].variationIndex);
-                        auto animFileData = assetManager->readFileOptional(animFileName);
-                        if (!animFileData.empty()) {
-                            pipeline::M2Loader::loadAnimFile(m2Data, animFileData, si, model);
-                        }
-                    }
-                }
+                pipeline::loadExternalAnimations(*assetManager, m2Path, m2Data, model);
 
                 charRenderer->loadModel(model, 1);
 

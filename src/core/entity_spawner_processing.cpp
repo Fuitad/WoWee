@@ -553,19 +553,9 @@ void EntitySpawner::processCreatureSpawnQueue(bool unlimited) {
                         }
                     }
 
-                    // Load external .anim files
-                    std::string basePath = m2Path.substr(0, m2Path.size() - 3);
-                    for (uint32_t si = 0; si < model->sequences.size(); si++) {
-                        if (!(model->sequences[si].flags & 0x20)) {
-                            char animFileName[256];
-                            snprintf(animFileName, sizeof(animFileName), "%s%04u-%02u.anim",
-                                basePath.c_str(), model->sequences[si].id, model->sequences[si].variationIndex);
-                            auto animData = am->readFileOptional(animFileName);
-                            if (!animData.empty()) {
-                                pipeline::M2Loader::loadAnimFile(m2Data, animData, si, *model);
-                            }
-                        }
-                    }
+                    // This runs on a background thread, so every external
+                    // sequence can be loaded.
+                    pipeline::loadExternalAnimations(*am, m2Path, m2Data, *model);
 
                     // Pre-decode model textures on background thread
                     for (const auto& tex : model->textures) {
@@ -1473,20 +1463,10 @@ void EntitySpawner::processPendingMount() {
 
         // Load external .anim files (only idle + run needed for mounts)
         std::string basePath = m2Path.substr(0, m2Path.size() - 3);
-        for (uint32_t si = 0; si < model.sequences.size(); si++) {
-            if (!(model.sequences[si].flags & 0x20)) {
-                uint32_t animId = model.sequences[si].id;
-                // Only load stand, walk, run anims to avoid hang
-                if (animId != rendering::anim::STAND && animId != rendering::anim::WALK && animId != rendering::anim::RUN) continue;
-                char animFileName[256];
-                snprintf(animFileName, sizeof(animFileName), "%s%04u-%02u.anim",
-                    basePath.c_str(), animId, model.sequences[si].variationIndex);
-                auto animData = assetManager_->readFileOptional(animFileName);
-                if (!animData.empty()) {
-                    pipeline::M2Loader::loadAnimFile(m2Data, animData, si, model);
-                }
-            }
-        }
+        // Only what a mount does while standing still; the rest would stall.
+        pipeline::loadExternalAnimations(
+            *assetManager_, m2Path, m2Data, model,
+            {rendering::anim::STAND, rendering::anim::WALK, rendering::anim::RUN});
 
         if (!charRenderer->loadModel(model, modelId)) {
             LOG_WARNING("Failed to load mount model: ", m2Path);
@@ -1805,19 +1785,10 @@ bool EntitySpawner::loadRemoteMountModel(uint32_t displayId, uint32_t& modelId,
         }
         if (!model.isValid()) return false;
 
-        const std::string basePath = modelPath.substr(0, modelPath.size() - 3);
-        for (uint32_t si = 0; si < model.sequences.size(); ++si) {
-            if (model.sequences[si].flags & 0x20) continue;
-            const uint32_t animId = model.sequences[si].id;
-            if (animId != rendering::anim::STAND && animId != rendering::anim::WALK &&
-                animId != rendering::anim::RUN && animId != rendering::anim::FLY_IDLE &&
-                animId != rendering::anim::FLY_FORWARD) continue;
-            char animFile[256];
-            snprintf(animFile, sizeof(animFile), "%s%04u-%02u.anim", basePath.c_str(),
-                     animId, model.sequences[si].variationIndex);
-            auto animData = assetManager_->readFileOptional(animFile);
-            if (!animData.empty()) pipeline::M2Loader::loadAnimFile(m2Data, animData, si, model);
-        }
+        pipeline::loadExternalAnimations(
+            *assetManager_, modelPath, m2Data, model,
+            {rendering::anim::STAND, rendering::anim::WALK, rendering::anim::RUN,
+             rendering::anim::FLY_IDLE, rendering::anim::FLY_FORWARD});
 
         modelId = nextCreatureModelId_++;
         if (!cr->loadModel(model, modelId)) return false;

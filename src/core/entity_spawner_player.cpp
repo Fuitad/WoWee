@@ -23,6 +23,7 @@ namespace { constexpr uint32_t kAttachHelm = 11; }
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/dbc_layout.hpp"
 #include "pipeline/item_textures.hpp"
+#include "pipeline/m2_asset_loader.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_services.hpp"
 #include "game/transport_manager.hpp"
@@ -126,21 +127,6 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
             return;
         }
 
-        // Parse modelDir/baseName for skin/anim loading
-        std::string modelDir;
-        std::string baseName;
-        {
-            size_t slash = m2Path.rfind('\\');
-            if (slash != std::string::npos) {
-                modelDir = m2Path.substr(0, slash + 1);
-                baseName = m2Path.substr(slash + 1);
-            } else {
-                baseName = m2Path;
-            }
-            size_t dot = baseName.rfind('.');
-            if (dot != std::string::npos) baseName = baseName.substr(0, dot);
-        }
-
         auto m2Data = assetManager_->readFile(m2Path);
         if (m2Data.empty()) {
             LOG_WARNING("spawnOnlinePlayer: failed to read M2: ", m2Path);
@@ -166,24 +152,11 @@ void EntitySpawner::spawnOnlinePlayer(uint64_t guid,
             return;
         }
 
-        // Load only core external animations (stand/walk/run) to avoid stalls
-        for (uint32_t si = 0; si < model.sequences.size(); si++) {
-            if (!(model.sequences[si].flags & 0x20)) {
-                uint32_t animId = model.sequences[si].id;
-                if (animId != rendering::anim::STAND && animId != rendering::anim::WALK && animId != rendering::anim::RUN) continue;
-                char animFileName[256];
-                snprintf(animFileName, sizeof(animFileName),
-                         "%s%s%04u-%02u.anim",
-                         modelDir.c_str(),
-                         baseName.c_str(),
-                         animId,
-                         model.sequences[si].variationIndex);
-                auto animData = assetManager_->readFileOptional(animFileName);
-                if (!animData.empty()) {
-                    pipeline::M2Loader::loadAnimFile(m2Data, animData, si, model);
-                }
-            }
-        }
+        // Only the three animations a standing player needs. Loading every
+        // external sequence of a character model stalls the frame.
+        pipeline::loadExternalAnimations(
+            *assetManager_, m2Path, m2Data, model,
+            {rendering::anim::STAND, rendering::anim::WALK, rendering::anim::RUN});
 
         modelId = nextPlayerModelId_++;
         if (!charRenderer->loadModel(model, modelId)) {

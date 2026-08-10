@@ -8,7 +8,10 @@
  * without an asset tree to point at.
  */
 
+#include <cstdint>
+#include <initializer_list>
 #include <string>
+#include <vector>
 
 namespace wowee {
 namespace pipeline {
@@ -28,6 +31,33 @@ struct M2Model;
  * which is what everything downstream identifies it by.
  */
 bool loadM2WithSkin(AssetManager& assets, const std::string& m2Path, M2Model& outModel);
+
+/**
+ * The external .anim file for one sequence: the model path without its
+ * extension, then the animation id and the variation, zero-padded —
+ * Character\Human\Male\HumanMale0097-00.anim.
+ */
+std::string animPathForM2(const std::string& m2Path, uint32_t animId, uint32_t variationIndex);
+
+/**
+ * Load the keyframes that live outside the M2.
+ *
+ * A sequence with flag 0x20 carries its data inside the model; the rest have it
+ * in a file beside it, and a sequence whose file is missing simply does not
+ * animate. `wantedAnimIds` limits the work to a few animations — loading every
+ * external sequence of a character model stalls the frame, which is why the
+ * paths that run during play name the three or five they actually need. An
+ * empty list loads them all.
+ *
+ * `m2Data` is the original file bytes: the track headers the .anim data slots
+ * into are still read from there.
+ *
+ * Six copies of this loop existed, three of which derived the base path by
+ * chopping three characters off the model path.
+ */
+void loadExternalAnimations(AssetManager& assets, const std::string& m2Path,
+                            const std::vector<uint8_t>& m2Data, M2Model& model,
+                            std::initializer_list<uint32_t> wantedAnimIds = {});
 
 }  // namespace pipeline
 }  // namespace wowee

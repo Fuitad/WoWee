@@ -489,21 +489,6 @@ bool CharacterPreview::loadCharacter(game::Race race, game::Gender gender,
     }
 
     std::string m2Path = game::getPlayerModelPath(race, gender, useFemaleModel);
-    std::string modelDir;
-    std::string baseName;
-    {
-        size_t slash = m2Path.rfind('\\');
-        if (slash != std::string::npos) {
-            modelDir = m2Path.substr(0, slash + 1);
-            baseName = m2Path.substr(slash + 1);
-        } else {
-            baseName = m2Path;
-        }
-        size_t dot = baseName.rfind('.');
-        if (dot != std::string::npos) {
-            baseName = baseName.substr(0, dot);
-        }
-    }
 
     auto m2Data = assetManager_->readFile(m2Path);
     if (m2Data.empty()) {
@@ -634,21 +619,7 @@ bool CharacterPreview::loadCharacter(game::Race race, game::Gender gender,
 
     // Load external .anim files for sequences that store keyframes outside the M2.
     // Flag 0x20 = embedded data; when clear, animation lives in {ModelName}{SeqID}-{Var}.anim
-    for (uint32_t si = 0; si < model.sequences.size(); si++) {
-        if (!(model.sequences[si].flags & 0x20)) {
-            char animFileName[256];
-            snprintf(animFileName, sizeof(animFileName),
-                "%s%s%04u-%02u.anim",
-                modelDir.c_str(),
-                baseName.c_str(),
-                model.sequences[si].id,
-                model.sequences[si].variationIndex);
-            auto animFileData = assetManager_->readFileOptional(animFileName);
-            if (!animFileData.empty()) {
-                pipeline::M2Loader::loadAnimFile(m2Data, animFileData, si, model);
-            }
-        }
-    }
+    pipeline::loadExternalAnimations(*assetManager_, m2Path, m2Data, model);
 
     if (!charRenderer_->loadModel(model, PREVIEW_MODEL_ID)) {
         LOG_WARNING("CharacterPreview: failed to load model to GPU");
