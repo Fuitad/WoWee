@@ -82,6 +82,16 @@ wowee_test_link_glm(test_hill_climbing)
 add_test(NAME hill_climbing COMMAND test_hill_climbing)
 register_test_target(test_hill_climbing)
 
+# ── test_geoset_rules ────────────────────────────────────────
+# Choosing a geoset when the model lacks the one asked for. Pure header, so the
+# test needs nothing but Catch.
+add_executable(test_geoset_rules test_geoset_rules.cpp ${TEST_COMMON_SOURCES})
+target_include_directories(test_geoset_rules PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_geoset_rules SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_geoset_rules PRIVATE catch2_main)
+add_test(NAME geoset_rules COMMAND test_geoset_rules)
+register_test_target(test_geoset_rules)
+
 # ── test_framexml ───────────────────────────────────────────
 add_executable(test_framexml
     test_framexml.cpp

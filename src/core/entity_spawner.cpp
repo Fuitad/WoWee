@@ -1,5 +1,6 @@
 #include "core/entity_spawner.hpp"
 #include "core/appearance_composer.hpp"
+#include "core/geoset_rules.hpp"
 #include "core/helm_visual.hpp"
 
 // M2 attachment 11 is the helm; 0 is the shield mount.
@@ -1778,39 +1779,19 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                     }
                 }
             }
+            // One rule, in core/geoset_rules.hpp, with a test. This used to
+            // be spelled out here and in four other places, each with its own
+            // idea of what to do when a model lacks what was asked for — which
+            // is how "none" came to mean "the first beard in the group".
             auto addSafeGeoset = [&](uint16_t preferredId) {
-                if (preferredId < 100 || modelGeosets.empty()) {
+                if (preferredId < 100) {
                     safeGeosets.insert(preferredId);
                     return;
                 }
-                if (modelGeosets.count(preferredId) > 0) {
-                    safeGeosets.insert(preferredId);
-                    return;
-                }
-                const uint16_t group = static_cast<uint16_t>(preferredId / 100);
-                const uint16_t variant = static_cast<uint16_t>(preferredId % 100);
-                // Variant 01 of the facial groups means NONE — no beard, no
-                // moustache, no sideburns. Every other variant in the group is
-                // some hair, so falling back to "the first one this model has"
-                // does not approximate none, it contradicts it: a clean-shaven
-                // NPC on a model without an explicit 101 came out bearded.
-                //
-                // Nothing is the right answer when nothing is what was asked
-                // for and the model has no way to say so.
-                // 0 as well as 1. CharFacialHairStyles stores the variant, and
-                // zero there means none — so group*100 + 0 asks for x00, which
-                // is not a geoset any model has, and the fallback below then
-                // supplies a beard to a character that asked for no beard.
-                const bool asksForNone = (variant == 0 || variant == 1);
-                const bool facialGroup = (group >= 1 && group <= 3);
-                if (asksForNone && facialGroup) {
-                    return;
-                }
-                auto it = firstGeosetByGroup.find(group);
-                if (it != firstGeosetByGroup.end()) {
-                    safeGeosets.insert(it->second);
-                }
+                const uint16_t chosen = resolveGeoset(preferredId, modelGeosets);
+                if (chosen != 0) safeGeosets.insert(chosen);
             };
+
             uint16_t hairGeoset = 1;
             uint32_t hairKey = (static_cast<uint32_t>(extra.raceId) << 16) |
                                (static_cast<uint32_t>(extra.sexId) << 8) |
@@ -1969,11 +1950,10 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                     }
                 }
             }
-            auto pickGeoset = [&](uint16_t preferred, uint16_t group) -> uint16_t {
-                if (preferred != 0 && modelGeosets.count(preferred) > 0) return preferred;
-                auto it = firstByGroup.find(group);
-                if (it != firstByGroup.end()) return it->second;
-                return preferred;
+            // The same rule as everywhere else. The group argument is kept for
+            // the call sites' readability; it is implied by the id.
+            auto pickGeoset = [&](uint16_t preferred, uint16_t /*group*/) -> uint16_t {
+                return resolveGeoset(preferred, modelGeosets);
             };
 
             uint16_t geosetGloves = pickGeoset(kGeosetBareForearms, 4);
