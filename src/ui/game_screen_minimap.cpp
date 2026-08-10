@@ -61,6 +61,38 @@ namespace {
     using namespace wowee::ui::colors;
     using namespace wowee::ui::helpers;
 
+    /// How close the cursor has to be to a minimap blip to be pointing at it.
+    ///
+    /// The blips are two to four pixels across, so the target is deliberately
+    /// larger than what is drawn — otherwise a marker is nearly impossible to
+    /// hover on a map this small.
+    constexpr float kBlipHoverRadius = 8.0f;
+    constexpr float kSmallBlipHoverRadius = 7.0f;
+    /// The off-map direction arrows are bigger than a blip, so their target is too.
+    constexpr float kArrowHoverRadius = 10.0f;
+
+    /// Whether the cursor is inside the minimap disc itself.
+    ///
+    /// Asked three times — for the wheel, for a ctrl+click ping, and for the
+    /// hover readout — and each spelled the circle test out again.
+    inline bool cursorOverMinimap(float centerX, float centerY, float mapRadius) {
+        const ImVec2 cursor = ImGui::GetMousePos();
+        const float dx = cursor.x - centerX;
+        const float dy = cursor.y - centerY;
+        return dx * dx + dy * dy <= mapRadius * mapRadius;
+    }
+
+    /// Whether the cursor is within `radius` pixels of a blip at (sx, sy).
+    ///
+    /// Written out fourteen times as a squared distance against a literal: 64
+    /// is eight pixels and 49 is seven, and neither number said so.
+    inline bool cursorNearBlip(float sx, float sy, float radius = kBlipHoverRadius) {
+        const ImVec2 cursor = ImGui::GetMousePos();
+        const float dx = cursor.x - sx;
+        const float dy = cursor.y - sy;
+        return dx * dx + dy * dy <= radius * radius;
+    }
+
     bool raySphereIntersect(const wowee::rendering::Ray& ray, const glm::vec3& center, float radius, float& tOut) {
         glm::vec3 oc = ray.origin - center;
         float b = glm::dot(oc, ray.direction);
@@ -273,8 +305,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
                 drawList->AddCircleFilled(ImVec2(sx, sy), 3.5f, IM_COL32(255, 210, 30, 240));
                 drawList->AddCircle(ImVec2(sx, sy), 3.5f, IM_COL32(80, 50, 0, 180), 0, 1.0f);
                 // Tooltip on hover showing unit name
-                float mdx = mouse.x - sx, mdy = mouse.y - sy;
-                if (mdx * mdx + mdy * mdy < 64.0f) {
+                if (cursorNearBlip(sx, sy)) {
                     const std::string& nm = unit->getName();
                     if (!nm.empty()) ImGui::SetTooltip("%s (quest)", nm.c_str());
                 }
@@ -315,8 +346,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             drawList->AddCircleFilled(ImVec2(sx, sy), 1.7f,
                                       IM_COL32(255, 250, 205, 255));
 
-            float mdx = mouse.x - sx, mdy = mouse.y - sy;
-            if (mdx * mdx + mdy * mdy <= 64.0f) {
+            if (cursorNearBlip(sx, sy)) {
                 const std::string& name = unit->getName();
                 ImGui::SetTooltip("%s\nFlight Master",
                                   name.empty() ? "Flight Master" : name.c_str());
@@ -354,8 +384,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             drawList->AddQuadFilled(top, right, bottom, left, fill);
             drawList->AddQuad(top, right, bottom, left, IM_COL32(0, 0, 0, 220), 1.5f);
 
-            float mdx = mouse.x - sx, mdy = mouse.y - sy;
-            if (mdx * mdx + mdy * mdy <= 49.0f) {
+            if (cursorNearBlip(sx, sy, kSmallBlipHoverRadius)) {
                 const std::string& name = unit->getName();
                 ImGui::SetTooltip("%s\n%s",
                                   name.empty() ? "Unknown creature" : name.c_str(),
@@ -463,8 +492,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
             }
 
             // Tooltip on hover
-            float mdx = mouse.x - sx, mdy = mouse.y - sy;
-            if (mdx * mdx + mdy * mdy < 64.0f) {
+            if (cursorNearBlip(sx, sy)) {
                 if (isQuestGO)
                     ImGui::SetTooltip("%s (quest)", goInfo->name.c_str());
                 else
@@ -557,8 +585,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
                               IM_COL32(0, 0, 0, 180), 1.0f, 0, 1.0f);
 
             // Name tooltip on hover
-            float mdx = mouse.x - sx, mdy = mouse.y - sy;
-            if (mdx * mdx + mdy * mdy < 64.0f && !member.name.empty()) {
+            if (cursorNearBlip(sx, sy) && !member.name.empty()) {
                 ImGui::SetTooltip("%s", member.name.c_str());
             }
         }
@@ -604,8 +631,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         // Show NPC name and quest status on hover
         {
             ImVec2 mouse = ImGui::GetMousePos();
-            float mdx = mouse.x - sx, mdy = mouse.y - sy;
-            if (mdx * mdx + mdy * mdy < 64.0f) {
+            if (cursorNearBlip(sx, sy)) {
                 std::string npcName;
                 if (entity->getType() == game::ObjectType::UNIT) {
                     auto npcUnit = std::static_pointer_cast<game::Unit>(entity);
@@ -666,8 +692,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
                                   IM_COL32(20, 20, 20, 230), 1.2f);
 
                 // Tooltip on hover
-                float mdx = mouse.x - sx, mdy = mouse.y - sy;
-                if (mdx * mdx + mdy * mdy < 64.0f) {
+                if (cursorNearBlip(sx, sy)) {
                     const auto& ki = infoIt->second;
                     const std::string& npcName = unit->getName();
                     if (!npcName.empty()) {
@@ -778,9 +803,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
                 }
             }
 
-            ImVec2 cursorPos = ImGui::GetMousePos();
-            float mdx = cursorPos.x - sx, mdy = cursorPos.y - sy;
-            if (!member.name.empty() && (mdx * mdx + mdy * mdy) < 64.0f) {
+            if (!member.name.empty() && cursorNearBlip(sx, sy)) {
                 uint8_t pmk2 = gameHandler.getEntityRaidMark(member.guid);
                 if (pmk2 < game::GameHandler::kRaidMarkCount) {
                     static constexpr const char* kMarkNames[] = {
@@ -822,8 +845,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
                 drawList->AddQuadFilled(top, right, bot, left, col);
                 drawList->AddQuad(top, right, bot, left, IM_COL32(255, 255, 255, 180), 1.0f);
 
-                float mdx = mouse.x - sx, mdy = mouse.y - sy;
-                if (mdx * mdx + mdy * mdy < 64.0f) {
+                if (cursorNearBlip(sx, sy)) {
                     // Show entity name if available, otherwise guid
                     auto ent = gameHandler.getEntityManager().getEntity(bp.guid);
                     if (ent) {
@@ -863,9 +885,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
                 drawList->AddLine(ImVec2(csx + 3.0f, csy - 3.0f), ImVec2(csx - 3.0f, csy + 3.0f),
                                   IM_COL32(180, 180, 220, 255), 1.5f);
                 // Tooltip on hover
-                ImVec2 mouse = ImGui::GetMousePos();
-                float mdx = mouse.x - csx, mdy = mouse.y - csy;
-                if (mdx * mdx + mdy * mdy < 64.0f) {
+                if (cursorNearBlip(csx, csy)) {
                     float dist = gameHandler.getCorpseDistance();
                     if (dist >= 0.0f)
                         ImGui::SetTooltip("Your corpse (%.0f yd)", dist);
@@ -901,9 +921,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
                     drawList->AddTriangleFilled(tip, left, right, IM_COL32(180, 180, 240, 230));
                     drawList->AddTriangle(tip, left, right, IM_COL32(0, 0, 0, 180), 1.0f);
                     // Tooltip on hover
-                    ImVec2 mouse = ImGui::GetMousePos();
-                    float mdx = mouse.x - ax, mdy = mouse.y - ay;
-                    if (mdx * mdx + mdy * mdy < 100.0f) {
+                    if (cursorNearBlip(ax, ay, kArrowHoverRadius)) {
                         float dist = gameHandler.getCorpseDistance();
                         if (dist >= 0.0f)
                             ImGui::SetTooltip("Your corpse (%.0f yd)", dist);
@@ -966,10 +984,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
     if (!minimapInputBlocked) {
         float wheel = ImGui::GetIO().MouseWheel;
         if (wheel != 0.0f) {
-            ImVec2 mouse = ImGui::GetMousePos();
-            float mdx = mouse.x - centerX;
-            float mdy = mouse.y - centerY;
-            if (mdx * mdx + mdy * mdy <= mapRadius * mapRadius) {
+            if (cursorOverMinimap(centerX, centerY, mapRadius)) {
                 if (wheel > 0.0f)
                     minimap->zoomIn();
                 else
@@ -983,8 +998,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         ImVec2 mouse = ImGui::GetMousePos();
         float mdx = mouse.x - centerX;
         float mdy = mouse.y - centerY;
-        float distSq = mdx * mdx + mdy * mdy;
-        if (distSq <= mapRadius * mapRadius) {
+        if (cursorOverMinimap(centerX, centerY, mapRadius)) {
             // playerRender is in render coords; add the delta the click means
             // to get a render position, then convert to canonical.
             const glm::vec2 d = minimapOffsetToRenderDelta(mdx, mdy, minimapView);
@@ -1130,7 +1144,7 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         ImVec2 mouse = ImGui::GetMousePos();
         float mdx = mouse.x - centerX;
         float mdy = mouse.y - centerY;
-        bool overMinimap = !minimapInputBlocked && (mdx * mdx + mdy * mdy <= mapRadius * mapRadius);
+        bool overMinimap = !minimapInputBlocked && cursorOverMinimap(centerX, centerY, mapRadius);
 
         if (overMinimap) {
             ImGui::BeginTooltip();
