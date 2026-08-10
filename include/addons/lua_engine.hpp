@@ -280,6 +280,22 @@ private:
     bool frameHasScript(uint32_t wid, const char* script);
     /// OnColorSelect, whose three arguments the handler names r, g and b.
     void callFrameScriptColor(uint32_t wid, const char* script, const float rgb[3]);
+
+    /// Push a frame's script and its self argument, ready for the arguments.
+    ///
+    /// Answers the traceback handler's stack index, or 0 when there is nothing
+    /// to call — in which case the stack is already back where it started. On
+    /// success the stack holds five values and the caller must finish with
+    /// finishFrameScript, whatever it pushes in between.
+    int beginFrameScript(uint32_t wid, const char* script);
+
+    /// Call what beginFrameScript set up, report a failure, and unwind.
+    ///
+    /// `nargs` counts self. The unwind is four, not three — the traceback
+    /// handler is still below the call — and getting that number wrong is a
+    /// stack leak that shows up somewhere else entirely, which is why the five
+    /// callers no longer each hold their own copy of it.
+    void finishFrameScript(uint32_t wid, const char* script, int handlerIdx, int nargs);
     /// Which part of a colour picker the held mouse button is dragging: the
     /// wheel, the value bar, or nothing. Decided on the press and kept for the
     /// whole drag, so sliding from one onto the other does not switch which is

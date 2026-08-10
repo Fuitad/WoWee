@@ -7684,28 +7684,30 @@ std::string scriptOrigin(const wowee::ui::WidgetTree& widgets, uint32_t wid,
     return out;
 }
 
-void LuaEngine::callFrameScript(uint32_t wid, const char* script,
-                                const char* arg) {
-    if (!L_ || wid == 0) return;
+int LuaEngine::beginFrameScript(uint32_t wid, const char* script) {
+    if (!L_ || wid == 0) return 0;
     lua_getglobal(L_, "__WoweeFramesByWid");
-    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return 0; }
     lua_pushinteger(L_, static_cast<lua_Integer>(wid));
     lua_rawget(L_, -2);
-    if (!lua_istable(L_, -1)) { lua_pop(L_, 2); return; }
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 2); return 0; }
 
     lua_getfield(L_, -1, "__scripts");
-    if (!lua_istable(L_, -1)) { lua_pop(L_, 3); return; }
+    if (!lua_istable(L_, -1)) { lua_pop(L_, 3); return 0; }
     // The traceback handler has to sit below the function it is handling for,
     // so it goes on before the script is fetched. A handler that fails now says
     // where it was called from, the same as one that fails during the load.
     lua_pushcfunction(L_, luaTracebackHandler);
     const int handlerIdx = lua_gettop(L_);
     lua_getfield(L_, handlerIdx - 1, script);
-    if (!lua_isfunction(L_, -1)) { lua_pop(L_, 5); return; }
+    if (!lua_isfunction(L_, -1)) { lua_pop(L_, 5); return 0; }
 
     lua_pushvalue(L_, handlerIdx - 2);  // self
-    int nargs = 1;
-    if (arg) { lua_pushstring(L_, arg); ++nargs; }
+    return handlerIdx;
+}
+
+void LuaEngine::finishFrameScript(uint32_t wid, const char* script,
+                                  int handlerIdx, int nargs) {
     if (lua_pcall(L_, nargs, 0, handlerIdx) != 0) {
         const char* err = lua_tostring(L_, -1);
         const std::string where = scriptOrigin(widgets_, wid, script);
@@ -7716,6 +7718,15 @@ void LuaEngine::callFrameScript(uint32_t wid, const char* script,
     }
     // Four, not three: the traceback handler is still below.
     lua_pop(L_, 4);
+}
+
+void LuaEngine::callFrameScript(uint32_t wid, const char* script,
+                                const char* arg) {
+    const int handlerIdx = beginFrameScript(wid, script);
+    if (handlerIdx == 0) return;
+    int nargs = 1;
+    if (arg) { lua_pushstring(L_, arg); ++nargs; }
+    finishFrameScript(wid, script, handlerIdx, nargs);
 }
 
 
@@ -7736,31 +7747,12 @@ bool LuaEngine::frameHasScript(uint32_t wid, const char* script) {
 
 void LuaEngine::callFrameScript3(uint32_t wid, const char* script,
                                  const char* a, const char* b, const char* c) {
-    if (!L_ || wid == 0) return;
-    lua_getglobal(L_, "__WoweeFramesByWid");
-    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
-    lua_pushinteger(L_, static_cast<lua_Integer>(wid));
-    lua_rawget(L_, -2);
-    if (!lua_istable(L_, -1)) { lua_pop(L_, 2); return; }
-    lua_getfield(L_, -1, "__scripts");
-    if (!lua_istable(L_, -1)) { lua_pop(L_, 3); return; }
-    lua_pushcfunction(L_, luaTracebackHandler);
-    const int handlerIdx = lua_gettop(L_);
-    lua_getfield(L_, handlerIdx - 1, script);
-    if (!lua_isfunction(L_, -1)) { lua_pop(L_, 5); return; }
-    lua_pushvalue(L_, handlerIdx - 2);   // self
+    const int handlerIdx = beginFrameScript(wid, script);
+    if (handlerIdx == 0) return;
     lua_pushstring(L_, a ? a : "");
     lua_pushstring(L_, b ? b : "");
     lua_pushstring(L_, c ? c : "");
-    if (lua_pcall(L_, 4, 0, handlerIdx) != 0) {
-        const char* err = lua_tostring(L_, -1);
-        const std::string where = scriptOrigin(widgets_, wid, script);
-        LOG_ERROR("LuaEngine: ", where, " error: ", err ? err : "?");
-        noteLuaError(where + ": " + (err ? err : "script error"));
-        if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
-        lua_pop(L_, 1);
-    }
-    lua_pop(L_, 4);
+    finishFrameScript(wid, script, handlerIdx, 4);
 }
 
 /// Where the caret sits, as the interface's own scrolling edit boxes want it.
@@ -7795,94 +7787,33 @@ void LuaEngine::fireCursorChanged(uint32_t wid) {
 
 void LuaEngine::callFrameScript4Numbers(uint32_t wid, const char* script,
                                         double a, double b, double c, double d) {
-    if (!L_ || wid == 0) return;
-    lua_getglobal(L_, "__WoweeFramesByWid");
-    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
-    lua_pushinteger(L_, static_cast<lua_Integer>(wid));
-    lua_rawget(L_, -2);
-    if (!lua_istable(L_, -1)) { lua_pop(L_, 2); return; }
-    lua_getfield(L_, -1, "__scripts");
-    if (!lua_istable(L_, -1)) { lua_pop(L_, 3); return; }
-    lua_pushcfunction(L_, luaTracebackHandler);
-    const int handlerIdx = lua_gettop(L_);
-    lua_getfield(L_, handlerIdx - 1, script);
-    if (!lua_isfunction(L_, -1)) { lua_pop(L_, 5); return; }
-    lua_pushvalue(L_, handlerIdx - 2);   // self
+    const int handlerIdx = beginFrameScript(wid, script);
+    if (handlerIdx == 0) return;
     lua_pushnumber(L_, a);
     lua_pushnumber(L_, b);
     lua_pushnumber(L_, c);
     lua_pushnumber(L_, d);
-    if (lua_pcall(L_, 5, 0, handlerIdx) != 0) {
-        const char* err = lua_tostring(L_, -1);
-        const std::string where = scriptOrigin(widgets_, wid, script);
-        LOG_ERROR("LuaEngine: ", where, " error: ", err ? err : "?");
-        noteLuaError(where + ": " + (err ? err : "script error"));
-        if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
-        lua_pop(L_, 1);
-    }
-    lua_pop(L_, 4);
+    finishFrameScript(wid, script, handlerIdx, 5);
 }
 
 void LuaEngine::callFrameScriptNumber(uint32_t wid, const char* script, double arg) {
-    if (!L_ || wid == 0) return;
-    lua_getglobal(L_, "__WoweeFramesByWid");
-    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
-    lua_pushinteger(L_, static_cast<lua_Integer>(wid));
-    lua_rawget(L_, -2);
-    if (!lua_istable(L_, -1)) { lua_pop(L_, 2); return; }
-
-    lua_getfield(L_, -1, "__scripts");
-    if (!lua_istable(L_, -1)) { lua_pop(L_, 3); return; }
-    lua_pushcfunction(L_, luaTracebackHandler);
-    const int handlerIdx = lua_gettop(L_);
-    lua_getfield(L_, handlerIdx - 1, script);
-    if (!lua_isfunction(L_, -1)) { lua_pop(L_, 5); return; }
-
-    lua_pushvalue(L_, handlerIdx - 2);  // self
+    const int handlerIdx = beginFrameScript(wid, script);
+    if (handlerIdx == 0) return;
     // A number, not a numeric string: OnMouseWheel bodies compare the delta
     // against zero, and Lua raises on comparing a string with a number even
     // where it would happily add them.
     lua_pushnumber(L_, arg);
-    if (lua_pcall(L_, 2, 0, handlerIdx) != 0) {
-        const char* err = lua_tostring(L_, -1);
-        const std::string where = scriptOrigin(widgets_, wid, script);
-        LOG_ERROR("LuaEngine: ", where, " error: ", err ? err : "?");
-        noteLuaError(where + ": " + (err ? err : "script error"));
-        if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
-        lua_pop(L_, 1);
-    }
-    lua_pop(L_, 4);
+    finishFrameScript(wid, script, handlerIdx, 2);
 }
 
 void LuaEngine::callFrameScriptColor(uint32_t wid, const char* script,
                                      const float rgb[3]) {
-    if (!L_ || wid == 0) return;
-    lua_getglobal(L_, "__WoweeFramesByWid");
-    if (!lua_istable(L_, -1)) { lua_pop(L_, 1); return; }
-    lua_pushinteger(L_, static_cast<lua_Integer>(wid));
-    lua_rawget(L_, -2);
-    if (!lua_istable(L_, -1)) { lua_pop(L_, 2); return; }
-
-    lua_getfield(L_, -1, "__scripts");
-    if (!lua_istable(L_, -1)) { lua_pop(L_, 3); return; }
-    lua_pushcfunction(L_, luaTracebackHandler);
-    const int handlerIdx = lua_gettop(L_);
-    lua_getfield(L_, handlerIdx - 1, script);
-    if (!lua_isfunction(L_, -1)) { lua_pop(L_, 5); return; }
-
-    lua_pushvalue(L_, handlerIdx - 2);  // self
+    const int handlerIdx = beginFrameScript(wid, script);
+    if (handlerIdx == 0) return;
     // r, g and b as three arguments, which is what OnColorSelect names them:
     // colorpickerframe.xml's body is ColorSwatch:SetTexture(r, g, b).
     for (int i = 0; i < 3; ++i) lua_pushnumber(L_, rgb[i]);
-    if (lua_pcall(L_, 4, 0, handlerIdx) != 0) {
-        const char* err = lua_tostring(L_, -1);
-        const std::string where = scriptOrigin(widgets_, wid, script);
-        LOG_ERROR("LuaEngine: ", where, " error: ", err ? err : "?");
-        noteLuaError(where + ": " + (err ? err : "script error"));
-        if (luaErrorCallback_) luaErrorCallback_(err ? err : "script error");
-        lua_pop(L_, 1);
-    }
-    lua_pop(L_, 4);
+    finishFrameScript(wid, script, handlerIdx, 4);
 }
 
 void LuaEngine::installMissingApiFallback() {
