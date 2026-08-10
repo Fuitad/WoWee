@@ -127,6 +127,11 @@ public:
 
 private:
     void update(float deltaTime);
+
+    /// One frame of being in the world — the largest arm of update()'s state
+    /// switch. updateCheckpoint travels by reference because the caller's catch
+    /// reports it: an exception here has to say where here was.
+    void updateInGame(float deltaTime, const char*& updateCheckpoint);
     void render();
     void performLogoutToLogin();
     void processDeferredLogoutToLogin();
