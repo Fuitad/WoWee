@@ -665,13 +665,12 @@ void GameScreen::renderMinimapMarkers(game::GameHandler& gameHandler) {
         }
     }
 
-    // Where an entity sits on the minimap, if it is on it at all.
+    // A render position onto the minimap disc, or false when it falls outside.
     //
-    // Fourteen loops below wanted the same three lines: take the entity's
-    // canonical position, convert it to render coordinates, project, and skip
-    // the entity when it falls outside the disc. The conversion in particular is
-    // one fact — that these two coordinate systems are not the same one — and it
-    // was written out at every one of them.
+    // The bottom of the three: everything else here converts to render
+    // coordinates and then comes through this. Answers false past the rim minus
+    // three units, which is what keeps a blip from being drawn half over the
+    // border.
     auto projectToMinimap = [&](const glm::vec3& worldRenderPos, float& sx, float& sy) -> bool {
         float dx = worldRenderPos.x - playerRender.x;
         float dy = worldRenderPos.y - playerRender.y;
