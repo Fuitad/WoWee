@@ -1651,6 +1651,15 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                             std::string extraPath = lookupCharSection(
                                 extra.raceId, extra.sexId, 0, 0, extra.skinId, 1);
                             int extraSlots = 0;
+                            // Seven race and sex pairs name no extra art, and
+                            // their models still carry 'Ohren' in the slot — a
+                            // name that is not a file. The body skin is a poor
+                            // substitute for an ear texture and a far better one
+                            // than nothing, which is what those ears had.
+                            if (extraPath.empty()) {
+                                extraPath = lookupCharSection(
+                                    extra.raceId, extra.sexId, 0, 0, extra.skinId, 0);
+                            }
                             rendering::VkTexture* extraTex =
                                 extraPath.empty() ? nullptr : charRenderer->loadTexture(extraPath);
                             if (extraTex && extraTex != whiteTex) {

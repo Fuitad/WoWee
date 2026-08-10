@@ -271,9 +271,20 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
             // the skin row is where it comes from; the underwear stays as the
             // fallback for a table that does not carry it, which is every stock
             // one — those models have no type 8 slot to fill anyway.
+            //
+            // Which art this is depends entirely on the race: a head-detail
+            // sheet for a human or an orc, the ears for a night elf, the horns
+            // for a draenei male, the tail for a draenei female. Seven of the
+            // twenty race and sex pairs name nothing at all, and those models
+            // still carry a name in the slot — the same 'Ohren' — so leaving a
+            // non-empty name alone left them with a name that is not a file and
+            // the geometry it belongs to untextured.
+            //
+            // A runtime slot's authored name is not authoritative, so it is
+            // never a reason to skip the fallback.
             if (!result.skinExtraPath.empty()) {
                 tex.filename = result.skinExtraPath;
-            } else if (tex.filename.empty()) {
+            } else {
                 tex.filename = !result.underwearPaths.empty() ? result.underwearPaths[0]
                                                              : pelvisPath;
             }
