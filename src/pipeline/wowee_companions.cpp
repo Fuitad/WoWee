@@ -71,8 +71,7 @@ bool WoweeCompanionLoader::save(const WoweeCompanion& cat,
         writePOD(os, e.companionKind);
         writePOD(os, e.rarity);
         writePOD(os, e.factionRestriction);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.learnSpellId);
         writePOD(os, e.itemId);
         writePOD(os, e.idleSoundId);
@@ -101,8 +100,7 @@ WoweeCompanion WoweeCompanionLoader::load(const std::string& basePath) {
             !readPOD(is, e.factionRestriction)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.learnSpellId) ||
             !readPOD(is, e.itemId) ||
             !readPOD(is, e.idleSoundId)) {

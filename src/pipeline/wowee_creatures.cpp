@@ -75,8 +75,7 @@ bool WoweeCreatureLoader::save(const WoweeCreature& cat,
         writePOD(os, e.npcFlags);
         writePOD(os, e.typeId);
         writePOD(os, e.familyId);
-        uint8_t pad[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad), 2);
+        writePadding(os, 2);
         writePOD(os, e.damageMin);
         writePOD(os, e.damageMax);
         writePOD(os, e.attackSpeedMs);
@@ -119,9 +118,7 @@ WoweeCreature WoweeCreatureLoader::load(const std::string& basePath) {
             !readPOD(is, e.familyId)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad[2];
-        is.read(reinterpret_cast<char*>(pad), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.damageMin) ||
             !readPOD(is, e.damageMax) ||
             !readPOD(is, e.attackSpeedMs) ||

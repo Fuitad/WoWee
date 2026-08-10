@@ -71,8 +71,7 @@ bool WoweeSpellCastTimeLoader::save(const WoweeSpellCastTime& cat,
         writeStr(os, e.name);
         writeStr(os, e.description);
         writePOD(os, e.castKind);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.baseCastMs);
         writePOD(os, e.perLevelMs);
         writePOD(os, e.minCastMs);
@@ -100,9 +99,7 @@ WoweeSpellCastTime WoweeSpellCastTimeLoader::load(
         if (!readPOD(is, e.castKind)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.baseCastMs) ||
             !readPOD(is, e.perLevelMs) ||
             !readPOD(is, e.minCastMs) ||

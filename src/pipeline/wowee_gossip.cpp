@@ -54,14 +54,13 @@ bool WoweeGossipLoader::save(const WoweeGossip& cat,
         uint8_t optCount = static_cast<uint8_t>(
             e.options.size() > 255 ? 255 : e.options.size());
         writePOD(os, optCount);
-        uint8_t pad[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad), 3);
+        writePadding(os, 3);
         for (uint8_t k = 0; k < optCount; ++k) {
             const auto& o = e.options[k];
             writePOD(os, o.optionId);
             writeStr(os, o.text);
             writePOD(os, o.kind);
-            os.write(reinterpret_cast<const char*>(pad), 3);
+            writePadding(os, 3);
             writePOD(os, o.actionTarget);
             writePOD(os, o.requiredFlags);
             writePOD(os, o.moneyCostCopper);
@@ -82,9 +81,7 @@ WoweeGossip WoweeGossipLoader::load(const std::string& basePath) {
         if (!readStr(is, e.titleText)) { out.entries.clear(); return out; }
         uint8_t optCount = 0;
         if (!readPOD(is, optCount)) { out.entries.clear(); return out; }
-        uint8_t pad[3];
-        is.read(reinterpret_cast<char*>(pad), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         e.options.resize(optCount);
         for (uint8_t k = 0; k < optCount; ++k) {
             auto& o = e.options[k];
@@ -97,8 +94,7 @@ WoweeGossip WoweeGossipLoader::load(const std::string& basePath) {
             if (!readPOD(is, o.kind)) {
                 out.entries.clear(); return out;
             }
-            is.read(reinterpret_cast<char*>(pad), 3);
-            if (is.gcount() != 3) { out.entries.clear(); return out; }
+            if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
             if (!readPOD(is, o.actionTarget) ||
                 !readPOD(is, o.requiredFlags) ||
                 !readPOD(is, o.moneyCostCopper)) {

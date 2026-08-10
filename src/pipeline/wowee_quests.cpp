@@ -60,12 +60,11 @@ bool WoweeQuestLoader::save(const WoweeQuest& cat,
         uint8_t objCount = static_cast<uint8_t>(
             e.objectives.size() > 255 ? 255 : e.objectives.size());
         writePOD(os, objCount);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         for (uint8_t k = 0; k < objCount; ++k) {
             const auto& o = e.objectives[k];
             writePOD(os, o.kind);
-            os.write(reinterpret_cast<const char*>(pad3), 3);
+            writePadding(os, 3);
             writePOD(os, o.targetId);
             writePOD(os, o.quantity);
             writePOD(os, pad16);
@@ -75,7 +74,7 @@ bool WoweeQuestLoader::save(const WoweeQuest& cat,
         uint8_t rewCount = static_cast<uint8_t>(
             e.rewardItems.size() > 255 ? 255 : e.rewardItems.size());
         writePOD(os, rewCount);
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         for (uint8_t k = 0; k < rewCount; ++k) {
             const auto& r = e.rewardItems[k];
             writePOD(os, r.itemId);
@@ -118,17 +117,14 @@ WoweeQuest WoweeQuestLoader::load(const std::string& basePath) {
         }
         uint8_t objCount = 0;
         if (!readPOD(is, objCount)) { out.entries.clear(); return out; }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         e.objectives.resize(objCount);
         for (uint8_t k = 0; k < objCount; ++k) {
             auto& o = e.objectives[k];
             if (!readPOD(is, o.kind)) {
                 out.entries.clear(); return out;
             }
-            is.read(reinterpret_cast<char*>(pad3), 3);
-            if (is.gcount() != 3) { out.entries.clear(); return out; }
+            if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
             if (!readPOD(is, o.targetId) || !readPOD(is, o.quantity)) {
                 out.entries.clear(); return out;
             }
@@ -143,8 +139,7 @@ WoweeQuest WoweeQuestLoader::load(const std::string& basePath) {
         }
         uint8_t rewCount = 0;
         if (!readPOD(is, rewCount)) { out.entries.clear(); return out; }
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         e.rewardItems.resize(rewCount);
         for (uint8_t k = 0; k < rewCount; ++k) {
             auto& r = e.rewardItems[k];

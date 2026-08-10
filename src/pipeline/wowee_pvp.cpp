@@ -48,12 +48,10 @@ bool WoweePVPRankLoader::save(const WoweePVPRank& cat,
         writePOD(os, e.rankKind);
         writePOD(os, e.minBracketLevel);
         writePOD(os, e.maxBracketLevel);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.minHonorOrRating);
         writePOD(os, e.rewardEmblems);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.titleId);
         writePOD(os, e.chestItemId);
         writePOD(os, e.glovesItemId);
@@ -85,15 +83,12 @@ WoweePVPRank WoweePVPRankLoader::load(const std::string& basePath) {
             !readPOD(is, e.maxBracketLevel)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.minHonorOrRating) ||
             !readPOD(is, e.rewardEmblems)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.titleId) ||
             !readPOD(is, e.chestItemId) ||
             !readPOD(is, e.glovesItemId) ||

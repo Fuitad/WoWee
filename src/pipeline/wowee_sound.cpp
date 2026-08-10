@@ -45,8 +45,7 @@ bool WoweeSoundLoader::save(const WoweeSound& cat,
     for (const auto& e : cat.entries) {
         writePOD(os, e.soundId);
         writePOD(os, e.kind);
-        uint8_t pad[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad), 3);
+        writePadding(os, 3);
         writePOD(os, e.flags);
         writePOD(os, e.volume);
         writePOD(os, e.minDistance);
@@ -74,9 +73,7 @@ WoweeSound WoweeSoundLoader::load(const std::string& basePath) {
     for (auto& e : out.entries) {
         if (!readPOD(is, e.soundId)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.kind))    { out.entries.clear(); return out; }
-        uint8_t pad[3];
-        is.read(reinterpret_cast<char*>(pad), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.flags))       { out.entries.clear(); return out; }
         if (!readPOD(is, e.volume))      { out.entries.clear(); return out; }
         if (!readPOD(is, e.minDistance)) { out.entries.clear(); return out; }

@@ -73,10 +73,9 @@ bool WoweeMapsLoader::save(const WoweeMaps& cat,
         writeStr(os, m.shortName);
         writePOD(os, m.mapType);
         writePOD(os, m.expansionId);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, m.maxPlayers);
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
     }
     uint32_t areaCount = static_cast<uint32_t>(cat.areas.size());
     writePOD(os, areaCount);
@@ -88,8 +87,7 @@ bool WoweeMapsLoader::save(const WoweeMaps& cat,
         writePOD(os, a.minLevel);
         writePOD(os, a.maxLevel);
         writePOD(os, a.factionGroup);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, a.explorationXP);
         writePOD(os, a.ambienceSoundId);
     }
@@ -118,14 +116,11 @@ WoweeMaps WoweeMapsLoader::load(const std::string& basePath) {
         if (!readPOD(is, m.mapType) || !readPOD(is, m.expansionId)) {
             out.maps.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.maps.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.maps.clear(); return out; }
         if (!readPOD(is, m.maxPlayers)) {
             out.maps.clear(); return out;
         }
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.maps.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.maps.clear(); return out; }
     }
     uint32_t areaCount = 0;
     if (!readPOD(is, areaCount)) {
@@ -149,9 +144,7 @@ WoweeMaps WoweeMapsLoader::load(const std::string& basePath) {
             !readPOD(is, a.factionGroup)) {
             out.maps.clear(); out.areas.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) {
+        if (!skipPadding(is, 3)) {
             out.maps.clear(); out.areas.clear(); return out;
         }
         if (!readPOD(is, a.explorationXP) ||

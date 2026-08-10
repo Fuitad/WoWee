@@ -45,8 +45,7 @@ bool WoweeTokenLoader::save(const WoweeToken& cat,
         writeStr(os, e.description);
         writeStr(os, e.iconPath);
         writePOD(os, e.category);
-        uint8_t pad[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad), 3);
+        writePadding(os, 3);
         writePOD(os, e.maxBalance);
         writePOD(os, e.weeklyCap);
         writePOD(os, e.flags);
@@ -70,9 +69,7 @@ WoweeToken WoweeTokenLoader::load(const std::string& basePath) {
         if (!readPOD(is, e.category)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad[3];
-        is.read(reinterpret_cast<char*>(pad), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.maxBalance) ||
             !readPOD(is, e.weeklyCap) ||
             !readPOD(is, e.flags)) {

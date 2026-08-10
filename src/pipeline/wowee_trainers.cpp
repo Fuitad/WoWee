@@ -40,8 +40,7 @@ bool WoweeTrainerLoader::save(const WoweeTrainer& cat,
     for (const auto& e : cat.entries) {
         writePOD(os, e.npcId);
         writePOD(os, e.kindMask);
-        uint8_t pad[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad), 3);
+        writePadding(os, 3);
         writeStr(os, e.greeting);
         uint16_t spellCount = static_cast<uint16_t>(
             e.spells.size() > 0xFFFF ? 0xFFFF : e.spells.size());
@@ -80,9 +79,7 @@ WoweeTrainer WoweeTrainerLoader::load(const std::string& basePath) {
         if (!readPOD(is, e.npcId) || !readPOD(is, e.kindMask)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad[3];
-        is.read(reinterpret_cast<char*>(pad), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readStr(is, e.greeting)) { out.entries.clear(); return out; }
         uint16_t spellCount = 0, itemCount = 0;
         if (!readPOD(is, spellCount) || !readPOD(is, itemCount)) {

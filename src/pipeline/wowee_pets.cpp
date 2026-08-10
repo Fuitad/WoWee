@@ -63,8 +63,7 @@ bool WoweePetLoader::save(const WoweePet& cat,
         writeStr(os, f.description);
         writeStr(os, f.iconPath);
         writePOD(os, f.petType);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, f.baseAttackSpeed);
         writePOD(os, f.damageMultiplier);
         writePOD(os, f.armorMultiplier);
@@ -72,14 +71,13 @@ bool WoweePetLoader::save(const WoweePet& cat,
         uint8_t abCount = static_cast<uint8_t>(
             f.abilities.size() > 255 ? 255 : f.abilities.size());
         writePOD(os, abCount);
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         for (uint8_t k = 0; k < abCount; ++k) {
             const auto& a = f.abilities[k];
             writePOD(os, a.spellId);
             writePOD(os, a.learnedAtLevel);
             writePOD(os, a.rank);
-            uint8_t pad = 0;
-            writePOD(os, pad);
+            writePadding(os, 1);
         }
     }
     uint32_t minCount = static_cast<uint32_t>(cat.minions.size());
@@ -92,15 +90,13 @@ bool WoweePetLoader::save(const WoweePet& cat,
         uint8_t abCount = static_cast<uint8_t>(
             m.abilities.size() > 255 ? 255 : m.abilities.size());
         writePOD(os, abCount);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         for (uint8_t k = 0; k < abCount; ++k) {
             const auto& a = m.abilities[k];
             writePOD(os, a.spellId);
             writePOD(os, a.rank);
             writePOD(os, a.autocastDefault);
-            uint8_t pad2[2] = {0, 0};
-            os.write(reinterpret_cast<const char*>(pad2), 2);
+            writePadding(os, 2);
         }
     }
     return os.good();
@@ -129,25 +125,21 @@ WoweePet WoweePetLoader::load(const std::string& basePath) {
         if (!readStr(is, f.name) || !readStr(is, f.description) ||
             !readStr(is, f.iconPath)) return fail();
         if (!readPOD(is, f.petType)) return fail();
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) return fail();
+        if (!skipPadding(is, 3)) return fail();
         if (!readPOD(is, f.baseAttackSpeed) ||
             !readPOD(is, f.damageMultiplier) ||
             !readPOD(is, f.armorMultiplier) ||
             !readPOD(is, f.dietMask)) return fail();
         uint8_t abCount = 0;
         if (!readPOD(is, abCount)) return fail();
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) return fail();
+        if (!skipPadding(is, 3)) return fail();
         f.abilities.resize(abCount);
         for (uint8_t k = 0; k < abCount; ++k) {
             auto& a = f.abilities[k];
             if (!readPOD(is, a.spellId) ||
                 !readPOD(is, a.learnedAtLevel) ||
                 !readPOD(is, a.rank)) return fail();
-            uint8_t pad = 0;
-            if (!readPOD(is, pad)) return fail();
+            if (!skipPadding(is, 1)) return fail();
         }
     }
     uint32_t minCount = 0;
@@ -161,18 +153,14 @@ WoweePet WoweePetLoader::load(const std::string& basePath) {
             !readPOD(is, m.creatureId)) return fail();
         uint8_t abCount = 0;
         if (!readPOD(is, abCount)) return fail();
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) return fail();
+        if (!skipPadding(is, 3)) return fail();
         m.abilities.resize(abCount);
         for (uint8_t k = 0; k < abCount; ++k) {
             auto& a = m.abilities[k];
             if (!readPOD(is, a.spellId) ||
                 !readPOD(is, a.rank) ||
                 !readPOD(is, a.autocastDefault)) return fail();
-            uint8_t pad2[2];
-            is.read(reinterpret_cast<char*>(pad2), 2);
-            if (is.gcount() != 2) return fail();
+            if (!skipPadding(is, 2)) return fail();
         }
     }
     return out;

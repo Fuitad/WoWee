@@ -34,8 +34,7 @@ bool WoweeItemSetLoader::save(const WoweeItemSet& cat,
         writeStr(os, e.description);
         writePOD(os, e.pieceCount);
         writePOD(os, e.bonusCount);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.requiredClassMask);
         writePOD(os, e.requiredSkillId);
         writePOD(os, e.requiredSkillRank);
@@ -70,9 +69,7 @@ WoweeItemSet WoweeItemSetLoader::load(const std::string& basePath) {
             !readPOD(is, e.bonusCount)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.requiredClassMask) ||
             !readPOD(is, e.requiredSkillId) ||
             !readPOD(is, e.requiredSkillRank)) {

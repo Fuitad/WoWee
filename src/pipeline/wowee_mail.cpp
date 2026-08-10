@@ -55,13 +55,12 @@ bool WoweeMailLoader::save(const WoweeMail& cat,
         writePOD(os, e.cod);
         writePOD(os, e.returnable);
         writePOD(os, e.expiryDays);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         for (uint8_t k = 0; k < attCount; ++k) {
             const auto& a = e.attachments[k];
             writePOD(os, a.itemId);
             writePOD(os, a.quantity);
-            os.write(reinterpret_cast<const char*>(pad2), 2);
+            writePadding(os, 2);
         }
     }
     return os.good();
@@ -94,9 +93,7 @@ WoweeMail WoweeMailLoader::load(const std::string& basePath) {
             !readPOD(is, e.expiryDays)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
         e.attachments.resize(attCount);
         for (uint8_t k = 0; k < attCount; ++k) {
             auto& a = e.attachments[k];
@@ -104,8 +101,7 @@ WoweeMail WoweeMailLoader::load(const std::string& basePath) {
                 !readPOD(is, a.quantity)) {
                 out.entries.clear(); return out;
             }
-            is.read(reinterpret_cast<char*>(pad2), 2);
-            if (is.gcount() != 2) { out.entries.clear(); return out; }
+            if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
         }
     }
     return out;

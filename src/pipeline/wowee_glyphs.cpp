@@ -43,14 +43,12 @@ bool WoweeGlyphLoader::save(const WoweeGlyph& cat,
         writeStr(os, e.description);
         writeStr(os, e.iconPath);
         writePOD(os, e.glyphType);
-        uint8_t pad[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad), 3);
+        writePadding(os, 3);
         writePOD(os, e.spellId);
         writePOD(os, e.itemId);
         writePOD(os, e.classMask);
         writePOD(os, e.requiredLevel);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
     }
     return os.good();
 }
@@ -73,18 +71,14 @@ WoweeGlyph WoweeGlyphLoader::load(const std::string& basePath) {
         if (!readPOD(is, e.glyphType)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad[3];
-        is.read(reinterpret_cast<char*>(pad), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.spellId) ||
             !readPOD(is, e.itemId) ||
             !readPOD(is, e.classMask) ||
             !readPOD(is, e.requiredLevel)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
     }
     return out;
 }

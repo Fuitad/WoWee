@@ -75,8 +75,7 @@ bool WoweeSpellLoader::save(const WoweeSpell& cat,
         writePOD(os, e.school);
         writePOD(os, e.targetType);
         writePOD(os, e.effectKind);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.castTimeMs);
         writePOD(os, e.cooldownMs);
         writePOD(os, e.gcdMs);
@@ -112,8 +111,7 @@ WoweeSpell WoweeSpellLoader::load(const std::string& basePath) {
             !readPOD(is, e.effectKind)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) {
+        if (!skipPadding(is, 1)) {
             out.entries.clear(); return out;
         }
         if (!readPOD(is, e.castTimeMs) ||

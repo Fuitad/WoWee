@@ -47,20 +47,17 @@ bool WoweeTalentLoader::save(const WoweeTalent& cat,
         uint16_t talentCount = static_cast<uint16_t>(
             t.talents.size() > 0xFFFF ? 0xFFFF : t.talents.size());
         writePOD(os, talentCount);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         for (uint16_t k = 0; k < talentCount; ++k) {
             const auto& a = t.talents[k];
             writePOD(os, a.talentId);
             writePOD(os, a.row);
             writePOD(os, a.col);
             writePOD(os, a.maxRank);
-            uint8_t pad1 = 0;
-            writePOD(os, pad1);
+            writePadding(os, 1);
             writePOD(os, a.prereqTalentId);
             writePOD(os, a.prereqRank);
-            uint8_t pad3[3] = {0, 0, 0};
-            os.write(reinterpret_cast<const char*>(pad3), 3);
+            writePadding(os, 3);
             for (int r = 0; r < WoweeTalent::kMaxRanks; ++r) {
                 writePOD(os, a.rankSpellIds[r]);
             }
@@ -95,9 +92,7 @@ WoweeTalent WoweeTalentLoader::load(const std::string& basePath) {
         if (!readPOD(is, talentCount)) {
             out.trees.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.trees.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.trees.clear(); return out; }
         t.talents.resize(talentCount);
         for (uint16_t k = 0; k < talentCount; ++k) {
             auto& a = t.talents[k];
@@ -107,17 +102,14 @@ WoweeTalent WoweeTalentLoader::load(const std::string& basePath) {
                 !readPOD(is, a.maxRank)) {
                 out.trees.clear(); return out;
             }
-            uint8_t pad1 = 0;
-            if (!readPOD(is, pad1)) {
+            if (!skipPadding(is, 1)) {
                 out.trees.clear(); return out;
             }
             if (!readPOD(is, a.prereqTalentId) ||
                 !readPOD(is, a.prereqRank)) {
                 out.trees.clear(); return out;
             }
-            uint8_t pad3[3];
-            is.read(reinterpret_cast<char*>(pad3), 3);
-            if (is.gcount() != 3) { out.trees.clear(); return out; }
+            if (!skipPadding(is, 3)) { out.trees.clear(); return out; }
             for (int r = 0; r < WoweeTalent::kMaxRanks; ++r) {
                 if (!readPOD(is, a.rankSpellIds[r])) {
                     out.trees.clear(); return out;

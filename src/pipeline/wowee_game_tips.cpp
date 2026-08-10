@@ -44,14 +44,12 @@ bool WoweeGameTipLoader::save(const WoweeGameTip& cat,
         writeStr(os, e.text);
         writeStr(os, e.iconPath);
         writePOD(os, e.displayKind);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.audienceFilter);
         writePOD(os, e.minLevel);
         writePOD(os, e.maxLevel);
         writePOD(os, e.displayWeight);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.conditionId);
         writePOD(os, e.requiredClassMask);
     }
@@ -76,18 +74,14 @@ WoweeGameTip WoweeGameTipLoader::load(const std::string& basePath) {
         if (!readPOD(is, e.displayKind)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.audienceFilter) ||
             !readPOD(is, e.minLevel) ||
             !readPOD(is, e.maxLevel) ||
             !readPOD(is, e.displayWeight)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.conditionId) ||
             !readPOD(is, e.requiredClassMask)) {
             out.entries.clear(); return out;

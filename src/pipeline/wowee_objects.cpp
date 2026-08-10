@@ -56,8 +56,7 @@ bool WoweeGameObjectLoader::save(const WoweeGameObject& cat,
         writePOD(os, e.displayId);
         writeStr(os, e.name);
         writePOD(os, e.typeId);
-        uint8_t pad[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad), 3);
+        writePadding(os, 3);
         writePOD(os, e.size);
         writeStr(os, e.castBarCaption);
         writePOD(os, e.requiredSkill);
@@ -89,9 +88,7 @@ WoweeGameObject WoweeGameObjectLoader::load(const std::string& basePath) {
         if (!readPOD(is, e.typeId)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad[3];
-        is.read(reinterpret_cast<char*>(pad), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.size) ||
             !readStr(is, e.castBarCaption) ||
             !readPOD(is, e.requiredSkill) ||

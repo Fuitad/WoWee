@@ -55,8 +55,7 @@ bool WoweeQuestSortLoader::save(const WoweeQuestSort& cat,
         writePOD(os, e.sortKind);
         writePOD(os, e.displayPriority);
         writePOD(os, e.targetProfessionId);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.targetClassMask);
         writePOD(os, e.targetFactionId);
     }
@@ -83,8 +82,7 @@ WoweeQuestSort WoweeQuestSortLoader::load(const std::string& basePath) {
             !readPOD(is, e.targetProfessionId)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.targetClassMask) ||
             !readPOD(is, e.targetFactionId)) {
             out.entries.clear(); return out;

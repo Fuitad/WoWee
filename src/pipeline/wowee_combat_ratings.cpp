@@ -46,8 +46,7 @@ bool WoweeCombatRatingLoader::save(const WoweeCombatRating& cat,
         writeStr(os, e.description);
         writeStr(os, e.iconPath);
         writePOD(os, e.ratingKind);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.pointsAtL1);
         writePOD(os, e.pointsAtL60);
         writePOD(os, e.pointsAtL70);
@@ -76,9 +75,7 @@ WoweeCombatRating WoweeCombatRatingLoader::load(
         if (!readPOD(is, e.ratingKind)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.pointsAtL1) ||
             !readPOD(is, e.pointsAtL60) ||
             !readPOD(is, e.pointsAtL70) ||

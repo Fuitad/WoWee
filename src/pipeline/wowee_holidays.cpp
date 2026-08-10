@@ -60,8 +60,7 @@ bool WoweeHolidayLoader::save(const WoweeHoliday& cat,
         writePOD(os, e.startMonth);
         writePOD(os, e.startDay);
         writePOD(os, e.durationHours);
-        uint8_t pad[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad), 2);
+        writePadding(os, 2);
         writePOD(os, e.holidayQuestId);
         writePOD(os, e.bossCreatureId);
         writePOD(os, e.itemRewardId);
@@ -93,9 +92,7 @@ WoweeHoliday WoweeHolidayLoader::load(const std::string& basePath) {
             !readPOD(is, e.durationHours)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad[2];
-        is.read(reinterpret_cast<char*>(pad), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.holidayQuestId) ||
             !readPOD(is, e.bossCreatureId) ||
             !readPOD(is, e.itemRewardId) ||

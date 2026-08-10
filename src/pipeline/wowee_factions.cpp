@@ -55,13 +55,12 @@ bool WoweeFactionLoader::save(const WoweeFaction& cat,
         uint8_t enCount = static_cast<uint8_t>(
             e.enemies.size() > 255 ? 255 : e.enemies.size());
         writePOD(os, enCount);
-        uint8_t pad[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad), 3);
+        writePadding(os, 3);
         for (uint8_t k = 0; k < enCount; ++k) writePOD(os, e.enemies[k]);
         uint8_t frCount = static_cast<uint8_t>(
             e.friends.size() > 255 ? 255 : e.friends.size());
         writePOD(os, frCount);
-        os.write(reinterpret_cast<const char*>(pad), 3);
+        writePadding(os, 3);
         for (uint8_t k = 0; k < frCount; ++k) writePOD(os, e.friends[k]);
     }
     return os.good();
@@ -95,9 +94,7 @@ WoweeFaction WoweeFactionLoader::load(const std::string& basePath) {
         }
         uint8_t enCount = 0;
         if (!readPOD(is, enCount)) { out.entries.clear(); return out; }
-        uint8_t pad[3];
-        is.read(reinterpret_cast<char*>(pad), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         e.enemies.resize(enCount);
         for (uint8_t k = 0; k < enCount; ++k) {
             if (!readPOD(is, e.enemies[k])) {
@@ -106,8 +103,7 @@ WoweeFaction WoweeFactionLoader::load(const std::string& basePath) {
         }
         uint8_t frCount = 0;
         if (!readPOD(is, frCount)) { out.entries.clear(); return out; }
-        is.read(reinterpret_cast<char*>(pad), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         e.friends.resize(frCount);
         for (uint8_t k = 0; k < frCount; ++k) {
             if (!readPOD(is, e.friends[k])) {

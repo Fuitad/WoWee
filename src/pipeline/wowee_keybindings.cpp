@@ -60,8 +60,7 @@ bool WoweeKeyBindingLoader::save(const WoweeKeyBinding& cat,
         writePOD(os, e.category);
         writePOD(os, e.isUserOverridable);
         writePOD(os, e.sortOrder);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
     }
     return os.good();
 }
@@ -88,8 +87,7 @@ WoweeKeyBinding WoweeKeyBindingLoader::load(const std::string& basePath) {
             !readPOD(is, e.sortOrder)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
     }
     return out;
 }

@@ -64,8 +64,7 @@ bool WoweeLFGDungeonLoader::save(const WoweeLFGDungeon& cat,
         writePOD(os, e.expansionRequired);
         writePOD(os, e.queueRewardItemId);
         writePOD(os, e.queueRewardEmblemCount);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.firstClearAchievement);
     }
     return os.good();
@@ -99,9 +98,7 @@ WoweeLFGDungeon WoweeLFGDungeonLoader::load(
             !readPOD(is, e.queueRewardEmblemCount)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.firstClearAchievement)) {
             out.entries.clear(); return out;
         }

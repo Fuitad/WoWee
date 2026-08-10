@@ -69,6 +69,34 @@ inline bool readStr(std::ifstream& is, std::string& s) {
     return true;
 }
 
+/// Write `bytes` of zero padding.
+///
+/// The records hold a uint8_t or two followed by something wider, and the
+/// padding keeps the wider field where a struct would have put it. Both halves
+/// have to agree byte for byte or every field after it reads one place off, so
+/// the two are written next to each other here rather than at each of the
+/// thirty-two places that needed them.
+inline void writePadding(std::ofstream& os, size_t bytes) {
+    static const char zeros[8] = {};
+    while (bytes > 0) {
+        const size_t chunk = bytes < sizeof(zeros) ? bytes : sizeof(zeros);
+        os.write(zeros, static_cast<std::streamsize>(chunk));
+        bytes -= chunk;
+    }
+}
+
+/// Step over that padding. False means the file ended inside it.
+inline bool skipPadding(std::ifstream& is, size_t bytes) {
+    char discard[8];
+    while (bytes > 0) {
+        const size_t chunk = bytes < sizeof(discard) ? bytes : sizeof(discard);
+        is.read(discard, static_cast<std::streamsize>(chunk));
+        if (is.gcount() != static_cast<std::streamsize>(chunk)) return false;
+        bytes -= chunk;
+    }
+    return true;
+}
+
 /// Write the header every .w* file starts with: magic, version, the catalog's
 /// name, and how many entries follow.
 inline void writeCatalogHeader(std::ofstream& os, const char magic[4], uint32_t version,

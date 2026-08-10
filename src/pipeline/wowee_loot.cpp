@@ -33,8 +33,7 @@ bool WoweeLootLoader::save(const WoweeLoot& cat,
         writePOD(os, e.creatureId);
         writePOD(os, e.flags);
         writePOD(os, e.dropCount);
-        uint8_t pad[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad), 3);
+        writePadding(os, 3);
         writePOD(os, e.moneyMinCopper);
         writePOD(os, e.moneyMaxCopper);
         uint32_t dropN = static_cast<uint32_t>(e.itemDrops.size());
@@ -65,9 +64,7 @@ WoweeLoot WoweeLootLoader::load(const std::string& basePath) {
             !readPOD(is, e.dropCount)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad[3];
-        is.read(reinterpret_cast<char*>(pad), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.moneyMinCopper) ||
             !readPOD(is, e.moneyMaxCopper)) {
             out.entries.clear(); return out;

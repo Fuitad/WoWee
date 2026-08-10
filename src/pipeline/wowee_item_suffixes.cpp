@@ -47,14 +47,12 @@ bool WoweeItemSuffixLoader::save(const WoweeItemSuffix& cat,
         writePOD(os, e.itemQualityFloor);
         writePOD(os, e.itemQualityCeiling);
         writePOD(os, e.suffixCategory);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.restrictedSlotMask);
         for (size_t k = 0; k < WoweeItemSuffix::kMaxStats; ++k) {
             writePOD(os, e.statKind[k]);
         }
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         for (size_t k = 0; k < WoweeItemSuffix::kMaxStats; ++k) {
             writePOD(os, e.statValuePoints[k]);
         }
@@ -81,8 +79,7 @@ WoweeItemSuffix WoweeItemSuffixLoader::load(const std::string& basePath) {
             !readPOD(is, e.suffixCategory)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.restrictedSlotMask)) {
             out.entries.clear(); return out;
         }
@@ -91,9 +88,7 @@ WoweeItemSuffix WoweeItemSuffixLoader::load(const std::string& basePath) {
                 out.entries.clear(); return out;
             }
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         for (size_t k = 0; k < WoweeItemSuffix::kMaxStats; ++k) {
             if (!readPOD(is, e.statValuePoints[k])) {
                 out.entries.clear(); return out;

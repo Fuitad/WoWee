@@ -49,11 +49,9 @@ bool WoweeRuneCostLoader::save(const WoweeRuneCost& cat,
         writePOD(os, e.unholyCost);
         writePOD(os, e.anyDeathConvertCost);
         writePOD(os, e.runicPowerCost);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.spellTreeBranch);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
     }
     return os.good();
 }
@@ -80,15 +78,11 @@ WoweeRuneCost WoweeRuneCostLoader::load(const std::string& basePath) {
             !readPOD(is, e.runicPowerCost)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.spellTreeBranch)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
     }
     return out;
 }

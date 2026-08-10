@@ -67,11 +67,9 @@ bool WoweeGemLoader::save(const WoweeGem& cat,
         writePOD(os, g.color);
         writePOD(os, g.statType);
         writePOD(os, g.requiredItemQuality);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, g.statValue);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, g.spellId);
     }
     uint32_t enchCount = static_cast<uint32_t>(cat.enchantments.size());
@@ -83,14 +81,13 @@ bool WoweeGemLoader::save(const WoweeGem& cat,
         writeStr(os, e.iconPath);
         writePOD(os, e.enchantSlot);
         writePOD(os, e.statType);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.statValue);
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.spellId);
         writePOD(os, e.durationSeconds);
         writePOD(os, e.chargeCount);
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
     }
     return os.good();
 }
@@ -122,16 +119,13 @@ WoweeGem WoweeGemLoader::load(const std::string& basePath) {
             !readPOD(is, g.requiredItemQuality)) {
             out.gems.clear(); return out;
         }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) {
+        if (!skipPadding(is, 1)) {
             out.gems.clear(); return out;
         }
         if (!readPOD(is, g.statValue)) {
             out.gems.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.gems.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.gems.clear(); return out; }
         if (!readPOD(is, g.spellId)) {
             out.gems.clear(); return out;
         }
@@ -156,16 +150,13 @@ WoweeGem WoweeGemLoader::load(const std::string& basePath) {
             !readPOD(is, e.statType)) {
             out.gems.clear(); out.enchantments.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) {
+        if (!skipPadding(is, 2)) {
             out.gems.clear(); out.enchantments.clear(); return out;
         }
         if (!readPOD(is, e.statValue)) {
             out.gems.clear(); out.enchantments.clear(); return out;
         }
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) {
+        if (!skipPadding(is, 2)) {
             out.gems.clear(); out.enchantments.clear(); return out;
         }
         if (!readPOD(is, e.spellId) ||
@@ -173,8 +164,7 @@ WoweeGem WoweeGemLoader::load(const std::string& basePath) {
             !readPOD(is, e.chargeCount)) {
             out.gems.clear(); out.enchantments.clear(); return out;
         }
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) {
+        if (!skipPadding(is, 2)) {
             out.gems.clear(); out.enchantments.clear(); return out;
         }
     }

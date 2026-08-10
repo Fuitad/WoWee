@@ -48,12 +48,10 @@ bool WoweeMacroLoader::save(const WoweeMacro& cat,
         writeStr(os, e.macroBody);
         writeStr(os, e.bindKey);
         writePOD(os, e.macroKind);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.requiredClassMask);
         writePOD(os, e.maxLength);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
     }
     return os.good();
 }
@@ -77,16 +75,12 @@ WoweeMacro WoweeMacroLoader::load(const std::string& basePath) {
         if (!readPOD(is, e.macroKind)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.requiredClassMask) ||
             !readPOD(is, e.maxLength)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
     }
     return out;
 }

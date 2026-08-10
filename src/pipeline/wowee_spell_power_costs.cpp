@@ -76,8 +76,7 @@ bool WoweeSpellPowerCostLoader::save(const WoweeSpellPowerCost& cat,
         writeStr(os, e.name);
         writeStr(os, e.description);
         writePOD(os, e.powerType);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.baseCost);
         writePOD(os, e.perLevelCost);
         writePOD(os, e.percentOfBase);
@@ -105,9 +104,7 @@ WoweeSpellPowerCost WoweeSpellPowerCostLoader::load(
         if (!readPOD(is, e.powerType)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.baseCost) ||
             !readPOD(is, e.perLevelCost) ||
             !readPOD(is, e.percentOfBase) ||

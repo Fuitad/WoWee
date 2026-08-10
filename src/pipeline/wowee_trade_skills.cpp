@@ -55,8 +55,7 @@ bool WoweeTradeSkillLoader::save(const WoweeTradeSkill& cat,
         writeStr(os, e.description);
         writeStr(os, e.iconPath);
         writePOD(os, e.profession);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.skillId);
         writePOD(os, e.orangeRank);
         writePOD(os, e.yellowRank);
@@ -66,8 +65,7 @@ bool WoweeTradeSkillLoader::save(const WoweeTradeSkill& cat,
         writePOD(os, e.producedItemId);
         writePOD(os, e.producedMinCount);
         writePOD(os, e.producedMaxCount);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.toolItemId);
         for (size_t k = 0; k < WoweeTradeSkill::kMaxReagents; ++k) {
             writePOD(os, e.reagentItemId[k]);
@@ -97,9 +95,7 @@ WoweeTradeSkill WoweeTradeSkillLoader::load(const std::string& basePath) {
         if (!readPOD(is, e.profession)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.skillId) ||
             !readPOD(is, e.orangeRank) ||
             !readPOD(is, e.yellowRank) ||
@@ -111,9 +107,7 @@ WoweeTradeSkill WoweeTradeSkillLoader::load(const std::string& basePath) {
             !readPOD(is, e.producedMaxCount)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.toolItemId)) {
             out.entries.clear(); return out;
         }

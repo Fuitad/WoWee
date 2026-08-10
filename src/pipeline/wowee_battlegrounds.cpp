@@ -48,15 +48,13 @@ bool WoweeBattlegroundLoader::save(const WoweeBattleground& cat,
         writePOD(os, e.objectiveKind);
         writePOD(os, e.minPlayersPerSide);
         writePOD(os, e.maxPlayersPerSide);
-        uint8_t pad1 = 0;
-        writePOD(os, pad1);
+        writePadding(os, 1);
         writePOD(os, e.minLevel);
         writePOD(os, e.maxLevel);
         writePOD(os, e.scoreToWin);
         writePOD(os, e.timeLimitSeconds);
         writePOD(os, e.bracketSize);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.allianceStart.x);
         writePOD(os, e.allianceStart.y);
         writePOD(os, e.allianceStart.z);
@@ -66,7 +64,7 @@ bool WoweeBattlegroundLoader::save(const WoweeBattleground& cat,
         writePOD(os, e.hordeStart.z);
         writePOD(os, e.hordeFacing);
         writePOD(os, e.respawnTimeSeconds);
-        os.write(reinterpret_cast<const char*>(pad3), 2);
+        writePadding(os, 2);
         writePOD(os, e.markTokenId);
     }
     return os.good();
@@ -92,8 +90,7 @@ WoweeBattleground WoweeBattlegroundLoader::load(const std::string& basePath) {
             !readPOD(is, e.maxPlayersPerSide)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad1 = 0;
-        if (!readPOD(is, pad1)) {
+        if (!skipPadding(is, 1)) {
             out.entries.clear(); return out;
         }
         if (!readPOD(is, e.minLevel) ||
@@ -103,9 +100,7 @@ WoweeBattleground WoweeBattlegroundLoader::load(const std::string& basePath) {
             !readPOD(is, e.bracketSize)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.allianceStart.x) ||
             !readPOD(is, e.allianceStart.y) ||
             !readPOD(is, e.allianceStart.z) ||
@@ -117,8 +112,7 @@ WoweeBattleground WoweeBattlegroundLoader::load(const std::string& basePath) {
             !readPOD(is, e.respawnTimeSeconds)) {
             out.entries.clear(); return out;
         }
-        is.read(reinterpret_cast<char*>(pad3), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.markTokenId)) {
             out.entries.clear(); return out;
         }

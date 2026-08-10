@@ -47,8 +47,7 @@ bool WoweeAnimationLoader::save(const WoweeAnimation& cat,
         writePOD(os, e.fallbackId);
         writePOD(os, e.behaviorId);
         writePOD(os, e.behaviorTier);
-        uint8_t pad[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad), 3);
+        writePadding(os, 3);
         writePOD(os, e.flags);
         writePOD(os, e.weaponFlags);
         writePOD(os, e.loopDurationMs);
@@ -75,9 +74,7 @@ WoweeAnimation WoweeAnimationLoader::load(const std::string& basePath) {
             !readPOD(is, e.behaviorTier)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad[3];
-        is.read(reinterpret_cast<char*>(pad), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.flags) ||
             !readPOD(is, e.weaponFlags) ||
             !readPOD(is, e.loopDurationMs)) {

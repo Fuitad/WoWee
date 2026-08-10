@@ -69,8 +69,7 @@ bool WoweeSpellDurationLoader::save(const WoweeSpellDuration& cat,
         writeStr(os, e.name);
         writeStr(os, e.description);
         writePOD(os, e.durationKind);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.baseDurationMs);
         writePOD(os, e.perLevelMs);
         writePOD(os, e.maxDurationMs);
@@ -97,9 +96,7 @@ WoweeSpellDuration WoweeSpellDurationLoader::load(
         if (!readPOD(is, e.durationKind)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.baseDurationMs) ||
             !readPOD(is, e.perLevelMs) ||
             !readPOD(is, e.maxDurationMs) ||

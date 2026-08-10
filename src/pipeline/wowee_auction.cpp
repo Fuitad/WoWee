@@ -42,16 +42,14 @@ bool WoweeAuctionLoader::save(const WoweeAuction& cat,
         writePOD(os, e.auctioneerNpcId);
         writeStr(os, e.name);
         writePOD(os, e.factionAccess);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.baseDepositRateBp);
         writePOD(os, e.houseCutRateBp);
         writePOD(os, e.maxBidCopper);
         writePOD(os, e.shortHours);
         writePOD(os, e.mediumHours);
         writePOD(os, e.longHours);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.shortMultBp);
         writePOD(os, e.mediumMultBp);
         writePOD(os, e.longMultBp);
@@ -78,9 +76,7 @@ WoweeAuction WoweeAuctionLoader::load(const std::string& basePath) {
         if (!readPOD(is, e.factionAccess)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.baseDepositRateBp) ||
             !readPOD(is, e.houseCutRateBp) ||
             !readPOD(is, e.maxBidCopper) ||
@@ -89,9 +85,7 @@ WoweeAuction WoweeAuctionLoader::load(const std::string& basePath) {
             !readPOD(is, e.longHours)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.shortMultBp) ||
             !readPOD(is, e.mediumMultBp) ||
             !readPOD(is, e.longMultBp) ||

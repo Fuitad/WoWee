@@ -62,8 +62,7 @@ bool WoweeChannelLoader::save(const WoweeChannel& cat,
         writePOD(os, e.autoJoin);
         writePOD(os, e.announce);
         writePOD(os, e.moderated);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.minLevel);
         writePOD(os, e.areaIdGate);
         writePOD(os, e.mapIdGate);
@@ -90,8 +89,7 @@ WoweeChannel WoweeChannelLoader::load(const std::string& basePath) {
             !readPOD(is, e.moderated)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) {
+        if (!skipPadding(is, 1)) {
             out.entries.clear(); return out;
         }
         if (!readPOD(is, e.minLevel) ||

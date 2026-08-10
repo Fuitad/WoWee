@@ -49,8 +49,7 @@ bool WoweeLockLoader::save(const WoweeLock& cat,
         for (int k = 0; k < WoweeLock::kChannelSlots; ++k) {
             const auto& ch = e.channels[k];
             writePOD(os, ch.kind);
-            uint8_t pad = 0;
-            writePOD(os, pad);
+            writePadding(os, 1);
             writePOD(os, ch.skillRequired);
             writePOD(os, ch.targetId);
         }
@@ -74,8 +73,7 @@ WoweeLock WoweeLockLoader::load(const std::string& basePath) {
             if (!readPOD(is, ch.kind)) {
                 out.entries.clear(); return out;
             }
-            uint8_t pad = 0;
-            if (!readPOD(is, pad)) {
+            if (!skipPadding(is, 1)) {
                 out.entries.clear(); return out;
             }
             if (!readPOD(is, ch.skillRequired) ||

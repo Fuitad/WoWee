@@ -82,8 +82,7 @@ bool WoweePlayerConditionLoader::save(const WoweePlayerCondition& cat,
         writePOD(os, e.conditionKind);
         writePOD(os, e.comparisonOp);
         writePOD(os, e.chainOp);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.targetIdA);
         writePOD(os, e.targetIdB);
         writePOD(os, e.intValueA);
@@ -114,8 +113,7 @@ WoweePlayerCondition WoweePlayerConditionLoader::load(
             !readPOD(is, e.chainOp)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.targetIdA) ||
             !readPOD(is, e.targetIdB) ||
             !readPOD(is, e.intValueA) ||

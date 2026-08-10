@@ -67,8 +67,7 @@ bool WoweeSpellMechanicLoader::save(const WoweeSpellMechanic& cat,
         writePOD(os, e.dispelType);
         writePOD(os, e.defaultDurationMs);
         writePOD(os, e.maxStacks);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.conflictsMask);
     }
     return os.good();
@@ -98,9 +97,7 @@ WoweeSpellMechanic WoweeSpellMechanicLoader::load(
             !readPOD(is, e.maxStacks)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.conflictsMask)) {
             out.entries.clear(); return out;
         }

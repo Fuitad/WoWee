@@ -54,8 +54,7 @@ bool WoweeSpellRangeLoader::save(const WoweeSpellRange& cat,
         writeStr(os, e.name);
         writeStr(os, e.description);
         writePOD(os, e.rangeKind);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.minRange);
         writePOD(os, e.maxRange);
         writePOD(os, e.minRangeFriendly);
@@ -82,9 +81,7 @@ WoweeSpellRange WoweeSpellRangeLoader::load(const std::string& basePath) {
         if (!readPOD(is, e.rangeKind)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.minRange) ||
             !readPOD(is, e.maxRange) ||
             !readPOD(is, e.minRangeFriendly) ||

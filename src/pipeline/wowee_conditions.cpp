@@ -67,8 +67,7 @@ bool WoweeConditionLoader::save(const WoweeCondition& cat,
         writePOD(os, e.kind);
         writePOD(os, e.aggregator);
         writePOD(os, e.negated);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.targetId);
         writePOD(os, e.minValue);
         writePOD(os, e.maxValue);
@@ -96,8 +95,7 @@ WoweeCondition WoweeConditionLoader::load(const std::string& basePath) {
             !readPOD(is, e.negated)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) {
+        if (!skipPadding(is, 1)) {
             out.entries.clear(); return out;
         }
         if (!readPOD(is, e.targetId) ||

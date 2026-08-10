@@ -62,8 +62,7 @@ bool WoweeCinematicLoader::save(const WoweeCinematic& cat,
         writePOD(os, e.kind);
         writePOD(os, e.triggerKind);
         writePOD(os, e.skippable);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.durationSeconds);
         writePOD(os, e.triggerTargetId);
         writePOD(os, e.soundtrackId);
@@ -91,8 +90,7 @@ WoweeCinematic WoweeCinematicLoader::load(const std::string& basePath) {
             !readPOD(is, e.skippable)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) {
+        if (!skipPadding(is, 1)) {
             out.entries.clear(); return out;
         }
         if (!readPOD(is, e.durationSeconds) ||

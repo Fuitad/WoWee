@@ -55,15 +55,13 @@ bool WoweeUnitMovementLoader::save(const WoweeUnitMovement& cat,
         writePOD(os, e.movementCategory);
         writePOD(os, e.requiresFlight);
         writePOD(os, e.canStackBuffs);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.baseSpeed);
         writePOD(os, e.baseMultiplier);
         writePOD(os, e.maxMultiplier);
         writePOD(os, e.defaultDurationMs);
         writePOD(os, e.stackingPriority);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
     }
     return os.good();
 }
@@ -89,8 +87,7 @@ WoweeUnitMovement WoweeUnitMovementLoader::load(
             !readPOD(is, e.canStackBuffs)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.baseSpeed) ||
             !readPOD(is, e.baseMultiplier) ||
             !readPOD(is, e.maxMultiplier) ||
@@ -98,9 +95,7 @@ WoweeUnitMovement WoweeUnitMovementLoader::load(
             !readPOD(is, e.stackingPriority)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
     }
     return out;
 }

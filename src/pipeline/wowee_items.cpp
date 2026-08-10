@@ -123,8 +123,7 @@ bool WoweeItemLoader::save(const WoweeItem& cat,
         uint8_t statCount = static_cast<uint8_t>(
             e.stats.size() > 255 ? 255 : e.stats.size());
         writePOD(os, statCount);
-        uint8_t pad[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad), 3);
+        writePadding(os, 3);
         for (uint8_t k = 0; k < statCount; ++k) {
             const auto& s = e.stats[k];
             writePOD(os, s.type);
@@ -169,9 +168,7 @@ WoweeItem WoweeItemLoader::load(const std::string& basePath) {
         if (!readPOD(is, statCount)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad[3];
-        is.read(reinterpret_cast<char*>(pad), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         e.stats.resize(statCount);
         for (uint8_t k = 0; k < statCount; ++k) {
             if (!readPOD(is, e.stats[k].type)) {

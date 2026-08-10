@@ -49,8 +49,7 @@ bool WoweeSkillLoader::save(const WoweeSkill& cat,
         writeStr(os, e.description);
         writePOD(os, e.categoryId);
         writePOD(os, e.canTrain);
-        uint8_t pad[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad), 2);
+        writePadding(os, 2);
         writePOD(os, e.maxRank);
         writePOD(os, e.rankPerLevel);
         writeStr(os, e.iconPath);
@@ -74,9 +73,7 @@ WoweeSkill WoweeSkillLoader::load(const std::string& basePath) {
             !readPOD(is, e.canTrain)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad[2];
-        is.read(reinterpret_cast<char*>(pad), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.maxRank) ||
             !readPOD(is, e.rankPerLevel)) {
             out.entries.clear(); return out;

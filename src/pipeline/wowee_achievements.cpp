@@ -71,8 +71,7 @@ bool WoweeAchievementLoader::save(const WoweeAchievement& cat,
             const auto& cr = e.criteria[k];
             writePOD(os, cr.criteriaId);
             writePOD(os, cr.kind);
-            uint8_t pad[3] = {0, 0, 0};
-            os.write(reinterpret_cast<const char*>(pad), 3);
+            writePadding(os, 3);
             writePOD(os, cr.targetId);
             writePOD(os, cr.quantity);
             writeStr(os, cr.description);
@@ -112,9 +111,7 @@ WoweeAchievement WoweeAchievementLoader::load(const std::string& basePath) {
                 !readPOD(is, cr.kind)) {
                 out.entries.clear(); return out;
             }
-            uint8_t pad[3];
-            is.read(reinterpret_cast<char*>(pad), 3);
-            if (is.gcount() != 3) { out.entries.clear(); return out; }
+            if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
             if (!readPOD(is, cr.targetId) ||
                 !readPOD(is, cr.quantity) ||
                 !readStr(is, cr.description)) {

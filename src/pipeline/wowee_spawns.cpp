@@ -40,8 +40,7 @@ bool WoweeSpawnsLoader::save(const WoweeSpawns& cat,
     writeCatalogHeader(os, kMagic, kVersion, cat.name, entryCount);
     for (const auto& e : cat.entries) {
         writePOD(os, e.kind);
-        uint8_t pad[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad), 3);
+        writePadding(os, 3);
         writePOD(os, e.entryId);
         writePOD(os, e.position.x);
         writePOD(os, e.position.y);
@@ -76,9 +75,7 @@ WoweeSpawns WoweeSpawnsLoader::load(const std::string& basePath) {
     out.entries.resize(entryCount);
     for (auto& e : out.entries) {
         if (!readPOD(is, e.kind)) { out.entries.clear(); return out; }
-        uint8_t pad[3];
-        is.read(reinterpret_cast<char*>(pad), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.entryId)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.position.x) ||
             !readPOD(is, e.position.y) ||

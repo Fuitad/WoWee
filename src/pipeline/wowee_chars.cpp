@@ -73,8 +73,7 @@ bool WoweeCharsLoader::save(const WoweeChars& cat,
         writePOD(os, c.powerType);
         writePOD(os, c.displayPower);
         writePOD(os, c.factionAvailability);
-        uint8_t pad1 = 0;
-        writePOD(os, pad1);
+        writePadding(os, 1);
         writePOD(os, c.baseHealth);
         writePOD(os, c.baseHealthPerLevel);
         writePOD(os, c.basePower);
@@ -87,8 +86,7 @@ bool WoweeCharsLoader::save(const WoweeChars& cat,
         writeStr(os, r.name);
         writeStr(os, r.iconPath);
         writePOD(os, r.factionId);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, r.maleDisplayId);
         writePOD(os, r.femaleDisplayId);
         writePOD(os, r.baseStrength);
@@ -96,7 +94,7 @@ bool WoweeCharsLoader::save(const WoweeChars& cat,
         writePOD(os, r.baseStamina);
         writePOD(os, r.baseIntellect);
         writePOD(os, r.baseSpirit);
-        os.write(reinterpret_cast<const char*>(pad3), 2);
+        writePadding(os, 2);
         writePOD(os, r.startingMapId);
         writePOD(os, r.startingZoneAreaId);
         writePOD(os, r.defaultLanguageSpellId);
@@ -111,8 +109,7 @@ bool WoweeCharsLoader::save(const WoweeChars& cat,
         uint8_t itemCount = static_cast<uint8_t>(
             o.items.size() > 255 ? 255 : o.items.size());
         writePOD(os, itemCount);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         for (uint8_t k = 0; k < itemCount; ++k) {
             const auto& it = o.items[k];
             writePOD(os, it.itemId);
@@ -148,8 +145,7 @@ WoweeChars WoweeCharsLoader::load(const std::string& basePath) {
             !readPOD(is, c.factionAvailability)) {
             out.classes.clear(); return out;
         }
-        uint8_t pad1 = 0;
-        if (!readPOD(is, pad1)) {
+        if (!skipPadding(is, 1)) {
             out.classes.clear(); return out;
         }
         if (!readPOD(is, c.baseHealth) ||
@@ -177,9 +173,7 @@ WoweeChars WoweeCharsLoader::load(const std::string& basePath) {
         if (!readPOD(is, r.factionId)) {
             out.classes.clear(); out.races.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) {
+        if (!skipPadding(is, 3)) {
             out.classes.clear(); out.races.clear(); return out;
         }
         if (!readPOD(is, r.maleDisplayId) ||
@@ -191,8 +185,7 @@ WoweeChars WoweeCharsLoader::load(const std::string& basePath) {
             !readPOD(is, r.baseSpirit)) {
             out.classes.clear(); out.races.clear(); return out;
         }
-        is.read(reinterpret_cast<char*>(pad3), 2);
-        if (is.gcount() != 2) {
+        if (!skipPadding(is, 2)) {
             out.classes.clear(); out.races.clear(); return out;
         }
         if (!readPOD(is, r.startingMapId) ||
@@ -222,9 +215,7 @@ WoweeChars WoweeCharsLoader::load(const std::string& basePath) {
             out.classes.clear(); out.races.clear();
             out.outfits.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) {
+        if (!skipPadding(is, 2)) {
             out.classes.clear(); out.races.clear();
             out.outfits.clear(); return out;
         }

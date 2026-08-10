@@ -50,13 +50,11 @@ bool WoweeLoadingScreenLoader::save(const WoweeLoadingScreen& cat,
         writePOD(os, e.minLevel);
         writePOD(os, e.maxLevel);
         writePOD(os, e.displayWeight);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.expansionRequired);
         writePOD(os, e.isAnimated);
         writePOD(os, e.isWideAspect);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
     }
     return os.good();
 }
@@ -85,16 +83,13 @@ WoweeLoadingScreen WoweeLoadingScreenLoader::load(
             !readPOD(is, e.displayWeight)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.expansionRequired) ||
             !readPOD(is, e.isAnimated) ||
             !readPOD(is, e.isWideAspect)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
     }
     return out;
 }

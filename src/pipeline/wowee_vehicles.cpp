@@ -74,14 +74,12 @@ bool WoweeVehicleLoader::save(const WoweeVehicle& cat,
         writePOD(os, e.movementKind);
         uint8_t seatCount = static_cast<uint8_t>(e.seats.size());
         writePOD(os, seatCount);
-        uint8_t pad = 0;
-        writePOD(os, pad);
+        writePadding(os, 1);
         writePOD(os, e.turnSpeed);
         writePOD(os, e.pitchSpeed);
         writePOD(os, e.flightCapabilityId);
         writePOD(os, e.powerType);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.maxPower);
         for (const auto& s : e.seats) {
             writePOD(os, s.seatIndex);
@@ -118,17 +116,14 @@ WoweeVehicle WoweeVehicleLoader::load(const std::string& basePath) {
             !readPOD(is, seatCount)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad = 0;
-        if (!readPOD(is, pad)) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 1)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.turnSpeed) ||
             !readPOD(is, e.pitchSpeed) ||
             !readPOD(is, e.flightCapabilityId) ||
             !readPOD(is, e.powerType)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.maxPower)) {
             out.entries.clear(); return out;
         }

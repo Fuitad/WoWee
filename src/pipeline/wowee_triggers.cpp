@@ -58,8 +58,7 @@ bool WoweeTriggerLoader::save(const WoweeTrigger& cat,
         writePOD(os, e.center.z);
         writePOD(os, e.shape);
         writePOD(os, e.kind);
-        uint8_t pad2[2] = {0, 0};
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
         writePOD(os, e.boxDims.x);
         writePOD(os, e.boxDims.y);
         writePOD(os, e.boxDims.z);
@@ -72,7 +71,7 @@ bool WoweeTriggerLoader::save(const WoweeTrigger& cat,
         writePOD(os, e.requiredQuestId);
         writePOD(os, e.requiredItemId);
         writePOD(os, e.minLevel);
-        os.write(reinterpret_cast<const char*>(pad2), 2);
+        writePadding(os, 2);
     }
     return os.good();
 }
@@ -100,9 +99,7 @@ WoweeTrigger WoweeTriggerLoader::load(const std::string& basePath) {
             !readPOD(is, e.kind)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad2[2];
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.boxDims.x) ||
             !readPOD(is, e.boxDims.y) ||
             !readPOD(is, e.boxDims.z) ||
@@ -117,8 +114,7 @@ WoweeTrigger WoweeTriggerLoader::load(const std::string& basePath) {
             !readPOD(is, e.minLevel)) {
             out.entries.clear(); return out;
         }
-        is.read(reinterpret_cast<char*>(pad2), 2);
-        if (is.gcount() != 2) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 2)) { out.entries.clear(); return out; }
     }
     return out;
 }

@@ -52,8 +52,7 @@ bool WoweeSpellCooldownLoader::save(const WoweeSpellCooldown& cat,
         writeStr(os, e.name);
         writeStr(os, e.description);
         writePOD(os, e.bucketKind);
-        uint8_t pad3[3] = {0, 0, 0};
-        os.write(reinterpret_cast<const char*>(pad3), 3);
+        writePadding(os, 3);
         writePOD(os, e.cooldownMs);
         writePOD(os, e.categoryFlags);
         writePOD(os, e.iconColorRGBA);
@@ -79,9 +78,7 @@ WoweeSpellCooldown WoweeSpellCooldownLoader::load(
         if (!readPOD(is, e.bucketKind)) {
             out.entries.clear(); return out;
         }
-        uint8_t pad3[3];
-        is.read(reinterpret_cast<char*>(pad3), 3);
-        if (is.gcount() != 3) { out.entries.clear(); return out; }
+        if (!skipPadding(is, 3)) { out.entries.clear(); return out; }
         if (!readPOD(is, e.cooldownMs) ||
             !readPOD(is, e.categoryFlags) ||
             !readPOD(is, e.iconColorRGBA)) {
