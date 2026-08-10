@@ -60,15 +60,8 @@ WoweeSound WoweeSoundLoader::load(const std::string& basePath) {
     WoweeSound out;
     std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
     uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
-    if (entryCount > (1u << 20)) return out;  // 1M cap
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
     out.entries.resize(entryCount);
     for (auto& e : out.entries) {
         if (!readPOD(is, e.soundId)) { out.entries.clear(); return out; }

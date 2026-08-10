@@ -38,11 +38,8 @@ bool WoweeTaxiLoader::save(const WoweeTaxi& cat,
                            const std::string& basePath) {
     std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
     if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t nodeCount = static_cast<uint32_t>(cat.nodes.size());
-    writePOD(os, nodeCount);
+    const uint32_t nodeCount = static_cast<uint32_t>(cat.nodes.size());
+    writeCatalogHeader(os, kMagic, kVersion, cat.name, nodeCount);
     for (const auto& n : cat.nodes) {
         writePOD(os, n.nodeId);
         writePOD(os, n.mapId);
@@ -77,15 +74,8 @@ WoweeTaxi WoweeTaxiLoader::load(const std::string& basePath) {
     WoweeTaxi out;
     std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
     uint32_t nodeCount = 0;
-    if (!readPOD(is, nodeCount)) return out;
-    if (nodeCount > (1u << 20)) return out;
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, nodeCount)) return out;
     out.nodes.resize(nodeCount);
     for (auto& n : out.nodes) {
         if (!readPOD(is, n.nodeId) || !readPOD(is, n.mapId)) {

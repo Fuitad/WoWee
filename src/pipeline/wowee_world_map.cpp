@@ -66,9 +66,7 @@ bool WoweeWorldMapLoader::save(const WoweeWorldMap& m,
     if (!os) return false;
     os.write(kMagic, 4);
     writePOD(os, kVersion);
-    uint32_t nameLen = static_cast<uint32_t>(m.name.size());
-    writePOD(os, nameLen);
-    if (nameLen > 0) os.write(m.name.data(), nameLen);
+    writeStr(os, m.name);
     writePOD(os, m.worldType);
     writePOD(os, m.gridSize);
     uint16_t pad = 0;
@@ -107,16 +105,9 @@ WoweeWorldMap WoweeWorldMapLoader::load(const std::string& basePath) {
     if (std::memcmp(magic, kMagic, 4) != 0) return out;
     uint32_t version = 0;
     if (!readPOD(is, version) || version != kVersion) return out;
-    uint32_t nameLen = 0;
-    if (!readPOD(is, nameLen)) return out;
-    if (nameLen > 0) {
-        out.name.resize(nameLen);
-        is.read(out.name.data(), nameLen);
-        if (is.gcount() != static_cast<std::streamsize>(nameLen)) {
-            out.name.clear();
-            return out;
-        }
-    }
+    // readStr rather than a hand-rolled length-and-bytes: this is the one place
+    // that spelled it out itself, and so the one place with no cap on the length.
+    if (!readStr(is, out.name)) return out;
     if (!readPOD(is, out.worldType)) return out;
     if (!readPOD(is, out.gridSize)) return out;
     uint16_t pad = 0;

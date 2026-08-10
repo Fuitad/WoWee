@@ -34,11 +34,8 @@ bool WoweeTalentLoader::save(const WoweeTalent& cat,
                              const std::string& basePath) {
     std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
     if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t treeCount = static_cast<uint32_t>(cat.trees.size());
-    writePOD(os, treeCount);
+    const uint32_t treeCount = static_cast<uint32_t>(cat.trees.size());
+    writeCatalogHeader(os, kMagic, kVersion, cat.name, treeCount);
     for (const auto& t : cat.trees) {
         writePOD(os, t.treeId);
         writeStr(os, t.name);
@@ -70,15 +67,8 @@ WoweeTalent WoweeTalentLoader::load(const std::string& basePath) {
     WoweeTalent out;
     std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
     uint32_t treeCount = 0;
-    if (!readPOD(is, treeCount)) return out;
-    if (treeCount > (1u << 20)) return out;
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, treeCount)) return out;
     out.trees.resize(treeCount);
     for (auto& t : out.trees) {
         if (!readPOD(is, t.treeId)) { out.trees.clear(); return out; }

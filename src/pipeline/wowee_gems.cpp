@@ -55,11 +55,8 @@ bool WoweeGemLoader::save(const WoweeGem& cat,
                           const std::string& basePath) {
     std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
     if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t gemCount = static_cast<uint32_t>(cat.gems.size());
-    writePOD(os, gemCount);
+    const uint32_t gemCount = static_cast<uint32_t>(cat.gems.size());
+    writeCatalogHeader(os, kMagic, kVersion, cat.name, gemCount);
     for (const auto& g : cat.gems) {
         writePOD(os, g.gemId);
         writePOD(os, g.itemIdToInsert);
@@ -96,15 +93,8 @@ WoweeGem WoweeGemLoader::load(const std::string& basePath) {
     WoweeGem out;
     std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
     uint32_t gemCount = 0;
-    if (!readPOD(is, gemCount)) return out;
-    if (gemCount > (1u << 20)) return out;
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, gemCount)) return out;
     out.gems.resize(gemCount);
     for (auto& g : out.gems) {
         if (!readPOD(is, g.gemId) ||

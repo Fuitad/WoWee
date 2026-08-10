@@ -52,11 +52,8 @@ bool WoweePetLoader::save(const WoweePet& cat,
                           const std::string& basePath) {
     std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
     if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t famCount = static_cast<uint32_t>(cat.families.size());
-    writePOD(os, famCount);
+    const uint32_t famCount = static_cast<uint32_t>(cat.families.size());
+    writeCatalogHeader(os, kMagic, kVersion, cat.name, famCount);
     for (const auto& f : cat.families) {
         writePOD(os, f.familyId);
         writeStr(os, f.name);
@@ -106,19 +103,12 @@ WoweePet WoweePetLoader::load(const std::string& basePath) {
     WoweePet out;
     std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
     auto fail = [&]() {
         out.families.clear(); out.minions.clear();
         return out;
     };
     uint32_t famCount = 0;
-    if (!readPOD(is, famCount)) return out;
-    if (famCount > (1u << 20)) return out;
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, famCount)) return out;
     out.families.resize(famCount);
     for (auto& f : out.families) {
         if (!readPOD(is, f.familyId)) return fail();

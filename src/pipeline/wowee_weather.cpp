@@ -39,13 +39,8 @@ bool WoweeWeatherLoader::save(const WoweeWeather& w,
                               const std::string& basePath) {
     std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
     if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    uint32_t nameLen = static_cast<uint32_t>(w.name.size());
-    writePOD(os, nameLen);
-    if (nameLen > 0) os.write(w.name.data(), nameLen);
-    uint32_t entryCount = static_cast<uint32_t>(w.entries.size());
-    writePOD(os, entryCount);
+    const uint32_t entryCount = static_cast<uint32_t>(w.entries.size());
+    writeCatalogHeader(os, kMagic, kVersion, w.name, entryCount);
     for (const auto& e : w.entries) {
         writePOD(os, e.weatherTypeId);
         writePOD(os, e.minIntensity);
@@ -61,23 +56,11 @@ WoweeWeather WoweeWeatherLoader::load(const std::string& basePath) {
     WoweeWeather out;
     std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    uint32_t nameLen = 0;
-    if (!readPOD(is, nameLen)) return out;
-    if (nameLen > 0) {
-        out.name.resize(nameLen);
-        is.read(out.name.data(), nameLen);
-        if (is.gcount() != static_cast<std::streamsize>(nameLen)) {
-            out.name.clear();
-            return out;
-        }
-    }
+    // The name length used to be read with no cap, and the entry count with no
+    // cap either — this format wrote its own header rather than using the one
+    // every other format uses, and so missed both.
     uint32_t entryCount = 0;
-    if (!readPOD(is, entryCount)) return out;
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, entryCount)) return out;
     out.entries.resize(entryCount);
     for (auto& e : out.entries) {
         if (!readPOD(is, e.weatherTypeId) ||

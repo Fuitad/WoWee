@@ -61,11 +61,8 @@ bool WoweeCharsLoader::save(const WoweeChars& cat,
                             const std::string& basePath) {
     std::ofstream os(normalizePath(basePath, kExtension), std::ios::binary);
     if (!os) return false;
-    os.write(kMagic, 4);
-    writePOD(os, kVersion);
-    writeStr(os, cat.name);
-    uint32_t classCount = static_cast<uint32_t>(cat.classes.size());
-    writePOD(os, classCount);
+    const uint32_t classCount = static_cast<uint32_t>(cat.classes.size());
+    writeCatalogHeader(os, kMagic, kVersion, cat.name, classCount);
     for (const auto& c : cat.classes) {
         writePOD(os, c.classId);
         writeStr(os, c.name);
@@ -125,15 +122,8 @@ WoweeChars WoweeCharsLoader::load(const std::string& basePath) {
     WoweeChars out;
     std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
     if (!is) return out;
-    char magic[4];
-    is.read(magic, 4);
-    if (std::memcmp(magic, kMagic, 4) != 0) return out;
-    uint32_t version = 0;
-    if (!readPOD(is, version) || version != kVersion) return out;
-    if (!readStr(is, out.name)) return out;
     uint32_t classCount = 0;
-    if (!readPOD(is, classCount)) return out;
-    if (classCount > (1u << 20)) return out;
+    if (!readCatalogHeader(is, kMagic, kVersion, out.name, classCount)) return out;
     out.classes.resize(classCount);
     for (auto& c : out.classes) {
         if (!readPOD(is, c.classId)) { out.classes.clear(); return out; }
