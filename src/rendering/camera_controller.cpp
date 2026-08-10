@@ -94,6 +94,15 @@ std::optional<float> selectReachableFloor3(const std::optional<float>& a,
 }
 
 
+/// How flat a surface has to be to stand on rather than slide off.
+///
+/// Three names for one number. They are kept apart because the surfaces are:
+/// a WMO tunnel or bridge ramp is authored steeper than outdoor terrain, and if
+/// that ever needs different limits this is where they part. Today they agree.
+constexpr float MIN_WALKABLE_NORMAL_TERRAIN = movement::kMinWalkableNormalZ;
+constexpr float MIN_WALKABLE_NORMAL_WMO = movement::kMinWalkableNormalZ;
+constexpr float MIN_WALKABLE_NORMAL_M2 = movement::kMinWalkableNormalZ;
+
 /// The points around the feet a floor probe samples.
 ///
 /// One ray straight down at the character's centre falls between two planks, or
@@ -738,6 +747,325 @@ glm::vec3 CameraController::moveFollowedCharacter(float deltaTime, FrameInput& f
 // The expensive half: terrain, WMO and doodad floor queries, the step-up
 // budget, the slope limit, the cache that skips all of it when barely moving.
 // Then the follow target is written, and a fall through the world is caught.
+// What the floor queries answer directly under the character.
+//
+// The expensive part of grounding: three renderers asked where their surface
+// is, two of them on other threads, and a cache that skips all of it when the
+// character has barely moved. The three centre samples come back with the
+// chosen floor because the recovery probes above need to know which surfaces
+// existed at all, not just which one won.
+CameraController::FloorSample CameraController::sampleFloorUnderFeet(const glm::vec3& targetPos,
+                                                                     float stepUpBudget) {
+    std::optional<float> groundH;
+    std::optional<float> centerTerrainH;
+    std::optional<float> centerWmoH;
+    std::optional<float> centerM2H;
+    // Collision cache: skip expensive checks if barely moved (15cm threshold)
+    float dmx = targetPos.x - lastCollisionCheckPos_.x;
+    float dmy = targetPos.y - lastCollisionCheckPos_.y;
+    float distMovedSq = dmx * dmx + dmy * dmy;
+    constexpr float kCollisionCacheDistSq = COLLISION_CACHE_DISTANCE * COLLISION_CACHE_DISTANCE;
+    bool useCached = grounded && hasCachedFloor_ && distMovedSq < kCollisionCacheDistSq;
+    if (useCached) {
+        // Never trust cached ground while actively descending or when
+        // vertical drift from cached floor is meaningful.
+        float dzCached = std::abs(targetPos.z - cachedFloorHeight_);
+        if (verticalVelocity < -0.4f || dzCached > 0.35f) {
+            useCached = false;
+        }
+    }
+
+    if (useCached) {
+        groundH = cachedFloorHeight_;
+    } else {
+        // Full collision check — run terrain/WMO/M2 queries in parallel
+        std::optional<float> terrainH;
+        std::optional<float> wmoH;
+        std::optional<float> m2H;
+        // When airborne, anchor probe to last ground level so the
+        // ceiling doesn't rise with the jump and catch roof geometry.
+        float wmoBaseZ = grounded ? std::max(targetPos.z, lastGroundZ) : lastGroundZ;
+        float wmoProbeZ = wmoBaseZ + stepUpBudget + 0.5f;
+        float wmoNormalZ = 1.0f;
+
+        // Launch WMO + M2 floor queries asynchronously while terrain runs on this thread.
+        // Collision scratch buffers are thread_local so concurrent calls are safe.
+        using FloorResult = std::pair<std::optional<float>, float>;
+        std::future<FloorResult> wmoFuture;
+        std::future<FloorResult> m2Future;
+        bool wmoAsync = false, m2Async = false;
+        float px = targetPos.x, py = targetPos.y;
+        if (wmoRenderer) {
+            wmoAsync = true;
+            // Closest to the feet, not the highest below the probe.
+            //
+            // Under an overhang — the doorways and portals of
+            // Undercity — the floor of the level above sits about a
+            // metre over the one you stand on, both inside the
+            // step-up window. The default highest-floor pick snapped
+            // the player up to the level above even standing still,
+            // the server pulled them back to the real floor, and the
+            // two fought once a second. Anchoring the pick to the
+            // player's own ground keeps them where they are; a real
+            // step onto a ledge still wins once the feet are level
+            // with it.
+            //
+            // The reference is the feet themselves, NOT wmoBaseZ:
+            // wmoBaseZ is max(z, lastGroundZ) so the probe can reach
+            // up for a step, but feeding that same raised value back
+            // as the arbitration anchor ratchets the pick upward —
+            // one stray upper-floor frame lifts lastGroundZ, and the
+            // reference then stays on the level above even after the
+            // server drags the player back down, which is the very
+            // yo-yo this pick was meant to stop. Grounded, the true
+            // feet are targetPos.z; airborne, aim at the last ground.
+            const float feetRef = grounded ? targetPos.z : lastGroundZ;
+            wmoFuture = core::ThreadPool::frameWorkers().submit(
+                [this, px, py, wmoProbeZ, feetRef]() -> FloorResult {
+                    float nz = 1.0f;
+                    auto h = wmoRenderer->getFloorHeight(px, py, wmoProbeZ, &nz, feetRef);
+                    return {h, nz};
+                });
+        }
+        if (m2Renderer && !externalFollow_) {
+            m2Async = true;
+            m2Future = core::ThreadPool::frameWorkers().submit(
+                [this, px, py, wmoProbeZ]() -> FloorResult {
+                    float nz = 1.0f;
+                    auto h = m2Renderer->getFloorHeight(px, py, wmoProbeZ, &nz);
+                    return {h, nz};
+                });
+        }
+        if (terrainManager) {
+            terrainH = terrainManager->getHeightAt(targetPos.x, targetPos.y);
+        }
+        if (wmoAsync) {
+            try { auto [h, nz] = wmoFuture.get(); wmoH = h; wmoNormalZ = nz; }
+            catch (const std::exception& e) { LOG_ERROR("WMO floor query: ", e.what()); }
+        }
+        if (m2Async) {
+            try {
+                auto [h, nz] = m2Future.get();
+                m2H = h;
+                if (m2H && nz < MIN_WALKABLE_NORMAL_M2) {
+                    m2H = std::nullopt;
+                }
+            } catch (const std::exception& e) { LOG_ERROR("M2 floor query: ", e.what()); }
+        }
+
+        // A tunnel mouth can overlap the outdoor heightfield before the
+        // player's eye point is inside the WMO bounds.  Treat a nearby WMO
+        // floor below that terrain as transition space immediately; waiting
+        // for cachedInsideWMO makes the outdoor terrain win one frame at a
+        // time (climbing through the roof), while rejecting a steep entrance
+        // ramp here makes the player fall through it.
+        bool atTunnelSeam = false;
+        if (terrainH && wmoH) {
+            const float terrainAboveWmo = *terrainH - *wmoH;
+            const float wmoDropFromPlayer = targetPos.z - *wmoH;
+            atTunnelSeam = terrainAboveWmo > 1.2f && terrainAboveWmo < 12.0f &&
+                           wmoDropFromPlayer >= -0.4f && wmoDropFromPlayer < 1.8f;
+        }
+        // A real tunnel mouth burrows into rising ground: the heightfield
+        // just ahead climbs above head height (or stops in a hole cut for
+        // the passage). WMO ramps that merely run beneath flat walkable
+        // streets must not steal the player from the terrain above them —
+        // that pulled players through the ground at the Stormwind gate
+        // ramparts and down ramps into the void. Inside an interior WMO
+        // group (tram entrance buildings) the heightfield under the city
+        // is meaningless, so it gets no veto — otherwise entry becomes
+        // dependent on approach angle.
+        if (atTunnelSeam && !cachedInsideInteriorWMO && terrainManager) {
+            glm::vec3 moveDir = targetPos - lastCollisionCheckPos_;
+            moveDir.z = 0.0f;
+            const float moveLen = glm::length(moveDir);
+            if (moveLen < 1e-3f) {
+                atTunnelSeam = false;  // stationary — nothing to enter
+            } else {
+                const glm::vec3 aheadPos = targetPos + moveDir * (2.5f / moveLen);
+                auto terrainAhead = terrainManager->getHeightAt(aheadPos.x, aheadPos.y);
+                atTunnelSeam = !terrainAhead ||
+                               *terrainAhead > targetPos.z + 2.2f;
+            }
+        }
+
+        // Reject steep WMO slopes. Tunnel ramps use the more permissive WMO
+        // limit even at the boundary, where isInsideWMO is not reliable yet.
+        float minWalkableWmo = (cachedInsideWMO || atTunnelSeam)
+            ? MIN_WALKABLE_NORMAL_WMO : MIN_WALKABLE_NORMAL_TERRAIN;
+        if (wmoH && wmoNormalZ < minWalkableWmo) {
+            wmoH = std::nullopt;  // Treat as unwalkable
+        }
+
+        // Reject WMO floors far above last known ground when airborne
+        // (prevents snapping to roof/ceiling surfaces during jumps)
+        if (wmoH && !grounded && *wmoH > lastGroundZ + stepUpBudget + 0.5f) {
+            wmoH = std::nullopt;
+            centerWmoH = std::nullopt;
+        }
+        // An M2 doodad's collision sitting well below a valid WMO
+        // floor is BENEATH that floor — a decoration or structural
+        // base under the walkway, not a surface to stand on. Letting
+        // it win drops the player through the WMO floor: in Undercity
+        // the pick took an m2 floor ~6m below the wmo one (feet -48.8,
+        // wmo -48.15, m2 -54.23) and fell. When a WMO floor is present
+        // here, reject an m2 floor more than 1.5m below it. (If the
+        // player were standing ON the m2 platform, the higher WMO
+        // floor would be above the probe and not returned, so this
+        // cannot strand them off a legitimate lower deck.)
+        if (m2H && wmoH && *m2H < *wmoH - 1.5f) {
+            m2H = std::nullopt;
+        }
+        // A terrain hole is the artist saying there is no ground
+        // here — it is how cave mouths and sunken entrances get
+        // opened up, and the mesh builder already skips those
+        // quads, so nothing is drawn over them. getHeightAt does
+        // not ask: it interpolates straight across the gap and
+        // reports a surface right at the player's feet, which then
+        // wins the floor selection against the real floor below.
+        // At Gadgetzan's auction house that put the player out over
+        // the stairwell on ground that is not there, unable to walk
+        // down the steps and looking into a hole they were standing
+        // on. Every seam guard below is downstream of this and none
+        // of them could see it, because to them the terrain sample
+        // was real.
+        //
+        // Only ever hand the floor to the building underneath — a
+        // hole with nothing below it keeps the heightfield it has
+        // always had, so this cannot open a pit anywhere new.
+        if (terrainH && wmoH && terrainManager &&
+            terrainManager->isHoleAt(targetPos.x, targetPos.y)) {
+            terrainH = std::nullopt;
+        }
+
+        // Inside an interior WMO group — Undercity's halls, a
+        // building's rooms — the outdoor heightfield is the roof far
+        // overhead, never the floor. Veto it there so a brief gap in
+        // the WMO floor query does not kick the player up to the
+        // surface. (The seam case is handled above and keeps
+        // cachedInsideInteriorWMO false at entrances.)
+        //
+        // Only when it really is overhead, though. isInsideInteriorWMO
+        // is a bounding-box containment test, and an underground WMO's
+        // interior box reaches up through the ground above it — so
+        // standing on the grass over a cave counted as being inside
+        // it. Vetoing terrain there left the WMO as the only
+        // candidate, and the nearest WMO surface below is the cave's
+        // ceiling: the player dropped through the hillside they were
+        // walking on and stood on the roof of the room underneath.
+        //
+        // Higher than the player could step onto is the test, because
+        // that is the whole of what the veto meant: ground you cannot
+        // reach is not the ground you are standing on. Undercity's
+        // surface sits ~113m over the halls and is still vetoed; the
+        // hillside at your feet is not. The rule itself lives in
+        // movement_limits.hpp, where it is pinned by a test.
+        if (terrainH && movement::terrainIsOverheadRoof(
+                cachedInsideInteriorWMO, *terrainH,
+                targetPos.z, stepUpBudget)) {
+            terrainH = std::nullopt;
+        }
+
+        centerTerrainH = terrainH;
+        centerWmoH = wmoH;
+        centerM2H = m2H;
+
+        // Guard against extremely bad WMO void ramps, but keep normal tunnel
+        // transitions valid. Only reject when the WMO sample is implausibly far
+        // below terrain and player is not already descending.
+        if (terrainH && wmoH && !cachedInsideWMO) {
+            float terrainMinusWmo = *terrainH - *wmoH;
+            if (terrainMinusWmo > 12.0f && verticalVelocity > -8.0f) {
+                wmoH = std::nullopt;
+                centerWmoH = std::nullopt;
+            }
+        }
+
+        if ((cachedInsideWMO || atTunnelSeam) && wmoH) {
+            // Transition seam (e.g. tunnel mouths): if terrain is much higher than
+            // nearby WMO walkable floor, prefer the WMO floor so we can enter.
+            // Do not require downward velocity or an already-inside state:
+            // both arrive after a level tunnel entrance has begun choosing
+            // between the two surfaces.
+            bool preferWmoAtSeam = atTunnelSeam;
+            if (preferWmoAtSeam) {
+                groundH = wmoH;
+            } else if (terrainH) {
+                // At tunnel seams where both exist, pick the one closest to current feet Z
+                // to avoid oscillating between top terrain and deep WMO floors.
+                groundH = selectClosestFloor(terrainH, wmoH, targetPos.z);
+            } else {
+                groundH = selectReachableFloor3(terrainH, wmoH, m2H, targetPos.z, stepUpBudget);
+            }
+        } else {
+            groundH = selectReachableFloor3(terrainH, wmoH, m2H, targetPos.z, stepUpBudget);
+        }
+
+        // The local player's own floor pick, named when it jumps.
+        //
+        // The movingEntityFloor log covers creatures and other
+        // players; this is the reporter's own character in
+        // Undercity. It says which floor was chosen for the player
+        // and the three candidates it chose among, so a jump that
+        // survived the closest-to-feet change shows what is still
+        // competing — and whether both floors are even offered here
+        // or only one is, which decides whether the fix belongs in
+        // the selection or deeper in the WMO query.
+        // Threshold sits below a floor gap (~1m) on purpose: the
+        // ratchet oscillation the feetRef fix targets stays under a
+        // metre frame to frame, so a 1.0 gate saw nothing while the
+        // player visibly bobbed. 0.4 catches the sub-metre bob.
+        if (groundH && std::abs(*groundH - lastGroundZ) > 0.4f) {
+            static std::chrono::steady_clock::time_point lastPlayerFloorLog{};
+            const auto now = std::chrono::steady_clock::now();
+            if (now - lastPlayerFloorLog > std::chrono::seconds(1)) {
+                lastPlayerFloorLog = now;
+                core::Logger::getInstance().warning(
+                    "Player floor jump: feet=", targetPos.z,
+                    " lastGround=", lastGroundZ, " -> chose ", *groundH,
+                    " (terrain=", terrainH ? *terrainH : -99999.0f,
+                    " wmo=", wmoH ? *wmoH : -99999.0f,
+                    " m2=", m2H ? *m2H : -99999.0f,
+                    " seam=", atTunnelSeam ? 1 : 0, ")");
+            }
+            // A jump — the floor query landed a level away, not a
+            // step — is the Undercity pull, and the one thing needed
+            // to solve it is which WMO groups and floors exist under
+            // the player when it happens. That is exactly what F8's
+            // dump prints, so dump it here automatically on a jump
+            // (rate-limited hard, it is verbose): the log then carries
+            // the answer from ordinary play, with no key to remember.
+            // Threshold is 0.9m, not 2m: the overhang gap the player
+            // is pulled across is about a metre, so a 2m gate never
+            // fired while the yo-yo bobbed under it. A metre is still
+            // above a stair step, so ordinary walking does not trip it.
+            if (wmoRenderer && std::abs(*groundH - lastGroundZ) > 0.9f) {
+                static std::chrono::steady_clock::time_point lastFloorDump{};
+                if (now - lastFloorDump > std::chrono::seconds(5)) {
+                    lastFloorDump = now;
+                    core::Logger::getInstance().warning(
+                        "Player floor jump: dumping WMO groups at the "
+                        "pull (feet ", targetPos.z, " -> ", *groundH, ")");
+                    wmoRenderer->debugDumpGroupsAtPosition(
+                        targetPos.x, targetPos.y, targetPos.z);
+                }
+            }
+        }
+
+        // Update cache
+        lastCollisionCheckPos_ = targetPos;
+        if (groundH) {
+            cachedFloorHeight_ = *groundH;
+            hasCachedFloor_ = true;
+            // Ground found — cancel gravity suspension (WMO floor loaded)
+            if (gravitySuspendTimer_ > 0.0f) gravitySuspendTimer_ = 0.0f;
+        } else {
+            hasCachedFloor_ = false;
+        }
+    }
+    return {groundH, centerTerrainH, centerWmoH, centerM2H};
+}
+
 void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
                                                glm::vec3& targetPos,
                                                const glm::vec3& prevTargetPos) {
@@ -750,319 +1078,12 @@ void CameraController::groundFollowedCharacter(float deltaTime, FrameInput& f,
         //    to terrain when offset samples miss the WMO floor geometry.
         // Slope limit: reject surfaces too steep to walk (prevent clipping).
         // WMO tunnel/bridge ramps are often steeper than outdoor terrain ramps.
-        constexpr float MIN_WALKABLE_NORMAL_TERRAIN = movement::kMinWalkableNormalZ;
-        constexpr float MIN_WALKABLE_NORMAL_WMO = movement::kMinWalkableNormalZ;
-        constexpr float MIN_WALKABLE_NORMAL_M2 = movement::kMinWalkableNormalZ;
-
-        std::optional<float> groundH;
-        std::optional<float> centerTerrainH;
-        std::optional<float> centerWmoH;
-        std::optional<float> centerM2H;
-        {
-            // Collision cache: skip expensive checks if barely moved (15cm threshold)
-            float dmx = targetPos.x - lastCollisionCheckPos_.x;
-            float dmy = targetPos.y - lastCollisionCheckPos_.y;
-            float distMovedSq = dmx * dmx + dmy * dmy;
-            constexpr float kCollisionCacheDistSq = COLLISION_CACHE_DISTANCE * COLLISION_CACHE_DISTANCE;
-            bool useCached = grounded && hasCachedFloor_ && distMovedSq < kCollisionCacheDistSq;
-            if (useCached) {
-                // Never trust cached ground while actively descending or when
-                // vertical drift from cached floor is meaningful.
-                float dzCached = std::abs(targetPos.z - cachedFloorHeight_);
-                if (verticalVelocity < -0.4f || dzCached > 0.35f) {
-                    useCached = false;
-                }
-            }
-
-            if (useCached) {
-                groundH = cachedFloorHeight_;
-            } else {
-                // Full collision check — run terrain/WMO/M2 queries in parallel
-                std::optional<float> terrainH;
-                std::optional<float> wmoH;
-                std::optional<float> m2H;
-                // When airborne, anchor probe to last ground level so the
-                // ceiling doesn't rise with the jump and catch roof geometry.
-                float wmoBaseZ = grounded ? std::max(targetPos.z, lastGroundZ) : lastGroundZ;
-                float wmoProbeZ = wmoBaseZ + stepUpBudget + 0.5f;
-                float wmoNormalZ = 1.0f;
-
-                // Launch WMO + M2 floor queries asynchronously while terrain runs on this thread.
-                // Collision scratch buffers are thread_local so concurrent calls are safe.
-                using FloorResult = std::pair<std::optional<float>, float>;
-                std::future<FloorResult> wmoFuture;
-                std::future<FloorResult> m2Future;
-                bool wmoAsync = false, m2Async = false;
-                float px = targetPos.x, py = targetPos.y;
-                if (wmoRenderer) {
-                    wmoAsync = true;
-                    // Closest to the feet, not the highest below the probe.
-                    //
-                    // Under an overhang — the doorways and portals of
-                    // Undercity — the floor of the level above sits about a
-                    // metre over the one you stand on, both inside the
-                    // step-up window. The default highest-floor pick snapped
-                    // the player up to the level above even standing still,
-                    // the server pulled them back to the real floor, and the
-                    // two fought once a second. Anchoring the pick to the
-                    // player's own ground keeps them where they are; a real
-                    // step onto a ledge still wins once the feet are level
-                    // with it.
-                    //
-                    // The reference is the feet themselves, NOT wmoBaseZ:
-                    // wmoBaseZ is max(z, lastGroundZ) so the probe can reach
-                    // up for a step, but feeding that same raised value back
-                    // as the arbitration anchor ratchets the pick upward —
-                    // one stray upper-floor frame lifts lastGroundZ, and the
-                    // reference then stays on the level above even after the
-                    // server drags the player back down, which is the very
-                    // yo-yo this pick was meant to stop. Grounded, the true
-                    // feet are targetPos.z; airborne, aim at the last ground.
-                    const float feetRef = grounded ? targetPos.z : lastGroundZ;
-                    wmoFuture = core::ThreadPool::frameWorkers().submit(
-                        [this, px, py, wmoProbeZ, feetRef]() -> FloorResult {
-                            float nz = 1.0f;
-                            auto h = wmoRenderer->getFloorHeight(px, py, wmoProbeZ, &nz, feetRef);
-                            return {h, nz};
-                        });
-                }
-                if (m2Renderer && !externalFollow_) {
-                    m2Async = true;
-                    m2Future = core::ThreadPool::frameWorkers().submit(
-                        [this, px, py, wmoProbeZ]() -> FloorResult {
-                            float nz = 1.0f;
-                            auto h = m2Renderer->getFloorHeight(px, py, wmoProbeZ, &nz);
-                            return {h, nz};
-                        });
-                }
-                if (terrainManager) {
-                    terrainH = terrainManager->getHeightAt(targetPos.x, targetPos.y);
-                }
-                if (wmoAsync) {
-                    try { auto [h, nz] = wmoFuture.get(); wmoH = h; wmoNormalZ = nz; }
-                    catch (const std::exception& e) { LOG_ERROR("WMO floor query: ", e.what()); }
-                }
-                if (m2Async) {
-                    try {
-                        auto [h, nz] = m2Future.get();
-                        m2H = h;
-                        if (m2H && nz < MIN_WALKABLE_NORMAL_M2) {
-                            m2H = std::nullopt;
-                        }
-                    } catch (const std::exception& e) { LOG_ERROR("M2 floor query: ", e.what()); }
-                }
-
-                // A tunnel mouth can overlap the outdoor heightfield before the
-                // player's eye point is inside the WMO bounds.  Treat a nearby WMO
-                // floor below that terrain as transition space immediately; waiting
-                // for cachedInsideWMO makes the outdoor terrain win one frame at a
-                // time (climbing through the roof), while rejecting a steep entrance
-                // ramp here makes the player fall through it.
-                bool atTunnelSeam = false;
-                if (terrainH && wmoH) {
-                    const float terrainAboveWmo = *terrainH - *wmoH;
-                    const float wmoDropFromPlayer = targetPos.z - *wmoH;
-                    atTunnelSeam = terrainAboveWmo > 1.2f && terrainAboveWmo < 12.0f &&
-                                   wmoDropFromPlayer >= -0.4f && wmoDropFromPlayer < 1.8f;
-                }
-                // A real tunnel mouth burrows into rising ground: the heightfield
-                // just ahead climbs above head height (or stops in a hole cut for
-                // the passage). WMO ramps that merely run beneath flat walkable
-                // streets must not steal the player from the terrain above them —
-                // that pulled players through the ground at the Stormwind gate
-                // ramparts and down ramps into the void. Inside an interior WMO
-                // group (tram entrance buildings) the heightfield under the city
-                // is meaningless, so it gets no veto — otherwise entry becomes
-                // dependent on approach angle.
-                if (atTunnelSeam && !cachedInsideInteriorWMO && terrainManager) {
-                    glm::vec3 moveDir = targetPos - lastCollisionCheckPos_;
-                    moveDir.z = 0.0f;
-                    const float moveLen = glm::length(moveDir);
-                    if (moveLen < 1e-3f) {
-                        atTunnelSeam = false;  // stationary — nothing to enter
-                    } else {
-                        const glm::vec3 aheadPos = targetPos + moveDir * (2.5f / moveLen);
-                        auto terrainAhead = terrainManager->getHeightAt(aheadPos.x, aheadPos.y);
-                        atTunnelSeam = !terrainAhead ||
-                                       *terrainAhead > targetPos.z + 2.2f;
-                    }
-                }
-
-                // Reject steep WMO slopes. Tunnel ramps use the more permissive WMO
-                // limit even at the boundary, where isInsideWMO is not reliable yet.
-                float minWalkableWmo = (cachedInsideWMO || atTunnelSeam)
-                    ? MIN_WALKABLE_NORMAL_WMO : MIN_WALKABLE_NORMAL_TERRAIN;
-                if (wmoH && wmoNormalZ < minWalkableWmo) {
-                    wmoH = std::nullopt;  // Treat as unwalkable
-                }
-
-                // Reject WMO floors far above last known ground when airborne
-                // (prevents snapping to roof/ceiling surfaces during jumps)
-                if (wmoH && !grounded && *wmoH > lastGroundZ + stepUpBudget + 0.5f) {
-                    wmoH = std::nullopt;
-                    centerWmoH = std::nullopt;
-                }
-                // An M2 doodad's collision sitting well below a valid WMO
-                // floor is BENEATH that floor — a decoration or structural
-                // base under the walkway, not a surface to stand on. Letting
-                // it win drops the player through the WMO floor: in Undercity
-                // the pick took an m2 floor ~6m below the wmo one (feet -48.8,
-                // wmo -48.15, m2 -54.23) and fell. When a WMO floor is present
-                // here, reject an m2 floor more than 1.5m below it. (If the
-                // player were standing ON the m2 platform, the higher WMO
-                // floor would be above the probe and not returned, so this
-                // cannot strand them off a legitimate lower deck.)
-                if (m2H && wmoH && *m2H < *wmoH - 1.5f) {
-                    m2H = std::nullopt;
-                }
-                // A terrain hole is the artist saying there is no ground
-                // here — it is how cave mouths and sunken entrances get
-                // opened up, and the mesh builder already skips those
-                // quads, so nothing is drawn over them. getHeightAt does
-                // not ask: it interpolates straight across the gap and
-                // reports a surface right at the player's feet, which then
-                // wins the floor selection against the real floor below.
-                // At Gadgetzan's auction house that put the player out over
-                // the stairwell on ground that is not there, unable to walk
-                // down the steps and looking into a hole they were standing
-                // on. Every seam guard below is downstream of this and none
-                // of them could see it, because to them the terrain sample
-                // was real.
-                //
-                // Only ever hand the floor to the building underneath — a
-                // hole with nothing below it keeps the heightfield it has
-                // always had, so this cannot open a pit anywhere new.
-                if (terrainH && wmoH && terrainManager &&
-                    terrainManager->isHoleAt(targetPos.x, targetPos.y)) {
-                    terrainH = std::nullopt;
-                }
-
-                // Inside an interior WMO group — Undercity's halls, a
-                // building's rooms — the outdoor heightfield is the roof far
-                // overhead, never the floor. Veto it there so a brief gap in
-                // the WMO floor query does not kick the player up to the
-                // surface. (The seam case is handled above and keeps
-                // cachedInsideInteriorWMO false at entrances.)
-                //
-                // Only when it really is overhead, though. isInsideInteriorWMO
-                // is a bounding-box containment test, and an underground WMO's
-                // interior box reaches up through the ground above it — so
-                // standing on the grass over a cave counted as being inside
-                // it. Vetoing terrain there left the WMO as the only
-                // candidate, and the nearest WMO surface below is the cave's
-                // ceiling: the player dropped through the hillside they were
-                // walking on and stood on the roof of the room underneath.
-                //
-                // Higher than the player could step onto is the test, because
-                // that is the whole of what the veto meant: ground you cannot
-                // reach is not the ground you are standing on. Undercity's
-                // surface sits ~113m over the halls and is still vetoed; the
-                // hillside at your feet is not. The rule itself lives in
-                // movement_limits.hpp, where it is pinned by a test.
-                if (terrainH && movement::terrainIsOverheadRoof(
-                        cachedInsideInteriorWMO, *terrainH,
-                        targetPos.z, stepUpBudget)) {
-                    terrainH = std::nullopt;
-                }
-
-                centerTerrainH = terrainH;
-                centerWmoH = wmoH;
-                centerM2H = m2H;
-
-                // Guard against extremely bad WMO void ramps, but keep normal tunnel
-                // transitions valid. Only reject when the WMO sample is implausibly far
-                // below terrain and player is not already descending.
-                if (terrainH && wmoH && !cachedInsideWMO) {
-                    float terrainMinusWmo = *terrainH - *wmoH;
-                    if (terrainMinusWmo > 12.0f && verticalVelocity > -8.0f) {
-                        wmoH = std::nullopt;
-                        centerWmoH = std::nullopt;
-                    }
-                }
-
-                if ((cachedInsideWMO || atTunnelSeam) && wmoH) {
-                    // Transition seam (e.g. tunnel mouths): if terrain is much higher than
-                    // nearby WMO walkable floor, prefer the WMO floor so we can enter.
-                    // Do not require downward velocity or an already-inside state:
-                    // both arrive after a level tunnel entrance has begun choosing
-                    // between the two surfaces.
-                    bool preferWmoAtSeam = atTunnelSeam;
-                    if (preferWmoAtSeam) {
-                        groundH = wmoH;
-                    } else if (terrainH) {
-                        // At tunnel seams where both exist, pick the one closest to current feet Z
-                        // to avoid oscillating between top terrain and deep WMO floors.
-                        groundH = selectClosestFloor(terrainH, wmoH, targetPos.z);
-                    } else {
-                        groundH = selectReachableFloor3(terrainH, wmoH, m2H, targetPos.z, stepUpBudget);
-                    }
-                } else {
-                    groundH = selectReachableFloor3(terrainH, wmoH, m2H, targetPos.z, stepUpBudget);
-                }
-
-                // The local player's own floor pick, named when it jumps.
-                //
-                // The movingEntityFloor log covers creatures and other
-                // players; this is the reporter's own character in
-                // Undercity. It says which floor was chosen for the player
-                // and the three candidates it chose among, so a jump that
-                // survived the closest-to-feet change shows what is still
-                // competing — and whether both floors are even offered here
-                // or only one is, which decides whether the fix belongs in
-                // the selection or deeper in the WMO query.
-                // Threshold sits below a floor gap (~1m) on purpose: the
-                // ratchet oscillation the feetRef fix targets stays under a
-                // metre frame to frame, so a 1.0 gate saw nothing while the
-                // player visibly bobbed. 0.4 catches the sub-metre bob.
-                if (groundH && std::abs(*groundH - lastGroundZ) > 0.4f) {
-                    static std::chrono::steady_clock::time_point lastPlayerFloorLog{};
-                    const auto now = std::chrono::steady_clock::now();
-                    if (now - lastPlayerFloorLog > std::chrono::seconds(1)) {
-                        lastPlayerFloorLog = now;
-                        core::Logger::getInstance().warning(
-                            "Player floor jump: feet=", targetPos.z,
-                            " lastGround=", lastGroundZ, " -> chose ", *groundH,
-                            " (terrain=", terrainH ? *terrainH : -99999.0f,
-                            " wmo=", wmoH ? *wmoH : -99999.0f,
-                            " m2=", m2H ? *m2H : -99999.0f,
-                            " seam=", atTunnelSeam ? 1 : 0, ")");
-                    }
-                    // A jump — the floor query landed a level away, not a
-                    // step — is the Undercity pull, and the one thing needed
-                    // to solve it is which WMO groups and floors exist under
-                    // the player when it happens. That is exactly what F8's
-                    // dump prints, so dump it here automatically on a jump
-                    // (rate-limited hard, it is verbose): the log then carries
-                    // the answer from ordinary play, with no key to remember.
-                    // Threshold is 0.9m, not 2m: the overhang gap the player
-                    // is pulled across is about a metre, so a 2m gate never
-                    // fired while the yo-yo bobbed under it. A metre is still
-                    // above a stair step, so ordinary walking does not trip it.
-                    if (wmoRenderer && std::abs(*groundH - lastGroundZ) > 0.9f) {
-                        static std::chrono::steady_clock::time_point lastFloorDump{};
-                        if (now - lastFloorDump > std::chrono::seconds(5)) {
-                            lastFloorDump = now;
-                            core::Logger::getInstance().warning(
-                                "Player floor jump: dumping WMO groups at the "
-                                "pull (feet ", targetPos.z, " -> ", *groundH, ")");
-                            wmoRenderer->debugDumpGroupsAtPosition(
-                                targetPos.x, targetPos.y, targetPos.z);
-                        }
-                    }
-                }
-
-                // Update cache
-                lastCollisionCheckPos_ = targetPos;
-                if (groundH) {
-                    cachedFloorHeight_ = *groundH;
-                    hasCachedFloor_ = true;
-                    // Ground found — cancel gravity suspension (WMO floor loaded)
-                    if (gravitySuspendTimer_ > 0.0f) gravitySuspendTimer_ = 0.0f;
-                } else {
-                    hasCachedFloor_ = false;
-                }
-            }
-        }
+        // The floor directly under the feet, and the surfaces that answered.
+        const FloorSample sample = sampleFloorUnderFeet(targetPos, stepUpBudget);
+        std::optional<float> groundH = sample.floor;
+        const std::optional<float> centerTerrainH = sample.terrain;
+        const std::optional<float> centerWmoH = sample.wmo;
+        const std::optional<float> centerM2H = sample.m2;
 
         // Transition safety: if no reachable floor was selected, choose the higher
         // of terrain/WMO center surfaces when it is still near the player.

@@ -234,6 +234,20 @@ private:
     /// intent and the swept wall collision. The floor is not consulted yet.
     glm::vec3 moveFollowedCharacter(float deltaTime, FrameInput& f, glm::vec3& prevTargetPos);
 
+    /// What the floor queries answer directly under the character: the floor
+    /// that was chosen, and the three surfaces that were offered. The recovery
+    /// probes need to know which existed at all, not just which one won.
+    struct FloorSample {
+        std::optional<float> floor;
+        std::optional<float> terrain;
+        std::optional<float> wmo;
+        std::optional<float> m2;
+    };
+
+    /// Ask terrain, WMO and doodads where the floor is — two of them on other
+    /// threads — or answer from the cache when the character has barely moved.
+    FloorSample sampleFloorUnderFeet(const glm::vec3& targetPos, float stepUpBudget);
+
     /// Put the character on the floor and publish where it ended up — the
     /// expensive half, with the floor queries and the cache that skips them.
     void groundFollowedCharacter(float deltaTime, FrameInput& f, glm::vec3& targetPos,
