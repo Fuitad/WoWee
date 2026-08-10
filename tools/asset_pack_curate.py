@@ -217,6 +217,41 @@ def curate(overlay_root, apply_changes, keep_hd=False):
             for i in range(6):
                 mark("%s%02d.skin" % (stem, i), "skin of a disabled model")
 
+    # (3a) face art authored for a different atlas than the models use.
+    #
+    # Four races ship a face at twice the size of the region it goes in — and it
+    # is not a larger version of the same picture. A human female's faceLower is
+    # a strip of nose, lips and chin; a draenei female's is a whole head, ear,
+    # horn, mouth and eyeball on one sheet. Meanwhile both models' head UVs run
+    # the same range, u 0.005..0.496 and v 0.61..0.99, which is the stock face
+    # layout. So the art does not belong in that slot at any canvas size, and
+    # growing the atlas for it only makes everything around it softer.
+    #
+    # The models are fine and the stock face art fits them, so the oversized
+    # replacements go and the game's own faces are used underneath the new mesh.
+    def blp_size(path):
+        try:
+            with open(path, "rb") as f:
+                head = f.read(20)
+            if head[:4] != b"BLP2":
+                return None
+            return struct.unpack("<II", head[12:20])
+        except OSError:
+            return None
+
+    for key in list(entries):
+        if key in drop or not key.endswith(".blp") or key not in base:
+            continue
+        name = key.rsplit("\\", 1)[-1]
+        if "facelower" not in name and "faceupper" not in name:
+            continue
+        if not key.startswith("character\\"):
+            continue
+        new_size = blp_size(os.path.join(files_root, entries[key]["p"]))
+        old_size = blp_size(os.path.join(base_root, base[key]["p"]))
+        if new_size and old_size and new_size[0] > old_size[0]:
+            mark(key, "face art authored for a different atlas than the model uses")
+
     # (3b) art the pack shipped for a model these rules disabled.
     #
     # A replacement texture is painted for the UVs of the mesh it came with. Put
