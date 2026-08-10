@@ -156,9 +156,10 @@ std::unordered_set<uint16_t> CharacterPreview::buildBaseGeosets() {
                                static_cast<uint32_t>(facialHair_);
     auto itFacial = facialHairGeosetMap_.find(facialKey);
     if (itFacial != facialHairGeosetMap_.end()) {
-        activeGeosets.insert(static_cast<uint16_t>(100 + itFacial->second.geoset100));
-        activeGeosets.insert(static_cast<uint16_t>(200 + itFacial->second.geoset200));
-        activeGeosets.insert(static_cast<uint16_t>(300 + itFacial->second.geoset300));
+        core::addFacialHairGeosets(activeGeosets,
+                                   itFacial->second.geoset100,
+                                   itFacial->second.geoset200,
+                                   itFacial->second.geoset300);
     } else {
         activeGeosets.insert(101);
         activeGeosets.insert(201);

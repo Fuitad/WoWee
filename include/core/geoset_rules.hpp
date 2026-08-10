@@ -68,5 +68,23 @@ inline uint16_t resolveGeoset(uint16_t preferred,
     return lowest;
 }
 
+/// Add a character's facial-hair geosets — beard, moustache, sideburns — to a set.
+///
+/// CharFacialHairStyles stores a variant per group and uses 0 for "this
+/// character has none of that". Zero must not be turned into an id: group*100+0
+/// is a geoset no model carries, and a caller that then substitutes within the
+/// group hands a beard to someone who asked for none. That happened, on NPCs.
+///
+/// A caller that inserts raw ids was only accidentally safe — the invalid id
+/// matched nothing — so both spellings of the mistake are removed by asking here
+/// instead.
+inline void addFacialHairGeosets(std::unordered_set<uint16_t>& out,
+                                 uint16_t variant100, uint16_t variant200,
+                                 uint16_t variant300) {
+    if (variant100 != 0) out.insert(static_cast<uint16_t>(100 + variant100));
+    if (variant200 != 0) out.insert(static_cast<uint16_t>(200 + variant200));
+    if (variant300 != 0) out.insert(static_cast<uint16_t>(300 + variant300));
+}
+
 }  // namespace core
 }  // namespace wowee

@@ -1821,14 +1821,12 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             auto itFacial = facialHairGeosetMap_.find(facialKey);
             if (itFacial != facialHairGeosetMap_.end()) {
                 const auto& fhg = itFacial->second;
-                // A zero means the character has none of that feature. Asked
-                // for as x00 it is a geoset nothing has, and the group fallback
-                // turns "none" into "the first one" — which is how a
-                // clean-shaven NPC ends up bearded.
-                if (fhg.geoset200 != 0)
-                    addSafeGeoset(static_cast<uint16_t>(200 + fhg.geoset200));
-                if (fhg.geoset300 != 0)
-                    addSafeGeoset(static_cast<uint16_t>(300 + fhg.geoset300));
+                // Through the shared rule, then resolved against the model:
+                // zero is none and never becomes an id, and what does become an
+                // id is matched to the variant this model actually spells.
+                std::unordered_set<uint16_t> facial;
+                addFacialHairGeosets(facial, 0, fhg.geoset200, fhg.geoset300);
+                for (uint16_t id : facial) addSafeGeoset(id);
             } else {
                 addSafeGeoset(201);
                 addSafeGeoset(301);
@@ -1916,15 +1914,8 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
             auto itFacial = facialHairGeosetMap_.find(facialKey);
             if (itFacial != facialHairGeosetMap_.end()) {
                 const auto& fhg = itFacial->second;
-                // DBC values are variation indices within each group; add group base
-                // Same rule on the other-player path: zero is none, and an
-                // id ending in 00 is not a geoset to ask for.
-                if (fhg.geoset100 != 0)
-                    activeGeosets.insert(static_cast<uint16_t>(100 + fhg.geoset100));
-                if (fhg.geoset300 != 0)
-                    activeGeosets.insert(static_cast<uint16_t>(300 + fhg.geoset300));
-                if (fhg.geoset200 != 0)
-                    activeGeosets.insert(static_cast<uint16_t>(200 + fhg.geoset200));
+                addFacialHairGeosets(activeGeosets, fhg.geoset100, fhg.geoset200,
+                                     fhg.geoset300);
             } else {
                 activeGeosets.insert(kGeosetDefaultConnector); // Default group 1: no extra
                 activeGeosets.insert(201); // Default group 2: no facial hair

@@ -92,3 +92,29 @@ TEST_CASE("resolving against what a model actually carries", "[geoset]") {
         CHECK(resolveGeoset(2002, stock) == 0);
     }
 }
+
+TEST_CASE("facial hair: zero is none, and none is not an id", "[geoset]") {
+    SECTION("a clean-shaven character adds nothing") {
+        std::unordered_set<uint16_t> set;
+        addFacialHairGeosets(set, 0, 0, 0);
+        CHECK(set.empty());
+    }
+
+    SECTION("each group takes its own variant") {
+        std::unordered_set<uint16_t> set;
+        addFacialHairGeosets(set, 2, 3, 4);
+        CHECK(set == std::unordered_set<uint16_t>{102, 203, 304});
+    }
+
+    SECTION("a character with a beard and no sideburns gets only the beard") {
+        // The fault this exists for: 200 + 0 was being asked for, no model
+        // carries 200, and the caller substituted the first geoset in group 2 —
+        // which is a beard on a character that has none.
+        std::unordered_set<uint16_t> set;
+        addFacialHairGeosets(set, 0, 5, 0);
+        CHECK(set == std::unordered_set<uint16_t>{205});
+        CHECK(set.count(200) == 0);
+        CHECK(set.count(100) == 0);
+        CHECK(set.count(300) == 0);
+    }
+}
