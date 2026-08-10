@@ -1638,6 +1638,31 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                             }
                         }
 
+                        // The head detail sheet — eyes, mouth, ears, eyelashes —
+                        // which an HD humanoid model asks for as texture type 8
+                        // and the stock ones have no slot for. CharSections'
+                        // second texture on the skin row is where it comes from,
+                        // the same as for the player. Without it these slots
+                        // keep whatever the model was authored with, and one of
+                        // these models was authored with the word 'Ohren' — so
+                        // the face detail fell back to the body art and every
+                        // NPC wore its skin colour where its eyes should be.
+                        {
+                            std::string extraPath = lookupCharSection(
+                                extra.raceId, extra.sexId, 0, 0, extra.skinId, 1);
+                            if (!extraPath.empty()) {
+                                rendering::VkTexture* extraTex = charRenderer->loadTexture(extraPath);
+                                if (extraTex && extraTex != whiteTex) {
+                                    for (size_t ti = 0; ti < md->textures.size(); ti++) {
+                                        if (md->textures[ti].type == 8) {
+                                            charRenderer->setTextureSlotOverride(
+                                                instanceId, static_cast<uint16_t>(ti), extraTex);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // Look up skin texture (section 0) for per-instance skin color.
                         // Skip when the NPC has a baked texture or composited equipment —
                         // those already encode armor over skin and must not be replaced.
