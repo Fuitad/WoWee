@@ -310,6 +310,13 @@ private:
         std::string skin1, skin2, skin3;  // Texture names from CreatureDisplayInfo.dbc
         uint32_t extraDisplayId = 0;      // Link to CreatureDisplayInfoExtra.dbc
     };
+
+    /// Apply the textures a creature display names: its own skin variations,
+    /// and for a humanoid the composited body, face, hair and equipment. Once
+    /// per display, since the model is shared by every creature using it.
+    void applyCreatureDisplayTextures(uint32_t displayId, uint32_t modelId,
+                                      const CreatureDisplayData& dispData);
+
     struct HumanoidDisplayExtra {
         uint8_t raceId = 0;
         uint8_t sexId = 0;
