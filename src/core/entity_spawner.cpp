@@ -1650,16 +1650,32 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                         {
                             std::string extraPath = lookupCharSection(
                                 extra.raceId, extra.sexId, 0, 0, extra.skinId, 1);
-                            if (!extraPath.empty()) {
-                                rendering::VkTexture* extraTex = charRenderer->loadTexture(extraPath);
-                                if (extraTex && extraTex != whiteTex) {
-                                    for (size_t ti = 0; ti < md->textures.size(); ti++) {
-                                        if (md->textures[ti].type == 8) {
-                                            charRenderer->setTextureSlotOverride(
-                                                instanceId, static_cast<uint16_t>(ti), extraTex);
-                                        }
+                            int extraSlots = 0;
+                            rendering::VkTexture* extraTex =
+                                extraPath.empty() ? nullptr : charRenderer->loadTexture(extraPath);
+                            if (extraTex && extraTex != whiteTex) {
+                                for (size_t ti = 0; ti < md->textures.size(); ti++) {
+                                    if (md->textures[ti].type == 8) {
+                                        charRenderer->setTextureSlotOverride(
+                                            instanceId, static_cast<uint16_t>(ti), extraTex);
+                                        ++extraSlots;
                                     }
                                 }
+                            }
+                            // Three things decide whether an NPC's face is right,
+                            // and a wrong face looks the same whichever failed:
+                            // the table having the art, the art loading, and the
+                            // model having a slot to put it in.
+                            if (npcHeadDetailCanaryCount_ < 5) {
+                                ++npcHeadDetailCanaryCount_;
+                                LOG_WARNING("NPC head detail: displayId=", displayId,
+                                            " race=", static_cast<int>(extra.raceId),
+                                            " sex=", static_cast<int>(extra.sexId),
+                                            " skin=", static_cast<int>(extra.skinId),
+                                            " extra='", extraPath,
+                                            "' loaded=", (extraTex && extraTex != whiteTex ? "yes" : "NO"),
+                                            " type8 slots=", extraSlots,
+                                            " of ", md->textures.size(), " textures");
                             }
                         }
 

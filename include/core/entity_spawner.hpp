@@ -413,6 +413,8 @@ private:
     /// asset overlay that re-points them can be told apart from one that never
     /// reached the client. Five is enough to see and few enough to ignore.
     mutable int humanoidDisplayCanaryCount_ = 0;
+    /// Says what the first few NPCs resolved for their head-detail texture.
+    int npcHeadDetailCanaryCount_ = 0;
     uint32_t nextCreatureModelId_ = 5000;
     uint32_t gryphonDisplayId_ = 0;
     uint32_t wyvernDisplayId_ = 0;
