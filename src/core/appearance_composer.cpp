@@ -162,6 +162,15 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
                     foundSkin = true;
                     LOG_INFO("  DBC body skin: ", result.bodySkinPath, " (skin=", static_cast<int>(charSkinId), ")");
                 }
+                // The second texture on the skin row, which the stock table
+                // leaves blank and an HD one fills in — Character\Human\Female\
+                // Extra\HumanFemaleFaceUpper00_00_HD.blp and its like. That is
+                // the art a model asks for as texture type 8, and it is what
+                // the eyelashes are drawn with.
+                result.skinExtraPath = charSectionsDbc->getString(r, csF.texture2);
+                if (!result.skinExtraPath.empty()) {
+                    LOG_INFO("  DBC skin extra: ", result.skinExtraPath);
+                }
             }
             // Section 3 = hair: match variation=hairStyle, color=hairColor
             else if (baseSection == 3 && !foundHair &&
@@ -248,7 +257,14 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
                 tex.filename = std::string("Character\\") + raceFolderName + "\\Hair00_00.blp";
             }
         } else if (tex.type == 8 && tex.filename.empty()) {
-            if (!result.underwearPaths.empty()) {
+            // Skin Extra. The skin row's own second texture when the table has
+            // one — an HD model's eyelashes are a submesh textured from it, and
+            // handing them the underwear instead is what left them looking
+            // untextured. The underwear stays as the fallback for a table that
+            // does not carry the extra art, which is every stock one.
+            if (!result.skinExtraPath.empty()) {
+                tex.filename = result.skinExtraPath;
+            } else if (!result.underwearPaths.empty()) {
                 tex.filename = result.underwearPaths[0];
             } else {
                 tex.filename = pelvisPath;
@@ -389,7 +405,18 @@ std::unordered_set<uint16_t> AppearanceComposer::buildDefaultPlayerGeosets(uint8
     activeGeosets.insert(kGeosetDefaultKneepads);
     activeGeosets.insert(kGeosetBarePants);
     activeGeosets.insert(kGeosetWithCape);
+    // Group 20 is the feet, and which member of it a model carries is not
+    // fixed. The stock models have no group 20 at all — the feet are part of
+    // the body — so naming one number was free. An HD replacement splits them
+    // out, and then human male and night elf female carry 2002 while human
+    // female carries 2001 and nothing else: asking for 2002 there selects a
+    // geoset the model does not have, and she stands with no feet.
+    //
+    // Both are named, so whichever the model has is the one it draws. A model
+    // with neither is unaffected, which is every model that shipped with the
+    // game.
     activeGeosets.insert(kGeosetBareFeet);
+    activeGeosets.insert(kGeosetBareFeetAlt);
     return activeGeosets;
 }
 

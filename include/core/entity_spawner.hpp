@@ -409,6 +409,10 @@ private:
     std::unordered_map<uint32_t, std::unordered_map<std::string, pipeline::BLPImage>> displayIdPredecodedTextures_;
     mutable std::unordered_set<uint32_t> warnedMissingDisplayDataIds_;
     mutable std::unordered_set<uint32_t> warnedMissingModelPathIds_;
+    /// Says which model the first few humanoid displays resolved to, so an
+    /// asset overlay that re-points them can be told apart from one that never
+    /// reached the client. Five is enough to see and few enough to ignore.
+    mutable int humanoidDisplayCanaryCount_ = 0;
     uint32_t nextCreatureModelId_ = 5000;
     uint32_t gryphonDisplayId_ = 0;
     uint32_t wyvernDisplayId_ = 0;

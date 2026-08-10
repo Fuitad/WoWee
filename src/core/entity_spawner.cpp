@@ -831,6 +831,18 @@ std::string EntitySpawner::getModelPathForDisplayId(uint32_t displayId) const {
         return "";
     }
 
+    // Which model a humanoid display actually resolved to, once, at warning
+    // level so it shows in a default run. An asset overlay can re-point a
+    // display id at a different model, and there is no other way from outside
+    // to tell "the re-point never reached the client" from "it reached it and
+    // the model looks the same".
+    if (itData->second.extraDisplayId != 0 &&
+        humanoidDisplayCanaryCount_ < 5) {
+        ++humanoidDisplayCanaryCount_;
+        LOG_WARNING("Humanoid display ", displayId, " -> model ",
+                    itData->second.modelId, " -> ", itPath->second);
+    }
+
     return itPath->second;
 }
 

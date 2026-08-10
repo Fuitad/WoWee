@@ -29,6 +29,11 @@ constexpr uint16_t kGeosetBarePants        = 1301;  // Group 13: no leggings
 constexpr uint16_t kGeosetNoCape           = 1501;  // Group 15: no cape
 constexpr uint16_t kGeosetWithCape         = 1502;  // Group 15: with cape
 constexpr uint16_t kGeosetBareFeet         = 2002;  // Group 20: bare feet
+/// The other half of group 20. Models that split the feet out of the body do
+/// not agree on which number to use — an HD human male carries 2002 and an HD
+/// human female carries 2001 — so both are asked for and the model draws the
+/// one it has. Stock models carry neither and are unaffected.
+constexpr uint16_t kGeosetBareFeetAlt      = 2001;
 
 /// Resolved texture paths from CharSections.dbc for player character compositing.
 struct PlayerTextureInfo {
@@ -36,6 +41,10 @@ struct PlayerTextureInfo {
     std::string faceLowerPath;
     std::string faceUpperPath;
     std::string hairTexturePath;
+    /// CharSections' second texture on the skin row — the "Extra" art an HD
+    /// character model asks for as texture type 8. Empty on the stock models,
+    /// which have no type-8 texture and never look for one.
+    std::string skinExtraPath;
     std::vector<std::string> underwearPaths;
 };
 
