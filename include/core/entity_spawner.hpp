@@ -271,6 +271,22 @@ public:
     uint32_t getWyvernDisplayId() const { return wyvernDisplayId_; }
 
     // Character section lookups (needed for player character skin compositing)
+    /// The key for charSectionsCache_, in one place.
+    ///
+    /// It was written out twice — once where the cache is filled and once where
+    /// it is read — and the two had to agree bit for bit or every lookup missed
+    /// silently. Two copies of a packing rule is the same hazard as two copies
+    /// of any other rule, and cheaper to remove than to remember.
+    static constexpr uint64_t charSectionKey(uint8_t race, uint8_t sex, uint8_t section,
+                                             uint8_t variation, uint8_t color, int texIndex) {
+        return (static_cast<uint64_t>(race) << 26) |
+               (static_cast<uint64_t>(sex & 0xF) << 22) |
+               (static_cast<uint64_t>(section & 0xF) << 18) |
+               (static_cast<uint64_t>(variation & 0xFF) << 10) |
+               (static_cast<uint64_t>(color & 0xFF) << 2) |
+               static_cast<uint64_t>(texIndex);
+    }
+
     std::string lookupCharSection(uint8_t race, uint8_t sex, uint8_t section,
                                   uint8_t variation, uint8_t color, int texIndex = 0) const;
     const std::unordered_map<uint32_t, uint16_t>& getHairGeosetMap() const { return hairGeosetMap_; }

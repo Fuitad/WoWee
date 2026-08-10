@@ -1,5 +1,6 @@
 #include "core/entity_spawner.hpp"
 #include "core/appearance_composer.hpp"
+#include "pipeline/char_sections.hpp"
 #include "core/geoset_rules.hpp"
 #include "core/helm_visual.hpp"
 
@@ -569,14 +570,11 @@ void EntitySpawner::buildCharSectionsCache() {
         for (int ti = 0; ti < 3; ti++) {
             std::string tex = dbc->getString(r, csF.texture1 + ti);
             if (tex.empty()) continue;
-            // Key: race(8)|sex(4)|section(4)|variation(8)|color(8)|texIndex(2) packed into 64 bits
-            uint64_t key = (static_cast<uint64_t>(race) << 26) |
-                           (static_cast<uint64_t>(sex & 0xF) << 22) |
-                           (static_cast<uint64_t>(section & 0xF) << 18) |
-                           (static_cast<uint64_t>(variation & 0xFF) << 10) |
-                           (static_cast<uint64_t>(color & 0xFF) << 2) |
-                           static_cast<uint64_t>(ti);
-            charSectionsCache_.emplace(key, tex);
+            charSectionsCache_.emplace(
+                charSectionKey(static_cast<uint8_t>(race), static_cast<uint8_t>(sex),
+                               static_cast<uint8_t>(section), static_cast<uint8_t>(variation),
+                               static_cast<uint8_t>(color), ti),
+                tex);
         }
     }
     charSectionsCacheBuilt_ = true;
@@ -585,13 +583,8 @@ void EntitySpawner::buildCharSectionsCache() {
 
 std::string EntitySpawner::lookupCharSection(uint8_t race, uint8_t sex, uint8_t section,
                                            uint8_t variation, uint8_t color, int texIndex) const {
-    uint64_t key = (static_cast<uint64_t>(race) << 26) |
-                   (static_cast<uint64_t>(sex & 0xF) << 22) |
-                   (static_cast<uint64_t>(section & 0xF) << 18) |
-                   (static_cast<uint64_t>(variation & 0xFF) << 10) |
-                   (static_cast<uint64_t>(color & 0xFF) << 2) |
-                   static_cast<uint64_t>(texIndex);
-    auto it = charSectionsCache_.find(key);
+    auto it = charSectionsCache_.find(
+        charSectionKey(race, sex, section, variation, color, texIndex));
     return (it != charSectionsCache_.end()) ? it->second : std::string();
 }
 
@@ -1362,29 +1355,32 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                                 std::string npcFaceLower, npcFaceUpper;
                                 std::vector<std::string> npcUnderwear;
 
-                                for (uint32_t r = 0; r < csDbc->getRecordCount(); r++) {
-                                    uint32_t rId = csDbc->getUInt32(r, csF.raceId);
-                                    uint32_t sId = csDbc->getUInt32(r, csF.sexId);
-                                    if (rId != npcRace || sId != npcSex) continue;
+                                // The one reader, in pipeline/char_sections.hpp.
+                                //
+                                // This copy had no fallback for a face the
+                                // table does not carry, and no reading of the
+                                // skin row's second texture. Both come with the
+                                // conversion; the second is what an HD model
+                                // draws its ears and eyelashes from.
+                                pipeline::CharacterAppearance who;
+                                who.raceId = npcRace;
+                                who.sexId = npcSex;
+                                who.skinId = static_cast<uint8_t>(npcSkin);
+                                who.faceId = static_cast<uint8_t>(npcFace);
+                                who.hairStyleId = extraCopy.hairStyleId;
+                                who.hairColorId = extraCopy.hairColorId;
 
-                                    uint32_t section = csDbc->getUInt32(r, csF.baseSection);
-                                    uint32_t variation = csDbc->getUInt32(r, csF.variationIndex);
-                                    uint32_t color = csDbc->getUInt32(r, csF.colorIndex);
+                                const auto sections = pipeline::resolveCharacterSections(
+                                    csDbc.get(), csF, who,
+                                    [](const std::string& path, void* ctx) {
+                                        return static_cast<pipeline::AssetManager*>(ctx)->fileExists(path);
+                                    },
+                                    am);
 
-                                    if (section == 0 && def.basePath.empty() && color == npcSkin) {
-                                        def.basePath = csDbc->getString(r, csF.texture1);
-                                    } else if (section == 1 && npcFaceLower.empty() &&
-                                               variation == npcFace && color == npcSkin) {
-                                        npcFaceLower = csDbc->getString(r, csF.texture1);
-                                        npcFaceUpper = csDbc->getString(r, csF.texture2);
-                                    } else if (section == 4 && npcUnderwear.empty() && color == npcSkin) {
-                                        for (uint32_t f = csF.texture1; f <= csF.texture1 + 2; f++) {
-                                            std::string tex = csDbc->getString(r, f);
-                                            if (!tex.empty() && am->fileExists(tex))
-                                                npcUnderwear.push_back(tex);
-                                        }
-                                    }
-                                }
+                                def.basePath = sections.bodySkin;
+                                npcFaceLower = sections.faceLower;
+                                npcFaceUpper = sections.faceUpper;
+                                npcUnderwear = sections.underwear;
 
                                 if (!def.basePath.empty()) {
                                     allPaths.push_back(def.basePath);
