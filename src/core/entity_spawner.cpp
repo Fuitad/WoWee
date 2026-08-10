@@ -2480,11 +2480,10 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
                 normalizedGeosets.insert(sid);
             }
 
-            auto pickFromGroup = [&](uint16_t preferredSid, uint16_t group) -> uint16_t {
-                if (allGeosets.count(preferredSid) > 0) return preferredSid;
-                auto it = firstByGroup.find(group);
-                if (it != firstByGroup.end()) return it->second;
-                return 0;
+            // core/geoset_rules.hpp. The group argument stays for the call
+            // sites' readability; the id already implies it.
+            auto pickFromGroup = [&](uint16_t preferredSid, uint16_t /*group*/) -> uint16_t {
+                return resolveGeoset(preferredSid, allGeosets);
             };
 
             // Intentionally do not add group 3 (glove/forearm accessory meshes).

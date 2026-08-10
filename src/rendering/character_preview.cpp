@@ -12,6 +12,7 @@
 #include "pipeline/dbc_loader.hpp"
 #include "pipeline/dbc_layout.hpp"
 #include "core/appearance_composer.hpp"
+#include "core/geoset_rules.hpp"
 #include "core/logger.hpp"
 #include "core/application.hpp"
 #include <imgui.h>
@@ -863,18 +864,20 @@ bool CharacterPreview::applyEquipment(const std::vector<game::EquipmentItem>& eq
         }
     }
 
+    // core/geoset_rules.hpp, the same rule the world paths use.
+    //
+    // This copy took a second id as its fallback rather than looking inside the
+    // group, so where the two ids given were the same — which every call below
+    // does — it could only answer "the model has it" or "nothing", and a model
+    // spelling that part with a different variant lost it entirely.
     auto pickGeoset = [&](uint16_t preferred, uint16_t fallback) -> uint16_t {
-        if (preferred != 0 && modelGeosets.count(preferred) > 0) return preferred;
-        if (fallback != 0 && modelGeosets.count(fallback) > 0) return fallback;
-        return 0;
+        const uint16_t chosen = core::resolveGeoset(preferred, modelGeosets);
+        if (chosen != 0) return chosen;
+        return (fallback != 0 && modelGeosets.count(fallback) > 0) ? fallback : 0;
     };
 
     auto lowestInGroup = [&](uint16_t group) -> uint16_t {
-        uint16_t best = 0;
-        for (uint16_t g : modelGeosets) {
-            if (g / 100 == group && (best == 0 || g < best)) best = g;
-        }
-        return best;
+        return core::resolveGeoset(static_cast<uint16_t>(group * 100 + 2), modelGeosets);
     };
 
     uint16_t geosetGloves = pickGeoset(core::kGeosetBareForearms, core::kGeosetBareForearms);
