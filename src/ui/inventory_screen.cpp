@@ -235,6 +235,43 @@ InventoryScreen::~InventoryScreen() {
     iconCache_.clear();
 }
 
+namespace {
+
+/// The short stat words the side-by-side comparison uses.
+///
+/// game::itemStatName answers "Defense Rating" and "Crit Rating", which is what
+/// a tooltip says. The comparison puts a name and two numbers on one narrow row,
+/// so it says "Defense" and "Crit" — same ids, deliberately shorter words. It
+/// was written out twice, identically.
+const char* comparisonStatLabel(uint32_t statType) {
+    switch (statType) {
+        case 0:  return "Mana";
+        case 1:  return "Health";
+        case 12: return "Defense";
+        case 13: return "Dodge";
+        case 14: return "Parry";
+        case 15: return "Block Rating";
+        case 16: case 17: case 18: case 31: return "Hit";
+        case 19: case 20: case 21: case 32: return "Crit";
+        case 28: case 29: case 30: case 36: return "Haste";
+        case 35: return "Resilience";
+        case 37: return "Expertise";
+        case 38: return "Attack Power";
+        case 39: return "Ranged AP";
+        case 41: return "Healing";
+        case 42: return "Spell Damage";
+        case 43: return "MP5";
+        case 44: return "Armor Pen";
+        case 45: return "Spell Power";
+        case 46: return "HP5";
+        case 47: return "Spell Pen";
+        case 48: return "Block Value";
+        default: return nullptr;
+    }
+}
+
+}  // namespace
+
 void InventoryScreen::setBagMoveConfigActive(bool active) {
     if (!ImGui::GetCurrentContext()) {
         bagMoveConfigActive_ = false;
@@ -3306,40 +3343,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
 
     // Extra stats (hit, crit, haste, AP, SP, etc.) — one line each
     for (const auto& es : item.extraStats) {
-        const char* statName = nullptr;
-        switch (es.statType) {
-            case 0:  statName = "Mana"; break;
-            case 1:  statName = "Health"; break;
-            case 12: statName = "Defense Rating"; break;
-            case 13: statName = "Dodge Rating"; break;
-            case 14: statName = "Parry Rating"; break;
-            case 15: statName = "Block Rating"; break;
-            case 16: statName = "Hit Rating"; break;
-            case 17: statName = "Hit Rating"; break;
-            case 18: statName = "Hit Rating"; break;
-            case 19: statName = "Crit Rating"; break;
-            case 20: statName = "Crit Rating"; break;
-            case 21: statName = "Crit Rating"; break;
-            case 28: statName = "Haste Rating"; break;
-            case 29: statName = "Haste Rating"; break;
-            case 30: statName = "Haste Rating"; break;
-            case 31: statName = "Hit Rating"; break;
-            case 32: statName = "Crit Rating"; break;
-            case 35: statName = "Resilience"; break;
-            case 36: statName = "Haste Rating"; break;
-            case 37: statName = "Expertise Rating"; break;
-            case 38: statName = "Attack Power"; break;
-            case 39: statName = "Ranged Attack Power"; break;
-            case 41: statName = "Healing Power"; break;
-            case 42: statName = "Spell Damage"; break;
-            case 43: statName = "Mana per 5 sec"; break;
-            case 44: statName = "Armor Penetration"; break;
-            case 45: statName = "Spell Power"; break;
-            case 46: statName = "Health per 5 sec"; break;
-            case 47: statName = "Spell Penetration"; break;
-            case 48: statName = "Block Value"; break;
-            default: statName = nullptr; break;
-        }
+        const char* statName = game::itemStatName(es.statType);
         char buf[64];
         if (statName) {
             std::snprintf(buf, sizeof(buf), "%+d %s", es.statValue, statName);
@@ -3699,31 +3703,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
                 int32_t nv = findExtraStat(item, t);
                 int32_t ev = findExtraStat(eq->item, t);
                 // Find a label for this stat type
-                const char* lbl = nullptr;
-                switch (t) {
-                    case 0:  lbl = "Mana"; break;
-                    case 1:  lbl = "Health"; break;
-                    case 12: lbl = "Defense"; break;
-                    case 13: lbl = "Dodge"; break;
-                    case 14: lbl = "Parry"; break;
-                    case 15: lbl = "Block Rating"; break;
-                    case 16: case 17: case 18: case 31: lbl = "Hit"; break;
-                    case 19: case 20: case 21: case 32: lbl = "Crit"; break;
-                    case 28: case 29: case 30: case 36: lbl = "Haste"; break;
-                    case 35: lbl = "Resilience"; break;
-                    case 37: lbl = "Expertise"; break;
-                    case 38: lbl = "Attack Power"; break;
-                    case 39: lbl = "Ranged AP"; break;
-                    case 41: lbl = "Healing"; break;
-                    case 42: lbl = "Spell Damage"; break;
-                    case 43: lbl = "MP5"; break;
-                    case 44: lbl = "Armor Pen"; break;
-                    case 45: lbl = "Spell Power"; break;
-                    case 46: lbl = "HP5"; break;
-                    case 47: lbl = "Spell Pen"; break;
-                    case 48: lbl = "Block Value"; break;
-                    default: lbl = nullptr; break;
-                }
+                const char* lbl = comparisonStatLabel(t);
                 if (!lbl) continue;
                 showDiff(lbl, static_cast<float>(nv), static_cast<float>(ev));
             }
@@ -3836,28 +3816,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
 
     // Extra stats
     for (const auto& es : info.extraStats) {
-        const char* statName = nullptr;
-        switch (es.statType) {
-            case 12: statName = "Defense Rating"; break;
-            case 13: statName = "Dodge Rating"; break;
-            case 14: statName = "Parry Rating"; break;
-            case 16: case 17: case 18: case 31: statName = "Hit Rating"; break;
-            case 19: case 20: case 21: case 32: statName = "Crit Rating"; break;
-            case 28: case 29: case 30: case 36: statName = "Haste Rating"; break;
-            case 35: statName = "Resilience"; break;
-            case 37: statName = "Expertise Rating"; break;
-            case 38: statName = "Attack Power"; break;
-            case 39: statName = "Ranged Attack Power"; break;
-            case 41: statName = "Healing Power"; break;
-            case 42: statName = "Spell Damage"; break;
-            case 43: statName = "Mana per 5 sec"; break;
-            case 44: statName = "Armor Penetration"; break;
-            case 45: statName = "Spell Power"; break;
-            case 46: statName = "Health per 5 sec"; break;
-            case 47: statName = "Spell Penetration"; break;
-            case 48: statName = "Block Value"; break;
-            default: statName = nullptr; break;
-        }
+        const char* statName = game::itemStatName(es.statType);
         char buf[64];
         if (statName)
             std::snprintf(buf, sizeof(buf), "%+d %s", es.statValue, statName);
@@ -4186,31 +4145,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemQueryResponseData& info,
             for (uint32_t t : allTypes) {
                 int32_t nv = findExtraStat(info, t);
                 int32_t ev = findExtraStat(eq->item, t);
-                const char* lbl = nullptr;
-                switch (t) {
-                    case 0:  lbl = "Mana"; break;
-                    case 1:  lbl = "Health"; break;
-                    case 12: lbl = "Defense"; break;
-                    case 13: lbl = "Dodge"; break;
-                    case 14: lbl = "Parry"; break;
-                    case 15: lbl = "Block Rating"; break;
-                    case 16: case 17: case 18: case 31: lbl = "Hit"; break;
-                    case 19: case 20: case 21: case 32: lbl = "Crit"; break;
-                    case 28: case 29: case 30: case 36: lbl = "Haste"; break;
-                    case 35: lbl = "Resilience"; break;
-                    case 37: lbl = "Expertise"; break;
-                    case 38: lbl = "Attack Power"; break;
-                    case 39: lbl = "Ranged AP"; break;
-                    case 41: lbl = "Healing"; break;
-                    case 42: lbl = "Spell Damage"; break;
-                    case 43: lbl = "MP5"; break;
-                    case 44: lbl = "Armor Pen"; break;
-                    case 45: lbl = "Spell Power"; break;
-                    case 46: lbl = "HP5"; break;
-                    case 47: lbl = "Spell Pen"; break;
-                    case 48: lbl = "Block Value"; break;
-                    default: lbl = nullptr; break;
-                }
+                const char* lbl = comparisonStatLabel(t);
                 if (!lbl) continue;
                 showDiff(lbl, static_cast<float>(nv), static_cast<float>(ev));
             }

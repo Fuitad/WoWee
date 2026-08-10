@@ -169,28 +169,15 @@ void ItemTooltipRenderer::render(
     }
     // Extra stats (hit/crit/haste/sp/ap/expertise/resilience/etc.)
     if (!info->extraStats.empty()) {
-        auto statName = [](uint32_t t) -> const char* {
-            switch (t) {
-                case 12: return "Defense Rating";
-                case 13: return "Dodge Rating";
-                case 14: return "Parry Rating";
-                case 15: return "Block Rating";
-                case 16: case 17: case 18: case 31: return "Hit Rating";
-                case 19: case 20: case 21: case 32: return "Critical Strike Rating";
-                case 28: case 29: case 30: case 35: return "Haste Rating";
-                case 34: return "Resilience Rating";
-                case 36: return "Expertise Rating";
-                case 37: return "Attack Power";
-                case 38: return "Ranged Attack Power";
-                case 45: return "Spell Power";
-                case 46: return "Healing Power";
-                case 47: return "Spell Damage";
-                case 49: return "Mana per 5 sec.";
-                case 43: return "Spell Penetration";
-                case 44: return "Block Value";
-                default: return nullptr;
-            }
-        };
+        // game::itemStatName, not a table of its own. This one had its own and
+        // it was shifted: it read 34 as Resilience, 35 as Haste, 36 as
+        // Expertise and 37 as Attack Power, where WotLK's ITEM_MOD has 34 as
+        // crit-taken, 35 Resilience, 36 Haste, 37 Expertise, 38 Attack Power.
+        // Everything from 43 up was wrong too — 43 named Spell Penetration is
+        // mana regen, 44 named Block Value is armour penetration, 47 named
+        // Spell Damage is spell penetration. An item link in chat showed the
+        // wrong stat name for most of the ratings on it.
+        auto statName = [](uint32_t t) { return game::itemStatName(t); };
         for (const auto& es : info->extraStats) {
             const char* nm = statName(es.statType);
             if (nm && es.statValue > 0)
@@ -492,23 +479,7 @@ void ItemTooltipRenderer::render(
             }
             // Extra stats for the equipped item
             for (const auto& es : eq->item.extraStats) {
-                const char* nm = nullptr;
-                switch (es.statType) {
-                    case 12: nm = "Defense Rating"; break;
-                    case 13: nm = "Dodge Rating"; break;
-                    case 14: nm = "Parry Rating"; break;
-                    case 16: case 17: case 18: case 31: nm = "Hit Rating"; break;
-                    case 19: case 20: case 21: case 32: nm = "Critical Strike Rating"; break;
-                    case 28: case 29: case 30: case 35: nm = "Haste Rating"; break;
-                    case 34: nm = "Resilience Rating"; break;
-                    case 36: nm = "Expertise Rating"; break;
-                    case 37: nm = "Attack Power"; break;
-                    case 38: nm = "Ranged Attack Power"; break;
-                    case 45: nm = "Spell Power"; break;
-                    case 46: nm = "Healing Power"; break;
-                    case 49: nm = "Mana per 5 sec."; break;
-                    default: break;
-                }
+                const char* nm = game::itemStatName(es.statType);
                 if (nm && es.statValue > 0)
                     ImGui::TextColored(green, "+%d %s", es.statValue, nm);
             }
