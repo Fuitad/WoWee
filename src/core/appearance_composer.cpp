@@ -119,7 +119,6 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
     const char* genderFolder = (gender == game::Gender::FEMALE) ? "Female" : "Male";
     std::string raceGender = std::string(raceFolderName) + genderFolder;
     result.bodySkinPath = std::string("Character\\") + raceFolderName + "\\" + genderFolder + "\\" + raceGender + "Skin00_00.blp";
-    std::string pelvisPath = std::string("Character\\") + raceFolderName + "\\" + genderFolder + "\\" + raceGender + "NakedPelvisSkin00_00.blp";
 
     // Extract appearance bytes for texture lookups
     uint8_t charSkinId = appearanceBytes & 0xFF;
@@ -183,49 +182,15 @@ PlayerTextureInfo AppearanceComposer::resolvePlayerTextures(pipeline::M2Model& m
         LOG_WARNING("Failed to load CharSections.dbc, using hardcoded textures");
     }
 
-    // Fill model texture slots with resolved paths.
-    //
-    // A non-zero texture type means the client supplies the art — that is what
-    // the type is for, and only type 0 carries a filename that means anything.
-    // So a name found in one of these slots is not authoritative, and filling
-    // them "if empty" let a name that is not a file win over the one the client
-    // had resolved. A model in the wild had 'Ohren' baked into its Skin Extra
-    // slot; it resolved to nothing, the slot came out blank, and the eyelashes
-    // drawn from it fell back to the body art and came out skin-coloured. The
-    // hair slot already worked this way and was the only one that did.
-    for (auto& tex : model.textures) {
-        if (tex.type == 1) {
-            if (!result.bodySkinPath.empty()) tex.filename = result.bodySkinPath;
-        } else if (tex.type == 6) {
-            if (!result.hairTexturePath.empty()) {
-                tex.filename = result.hairTexturePath;
-            } else if (tex.filename.empty()) {
-                tex.filename = std::string("Character\\") + raceFolderName + "\\Hair00_00.blp";
-            }
-        } else if (tex.type == 8) {
-            // Skin Extra: the head-detail sheet an HD model draws its eyes,
-            // mouth, ears and eyelashes from. CharSections' second texture on
-            // the skin row is where it comes from; the underwear stays as the
-            // fallback for a table that does not carry it, which is every stock
-            // one — those models have no type 8 slot to fill anyway.
-            //
-            // Which art this is depends entirely on the race: a head-detail
-            // sheet for a human or an orc, the ears for a night elf, the horns
-            // for a draenei male, the tail for a draenei female. Seven of the
-            // twenty race and sex pairs name nothing at all, and those models
-            // still carry a name in the slot — the same 'Ohren' — so leaving a
-            // non-empty name alone left them with a name that is not a file and
-            // the geometry it belongs to untextured.
-            //
-            // A runtime slot's authored name is not authoritative, so it is
-            // never a reason to skip the fallback.
-            if (!result.skinExtraPath.empty()) {
-                tex.filename = result.skinExtraPath;
-            } else {
-                tex.filename = !result.underwearPaths.empty() ? result.underwearPaths[0]
-                                                             : pelvisPath;
-            }
-        }
+    // pipeline/char_sections.hpp fills the runtime slots — the same rules the
+    // portrait and the NPC path use, in one place.
+    {
+        pipeline::CharacterSectionTextures resolved;
+        resolved.bodySkin  = result.bodySkinPath;
+        resolved.skinExtra = result.skinExtraPath;
+        resolved.hair      = result.hairTexturePath;
+        resolved.underwear = result.underwearPaths;
+        pipeline::applyCharacterTextures(model, resolved, raceFolderName);
     }
 
     // Everything the head detail depends on, in one line, whichever way it went.

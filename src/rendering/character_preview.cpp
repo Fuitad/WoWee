@@ -613,27 +613,29 @@ bool CharacterPreview::loadCharacter(game::Race race, game::Gender gender,
     }
 
     // Assign texture filenames on model before GPU upload
-    for (size_t ti = 0; ti < model.textures.size(); ti++) {
-        auto& tex = model.textures[ti];
-        LOG_INFO("  Model texture[", ti, "]: type=", tex.type,
-                 " filename='", tex.filename, "'");
-        // M2 texture types: 1=character skin, 6=hair/scalp. Empty filename means
-        // the texture is resolved at runtime via CharSections.dbc lookup.
-        if (tex.type == 1 && tex.filename.empty() && !bodySkinPath_.empty()) {
-            tex.filename = bodySkinPath_;
-        } else if (tex.type == 6 && tex.filename.empty() && !hairScalpPath.empty()) {
-            tex.filename = hairScalpPath;
-        } else if (tex.type == 8) {
-            // Not "if empty". A runtime slot's authored name is not a filename,
-            // and leaving a non-empty one alone is exactly what left the ears
-            // unbound. Falls back to the body skin where the table offers no
-            // extra art, which is seven of the twenty race and sex pairs.
-            if (!skinExtraPath_.empty()) {
-                tex.filename = skinExtraPath_;
-            } else if (!bodySkinPath_.empty()) {
-                tex.filename = bodySkinPath_;
+    // pipeline/char_sections.hpp fills the runtime slots. This copy still
+    // guarded types 1 and 6 with "only if the slot is empty", which is the trap
+    // the skin-extra slot was already fixed for: a name in a runtime slot is not
+    // a filename, and 'Ohren' is what a model in the wild puts there.
+    {
+        pipeline::CharacterSectionTextures resolved;
+        resolved.bodySkin  = bodySkinPath_;
+        resolved.skinExtra = skinExtraPath_;
+        resolved.hair      = hairScalpPath;
+        resolved.underwear = underwearPaths;
+        // The race folder is the second component of the model path:
+        // Character\Human\Female\HumanFemale.m2 -> Human. Taken from the path
+        // rather than restated, so the two cannot disagree.
+        std::string raceFolder;
+        {
+            const size_t first = m2Path.find('\\');
+            const size_t second = (first == std::string::npos)
+                ? std::string::npos : m2Path.find('\\', first + 1);
+            if (first != std::string::npos && second != std::string::npos) {
+                raceFolder = m2Path.substr(first + 1, second - first - 1);
             }
         }
+        pipeline::applyCharacterTextures(model, resolved, raceFolder);
     }
 
     // Load external .anim files for sequences that store keyframes outside the M2.

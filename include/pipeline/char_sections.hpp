@@ -28,6 +28,7 @@ namespace wowee {
 namespace pipeline {
 
 class DBCFile;
+struct M2Model;
 
 /// Which character these textures are for.
 struct CharacterAppearance {
@@ -69,6 +70,21 @@ CharacterSectionTextures resolveCharacterSections(
     const CharacterAppearance& who,
     bool (*keepUnderwear)(const std::string&, void*) = nullptr,
     void* keepUnderwearContext = nullptr);
+
+/// Put the resolved textures into a character model's runtime texture slots.
+///
+/// A non-zero texture type means the client supplies the art — that is what the
+/// type is for, and only type 0 carries a filename that means anything. So a
+/// name found in one of these slots is not authoritative and must not be
+/// treated as one: a model in the wild has 'Ohren' baked into its Skin Extra
+/// slot, and every copy of this loop that filled "only if empty" left that name
+/// in place, resolved it to nothing, and drew the ears and eyelashes from a
+/// blank.
+///
+/// `raceFolderName` is used only for the last-resort hair path.
+void applyCharacterTextures(M2Model& model,
+                            const CharacterSectionTextures& textures,
+                            const std::string& raceFolderName);
 
 }  // namespace pipeline
 }  // namespace wowee
