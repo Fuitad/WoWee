@@ -314,6 +314,17 @@ private:
     /// Apply the textures a creature display names: its own skin variations,
     /// and for a humanoid the composited body, face, hair and equipment. Once
     /// per display, since the model is shared by every creature using it.
+    /// Start a creature in the pose the server already has it in — dead,
+    /// mid-emote, or newly arrived, and fade it in.
+    void playCreatureSpawnPose(uint64_t guid, uint32_t instanceId);
+
+    /// Choose one mesh per clothing group for a character-style NPC, leaving
+    /// every other batch of the model untouched. An NPC has no inventory to
+    /// build a geoset set from, so its equipment comes from
+    /// CreatureDisplayInfoExtra.
+    void normalizeHumanoidClothingGeosets(uint32_t instanceId, uint32_t modelId,
+                                          uint32_t displayId);
+
     /// Per-instance colouring of a humanoid NPC: hair, skin, and the
     /// head-detail sheet. Per instance rather than per model, so two NPCs
     /// sharing a model still get their own hair colour.

@@ -1186,6 +1186,396 @@ EntitySpawner::getCreatureSkinPaths(uint32_t displayId,
 //
 // Lifted out of spawnOnlineCreature, which was 1477 lines and is now under a
 // thousand. Nothing here changed; it moved.
+// The animation a creature starts in.
+//
+// A creature is not always new when the client first draws it. The server may
+// have told us it was dead, or working, or eating, before the spawn came off the
+// queue — so the pose is chosen from what is already known about it, and only a
+// creature with nothing known plays a birth animation. Fades it in either way.
+void EntitySpawner::playCreatureSpawnPose(uint64_t guid, uint32_t instanceId) {
+    auto* charRenderer = renderer_->getCharacterRenderer();
+    if (!charRenderer) return;
+// Spawn in the correct pose. If the server marked this creature dead before
+// the queued spawn was processed, start directly in death animation.
+if (deadCreatureGuids_.count(guid)) {
+    charRenderer->playAnimation(instanceId, rendering::anim::DEATH, false);
+} else {
+    // Check if this NPC has a persistent emote state (e.g. working, eating, dancing)
+    uint32_t npcEmote = 0;
+    if (gameHandler_) {
+        auto entity = gameHandler_->getEntityManager().getEntity(guid);
+        if (entity && entity->getType() == game::ObjectType::UNIT) {
+            npcEmote = std::static_pointer_cast<game::Unit>(entity)->getNpcEmoteState();
+        }
+    }
+    uint32_t npcEmoteAnim = npcEmote != 0
+        ? rendering::AnimationController::getEmoteAnimByEmotesId(npcEmote)
+        : 0;
+    if (npcEmoteAnim == 0) {
+        auto activeIt = creatureActiveEmotes_.find(guid);
+        if (activeIt != creatureActiveEmotes_.end()) {
+            npcEmoteAnim = activeIt->second;
+        }
+    }
+    if (npcEmoteAnim != 0) {
+        const uint32_t stateAnim =
+            rendering::EmoteRegistry::instance().getStateVariant(npcEmoteAnim);
+        if (stateAnim != 0 && charRenderer->hasAnimation(instanceId, stateAnim)) {
+            npcEmoteAnim = stateAnim;
+        }
+    }
+    if (npcEmoteAnim != 0 && charRenderer->hasAnimation(instanceId, npcEmoteAnim)) {
+        creatureActiveEmotes_[guid] = npcEmoteAnim;
+        charRenderer->playAnimation(instanceId, npcEmoteAnim, true);
+    } else if (charRenderer->hasAnimation(instanceId, rendering::anim::BIRTH)) {
+        // Play birth animation (one-shot) — will return to STAND after
+        charRenderer->playAnimation(instanceId, rendering::anim::BIRTH, false);
+    } else if (charRenderer->hasAnimation(instanceId, rendering::anim::SPAWN)) {
+        charRenderer->playAnimation(instanceId, rendering::anim::SPAWN, false);
+    } else {
+        charRenderer->playAnimation(instanceId, rendering::anim::STAND, true);
+    }
+}
+charRenderer->startFadeIn(instanceId, 0.5f);
+}
+
+// Choose one mesh per clothing group for a character-style NPC.
+//
+// These models carry every alternative the artists authored — six cloaks, a
+// robe skirt and the trousers under it, several scalps — and a model drawn with
+// all of them on shows a character wearing all of them at once. The player path
+// avoids this by building a geoset set from the character's inventory; an NPC
+// has no inventory to build one from, so its equipment comes from
+// CreatureDisplayInfoExtra and only the clothing groups are touched. Everything
+// else the model authored is left exactly as it is, because on a creature the
+// same group numbers mean unrelated geometry.
+void EntitySpawner::normalizeHumanoidClothingGeosets(uint32_t instanceId, uint32_t modelId,
+                                                     uint32_t displayId) {
+    auto* charRenderer = renderer_->getCharacterRenderer();
+    if (!charRenderer) return;
+    auto itDisplayData = displayDataMap_.find(displayId);
+// With full humanoid overrides disabled, some character-style NPC models still render
+// conflicting clothing geosets at once (global capes, robe skirts over trousers).
+// Normalize only clothing groups while leaving all other model batches untouched.
+if (const auto* md = charRenderer->getModelData(modelId)) {
+    std::unordered_set<uint16_t> allGeosets;
+    std::unordered_map<uint16_t, uint16_t> firstByGroup;
+    bool hasGroup3 = false;  // glove/forearm variants
+    bool hasGroup4 = false;  // glove/forearm variants (some models)
+    bool hasGroup8 = false;  // sleeve/wrist variants
+    bool hasGroup12 = false; // tabard variants
+    bool hasGroup13 = false; // trousers/robe skirt variants
+    bool hasGroup15 = false; // cloak variants
+    for (const auto& b : md->batches) {
+        const uint16_t sid = b.submeshId;
+        const uint16_t group = static_cast<uint16_t>(sid / 100);
+        allGeosets.insert(sid);
+        auto itFirst = firstByGroup.find(group);
+        if (itFirst == firstByGroup.end() || sid < itFirst->second) {
+            firstByGroup[group] = sid;
+        }
+        if (group == 3) hasGroup3 = true;
+        if (group == 4) hasGroup4 = true;
+        if (group == 8) hasGroup8 = true;
+        if (group == 12) hasGroup12 = true;
+        if (group == 13) hasGroup13 = true;
+        if (group == 15) hasGroup15 = true;
+    }
+
+    // These numeric submesh groups only mean clothing on player-character
+    // models. Creature models reuse the same IDs for unrelated authored
+    // geometry (elementals use them for their built-in wrist pieces), so a
+    // group-number heuristic alone can manufacture a second floating set of
+    // "bracers". CreatureDisplayInfoExtra is the authoritative indication
+    // that this display uses humanoid equipment geosets.
+    const bool hasHumanoidDisplayExtra =
+        itDisplayData != displayDataMap_.end() &&
+        itDisplayData->second.extraDisplayId != 0 &&
+        humanoidExtraMap_.find(itDisplayData->second.extraDisplayId) != humanoidExtraMap_.end();
+    if (hasHumanoidDisplayExtra &&
+        (hasGroup3 || hasGroup4 || hasGroup8 || hasGroup12 || hasGroup13 || hasGroup15)) {
+        bool hasRenderableCape = false;
+        std::string capeTexturePath;  // first found cape texture for override
+        bool hasEquippedTabard = false;
+        bool hasHumanoidExtra = false;
+        uint8_t extraRaceId = 0;
+        uint8_t extraSexId = 0;
+        uint16_t selectedHairScalp = 1;
+        uint16_t selectedFacial100 = 100;
+        uint16_t selectedFacial200 = 200;
+        uint16_t selectedFacial300 = 300;
+        uint32_t equipChestGG = 0, equipLegsGG = 0, equipFeetGG = 0;
+        if (itDisplayData != displayDataMap_.end() &&
+            itDisplayData->second.extraDisplayId != 0) {
+            auto itExtra = humanoidExtraMap_.find(itDisplayData->second.extraDisplayId);
+            if (itExtra != humanoidExtraMap_.end()) {
+                hasHumanoidExtra = true;
+                extraRaceId = itExtra->second.raceId;
+                extraSexId = itExtra->second.sexId;
+                hasEquippedTabard = (itExtra->second.equipDisplayId[9] != 0);
+                const uint32_t hairKey = appearanceKey(
+                    extraRaceId, extraSexId, itExtra->second.hairStyleId);
+                auto itHairGeo = hairGeosetMap_.find(hairKey);
+                if (itHairGeo != hairGeosetMap_.end() && itHairGeo->second > 0) {
+                    selectedHairScalp = itHairGeo->second;
+                }
+                const uint32_t facialKey = appearanceKey(
+                    extraRaceId, extraSexId, itExtra->second.facialHairId);
+                auto itFacial = facialHairGeosetMap_.find(facialKey);
+                if (itFacial != facialHairGeosetMap_.end()) {
+                    selectedFacial100 = static_cast<uint16_t>(100 + itFacial->second.geoset100);
+                    selectedFacial200 = static_cast<uint16_t>(200 + itFacial->second.geoset200);
+                    selectedFacial300 = static_cast<uint16_t>(300 + itFacial->second.geoset300);
+                }
+                auto itemDisplayDbc = assetManager_->loadDBC("ItemDisplayInfo.dbc");
+                const auto* idiL = pipeline::getActiveDBCLayout()
+                    ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
+
+                uint32_t capeDisplayId = itExtra->second.equipDisplayId[10];
+                if (capeDisplayId != 0 && itemDisplayDbc) {
+                        int32_t recIdx = itemDisplayDbc->findRecordById(capeDisplayId);
+                        if (recIdx >= 0) {
+                            const uint32_t leftTexField = idiL ? (*idiL)["LeftModelTexture"] : 3u;
+                            const uint32_t rightTexField = idiL ? (*idiL)["RightModelTexture"] : 4u;
+                            std::vector<std::string> capeNames;
+                            auto addName = [&](const std::string& n) {
+                                if (!n.empty() &&
+                                    std::find(capeNames.begin(), capeNames.end(), n) == capeNames.end()) {
+                                    capeNames.push_back(n);
+                                }
+                            };
+                            addName(itemDisplayDbc->getString(static_cast<uint32_t>(recIdx), leftTexField));
+                            addName(itemDisplayDbc->getString(static_cast<uint32_t>(recIdx), rightTexField));
+
+                            auto hasBlpExt = [](const std::string& p) {
+                                if (p.size() < 4) return false;
+                                std::string ext = p.substr(p.size() - 4);
+                                std::transform(ext.begin(), ext.end(), ext.begin(),
+                                               [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                                return ext == ".blp";
+                            };
+
+                            const bool npcIsFemale = (itExtra->second.sexId == 1);
+                            std::vector<std::string> candidates;
+                            auto addCandidate = [&](const std::string& p) {
+                                if (p.empty()) return;
+                                if (std::find(candidates.begin(), candidates.end(), p) == candidates.end()) {
+                                    candidates.push_back(p);
+                                }
+                            };
+
+                            for (const auto& raw : capeNames) {
+                                std::string name = raw;
+                                std::replace(name.begin(), name.end(), '/', '\\');
+                                const bool hasDir = (name.find('\\') != std::string::npos);
+                                const bool hasExt = hasBlpExt(name);
+                                if (hasDir) {
+                                    if (hasExt) addCandidate(name);
+                                    else addCandidate(name + ".blp");
+                                } else {
+                                    std::string baseObj = "Item\\ObjectComponents\\Cape\\" + name;
+                                    std::string baseTex = "Item\\TextureComponents\\Cape\\" + name;
+                                    if (hasExt) {
+                                        addCandidate(baseObj);
+                                        addCandidate(baseTex);
+                                    } else {
+                                        addCandidate(baseObj + ".blp");
+                                        addCandidate(baseTex + ".blp");
+                                    }
+                                    addCandidate(baseObj + (npcIsFemale ? "_F.blp" : "_M.blp"));
+                                    addCandidate(baseObj + "_U.blp");
+                                    addCandidate(baseTex + (npcIsFemale ? "_F.blp" : "_M.blp"));
+                                    addCandidate(baseTex + "_U.blp");
+                                }
+                            }
+
+                            for (const auto& p : candidates) {
+                                if (assetManager_->fileExists(p)) {
+                                    hasRenderableCape = true;
+                                    capeTexturePath = p;
+                                    break;
+                                }
+                            }
+                        }
+                }
+
+                // Read GeosetGroup1 from equipment to drive clothed mesh selection
+                if (itemDisplayDbc) {
+                    const uint32_t fGG1 = idiL ? (*idiL)["GeosetGroup1"] : 7;
+                    auto readGG = [&](uint32_t did) -> uint32_t {
+                        if (did == 0) return 0;
+                        int32_t idx = itemDisplayDbc->findRecordById(did);
+                        return (idx >= 0) ? itemDisplayDbc->getUInt32(static_cast<uint32_t>(idx), fGG1) : 0;
+                    };
+                    equipChestGG = readGG(itExtra->second.equipDisplayId[3]);
+                    if (equipChestGG == 0) equipChestGG = readGG(itExtra->second.equipDisplayId[2]); // shirt fallback
+                    equipLegsGG = readGG(itExtra->second.equipDisplayId[5]);
+                    equipFeetGG = readGG(itExtra->second.equipDisplayId[6]);
+                }
+            }
+        }
+
+        std::unordered_set<uint16_t> normalizedGeosets;
+        for (uint16_t sid : allGeosets) {
+            const uint16_t group = static_cast<uint16_t>(sid / 100);
+            if (group == 3 || group == 4 || group == 8 || group == 12 || group == 13 || group == 15) continue;
+            // Group 17 = eye glow (DK/Night Elf "shining eyes" overlay), group 18 = related
+            // glow geosets. NPCs are never DK/NE players opting into eye glow, so strip
+            // these groups so creatures don't get unwanted glowing blue night-elf eyes.
+            if (group == 17 || group == 18) continue;
+            // Some humanoid models carry cloak cloth in group 16. Strip this too
+            // when no cape is equipped to avoid "everyone has a cape".
+            if (!hasRenderableCape && group == 16) continue;
+            // Group 0 can contain multiple scalp/hair meshes. Keep only the selected
+            // race/sex/style scalp to avoid overlapping broken hair.
+            if (hasHumanoidExtra && sid < 100 && sid != 0 && sid != selectedHairScalp) {
+                continue;
+            }
+            // Group 1 is the first CharacterFacialHairStyles channel.
+            if (hasHumanoidExtra && group == 1) {
+                uint16_t resolvedFacial100 = selectedFacial100;
+                if (allGeosets.count(resolvedFacial100) == 0)
+                    resolvedFacial100 = allGeosets.count(101) > 0 ? 101 : firstByGroup[1];
+                if (sid != resolvedFacial100) continue;
+            }
+            // Group 2 facial variants: keep selected variant; fallback only if missing.
+            if (hasHumanoidExtra && group == 2) {
+                uint16_t resolvedFacial200 = selectedFacial200;
+                if (allGeosets.count(resolvedFacial200) == 0) {
+                    if (allGeosets.count(201) > 0) resolvedFacial200 = 201;
+                    else if (allGeosets.count(200) > 0) resolvedFacial200 = 200;
+                    else {
+                        auto itFirst = firstByGroup.find(2);
+                        resolvedFacial200 = (itFirst != firstByGroup.end()) ? itFirst->second : 0;
+                    }
+                }
+                if (sid != resolvedFacial200) continue;
+            }
+            normalizedGeosets.insert(sid);
+        }
+
+        // core/geoset_rules.hpp. The group argument stays for the call
+        // sites' readability; the id already implies it.
+        auto pickFromGroup = [&](uint16_t preferredSid, uint16_t /*group*/) -> uint16_t {
+            return resolveGeoset(preferredSid, allGeosets);
+        };
+
+        // Intentionally do not add group 3 (glove/forearm accessory meshes).
+        // Even "bare" variants can produce unwanted looped arm geometry on NPCs.
+
+        if (hasGroup4) {
+            uint16_t wantBoots = (equipFeetGG > 0) ? static_cast<uint16_t>(400 + equipFeetGG) : kGeosetBareForearms;
+            uint16_t bootsSid = pickFromGroup(wantBoots, 4);
+            if (bootsSid != 0) normalizedGeosets.insert(bootsSid);
+        }
+
+        // Add sleeve/wrist meshes when chest armor calls for them.
+        if (hasGroup8 && equipChestGG > 0) {
+            uint16_t wantSleeves = static_cast<uint16_t>(800 + equipChestGG);
+            uint16_t sleeveSid = pickFromGroup(wantSleeves, 8);
+            if (sleeveSid != 0) normalizedGeosets.insert(sleeveSid);
+        }
+
+        // Show tabard mesh only when CreatureDisplayInfoExtra equips one.
+        if (hasGroup12 && hasEquippedTabard) {
+            uint16_t wantTabard = kGeosetDefaultTabard;  // Default fallback
+
+            // Try to read tabard geoset variant from ItemDisplayInfo.dbc (slot 9)
+            if (hasHumanoidExtra && itDisplayData != displayDataMap_.end() &&
+                itDisplayData->second.extraDisplayId != 0) {
+                auto itExtra = humanoidExtraMap_.find(itDisplayData->second.extraDisplayId);
+                if (itExtra != humanoidExtraMap_.end()) {
+                    uint32_t tabardDisplayId = itExtra->second.equipDisplayId[9];
+                    if (tabardDisplayId != 0) {
+                        auto itemDisplayDbc = assetManager_->loadDBC("ItemDisplayInfo.dbc");
+                        const auto* idiL = pipeline::getActiveDBCLayout()
+                            ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
+                        if (itemDisplayDbc && idiL) {
+                            int32_t tabardIdx = itemDisplayDbc->findRecordById(tabardDisplayId);
+                            if (tabardIdx >= 0) {
+                                // Get geoset variant from ItemDisplayInfo GeosetGroup1 field
+                                const uint32_t ggField = (*idiL)["GeosetGroup1"];
+                                uint32_t tabardGG = itemDisplayDbc->getUInt32(static_cast<uint32_t>(tabardIdx), ggField);
+                                if (tabardGG > 0) {
+                                    wantTabard = static_cast<uint16_t>(1200 + tabardGG);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            uint16_t tabardSid = pickFromGroup(wantTabard, 12);
+            if (tabardSid != 0) normalizedGeosets.insert(tabardSid);
+        }
+
+        // Some mustache/goatee variants are authored in facial group 3xx.
+        // Re-add selected facial 3xx plus low-index facial fallbacks.
+        if (hasHumanoidExtra) {
+            uint16_t facial300Sid = pickFromGroup(selectedFacial300, 3);
+            if (facial300Sid != 0) normalizedGeosets.insert(facial300Sid);
+            if (facial300Sid == 0) {
+                if (allGeosets.count(300) > 0) normalizedGeosets.insert(300);
+                else if (allGeosets.count(301) > 0) normalizedGeosets.insert(301);
+            }
+        }
+
+        // Night Elf NPC eyes require the model's eye overlay. Continue to
+        // strip it from other humanoids, but restore exactly one variant
+        // for the race that actually uses it.
+        if (hasHumanoidExtra && extraRaceId == 4) {
+            uint16_t eyeGlowSid = pickFromGroup(1701, 17);
+            if (eyeGlowSid != 0) normalizedGeosets.insert(eyeGlowSid);
+        }
+
+        // Prefer trousers geoset; use covered variant when legs armor exists.
+        if (hasGroup13) {
+            uint16_t wantPants = (equipLegsGG > 0) ? static_cast<uint16_t>(1300 + equipLegsGG) : kGeosetBarePants;
+            uint16_t pantsSid = pickFromGroup(wantPants, 13);
+            if (pantsSid != 0) normalizedGeosets.insert(pantsSid);
+        }
+
+        // Group 15: cloak mesh. Use "with cape" when equipped, otherwise
+        // use "no cape" back panel to cover the single-sided torso.
+        if (hasGroup15) {
+            if (hasRenderableCape) {
+                uint16_t capeSid = pickFromGroup(kGeosetWithCape, 15);
+                if (capeSid != 0) normalizedGeosets.insert(capeSid);
+            } else if (allGeosets.count(kGeosetNoCape) > 0) {
+                // Only the real "no cape" panel, never a substitute. The
+                // group's other members are cloaks, so falling back to the
+                // first one hands a cape to a character wearing none — and
+                // with no cloak texture bound, a white sheet. The HD models
+                // have no 1501 at all, which is how every one of them came
+                // to be wearing one.
+                normalizedGeosets.insert(kGeosetNoCape);
+            }
+        }
+
+        if (!normalizedGeosets.empty()) {
+            charRenderer->setActiveGeosets(instanceId, normalizedGeosets);
+        }
+
+        // Apply cape texture override so the cloak mesh shows the actual cape
+        // instead of the default body texture.
+        if (hasRenderableCape && !capeTexturePath.empty()) {
+            rendering::VkTexture* capeTex = charRenderer->loadTexture(capeTexturePath);
+            const rendering::VkTexture* whiteTex = charRenderer->loadTexture("");
+            if (capeTex && capeTex != whiteTex) {
+                charRenderer->setGroupTextureOverride(instanceId, 15, capeTex);
+                if (const auto* md2 = charRenderer->getModelData(modelId)) {
+                    for (size_t ti = 0; ti < md2->textures.size(); ti++) {
+                        if (md2->textures[ti].type == 2) {
+                            charRenderer->setTextureSlotOverride(instanceId, static_cast<uint16_t>(ti), capeTex);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+}
+
 // The per-instance colouring of a humanoid NPC: its hair, its skin, and the
 // head-detail sheet an HD model draws its ears and eyes from.
 //
@@ -1799,373 +2189,18 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
     //
     // git has it if the idea is wanted back.
 
-    // With full humanoid overrides disabled, some character-style NPC models still render
-    // conflicting clothing geosets at once (global capes, robe skirts over trousers).
-    // Normalize only clothing groups while leaving all other model batches untouched.
-    if (const auto* md = charRenderer->getModelData(modelId)) {
-        std::unordered_set<uint16_t> allGeosets;
-        std::unordered_map<uint16_t, uint16_t> firstByGroup;
-        bool hasGroup3 = false;  // glove/forearm variants
-        bool hasGroup4 = false;  // glove/forearm variants (some models)
-        bool hasGroup8 = false;  // sleeve/wrist variants
-        bool hasGroup12 = false; // tabard variants
-        bool hasGroup13 = false; // trousers/robe skirt variants
-        bool hasGroup15 = false; // cloak variants
-        for (const auto& b : md->batches) {
-            const uint16_t sid = b.submeshId;
-            const uint16_t group = static_cast<uint16_t>(sid / 100);
-            allGeosets.insert(sid);
-            auto itFirst = firstByGroup.find(group);
-            if (itFirst == firstByGroup.end() || sid < itFirst->second) {
-                firstByGroup[group] = sid;
-            }
-            if (group == 3) hasGroup3 = true;
-            if (group == 4) hasGroup4 = true;
-            if (group == 8) hasGroup8 = true;
-            if (group == 12) hasGroup12 = true;
-            if (group == 13) hasGroup13 = true;
-            if (group == 15) hasGroup15 = true;
-        }
-
-        // These numeric submesh groups only mean clothing on player-character
-        // models. Creature models reuse the same IDs for unrelated authored
-        // geometry (elementals use them for their built-in wrist pieces), so a
-        // group-number heuristic alone can manufacture a second floating set of
-        // "bracers". CreatureDisplayInfoExtra is the authoritative indication
-        // that this display uses humanoid equipment geosets.
-        const bool hasHumanoidDisplayExtra =
-            itDisplayData != displayDataMap_.end() &&
-            itDisplayData->second.extraDisplayId != 0 &&
-            humanoidExtraMap_.find(itDisplayData->second.extraDisplayId) != humanoidExtraMap_.end();
-        if (hasHumanoidDisplayExtra &&
-            (hasGroup3 || hasGroup4 || hasGroup8 || hasGroup12 || hasGroup13 || hasGroup15)) {
-            bool hasRenderableCape = false;
-            std::string capeTexturePath;  // first found cape texture for override
-            bool hasEquippedTabard = false;
-            bool hasHumanoidExtra = false;
-            uint8_t extraRaceId = 0;
-            uint8_t extraSexId = 0;
-            uint16_t selectedHairScalp = 1;
-            uint16_t selectedFacial100 = 100;
-            uint16_t selectedFacial200 = 200;
-            uint16_t selectedFacial300 = 300;
-            uint32_t equipChestGG = 0, equipLegsGG = 0, equipFeetGG = 0;
-            if (itDisplayData != displayDataMap_.end() &&
-                itDisplayData->second.extraDisplayId != 0) {
-                auto itExtra = humanoidExtraMap_.find(itDisplayData->second.extraDisplayId);
-                if (itExtra != humanoidExtraMap_.end()) {
-                    hasHumanoidExtra = true;
-                    extraRaceId = itExtra->second.raceId;
-                    extraSexId = itExtra->second.sexId;
-                    hasEquippedTabard = (itExtra->second.equipDisplayId[9] != 0);
-                    const uint32_t hairKey = appearanceKey(
-                        extraRaceId, extraSexId, itExtra->second.hairStyleId);
-                    auto itHairGeo = hairGeosetMap_.find(hairKey);
-                    if (itHairGeo != hairGeosetMap_.end() && itHairGeo->second > 0) {
-                        selectedHairScalp = itHairGeo->second;
-                    }
-                    const uint32_t facialKey = appearanceKey(
-                        extraRaceId, extraSexId, itExtra->second.facialHairId);
-                    auto itFacial = facialHairGeosetMap_.find(facialKey);
-                    if (itFacial != facialHairGeosetMap_.end()) {
-                        selectedFacial100 = static_cast<uint16_t>(100 + itFacial->second.geoset100);
-                        selectedFacial200 = static_cast<uint16_t>(200 + itFacial->second.geoset200);
-                        selectedFacial300 = static_cast<uint16_t>(300 + itFacial->second.geoset300);
-                    }
-                    auto itemDisplayDbc = assetManager_->loadDBC("ItemDisplayInfo.dbc");
-                    const auto* idiL = pipeline::getActiveDBCLayout()
-                        ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
-
-                    uint32_t capeDisplayId = itExtra->second.equipDisplayId[10];
-                    if (capeDisplayId != 0 && itemDisplayDbc) {
-                            int32_t recIdx = itemDisplayDbc->findRecordById(capeDisplayId);
-                            if (recIdx >= 0) {
-                                const uint32_t leftTexField = idiL ? (*idiL)["LeftModelTexture"] : 3u;
-                                const uint32_t rightTexField = idiL ? (*idiL)["RightModelTexture"] : 4u;
-                                std::vector<std::string> capeNames;
-                                auto addName = [&](const std::string& n) {
-                                    if (!n.empty() &&
-                                        std::find(capeNames.begin(), capeNames.end(), n) == capeNames.end()) {
-                                        capeNames.push_back(n);
-                                    }
-                                };
-                                addName(itemDisplayDbc->getString(static_cast<uint32_t>(recIdx), leftTexField));
-                                addName(itemDisplayDbc->getString(static_cast<uint32_t>(recIdx), rightTexField));
-
-                                auto hasBlpExt = [](const std::string& p) {
-                                    if (p.size() < 4) return false;
-                                    std::string ext = p.substr(p.size() - 4);
-                                    std::transform(ext.begin(), ext.end(), ext.begin(),
-                                                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-                                    return ext == ".blp";
-                                };
-
-                                const bool npcIsFemale = (itExtra->second.sexId == 1);
-                                std::vector<std::string> candidates;
-                                auto addCandidate = [&](const std::string& p) {
-                                    if (p.empty()) return;
-                                    if (std::find(candidates.begin(), candidates.end(), p) == candidates.end()) {
-                                        candidates.push_back(p);
-                                    }
-                                };
-
-                                for (const auto& raw : capeNames) {
-                                    std::string name = raw;
-                                    std::replace(name.begin(), name.end(), '/', '\\');
-                                    const bool hasDir = (name.find('\\') != std::string::npos);
-                                    const bool hasExt = hasBlpExt(name);
-                                    if (hasDir) {
-                                        if (hasExt) addCandidate(name);
-                                        else addCandidate(name + ".blp");
-                                    } else {
-                                        std::string baseObj = "Item\\ObjectComponents\\Cape\\" + name;
-                                        std::string baseTex = "Item\\TextureComponents\\Cape\\" + name;
-                                        if (hasExt) {
-                                            addCandidate(baseObj);
-                                            addCandidate(baseTex);
-                                        } else {
-                                            addCandidate(baseObj + ".blp");
-                                            addCandidate(baseTex + ".blp");
-                                        }
-                                        addCandidate(baseObj + (npcIsFemale ? "_F.blp" : "_M.blp"));
-                                        addCandidate(baseObj + "_U.blp");
-                                        addCandidate(baseTex + (npcIsFemale ? "_F.blp" : "_M.blp"));
-                                        addCandidate(baseTex + "_U.blp");
-                                    }
-                                }
-
-                                for (const auto& p : candidates) {
-                                    if (assetManager_->fileExists(p)) {
-                                        hasRenderableCape = true;
-                                        capeTexturePath = p;
-                                        break;
-                                    }
-                                }
-                            }
-                    }
-
-                    // Read GeosetGroup1 from equipment to drive clothed mesh selection
-                    if (itemDisplayDbc) {
-                        const uint32_t fGG1 = idiL ? (*idiL)["GeosetGroup1"] : 7;
-                        auto readGG = [&](uint32_t did) -> uint32_t {
-                            if (did == 0) return 0;
-                            int32_t idx = itemDisplayDbc->findRecordById(did);
-                            return (idx >= 0) ? itemDisplayDbc->getUInt32(static_cast<uint32_t>(idx), fGG1) : 0;
-                        };
-                        equipChestGG = readGG(itExtra->second.equipDisplayId[3]);
-                        if (equipChestGG == 0) equipChestGG = readGG(itExtra->second.equipDisplayId[2]); // shirt fallback
-                        equipLegsGG = readGG(itExtra->second.equipDisplayId[5]);
-                        equipFeetGG = readGG(itExtra->second.equipDisplayId[6]);
-                    }
-                }
-            }
-
-            std::unordered_set<uint16_t> normalizedGeosets;
-            for (uint16_t sid : allGeosets) {
-                const uint16_t group = static_cast<uint16_t>(sid / 100);
-                if (group == 3 || group == 4 || group == 8 || group == 12 || group == 13 || group == 15) continue;
-                // Group 17 = eye glow (DK/Night Elf "shining eyes" overlay), group 18 = related
-                // glow geosets. NPCs are never DK/NE players opting into eye glow, so strip
-                // these groups so creatures don't get unwanted glowing blue night-elf eyes.
-                if (group == 17 || group == 18) continue;
-                // Some humanoid models carry cloak cloth in group 16. Strip this too
-                // when no cape is equipped to avoid "everyone has a cape".
-                if (!hasRenderableCape && group == 16) continue;
-                // Group 0 can contain multiple scalp/hair meshes. Keep only the selected
-                // race/sex/style scalp to avoid overlapping broken hair.
-                if (hasHumanoidExtra && sid < 100 && sid != 0 && sid != selectedHairScalp) {
-                    continue;
-                }
-                // Group 1 is the first CharacterFacialHairStyles channel.
-                if (hasHumanoidExtra && group == 1) {
-                    uint16_t resolvedFacial100 = selectedFacial100;
-                    if (allGeosets.count(resolvedFacial100) == 0)
-                        resolvedFacial100 = allGeosets.count(101) > 0 ? 101 : firstByGroup[1];
-                    if (sid != resolvedFacial100) continue;
-                }
-                // Group 2 facial variants: keep selected variant; fallback only if missing.
-                if (hasHumanoidExtra && group == 2) {
-                    uint16_t resolvedFacial200 = selectedFacial200;
-                    if (allGeosets.count(resolvedFacial200) == 0) {
-                        if (allGeosets.count(201) > 0) resolvedFacial200 = 201;
-                        else if (allGeosets.count(200) > 0) resolvedFacial200 = 200;
-                        else {
-                            auto itFirst = firstByGroup.find(2);
-                            resolvedFacial200 = (itFirst != firstByGroup.end()) ? itFirst->second : 0;
-                        }
-                    }
-                    if (sid != resolvedFacial200) continue;
-                }
-                normalizedGeosets.insert(sid);
-            }
-
-            // core/geoset_rules.hpp. The group argument stays for the call
-            // sites' readability; the id already implies it.
-            auto pickFromGroup = [&](uint16_t preferredSid, uint16_t /*group*/) -> uint16_t {
-                return resolveGeoset(preferredSid, allGeosets);
-            };
-
-            // Intentionally do not add group 3 (glove/forearm accessory meshes).
-            // Even "bare" variants can produce unwanted looped arm geometry on NPCs.
-
-            if (hasGroup4) {
-                uint16_t wantBoots = (equipFeetGG > 0) ? static_cast<uint16_t>(400 + equipFeetGG) : kGeosetBareForearms;
-                uint16_t bootsSid = pickFromGroup(wantBoots, 4);
-                if (bootsSid != 0) normalizedGeosets.insert(bootsSid);
-            }
-
-            // Add sleeve/wrist meshes when chest armor calls for them.
-            if (hasGroup8 && equipChestGG > 0) {
-                uint16_t wantSleeves = static_cast<uint16_t>(800 + equipChestGG);
-                uint16_t sleeveSid = pickFromGroup(wantSleeves, 8);
-                if (sleeveSid != 0) normalizedGeosets.insert(sleeveSid);
-            }
-
-            // Show tabard mesh only when CreatureDisplayInfoExtra equips one.
-            if (hasGroup12 && hasEquippedTabard) {
-                uint16_t wantTabard = kGeosetDefaultTabard;  // Default fallback
-
-                // Try to read tabard geoset variant from ItemDisplayInfo.dbc (slot 9)
-                if (hasHumanoidExtra && itDisplayData != displayDataMap_.end() &&
-                    itDisplayData->second.extraDisplayId != 0) {
-                    auto itExtra = humanoidExtraMap_.find(itDisplayData->second.extraDisplayId);
-                    if (itExtra != humanoidExtraMap_.end()) {
-                        uint32_t tabardDisplayId = itExtra->second.equipDisplayId[9];
-                        if (tabardDisplayId != 0) {
-                            auto itemDisplayDbc = assetManager_->loadDBC("ItemDisplayInfo.dbc");
-                            const auto* idiL = pipeline::getActiveDBCLayout()
-                                ? pipeline::getActiveDBCLayout()->getLayout("ItemDisplayInfo") : nullptr;
-                            if (itemDisplayDbc && idiL) {
-                                int32_t tabardIdx = itemDisplayDbc->findRecordById(tabardDisplayId);
-                                if (tabardIdx >= 0) {
-                                    // Get geoset variant from ItemDisplayInfo GeosetGroup1 field
-                                    const uint32_t ggField = (*idiL)["GeosetGroup1"];
-                                    uint32_t tabardGG = itemDisplayDbc->getUInt32(static_cast<uint32_t>(tabardIdx), ggField);
-                                    if (tabardGG > 0) {
-                                        wantTabard = static_cast<uint16_t>(1200 + tabardGG);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                uint16_t tabardSid = pickFromGroup(wantTabard, 12);
-                if (tabardSid != 0) normalizedGeosets.insert(tabardSid);
-            }
-
-            // Some mustache/goatee variants are authored in facial group 3xx.
-            // Re-add selected facial 3xx plus low-index facial fallbacks.
-            if (hasHumanoidExtra) {
-                uint16_t facial300Sid = pickFromGroup(selectedFacial300, 3);
-                if (facial300Sid != 0) normalizedGeosets.insert(facial300Sid);
-                if (facial300Sid == 0) {
-                    if (allGeosets.count(300) > 0) normalizedGeosets.insert(300);
-                    else if (allGeosets.count(301) > 0) normalizedGeosets.insert(301);
-                }
-            }
-
-            // Night Elf NPC eyes require the model's eye overlay. Continue to
-            // strip it from other humanoids, but restore exactly one variant
-            // for the race that actually uses it.
-            if (hasHumanoidExtra && extraRaceId == 4) {
-                uint16_t eyeGlowSid = pickFromGroup(1701, 17);
-                if (eyeGlowSid != 0) normalizedGeosets.insert(eyeGlowSid);
-            }
-
-            // Prefer trousers geoset; use covered variant when legs armor exists.
-            if (hasGroup13) {
-                uint16_t wantPants = (equipLegsGG > 0) ? static_cast<uint16_t>(1300 + equipLegsGG) : kGeosetBarePants;
-                uint16_t pantsSid = pickFromGroup(wantPants, 13);
-                if (pantsSid != 0) normalizedGeosets.insert(pantsSid);
-            }
-
-            // Group 15: cloak mesh. Use "with cape" when equipped, otherwise
-            // use "no cape" back panel to cover the single-sided torso.
-            if (hasGroup15) {
-                if (hasRenderableCape) {
-                    uint16_t capeSid = pickFromGroup(kGeosetWithCape, 15);
-                    if (capeSid != 0) normalizedGeosets.insert(capeSid);
-                } else if (allGeosets.count(kGeosetNoCape) > 0) {
-                    // Only the real "no cape" panel, never a substitute. The
-                    // group's other members are cloaks, so falling back to the
-                    // first one hands a cape to a character wearing none — and
-                    // with no cloak texture bound, a white sheet. The HD models
-                    // have no 1501 at all, which is how every one of them came
-                    // to be wearing one.
-                    normalizedGeosets.insert(kGeosetNoCape);
-                }
-            }
-
-            if (!normalizedGeosets.empty()) {
-                charRenderer->setActiveGeosets(instanceId, normalizedGeosets);
-            }
-
-            // Apply cape texture override so the cloak mesh shows the actual cape
-            // instead of the default body texture.
-            if (hasRenderableCape && !capeTexturePath.empty()) {
-                rendering::VkTexture* capeTex = charRenderer->loadTexture(capeTexturePath);
-                const rendering::VkTexture* whiteTex = charRenderer->loadTexture("");
-                if (capeTex && capeTex != whiteTex) {
-                    charRenderer->setGroupTextureOverride(instanceId, 15, capeTex);
-                    if (const auto* md2 = charRenderer->getModelData(modelId)) {
-                        for (size_t ti = 0; ti < md2->textures.size(); ti++) {
-                            if (md2->textures[ti].type == 2) {
-                                charRenderer->setTextureSlotOverride(instanceId, static_cast<uint16_t>(ti), capeTex);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // Character-style NPC models can carry several conflicting clothing meshes
+    // at once — a cape and no cape, a robe skirt over trousers. Pick one per
+    // clothing group and leave every other batch of the model alone.
+    normalizeHumanoidClothingGeosets(instanceId, modelId, displayId);
 
     // Try attaching NPC held weapons; if update fields are not ready yet,
     // IN_GAME retry loop will attempt again shortly.
     bool weaponsAttachedNow = tryAttachCreatureVirtualWeapons(guid, instanceId);
 
-    // Spawn in the correct pose. If the server marked this creature dead before
-    // the queued spawn was processed, start directly in death animation.
-    if (deadCreatureGuids_.count(guid)) {
-        charRenderer->playAnimation(instanceId, rendering::anim::DEATH, false);
-    } else {
-        // Check if this NPC has a persistent emote state (e.g. working, eating, dancing)
-        uint32_t npcEmote = 0;
-        if (gameHandler_) {
-            auto entity = gameHandler_->getEntityManager().getEntity(guid);
-            if (entity && entity->getType() == game::ObjectType::UNIT) {
-                npcEmote = std::static_pointer_cast<game::Unit>(entity)->getNpcEmoteState();
-            }
-        }
-        uint32_t npcEmoteAnim = npcEmote != 0
-            ? rendering::AnimationController::getEmoteAnimByEmotesId(npcEmote)
-            : 0;
-        if (npcEmoteAnim == 0) {
-            auto activeIt = creatureActiveEmotes_.find(guid);
-            if (activeIt != creatureActiveEmotes_.end()) {
-                npcEmoteAnim = activeIt->second;
-            }
-        }
-        if (npcEmoteAnim != 0) {
-            const uint32_t stateAnim =
-                rendering::EmoteRegistry::instance().getStateVariant(npcEmoteAnim);
-            if (stateAnim != 0 && charRenderer->hasAnimation(instanceId, stateAnim)) {
-                npcEmoteAnim = stateAnim;
-            }
-        }
-        if (npcEmoteAnim != 0 && charRenderer->hasAnimation(instanceId, npcEmoteAnim)) {
-            creatureActiveEmotes_[guid] = npcEmoteAnim;
-            charRenderer->playAnimation(instanceId, npcEmoteAnim, true);
-        } else if (charRenderer->hasAnimation(instanceId, rendering::anim::BIRTH)) {
-            // Play birth animation (one-shot) — will return to STAND after
-            charRenderer->playAnimation(instanceId, rendering::anim::BIRTH, false);
-        } else if (charRenderer->hasAnimation(instanceId, rendering::anim::SPAWN)) {
-            charRenderer->playAnimation(instanceId, rendering::anim::SPAWN, false);
-        } else {
-            charRenderer->playAnimation(instanceId, rendering::anim::STAND, true);
-        }
-    }
-    charRenderer->startFadeIn(instanceId, 0.5f);
+    // Start the creature in the pose the server says it is already in: dead,
+    // mid-emote, or newly arrived.
+    playCreatureSpawnPose(guid, instanceId);
 
     // Track instance
     creatureInstances_[guid] = instanceId;
