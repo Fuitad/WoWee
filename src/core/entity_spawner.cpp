@@ -1284,15 +1284,22 @@ void EntitySpawner::spawnOnlineCreature(uint64_t guid, uint32_t displayId, float
 
                 // Collect model texture slot info (type 1 = skin, type 6 = hair)
                 std::vector<uint32_t> skinSlots, hairSlots;
-                // A model carrying a Skin Extra slot is one of the HD character
-                // models. The baked NPC textures were composited for the models
-                // the game shipped, and are not interchangeable with these.
-                bool isHdCharacterModel = false;
-                if (modelData) {
-                    for (const auto& t : modelData->textures) {
-                        if (t.type == 8) { isHdCharacterModel = true; break; }
-                    }
-                }
+                // Is this one of the replacement character models, rather than a
+                // model the game shipped? The baked NPC textures were composited
+                // for the shipped ones and are not interchangeable.
+                //
+                // Told by size, because size separates them cleanly and nothing
+                // else does. The twenty character models the game ships run from
+                // 3078 vertices to 8737; the twenty replacements run from 15051
+                // to 87569. There is no overlap and the gap is wide.
+                //
+                // A Skin Extra slot was tried as the marker first and is not
+                // one: only twelve of the twenty replacements carry it, and the
+                // eight without — human male, dwarf, undead male, gnome, troll
+                // male, draenei female — were exactly the ones left wrong.
+                constexpr size_t kShippedCharacterVertexCeiling = 12000;
+                const bool isHdCharacterModel =
+                    modelData && modelData->vertices.size() > kShippedCharacterVertexCeiling;
                 if (modelData) {
                     for (size_t ti = 0; ti < modelData->textures.size(); ti++) {
                         uint32_t texType = modelData->textures[ti].type;
