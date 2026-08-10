@@ -1445,7 +1445,12 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
     e.hasAlpha = hasAlpha;
     e.colorKeyBlack = false;
     texturePropsByPtr_[texPtr] = {hasAlpha, false};
-    e.normalMapPending = queueNormalMapGeneration(cacheKey, composite, width, height);
+    // No derived normal map for a composited body, and this is why: the
+    // derivation reads luminance as height, which holds for stone and bark and
+    // does not hold for skin. Every freckle, every painted shadow under a
+    // collarbone, becomes a ridge — and on a character that reads as stretch
+    // marks. Art authored as a surface gets one; art authored as a person does
+    // not.
     textureCache.emplace(cacheKey, std::move(e));
 
     core::Logger::getInstance().info("Composite texture created: ", width, "x", height, " from ", layerPaths.size(), " layers");
@@ -1728,8 +1733,7 @@ VkTexture* CharacterRenderer::compositeWithRegions(const std::string& basePath,
     entry.hasAlpha = hasAlpha;
     entry.colorKeyBlack = false;
     texturePropsByPtr_[texPtr] = {hasAlpha, false};
-    // The body with its armour on it — the surface a player actually looks at.
-    entry.normalMapPending = queueNormalMapGeneration(storageKey, composite, width, height);
+    // Skin again, with armour composited onto it. Same reason as above.
     auto ins = textureCache.emplace(storageKey, std::move(entry));
     if (!ins.second) {
         // Existing texture already owns this key; keep pointer stable.

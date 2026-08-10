@@ -181,14 +181,9 @@ def curate(overlay_root, apply_changes, keep_hd=False):
 
     # (2) models missing a texture that is not merely a reflection map
     #
-    # Two slots to check, not one. A type-0 slot names its own art. Types 11, 12
-    # and 13 are the creature skins the client fills in from CreatureDisplayInfo
-    # — but a model can carry a name there anyway, and one that does is a mesh
-    # built for particular art rather than for whatever the display hands it.
-    # The pack's gryphon is the EliteGryphon mesh, 2184 vertices against the
-    # stock 846, with ELITEGRYPHON.BLP named in its skin slot and never shipped.
-    # It draws with the old gryphon's texture wrapped round a different animal.
-    RUNTIME_SKIN_TYPES = (11, 12, 13)
+    # Only a type-0 slot counts. That is the one that names its own art and gets
+    # nothing supplied at runtime, so a name there that resolves to nothing is a
+    # surface with no texture at all.
     for key, val in list(entries.items()):
         if not key.endswith(".m2") or key in drop:
             continue
@@ -196,19 +191,36 @@ def curate(overlay_root, apply_changes, keep_hd=False):
         missing = [name for typ, name in textures
                    if typ == 0 and name and not resolves(name)]
         hard = [name for name in missing if not is_reflection(name)]
-        why = None
-        if hard:
-            why = "model missing a base texture (renders white)"
-        else:
-            named_skin = [name for typ, name in textures
-                          if typ in RUNTIME_SKIN_TYPES and name and not resolves(name)]
-            if named_skin:
-                why = "mesh built for art the pack did not ship (wrong texture wrap)"
+        # A name in a runtime skin slot is NOT a reason to disable the model.
+        # Types 11, 12 and 13 are filled from CreatureDisplayInfo at spawn, over
+        # whatever the file says — so a leftover name that resolves to nothing
+        # costs nothing, and the display's own skin is what gets drawn. Disabling
+        # on that signature threw away 47 working HD meshes, the gryphon among
+        # them, and put the stock bird back.
+        why = "model missing a base texture (renders white)" if hard else None
         if why:
             mark(key, why)
             stem = key[:-3]
             for i in range(6):
                 mark("%s%02d.skin" % (stem, i), "skin of a disabled model")
+
+    # (3b) art the pack shipped for a model these rules disabled.
+    #
+    # A replacement texture is painted for the UVs of the mesh it came with. Put
+    # the stock mesh back and leave that texture over the stock one, and it is
+    # the wrong picture stretched over different geometry — the pack's gryphon
+    # skin is 2184 vertices' worth of art on an 846-vertex bird. Only
+    # replacements go: a texture the pack ADDS is a new variant nothing was
+    # using, and the models still present may well want it.
+    disabled_model_dirs = {key.rsplit("\\", 1)[0] for key in drop if key.endswith(".m2")}
+    live_model_dirs = {key.rsplit("\\", 1)[0] for key in entries
+                       if key.endswith(".m2") and key not in drop}
+    for key in list(entries):
+        if key in drop or not key.endswith(".blp") or key not in base:
+            continue
+        directory = key.rsplit("\\", 1)[0]
+        if directory in disabled_model_dirs and directory not in live_model_dirs:
+            mark(key, "art for a mesh these rules disabled")
 
     # (4) an .anim or .skin is keyframes and submeshes FOR a particular model.
     # Left overriding a model that is not itself overridden, it is the base
