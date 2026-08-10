@@ -214,7 +214,7 @@ ImGui::Separator();
 if (ImGui::SliderFloat("Mouse Sensitivity", &pendingMouseSensitivity, 0.05f, 1.0f, "%.2f")) {
     if (renderer) {
         if (auto* cameraController = renderer->getCameraController()) {
-            cameraController->setMouseSensitivity(pendingMouseSensitivity);
+            applySettingSideEffects("mousespeed");
         }
     }
     saveCallback();
@@ -230,7 +230,7 @@ if (ImGui::Checkbox("Invert Mouse", &pendingInvertMouse)) {
 if (ImGui::Checkbox("Extended Camera Zoom", &pendingExtendedZoom)) {
     if (renderer) {
         if (auto* cameraController = renderer->getCameraController()) {
-            cameraController->setExtendedZoom(pendingExtendedZoom);
+            applySettingSideEffects("extendedzoom");
         }
     }
     saveCallback();
@@ -238,7 +238,7 @@ if (ImGui::Checkbox("Extended Camera Zoom", &pendingExtendedZoom)) {
 if (ImGui::SliderFloat("Camera Stiffness", &pendingCameraStiffness, 5.0f, 100.0f, "%.0f")) {
     if (renderer) {
         if (auto* cameraController = renderer->getCameraController()) {
-            cameraController->setCameraSmoothSpeed(pendingCameraStiffness);
+            applySettingSideEffects("camerastiffness");
         }
     }
     saveCallback();
@@ -247,7 +247,7 @@ ImGui::SetItemTooltip("Higher = tighter camera with less sway. Default: 30");
 if (ImGui::Checkbox("Smooth Camera Follow", &pendingSmoothCameraFollow)) {
     if (renderer) {
         if (auto* cameraController = renderer->getCameraController()) {
-            cameraController->setSmoothCameraFollow(pendingSmoothCameraFollow);
+            applySettingSideEffects("smoothfollow");
         }
     }
     saveCallback();
@@ -258,7 +258,7 @@ ImGui::SetItemTooltip("Camera keeps drifting toward its position even while turn
 if (ImGui::SliderFloat("Camera Pivot Height", &pendingPivotHeight, 0.0f, 3.0f, "%.1f")) {
     if (renderer) {
         if (auto* cameraController = renderer->getCameraController()) {
-            cameraController->setPivotHeight(pendingPivotHeight);
+            applySettingSideEffects("pivotheight");
         }
     }
     saveCallback();
@@ -270,18 +270,14 @@ if (ImGui::IsItemHovered())
 if (ImGui::Checkbox("Idle Camera Orbit", &pendingIdleCameraOrbit)) {
     if (renderer) {
         if (auto* cameraController = renderer->getCameraController()) {
-            cameraController->setIdleOrbitEnabled(pendingIdleCameraOrbit);
+            applySettingSideEffects("idleorbit");
         }
     }
     saveCallback();
 }
 
 if (ImGui::SliderFloat("Field of View", &pendingFov, 45.0f, 110.0f, "%.0f°")) {
-    if (renderer) {
-        if (auto* camera = renderer->getCamera()) {
-            camera->setFov(pendingFov);
-        }
-    }
+    applySettingSideEffects("fov");
     saveCallback();
 }
 if (ImGui::IsItemHovered())
@@ -293,7 +289,7 @@ ImGui::Spacing();
 ImGui::Text("Interface");
 ImGui::Separator();
 if (ImGui::SliderInt("UI Opacity", &pendingUiOpacity, 20, 100, "%d%%")) {
-    uiOpacity_ = static_cast<float>(pendingUiOpacity) / 100.0f;
+    applySettingSideEffects("uiopacity");
     saveCallback();
 }
 if (ImGui::Checkbox("Rotate Minimap", &pendingMinimapRotate)) {
@@ -308,12 +304,7 @@ if (ImGui::Checkbox("Rotate Minimap", &pendingMinimapRotate)) {
     saveCallback();
 }
 if (ImGui::Checkbox("Square Minimap", &pendingMinimapSquare)) {
-    minimapSquare_ = pendingMinimapSquare;
-    if (renderer) {
-        if (auto* minimap = renderer->getMinimap()) {
-            minimap->setSquareShape(minimapSquare_);
-        }
-    }
+    applySettingSideEffects("minimapsquare");
     saveCallback();
 }
 if (ImGui::Checkbox("Show Nearby NPC Dots", &pendingMinimapNpcDots)) {
@@ -898,7 +889,7 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
                 ImGui::SetNextItemWidth(240.0f);
                 if (ImGui::SliderFloat("View Distance", &pendingViewDistance,
                                        400.0f, 2400.0f, "%.0f")) {
-                    if (renderer) renderer->setViewDistance(pendingViewDistance);
+                    applySettingSideEffects("viewdistance");
                     updateGraphicsPresetFromCurrentSettings();
                     saveCallback();
                 }
@@ -906,7 +897,7 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
                     ImGui::SetTooltip("Controls terrain, world-object, and doodad draw distance.");
                 }
                 if (ImGui::Checkbox("Shadows", &pendingShadows)) {
-                    if (renderer) renderer->setShadowsEnabled(pendingShadows);
+                    applySettingSideEffects("shadows");
                     updateGraphicsPresetFromCurrentSettings();
                     saveCallback();
                 }
@@ -914,14 +905,14 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
                     ImGui::SameLine();
                     ImGui::SetNextItemWidth(150.0f);
                     if (ImGui::SliderFloat("Distance##shadow", &pendingShadowDistance, 40.0f, 500.0f, "%.0f")) {
-                        if (renderer) renderer->setShadowDistance(pendingShadowDistance);
+                        applySettingSideEffects("shadowdistance");
                         updateGraphicsPresetFromCurrentSettings();
                         saveCallback();
                     }
                 }
                 {
                     if (ImGui::Checkbox("Water Refraction", &pendingWaterRefraction)) {
-                        if (renderer) renderer->setWaterRefractionEnabled(pendingWaterRefraction);
+                        applySettingSideEffects("waterrefraction");
                         updateGraphicsPresetFromCurrentSettings();
                         saveCallback();
                     }
@@ -1046,11 +1037,7 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
                 }
 #endif
                 if (ImGui::SliderInt("Ground Clutter Density", &pendingGroundClutterDensity, 0, 150, "%d%%")) {
-                    if (renderer) {
-                        if (auto* tm = renderer->getTerrainManager()) {
-                            tm->setGroundClutterDensityScale(static_cast<float>(pendingGroundClutterDensity) / 100.0f);
-                        }
-                    }
+                    applySettingSideEffects("groundclutter");
                     saveCallback();
                 }
                 if (ImGui::Checkbox("Normal Mapping", &pendingNormalMapping)) {
