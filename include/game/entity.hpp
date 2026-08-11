@@ -463,6 +463,32 @@ protected:
     uint32_t displayId = 0;
 };
 
+/// What to call this entity on screen, whatever kind it turns out to be.
+///
+/// The name lives on Unit and on GameObject and not on Entity, so anything
+/// wanting to write one down has to ask which kind it is holding first. Five
+/// places did that for themselves — the four files GameScreen was split into
+/// and the chat commands — in identical copies, and two of the four never
+/// called their own.
+///
+/// "Unknown" rather than an empty string, because every caller is putting this
+/// in a sentence: an entity whose name has not arrived yet reads as a gap in
+/// the line otherwise, with nothing to say a name was expected.
+inline std::string entityDisplayName(const std::shared_ptr<Entity>& entity) {
+    if (!entity) return "Unknown";
+    if (entity->getType() == ObjectType::PLAYER) {
+        auto player = std::static_pointer_cast<Player>(entity);
+        if (!player->getName().empty()) return player->getName();
+    } else if (entity->getType() == ObjectType::UNIT) {
+        auto unit = std::static_pointer_cast<Unit>(entity);
+        if (!unit->getName().empty()) return unit->getName();
+    } else if (entity->getType() == ObjectType::GAMEOBJECT) {
+        auto go = std::static_pointer_cast<GameObject>(entity);
+        if (!go->getName().empty()) return go->getName();
+    }
+    return "Unknown";
+}
+
 /**
  * Entity manager for tracking all entities in view
  */

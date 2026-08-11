@@ -71,32 +71,7 @@ namespace {
     // click from a neighbor. Units are never clamped — this is a GO-only correction, the
     // same reasoning that already makes WMO GOs fall back to a conservative fixed sphere.
 
-    bool raySphereIntersect(const wowee::rendering::Ray& ray, const glm::vec3& center, float radius, float& tOut) {
-        glm::vec3 oc = ray.origin - center;
-        float b = glm::dot(oc, ray.direction);
-        float c = glm::dot(oc, oc) - radius * radius;
-        float discriminant = b * b - c;
-        if (discriminant < 0.0f) return false;
-        float t = -b - std::sqrt(discriminant);
-        if (t < 0.0f) t = -b + std::sqrt(discriminant);
-        if (t < 0.0f) return false;
-        tOut = t;
-        return true;
-    }
 
-    std::string getEntityName(const std::shared_ptr<wowee::game::Entity>& entity) {
-        if (entity->getType() == wowee::game::ObjectType::PLAYER) {
-            auto player = std::static_pointer_cast<wowee::game::Player>(entity);
-            if (!player->getName().empty()) return player->getName();
-        } else if (entity->getType() == wowee::game::ObjectType::UNIT) {
-            auto unit = std::static_pointer_cast<wowee::game::Unit>(entity);
-            if (!unit->getName().empty()) return unit->getName();
-        } else if (entity->getType() == wowee::game::ObjectType::GAMEOBJECT) {
-            auto go = std::static_pointer_cast<wowee::game::GameObject>(entity);
-            if (!go->getName().empty()) return go->getName();
-        }
-        return "Unknown";
-    }
 
     // Draw a four-edge screen vignette (gradient overlay along each edge).
     // Used for damage flash, low-health pulse, and level-up golden burst.

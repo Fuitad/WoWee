@@ -64,18 +64,6 @@ namespace {
     constexpr auto& kColorDarkGray   = kDarkGray;
 
 
-    bool raySphereIntersect(const wowee::rendering::Ray& ray, const glm::vec3& center, float radius, float& tOut) {
-        glm::vec3 oc = ray.origin - center;
-        float b = glm::dot(oc, ray.direction);
-        float c = glm::dot(oc, oc) - radius * radius;
-        float discriminant = b * b - c;
-        if (discriminant < 0.0f) return false;
-        float t = -b - std::sqrt(discriminant);
-        if (t < 0.0f) t = -b + std::sqrt(discriminant);
-        if (t < 0.0f) return false;
-        tOut = t;
-        return true;
-    }
 
     // Name a built-in pet bar slot. Both halves of the packed value matter:
     // the ids 0/1/2 mean stay/follow/attack as commands and passive/defensive/
@@ -119,19 +107,6 @@ namespace {
         return "Agg";
     }
 
-    std::string getEntityName(const std::shared_ptr<wowee::game::Entity>& entity) {
-        if (entity->getType() == wowee::game::ObjectType::PLAYER) {
-            auto player = std::static_pointer_cast<wowee::game::Player>(entity);
-            if (!player->getName().empty()) return player->getName();
-        } else if (entity->getType() == wowee::game::ObjectType::UNIT) {
-            auto unit = std::static_pointer_cast<wowee::game::Unit>(entity);
-            if (!unit->getName().empty()) return unit->getName();
-        } else if (entity->getType() == wowee::game::ObjectType::GAMEOBJECT) {
-            auto go = std::static_pointer_cast<wowee::game::GameObject>(entity);
-            if (!go->getName().empty()) return go->getName();
-        }
-        return "Unknown";
-    }
 
 }
 
@@ -1058,7 +1033,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
         }
 
         // Entity name and type — Selectable so we can attach a right-click context menu
-        std::string name = getEntityName(target);
+        std::string name = game::entityDisplayName(target);
 
         // Player targets: use class color instead of the generic green
         ImVec4 nameColor = hostileColor;
@@ -1438,10 +1413,10 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                 ImVec4 totColor(0.7f, 0.7f, 0.7f, 1.0f);
                 if (totGuid == gameHandler.getPlayerGuid()) {
                     auto playerEnt = gameHandler.getEntityManager().getEntity(totGuid);
-                    totName = playerEnt ? getEntityName(playerEnt) : "You";
+                    totName = playerEnt ? game::entityDisplayName(playerEnt) : "You";
                     totColor = kColorBrightGreen;
                 } else if (totEnt) {
-                    totName = getEntityName(totEnt);
+                    totName = game::entityDisplayName(totEnt);
                     uint8_t cid = entityClassId(totEnt.get());
                     if (cid != 0) totColor = classColorVec4(cid);
                 }
@@ -1699,7 +1674,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar |
                         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar)) {
-                    std::string totName = getEntityName(totEntity);
+                    std::string totName = game::entityDisplayName(totEntity);
                     // Class color for players; gray for NPCs
                     ImVec4 totNameColor = colors::kSilver;
                     if (totEntity->getType() == game::ObjectType::PLAYER) {
@@ -1953,7 +1928,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
             }
         }
 
-        std::string focusName = getEntityName(focus);
+        std::string focusName = game::entityDisplayName(focus);
         ImGui::PushStyleColor(ImGuiCol_Text, focusColor);
         ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0,0,0,0));
         ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(1,1,1,0.08f));
@@ -2311,7 +2286,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
                     fofName = "You";
                     fofColor = kColorBrightGreen;
                 } else if (fofEnt) {
-                    fofName = getEntityName(fofEnt);
+                    fofName = game::entityDisplayName(fofEnt);
                     uint8_t fcid = entityClassId(fofEnt.get());
                     if (fcid != 0) fofColor = classColorVec4(fcid);
                 }

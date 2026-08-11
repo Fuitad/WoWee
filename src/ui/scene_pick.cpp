@@ -23,21 +23,6 @@ constexpr uint32_t kGoTypeChair = 7;
 constexpr uint32_t kGoTypeGeneric = 5;
 constexpr uint32_t kGoTypeFishingHole = 25;
 
-bool raySphereIntersect(const rendering::Ray& ray, const glm::vec3& center,
-                        float radius, float& tOut) {
-    const glm::vec3 oc = ray.origin - center;
-    const float b = glm::dot(oc, ray.direction);
-    const float c = glm::dot(oc, oc) - radius * radius;
-    const float disc = b * b - c;
-    if (disc < 0.0f) return false;
-    const float sq = std::sqrt(disc);
-    float t = -b - sq;
-    if (t < 0.0f) t = -b + sq;
-    if (t < 0.0f) return false;
-    tOut = t;
-    return true;
-}
-
 bool isDeadUnit(const std::shared_ptr<game::Entity>& entity) {
     auto unit = std::dynamic_pointer_cast<game::Unit>(entity);
     return unit && unit->getHealth() == 0 && unit->getMaxHealth() > 0;
