@@ -1698,9 +1698,20 @@ void registerSocialLuaAPI(lua_State* L) {
             if (gh && id) gh->takeInboxTextItem(id);
             return 0;
         }},
-                // Tells the client the send-mail tab is open, so it can hold a
-                // draft. Nothing here holds one.
-                {"SetSendMailShowing", [](lua_State* L) -> int { (void)L; return 0; }},
+                // SetSendMailShowing(showing) — the send-mail tab is open, or
+                // is not.
+                //
+                // This client does hold a draft: the letter's attachments live
+                // on its side, and clicking an item in a bag attaches it only
+                // while the compose frame is up. Discarding this left that flag
+                // false for as long as FrameXML owned the mail window, so a
+                // click on a bag item went to the branch below it and used the
+                // item instead — the food got eaten rather than posted.
+                {"SetSendMailShowing", [](lua_State* L) -> int {
+                    auto* gh = getGameHandler(L);
+                    if (gh) gh->setMailComposeShowing(lua_toboolean(L, 1) != 0);
+                    return 0;
+                }},
 
                 // ---- The help frame's GM requests ----
                 //

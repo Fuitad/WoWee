@@ -1352,6 +1352,10 @@ void GameHandler::closeMailCompose() {
     if (inventoryHandler_) inventoryHandler_->closeMailCompose();
     else { showMailCompose_ = false; clearMailAttachments(); }
 }
+void GameHandler::setMailComposeShowing(bool showing) {
+    if (inventoryHandler_) inventoryHandler_->setMailComposeShowing(showing);
+    else showMailCompose_ = showing;
+}
 bool GameHandler::hasNewMail() const {
     return inventoryHandler_ ? inventoryHandler_->hasNewMail() : hasNewMail_;
 }

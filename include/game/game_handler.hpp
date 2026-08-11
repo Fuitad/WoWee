@@ -3048,6 +3048,8 @@ public:
     bool isMailComposeOpen() const;
     void openMailCompose();
     void closeMailCompose();
+    /// Whether the compose frame is showing, without clearing the draft.
+    void setMailComposeShowing(bool showing);
     bool hasNewMail() const;
     void openMailbox(uint64_t guid);
     void closeMailbox();

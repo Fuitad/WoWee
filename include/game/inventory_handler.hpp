@@ -272,6 +272,14 @@ public:
     int getSelectedMailIndex() const { return selectedMailIndex_; }
     void setSelectedMailIndex(int idx) { selectedMailIndex_ = idx; }
     bool isMailComposeOpen() const { return showMailCompose_; }
+
+    /// Whether the compose frame is on screen, without touching the draft.
+    ///
+    /// FrameXML owns the mail window and says so through SetSendMailShowing as
+    /// its two tabs swap. openMailCompose empties the attachments, which is
+    /// right when this client's own window opens a fresh letter and wrong on a
+    /// tab switch — flipping to the inbox and back would drop what was on it.
+    void setMailComposeShowing(bool showing) { showMailCompose_ = showing; }
     void openMailCompose() { showMailCompose_ = true; clearMailAttachments(); }
     void closeMailCompose() { showMailCompose_ = false; clearMailAttachments(); }
     bool hasNewMail() const { return hasNewMail_; }
