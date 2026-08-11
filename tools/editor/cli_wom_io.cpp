@@ -1,4 +1,5 @@
 #include "cli_wom_io.hpp"
+#include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_model.hpp"
 #include <glm/glm.hpp>

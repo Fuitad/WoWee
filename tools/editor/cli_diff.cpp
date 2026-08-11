@@ -1,4 +1,5 @@
 #include "cli_diff.hpp"
+#include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_model.hpp"
 #include "pipeline/wowee_building.hpp"

@@ -1,4 +1,5 @@
 #include "pipeline/wowee_vertex_sanitize.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 #include "pipeline/wowee_model.hpp"
 #include "pipeline/asset_manager.hpp"
 #include "pipeline/m2_loader.hpp"
@@ -243,7 +244,7 @@ WoweeModel WoweeModelLoader::load(const std::string& basePath) {
 
 bool WoweeModelLoader::save(const WoweeModel& model, const std::string& basePath) {
     namespace fs = std::filesystem;
-    fs::create_directories(fs::path(basePath).parent_path());
+    ensureParentDirectory(basePath);
 
     std::string womPath = basePath + ".wom";
     std::ofstream f(womPath, std::ios::binary);

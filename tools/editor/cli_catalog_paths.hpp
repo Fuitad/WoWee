@@ -13,11 +13,33 @@
  */
 
 #include <cstdio>
+#include <filesystem>
 #include <string>
 
 namespace wowee {
 namespace editor {
 namespace cli {
+
+/// Make sure the directory an output file is about to be written into exists.
+///
+/// std::filesystem::create_directories("") throws — "Invalid argument" — and a
+/// bare filename has an empty parent path. So
+///
+///     wowee_editor --gen-mesh-altar altar
+///
+/// terminated on an uncaught exception and dumped core, while the same command
+/// with "./altar" worked. Twenty-five of the mesh generators had exactly that
+/// line, and none of them was inside a try.
+///
+/// The error_code overload is used deliberately: a directory that cannot be
+/// made is a thing to report when the write fails, which it is about to, and
+/// not a reason to abort the process before the message can be printed.
+inline void ensureParentDirectory(const std::filesystem::path& file) {
+    const std::filesystem::path parent = file.parent_path();
+    if (parent.empty()) return;  // writing into the working directory
+    std::error_code ec;
+    std::filesystem::create_directories(parent, ec);
+}
 
 /// `base` without a trailing `extension`, if it has one.
 inline std::string withoutExt(std::string base, const std::string& extension) {

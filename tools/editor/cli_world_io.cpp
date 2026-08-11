@@ -1,4 +1,5 @@
 #include "cli_world_io.hpp"
+#include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_building.hpp"
 #include "pipeline/wowee_collision.hpp"

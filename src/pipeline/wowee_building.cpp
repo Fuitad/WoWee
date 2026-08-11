@@ -1,4 +1,5 @@
 #include "pipeline/wowee_vertex_sanitize.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 #include "pipeline/wowee_building.hpp"
 #include "pipeline/wmo_loader.hpp"
 #include "core/logger.hpp"
@@ -231,7 +232,7 @@ WoweeBuilding WoweeBuildingLoader::load(const std::string& basePath) {
 
 bool WoweeBuildingLoader::save(const WoweeBuilding& bld, const std::string& basePath) {
     namespace fs = std::filesystem;
-    fs::create_directories(fs::path(basePath).parent_path());
+    ensureParentDirectory(basePath);
 
     std::ofstream f(basePath + ".wob", std::ios::binary);
     if (!f) return false;

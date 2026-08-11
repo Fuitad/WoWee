@@ -1,4 +1,5 @@
 #include "cli_wom_info.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_arg_parse.hpp"
 
 #include "pipeline/wowee_model.hpp"

@@ -1,4 +1,5 @@
 #include "cli_mesh_edit.hpp"
+#include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_model.hpp"
 #include <glm/glm.hpp>
@@ -756,7 +757,7 @@ int handleMergeMeshes(int& i, int argc, char** argv) {
     out.boundMax = glm::max(a.boundMax, b.boundMax);
     out.boundRadius = glm::length(out.boundMax - out.boundMin) * 0.5f;
     std::filesystem::path outPath(outBase);
-    std::filesystem::create_directories(outPath.parent_path());
+    ensureParentDirectory(outPath);
     if (!wowee::pipeline::WoweeModelLoader::save(out, outBase)) {
         std::fprintf(stderr,
             "merge-meshes: failed to save %s.wom\n", outBase.c_str());

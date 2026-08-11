@@ -1,4 +1,5 @@
 #include "cli_world_map.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_arg_parse.hpp"
 #include "cli_box_emitter.hpp"
 

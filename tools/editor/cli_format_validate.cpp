@@ -1,4 +1,5 @@
 #include "cli_format_validate.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_subprocess.hpp"
 
 #include "pipeline/wowee_model.hpp"

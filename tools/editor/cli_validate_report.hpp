@@ -176,6 +176,14 @@ public:
     /// True the first time an id is offered, false once it has been seen.
     bool add(uint32_t id) { return seen_.insert(id).second; }
 
+    /// Room for this many ids up front.
+    ///
+    /// The callers were reserving against the std::vector this replaced and
+    /// kept the call, which is still the right thing to ask — an unordered_set
+    /// that knows its size ahead of time does not rehash. Its absence is what
+    /// stopped the editor building, in twelve handlers at once.
+    void reserve(std::size_t count) { seen_.reserve(count); }
+
 private:
     std::unordered_set<uint32_t> seen_;
 };

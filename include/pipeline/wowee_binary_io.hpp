@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <string>
 
@@ -160,6 +161,30 @@ inline std::string normalizePath(std::string base, const std::string& extension)
         base += extension;
     }
     return base;
+}
+
+/// Make the directory an output file is about to be written into, if it needs
+/// making and can be made.
+///
+/// std::filesystem::create_directories("") throws — "Invalid argument" — and a
+/// bare filename has an empty parent path. The savers called it without that
+/// guard and without a try, so
+///
+///     wowee_editor --gen-mesh-altar altar
+///
+/// terminated on an uncaught exception and dumped core, while the same command
+/// with "./altar" wrote the file. Every procedural mesh generator, every
+/// building save and every collision save went through one of those three
+/// lines.
+///
+/// The error_code overload deliberately: a directory that cannot be made is
+/// something to report when the write fails, which it is about to, rather than
+/// a reason to end the process before the message can be printed.
+inline void ensureParentDirectory(const std::string& filePath) {
+    const std::filesystem::path parent = std::filesystem::path(filePath).parent_path();
+    if (parent.empty()) return;  // writing into the working directory
+    std::error_code ec;
+    std::filesystem::create_directories(parent, ec);
 }
 
 /// Whether a catalog file is there to be read.

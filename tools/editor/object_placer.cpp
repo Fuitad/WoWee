@@ -1,4 +1,5 @@
 #include "object_placer.hpp"
+#include "cli_catalog_paths.hpp"
 #include "terrain_biomes.hpp"
 #include "core/coordinates.hpp"
 #include "core/logger.hpp"
@@ -298,7 +299,7 @@ void ObjectPlacer::undoLastPlace() {
 }
 
 bool ObjectPlacer::saveToFile(const std::string& path) const {
-    std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+    cli::ensureParentDirectory(path);
 
     // nlohmann::json throws on NaN/inf serialization. Scrub on the way
     // out so a bad in-memory transform can't kill the whole save.

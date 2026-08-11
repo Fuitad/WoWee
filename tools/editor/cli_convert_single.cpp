@@ -1,3 +1,4 @@
+#include "cli_catalog_paths.hpp"
 #include "cli_convert_single.hpp"
 
 #include "pipeline/asset_manager.hpp"
@@ -342,11 +343,15 @@ int handleConvertBlpPng(int& i, int argc, char** argv) {
                      img.width, img.height, img.data.size());
         return 1;
     }
-    // Ensure output directory exists; fs::create_directories with
-    // an empty path is a no-op so we don't need to special-case
-    // 'png in cwd'.
-    std::filesystem::create_directories(
-        std::filesystem::path(outPath).parent_path());
+    // Ensure the output directory exists.
+    //
+    // The comment that used to be here said create_directories with an empty
+    // path is a no-op, so a png written into the working directory needed no
+    // special case. It is not a no-op: it throws filesystem_error, "Invalid
+    // argument", and nothing here catches it — so a bare output filename
+    // terminated the process. That belief is why twenty-five mesh generators
+    // did the same thing.
+    ensureParentDirectory(outPath);
     int rc = stbi_write_png(outPath.c_str(),
                              img.width, img.height, 4,
                              img.data.data(), img.width * 4);

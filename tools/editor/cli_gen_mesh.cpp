@@ -1,4 +1,5 @@
 #include "cli_gen_mesh.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_box_emitter.hpp"
 #include "cli_arg_parse.hpp"
 
@@ -1479,7 +1480,7 @@ int handleStairs(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-stairs")) return 1;
     printWomWrote(womBase);
     std::printf("  steps     : %d\n", steps);
@@ -1566,7 +1567,7 @@ int handleGrid(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-grid")) return 1;
     printWomWrote(womBase);
     std::printf("  subdivisions : %d (%dx%d cells)\n", N, N, N);
@@ -1632,7 +1633,7 @@ int handleDisc(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-disc")) return 1;
     printWomWrote(womBase);
     std::printf("  radius    : %.3f\n", radius);
@@ -1787,7 +1788,7 @@ int handleTube(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-tube")) return 1;
     printWomWrote(womBase);
     std::printf("  outer R   : %.3f\n", outerR);
@@ -1924,7 +1925,7 @@ int handleCapsule(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-capsule")) return 1;
     printWomWrote(womBase);
     std::printf("  radius     : %.3f\n", radius);
@@ -2035,7 +2036,7 @@ int handleArch(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-arch")) return 1;
     printWomWrote(womBase);
     std::printf("  opening    : %.3f W × %.3f H\n", openingW, openingH);
@@ -2127,7 +2128,7 @@ int handlePyramid(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-pyramid")) return 1;
     printWomWrote(womBase);
     std::printf("  sides     : %d\n", sides);
@@ -2205,7 +2206,7 @@ int handleFence(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-fence")) return 1;
     printWomWrote(womBase);
     std::printf("  posts     : %d\n", posts);
@@ -2321,7 +2322,7 @@ int handleTree(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh-tree")) return 1;
     printWomWrote(womBase);
     std::printf("  trunk R   : %.3f\n", trunkR);
@@ -2702,7 +2703,7 @@ int handleMeshDispatch(int& i, int argc, char** argv) {
     // real path or run --gen-texture next to it.
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!saveWomOrError(wom, womBase, "gen-mesh")) return 1;
     printWomWrote(womBase);
     std::printf("  shape    : %s\n", s.c_str());

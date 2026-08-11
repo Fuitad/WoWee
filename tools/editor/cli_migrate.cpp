@@ -1,4 +1,5 @@
 #include "cli_migrate.hpp"
+#include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_model.hpp"
 #include <nlohmann/json.hpp>

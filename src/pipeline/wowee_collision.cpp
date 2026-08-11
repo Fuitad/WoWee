@@ -1,4 +1,5 @@
 #include "pipeline/wowee_collision.hpp"
+#include "pipeline/wowee_binary_io.hpp"
 #include "pipeline/adt_loader.hpp"
 #include "core/logger.hpp"
 #include <fstream>
@@ -156,7 +157,7 @@ void WoweeCollisionBuilder::addMesh(WoweeCollision& collision,
 
 bool WoweeCollisionBuilder::save(const WoweeCollision& collision, const std::string& path) {
     namespace fs = std::filesystem;
-    fs::create_directories(fs::path(path).parent_path());
+    ensureParentDirectory(path);
 
     std::ofstream f(path, std::ios::binary);
     if (!f) return false;

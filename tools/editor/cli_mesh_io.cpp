@@ -1,4 +1,5 @@
 #include "cli_mesh_io.hpp"
+#include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_model.hpp"
 #include <glm/glm.hpp>
@@ -249,7 +250,7 @@ int handleGenMeshFromHeightmap(int& i, int argc, char** argv) {
     wom.batches.push_back(b);
     wom.texturePaths.push_back("");
     std::filesystem::path womPath(womBase);
-    std::filesystem::create_directories(womPath.parent_path());
+    ensureParentDirectory(womPath);
     if (!wowee::pipeline::WoweeModelLoader::save(wom, womBase)) {
         std::fprintf(stderr,
             "gen-mesh-from-heightmap: failed to save %s.wom\n",

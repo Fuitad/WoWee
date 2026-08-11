@@ -1,4 +1,5 @@
 #include "cli_world_info.hpp"
+#include "cli_catalog_paths.hpp"
 #include "cli_weld.hpp"
 
 #include "pipeline/wowee_building.hpp"
