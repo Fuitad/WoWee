@@ -123,8 +123,7 @@ WoweeTransitSchedule WoweeTransitScheduleLoader::load(
 
 bool WoweeTransitScheduleLoader::exists(
     const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweeTransitSchedule WoweeTransitScheduleLoader::makeZeppelins(

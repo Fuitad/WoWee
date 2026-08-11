@@ -11,9 +11,8 @@ namespace rendering {
 namespace world_map {
 
 void CoordinateDisplay::render(const LayerContext& ctx) {
-    if (ctx.currentZoneIdx < 0) return;
-    if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
-    if (!ctx.zones) return;
+    const auto projection = currentProjection(ctx);
+    if (!projection) return;
 
     auto& io = ImGui::GetIO();
     ImVec2 mp = io.MousePos;
@@ -25,15 +24,12 @@ void CoordinateDisplay::render(const LayerContext& ctx) {
     float mv = (mp.y - ctx.imgMin.y) / ctx.displayH;
 
     const auto& zone = (*ctx.zones)[ctx.currentZoneIdx];
-    // Through the shared helper, which keeps the zone's own bounds when the
+    // Through the shared helper, which keeps the zone's own projection->bounds when the
     // continent lookup fails. This read the four floats out of the call without
     // checking it succeeded — and on failure it leaves them untouched, so the
     // coordinates under the cursor were computed from uninitialised stack.
-    bool isContinent = false;
-    const ZoneBounds bounds =
-        projectionBoundsFor(*ctx.zones, ctx.currentZoneIdx, isContinent);
-    const float left = bounds.locLeft, right = bounds.locRight;
-    const float top = bounds.locTop, bottom = bounds.locBottom;
+    const float left = projection->bounds.locLeft, right = projection->bounds.locRight;
+    const float top = projection->bounds.locTop, bottom = projection->bounds.locBottom;
 
     float hWowX = left - mu * (left - right);
     float hWowY = top  - mv * (top  - bottom);

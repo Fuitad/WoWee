@@ -134,8 +134,7 @@ WoweePlayerSpawnProfile WoweePlayerSpawnProfileLoader::load(
 
 bool WoweePlayerSpawnProfileLoader::exists(
     const std::string& basePath) {
-    std::ifstream is(normalizePath(basePath, kExtension), std::ios::binary);
-    return is.good();
+    return catalogExists(basePath, kExtension);
 }
 
 WoweePlayerSpawnProfile WoweePlayerSpawnProfileLoader::makeAlliance(

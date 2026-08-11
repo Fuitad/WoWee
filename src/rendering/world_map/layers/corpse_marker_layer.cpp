@@ -71,18 +71,13 @@ void CorpseMarkerLayer::ensureTexture() {
 
 void CorpseMarkerLayer::render(const LayerContext& ctx) {
     if (!hasCorpse_ && !hasGraveyard_) return;
-    if (ctx.currentZoneIdx < 0) return;
-    if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
-    if (!ctx.zones) return;
-
-    bool isContinent = false;
-    const ZoneBounds bounds =
-        projectionBoundsFor(*ctx.zones, ctx.currentZoneIdx, isContinent);
+    const auto projection = currentProjection(ctx);
+    if (!projection) return;
 
     // Where a release would put the player. Drawn first so the corpse sits on
     // top where the two coincide — the body is the thing being navigated to.
     if (hasGraveyard_) {
-        glm::vec2 gv = renderPosToMapUV(graveyardRenderPos_, bounds, isContinent);
+        glm::vec2 gv = renderPosToMapUV(graveyardRenderPos_, projection->bounds, projection->isContinent);
         if (gv.x >= 0.0f && gv.x <= 1.0f && gv.y >= 0.0f && gv.y <= 1.0f) {
             const float gx = ctx.imgMin.x + gv.x * ctx.displayW;
             const float gy = ctx.imgMin.y + gv.y * ctx.displayH;
@@ -110,7 +105,7 @@ void CorpseMarkerLayer::render(const LayerContext& ctx) {
 
     if (!hasCorpse_) return;
 
-    glm::vec2 uv = renderPosToMapUV(corpseRenderPos_, bounds, isContinent);
+    glm::vec2 uv = renderPosToMapUV(corpseRenderPos_, projection->bounds, projection->isContinent);
     if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) return;
 
     float cx = ctx.imgMin.x + uv.x * ctx.displayW;

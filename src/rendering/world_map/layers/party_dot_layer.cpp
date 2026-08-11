@@ -10,17 +10,12 @@ namespace world_map {
 
 void PartyDotLayer::render(const LayerContext& ctx) {
     if (!dots_ || dots_->empty()) return;
-    if (ctx.currentZoneIdx < 0) return;
-    if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
-    if (!ctx.zones) return;
-
-    bool isContinent = false;
-    const ZoneBounds bounds =
-        projectionBoundsFor(*ctx.zones, ctx.currentZoneIdx, isContinent);
+    const auto projection = currentProjection(ctx);
+    if (!projection) return;
 
     ImFont* font = ImGui::GetFont();
     for (const auto& dot : *dots_) {
-        glm::vec2 uv = renderPosToMapUV(dot.renderPos, bounds, isContinent);
+        glm::vec2 uv = renderPosToMapUV(dot.renderPos, projection->bounds, projection->isContinent);
         if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) continue;
         float px = ctx.imgMin.x + uv.x * ctx.displayW;
         float py = ctx.imgMin.y + uv.y * ctx.displayH;

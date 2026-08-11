@@ -93,18 +93,13 @@ bool projectNodeToDisplayedMap(const TaxiNode& node, const LayerContext& ctx,
 
 void TaxiNodeLayer::render(const LayerContext& ctx) {
     if (!nodes_ || nodes_->empty()) return;
-    if (ctx.currentZoneIdx < 0) return;
-    if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
-    if (!ctx.zones) return;
-
-    bool isContinent = false;
-    const ZoneBounds bounds =
-        projectionBoundsFor(*ctx.zones, ctx.currentZoneIdx, isContinent);
+    const auto projection = currentProjection(ctx);
+    if (!projection) return;
 
     if (taxiMode_) {
-        renderFlightMap(ctx, bounds, isContinent);
+        renderFlightMap(ctx, projection->bounds, projection->isContinent);
     } else {
-        renderWorldMapMarkers(ctx, bounds, isContinent);
+        renderWorldMapMarkers(ctx, projection->bounds, projection->isContinent);
     }
 }
 

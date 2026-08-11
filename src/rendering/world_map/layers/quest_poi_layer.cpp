@@ -11,20 +11,15 @@ namespace world_map {
 
 void QuestPOILayer::render(const LayerContext& ctx) {
     if (!pois_ || pois_->empty()) return;
-    if (ctx.currentZoneIdx < 0) return;
-    if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
-    if (!ctx.zones) return;
-
-    bool isContinent = false;
-    const ZoneBounds bounds =
-        projectionBoundsFor(*ctx.zones, ctx.currentZoneIdx, isContinent);
+    const auto projection = currentProjection(ctx);
+    if (!projection) return;
 
     ImVec2 mp = ImGui::GetMousePos();
     ImFont* qFont = ImGui::GetFont();
     for (const auto& qp : *pois_) {
         glm::vec3 rPos = core::coords::canonicalToRender(
             glm::vec3(qp.wowX, qp.wowY, 0.0f));
-        glm::vec2 uv = renderPosToMapUV(rPos, bounds, isContinent);
+        glm::vec2 uv = renderPosToMapUV(rPos, projection->bounds, projection->isContinent);
         if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) continue;
 
         float px = ctx.imgMin.x + uv.x * ctx.displayW;

@@ -4,6 +4,8 @@
 #pragma once
 
 #include "rendering/world_map/world_map_types.hpp"
+#include "rendering/world_map/coordinate_projection.hpp"
+#include <optional>
 #include <glm/glm.hpp>
 #include <vector>
 #include <memory>
@@ -52,6 +54,23 @@ struct LayerContext {
     // ZMP-derived zone bounding boxes (zone index → UV rect on display)
     const std::unordered_map<int, ZmpRect>* zmpZoneBounds = nullptr;
 };
+
+/// What a layer needs before it can put a world position on the map: the
+/// rectangle to project against, and whether that rectangle is a continent's.
+struct MapProjection {
+    ZoneBounds bounds;
+    bool isContinent = false;
+};
+
+/// The projection for whatever the map is showing, or nothing when it is not
+/// showing somewhere a world position can be placed.
+///
+/// Ten marker layers opened with the same three guards and the same two lines
+/// deriving the bounds — the view has to be a zone or a continent, the zone
+/// index has to be known, and the zone list has to be there. Three conditions
+/// restated ten times is three chances for a layer to be missing one and read
+/// past the end of a vector that is not there.
+std::optional<MapProjection> currentProjection(const LayerContext& ctx);
 
 /// Interface for an overlay layer rendered on top of the composite map.
 class IOverlayLayer {

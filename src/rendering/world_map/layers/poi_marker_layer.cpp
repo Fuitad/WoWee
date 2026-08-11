@@ -11,13 +11,8 @@ namespace world_map {
 
 void POIMarkerLayer::render(const LayerContext& ctx) {
     if (!markers_ || markers_->empty()) return;
-    if (ctx.currentZoneIdx < 0) return;
-    if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
-    if (!ctx.zones) return;
-
-    bool isContinent = false;
-    const ZoneBounds bounds =
-        projectionBoundsFor(*ctx.zones, ctx.currentZoneIdx, isContinent);
+    const auto projection = currentProjection(ctx);
+    if (!projection) return;
 
     ImVec2 mp = ImGui::GetMousePos();
     ImFont* font = ImGui::GetFont();
@@ -27,7 +22,7 @@ void POIMarkerLayer::render(const LayerContext& ctx) {
 
         glm::vec3 rPos = core::coords::canonicalToRender(
             glm::vec3(poi.wowX, poi.wowY, poi.wowZ));
-        glm::vec2 uv = renderPosToMapUV(rPos, bounds, isContinent);
+        glm::vec2 uv = renderPosToMapUV(rPos, projection->bounds, projection->isContinent);
         if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) continue;
 
         float px = ctx.imgMin.x + uv.x * ctx.displayW;

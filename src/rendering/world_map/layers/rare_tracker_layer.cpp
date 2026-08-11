@@ -11,17 +11,12 @@ namespace world_map {
 
 void RareTrackerLayer::render(const LayerContext& ctx) {
     if (!rares_ || rares_->empty()) return;
-    if (ctx.currentZoneIdx < 0) return;
-    if (ctx.viewLevel != ViewLevel::ZONE && ctx.viewLevel != ViewLevel::CONTINENT) return;
-    if (!ctx.zones) return;
-
-    bool isContinent = false;
-    const ZoneBounds bounds =
-        projectionBoundsFor(*ctx.zones, ctx.currentZoneIdx, isContinent);
+    const auto projection = currentProjection(ctx);
+    if (!projection) return;
 
     ImFont* font = ImGui::GetFont();
     for (const auto& rare : *rares_) {
-        glm::vec2 uv = renderPosToMapUV(rare.renderPos, bounds, isContinent);
+        glm::vec2 uv = renderPosToMapUV(rare.renderPos, projection->bounds, projection->isContinent);
         if (uv.x < 0.0f || uv.x > 1.0f || uv.y < 0.0f || uv.y > 1.0f) continue;
         float px = ctx.imgMin.x + uv.x * ctx.displayW;
         float py = ctx.imgMin.y + uv.y * ctx.displayH;
