@@ -9,6 +9,7 @@
 #include <imgui_impl_vulkan.h>
 #include <algorithm>
 #include <cstring>
+#include <cstdio>
 #include <filesystem>
 #include <string>
 
@@ -377,8 +378,11 @@ bool VkContext::selectPhysicalDevice() {
     vkGetPhysicalDeviceProperties(physicalDevice, &props);
     (void)props.apiVersion; // Available if needed for version checks
     gpuVendorId_ = props.vendorID;
-    std::strncpy(gpuName_, props.deviceName, sizeof(gpuName_) - 1);
-    gpuName_[sizeof(gpuName_) - 1] = '\0';
+    // snprintf rather than strncpy: deviceName is the same size as gpuName_,
+    // so strncpy copies exactly the buffer length and GCC reports it may not
+    // terminate, even with the explicit NUL that followed. snprintf always
+    // terminates and truncates on its own.
+    std::snprintf(gpuName_, sizeof(gpuName_), "%s", props.deviceName);
     LOG_INFO("GPU: ", gpuName_, " (vendor 0x", std::hex, gpuVendorId_, std::dec, ")");
 
     VkPhysicalDeviceDepthStencilResolveProperties dsResolveProps{};

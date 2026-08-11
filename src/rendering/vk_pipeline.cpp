@@ -76,7 +76,10 @@ PipelineBuilder& PipelineBuilder::setDepthBias(float constantFactor, float slope
 PipelineBuilder& PipelineBuilder::setColorBlendAttachment(
     VkPipelineColorBlendAttachmentState blendState)
 {
-    colorBlendAttachments_ = {blendState};
+    // assign, not an initializer_list. GCC 13 at -O2 traces the list's
+    // temporary array through the vector's memmove and reports a false
+    // -Warray-bounds against it, which -Werror turns into a build failure.
+    colorBlendAttachments_.assign(1, blendState);
     return *this;
 }
 
