@@ -24,13 +24,11 @@ WorldEntryCallbackHandler::WorldEntryCallbackHandler(
     game::GameHandler& gameHandler,
     WorldLoader* worldLoader,
     EntitySpawner* entitySpawner,
-    audio::AudioCoordinator* audioCoordinator,
     pipeline::AssetManager* assetManager)
     : renderer_(renderer)
     , gameHandler_(gameHandler)
     , worldLoader_(worldLoader)
     , entitySpawner_(entitySpawner)
-    , audioCoordinator_(audioCoordinator)
     , assetManager_(assetManager)
 {
 }

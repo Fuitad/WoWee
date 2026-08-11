@@ -4273,7 +4273,7 @@ void Application::setupUICallbacks() {
     // ── World entry, unstuck, hearthstone, bind point ──
     worldEntryCallbacks_ = std::make_unique<WorldEntryCallbackHandler>(
         *renderer, *gameHandler, worldLoader_.get(), entitySpawner_.get(),
-        audioCoordinator_.get(), assetManager.get());
+        assetManager.get());
     worldEntryCallbacks_->setupCallbacks();
 
     // ── Entity spawn/despawn (creatures, players, game objects) ──
@@ -4306,8 +4306,7 @@ void Application::setupUICallbacks() {
 
     // ── Transport: mount, taxi, transport spawn/move ──
     transportCallbacks_ = std::make_unique<TransportCallbackHandler>(
-        *entitySpawner_, *renderer, *gameHandler, worldLoader_.get(),
-        appearanceComposer_.get());
+        *entitySpawner_, *renderer, *gameHandler, appearanceComposer_.get());
     transportCallbacks_->setupCallbacks();
 }
 

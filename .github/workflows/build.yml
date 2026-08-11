@@ -104,7 +104,7 @@ jobs:
       run: cd build && cpack -G DEB
 
     - name: Upload DEB
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: wowee-linux-${{ matrix.arch }}-deb
         path: build/wowee-*.deb
@@ -382,7 +382,7 @@ jobs:
           --verbose=2 Wowee.dmg
 
     - name: Upload DMG
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: wowee-macos-${{ matrix.arch }}-dmg
         path: Wowee.dmg
@@ -497,7 +497,7 @@ jobs:
       run: cd build && cpack -G ZIP
 
     - name: Upload ZIP
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: wowee-windows-arm64-zip
         path: build/wowee-*.zip
@@ -591,7 +591,7 @@ jobs:
       run: cd build && cpack -G NSIS
 
     - name: Upload installer
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: wowee-windows-x86-64-installer
         path: build/wowee-*.exe

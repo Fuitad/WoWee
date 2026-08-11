@@ -79,11 +79,43 @@ def main():
             for name in set(re.findall(r"\b(\w+_)\b", raw)):
                 lines_for.setdefault(name, []).append((path, raw))
 
-    def is_write_only(name, path, decl_line):
-        """True when nothing anywhere reads this member."""
+    # Which files can legitimately touch a member declared in a given header.
+    #
+    # A private member is reachable only from its own class's methods, and
+    # those live in the .cpp named after the header (or one of the files that
+    # class was decomposed into). Pooling by name across the whole tree hides
+    # the interesting case: worldLoader_ is a member of three unrelated
+    # classes, and reads of one made the other two look used. Both fields
+    # Windows CI reported were invisible here for exactly that reason.
+    #
+    # When no matching .cpp exists the scope falls back to everything, which
+    # under-reports rather than inventing a finding.
+    by_stem = {}
+    for path in corpus:
+        by_stem.setdefault(path.stem, []).append(path)
+
+    def scope_for(header):
+        stem = header.stem
+        own = {header}
+        for other_stem, paths in by_stem.items():
+            if other_stem == stem or other_stem.startswith(stem + "_"):
+                own.update(p for p in paths if p.suffix in (".cpp", ".mm"))
+        return own if len(own) > 1 else None
+
+    def is_write_only(name, path, decl_line, scope):
+        """True when nothing in the declaring class's own files reads this."""
         assign = re.compile(r"(?<![=!<>])\b%s\s*=(?!=)" % re.escape(name))
         init = re.compile(r"[,:]\s*%s\s*\(" % re.escape(name))
+        qualified = re.compile(r"(?:\.|->)\s*%s\b" % re.escape(name))
         for where, raw in lines_for.get(name, []):
+            if scope is not None and where not in scope:
+                # Outside the class's own files an unqualified name belongs to
+                # some other class that happens to share it. A qualified one
+                # (`app_.playerClass_`) is a real read of this member through
+                # an object, which is legal for a public member and for a
+                # friend, so it still counts.
+                if not qualified.search(raw):
+                    continue
             stripped = raw.strip()
             if where == path and stripped == decl_line.strip():
                 continue                       # the declaration itself
@@ -98,12 +130,13 @@ def main():
     dead = []
     for header in sorted(headers):
         text = corpus[header]
+        scope = scope_for(header)
         for m in DECL.finditer(text):
             name = m.group(1)
             if name in EXPECTED or name.startswith("__"):
                 continue
             decl_line = m.group(0)
-            if not is_write_only(name, header, decl_line):
+            if not is_write_only(name, header, decl_line, scope):
                 continue
             line = text.count("\n", 0, m.start()) + 1
             dead.append((str(header.relative_to(ROOT)), line, name))

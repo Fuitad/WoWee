@@ -98,7 +98,7 @@ jobs:
         tar czf "${STAGING}.tar.gz" "${STAGING}"
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: wowee-linux-${{ matrix.arch }}
         path: wowee-*.tar.gz
@@ -324,7 +324,7 @@ jobs:
           --verbose=2 "${DMG}"
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: wowee-macos-arm64
         path: wowee-*.dmg
@@ -465,7 +465,7 @@ jobs:
         zip -r "${STAGING}.zip" "${STAGING}"
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: wowee-windows-${{ matrix.arch }}
         path: wowee-*.zip
@@ -478,7 +478,7 @@ jobs:
 
     steps:
     - name: Download all artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         path: artifacts/
 
