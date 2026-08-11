@@ -2903,6 +2903,33 @@ VkTexture* WMORenderer::loadTexture(const std::string& path) {
 
 // Ray-AABB intersection (slab method)
 // Returns true if the ray intersects the axis-aligned bounding box
+/// Where a ray enters and leaves a box, as distances along it. False when it
+/// misses. The two are what a query has to search between: for a ray that is
+/// not axis-aligned in the space the box is in, the origin's XY says nothing
+/// about where the ray actually crosses the box.
+static bool rayAABBRange(const glm::vec3& origin, const glm::vec3& dir,
+                         const glm::vec3& bmin, const glm::vec3& bmax,
+                         float& outMin, float& outMax) {
+    float tmin = -1e30f, tmax = 1e30f;
+    for (int i = 0; i < 3; i++) {
+        if (std::abs(dir[i]) < 1e-8f) {
+            if (origin[i] < bmin[i] || origin[i] > bmax[i]) return false;
+        } else {
+            const float invD = 1.0f / dir[i];
+            float t0 = (bmin[i] - origin[i]) * invD;
+            float t1 = (bmax[i] - origin[i]) * invD;
+            if (t0 > t1) std::swap(t0, t1);
+            tmin = std::max(tmin, t0);
+            tmax = std::min(tmax, t1);
+            if (tmin > tmax) return false;
+        }
+    }
+    if (tmax < 0.0f) return false;
+    outMin = std::max(tmin, 0.0f);
+    outMax = tmax;
+    return true;
+}
+
 static bool rayIntersectsAABB(const glm::vec3& origin, const glm::vec3& dir,
                                const glm::vec3& bmin, const glm::vec3& bmax) {
     float tmin = -1e30f, tmax = 1e30f;
@@ -3316,9 +3343,31 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
         // geometry via ray-triangle intersection, so pre-filtering by normal is
         // unnecessary and risks excluding legitimate floor geometry (steep ramps,
         // stair treads with non-trivial normals).
+        // Search where the ray actually crosses this group, not where it
+        // starts.
+        //
+        // The ray is straight down in world space and begins five hundred units
+        // above the query. Transformed into the model's own space it stays
+        // straight only while the model has no pitch and no roll — a yaw keeps
+        // a vertical ray vertical, which is why every building placed flat has
+        // always worked. Give it pitch and the local ray leans, and five
+        // hundred units of lean puts the origin's XY nowhere near the deck it
+        // passes through. Searching a metre either side of that origin found
+        // nothing, every time, and the log said so: considered, and no triangle
+        // hit.
+        //
+        // Darkshore's bridges are the placements with pitch. They are also the
+        // ones you fall through.
+        float tEnter = 0.0f, tExit = 0.0f;
+        if (!rayAABBRange(localOrigin, localDir, group.boundingBoxMin,
+                          group.boundingBoxMax, tEnter, tExit)) {
+            return;
+        }
+        const glm::vec3 enter = localOrigin + localDir * tEnter;
+        const glm::vec3 exit = localOrigin + localDir * tExit;
         group.getTrianglesInRange(
-            localOrigin.x - 1.0f, localOrigin.y - 1.0f,
-            localOrigin.x + 1.0f, localOrigin.y + 1.0f,
+            std::min(enter.x, exit.x) - 1.0f, std::min(enter.y, exit.y) - 1.0f,
+            std::max(enter.x, exit.x) + 1.0f, std::max(enter.y, exit.y) + 1.0f,
             tl_triScratch);
 
         for (uint32_t triStart : tl_triScratch) {
@@ -3557,8 +3606,21 @@ std::optional<float> WMORenderer::getInstanceFloorHeight(uint32_t instanceId,
             continue;
         }
 
-        group.getTrianglesInRange(localOrigin.x - 1.0f, localOrigin.y - 1.0f,
-                                  localOrigin.x + 1.0f, localOrigin.y + 1.0f,
+        // Between where the ray enters this group and where it leaves, for the
+        // reason getFloorHeight gives: a vertical world ray is not vertical in
+        // the local space of anything with pitch, and its origin is five
+        // hundred units away from what it crosses.
+        float tEnter = 0.0f, tExit = 0.0f;
+        if (!rayAABBRange(localOrigin, localDir, group.boundingBoxMin,
+                          group.boundingBoxMax, tEnter, tExit)) {
+            continue;
+        }
+        const glm::vec3 enter = localOrigin + localDir * tEnter;
+        const glm::vec3 exit = localOrigin + localDir * tExit;
+        group.getTrianglesInRange(std::min(enter.x, exit.x) - 1.0f,
+                                  std::min(enter.y, exit.y) - 1.0f,
+                                  std::max(enter.x, exit.x) + 1.0f,
+                                  std::max(enter.y, exit.y) + 1.0f,
                                   tl_triScratch);
         for (uint32_t triStart : tl_triScratch) {
             const auto& verts = group.collisionVertices;
@@ -3667,13 +3729,25 @@ void WMORenderer::debugDumpGroupsAtPosition(float glX, float glY, float glZ) con
                 }
             }
 
-            // The GRID path getFloorHeight actually uses (getTrianglesInRange, a
-            // box at the ray origin's local xy). If gridFloorTris/gridClosestZ
-            // differ from the full-scan floorHits/closestToFeetZ above, the grid
-            // is missing floors the ray really hits — the fall-through cause.
+            // The grid path getFloorHeight uses. This was written to catch
+            // exactly the fault it names, and it named it correctly: a box at
+            // the ray origin's local xy misses everything a slanted local ray
+            // crosses. That is fixed — both queries now search between where
+            // the ray enters the group and where it leaves — and this stays as
+            // the check that they agree.
             std::vector<uint32_t> gridTris;
-            group.getTrianglesInRange(localOrigin.x - 1.0f, localOrigin.y - 1.0f,
-                                      localOrigin.x + 1.0f, localOrigin.y + 1.0f, gridTris);
+            {
+                float tEnter = 0.0f, tExit = 0.0f;
+                if (rayAABBRange(localOrigin, localDir, group.boundingBoxMin,
+                                 group.boundingBoxMax, tEnter, tExit)) {
+                    const glm::vec3 enter = localOrigin + localDir * tEnter;
+                    const glm::vec3 exit = localOrigin + localDir * tExit;
+                    group.getTrianglesInRange(std::min(enter.x, exit.x) - 1.0f,
+                                              std::min(enter.y, exit.y) - 1.0f,
+                                              std::max(enter.x, exit.x) + 1.0f,
+                                              std::max(enter.y, exit.y) + 1.0f, gridTris);
+                }
+            }
             int gridFloorTris = 0;
             float gridClosestZ = 0.0f, gridClosestDist = 1e30f;
             for (uint32_t triStart : gridTris) {

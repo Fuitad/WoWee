@@ -57,53 +57,30 @@ namespace {
 /// in WMOInstance::updateModelMatrix for how the buildings came to be composed
 /// the other way round and what it took to settle it.
 glm::vec3 placementEuler(const float rotation[3]) {
-    // Which of the three stored degrees feeds which render axis.
+    // MDDF and MODF store the rotation identically, this was written out once
+    // for each, and both are composed X, Y, Z — see the note in
+    // WMOInstance::updateModelMatrix for how the buildings came to be composed
+    // the other way and what it took to settle it.
     //
-    // WOWEE_ROT_MAP is three digits naming the source index for x, y and z in
-    // that order; the default "201" is x<-rotation[2], y<-rotation[0],
-    // z<-rotation[1], which is what this has always done.
+    // What is *not* wrong: this mapping. Darkshore's bridges are still slightly
+    // askew, and every dial that could be turned here has been turned — all six
+    // composition orders, all four source permutations, the sign of each
+    // component, and the yaw offset. None of them stands the bridges up, and
+    // the closest compromise anyone found was multiplying one component by
+    // four, which is not a thing a placement convention ever does: a convention
+    // is a sign and a right angle. A factor of four is a small wrong number
+    // stretched until it resembles a different one, and it is wrong differently
+    // for every placement with a different roll.
     //
-    // This is the knob that matters, and the signs were not. A multiplier of -4
-    // on a component being the best compromise says the component is the wrong
-    // one: a placement convention is a sign and a right angle, never a factor
-    // of four, and scaling a small wrong number until it resembles a different
-    // number is what -4 is doing. No value of it will be right for two
-    // placements with different rolls.
-    //
-    //   WOWEE_ROT_MAP=201   x<-r2 y<-r0 z<-r1   (default)
-    //   WOWEE_ROT_MAP=021   x<-r0 y<-r2 z<-r1   swaps the two that are not yaw
-    //   WOWEE_ROT_MAP=210   x<-r2 y<-r1 z<-r0
-    //   WOWEE_ROT_MAP=012   x<-r0 y<-r1 z<-r2
-    //
-    // The signs and the yaw offset are still here, so a permutation that is
-    // nearly right can be finished off:
-    //
-    //   WOWEE_ROT_SX / _SY / _SZ   multiply a component, normally -1, -1, 1
-    //   WOWEE_ROT_YAW              the yaw offset in degrees, normally 180
-    auto number = [](const char* key, float fallback) {
-        const char* raw = std::getenv(key);
-        if (!raw || !*raw) return fallback;
-        try { return std::stof(raw); } catch (...) { return fallback; }
-    };
-    static const std::array<int, 3> kMap = [] {
-        std::array<int, 3> m{2, 0, 1};
-        const char* raw = std::getenv("WOWEE_ROT_MAP");
-        if (raw && std::strlen(raw) == 3) {
-            for (int i = 0; i < 3; ++i) {
-                const char c = raw[i];
-                if (c >= '0' && c <= '2') m[i] = c - '0';
-            }
-        }
-        return m;
-    }();
-    static const float kSX = number("WOWEE_ROT_SX", -1.0f);
-    static const float kSY = number("WOWEE_ROT_SY", -1.0f);
-    static const float kSZ = number("WOWEE_ROT_SZ", 1.0f);
-    static const float kYaw = number("WOWEE_ROT_YAW", 180.0f);
+    // So the remaining error is not in the euler mapping, and the next thing to
+    // suspect is what the bridges are being judged against — the terrain they
+    // span. A correctly placed bridge over a slightly wrong heightmap looks
+    // exactly like a wrongly placed bridge, and it would explain the same
+    // pattern turning up on other objects that sit against ground.
     constexpr float kDeg = 3.14159265358979323846f / 180.0f;
-    return glm::vec3(kSX * rotation[kMap[0]] * kDeg,
-                     kSY * rotation[kMap[1]] * kDeg,
-                     (kSZ * rotation[kMap[2]] + kYaw) * kDeg);
+    return glm::vec3(-rotation[2] * kDeg,
+                     -rotation[0] * kDeg,
+                     (rotation[1] + 180.0f) * kDeg);
 }
 
 
