@@ -180,6 +180,22 @@ target_include_directories(framexml_emit PRIVATE ${TEST_INCLUDE_DIRS}
 target_include_directories(framexml_emit SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(framexml_emit PRIVATE lua51)
 
+# ── test_addon_lua_snippets ──────────────────────────────────
+# The Lua this client injects into the interface lives as C++ string literals,
+# which nothing compiles until the client runs — and a syntax error there is a
+# false from executeString and a line in a warning-only log. This asks Lua
+# whether they parse.
+add_executable(test_addon_lua_snippets
+    test_addon_lua_snippets.cpp
+    ${TEST_COMMON_SOURCES}
+)
+target_include_directories(test_addon_lua_snippets PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_addon_lua_snippets SYSTEM PRIVATE
+    ${TEST_SYSTEM_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/extern/lua-5.1.5/src)
+target_link_libraries(test_addon_lua_snippets PRIVATE catch2_main lua51)
+add_test(NAME addon_lua_snippets COMMAND test_addon_lua_snippets)
+register_test_target(test_addon_lua_snippets)
+
 # ── framexml_compiles ───────────────────────────────────────
 # Not a unit test: it emits every real FrameXML file and asks Lua itself
 # whether the result compiles. The unit tests above check cases someone
