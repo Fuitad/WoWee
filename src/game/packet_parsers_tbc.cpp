@@ -1024,20 +1024,8 @@ bool TbcPacketParsers::parseItemQueryResponse(network::Packet& packet, ItemQuery
         return false;
     }
 
-    data.allowableClass = packet.readUInt32(); // AllowableClass
-    data.allowableRace  = packet.readUInt32(); // AllowableRace
-    data.itemLevel = packet.readUInt32();
-    data.requiredLevel = packet.readUInt32();
-    data.requiredSkill     = packet.readUInt32(); // RequiredSkill
-    data.requiredSkillRank = packet.readUInt32(); // RequiredSkillRank
-    packet.readUInt32(); // RequiredSpell
-    packet.readUInt32(); // RequiredHonorRank
-    packet.readUInt32(); // RequiredCityRank
-    data.requiredReputationFaction = packet.readUInt32(); // RequiredReputationFaction
-    data.requiredReputationRank    = packet.readUInt32(); // RequiredReputationRank
-    data.maxCount = static_cast<int32_t>(packet.readUInt32()); // MaxCount (1 = Unique)
-    data.maxStack = static_cast<int32_t>(packet.readUInt32()); // Stackable
-    data.containerSlots = packet.readUInt32();
+    // The run every expansion sends identically, read in one place.
+    if (!data.readCommonRequirements(packet)) return false;
 
     // TBC/CMaNGOS sends the same fixed 10 stat pairs as vanilla. There is no
     // statsCount prefix here; reading one shifts every later field and makes

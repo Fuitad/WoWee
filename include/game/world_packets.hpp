@@ -1833,6 +1833,21 @@ struct ItemQueryResponseData {
     /// vanilla item with +Mana on it lost that line, while the same item on
     /// WotLK kept it. This is the wire's own format and does not differ by
     /// expansion; only the code did.
+    /// Read the fourteen fields every expansion sends in the same order, from
+    /// AllowableClass through ContainerSlots.
+    ///
+    /// The three item-query parsers each wrote this run out. It is the same
+    /// bytes in all three — checked, not assumed — and after it they diverge
+    /// for real: WotLK goes on to the scaling stats, the other two to damage.
+    /// So this is the shared prefix and nothing beyond it.
+    ///
+    /// A run of same-width fields is the shape that misreads quietly: get the
+    /// count wrong and every field after it is one place out, with each one
+    /// still a plausible number. Three copies is three chances at that.
+    ///
+    /// False means the packet ended inside the run.
+    bool readCommonRequirements(network::Packet& packet);
+
     void applyStat(uint32_t statType, int32_t statValue) {
         switch (statType) {
             case 3: agility = statValue; break;

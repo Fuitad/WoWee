@@ -17,6 +17,33 @@
 namespace wowee {
 namespace game {
 
+bool ItemQueryResponseData::readCommonRequirements(network::Packet& packet) {
+    // Out of line rather than in the header beside the struct, and not for
+    // compile time: read_never_written_check takes its field names from
+    // world_packets.hpp and then skips that file when it looks for writers,
+    // so that a default initialiser is not mistaken for one. A parser method
+    // living there is invisible to it the same way — the moment these five
+    // fields moved into the header they were reported as read and never
+    // written, all five of them, and the ceiling is zero.
+    if (!packet.hasRemaining(14 * 4)) return false;
+    allowableClass = packet.readUInt32();
+    allowableRace = packet.readUInt32();
+    itemLevel = packet.readUInt32();
+    requiredLevel = packet.readUInt32();
+    requiredSkill = packet.readUInt32();
+    requiredSkillRank = packet.readUInt32();
+    packet.readUInt32();  // RequiredSpell
+    packet.readUInt32();  // RequiredHonorRank
+    packet.readUInt32();  // RequiredCityRank
+    requiredReputationFaction = packet.readUInt32();
+    requiredReputationRank = packet.readUInt32();
+    maxCount = static_cast<int32_t>(packet.readUInt32());  // 1 = Unique
+    maxStack = static_cast<int32_t>(packet.readUInt32());
+    containerSlots = packet.readUInt32();
+    return true;
+}
+
+
 std::string normalizeWowTextTokens(std::string text, const std::string& playerName) {
     if (text.empty()) return text;
 

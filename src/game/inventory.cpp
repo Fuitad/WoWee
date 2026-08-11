@@ -285,6 +285,30 @@ std::vector<Inventory::SwapOp> Inventory::mergeBankPartialStacks(int mainSlotCou
     return mergeEntries(entries);
 }
 
+namespace {
+
+/// How a sorted bag, bank or bank bag is ordered.
+///
+/// Quality first and descending, so the good things are at the top; then item
+/// id, which keeps a kind of item together and in a stable order the server
+/// agrees with; then the larger stack first, so a part-stack sits below the
+/// full one it will be merged into.
+///
+/// Written out three times before this — sortBags, sortBank and sortBankBag —
+/// and two of the three carried a comment saying "same ordering as sortBags",
+/// which is the rule admitting it has one owner and three copies. A bank that
+/// sorted differently from a bag would not fail anything; it would just be
+/// wrong in a way only a player notices.
+bool itemSortsBefore(const ItemDef& a, const ItemDef& b) {
+    if (a.quality != b.quality) {
+        return static_cast<int>(a.quality) > static_cast<int>(b.quality);
+    }
+    if (a.itemId != b.itemId) return a.itemId < b.itemId;
+    return a.stackCount > b.stackCount;
+}
+
+}  // namespace
+
 void Inventory::sortBags() {
     // Collect all items from backpack and equip bags into a flat list.
     std::vector<ItemDef> items;
@@ -302,14 +326,7 @@ void Inventory::sortBags() {
         }
     }
 
-    // Sort: quality descending → itemId ascending → stackCount descending.
-    std::stable_sort(items.begin(), items.end(), [](const ItemDef& a, const ItemDef& b) {
-        if (a.quality != b.quality)
-            return static_cast<int>(a.quality) > static_cast<int>(b.quality);
-        if (a.itemId != b.itemId)
-            return a.itemId < b.itemId;
-        return a.stackCount > b.stackCount;
-    });
+    std::stable_sort(items.begin(), items.end(), itemSortsBefore);
 
     // Write sorted items back, filling backpack first then equip bags.
     int idx = 0;
@@ -432,14 +449,7 @@ void Inventory::sortBank(int mainSlotCount) {
         }
     }
 
-    // Same ordering as sortBags(): quality desc → itemId asc → stackCount desc.
-    std::stable_sort(items.begin(), items.end(), [](const ItemDef& a, const ItemDef& b) {
-        if (a.quality != b.quality)
-            return static_cast<int>(a.quality) > static_cast<int>(b.quality);
-        if (a.itemId != b.itemId)
-            return a.itemId < b.itemId;
-        return a.stackCount > b.stackCount;
-    });
+    std::stable_sort(items.begin(), items.end(), itemSortsBefore);
 
     // Write sorted items back, filling main bank first then bank bags.
     int idx = 0;
@@ -547,14 +557,7 @@ void Inventory::sortBankBag(int bagIndex) {
         if (!bag.slots[s].empty()) items.push_back(bag.slots[s].item);
     }
 
-    // Same ordering as sortBags(): quality desc → itemId asc → stackCount desc.
-    std::stable_sort(items.begin(), items.end(), [](const ItemDef& a, const ItemDef& b) {
-        if (a.quality != b.quality)
-            return static_cast<int>(a.quality) > static_cast<int>(b.quality);
-        if (a.itemId != b.itemId)
-            return a.itemId < b.itemId;
-        return a.stackCount > b.stackCount;
-    });
+    std::stable_sort(items.begin(), items.end(), itemSortsBefore);
 
     int idx = 0;
     const int n = static_cast<int>(items.size());
