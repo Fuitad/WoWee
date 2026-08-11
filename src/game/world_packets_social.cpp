@@ -112,19 +112,8 @@ bool MessageChatParser::parse(network::Packet& packet, MessageChatData& data) {
         case ChatType::MONSTER_PARTY:
         case ChatType::RAID_BOSS_EMOTE:
         case ChatType::RAID_BOSS_WHISPER: {
-            // Read sender name (SizedCString: uint32 len including null + chars)
-            uint32_t nameLen = packet.readUInt32();
-            if (nameLen > packet.getRemainingSize()) return false;
-            if (nameLen > 0 && nameLen < 256) {
-                data.senderName.resize(nameLen);
-                for (uint32_t i = 0; i < nameLen; ++i) {
-                    data.senderName[i] = static_cast<char>(packet.readUInt8());
-                }
-                // Strip trailing null (server includes it in nameLen)
-                if (!data.senderName.empty() && data.senderName.back() == '\0') {
-                    data.senderName.pop_back();
-                }
-            }
+            // Length-prefixed, bounds-checked against the packet, terminator stripped.
+            packet.readSizedString(data.senderName);
             // Read receiver GUID (NamedGuid: guid + optional name for non-player targets)
             data.receiverGuid = packet.readUInt64();
             if (data.receiverGuid != 0) {

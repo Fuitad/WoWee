@@ -1141,17 +1141,8 @@ bool ClassicPacketParsers::parseMessageChat(network::Packet& packet, MessageChat
     // Type-specific data (matches CMaNGOS-Classic BuildChatPacket)
     switch (data.type) {
         case ChatType::MONSTER_EMOTE: {
-            // nameLen(u32) + name + targetGuid(u64)
-            uint32_t nameLen = packet.readUInt32();
-            if (nameLen > 0 && nameLen < 256) {
-                data.senderName.resize(nameLen);
-                for (uint32_t i = 0; i < nameLen; ++i) {
-                    data.senderName[i] = static_cast<char>(packet.readUInt8());
-                }
-                if (!data.senderName.empty() && data.senderName.back() == '\0') {
-                    data.senderName.pop_back();
-                }
-            }
+            // Length-prefixed, bounds-checked against the packet, terminator stripped.
+            packet.readSizedString(data.senderName);
             data.receiverGuid = packet.readUInt64();
             break;
         }
@@ -1184,16 +1175,8 @@ bool ClassicPacketParsers::parseMessageChat(network::Packet& packet, MessageChat
         case ChatType::MONSTER_YELL: {
             // senderGuid(u64) + nameLen(u32) + name + targetGuid(u64)
             data.senderGuid = packet.readUInt64();
-            uint32_t nameLen = packet.readUInt32();
-            if (nameLen > 0 && nameLen < 256) {
-                data.senderName.resize(nameLen);
-                for (uint32_t i = 0; i < nameLen; ++i) {
-                    data.senderName[i] = static_cast<char>(packet.readUInt8());
-                }
-                if (!data.senderName.empty() && data.senderName.back() == '\0') {
-                    data.senderName.pop_back();
-                }
-            }
+            // Length-prefixed, bounds-checked against the packet, terminator stripped.
+            packet.readSizedString(data.senderName);
             data.receiverGuid = packet.readUInt64();
             break;
         }

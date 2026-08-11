@@ -31,6 +31,20 @@ public:
     void writePackedGuid(uint64_t guid);
     std::string readString();
 
+    /// A name written as a 32-bit length followed by that many bytes, the
+    /// length counting a trailing null the server includes.
+    ///
+    /// Three chat parsers read this by hand and only one of them checked the
+    /// length against what the packet actually had left. Without that check a
+    /// truncated packet yields a name padded out of thin air — readUInt8
+    /// answers zero past the end rather than failing — and every field after
+    /// it is read from beyond the data too. The name comes back plausible and
+    /// the target guid comes back nothing.
+    ///
+    /// False means the length is not one this packet can honour, and the read
+    /// position is left where it was.
+    bool readSizedString(std::string& out, uint32_t maxLength = 256);
+
     uint16_t getOpcode() const { return opcode; }
     const std::vector<uint8_t>& getData() const { return data; }
     size_t getReadPos() const { return readPos; }
