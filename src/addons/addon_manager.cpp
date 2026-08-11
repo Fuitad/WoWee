@@ -729,12 +729,37 @@ elsewhereText:SetWidth(560)
 elsewhereText:SetJustifyH("LEFT")
 elsewhereText:SetJustifyV("TOP")
 elsewhereText:SetText(
-    "Six settings are driven by the game's own controls rather than repeated "
+    "Some settings are driven by the game's own controls rather than repeated "
     .. "here, so that the two cannot disagree:\n\n"
-    .. "|cffffd100Video|r  —  view distance, ground clutter density\n"
-    .. "|cffffd100Sound|r  —  master, music, ambience, sound effects\n"
+    .. "|cffffd100Video|r  —  resolution, view distance, ground clutter\n"
+    .. "|cffffd100Sound|r  —  enable sound, master, music, ambience, "
+    .. "sound effects\n"
     .. "|cffffd100Interface|r  —  mouse look speed, the minimap clock, "
-    .. "friendly nameplates")
+    .. "friendly nameplates\n"
+    .. "|cffffd100Interface, Social|r  —  chat timestamps\n"
+    .. "|cffffd100Key Bindings|r  —  every key")
+
+-- What this build is. The version comes from the client rather than being
+-- written here, where it would go stale the first time a tag was cut.
+local aboutTitle = root:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+aboutTitle:SetPoint("TOPLEFT", 16, -260)
+aboutTitle:SetText("About")
+
+local aboutRule = root:CreateTexture(nil, "ARTWORK")
+aboutRule:SetTexture("Interface\\Buttons\\WHITE8X8")
+aboutRule:SetVertexColor(0.5, 0.42, 0.22, 0.7)
+aboutRule:SetWidth(560)
+aboutRule:SetHeight(1)
+aboutRule:SetPoint("TOPLEFT", 16, -278)
+
+local aboutText = root:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+aboutText:SetPoint("TOPLEFT", 16, -288)
+aboutText:SetWidth(560)
+aboutText:SetJustifyH("LEFT")
+aboutText:SetJustifyV("TOP")
+aboutText:SetText("WoWee — a World of Warcraft client\n"
+    .. (WoweeVersion and WoweeVersion() or "") .. "\n\n"
+    .. "Kelsi Davis  —  |cff66b3ffgithub.com/Kelsidavis/WoWee|r")
 
 root.okay = function() end
 root.cancel = function() end

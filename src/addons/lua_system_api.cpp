@@ -10,6 +10,7 @@
 #include <set>
 #include <utility>
 #include <vector>
+#include "core/version.hpp"
 #include "core/config_paths.hpp"
 #include "ui/settings_schema.hpp"
 #include "imgui.h"
@@ -3750,6 +3751,16 @@ static int lua_WoweeSettingList(lua_State* L) {
     return 1;
 }
 
+// WoweeVersion() — what this client calls itself, and when it was built.
+//
+// The same string the login screen shows. Here so the options panel can say it
+// without the version being written out a second time in Lua, where it would go
+// stale the first time a tag was cut.
+static int lua_WoweeVersion(lua_State* L) {
+    lua_pushstring(L, core::kVersionString);
+    return 1;
+}
+
 // WoweeGetSetting(key) / WoweeSetSetting(key, value) — the values behind that
 // list. Strings both ways, as a CVar is.
 static int lua_WoweeGetSetting(lua_State* L) {
@@ -4049,6 +4060,7 @@ void registerSystemLuaAPI(lua_State* L) {
                 {"Screenshot",               lua_Screenshot},
                 {"WoweeShowSettings",        lua_WoweeShowSettings},
                 {"WoweeSettingList",         lua_WoweeSettingList},
+                {"WoweeVersion",             lua_WoweeVersion},
                 {"WoweeGetSetting",          lua_WoweeGetSetting},
                 {"WoweeSetSetting",          lua_WoweeSetSetting},
                 {"HasLFGRestrictions",       lua_HasLFGRestrictions},

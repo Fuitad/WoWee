@@ -8,6 +8,7 @@
 #include "ui/display_modes.hpp"
 #include "ui/inventory_screen.hpp"
 #include "ui/chat_panel.hpp"
+#include "ui/chat/chat_settings.hpp"
 #include "ui/keybinding_manager.hpp"
 #include "core/application.hpp"
 #include "core/config_paths.hpp"
@@ -1396,6 +1397,37 @@ constexpr FieldBinding kFieldBindings[] = {
     {.key = "autorepair",   .asBool = &SettingsPanel::pendingAutoRepair},
 };
 
+/// The same, for the settings that belong to the chat panel rather than to
+/// this one.
+///
+/// A separate table because they are fields of a different struct, not because
+/// they are a different kind of setting: one lookup tries both, and a caller
+/// asking for a setting by name never learns which side answered.
+struct ChatFieldBinding {
+    const char* key;
+    bool ChatSettings::* asBool;
+};
+
+constexpr ChatFieldBinding kChatFieldBindings[] = {
+    {"joingeneral",      &ChatSettings::autoJoinGeneral},
+    {"jointrade",        &ChatSettings::autoJoinTrade},
+    {"joinlocaldefense", &ChatSettings::autoJoinLocalDefense},
+    {"joinlfg",          &ChatSettings::autoJoinLFG},
+    {"joinlocal",        &ChatSettings::autoJoinLocal},
+    // Chat's appearance is deliberately absent. Timestamps, the font size, the
+    // background and the fade are all fields of this struct too, and all four
+    // drive the chat panel this client draws — which is not drawn at all while
+    // FrameXML owns chat. The interface has its own controls for each of them,
+    // and the timestamp one already reaches the value the chat frame reads.
+};
+
+const ChatFieldBinding* findChatFieldBinding(const std::string& key) {
+    for (const auto& b : kChatFieldBindings) {
+        if (key == b.key) return &b;
+    }
+    return nullptr;
+}
+
 const FieldBinding* findFieldBinding(const std::string& key) {
     for (const auto& b : kFieldBindings) {
         if (key == b.key) return &b;
@@ -1557,6 +1589,10 @@ std::string SettingsPanel::settingValue(const std::string& key) const {
     if (key == "graphicspreset") {
         return settingNumberText(static_cast<int>(pendingGraphicsPreset));
     }
+    if (const ChatFieldBinding* c = findChatFieldBinding(key)) {
+        if (!chatSettings_) return {};
+        return chatSettings_->*(c->asBool) ? "1" : "0";
+    }
     const FieldBinding* b = findFieldBinding(key);
     if (!b) return {};
     if (b->asBool)  return this->*(b->asBool) ? "1" : "0";
@@ -1576,6 +1612,11 @@ bool SettingsPanel::setSettingValue(const std::string& key, const std::string& v
         const int idx = std::clamp(static_cast<int>(v + 0.5), 0, 4);
         pendingGraphicsPreset = static_cast<GraphicsPreset>(idx);
         applySettingSideEffects(key);
+        return true;
+    }
+    if (const ChatFieldBinding* c = findChatFieldBinding(key)) {
+        if (!chatSettings_) return false;
+        chatSettings_->*(c->asBool) = on;
         return true;
     }
     const FieldBinding* b = findFieldBinding(key);

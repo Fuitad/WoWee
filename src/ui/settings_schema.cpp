@@ -189,6 +189,26 @@ constexpr SettingDesc kSchema[] = {
     {"woweemusic", "WoWee soundtrack", SettingKind::Bool, 0, 0, 0, "Sound", "",
      "Include this client's own music alongside the game's.", ""},
 
+    // -------------------------------------------------------------------- Chat
+    //
+    // Which channels to join on entering the world. These are the client's own
+    // doing rather than the interface's — it sends the join for each one — so
+    // they belong here whichever chat window is on screen.
+    //
+    // Chat's appearance is deliberately not here. Timestamps, the font size,
+    // the background and the fade belong to the chat frame the interface draws,
+    // and it has its own controls for them; the copies in this client's own
+    // settings window drive a chat panel that is not shown at all while
+    // FrameXML owns chat, which is every run by default.
+    {"joingeneral", "General", SettingKind::Bool, 0, 0, 0, "Chat", "Channels to join",
+     "The zone-wide channel.", ""},
+    {"jointrade", "Trade", SettingKind::Bool, 0, 0, 0, "Chat", "",
+     "City-wide, and only in a city.", ""},
+    {"joinlocaldefense", "LocalDefense", SettingKind::Bool, 0, 0, 0, "Chat", "",
+     "Attacks on your zone.", ""},
+    {"joinlfg", "LookingForGroup", SettingKind::Bool, 0, 0, 0, "Chat", "", "", ""},
+    {"joinlocal", "Local", SettingKind::Bool, 0, 0, 0, "Chat", "", "", ""},
+
     // ---------------------------------------------------------------- Gameplay
     {"autoloot", "Auto loot", SettingKind::Bool, 0, 0, 0, "Gameplay", "Looting",
      "Take everything from a corpse without opening the window.", ""},

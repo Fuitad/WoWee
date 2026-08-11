@@ -217,6 +217,11 @@ void GameScreen::setServices(const UIServices& services) {
     toastManager_.setServices(services);
     dialogManager_.setServices(services);
     settingsPanel_.setServices(services);
+    // The chat settings are the chat panel's, and the options panels ask the
+    // settings panel for every setting by name. Handing it the chat's own
+    // struct is what lets those keys be answered from the same place as the
+    // rest rather than through a second bridge with its own list of names.
+    settingsPanel_.setChatSettings(&chatPanel_.settings);
     combatUI_.setServices(services);
     socialPanel_.setServices(services);
     actionBarPanel_.setServices(services);

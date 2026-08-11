@@ -13,6 +13,7 @@ namespace ui {
 
 class InventoryScreen;
 class ChatPanel;
+struct ChatSettings;
 
 /**
  * Settings panel (extracted from GameScreen)
@@ -210,8 +211,13 @@ public:
     /// Set services (dependency injection)
     void setServices(const UIServices& services) { services_ = services; }
 
+    /// The chat panel's settings, so that the chat keys can be answered here
+    /// alongside every other setting rather than through a second bridge.
+    void setChatSettings(ChatSettings* settings) { chatSettings_ = settings; }
+
 private:
     UIServices services_;  // Injected service references
+    ChatSettings* chatSettings_ = nullptr;  // Owned by ChatPanel, not by this
     float appliedWindowUiScale_ = 1.0f;
     bool windowUiScaleEditing_ = false;
 
