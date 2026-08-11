@@ -288,7 +288,7 @@ static int lua_GetBuybackItemLink(lua_State* L) {
     const int q = static_cast<int>(bi.item.quality);
     const char* ch = (q >= 0 && q < 8) ? kQualHexAlpha[q] : "ffffffff";
     char link[256];
-    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
              ch, bi.item.itemId, bi.item.name.c_str());
     lua_pushstring(L, link);
     return 1;
@@ -397,7 +397,7 @@ static int lua_GetMerchantItemCostItem(lua_State* L) {
         if (info && !info->name.empty()) {
             const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
             char link[256];
-            snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+            snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
                      ch, cost->itemId[j], info->name.c_str());
             lua_pushstring(L, link);
         } else {
@@ -463,7 +463,7 @@ static int lua_GetMerchantItemLink(lua_State* L) {
 
     const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
     char link[256];
-    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r", ch, vi.itemId, info->name.c_str());
+    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r", ch, vi.itemId, info->name.c_str());
     lua_pushstring(L, link);
     return 1;
 }
@@ -597,7 +597,7 @@ static int lua_GetItemInfo(lua_State* L) {
     // Build item link with quality-colored text
     const char* colorHex = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
     char link[256];
-    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
              colorHex, itemId, info->name.c_str());
     lua_pushstring(L, link);                         // 2: link
     lua_pushnumber(L, info->quality);                // 3: quality
@@ -891,7 +891,7 @@ void pushItemLinkOrNil(lua_State* L, game::GameHandler* gh, uint32_t itemId) {
     if (!info || info->name.empty()) { lua_pushnil(L); return; }
     const uint32_t quality = info->quality < 8 ? info->quality : 1u;
     char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
              kQualHexNoAlpha[quality], itemId, info->name.c_str());
     lua_pushstring(L, link);
 }
@@ -1044,7 +1044,7 @@ static int lua_GetInboxItemLink(lua_State* L) {
     if (!info || info->name.empty()) { return luaReturnNil(L); }
     const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
     char link[256];
-    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
              ch, att->itemId, info->name.c_str());
     lua_pushstring(L, link);
     return 1;
@@ -2308,7 +2308,7 @@ static int lua_GetContainerItemInfo(lua_State* L) {
 
     uint32_t qi = q < 8 ? q : 1u;
     char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
              kQualHexNoAlpha[qi], itemSlot->item.itemId, name.c_str());
     lua_pushstring(L, link);  // link
     return 7;
@@ -2334,7 +2334,7 @@ static int lua_GetContainerItemLink(lua_State* L) {
     char link[256];
 
     uint32_t qi = q < 8 ? q : 1u;
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
              kQualHexNoAlpha[qi], itemSlot->item.itemId, name.c_str());
     lua_pushstring(L, link);
     return 1;
@@ -2563,7 +2563,7 @@ static int lua_GetInventoryItemLink(lua_State* L) {
 
     uint32_t qi = q < 8 ? q : 1u;
     char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
              kQualHexNoAlpha[qi], itemId, name.c_str());
     lua_pushstring(L, link);
     return 1;
@@ -2926,7 +2926,7 @@ static int lua_GetLootSlotLink(lua_State* L) {
 
     uint32_t qi = info->quality < 8 ? info->quality : 1u;
     char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
              kQualHexNoAlpha[qi], item.itemId, info->name.c_str());
     lua_pushstring(L, link);
     return 1;
@@ -3199,7 +3199,7 @@ static int lua_GetItemLink(lua_State* L) {
 
     uint32_t qi = info->quality < 8 ? info->quality : 1u;
     char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
              kQualHexNoAlpha[qi], itemId, info->name.c_str());
     lua_pushstring(L, link);
     return 1;
@@ -4563,7 +4563,7 @@ void registerInventoryLuaAPI(lua_State* L) {
         
             const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
             char link[256];
-            snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r", ch, itemId, info->name.c_str());
+            snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r", ch, itemId, info->name.c_str());
             lua_pushstring(L, link);
             return 1;
         }},

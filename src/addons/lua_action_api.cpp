@@ -1330,7 +1330,7 @@ static int pushTradeLink(lua_State* L, game::GameHandler* gh,
     if (!info || info->name.empty()) { return luaReturnNil(L); }
     const char* ch = (info->quality < 8) ? kQualHexAlpha[info->quality] : "ffffffff";
     char link[256];
-    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+    snprintf(link, sizeof(link), "|c%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
              ch, slot.itemId, info->name.c_str());
     lua_pushstring(L, link);
     return 1;

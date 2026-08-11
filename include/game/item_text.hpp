@@ -11,6 +11,7 @@
  */
 
 #include <cstdint>
+#include <string>
 
 namespace wowee {
 namespace game {
@@ -115,6 +116,45 @@ inline const char* itemStatName(uint32_t statType) {
         case 48: return "Block Value";
         default: return nullptr;
     }
+}
+
+
+/// An item's quality colour as an eight-digit hex string, alpha first.
+///
+/// The same eight colours the interface uses, and the form a link's |c escape
+/// wants. Two tables carried these — one with the alpha prefix and one without
+/// — and they had already disagreed once: heirloom was 00ccff in the second,
+/// which is a later expansion's token colour and not a quality 3.3.5 has, so
+/// an heirloom link came out cyan.
+inline const char* itemQualityColorHex(uint32_t quality) {
+    static constexpr const char* kByQuality[] = {
+        "ff9d9d9d",  // poor
+        "ffffffff",  // common
+        "ff1eff00",  // uncommon
+        "ff0070dd",  // rare
+        "ffa335ee",  // epic
+        "ffff8000",  // legendary
+        "ffe6cc80",  // artifact
+        "ffe6cc80",  // heirloom — the same gold as an artifact
+    };
+    return quality < 8 ? kByQuality[quality] : "ffffffff";
+}
+
+/// A chat hyperlink for an item, as 3.3.5a writes one.
+///
+/// Nine fields after "item:": the id, then enchant, four gems, suffix, unique
+/// id and level. Six places built this by hand and they did not agree — the
+/// three on the Lua side wrote eight, one short, so a link handed to an addon
+/// by GetContainerItemLink had a different shape from one produced by
+/// shift-clicking a quest reward.
+///
+/// Nothing visibly breaks today: this client's own two parsers read the id and
+/// stop at the first colon, and FrameXML hands the whole link back to
+/// SetHyperlink rather than splitting it. It is a difference waiting for the
+/// first thing that does split it.
+inline std::string itemChatLink(uint32_t itemId, uint32_t quality, const std::string& name) {
+    return std::string("|c") + itemQualityColorHex(quality) + "|Hitem:" +
+           std::to_string(itemId) + ":0:0:0:0:0:0:0:0|h[" + name + "]|h|r";
 }
 
 }  // namespace game

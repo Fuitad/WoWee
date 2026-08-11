@@ -1,4 +1,5 @@
 #include "ui/dialog_manager.hpp"
+#include "game/item_text.hpp"
 #include "game/inventory_slots.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "ui/inventory_screen.hpp"
@@ -22,16 +23,6 @@ namespace {
     constexpr auto& kColorGreen    = kGreen;
 } // namespace
 
-// Build a WoW-format item link string for chat insertion.
-// Format: |cff<qualHex>|Hitem:<itemId>:0:0:0:0:0:0:0:0|h[<name>]|h|r
-static std::string buildItemChatLink(uint32_t itemId, uint8_t quality, const std::string& name) {
-    static constexpr const char* kQualHex[] = {"9d9d9d","ffffff","1eff00","0070dd","a335ee","ff8000","e6cc80","e6cc80"};
-    uint8_t qi = quality < 8 ? quality : 1;
-    char buf[512];
-    snprintf(buf, sizeof(buf), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-             kQualHex[qi], itemId, name.c_str());
-    return buf;
-}
 
 // ---------------------------------------------------------------------------
 // Render early dialogs (group invite through LFG role check)
@@ -431,7 +422,7 @@ void DialogManager::renderTradeWindow(game::GameHandler& gameHandler,
                     }
                     if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                         ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                        std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                        std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                         chatPanel.insertChatLink(link);
                     }
                 } else {
@@ -613,7 +604,7 @@ void DialogManager::renderLootRollPopup(game::GameHandler& gameHandler,
         }
         if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
             ImGui::GetIO().KeyShift && rollInfo && rollInfo->valid && !rollInfo->name.empty()) {
-            std::string link = buildItemChatLink(rollInfo->entry, rollInfo->quality, rollInfo->name);
+            std::string link = game::itemChatLink(rollInfo->entry, rollInfo->quality, rollInfo->name);
             chatPanel.insertChatLink(link);
         }
         ImGui::Spacing();

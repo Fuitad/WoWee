@@ -3,6 +3,7 @@
 // Owns all NPC interaction windows, popup dialogs, etc.
 // ============================================================
 #include "ui/window_manager.hpp"
+#include "game/item_text.hpp"
 #include "ui/framexml_takeover.hpp"
 #include "ui/ui_upload_budget.hpp"
 #include "game/inventory_slots.hpp"
@@ -72,15 +73,6 @@ namespace {
         return total;
     }
 
-    // Build a WoW-format item link string for chat insertion.
-    std::string buildItemChatLink(uint32_t itemId, uint8_t quality, const std::string& name) {
-        static constexpr const char* kQualHex[] = {"9d9d9d","ffffff","1eff00","0070dd","a335ee","ff8000","e6cc80","e6cc80"};
-        uint8_t qi = quality < 8 ? quality : 1;
-        char buf[512];
-        snprintf(buf, sizeof(buf), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
-                 kQualHex[qi], itemId, name.c_str());
-        return buf;
-    }
 } // anonymous namespace
 
 namespace wowee {
@@ -142,7 +134,7 @@ void WindowManager::renderLootWindow(game::GameHandler& gameHandler,
             if (ImGui::Selectable("##loot", false, 0, ImVec2(0, rowH))) {
                 if (ImGui::GetIO().KeyShift && info && !info->name.empty()) {
                     // Shift-click: insert item link into chat
-                    std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                    std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                     chatPanel.insertChatLink(link);
                 } else {
                     lootSlotClicked = item.slotIndex;
@@ -539,7 +531,7 @@ void WindowManager::renderQuestDetailsWindow(game::GameHandler& gameHandler,
                 inventoryScreen.renderItemTooltip(*info, &gameHandler.getInventory());
             if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                 ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                 chatPanel.insertChatLink(link);
             }
         };
@@ -653,7 +645,7 @@ void WindowManager::renderQuestRequestItemsWindow(game::GameHandler& gameHandler
                 }
                 if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                     ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                    std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                    std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                     chatPanel.insertChatLink(link);
                 }
             }
@@ -812,7 +804,7 @@ void WindowManager::renderQuestOfferRewardWindow(game::GameHandler& gameHandler,
                 if (ImGui::IsItemHovered()) rewardItemTooltip(item, qualityColor);
                 if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                     ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                    std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                    std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                     chatPanel.insertChatLink(link);
                 }
             }
@@ -1136,7 +1128,7 @@ void WindowManager::renderVendorWindow(game::GameHandler& gameHandler,
                         }
                         // Shift-click: insert item link into chat
                         if (ImGui::IsItemClicked() && ImGui::GetIO().KeyShift) {
-                            std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                            std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                             chatPanel.insertChatLink(link);
                         }
                     } else {
@@ -3112,7 +3104,7 @@ void WindowManager::renderMailWindow(game::GameHandler& gameHandler,
                             inventoryScreen.renderItemTooltip(*info);
                         if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                             ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                            std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                            std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                             chatPanel.insertChatLink(link);
                         }
                         ImGui::SameLine();
@@ -3121,7 +3113,7 @@ void WindowManager::renderMailWindow(game::GameHandler& gameHandler,
                             inventoryScreen.renderItemTooltip(*info);
                         if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                             ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                            std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                            std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                             chatPanel.insertChatLink(link);
                         }
                         ImGui::SameLine();
@@ -3489,7 +3481,7 @@ bool WindowManager::renderBankWindow(game::GameHandler& gameHandler,
                         : static_cast<uint8_t>(item.quality);
                     const std::string& lname = (info2 && info2->valid && !info2->name.empty())
                         ? info2->name : item.name;
-                    std::string link = buildItemChatLink(item.itemId, q, lname);
+                    std::string link = game::itemChatLink(item.itemId, q, lname);
                     chatPanel.insertChatLink(link);
                 }
             }
@@ -3806,7 +3798,7 @@ void WindowManager::renderGuildBankWindow(game::GameHandler& gameHandler,
                 if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::GetIO().KeyShift
                     && !name.empty() && item.itemEntry != 0) {
                     uint8_t q = static_cast<uint8_t>(quality);
-                    std::string link = buildItemChatLink(item.itemEntry, q, name);
+                    std::string link = game::itemChatLink(item.itemEntry, q, name);
                     chatPanel.insertChatLink(link);
                 }
             }
@@ -4264,7 +4256,7 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
                     }
                     if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                         ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                        std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                        std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                         chatPanel.insertChatLink(link);
                     }
 
@@ -4503,7 +4495,7 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
                     inventoryScreen.renderItemTooltip(*info);
                 if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                     ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                    std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                    std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                     chatPanel.insertChatLink(link);
                 }
                 ImGui::TableSetColumnIndex(1);
@@ -4577,7 +4569,7 @@ void WindowManager::renderAuctionHouseWindow(game::GameHandler& gameHandler,
                     inventoryScreen.renderItemTooltip(*info);
                 if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
                     ImGui::GetIO().KeyShift && info && info->valid && !info->name.empty()) {
-                    std::string link = buildItemChatLink(info->entry, info->quality, info->name);
+                    std::string link = game::itemChatLink(info->entry, info->quality, info->name);
                     chatPanel.insertChatLink(link);
                 }
                 ImGui::TableSetColumnIndex(1);

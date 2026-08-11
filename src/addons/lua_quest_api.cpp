@@ -1023,7 +1023,7 @@ static int lua_GetQuestLogSpecialItemInfo(lua_State* L) {
 
     const uint32_t quality = info->quality < 8 ? info->quality : 1u;
     char link[256];
-    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0|h[%s]|h|r",
+    snprintf(link, sizeof(link), "|cff%s|Hitem:%u:0:0:0:0:0:0:0:0|h[%s]|h|r",
              kQualHexNoAlpha[quality], item.itemId, info->name.c_str());
     lua_pushstring(L, link);                                        // 1: link
 
