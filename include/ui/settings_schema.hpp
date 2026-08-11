@@ -57,7 +57,42 @@ struct SettingDesc {
     /// buttons — and the options panels had no defaults at all, so the button
     /// the game puts on every one of them was a function that did nothing.
     float defaultValue;
+    /// When this control is worth offering, as a test against another setting.
+    ///
+    /// "" is always. "key" is whenever that setting is on. "key=2" and "key!=2"
+    /// compare its value. A control whose test fails is drawn greyed rather
+    /// than hidden, so the panel does not change shape as things are switched
+    /// on and off — and so that a player can see the setting exists and what it
+    /// depends on.
+    ///
+    /// The settings window has always done this by wrapping each dependent
+    /// control in an `if`. The options panels had no way to know, so they
+    /// offered the FSR quality dropdown with upscaling off and the
+    /// anti-aliasing dropdown while FSR 3 was doing its own — controls that
+    /// answer, save, and change nothing.
+    const char* enabledWhen = "";
 };
+
+/// Whether `enabledWhen` is satisfied, given a way to read the other setting.
+///
+/// Shared so that the settings window and the options panels cannot disagree
+/// about when a control is live — the point of the field is that there is one
+/// answer, and two readers of it.
+template <typename ReadSetting>
+bool settingEnabled(const SettingDesc& desc, ReadSetting read) {
+    const std::string test = desc.enabledWhen;
+    if (test.empty()) return true;
+    const std::size_t bang = test.find("!=");
+    if (bang != std::string::npos) {
+        return read(test.substr(0, bang)) != test.substr(bang + 2);
+    }
+    const std::size_t eq = test.find('=');
+    if (eq != std::string::npos) {
+        return read(test.substr(0, eq)) == test.substr(eq + 1);
+    }
+    const std::string value = read(test);
+    return !value.empty() && value != "0";
+}
 
 /// A setting's value as a string, the way a CVar carries one.
 ///

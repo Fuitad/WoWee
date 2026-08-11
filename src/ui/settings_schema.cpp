@@ -27,14 +27,14 @@ constexpr SettingDesc kSchema[] = {
     {"shadows", "Shadows", SettingKind::Bool, 0, 0, 0, "Graphics", "",
      "Cast shadows from the sun and from lights.", "", 1},
     {"shadowdistance", "Shadow distance", SettingKind::Float, 40, 500, 10, "Graphics", "",
-     "How far from you shadows are still drawn.", "", 300},
+     "How far from you shadows are still drawn.", "", 300, "shadows"},
     {"waterrefraction", "Water refraction", SettingKind::Bool, 0, 0, 0, "Graphics", "",
      "Bend what is seen through water, rather than drawing it flat.", "", 0},
 
     {"antialiasing", "Anti-aliasing", SettingKind::Enum, 0, 3, 1, "Graphics", "Anti-aliasing",
      "Multisampling. Costs memory as well as time, and has no effect while\n"
      "FSR 3 is upscaling — FSR does its own.",
-     "Off|2x MSAA|4x MSAA|8x MSAA", 0},
+     "Off|2x MSAA|4x MSAA|8x MSAA", 0, "upscaling!=2"},
     {"fxaa", "FXAA", SettingKind::Bool, 0, 0, 0, "Graphics", "",
      "Smooths edges after everything else is drawn. Cheap, slightly soft,\n"
      "and can be used together with MSAA or FSR.", "", 0},
@@ -42,12 +42,12 @@ constexpr SettingDesc kSchema[] = {
     {"normalmapping", "Normal mapping", SettingKind::Bool, 0, 0, 0, "Graphics", "Surfaces",
      "Light stone and cloth by their surface detail rather than flat.", "", 1},
     {"normalmapstrength", "Normal map strength", SettingKind::Float, 0, 2, 0.1f, "Graphics", "",
-     "How pronounced that surface detail is. 1 is as authored.", "", 0.8f},
+     "How pronounced that surface detail is. 1 is as authored.", "", 0.8f, "normalmapping"},
     {"parallax", "Parallax mapping", SettingKind::Bool, 0, 0, 0, "Graphics", "",
      "Give bricks and cobbles real depth when seen at an angle.", "", 1},
     {"parallaxquality", "Parallax quality", SettingKind::Enum, 0, 2, 1, "Graphics", "",
      "How many steps each surface is traced with: 16, 32 or 64.",
-     "Low|Medium|High", 1},
+     "Low|Medium|High", 1, "parallax"},
 
     // --------------------------------------------------------------- Upscaling
     {"upscaling", "Upscaling", SettingKind::Enum, 0, 2, 1, "Upscaling", "",
@@ -56,15 +56,15 @@ constexpr SettingDesc kSchema[] = {
      "Off|FSR 1 (spatial)|FSR 3 (temporal)", 0},
     {"fsrquality", "FSR quality", SettingKind::Enum, 0, 3, 1, "Upscaling", "",
      "How far below your resolution the world is drawn.",
-     "Ultra Quality (77%)|Quality (67%)|Balanced (59%)|Native (100%)", 3},
+     "Ultra Quality (77%)|Quality (67%)|Balanced (59%)|Native (100%)", 3, "upscaling!=0"},
     {"fsrsharpness", "FSR sharpness", SettingKind::Float, 0, 2, 0.1f, "Upscaling", "",
-     "Sharpening applied after upscaling.", "", 1.6f},
+     "Sharpening applied after upscaling.", "", 1.6f, "upscaling!=0"},
     {"framegen", "Frame generation", SettingKind::Bool, 0, 0, 0, "Upscaling", "",
      "Experimental. FSR 3 only, and only where AMD's runtime is present —\n"
-     "it is known broken on RADV/Mesa.", "", 0},
+     "it is known broken on RADV/Mesa.", "", 0, "upscaling=2"},
     {"fsrjittersign", "Jitter sign", SettingKind::Float, -2, 2, 0.02f, "Upscaling", "FSR 3 tuning",
      "Which way FSR 3's sub-pixel jitter is applied. 0.38 is the value that\n"
-     "currently looks right; the rest of the range is for finding out why.", "", 0.38f},
+     "currently looks right; the rest of the range is for finding out why.", "", 0.38f, "upscaling=2"},
 
     // ----------------------------------------------------------------- Display
     {"fullscreen", "Fullscreen", SettingKind::Bool, 0, 0, 0, "Display", "",
@@ -134,17 +134,17 @@ constexpr SettingDesc kSchema[] = {
     {"showbar2", "Bottom left bar", SettingKind::Bool, 0, 0, 0, "Action Bars", "Extra bars",
      "The second bar, above the main one. Client action page 6.", "", 0},
     {"bar2offsetx", "Bottom left — across", SettingKind::Float, -600, 600, 10,
-     "Action Bars", "", "Move that bar sideways from its default place.", "", 0},
+     "Action Bars", "", "Move that bar sideways from its default place.", "", 0, "showbar2"},
     {"bar2offsety", "Bottom left — up", SettingKind::Float, -400, 400, 10,
-     "Action Bars", "", "Move that bar up or down from its default place.", "", 0},
+     "Action Bars", "", "Move that bar up or down from its default place.", "", 0, "showbar2"},
     {"showrightbar", "Right side bar", SettingKind::Bool, 0, 0, 0, "Action Bars", "",
      "The upright bar at the right edge. Client action page 3.", "", 0},
     {"rightbaroffsety", "Right side — up", SettingKind::Float, -400, 400, 10,
-     "Action Bars", "", "Move it up or down from the middle of the screen.", "", 0},
+     "Action Bars", "", "Move it up or down from the middle of the screen.", "", 0, "showrightbar"},
     {"showleftbar", "Left side bar", SettingKind::Bool, 0, 0, 0, "Action Bars", "",
      "The upright bar at the left edge. Client action page 4.", "", 0},
     {"leftbaroffsety", "Left side — up", SettingKind::Float, -400, 400, 10,
-     "Action Bars", "", "Move it up or down from the middle of the screen.", "", 0},
+     "Action Bars", "", "Move it up or down from the middle of the screen.", "", 0, "showleftbar"},
 
     // ------------------------------------------------------------ Combat & HUD
     {"nameplatescale", "Nameplate scale", SettingKind::Float, 0.5f, 2.0f, 0.05f,

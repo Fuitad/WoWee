@@ -487,34 +487,41 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
             if (ImGui::BeginTabItem("Video", nullptr, tabFlagFor("Video"))) {
                 ImGui::Spacing();
 
-                // Graphics Quality Presets
+                // What follows is three schema categories and the four controls
+                // that are not settings of ours: the resolution and the two the
+                // game's own Video panel drives, and the button that puts them
+                // all back.
+                //
+                // It was written out control by control before — a hundred and
+                // sixty lines of combo, apply, preset-check, saveCallback —
+                // with each dependent control wrapped in an `if` that the
+                // options panels on the other side of the bridge had no way to
+                // know about. Those dependencies are in the schema now, so both
+                // windows grey out the same things at the same times.
+
+                ImGui::SeparatorText("Display");
+                drawSchemaCategory("Display", saveCallback);
                 {
-                    const char* presetLabels[] = { "Custom", "Low", "Medium", "High", "Ultra" };
-                    int presetIdx = static_cast<int>(pendingGraphicsPreset);
-                    if (ImGui::Combo("Quality Preset", &presetIdx, presetLabels, 5)) {
-                        pendingGraphicsPreset = static_cast<GraphicsPreset>(presetIdx);
-                        if (pendingGraphicsPreset != GraphicsPreset::CUSTOM) {
-                            applyGraphicsPreset(pendingGraphicsPreset);
-                            saveCallback();
-                        }
+                    const char* resItems[kResCount];
+                    char resBuf[kResCount][16];
+                    for (int i = 0; i < kResCount; i++) {
+                        snprintf(resBuf[i], sizeof(resBuf[i]), "%dx%d",
+                                 kResolutions[i][0], kResolutions[i][1]);
+                        resItems[i] = resBuf[i];
                     }
-                    ImGui::TextDisabled("Adjust these for custom settings");
+                    if (ImGui::Combo("Resolution", &pendingResIndex, resItems, kResCount)) {
+                        pendingResolutionWidth = kResolutions[pendingResIndex][0];
+                        pendingResolutionHeight = kResolutions[pendingResIndex][1];
+                        window->applyResolution(pendingResolutionWidth, pendingResolutionHeight);
+                        saveCallback();
+                    }
                 }
 
                 ImGui::Spacing();
-                ImGui::Separator();
-                ImGui::Spacing();
-
-                if (ImGui::Checkbox("Fullscreen", &pendingFullscreen)) {
-                    applySettingSideEffects("fullscreen");
-                    updateGraphicsPresetFromCurrentSettings();
-                    saveCallback();
-                }
-                if (ImGui::Checkbox("VSync", &pendingVsync)) {
-                    applySettingSideEffects("vsync");
-                    updateGraphicsPresetFromCurrentSettings();
-                    saveCallback();
-                }
+                ImGui::SeparatorText("Graphics");
+                drawSchemaCategory("Graphics", saveCallback);
+                // The game's own Video panel drives these two, so they are not
+                // in the schema — and this window has always offered them.
                 ImGui::SetNextItemWidth(240.0f);
                 if (ImGui::SliderFloat("View Distance", &pendingViewDistance,
                                        400.0f, 2400.0f, "%.0f")) {
@@ -523,185 +530,40 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
                     saveCallback();
                 }
                 if (ImGui::IsItemHovered()) {
-                    ImGui::SetTooltip("Controls terrain, world-object, and doodad draw distance.");
+                    ImGui::SetTooltip("Terrain, world objects and doodads.");
                 }
-                if (ImGui::Checkbox("Shadows", &pendingShadows)) {
-                    applySettingSideEffects("shadows");
+                if (ImGui::SliderInt("Ground Clutter Density", &pendingGroundClutterDensity,
+                                     0, 150, "%d%%")) {
+                    applySettingSideEffects("groundclutter");
                     updateGraphicsPresetFromCurrentSettings();
                     saveCallback();
                 }
-                if (pendingShadows) {
-                    ImGui::SameLine();
-                    ImGui::SetNextItemWidth(150.0f);
-                    if (ImGui::SliderFloat("Distance##shadow", &pendingShadowDistance, 40.0f, 500.0f, "%.0f")) {
-                        applySettingSideEffects("shadowdistance");
-                        updateGraphicsPresetFromCurrentSettings();
-                        saveCallback();
-                    }
-                }
-                {
-                    if (ImGui::Checkbox("Water Refraction", &pendingWaterRefraction)) {
-                        applySettingSideEffects("waterrefraction");
-                        updateGraphicsPresetFromCurrentSettings();
-                        saveCallback();
-                    }
-                }
-                {
-                    const char* aaLabels[] = { "Off", "2x MSAA", "4x MSAA", "8x MSAA" };
-                    bool fsr2Active = renderer && renderer->getPostProcessPipeline()->isFSR2Enabled();
-                    if (fsr2Active) {
-                        ImGui::BeginDisabled();
-                        int disabled = 0;
-                        ImGui::Combo("Anti-Aliasing (FSR3)", &disabled, "Off (FSR3 active)\0", 1);
-                        ImGui::EndDisabled();
-                    } else if (ImGui::Combo("Anti-Aliasing", &pendingAntiAliasing, aaLabels, 4)) {
-                        applySettingSideEffects("antialiasing");
-                        updateGraphicsPresetFromCurrentSettings();
-                        saveCallback();
-                    }
-                    // FXAA — post-process, combinable with MSAA or FSR3
-                    {
-                        if (ImGui::Checkbox("FXAA (post-process)", &pendingFXAA)) {
-                            applySettingSideEffects("fxaa");
-                            updateGraphicsPresetFromCurrentSettings();
-                            saveCallback();
-                        }
-                        if (ImGui::IsItemHovered()) {
-                            if (fsr2Active)
-                                ImGui::SetTooltip("FXAA applies spatial anti-aliasing after FSR3 upscaling.\nFSR3 + FXAA is the recommended ultra-quality combination.");
-                            else
-                                ImGui::SetTooltip("FXAA smooths jagged edges as a post-process pass.\nCan be combined with MSAA for extra quality.");
-                        }
-                    }
-                }
-                // AMD FidelityFX is not exposed on macOS/MoltenVK. Keep the
-                // controls and experimental frame-generation path off that
-                // platform rather than advertising unsupported settings.
-#ifndef __APPLE__
-                // FSR Upscaling
-                {
-                    // FSR mode selection: Off, FSR 1.0 (Spatial), FSR 3.x (Temporal)
-                    const char* fsrModeLabels[] = { "Off", "FSR 1.0 (Spatial)", "FSR 3.x (Temporal)" };
-                    int fsrMode = pendingUpscalingMode;
-                    if (ImGui::Combo("Upscaling", &fsrMode, fsrModeLabels, 3)) {
-                        pendingUpscalingMode = fsrMode;
-                        applySettingSideEffects("upscaling");
-                        saveCallback();
-                    }
-                    if (fsrMode > 0) {
-                        if (fsrMode == 2 && renderer) {
-                            ImGui::TextDisabled("FSR3 backend: %s",
-                                renderer->getPostProcessPipeline()->isAmdFsr2SdkAvailable() ? "AMD FidelityFX SDK" : "Internal fallback");
-                            if (renderer->getPostProcessPipeline()->isAmdFsr3FramegenSdkAvailable()) {
-                                if (ImGui::Checkbox("AMD FSR3 Frame Generation (Experimental)", &pendingAMDFramegen)) {
-                                    applySettingSideEffects("framegen");
-                                    saveCallback();
-                                }
-                                const char* runtimeStatus = "Unavailable";
-                                if (renderer->getPostProcessPipeline()->isAmdFsr3FramegenRuntimeActive()) {
-                                    runtimeStatus = "Active";
-                                } else if (renderer->getPostProcessPipeline()->isAmdFsr3FramegenRuntimeReady()) {
-                                    runtimeStatus = "Ready";
-                                } else {
-                                    runtimeStatus = "Unavailable";
-                                }
-                                ImGui::TextDisabled("Runtime: %s (%s)",
-                                    runtimeStatus, renderer->getPostProcessPipeline()->getAmdFsr3FramegenRuntimePath());
-                                if (!renderer->getPostProcessPipeline()->isAmdFsr3FramegenRuntimeReady()) {
-                                    const std::string& runtimeErr = renderer->getPostProcessPipeline()->getAmdFsr3FramegenRuntimeError();
-                                    if (!runtimeErr.empty()) {
-                                        ImGui::TextDisabled("Reason: %s", runtimeErr.c_str());
-                                    }
-                                }
-                            } else {
-                                ImGui::BeginDisabled();
-                                bool disabledFg = false;
-                                ImGui::Checkbox("AMD FSR3 Frame Generation (Experimental)", &disabledFg);
-                                ImGui::EndDisabled();
-                                ImGui::TextDisabled("Requires FidelityFX-SDK framegen headers.");
-                            }
-                        }
-                        const char* fsrQualityLabels[] = { "Native (100%)", "Ultra Quality (77%)", "Quality (67%)", "Balanced (59%)" };
-                        // The scale factor each of these means is applySettingSideEffects'
-                        // business now; this only has to turn the row the
-                        // dropdown shows into the value the setting holds.
-                        static constexpr int displayToInternal[] = { 3, 0, 1, 2 };
-                        pendingFSRQuality = std::clamp(pendingFSRQuality, 0, 3);
-                        int fsrQualityDisplay = 0;
-                        for (int i = 0; i < 4; ++i) {
-                            if (displayToInternal[i] == pendingFSRQuality) {
-                                fsrQualityDisplay = i;
-                                break;
-                            }
-                        }
-                        if (ImGui::Combo("FSR Quality", &fsrQualityDisplay, fsrQualityLabels, 4)) {
-                            pendingFSRQuality = displayToInternal[fsrQualityDisplay];
-                            applySettingSideEffects("fsrquality");
-                            saveCallback();
-                        }
-                        if (ImGui::SliderFloat("FSR Sharpness", &pendingFSRSharpness, 0.0f, 2.0f, "%.1f")) {
-                            applySettingSideEffects("fsrsharpness");
-                            saveCallback();
-                        }
-                        if (fsrMode == 2) {
-                            ImGui::SeparatorText("FSR3 Tuning");
-                            if (ImGui::SliderFloat("Jitter Sign", &pendingFSR2JitterSign, -2.0f, 2.0f, "%.2f")) {
-                                applySettingSideEffects("fsrjittersign");
-                                saveCallback();
-                            }
-                            ImGui::TextDisabled("Tip: 0.38 is the current recommended default.");
-                        }
-                    }
-                }
-#endif
-                if (ImGui::SliderInt("Ground Clutter Density", &pendingGroundClutterDensity, 0, 150, "%d%%")) {
-                    applySettingSideEffects("groundclutter");
-                    saveCallback();
-                }
-                if (ImGui::Checkbox("Normal Mapping", &pendingNormalMapping)) {
-                    applySettingSideEffects("normalmapping");
-                    saveCallback();
-                }
-                if (pendingNormalMapping) {
-                    if (ImGui::SliderFloat("Normal Map Strength", &pendingNormalMapStrength, 0.0f, 2.0f, "%.1f")) {
-                        applySettingSideEffects("normalmapstrength");
-                        saveCallback();
-                    }
-                }
-                if (ImGui::Checkbox("Parallax Mapping", &pendingPOM)) {
-                    applySettingSideEffects("parallax");
-                    saveCallback();
-                }
-                if (pendingPOM) {
-                    const char* pomLabels[] = { "Low", "Medium", "High" };
-                    if (ImGui::Combo("Parallax Quality", &pendingPOMQuality, pomLabels, 3)) {
-                        applySettingSideEffects("parallaxquality");
-                        saveCallback();
-                    }
-                }
-
-                const char* resLabel = "Resolution";
-                const char* resItems[kResCount];
-                char resBuf[kResCount][16];
-                for (int i = 0; i < kResCount; i++) {
-                    snprintf(resBuf[i], sizeof(resBuf[i]), "%dx%d", kResolutions[i][0], kResolutions[i][1]);
-                    resItems[i] = resBuf[i];
-                }
-                if (ImGui::Combo(resLabel, &pendingResIndex, resItems, kResCount)) {
-                    pendingResolutionWidth = kResolutions[pendingResIndex][0];
-                    pendingResolutionHeight = kResolutions[pendingResIndex][1];
-                    window->applyResolution(pendingResolutionWidth, pendingResolutionHeight);
-                    saveCallback();
-                }
 
                 ImGui::Spacing();
-                ImGui::Separator();
-                ImGui::Spacing();
-
-                ImGui::SetNextItemWidth(200.0f);
-                if (ImGui::SliderInt("Brightness", &pendingBrightness, 0, 100, "%d%%")) {
-                    applySettingSideEffects("brightness");
-                    saveCallback();
+                ImGui::SeparatorText("Upscaling");
+                drawSchemaCategory("Upscaling", saveCallback);
+                // Not settings: what the machine can actually do, which is the
+                // half of frame generation no preference can decide.
+                if (pendingUpscalingMode == 2 && renderer) {
+                    auto* post = renderer->getPostProcessPipeline();
+                    ImGui::TextDisabled("FSR3 backend: %s",
+                        post->isAmdFsr2SdkAvailable() ? "AMD FidelityFX SDK"
+                                                      : "Internal fallback");
+                    if (!post->isAmdFsr3FramegenSdkAvailable()) {
+                        ImGui::TextDisabled("Frame generation requires FidelityFX-SDK "
+                                            "framegen headers.");
+                    } else {
+                        const char* runtimeStatus =
+                            post->isAmdFsr3FramegenRuntimeActive()  ? "Active"
+                            : post->isAmdFsr3FramegenRuntimeReady() ? "Ready"
+                                                                    : "Unavailable";
+                        ImGui::TextDisabled("Frame generation runtime: %s (%s)",
+                            runtimeStatus, post->getAmdFsr3FramegenRuntimePath());
+                        const std::string& runtimeErr = post->getAmdFsr3FramegenRuntimeError();
+                        if (!post->isAmdFsr3FramegenRuntimeReady() && !runtimeErr.empty()) {
+                            ImGui::TextDisabled("Reason: %s", runtimeErr.c_str());
+                        }
+                    }
                 }
 
                 ImGui::Spacing();
@@ -710,12 +572,7 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
 
                 if (ImGui::Button("Restore Video Defaults", ImVec2(-1, 0))) {
                     // Three categories, because the settings window puts on one
-                    // tab what the options panels put on three. The values are
-                    // the schema's; this used to name fourteen of them, and it
-                    // then re-issued the renderer calls the sliders above
-                    // already make — in a different order, and with the sample
-                    // count hardcoded back to one rather than read from the
-                    // field it had just set.
+                    // tab what the options panels put on three.
                     for (const char* category : {"Graphics", "Upscaling", "Display"}) {
                         restoreSchemaDefaults(category);
                     }
@@ -735,9 +592,6 @@ void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
                 ImGui::EndTabItem();
             }
 
-            // ============================================================
-            // INTERFACE TAB
-            // ============================================================
             if (ImGui::BeginTabItem("Interface", nullptr, tabFlagFor("Interface"))) {
                 renderSettingsInterfaceTab(saveCallback);
                 ImGui::EndTabItem();
@@ -820,6 +674,11 @@ void SettingsPanel::drawSchemaCategory(const char* category,
         // this side only ever sees the key.
         const std::string current = settingValue(d.key);
         bool changed = false;
+        // Greyed rather than hidden, so the panel keeps its shape and a player
+        // can see both that the setting exists and what it waits on.
+        const bool enabled =
+            settingEnabled(d, [this](const std::string& key) { return settingValue(key); });
+        if (!enabled) ImGui::BeginDisabled();
         switch (d.kind) {
             case SettingKind::Bool: {
                 bool v = settingIsOn(current);
@@ -876,6 +735,7 @@ void SettingsPanel::drawSchemaCategory(const char* category,
         if (d.tooltip[0] != '\0' && ImGui::IsItemHovered()) {
             ImGui::SetTooltip("%s", d.tooltip);
         }
+        if (!enabled) ImGui::EndDisabled();
         if (changed && saveCallback) saveCallback();
     }
 }
@@ -952,6 +812,20 @@ constexpr const char* kGraphicsPresetKeys[] = {
     "normalmapping", "normalmapstrength", "parallax", "parallaxquality",
     "groundclutter",
 };
+
+/// Whether a quality preset has an opinion about this setting.
+///
+/// Changing one of these by hand means the settings are no longer that preset,
+/// and the dropdown has to say Custom. Each of the video tab's controls used to
+/// call for that itself, which is why the ones that were never given the call —
+/// and every control on the interface's own options panel — could turn shadows
+/// off under a preset that says they are on.
+bool isGraphicsPresetKey(const std::string& key) {
+    for (const char* k : kGraphicsPresetKeys) {
+        if (key == k) return true;
+    }
+    return false;
+}
 
 }  // namespace
 
@@ -1399,6 +1273,10 @@ bool SettingsPanel::setSettingValue(const std::string& key, const std::string& v
         this->*(b->asFloat) = static_cast<float>(b->fraction ? v * 100.0 : v);
     }
     applySettingSideEffects(key);
+    // Anything a preset covers, changed by hand, means these settings are no
+    // longer that preset. applyGraphicsPreset does not come through here — it
+    // assigns the fields itself — so there is nothing for this to fight with.
+    if (isGraphicsPresetKey(key)) updateGraphicsPresetFromCurrentSettings();
     return true;
 }
 

@@ -476,6 +476,47 @@ local function num(v)
     return (string.format("%.2f", v):gsub("0+$", ""):gsub("%.$", ""))
 end
 
+-- Whether a control is worth offering yet, from the schema's own test against
+-- another setting: "" always, "key" whenever that one is on, "key=2" and
+-- "key!=2" comparing its value.
+--
+-- The same rule the settings window applies, because it is the same field.
+-- Without it these panels offered the FSR quality dropdown with upscaling off
+-- and the anti-aliasing dropdown while FSR 3 was doing its own — controls that
+-- answer, save, and change nothing.
+local function isEnabled(setting)
+    local test = setting.enabledwhen
+    if not test or test == "" then return true end
+    local key, want = test:match("^(.-)!=(.*)$")
+    if key then return WoweeGetSetting(key) ~= want end
+    key, want = test:match("^(.-)=(.*)$")
+    if key then return WoweeGetSetting(key) == want end
+    local value = WoweeGetSetting(test)
+    return value ~= nil and value ~= "" and value ~= "0"
+end
+
+-- Greyed rather than hidden, so the panel keeps its shape and a player can see
+-- both that the setting exists and what it is waiting on.
+local function setEnabled(widget, label, enabled)
+    if widget.Enable and widget.Disable then
+        if enabled then widget:Enable() else widget:Disable() end
+    end
+    if not label then return end
+    -- The colour a label goes back to is the one it was created with, read
+    -- once: a checkbox's is white and a slider's is the gold heading colour,
+    -- and picking either would be wrong for the other half of the panel.
+    if not label.woweeColor then
+        local r, g, b = 1, 1, 1
+        if label.GetTextColor then r, g, b = label:GetTextColor() end
+        label.woweeColor = {r or 1, g or 1, b or 1}
+    end
+    if enabled then
+        label:SetTextColor(label.woweeColor[1], label.woweeColor[2], label.woweeColor[3])
+    else
+        label:SetTextColor(0.5, 0.5, 0.5)
+    end
+end
+
 -- The game's own hover text, one line per line of the schema's tooltip.
 local function withTooltip(widget, title, tip)
     if not tip or tip == "" then return end
@@ -521,7 +562,7 @@ end
 -- The three controls. Each answers a read function and a write function, so
 -- one refresh walks all of them without caring which kind it is holding.
 
-local function addCheckButton(layout, panel, setting)
+local function addCheckButton(layout, panel, setting, onChanged)
     local x, y = reserve(layout, 27)
     local name = panel:GetName() .. setting.key
     local button = CreateFrame("CheckButton", name, panel,
@@ -530,10 +571,18 @@ local function addCheckButton(layout, panel, setting)
     _G[name .. "Text"]:SetText(setting.label)
     button:SetScript("OnClick", function(self)
         WoweeSetSetting(setting.key, self:GetChecked() and "1" or "0")
+        -- Ticking one of these can be what makes another control live —
+        -- normal mapping gates its strength, each extra bar gates its offsets
+        -- — so the rest of the panel is re-read. A click is one event, unlike
+        -- a slider drag, so there is nothing to throttle here.
+        if onChanged then onChanged(setting.key) end
     end)
     withTooltip(button, setting.label, setting.tooltip)
     return {
-        read  = function() button:SetChecked(WoweeGetSetting(setting.key) == "1") end,
+        read = function()
+            button:SetChecked(WoweeGetSetting(setting.key) == "1")
+            setEnabled(button, _G[name .. "Text"], isEnabled(setting))
+        end,
         write = function(value) WoweeSetSetting(setting.key, value) end,
     }
 end
@@ -565,6 +614,7 @@ local function addSlider(layout, panel, setting)
             local value = tonumber(WoweeGetSetting(setting.key)) or setting.min
             slider:SetValue(value)
             showValue(value)
+            setEnabled(slider, _G[name .. "Text"], isEnabled(setting))
         end,
         write = function(value) WoweeSetSetting(setting.key, value) end,
     }
@@ -616,6 +666,15 @@ local function addDropdown(layout, panel, setting, onChanged)
     return {
         read = function()
             UIDropDownMenu_SetText(dropdown, choices[selected()] or "")
+            local enabled = isEnabled(setting)
+            setEnabled(dropdown, label, enabled)
+            -- A dropdown is a frame rather than a button, so it has no Enable
+            -- of its own; this is what the interface's own panels call.
+            if enabled then
+                if UIDropDownMenu_EnableDropDown then UIDropDownMenu_EnableDropDown(dropdown) end
+            else
+                if UIDropDownMenu_DisableDropDown then UIDropDownMenu_DisableDropDown(dropdown) end
+            end
         end,
         write = function(value) WoweeSetSetting(setting.key, value) end,
     }
@@ -657,7 +716,7 @@ local function buildPanel(category, settings)
         end
         local control
         if setting.kind == "bool" then
-            control = addCheckButton(layout, panel, setting)
+            control = addCheckButton(layout, panel, setting, rereadOthers)
         elseif setting.kind == "enum" then
             control = addDropdown(layout, panel, setting, rereadOthers)
         else
