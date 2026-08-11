@@ -23,7 +23,6 @@ void CoordinateDisplay::render(const LayerContext& ctx) {
     float mu = (mp.x - ctx.imgMin.x) / ctx.displayW;
     float mv = (mp.y - ctx.imgMin.y) / ctx.displayH;
 
-    const auto& zone = (*ctx.zones)[ctx.currentZoneIdx];
     // Through the shared helper, which keeps the zone's own projection->bounds when the
     // continent lookup fails. This read the four floats out of the call without
     // checking it succeeded — and on failure it leaves them untouched, so the

@@ -1374,11 +1374,6 @@ VkTexture* CharacterRenderer::compositeTextures(const std::vector<std::string>& 
         coordScale = requiredScale;
     }
 
-    // Atlas region sizes at 256x256 base (w, h) for known regions
-    struct AtlasRegion { int x, y, w, h; };
-    static const AtlasRegion faceLowerRegion256 = {0, 192, 128, 64};
-    static const AtlasRegion faceUpperRegion256 = {0, 160, 128, 32};
-
     // Alpha-blend each overlay onto the composite
     for (auto& loaded : overlays) {
         const pipeline::BLPImage& overlay = loaded.image;

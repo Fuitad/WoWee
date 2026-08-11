@@ -605,7 +605,6 @@ void GameScreen::renderMinimapNpcDots(const MinimapFrame& frame, const EntityLis
                                       const EntrySet& minimapQuestEntries) {
     // Optional base nearby NPC dots (independent of quest status packets).
     if (settingsPanel_.minimapNpcDots_) {
-        ImVec2 mouse = ImGui::GetMousePos();
         for (const auto& entity : minimapUnits) {
 
             auto unit = std::static_pointer_cast<game::Unit>(entity);
@@ -642,7 +641,6 @@ void GameScreen::renderMinimapFlightMasters(const MinimapFrame& frame, const Ent
     // so an undiscovered flight master is visible before the taxi window has
     // ever been opened (and therefore before the known-node mask is available).
     {
-        ImVec2 mouse = ImGui::GetMousePos();
         for (const auto& entity : minimapUnits) {
             auto unit = std::static_pointer_cast<game::Unit>(entity);
             if (!unit || unit->getHealth() == 0 ||
@@ -682,7 +680,6 @@ void GameScreen::renderMinimapRares(const MinimapFrame& frame, const EntityList&
     // This is independent of generic NPC dots so enabling rare tracking consistently
     // shows spawned rares on both maps without adding every nearby creature.
     if (settingsPanel_.showRareTracker_) {
-        ImVec2 mouse = ImGui::GetMousePos();
         for (const auto& entity : minimapUnits) {
             auto unit = std::static_pointer_cast<game::Unit>(entity);
             if (!unit || unit->getHealth() == 0) continue;
@@ -792,7 +789,6 @@ void GameScreen::renderMinimapObjectDots(const MinimapFrame& frame, const Entity
     // Interactable game object dots (chests, resource nodes) when NPC dots are enabled.
     // Shown as small orange triangles to distinguish from unit dots and loot corpses.
     if (settingsPanel_.minimapNpcDots_) {
-        ImVec2 mouse = ImGui::GetMousePos();
         for (const auto& entity : minimapGameObjects) {
 
             // Only show objects that are likely interactive (chests/nodes: type 3;
@@ -917,7 +913,6 @@ void GameScreen::renderMinimapQuestGivers(const MinimapFrame& frame, const Quest
 
         // Show NPC name and quest status on hover
         {
-            ImVec2 mouse = ImGui::GetMousePos();
             if (cursorNearBlip(sx, sy)) {
                 std::string npcName;
                 if (entity->getType() == game::ObjectType::UNIT) {
@@ -964,7 +959,6 @@ void GameScreen::renderMinimapQuestKills(const MinimapFrame& frame, const Entity
         }
 
         if (!killInfoMap.empty()) {
-            ImVec2 mouse = ImGui::GetMousePos();
             for (const auto& entity : minimapUnits) {
                 auto unit = std::static_pointer_cast<game::Unit>(entity);
                 if (!unit || unit->getHealth() == 0) continue;
@@ -1137,7 +1131,6 @@ void GameScreen::renderMinimapBattlegroundPositions(const MinimapFrame& frame, g
     {
         const auto& bgPositions = gameHandler.getBgPlayerPositions();
         if (!bgPositions.empty()) {
-            ImVec2 mouse = ImGui::GetMousePos();
             // group 0 = typically ally-held flag / first list; group 1 = enemy
             static const ImU32 kBgGroupColors[2] = {
                 IM_COL32( 80, 180, 255, 240),  // group 0: blue (alliance)

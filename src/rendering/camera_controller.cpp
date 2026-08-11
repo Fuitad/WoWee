@@ -312,7 +312,7 @@ glm::vec3 CameraController::sweepAgainstWalls(const glm::vec3& from, const glm::
 // The movement intent — walking, swimming, flying, jumping, falling — and the
 // swept wall collision that keeps it out of geometry. Answers the position it
 // arrived at; the floor has not been consulted yet.
-glm::vec3 CameraController::moveFollowedCharacter(float deltaTime, FrameInput& f,
+glm::vec3 CameraController::moveFollowedCharacter(float /*deltaTime*/, FrameInput& f,
                                                   glm::vec3& prevTargetPos) {
     // Move the follow target (character position) instead of the camera
     prevTargetPos = *followTarget;
@@ -1819,7 +1819,7 @@ void CameraController::updateThirdPersonCamera(float deltaTime, FrameInput& f) {
 }
 
 // The camera that flies itself, used when nothing is being followed.
-void CameraController::updateFreeFlyCamera(float deltaTime, FrameInput& f) {
+void CameraController::updateFreeFlyCamera(float /*deltaTime*/, FrameInput& f) {
     // Free-fly camera mode (original behavior)
     glm::vec3 newPos = camera->getPosition();
     if (wmoRenderer) {

@@ -1237,6 +1237,7 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
     std::unordered_map<uint16_t, uint16_t> firstByGroup;
     bool hasGroup3 = false;  // glove/forearm variants
     bool hasGroup4 = false;  // glove/forearm variants (some models)
+    bool hasGroup5 = false;  // boot/shin variants
     bool hasGroup8 = false;  // sleeve/wrist variants
     bool hasGroup12 = false; // tabard variants
     bool hasGroup13 = false; // trousers/robe skirt variants
@@ -1251,6 +1252,7 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
         }
         if (group == 3) hasGroup3 = true;
         if (group == 4) hasGroup4 = true;
+        if (group == 5) hasGroup5 = true;
         if (group == 8) hasGroup8 = true;
         if (group == 12) hasGroup12 = true;
         if (group == 13) hasGroup13 = true;
@@ -1268,7 +1270,7 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
         itDisplayData->second.extraDisplayId != 0 &&
         humanoidExtraMap_.find(itDisplayData->second.extraDisplayId) != humanoidExtraMap_.end();
     if (hasHumanoidDisplayExtra &&
-        (hasGroup3 || hasGroup4 || hasGroup8 || hasGroup12 || hasGroup13 || hasGroup15)) {
+        (hasGroup3 || hasGroup4 || hasGroup5 || hasGroup8 || hasGroup12 || hasGroup13 || hasGroup15)) {
         bool hasRenderableCape = false;
         std::string capeTexturePath;  // first found cape texture for override
         bool hasEquippedTabard = false;
@@ -1432,6 +1434,20 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
             if (forearmSid != 0) normalizedGeosets.insert(forearmSid);
         }
 
+        // Group 5 is the shins, driven by the boots. equipFeetGG was read out
+        // of equipDisplayId[6] beside its three siblings and then never used,
+        // so an NPC's boots changed nothing: the compiler had been reporting it
+        // as an unused variable throughout. The comment on group 4 above records
+        // the other half: the feet value used to be applied to the arm group,
+        // and when that was corrected to gloves no group 5 block was added.
+        if (hasGroup5) {
+            uint16_t wantShins = (equipFeetGG > 0)
+                ? equippedGeoset(equipment::kBootsBare, equipFeetGG)
+                : kGeosetBareShins;
+            uint16_t shinSid = resolveGeoset(wantShins, allGeosets);
+            if (shinSid != 0) normalizedGeosets.insert(shinSid);
+        }
+
         // Add sleeve/wrist meshes when chest armor calls for them.
         if (hasGroup8 && equipChestGG > 0) {
             uint16_t wantSleeves = equippedGeoset(equipment::kChestBare, equipChestGG);
@@ -1551,7 +1567,6 @@ void EntitySpawner::applyHumanoidInstanceOverrides(uint32_t instanceId, uint32_t
                                                    uint32_t displayId) {
     auto* charRenderer = renderer_->getCharacterRenderer();
     if (!charRenderer) return;
-    auto itDisplayData = displayDataMap_.find(displayId);
     if (!charSectionsCacheBuilt_) buildCharSectionsCache();
     auto itDD = displayDataMap_.find(displayId);
     if (itDD != displayDataMap_.end() && itDD->second.extraDisplayId != 0) {

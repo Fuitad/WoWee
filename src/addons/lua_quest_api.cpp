@@ -2664,41 +2664,6 @@ static int lua_GetRewardArenaPoints(lua_State* L) {
     return 1;
 }
 
-// --- The offer panel's reward fields, still zero ---
-//
-// This once claimed honour, arena points, talents and experience were "not in
-// any quest packet". That was wrong, and the quest LOG now proves it:
-// SMSG_QUEST_QUERY_RESPONSE carries the XP-difficulty index, honour, talents,
-// arena points, title and reputation, and GetQuestLogReward* read them all (see
-// the QuestXP/QuestFactionReward loaders and the reward-parser fields).
-//
-// What is still zero is the OFFER side — GetRewardHonor/Talents/ArenaPoints,
-// which read the quest-giver packets, not the query. The data is there too
-// (SMSG_QUESTGIVER_OFFER_REWARD sends honour ×10, BonusTalents and
-// RewArenaPoints; QUEST_DETAILS reads the honour and drops it), but wiring it
-// means storing those fields on QuestDetailsData across the WotLK and pre-WotLK
-// parsers and unscaling the honour — a follow-up, not done here.
-//
-// They answer zero rather than staying absent because the reward panel adds
-// and compares them without checking first:
-//
-//     local totalRewards = numQuestRewards + numQuestChoices + numQuestSpellRewards;
-//     if ( numQuestRewards > 0 or money > 0 or honor > 0 or ... )
-//
-// `or` short-circuits, so `honor > 0` is only reached when there is no fixed
-// item reward and no money — which is most quests. Comparing nil against a
-// number raises, so the panel died on opening for them. Zero is also the true
-// answer for nearly every quest: honour, arena points and talent points are
-// rare rewards. A quest that does pay them shows one line short, which is a
-// far smaller wrong than a reward panel that will not open.
-//
-// The title is deliberately left nil. It is read as `not playerTitle`, where
-// nil means "no title" and is exactly right.
-static int lua_GetZeroReward(lua_State* L) {
-    lua_pushnumber(L, 0);
-    return 1;
-}
-
 // GetQuestMoneyToGet() → coin the player has to *hand over*, which is the
 // opposite of the reward and a different field entirely. Some quests ask for
 // money; showing the reward here would tell the player they are being paid

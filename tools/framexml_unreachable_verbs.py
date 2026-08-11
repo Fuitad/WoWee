@@ -51,7 +51,9 @@ import re
 import subprocess
 from pathlib import Path
 
-ROOT = Path("/home/k/Desktop/wowee")
+# Resolved from this file, not written out: an absolute path to one
+# machine makes the sweep answer nothing anywhere else, silently.
+ROOT = Path(__file__).resolve().parent.parent
 
 # Exclude what is definitely not a verb, rather than listing what is.
 #

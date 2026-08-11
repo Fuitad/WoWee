@@ -279,8 +279,6 @@ M2ClassificationResult classifyM2Model(
     }
     const TokenMatch treeHit = lastMatch(n, "tree");
 
-    const bool foliagePlant = !isPlanter && has(n, "plant")
-                            && !structureHit.outranks(foliageHit);
     const bool foliageName  = foliageHit.found && !structureHit.outranks(foliageHit);
     const bool treeLike     = treeHit.found && !structureHit.outranks(treeHit);
     const bool hardTreePart = has(n, "trunk") || has(n, "stump") || has(n, "log");

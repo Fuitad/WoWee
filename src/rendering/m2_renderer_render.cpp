@@ -1899,7 +1899,7 @@ bool M2Renderer::initializeShadow(VkRenderPass shadowRenderPass) {
 }
 
 void M2Renderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMatrix, float globalTime,
-                              const glm::vec3& shadowCenter, float shadowRadius) {
+                              const glm::vec3& /*shadowCenter*/, float shadowRadius) {
     if (!shadowPipeline_ || !shadowParams_.set) return;
     if (instances.empty() || models.empty()) return;
 

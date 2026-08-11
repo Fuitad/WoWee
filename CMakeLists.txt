@@ -1247,11 +1247,27 @@ elseif(glm_FOUND)
     target_include_directories(wowee PRIVATE ${GLM_INCLUDE_DIRS})
 endif()
 
-# Compiler warnings
+# Compiler warnings.
+#
+# Errors by default: a warning left standing accumulates into tech debt and
+# hides real defects. Two found this way while turning it on: an NPC boot
+# geoset read out of CreatureDisplayInfoExtra and never applied, and a dead
+# duplicate of the character atlas region lookup.
+#
+# WOWEE_WARNINGS_AS_ERRORS=OFF turns it off for a bisect or a new-compiler
+# build, where an unfamiliar diagnostic should not stop the build outright.
+option(WOWEE_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
+
 if(MSVC)
     target_compile_options(wowee PRIVATE /W4)
+    if(WOWEE_WARNINGS_AS_ERRORS)
+        target_compile_options(wowee PRIVATE /WX)
+    endif()
 else()
     target_compile_options(wowee PRIVATE -Wall -Wextra -Wpedantic -Wno-missing-field-initializers)
+    if(WOWEE_WARNINGS_AS_ERRORS)
+        target_compile_options(wowee PRIVATE -Werror)
+    endif()
     # GCC LTO emits -Wodr for FFX enum-name mismatches across SDK generations.
     # We intentionally keep FSR2+FSR3 integrations in separate TUs and suppress
     # this linker-time diagnostic to avoid CI noise.
@@ -2093,6 +2109,9 @@ if(NOT MSVC)
         -Wall -Wextra -Wpedantic
         -Wno-missing-field-initializers
         -Wno-unused-parameter)
+    if(WOWEE_WARNINGS_AS_ERRORS)
+        target_compile_options(wowee_editor PRIVATE -Werror)
+    endif()
 endif()
 if(GLSLC)
     add_dependencies(wowee_editor wowee_shaders)

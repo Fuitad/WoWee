@@ -841,6 +841,9 @@ SENTENCES = [
 DATA_INPUTS = {
     "Data/interface": ROOT / "Data/interface",
     "Data/db": ROOT / "Data/db",
+    # The server source these compare against is a separate local clone, so it
+    # is absent everywhere except a developer machine that has one.
+    "azerothcore": pathlib.Path("/home/k/azerothcore-wotlk"),
 }
 
 
