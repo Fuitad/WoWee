@@ -107,14 +107,6 @@ static bool envFlagEnabled(const char* key, bool defaultValue) {
     return !(v == "0" || v == "false" || v == "off" || v == "no");
 }
 
-static int envIntOrDefault(const char* key, int defaultValue) {
-    const char* raw = std::getenv(key);
-    if (!raw || !*raw) return defaultValue;
-    char* end = nullptr;
-    long n = std::strtol(raw, &end, 10);
-    if (end == raw) return defaultValue;
-    return static_cast<int>(n);
-}
 
 Renderer::Renderer() = default;
 Renderer::~Renderer() = default;

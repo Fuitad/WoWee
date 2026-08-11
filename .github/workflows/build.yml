@@ -96,7 +96,7 @@ jobs:
         echo "FidelityFX-SDK Kits framegen headers detected."
 
     - name: Configure (AMD ON)
-      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DWOWEE_ENABLE_AMD_FSR2=ON -DWOWEE_BUILD_TESTS=ON
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DWOWEE_BUILD_TESTS=ON
 
     - name: Assert AMD FSR2 target
       run: cmake --build build --target wowee_fsr2_amd_vk --parallel ${{ matrix.build_jobs }}
@@ -173,7 +173,7 @@ jobs:
           -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
           -DCMAKE_PREFIX_PATH="$BREW" \
           -DOPENSSL_ROOT_DIR="$(brew --prefix openssl@3)" \
-          -DWOWEE_ENABLE_AMD_FSR2=ON \
+          \
           -DWOWEE_BUILD_TESTS=ON
 
     - name: Assert AMD FSR2 target
@@ -489,7 +489,7 @@ jobs:
 
     - name: Configure
       shell: msys2 {0}
-      run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DWOWEE_ENABLE_AMD_FSR2=ON
+      run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
     - name: Assert AMD FSR2 target
       shell: msys2 {0}
@@ -583,7 +583,7 @@ jobs:
 
     - name: Configure
       shell: msys2 {0}
-      run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DWOWEE_ENABLE_AMD_FSR2=ON
+      run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
     - name: Assert AMD FSR2 target
       shell: msys2 {0}

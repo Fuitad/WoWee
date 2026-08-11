@@ -855,7 +855,7 @@ DATA_INPUTS = {
 
 
 def missing_input(tool):
-    """The data directory this sweep reads and this checkout does not have."""
+    """The input this sweep needs and this checkout does not have."""
     try:
         source = (TOOLS / tool).read_text()
     except OSError:
@@ -863,6 +863,12 @@ def missing_input(tool):
     for path, directory in DATA_INPUTS.items():
         if path in source and not directory.is_dir():
             return path
+    # The headless runner is not part of the default build, so a sweep that
+    # drives it has nothing to drive until someone asks for that target. The
+    # checks further down already report this as a skip; a sweep in the tables
+    # above went to the failure list instead.
+    if "framexml_run" in source and not (ROOT / "build/bin/framexml_run").is_file():
+        return "build/bin/framexml_run"
     return None
 
 

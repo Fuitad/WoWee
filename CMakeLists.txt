@@ -28,9 +28,19 @@ option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 option(WOWEE_BUILD_TESTS "Build tests" ON)
 option(WOWEE_ENABLE_ASAN "Enable AddressSanitizer + UBSan (applied to all build configs; pairs well with Debug)" OFF)
 option(WOWEE_ENABLE_TRACY "Enable Tracy profiler instrumentation" OFF)
-option(WOWEE_ENABLE_AMD_FSR2 "Enable AMD FidelityFX FSR2 backend when SDK is present" ON)
-option(WOWEE_ENABLE_AMD_FSR3_FRAMEGEN "Enable AMD FidelityFX SDK FSR3 frame generation interface probe when SDK is present" ON)
-option(WOWEE_BUILD_AMD_FSR3_RUNTIME "Build native AMD FidelityFX VK runtime (Path A) from extern/FidelityFX-SDK/Kits" ON)
+# AMD's FidelityFX SDK backends, off by default.
+#
+# They give neither a performance nor a quality gain here today, and FSR3 frame
+# generation is broken on RADV/Mesa. Turning them off also takes AMD's headers
+# out of the build, which -Werror was policing: the macOS build failed on a
+# -Wmissing-braces inside ffx_internal_types.h.
+#
+# This client's own upscaling is unaffected. FSR 1 (fsr_easu/fsr_rcas) and the
+# fsr2_* compute shaders are in-tree and stay in the build; only the vendored
+# SDK path is gone. Set any of these ON to build it back.
+option(WOWEE_ENABLE_AMD_FSR2 "Enable AMD FidelityFX FSR2 backend when SDK is present" OFF)
+option(WOWEE_ENABLE_AMD_FSR3_FRAMEGEN "Enable AMD FidelityFX SDK FSR3 frame generation interface probe when SDK is present" OFF)
+option(WOWEE_BUILD_AMD_FSR3_RUNTIME "Build native AMD FidelityFX VK runtime (Path A) from extern/FidelityFX-SDK/Kits" OFF)
 
 # AMD FidelityFX FSR2 SDK detection (drop-in under extern/FidelityFX-FSR2)
 set(WOWEE_AMD_FSR2_DIR ${CMAKE_SOURCE_DIR}/extern/FidelityFX-FSR2)
@@ -67,7 +77,10 @@ if(WOWEE_ENABLE_AMD_FSR2 AND EXISTS ${WOWEE_AMD_FSR2_HEADER} AND EXISTS ${WOWEE_
         CXX_STANDARD 17
         CXX_STANDARD_REQUIRED ON
     )
-    target_include_directories(wowee_fsr2_amd_vk PUBLIC
+    # SYSTEM: these are AMD's headers, not ours. Without it they are ordinary
+    # -I includes and -Werror polices vendored code, which failed the macOS
+    # build on a -Wmissing-braces inside ffx_internal_types.h.
+    target_include_directories(wowee_fsr2_amd_vk SYSTEM PUBLIC
         ${WOWEE_AMD_FSR2_DIR}/src
         ${WOWEE_AMD_FSR2_DIR}/src/ffx-fsr2-api
         ${WOWEE_AMD_FSR2_DIR}/src/ffx-fsr2-api/vk
@@ -119,7 +132,8 @@ if(WOWEE_ENABLE_AMD_FSR3_FRAMEGEN AND WOWEE_AMD_FFX_SDK_KITS_READY)
         CXX_STANDARD 17
         CXX_STANDARD_REQUIRED ON
     )
-    target_include_directories(wowee_fsr3_framegen_amd_vk_probe PUBLIC
+    # SYSTEM, for the reason given at the FSR2 target above.
+    target_include_directories(wowee_fsr3_framegen_amd_vk_probe SYSTEM PUBLIC
         ${WOWEE_AMD_FFX_SDK_KITS_DIR}/upscalers/include
         ${WOWEE_AMD_FFX_SDK_KITS_DIR}/upscalers/fsr3/include
         ${WOWEE_AMD_FFX_SDK_KITS_DIR}/framegeneration/fsr3/include
@@ -480,7 +494,8 @@ if(EXISTS ${IMGUI_DIR})
         ${IMGUI_DIR}/backends/imgui_impl_sdl2.cpp
         ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
     )
-    target_include_directories(imgui PUBLIC
+    # SYSTEM: vendored, so -Werror on wowee does not police it.
+    target_include_directories(imgui SYSTEM PUBLIC
         ${IMGUI_DIR}
         ${IMGUI_DIR}/backends
     )
@@ -496,7 +511,7 @@ if(EXISTS ${VK_BOOTSTRAP_DIR})
     add_library(vk-bootstrap STATIC
         ${VK_BOOTSTRAP_DIR}/src/VkBootstrap.cpp
     )
-    target_include_directories(vk-bootstrap PUBLIC ${VK_BOOTSTRAP_DIR}/src)
+    target_include_directories(vk-bootstrap SYSTEM PUBLIC ${VK_BOOTSTRAP_DIR}/src)
     target_link_libraries(vk-bootstrap PUBLIC Vulkan::Vulkan)
 else()
     message(FATAL_ERROR "vk-bootstrap not found in extern/vk-bootstrap")
@@ -1099,7 +1114,7 @@ set(LUA_SOURCES
 )
 add_library(lua51 STATIC ${LUA_SOURCES})
 set_target_properties(lua51 PROPERTIES LINKER_LANGUAGE C C_STANDARD 99 POSITION_INDEPENDENT_CODE ON)
-target_include_directories(lua51 PUBLIC ${LUA_DIR})
+target_include_directories(lua51 SYSTEM PUBLIC ${LUA_DIR})
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(lua51 PRIVATE -w)
 endif()
