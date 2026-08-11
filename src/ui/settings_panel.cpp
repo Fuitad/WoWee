@@ -1418,6 +1418,151 @@ std::string SettingsPanel::getSettingsPath() {
 }
 
 
+namespace {
+
+/// Which field a setting key names.
+///
+/// settingValue and setSettingValue used to spell this out separately — one
+/// chain of branches reading the fields, another writing them, and nothing at
+/// all to say when the two stopped agreeing about which key meant which field.
+/// Adding a setting meant remembering both. This is the fact once; both
+/// directions read it.
+///
+/// Exactly one of the three pointers is set. `fraction` marks the values that
+/// travel as a fraction of what the field holds, which is how a CVar carries a
+/// percentage.
+struct FieldBinding {
+    const char* key;
+    bool  SettingsPanel::* asBool  = nullptr;
+    int   SettingsPanel::* asInt   = nullptr;
+    float SettingsPanel::* asFloat = nullptr;
+    bool  fraction = false;
+};
+
+constexpr FieldBinding kFieldBindings[] = {
+    // Bound to a Blizzard control as well, through kClientCVars. These are the
+    // six the game's own Video, Sound and Interface panels drive, so they are
+    // not in the schema — but they still have to be readable and writable,
+    // because that is how those panels reach them.
+    {.key = "viewdistance",   .asFloat = &SettingsPanel::pendingViewDistance},
+    {.key = "mousespeed",     .asFloat = &SettingsPanel::pendingMouseSensitivity},
+    {.key = "minimapclock",   .asBool  = &SettingsPanel::pendingShowMinimapClock},
+    {.key = "friendlyplates", .asBool  = &SettingsPanel::showFriendlyNameplates_},
+    {.key = "groundclutter",  .asInt   = &SettingsPanel::pendingGroundClutterDensity,
+     .fraction = true},
+    {.key = "effectsvolume",  .asInt   = &SettingsPanel::pendingEffectsVolume,
+     .fraction = true},
+
+    // --- Graphics ---
+    {.key = "shadows",           .asBool  = &SettingsPanel::pendingShadows},
+    {.key = "shadowdistance",    .asFloat = &SettingsPanel::pendingShadowDistance},
+    {.key = "waterrefraction",   .asBool  = &SettingsPanel::pendingWaterRefraction},
+    {.key = "antialiasing",      .asInt   = &SettingsPanel::pendingAntiAliasing},
+    {.key = "fxaa",              .asBool  = &SettingsPanel::pendingFXAA},
+    {.key = "normalmapping",     .asBool  = &SettingsPanel::pendingNormalMapping},
+    {.key = "normalmapstrength", .asFloat = &SettingsPanel::pendingNormalMapStrength},
+    {.key = "parallax",          .asBool  = &SettingsPanel::pendingPOM},
+    {.key = "parallaxquality",   .asInt   = &SettingsPanel::pendingPOMQuality},
+
+    // --- Upscaling ---
+    {.key = "upscaling",     .asInt   = &SettingsPanel::pendingUpscalingMode},
+    {.key = "fsrquality",    .asInt   = &SettingsPanel::pendingFSRQuality},
+    {.key = "fsrsharpness",  .asFloat = &SettingsPanel::pendingFSRSharpness},
+    {.key = "framegen",      .asBool  = &SettingsPanel::pendingAMDFramegen},
+    {.key = "fsrjittersign", .asFloat = &SettingsPanel::pendingFSR2JitterSign},
+
+    // --- Display ---
+    {.key = "fullscreen", .asBool = &SettingsPanel::pendingFullscreen},
+    {.key = "vsync",      .asBool = &SettingsPanel::pendingVsync},
+    {.key = "brightness", .asInt  = &SettingsPanel::pendingBrightness},
+
+    // --- Camera ---
+    {.key = "fov",             .asFloat = &SettingsPanel::pendingFov},
+    {.key = "extendedzoom",    .asBool  = &SettingsPanel::pendingExtendedZoom},
+    {.key = "camerastiffness", .asFloat = &SettingsPanel::pendingCameraStiffness},
+    {.key = "pivotheight",     .asFloat = &SettingsPanel::pendingPivotHeight},
+    {.key = "smoothfollow",    .asBool  = &SettingsPanel::pendingSmoothCameraFollow},
+    {.key = "idleorbit",       .asBool  = &SettingsPanel::pendingIdleCameraOrbit},
+    {.key = "invertmouse",     .asBool  = &SettingsPanel::pendingInvertMouse},
+
+    // --- Interface ---
+    {.key = "uiopacity",     .asInt   = &SettingsPanel::pendingUiOpacity},
+    {.key = "windowuiscale", .asFloat = &SettingsPanel::pendingWindowUiScale},
+    {.key = "latencymeter",  .asBool  = &SettingsPanel::pendingShowLatencyMeter},
+    {.key = "micromenu",     .asBool  = &SettingsPanel::pendingShowMicroMenu},
+    {.key = "bagscale",      .asFloat = &SettingsPanel::pendingBagScale},
+    {.key = "separatebags",  .asBool  = &SettingsPanel::pendingSeparateBags},
+    {.key = "showkeyring",   .asBool  = &SettingsPanel::pendingShowKeyring},
+
+    // --- Minimap ---
+    {.key = "minimapsquare",  .asBool = &SettingsPanel::pendingMinimapSquare},
+    {.key = "minimapnpcdots", .asBool = &SettingsPanel::pendingMinimapNpcDots},
+    {.key = "minimapcoords",  .asBool = &SettingsPanel::pendingShowMinimapCoordinates},
+
+    // --- Action bars ---
+    {.key = "actionbarscale",  .asFloat = &SettingsPanel::pendingActionBarScale},
+    {.key = "buffbarscale",    .asFloat = &SettingsPanel::pendingBuffBarScale},
+    {.key = "showbar2",        .asBool  = &SettingsPanel::pendingShowActionBar2},
+    {.key = "bar2offsetx",     .asFloat = &SettingsPanel::pendingActionBar2OffsetX},
+    {.key = "bar2offsety",     .asFloat = &SettingsPanel::pendingActionBar2OffsetY},
+    {.key = "showrightbar",    .asBool  = &SettingsPanel::pendingShowRightBar},
+    {.key = "rightbaroffsety", .asFloat = &SettingsPanel::pendingRightBarOffsetY},
+    {.key = "showleftbar",     .asBool  = &SettingsPanel::pendingShowLeftBar},
+    {.key = "leftbaroffsety",  .asFloat = &SettingsPanel::pendingLeftBarOffsetY},
+
+    // --- Combat and HUD ---
+    {.key = "nameplatescale",     .asFloat = &SettingsPanel::nameplateScale_},
+    {.key = "dpsmeter",           .asBool  = &SettingsPanel::showDPSMeter_},
+    {.key = "cooldowntracker",    .asBool  = &SettingsPanel::showCooldownTracker_},
+    {.key = "raretracker",        .asBool  = &SettingsPanel::showRareTracker_},
+    {.key = "chesttracker",       .asBool  = &SettingsPanel::showChestTracker_},
+    {.key = "damageflash",        .asBool  = &SettingsPanel::damageFlashEnabled_},
+    {.key = "lowhealthvignette",  .asBool  = &SettingsPanel::lowHealthVignetteEnabled_},
+
+    // --- Sound ---
+    {.key = "musicvolume",     .asInt  = &SettingsPanel::pendingMusicVolume},
+    {.key = "ambientvolume",   .asInt  = &SettingsPanel::pendingAmbientVolume},
+    {.key = "bellvolume",      .asInt  = &SettingsPanel::pendingBellVolume},
+    {.key = "uivolume",        .asInt  = &SettingsPanel::pendingUiVolume},
+    {.key = "combatvolume",    .asInt  = &SettingsPanel::pendingCombatVolume},
+    {.key = "spellvolume",     .asInt  = &SettingsPanel::pendingSpellVolume},
+    {.key = "movementvolume",  .asInt  = &SettingsPanel::pendingMovementVolume},
+    {.key = "footstepvolume",  .asInt  = &SettingsPanel::pendingFootstepVolume},
+    {.key = "mountvolume",     .asInt  = &SettingsPanel::pendingMountVolume},
+    {.key = "activityvolume",  .asInt  = &SettingsPanel::pendingActivityVolume},
+    {.key = "npcvoicevolume",  .asInt  = &SettingsPanel::pendingNpcVoiceVolume},
+    {.key = "characterspeech", .asBool = &SettingsPanel::pendingCharacterSpeech},
+    {.key = "woweemusic",      .asBool = &SettingsPanel::pendingUseOriginalSoundtrack},
+
+    // --- Gameplay ---
+    {.key = "autoloot",     .asBool = &SettingsPanel::pendingAutoLoot},
+    {.key = "autosellgrey", .asBool = &SettingsPanel::pendingAutoSellGrey},
+    {.key = "autorepair",   .asBool = &SettingsPanel::pendingAutoRepair},
+};
+
+const FieldBinding* findFieldBinding(const std::string& key) {
+    for (const auto& b : kFieldBindings) {
+        if (key == b.key) return &b;
+    }
+    return nullptr;
+}
+
+/// Whether changing this setting means the audio coordinator has to work the
+/// volumes out again.
+///
+/// Every one of them does, including the two that are not volumes: character
+/// speech switches the player voice manager on and off inside the same call,
+/// and the effects slider scales seven of the others.
+bool isVolumeKey(const std::string& key) {
+    return key == "effectsvolume" || key == "musicvolume" || key == "ambientvolume" ||
+           key == "bellvolume" || key == "uivolume" || key == "combatvolume" ||
+           key == "spellvolume" || key == "movementvolume" || key == "footstepvolume" ||
+           key == "mountvolume" || key == "activityvolume" || key == "npcvoicevolume" ||
+           key == "characterspeech";
+}
+
+}  // namespace
+
 void SettingsPanel::applySettingSideEffects(const std::string& key) {
     // The settings window applies each value where its slider is, so a change
     // made through FrameXML or the Wowee options panel used to update the number
@@ -1430,6 +1575,9 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
     auto* renderer = services_.renderer;
     auto* camera = renderer ? renderer->getCamera() : nullptr;
     auto* cameraController = renderer ? renderer->getCameraController() : nullptr;
+    auto* post = renderer ? renderer->getPostProcessPipeline() : nullptr;
+    auto* wmo = renderer ? renderer->getWMORenderer() : nullptr;
+    auto* chars = renderer ? renderer->getCharacterRenderer() : nullptr;
 
     if (key == "viewdistance") {
         if (renderer) renderer->setViewDistance(pendingViewDistance);
@@ -1467,79 +1615,122 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
         if (renderer) {
             if (auto* mm = renderer->getMinimap()) mm->setSquareShape(pendingMinimapSquare);
         }
+    } else if (key == "invertmouse") {
+        if (cameraController) cameraController->setInvertMouse(pendingInvertMouse);
+    } else if (key == "graphicspreset") {
+        applyGraphicsPreset(pendingGraphicsPreset);
+    } else if (key == "antialiasing") {
+        // The four the panel offers, in the order it offers them.
+        static const VkSampleCountFlagBits kSamples[] = {
+            VK_SAMPLE_COUNT_1_BIT, VK_SAMPLE_COUNT_2_BIT,
+            VK_SAMPLE_COUNT_4_BIT, VK_SAMPLE_COUNT_8_BIT};
+        if (renderer) {
+            renderer->setMsaaSamples(kSamples[std::clamp(pendingAntiAliasing, 0, 3)]);
+        }
+    } else if (key == "fxaa") {
+        if (post) post->setFXAAEnabled(pendingFXAA);
+    } else if (key == "normalmapping") {
+        if (wmo) wmo->setNormalMappingEnabled(pendingNormalMapping);
+        if (chars) chars->setNormalMappingEnabled(pendingNormalMapping);
+    } else if (key == "normalmapstrength") {
+        if (wmo) wmo->setNormalMapStrength(pendingNormalMapStrength);
+        if (chars) chars->setNormalMapStrength(pendingNormalMapStrength);
+    } else if (key == "parallax") {
+        if (wmo) wmo->setPOMEnabled(pendingPOM);
+        if (chars) chars->setPOMEnabled(pendingPOM);
+    } else if (key == "parallaxquality") {
+        if (wmo) wmo->setPOMQuality(pendingPOMQuality);
+        if (chars) chars->setPOMQuality(pendingPOMQuality);
+    } else if (key == "upscaling") {
+        // pendingFSR is the older flag for "FSR 1 is on" and is what the saved
+        // settings still carry, so the mode and the flag are set together
+        // rather than left to disagree.
+        pendingFSR = (pendingUpscalingMode == 1);
+        if (renderer) {
+            renderer->setFSREnabled(pendingUpscalingMode == 1);
+            renderer->setFSR2Enabled(pendingUpscalingMode == 2);
+        }
+    } else if (key == "fsrquality") {
+        // How far below the display resolution the world is drawn, in the same
+        // order the schema lists the choices.
+        static constexpr float kScaleFactors[] = {0.77f, 0.67f, 0.59f, 1.00f};
+        if (post) post->setFSRQuality(kScaleFactors[std::clamp(pendingFSRQuality, 0, 3)]);
+    } else if (key == "fsrsharpness") {
+        if (post) post->setFSRSharpness(pendingFSRSharpness);
+    } else if (key == "framegen") {
+        if (post) post->setAmdFsr3FramegenEnabled(pendingAMDFramegen);
+    } else if (key == "fsrjittersign") {
+        if (post) {
+            post->setFSR2DebugTuning(pendingFSR2JitterSign, pendingFSR2MotionVecScaleX,
+                                     pendingFSR2MotionVecScaleY);
+        }
+    } else if (key == "brightness") {
+        // 50 is neutral, so the field is twice the multiplier the pipeline wants.
+        if (post) post->setBrightness(static_cast<float>(pendingBrightness) / 50.0f);
+    } else if (key == "fullscreen") {
+        if (services_.window) {
+            services_.window->setFullscreen(pendingFullscreen);
+            if (pendingFullscreen) {
+                services_.window->applyResolution(pendingResolutionWidth,
+                                                  pendingResolutionHeight);
+            }
+        }
+    } else if (key == "vsync") {
+        if (services_.window) services_.window->setVsync(pendingVsync);
+    } else if (key == "windowuiscale") {
+        applyWindowUiScale();
+    } else if (key == "minimapnpcdots") {
+        minimapNpcDots_ = pendingMinimapNpcDots;
+    } else if (key == "minimapclock") {
+        showMinimapClock_ = pendingShowMinimapClock;
+    } else if (key == "minimapcoords") {
+        showMinimapCoordinates_ = pendingShowMinimapCoordinates;
+    } else if (isVolumeKey(key)) {
+        // Every volume goes through one call, because each of them is a balance
+        // against the others and the coordinator works them all out together.
+        applyAudioVolumes(services_.audioCoordinator);
     }
 }
 
-std::string SettingsPanel::settingValue(const std::string& key) const {
-    // Bound to a Blizzard control as well, through kClientCVars.
-    if (key == "viewdistance")    return settingNumberText(pendingViewDistance);
-    if (key == "mousespeed")      return settingNumberText(pendingMouseSensitivity);
-    if (key == "minimapclock")    return pendingShowMinimapClock ? "1" : "0";
-    if (key == "friendlyplates")  return showFriendlyNameplates_ ? "1" : "0";
-    if (key == "groundclutter")   return settingNumberText(pendingGroundClutterDensity / 100.0);
-    if (key == "effectsvolume")   return settingNumberText(pendingEffectsVolume / 100.0);
 
-    // This client's own, with no Blizzard equivalent — the Wowee category.
-    if (key == "waterrefraction") return pendingWaterRefraction ? "1" : "0";
-    if (key == "shadows")         return pendingShadows ? "1" : "0";
-    if (key == "shadowdistance")  return settingNumberText(pendingShadowDistance);
-    if (key == "fov")             return settingNumberText(pendingFov);
-    if (key == "extendedzoom")    return pendingExtendedZoom ? "1" : "0";
-    if (key == "camerastiffness") return settingNumberText(pendingCameraStiffness);
-    if (key == "pivotheight")     return settingNumberText(pendingPivotHeight);
-    if (key == "smoothfollow")    return pendingSmoothCameraFollow ? "1" : "0";
-    if (key == "idleorbit")       return pendingIdleCameraOrbit ? "1" : "0";
-    if (key == "uiopacity")       return settingNumberText(pendingUiOpacity);
-    if (key == "minimapsquare")   return pendingMinimapSquare ? "1" : "0";
-    if (key == "minimapnpcdots")  return pendingMinimapNpcDots ? "1" : "0";
-    if (key == "minimapcoords")   return pendingShowMinimapCoordinates ? "1" : "0";
-    if (key == "latencymeter")    return pendingShowLatencyMeter ? "1" : "0";
-    if (key == "separatebags")    return pendingSeparateBags ? "1" : "0";
-    if (key == "showkeyring")     return pendingShowKeyring ? "1" : "0";
-    if (key == "bagscale")        return settingNumberText(pendingBagScale);
-    if (key == "buffbarscale")    return settingNumberText(pendingBuffBarScale);
-    if (key == "actionbarscale")  return settingNumberText(pendingActionBarScale);
-    if (key == "autosellgrey")    return pendingAutoSellGrey ? "1" : "0";
-    if (key == "autorepair")      return pendingAutoRepair ? "1" : "0";
-    if (key == "woweemusic")      return pendingUseOriginalSoundtrack ? "1" : "0";
-    if (key == "characterspeech") return pendingCharacterSpeech ? "1" : "0";
-    return {};
+std::string SettingsPanel::settingValue(const std::string& key) const {
+    // The graphics preset is an enum class rather than one of the three field
+    // types, and it is the only setting whose value is derived: touching any of
+    // the settings it covers moves it to Custom, so what it reads is whatever
+    // the others currently amount to.
+    if (key == "graphicspreset") {
+        return settingNumberText(static_cast<int>(pendingGraphicsPreset));
+    }
+    const FieldBinding* b = findFieldBinding(key);
+    if (!b) return {};
+    if (b->asBool)  return this->*(b->asBool) ? "1" : "0";
+    if (b->asInt) {
+        const int v = this->*(b->asInt);
+        return settingNumberText(b->fraction ? v / 100.0 : static_cast<double>(v));
+    }
+    const float v = this->*(b->asFloat);
+    return settingNumberText(b->fraction ? v / 100.0f : v);
 }
 
 bool SettingsPanel::setSettingValue(const std::string& key, const std::string& value) {
     const double v = std::atof(value.c_str());
     const bool on = settingIsOn(value);
 
-    if (key == "viewdistance")         pendingViewDistance = static_cast<float>(v);
-    else if (key == "mousespeed")      pendingMouseSensitivity = static_cast<float>(v);
-    else if (key == "minimapclock")    pendingShowMinimapClock = on;
-    else if (key == "friendlyplates")  showFriendlyNameplates_ = on;
-    else if (key == "groundclutter")   pendingGroundClutterDensity = static_cast<int>(v * 100.0 + 0.5);
-    else if (key == "effectsvolume")   pendingEffectsVolume = static_cast<int>(v * 100.0 + 0.5);
-    else if (key == "waterrefraction") pendingWaterRefraction = on;
-    else if (key == "shadows")         pendingShadows = on;
-    else if (key == "shadowdistance")  pendingShadowDistance = static_cast<float>(v);
-    else if (key == "fov")             pendingFov = static_cast<float>(v);
-    else if (key == "extendedzoom")    pendingExtendedZoom = on;
-    else if (key == "camerastiffness") pendingCameraStiffness = static_cast<float>(v);
-    else if (key == "pivotheight")     pendingPivotHeight = static_cast<float>(v);
-    else if (key == "smoothfollow")    pendingSmoothCameraFollow = on;
-    else if (key == "idleorbit")       pendingIdleCameraOrbit = on;
-    else if (key == "uiopacity")       pendingUiOpacity = static_cast<int>(v + 0.5);
-    else if (key == "minimapsquare")   pendingMinimapSquare = on;
-    else if (key == "minimapnpcdots")  pendingMinimapNpcDots = on;
-    else if (key == "minimapcoords")   pendingShowMinimapCoordinates = on;
-    else if (key == "latencymeter")    pendingShowLatencyMeter = on;
-    else if (key == "separatebags")    pendingSeparateBags = on;
-    else if (key == "showkeyring")     pendingShowKeyring = on;
-    else if (key == "bagscale")        pendingBagScale = static_cast<float>(v);
-    else if (key == "buffbarscale")    pendingBuffBarScale = static_cast<float>(v);
-    else if (key == "actionbarscale")  pendingActionBarScale = static_cast<float>(v);
-    else if (key == "autosellgrey")    pendingAutoSellGrey = on;
-    else if (key == "autorepair")      pendingAutoRepair = on;
-    else if (key == "woweemusic")      pendingUseOriginalSoundtrack = on;
-    else if (key == "characterspeech") pendingCharacterSpeech = on;
-    else return false;
+    if (key == "graphicspreset") {
+        const int idx = std::clamp(static_cast<int>(v + 0.5), 0, 4);
+        pendingGraphicsPreset = static_cast<GraphicsPreset>(idx);
+        applySettingSideEffects(key);
+        return true;
+    }
+    const FieldBinding* b = findFieldBinding(key);
+    if (!b) return false;
+    if (b->asBool) {
+        this->*(b->asBool) = on;
+    } else if (b->asInt) {
+        this->*(b->asInt) = static_cast<int>((b->fraction ? v * 100.0 : v) + 0.5);
+    } else {
+        this->*(b->asFloat) = static_cast<float>(b->fraction ? v * 100.0 : v);
+    }
     applySettingSideEffects(key);
     return true;
 }

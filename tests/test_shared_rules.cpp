@@ -10,6 +10,10 @@
 // actually wrong in one of the copies.
 #include <catch_amalgamated.hpp>
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
 #include "core/character_paths.hpp"
 #include "game/item_text.hpp"
 #include "pipeline/item_textures.hpp"
@@ -41,6 +45,79 @@ TEST_CASE("a setting's value is written the way a CVar carries one", "[settings]
         CHECK(ui::settingIsOn("0.5"));
         CHECK_FALSE(ui::settingIsOn("0"));
         CHECK_FALSE(ui::settingIsOn(""));
+    }
+}
+
+TEST_CASE("the settings schema is something a panel can be built from", "[settings]") {
+    // The options panels are generated from this list rather than written out,
+    // which means the list has to hold up on its own: a key that appears twice
+    // is two controls writing one value and two frames fighting over one name,
+    // and a dropdown whose choices do not line up with its range is a control
+    // that either cannot reach a value or offers one the client will not take.
+    std::size_t count = 0;
+    const auto* schema = ui::clientSettingsSchema(count);
+    REQUIRE(count > 0);
+
+    std::vector<std::string> keys;
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto& d = schema[i];
+        INFO("setting " << d.key);
+        CHECK(std::string(d.key) != "");
+        CHECK(std::string(d.label) != "");
+        CHECK(std::string(d.category) != "");
+        keys.push_back(d.key);
+
+        if (d.kind == ui::SettingKind::Enum) {
+            // The value is the chosen index, so the choices have to cover the
+            // range exactly — one label per value from min to max.
+            const std::string choices = d.choices;
+            CHECK(choices != "");
+            const auto labels =
+                std::count(choices.begin(), choices.end(), '|') + 1;
+            CHECK(labels == static_cast<long>(d.maxValue - d.minValue) + 1);
+        } else if (d.kind != ui::SettingKind::Bool) {
+            // SetValueStep(0) is a slider that cannot be moved, and an empty
+            // range is one whose two ends are the same place.
+            CHECK(d.maxValue > d.minValue);
+            CHECK(d.step > 0.0f);
+        }
+    }
+
+    SECTION("no key is claimed twice") {
+        auto sorted = keys;
+        std::sort(sorted.begin(), sorted.end());
+        CHECK(std::adjacent_find(sorted.begin(), sorted.end()) == sorted.end());
+    }
+
+    SECTION("a category's settings are together, and so are a section's") {
+        // The panels are built by walking this list once: a category is a
+        // panel and a section is a heading on it, so a row that turns up again
+        // after the list has moved on gets a second heading with the same name
+        // — or, for a category, is silently added to a panel that has already
+        // been laid out.
+        std::vector<std::string> seenCategories;
+        std::vector<std::string> seenSections;
+        std::string category, section;
+        for (std::size_t i = 0; i < count; ++i) {
+            const std::string thisCategory = schema[i].category;
+            if (thisCategory != category) {
+                INFO("category " << thisCategory << " is split");
+                CHECK(std::find(seenCategories.begin(), seenCategories.end(),
+                                thisCategory) == seenCategories.end());
+                seenCategories.push_back(thisCategory);
+                category = thisCategory;
+                seenSections.clear();
+                section.clear();
+            }
+            const std::string thisSection = schema[i].section;
+            if (!thisSection.empty() && thisSection != section) {
+                INFO("section " << thisSection << " in " << category << " is split");
+                CHECK(std::find(seenSections.begin(), seenSections.end(),
+                                thisSection) == seenSections.end());
+                seenSections.push_back(thisSection);
+                section = thisSection;
+            }
+        }
     }
 }
 

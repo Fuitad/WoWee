@@ -3735,12 +3735,16 @@ static int lua_WoweeSettingList(lua_State* L) {
         lua_pushstring(L, d.label);    lua_setfield(L, -2, "label");
         lua_pushstring(L, d.kind == ui::SettingKind::Bool  ? "bool"
                         : d.kind == ui::SettingKind::Int   ? "int"
+                        : d.kind == ui::SettingKind::Enum  ? "enum"
                                                            : "float");
         lua_setfield(L, -2, "kind");
         lua_pushnumber(L, d.minValue); lua_setfield(L, -2, "min");
         lua_pushnumber(L, d.maxValue); lua_setfield(L, -2, "max");
         lua_pushnumber(L, d.step);     lua_setfield(L, -2, "step");
         lua_pushstring(L, d.category); lua_setfield(L, -2, "category");
+        lua_pushstring(L, d.section);  lua_setfield(L, -2, "section");
+        lua_pushstring(L, d.tooltip);  lua_setfield(L, -2, "tooltip");
+        lua_pushstring(L, d.choices);  lua_setfield(L, -2, "choices");
         lua_rawseti(L, -2, static_cast<int>(i) + 1);
     }
     return 1;

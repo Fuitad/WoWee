@@ -434,83 +434,316 @@ std::string AddonManager::getSavedVariablesPerCharacterPath(const TocFile& addon
     return addon.basePath + "/" + addon.addonName + "." + characterName_ + ".lua.saved";
 }
 
-// The client's settings, as a panel in FrameXML's Interface Options.
+// The client's settings, as panels in FrameXML's Interface Options.
 //
 // Built from WoweeSettingList() rather than written out here, so a setting
 // added to the schema appears without anyone editing Lua. Only the settings
-// with no Blizzard control of their own are in that list — the rest are bound
-// to the CVar their own Blizzard control already drives.
+// with no Blizzard control of their own are in that list — the six that are
+// bound to the CVar their own Blizzard control already drives are named on the
+// root panel instead, so a player looking for one is told where it is.
+//
+// The layout is the game's own: a root category with a child per subject, each
+// laid out in sections, in two columns, with the game's fonts and its check
+// buttons, sliders and dropdowns. It is not Blizzard's Interface Options panel
+// reproduced — this client has settings that one never had — but it reads the
+// same way round.
 void AddonManager::registerWoweeOptionsPanel() {
     static const char* kPanelScript = R"LUA(
 local list = WoweeSettingList and WoweeSettingList()
 if not list or #list == 0 then return end
 
--- One panel per category, in the order the schema first mentions each.
-local order, byCategory = {}, {}
-for _, s in ipairs(list) do
-    if not byCategory[s.category] then
-        byCategory[s.category] = {}
-        table.insert(order, s.category)
-    end
-    table.insert(byCategory[s.category], s)
+local ROOT = "WoWee"
+
+-- The panel container is 623 wide and a little under 500 tall, so two columns
+-- of roughly 300 fit side by side with room for a slider's own labels. A
+-- category that outgrows both columns is a category that wants splitting;
+-- rather than clip it, the layout keeps going down the second column and the
+-- overflow is visible, which is the version of this failure someone notices.
+local COLUMN_X      = {16, 326}
+local COLUMN_TOP    = -52
+local COLUMN_BOTTOM = -436
+local COLUMN_WIDTH  = 290
+
+-- Frame names are looked up in _G, so a category's name has to survive being
+-- part of one. "Combat & HUD" would not.
+local function slug(text)
+    return (tostring(text):gsub("[^%a%d]", ""))
 end
 
-for _, category in ipairs(order) do
-    local panel = CreateFrame("Frame", "WoweeOptions"..category)
-    panel.name = (category == order[1]) and "WoWee" or category
-    if category ~= order[1] then panel.parent = "WoWee" end
+-- A number as a person reads it: no trailing zeros, and no lone point.
+local function num(v)
+    if v == math.floor(v) then return tostring(math.floor(v)) end
+    return (string.format("%.2f", v):gsub("0+$", ""):gsub("%.$", ""))
+end
+
+-- The game's own hover text, one line per line of the schema's tooltip.
+local function withTooltip(widget, title, tip)
+    if not tip or tip == "" then return end
+    widget:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(title, 1, 1, 1)
+        for line in tostring(tip):gmatch("[^\n]+") do
+            GameTooltip:AddLine(line, nil, nil, nil, true)
+        end
+        GameTooltip:Show()
+    end)
+    widget:SetScript("OnLeave", function() GameTooltip:Hide() end)
+end
+
+-- Where the next control goes, and when to start the second column.
+local function newLayout(panel)
+    return {panel = panel, column = 1, y = COLUMN_TOP}
+end
+
+local function reserve(layout, height)
+    if layout.y - height < COLUMN_BOTTOM and layout.column == 1 then
+        layout.column = 2
+        layout.y = COLUMN_TOP
+    end
+    local x, y = COLUMN_X[layout.column], layout.y
+    layout.y = layout.y - height
+    return x, y
+end
+
+local function addHeading(layout, text)
+    local x, y = reserve(layout, 32)
+    local label = layout.panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    label:SetPoint("TOPLEFT", x, y - 4)
+    label:SetText(text)
+    local rule = layout.panel:CreateTexture(nil, "ARTWORK")
+    rule:SetTexture("Interface\\Buttons\\WHITE8X8")
+    rule:SetVertexColor(0.5, 0.42, 0.22, 0.7)
+    rule:SetWidth(COLUMN_WIDTH)
+    rule:SetHeight(1)
+    rule:SetPoint("TOPLEFT", x, y - 22)
+end
+
+-- The three controls. Each answers a read function and a write function, so
+-- one refresh walks all of them without caring which kind it is holding.
+
+local function addCheckButton(layout, panel, setting)
+    local x, y = reserve(layout, 27)
+    local name = panel:GetName() .. setting.key
+    local button = CreateFrame("CheckButton", name, panel,
+                               "InterfaceOptionsCheckButtonTemplate")
+    button:SetPoint("TOPLEFT", x, y)
+    _G[name .. "Text"]:SetText(setting.label)
+    button:SetScript("OnClick", function(self)
+        WoweeSetSetting(setting.key, self:GetChecked() and "1" or "0")
+    end)
+    withTooltip(button, setting.label, setting.tooltip)
+    return {
+        read  = function() button:SetChecked(WoweeGetSetting(setting.key) == "1") end,
+        write = function(value) WoweeSetSetting(setting.key, value) end,
+    }
+end
+
+local function addSlider(layout, panel, setting)
+    local x, y = reserve(layout, 50)
+    local name = panel:GetName() .. setting.key
+    local slider = CreateFrame("Slider", name, panel, "OptionsSliderTemplate")
+    slider:SetPoint("TOPLEFT", x + 4, y - 14)
+    slider:SetWidth(COLUMN_WIDTH - 20)
+    slider:SetMinMaxValues(setting.min, setting.max)
+    slider:SetValueStep(setting.step)
+    _G[name .. "Low"]:SetText(num(setting.min))
+    _G[name .. "High"]:SetText(num(setting.max))
+
+    -- The value belongs beside the name rather than under the thumb: the
+    -- template has nowhere to put a moving label, and a slider whose number is
+    -- only in a tooltip is a slider nobody can set to a particular value.
+    local function showValue(value)
+        _G[name .. "Text"]:SetText(setting.label .. ":  " .. num(value))
+    end
+    slider:SetScript("OnValueChanged", function(self, value)
+        showValue(value)
+        WoweeSetSetting(setting.key, tostring(value))
+    end)
+    withTooltip(slider, setting.label, setting.tooltip)
+    return {
+        read = function()
+            local value = tonumber(WoweeGetSetting(setting.key)) or setting.min
+            slider:SetValue(value)
+            showValue(value)
+        end,
+        write = function(value) WoweeSetSetting(setting.key, value) end,
+    }
+end
+
+local function addDropdown(layout, panel, setting, onChanged)
+    local x, y = reserve(layout, 50)
+    local name = panel:GetName() .. setting.key
+
+    local label = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+    label:SetPoint("TOPLEFT", x + 2, y - 2)
+    label:SetText(setting.label)
+
+    local choices = {}
+    for choice in tostring(setting.choices or ""):gmatch("[^|]+") do
+        table.insert(choices, choice)
+    end
+
+    -- The dropdown template carries about sixteen units of its own inset on the
+    -- left, so it is anchored back by that much to line its box up with the
+    -- checkboxes above it.
+    local dropdown = CreateFrame("Frame", name, panel, "UIDropDownMenuTemplate")
+    dropdown:SetPoint("TOPLEFT", x - 14, y - 16)
+    UIDropDownMenu_SetWidth(dropdown, COLUMN_WIDTH - 60)
+
+    local function selected()
+        return math.floor(tonumber(WoweeGetSetting(setting.key)) or 0) + 1
+    end
+    UIDropDownMenu_Initialize(dropdown, function(self, level)
+        for index, choice in ipairs(choices) do
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = choice
+            info.value = index
+            info.checked = (index == selected())
+            info.func = function(button)
+                WoweeSetSetting(setting.key, tostring(button.value - 1))
+                UIDropDownMenu_SetText(dropdown, choices[button.value])
+                CloseDropDownMenus()
+                -- A dropdown can change other settings — the quality preset
+                -- sets nine of them — so the rest of the panel is re-read.
+                -- Only dropdowns do this: a slider would do it on every frame
+                -- of a drag.
+                if onChanged then onChanged(setting.key) end
+            end
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end)
+    withTooltip(dropdown, setting.label, setting.tooltip)
+    return {
+        read = function()
+            UIDropDownMenu_SetText(dropdown, choices[selected()] or "")
+        end,
+        write = function(value) WoweeSetSetting(setting.key, value) end,
+    }
+end
+
+-- One panel per category, in the order the schema first mentions each.
+local order, byCategory = {}, {}
+for _, setting in ipairs(list) do
+    if not byCategory[setting.category] then
+        byCategory[setting.category] = {}
+        table.insert(order, setting.category)
+    end
+    table.insert(byCategory[setting.category], setting)
+end
+
+local function buildPanel(category, settings)
+    local panel = CreateFrame("Frame", "WoweeOptions" .. slug(category))
+    panel.name = category
+    panel.parent = ROOT
 
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
-    title:SetText("WoWee - "..category)
+    title:SetText(ROOT .. " — " .. category)
 
-    local y = -48
-    for _, s in ipairs(byCategory[category]) do
-        if s.kind == "bool" then
-            local cb = CreateFrame("CheckButton", "$parent"..s.key, panel,
-                                   "InterfaceOptionsCheckButtonTemplate")
-            cb:SetPoint("TOPLEFT", 16, y)
-            _G[cb:GetName().."Text"]:SetText(s.label)
-            cb:SetChecked(WoweeGetSetting(s.key) == "1")
-            cb:SetScript("OnClick", function(self)
-                WoweeSetSetting(s.key, self:GetChecked() and "1" or "0")
-            end)
-            y = y - 28
+    local layout = newLayout(panel)
+    local controls = {}
+    local heading = nil
+    -- Declared before the controls because a dropdown's handler calls it, and
+    -- the controls are what it walks.
+    local function rereadOthers(changedKey)
+        for _, control in ipairs(controls) do
+            if control.key ~= changedKey then control.read() end
+        end
+    end
+    for _, setting in ipairs(settings) do
+        if setting.section ~= "" and setting.section ~= heading then
+            heading = setting.section
+            addHeading(layout, heading)
+        end
+        local control
+        if setting.kind == "bool" then
+            control = addCheckButton(layout, panel, setting)
+        elseif setting.kind == "enum" then
+            control = addDropdown(layout, panel, setting, rereadOthers)
         else
-            local sl = CreateFrame("Slider", "$parent"..s.key, panel,
-                                   "OptionsSliderTemplate")
-            sl:SetPoint("TOPLEFT", 20, y - 12)
-            sl:SetMinMaxValues(s.min, s.max)
-            sl:SetValueStep(s.step)
-            sl:SetWidth(240)
-            _G[sl:GetName().."Text"]:SetText(s.label)
-            _G[sl:GetName().."Low"]:SetText(tostring(s.min))
-            _G[sl:GetName().."High"]:SetText(tostring(s.max))
-            sl:SetValue(tonumber(WoweeGetSetting(s.key)) or s.min)
-            sl:SetScript("OnValueChanged", function(self, value)
-                WoweeSetSetting(s.key, tostring(value))
-            end)
-            y = y - 52
+            control = addSlider(layout, panel, setting)
         end
+        control.key = setting.key
+        table.insert(controls, control)
     end
 
-    -- The four the options system calls on this panel. Everything is applied
-    -- as it is changed, so okay and cancel have nothing left to do; refresh
-    -- matters because the settings window can change the same values.
-    panel.okay = function() end
-    panel.cancel = function() end
-    panel.default = function() end
+    -- Everything applies as it is changed, so Okay has nothing left to do.
+    -- Cancel does: it puts back what was there when the panel was last shown,
+    -- which is what the button promises and what the old version of this panel
+    -- quietly did not honour.
+    local opened = {}
     panel.refresh = function()
-        for _, s in ipairs(byCategory[category]) do
-            local w = _G["WoweeOptions"..category..s.key]
-            if w then
-                if s.kind == "bool" then w:SetChecked(WoweeGetSetting(s.key) == "1")
-                else w:SetValue(tonumber(WoweeGetSetting(s.key)) or s.min) end
-            end
+        for _, control in ipairs(controls) do
+            opened[control.key] = WoweeGetSetting(control.key)
+            control.read()
         end
     end
+    panel.okay = function()
+        for _, control in ipairs(controls) do
+            opened[control.key] = WoweeGetSetting(control.key)
+        end
+    end
+    panel.cancel = function()
+        for _, control in ipairs(controls) do
+            if opened[control.key] then control.write(opened[control.key]) end
+        end
+        panel.refresh()
+    end
+    panel.default = function() end
 
     InterfaceOptions_AddCategory(panel, true)
+end
+
+-- The root. It holds no controls of its own: what it is for is to say what
+-- this client's own settings are, and where the six that are not here live.
+local root = CreateFrame("Frame", "WoweeOptionsRoot")
+root.name = ROOT
+
+local rootTitle = root:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+rootTitle:SetPoint("TOPLEFT", 16, -16)
+rootTitle:SetText(ROOT)
+
+local blurb = root:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+blurb:SetPoint("TOPLEFT", 16, -48)
+blurb:SetWidth(560)
+blurb:SetJustifyH("LEFT")
+blurb:SetJustifyV("TOP")
+blurb:SetText("This client's own settings, under the headings below. "
+    .. "Everything takes effect as you change it; Cancel puts back what was "
+    .. "there when you opened the panel.")
+
+local elsewhere = root:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+elsewhere:SetPoint("TOPLEFT", 16, -110)
+elsewhere:SetText("In the game's own panels")
+
+local elsewhereRule = root:CreateTexture(nil, "ARTWORK")
+elsewhereRule:SetTexture("Interface\\Buttons\\WHITE8X8")
+elsewhereRule:SetVertexColor(0.5, 0.42, 0.22, 0.7)
+elsewhereRule:SetWidth(560)
+elsewhereRule:SetHeight(1)
+elsewhereRule:SetPoint("TOPLEFT", 16, -128)
+
+local elsewhereText = root:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+elsewhereText:SetPoint("TOPLEFT", 16, -138)
+elsewhereText:SetWidth(560)
+elsewhereText:SetJustifyH("LEFT")
+elsewhereText:SetJustifyV("TOP")
+elsewhereText:SetText(
+    "Six settings are driven by the game's own controls rather than repeated "
+    .. "here, so that the two cannot disagree:\n\n"
+    .. "|cffffd100Video|r  —  view distance, ground clutter density\n"
+    .. "|cffffd100Sound|r  —  master, music, ambience, sound effects\n"
+    .. "|cffffd100Interface|r  —  mouse look speed, the minimap clock, "
+    .. "friendly nameplates")
+
+root.okay = function() end
+root.cancel = function() end
+root.default = function() end
+root.refresh = function() end
+InterfaceOptions_AddCategory(root, true)
+
+for _, category in ipairs(order) do
+    buildPanel(category, byCategory[category])
 end
 )LUA";
     if (!luaEngine_.executeString(kPanelScript)) {

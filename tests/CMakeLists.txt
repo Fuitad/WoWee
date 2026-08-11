@@ -102,6 +102,7 @@ register_test_target(test_cli_catalog_paths)
 # where bytes come from.
 add_executable(test_shared_rules test_shared_rules.cpp
     ${CMAKE_SOURCE_DIR}/src/pipeline/m2_loader.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/settings_schema.cpp
     ${TEST_COMMON_SOURCES})
 target_include_directories(test_shared_rules PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_shared_rules SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
