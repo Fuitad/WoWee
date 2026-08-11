@@ -41,12 +41,36 @@
 #include <mach/mach.h>
 #include <mach/thread_policy.h>
 #include <pthread.h>
+
 #endif
 
 namespace wowee {
 namespace rendering {
 
 namespace {
+/// The euler triple a placement's three degrees become, in render axes.
+///
+/// MDDF and MODF store the rotation identically and both paths build this the
+/// same way; what has never agreed is how it is then composed, and the yaw
+/// offset here is the part nobody has varied. It is 180 because that is what
+/// was written; a reference client's own bridges are the only thing that can
+/// say whether it should be -90.
+///
+/// WOWEE_ADT_ROT_YAW overrides it in degrees, so the question can be answered
+/// in one session instead of one rebuild per attempt. Pair it with
+/// WOWEE_M2_ROT_ORDER, which chooses the composition.
+glm::vec3 placementEuler(const float rotation[3]) {
+    static const float kYawOffset = [] {
+        const char* raw = std::getenv("WOWEE_ADT_ROT_YAW");
+        if (!raw || !*raw) return 180.0f;
+        try { return std::stof(raw); } catch (...) { return 180.0f; }
+    }();
+    constexpr float kDeg = 3.14159265358979323846f / 180.0f;
+    return glm::vec3(-rotation[2] * kDeg,
+                     -rotation[0] * kDeg,
+                     (rotation[1] + kYawOffset) * kDeg);
+}
+
 
 // Alpha map format constants
 constexpr size_t  ALPHA_MAP_SIZE    = 4096;  // 64×64 uncompressed alpha bytes
@@ -686,11 +710,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
         p.modelId = modelId;
         p.uniqueId = placement.uniqueId;
         p.position = glPos;
-        p.rotation = glm::vec3(
-            -placement.rotation[2] * kDegToRad,
-            -placement.rotation[0] * kDegToRad,
-            (placement.rotation[1] + 180.0f) * kDegToRad
-        );
+        p.rotation = placementEuler(placement.rotation);
         p.scale = placement.scale * kInv1024;
         pending->m2Placements.push_back(p);
     }
@@ -784,11 +804,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
                                                        placement.position[1],
                                                        placement.position[2]);
 
-                glm::vec3 rot(
-                    -placement.rotation[2] * kDegToRad,
-                    -placement.rotation[0] * kDegToRad,
-                    (placement.rotation[1] + 180.0f) * kDegToRad
-                );
+                glm::vec3 rot = placementEuler(placement.rotation);
 
                 // Pre-load WMO doodads (M2 models inside WMO)
                 if (!workerRunning.load()) return nullptr;
