@@ -343,8 +343,6 @@ public:
     void setChatBubbleCallback(ChatBubbleCallback cb) { chatBubbleCallback_ = std::move(cb); }
 
     // Addon chat event callback: fires when any chat message is received (for Lua event dispatch)
-    using AddonChatCallback = std::function<void(const MessageChatData&)>;
-    void setAddonChatCallback(AddonChatCallback cb) { addonChatCallback_ = std::move(cb); }
 
     // Generic addon event callback: fires named events with string args
     using AddonEventCallback = std::function<void(const std::string&, const std::vector<std::string>&)>;
@@ -3568,7 +3566,6 @@ public:
 
     // ── UI & Event Callbacks ─────────────────────────────────────────
     auto& achievementEarnedCallbackRef() { return achievementEarnedCallback_; }
-    auto& addonChatCallbackRef() { return addonChatCallback_; }
     auto& addonEventCallbackRef() { return addonEventCallback_; }
     auto& appearanceChangedCallbackRef() { return appearanceChangedCallback_; }
     auto& playerModelRebuildCallbackRef() { return playerModelRebuildCallback_; }
@@ -4060,7 +4057,6 @@ private:
 
     // Chat (state lives in ChatHandler; callbacks remain here for cross-domain access)
     ChatBubbleCallback chatBubbleCallback_;
-    AddonChatCallback addonChatCallback_;
     AddonEventCallback addonEventCallback_;
     InterfaceCommand   interfaceCommand_;
     InterfaceQuery     interfaceQuery_;

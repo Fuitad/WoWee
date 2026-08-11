@@ -687,7 +687,6 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
     LOG_DEBUG("[", getChatTypeString(data.type), "] ", channelInfo, senderInfo, ": ", data.message);
 
     // Fire CHAT_MSG_* addon events
-    if (owner_.addonChatCallbackRef()) owner_.addonChatCallbackRef()(data);
     if (owner_.addonEventCallbackRef()) {
         std::string eventName = "CHAT_MSG_";
         eventName += getChatTypeString(data.type);
@@ -1036,7 +1035,6 @@ void ChatHandler::addLocalChatMessage(const MessageChatData& msg) {
         chatHistory_.pop_front();
     }
     logChatMessage(msg, "local");
-    if (owner_.addonChatCallbackRef()) owner_.addonChatCallbackRef()(msg);
 
     fireChatEvent(msg);
 }
@@ -1061,10 +1059,17 @@ void ChatHandler::fireChatEvent(const MessageChatData& msg) {
             LOG_WARNING("Chat: fired ", eventName, " to the interface (local)");
         }
     }
+    // The channel's index, which the chat frame builds "CHANNEL"..arg8 out of
+    // and looks up in ChatTypeInfo — a zero there is CHANNEL0, which no table
+    // has, and the line is dropped before it reaches the window. This is the
+    // one thing the callback that used to announce these as well did better,
+    // and it is here now so nothing was lost when that went.
+    const int channelIndex = getChannelIndex(msg.channelName);
     owner_.addonEventCallbackRef()(eventName, {
         msg.message, senderName,
         owner_.getLanguageName(static_cast<uint32_t>(msg.language)),
-        msg.channelName, senderName, "", "0", "0", "", "0", "0", guidBuf
+        msg.channelName, senderName, "", "0", std::to_string(channelIndex),
+        msg.channelName, "0", "0", guidBuf
     });
 }
 

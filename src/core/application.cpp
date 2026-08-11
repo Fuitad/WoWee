@@ -744,82 +744,23 @@ bool Application::initialize() {
             addonManager_->getLuaEngine()->setOpenSettingsCallback([this] {
                 if (auto* uim = uiManager.get()) uim->getGameScreen().openSettings();
             });
-            // Wire chat messages to addon event dispatch
-            gameHandler->setAddonChatCallback([this, gh = gameHandler.get()](const game::MessageChatData& msg) {
-                if (!addonManager_ || !addonsLoaded_) return;
-                // Map ChatType to WoW event name
-                const char* eventName = nullptr;
-                switch (msg.type) {
-                    case game::ChatType::SAY:          eventName = "CHAT_MSG_SAY"; break;
-                    case game::ChatType::YELL:         eventName = "CHAT_MSG_YELL"; break;
-                    case game::ChatType::WHISPER:       eventName = "CHAT_MSG_WHISPER"; break;
-                    case game::ChatType::PARTY:         eventName = "CHAT_MSG_PARTY"; break;
-                    case game::ChatType::GUILD:         eventName = "CHAT_MSG_GUILD"; break;
-                    case game::ChatType::OFFICER:       eventName = "CHAT_MSG_OFFICER"; break;
-                    case game::ChatType::RAID:          eventName = "CHAT_MSG_RAID"; break;
-                    case game::ChatType::RAID_WARNING:  eventName = "CHAT_MSG_RAID_WARNING"; break;
-                    case game::ChatType::BATTLEGROUND:  eventName = "CHAT_MSG_BATTLEGROUND"; break;
-                    case game::ChatType::SYSTEM:        eventName = "CHAT_MSG_SYSTEM"; break;
-                    case game::ChatType::CHANNEL:       eventName = "CHAT_MSG_CHANNEL"; break;
-                    case game::ChatType::EMOTE:
-                    case game::ChatType::TEXT_EMOTE:    eventName = "CHAT_MSG_EMOTE"; break;
-                    case game::ChatType::ACHIEVEMENT:   eventName = "CHAT_MSG_ACHIEVEMENT"; break;
-                    case game::ChatType::GUILD_ACHIEVEMENT: eventName = "CHAT_MSG_GUILD_ACHIEVEMENT"; break;
-                    case game::ChatType::WHISPER_INFORM: eventName = "CHAT_MSG_WHISPER_INFORM"; break;
-                    case game::ChatType::RAID_LEADER:   eventName = "CHAT_MSG_RAID_LEADER"; break;
-                    case game::ChatType::BATTLEGROUND_LEADER: eventName = "CHAT_MSG_BATTLEGROUND_LEADER"; break;
-                    case game::ChatType::MONSTER_SAY:    eventName = "CHAT_MSG_MONSTER_SAY"; break;
-                    case game::ChatType::MONSTER_YELL:   eventName = "CHAT_MSG_MONSTER_YELL"; break;
-                    case game::ChatType::MONSTER_EMOTE:  eventName = "CHAT_MSG_MONSTER_EMOTE"; break;
-                    case game::ChatType::MONSTER_WHISPER: eventName = "CHAT_MSG_MONSTER_WHISPER"; break;
-                    case game::ChatType::RAID_BOSS_EMOTE: eventName = "CHAT_MSG_RAID_BOSS_EMOTE"; break;
-                    case game::ChatType::RAID_BOSS_WHISPER: eventName = "CHAT_MSG_RAID_BOSS_WHISPER"; break;
-                    case game::ChatType::BG_SYSTEM_NEUTRAL:  eventName = "CHAT_MSG_BG_SYSTEM_NEUTRAL"; break;
-                    case game::ChatType::BG_SYSTEM_ALLIANCE: eventName = "CHAT_MSG_BG_SYSTEM_ALLIANCE"; break;
-                    case game::ChatType::BG_SYSTEM_HORDE:    eventName = "CHAT_MSG_BG_SYSTEM_HORDE"; break;
-                    case game::ChatType::MONSTER_PARTY:  eventName = "CHAT_MSG_MONSTER_PARTY"; break;
-                    case game::ChatType::AFK:            eventName = "CHAT_MSG_AFK"; break;
-                    case game::ChatType::DND:            eventName = "CHAT_MSG_DND"; break;
-                    case game::ChatType::LOOT:           eventName = "CHAT_MSG_LOOT"; break;
-                    case game::ChatType::SKILL:          eventName = "CHAT_MSG_SKILL"; break;
-                    default: break;
-                }
-                if (eventName) {
-                    if (msg.type == game::ChatType::CHANNEL) {
-                        // CHAT_MSG_CHANNEL is read positionally by the chat frame,
-                        // and firing only message+sender left arg8 — the channel
-                        // index — nil, so GetColoredName's "CHANNEL"..arg8 raised
-                        // and every channel line tore its handler down. The frame
-                        // also reads arg4 (name, for its length), arg7 (zone id),
-                        // arg9 (base name, matched against the joined list), and
-                        // compares arg10 and concatenates arg11 — so the numeric
-                        // slots must arrive as numbers (pushEventArg coerces a
-                        // canonical "0") and cannot be left nil, or the fix would
-                        // trade one raise for another. arg12 is the guid; "" skips
-                        // the class-colour lookup cleanly rather than passing nil.
-                        // The index is a lookup by name in the channels the client
-                        // already tracks as joined.
-                        const int idx = (gh && gh->getChatHandler())
-                            ? gh->getChatHandler()->getChannelIndex(msg.channelName) : 0;
-                        addonManager_->fireEvent(eventName, {
-                            msg.message,                 // arg1 message
-                            msg.senderName,              // arg2 author
-                            "",                          // arg3 language
-                            msg.channelName,             // arg4 channel name
-                            "",                          // arg5 target
-                            "",                          // arg6 flags
-                            "0",                         // arg7 zone id (→ 0; name match covers it)
-                            std::to_string(idx),         // arg8 channel index
-                            msg.channelName,             // arg9 base name
-                            "0",                         // arg10 repeat counter (→ 0)
-                            "0",                         // arg11 line id (→ 0)
-                            ""                           // arg12 guid (→ skip class colour)
-                        });
-                    } else {
-                        addonManager_->fireEvent(eventName, {msg.message, msg.senderName});
-                    }
-                }
-            });
+            // No second announcement of a chat message.
+            //
+            // This registered a callback that fired CHAT_MSG_* itself, off its
+            // own hand-written table of chat types, with two arguments —
+            // message and sender. The chat handler already announces every
+            // message with the twelve the interface reads, so each line went out
+            // twice: once complete, and once so short that
+            // ChatFrame_MessageEventHandler raised on strlen(arg4) before it
+            // drew anything. That raise is the one that filled the log.
+            //
+            // The table was the other half of it: fifty chat types have names
+            // and this knew thirty-two, so the eighteen it had never heard of —
+            // money, experience, honour, reputation, the channel notices —
+            // produced no event here at all.
+            //
+            // What it did better, the channel's index, moved into the handler's
+            // own firing.
             // Wire generic game events to addon dispatch
             gameHandler->setAddonEventCallback([this](const std::string& event, const std::vector<std::string>& args) {
                 if (addonManager_ && addonsLoaded_) {
