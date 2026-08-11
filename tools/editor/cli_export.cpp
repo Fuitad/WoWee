@@ -218,17 +218,8 @@ int handleExportZoneSummaryMd(int& i, int argc, char** argv) {
         md << "*No quests.*\n";
     } else {
         using OT = wowee::editor::QuestObjectiveType;
-        auto typeName = [](OT t) {
-            switch (t) {
-                case OT::KillCreature: return "kill";
-                case OT::CollectItem:  return "collect";
-                case OT::TalkToNPC:    return "talk";
-                case OT::ExploreArea:  return "explore";
-                case OT::EscortNPC:    return "escort";
-                case OT::UseObject:    return "use";
-            }
-            return "?";
-        };
+        // The word is the format's, from beside the enum.
+        auto typeName = wowee::editor::questObjectiveTypeName;
         for (size_t k = 0; k < qe.questCount(); ++k) {
             const auto& q = qe.getQuests()[k];
             md << "### " << k << ". " << q.title << "\n\n";
@@ -359,17 +350,8 @@ int handleExportZoneCsv(int& i, int argc, char** argv) {
              "xp,gold,silver,copper,nextQuestId,objectiveCount,"
              "objectives,itemRewards\n";
         using OT = wowee::editor::QuestObjectiveType;
-        auto typeName = [](OT t) {
-            switch (t) {
-                case OT::KillCreature: return "kill";
-                case OT::CollectItem:  return "collect";
-                case OT::TalkToNPC:    return "talk";
-                case OT::ExploreArea:  return "explore";
-                case OT::EscortNPC:    return "escort";
-                case OT::UseObject:    return "use";
-            }
-            return "?";
-        };
+        // The word is the format's, from beside the enum.
+        auto typeName = wowee::editor::questObjectiveTypeName;
         for (size_t k = 0; k < qe.questCount(); ++k) {
             const auto& q = qe.getQuests()[k];
             std::string objs;

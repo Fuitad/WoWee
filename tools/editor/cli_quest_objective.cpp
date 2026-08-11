@@ -76,17 +76,14 @@ int handleAddQuestObjective(int& i, int argc, char** argv) {
         return 1;
     }
     using OT = wowee::editor::QuestObjectiveType;
+    // The words, the mapping and the list in the refusal all come from beside
+    // the enum. They were three separate spellings of one vocabulary, and the
+    // one in the message is the copy that goes stale first.
     OT type;
-    if      (typeStr == "kill")    type = OT::KillCreature;
-    else if (typeStr == "collect") type = OT::CollectItem;
-    else if (typeStr == "talk")    type = OT::TalkToNPC;
-    else if (typeStr == "explore") type = OT::ExploreArea;
-    else if (typeStr == "escort")  type = OT::EscortNPC;
-    else if (typeStr == "use")     type = OT::UseObject;
-    else {
-        std::fprintf(stderr,
-            "add-quest-objective: type must be kill/collect/talk/explore/escort/use, got '%s'\n",
-            typeStr.c_str());
+    if (!wowee::editor::questObjectiveTypeFromName(typeStr, type)) {
+        std::fprintf(stderr, "add-quest-objective: type must be %s, got '%s'\n",
+                     wowee::editor::questObjectiveTypeNames().c_str(),
+                     typeStr.c_str());
         return 1;
     }
     uint32_t count = 1;
