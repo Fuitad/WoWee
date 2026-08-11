@@ -286,6 +286,17 @@ public:
     bool attachItemFromBag(int bagIndex, int slotIndex);
     bool detachMailAttachment(int attachIndex);
     void clearMailAttachments();
+
+    /// Tell the compose frame its attachments changed.
+    ///
+    /// The letter being written lives entirely on this side; the send frame
+    /// draws its twelve slots, its postage and its Send button from
+    /// GetSendMailItem and redraws them only on MAIL_SEND_INFO_UPDATE. Attaching
+    /// and detaching used to change the list without saying so, and only the
+    /// send — which clears it — announced itself. So an item clicked onto the
+    /// letter went onto it and the slot stayed empty, with the item gone from
+    /// the cursor as well: it read as the attach having been refused.
+    void notifyMailComposeChanged();
     const std::array<MailAttachSlot, 12>& getMailAttachments() const { return mailAttachments_; }
     int getMailAttachmentCount() const;
     void mailTakeMoney(uint32_t mailId);

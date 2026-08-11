@@ -2548,6 +2548,7 @@ bool InventoryHandler::attachItemFromBackpack(int backpackIndex) {
             mailAttachments_[i].srcBag = 0xFF;
             mailAttachments_[i].srcSlot = static_cast<uint8_t>(Inventory::NUM_EQUIP_SLOTS + backpackIndex);
             noteMailAttachRefundable(i);
+            notifyMailComposeChanged();
             return true;
         }
     }
@@ -2573,6 +2574,7 @@ bool InventoryHandler::attachItemFromBag(int bagIndex, int slotIndex) {
             mailAttachments_[i].srcBag = static_cast<uint8_t>(Inventory::FIRST_BAG_EQUIP_SLOT + bagIndex);
             mailAttachments_[i].srcSlot = static_cast<uint8_t>(slotIndex);
             noteMailAttachRefundable(i);
+            notifyMailComposeChanged();
             return true;
         }
     }
@@ -2582,12 +2584,18 @@ bool InventoryHandler::attachItemFromBag(int bagIndex, int slotIndex) {
 bool InventoryHandler::detachMailAttachment(int attachIndex) {
     if (attachIndex < 0 || attachIndex >= MAIL_MAX_ATTACHMENTS) return false;
     mailAttachments_[attachIndex] = MailAttachSlot{};
+    notifyMailComposeChanged();
     return true;
 }
 
 void InventoryHandler::clearMailAttachments() {
     for (auto& a : mailAttachments_) a = MailAttachSlot{};
-    // The send frame recomputes its postage and its Send button from this.
+    notifyMailComposeChanged();
+}
+
+void InventoryHandler::notifyMailComposeChanged() {
+    // The send frame recomputes its slots, its postage and its Send button from
+    // this and from nothing else — there is no poll behind it.
     if (owner_.addonEventCallbackRef()) {
         owner_.addonEventCallbackRef()("MAIL_SEND_INFO_UPDATE", {});
     }
