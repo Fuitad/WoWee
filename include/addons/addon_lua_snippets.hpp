@@ -594,6 +594,46 @@ end
 if InterfaceCategoryList_Update then InterfaceCategoryList_Update() end
 )LUA";
 
+/// Grey out the two Sound sliders that are not settings on this client.
+///
+/// Sound Quality and Sound Channels are real controls in the game's Sound
+/// panel and mean nothing here: miniaudio mixes every voice it is given at the
+/// device's own rate, so there is no channel cap to raise and no quality tier
+/// to pick. Both answer their maximum now (see pushCvarDefault), but a slider
+/// sitting at the top of its range still invites a player to drag it down and
+/// then wonder why nothing changed.
+///
+/// Disabled and greyed, which is the same thing the Refresh dropdown two
+/// panels away does for the same reason — the setting is visible, and visibly
+/// not a choice.
+inline constexpr const char* kAudioFixedSlidersLua = R"LUA(
+-- By name, not by frame: a nil frame used as a table key raises outright,
+-- which would take the whole snippet with it.
+local kFixed = {
+    {"AudioOptionsSoundPanelSoundQuality",
+     "This client mixes at the device's own rate. There is no lower quality to select."},
+    {"AudioOptionsSoundPanelSoundChannels",
+     "This client does not cap the number of voices it mixes."},
+}
+for _, entry in ipairs(kFixed) do
+    local slider, why = _G[entry[1]], entry[2]
+    if slider and slider.GetName then
+        if slider.Disable then slider:Disable() end
+        local label = _G[slider:GetName() .. "Text"]
+        if label and label.SetVertexColor then
+            label:SetVertexColor(GRAY_FONT_COLOR.r, GRAY_FONT_COLOR.g, GRAY_FONT_COLOR.b)
+        end
+        slider:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(label and label:GetText() or "", 1, 1, 1)
+            GameTooltip:AddLine(why, nil, nil, nil, true)
+            GameTooltip:Show()
+        end)
+        slider:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    end
+end
+)LUA";
+
 /// Move the coin amounts off the coins, and take off the coin textures the
 /// interface adds — the money bar this client draws already has them in its
 /// own art, and the second set reads as letters after each number.

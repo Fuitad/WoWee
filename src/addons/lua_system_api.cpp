@@ -690,6 +690,16 @@ static void pushCvarDefault(lua_State* L, const std::string& n) {
         const bool full = (svc && svc->getFullscreen) ? svc->getFullscreen() : false;
         lua_pushstring(L, full ? "0" : "1");
     }
+    // Both at their maximum, because this client has no lower setting to be
+    // at. miniaudio mixes every voice it is given at the device's own rate:
+    // there is no channel cap to raise and no quality tier to pick. Falling
+    // through to the "0" at the end of this chain parked both sliders at the
+    // far left of the Sound panel — 32 channels and Low quality — which read
+    // as a client running at its worst and was not a setting at all.
+    //
+    // The two controls are disabled to say so; see kAudioFixedSlidersLua.
+    else if (n == "sound_numchannels") lua_pushstring(L, "64");
+    else if (n == "sound_outputquality") lua_pushstring(L, "2");
     else if (n == "uiscale") lua_pushstring(L, "1");
     else if (n == "useuiscale") lua_pushstring(L, "1");
     else if (n == "screenwidth" || n == "gxresolution") {
