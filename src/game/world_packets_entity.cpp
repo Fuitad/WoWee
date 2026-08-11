@@ -1078,22 +1078,7 @@ network::Packet CastSpellPacket::build(uint32_t spellId, uint64_t targetGuid, ui
         packet.writeUInt32(0x02); // TARGET_FLAG_UNIT
 
         // Write packed GUID
-        uint8_t mask = 0;
-        uint8_t bytes[8];
-        int byteCount = 0;
-        uint64_t g = targetGuid;
-        for (int i = 0; i < 8; ++i) {
-            uint8_t b = g & 0xFF;
-            if (b != 0) {
-                mask |= (1 << i);
-                bytes[byteCount++] = b;
-            }
-            g >>= 8;
-        }
-        packet.writeUInt8(mask);
-        for (int i = 0; i < byteCount; ++i) {
-            packet.writeUInt8(bytes[i]);
-        }
+        packet.writePackedGuid(targetGuid);
     } else {
         packet.writeUInt32(0x00); // TARGET_FLAG_SELF
     }

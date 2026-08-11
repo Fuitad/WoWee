@@ -319,23 +319,9 @@ void ClassicPacketParsers::writeMovementPayload(network::Packet& packet, const M
 
     // Transport data (Classic ONTRANSPORT = 0x02000000, no timestamp)
     if (wireFlags & ClassicMoveFlags::ONTRANSPORT) {
-        // Packed GUID compression: only transmit non-zero bytes of the 8-byte GUID.
-        // The mask byte indicates which positions are present (bit N = byte N included).
-        // This is the standard WoW packed GUID wire format across all expansions.
-        uint8_t transMask = 0;
-        uint8_t transGuidBytes[8];
-        int transGuidByteCount = 0;
-        for (int i = 0; i < 8; i++) {
-            uint8_t byte = static_cast<uint8_t>((info.transportGuid >> (i * 8)) & 0xFF);
-            if (byte != 0) {
-                transMask |= (1 << i);
-                transGuidBytes[transGuidByteCount++] = byte;
-            }
-        }
-        packet.writeUInt8(transMask);
-        for (int i = 0; i < transGuidByteCount; i++) {
-            packet.writeUInt8(transGuidBytes[i]);
-        }
+        // Packed, which is the same wire format in every expansion: a mask
+        // byte saying which of the eight are non-zero, then those bytes.
+        packet.writePackedGuid(info.transportGuid);
 
         // Transport local position
         packet.writeFloat(info.transportX);
@@ -395,22 +381,7 @@ network::Packet ClassicPacketParsers::buildCastSpell(uint32_t spellId, uint64_t 
         packet.writeUInt16(0x02); // TARGET_FLAG_UNIT
 
         // Write packed GUID
-        uint8_t mask = 0;
-        uint8_t bytes[8];
-        int byteCount = 0;
-        uint64_t g = targetGuid;
-        for (int i = 0; i < 8; ++i) {
-            uint8_t b = g & 0xFF;
-            if (b != 0) {
-                mask |= (1 << i);
-                bytes[byteCount++] = b;
-            }
-            g >>= 8;
-        }
-        packet.writeUInt8(mask);
-        for (int i = 0; i < byteCount; ++i) {
-            packet.writeUInt8(bytes[i]);
-        }
+        packet.writePackedGuid(targetGuid);
     } else {
         packet.writeUInt16(0x00); // TARGET_FLAG_SELF
     }
