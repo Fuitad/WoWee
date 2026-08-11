@@ -281,9 +281,22 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
             if (!w->autoSized && w->width > 0.0f && w->height > 0.0f) continue;
         }
 
-        const float size = (w->fontHeight > 0.0f) ? w->fontHeight : 12.0f;
+        // The size the draw will use, not a flat twelve.
+        //
+        // A label with no fontHeight of its own is drawn at the current font
+        // size and was measured at twelve, so wherever those differ the rect
+        // came out narrower than the glyphs that go in it and the text ran out
+        // of its right edge. The money frame is where it shows: the number is
+        // anchored to end exactly where the coin icon begins, so the overspill
+        // lands on top of the coin.
+        //
+        // Same face too — the widget's own, then the interface default —
+        // rather than whichever face this measure happened to be handed.
+        ImFont* runFont = interfaceFaceOrDefault(w->fontFace);
+        if (!runFont) runFont = font;
+        const float size = interfaceFontSize(w->fontHeight);
         const auto measureRun = [&](const std::string& piece) {
-            return font->CalcTextSizeA(size, FLT_MAX, 0.0f, piece.c_str()).x;
+            return runFont->CalcTextSizeA(size, FLT_MAX, 0.0f, piece.c_str()).x;
         };
 
         if (paragraph) {
@@ -302,7 +315,7 @@ void WidgetRenderer::sizeFontStrings(WidgetTree& tree) {
         }
 
         const ImVec2 measured =
-            font->CalcTextSizeA(size, FLT_MAX, 0.0f, strippedText(w->text).c_str());
+            runFont->CalcTextSizeA(size, FLT_MAX, 0.0f, strippedText(w->text).c_str());
         w->width = measured.x;
         // As tall as the lines it holds. A label sized by its own text can
         // still be several lines: |n breaks one at any width, and giving it a
@@ -336,7 +349,7 @@ void WidgetRenderer::sizeTooltips(WidgetTree& tree) {
         // 233x215 its XML asks for.
         if (w->objectType != "GameTooltip") continue;
 
-        const float size = (w->fontHeight > 0.0f) ? w->fontHeight : 12.0f;
+        const float size = interfaceFontSize(w->fontHeight);
         const float lineH = size * 1.2f;
         // Ten units of padding a side, which is what the tooltip backdrop's
         // own insets come to.
@@ -1703,10 +1716,8 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             // round from chat.
             if (w->isTooltip && w->objectType == "GameTooltip" &&
             !w->tooltipLines.empty()) {
-                ImFont* font = interfaceFace(w->fontFace);
-                if (!font) font = interfaceFace("frizqt__");
-                if (!font) font = ImGui::GetFont();
-                const float size = ((w->fontHeight > 0.0f) ? w->fontHeight : 12.0f) * s;
+                ImFont* font = interfaceFaceOrDefault(w->fontFace);
+                const float size = interfaceFontSize(w->fontHeight) * s;
                 const float lineH = size * 1.2f;
                 const float pad = 10.0f * s;
                 float y = y0 + pad;
@@ -1735,11 +1746,8 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             // hold. Scrolling moves the window back through the history
             // rather than moving the lines.
             if (w->isMessageFrame && !w->messages.empty()) {
-                ImFont* font = interfaceFace(w->fontFace);
-                if (!font) font = interfaceFace("frizqt__");
-                if (!font) font = ImGui::GetFont();
-                const float size = ((w->fontHeight > 0.0f) ? w->fontHeight
-                                                           : ImGui::GetFontSize()) * s;
+                ImFont* font = interfaceFaceOrDefault(w->fontFace);
+                const float size = interfaceFontSize(w->fontHeight) * s;
                 const float lineH = size * 1.15f + w->messagePadding * s;
                 // A chat line is wrapped to the frame, not run off the end of
                 // it. Every other label in the interface has wrapped for as
@@ -1830,11 +1838,8 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             if (w->isEditBox) {
                 // Its own text, drawn where a label would be, with a caret
                 // while it has focus so it is clear which box is listening.
-                ImFont* font = interfaceFace(w->fontFace);
-                if (!font) font = interfaceFace("frizqt__");
-                if (!font) font = ImGui::GetFont();
-                const float size = ((w->fontHeight > 0.0f) ? w->fontHeight
-                                                           : ImGui::GetFontSize()) * s;
+                ImFont* font = interfaceFaceOrDefault(w->fontFace);
+                const float size = interfaceFontSize(w->fontHeight) * s;
                 const uint32_t col = packColor(w->color, w->alpha);
                 // Between the top and bottom insets rather than the whole
                 // frame, so a box with art above its text does not sit high.
@@ -1978,9 +1983,7 @@ void WidgetRenderer::draw(WidgetTree& tree, float screenW, float screenH) {
             // face so this client's panels are left alone.
             if (!font) font = interfaceFace("frizqt__");
             if (!font) font = ImGui::GetFont();
-            const float base = ImGui::GetFontSize();
-            const float size = ((w->fontHeight > 0.0f) ? w->fontHeight : base) * s;
-            (void)base;
+            const float size = interfaceFontSize(w->fontHeight) * s;
             // A label whose width came from its own text has nothing to wrap
             // to; one given a width by its XML or by two anchors wraps inside
             // it. Nothing wrapped before, so every label of the second kind
