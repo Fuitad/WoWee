@@ -5622,6 +5622,16 @@ void LuaEngine::registerCoreAPI() {
         "            return\n"
         "        end\n"
         "        if type(tex) == 'table' then __WoweeSetButtonArt(tex, slot) end\n"
+        // Nothing, which is how a button is emptied — SendMailFrame_Update
+        // hands SetNormalTexture the texture GetSendMailItem answered, and that
+        // is nil for a slot with nothing on it. Dropping the reference alone
+        // left the texture this slot had already made still parented, still
+        // anchored and still drawing, so an attachment taken off a letter kept
+        // its icon and a letter that had been sent kept all of them.
+        "        if tex == nil or tex == false then\n"
+        "            local existing = self[key]\n"
+        "            if type(existing) == 'table' then existing:SetTexture(nil) end\n"
+        "        end\n"
         "        self[key] = tex\n"
         "    end\n"
         "    mt['Get' .. slot] = function(self) return self[key] end\n"

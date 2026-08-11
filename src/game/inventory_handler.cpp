@@ -2792,7 +2792,12 @@ void InventoryHandler::handleSendMailResult(network::Packet& packet) {
         if (error == 0) {
             owner_.addSystemChatMessage("Mail sent.");
             clearMailAttachments();
-            showMailCompose_ = false;
+            // The frame stays where it is — WoW resets its fields and leaves it
+            // open. This used to close this client's own compose window here,
+            // and that flag now means "the interface's send tab is showing",
+            // which is what decides whether clicking an item in a bag attaches
+            // it. Clearing it made the first letter of a session the last one
+            // that could have anything attached to it.
             // The send frame waits on these before it will clear its fields and
             // re-enable the Send button. Without them a mail went out and the
             // frame sat there as though it had not.
