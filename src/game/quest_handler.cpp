@@ -1,5 +1,6 @@
 #include "ui/framexml_takeover.hpp"
 #include "game/quest_handler.hpp"
+#include "game/quest_query_layout.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
 #include "game/entity.hpp"
@@ -283,10 +284,25 @@ static QuestQueryTextCandidate pickBestQuestQueryTexts(const std::vector<uint8_t
     QuestQueryTextCandidate best;
     if (data.size() <= 9) return best;
 
+    // Where the first string sits: straight after the numeric block. The
+    // WotLK count is itemized in quest_query_layout.hpp and pinned by a test
+    // that builds the block the way the server writes it.
+    //
+    // This said fifty-seven fields, which lands thirty-two bytes inside the
+    // reward block. The read there is not a string, the readability check drops
+    // it, and the scan below rescues most quests by finding the first printable
+    // run — but the scan knows a title only by looking like one, so a quest
+    // whose objectives read more like a title than its title does came out with
+    // the objectives in the title and everything after it shifted by one.
+    // Quests 1712 and 5250 in the log are both that.
+    //
+    // Classic's count is not verified the same way and is left alone; a seed
+    // that reads as nothing still falls through to the scan, which is where
+    // both of them were already being answered from.
     std::vector<size_t> seedOffsets;
     const size_t base = 8;
     const size_t classicOffset = base + 40u * 4u;
-    const size_t wotlkOffset = base + 55u * 4u;
+    const size_t wotlkOffset = kWotlkQuestQueryStringsOffset;
     if (classicHint) {
         seedOffsets.push_back(classicOffset);
         seedOffsets.push_back(wotlkOffset);

@@ -1238,6 +1238,17 @@ target_link_libraries(test_realm_list PRIVATE catch2_main OpenSSL::SSL OpenSSL::
 add_test(NAME realm_list COMMAND test_realm_list)
 register_test_target(test_realm_list)
 
+# ── test_quest_query_layout ─────────────────────────────────
+# Where the strings start in the quest query response. Pure arithmetic against
+# a body built the way the server writes it: reading from the wrong offset does
+# not fail, it hands back the next string along and shifts everything after it.
+add_executable(test_quest_query_layout test_quest_query_layout.cpp)
+target_include_directories(test_quest_query_layout PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_quest_query_layout SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_quest_query_layout PRIVATE catch2_main)
+add_test(NAME quest_query_layout COMMAND test_quest_query_layout)
+register_test_target(test_quest_query_layout)
+
 # ── test_quest_rewards ──────────────────────────────────────
 add_executable(test_quest_rewards
     test_quest_rewards.cpp
