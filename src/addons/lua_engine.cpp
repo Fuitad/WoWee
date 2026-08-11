@@ -6763,15 +6763,12 @@ void LuaEngine::registerCoreAPI() {
         "        if data.startsQuest then self:AddLine('This Item Begins a Quest', 1, 0.82, 0) end\n"
         "    end\n"
         "    -- Sell price from GetItemInfo\n"
+        // Through the one money formatter, which writes the coin's picture
+        // rather than a letter. This split the copper up itself and appended
+        // 'g', 's' and 'c' — a third copy of the same arithmetic, and the only
+        // one left still writing letters.
         "    if sellPrice and sellPrice > 0 then\n"
-        "        local gold = math.floor(sellPrice / 10000)\n"
-        "        local silver = math.floor((sellPrice % 10000) / 100)\n"
-        "        local copper = sellPrice % 100\n"
-        "        local parts = {}\n"
-        "        if gold > 0 then table.insert(parts, gold..'g') end\n"
-        "        if silver > 0 then table.insert(parts, silver..'s') end\n"
-        "        if copper > 0 then table.insert(parts, copper..'c') end\n"
-        "        if #parts > 0 then self:AddLine('Sell Price: '..table.concat(parts, ' '), 1, 1, 1) end\n"
+        "        self:AddLine('Sell Price: '..GetCoinTextureString(sellPrice), 1, 1, 1)\n"
         "    end\n"
         "    self.__itemId = itemId\n"
         "    return true\n"

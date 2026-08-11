@@ -682,26 +682,6 @@ static int lua_GetItemQualityColor(lua_State* L) {
 //
 // Denominations with a zero count are left out, as WoW does — except when the
 // whole amount is zero, which prints as copper rather than as nothing.
-static int lua_GetCoinText(lua_State* L) {
-    const auto copper = static_cast<uint64_t>(luaL_optnumber(L, 1, 0));
-    const char* sep = luaL_optstring(L, 2, " ");
-    const uint64_t g = copper / 10000;
-    const uint64_t s = (copper % 10000) / 100;
-    const uint64_t c = copper % 100;
-    std::string out;
-    auto add = [&](uint64_t v, const char* suffix) {
-        if (v == 0) return;
-        if (!out.empty()) out += sep;
-        out += std::to_string(v);
-        out += suffix;
-    };
-    add(g, "g");
-    add(s, "s");
-    add(c, "c");
-    if (out.empty()) out = "0c";
-    lua_pushstring(L, out.c_str());
-    return 1;
-}
 
 // Moving money with the cursor: picking an amount up, dropping it into a trade,
 // a mail, a mail's cash-on-delivery box, or the guild bank.
@@ -3370,7 +3350,6 @@ void registerInventoryLuaAPI(lua_State* L) {
             return luaReturnNil(L);
         }},
                 // ---- Currency tab ----
-                {"GetCoinText",             lua_GetCoinText},
                 {"GetContainerItemPurchaseInfo", lua_GetContainerItemPurchaseInfo},
                 {"GetContainerItemPurchaseItem", lua_GetContainerItemPurchaseItem},
                 // ContainerRefundItemPurchase(bag, slot) — the Accept on

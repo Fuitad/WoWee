@@ -536,6 +536,20 @@ void AddonManager::giveCoinAmountsClearance() {
     // Hooked rather than edited into MoneyFrame.lua, so the interface's own
     // file stays Blizzard's and this stays visible as ours.
     static const char* kScript = R"LUA(
+-- Colourblind mode off, explicitly.
+--
+-- It is the one thing in the whole interface that writes a letter beside a
+-- coin: MoneyFrame_Update's colourblind branch does SetText(gold ..
+-- GOLD_AMOUNT_SYMBOL) and clears the coin pictures, where the ordinary branch
+-- writes the amount alone and leaves the coins. Reported as letters next to the
+-- coins in the backpack, which is that branch running.
+--
+-- Nothing in this FrameXML ever assigns the global — every one of its dozen
+-- readers compares it against "1" and there is no writer — so it is nil unless
+-- something outside sets it, and nil is not "0" either. Saying so plainly is
+-- cheaper than finding out what set it.
+ENABLE_COLORBLIND_MODE = "0"
+
 -- Between an amount and its own coin. Re-anchoring the buttons to each other
 -- as well was tried and put copper two units worse than it started: their
 -- spacing is MoneyFrame_Update's own, and it is right.

@@ -841,13 +841,12 @@ void AnimationController::setMounted(uint32_t mountInstId, uint32_t mountDisplay
         " stand=", mountAnims.stand,
         " fidgets=", mountAnims.fidgets.size());
 
-    // Configure MountFSM via CharacterAnimator
-    // MountFSM caches taxiFlight_ once here and never re-reads it per-frame
-    // (Input.taxiFlight is populated in updateMountedAnimation() but unused) -
-    // if this fires again mid-flight with taxiFlight_ momentarily false (e.g. a
-    // server mount-display-id update racing ahead of the taxi state flipping
-    // true), the whole taxi flight animation branch gets skipped for the rest
-    // of this mount instance, falling back to regular ground/fly resolution.
+    // Configure MountFSM via CharacterAnimator.
+    //
+    // What is passed here is only what was true at this moment. The FSM takes
+    // the per-frame answer as well now, and either counts — a taxi sets the
+    // mount up before it says the flight has begun, so this one is false on
+    // every flight.
     LOG_INFO("Mount configured: displayId=", mountDisplayId, " taxiFlight=", taxiFlight_);
     characterAnimator_.configureMountFSM(mountAnims, taxiFlight_);
 

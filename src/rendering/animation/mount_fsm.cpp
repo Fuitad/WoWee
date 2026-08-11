@@ -135,8 +135,20 @@ MountFSM::Output MountFSM::evaluate(const Input& in) {
 
     const float dt = in.deltaTime;
 
+    // On a taxi, as of this frame.
+    //
+    // The configured flag is only what was true when the mount was set up, and
+    // a taxi sets the mount up before it says the flight has begun — so on
+    // every flight it was false, the branch below was skipped, and the gryphon
+    // resolved through the ordinary ground path and ran through the air. The
+    // per-frame answer was already being passed in and read by nothing; the
+    // comment where the mount is configured has described this the whole time.
+    //
+    // Either one counts, so a mount configured mid-flight still flies.
+    const bool onTaxi = in.taxiFlight || taxiFlight_;
+
     // ── Procedural lean ─────────────────────────────────────────────────
-    if (!taxiFlight_ && in.moving && dt > 0.0f) {
+    if (!onTaxi && in.moving && dt > 0.0f) {
         float turnRate = (in.characterYaw - prevYaw_) / dt;
         while (turnRate > 180.0f) turnRate -= 360.0f;
         while (turnRate < -180.0f) turnRate += 360.0f;
@@ -154,7 +166,7 @@ MountFSM::Output MountFSM::evaluate(const Input& in) {
     // (Flight rider variants handled by the caller via capability set, not here)
 
     // ── Taxi flight branch ──────────────────────────────────────────────
-    if (taxiFlight_) {
+    if (onTaxi) {
         // Try flight animations in preference order using discovered anims
         uint32_t taxiAnim = anim::STAND;
         if (anims_.flyForward) taxiAnim = anims_.flyForward;
