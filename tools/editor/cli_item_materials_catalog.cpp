@@ -333,7 +333,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     constexpr uint32_t kKnownFlagMask =
         wowee::pipeline::WoweeItemMaterial::IsBreakable |
         wowee::pipeline::WoweeItemMaterial::IsMagical |
@@ -387,13 +387,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 wowee::pipeline::WoweeItemMaterial::weightCategoryName(e.weightCategory) +
                 " — cloth is canonically light");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.materialId) {
-                errors.push_back(ctx + ": duplicate materialId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.materialId);
+        if (!idsSeen.add(e.materialId)) errors.push_back(ctx + ": duplicate materialId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wmat", base, errors, warnings);

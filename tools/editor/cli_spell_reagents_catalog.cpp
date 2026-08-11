@@ -283,7 +283,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     std::vector<uint32_t> spellsSeen;
     for (size_t k = 0; k < c.entries.size(); ++k) {
         const auto& e = c.entries[k];
@@ -338,13 +338,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": FocusedItem kind with no reagent slots set " +
                 "— focused-item gating has nothing to gate");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.reagentSetId) {
-                errors.push_back(ctx + ": duplicate reagentSetId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.reagentSetId);
+        if (!idsSeen.add(e.reagentSetId)) errors.push_back(ctx + ": duplicate reagentSetId");
         // Two reagent sets for the same spell collide —
         // engine would honor only the first.
         if (e.spellId != 0) {

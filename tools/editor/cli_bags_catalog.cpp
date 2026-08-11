@@ -253,7 +253,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     // displayOrder values within the same bagKind should be
     // unique — duplicates would cause UI shuffle ambiguity.
     std::set<std::string> orderSeen;
@@ -314,13 +314,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ") — UI sort order is ambiguous");
         }
         orderSeen.insert(tuple);
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.bagSlotId) {
-                errors.push_back(ctx + ": duplicate bagSlotId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.bagSlotId);
+        if (!idsSeen.add(e.bagSlotId)) errors.push_back(ctx + ": duplicate bagSlotId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wbnk", base, errors, warnings);

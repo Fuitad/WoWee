@@ -262,7 +262,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     // Track threshold monotonicity within a single rankKind —
     // arena ratings should ascend (1500 < 1750 < ...), so a
     // catalog with two arena entries at the same rating or
@@ -332,13 +332,7 @@ int handleValidate(int& i, int argc, char** argv) {
             prevHonorByKind[e.rankKind] = e.minHonorOrRating;
             prevHonorSeen[e.rankKind] = true;
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.rankId) {
-                errors.push_back(ctx + ": duplicate rankId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.rankId);
+        if (!idsSeen.add(e.rankId)) errors.push_back(ctx + ": duplicate rankId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wpvp", base, errors, warnings);

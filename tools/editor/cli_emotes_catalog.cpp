@@ -345,7 +345,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     std::set<std::string> commandsSeen;
     for (size_t k = 0; k < c.entries.size(); ++k) {
         const auto& e = c.entries[k];
@@ -432,13 +432,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 "'" + e.slashCommand + "' — chat parser "
                 "would dispatch ambiguously");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.emoteId) {
-                errors.push_back(ctx + ": duplicate emoteId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.emoteId);
+        if (!idsSeen.add(e.emoteId)) errors.push_back(ctx + ": duplicate emoteId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wemo", base, errors, warnings);

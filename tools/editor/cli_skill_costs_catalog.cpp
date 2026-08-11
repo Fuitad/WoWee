@@ -267,7 +267,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     for (size_t k = 0; k < c.entries.size(); ++k) {
         const auto& e = c.entries[k];
         std::string ctx = "entry " + std::to_string(k) +
@@ -315,13 +315,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 "unusual, profession tiers normally cost "
                 "at least a copper");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.costId) {
-                errors.push_back(ctx + ": duplicate costId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.costId);
+        if (!idsSeen.add(e.costId)) errors.push_back(ctx + ": duplicate costId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wscs", base, errors, warnings);

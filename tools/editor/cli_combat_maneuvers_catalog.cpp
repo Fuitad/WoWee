@@ -309,7 +309,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     // Track which spell IDs appear in any exclusive group
     // — a spell that appears in TWO different exclusive
     // groups creates an undecidable mutex (which group's
@@ -371,13 +371,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 }
             }
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.groupId) {
-                errors.push_back(ctx + ": duplicate groupId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.groupId);
+        if (!idsSeen.add(e.groupId)) errors.push_back(ctx + ": duplicate groupId");
     }
     for (auto [spellId, groupId] : doubleAssign) {
         errors.push_back(

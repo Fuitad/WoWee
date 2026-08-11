@@ -234,7 +234,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     // Build the set of canonical (single-bit) school IDs so we
     // can check that combinedSchoolMask only references real
     // schools defined in this catalog.
@@ -303,13 +303,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     "(self-referential)");
             }
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.schoolId) {
-                errors.push_back(ctx + ": duplicate schoolId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.schoolId);
+        if (!idsSeen.add(e.schoolId)) errors.push_back(ctx + ": duplicate schoolId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wsch", base, errors, warnings);

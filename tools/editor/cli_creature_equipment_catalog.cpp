@@ -230,7 +230,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     for (size_t k = 0; k < c.entries.size(); ++k) {
         const auto& e = c.entries[k];
         std::string ctx = "entry " + std::to_string(k) +
@@ -288,13 +288,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.offHandItemId) +
                 " (2H polearm occupies both hands)");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.equipmentId) {
-                errors.push_back(ctx + ": duplicate equipmentId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.equipmentId);
+        if (!idsSeen.add(e.equipmentId)) errors.push_back(ctx + ": duplicate equipmentId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wceq", base, errors, warnings);

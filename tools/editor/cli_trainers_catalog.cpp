@@ -345,7 +345,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     idsSeen.reserve(c.entries.size());
     for (size_t k = 0; k < c.entries.size(); ++k) {
         const auto& e = c.entries[k];
@@ -402,13 +402,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": finite stock with restockSec=0 (no automatic refresh)");
             }
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.npcId) {
-                errors.push_back(ctx + ": duplicate npcId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.npcId);
+        if (!idsSeen.add(e.npcId)) errors.push_back(ctx + ": duplicate npcId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wtrn", base, errors, warnings);

@@ -298,7 +298,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     constexpr uint32_t kKnownFlagMask =
         wowee::pipeline::WoweeSpellCooldown::AffectedByHaste |
         wowee::pipeline::WoweeSpellCooldown::SharedWithItems |
@@ -340,13 +340,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": Spell kind with SharedWithItems flag — "
                 "switch kind to Item or Misc, or drop the flag");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.bucketId) {
-                errors.push_back(ctx + ": duplicate bucketId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.bucketId);
+        if (!idsSeen.add(e.bucketId)) errors.push_back(ctx + ": duplicate bucketId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wscd", base, errors, warnings);

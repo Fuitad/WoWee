@@ -233,7 +233,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     // First pass — collect all animationIds for fallback
     // resolution.
     std::vector<uint32_t> allIds;
@@ -287,13 +287,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": both kFlagLooped and kFlagOneShot set "
                 "(mutually exclusive)");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.animationId) {
-                errors.push_back(ctx + ": duplicate animationId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.animationId);
+        if (!idsSeen.add(e.animationId)) errors.push_back(ctx + ": duplicate animationId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wani", base, errors, warnings);

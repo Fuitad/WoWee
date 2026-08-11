@@ -343,7 +343,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     idsSeen.reserve(c.entries.size());
     for (size_t k = 0; k < c.entries.size(); ++k) {
         const auto& e = c.entries[k];
@@ -395,13 +395,7 @@ int handleValidate(int& i, int argc, char** argv) {
             warnings.push_back(ctx +
                 ": sellPrice >= buyPrice (vendor would lose money)");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.itemId) {
-                errors.push_back(ctx + ": duplicate itemId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.itemId);
+        if (!idsSeen.add(e.itemId)) errors.push_back(ctx + ": duplicate itemId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wit", base, errors, warnings);

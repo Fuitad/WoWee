@@ -307,7 +307,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     constexpr uint32_t kKnownFlagMask =
         wowee::pipeline::WoweeSpellPowerCost::RequiresCombatStance |
         wowee::pipeline::WoweeSpellPowerCost::RefundOnMiss |
@@ -357,13 +357,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 wowee::pipeline::WoweeSpellPowerCost::powerTypeName(e.powerType) +
                 " — spell will cast for free, switch to NoCost type if intended");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.powerCostId) {
-                errors.push_back(ctx + ": duplicate powerCostId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.powerCostId);
+        if (!idsSeen.add(e.powerCostId)) errors.push_back(ctx + ": duplicate powerCostId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wspc", base, errors, warnings);

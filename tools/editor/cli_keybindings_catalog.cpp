@@ -241,7 +241,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     std::set<std::string> actionsSeen;
     std::set<std::string> primaryKeysSeen;
     for (size_t k = 0; k < c.entries.size(); ++k) {
@@ -293,13 +293,7 @@ int handleValidate(int& i, int argc, char** argv) {
             }
             actionsSeen.insert(e.actionName);
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.bindingId) {
-                errors.push_back(ctx + ": duplicate bindingId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.bindingId);
+        if (!idsSeen.add(e.bindingId)) errors.push_back(ctx + ": duplicate bindingId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wkbd", base, errors, warnings);

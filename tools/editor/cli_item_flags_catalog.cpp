@@ -246,7 +246,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     std::vector<uint32_t> bitsSeen;
     for (size_t k = 0; k < c.entries.size(); ++k) {
         const auto& e = c.entries[k];
@@ -276,13 +276,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 "unusual; usually you want one of the "
                 "individual bits)");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.flagId) {
-                errors.push_back(ctx + ": duplicate flagId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.flagId);
+        if (!idsSeen.add(e.flagId)) errors.push_back(ctx + ": duplicate flagId");
         // Two flags claiming the same bit is a serious
         // collision — engine would only match the first
         // entry's name when decoding.

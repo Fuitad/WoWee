@@ -334,7 +334,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     constexpr uint32_t kKnownFoodMask =
         wowee::pipeline::WoweeCreatureFamily::Meat |
         wowee::pipeline::WoweeCreatureFamily::Fish |
@@ -395,13 +395,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": pet-able family with no food types set — "
                 "hunter pet will starve, no food will satisfy it");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.familyId) {
-                errors.push_back(ctx + ": duplicate familyId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.familyId);
+        if (!idsSeen.add(e.familyId)) errors.push_back(ctx + ": duplicate familyId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wcef", base, errors, warnings);

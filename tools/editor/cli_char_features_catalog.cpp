@@ -277,7 +277,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     // (race, sex, kind, variation) tuples must be unique —
     // duplicates would shadow each other in the carousel.
     std::set<std::string> tupleSeen;
@@ -325,13 +325,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ") — would shadow earlier entry in carousel");
         }
         tupleSeen.insert(tuple);
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.featureId) {
-                errors.push_back(ctx + ": duplicate featureId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.featureId);
+        if (!idsSeen.add(e.featureId)) errors.push_back(ctx + ": duplicate featureId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wchf", base, errors, warnings);

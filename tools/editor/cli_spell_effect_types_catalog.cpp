@@ -297,7 +297,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     constexpr uint8_t kKnownFlagMask =
         wowee::pipeline::WoweeSpellEffectType::RequiresTarget |
         wowee::pipeline::WoweeSpellEffectType::RequiresLineOfSight |
@@ -347,13 +347,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": Heal kind without IsBeneficialEffect — "
                 "engine treats heals as ungated, may damage enemies");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.effectId) {
-                errors.push_back(ctx + ": duplicate effectId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.effectId);
+        if (!idsSeen.add(e.effectId)) errors.push_back(ctx + ": duplicate effectId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wsef", base, errors, warnings);

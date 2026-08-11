@@ -249,7 +249,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     for (size_t k = 0; k < c.entries.size(); ++k) {
         const auto& e = c.entries[k];
         std::string ctx = "entry " + std::to_string(k) +
@@ -298,13 +298,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 std::to_string(e.baseSpeed) +
                 " unusually slow (canonical 7.0y/s) — verify intent");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.moveTypeId) {
-                errors.push_back(ctx + ": duplicate moveTypeId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.moveTypeId);
+        if (!idsSeen.add(e.moveTypeId)) errors.push_back(ctx + ": duplicate moveTypeId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wumv", base, errors, warnings);

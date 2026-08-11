@@ -15,7 +15,9 @@
  */
 
 #include <cstdio>
+#include <cstdint>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include <nlohmann/json.hpp>
@@ -58,6 +60,21 @@ inline int printValidationIssues(const std::vector<std::string>& errors,
     }
     return errors.empty() ? 0 : 1;
 }
+
+/// Ids already seen while validating, so the second one can be reported.
+///
+/// 84 handlers kept a std::vector and walked the whole of it for every entry,
+/// which is a quadratic scan of a list that only ever answers one question. The
+/// message each of them writes is its own — the field has a different name in
+/// every format — so only the bookkeeping is here.
+class DuplicateIdCheck {
+public:
+    /// True the first time an id is offered, false once it has been seen.
+    bool add(uint32_t id) { return seen_.insert(id).second; }
+
+private:
+    std::unordered_set<uint32_t> seen_;
+};
 
 }  // namespace cli
 }  // namespace editor

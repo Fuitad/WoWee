@@ -291,7 +291,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     constexpr uint32_t kKnownFlagMask =
         wowee::pipeline::WoweeSpellProc::DealtMeleeAutoAttack |
         wowee::pipeline::WoweeSpellProc::DealtMeleeSpell |
@@ -355,13 +355,7 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": both procChance=0 and procPpm=0 — proc " +
                 "will never trigger");
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.procId) {
-                errors.push_back(ctx + ": duplicate procId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.procId);
+        if (!idsSeen.add(e.procId)) errors.push_back(ctx + ": duplicate procId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wsps", base, errors, warnings);

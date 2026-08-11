@@ -305,7 +305,7 @@ int handleValidate(int& i, int argc, char** argv) {
     if (c.entries.empty()) {
         warnings.push_back("catalog has zero entries");
     }
-    std::vector<uint32_t> idsSeen;
+    cli::DuplicateIdCheck idsSeen;
     idsSeen.reserve(c.entries.size());
     // Build the set of menuIds present so we can verify
     // intra-format Submenu cross-references resolve.
@@ -364,13 +364,7 @@ int handleValidate(int& i, int argc, char** argv) {
                     ": AllianceOnly and HordeOnly both set (incoherent)");
             }
         }
-        for (uint32_t prev : idsSeen) {
-            if (prev == e.menuId) {
-                errors.push_back(ctx + ": duplicate menuId");
-                break;
-            }
-        }
-        idsSeen.push_back(e.menuId);
+        if (!idsSeen.add(e.menuId)) errors.push_back(ctx + ": duplicate menuId");
     }
     const bool ok = errors.empty();
     if (jsonOut) return cli::printValidationJson("wgsp", base, errors, warnings);
