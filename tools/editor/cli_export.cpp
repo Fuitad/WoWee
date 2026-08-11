@@ -512,13 +512,9 @@ int handleExportProjectChecksum(int& i, int argc, char** argv) {
         if (ext == ".png") return true;
         return false;
     };
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     std::vector<std::pair<std::string, std::string>> entries;
     for (const auto& zoneDir : zones) {
         std::error_code ec;

@@ -525,13 +525,9 @@ int handleBakeProjectObj(int& i, int argc, char** argv) {
         return 1;
     }
     if (outPath.empty()) outPath = projectDir + "/project.obj";
-    std::vector<std::string> zoneDirs;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zoneDirs.push_back(entry.path().string());
-    }
-    std::sort(zoneDirs.begin(), zoneDirs.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zoneDirs = wowee::editor::projectZoneDirs(projectDir);
     if (zoneDirs.empty()) {
         std::fprintf(stderr,
             "bake-project-obj: no zones found in %s\n",
@@ -659,13 +655,9 @@ int handleBakeProjectStlOrGlb(int& i, int argc, char** argv) {
     if (outPath.empty()) {
         outPath = projectDir + "/project." + (isStl ? "stl" : "glb");
     }
-    std::vector<std::string> zoneDirs;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zoneDirs.push_back(entry.path().string());
-    }
-    std::sort(zoneDirs.begin(), zoneDirs.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zoneDirs = wowee::editor::projectZoneDirs(projectDir);
     if (zoneDirs.empty()) {
         std::fprintf(stderr, "%s: no zones found\n", cmdName);
         return 1;

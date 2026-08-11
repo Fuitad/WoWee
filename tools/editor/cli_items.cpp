@@ -1,4 +1,5 @@
 #include "cli_items.hpp"
+#include "zone_manifest.hpp"
 #include "cli_subprocess.hpp"
 
 #include <nlohmann/json.hpp>
@@ -355,13 +356,9 @@ int handleInfoProjectItems(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     static const char* qualityNames[] = {
         "poor", "common", "uncommon", "rare", "epic",
         "legendary", "artifact"

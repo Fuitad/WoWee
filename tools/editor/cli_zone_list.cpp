@@ -78,14 +78,7 @@ int handleZoneStats(int& i, int argc, char** argv) {
         return 1;
     }
     // Collect zone dirs.
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (fs::exists(entry.path() / "zone.json")) {
-            zones.push_back(entry.path().string());
-        }
-    }
-    std::sort(zones.begin(), zones.end());
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     // Aggregate.
     struct Totals {
         int zoneCount = 0;

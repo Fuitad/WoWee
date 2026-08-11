@@ -51,14 +51,7 @@ int handleForEachZone(int& i, int argc, char** argv) {
     }
     // Find every child dir that contains a zone.json — that's the
     // canonical 'is this a zone?' test the rest of the editor uses.
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (fs::exists(entry.path() / "zone.json")) {
-            zones.push_back(entry.path().string());
-        }
-    }
-    std::sort(zones.begin(), zones.end());
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     if (zones.empty()) {
         std::fprintf(stderr, "for-each-zone: no zones found in %s\n",
                      projectDir.c_str());

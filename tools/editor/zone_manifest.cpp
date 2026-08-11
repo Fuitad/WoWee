@@ -149,5 +149,20 @@ bool ZoneManifest::load(const std::string& path) {
     }
 }
 
+std::vector<std::string> projectZoneDirs(const std::string& projectDir) {
+    namespace fs = std::filesystem;
+    std::vector<std::string> zones;
+    std::error_code ec;
+    for (const auto& entry : fs::directory_iterator(projectDir, ec)) {
+        if (!entry.is_directory()) continue;
+        if (!fs::exists(entry.path() / "zone.json")) continue;
+        zones.push_back(entry.path().string());
+    }
+    // Sorted, so a report over them reads the same twice. Directory order is
+    // whatever the filesystem gives and differs between machines.
+    std::sort(zones.begin(), zones.end());
+    return zones;
+}
+
 } // namespace editor
 } // namespace wowee

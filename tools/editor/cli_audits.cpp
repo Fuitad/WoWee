@@ -1,4 +1,5 @@
 #include "cli_audits.hpp"
+#include "zone_manifest.hpp"
 #include "cli_subprocess.hpp"
 #include "cli_weld.hpp"
 
@@ -27,14 +28,7 @@ namespace {
 // zone.json. Used by both --validate-project-packs and
 // --info-project-deps to enumerate zones.
 std::vector<std::string> enumerateZones(const std::string& projectDir) {
-    std::vector<std::string> zones;
-    namespace fs = std::filesystem;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     return zones;
 }
 

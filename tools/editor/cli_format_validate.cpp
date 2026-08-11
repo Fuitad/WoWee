@@ -1,4 +1,5 @@
 #include "cli_format_validate.hpp"
+#include "zone_manifest.hpp"
 #include "cli_catalog_paths.hpp"
 #include "cli_subprocess.hpp"
 
@@ -737,13 +738,9 @@ int handleValidateProject(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     // Per-zone pass/fail with file-level breakdown.
     struct ZoneResult { std::string name; int totalFiles, failedFiles, totalErrors; };
     std::vector<ZoneResult> results;
@@ -1005,13 +1002,9 @@ int handleBenchValidateProject(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     // Per-zone timing pass — same validator walk as
     // --validate-project but timing each zone separately.
     struct Timing { std::string name; double ms; int files; };

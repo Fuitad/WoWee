@@ -1,4 +1,5 @@
 #include "cli_migrate.hpp"
+#include "zone_manifest.hpp"
 #include "cli_catalog_paths.hpp"
 
 #include "pipeline/wowee_model.hpp"
@@ -141,13 +142,9 @@ int handleMigrateProject(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     int totalScanned = 0, totalUpgraded = 0, totalAlreadyV3 = 0, totalFailed = 0;
     // Per-zone breakdown for the summary table.
     struct ZRow { std::string name; int scanned, upgraded, alreadyV3, failed; };

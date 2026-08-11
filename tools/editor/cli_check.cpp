@@ -317,13 +317,9 @@ int handleCheckProjectContent(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     // Same per-zone walks as --check-zone-content. Reuse the
     // logic by counting issues directly here (cheaper than
     // shelling out to a sub-invocation per zone).
@@ -426,13 +422,9 @@ int handleCheckProjectRefs(int& i, int argc, char** argv) {
             projectDir.c_str());
         return 1;
     }
-    std::vector<std::string> zones;
-    for (const auto& entry : fs::directory_iterator(projectDir)) {
-        if (!entry.is_directory()) continue;
-        if (!fs::exists(entry.path() / "zone.json")) continue;
-        zones.push_back(entry.path().string());
-    }
-    std::sort(zones.begin(), zones.end());
+    // What counts as a zone, and the order they are reported in,
+    // from one place.
+    std::vector<std::string> zones = wowee::editor::projectZoneDirs(projectDir);
     // Same model-resolve logic as --check-zone-refs, applied
     // per zone with the appropriate root list.
     auto stripExt = [](const std::string& p, const char* ext) {
