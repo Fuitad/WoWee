@@ -151,58 +151,35 @@ int handleExportJson(int& i, int argc, char** argv) {
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
-    std::string jsonPath = argv[++i];
-    std::string outBase;
-    if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wsvk");
-    outBase = cli::withoutExt(outBase, ".wsvk");
-    std::ifstream in(jsonPath);
-    if (!in) {
-        std::fprintf(stderr,
-            "import-wsvk-json: cannot read %s\n", jsonPath.c_str());
-        return 1;
-    }
-    nlohmann::json j;
-    try { in >> j; }
-    catch (const std::exception& e) {
-        std::fprintf(stderr,
-            "import-wsvk-json: bad JSON in %s: %s\n",
-            jsonPath.c_str(), e.what());
-        return 1;
-    }
-    wowee::pipeline::WoweeSpellVisualKit c;
-    c.name = j.value("name", std::string{});
-    if (j.contains("entries") && j["entries"].is_array()) {
-        for (const auto& je : j["entries"]) {
-            wowee::pipeline::WoweeSpellVisualKit::Entry e;
-            e.visualKitId = je.value("visualKitId", 0u);
-            e.name = je.value("name", std::string{});
-            e.description = je.value("description", std::string{});
-            e.castEffectModelPath = je.value("castEffectModelPath", std::string{});
-            e.projectileModelPath = je.value("projectileModelPath", std::string{});
-            e.impactEffectModelPath = je.value("impactEffectModelPath", std::string{});
-            e.handEffectModelPath = je.value("handEffectModelPath", std::string{});
-            e.precastAnimId = je.value("precastAnimId", 0u);
-            e.castAnimId = je.value("castAnimId", 0u);
-            e.impactAnimId = je.value("impactAnimId", 0u);
-            e.castSoundId = je.value("castSoundId", 0u);
-            e.impactSoundId = je.value("impactSoundId", 0u);
-            e.projectileSpeed = je.value("projectileSpeed", 0.0f);
-            e.projectileGravity = je.value("projectileGravity", 0.0f);
-            e.castDurationMs = je.value("castDurationMs", 0u);
-            e.impactRadius = je.value("impactRadius", 0.0f);
-            c.entries.push_back(e);
+    return cli::importCatalogJson<wowee::pipeline::WoweeSpellVisualKitLoader, wowee::pipeline::WoweeSpellVisualKit>(
+        i, argc, argv, "wsvk", "visuals ",
+        [](const nlohmann::json& j) {
+        wowee::pipeline::WoweeSpellVisualKit c;
+        c.name = j.value("name", std::string{});
+        if (j.contains("entries") && j["entries"].is_array()) {
+            for (const auto& je : j["entries"]) {
+                wowee::pipeline::WoweeSpellVisualKit::Entry e;
+                e.visualKitId = je.value("visualKitId", 0u);
+                e.name = je.value("name", std::string{});
+                e.description = je.value("description", std::string{});
+                e.castEffectModelPath = je.value("castEffectModelPath", std::string{});
+                e.projectileModelPath = je.value("projectileModelPath", std::string{});
+                e.impactEffectModelPath = je.value("impactEffectModelPath", std::string{});
+                e.handEffectModelPath = je.value("handEffectModelPath", std::string{});
+                e.precastAnimId = je.value("precastAnimId", 0u);
+                e.castAnimId = je.value("castAnimId", 0u);
+                e.impactAnimId = je.value("impactAnimId", 0u);
+                e.castSoundId = je.value("castSoundId", 0u);
+                e.impactSoundId = je.value("impactSoundId", 0u);
+                e.projectileSpeed = je.value("projectileSpeed", 0.0f);
+                e.projectileGravity = je.value("projectileGravity", 0.0f);
+                e.castDurationMs = je.value("castDurationMs", 0u);
+                e.impactRadius = je.value("impactRadius", 0.0f);
+                c.entries.push_back(e);
+            }
         }
-    }
-    if (!wowee::pipeline::WoweeSpellVisualKitLoader::save(c, outBase)) {
-        std::fprintf(stderr,
-            "import-wsvk-json: failed to save %s.wsvk\n", outBase.c_str());
-        return 1;
-    }
-    std::printf("Wrote %s.wsvk\n", outBase.c_str());
-    std::printf("  source  : %s\n", jsonPath.c_str());
-    std::printf("  visuals : %zu\n", c.entries.size());
-    return 0;
+            return c;
+        });
 }
 
 int handleValidate(int& i, int argc, char** argv) {

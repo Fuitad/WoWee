@@ -145,63 +145,40 @@ int handleExportJson(int& i, int argc, char** argv) {
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
-    std::string jsonPath = argv[++i];
-    std::string outBase;
-    if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wsch");
-    outBase = cli::withoutExt(outBase, ".wsch");
-    std::ifstream in(jsonPath);
-    if (!in) {
-        std::fprintf(stderr,
-            "import-wsch-json: cannot read %s\n", jsonPath.c_str());
-        return 1;
-    }
-    nlohmann::json j;
-    try { in >> j; }
-    catch (const std::exception& e) {
-        std::fprintf(stderr,
-            "import-wsch-json: bad JSON in %s: %s\n",
-            jsonPath.c_str(), e.what());
-        return 1;
-    }
-    wowee::pipeline::WoweeSpellSchool c;
-    c.name = j.value("name", std::string{});
-    if (j.contains("entries") && j["entries"].is_array()) {
-        for (const auto& je : j["entries"]) {
-            wowee::pipeline::WoweeSpellSchool::Entry e;
-            e.schoolId = je.value("schoolId", 0u);
-            e.name = je.value("name", std::string{});
-            e.description = je.value("description", std::string{});
-            e.iconPath = je.value("iconPath", std::string{});
-            // Defaults match the WoW canonical behavior: most
-            // schools allow absorbs and crits, only Holy is
-            // non-immune by default. Hand-edits should set
-            // these explicitly when they differ.
-            e.canBeImmune = static_cast<uint8_t>(
-                je.value("canBeImmune", 1));
-            e.canBeAbsorbed = static_cast<uint8_t>(
-                je.value("canBeAbsorbed", 1));
-            e.canBeReflected = static_cast<uint8_t>(
-                je.value("canBeReflected", 0));
-            e.canCrit = static_cast<uint8_t>(
-                je.value("canCrit", 1));
-            e.colorRGBA = je.value("colorRGBA", 0xFFFFFFFFu);
-            e.baseResistanceCap = je.value("baseResistanceCap", 0u);
-            e.castSoundId = je.value("castSoundId", 0u);
-            e.impactSoundId = je.value("impactSoundId", 0u);
-            e.combinedSchoolMask = je.value("combinedSchoolMask", 0u);
-            c.entries.push_back(e);
+    return cli::importCatalogJson<wowee::pipeline::WoweeSpellSchoolLoader, wowee::pipeline::WoweeSpellSchool>(
+        i, argc, argv, "wsch", "schools ",
+        [](const nlohmann::json& j) {
+        wowee::pipeline::WoweeSpellSchool c;
+        c.name = j.value("name", std::string{});
+        if (j.contains("entries") && j["entries"].is_array()) {
+            for (const auto& je : j["entries"]) {
+                wowee::pipeline::WoweeSpellSchool::Entry e;
+                e.schoolId = je.value("schoolId", 0u);
+                e.name = je.value("name", std::string{});
+                e.description = je.value("description", std::string{});
+                e.iconPath = je.value("iconPath", std::string{});
+                // Defaults match the WoW canonical behavior: most
+                // schools allow absorbs and crits, only Holy is
+                // non-immune by default. Hand-edits should set
+                // these explicitly when they differ.
+                e.canBeImmune = static_cast<uint8_t>(
+                    je.value("canBeImmune", 1));
+                e.canBeAbsorbed = static_cast<uint8_t>(
+                    je.value("canBeAbsorbed", 1));
+                e.canBeReflected = static_cast<uint8_t>(
+                    je.value("canBeReflected", 0));
+                e.canCrit = static_cast<uint8_t>(
+                    je.value("canCrit", 1));
+                e.colorRGBA = je.value("colorRGBA", 0xFFFFFFFFu);
+                e.baseResistanceCap = je.value("baseResistanceCap", 0u);
+                e.castSoundId = je.value("castSoundId", 0u);
+                e.impactSoundId = je.value("impactSoundId", 0u);
+                e.combinedSchoolMask = je.value("combinedSchoolMask", 0u);
+                c.entries.push_back(e);
+            }
         }
-    }
-    if (!wowee::pipeline::WoweeSpellSchoolLoader::save(c, outBase)) {
-        std::fprintf(stderr,
-            "import-wsch-json: failed to save %s.wsch\n", outBase.c_str());
-        return 1;
-    }
-    std::printf("Wrote %s.wsch\n", outBase.c_str());
-    std::printf("  source  : %s\n", jsonPath.c_str());
-    std::printf("  schools : %zu\n", c.entries.size());
-    return 0;
+            return c;
+        });
 }
 
 int handleValidate(int& i, int argc, char** argv) {

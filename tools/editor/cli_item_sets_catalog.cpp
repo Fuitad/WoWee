@@ -145,85 +145,62 @@ int handleExportJson(int& i, int argc, char** argv) {
 }
 
 int handleImportJson(int& i, int argc, char** argv) {
-    std::string jsonPath = argv[++i];
-    std::string outBase;
-    if (parseOptArg(i, argc, argv)) outBase = argv[++i];
-    if (outBase.empty()) outBase = cli::baseFromJsonPath(jsonPath, ".wset");
-    outBase = cli::withoutExt(outBase, ".wset");
-    std::ifstream in(jsonPath);
-    if (!in) {
-        std::fprintf(stderr,
-            "import-wset-json: cannot read %s\n", jsonPath.c_str());
-        return 1;
-    }
-    nlohmann::json j;
-    try { in >> j; }
-    catch (const std::exception& e) {
-        std::fprintf(stderr,
-            "import-wset-json: bad JSON in %s: %s\n",
-            jsonPath.c_str(), e.what());
-        return 1;
-    }
-    wowee::pipeline::WoweeItemSet c;
-    c.name = j.value("name", std::string{});
-    if (j.contains("entries") && j["entries"].is_array()) {
-        for (const auto& je : j["entries"]) {
-            wowee::pipeline::WoweeItemSet::Entry e;
-            e.setId = je.value("setId", 0u);
-            e.name = je.value("name", std::string{});
-            e.description = je.value("description", std::string{});
-            e.requiredClassMask = je.value("requiredClassMask", 0u);
-            e.requiredSkillId = static_cast<uint16_t>(
-                je.value("requiredSkillId", 0));
-            e.requiredSkillRank = static_cast<uint16_t>(
-                je.value("requiredSkillRank", 0));
-            // Items + bonuses are derived from array sizes —
-            // the explicit pieceCount / bonusCount fields in
-            // the binary header are redundant on import (the
-            // exporter emits them so info dumps stay
-            // self-consistent, but on import we recompute).
-            for (size_t k = 0;
-                 k < wowee::pipeline::WoweeItemSet::kMaxPieces; ++k) {
-                e.itemIds[k] = 0;
-            }
-            for (size_t k = 0;
-                 k < wowee::pipeline::WoweeItemSet::kMaxBonuses; ++k) {
-                e.bonusThresholds[k] = 0;
-                e.bonusSpellIds[k] = 0;
-            }
-            if (je.contains("itemIds") && je["itemIds"].is_array()) {
-                size_t slot = 0;
-                for (const auto& ji : je["itemIds"]) {
-                    if (slot >= wowee::pipeline::WoweeItemSet::kMaxPieces)
-                        break;
-                    e.itemIds[slot++] = ji.get<uint32_t>();
+    return cli::importCatalogJson<wowee::pipeline::WoweeItemSetLoader, wowee::pipeline::WoweeItemSet>(
+        i, argc, argv, "wset", "sets   ",
+        [](const nlohmann::json& j) {
+        wowee::pipeline::WoweeItemSet c;
+        c.name = j.value("name", std::string{});
+        if (j.contains("entries") && j["entries"].is_array()) {
+            for (const auto& je : j["entries"]) {
+                wowee::pipeline::WoweeItemSet::Entry e;
+                e.setId = je.value("setId", 0u);
+                e.name = je.value("name", std::string{});
+                e.description = je.value("description", std::string{});
+                e.requiredClassMask = je.value("requiredClassMask", 0u);
+                e.requiredSkillId = static_cast<uint16_t>(
+                    je.value("requiredSkillId", 0));
+                e.requiredSkillRank = static_cast<uint16_t>(
+                    je.value("requiredSkillRank", 0));
+                // Items + bonuses are derived from array sizes —
+                // the explicit pieceCount / bonusCount fields in
+                // the binary header are redundant on import (the
+                // exporter emits them so info dumps stay
+                // self-consistent, but on import we recompute).
+                for (size_t k = 0;
+                     k < wowee::pipeline::WoweeItemSet::kMaxPieces; ++k) {
+                    e.itemIds[k] = 0;
                 }
-                e.pieceCount = static_cast<uint8_t>(slot);
-            }
-            if (je.contains("bonuses") && je["bonuses"].is_array()) {
-                size_t slot = 0;
-                for (const auto& jb : je["bonuses"]) {
-                    if (slot >= wowee::pipeline::WoweeItemSet::kMaxBonuses)
-                        break;
-                    e.bonusThresholds[slot] = static_cast<uint8_t>(
-                        jb.value("threshold", 0));
-                    e.bonusSpellIds[slot] = jb.value("spellId", 0u);
-                    ++slot;
+                for (size_t k = 0;
+                     k < wowee::pipeline::WoweeItemSet::kMaxBonuses; ++k) {
+                    e.bonusThresholds[k] = 0;
+                    e.bonusSpellIds[k] = 0;
                 }
-                e.bonusCount = static_cast<uint8_t>(slot);
+                if (je.contains("itemIds") && je["itemIds"].is_array()) {
+                    size_t slot = 0;
+                    for (const auto& ji : je["itemIds"]) {
+                        if (slot >= wowee::pipeline::WoweeItemSet::kMaxPieces)
+                            break;
+                        e.itemIds[slot++] = ji.get<uint32_t>();
+                    }
+                    e.pieceCount = static_cast<uint8_t>(slot);
+                }
+                if (je.contains("bonuses") && je["bonuses"].is_array()) {
+                    size_t slot = 0;
+                    for (const auto& jb : je["bonuses"]) {
+                        if (slot >= wowee::pipeline::WoweeItemSet::kMaxBonuses)
+                            break;
+                        e.bonusThresholds[slot] = static_cast<uint8_t>(
+                            jb.value("threshold", 0));
+                        e.bonusSpellIds[slot] = jb.value("spellId", 0u);
+                        ++slot;
+                    }
+                    e.bonusCount = static_cast<uint8_t>(slot);
+                }
+                c.entries.push_back(e);
             }
-            c.entries.push_back(e);
         }
-    }
-    if (!wowee::pipeline::WoweeItemSetLoader::save(c, outBase)) {
-        std::fprintf(stderr,
-            "import-wset-json: failed to save %s.wset\n", outBase.c_str());
-        return 1;
-    }
-    std::printf("Wrote %s.wset\n", outBase.c_str());
-    std::printf("  source : %s\n", jsonPath.c_str());
-    std::printf("  sets   : %zu\n", c.entries.size());
-    return 0;
+            return c;
+        });
 }
 
 int handleValidate(int& i, int argc, char** argv) {

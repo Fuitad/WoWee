@@ -2197,11 +2197,24 @@ bool WMORenderer::createGroupResources(const pipeline::WMOGroup& group, GroupRes
             if ((mopy & 0x20) && !(mopy & 0x04)) ++renderedSolid;
             if (mopy & 0x04) ++detail;
         }
-        LOG_INFO("WMO group collision: verts=", resources.collisionVertices.size(),
-                 " tris=", resources.collisionIndices.size() / 3,
-                 " hull(0x08)=", hull,
-                 " renderedSolid(0x20 not 0x04)=", renderedSolid,
-                 " detail(0x04)=", detail);
+        // At warning, because the log carries nothing below it — which is why
+        // the first attempt at this said nothing at all.
+        //
+        // Only a group that offers no floor. Every group saying its counts is
+        // thousands of lines and buries the ones that matter; a group with no
+        // triangles at all, or none that block, is the whole of what "walked
+        // through it" looks like from here.
+        const size_t tris = resources.collisionIndices.size() / 3;
+        if (tris == 0 || (hull == 0 && renderedSolid == 0)) {
+            LOG_WARNING("WMO group offers no floor: verts=",
+                        resources.collisionVertices.size(),
+                        " tris=", tris,
+                        " hull(0x08)=", hull,
+                        " renderedSolid(0x20 not 0x04)=", renderedSolid,
+                        " detail(0x04)=", detail,
+                        " — nothing here blocks, so anything standing on this "
+                        "group falls through it");
+        }
     }
 
     // Create batches
