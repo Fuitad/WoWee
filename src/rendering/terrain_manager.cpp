@@ -701,12 +701,10 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
         }
 
         std::string m2Path = pending->terrain.doodadNames[placement.nameId];
-        if (m2Path.size() > 4) {
-            std::string ext = toLowerCopy(m2Path.substr(m2Path.size() - 4));
-            if (ext == ".mdx") {
-                m2Path = m2Path.substr(0, m2Path.size() - 4) + ".m2";
-            }
-        }
+        // .mdx and .mdl both mean the .m2 that shipped. This site knew only
+        // .mdx, so an ADT doodad named with .mdl was looked up as ".mdl", found
+        // nothing, and did not appear.
+        m2Path = pipeline::modelPathToM2(m2Path);
 
         uint32_t modelId = static_cast<uint32_t>(std::hash<std::string>{}(m2Path));
         if (!ensureModelPrepared(m2Path, modelId, skippedFileNotFound, skippedInvalid, skippedSkinNotFound)) {
@@ -858,13 +856,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
                         std::string m2Path = nameIt->second;
                         if (m2Path.empty()) continue;
 
-                        if (m2Path.size() > 4) {
-                            std::string ext = m2Path.substr(m2Path.size() - 4);
-                            for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-                            if (ext == ".mdx" || ext == ".mdl") {
-                                m2Path = m2Path.substr(0, m2Path.size() - 4) + ".m2";
-                            }
-                        }
+                        m2Path = pipeline::modelPathToM2(m2Path);
 
                         uint32_t doodadModelId = static_cast<uint32_t>(std::hash<std::string>{}(m2Path));
 

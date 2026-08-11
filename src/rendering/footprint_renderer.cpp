@@ -1,4 +1,5 @@
 #include "rendering/footprint_renderer.hpp"
+#include "pipeline/m2_loader.hpp"
 
 #include "core/logger.hpp"
 #include "pipeline/asset_manager.hpp"
@@ -40,9 +41,8 @@ std::string normalizeModelPath(std::string path) {
         if (c == '/') return '\\';
         return static_cast<char>(std::tolower(c));
     });
-    if (path.size() >= 4 && path.compare(path.size() - 4, 4, ".mdx") == 0)
-        path.replace(path.size() - 4, 4, ".m2");
-    return path;
+    // .mdx and .mdl both mean the .m2 that shipped; this knew only the first.
+    return pipeline::modelPathToM2(path);
 }
 
 std::string basenameOf(const std::string& path) {

@@ -484,13 +484,7 @@ void WorldLoader::loadMapGeometry(uint32_t mapId, const std::string& mapName,
                                 std::string m2Path = nameIt->second;
                                 if (m2Path.empty()) continue;
 
-                                if (m2Path.size() > 4) {
-                                    std::string ext = m2Path.substr(m2Path.size() - 4);
-                                    for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-                                    if (ext == ".mdx" || ext == ".mdl") {
-                                        m2Path = m2Path.substr(0, m2Path.size() - 4) + ".m2";
-                                    }
-                                }
+                                m2Path = pipeline::modelPathToM2(m2Path);
 
                                 std::vector<uint8_t> m2Data = assetManager_->readFile(m2Path);
                                 if (m2Data.empty()) continue;

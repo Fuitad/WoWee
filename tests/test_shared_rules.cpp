@@ -265,6 +265,35 @@ TEST_CASE("the .skin beside a model", "[m2]") {
     }
 }
 
+TEST_CASE("the .m2 a model reference means", "[m2]") {
+    // WMO doodads, ADT doodads and GameObjectDisplayInfo all name models with
+    // the extension the art was authored with; what ships is .m2.
+    CHECK(pipeline::modelPathToM2("World\\Tree.mdx") == "World\\Tree.m2");
+
+    SECTION(".mdl too, which is the half three of the nine copies missed") {
+        // Those three left the reference as ".mdl", the asset manager found
+        // nothing, and the doodad did not appear — with nothing logged, since
+        // a model that is not there is an ordinary thing.
+        CHECK(pipeline::modelPathToM2("World\\Tree.mdl") == "World\\Tree.m2");
+    }
+
+    SECTION("the extension is matched whatever its case") {
+        CHECK(pipeline::modelPathToM2("World\\Tree.MDX") == "World\\Tree.m2");
+        CHECK(pipeline::modelPathToM2("World\\Tree.Mdl") == "World\\Tree.m2");
+    }
+
+    SECTION("anything else is left exactly as it is") {
+        // This rewrites a known alias; it does not guess. An .m2 is already
+        // right, and a path with no extension is not a model reference this
+        // rule has anything to say about.
+        CHECK(pipeline::modelPathToM2("World\\Tree.m2") == "World\\Tree.m2");
+        CHECK(pipeline::modelPathToM2("World\\Tree.blp") == "World\\Tree.blp");
+        CHECK(pipeline::modelPathToM2("World\\Tree") == "World\\Tree");
+        CHECK(pipeline::modelPathToM2("") == "");
+        CHECK(pipeline::modelPathToM2(".md") == ".md");
+    }
+}
+
 TEST_CASE("where a cape's art might be", "[item]") {
     const auto c = pipeline::capeTextureCandidates("Cloak_A_01", false);
     REQUIRE(c.size() == 6);

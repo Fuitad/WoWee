@@ -2070,5 +2070,15 @@ std::string skinPathForM2(const std::string& m2Path) {
 }
 
 
+std::string modelPathToM2(const std::string& modelPath) {
+    if (modelPath.size() < 4) return modelPath;
+    std::string ext = modelPath.substr(modelPath.size() - 4);
+    for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    if (ext == ".mdx" || ext == ".mdl") {
+        return modelPath.substr(0, modelPath.size() - 4) + ".m2";
+    }
+    return modelPath;
+}
+
 } // namespace pipeline
 } // namespace wowee

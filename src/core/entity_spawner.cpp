@@ -877,13 +877,9 @@ void EntitySpawner::buildGameObjectDisplayLookups() {
             uint32_t displayId = godi->getUInt32(i, godiL ? (*godiL)["ID"] : 0);
             std::string modelName = godi->getString(i, godiL ? (*godiL)["ModelName"] : 1);
             if (modelName.empty()) continue;
-            if (modelName.size() >= 4) {
-                std::string ext = modelName.substr(modelName.size() - 4);
-                for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-                if (ext == ".mdx") {
-                    modelName = modelName.substr(0, modelName.size() - 4) + ".m2";
-                }
-            }
+            // GameObjectDisplayInfo names .mdx and .mdl alike; this knew only
+            // the first, so a .mdl gameobject had no model path at all.
+            modelName = pipeline::modelPathToM2(modelName);
             gameObjectDisplayIdToPath_[displayId] = modelName;
         }
         LOG_INFO("Loaded ", gameObjectDisplayIdToPath_.size(), " gameobject display mappings");

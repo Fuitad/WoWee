@@ -80,15 +80,9 @@ void SpellVisualSystem::loadSpellVisualDbc() {
         uint32_t id   = fxDbc->getUInt32(i, 0);
         std::string p = fxDbc->getString(i, fxFilePathField);
         if (id && !p.empty()) {
-            // DBC stores old-format extensions (.mdx, .mdl) but extracted assets are .m2
-            if (p.size() > 4) {
-                std::string ext = p.substr(p.size() - 4);
-                // Case-insensitive extension check
-                for (auto& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-                if (ext == ".mdx" || ext == ".mdl") {
-                    p = p.substr(0, p.size() - 4) + ".m2";
-                }
-            }
+            // The DBC stores the extension the art was authored with; what
+            // shipped is .m2.
+            p = pipeline::modelPathToM2(p);
             effectPaths[id] = p;
         }
     }

@@ -312,5 +312,20 @@ public:
 
 std::string skinPathForM2(const std::string& m2Path);
 
+/// The .m2 a model reference means, whatever it was written as.
+///
+/// WMO doodad lists, ADT doodad lists and GameObjectDisplayInfo all name models
+/// with the extension the art was authored with — .mdx, and occasionally .mdl —
+/// while what ships is .m2. Every reader has to rewrite it, and nine of them
+/// did, in their own words:
+///
+///   * four rewrote .mdx and .mdl
+///   * three rewrote only .mdx, so a .mdl reference reached the asset manager
+///     as ".mdl", found nothing, and the doodad silently did not appear
+///
+/// Both are handled here. A path with any other extension, or none, comes back
+/// unchanged — this rewrites a known alias and does not guess.
+std::string modelPathToM2(const std::string& modelPath);
+
 } // namespace pipeline
 } // namespace wowee

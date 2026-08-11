@@ -925,14 +925,7 @@ WMORenderer::ModelLoadResult WMORenderer::loadModelIncremental(
             std::string m2Path = nameIt->second;
             if (m2Path.empty()) continue;
 
-            // Convert .mdx/.mdl to .m2
-            if (m2Path.size() > 4) {
-                std::string ext = m2Path.substr(m2Path.size() - 4);
-                for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-                if (ext == ".mdx" || ext == ".mdl") {
-                    m2Path = m2Path.substr(0, m2Path.size() - 4) + ".m2";
-                }
-            }
+            m2Path = pipeline::modelPathToM2(m2Path);
 
             // Build doodad's local transform (WoW coordinates)
             // WMO doodads use quaternion rotation
