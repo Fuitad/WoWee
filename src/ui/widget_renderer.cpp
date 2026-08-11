@@ -919,6 +919,53 @@ void WidgetRenderer::layout(WidgetTree& tree, float screenW, float screenH) {
     sizeTextures(tree);
 
     tree.layout(screenW, screenH);
+
+    reportMoneyFrameGeometry(tree);
+}
+
+/// Where the backpack's coin amounts and coin pictures actually end up.
+///
+/// Reported because the two disagree on screen and agree in every measurement
+/// that can be taken without the client running: the number is drawn over the
+/// coin, and the rects say it ends exactly where the coin begins. Something
+/// between the rect and the glyphs differs in a real run — a face with other
+/// metrics, a scale, a font object's own height — and this prints all of it at
+/// once so one run settles which.
+///
+/// Once every ten seconds, and only while the bag is up.
+void WidgetRenderer::reportMoneyFrameGeometry(WidgetTree& tree) {
+    static double lastAt = -1000.0;
+    const double now = ImGui::GetTime();
+    if (now - lastAt < 10.0) return;
+
+    const Widget* button = tree.findByName("ContainerFrame1MoneyFrameGoldButton");
+    const Widget* text = tree.findByName("ContainerFrame1MoneyFrameGoldButtonText");
+    if (!button || !text || !button->shown || text->text.empty()) return;
+    lastAt = now;
+
+    // The icon is the button's normal art, whichever child carries it.
+    const Widget* icon = nullptr;
+    for (size_t id = 1; id < tree.size(); ++id) {
+        const Widget* w = tree.get(static_cast<uint32_t>(id));
+        if (w && w->buttonArt != ButtonArt::None && tree.get(w->parent) == button) {
+            icon = w;
+            break;
+        }
+    }
+
+    const float measured = interfaceTextWidth(text->text, text->fontFace, text->fontHeight);
+    LOG_WARNING("Money geometry: text \"", text->text, "\" rect=(", text->left, "..",
+                text->left + text->rectW, ") w=", text->rectW,
+                " measured=", measured,
+                " fontHeight=", text->fontHeight,
+                " size=", interfaceFontSize(text->fontHeight),
+                " face=", text->fontFace.empty() ? "(default)" : text->fontFace.c_str(),
+                " currentFontSize=", ImGui::GetFontSize(),
+                " | button=(", button->left, "..", button->left + button->rectW,
+                ") w=", button->rectW,
+                " | icon=", icon ? "(" : "(none",
+                icon ? icon->left : 0.0f, "..", icon ? icon->left + icon->rectW : 0.0f,
+                ") scale=", tree.uiScale());
 }
 
 // What is on screen, and what should be but is not.
