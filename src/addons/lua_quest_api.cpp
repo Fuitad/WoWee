@@ -2014,6 +2014,51 @@ static std::unordered_map<std::string, bool>& trainerFilters() {
     return filters;
 }
 
+/// The word the trainer panel colours a service by, and the name of the filter
+/// that hides it.
+///
+/// "used" wins the moment the spell is known rather than only when the packet
+/// said so: the list is a snapshot from when the trainer was opened, and
+/// learning something fires TRAINER_UPDATE without a fresh one arriving.
+static const char* trainerServiceCategory(game::GameHandler* gh,
+                                          const game::TrainerSpell& sp) {
+    if (gh && gh->getSpellHandler() && gh->getSpellHandler()->hasKnownSpell(sp.spellId))
+        return "used";
+    return sp.state == 0 ? "available" : sp.state == 2 ? "used" : "unavailable";
+}
+
+/// Whether the filter dropdown is currently letting this category through.
+/// Unset means showing, which is how a freshly opened panel looks.
+static bool trainerCategoryShowing(const char* category) {
+    const auto& filters = trainerFilters();
+    auto it = filters.find(category);
+    return it == filters.end() || it->second;
+}
+
+/// The trainer's list as the panel sees it — the services the filters leave.
+///
+/// The filter was stored and read back and consulted by nothing, so ticking a
+/// box in the dropdown changed the tick and not the list. It has to be applied
+/// here rather than at each reader, because every one of the nine bindings that
+/// takes a service index has to agree about which service index 3 is: filtering
+/// in one of them and not the rest would train a different spell than the row
+/// that was clicked.
+static std::vector<const game::TrainerSpell*> shownTrainerServices(game::GameHandler* gh) {
+    std::vector<const game::TrainerSpell*> shown;
+    if (!gh) return shown;
+    for (const auto& sp : gh->getTrainerSpells().spells) {
+        if (trainerCategoryShowing(trainerServiceCategory(gh, sp))) shown.push_back(&sp);
+    }
+    return shown;
+}
+
+/// The nth shown service, counting from one, or null.
+static const game::TrainerSpell* shownTrainerService(game::GameHandler* gh, int index) {
+    const auto shown = shownTrainerServices(gh);
+    if (index < 1 || index > static_cast<int>(shown.size())) return nullptr;
+    return shown[index - 1];
+}
+
 /// (tabIndex, talentIndex) → talent id, or 0.
 ///
 /// The same ordering GetTalentInfo reports by — tabs in orderIndex, talents by
@@ -3732,9 +3777,9 @@ void registerQuestLuaAPI(lua_State* L) {
                 // had a way into the interface, so the panel opened blank at
                 // every trainer in the game.
                 {"GetNumTrainerServices", [](lua_State* L) -> int {
-            auto* gh = getGameHandler(L);
-            lua_pushnumber(L, gh ? static_cast<double>(
-                gh->getTrainerSpells().spells.size()) : 0.0);
+            // What the filters leave, not what the trainer sent.
+            lua_pushnumber(L, static_cast<double>(
+                shownTrainerServices(getGameHandler(L)).size()));
             return 1;
         }},
                 // GetTrainerServiceInfo(i) → name, rank, category, expanded
@@ -3742,9 +3787,9 @@ void registerQuestLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             if (!gh) return luaReturnNil(L);
-            const auto& list = gh->getTrainerSpells().spells;
-            if (i < 1 || i > static_cast<int>(list.size())) return luaReturnNil(L);
-            const auto& sp = list[i - 1];
+            const auto* svc = shownTrainerService(gh, i);
+            if (!svc) return luaReturnNil(L);
+            const auto& sp = *svc;
             std::string name = gh->getSpellName(sp.spellId);
             if (name.empty()) name = "Spell " + std::to_string(sp.spellId);
             lua_pushstring(L, name.c_str());
@@ -3770,12 +3815,7 @@ void registerQuestLuaAPI(lua_State* L) {
             // trainable, its cost still shown — and only a close and reopen,
             // which fetches a fresh list, corrected it. Asking the known set
             // makes the live redraw right.
-            const bool known = gh->getSpellHandler() &&
-                               gh->getSpellHandler()->hasKnownSpell(sp.spellId);
-            lua_pushstring(L, known             ? "used"
-                            : sp.state == 0     ? "available"
-                            : sp.state == 2     ? "used"
-                                                : "unavailable");
+            lua_pushstring(L, trainerServiceCategory(gh, sp));
             lua_pushboolean(L, 1);   // expanded: the list here is flat
             return 4;
         }},
@@ -3799,33 +3839,32 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetTrainerServiceCost", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
-            const auto* list = gh ? &gh->getTrainerSpells().spells : nullptr;
-            const bool have = list && i >= 1 && i <= static_cast<int>(list->size());
-            lua_pushnumber(L, have ? (*list)[i - 1].spellCost  : 0);
-            lua_pushnumber(L, have ? (*list)[i - 1].profDialog : 0);
-            lua_pushnumber(L, have ? (*list)[i - 1].profButton : 0);
+            const auto* svc = shownTrainerService(gh, i);
+            lua_pushnumber(L, svc ? svc->spellCost  : 0);
+            lua_pushnumber(L, svc ? svc->profDialog : 0);
+            lua_pushnumber(L, svc ? svc->profButton : 0);
             return 3;
         }},
                 {"GetTrainerServiceLevelReq", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
-            const auto* list = gh ? &gh->getTrainerSpells().spells : nullptr;
-            if (!list || i < 1 || i > static_cast<int>(list->size())) {
+            const auto* svc = shownTrainerService(gh, i);
+            if (!svc) {
                 lua_pushnumber(L, 0);
                 return 1;
             }
-            lua_pushnumber(L, (*list)[i - 1].reqLevel);
+            lua_pushnumber(L, svc->reqLevel);
             return 1;
         }},
                 // GetTrainerServiceSkillReq(i) → skill name, required value
                 {"GetTrainerServiceSkillReq", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
-            const auto* list = gh ? &gh->getTrainerSpells().spells : nullptr;
-            if (!list || i < 1 || i > static_cast<int>(list->size())) {
+            const auto* svc = shownTrainerService(gh, i);
+            if (!svc) {
                 return luaReturnNil(L);
             }
-            const auto& sp = (*list)[i - 1];
+            const auto& sp = *svc;
             if (sp.reqSkill == 0) return luaReturnNil(L);
             const std::string skill = gh->getSkillLineName(sp.reqSkill);
             lua_pushstring(L, skill.empty() ? "Skill" : skill.c_str());
@@ -3844,11 +3883,11 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetTrainerServiceIcon", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
-            const auto* list = gh ? &gh->getTrainerSpells().spells : nullptr;
-            if (!list || i < 1 || i > static_cast<int>(list->size())) {
+            const auto* svc = shownTrainerService(gh, i);
+            if (!svc) {
                 return luaReturnNil(L);
             }
-            const std::string icon = gh->getSpellIconPath((*list)[i - 1].spellId);
+            const std::string icon = gh->getSpellIconPath(svc->spellId);
             lua_pushstring(L, icon.empty()
                 ? "Interface\\Icons\\INV_Misc_QuestionMark" : icon.c_str());
             return 1;
@@ -3856,11 +3895,11 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetTrainerServiceDescription", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
-            const auto* list = gh ? &gh->getTrainerSpells().spells : nullptr;
-            if (!list || i < 1 || i > static_cast<int>(list->size())) {
+            const auto* svc = shownTrainerService(gh, i);
+            if (!svc) {
                 return luaReturnNil(L);
             }
-            const uint32_t id = (*list)[i - 1].spellId;
+            const uint32_t id = svc->spellId;
             const std::string desc =
                 gh->formatSpellDescription(id, gh->getSpellDescription(id));
             lua_pushstring(L, desc.c_str());
@@ -3869,11 +3908,11 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetTrainerServiceSkillLine", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
-            const auto* list = gh ? &gh->getTrainerSpells().spells : nullptr;
-            if (!list || i < 1 || i > static_cast<int>(list->size())) {
+            const auto* svc = shownTrainerService(gh, i);
+            if (!svc) {
                 return luaReturnNil(L);
             }
-            const std::string skill = gh->getSkillLineName((*list)[i - 1].reqSkill);
+            const std::string skill = gh->getSkillLineName(svc->reqSkill);
             lua_pushstring(L, skill.empty() ? "" : skill.c_str());
             return 1;
         }},
@@ -3882,12 +3921,12 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"GetTrainerServiceNumAbilityReq", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
-            const auto* list = gh ? &gh->getTrainerSpells().spells : nullptr;
-            if (!list || i < 1 || i > static_cast<int>(list->size())) {
+            const auto* svc = shownTrainerService(gh, i);
+            if (!svc) {
                 lua_pushnumber(L, 0);
                 return 1;
             }
-            const auto& sp = (*list)[i - 1];
+            const auto& sp = *svc;
             int n = 0;
             if (sp.chainNode1) ++n;
             if (sp.chainNode2) ++n;
@@ -3900,11 +3939,11 @@ void registerQuestLuaAPI(lua_State* L) {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
             const int n = static_cast<int>(luaL_optnumber(L, 2, 1));
-            const auto* list = gh ? &gh->getTrainerSpells().spells : nullptr;
-            if (!list || i < 1 || i > static_cast<int>(list->size())) {
+            const auto* svc = shownTrainerService(gh, i);
+            if (!svc) {
                 return luaReturnNil(L);
             }
-            const auto& sp = (*list)[i - 1];
+            const auto& sp = *svc;
             const uint32_t chain[3] = {sp.chainNode1, sp.chainNode2, sp.chainNode3};
             if (n < 1 || n > 3 || chain[n - 1] == 0) return luaReturnNil(L);
             const uint32_t req = chain[n - 1];
@@ -3945,10 +3984,11 @@ void registerQuestLuaAPI(lua_State* L) {
                 {"BuyTrainerService", [](lua_State* L) -> int {
             auto* gh = getGameHandler(L);
             const int i = static_cast<int>(luaL_optnumber(L, 1, 0));
-            if (!gh) return 0;
-            const auto& list = gh->getTrainerSpells().spells;
-            if (i < 1 || i > static_cast<int>(list.size())) return 0;
-            gh->trainSpell(list[i - 1].spellId);
+            // Through the filtered list like every other index, and this is
+            // the one where getting it wrong buys a different spell than the
+            // row that was clicked.
+            const auto* svc = shownTrainerService(gh, i);
+            if (svc) gh->trainSpell(svc->spellId);
             return 0;
         }},
                 {"CloseTrainer", [](lua_State* L) -> int {
