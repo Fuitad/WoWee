@@ -37,7 +37,12 @@ option(WOWEE_ENABLE_TRACY "Enable Tracy profiler instrumentation" OFF)
 #
 # This client's own upscaling is unaffected. FSR 1 (fsr_easu/fsr_rcas) and the
 # fsr2_* compute shaders are in-tree and stay in the build; only the vendored
-# SDK path is gone. Set any of these ON to build it back.
+# SDK path is gone.
+#
+# To build it back, set any of these ON and place the SDKs under extern/:
+#   extern/FidelityFX-FSR2   github.com/GPUOpen-Effects/FidelityFX-FSR2 (master)
+#   extern/FidelityFX-SDK    github.com/Kelsidavis/FidelityFX-SDK (main)
+# CI used to clone both on every run and no longer does.
 option(WOWEE_ENABLE_AMD_FSR2 "Enable AMD FidelityFX FSR2 backend when SDK is present" OFF)
 option(WOWEE_ENABLE_AMD_FSR3_FRAMEGEN "Enable AMD FidelityFX SDK FSR3 frame generation interface probe when SDK is present" OFF)
 option(WOWEE_BUILD_AMD_FSR3_RUNTIME "Build native AMD FidelityFX VK runtime (Path A) from extern/FidelityFX-SDK/Kits" OFF)

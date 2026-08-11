@@ -9,10 +9,6 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  WOWEE_AMD_FSR2_REPO: https://github.com/GPUOpen-Effects/FidelityFX-FSR2.git
-  WOWEE_AMD_FSR2_REF: master
-  WOWEE_FFX_SDK_REPO: https://github.com/Kelsidavis/FidelityFX-SDK.git
-  WOWEE_FFX_SDK_REF: main
 
 jobs:
   build:
@@ -66,36 +62,7 @@ jobs:
           libx11-dev
         sudo apt-get install -y libstorm-dev || true
 
-    - name: Fetch AMD FSR2 SDK
-      run: |
-        rm -rf extern/FidelityFX-FSR2
-        git clone --depth 1 --branch "${WOWEE_AMD_FSR2_REF}" "${WOWEE_AMD_FSR2_REPO}" extern/FidelityFX-FSR2
-        rm -rf extern/FidelityFX-SDK
-        git clone --depth 1 --branch "${WOWEE_FFX_SDK_REF}" "${WOWEE_FFX_SDK_REPO}" extern/FidelityFX-SDK
-
-    - name: Check AMD FSR2 Vulkan permutation headers
-      run: |
-        set -euo pipefail
-        SDK_DIR="$PWD/extern/FidelityFX-FSR2"
-        OUT_DIR="$SDK_DIR/src/ffx-fsr2-api/vk/shaders"
-        if [ -f "$OUT_DIR/ffx_fsr2_accumulate_pass_permutations.h" ]; then
-          echo "AMD FSR2 Vulkan permutation headers detected."
-        else
-          echo "AMD FSR2 Vulkan permutation headers not found in SDK checkout."
-          echo "WoWee CMake will bootstrap vendored headers."
-        fi
-
-    - name: Check FidelityFX-SDK Kits framegen headers
-      run: |
-        set -euo pipefail
-        KITS_DIR="$PWD/extern/FidelityFX-SDK/Kits/FidelityFX"
-        test -f "$KITS_DIR/upscalers/fsr3/include/ffx_fsr3upscaler.h"
-        test -f "$KITS_DIR/framegeneration/fsr3/include/ffx_frameinterpolation.h"
-        test -f "$KITS_DIR/framegeneration/fsr3/include/ffx_opticalflow.h"
-        test -f "$KITS_DIR/backend/vk/ffx_vk.h"
-        echo "FidelityFX-SDK Kits framegen headers detected."
-
-    - name: Configure (AMD ON)
+    - name: Configure
       run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DWOWEE_BUILD_TESTS=ON
 
     - name: Assert AMD FSR2 target
@@ -163,13 +130,6 @@ jobs:
       run: |
         brew install cmake pkg-config sdl2 glm openssl@3 zlib ffmpeg unicorn \
           stormlib vulkan-loader vulkan-headers molten-vk shaderc
-
-    - name: Fetch AMD FSR2 SDK
-      run: |
-        rm -rf extern/FidelityFX-FSR2
-        git clone --depth 1 --branch "${WOWEE_AMD_FSR2_REF}" "${WOWEE_AMD_FSR2_REPO}" extern/FidelityFX-FSR2
-        rm -rf extern/FidelityFX-SDK
-        git clone --depth 1 --branch "${WOWEE_FFX_SDK_REF}" "${WOWEE_FFX_SDK_REPO}" extern/FidelityFX-SDK
 
     - name: Configure
       run: |
@@ -495,14 +455,6 @@ jobs:
         cmake --build /tmp/StormLib/build --parallel $(nproc)
         cmake --install /tmp/StormLib/build
 
-    - name: Fetch AMD FSR2 SDK
-      shell: msys2 {0}
-      run: |
-        rm -rf extern/FidelityFX-FSR2
-        git clone --depth 1 --branch "${WOWEE_AMD_FSR2_REF}" "${WOWEE_AMD_FSR2_REPO}" extern/FidelityFX-FSR2
-        rm -rf extern/FidelityFX-SDK
-        git clone --depth 1 --branch "${WOWEE_FFX_SDK_REF}" "${WOWEE_FFX_SDK_REPO}" extern/FidelityFX-SDK
-
     - name: Configure
       shell: msys2 {0}
       run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
@@ -596,14 +548,6 @@ jobs:
           -DBUILD_SHARED_LIBS=OFF
         cmake --build /tmp/StormLib/build --parallel $(nproc)
         cmake --install /tmp/StormLib/build
-
-    - name: Fetch AMD FSR2 SDK
-      shell: msys2 {0}
-      run: |
-        rm -rf extern/FidelityFX-FSR2
-        git clone --depth 1 --branch "${WOWEE_AMD_FSR2_REF}" "${WOWEE_AMD_FSR2_REPO}" extern/FidelityFX-FSR2
-        rm -rf extern/FidelityFX-SDK
-        git clone --depth 1 --branch "${WOWEE_FFX_SDK_REF}" "${WOWEE_FFX_SDK_REPO}" extern/FidelityFX-SDK
 
     - name: Configure
       shell: msys2 {0}
