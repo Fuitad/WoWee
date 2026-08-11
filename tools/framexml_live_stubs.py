@@ -129,9 +129,20 @@ def _live_files():
     _cand_loop = _re.search(r"for \(const char\* name : \{(.*?)\}\)", tk, _re.S)
     cand = set(_re.findall(r'"([a-z]+)"', _cand_loop.group(1))) if _cand_loop else set()
     rd = (ROOT / "tools/framexml_element_readiness.py").read_text()
+    # Parsed as data, not run as code. These are two plain dict literals in a
+    # sibling sweep, and exec() on a slice of another file is both more than
+    # this needs and a finding in its own right: it hands whatever that regex
+    # happened to match to the interpreter. literal_eval accepts a literal and
+    # nothing else, so a stray call or import in there is an error rather than
+    # something that runs.
+    import ast as _ast
     ns = {}
-    exec(_re.search(r"^ELEMENTS = \{.*?^\}", rd, _re.S | _re.M).group(0), ns)
-    exec(_re.search(r"^ADDON_ELEMENTS = \{.*?^\}", rd, _re.S | _re.M).group(0), ns)
+    for _name in ("ELEMENTS", "ADDON_ELEMENTS"):
+        _m = _re.search(r"^%s = (\{.*?^\})" % _name, rd, _re.S | _re.M)
+        if not _m:
+            raise SystemExit(f"{_name} is no longer a dict literal in "
+                             "framexml_element_readiness.py — this sweep reads it as one")
+        ns[_name] = _ast.literal_eval(_m.group(1))
     out = {}
     for el in defaults | cand:
         for f in ns["ELEMENTS"].get(el, []):
