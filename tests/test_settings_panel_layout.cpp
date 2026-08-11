@@ -14,6 +14,7 @@
 // in the panel builder and this test lays the schema out against the new one.
 #include <catch_amalgamated.hpp>
 
+#include <algorithm>
 #include <regex>
 #include <string>
 #include <vector>
@@ -113,4 +114,40 @@ TEST_CASE("a dropdown does not hang off the right of the panel", "[settings]") {
     constexpr int kPanelWidth = 623;
     INFO("a dropdown in the second column reaches " << right << " of " << kPanelWidth);
     CHECK(right <= kPanelWidth);
+}
+
+TEST_CASE("the root panel's blocks do not sit inside each other", "[settings]") {
+    // This panel is laid out by hand, not generated, so the check is against
+    // what the Lua says each block needs — a "needs N" note beside every
+    // anchor. It is the panel a search box was inserted into the middle of
+    // last pass, on top of the two blocks that were already there.
+    const std::string lua = addons::kWoweeOptionsPanelLua;
+
+    struct Block { int top; int needs; };
+    std::vector<Block> blocks;
+    const std::regex anchored(
+        R"(SetPoint\("TOPLEFT",\s*-?[0-9]+,\s*(-[0-9]+)\)\s*--\s*needs\s+([0-9]+))");
+    for (auto it = std::sregex_iterator(lua.begin(), lua.end(), anchored);
+         it != std::sregex_iterator(); ++it) {
+        blocks.push_back({-std::stoi((*it)[1]), std::stoi((*it)[2])});
+    }
+    // Every block on the panel carries one; a new block without a note would
+    // be invisible to this check, so the count is asserted rather than assumed.
+    REQUIRE(blocks.size() == 12);
+
+    std::sort(blocks.begin(), blocks.end(),
+              [](const Block& a, const Block& b) { return a.top < b.top; });
+
+    int previousBottom = 0;
+    for (const Block& b : blocks) {
+        INFO("a block at -" << b.top << " starts inside the one above it, "
+             << "which runs to -" << previousBottom);
+        CHECK(b.top >= previousBottom);
+        previousBottom = b.top + b.needs;
+    }
+
+    // InterfaceOptionsFramePanelContainer is about 492 tall.
+    constexpr int kPanelHeight = 492;
+    INFO("the root panel's content ends at -" << previousBottom);
+    CHECK(previousBottom <= kPanelHeight);
 }

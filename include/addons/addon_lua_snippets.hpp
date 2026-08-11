@@ -337,15 +337,20 @@ end
 
 -- The root. It holds no controls of its own: what it is for is to say what
 -- this client's own settings are, and where the six that are not here live.
+-- The root panel is laid out by hand rather than generated, so the anchors
+-- below carry the room each block needs as a "needs N" note. A test reads
+-- those and checks nothing is placed inside anything else — which is how a
+-- search box came to be drawn straight through the two blocks under it, with
+-- every behavioural check still passing.
 local root = CreateFrame("Frame", "WoweeOptionsRoot")
 root.name = ROOT
 
 local rootTitle = root:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-rootTitle:SetPoint("TOPLEFT", 16, -16)
+rootTitle:SetPoint("TOPLEFT", 16, -16) -- needs 22
 rootTitle:SetText(ROOT)
 
 local blurb = root:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-blurb:SetPoint("TOPLEFT", 16, -48)
+blurb:SetPoint("TOPLEFT", 16, -48) -- needs 42
 blurb:SetWidth(560)
 blurb:SetJustifyH("LEFT")
 blurb:SetJustifyV("TOP")
@@ -354,7 +359,7 @@ blurb:SetText("This client's own settings, under the headings below. "
     .. "there when you opened the panel.")
 
 local elsewhere = root:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-elsewhere:SetPoint("TOPLEFT", 16, -240)
+elsewhere:SetPoint("TOPLEFT", 16, -240) -- needs 14
 elsewhere:SetText("In the game's own panels")
 
 local elsewhereRule = root:CreateTexture(nil, "ARTWORK")
@@ -362,10 +367,10 @@ elsewhereRule:SetTexture("Interface\\Buttons\\WHITE8X8")
 elsewhereRule:SetVertexColor(0.5, 0.42, 0.22, 0.7)
 elsewhereRule:SetWidth(560)
 elsewhereRule:SetHeight(1)
-elsewhereRule:SetPoint("TOPLEFT", 16, -258)
+elsewhereRule:SetPoint("TOPLEFT", 16, -258) -- needs 2
 
 local elsewhereText = root:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-elsewhereText:SetPoint("TOPLEFT", 16, -268)
+elsewhereText:SetPoint("TOPLEFT", 16, -268) -- needs 84
 elsewhereText:SetWidth(560)
 elsewhereText:SetJustifyH("LEFT")
 elsewhereText:SetJustifyV("TOP")
@@ -383,7 +388,7 @@ elsewhereText:SetText(
 -- What this build is. The version comes from the client rather than being
 -- written here, where it would go stale the first time a tag was cut.
 local aboutTitle = root:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-aboutTitle:SetPoint("TOPLEFT", 16, -370)
+aboutTitle:SetPoint("TOPLEFT", 16, -370) -- needs 14
 aboutTitle:SetText("About")
 
 local aboutRule = root:CreateTexture(nil, "ARTWORK")
@@ -391,10 +396,10 @@ aboutRule:SetTexture("Interface\\Buttons\\WHITE8X8")
 aboutRule:SetVertexColor(0.5, 0.42, 0.22, 0.7)
 aboutRule:SetWidth(560)
 aboutRule:SetHeight(1)
-aboutRule:SetPoint("TOPLEFT", 16, -388)
+aboutRule:SetPoint("TOPLEFT", 16, -388) -- needs 2
 
 local aboutText = root:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-aboutText:SetPoint("TOPLEFT", 16, -398)
+aboutText:SetPoint("TOPLEFT", 16, -398) -- needs 42
 aboutText:SetWidth(560)
 aboutText:SetJustifyH("LEFT")
 aboutText:SetJustifyV("TOP")
@@ -409,7 +414,7 @@ aboutText:SetText("WoWee — a World of Warcraft client\n"
 -- reported missing. Typing here lists what matches and, more to the point,
 -- says which panel each one is on.
 local searchTitle = root:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
-searchTitle:SetPoint("TOPLEFT", 16, -104)
+searchTitle:SetPoint("TOPLEFT", 16, -104) -- needs 14
 searchTitle:SetText("Find a setting")
 
 local searchRule = root:CreateTexture(nil, "ARTWORK")
@@ -417,10 +422,10 @@ searchRule:SetTexture("Interface\\Buttons\\WHITE8X8")
 searchRule:SetVertexColor(0.5, 0.42, 0.22, 0.7)
 searchRule:SetWidth(560)
 searchRule:SetHeight(1)
-searchRule:SetPoint("TOPLEFT", 16, -122)
+searchRule:SetPoint("TOPLEFT", 16, -122) -- needs 2
 
 local searchBox = CreateFrame("EditBox", "WoweeOptionsSearchBox", root, "InputBoxTemplate")
-searchBox:SetPoint("TOPLEFT", 22, -130)
+searchBox:SetPoint("TOPLEFT", 22, -130) -- needs 22
 searchBox:SetWidth(280)
 searchBox:SetHeight(20)
 searchBox:SetAutoFocus(false)
@@ -429,7 +434,7 @@ searchBox:SetAutoFocus(false)
 -- headless runner cannot enumerate a frame's regions.
 local searchResults = root:CreateFontString("WoweeOptionsSearchResults",
                                            "ARTWORK", "GameFontHighlightSmall")
-searchResults:SetPoint("TOPLEFT", 16, -158)
+searchResults:SetPoint("TOPLEFT", 16, -158) -- needs 78
 searchResults:SetWidth(560)
 searchResults:SetJustifyH("LEFT")
 searchResults:SetJustifyV("TOP")
