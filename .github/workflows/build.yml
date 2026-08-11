@@ -113,6 +113,15 @@ jobs:
     - name: Build
       run: cmake --build build --parallel ${{ matrix.build_jobs }}
 
+    # The editor is off the default build — it is large and ordinary client
+    # work does not need it — so nothing was compiling it, here or locally, and
+    # it rotted: twenty files lost an include and a helper lost a method that
+    # twelve callers still used, and it sat broken with no signal at all.
+    # Built on this job only; one platform is enough to catch a missing include
+    # or a changed signature, and the other jobs stay as quick as they were.
+    - name: Build editor
+      run: cmake --build build --target wowee_editor --parallel ${{ matrix.build_jobs }}
+
     - name: Run tests
       run: cd build && ctest --output-on-failure
 
