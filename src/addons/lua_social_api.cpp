@@ -311,6 +311,31 @@ static int lua_GetFriendInfo(lua_State* L) {
 /// stale exactly when the panel redraws.
 namespace {
 
+/// Turn every addon this client knows about on or off.
+///
+/// The list is the registry table GetAddOnInfo reads, so the two cannot come to
+/// disagree about which addons exist.
+int setAllAddOnsEnabled(lua_State* L, bool enabled) {
+    auto* svc = getLuaServices(L);
+    if (!svc || !svc->setAddOnEnabled) return 0;
+    lua_getfield(L, LUA_REGISTRYINDEX, "wowee_addon_info");
+    if (!lua_istable(L, -1)) { lua_pop(L, 1); return 0; }
+    const int count = static_cast<int>(lua_objlen(L, -1));
+    for (int i = 1; i <= count; ++i) {
+        lua_rawgeti(L, -1, i);
+        if (lua_istable(L, -1)) {
+            lua_getfield(L, -1, "name");
+            const char* name = lua_tostring(L, -1);
+            if (name && *name) svc->setAddOnEnabled(name, enabled);
+            lua_pop(L, 1);
+        }
+        lua_pop(L, 1);
+    }
+    lua_pop(L, 1);
+    return 0;
+}
+
+
 /// Whether an npc a dialog is waiting on is still close enough to talk to.
 ///
 /// Five yards is AzerothCore's INTERACTION_DISTANCE, which is the figure the
@@ -3454,8 +3479,21 @@ void registerSocialLuaAPI(lua_State* L) {
             }
             return 0;
         }},
-                {"DisableAllAddOns",         [](lua_State* L) -> int { (void)L; return 0; }},
-                {"EnableAllAddOns",          [](lua_State* L) -> int { (void)L; return 0; }},
+                // The two buttons under the AddOns list. EnableAddOn and
+                // DisableAddOn have driven the real setting for a while; these
+                // two were left discarding the click, so "Disable All" looked
+                // like a button that does not work. They are the same
+                // instruction, once per addon.
+                //
+                // The character argument is ignored for the same reason
+                // EnableAddOn ignores it: this client keeps one enabled list,
+                // not one per character.
+                {"DisableAllAddOns",         [](lua_State* L) -> int {
+                    return setAllAddOnsEnabled(L, false);
+                }},
+                {"EnableAllAddOns",          [](lua_State* L) -> int {
+                    return setAllAddOnsEnabled(L, true);
+                }},
                 {"SetTaxiBenchmarkMode",     [](lua_State* L) -> int { (void)L; return 0; }},
                 {"StopMacro",                [](lua_State* L) -> int { (void)L; return 0; }},
                 // The targeting variants this client has no equivalent for.
