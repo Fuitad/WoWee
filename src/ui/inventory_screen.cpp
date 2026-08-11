@@ -2918,10 +2918,9 @@ void InventoryScreen::renderItemSlot(game::Inventory& inventory, const game::Ite
         if (kind == SlotKind::EQUIPMENT && item.maxDurability > 0) {
             float durPct = static_cast<float>(item.curDurability) /
                            static_cast<float>(item.maxDurability);
-            ImU32 durCol;
-            if (durPct > 0.5f)       durCol = IM_COL32(0, 200, 0, 220);
-            else if (durPct > 0.25f) durCol = IM_COL32(220, 220, 0, 220);
-            else                     durCol = IM_COL32(220, 40, 40, 220);
+            ImVec4 durRgb = ui::colors::durabilityColor(durPct);
+            durRgb.w = 220.0f / 255.0f;  // the strip is drawn under the icon
+            const ImU32 durCol = ImGui::ColorConvertFloat4ToU32(durRgb);
             float barW = size * durPct;
             drawList->AddRectFilled(ImVec2(pos.x, pos.y + size - 3.0f),
                                     ImVec2(pos.x + barW, pos.y + size),
@@ -3361,10 +3360,7 @@ void InventoryScreen::renderItemTooltip(const game::ItemDef& item, const game::I
     }
     if (item.maxDurability > 0) {
         float durPct = static_cast<float>(item.curDurability) / static_cast<float>(item.maxDurability);
-        ImVec4 durColor;
-        if (durPct > 0.5f)       durColor = ImVec4(0.1f, 1.0f, 0.1f, 1.0f);  // green
-        else if (durPct > 0.25f) durColor = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);  // yellow
-        else                     durColor = ui::colors::kBrightRed;  // red
+        const ImVec4 durColor = ui::colors::durabilityColor(durPct);
         ImGui::TextColored(durColor, "Durability %u / %u",
                            item.curDurability, item.maxDurability);
     }

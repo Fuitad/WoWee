@@ -90,6 +90,17 @@ inline ImU32 healthBarColorU32(float pct) {
     return ImGui::ColorConvertFloat4ToU32(healthBarColor(pct));
 }
 
+/// An item's durability, coloured the same way in the bag and in the tooltip.
+///
+/// Two copies with the same thresholds and different greens, so the strip under
+/// an icon and the line in its own tooltip disagreed about the same item. The
+/// strip is drawn semi-transparent, which is why the alpha is the caller's.
+inline ImVec4 durabilityColor(float pct) {
+    if (pct > 0.5f) return {0.1f, 1.0f, 0.1f, 1.0f};
+    if (pct > 0.25f) return {1.0f, 1.0f, 0.0f, 1.0f};
+    return kBrightRed;
+}
+
 // ---- Power bar colour ----
 //
 // Five places mapped a power type to its bar colour and none of them covered
