@@ -567,7 +567,6 @@ int handleListQuestObjectives(int& i, int argc, char** argv) {
         return 1;
     }
     const auto& q = qe.getQuests()[qIdx];
-    using OT = wowee::editor::QuestObjectiveType;
         // The word is the format's, from beside the enum.
         auto typeName = wowee::editor::questObjectiveTypeName;
     if (jsonOut) {
@@ -860,7 +859,6 @@ int handleInfoQuest(int& i, int argc, char** argv) {
         return 1;
     }
     const auto& q = qe.getQuests()[idx];
-    using OT = wowee::editor::QuestObjectiveType;
         // The word is the format's, from beside the enum.
         auto typeName = wowee::editor::questObjectiveTypeName;
     if (jsonOut) {
@@ -985,6 +983,7 @@ int handleInfoObject(int& i, int argc, char** argv) {
 
 
 int handleInfoQuests(int& i, int argc, char** argv) {
+    using OT = wowee::editor::QuestObjectiveType;
     std::string path = argv[++i];
     bool jsonOut = (i + 1 < argc &&
                     std::strcmp(argv[i + 1], "--json") == 0);
@@ -1004,7 +1003,6 @@ int handleInfoQuests(int& i, int argc, char** argv) {
             q.reward.silver > 0 || q.reward.copper > 0) withReward++;
         if (!q.reward.itemRewards.empty()) withItems++;
         totalXp += q.reward.xp;
-        using OT = wowee::editor::QuestObjectiveType;
         for (const auto& obj : q.objectives) {
             if (obj.type == OT::KillCreature) objKill++;
             else if (obj.type == OT::CollectItem) objCollect++;

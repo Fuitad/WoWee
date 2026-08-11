@@ -217,7 +217,6 @@ int handleExportZoneSummaryMd(int& i, int argc, char** argv) {
     if (qe.questCount() == 0) {
         md << "*No quests.*\n";
     } else {
-        using OT = wowee::editor::QuestObjectiveType;
         // The word is the format's, from beside the enum.
         auto typeName = wowee::editor::questObjectiveTypeName;
         for (size_t k = 0; k < qe.questCount(); ++k) {
@@ -349,7 +348,6 @@ int handleExportZoneCsv(int& i, int argc, char** argv) {
         f << "index,id,title,requiredLevel,giverNpcId,turnInNpcId,"
              "xp,gold,silver,copper,nextQuestId,objectiveCount,"
              "objectives,itemRewards\n";
-        using OT = wowee::editor::QuestObjectiveType;
         // The word is the format's, from beside the enum.
         auto typeName = wowee::editor::questObjectiveTypeName;
         for (size_t k = 0; k < qe.questCount(); ++k) {
