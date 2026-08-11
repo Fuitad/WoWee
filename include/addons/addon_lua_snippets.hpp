@@ -402,6 +402,74 @@ aboutText:SetText("WoWee — a World of Warcraft client\n"
     .. (WoweeVersion and WoweeVersion() or "") .. "\n\n"
     .. "Kelsi Davis  —  |cff66b3ffgithub.com/Kelsidavis/WoWee|r")
 
+-- Find a setting without knowing which panel it is on.
+--
+-- Seventy-odd settings across twelve panels is enough that a player looking
+-- for one has to guess, and guessing wrong twice is how a setting comes to be
+-- reported missing. Typing here lists what matches and, more to the point,
+-- says which panel each one is on.
+local searchTitle = root:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+searchTitle:SetPoint("TOPLEFT", 16, -186)
+searchTitle:SetText("Find a setting")
+
+local searchRule = root:CreateTexture(nil, "ARTWORK")
+searchRule:SetTexture("Interface\\Buttons\\WHITE8X8")
+searchRule:SetVertexColor(0.5, 0.42, 0.22, 0.7)
+searchRule:SetWidth(560)
+searchRule:SetHeight(1)
+searchRule:SetPoint("TOPLEFT", 16, -204)
+
+local searchBox = CreateFrame("EditBox", "WoweeOptionsSearchBox", root, "InputBoxTemplate")
+searchBox:SetPoint("TOPLEFT", 22, -212)
+searchBox:SetWidth(280)
+searchBox:SetHeight(20)
+searchBox:SetAutoFocus(false)
+
+-- Named, so what the search decided can be read back from outside — the
+-- headless runner cannot enumerate a frame's regions.
+local searchResults = root:CreateFontString("WoweeOptionsSearchResults",
+                                           "ARTWORK", "GameFontHighlightSmall")
+searchResults:SetPoint("TOPLEFT", 16, -240)
+searchResults:SetWidth(560)
+searchResults:SetJustifyH("LEFT")
+searchResults:SetJustifyV("TOP")
+
+local function lower(text)
+    return tostring(text):lower()
+end
+
+local function runSearch(query)
+    query = lower(query)
+    if query == "" then
+        searchResults:SetText("")
+        return
+    end
+    local found, shown = 0, {}
+    for _, setting in ipairs(list) do
+        if lower(setting.label):find(query, 1, true) or
+           lower(setting.key):find(query, 1, true) then
+            found = found + 1
+            -- Eight is what fits above the About block; the count below says
+            -- how many more there are rather than pretending these are all.
+            if found <= 8 then
+                shown[#shown + 1] = "|cffffd100" .. setting.label ..
+                                    "|r  —  " .. setting.category
+            end
+        end
+    end
+    if found == 0 then
+        searchResults:SetText("|cff909090No setting matches that.|r")
+    elseif found > 8 then
+        searchResults:SetText(table.concat(shown, "\n") ..
+            "\n|cff909090... and " .. (found - 8) .. " more|r")
+    else
+        searchResults:SetText(table.concat(shown, "\n"))
+    end
+end
+
+searchBox:SetScript("OnTextChanged", function(self) runSearch(self:GetText()) end)
+searchBox:SetScript("OnEscapePressed", function(self) self:SetText("") self:ClearFocus() end)
+
 root.okay = function() end
 root.cancel = function() end
 root.default = function() end
