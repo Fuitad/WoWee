@@ -415,6 +415,101 @@ network::Packet CharEnumPacket::build() {
     return packet;
 }
 
+/// SMSG_CHAR_ENUM as Classic and TBC send it.
+///
+/// The two differ in exactly one thing: a TBC equipment entry carries a
+/// trailing uint32 enchantment and a Classic one does not, which also moves
+/// the minimum entry size from 20*5 to 20*9. Everything else, down to the
+/// count cap and the order of the fields, was written out twice.
+///
+/// WotLK is deliberately not folded in here. CharEnumParser::parse guards
+/// every field individually and substitutes a default when one is short,
+/// where these two check the whole entry once and then read straight through.
+/// That is a different answer to a malformed packet, not a different layout,
+/// and choosing one for all three is a decision rather than a tidy-up.
+bool parseCharEnumPreWotlk(network::Packet& packet, CharEnumResponse& response,
+                           bool hasEnchantment, const char* tag) {
+    if (packet.getSize() < 1) {
+        LOG_ERROR(tag, " SMSG_CHAR_ENUM packet too small: ", packet.getSize(), " bytes");
+        return false;
+    }
+
+    uint8_t count = packet.readUInt8();
+
+    // Cap count to prevent excessive memory allocation
+    constexpr uint8_t kMaxCharacters = 32;
+    if (count > kMaxCharacters) {
+        LOG_WARNING(tag, " Character count ", static_cast<int>(count), " exceeds max ",
+                    static_cast<int>(kMaxCharacters), ", capping");
+        count = kMaxCharacters;
+    }
+
+    LOG_INFO(tag, " Parsing SMSG_CHAR_ENUM: ", static_cast<int>(count), " characters");
+
+    response.characters.clear();
+    response.characters.reserve(count);
+
+    // guid(8) + name(1) + race(1) + class(1) + gender(1) + appearance(4)
+    // + facialFeatures(1) + level(1) + zone(4) + map(4) + pos(12) + guild(4)
+    // + flags(4) + firstLogin(1) + pet(12) + 20 equipment entries.
+    const size_t bytesPerItem = hasEnchantment ? 9 : 5;
+    const size_t minCharacterSize =
+        8 + 1 + 1 + 1 + 1 + 4 + 1 + 1 + 4 + 4 + 12 + 4 + 4 + 1 + 12 + (20 * bytesPerItem);
+
+    for (uint8_t i = 0; i < count; ++i) {
+        if (!packet.hasRemaining(minCharacterSize)) {
+            LOG_WARNING(tag, " Character enum packet truncated at character ",
+                        static_cast<int>(i + 1), ", pos=", packet.getReadPos(),
+                        " needed=", minCharacterSize, " size=", packet.getSize());
+            break;
+        }
+
+        Character character;
+        character.guid = packet.readUInt64();
+        character.name = packet.readString();
+        character.race = static_cast<Race>(packet.readUInt8());
+        character.characterClass = static_cast<Class>(packet.readUInt8());
+        character.gender = static_cast<Gender>(packet.readUInt8());
+        // Appearance (skin, face, hairStyle, hairColor packed) then facial hair.
+        character.appearanceBytes = packet.readUInt32();
+        character.facialFeatures = packet.readUInt8();
+        character.level = packet.readUInt8();
+        character.zoneId = packet.readUInt32();
+        character.mapId = packet.readUInt32();
+        character.x = packet.readFloat();
+        character.y = packet.readFloat();
+        character.z = packet.readFloat();
+        character.guildId = packet.readUInt32();
+        character.flags = packet.readUInt32();
+        // One byte here, where WotLK sends uint32 customization + uint8 unknown.
+        /*uint8_t firstLogin =*/ packet.readUInt8();
+
+        // Pet data, always present even with no pet.
+        character.pet.displayModel = packet.readUInt32();
+        character.pet.level = packet.readUInt32();
+        character.pet.family = packet.readUInt32();
+
+        // Twenty items, where WotLK has twenty-three.
+        character.equipment.reserve(20);
+        for (int j = 0; j < 20; ++j) {
+            EquipmentItem item;
+            item.displayModel = packet.readUInt32();
+            item.inventoryType = packet.readUInt8();
+            item.enchantment = hasEnchantment ? packet.readUInt32() : 0;
+            character.equipment.push_back(item);
+        }
+
+        LOG_DEBUG("  Character ", static_cast<int>(i + 1), ": ", character.name,
+                  " (", getRaceName(character.race), " ", getClassName(character.characterClass),
+                  " level ", static_cast<int>(character.level), " zone ", character.zoneId, ")");
+
+        response.characters.push_back(character);
+    }
+
+    LOG_INFO(tag, " Parsed ", response.characters.size(), " characters");
+    return true;
+}
+
 bool CharEnumParser::parse(network::Packet& packet, CharEnumResponse& response) {
     // Upfront validation: count(1) + at least minimal character data
     if (!packet.hasRemaining(1)) return false;

@@ -18,6 +18,12 @@ namespace game {
  * in world_packets.hpp. Expansion subclasses override the methods that
  * differ from WotLK.
  */
+/// SMSG_CHAR_ENUM as Classic and TBC send it; see world_packets.cpp for why
+/// WotLK is not folded in. hasEnchantment is the whole difference between the
+/// two: TBC equipment entries carry a trailing uint32, Classic ones do not.
+bool parseCharEnumPreWotlk(network::Packet& packet, CharEnumResponse& response,
+                           bool hasEnchantment, const char* tag);
+
 class PacketParsers {
 public:
     virtual ~PacketParsers() = default;
