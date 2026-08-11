@@ -50,44 +50,15 @@ namespace rendering {
 namespace {
 /// The euler triple a placement's three degrees become, in render axes.
 ///
-/// Every component takes an offset in degrees from the environment, so a tilt
-/// can be dialled out by looking rather than rebuilt for:
-///
-///   WOWEE_ADT_ROT_X   added to the first component  (-rotation[2])
-///   WOWEE_ADT_ROT_Y   added to the second           (-rotation[0])
-///   WOWEE_ADT_ROT_Z   added to the third            (rotation[1] + 180)
-///   WOWEE_ADT_ROT_YAW older name for Z, kept working
-///
-/// Defaults are 0, 0 and 180 — exactly what this did before — so nothing moves
-/// unless asked. Pair with WOWEE_M2_ROT_ORDER, which chooses how the three are
-/// composed.
-///
-/// MDDF and MODF store the rotation identically and both paths built this the
-/// same way, written out twice; it is one function now.
-glm::vec3 placementEuler(const float rotation[3], bool isWmo) {
-    auto degrees = [](const char* key, float fallback) {
-        const char* raw = std::getenv(key);
-        if (!raw || !*raw) return fallback;
-        try { return std::stof(raw); } catch (...) { return fallback; }
-    };
-    // The two chunks get their own offsets, because they are not the same
-    // question. Setting one offset for both moved Darkshore's bridges nearly
-    // right and put every doodad in the world wrong — which says the doodads
-    // were already correct and only the buildings are not. The bridges are
-    // WMOs: world/wmo/kalimdor/collidabledoodads/darkshore/bridge.
-    static const float kMdX = degrees("WOWEE_ADT_ROT_X", 0.0f);
-    static const float kMdY = degrees("WOWEE_ADT_ROT_Y", 0.0f);
-    static const float kMdZ = degrees("WOWEE_ADT_ROT_Z", degrees("WOWEE_ADT_ROT_YAW", 180.0f));
-    static const float kWmoX = degrees("WOWEE_WMO_ROT_X", 0.0f);
-    static const float kWmoY = degrees("WOWEE_WMO_ROT_Y", 0.0f);
-    static const float kWmoZ = degrees("WOWEE_WMO_ROT_Z", 180.0f);
-    const float x = isWmo ? kWmoX : kMdX;
-    const float y = isWmo ? kWmoY : kMdY;
-    const float z = isWmo ? kWmoZ : kMdZ;
+/// MDDF and MODF store the rotation identically and this was written out twice,
+/// once for each; it is one function. Both are composed X, Y, Z — see the note
+/// in WMOInstance::updateModelMatrix for how the buildings came to be composed
+/// the other way round and what it took to settle it.
+glm::vec3 placementEuler(const float rotation[3]) {
     constexpr float kDeg = 3.14159265358979323846f / 180.0f;
-    return glm::vec3((-rotation[2] + x) * kDeg,
-                     (-rotation[0] + y) * kDeg,
-                     (rotation[1] + z) * kDeg);
+    return glm::vec3(-rotation[2] * kDeg,
+                     -rotation[0] * kDeg,
+                     (rotation[1] + 180.0f) * kDeg);
 }
 
 
@@ -729,7 +700,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
         p.modelId = modelId;
         p.uniqueId = placement.uniqueId;
         p.position = glPos;
-        p.rotation = placementEuler(placement.rotation, false);
+        p.rotation = placementEuler(placement.rotation);
         p.scale = placement.scale * kInv1024;
         pending->m2Placements.push_back(p);
     }
@@ -823,7 +794,7 @@ std::shared_ptr<PendingTile> TerrainManager::prepareTile(int x, int y) {
                                                        placement.position[1],
                                                        placement.position[2]);
 
-                glm::vec3 rot = placementEuler(placement.rotation, true);
+                glm::vec3 rot = placementEuler(placement.rotation);
 
                 // Pre-load WMO doodads (M2 models inside WMO)
                 if (!workerRunning.load()) return nullptr;

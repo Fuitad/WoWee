@@ -54,52 +54,15 @@ void M2Instance::updateModelMatrix() {
 
     // Rotation in radians, applied X then Y then Z.
     //
-    // Reverted to this order on 2026-08-07, and it is the fourth permutation
-    // of these three lines to be tried and the fourth to be reported worse.
-    //
-    // The last attempt was not a guess: MDDF and MODF store the rotation
-    // identically, both readers in terrain_manager build the same triple, and
-    // the building path composes it Z, Y, X and looks right — so composing the
-    // doodads the same way followed. It made them worse on screen.
-    //
-    // So one of those steps is wrong and reading has not found which. The
-    // candidates are that the two chunks are not in fact the same field, that
-    // the triple is not built identically from them, or that something between
-    // here and the screen already accounts for the difference. Until one of
-    // those is *shown* rather than argued, the order the file shipped with
-    // stands, because it is the only one anyone has looked at and accepted.
-    //
-    // What cannot be used as evidence, and has misled every attempt: an
-    // upright doodad. With no pitch and no roll these orders are the same
-    // rotation, so a tree standing correctly says nothing about which is
-    // right. Only a visibly tilted placement, compared against the same spot
-    // in a reference client, can settle it.
-    // The order is switchable at runtime, because reading has not settled it
-    // and a rebuild per attempt is why it has taken four.
-    //
-    // WOWEE_M2_ROT_ORDER=xyz|xzy|yxz|yzx|zxy|zyx, default xyz, which is what
-    // this has always done. Set it, walk to a doodad with a visible tilt — the
-    // bridges in Darkshore are the clearest — and see which one stands the way
-    // a reference client draws it. One session settles what four rebuilds did
-    // not, and whichever wins can then be written in here and the switch taken
-    // out.
-    static const std::string kOrder = [] {
-        const char* raw = std::getenv("WOWEE_M2_ROT_ORDER");
-        std::string v = (raw && *raw) ? raw : "xyz";
-        std::transform(v.begin(), v.end(), v.begin(), [](unsigned char c) {
-            return static_cast<char>(std::tolower(c));
-        });
-        if (v.size() != 3 || v.find_first_not_of("xyz") != std::string::npos) return std::string("xyz");
-        return v;
-    }();
-    for (char axis : kOrder) {
-        switch (axis) {
-            case 'x': modelMatrix = glm::rotate(modelMatrix, rotation.x, glm::vec3(1, 0, 0)); break;
-            case 'y': modelMatrix = glm::rotate(modelMatrix, rotation.y, glm::vec3(0, 1, 0)); break;
-            case 'z': modelMatrix = glm::rotate(modelMatrix, rotation.z, glm::vec3(0, 0, 1)); break;
-            default: break;
-        }
-    }
+    // This order was changed four times and reported worse four times, and the
+    // buildings were composed Z, Y, X on the strength of that. All of it was
+    // judged on the wrong evidence: with no pitch and no roll every order is
+    // the same rotation, so an upright doodad settles nothing. Darkshore's
+    // bridges — WMOs, tilted, visibly askew — settled it the other way, and the
+    // buildings compose X, Y, Z now too. See WMOInstance::updateModelMatrix.
+    modelMatrix = glm::rotate(modelMatrix, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+    modelMatrix = glm::rotate(modelMatrix, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+    modelMatrix = glm::rotate(modelMatrix, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
 
     modelMatrix = glm::scale(modelMatrix, glm::vec3(scale));
     invModelMatrix = glm::inverse(modelMatrix);

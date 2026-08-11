@@ -2551,38 +2551,27 @@ void WMORenderer::WMOInstance::updateModelMatrix() {
     modelMatrix = glm::translate(modelMatrix, position);
 
     // MODF placement rotation, stored as (-C, -A, B) in radians by the caller
-    // and composed Z, Y, X to give Rz(B) * Ry(-A) * Rx(-C).
+    // and composed X, Y, Z — the same order the doodads use.
     //
-    // Switchable, because a constant offset cannot be what is wrong here. A
-    // WMO yaw offset of -10 degrees puts Darkshore's bridges right and the
-    // buildings out — and an offset that helps one placement and hurts another
-    // is not an offset error at all. What behaves that way is the composition:
-    // with no pitch and no roll every order is the same rotation, so a building
-    // placed flat looks right whatever this is, and only something genuinely
-    // tilted — a bridge over a ravine — can tell them apart.
+    // This composed Z, Y, X for a long time, and the note above the doodad
+    // version records four attempts to change that one, all reported worse.
+    // Every one of them was judged on the wrong evidence: with no pitch and no
+    // roll all six orders are the same rotation, so a building placed flat — or
+    // a tree — looks right whatever the order is, and says nothing.
     //
-    // The doodads compose X, Y, Z and are correct, and MDDF and MODF are said
-    // to store the rotation identically. If that is so, xyz is what this should
-    // be, and it is one launch to find out:
+    // Darkshore's bridges are the case that can say something. They are WMOs,
+    // they cross ravines with real pitch, and they were visibly askew. A yaw
+    // offset of -10 degrees put them right and the buildings out, which is how
+    // an offset behaves when it is standing in for something that varies with
+    // the placement's own rotation — and that is the composition.
     //
-    //   WOWEE_WMO_ROT_ORDER=xyz|xzy|yxz|yzx|zxy|zyx   default zyx, as before
-    static const std::string kOrder = [] {
-        const char* raw = std::getenv("WOWEE_WMO_ROT_ORDER");
-        std::string v = (raw && *raw) ? raw : "zyx";
-        std::transform(v.begin(), v.end(), v.begin(), [](unsigned char c) {
-            return static_cast<char>(std::tolower(c));
-        });
-        if (v.size() != 3 || v.find_first_not_of("xyz") != std::string::npos) return std::string("zyx");
-        return v;
-    }();
-    for (char axis : kOrder) {
-        switch (axis) {
-            case 'x': modelMatrix = glm::rotate(modelMatrix, rotation.x, glm::vec3(1, 0, 0)); break;
-            case 'y': modelMatrix = glm::rotate(modelMatrix, rotation.y, glm::vec3(0, 1, 0)); break;
-            case 'z': modelMatrix = glm::rotate(modelMatrix, rotation.z, glm::vec3(0, 0, 1)); break;
-            default: break;
-        }
-    }
+    // MDDF and MODF store the rotation identically, so both paths should
+    // compose it identically; the doodads always did. Settled by looking:
+    // WOWEE_WMO_ROT_ORDER=xyz stood the bridges up and left the buildings
+    // alone.
+    modelMatrix = glm::rotate(modelMatrix, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+    modelMatrix = glm::rotate(modelMatrix, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+    modelMatrix = glm::rotate(modelMatrix, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
 
     modelMatrix = glm::scale(modelMatrix, glm::vec3(scale));
 
