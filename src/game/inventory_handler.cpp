@@ -2463,18 +2463,57 @@ void InventoryHandler::refreshMailList() {
     owner_.getSocket()->send(packet);
 }
 
+const char* InventoryHandler::mailResultText(uint32_t error) {
+    // MailResponseResult, as the server sends it.
+    switch (error) {
+        case 1:  return "Those items cannot go in your bags.";
+        case 2:  return "You cannot send mail to yourself.";
+        case 3:  return "You do not have enough money.";
+        case 4:  return "No player by that name.";
+        case 5:  return "You cannot send mail to the other faction.";
+        case 6:  return "The server refused the letter.";
+        case 14: return "Trial accounts cannot send mail.";
+        case 15: return "That player's mailbox is full.";
+        case 16: return "A wrapped item cannot be sent cash on delivery.";
+        case 17: return "Your mail and chat are suspended.";
+        case 18: return "Too many items attached.";
+        case 19: return "One of the attached items cannot be mailed.";
+        case 21: return "One of the attached items has expired.";
+        default: return nullptr;
+    }
+}
+
+void InventoryHandler::refuseSend(const std::string& reason, const char* logLine) {
+    // The compose frame disables its Send button the moment it is pressed and
+    // re-enables it only when it hears how the send went. A refusal on this
+    // side used to return without a word, so the button stayed disabled — one
+    // silent refusal and no letter could be sent for the rest of the session,
+    // whatever was wrong the first time.
+    LOG_WARNING("sendMail: ", logLine);
+    owner_.addSystemChatMessage(reason);
+    if (owner_.addonEventCallbackRef()) {
+        // Zero is "internal error" in the server's own table, which is the
+        // honest answer for a refusal that never reached it.
+        owner_.addonEventCallbackRef()("MAIL_FAILED", {"0"});
+    }
+}
+
 void InventoryHandler::sendMail(const std::string& recipient, const std::string& subject,
                                 const std::string& body, uint64_t money, uint64_t cod) {
     if (owner_.getState() != WorldState::IN_WORLD) {
-        LOG_WARNING("sendMail: not in world");
+        refuseSend("Cannot send mail right now.", "not in world");
         return;
     }
     if (!owner_.getSocket()) {
-        LOG_WARNING("sendMail: no socket");
+        refuseSend("Cannot send mail: not connected.", "no socket");
         return;
     }
     if (mailboxGuid_ == 0) {
-        LOG_WARNING("sendMail: mailboxGuid_ is 0 (mailbox closed?)");
+        refuseSend("You are not at a mailbox.", "mailboxGuid_ is 0 (mailbox closed?)");
+        return;
+    }
+    if (recipient.empty()) {
+        refuseSend("Enter a recipient.", "no recipient");
         return;
     }
     // Collect attached item GUIDs
@@ -2490,7 +2529,7 @@ void InventoryHandler::sendMail(const std::string& recipient, const std::string&
         // attachments without saying so is how this went unnoticed.
         LOG_ERROR("sendMail: ", itemGuids.size(), " attachments but this expansion's "
                   "packet carries ", sendable, " — refusing to send and lose the rest");
-        owner_.addSystemChatMessage("This realm's mail carries one item per letter.");
+        refuseSend("This realm's mail carries one item per letter.", "too many attachments");
         return;
     }
     auto packet = owner_.getPacketParsers()->buildSendMail(mailboxGuid_, recipient, subject, body, money, cod, itemGuids);
@@ -2744,7 +2783,10 @@ void InventoryHandler::handleSendMailResult(network::Packet& packet) {
                 owner_.addonEventCallbackRef()("MAIL_SUCCESS", {});
             }
         } else {
-            owner_.addSystemChatMessage("Failed to send mail (error " + std::to_string(error) + ").");
+            const char* why = mailResultText(error);
+            owner_.addSystemChatMessage(
+                why ? std::string("Mail not sent: ") + why
+                    : "Failed to send mail (error " + std::to_string(error) + ").");
             // Carries the error so the frame can say which refusal it was.
             if (owner_.addonEventCallbackRef()) {
                 owner_.addonEventCallbackRef()("MAIL_FAILED", {std::to_string(error)});
