@@ -35,6 +35,19 @@ ROOT = TOOLS.parent
 
 # tool, pattern capturing the count, ceiling, what the count means
 CHECKS = [
+    # The settings screens are generated from one schema; saving them is not.
+    # A setting added to that list appears in both windows, answers its value,
+    # applies correctly — and is gone at the next login if nobody wrote it out.
+    # Nothing raises, and every other test passes.
+    ("settings_persist_check.py",
+     r"^(\d+) no field behind it", 0,
+     "settings in the schema with no field to store"),
+    ("settings_persist_check.py",
+     r"^(\d+) never written to the config file", 0,
+     "settings that reset at every login"),
+    ("settings_persist_check.py",
+     r"^(\d+) written but never read back", 0,
+     "settings saved to the config file and never loaded"),
     ("handover_halves_check.py",
      r"^(\d+) with no frameXmlOwns gate", 0,
      "elements this client keeps drawing after handing them over"),
