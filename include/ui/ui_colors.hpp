@@ -276,9 +276,14 @@ inline ImVec4 getClassColor(uint8_t classId) {
 }
 
 inline ImU32 getClassColorU32(uint8_t classId, int alpha = 255) {
-    ImVec4 c = getClassColor(classId);
-    return IM_COL32(static_cast<int>(c.x * 255), static_cast<int>(c.y * 255),
-                    static_cast<int>(c.z * 255), alpha);
+    // ColorConvertFloat4ToU32 rounds to the nearest byte where a cast to int
+    // truncates, and the panels that draw a name as an ImVec4 get the rounded
+    // one. Truncating here made the same class one step darker on the minimap
+    // and the nameplates than in the party list beside them — the druid orange
+    // came out 7c where the rest of the client draws 7d.
+    const ImVec4 c = getClassColor(classId);
+    return ImGui::ColorConvertFloat4ToU32(
+        ImVec4(c.x, c.y, c.z, static_cast<float>(alpha) / 255.0f));
 }
 
 } // namespace wowee::ui

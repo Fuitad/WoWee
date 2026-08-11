@@ -483,9 +483,7 @@ void TalentScreen::renderTalent(game::GameHandler& gameHandler,
 
     // Icon
     if (iconTex) {
-        ImU32 tintCol = IM_COL32(
-            static_cast<int>(tint.x * 255), static_cast<int>(tint.y * 255),
-            static_cast<int>(tint.z * 255), static_cast<int>(tint.w * 255));
+        ImU32 tintCol = ImGui::ColorConvertFloat4ToU32(tint);
         dl->AddImage((ImTextureID)(uintptr_t)iconTex,
                      ImVec2(pMin.x + 2, pMin.y + 2),
                      ImVec2(pMax.x - 2, pMax.y - 2),
@@ -494,9 +492,7 @@ void TalentScreen::renderTalent(game::GameHandler& gameHandler,
 
     // Border
     float borderThick = hovered ? 2.5f : 1.5f;
-    ImU32 borderCol = IM_COL32(
-        static_cast<int>(borderColor.x * 255), static_cast<int>(borderColor.y * 255),
-        static_cast<int>(borderColor.z * 255), static_cast<int>(borderColor.w * 255));
+    ImU32 borderCol = ImGui::ColorConvertFloat4ToU32(borderColor);
     dl->AddRect(pMin, pMax, borderCol, 3.0f, 0, borderThick);
 
     // Hover glow
