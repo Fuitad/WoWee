@@ -55,10 +55,30 @@ namespace {
 /// in WMOInstance::updateModelMatrix for how the buildings came to be composed
 /// the other way round and what it took to settle it.
 glm::vec3 placementEuler(const float rotation[3]) {
+    // Order is settled — X, Y, Z, for both chunks. What is not is the sign of
+    // each component and the yaw's offset, and the bridges are still slightly
+    // out, so those are dialable:
+    //
+    //   WOWEE_ROT_SX / _SY / _SZ   multiply a component, normally -1, -1, 1
+    //   WOWEE_ROT_YAW              the yaw offset in degrees, normally 180
+    //
+    // A sign flip on a component that is normally small — the roll a bridge is
+    // built with — moves it by twice that and nothing else, which is what
+    // "slightly off" looks like from here. The yaw offset would move everything
+    // at once, so if the world turns, that is the wrong knob.
+    auto number = [](const char* key, float fallback) {
+        const char* raw = std::getenv(key);
+        if (!raw || !*raw) return fallback;
+        try { return std::stof(raw); } catch (...) { return fallback; }
+    };
+    static const float kSX = number("WOWEE_ROT_SX", -1.0f);
+    static const float kSY = number("WOWEE_ROT_SY", -1.0f);
+    static const float kSZ = number("WOWEE_ROT_SZ", 1.0f);
+    static const float kYaw = number("WOWEE_ROT_YAW", 180.0f);
     constexpr float kDeg = 3.14159265358979323846f / 180.0f;
-    return glm::vec3(-rotation[2] * kDeg,
-                     -rotation[0] * kDeg,
-                     (rotation[1] + 180.0f) * kDeg);
+    return glm::vec3(kSX * rotation[2] * kDeg,
+                     kSY * rotation[0] * kDeg,
+                     (kSZ * rotation[1] + kYaw) * kDeg);
 }
 
 
