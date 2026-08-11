@@ -51,6 +51,12 @@ CHECKS = [
     # Both halves still write to the chat window. The handler adds a line and
     # fires the event; chatframe.lua's own branch formats the same fact from
     # the event and adds it too, and the player reads it twice.
+    # glm arrives with an imported target, and Linux has a system copy that
+    # hides a missing link entirely. Every one of these built green here and
+    # failed on macOS, one per CI run, because the build stops at the first.
+    ("test_glm_link_check.py",
+     r"^(\d+) reach glm without it", 0,
+     "test targets that build on Linux and fail on macOS"),
     ("chat_line_twice_check.py",
      r"^(\d+) of them written a second time", 0,
      "chat lines the interface already writes"),

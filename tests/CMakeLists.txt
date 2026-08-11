@@ -107,6 +107,7 @@ add_executable(test_shared_rules test_shared_rules.cpp
 target_include_directories(test_shared_rules PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_shared_rules SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_shared_rules PRIVATE catch2_main)
+wowee_test_link_glm(test_shared_rules)
 add_test(NAME shared_rules COMMAND test_shared_rules)
 register_test_target(test_shared_rules)
 
@@ -164,6 +165,7 @@ target_include_directories(test_lua_arg_coercion PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_lua_arg_coercion SYSTEM PRIVATE
     ${TEST_SYSTEM_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/extern/lua-5.1.5/src)
 target_link_libraries(test_lua_arg_coercion PRIVATE catch2_main lua51)
+wowee_test_link_glm(test_lua_arg_coercion)
 add_test(NAME lua_arg_coercion COMMAND test_lua_arg_coercion)
 register_test_target(test_lua_arg_coercion)
 
@@ -246,6 +248,7 @@ add_executable(test_taxi_map_projection
 target_include_directories(test_taxi_map_projection PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_taxi_map_projection SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_taxi_map_projection PRIVATE catch2_main)
+wowee_test_link_glm(test_taxi_map_projection)
 add_test(NAME taxi_map_projection COMMAND test_taxi_map_projection)
 register_test_target(test_taxi_map_projection)
 
@@ -278,6 +281,7 @@ add_executable(test_chat_types test_chat_types.cpp)
 target_include_directories(test_chat_types PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_chat_types SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_chat_types PRIVATE catch2_main)
+wowee_test_link_glm(test_chat_types)
 add_test(NAME chat_types COMMAND test_chat_types)
 register_test_target(test_chat_types)
 
@@ -331,6 +335,7 @@ add_executable(test_placement_rotation
 target_include_directories(test_placement_rotation PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_placement_rotation SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_placement_rotation PRIVATE catch2_main)
+wowee_test_link_glm(test_placement_rotation)
 add_test(NAME placement_rotation COMMAND test_placement_rotation)
 register_test_target(test_placement_rotation)
 
@@ -367,6 +372,7 @@ add_executable(test_monster_move_facing
 target_include_directories(test_monster_move_facing PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_monster_move_facing SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_monster_move_facing PRIVATE catch2_main)
+wowee_test_link_glm(test_monster_move_facing)
 add_test(NAME monster_move_facing COMMAND test_monster_move_facing)
 register_test_target(test_monster_move_facing)
 
@@ -464,6 +470,13 @@ add_executable(test_auction_sort_packet
 target_include_directories(test_auction_sort_packet PRIVATE ${TEST_INCLUDE_DIRS})
 target_include_directories(test_auction_sort_packet SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(test_auction_sort_packet PRIVATE catch2_main)
+# These reach glm through a header rather than by naming it, so the need is not
+# visible at the target: test_shared_rules names m2_loader.cpp, and it is
+# m2_loader.hpp that includes glm two lines in. Linux has a system copy under
+# /usr/include and compiles either way; macOS does not, reports the first one
+# and stops — which is why one name appeared in a failing log while eight were
+# short. tools/test_glm_link_check.py answers the macOS question on any host.
+wowee_test_link_glm(test_auction_sort_packet)
 add_test(NAME auction_sort_packet COMMAND test_auction_sort_packet)
 register_test_target(test_auction_sort_packet)
 
@@ -1046,6 +1059,7 @@ target_include_directories(test_minimap_projection SYSTEM PRIVATE
     ${TEST_SYSTEM_INCLUDE_DIRS}
 )
 target_link_libraries(test_minimap_projection PRIVATE catch2_main)
+wowee_test_link_glm(test_minimap_projection)
 add_test(NAME minimap_projection COMMAND test_minimap_projection)
 register_test_target(test_text_wrap)
 
