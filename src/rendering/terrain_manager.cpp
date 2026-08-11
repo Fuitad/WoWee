@@ -50,25 +50,33 @@ namespace rendering {
 namespace {
 /// The euler triple a placement's three degrees become, in render axes.
 ///
-/// MDDF and MODF store the rotation identically and both paths build this the
-/// same way; what has never agreed is how it is then composed, and the yaw
-/// offset here is the part nobody has varied. It is 180 because that is what
-/// was written; a reference client's own bridges are the only thing that can
-/// say whether it should be -90.
+/// Every component takes an offset in degrees from the environment, so a tilt
+/// can be dialled out by looking rather than rebuilt for:
 ///
-/// WOWEE_ADT_ROT_YAW overrides it in degrees, so the question can be answered
-/// in one session instead of one rebuild per attempt. Pair it with
-/// WOWEE_M2_ROT_ORDER, which chooses the composition.
+///   WOWEE_ADT_ROT_X   added to the first component  (-rotation[2])
+///   WOWEE_ADT_ROT_Y   added to the second           (-rotation[0])
+///   WOWEE_ADT_ROT_Z   added to the third            (rotation[1] + 180)
+///   WOWEE_ADT_ROT_YAW older name for Z, kept working
+///
+/// Defaults are 0, 0 and 180 — exactly what this did before — so nothing moves
+/// unless asked. Pair with WOWEE_M2_ROT_ORDER, which chooses how the three are
+/// composed.
+///
+/// MDDF and MODF store the rotation identically and both paths built this the
+/// same way, written out twice; it is one function now.
 glm::vec3 placementEuler(const float rotation[3]) {
-    static const float kYawOffset = [] {
-        const char* raw = std::getenv("WOWEE_ADT_ROT_YAW");
-        if (!raw || !*raw) return 180.0f;
-        try { return std::stof(raw); } catch (...) { return 180.0f; }
-    }();
+    auto degrees = [](const char* key, float fallback) {
+        const char* raw = std::getenv(key);
+        if (!raw || !*raw) return fallback;
+        try { return std::stof(raw); } catch (...) { return fallback; }
+    };
+    static const float kX = degrees("WOWEE_ADT_ROT_X", 0.0f);
+    static const float kY = degrees("WOWEE_ADT_ROT_Y", 0.0f);
+    static const float kZ = degrees("WOWEE_ADT_ROT_Z", degrees("WOWEE_ADT_ROT_YAW", 180.0f));
     constexpr float kDeg = 3.14159265358979323846f / 180.0f;
-    return glm::vec3(-rotation[2] * kDeg,
-                     -rotation[0] * kDeg,
-                     (rotation[1] + kYawOffset) * kDeg);
+    return glm::vec3((-rotation[2] + kX) * kDeg,
+                     (-rotation[0] + kY) * kDeg,
+                     (rotation[1] + kZ) * kDeg);
 }
 
 
