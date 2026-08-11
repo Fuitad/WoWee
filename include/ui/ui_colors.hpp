@@ -68,6 +68,28 @@ namespace colors {
     constexpr ImVec4 kGold   = {1.00f, 0.82f, 0.00f, 1.0f};
     constexpr ImVec4 kSilver = {0.80f, 0.80f, 0.80f, 1.0f};
     constexpr ImVec4 kCopper = {0.72f, 0.45f, 0.20f, 1.0f};
+// ---- Health bar colour ----
+//
+// Green above half, yellow above a fifth, red below. Every unit frame agreed on
+// where the two thresholds are and none of them agreed on the three colours:
+// four palettes across seven bars, so a mob at a third health was one yellow on
+// the target frame and a slightly duller one on the frame below it. These are
+// the shades the target frame and the party list were already using.
+//
+// The player's own bar is not one of these — it ramps continuously between the
+// thresholds and pulses when critical — and neither is the boss frame, which is
+// deliberately a red-to-yellow scale rather than a green one.
+inline ImVec4 healthBarColor(float pct) {
+    if (pct > 0.5f) return kHealthGreen;
+    if (pct > 0.2f) return kMidHealthYellow;
+    return kLowHealthRed;
+}
+
+/// The same colour packed the way a draw list wants it.
+inline ImU32 healthBarColorU32(float pct) {
+    return ImGui::ColorConvertFloat4ToU32(healthBarColor(pct));
+}
+
 // ---- Power bar colour ----
 //
 // Five places mapped a power type to its bar colour and none of them covered

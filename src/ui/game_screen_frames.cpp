@@ -629,10 +629,7 @@ void GameScreen::renderPetFrame(game::GameHandler& gameHandler) {
         uint32_t maxHp = petUnit->getMaxHealth();
         if (maxHp > 0) {
             float pct = static_cast<float>(hp) / static_cast<float>(maxHp);
-            ImVec4 petHpColor = pct > 0.5f ? colors::kHealthGreen
-                              : pct > 0.2f ? ImVec4(0.9f, 0.6f, 0.0f, 1.0f)
-                              :              ImVec4(0.9f, 0.15f, 0.15f, 1.0f);
-            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, petHpColor);
+            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, colors::healthBarColor(pct));
             char hpText[32];
             snprintf(hpText, sizeof(hpText), "%u/%u", hp, maxHp);
             ImGui::ProgressBar(pct, ImVec2(-1, 14), hpText);
@@ -1342,10 +1339,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
             uint32_t maxHp = unit->getMaxHealth();
             if (maxHp > 0) {
                 float pct = static_cast<float>(hp) / static_cast<float>(maxHp);
-                ImGui::PushStyleColor(ImGuiCol_PlotHistogram,
-                    pct > 0.5f ? colors::kHealthGreen :
-                    pct > 0.2f ? colors::kMidHealthYellow :
-                                 colors::kLowHealthRed);
+                ImGui::PushStyleColor(ImGuiCol_PlotHistogram, colors::healthBarColor(pct));
 
                 char overlay[64];
                 snprintf(overlay, sizeof(overlay), "%u / %u", hp, maxHp);
@@ -1487,11 +1481,8 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                             uint32_t totHp    = totUnit->getHealth();
                             uint32_t totMaxHp = totUnit->getMaxHealth();
                             float totPct = static_cast<float>(totHp) / static_cast<float>(totMaxHp);
-                            ImVec4 totBarColor =
-                                totPct > 0.5f ? colors::kCastGreen :
-                                totPct > 0.2f ? ImVec4(0.75f, 0.75f, 0.2f, 1.0f) :
-                                               ImVec4(0.75f, 0.2f, 0.2f, 1.0f);
-                            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, totBarColor);
+                            ImGui::PushStyleColor(ImGuiCol_PlotHistogram,
+                                                  colors::healthBarColor(totPct));
                             ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.15f, 0.15f, 0.15f, 0.8f));
                             char totOverlay[32];
                             snprintf(totOverlay, sizeof(totOverlay), "%u%%",
@@ -1767,9 +1758,7 @@ void GameScreen::renderTargetFrame(game::GameHandler& gameHandler) {
                         if (maxHp > 0) {
                             float pct = static_cast<float>(hp) / static_cast<float>(maxHp);
                             ImGui::PushStyleColor(ImGuiCol_PlotHistogram,
-                                pct > 0.5f ? colors::kFriendlyGreen :
-                                pct > 0.2f ? ImVec4(0.7f, 0.7f, 0.2f, 1.0f) :
-                                             colors::kDangerRed);
+                                                  colors::healthBarColor(pct));
                             ImGui::ProgressBar(pct, ImVec2(-1, 10), "");
                             ImGui::PopStyleColor();
                         }
@@ -2163,10 +2152,7 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
             uint32_t maxHp = unit->getMaxHealth();
             if (maxHp > 0) {
                 float pct = static_cast<float>(hp) / static_cast<float>(maxHp);
-                ImGui::PushStyleColor(ImGuiCol_PlotHistogram,
-                    pct > 0.5f ? colors::kFriendlyGreen :
-                    pct > 0.2f ? ImVec4(0.7f, 0.7f, 0.2f, 1.0f) :
-                                 colors::kDangerRed);
+                ImGui::PushStyleColor(ImGuiCol_PlotHistogram, colors::healthBarColor(pct));
                 char overlay[32];
                 snprintf(overlay, sizeof(overlay), "%u / %u", hp, maxHp);
                 ImGui::ProgressBar(pct, ImVec2(-1, 14), overlay);
@@ -2377,11 +2363,8 @@ void GameScreen::renderFocusFrame(game::GameHandler& gameHandler) {
                         if (fofUnit && fofUnit->getMaxHealth() > 0) {
                             float fofPct = static_cast<float>(fofUnit->getHealth()) /
                                            static_cast<float>(fofUnit->getMaxHealth());
-                            ImVec4 fofBarColor =
-                                fofPct > 0.5f ? colors::kCastGreen :
-                                fofPct > 0.2f ? ImVec4(0.75f, 0.75f, 0.2f, 1.0f) :
-                                               ImVec4(0.75f, 0.2f, 0.2f, 1.0f);
-                            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, fofBarColor);
+                            ImGui::PushStyleColor(ImGuiCol_PlotHistogram,
+                                                  colors::healthBarColor(fofPct));
                             ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.15f, 0.15f, 0.15f, 0.8f));
                             char fofOverlay[32];
                             snprintf(fofOverlay, sizeof(fofOverlay), "%u%%",

@@ -220,10 +220,8 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
                         draw->AddRectFilled(barBg, barBgEnd, IM_COL32(40, 40, 40, 200), 2.0f);
                         ImVec2 barFill(barBg.x, barBg.y);
                         ImVec2 barFillEnd(barBg.x + (barBgEnd.x - barBg.x) * pct, barBgEnd.y);
-                        ImU32 hpCol = isOOR ? IM_COL32(100, 100, 100, 160) :
-                                     pct > 0.5f ? IM_COL32(60, 180, 60, 255) :
-                                     pct > 0.2f ? IM_COL32(200, 180, 50, 255) :
-                                                  IM_COL32(200, 60, 60, 255);
+                        ImU32 hpCol = isOOR ? IM_COL32(100, 100, 100, 160)
+                                            : colors::healthBarColorU32(pct);
                         draw->AddRectFilled(barFill, barFillEnd, hpCol, 2.0f);
                         // HP percentage or OOR text centered on bar
                         char hpPct[8];
@@ -519,9 +517,7 @@ void SocialPanel::renderPartyFrames(game::GameHandler& gameHandler,
                 // Out-of-range: desaturate health bar to gray
                 ImVec4 hpBarColor = memberOutOfRange
                     ? ImVec4(0.45f, 0.45f, 0.45f, 0.7f)
-                    : (pct > 0.5f ? colors::kHealthGreen :
-                       pct > 0.2f ? colors::kMidHealthYellow :
-                                    colors::kLowHealthRed);
+                    : colors::healthBarColor(pct);
                 ImGui::PushStyleColor(ImGuiCol_PlotHistogram, hpBarColor);
                 char hpText[32];
                 if (memberOutOfRange) {
