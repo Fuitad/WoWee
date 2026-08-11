@@ -11,6 +11,7 @@
 #include <catch_amalgamated.hpp>
 
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -20,6 +21,7 @@
 #include "pipeline/item_textures.hpp"
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/wowee_binary_io.hpp"
+#include "pipeline/wowee_vertex_sanitize.hpp"
 #include "ui/settings_schema.hpp"
 
 using namespace wowee;
@@ -339,6 +341,60 @@ TEST_CASE("the four appearance choices packed into PLAYER_BYTES", "[character]")
     SECTION("the top byte is the hair colour, not a sign") {
         CHECK(core::unpackAppearanceBytes(0xFF000000u).hairColorId == 255);
         CHECK(core::unpackAppearanceBytes(0xFF000000u).skinId == 0);
+    }
+}
+
+TEST_CASE("a vertex whose floats are not numbers", "[formats]") {
+    // The loop is not the point; the replacements are. Two of the four are not
+    // zero, and they are the two a fourth copy of this would get wrong.
+    struct Vec3 { float x, y, z; };
+    struct Vec2 { float x, y; };
+    struct ColouredVertex {
+        Vec3 position;
+        Vec3 normal;
+        Vec2 texCoord;
+        float color[4];
+    };
+
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const float inf = std::numeric_limits<float>::infinity();
+
+    ColouredVertex v{{nan, 1.0f, inf}, {nan, nan, nan}, {inf, 2.0f}, {nan, nan, nan, nan}};
+    pipeline::sanitizeVertex(v);
+
+    SECTION("a finite value is left exactly as it was") {
+        CHECK(v.position.y == 1.0f);
+        CHECK(v.texCoord.y == 2.0f);
+    }
+
+    SECTION("position and texture coordinates go to zero") {
+        CHECK(v.position.x == 0.0f);
+        CHECK(v.position.z == 0.0f);
+        CHECK(v.texCoord.x == 0.0f);
+    }
+
+    SECTION("a normal becomes +Z, not nothing") {
+        // (0,0,0) is not a direction. Lighting divides by its length, so a
+        // zeroed normal replaces a NaN with a different NaN one step later.
+        CHECK(v.normal.x == 0.0f);
+        CHECK(v.normal.y == 0.0f);
+        CHECK(v.normal.z == 1.0f);
+    }
+
+    SECTION("a colour becomes opaque white, not transparent black") {
+        // Zero here would hide the triangle rather than repair it.
+        for (int c = 0; c < 4; ++c) CHECK(v.color[c] == 1.0f);
+    }
+
+    SECTION("a vertex with no colour is handled the same way") {
+        // The model format's vertex carries bone weights where the building
+        // format's carries a colour; one function serves both.
+        struct PlainVertex { Vec3 position; Vec3 normal; Vec2 texCoord; };
+        PlainVertex p{{nan, nan, nan}, {nan, nan, nan}, {nan, nan}};
+        pipeline::sanitizeVertex(p);
+        CHECK(p.position.x == 0.0f);
+        CHECK(p.normal.z == 1.0f);
+        CHECK(p.texCoord.y == 0.0f);
     }
 }
 

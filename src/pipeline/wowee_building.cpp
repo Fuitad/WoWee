@@ -1,3 +1,4 @@
+#include "pipeline/wowee_vertex_sanitize.hpp"
 #include "pipeline/wowee_building.hpp"
 #include "pipeline/wmo_loader.hpp"
 #include "core/logger.hpp"
@@ -85,18 +86,7 @@ WoweeBuilding WoweeBuildingLoader::load(const std::string& basePath) {
         f.read(reinterpret_cast<char*>(grp.vertices.data()), vc * sizeof(WoweeBuilding::Vertex));
         // Sanitize vertex floats — WMO renderer matrix math is sensitive
         // and a NaN position can desync the entire group's draw state.
-        for (auto& v : grp.vertices) {
-            if (!std::isfinite(v.position.x)) v.position.x = 0.0f;
-            if (!std::isfinite(v.position.y)) v.position.y = 0.0f;
-            if (!std::isfinite(v.position.z)) v.position.z = 0.0f;
-            if (!std::isfinite(v.normal.x)) v.normal.x = 0.0f;
-            if (!std::isfinite(v.normal.y)) v.normal.y = 0.0f;
-            if (!std::isfinite(v.normal.z)) v.normal.z = 1.0f;
-            if (!std::isfinite(v.texCoord.x)) v.texCoord.x = 0.0f;
-            if (!std::isfinite(v.texCoord.y)) v.texCoord.y = 0.0f;
-            for (int c = 0; c < 4; c++)
-                if (!std::isfinite(v.color[c])) v.color[c] = 1.0f;
-        }
+        sanitizeVertices(grp.vertices);
         grp.indices.resize(ic);
         f.read(reinterpret_cast<char*>(grp.indices.data()), ic * 4);
         // Same out-of-range index clamp as the WOM loader — bad indices
@@ -302,18 +292,7 @@ bool WoweeBuildingLoader::save(const WoweeBuilding& bld, const std::string& base
         // vertices would persist them into the file and have the load-time
         // guard clean up forever after.
         std::vector<WoweeBuilding::Vertex> sanVerts = grp.vertices;
-        for (auto& v : sanVerts) {
-            if (!std::isfinite(v.position.x)) v.position.x = 0.0f;
-            if (!std::isfinite(v.position.y)) v.position.y = 0.0f;
-            if (!std::isfinite(v.position.z)) v.position.z = 0.0f;
-            if (!std::isfinite(v.normal.x)) v.normal.x = 0.0f;
-            if (!std::isfinite(v.normal.y)) v.normal.y = 0.0f;
-            if (!std::isfinite(v.normal.z)) v.normal.z = 1.0f;
-            if (!std::isfinite(v.texCoord.x)) v.texCoord.x = 0.0f;
-            if (!std::isfinite(v.texCoord.y)) v.texCoord.y = 0.0f;
-            for (int c = 0; c < 4; c++)
-                if (!std::isfinite(v.color[c])) v.color[c] = 1.0f;
-        }
+        sanitizeVertices(sanVerts);
         f.write(reinterpret_cast<const char*>(sanVerts.data()),
                 vc * sizeof(WoweeBuilding::Vertex));
         // Clamp out-of-range indices on save too — symmetric with load.
