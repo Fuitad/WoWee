@@ -180,6 +180,21 @@ target_include_directories(framexml_emit PRIVATE ${TEST_INCLUDE_DIRS}
 target_include_directories(framexml_emit SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
 target_link_libraries(framexml_emit PRIVATE lua51)
 
+# ── test_settings_panel_layout ───────────────────────────────
+# The options panels are generated from the schema by Lua, and nothing else
+# checks the arithmetic between them. A control laid out past the bottom of a
+# panel registers, refreshes and answers correctly — it is just not on screen.
+add_executable(test_settings_panel_layout
+    test_settings_panel_layout.cpp
+    ${CMAKE_SOURCE_DIR}/src/ui/settings_schema.cpp
+    ${TEST_COMMON_SOURCES}
+)
+target_include_directories(test_settings_panel_layout PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_settings_panel_layout SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_settings_panel_layout PRIVATE catch2_main)
+add_test(NAME settings_panel_layout COMMAND test_settings_panel_layout)
+register_test_target(test_settings_panel_layout)
+
 # ── test_addon_lua_snippets ──────────────────────────────────
 # The Lua this client injects into the interface lives as C++ string literals,
 # which nothing compiles until the client runs — and a syntax error there is a
