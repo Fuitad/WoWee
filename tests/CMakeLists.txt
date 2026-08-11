@@ -249,6 +249,18 @@ target_link_libraries(test_chat_types PRIVATE catch2_main)
 add_test(NAME chat_types COMMAND test_chat_types)
 register_test_target(test_chat_types)
 
+# ── test_text_tokens ────────────────────────────────────────
+# The server writes the player as a blank — "$N, you have done well" — and the
+# client fills it in. Nothing did on the chat path, so every scripted NPC in the
+# game addressed the player as "$N". Pure: the substitution takes the four facts
+# it needs about the reader rather than a client.
+add_executable(test_text_tokens test_text_tokens.cpp ${CMAKE_SOURCE_DIR}/src/game/text_tokens.cpp)
+target_include_directories(test_text_tokens PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_text_tokens SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_text_tokens PRIVATE catch2_main)
+add_test(NAME text_tokens COMMAND test_text_tokens)
+register_test_target(test_text_tokens)
+
 # ── test_reputation_standing ────────────────────────────────
 # Header-only and constexpr, so this needs nothing linked: the point is that the
 # thresholds have one home now and stay put.

@@ -1,4 +1,5 @@
 #include "game/chat_handler.hpp"
+#include "game/text_tokens.hpp"
 #include "game/game_handler.hpp"
 #include "game/game_utils.hpp"
 #include "game/packet_parsers.hpp"
@@ -591,6 +592,31 @@ void ChatHandler::handleMessageChat(network::Packet& packet) {
             (msg.size() > 4 && static_cast<unsigned char>(msg[0]) > 127))) {  // Binary data
             return; // Silently discard addon whisper
         }
+    }
+
+    // Fill in the $-tokens before anything sees the line.
+    //
+    // A monster's say, yell, emote or whisper arrives with the player left as a
+    // blank — "$N, you have done well" — and the client is what writes the name
+    // in. Nothing did, so every scripted NPC in the game addressed the player as
+    // "$N", and a $gsir:madam; came out with the whole switch printed.
+    //
+    // Only what an NPC or a boss said. A player typing "$N" into say has typed
+    // those two characters and means them: the real client does not resolve
+    // tokens in player chat, and resolving them here would let one player make
+    // another's client print that player's own name.
+    switch (data.type) {
+        case ChatType::MONSTER_SAY:
+        case ChatType::MONSTER_PARTY:
+        case ChatType::MONSTER_YELL:
+        case ChatType::MONSTER_WHISPER:
+        case ChatType::MONSTER_EMOTE:
+        case ChatType::RAID_BOSS_EMOTE:
+        case ChatType::RAID_BOSS_WHISPER:
+            data.message = resolveTextTokens(data.message, owner_);
+            break;
+        default:
+            break;
     }
 
     // Add to chat history
