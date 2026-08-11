@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wstm");
     if (!wowee::pipeline::WoweeStatCurveLoader::exists(base)) {
-        std::fprintf(stderr, "WSTM not found: %s.wstm\n", base.c_str());
-        return 1;
+        return reportMissing("WSTM", base, ".wstm");
     }
     auto c = wowee::pipeline::WoweeStatCurveLoader::load(base);
     if (jsonOut) {
@@ -120,10 +119,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wstm");
     if (!wowee::pipeline::WoweeStatCurveLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wstm-json: WSTM not found: %s.wstm\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wstm-json", "WSTM", base, ".wstm");
     }
     auto c = wowee::pipeline::WoweeStatCurveLoader::load(base);
     if (outPath.empty()) outPath = base + ".wstm.json";

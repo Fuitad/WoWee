@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".whrd");
     if (!wowee::pipeline::WoweeHeroicScalingLoader::exists(base)) {
-        std::fprintf(stderr, "WHRD not found: %s.whrd\n", base.c_str());
-        return 1;
+        return reportMissing("WHRD", base, ".whrd");
     }
     auto c = wowee::pipeline::WoweeHeroicScalingLoader::load(base);
     if (jsonOut) {
@@ -122,10 +121,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".whrd");
     if (out.empty()) out = base + ".whrd.json";
     if (!wowee::pipeline::WoweeHeroicScalingLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-whrd-json: WHRD not found: %s.whrd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-whrd-json", "WHRD", base, ".whrd");
     }
     auto c = wowee::pipeline::WoweeHeroicScalingLoader::load(base);
     nlohmann::json j;
@@ -239,10 +235,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".whrd");
     if (!wowee::pipeline::WoweeHeroicScalingLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-whrd: WHRD not found: %s.whrd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-whrd", "WHRD", base, ".whrd");
     }
     auto c = wowee::pipeline::WoweeHeroicScalingLoader::load(base);
     std::vector<std::string> errors;

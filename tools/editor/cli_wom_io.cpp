@@ -37,8 +37,7 @@ int handleExportObj(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr, "WOM not found: %s.wom\n", base.c_str());
-        return 1;
+        return reportMissing("WOM", base, ".wom");
     }
     if (outPath.empty()) outPath = base + ".obj";
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);
@@ -142,8 +141,7 @@ int handleExportGlb(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr, "WOM not found: %s.wom\n", base.c_str());
-        return 1;
+        return reportMissing("WOM", base, ".wom");
     }
     if (outPath.empty()) outPath = base + ".glb";
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);
@@ -316,8 +314,7 @@ int handleExportStl(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr, "WOM not found: %s.wom\n", base.c_str());
-        return 1;
+        return reportMissing("WOM", base, ".wom");
     }
     if (outPath.empty()) outPath = base + ".stl";
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);

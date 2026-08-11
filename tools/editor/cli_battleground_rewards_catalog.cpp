@@ -133,10 +133,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wbrd");
     if (!wowee::pipeline::WoweeBattlegroundRewardsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wbrd: WBRD not found: %s.wbrd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wbrd", "WBRD", base, ".wbrd");
     }
     auto c = wowee::pipeline::WoweeBattlegroundRewardsLoader::load(base);
     std::vector<std::string> errors;
@@ -234,10 +231,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wbrd");
     if (out.empty()) out = base + ".wbrd.json";
     if (!wowee::pipeline::WoweeBattlegroundRewardsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wbrd-json: WBRD not found: %s.wbrd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wbrd-json", "WBRD", base, ".wbrd");
     }
     auto c = wowee::pipeline::WoweeBattlegroundRewardsLoader::load(base);
     nlohmann::json j;

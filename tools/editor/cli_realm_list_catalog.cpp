@@ -113,8 +113,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmsp");
     if (!wowee::pipeline::WoweeRealmListLoader::exists(base)) {
-        std::fprintf(stderr, "WMSP not found: %s.wmsp\n", base.c_str());
-        return 1;
+        return reportMissing("WMSP", base, ".wmsp");
     }
     auto c = wowee::pipeline::WoweeRealmListLoader::load(base);
     if (jsonOut) {
@@ -268,10 +267,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wmsp");
     if (out.empty()) out = base + ".wmsp.json";
     if (!wowee::pipeline::WoweeRealmListLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmsp-json: WMSP not found: %s.wmsp\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wmsp-json", "WMSP", base, ".wmsp");
     }
     auto c = wowee::pipeline::WoweeRealmListLoader::load(base);
     nlohmann::json j;
@@ -407,10 +403,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmsp");
     if (!wowee::pipeline::WoweeRealmListLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmsp: WMSP not found: %s.wmsp\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wmsp", "WMSP", base, ".wmsp");
     }
     auto c = wowee::pipeline::WoweeRealmListLoader::load(base);
     std::vector<std::string> errors;

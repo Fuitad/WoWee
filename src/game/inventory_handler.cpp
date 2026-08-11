@@ -2445,7 +2445,24 @@ void InventoryHandler::openMailbox(uint64_t guid) {
     showMailCompose_ = false;
     clearMailAttachments();
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("MAIL_SHOW", {});
+    selectDefaultStationery();
     refreshMailList();
+}
+
+void InventoryHandler::selectDefaultStationery() {
+    // The paper a letter is written on, chosen the way it arrives already in
+    // the frame.
+    //
+    // SendMailFrame_CanSend counts three things before it enables the Send
+    // button, and one is that a stationery has been chosen. Nothing chooses one
+    // when the frame opens: SendMailFrame_Reset is the only thing in the whole
+    // interface that does, and it runs after a letter has been sent
+    // successfully. So the first letter of a session could never be sent — the
+    // button was disabled before it was ever pressed, which is exactly what the
+    // input log shows and what "mail not being sent" turned out to be.
+    owner_.runInterfaceCommand(
+        "if StationeryPopupFrame and not StationeryPopupFrame.selectedIndex then "
+        "StationeryPopupButton_OnClick(nil, 1) end");
 }
 
 void InventoryHandler::closeMailbox() {
@@ -2728,6 +2745,7 @@ void InventoryHandler::handleShowMailbox(network::Packet& packet) {
     mailboxOpen_ = true;
     selectedMailIndex_ = -1;
     if (owner_.addonEventCallbackRef()) owner_.addonEventCallbackRef()("MAIL_SHOW", {});
+    selectDefaultStationery();
     refreshMailList();
 }
 

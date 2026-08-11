@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wumv");
     if (!wowee::pipeline::WoweeUnitMovementLoader::exists(base)) {
-        std::fprintf(stderr, "WUMV not found: %s.wumv\n", base.c_str());
-        return 1;
+        return reportMissing("WUMV", base, ".wumv");
     }
     auto c = wowee::pipeline::WoweeUnitMovementLoader::load(base);
     if (jsonOut) {

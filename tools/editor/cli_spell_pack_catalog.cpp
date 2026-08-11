@@ -134,10 +134,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wspk");
     if (!wowee::pipeline::WoweeSpellPackLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wspk: WSPK not found: %s.wspk\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wspk", "WSPK", base, ".wspk");
     }
     auto c = wowee::pipeline::WoweeSpellPackLoader::load(base);
     std::vector<std::string> errors;
@@ -230,10 +227,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wspk");
     if (out.empty()) out = base + ".wspk.json";
     if (!wowee::pipeline::WoweeSpellPackLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wspk-json: WSPK not found: %s.wspk\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wspk-json", "WSPK", base, ".wspk");
     }
     auto c = wowee::pipeline::WoweeSpellPackLoader::load(base);
     nlohmann::json j;

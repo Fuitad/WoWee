@@ -90,8 +90,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcrt");
     if (!wowee::pipeline::WoweeCreatureLoader::exists(base)) {
-        std::fprintf(stderr, "WCRT not found: %s.wcrt\n", base.c_str());
-        return 1;
+        return reportMissing("WCRT", base, ".wcrt");
     }
     auto c = wowee::pipeline::WoweeCreatureLoader::load(base);
     if (jsonOut) {

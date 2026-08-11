@@ -1713,12 +1713,37 @@ void registerSocialLuaAPI(lua_State* L) {
                 // out — which is the one thing that report exists to prevent.
                 // The stationery list is a real feature this client does not
                 // have, and it should keep saying so.
-                {"GetStationeryInfo", [](lua_State* L) -> int { return luaReturnNil(L); }},
+                // Stationery is the paper a letter is written on. There is one
+                // — the plain parchment every letter uses unless the player
+                // bought something else — and answering that there are none
+                // left the popup empty with nothing to pick.
+                //
+                // That is not cosmetic. SendMailFrame_CanSend counts three
+                // things before it will enable the Send button, and one of them
+                // is that a stationery has been chosen. With an empty list
+                // there was no way to choose one, so the button could never be
+                // enabled and no letter could be sent at all.
+                //
+                // GetStationeryInfo(index) → name, texture, cost. A nil cost
+                // means free, which is what the frame draws as no price.
+                {"GetStationeryInfo", [](lua_State* L) -> int {
+                    if (static_cast<int>(luaL_optnumber(L, 1, 0)) != 1) return luaReturnNil(L);
+                    lua_pushstring(L, "Default");
+                    lua_pushstring(L, "Default");   // STATIONERY_PATH..texture.."1"
+                    lua_pushnil(L);                 // free
+                    return 3;
+                }},
+                {"GetSelectedStationeryTexture", [](lua_State* L) -> int {
+                    lua_pushstring(L, "Default");
+                    return 1;
+                }},
+                // Which one is chosen is the frame's business — it keeps the
+                // index itself and hands it here. Nothing on this side varies
+                // with it while there is only one.
                 {"SelectStationery", [](lua_State* L) -> int { (void)L; return 0; }},
                 // Guarded with `if ( texture )` before being pasted into a
                 // path, so nil leaves the default parchment rather than
                 // building a texture name out of nothing.
-                {"GetSelectedStationeryTexture", [](lua_State* L) -> int { return luaReturnNil(L); }},
                 // Reporting a mail as spam needs a GM channel this client does
                 // not have, so no mail can be complained about.
                 {"CanComplainInboxItem", luaReturnFalse},

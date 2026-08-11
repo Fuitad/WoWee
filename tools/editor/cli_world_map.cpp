@@ -74,8 +74,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = stripWomxExt(base);
     if (!wowee::pipeline::WoweeWorldMapLoader::exists(base)) {
-        std::fprintf(stderr, "WOMX not found: %s.womx\n", base.c_str());
-        return 1;
+        return reportMissing("WOMX", base, ".womx");
     }
     auto m = wowee::pipeline::WoweeWorldMapLoader::load(base);
     uint32_t total = static_cast<uint32_t>(m.gridSize) * m.gridSize;
@@ -122,10 +121,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = stripWomxExt(base);
     if (outPath.empty()) outPath = base + ".womx.json";
     if (!wowee::pipeline::WoweeWorldMapLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-womx-json: WOMX not found: %s.womx\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-womx-json", "WOMX", base, ".womx");
     }
     auto m = wowee::pipeline::WoweeWorldMapLoader::load(base);
     nlohmann::json j;
@@ -249,9 +245,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = stripWomxExt(base);
     if (!wowee::pipeline::WoweeWorldMapLoader::exists(base)) {
-        std::fprintf(stderr, "validate-womx: WOMX not found: %s.womx\n",
-                     base.c_str());
-        return 1;
+        return reportMissing("validate-womx", "WOMX", base, ".womx");
     }
     auto m = wowee::pipeline::WoweeWorldMapLoader::load(base);
     std::vector<std::string> errors;

@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtle");
     if (!wowee::pipeline::WoweeTalentTabLoader::exists(base)) {
-        std::fprintf(stderr, "WTLE not found: %s.wtle\n", base.c_str());
-        return 1;
+        return reportMissing("WTLE", base, ".wtle");
     }
     auto c = wowee::pipeline::WoweeTalentTabLoader::load(base);
     if (jsonOut) {
@@ -117,10 +116,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wtle");
     if (!wowee::pipeline::WoweeTalentTabLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtle-json: WTLE not found: %s.wtle\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wtle-json", "WTLE", base, ".wtle");
     }
     auto c = wowee::pipeline::WoweeTalentTabLoader::load(base);
     if (outPath.empty()) outPath = base + ".wtle.json";

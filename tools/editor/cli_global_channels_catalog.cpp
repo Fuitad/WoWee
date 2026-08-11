@@ -148,8 +148,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgch");
     if (!wowee::pipeline::WoweeGlobalChannelsLoader::exists(base)) {
-        std::fprintf(stderr, "WGCH not found: %s.wgch\n", base.c_str());
-        return 1;
+        return reportMissing("WGCH", base, ".wgch");
     }
     auto c = wowee::pipeline::WoweeGlobalChannelsLoader::load(base);
     if (jsonOut) {
@@ -200,10 +199,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgch");
     if (!wowee::pipeline::WoweeGlobalChannelsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgch: WGCH not found: %s.wgch\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wgch", "WGCH", base, ".wgch");
     }
     auto c = wowee::pipeline::WoweeGlobalChannelsLoader::load(base);
     std::vector<std::string> errors;
@@ -281,10 +277,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wgch");
     if (out.empty()) out = base + ".wgch.json";
     if (!wowee::pipeline::WoweeGlobalChannelsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgch-json: WGCH not found: %s.wgch\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wgch-json", "WGCH", base, ".wgch");
     }
     auto c = wowee::pipeline::WoweeGlobalChannelsLoader::load(base);
     nlohmann::json j;

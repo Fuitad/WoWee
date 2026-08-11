@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgtp");
     if (!wowee::pipeline::WoweeGameTipLoader::exists(base)) {
-        std::fprintf(stderr, "WGTP not found: %s.wgtp\n", base.c_str());
-        return 1;
+        return reportMissing("WGTP", base, ".wgtp");
     }
     auto c = wowee::pipeline::WoweeGameTipLoader::load(base);
     if (jsonOut) {

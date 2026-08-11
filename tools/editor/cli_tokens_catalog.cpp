@@ -76,8 +76,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtkn");
     if (!wowee::pipeline::WoweeTokenLoader::exists(base)) {
-        std::fprintf(stderr, "WTKN not found: %s.wtkn\n", base.c_str());
-        return 1;
+        return reportMissing("WTKN", base, ".wtkn");
     }
     auto c = wowee::pipeline::WoweeTokenLoader::load(base);
     if (jsonOut) {

@@ -143,10 +143,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcra");
     if (!wowee::pipeline::WoweeCraftingRecipesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcra: WCRA not found: %s.wcra\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wcra", "WCRA", base, ".wcra");
     }
     auto c = wowee::pipeline::WoweeCraftingRecipesLoader::load(base);
     std::vector<std::string> errors;
@@ -271,10 +268,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcra");
     if (out.empty()) out = base + ".wcra.json";
     if (!wowee::pipeline::WoweeCraftingRecipesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcra-json: WCRA not found: %s.wcra\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcra-json", "WCRA", base, ".wcra");
     }
     auto c = wowee::pipeline::WoweeCraftingRecipesLoader::load(base);
     nlohmann::json j;

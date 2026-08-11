@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wpcd");
     if (!wowee::pipeline::WoweeConditionLoader::exists(base)) {
-        std::fprintf(stderr, "WPCD not found: %s.wpcd\n", base.c_str());
-        return 1;
+        return reportMissing("WPCD", base, ".wpcd");
     }
     auto c = wowee::pipeline::WoweeConditionLoader::load(base);
     if (jsonOut) {

@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmou");
     if (!wowee::pipeline::WoweeMountLoader::exists(base)) {
-        std::fprintf(stderr, "WMOU not found: %s.wmou\n", base.c_str());
-        return 1;
+        return reportMissing("WMOU", base, ".wmou");
     }
     auto c = wowee::pipeline::WoweeMountLoader::load(base);
     if (jsonOut) {

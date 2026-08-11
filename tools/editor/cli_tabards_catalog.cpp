@@ -90,8 +90,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtbd");
     if (!wowee::pipeline::WoweeTabardsLoader::exists(base)) {
-        std::fprintf(stderr, "WTBD not found: %s.wtbd\n", base.c_str());
-        return 1;
+        return reportMissing("WTBD", base, ".wtbd");
     }
     auto c = wowee::pipeline::WoweeTabardsLoader::load(base);
     if (jsonOut) {
@@ -206,10 +205,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wtbd");
     if (out.empty()) out = base + ".wtbd.json";
     if (!wowee::pipeline::WoweeTabardsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtbd-json: WTBD not found: %s.wtbd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wtbd-json", "WTBD", base, ".wtbd");
     }
     auto c = wowee::pipeline::WoweeTabardsLoader::load(base);
     nlohmann::json j;
@@ -330,10 +326,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtbd");
     if (!wowee::pipeline::WoweeTabardsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtbd: WTBD not found: %s.wtbd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wtbd", "WTBD", base, ".wtbd");
     }
     auto c = wowee::pipeline::WoweeTabardsLoader::load(base);
     std::vector<std::string> errors;

@@ -93,8 +93,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcre");
     if (!wowee::pipeline::WoweeCreatureResistsLoader::exists(base)) {
-        std::fprintf(stderr, "WCRE not found: %s.wcre\n", base.c_str());
-        return 1;
+        return reportMissing("WCRE", base, ".wcre");
     }
     auto c = wowee::pipeline::WoweeCreatureResistsLoader::load(base);
     if (jsonOut) {
@@ -187,10 +186,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcre");
     if (out.empty()) out = base + ".wcre.json";
     if (!wowee::pipeline::WoweeCreatureResistsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcre-json: WCRE not found: %s.wcre\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcre-json", "WCRE", base, ".wcre");
     }
     auto c = wowee::pipeline::WoweeCreatureResistsLoader::load(base);
     nlohmann::json j;
@@ -329,10 +325,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcre");
     if (!wowee::pipeline::WoweeCreatureResistsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcre: WCRE not found: %s.wcre\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wcre", "WCRE", base, ".wcre");
     }
     auto c = wowee::pipeline::WoweeCreatureResistsLoader::load(base);
     std::vector<std::string> errors;

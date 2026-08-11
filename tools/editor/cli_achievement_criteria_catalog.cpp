@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wacr");
     if (!wowee::pipeline::WoweeAchievementCriteriaLoader::exists(base)) {
-        std::fprintf(stderr, "WACR not found: %s.wacr\n", base.c_str());
-        return 1;
+        return reportMissing("WACR", base, ".wacr");
     }
     auto c = wowee::pipeline::WoweeAchievementCriteriaLoader::load(base);
     if (jsonOut) {
@@ -117,10 +116,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wacr");
     if (!wowee::pipeline::WoweeAchievementCriteriaLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wacr-json: WACR not found: %s.wacr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wacr-json", "WACR", base, ".wacr");
     }
     auto c = wowee::pipeline::WoweeAchievementCriteriaLoader::load(base);
     if (outPath.empty()) outPath = base + ".wacr.json";

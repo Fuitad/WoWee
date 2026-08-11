@@ -70,8 +70,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcmr");
     if (!wowee::pipeline::WoweeCreaturePatrolLoader::exists(base)) {
-        std::fprintf(stderr, "WCMR not found: %s.wcmr\n", base.c_str());
-        return 1;
+        return reportMissing("WCMR", base, ".wcmr");
     }
     auto c = wowee::pipeline::WoweeCreaturePatrolLoader::load(base);
     if (jsonOut) {
@@ -130,10 +129,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wcmr");
     if (!wowee::pipeline::WoweeCreaturePatrolLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcmr-json: WCMR not found: %s.wcmr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcmr-json", "WCMR", base, ".wcmr");
     }
     auto c = wowee::pipeline::WoweeCreaturePatrolLoader::load(base);
     if (outPath.empty()) outPath = base + ".wcmr.json";

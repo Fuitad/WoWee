@@ -88,10 +88,8 @@ int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wrpr");
-    if (!wowee::pipeline::WoweeReputationRewardsLoader::exists(
-            base)) {
-        std::fprintf(stderr, "WRPR not found: %s.wrpr\n", base.c_str());
-        return 1;
+    if (!wowee::pipeline::WoweeReputationRewardsLoader::exists(base)) {
+        return reportMissing("WRPR", base, ".wrpr");
     }
     auto c = wowee::pipeline::WoweeReputationRewardsLoader::load(
         base);

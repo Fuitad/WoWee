@@ -83,8 +83,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcmg");
     if (!wowee::pipeline::WoweeCombatManeuversLoader::exists(base)) {
-        std::fprintf(stderr, "WCMG not found: %s.wcmg\n", base.c_str());
-        return 1;
+        return reportMissing("WCMG", base, ".wcmg");
     }
     auto c = wowee::pipeline::WoweeCombatManeuversLoader::load(base);
     if (jsonOut) {
@@ -165,10 +164,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcmg");
     if (out.empty()) out = base + ".wcmg.json";
     if (!wowee::pipeline::WoweeCombatManeuversLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcmg-json: WCMG not found: %s.wcmg\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcmg-json", "WCMG", base, ".wcmg");
     }
     auto c = wowee::pipeline::WoweeCombatManeuversLoader::load(base);
     nlohmann::json j;
@@ -298,10 +294,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcmg");
     if (!wowee::pipeline::WoweeCombatManeuversLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcmg: WCMG not found: %s.wcmg\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wcmg", "WCMG", base, ".wcmg");
     }
     auto c = wowee::pipeline::WoweeCombatManeuversLoader::load(base);
     std::vector<std::string> errors;

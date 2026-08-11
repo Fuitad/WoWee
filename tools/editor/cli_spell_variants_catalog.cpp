@@ -81,8 +81,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wspv");
     if (!wowee::pipeline::WoweeSpellVariantsLoader::exists(base)) {
-        std::fprintf(stderr, "WSPV not found: %s.wspv\n", base.c_str());
-        return 1;
+        return reportMissing("WSPV", base, ".wspv");
     }
     auto c = wowee::pipeline::WoweeSpellVariantsLoader::load(base);
     if (jsonOut) {
@@ -144,10 +143,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wspv");
     if (out.empty()) out = base + ".wspv.json";
     if (!wowee::pipeline::WoweeSpellVariantsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wspv-json: WSPV not found: %s.wspv\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wspv-json", "WSPV", base, ".wspv");
     }
     auto c = wowee::pipeline::WoweeSpellVariantsLoader::load(base);
     nlohmann::json j;
@@ -264,10 +260,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wspv");
     if (!wowee::pipeline::WoweeSpellVariantsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wspv: WSPV not found: %s.wspv\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wspv", "WSPV", base, ".wspv");
     }
     auto c = wowee::pipeline::WoweeSpellVariantsLoader::load(base);
     std::vector<std::string> errors;

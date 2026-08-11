@@ -77,8 +77,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wspm");
     if (!wowee::pipeline::WoweeSpellMarkersLoader::exists(base)) {
-        std::fprintf(stderr, "WSPM not found: %s.wspm\n", base.c_str());
-        return 1;
+        return reportMissing("WSPM", base, ".wspm");
     }
     auto c = wowee::pipeline::WoweeSpellMarkersLoader::load(base);
     if (jsonOut) {
@@ -143,10 +142,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wspm");
     if (out.empty()) out = base + ".wspm.json";
     if (!wowee::pipeline::WoweeSpellMarkersLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wspm-json: WSPM not found: %s.wspm\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wspm-json", "WSPM", base, ".wspm");
     }
     auto c = wowee::pipeline::WoweeSpellMarkersLoader::load(base);
     nlohmann::json j;
@@ -288,10 +284,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wspm");
     if (!wowee::pipeline::WoweeSpellMarkersLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wspm: WSPM not found: %s.wspm\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wspm", "WSPM", base, ".wspm");
     }
     auto c = wowee::pipeline::WoweeSpellMarkersLoader::load(base);
     std::vector<std::string> errors;

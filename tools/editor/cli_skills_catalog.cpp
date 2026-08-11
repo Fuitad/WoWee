@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wskl");
     if (!wowee::pipeline::WoweeSkillLoader::exists(base)) {
-        std::fprintf(stderr, "WSKL not found: %s.wskl\n", base.c_str());
-        return 1;
+        return reportMissing("WSKL", base, ".wskl");
     }
     auto c = wowee::pipeline::WoweeSkillLoader::load(base);
     if (jsonOut) {

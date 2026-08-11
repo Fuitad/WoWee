@@ -186,10 +186,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wauh");
     if (!wowee::pipeline::WoweeAuctionHousesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wauh: WAUH not found: %s.wauh\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wauh", "WAUH", base, ".wauh");
     }
     auto c = wowee::pipeline::WoweeAuctionHousesLoader::load(base);
     std::vector<std::string> errors;
@@ -320,10 +317,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wauh");
     if (out.empty()) out = base + ".wauh.json";
     if (!wowee::pipeline::WoweeAuctionHousesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wauh-json: WAUH not found: %s.wauh\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wauh-json", "WAUH", base, ".wauh");
     }
     auto c = wowee::pipeline::WoweeAuctionHousesLoader::load(base);
     nlohmann::json j;

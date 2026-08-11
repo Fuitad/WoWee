@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wwui");
     if (!wowee::pipeline::WoweeWorldStateUILoader::exists(base)) {
-        std::fprintf(stderr, "WWUI not found: %s.wwui\n", base.c_str());
-        return 1;
+        return reportMissing("WWUI", base, ".wwui");
     }
     auto c = wowee::pipeline::WoweeWorldStateUILoader::load(base);
     if (jsonOut) {

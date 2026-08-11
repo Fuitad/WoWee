@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgly");
     if (!wowee::pipeline::WoweeGlyphLoader::exists(base)) {
-        std::fprintf(stderr, "WGLY not found: %s.wgly\n", base.c_str());
-        return 1;
+        return reportMissing("WGLY", base, ".wgly");
     }
     auto c = wowee::pipeline::WoweeGlyphLoader::load(base);
     if (jsonOut) {

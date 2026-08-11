@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtit");
     if (!wowee::pipeline::WoweeTitleLoader::exists(base)) {
-        std::fprintf(stderr, "WTIT not found: %s.wtit\n", base.c_str());
-        return 1;
+        return reportMissing("WTIT", base, ".wtit");
     }
     auto c = wowee::pipeline::WoweeTitleLoader::load(base);
     if (jsonOut) {

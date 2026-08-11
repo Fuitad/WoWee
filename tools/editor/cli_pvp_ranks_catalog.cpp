@@ -78,8 +78,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wprg");
     if (!wowee::pipeline::WoweePvPRanksLoader::exists(base)) {
-        std::fprintf(stderr, "WPRG not found: %s.wprg\n", base.c_str());
-        return 1;
+        return reportMissing("WPRG", base, ".wprg");
     }
     auto c = wowee::pipeline::WoweePvPRanksLoader::load(base);
     if (jsonOut) {
@@ -137,10 +136,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wprg");
     if (out.empty()) out = base + ".wprg.json";
     if (!wowee::pipeline::WoweePvPRanksLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wprg-json: WPRG not found: %s.wprg\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wprg-json", "WPRG", base, ".wprg");
     }
     auto c = wowee::pipeline::WoweePvPRanksLoader::load(base);
     nlohmann::json j;
@@ -260,10 +256,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wprg");
     if (!wowee::pipeline::WoweePvPRanksLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wprg: WPRG not found: %s.wprg\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wprg", "WPRG", base, ".wprg");
     }
     auto c = wowee::pipeline::WoweePvPRanksLoader::load(base);
     std::vector<std::string> errors;

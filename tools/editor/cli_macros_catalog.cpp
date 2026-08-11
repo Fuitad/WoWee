@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmac");
     if (!wowee::pipeline::WoweeMacroLoader::exists(base)) {
-        std::fprintf(stderr, "WMAC not found: %s.wmac\n", base.c_str());
-        return 1;
+        return reportMissing("WMAC", base, ".wmac");
     }
     auto c = wowee::pipeline::WoweeMacroLoader::load(base);
     if (jsonOut) {

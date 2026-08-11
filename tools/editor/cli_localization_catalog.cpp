@@ -101,8 +101,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wlan");
     if (!wowee::pipeline::WoweeLocalizationLoader::exists(base)) {
-        std::fprintf(stderr, "WLAN not found: %s.wlan\n", base.c_str());
-        return 1;
+        return reportMissing("WLAN", base, ".wlan");
     }
     auto c = wowee::pipeline::WoweeLocalizationLoader::load(base);
     if (jsonOut) {
@@ -220,10 +219,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wlan");
     if (out.empty()) out = base + ".wlan.json";
     if (!wowee::pipeline::WoweeLocalizationLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wlan-json: WLAN not found: %s.wlan\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wlan-json", "WLAN", base, ".wlan");
     }
     auto c = wowee::pipeline::WoweeLocalizationLoader::load(base);
     nlohmann::json j;
@@ -321,10 +317,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wlan");
     if (!wowee::pipeline::WoweeLocalizationLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wlan: WLAN not found: %s.wlan\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wlan", "WLAN", base, ".wlan");
     }
     auto c = wowee::pipeline::WoweeLocalizationLoader::load(base);
     std::vector<std::string> errors;

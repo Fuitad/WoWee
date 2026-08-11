@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsct");
     if (!wowee::pipeline::WoweeSpellCastTimeLoader::exists(base)) {
-        std::fprintf(stderr, "WSCT not found: %s.wsct\n", base.c_str());
-        return 1;
+        return reportMissing("WSCT", base, ".wsct");
     }
     auto c = wowee::pipeline::WoweeSpellCastTimeLoader::load(base);
     if (jsonOut) {
@@ -117,10 +116,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wsct");
     if (!wowee::pipeline::WoweeSpellCastTimeLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wsct-json: WSCT not found: %s.wsct\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wsct-json", "WSCT", base, ".wsct");
     }
     auto c = wowee::pipeline::WoweeSpellCastTimeLoader::load(base);
     if (outPath.empty()) outPath = base + ".wsct.json";

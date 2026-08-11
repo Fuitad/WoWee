@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wkbd");
     if (!wowee::pipeline::WoweeKeyBindingLoader::exists(base)) {
-        std::fprintf(stderr, "WKBD not found: %s.wkbd\n", base.c_str());
-        return 1;
+        return reportMissing("WKBD", base, ".wkbd");
     }
     auto c = wowee::pipeline::WoweeKeyBindingLoader::load(base);
     if (jsonOut) {

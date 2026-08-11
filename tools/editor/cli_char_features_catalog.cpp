@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wchf");
     if (!wowee::pipeline::WoweeCharFeatureLoader::exists(base)) {
-        std::fprintf(stderr, "WCHF not found: %s.wchf\n", base.c_str());
-        return 1;
+        return reportMissing("WCHF", base, ".wchf");
     }
     auto c = wowee::pipeline::WoweeCharFeatureLoader::load(base);
     if (jsonOut) {

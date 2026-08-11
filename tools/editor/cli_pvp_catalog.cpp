@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wpvp");
     if (!wowee::pipeline::WoweePVPRankLoader::exists(base)) {
-        std::fprintf(stderr, "WPVP not found: %s.wpvp\n", base.c_str());
-        return 1;
+        return reportMissing("WPVP", base, ".wpvp");
     }
     auto c = wowee::pipeline::WoweePVPRankLoader::load(base);
     if (jsonOut) {

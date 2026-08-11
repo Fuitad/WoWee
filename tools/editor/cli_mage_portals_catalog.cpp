@@ -201,10 +201,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wprt");
     if (!wowee::pipeline::WoweeMagePortalsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wprt: WPRT not found: %s.wprt\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wprt", "WPRT", base, ".wprt");
     }
     auto c = wowee::pipeline::WoweeMagePortalsLoader::load(base);
     std::vector<std::string> errors;
@@ -326,10 +323,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wprt");
     if (out.empty()) out = base + ".wprt.json";
     if (!wowee::pipeline::WoweeMagePortalsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wprt-json: WPRT not found: %s.wprt\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wprt-json", "WPRT", base, ".wprt");
     }
     auto c = wowee::pipeline::WoweeMagePortalsLoader::load(base);
     nlohmann::json j;

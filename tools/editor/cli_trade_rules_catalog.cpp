@@ -93,8 +93,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtrd");
     if (!wowee::pipeline::WoweeTradeRulesLoader::exists(base)) {
-        std::fprintf(stderr, "WTRD not found: %s.wtrd\n", base.c_str());
-        return 1;
+        return reportMissing("WTRD", base, ".wtrd");
     }
     auto c = wowee::pipeline::WoweeTradeRulesLoader::load(base);
     if (jsonOut) {
@@ -209,10 +208,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wtrd");
     if (out.empty()) out = base + ".wtrd.json";
     if (!wowee::pipeline::WoweeTradeRulesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtrd-json: WTRD not found: %s.wtrd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wtrd-json", "WTRD", base, ".wtrd");
     }
     auto c = wowee::pipeline::WoweeTradeRulesLoader::load(base);
     nlohmann::json j;
@@ -315,10 +311,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtrd");
     if (!wowee::pipeline::WoweeTradeRulesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtrd: WTRD not found: %s.wtrd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wtrd", "WTRD", base, ".wtrd");
     }
     auto c = wowee::pipeline::WoweeTradeRulesLoader::load(base);
     std::vector<std::string> errors;

@@ -80,8 +80,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wqt");
     if (!wowee::pipeline::WoweeQuestLoader::exists(base)) {
-        std::fprintf(stderr, "WQT not found: %s.wqt\n", base.c_str());
-        return 1;
+        return reportMissing("WQT", base, ".wqt");
     }
     auto c = wowee::pipeline::WoweeQuestLoader::load(base);
     if (jsonOut) {

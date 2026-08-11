@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsrg");
     if (!wowee::pipeline::WoweeSpellRangeLoader::exists(base)) {
-        std::fprintf(stderr, "WSRG not found: %s.wsrg\n", base.c_str());
-        return 1;
+        return reportMissing("WSRG", base, ".wsrg");
     }
     auto c = wowee::pipeline::WoweeSpellRangeLoader::load(base);
     if (jsonOut) {
@@ -117,10 +116,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wsrg");
     if (!wowee::pipeline::WoweeSpellRangeLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wsrg-json: WSRG not found: %s.wsrg\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wsrg-json", "WSRG", base, ".wsrg");
     }
     auto c = wowee::pipeline::WoweeSpellRangeLoader::load(base);
     if (outPath.empty()) outPath = base + ".wsrg.json";

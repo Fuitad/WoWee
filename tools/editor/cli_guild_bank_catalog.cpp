@@ -135,10 +135,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgbk");
     if (!wowee::pipeline::WoweeGuildBankLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wgbk: WGBK not found: %s.wgbk\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wgbk", "WGBK", base, ".wgbk");
     }
     auto c = wowee::pipeline::WoweeGuildBankLoader::load(base);
     std::vector<std::string> errors;
@@ -250,10 +247,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wgbk");
     if (out.empty()) out = base + ".wgbk.json";
     if (!wowee::pipeline::WoweeGuildBankLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgbk-json: WGBK not found: %s.wgbk\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wgbk-json", "WGBK", base, ".wgbk");
     }
     auto c = wowee::pipeline::WoweeGuildBankLoader::load(base);
     nlohmann::json j;

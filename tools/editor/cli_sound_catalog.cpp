@@ -75,8 +75,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsnd");
     if (!wowee::pipeline::WoweeSoundLoader::exists(base)) {
-        std::fprintf(stderr, "WSND not found: %s.wsnd\n", base.c_str());
-        return 1;
+        return reportMissing("WSND", base, ".wsnd");
     }
     auto c = wowee::pipeline::WoweeSoundLoader::load(base);
     if (jsonOut) {

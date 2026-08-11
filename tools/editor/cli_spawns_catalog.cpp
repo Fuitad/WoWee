@@ -71,8 +71,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wspn");
     if (!wowee::pipeline::WoweeSpawnsLoader::exists(base)) {
-        std::fprintf(stderr, "WSPN not found: %s.wspn\n", base.c_str());
-        return 1;
+        return reportMissing("WSPN", base, ".wspn");
     }
     auto c = wowee::pipeline::WoweeSpawnsLoader::load(base);
     if (jsonOut) {

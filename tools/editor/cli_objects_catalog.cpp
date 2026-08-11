@@ -77,8 +77,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgot");
     if (!wowee::pipeline::WoweeGameObjectLoader::exists(base)) {
-        std::fprintf(stderr, "WGOT not found: %s.wgot\n", base.c_str());
-        return 1;
+        return reportMissing("WGOT", base, ".wgot");
     }
     auto c = wowee::pipeline::WoweeGameObjectLoader::load(base);
     if (jsonOut) {

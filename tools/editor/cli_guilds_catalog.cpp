@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgld");
     if (!wowee::pipeline::WoweeGuildLoader::exists(base)) {
-        std::fprintf(stderr, "WGLD not found: %s.wgld\n", base.c_str());
-        return 1;
+        return reportMissing("WGLD", base, ".wgld");
     }
     auto c = wowee::pipeline::WoweeGuildLoader::load(base);
     if (jsonOut) {

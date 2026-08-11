@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wpet");
     if (!wowee::pipeline::WoweePetLoader::exists(base)) {
-        std::fprintf(stderr, "WPET not found: %s.wpet\n", base.c_str());
-        return 1;
+        return reportMissing("WPET", base, ".wpet");
     }
     auto c = wowee::pipeline::WoweePetLoader::load(base);
     if (jsonOut) {

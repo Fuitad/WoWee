@@ -73,8 +73,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmod");
     if (!wowee::pipeline::WoweeAddonManifestLoader::exists(base)) {
-        std::fprintf(stderr, "WMOD not found: %s.wmod\n", base.c_str());
-        return 1;
+        return reportMissing("WMOD", base, ".wmod");
     }
     auto c = wowee::pipeline::WoweeAddonManifestLoader::load(base);
     if (jsonOut) {
@@ -168,10 +167,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmod");
     if (!wowee::pipeline::WoweeAddonManifestLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmod: WMOD not found: %s.wmod\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wmod", "WMOD", base, ".wmod");
     }
     auto c = wowee::pipeline::WoweeAddonManifestLoader::load(base);
     std::vector<std::string> errors;
@@ -264,10 +260,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wmod");
     if (out.empty()) out = base + ".wmod.json";
     if (!wowee::pipeline::WoweeAddonManifestLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmod-json: WMOD not found: %s.wmod\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wmod-json", "WMOD", base, ".wmod");
     }
     auto c = wowee::pipeline::WoweeAddonManifestLoader::load(base);
     nlohmann::json j;

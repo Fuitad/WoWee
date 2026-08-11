@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wauc");
     if (!wowee::pipeline::WoweeAuctionLoader::exists(base)) {
-        std::fprintf(stderr, "WAUC not found: %s.wauc\n", base.c_str());
-        return 1;
+        return reportMissing("WAUC", base, ".wauc");
     }
     auto c = wowee::pipeline::WoweeAuctionLoader::load(base);
     if (jsonOut) {

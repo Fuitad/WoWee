@@ -216,10 +216,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wbhv");
     if (!wowee::pipeline::WoweeCreatureBehaviorLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wbhv: WBHV not found: %s.wbhv\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wbhv", "WBHV", base, ".wbhv");
     }
     auto c = wowee::pipeline::WoweeCreatureBehaviorLoader::load(base);
     std::vector<std::string> errors;
@@ -336,10 +333,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wbhv");
     if (out.empty()) out = base + ".wbhv.json";
     if (!wowee::pipeline::WoweeCreatureBehaviorLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wbhv-json: WBHV not found: %s.wbhv\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wbhv-json", "WBHV", base, ".wbhv");
     }
     auto c = wowee::pipeline::WoweeCreatureBehaviorLoader::load(base);
     nlohmann::json j;

@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgfs");
     if (!wowee::pipeline::WoweeGlyphSlotLoader::exists(base)) {
-        std::fprintf(stderr, "WGFS not found: %s.wgfs\n", base.c_str());
-        return 1;
+        return reportMissing("WGFS", base, ".wgfs");
     }
     auto c = wowee::pipeline::WoweeGlyphSlotLoader::load(base);
     if (jsonOut) {
@@ -117,10 +116,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wgfs");
     if (!wowee::pipeline::WoweeGlyphSlotLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgfs-json: WGFS not found: %s.wgfs\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wgfs-json", "WGFS", base, ".wgfs");
     }
     auto c = wowee::pipeline::WoweeGlyphSlotLoader::load(base);
     if (outPath.empty()) outPath = base + ".wgfs.json";

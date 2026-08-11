@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wpcn");
     if (!wowee::pipeline::WoweePlayerConditionLoader::exists(base)) {
-        std::fprintf(stderr, "WPCN not found: %s.wpcn\n", base.c_str());
-        return 1;
+        return reportMissing("WPCN", base, ".wpcn");
     }
     auto c = wowee::pipeline::WoweePlayerConditionLoader::load(base);
     if (jsonOut) {

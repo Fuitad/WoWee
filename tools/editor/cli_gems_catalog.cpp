@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgem");
     if (!wowee::pipeline::WoweeGemLoader::exists(base)) {
-        std::fprintf(stderr, "WGEM not found: %s.wgem\n", base.c_str());
-        return 1;
+        return reportMissing("WGEM", base, ".wgem");
     }
     auto c = wowee::pipeline::WoweeGemLoader::load(base);
     if (jsonOut) {

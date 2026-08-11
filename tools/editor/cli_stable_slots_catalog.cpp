@@ -76,8 +76,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wstc");
     if (!wowee::pipeline::WoweeStableSlotLoader::exists(base)) {
-        std::fprintf(stderr, "WSTC not found: %s.wstc\n", base.c_str());
-        return 1;
+        return reportMissing("WSTC", base, ".wstc");
     }
     auto c = wowee::pipeline::WoweeStableSlotLoader::load(base);
     if (jsonOut) {
@@ -124,10 +123,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wstc");
     if (!wowee::pipeline::WoweeStableSlotLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wstc-json: WSTC not found: %s.wstc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wstc-json", "WSTC", base, ".wstc");
     }
     auto c = wowee::pipeline::WoweeStableSlotLoader::load(base);
     if (outPath.empty()) outPath = base + ".wstc.json";

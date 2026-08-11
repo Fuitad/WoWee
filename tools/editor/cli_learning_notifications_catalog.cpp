@@ -104,10 +104,8 @@ int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wldn");
-    if (!wowee::pipeline::WoweeLearningNotificationsLoader::exists(
-            base)) {
-        std::fprintf(stderr, "WLDN not found: %s.wldn\n", base.c_str());
-        return 1;
+    if (!wowee::pipeline::WoweeLearningNotificationsLoader::exists(base)) {
+        return reportMissing("WLDN", base, ".wldn");
     }
     auto c = wowee::pipeline::WoweeLearningNotificationsLoader::load(
         base);

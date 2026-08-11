@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsch");
     if (!wowee::pipeline::WoweeSpellSchoolLoader::exists(base)) {
-        std::fprintf(stderr, "WSCH not found: %s.wsch\n", base.c_str());
-        return 1;
+        return reportMissing("WSCH", base, ".wsch");
     }
     auto c = wowee::pipeline::WoweeSpellSchoolLoader::load(base);
     if (jsonOut) {

@@ -225,10 +225,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wloc");
     if (!wowee::pipeline::WoweeWorldLocationsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wloc: WLOC not found: %s.wloc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wloc", "WLOC", base, ".wloc");
     }
     auto c = wowee::pipeline::WoweeWorldLocationsLoader::load(base);
     std::vector<std::string> errors;
@@ -324,10 +321,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wloc");
     if (out.empty()) out = base + ".wloc.json";
     if (!wowee::pipeline::WoweeWorldLocationsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wloc-json: WLOC not found: %s.wloc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wloc-json", "WLOC", base, ".wloc");
     }
     auto c = wowee::pipeline::WoweeWorldLocationsLoader::load(base);
     nlohmann::json j;

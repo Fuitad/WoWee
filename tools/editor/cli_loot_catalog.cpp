@@ -90,8 +90,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wlot");
     if (!wowee::pipeline::WoweeLootLoader::exists(base)) {
-        std::fprintf(stderr, "WLOT not found: %s.wlot\n", base.c_str());
-        return 1;
+        return reportMissing("WLOT", base, ".wlot");
     }
     auto c = wowee::pipeline::WoweeLootLoader::load(base);
     if (jsonOut) {

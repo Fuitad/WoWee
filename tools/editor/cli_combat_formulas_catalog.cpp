@@ -223,10 +223,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcfr");
     if (!wowee::pipeline::WoweeCombatFormulasLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcfr: WCFR not found: %s.wcfr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wcfr", "WCFR", base, ".wcfr");
     }
     auto c = wowee::pipeline::WoweeCombatFormulasLoader::load(base);
     std::vector<std::string> errors;
@@ -330,10 +327,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcfr");
     if (out.empty()) out = base + ".wcfr.json";
     if (!wowee::pipeline::WoweeCombatFormulasLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcfr-json: WCFR not found: %s.wcfr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcfr-json", "WCFR", base, ".wcfr");
     }
     auto c = wowee::pipeline::WoweeCombatFormulasLoader::load(base);
     nlohmann::json j;

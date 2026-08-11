@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wani");
     if (!wowee::pipeline::WoweeAnimationLoader::exists(base)) {
-        std::fprintf(stderr, "WANI not found: %s.wani\n", base.c_str());
-        return 1;
+        return reportMissing("WANI", base, ".wani");
     }
     auto c = wowee::pipeline::WoweeAnimationLoader::load(base);
     if (jsonOut) {

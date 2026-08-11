@@ -144,10 +144,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wirc");
     if (!wowee::pipeline::WoweeRandomPropertyLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wirc: WIRC not found: %s.wirc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wirc", "WIRC", base, ".wirc");
     }
     auto c = wowee::pipeline::WoweeRandomPropertyLoader::load(base);
     std::vector<std::string> errors;
@@ -247,10 +244,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wirc");
     if (out.empty()) out = base + ".wirc.json";
     if (!wowee::pipeline::WoweeRandomPropertyLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wirc-json: WIRC not found: %s.wirc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wirc-json", "WIRC", base, ".wirc");
     }
     auto c = wowee::pipeline::WoweeRandomPropertyLoader::load(base);
     nlohmann::json j;

@@ -183,10 +183,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtur");
     if (!wowee::pipeline::WoweeTutorialStepsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtur: WTUR not found: %s.wtur\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wtur", "WTUR", base, ".wtur");
     }
     auto c = wowee::pipeline::WoweeTutorialStepsLoader::load(base);
     std::vector<std::string> errors;
@@ -305,10 +302,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wtur");
     if (out.empty()) out = base + ".wtur.json";
     if (!wowee::pipeline::WoweeTutorialStepsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtur-json: WTUR not found: %s.wtur\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wtur-json", "WTUR", base, ".wtur");
     }
     auto c = wowee::pipeline::WoweeTutorialStepsLoader::load(base);
     nlohmann::json j;

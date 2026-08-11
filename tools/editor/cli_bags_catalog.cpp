@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wbnk");
     if (!wowee::pipeline::WoweeBagSlotLoader::exists(base)) {
-        std::fprintf(stderr, "WBNK not found: %s.wbnk\n", base.c_str());
-        return 1;
+        return reportMissing("WBNK", base, ".wbnk");
     }
     auto c = wowee::pipeline::WoweeBagSlotLoader::load(base);
     if (jsonOut) {

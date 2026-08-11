@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgrp");
     if (!wowee::pipeline::WoweeGroupCompositionLoader::exists(base)) {
-        std::fprintf(stderr, "WGRP not found: %s.wgrp\n", base.c_str());
-        return 1;
+        return reportMissing("WGRP", base, ".wgrp");
     }
     auto c = wowee::pipeline::WoweeGroupCompositionLoader::load(base);
     if (jsonOut) {
@@ -134,10 +133,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wgrp");
     if (out.empty()) out = base + ".wgrp.json";
     if (!wowee::pipeline::WoweeGroupCompositionLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wgrp-json: WGRP not found: %s.wgrp\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wgrp-json", "WGRP", base, ".wgrp");
     }
     auto c = wowee::pipeline::WoweeGroupCompositionLoader::load(base);
     nlohmann::json j;

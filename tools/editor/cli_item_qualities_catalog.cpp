@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wiqr");
     if (!wowee::pipeline::WoweeItemQualityLoader::exists(base)) {
-        std::fprintf(stderr, "WIQR not found: %s.wiqr\n", base.c_str());
-        return 1;
+        return reportMissing("WIQR", base, ".wiqr");
     }
     auto c = wowee::pipeline::WoweeItemQualityLoader::load(base);
     if (jsonOut) {
@@ -117,10 +116,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wiqr");
     if (!wowee::pipeline::WoweeItemQualityLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wiqr-json: WIQR not found: %s.wiqr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wiqr-json", "WIQR", base, ".wiqr");
     }
     auto c = wowee::pipeline::WoweeItemQualityLoader::load(base);
     if (outPath.empty()) outPath = base + ".wiqr.json";

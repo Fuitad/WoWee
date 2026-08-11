@@ -92,8 +92,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wwfl");
     if (!wowee::pipeline::WoweeWordFiltersLoader::exists(base)) {
-        std::fprintf(stderr, "WWFL not found: %s.wwfl\n", base.c_str());
-        return 1;
+        return reportMissing("WWFL", base, ".wwfl");
     }
     auto c = wowee::pipeline::WoweeWordFiltersLoader::load(base);
     if (jsonOut) {
@@ -203,10 +202,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wwfl");
     if (out.empty()) out = base + ".wwfl.json";
     if (!wowee::pipeline::WoweeWordFiltersLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wwfl-json: WWFL not found: %s.wwfl\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wwfl-json", "WWFL", base, ".wwfl");
     }
     auto c = wowee::pipeline::WoweeWordFiltersLoader::load(base);
     nlohmann::json j;
@@ -309,10 +305,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wwfl");
     if (!wowee::pipeline::WoweeWordFiltersLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wwfl: WWFL not found: %s.wwfl\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wwfl", "WWFL", base, ".wwfl");
     }
     auto c = wowee::pipeline::WoweeWordFiltersLoader::load(base);
     std::vector<std::string> errors;

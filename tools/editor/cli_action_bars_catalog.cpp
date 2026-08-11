@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wact");
     if (!wowee::pipeline::WoweeActionBarLoader::exists(base)) {
-        std::fprintf(stderr, "WACT not found: %s.wact\n", base.c_str());
-        return 1;
+        return reportMissing("WACT", base, ".wact");
     }
     auto c = wowee::pipeline::WoweeActionBarLoader::load(base);
     if (jsonOut) {
@@ -116,10 +115,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wact");
     if (!wowee::pipeline::WoweeActionBarLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wact-json: WACT not found: %s.wact\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wact-json", "WACT", base, ".wact");
     }
     auto c = wowee::pipeline::WoweeActionBarLoader::load(base);
     if (outPath.empty()) outPath = base + ".wact.json";

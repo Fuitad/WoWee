@@ -69,8 +69,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmnl");
     if (!wowee::pipeline::WoweeMinimapLevelsLoader::exists(base)) {
-        std::fprintf(stderr, "WMNL not found: %s.wmnl\n", base.c_str());
-        return 1;
+        return reportMissing("WMNL", base, ".wmnl");
     }
     auto c = wowee::pipeline::WoweeMinimapLevelsLoader::load(base);
     if (jsonOut) {
@@ -120,10 +119,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wmnl");
     if (out.empty()) out = base + ".wmnl.json";
     if (!wowee::pipeline::WoweeMinimapLevelsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmnl-json: WMNL not found: %s.wmnl\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wmnl-json", "WMNL", base, ".wmnl");
     }
     auto c = wowee::pipeline::WoweeMinimapLevelsLoader::load(base);
     nlohmann::json j;
@@ -218,10 +214,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmnl");
     if (!wowee::pipeline::WoweeMinimapLevelsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmnl: WMNL not found: %s.wmnl\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wmnl", "WMNL", base, ".wmnl");
     }
     auto c = wowee::pipeline::WoweeMinimapLevelsLoader::load(base);
     std::vector<std::string> errors;

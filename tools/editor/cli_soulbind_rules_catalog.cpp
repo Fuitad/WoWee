@@ -218,10 +218,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wbnd");
     if (!wowee::pipeline::WoweeSoulbindRulesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wbnd: WBND not found: %s.wbnd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wbnd", "WBND", base, ".wbnd");
     }
     auto c = wowee::pipeline::WoweeSoulbindRulesLoader::load(base);
     std::vector<std::string> errors;
@@ -332,10 +329,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wbnd");
     if (out.empty()) out = base + ".wbnd.json";
     if (!wowee::pipeline::WoweeSoulbindRulesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wbnd-json: WBND not found: %s.wbnd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wbnd-json", "WBND", base, ".wbnd");
     }
     auto c = wowee::pipeline::WoweeSoulbindRulesLoader::load(base);
     nlohmann::json j;

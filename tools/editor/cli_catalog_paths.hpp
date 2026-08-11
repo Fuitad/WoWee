@@ -58,6 +58,14 @@ bool saveOrError(const Catalog& cat, const std::string& base, const char* cmd,
     return false;
 }
 
+/// The same refusal with no command in front of it, which is how the --info-*
+/// handlers word theirs. Kept as its own overload rather than folded into the
+/// one below so the text each handler already printed is unchanged.
+inline int reportMissing(const char* tag, const std::string& base, const char* extension) {
+    std::fprintf(stderr, "%s not found: %s%s\n", tag, base.c_str(), extension);
+    return 1;
+}
+
 /// Report a catalog that is not there, and answer the process exit code.
 ///
 /// Written out at each of the 153 places a handler checks whether the file it

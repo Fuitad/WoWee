@@ -208,10 +208,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcmd");
     if (!wowee::pipeline::WoweeChatCommandsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcmd: WCMD not found: %s.wcmd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wcmd", "WCMD", base, ".wcmd");
     }
     auto c = wowee::pipeline::WoweeChatCommandsLoader::load(base);
     std::vector<std::string> errors;
@@ -334,10 +331,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcmd");
     if (out.empty()) out = base + ".wcmd.json";
     if (!wowee::pipeline::WoweeChatCommandsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcmd-json: WCMD not found: %s.wcmd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcmd-json", "WCMD", base, ".wcmd");
     }
     auto c = wowee::pipeline::WoweeChatCommandsLoader::load(base);
     nlohmann::json j;

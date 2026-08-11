@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wbkd");
     if (!wowee::pipeline::WoweeNPCServiceLoader::exists(base)) {
-        std::fprintf(stderr, "WBKD not found: %s.wbkd\n", base.c_str());
-        return 1;
+        return reportMissing("WBKD", base, ".wbkd");
     }
     auto c = wowee::pipeline::WoweeNPCServiceLoader::load(base);
     if (jsonOut) {
@@ -115,10 +114,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wbkd");
     if (!wowee::pipeline::WoweeNPCServiceLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wbkd-json: WBKD not found: %s.wbkd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wbkd-json", "WBKD", base, ".wbkd");
     }
     auto c = wowee::pipeline::WoweeNPCServiceLoader::load(base);
     if (outPath.empty()) outPath = base + ".wbkd.json";

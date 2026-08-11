@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wms");
     if (!wowee::pipeline::WoweeMapsLoader::exists(base)) {
-        std::fprintf(stderr, "WMS not found: %s.wms\n", base.c_str());
-        return 1;
+        return reportMissing("WMS", base, ".wms");
     }
     auto c = wowee::pipeline::WoweeMapsLoader::load(base);
     if (jsonOut) {

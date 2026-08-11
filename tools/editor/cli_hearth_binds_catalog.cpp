@@ -89,8 +89,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".whrt");
     if (!wowee::pipeline::WoweeHearthBindsLoader::exists(base)) {
-        std::fprintf(stderr, "WHRT not found: %s.whrt\n", base.c_str());
-        return 1;
+        return reportMissing("WHRT", base, ".whrt");
     }
     auto c = wowee::pipeline::WoweeHearthBindsLoader::load(base);
     if (jsonOut) {
@@ -165,10 +164,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".whrt");
     if (out.empty()) out = base + ".whrt.json";
     if (!wowee::pipeline::WoweeHearthBindsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-whrt-json: WHRT not found: %s.whrt\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-whrt-json", "WHRT", base, ".whrt");
     }
     auto c = wowee::pipeline::WoweeHearthBindsLoader::load(base);
     nlohmann::json j;

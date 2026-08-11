@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmal");
     if (!wowee::pipeline::WoweeMailLoader::exists(base)) {
-        std::fprintf(stderr, "WMAL not found: %s.wmal\n", base.c_str());
-        return 1;
+        return reportMissing("WMAL", base, ".wmal");
     }
     auto c = wowee::pipeline::WoweeMailLoader::load(base);
     if (jsonOut) {

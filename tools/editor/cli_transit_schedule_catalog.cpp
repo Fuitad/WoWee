@@ -209,10 +209,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtsc");
     if (!wowee::pipeline::WoweeTransitScheduleLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wtsc: WTSC not found: %s.wtsc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wtsc", "WTSC", base, ".wtsc");
     }
     auto c = wowee::pipeline::WoweeTransitScheduleLoader::load(base);
     std::vector<std::string> errors;
@@ -316,10 +313,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wtsc");
     if (out.empty()) out = base + ".wtsc.json";
     if (!wowee::pipeline::WoweeTransitScheduleLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtsc-json: WTSC not found: %s.wtsc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wtsc-json", "WTSC", base, ".wtsc");
     }
     auto c = wowee::pipeline::WoweeTransitScheduleLoader::load(base);
     nlohmann::json j;

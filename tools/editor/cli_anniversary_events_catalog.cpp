@@ -102,10 +102,8 @@ int handleInfo(int& i, int argc, char** argv) {
     std::string base = argv[++i];
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wanv");
-    if (!wowee::pipeline::WoweeAnniversaryEventsLoader::exists(
-            base)) {
-        std::fprintf(stderr, "WANV not found: %s.wanv\n", base.c_str());
-        return 1;
+    if (!wowee::pipeline::WoweeAnniversaryEventsLoader::exists(base)) {
+        return reportMissing("WANV", base, ".wanv");
     }
     auto c = wowee::pipeline::WoweeAnniversaryEventsLoader::load(
         base);

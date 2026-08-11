@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsea");
     if (!wowee::pipeline::WoweeEventLoader::exists(base)) {
-        std::fprintf(stderr, "WSEA not found: %s.wsea\n", base.c_str());
-        return 1;
+        return reportMissing("WSEA", base, ".wsea");
     }
     auto c = wowee::pipeline::WoweeEventLoader::load(base);
     if (jsonOut) {

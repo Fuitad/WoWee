@@ -190,10 +190,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wprc");
     if (!wowee::pipeline::WoweeSpellProcRulesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wprc: WPRC not found: %s.wprc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wprc", "WPRC", base, ".wprc");
     }
     auto c = wowee::pipeline::WoweeSpellProcRulesLoader::load(base);
     std::vector<std::string> errors;
@@ -289,10 +286,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wprc");
     if (out.empty()) out = base + ".wprc.json";
     if (!wowee::pipeline::WoweeSpellProcRulesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wprc-json: WPRC not found: %s.wprc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wprc-json", "WPRC", base, ".wprc");
     }
     auto c = wowee::pipeline::WoweeSpellProcRulesLoader::load(base);
     nlohmann::json j;

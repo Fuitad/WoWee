@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wlds");
     if (!wowee::pipeline::WoweeLoadingScreenLoader::exists(base)) {
-        std::fprintf(stderr, "WLDS not found: %s.wlds\n", base.c_str());
-        return 1;
+        return reportMissing("WLDS", base, ".wlds");
     }
     auto c = wowee::pipeline::WoweeLoadingScreenLoader::load(base);
     if (jsonOut) {

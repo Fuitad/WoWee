@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".waur");
     if (!wowee::pipeline::WoweeSpellAuraTypeLoader::exists(base)) {
-        std::fprintf(stderr, "WAUR not found: %s.waur\n", base.c_str());
-        return 1;
+        return reportMissing("WAUR", base, ".waur");
     }
     auto c = wowee::pipeline::WoweeSpellAuraTypeLoader::load(base);
     if (jsonOut) {
@@ -119,10 +118,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".waur");
     if (!wowee::pipeline::WoweeSpellAuraTypeLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-waur-json: WAUR not found: %s.waur\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-waur-json", "WAUR", base, ".waur");
     }
     auto c = wowee::pipeline::WoweeSpellAuraTypeLoader::load(base);
     if (outPath.empty()) outPath = base + ".waur.json";

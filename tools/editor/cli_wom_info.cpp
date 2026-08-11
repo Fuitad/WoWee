@@ -33,8 +33,7 @@ int handleInfo(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr, "WOM not found: %s.wom\n", base.c_str());
-        return 1;
+        return reportMissing("WOM", base, ".wom");
     }
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);
     if (jsonOut) {
@@ -79,8 +78,7 @@ int handleInfoBatches(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr, "WOM not found: %s.wom\n", base.c_str());
-        return 1;
+        return reportMissing("WOM", base, ".wom");
     }
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);
     // Blend modes per WoweeModel::Batch comment:
@@ -166,8 +164,7 @@ int handleInfoTextures(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr, "WOM not found: %s.wom\n", base.c_str());
-        return 1;
+        return reportMissing("WOM", base, ".wom");
     }
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);
     namespace fs = std::filesystem;
@@ -244,8 +241,7 @@ int handleInfoDoodads(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wob")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeBuildingLoader::exists(base)) {
-        std::fprintf(stderr, "WOB not found: %s.wob\n", base.c_str());
-        return 1;
+        return reportMissing("WOB", base, ".wob");
     }
     auto bld = wowee::pipeline::WoweeBuildingLoader::load(base);
     if (jsonOut) {
@@ -538,9 +534,7 @@ int handleValidateWom(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wom")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeModelLoader::exists(base)) {
-        std::fprintf(stderr, "validate-wom: WOM not found: %s.wom\n",
-                     base.c_str());
-        return 1;
+        return reportMissing("validate-wom", "WOM", base, ".wom");
     }
     auto wom = wowee::pipeline::WoweeModelLoader::load(base);
     std::vector<std::string> errors;

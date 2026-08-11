@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wspr");
     if (!wowee::pipeline::WoweeSpellReagentLoader::exists(base)) {
-        std::fprintf(stderr, "WSPR not found: %s.wspr\n", base.c_str());
-        return 1;
+        return reportMissing("WSPR", base, ".wspr");
     }
     auto c = wowee::pipeline::WoweeSpellReagentLoader::load(base);
     if (jsonOut) {
@@ -130,10 +129,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wspr");
     if (!wowee::pipeline::WoweeSpellReagentLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wspr-json: WSPR not found: %s.wspr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wspr-json", "WSPR", base, ".wspr");
     }
     auto c = wowee::pipeline::WoweeSpellReagentLoader::load(base);
     if (outPath.empty()) outPath = base + ".wspr.json";

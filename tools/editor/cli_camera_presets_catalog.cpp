@@ -189,10 +189,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcam");
     if (!wowee::pipeline::WoweeCameraPresetsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcam: WCAM not found: %s.wcam\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wcam", "WCAM", base, ".wcam");
     }
     auto c = wowee::pipeline::WoweeCameraPresetsLoader::load(base);
     std::vector<std::string> errors;
@@ -289,10 +286,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcam");
     if (out.empty()) out = base + ".wcam.json";
     if (!wowee::pipeline::WoweeCameraPresetsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcam-json: WCAM not found: %s.wcam\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcam-json", "WCAM", base, ".wcam");
     }
     auto c = wowee::pipeline::WoweeCameraPresetsLoader::load(base);
     nlohmann::json j;

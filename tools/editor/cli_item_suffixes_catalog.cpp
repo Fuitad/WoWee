@@ -90,8 +90,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsuf");
     if (!wowee::pipeline::WoweeItemSuffixLoader::exists(base)) {
-        std::fprintf(stderr, "WSUF not found: %s.wsuf\n", base.c_str());
-        return 1;
+        return reportMissing("WSUF", base, ".wsuf");
     }
     auto c = wowee::pipeline::WoweeItemSuffixLoader::load(base);
     if (jsonOut) {

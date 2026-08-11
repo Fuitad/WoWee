@@ -100,8 +100,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wbab");
     if (!wowee::pipeline::WoweeBuffBookLoader::exists(base)) {
-        std::fprintf(stderr, "WBAB not found: %s.wbab\n", base.c_str());
-        return 1;
+        return reportMissing("WBAB", base, ".wbab");
     }
     auto c = wowee::pipeline::WoweeBuffBookLoader::load(base);
     if (jsonOut) {
@@ -201,10 +200,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wbab");
     if (out.empty()) out = base + ".wbab.json";
     if (!wowee::pipeline::WoweeBuffBookLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wbab-json: WBAB not found: %s.wbab\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wbab-json", "WBAB", base, ".wbab");
     }
     auto c = wowee::pipeline::WoweeBuffBookLoader::load(base);
     nlohmann::json j;
@@ -355,10 +351,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wbab");
     if (!wowee::pipeline::WoweeBuffBookLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wbab: WBAB not found: %s.wbab\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wbab", "WBAB", base, ".wbab");
     }
     auto c = wowee::pipeline::WoweeBuffBookLoader::load(base);
     std::vector<std::string> errors;

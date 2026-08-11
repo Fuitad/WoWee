@@ -80,8 +80,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wscd");
     if (!wowee::pipeline::WoweeSpellCooldownLoader::exists(base)) {
-        std::fprintf(stderr, "WSCD not found: %s.wscd\n", base.c_str());
-        return 1;
+        return reportMissing("WSCD", base, ".wscd");
     }
     auto c = wowee::pipeline::WoweeSpellCooldownLoader::load(base);
     if (jsonOut) {
@@ -133,10 +132,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wscd");
     if (!wowee::pipeline::WoweeSpellCooldownLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wscd-json: WSCD not found: %s.wscd\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wscd-json", "WSCD", base, ".wscd");
     }
     auto c = wowee::pipeline::WoweeSpellCooldownLoader::load(base);
     if (outPath.empty()) outPath = base + ".wscd.json";

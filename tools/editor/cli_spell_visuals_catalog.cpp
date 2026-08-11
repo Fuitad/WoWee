@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsvk");
     if (!wowee::pipeline::WoweeSpellVisualKitLoader::exists(base)) {
-        std::fprintf(stderr, "WSVK not found: %s.wsvk\n", base.c_str());
-        return 1;
+        return reportMissing("WSVK", base, ".wsvk");
     }
     auto c = wowee::pipeline::WoweeSpellVisualKitLoader::load(base);
     if (jsonOut) {

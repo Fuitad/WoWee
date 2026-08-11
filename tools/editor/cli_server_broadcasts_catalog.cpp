@@ -88,8 +88,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wscb");
     if (!wowee::pipeline::WoweeServerBroadcastsLoader::exists(base)) {
-        std::fprintf(stderr, "WSCB not found: %s.wscb\n", base.c_str());
-        return 1;
+        return reportMissing("WSCB", base, ".wscb");
     }
     auto c = wowee::pipeline::WoweeServerBroadcastsLoader::load(base);
     if (jsonOut) {
@@ -164,10 +163,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wscb");
     if (out.empty()) out = base + ".wscb.json";
     if (!wowee::pipeline::WoweeServerBroadcastsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wscb-json: WSCB not found: %s.wscb\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wscb-json", "WSCB", base, ".wscb");
     }
     auto c = wowee::pipeline::WoweeServerBroadcastsLoader::load(base);
     nlohmann::json j;

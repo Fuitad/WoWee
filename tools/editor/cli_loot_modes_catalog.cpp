@@ -94,8 +94,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wlma");
     if (!wowee::pipeline::WoweeLootModesLoader::exists(base)) {
-        std::fprintf(stderr, "WLMA not found: %s.wlma\n", base.c_str());
-        return 1;
+        return reportMissing("WLMA", base, ".wlma");
     }
     auto c = wowee::pipeline::WoweeLootModesLoader::load(base);
     if (jsonOut) {
@@ -200,10 +199,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wlma");
     if (out.empty()) out = base + ".wlma.json";
     if (!wowee::pipeline::WoweeLootModesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wlma-json: WLMA not found: %s.wlma\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wlma-json", "WLMA", base, ".wlma");
     }
     auto c = wowee::pipeline::WoweeLootModesLoader::load(base);
     nlohmann::json j;
@@ -315,10 +311,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wlma");
     if (!wowee::pipeline::WoweeLootModesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wlma: WLMA not found: %s.wlma\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wlma", "WLMA", base, ".wlma");
     }
     auto c = wowee::pipeline::WoweeLootModesLoader::load(base);
     std::vector<std::string> errors;

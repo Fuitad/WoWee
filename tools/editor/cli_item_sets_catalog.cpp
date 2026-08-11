@@ -95,8 +95,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wset");
     if (!wowee::pipeline::WoweeItemSetLoader::exists(base)) {
-        std::fprintf(stderr, "WSET not found: %s.wset\n", base.c_str());
-        return 1;
+        return reportMissing("WSET", base, ".wset");
     }
     auto c = wowee::pipeline::WoweeItemSetLoader::load(base);
     if (jsonOut) {

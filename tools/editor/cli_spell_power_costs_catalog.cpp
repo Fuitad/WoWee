@@ -80,8 +80,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wspc");
     if (!wowee::pipeline::WoweeSpellPowerCostLoader::exists(base)) {
-        std::fprintf(stderr, "WSPC not found: %s.wspc\n", base.c_str());
-        return 1;
+        return reportMissing("WSPC", base, ".wspc");
     }
     auto c = wowee::pipeline::WoweeSpellPowerCostLoader::load(base);
     if (jsonOut) {
@@ -136,10 +135,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wspc");
     if (!wowee::pipeline::WoweeSpellPowerCostLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wspc-json: WSPC not found: %s.wspc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wspc-json", "WSPC", base, ".wspc");
     }
     auto c = wowee::pipeline::WoweeSpellPowerCostLoader::load(base);
     if (outPath.empty()) outPath = base + ".wspc.json";

@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wctr");
     if (!wowee::pipeline::WoweeCurrencyTypeLoader::exists(base)) {
-        std::fprintf(stderr, "WCTR not found: %s.wctr\n", base.c_str());
-        return 1;
+        return reportMissing("WCTR", base, ".wctr");
     }
     auto c = wowee::pipeline::WoweeCurrencyTypeLoader::load(base);
     if (jsonOut) {
@@ -121,10 +120,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wctr");
     if (!wowee::pipeline::WoweeCurrencyTypeLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wctr-json: WCTR not found: %s.wctr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wctr-json", "WCTR", base, ".wctr");
     }
     auto c = wowee::pipeline::WoweeCurrencyTypeLoader::load(base);
     if (outPath.empty()) outPath = base + ".wctr.json";

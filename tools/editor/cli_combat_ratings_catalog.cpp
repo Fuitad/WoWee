@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcrr");
     if (!wowee::pipeline::WoweeCombatRatingLoader::exists(base)) {
-        std::fprintf(stderr, "WCRR not found: %s.wcrr\n", base.c_str());
-        return 1;
+        return reportMissing("WCRR", base, ".wcrr");
     }
     auto c = wowee::pipeline::WoweeCombatRatingLoader::load(base);
     if (jsonOut) {

@@ -81,8 +81,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".whld");
     if (!wowee::pipeline::WoweeInstanceLockoutLoader::exists(base)) {
-        std::fprintf(stderr, "WHLD not found: %s.whld\n", base.c_str());
-        return 1;
+        return reportMissing("WHLD", base, ".whld");
     }
     auto c = wowee::pipeline::WoweeInstanceLockoutLoader::load(base);
     if (jsonOut) {
@@ -135,10 +134,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".whld");
     if (!wowee::pipeline::WoweeInstanceLockoutLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-whld-json: WHLD not found: %s.whld\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-whld-json", "WHLD", base, ".whld");
     }
     auto c = wowee::pipeline::WoweeInstanceLockoutLoader::load(base);
     if (outPath.empty()) outPath = base + ".whld.json";

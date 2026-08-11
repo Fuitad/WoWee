@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtrg");
     if (!wowee::pipeline::WoweeTriggerLoader::exists(base)) {
-        std::fprintf(stderr, "WTRG not found: %s.wtrg\n", base.c_str());
-        return 1;
+        return reportMissing("WTRG", base, ".wtrg");
     }
     auto c = wowee::pipeline::WoweeTriggerLoader::load(base);
     if (jsonOut) {

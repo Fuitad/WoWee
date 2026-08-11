@@ -301,6 +301,9 @@ public:
     /// act on: something on the letter cannot be mailed.
     static const char* mailResultText(uint32_t error);
 
+    /// Put paper in the compose frame, so its Send button can be enabled.
+    void selectDefaultStationery();
+
     /// Say why a letter is not going out, and tell the compose frame so it
     /// puts its Send button back.
     void refuseSend(const std::string& reason, const char* logLine);

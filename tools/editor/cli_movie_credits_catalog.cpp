@@ -84,8 +84,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmvc");
     if (!wowee::pipeline::WoweeMovieCreditsLoader::exists(base)) {
-        std::fprintf(stderr, "WMVC not found: %s.wmvc\n", base.c_str());
-        return 1;
+        return reportMissing("WMVC", base, ".wmvc");
     }
     auto c = wowee::pipeline::WoweeMovieCreditsLoader::load(base);
     if (jsonOut) {
@@ -148,10 +147,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wmvc");
     if (out.empty()) out = base + ".wmvc.json";
     if (!wowee::pipeline::WoweeMovieCreditsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmvc-json: WMVC not found: %s.wmvc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wmvc-json", "WMVC", base, ".wmvc");
     }
     auto c = wowee::pipeline::WoweeMovieCreditsLoader::load(base);
     nlohmann::json j;
@@ -270,10 +266,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmvc");
     if (!wowee::pipeline::WoweeMovieCreditsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmvc: WMVC not found: %s.wmvc\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wmvc", "WMVC", base, ".wmvc");
     }
     auto c = wowee::pipeline::WoweeMovieCreditsLoader::load(base);
     std::vector<std::string> errors;

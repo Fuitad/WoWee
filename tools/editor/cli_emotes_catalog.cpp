@@ -99,8 +99,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wemo");
     if (!wowee::pipeline::WoweeEmotesLoader::exists(base)) {
-        std::fprintf(stderr, "WEMO not found: %s.wemo\n", base.c_str());
-        return 1;
+        return reportMissing("WEMO", base, ".wemo");
     }
     auto c = wowee::pipeline::WoweeEmotesLoader::load(base);
     if (jsonOut) {
@@ -225,10 +224,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wemo");
     if (out.empty()) out = base + ".wemo.json";
     if (!wowee::pipeline::WoweeEmotesLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wemo-json: WEMO not found: %s.wemo\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wemo-json", "WEMO", base, ".wemo");
     }
     auto c = wowee::pipeline::WoweeEmotesLoader::load(base);
     nlohmann::json j;

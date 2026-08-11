@@ -254,10 +254,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wqgr");
     if (!wowee::pipeline::WoweeQuestGraphLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wqgr: WQGR not found: %s.wqgr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wqgr", "WQGR", base, ".wqgr");
     }
     auto c = wowee::pipeline::WoweeQuestGraphLoader::load(base);
     std::vector<std::string> errors;
@@ -367,10 +364,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wqgr");
     if (out.empty()) out = base + ".wqgr.json";
     if (!wowee::pipeline::WoweeQuestGraphLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wqgr-json: WQGR not found: %s.wqgr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wqgr-json", "WQGR", base, ".wqgr");
     }
     auto c = wowee::pipeline::WoweeQuestGraphLoader::load(base);
     nlohmann::json j;

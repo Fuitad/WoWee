@@ -38,8 +38,7 @@ int handleExportWobGlb(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wob")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeBuildingLoader::exists(base)) {
-        std::fprintf(stderr, "WOB not found: %s.wob\n", base.c_str());
-        return 1;
+        return reportMissing("WOB", base, ".wob");
     }
     if (outPath.empty()) outPath = base + ".glb";
     auto bld = wowee::pipeline::WoweeBuildingLoader::load(base);
@@ -384,8 +383,7 @@ int handleExportWobObj(int& i, int argc, char** argv) {
     if (base.size() >= 4 && base.substr(base.size() - 4) == ".wob")
         base = base.substr(0, base.size() - 4);
     if (!wowee::pipeline::WoweeBuildingLoader::exists(base)) {
-        std::fprintf(stderr, "WOB not found: %s.wob\n", base.c_str());
-        return 1;
+        return reportMissing("WOB", base, ".wob");
     }
     if (outPath.empty()) outPath = base + ".obj";
     auto bld = wowee::pipeline::WoweeBuildingLoader::load(base);

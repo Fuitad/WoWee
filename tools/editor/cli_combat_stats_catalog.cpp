@@ -140,10 +140,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcst");
     if (!wowee::pipeline::WoweeCombatStatsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcst: WCST not found: %s.wcst\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wcst", "WCST", base, ".wcst");
     }
     auto c = wowee::pipeline::WoweeCombatStatsLoader::load(base);
     std::vector<std::string> errors;
@@ -265,10 +262,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcst");
     if (out.empty()) out = base + ".wcst.json";
     if (!wowee::pipeline::WoweeCombatStatsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcst-json: WCST not found: %s.wcst\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcst-json", "WCST", base, ".wcst");
     }
     auto c = wowee::pipeline::WoweeCombatStatsLoader::load(base);
     nlohmann::json j;

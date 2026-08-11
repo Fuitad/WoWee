@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wqso");
     if (!wowee::pipeline::WoweeQuestSortLoader::exists(base)) {
-        std::fprintf(stderr, "WQSO not found: %s.wqso\n", base.c_str());
-        return 1;
+        return reportMissing("WQSO", base, ".wqso");
     }
     auto c = wowee::pipeline::WoweeQuestSortLoader::load(base);
     if (jsonOut) {

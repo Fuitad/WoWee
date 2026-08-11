@@ -119,8 +119,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcfg");
     if (!wowee::pipeline::WoweeServerConfigLoader::exists(base)) {
-        std::fprintf(stderr, "WCFG not found: %s.wcfg\n", base.c_str());
-        return 1;
+        return reportMissing("WCFG", base, ".wcfg");
     }
     auto c = wowee::pipeline::WoweeServerConfigLoader::load(base);
     if (jsonOut) {
@@ -234,10 +233,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wcfg");
     if (out.empty()) out = base + ".wcfg.json";
     if (!wowee::pipeline::WoweeServerConfigLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcfg-json: WCFG not found: %s.wcfg\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcfg-json", "WCFG", base, ".wcfg");
     }
     auto c = wowee::pipeline::WoweeServerConfigLoader::load(base);
     nlohmann::json j;
@@ -343,10 +339,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcfg");
     if (!wowee::pipeline::WoweeServerConfigLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wcfg: WCFG not found: %s.wcfg\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wcfg", "WCFG", base, ".wcfg");
     }
     auto c = wowee::pipeline::WoweeServerConfigLoader::load(base);
     std::vector<std::string> errors;

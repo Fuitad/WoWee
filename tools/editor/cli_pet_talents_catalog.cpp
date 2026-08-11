@@ -81,8 +81,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wptt");
     if (!wowee::pipeline::WoweePetTalentsLoader::exists(base)) {
-        std::fprintf(stderr, "WPTT not found: %s.wptt\n", base.c_str());
-        return 1;
+        return reportMissing("WPTT", base, ".wptt");
     }
     auto c = wowee::pipeline::WoweePetTalentsLoader::load(base);
     if (jsonOut) {
@@ -147,10 +146,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wptt");
     if (out.empty()) out = base + ".wptt.json";
     if (!wowee::pipeline::WoweePetTalentsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wptt-json: WPTT not found: %s.wptt\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wptt-json", "WPTT", base, ".wptt");
     }
     auto c = wowee::pipeline::WoweePetTalentsLoader::load(base);
     nlohmann::json j;
@@ -277,10 +273,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wptt");
     if (!wowee::pipeline::WoweePetTalentsLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wptt: WPTT not found: %s.wptt\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wptt", "WPTT", base, ".wptt");
     }
     auto c = wowee::pipeline::WoweePetTalentsLoader::load(base);
     std::vector<std::string> errors;

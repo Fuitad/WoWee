@@ -82,8 +82,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsef");
     if (!wowee::pipeline::WoweeSpellEffectTypeLoader::exists(base)) {
-        std::fprintf(stderr, "WSEF not found: %s.wsef\n", base.c_str());
-        return 1;
+        return reportMissing("WSEF", base, ".wsef");
     }
     auto c = wowee::pipeline::WoweeSpellEffectTypeLoader::load(base);
     if (jsonOut) {
@@ -135,10 +134,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wsef");
     if (!wowee::pipeline::WoweeSpellEffectTypeLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wsef-json: WSEF not found: %s.wsef\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wsef-json", "WSEF", base, ".wsef");
     }
     auto c = wowee::pipeline::WoweeSpellEffectTypeLoader::load(base);
     if (outPath.empty()) outPath = base + ".wsef.json";

@@ -82,8 +82,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmat");
     if (!wowee::pipeline::WoweeItemMaterialLoader::exists(base)) {
-        std::fprintf(stderr, "WMAT not found: %s.wmat\n", base.c_str());
-        return 1;
+        return reportMissing("WMAT", base, ".wmat");
     }
     auto c = wowee::pipeline::WoweeItemMaterialLoader::load(base);
     if (jsonOut) {
@@ -139,10 +138,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wmat");
     if (!wowee::pipeline::WoweeItemMaterialLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmat-json: WMAT not found: %s.wmat\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wmat-json", "WMAT", base, ".wmat");
     }
     auto c = wowee::pipeline::WoweeItemMaterialLoader::load(base);
     if (outPath.empty()) outPath = base + ".wmat.json";

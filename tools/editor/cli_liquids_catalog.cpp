@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wliq");
     if (!wowee::pipeline::WoweeLiquidLoader::exists(base)) {
-        std::fprintf(stderr, "WLIQ not found: %s.wliq\n", base.c_str());
-        return 1;
+        return reportMissing("WLIQ", base, ".wliq");
     }
     auto c = wowee::pipeline::WoweeLiquidLoader::load(base);
     if (jsonOut) {

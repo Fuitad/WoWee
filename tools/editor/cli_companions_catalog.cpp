@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcmp");
     if (!wowee::pipeline::WoweeCompanionLoader::exists(base)) {
-        std::fprintf(stderr, "WCMP not found: %s.wcmp\n", base.c_str());
-        return 1;
+        return reportMissing("WCMP", base, ".wcmp");
     }
     auto c = wowee::pipeline::WoweeCompanionLoader::load(base);
     if (jsonOut) {

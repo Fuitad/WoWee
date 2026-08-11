@@ -98,8 +98,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtsk");
     if (!wowee::pipeline::WoweeTradeSkillLoader::exists(base)) {
-        std::fprintf(stderr, "WTSK not found: %s.wtsk\n", base.c_str());
-        return 1;
+        return reportMissing("WTSK", base, ".wtsk");
     }
     auto c = wowee::pipeline::WoweeTradeSkillLoader::load(base);
     if (jsonOut) {

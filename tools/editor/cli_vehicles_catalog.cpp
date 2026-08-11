@@ -73,8 +73,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wvhc");
     if (!wowee::pipeline::WoweeVehicleLoader::exists(base)) {
-        std::fprintf(stderr, "WVHC not found: %s.wvhc\n", base.c_str());
-        return 1;
+        return reportMissing("WVHC", base, ".wvhc");
     }
     auto c = wowee::pipeline::WoweeVehicleLoader::load(base);
     if (jsonOut) {

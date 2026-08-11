@@ -79,8 +79,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmar");
     if (!wowee::pipeline::WoweeRaidMarkersLoader::exists(base)) {
-        std::fprintf(stderr, "WMAR not found: %s.wmar\n", base.c_str());
-        return 1;
+        return reportMissing("WMAR", base, ".wmar");
     }
     auto c = wowee::pipeline::WoweeRaidMarkersLoader::load(base);
     if (jsonOut) {
@@ -138,10 +137,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wmar");
     if (out.empty()) out = base + ".wmar.json";
     if (!wowee::pipeline::WoweeRaidMarkersLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wmar-json: WMAR not found: %s.wmar\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wmar-json", "WMAR", base, ".wmar");
     }
     auto c = wowee::pipeline::WoweeRaidMarkersLoader::load(base);
     nlohmann::json j;
@@ -254,10 +250,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wmar");
     if (!wowee::pipeline::WoweeRaidMarkersLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wmar: WMAR not found: %s.wmar\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wmar", "WMAR", base, ".wmar");
     }
     auto c = wowee::pipeline::WoweeRaidMarkersLoader::load(base);
     std::vector<std::string> errors;

@@ -83,8 +83,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wgsp");
     if (!wowee::pipeline::WoweeGossipLoader::exists(base)) {
-        std::fprintf(stderr, "WGSP not found: %s.wgsp\n", base.c_str());
-        return 1;
+        return reportMissing("WGSP", base, ".wgsp");
     }
     auto c = wowee::pipeline::WoweeGossipLoader::load(base);
     if (jsonOut) {

@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wtbr");
     if (!wowee::pipeline::WoweeTokenRewardLoader::exists(base)) {
-        std::fprintf(stderr, "WTBR not found: %s.wtbr\n", base.c_str());
-        return 1;
+        return reportMissing("WTBR", base, ".wtbr");
     }
     auto c = wowee::pipeline::WoweeTokenRewardLoader::load(base);
     if (jsonOut) {
@@ -126,10 +125,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wtbr");
     if (!wowee::pipeline::WoweeTokenRewardLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wtbr-json: WTBR not found: %s.wtbr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wtbr-json", "WTBR", base, ".wtbr");
     }
     auto c = wowee::pipeline::WoweeTokenRewardLoader::load(base);
     if (outPath.empty()) outPath = base + ".wtbr.json";

@@ -209,10 +209,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wphm");
     if (!wowee::pipeline::WoweePlayerMovementAnimLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wphm: WPHM not found: %s.wphm\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wphm", "WPHM", base, ".wphm");
     }
     auto c = wowee::pipeline::WoweePlayerMovementAnimLoader::load(base);
     std::vector<std::string> errors;
@@ -309,10 +306,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wphm");
     if (out.empty()) out = base + ".wphm.json";
     if (!wowee::pipeline::WoweePlayerMovementAnimLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wphm-json: WPHM not found: %s.wphm\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wphm-json", "WPHM", base, ".wphm");
     }
     auto c = wowee::pipeline::WoweePlayerMovementAnimLoader::load(base);
     nlohmann::json j;

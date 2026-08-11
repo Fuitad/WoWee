@@ -93,8 +93,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wvox");
     if (!wowee::pipeline::WoweeVoiceoversLoader::exists(base)) {
-        std::fprintf(stderr, "WVOX not found: %s.wvox\n", base.c_str());
-        return 1;
+        return reportMissing("WVOX", base, ".wvox");
     }
     auto c = wowee::pipeline::WoweeVoiceoversLoader::load(base);
     if (jsonOut) {
@@ -212,10 +211,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wvox");
     if (out.empty()) out = base + ".wvox.json";
     if (!wowee::pipeline::WoweeVoiceoversLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wvox-json: WVOX not found: %s.wvox\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wvox-json", "WVOX", base, ".wvox");
     }
     auto c = wowee::pipeline::WoweeVoiceoversLoader::load(base);
     nlohmann::json j;
@@ -319,10 +315,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wvox");
     if (!wowee::pipeline::WoweeVoiceoversLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wvox: WVOX not found: %s.wvox\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wvox", "WVOX", base, ".wvox");
     }
     auto c = wowee::pipeline::WoweeVoiceoversLoader::load(base);
     std::vector<std::string> errors;

@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wceq");
     if (!wowee::pipeline::WoweeCreatureEquipmentLoader::exists(base)) {
-        std::fprintf(stderr, "WCEQ not found: %s.wceq\n", base.c_str());
-        return 1;
+        return reportMissing("WCEQ", base, ".wceq");
     }
     auto c = wowee::pipeline::WoweeCreatureEquipmentLoader::load(base);
     if (jsonOut) {

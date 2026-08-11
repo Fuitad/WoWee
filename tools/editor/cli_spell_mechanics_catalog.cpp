@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsmc");
     if (!wowee::pipeline::WoweeSpellMechanicLoader::exists(base)) {
-        std::fprintf(stderr, "WSMC not found: %s.wsmc\n", base.c_str());
-        return 1;
+        return reportMissing("WSMC", base, ".wsmc");
     }
     auto c = wowee::pipeline::WoweeSpellMechanicLoader::load(base);
     if (jsonOut) {

@@ -81,8 +81,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wspl");
     if (!wowee::pipeline::WoweeSpellLoader::exists(base)) {
-        std::fprintf(stderr, "WSPL not found: %s.wspl\n", base.c_str());
-        return 1;
+        return reportMissing("WSPL", base, ".wspl");
     }
     auto c = wowee::pipeline::WoweeSpellLoader::load(base);
     if (jsonOut) {

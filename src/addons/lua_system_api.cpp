@@ -4105,7 +4105,14 @@ void registerSystemLuaAPI(lua_State* L) {
                 // Stationery for a letter. None is carried, and the picker
                 // draws the default when the count is zero — which it could
                 // not do while the count raised.
-                {"GetNumStationeries",       lua_ReturnZero},
+                // One: the plain parchment. Zero left the stationery popup
+                // empty, and SendMailFrame_CanSend will not enable the Send
+                // button until a stationery has been picked — so with none to
+                // pick, no letter could be sent. See GetStationeryInfo.
+                {"GetNumStationeries",       [](lua_State* L) -> int {
+                    lua_pushnumber(L, 1);
+                    return 1;
+                }},
                 // Voice mutes, which this client has no voice chat to keep.
                 // Read while the ignore list is drawn, so a nil global took
                 // the whole ignore tab with it.

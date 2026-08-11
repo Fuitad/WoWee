@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wrun");
     if (!wowee::pipeline::WoweeRuneCostLoader::exists(base)) {
-        std::fprintf(stderr, "WRUN not found: %s.wrun\n", base.c_str());
-        return 1;
+        return reportMissing("WRUN", base, ".wrun");
     }
     auto c = wowee::pipeline::WoweeRuneCostLoader::load(base);
     if (jsonOut) {

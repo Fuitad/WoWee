@@ -83,8 +83,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wcef");
     if (!wowee::pipeline::WoweeCreatureFamilyLoader::exists(base)) {
-        std::fprintf(stderr, "WCEF not found: %s.wcef\n", base.c_str());
-        return 1;
+        return reportMissing("WCEF", base, ".wcef");
     }
     auto c = wowee::pipeline::WoweeCreatureFamilyLoader::load(base);
     if (jsonOut) {
@@ -141,10 +140,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wcef");
     if (!wowee::pipeline::WoweeCreatureFamilyLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wcef-json: WCEF not found: %s.wcef\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wcef-json", "WCEF", base, ".wcef");
     }
     auto c = wowee::pipeline::WoweeCreatureFamilyLoader::load(base);
     if (outPath.empty()) outPath = base + ".wcef.json";

@@ -183,10 +183,7 @@ int handleValidate(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wswp");
     if (!wowee::pipeline::WoweeSoundSwapLoader::exists(base)) {
-        std::fprintf(stderr,
-            "validate-wswp: WSWP not found: %s.wswp\n",
-            base.c_str());
-        return 1;
+        return reportMissing("validate-wswp", "WSWP", base, ".wswp");
     }
     auto c = wowee::pipeline::WoweeSoundSwapLoader::load(base);
     std::vector<std::string> errors;
@@ -334,10 +331,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     base = cli::withoutExt(base, ".wswp");
     if (out.empty()) out = base + ".wswp.json";
     if (!wowee::pipeline::WoweeSoundSwapLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wswp-json: WSWP not found: %s.wswp\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wswp-json", "WSWP", base, ".wswp");
     }
     auto c = wowee::pipeline::WoweeSoundSwapLoader::load(base);
     nlohmann::json j;

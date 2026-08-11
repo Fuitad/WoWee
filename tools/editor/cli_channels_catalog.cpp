@@ -66,8 +66,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wchn");
     if (!wowee::pipeline::WoweeChannelLoader::exists(base)) {
-        std::fprintf(stderr, "WCHN not found: %s.wchn\n", base.c_str());
-        return 1;
+        return reportMissing("WCHN", base, ".wchn");
     }
     auto c = wowee::pipeline::WoweeChannelLoader::load(base);
     if (jsonOut) {

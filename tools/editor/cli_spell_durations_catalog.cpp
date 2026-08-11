@@ -67,8 +67,7 @@ int handleInfo(int& i, int argc, char** argv) {
     bool jsonOut = consumeJsonFlag(i, argc, argv);
     base = cli::withoutExt(base, ".wsdr");
     if (!wowee::pipeline::WoweeSpellDurationLoader::exists(base)) {
-        std::fprintf(stderr, "WSDR not found: %s.wsdr\n", base.c_str());
-        return 1;
+        return reportMissing("WSDR", base, ".wsdr");
     }
     auto c = wowee::pipeline::WoweeSpellDurationLoader::load(base);
     if (jsonOut) {
@@ -116,10 +115,7 @@ int handleExportJson(int& i, int argc, char** argv) {
     if (parseOptArg(i, argc, argv)) outPath = argv[++i];
     base = cli::withoutExt(base, ".wsdr");
     if (!wowee::pipeline::WoweeSpellDurationLoader::exists(base)) {
-        std::fprintf(stderr,
-            "export-wsdr-json: WSDR not found: %s.wsdr\n",
-            base.c_str());
-        return 1;
+        return reportMissing("export-wsdr-json", "WSDR", base, ".wsdr");
     }
     auto c = wowee::pipeline::WoweeSpellDurationLoader::load(base);
     if (outPath.empty()) outPath = base + ".wsdr.json";
