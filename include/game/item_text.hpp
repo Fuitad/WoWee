@@ -13,6 +13,8 @@
 #include <cstdint>
 #include <string>
 
+#include "game/protocol_constants.hpp"
+
 namespace wowee {
 namespace game {
 
@@ -167,6 +169,50 @@ inline std::string itemChatLink(uint32_t itemId, uint32_t quality, const std::st
 /// Lua API the blue. Linking the same spell two ways gave two colours.
 inline std::string spellChatLink(uint32_t spellId, const std::string& name) {
     return "|cff71d5ff|Hspell:" + std::to_string(spellId) + "|h[" + name + "]|h|r";
+}
+
+
+/// An amount of copper split into the three coins.
+///
+/// Twenty-one places did this division themselves, and the constants for it
+/// have been in protocol_constants.hpp all along — most wrote 10000 and 100 as
+/// literals instead.
+struct CoinAmount {
+    uint32_t gold = 0;
+    uint32_t silver = 0;
+    uint32_t copper = 0;
+};
+
+inline CoinAmount splitCopper(uint64_t amount) {
+    CoinAmount coins;
+    coins.gold = static_cast<uint32_t>(amount / COPPER_PER_GOLD);
+    coins.silver = static_cast<uint32_t>((amount / COPPER_PER_SILVER) % 100);
+    coins.copper = static_cast<uint32_t>(amount % COPPER_PER_SILVER);
+    return coins;
+}
+
+/// An amount of money as a line of text: "5g 20s 3c", with the parts that are
+/// zero left out — except when everything is, which reads "0c" rather than
+/// nothing at all.
+///
+/// Written out twice as a file-scope function, in the game handler and the
+/// quest handler, and reached from a third file by forward-declaring it across
+/// translation units — which linked only because neither copy was in an
+/// anonymous namespace, and would have become two definitions the moment one
+/// was.
+inline std::string formatCopperAmount(uint32_t amount) {
+    const CoinAmount coins = splitCopper(amount);
+    std::string out;
+    if (coins.gold > 0) out += std::to_string(coins.gold) + "g";
+    if (coins.silver > 0) {
+        if (!out.empty()) out += " ";
+        out += std::to_string(coins.silver) + "s";
+    }
+    if (coins.copper > 0 || out.empty()) {
+        if (!out.empty()) out += " ";
+        out += std::to_string(coins.copper) + "c";
+    }
+    return out;
 }
 
 }  // namespace game

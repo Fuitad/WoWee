@@ -1,4 +1,5 @@
 #include "ui/framexml_takeover.hpp"
+#include "game/item_text.hpp"
 #include "game/quest_handler.hpp"
 #include "game/quest_query_layout.hpp"
 #include "game/game_handler.hpp"
@@ -149,29 +150,6 @@ void QuestHandler::sendQuestGiverStatusQueries() {
     }
 }
 
-
-static std::string formatCopperAmount(uint32_t amount) {
-    uint32_t gold = amount / 10000;
-    uint32_t silver = (amount / 100) % 100;
-    uint32_t copper = amount % 100;
-
-    std::ostringstream oss;
-    bool wrote = false;
-    if (gold > 0) {
-        oss << gold << "g";
-        wrote = true;
-    }
-    if (silver > 0) {
-        if (wrote) oss << " ";
-        oss << silver << "s";
-        wrote = true;
-    }
-    if (copper > 0 || !wrote) {
-        if (wrote) oss << " ";
-        oss << copper << "c";
-    }
-    return oss.str();
-}
 
 static bool isReadableQuestText(const std::string& s, size_t minLen, size_t maxLen) {
     if (s.size() < minLen || s.size() > maxLen) return false;

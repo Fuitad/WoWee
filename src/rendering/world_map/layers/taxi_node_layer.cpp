@@ -4,6 +4,7 @@
 // node, gold markers at reachable destinations, hover shows the dotted route
 // and the flight cost, click activates the flight.
 #include "rendering/world_map/layers/taxi_node_layer.hpp"
+#include "game/item_text.hpp"
 #include "rendering/world_map/coordinate_projection.hpp"
 #include "core/coordinates.hpp"
 #include <imgui.h>
@@ -42,9 +43,10 @@ void drawDottedSegment(ImDrawList* dl, ImVec2 a, ImVec2 b, ImU32 color) {
 }
 
 void formatCost(uint32_t copperTotal, char* buf, size_t bufSize) {
-    uint32_t gold = copperTotal / 10000;
-    uint32_t silver = (copperTotal / 100) % 100;
-    uint32_t copper = copperTotal % 100;
+    const auto coins = game::splitCopper(copperTotal);
+    const uint32_t gold = coins.gold;
+    const uint32_t silver = coins.silver;
+    const uint32_t copper = coins.copper;
     if (gold > 0) {
         std::snprintf(buf, bufSize, "%ug %us %uc", gold, silver, copper);
     } else if (silver > 0) {

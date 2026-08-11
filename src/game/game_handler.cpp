@@ -1,4 +1,5 @@
 #include "game/game_handler.hpp"
+#include "game/item_text.hpp"
 #include "game/achievement_criteria.hpp"
 #include "game/game_utils.hpp"
 #include "game/chat_handler.hpp"
@@ -60,29 +61,6 @@
 namespace wowee {
 namespace game {
 
-
-std::string formatCopperAmount(uint32_t amount) {
-    uint32_t gold = amount / game::COPPER_PER_GOLD;
-    uint32_t silver = (amount / game::COPPER_PER_SILVER) % 100;
-    uint32_t copper = amount % game::COPPER_PER_SILVER;
-
-    std::ostringstream oss;
-    bool wrote = false;
-    if (gold > 0) {
-        oss << gold << "g";
-        wrote = true;
-    }
-    if (silver > 0) {
-        if (wrote) oss << " ";
-        oss << silver << "s";
-        wrote = true;
-    }
-    if (copper > 0 || !wrote) {
-        if (wrote) oss << " ";
-        oss << copper << "c";
-    }
-    return oss.str();
-}
 
 // Registration helpers for common dispatch table patterns
 void GameHandler::registerSkipHandler(LogicalOpcode op) {

@@ -1005,9 +1005,10 @@ void WindowManager::renderVendorWindow(game::GameHandler& gameHandler,
                     }
                     uint64_t price = static_cast<uint64_t>(sellPrice) *
                                      static_cast<uint64_t>(entry.count > 0 ? entry.count : 1);
-                    uint32_t g = static_cast<uint32_t>(price / 10000);
-                    uint32_t s = static_cast<uint32_t>((price / 100) % 100);
-                    uint32_t c = static_cast<uint32_t>(price % 100);
+                    const auto coins = game::splitCopper(price);
+                    const uint32_t g = coins.gold;
+                    const uint32_t s = coins.silver;
+                    const uint32_t c = coins.copper;
                     bool canAfford = money >= price;
                     const bool slotReady = entry.wireSlot >= 74 && entry.wireSlot < 86;
 
@@ -1141,9 +1142,10 @@ void WindowManager::renderVendorWindow(game::GameHandler& gameHandler,
                         std::string costStr = formatExtendedCost(item.extendedCost, gameHandler);
                         ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "%s", costStr.c_str());
                     } else {
-                        uint32_t g = item.buyPrice / 10000;
-                        uint32_t s = (item.buyPrice / 100) % 100;
-                        uint32_t c = item.buyPrice % 100;
+                        const auto coins = game::splitCopper(item.buyPrice);
+                        const uint32_t g = coins.gold;
+                        const uint32_t s = coins.silver;
+                        const uint32_t c = coins.copper;
                         bool canAfford = money >= item.buyPrice;
                         if (canAfford) {
                             renderCoinsText(g, s, c);
@@ -1216,9 +1218,10 @@ void WindowManager::renderVendorWindow(game::GameHandler& gameHandler,
         ImGui::Text("Buy %s", vendorConfirmItemName_.c_str());
         if (vendorConfirmQty_ > 1)
             ImGui::Text("Quantity: %u", vendorConfirmQty_);
-        uint32_t g = vendorConfirmPrice_ / 10000;
-        uint32_t s = (vendorConfirmPrice_ / 100) % 100;
-        uint32_t c = vendorConfirmPrice_ % 100;
+        const auto coins = game::splitCopper(vendorConfirmPrice_);
+        const uint32_t g = coins.gold;
+        const uint32_t s = coins.silver;
+        const uint32_t c = coins.copper;
         ImGui::Text("Cost: %ug %us %uc", g, s, c);
         ImGui::Spacing();
         if (ImGui::Button("Buy", ImVec2(80, 0))) {
@@ -1515,9 +1518,10 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
                     // Cost
                     ImGui::TableSetColumnIndex(3);
                     if (spell->spellCost > 0) {
-                        uint32_t g = spell->spellCost / 10000;
-                        uint32_t s = (spell->spellCost / 100) % 100;
-                        uint32_t c = spell->spellCost % 100;
+                        const auto coins = game::splitCopper(spell->spellCost);
+                        const uint32_t g = coins.gold;
+                        const uint32_t s = coins.silver;
+                        const uint32_t c = coins.copper;
                         bool canAfford = money >= spell->spellCost;
                         if (canAfford) {
                             renderCoinsText(g, s, c);
@@ -1654,9 +1658,10 @@ void WindowManager::renderTrainerWindow(game::GameHandler& gameHandler,
             bool canAffordAll = (money >= totalCost);
             bool hasTrainable = (trainableCount > 0) && canAffordAll;
             if (!hasTrainable) ImGui::BeginDisabled();
-            uint32_t tag = static_cast<uint32_t>(totalCost / 10000);
-            uint32_t tas = static_cast<uint32_t>((totalCost / 100) % 100);
-            uint32_t tac = static_cast<uint32_t>(totalCost % 100);
+            const auto coins = game::splitCopper(totalCost);
+            const uint32_t tag = coins.gold;
+            const uint32_t tas = coins.silver;
+            const uint32_t tac = coins.copper;
             char trainAllLabel[80];
             if (trainableCount == 0) {
                 snprintf(trainAllLabel, sizeof(trainAllLabel), "Train All Available (none)");
@@ -2583,9 +2588,10 @@ void WindowManager::renderTaxiWindow(game::GameHandler& gameHandler) {
                 if (!taxiData.isNodeKnown(nodeId)) continue;
 
                 uint32_t costCopper = gameHandler.getTaxiCostTo(nodeId);
-                uint32_t gold = costCopper / 10000;
-                uint32_t silver = (costCopper / 100) % 100;
-                uint32_t copper = costCopper % 100;
+                const auto coins = game::splitCopper(costCopper);
+                const uint32_t gold = coins.gold;
+                const uint32_t silver = coins.silver;
+                const uint32_t copper = coins.copper;
 
                 ImGui::PushID(static_cast<int>(nodeId));
                 ImGui::TableNextRow();
@@ -3690,9 +3696,10 @@ void WindowManager::renderGuildBankWindow(game::GameHandler& gameHandler,
     uint8_t activeTab = gameHandler.getGuildBankActiveTab();
 
     // Money display
-    uint32_t gold = static_cast<uint32_t>(data.money / 10000);
-    uint32_t silver = static_cast<uint32_t>((data.money / 100) % 100);
-    uint32_t copper = static_cast<uint32_t>(data.money % 100);
+    const auto coins = game::splitCopper(data.money);
+    const uint32_t gold = coins.gold;
+    const uint32_t silver = coins.silver;
+    const uint32_t copper = coins.copper;
     ImGui::TextDisabled("Guild Bank Money:"); ImGui::SameLine(0, 4);
     renderCoinsText(gold, silver, copper);
 

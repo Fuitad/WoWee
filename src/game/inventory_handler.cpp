@@ -1,4 +1,5 @@
 #include "game/inventory_handler.hpp"
+#include "game/item_text.hpp"
 #include "game/inventory_slots.hpp"
 #include "core/app_clock.hpp"
 #include "game/game_handler.hpp"
@@ -26,7 +27,8 @@
 namespace wowee {
 namespace game {
 
-std::string formatCopperAmount(uint32_t amount);
+// formatCopperAmount was forward-declared here, across translation units,
+// to reach a file-scope copy in game_handler.cpp. It is in item_text.hpp now.
 
 InventoryHandler::InventoryHandler(GameHandler& owner)
     : owner_(owner) {}
@@ -5240,9 +5242,10 @@ uint32_t InventoryHandler::getTempEnchantRemainingMs(uint32_t slot) const {
 void InventoryHandler::addMoneyCopper(uint32_t amount) {
     if (amount == 0) return;
     owner_.playerMoneyCopperRef() += amount;
-    uint32_t gold = amount / 10000;
-    uint32_t silver = (amount / 100) % 100;
-    uint32_t copper = amount % 100;
+    const auto coins = game::splitCopper(amount);
+    const uint32_t gold = coins.gold;
+    const uint32_t silver = coins.silver;
+    const uint32_t copper = coins.copper;
     std::string msg = "You receive ";
     msg += std::to_string(gold) + "g ";
     msg += std::to_string(silver) + "s ";

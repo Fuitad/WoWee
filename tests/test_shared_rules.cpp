@@ -215,6 +215,43 @@ TEST_CASE("which equipped slot an item is compared against", "[item]") {
     }
 }
 
+TEST_CASE("an amount of money as a line of text", "[item]") {
+    // Two file-scope copies of this existed, and a third file reached one of
+    // them by forward-declaring it across translation units — which linked
+    // only because neither was in an anonymous namespace.
+    CHECK(game::formatCopperAmount(12345) == "1g 23s 45c");
+    CHECK(game::formatCopperAmount(10000) == "1g");
+    CHECK(game::formatCopperAmount(100) == "1s");
+
+    SECTION("a part that is zero is left out") {
+        // Five gold and three copper, with no silver between them.
+        CHECK(game::formatCopperAmount(50003) == "5g 3c");
+    }
+
+    SECTION("nothing at all still says something") {
+        // Not the empty string: every caller is putting this in a sentence,
+        // and "Looted: " with nothing after it reads as a bug.
+        CHECK(game::formatCopperAmount(0) == "0c");
+    }
+
+    SECTION("the split, which twenty-one places did by hand") {
+        const auto coins = game::splitCopper(12345);
+        CHECK(coins.gold == 1);
+        CHECK(coins.silver == 23);
+        CHECK(coins.copper == 45);
+    }
+
+    SECTION("an amount too large for a uint32 of copper") {
+        // splitCopper takes a 64-bit amount because a price times a stack can
+        // overflow before it is ever split — the vendor's total is computed
+        // that way.
+        const auto coins = game::splitCopper(uint64_t(5'000'000) * 10000);
+        CHECK(coins.gold == 5'000'000);
+        CHECK(coins.silver == 0);
+        CHECK(coins.copper == 0);
+    }
+}
+
 TEST_CASE("power types are named by POWER_*", "[spell]") {
     // The spellbook had Focus at 4, which is Happiness — so a spell costing
     // Focus fell through to "Mana" and one costing Happiness said "Focus".
