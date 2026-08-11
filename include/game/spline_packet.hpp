@@ -2,6 +2,8 @@
 // Consolidated spline packet parsing — replaces 7 duplicated parsing locations.
 #pragma once
 #include "network/packet.hpp"
+
+#include "game/world_packets.hpp"  // MonsterMoveData
 #include <glm/glm.hpp>
 #include <vector>
 #include <cstdint>
@@ -135,6 +137,24 @@ enum class SplineFlagSet { PreWotlk, Wotlk };
     SplineBlockData& out,
     uint32_t splineFlags,
     const glm::vec3& startPos);
+
+/// Read SMSG_MONSTER_MOVE's move type and whatever facing follows it.
+///
+/// The byte says how the creature is turning, and each answer is followed by a
+/// different amount of data: a point (three floats), a target (a guid), an
+/// angle (one float), or — for Stop — nothing at all, the packet ending there.
+///
+/// `stopped` comes back true for Stop, and the caller must return without
+/// reading a spline: there is none, and the destination is where the creature
+/// already is.
+///
+/// This is the same three expansions' worth of bytes — the block was written
+/// out identically in the WotLK parser, the vanilla one and the TBC one, which
+/// is three places to get a length wrong in a packet where a wrong length is
+/// every field after it.
+[[nodiscard]] bool parseMonsterMoveFacing(network::Packet& packet,
+                                          MonsterMoveData& data,
+                                          bool& stopped);
 
 /// Parse a Classic/Turtle movement update spline block.
 /// Format: splineFlags, FINAL_POINT/TARGET/ANGLE, timePassed, duration, splineId,

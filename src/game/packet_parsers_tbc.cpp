@@ -657,25 +657,10 @@ bool TbcPacketParsers::parseMonsterMove(network::Packet& packet, MonsterMoveData
     packet.readUInt32(); // splineId
 
     if (packet.getReadPos() >= packet.getSize()) return false;
-    data.moveType = packet.readUInt8();
-
-    if (data.moveType == 1) {
-        data.destX = data.x;
-        data.destY = data.y;
-        data.destZ = data.z;
-        data.hasDest = false;
-        return true;
-    }
-
-    if (data.moveType == 2) {
-        if (!packet.hasRemaining(12)) return false;
-        packet.readFloat(); packet.readFloat(); packet.readFloat();
-    } else if (data.moveType == 3) {
-        if (!packet.hasRemaining(8)) return false;
-        data.facingTarget = packet.readUInt64();
-    } else if (data.moveType == 4) {
-        if (!packet.hasRemaining(4)) return false;
-        data.facingAngle = packet.readFloat();
+    {
+        bool stopped = false;
+        if (!parseMonsterMoveFacing(packet, data, stopped)) return false;
+        if (stopped) return true;
     }
 
     if (!packet.hasRemaining(4)) return false;

@@ -323,6 +323,22 @@ target_link_libraries(test_addon_globals PRIVATE catch2_main)
 add_test(NAME addon_globals COMMAND test_addon_globals)
 register_test_target(test_addon_globals)
 
+# ── test_monster_move_facing ─────────────────────────────────
+# SMSG_MONSTER_MOVE's move-type byte and the facing after it, which three
+# expansion parsers used to read for themselves. A wrong length here misreads
+# every field that follows.
+add_executable(test_monster_move_facing
+    test_monster_move_facing.cpp
+    ${TEST_COMMON_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/network/packet.cpp
+    ${CMAKE_SOURCE_DIR}/src/game/spline_packet.cpp
+)
+target_include_directories(test_monster_move_facing PRIVATE ${TEST_INCLUDE_DIRS})
+target_include_directories(test_monster_move_facing SYSTEM PRIVATE ${TEST_SYSTEM_INCLUDE_DIRS})
+target_link_libraries(test_monster_move_facing PRIVATE catch2_main)
+add_test(NAME monster_move_facing COMMAND test_monster_move_facing)
+register_test_target(test_monster_move_facing)
+
 # ── test_packet ──────────────────────────────────────────────
 add_executable(test_packet
     test_packet.cpp

@@ -115,6 +115,39 @@ bool parseMonsterMoveSplineBody(
 
 // ── Vanilla MonsterMove spline body (always compressed) ─────────
 
+bool parseMonsterMoveFacing(network::Packet& packet, MonsterMoveData& data, bool& stopped) {
+    stopped = false;
+    if (!packet.hasRemaining(1)) return false;
+    data.moveType = packet.readUInt8();
+
+    // Stop: the packet ends here, and where it stopped is where it already is.
+    if (data.moveType == 1) {
+        data.destX = data.x;
+        data.destY = data.y;
+        data.destZ = data.z;
+        data.hasDest = false;
+        stopped = true;
+        return true;
+    }
+
+    if (data.moveType == 2) {
+        // FacingSpot — a point to look at, which nothing here needs; read past.
+        if (!packet.hasRemaining(12)) return false;
+        packet.readFloat();
+        packet.readFloat();
+        packet.readFloat();
+    } else if (data.moveType == 3) {
+        // FacingTarget
+        if (!packet.hasRemaining(8)) return false;
+        data.facingTarget = packet.readUInt64();
+    } else if (data.moveType == 4) {
+        // FacingAngle
+        if (!packet.hasRemaining(4)) return false;
+        data.facingAngle = packet.readFloat();
+    }
+    return true;
+}
+
 bool parseMonsterMoveSplineBodyVanilla(
     network::Packet& packet,
     SplineBlockData& out,

@@ -652,31 +652,10 @@ bool MonsterMoveParser::parse(network::Packet& packet, MonsterMoveData& data) {
     packet.readUInt32();
 
     // uint8 moveType
-    if (!packet.hasData()) return false;
-    data.moveType = packet.readUInt8();
-
-    if (data.moveType == 1) {
-        // Stop - no more required data
-        data.destX = data.x;
-        data.destY = data.y;
-        data.destZ = data.z;
-        data.hasDest = false;
-        return true;
-    }
-
-    // Read facing data based on move type
-    if (data.moveType == 2) {
-        // FacingSpot: float x, y, z
-        if (!packet.hasRemaining(12)) return false;
-        packet.readFloat(); packet.readFloat(); packet.readFloat();
-    } else if (data.moveType == 3) {
-        // FacingTarget: uint64 guid
-        if (!packet.hasRemaining(8)) return false;
-        data.facingTarget = packet.readUInt64();
-    } else if (data.moveType == 4) {
-        // FacingAngle: float angle
-        if (!packet.hasRemaining(4)) return false;
-        data.facingAngle = packet.readFloat();
+    {
+        bool stopped = false;
+        if (!parseMonsterMoveFacing(packet, data, stopped)) return false;
+        if (stopped) return true;
     }
 
     // uint32 splineFlags
@@ -735,25 +714,10 @@ bool MonsterMoveParser::parseVanilla(network::Packet& packet, MonsterMoveData& d
     /*uint32_t splineIdOrTick =*/ packet.readUInt32();
 
     if (!packet.hasData()) return false;
-    data.moveType = packet.readUInt8();
-
-    if (data.moveType == 1) {
-        data.destX = data.x;
-        data.destY = data.y;
-        data.destZ = data.z;
-        data.hasDest = false;
-        return true;
-    }
-
-    if (data.moveType == 2) {
-        if (!packet.hasRemaining(12)) return false;
-        packet.readFloat(); packet.readFloat(); packet.readFloat();
-    } else if (data.moveType == 3) {
-        if (!packet.hasRemaining(8)) return false;
-        data.facingTarget = packet.readUInt64();
-    } else if (data.moveType == 4) {
-        if (!packet.hasRemaining(4)) return false;
-        data.facingAngle = packet.readFloat();
+    {
+        bool stopped = false;
+        if (!parseMonsterMoveFacing(packet, data, stopped)) return false;
+        if (stopped) return true;
     }
 
     if (!packet.hasRemaining(4)) return false;
