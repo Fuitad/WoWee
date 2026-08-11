@@ -376,7 +376,7 @@ bool Application::initialize() {
 
         appearanceComposer_ = std::make_unique<AppearanceComposer>(
             renderer.get(), assetManager.get(), gameHandler.get(),
-            dbcLayout_.get(), entitySpawner_.get());
+            entitySpawner_.get());
 
         // Wire AppearanceComposer to UI components (Phase A singleton breaking)
         if (uiManager) {

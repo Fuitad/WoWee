@@ -37,7 +37,6 @@ public:
     AppearanceComposer(rendering::Renderer* renderer,
                        pipeline::AssetManager* assetManager,
                        game::GameHandler* gameHandler,
-                       pipeline::DBCLayout* dbcLayout,
                        EntitySpawner* entitySpawner);
 
     // Player model path resolution
@@ -96,7 +95,6 @@ private:
     rendering::Renderer* renderer_;
     pipeline::AssetManager* assetManager_;
     game::GameHandler* gameHandler_;
-    pipeline::DBCLayout* dbcLayout_;
     EntitySpawner* entitySpawner_;
 
     // Saved at spawn for skin re-compositing on equipment changes

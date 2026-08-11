@@ -126,7 +126,6 @@ private:
     addons::AddonManager* addonManager_;
 
     uint32_t loadedMapId_ = 0xFFFFFFFF;  // Map ID of currently loaded terrain (0xFFFFFFFF = none)
-    uint32_t worldLoadGeneration_ = 0;   // Incremented on each world entry to detect re-entrant loads
     bool loadingWorld_ = false;          // True while loadOnlineWorldTerrain is running
 
     struct PendingWorldEntry {

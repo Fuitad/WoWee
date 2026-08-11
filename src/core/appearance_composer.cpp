@@ -82,12 +82,10 @@ glm::mat4 weaponLocalTransform(bool sheathed, game::EquipSlot /*slot*/,
 AppearanceComposer::AppearanceComposer(rendering::Renderer* renderer,
                                        pipeline::AssetManager* assetManager,
                                        game::GameHandler* gameHandler,
-                                       pipeline::DBCLayout* dbcLayout,
                                        EntitySpawner* entitySpawner)
     : renderer_(renderer)
     , assetManager_(assetManager)
     , gameHandler_(gameHandler)
-    , dbcLayout_(dbcLayout)
     , entitySpawner_(entitySpawner)
 {
 }
