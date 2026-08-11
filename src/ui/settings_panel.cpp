@@ -204,8 +204,7 @@ ImGui::TextDisabled("(pulsing red edges below 20%% HP)");
 ImGui::EndChild();
 }
 
-void SettingsPanel::renderSettingsGameplayTab(InventoryScreen& inventoryScreen,
-                                                  std::function<void()> saveCallback) {
+void SettingsPanel::renderSettingsGameplayTab(std::function<void()> saveCallback) {
     auto* renderer = services_.renderer;
 ImGui::Spacing();
 ImGui::BeginChild("GameplaySettings", ImVec2(0, -1), true);
@@ -337,17 +336,17 @@ ImGui::Text("Bags");
 ImGui::Separator();
 ImGui::SetNextItemWidth(200.0f);
 if (ImGui::SliderFloat("Bag & Window Scale", &pendingBagScale, 0.75f, 1.5f, "%.2fx")) {
-    inventoryScreen.setBagScale(pendingBagScale);
+    applySettingSideEffects("bagscale");
     saveCallback();
 }
 ImGui::SameLine();
 ImGui::TextDisabled("(high-resolution default is larger)");
 if (ImGui::Checkbox("Separate Bag Windows", &pendingSeparateBags)) {
-    inventoryScreen.setSeparateBags(pendingSeparateBags);
+    applySettingSideEffects("separatebags");
     saveCallback();
 }
 if (ImGui::Checkbox("Show Key Ring", &pendingShowKeyring)) {
-    inventoryScreen.setShowKeyring(pendingShowKeyring);
+    applySettingSideEffects("showkeyring");
     saveCallback();
 }
 
@@ -367,11 +366,8 @@ if (ImGui::Button("Restore Gameplay Defaults", ImVec2(-1, 0))) {
     pendingShowMinimapClock = false;
     pendingShowMinimapCoordinates = false;
     pendingSeparateBags = true;
-    inventoryScreen.setSeparateBags(true);
     pendingShowKeyring = true;
-    inventoryScreen.setShowKeyring(true);
     pendingBagScale = InventoryScreen::recommendedBagScale(ImGui::GetIO().DisplaySize.y);
-    inventoryScreen.setBagScale(pendingBagScale);
     pendingShowMicroMenu = false;
     minimapRotate_ = false;
     if (renderer) {
@@ -383,7 +379,8 @@ if (ImGui::Button("Restore Gameplay Defaults", ImVec2(-1, 0))) {
     // reset and nothing was told.
     for (const char* key : {"mousespeed", "invertmouse", "extendedzoom",
                             "smoothfollow", "uiopacity", "minimapsquare",
-                            "minimapnpcdots", "minimapclock", "minimapcoords"}) {
+                            "minimapnpcdots", "minimapclock", "minimapcoords",
+                            "separatebags", "showkeyring", "bagscale"}) {
         applySettingSideEffects(key);
     }
     saveCallback();
@@ -492,7 +489,6 @@ if (ImGui::Button("Reset to Defaults", ImVec2(-1, 0))) {
 }
 
 void SettingsPanel::renderSettingsAudioTab(std::function<void()> saveCallback) {
-    auto* renderer = services_.renderer;
 ImGui::Spacing();
 ImGui::BeginChild("AudioSettings", ImVec2(0, -1), true);
 
@@ -530,102 +526,15 @@ if (ImGui::SliderInt("##EffectsVolume", &pendingEffectsVolume, 0, 100, "%d%%")) 
 if (ImGui::IsItemHovered())
     ImGui::SetTooltip("One scale over every sound below. WoW's Sound Effects slider is this one.");
 
-ImGui::Separator();
-
-if (ImGui::Checkbox("Enable WoWee Music", &pendingUseOriginalSoundtrack)) {
-    if (renderer) {
-        if (auto* zm = renderer->getZoneManager()) {
-            zm->setUseOriginalSoundtrack(pendingUseOriginalSoundtrack);
-            if (!pendingUseOriginalSoundtrack) {
-                if (auto* ac = renderer->getAudioCoordinator()) {
-                    ac->onOriginalSoundtrackDisabled(zm);
-                }
-            }
-        }
-    }
-    saveCallback();
-}
-if (ImGui::IsItemHovered())
-    ImGui::SetTooltip("Include WoWee music tracks in zone music rotation");
-ImGui::Separator();
-
-ImGui::Text("Music");
-if (ImGui::SliderInt("##MusicVolume", &pendingMusicVolume, 0, 100, "%d%%")) {
-    applyAudioSettings();
-}
-
-ImGui::Spacing();
-ImGui::Text("Ambient Sounds");
-if (ImGui::SliderInt("##AmbientVolume", &pendingAmbientVolume, 0, 100, "%d%%")) {
-    applyAudioSettings();
-}
-ImGui::TextWrapped("Weather, zones, cities, emitters");
-
-ImGui::Spacing();
-ImGui::Text("Capital City Bells");
-if (ImGui::SliderInt("##BellVolume", &pendingBellVolume, 0, 100, "%d%%")) {
-    applyAudioSettings();
-}
-
-ImGui::Spacing();
-ImGui::Text("UI Sounds");
-if (ImGui::SliderInt("##UiVolume", &pendingUiVolume, 0, 100, "%d%%")) {
-    applyAudioSettings();
-}
-ImGui::TextWrapped("Buttons, loot, quest complete");
-
-ImGui::Spacing();
-ImGui::Text("Combat Sounds");
-if (ImGui::SliderInt("##CombatVolume", &pendingCombatVolume, 0, 100, "%d%%")) {
-    applyAudioSettings();
-}
-ImGui::TextWrapped("Weapon swings, impacts, grunts");
-
-ImGui::Spacing();
-ImGui::Text("Spell Sounds");
-if (ImGui::SliderInt("##SpellVolume", &pendingSpellVolume, 0, 100, "%d%%")) {
-    applyAudioSettings();
-}
-ImGui::TextWrapped("Magic casting and impacts");
-
-ImGui::Spacing();
-ImGui::Text("Movement Sounds");
-if (ImGui::SliderInt("##MovementVolume", &pendingMovementVolume, 0, 100, "%d%%")) {
-    applyAudioSettings();
-}
-ImGui::TextWrapped("Water splashes, jump/land");
-
-ImGui::Spacing();
-ImGui::Text("Footsteps");
-if (ImGui::SliderInt("##FootstepVolume", &pendingFootstepVolume, 0, 100, "%d%%")) {
-    applyAudioSettings();
-}
-
-ImGui::Spacing();
-ImGui::Text("NPC Voices");
-if (ImGui::SliderInt("##NpcVoiceVolume", &pendingNpcVoiceVolume, 0, 100, "%d%%")) {
-    applyAudioSettings();
-}
-
-ImGui::Spacing();
-if (ImGui::Checkbox("Character Speech", &pendingCharacterSpeech)) {
-    applyAudioSettings();
-}
-if (ImGui::IsItemHovered())
-    ImGui::SetTooltip("Your character speaks error responses (\"I can't do that\", \"Not enough mana\")");
-
-ImGui::Spacing();
-ImGui::Text("Mount Sounds");
-if (ImGui::SliderInt("##MountVolume", &pendingMountVolume, 0, 100, "%d%%")) {
-    applyAudioSettings();
-}
-
-ImGui::Spacing();
-ImGui::Text("Activity Sounds");
-if (ImGui::SliderInt("##ActivityVolume", &pendingActivityVolume, 0, 100, "%d%%")) {
-    applyAudioSettings();
-}
-ImGui::TextWrapped("Swimming, eating, drinking");
+// The rest of the sound settings, from the schema — the same rows the
+// interface's Sound panel is built from.
+//
+// These were thirteen blocks here of label, slider, apply, hint, each naming
+// its own field and each free to describe a setting differently from the panel
+// on the other side of the bridge. Master and Sound Effects stay written out
+// because they are not in that list: the game's own Sound panel drives them,
+// and a schema row would draw a second control for each.
+drawSchemaCategory("Sound", saveCallback);
 
 ImGui::EndChild();
 
@@ -698,7 +607,7 @@ ImGui::TextDisabled("Built with Vulkan, SDL2, and ImGui");
 
 }
 
-void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatPanel& chatPanel,
+void SettingsPanel::renderSettingsWindow(ChatPanel& chatPanel,
                                              std::function<void()> saveCallback) {
     if (!showSettingsWindow) return;
 
@@ -958,7 +867,9 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
                             }
                         }
                         const char* fsrQualityLabels[] = { "Native (100%)", "Ultra Quality (77%)", "Quality (67%)", "Balanced (59%)" };
-                        static constexpr float fsrScaleFactors[] = { 0.77f, 0.67f, 0.59f, 1.00f };
+                        // The scale factor each of these means is applySettingSideEffects'
+                        // business now; this only has to turn the row the
+                        // dropdown shows into the value the setting holds.
                         static constexpr int displayToInternal[] = { 3, 0, 1, 2 };
                         pendingFSRQuality = std::clamp(pendingFSRQuality, 0, 3);
                         int fsrQualityDisplay = 0;
@@ -1104,7 +1015,7 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
             // GAMEPLAY TAB
             // ============================================================
             if (ImGui::BeginTabItem("Gameplay", nullptr, tabFlagFor("Gameplay"))) {
-                renderSettingsGameplayTab(inventoryScreen, saveCallback);
+                renderSettingsGameplayTab(saveCallback);
                 ImGui::EndTabItem();
             }
 
@@ -1149,6 +1060,75 @@ void SettingsPanel::renderSettingsWindow(InventoryScreen& inventoryScreen, ChatP
         ImGui::PopStyleVar();
     }
     ImGui::End();
+}
+
+void SettingsPanel::drawSchemaCategory(const char* category,
+                                       const std::function<void()>& saveCallback) {
+    std::size_t count = 0;
+    const auto* schema = clientSettingsSchema(count);
+    std::string heading;
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto& d = schema[i];
+        if (std::string(d.category) != category) continue;
+        if (d.section[0] != '\0' && d.section != heading) {
+            heading = d.section;
+            ImGui::SeparatorText(d.section);
+        }
+
+        // Read, draw, and write back only if it moved. The value lives in a
+        // field somewhere, but which field is the binding table's business —
+        // this side only ever sees the key.
+        const std::string current = settingValue(d.key);
+        bool changed = false;
+        switch (d.kind) {
+            case SettingKind::Bool: {
+                bool v = settingIsOn(current);
+                if (ImGui::Checkbox(d.label, &v)) {
+                    changed = setSettingValue(d.key, v ? "1" : "0");
+                }
+                break;
+            }
+            case SettingKind::Int: {
+                int v = std::atoi(current.c_str());
+                if (ImGui::SliderInt(d.label, &v, static_cast<int>(d.minValue),
+                                     static_cast<int>(d.maxValue))) {
+                    changed = setSettingValue(d.key, std::to_string(v));
+                }
+                break;
+            }
+            case SettingKind::Float: {
+                float v = static_cast<float>(std::atof(current.c_str()));
+                if (ImGui::SliderFloat(d.label, &v, d.minValue, d.maxValue, "%.2f")) {
+                    changed = setSettingValue(d.key, settingNumberText(v));
+                }
+                break;
+            }
+            case SettingKind::Enum: {
+                // The choices are one string separated by bars, because that is
+                // what crosses to Lua; ImGui wants them as an array.
+                std::vector<std::string> labels;
+                std::string choices = d.choices;
+                for (std::size_t at = 0; at != std::string::npos;) {
+                    const std::size_t bar = choices.find('|', at);
+                    labels.push_back(choices.substr(
+                        at, bar == std::string::npos ? bar : bar - at));
+                    at = (bar == std::string::npos) ? bar : bar + 1;
+                }
+                std::vector<const char*> items;
+                for (const auto& label : labels) items.push_back(label.c_str());
+                int v = std::atoi(current.c_str());
+                if (ImGui::Combo(d.label, &v, items.data(),
+                                 static_cast<int>(items.size()))) {
+                    changed = setSettingValue(d.key, std::to_string(v));
+                }
+                break;
+            }
+        }
+        if (d.tooltip[0] != '\0' && ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("%s", d.tooltip);
+        }
+        if (changed && saveCallback) saveCallback();
+    }
 }
 
 void SettingsPanel::applyWindowUiScale() {
@@ -1573,6 +1553,35 @@ void SettingsPanel::applySettingSideEffects(const std::string& key) {
         showMinimapClock_ = pendingShowMinimapClock;
     } else if (key == "minimapcoords") {
         showMinimapCoordinates_ = pendingShowMinimapCoordinates;
+    } else if (key == "separatebags") {
+        if (inventoryScreen_) inventoryScreen_->setSeparateBags(pendingSeparateBags);
+    } else if (key == "showkeyring") {
+        if (inventoryScreen_) inventoryScreen_->setShowKeyring(pendingShowKeyring);
+    } else if (key == "bagscale") {
+        // The screen clamps, so the field is read back from it rather than left
+        // saying something the bags are not doing.
+        if (inventoryScreen_) {
+            inventoryScreen_->setBagScale(pendingBagScale);
+            pendingBagScale = inventoryScreen_->getBagScale();
+        }
+    } else if (key == "woweemusic") {
+        // Not a volume: it changes which tracks the zone rotation can pick, and
+        // switching it off has to stop whichever of ours is playing now — the
+        // rotation would otherwise honour it only at the next zone change.
+        //
+        // The interface's options panel has offered this since the schema grew
+        // and it did nothing but store the answer, because the only copy of
+        // this lived beside the checkbox in the settings window.
+        if (renderer) {
+            if (auto* zm = renderer->getZoneManager()) {
+                zm->setUseOriginalSoundtrack(pendingUseOriginalSoundtrack);
+                if (!pendingUseOriginalSoundtrack) {
+                    if (auto* ac = renderer->getAudioCoordinator()) {
+                        ac->onOriginalSoundtrackDisabled(zm);
+                    }
+                }
+            }
+        }
     } else if (isVolumeKey(key)) {
         // Every volume goes through one call, because each of them is a balance
         // against the others and the coordinator works them all out together.

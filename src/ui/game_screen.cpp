@@ -222,6 +222,7 @@ void GameScreen::setServices(const UIServices& services) {
     // struct is what lets those keys be answered from the same place as the
     // rest rather than through a second bridge with its own list of names.
     settingsPanel_.setChatSettings(&chatPanel_.settings);
+    settingsPanel_.setInventoryScreen(&inventoryScreen);
     combatUI_.setServices(services);
     socialPanel_.setServices(services);
     actionBarPanel_.setServices(services);
@@ -720,7 +721,7 @@ void GameScreen::render(game::GameHandler& gameHandler) {
     // — its menu buttons are routed here through ShowUIPanel — and this window
     // draws nothing unless something opened it, so leaving it out cost every
     // setting in it the moment the menu was handed over.
-    settingsPanel_.renderSettingsWindow(inventoryScreen, chatPanel_, [this]() { saveSettings(); });
+    settingsPanel_.renderSettingsWindow(chatPanel_, [this]() { saveSettings(); });
     toastManager_.renderLateToasts(gameHandler);
     renderWeatherOverlay(gameHandler);
 
