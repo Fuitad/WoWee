@@ -536,19 +536,21 @@ void AddonManager::giveCoinAmountsClearance() {
     // Hooked rather than edited into MoneyFrame.lua, so the interface's own
     // file stays Blizzard's and this stays visible as ours.
     static const char* kScript = R"LUA(
-local kClearance = 4
+-- Between an amount and its own coin. Re-anchoring the buttons to each other
+-- as well was tried and put copper two units worse than it started: their
+-- spacing is MoneyFrame_Update's own, and it is right.
+local kClearance = 6
 
 local function nudge(frameName)
     for _, coin in ipairs({"Gold", "Silver", "Copper"}) do
         local text = _G[frameName .. coin .. "ButtonText"]
         local button = _G[frameName .. coin .. "Button"]
         if text and button then
-            -- Anchored to the button's right, less the coin's width and this
-            -- much again. The button is widened to match so the three do not
-            -- shuffle into each other.
             local icon = button:GetNormalTexture()
             local iconWidth = (icon and icon:GetWidth()) or 0
             if iconWidth > 0 then
+                -- The amount ends this far short of its coin, and the button
+                -- grows by the same so the three keep their own room.
                 text:ClearAllPoints()
                 text:SetPoint("RIGHT", button, "RIGHT", -(iconWidth + kClearance), 0)
                 button:SetWidth(button:GetWidth() + kClearance)
