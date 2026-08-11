@@ -50,6 +50,12 @@ bool TbcPacketParsers::parseMovementBlock(network::Packet& packet, UpdateBlock& 
     // 0x40 = HAS_POSITION (stationary)
     const uint8_t UPDATEFLAG_LIVING              = 0x20;
     const uint8_t UPDATEFLAG_HAS_POSITION        = 0x40;
+    // These bits are NOT the same as the other expansions' and must not be
+    // merged with them. 1.12 assigns HIGHGUID 0x8 and ALL 0x10; 2.4.3 moved
+    // HIGHGUID to 0x10 and put LOWGUID at 0x8, and 0x4 means MELEE_ATTACKING
+    // here and HAS_TARGET there. Three tables that look like three copies of
+    // one, and reading a stationary object's position off the wrong bit is a
+    // misparse of everything after it.
     const uint8_t UPDATEFLAG_HAS_TARGET          = 0x04;
     const uint8_t UPDATEFLAG_TRANSPORT           = 0x02;
     const uint8_t UPDATEFLAG_LOWGUID             = 0x08;

@@ -177,6 +177,12 @@ bool ClassicPacketParsers::parseMovementBlock(network::Packet& packet, UpdateBlo
     const uint8_t UPDATEFLAG_ALL             = 0x10;
     const uint8_t UPDATEFLAG_LIVING          = 0x20;
     const uint8_t UPDATEFLAG_HAS_POSITION    = 0x40;
+    // These bits are NOT the same as the other expansions' and must not be
+    // merged with them. 1.12 assigns HIGHGUID 0x8 and ALL 0x10; 2.4.3 moved
+    // HIGHGUID to 0x10 and put LOWGUID at 0x8, and 0x4 means MELEE_ATTACKING
+    // here and HAS_TARGET there. Three tables that look like three copies of
+    // one, and reading a stationary object's position off the wrong bit is a
+    // misparse of everything after it.
 
     if (updateFlags & UPDATEFLAG_LIVING) {
         // Minimum: moveFlags(4)+time(4)+position(16)+fallTime(4)+speeds(24) = 52 bytes
@@ -1836,6 +1842,12 @@ bool TurtlePacketParsers::parseMovementBlock(network::Packet& packet, UpdateBloc
     const uint8_t UPDATEFLAG_ALL             = 0x10;
     const uint8_t UPDATEFLAG_LIVING          = 0x20;
     const uint8_t UPDATEFLAG_HAS_POSITION    = 0x40;
+    // These bits are NOT the same as the other expansions' and must not be
+    // merged with them. 1.12 assigns HIGHGUID 0x8 and ALL 0x10; 2.4.3 moved
+    // HIGHGUID to 0x10 and put LOWGUID at 0x8, and 0x4 means MELEE_ATTACKING
+    // here and HAS_TARGET there. Three tables that look like three copies of
+    // one, and reading a stationary object's position off the wrong bit is a
+    // misparse of everything after it.
 
     if (updateFlags & UPDATEFLAG_LIVING) {
         // Minimum: moveFlags(4)+time(4)+position(16)+fallTime(4)+speeds(24) = 52 bytes
