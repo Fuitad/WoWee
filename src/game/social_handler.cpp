@@ -4233,7 +4233,7 @@ void SocialHandler::handleSetFactionStanding(network::Packet& packet) {
             if (owner_.repChangeCallbackRef()) owner_.repChangeCallbackRef()(name, delta, standing);
             // These events fire unconditionally on any rep change (not gated by callback).
             owner_.fireAddonEvent("UPDATE_FACTION", {});
-            owner_.fireAddonEvent("CHAT_MSG_COMBAT_FACTION_CHANGE", {std::string(buf)});
+            owner_.addLocalChatLine(ChatType::COMBAT_FACTION_CHANGE, std::string(buf));
         }
     }
 }

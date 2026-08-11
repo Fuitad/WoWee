@@ -1068,13 +1068,17 @@ void ChatHandler::fireChatEvent(const MessageChatData& msg) {
     });
 }
 
-void ChatHandler::addSystemChatMessage(const std::string& message) {
+void ChatHandler::addLocalChatLine(ChatType type, const std::string& message) {
     if (message.empty()) return;
     MessageChatData msg;
-    msg.type = ChatType::SYSTEM;
+    msg.type = type;
     msg.language = ChatLanguage::UNIVERSAL;
     msg.message = message;
     addLocalChatMessage(msg);
+}
+
+void ChatHandler::addSystemChatMessage(const std::string& message) {
+    addLocalChatLine(ChatType::SYSTEM, message);
 }
 
 void ChatHandler::toggleAfk(const std::string& message) {

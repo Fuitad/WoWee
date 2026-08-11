@@ -916,10 +916,9 @@ void CombatHandler::handlePvpCredit(network::Packet& packet) {
         uint32_t rank       = packet.readUInt32();
         LOG_INFO("SMSG_PVP_CREDIT: honor=", honor, " victim=0x", std::hex, victimGuid, std::dec, " rank=", rank);
         std::string msg = "You gain " + std::to_string(honor) + " honor points.";
-        owner_.addSystemChatMessage(msg);
+        owner_.addLocalChatLine(ChatType::COMBAT_HONOR_GAIN, msg);
         if (honor > 0) addCombatText(CombatTextEntry::HONOR_GAIN, static_cast<int32_t>(honor), 0, true);
         if (owner_.pvpHonorCallbackRef()) owner_.pvpHonorCallbackRef()(honor, victimGuid, rank);
-        owner_.fireAddonEvent("CHAT_MSG_COMBAT_HONOR_GAIN", {msg});
     }
 }
 
@@ -1826,8 +1825,7 @@ void CombatHandler::handleXpGain(network::Packet& packet) {
     if (data.groupBonus > 0) {
         msg += " (+" + std::to_string(data.groupBonus) + " group bonus)";
     }
-    owner_.addSystemChatMessage(msg);
-    owner_.fireAddonEvent("CHAT_MSG_COMBAT_XP_GAIN", {msg, std::to_string(data.totalXp)});
+    owner_.addLocalChatLine(ChatType::COMBAT_XP_GAIN, msg);
 }
 
 } // namespace game

@@ -63,6 +63,15 @@ public:
     }
     void autoJoinDefaultChannels();
     void addLocalChatMessage(const MessageChatData& msg);
+
+    /// Put a line of a given kind into chat, locally.
+    ///
+    /// The kind matters: CHAT_MSG_MONEY, CHAT_MSG_COMBAT_XP_GAIN and their like
+    /// are chat messages, and the interface's handler reads twelve arguments
+    /// off every one of them — arg4 is a channel name and it calls strlen on it
+    /// without checking. Firing one of these with just the text raised there and
+    /// took the rest of the handler with it, so the line never appeared at all.
+    void addLocalChatLine(ChatType type, const std::string& message);
     void addSystemChatMessage(const std::string& message);
 
     /// Announces a message as CHAT_MSG_<TYPE> with WoW's argument order. Both

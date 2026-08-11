@@ -3637,6 +3637,10 @@ public:
                        uint64_t srcGuid = 0, uint64_t dstGuid = 0);
     bool shouldLogSpellstealAura(uint64_t casterGuid, uint64_t victimGuid, uint32_t spellId);
     void addSystemChatMessage(const std::string& message);
+    /// A chat line of a given kind — money looted, experience gained, a
+    /// reputation change. These are chat messages and must be added as such:
+    /// see ChatHandler::addLocalChatLine.
+    void addLocalChatLine(game::ChatType type, const std::string& message);
 
     /// An error the player should see: "Target is too far away", "You have no
     /// target", and their kind.

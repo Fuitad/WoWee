@@ -246,10 +246,9 @@ void GameHandler::registerCoreOpcodes() {
                     std::snprintf(buf, sizeof(buf), "Discovered new area! Gained %u experience.", xpGained);
                     msg = buf;
                 }
-                addSystemChatMessage(msg);
+                addLocalChatLine(game::ChatType::COMBAT_XP_GAIN, msg);
                 addCombatText(CombatTextEntry::XP_GAIN, static_cast<int32_t>(xpGained), 0, true);
                 if (areaDiscoveryCallback_) areaDiscoveryCallback_(areaName, xpGained);
-                                    fireAddonEvent("CHAT_MSG_COMBAT_XP_GAIN", {msg, std::to_string(xpGained)});
             }
         }
     };

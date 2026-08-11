@@ -1032,6 +1032,9 @@ void GameHandler::addMoneyCopper(uint32_t amount) {
 void GameHandler::addSystemChatMessage(const std::string& message) {
     if (chatHandler_) chatHandler_->addSystemChatMessage(message);
 }
+void GameHandler::addLocalChatLine(game::ChatType type, const std::string& message) {
+    if (chatHandler_) chatHandler_->addLocalChatLine(type, message);
+}
 
 void GameHandler::raiseUiError(const std::string& message) {
     addSystemChatMessage(message);

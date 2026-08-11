@@ -5231,8 +5231,10 @@ void InventoryHandler::addMoneyCopper(uint32_t amount) {
     msg += std::to_string(gold) + "g ";
     msg += std::to_string(silver) + "s ";
     msg += std::to_string(copper) + "c.";
-    owner_.addSystemChatMessage(msg);
-    owner_.fireAddonEvent("CHAT_MSG_MONEY", {msg});
+    // As money, not as a system line. Both were added because the typed one
+    // raised in the interface's handler and never appeared — see
+    // ChatHandler::addLocalChatLine.
+    owner_.addLocalChatLine(ChatType::MONEY, msg);
 }
 
 // ============================================================
