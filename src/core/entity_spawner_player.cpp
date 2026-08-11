@@ -431,6 +431,25 @@ void EntitySpawner::setOnlinePlayerEquipment(uint64_t guid,
         }
     };
 
+    // NOTE (2026-08-11, unverified): this does NOT use core::resolveGeoset,
+    // and the character preview's identically-named lambda does.
+    //
+    // geoset_rules.hpp says of that rule "it lives here now, with a test, and
+    // the call sites ask rather than decide". This call site still decides —
+    // it takes an exact match or the caller's fallback and nothing else.
+    //
+    // Where the two differ: an *equipped* geoset (a real variant, not a bare
+    // 401/501/801/1301, which both treat as none and never substitute) that
+    // the model does not carry. The preview substitutes the lowest member of
+    // that group and shows some armour mesh; this returns the bare default, or
+    // nothing at all if the model lacks that too. So a race whose model is
+    // missing a variant would look bare in the world and dressed on the
+    // character screen.
+    //
+    // Deliberately not changed here. It is a difference in what gets drawn on
+    // the character you play, in the same area as the unresolved bare-shin
+    // width bug, and it wants someone looking at the screen — which is the one
+    // thing this pass could not do.
     auto pickGeoset = [&](uint16_t preferred, uint16_t fallback) -> uint16_t {
         if (preferred != 0 && modelGeosets.count(preferred) > 0) return preferred;
         if (fallback != 0 && modelGeosets.count(fallback) > 0) return fallback;

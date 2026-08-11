@@ -14,21 +14,6 @@
 #include <iomanip>
 #include <zlib.h>
 
-namespace {
-    const char* updateTypeName(wowee::game::UpdateType type) {
-        using wowee::game::UpdateType;
-        switch (type) {
-            case UpdateType::VALUES: return "VALUES";
-            case UpdateType::MOVEMENT: return "MOVEMENT";
-            case UpdateType::CREATE_OBJECT: return "CREATE_OBJECT";
-            case UpdateType::CREATE_OBJECT2: return "CREATE_OBJECT2";
-            case UpdateType::OUT_OF_RANGE_OBJECTS: return "OUT_OF_RANGE_OBJECTS";
-            case UpdateType::NEAR_OBJECTS: return "NEAR_OBJECTS";
-            default: return "UNKNOWN";
-        }
-    }
-}
-
 namespace wowee {
 namespace game {
 
@@ -1089,7 +1074,7 @@ bool UpdateObjectParser::parseUpdateFields(network::Packet& packet, UpdateBlock&
         // Validate 4 bytes available before each block read
         if (!packet.hasRemaining(4)) {
             LOG_WARNING("UpdateObjectParser: truncated update mask at block ", i,
-                        " type=", updateTypeName(block.updateType),
+                        " type=", wowee::game::updateTypeName(block.updateType),
                         " objectType=", static_cast<int>(block.objectType),
                         " guid=0x", std::hex, block.guid, std::dec,
                         " readPos=", packet.getReadPos(),
@@ -1137,7 +1122,7 @@ bool UpdateObjectParser::parseUpdateFields(network::Packet& packet, UpdateBlock&
             // Validate 4 bytes available before reading field value
             if (!packet.hasRemaining(4)) {
                 LOG_WARNING("UpdateObjectParser: truncated field value at field ", fieldIndex,
-                            " type=", updateTypeName(block.updateType),
+                            " type=", wowee::game::updateTypeName(block.updateType),
                             " objectType=", static_cast<int>(block.objectType),
                             " guid=0x", std::hex, block.guid, std::dec,
                             " readPos=", packet.getReadPos(),

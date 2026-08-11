@@ -74,6 +74,23 @@ enum class UpdateType : uint8_t {
     NEAR_OBJECTS = 5         // Objects entered view range
 };
 
+/// The update type's own name, for a log line.
+///
+/// Beside the enum rather than in the two parsers that print it — the WotLK one
+/// and the vanilla one had an identical copy each, and they are the two files
+/// where a value added to this list would need noticing.
+inline const char* updateTypeName(UpdateType type) {
+    switch (type) {
+        case UpdateType::VALUES:               return "VALUES";
+        case UpdateType::MOVEMENT:             return "MOVEMENT";
+        case UpdateType::CREATE_OBJECT:        return "CREATE_OBJECT";
+        case UpdateType::CREATE_OBJECT2:       return "CREATE_OBJECT2";
+        case UpdateType::OUT_OF_RANGE_OBJECTS: return "OUT_OF_RANGE_OBJECTS";
+        case UpdateType::NEAR_OBJECTS:         return "NEAR_OBJECTS";
+    }
+    return "UNKNOWN";
+}
+
 /**
  * Base entity class for all game objects
  */

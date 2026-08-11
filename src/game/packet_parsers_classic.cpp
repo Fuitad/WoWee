@@ -103,18 +103,6 @@ bool skipClassicSpellCastTargets(network::Packet& packet, uint64_t* primaryTarge
     return true;
 }
 
-const char* updateTypeName(UpdateType type) {
-    switch (type) {
-        case UpdateType::VALUES: return "VALUES";
-        case UpdateType::MOVEMENT: return "MOVEMENT";
-        case UpdateType::CREATE_OBJECT: return "CREATE_OBJECT";
-        case UpdateType::CREATE_OBJECT2: return "CREATE_OBJECT2";
-        case UpdateType::OUT_OF_RANGE_OBJECTS: return "OUT_OF_RANGE_OBJECTS";
-        case UpdateType::NEAR_OBJECTS: return "NEAR_OBJECTS";
-        default: return "UNKNOWN";
-    }
-}
-
 } // namespace
 
 // ============================================================================
