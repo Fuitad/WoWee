@@ -1,5 +1,7 @@
 #pragma once
 
+#include "rendering/shadow_params.hpp"
+
 #include "pipeline/m2_loader.hpp"
 #include "pipeline/blp_loader.hpp"
 #include "rendering/m2_model_classifier.hpp"
@@ -522,11 +524,9 @@ private:
     // Shadow rendering (Phase 7)
     VkPipeline shadowPipeline_ = VK_NULL_HANDLE;
     VkPipelineLayout shadowPipelineLayout_ = VK_NULL_HANDLE;
-    VkDescriptorSetLayout shadowParamsLayout_ = VK_NULL_HANDLE;
-    VkDescriptorPool shadowParamsPool_ = VK_NULL_HANDLE;
-    VkDescriptorSet shadowParamsSet_ = VK_NULL_HANDLE;
-    ::VkBuffer shadowParamsUBO_ = VK_NULL_HANDLE;
-    VmaAllocation shadowParamsAlloc_ = VK_NULL_HANDLE;
+    /// The set the shadow pass binds. Five separate members before,
+    /// built and torn down here and in three other renderers.
+    ShadowParamsSet shadowParams_;
     // Per-frame pools for foliage shadow texture descriptor sets (one per frame-in-flight)
     static constexpr uint32_t kShadowTexPoolFrames = 2;
     VkDescriptorPool shadowTexPool_[kShadowTexPoolFrames] = {};

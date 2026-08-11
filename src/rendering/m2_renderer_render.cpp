@@ -1,3 +1,4 @@
+#include "rendering/shadow_params.hpp"
 #include "rendering/m2_renderer.hpp"
 #include "rendering/m2_renderer_internal.h"
 #include "core/thread_pool.hpp"
@@ -1805,94 +1806,12 @@ bool M2Renderer::initializeShadow(VkRenderPass shadowRenderPass) {
     if (!vkCtx_ || shadowRenderPass == VK_NULL_HANDLE) return false;
     VkDevice device = vkCtx_->getDevice();
 
-    // Create ShadowParams UBO
-    VkBufferCreateInfo bufCI{};
-    bufCI.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufCI.size = sizeof(ShadowParamsUBO);
-    bufCI.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    VmaAllocationCreateInfo allocCI{};
-    allocCI.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-    allocCI.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    VmaAllocationInfo allocInfo{};
-    if (vmaCreateBuffer(vkCtx_->getAllocator(), &bufCI, &allocCI,
-            &shadowParamsUBO_, &shadowParamsAlloc_, &allocInfo) != VK_SUCCESS) {
-        LOG_ERROR("M2Renderer: failed to create shadow params UBO");
+    // The set the shadow pass binds, built the same way for all four renderers.
+    if (!createShadowParamsSet(device, vkCtx_->getAllocator(), sizeof(ShadowParamsUBO),
+                               whiteTexture_->getImageView(),
+                              whiteTexture_->getSampler(), "M2Renderer", shadowParams_)) {
         return false;
     }
-    ShadowParamsUBO defaultParams{};
-    std::memcpy(allocInfo.pMappedData, &defaultParams, sizeof(defaultParams));
-
-    // Create descriptor set layout: binding 0 = sampler2D, binding 1 = ShadowParams UBO
-    VkDescriptorSetLayoutBinding layoutBindings[2]{};
-    layoutBindings[0].binding = 0;
-    layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    layoutBindings[0].descriptorCount = 1;
-    layoutBindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    layoutBindings[1].binding = 1;
-    layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    layoutBindings[1].descriptorCount = 1;
-    layoutBindings[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    VkDescriptorSetLayoutCreateInfo layoutCI{};
-    layoutCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutCI.bindingCount = 2;
-    layoutCI.pBindings = layoutBindings;
-    if (vkCreateDescriptorSetLayout(device, &layoutCI, nullptr, &shadowParamsLayout_) != VK_SUCCESS) {
-        LOG_ERROR("M2Renderer: failed to create shadow params layout");
-        return false;
-    }
-
-    // Create descriptor pool
-    VkDescriptorPoolSize poolSizes[2]{};
-    poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[0].descriptorCount = 1;
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[1].descriptorCount = 1;
-    VkDescriptorPoolCreateInfo poolCI{};
-    poolCI.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolCI.maxSets = 1;
-    poolCI.poolSizeCount = 2;
-    poolCI.pPoolSizes = poolSizes;
-    if (vkCreateDescriptorPool(device, &poolCI, nullptr, &shadowParamsPool_) != VK_SUCCESS) {
-        LOG_ERROR("M2Renderer: failed to create shadow params pool");
-        return false;
-    }
-
-    // Allocate descriptor set
-    VkDescriptorSetAllocateInfo setAlloc{};
-    setAlloc.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    setAlloc.descriptorPool = shadowParamsPool_;
-    setAlloc.descriptorSetCount = 1;
-    setAlloc.pSetLayouts = &shadowParamsLayout_;
-    if (vkAllocateDescriptorSets(device, &setAlloc, &shadowParamsSet_) != VK_SUCCESS) {
-        LOG_ERROR("M2Renderer: failed to allocate shadow params set");
-        return false;
-    }
-
-    // Write descriptors (use white fallback for binding 0)
-    VkDescriptorBufferInfo bufInfo{};
-    bufInfo.buffer = shadowParamsUBO_;
-    bufInfo.offset = 0;
-    bufInfo.range = sizeof(ShadowParamsUBO);
-
-    VkDescriptorImageInfo imgInfo{};
-    imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imgInfo.imageView = whiteTexture_->getImageView();
-    imgInfo.sampler = whiteTexture_->getSampler();
-
-    VkWriteDescriptorSet writes[2]{};
-    writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[0].dstSet = shadowParamsSet_;
-    writes[0].dstBinding = 0;
-    writes[0].descriptorCount = 1;
-    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[0].pImageInfo = &imgInfo;
-    writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[1].dstSet = shadowParamsSet_;
-    writes[1].dstBinding = 1;
-    writes[1].descriptorCount = 1;
-    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writes[1].pBufferInfo = &bufInfo;
-    vkUpdateDescriptorSets(device, 2, writes, 0, nullptr);
 
     // Per-frame pools for foliage shadow texture sets (one per frame-in-flight, reset each frame)
     {
@@ -1914,12 +1833,12 @@ bool M2Renderer::initializeShadow(VkRenderPass shadowRenderPass) {
         }
     }
 
-    // Create shadow pipeline layout: set 1 = shadowParamsLayout_, push constants = 128 bytes
+    // Create shadow pipeline layout: set 1 = shadowParams_.layout, push constants = 128 bytes
     VkPushConstantRange pc{};
     pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pc.offset = 0;
     pc.size = 128;  // lightSpaceMatrix (64) + model (64)
-    shadowPipelineLayout_ = createPipelineLayout(device, {shadowParamsLayout_}, {pc});
+    shadowPipelineLayout_ = createPipelineLayout(device, {shadowParams_.layout}, {pc});
     if (!shadowPipelineLayout_) {
         LOG_ERROR("M2Renderer: failed to create shadow pipeline layout");
         return false;
@@ -1981,7 +1900,7 @@ bool M2Renderer::initializeShadow(VkRenderPass shadowRenderPass) {
 
 void M2Renderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMatrix, float globalTime,
                               const glm::vec3& shadowCenter, float shadowRadius) {
-    if (!shadowPipeline_ || !shadowParamsSet_) return;
+    if (!shadowPipeline_ || !shadowParams_.set) return;
     if (instances.empty() || models.empty()) return;
 
     // Reset this frame slot's texture descriptor pool (safe: fence was waited on in beginFrame)
@@ -2005,16 +1924,16 @@ void M2Renderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMa
         ai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         ai.descriptorPool = curShadowTexPool;
         ai.descriptorSetCount = 1;
-        ai.pSetLayouts = &shadowParamsLayout_;
+        ai.pSetLayouts = &shadowParams_.layout;
         if (vkAllocateDescriptorSets(vkCtx_->getDevice(), &ai, &set) != VK_SUCCESS) {
-            return shadowParamsSet_; // fallback to white texture
+            return shadowParams_.set; // fallback to white texture
         }
         VkDescriptorImageInfo imgInfo{};
         imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         imgInfo.imageView = iv;
         imgInfo.sampler = tex->getSampler();
         VkDescriptorBufferInfo bufInfo{};
-        bufInfo.buffer = shadowParamsUBO_;
+        bufInfo.buffer = shadowParams_.ubo;
         bufInfo.offset = 0;
         bufInfo.range = sizeof(ShadowParamsUBO);
         VkWriteDescriptorSet writes[2]{};
@@ -2048,12 +1967,12 @@ void M2Renderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMa
         }
 
         VmaAllocationInfo allocInfo{};
-        vmaGetAllocationInfo(vkCtx_->getAllocator(), shadowParamsAlloc_, &allocInfo);
+        vmaGetAllocationInfo(vkCtx_->getAllocator(), shadowParams_.alloc, &allocInfo);
         std::memcpy(allocInfo.pMappedData, &params, sizeof(params));
 
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline_);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineLayout_,
-            0, 1, &shadowParamsSet_, 0, nullptr);
+            0, 1, &shadowParams_.set, 0, nullptr);
 
         uint32_t currentModelId = UINT32_MAX;
         const M2ModelGPU* currentModel = nullptr;
@@ -2107,7 +2026,7 @@ void M2Renderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMa
                 } else if (foliagePass) {
                     // Non-alpha batch: rebind default set (white texture, alpha test passes)
                     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineLayout_,
-                        0, 1, &shadowParamsSet_, 0, nullptr);
+                        0, 1, &shadowParams_.set, 0, nullptr);
                 }
                 vkCmdDrawIndexed(cmd, batch.indexCount, 1, batch.indexStart, 0, 0);
             }

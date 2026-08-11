@@ -787,6 +787,7 @@ set(WOWEE_SOURCES
     src/rendering/camera_controller.cpp
     src/rendering/material.cpp
     src/rendering/terrain_renderer.cpp
+    src/rendering/shadow_params.cpp
     src/rendering/terrain_manager.cpp
     src/rendering/frustum.cpp
     src/rendering/performance_hud.cpp
@@ -2024,6 +2025,7 @@ add_executable(wowee_editor
     src/rendering/vk_pipeline.cpp
     src/rendering/camera.cpp
     src/rendering/terrain_renderer.cpp
+    src/rendering/shadow_params.cpp
     src/rendering/m2_renderer.cpp
     src/rendering/m2_renderer_instance.cpp
     src/rendering/m2_renderer_particles.cpp

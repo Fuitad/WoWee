@@ -15,6 +15,7 @@
  * the original WoW Model Viewer (charcontrol.h, REGION_FAC=2).
  */
 #include <atomic>
+#include "rendering/shadow_params.hpp"
 #include "rendering/character_renderer.hpp"
 #include "rendering/m2_track_sampler.hpp"
 #include "rendering/animation/animation_ids.hpp"
@@ -553,9 +554,7 @@ void CharacterRenderer::shutdown() {
     // Shadow resources
     if (shadowPipeline_) { vkDestroyPipeline(device, shadowPipeline_, nullptr); shadowPipeline_ = VK_NULL_HANDLE; }
     if (shadowPipelineLayout_) { vkDestroyPipelineLayout(device, shadowPipelineLayout_, nullptr); shadowPipelineLayout_ = VK_NULL_HANDLE; }
-    if (shadowParamsPool_) { vkDestroyDescriptorPool(device, shadowParamsPool_, nullptr); shadowParamsPool_ = VK_NULL_HANDLE; }
-    if (shadowParamsLayout_) { vkDestroyDescriptorSetLayout(device, shadowParamsLayout_, nullptr); shadowParamsLayout_ = VK_NULL_HANDLE; }
-    if (shadowParamsUBO_) { vmaDestroyBuffer(alloc, shadowParamsUBO_, shadowParamsAlloc_); shadowParamsUBO_ = VK_NULL_HANDLE; shadowParamsAlloc_ = VK_NULL_HANDLE; }
+    destroyShadowParamsSet(device, alloc, shadowParams_);
 
     vkCtx_ = nullptr;
 }
@@ -3263,92 +3262,17 @@ bool CharacterRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
         int32_t colorKeyBlack = 0;
     };
 
-    // Create ShadowCharParams UBO
-    VkBufferCreateInfo bufCI{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    bufCI.size = sizeof(ShadowCharParams);
-    bufCI.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    VmaAllocationCreateInfo allocCI{};
-    allocCI.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
-    allocCI.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    VmaAllocationInfo allocInfo{};
-    if (vmaCreateBuffer(vkCtx_->getAllocator(), &bufCI, &allocCI,
-            &shadowParamsUBO_, &shadowParamsAlloc_, &allocInfo) != VK_SUCCESS) {
-        LOG_ERROR("CharacterRenderer: failed to create shadow params UBO");
-        return false;
-    }
-    ShadowCharParams defaultParams{};
-    std::memcpy(allocInfo.pMappedData, &defaultParams, sizeof(defaultParams));
-
-    // Descriptor set layout for set 1: binding 0 = sampler2D, binding 1 = ShadowCharParams UBO
-    VkDescriptorSetLayoutBinding layoutBindings[2]{};
-    layoutBindings[0].binding = 0;
-    layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    layoutBindings[0].descriptorCount = 1;
-    layoutBindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    layoutBindings[1].binding = 1;
-    layoutBindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    layoutBindings[1].descriptorCount = 1;
-    layoutBindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    VkDescriptorSetLayoutCreateInfo layoutCI{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    layoutCI.bindingCount = 2;
-    layoutCI.pBindings = layoutBindings;
-    if (vkCreateDescriptorSetLayout(device, &layoutCI, nullptr, &shadowParamsLayout_) != VK_SUCCESS) {
-        LOG_ERROR("CharacterRenderer: failed to create shadow params layout");
+    // The same set the other three shadow passes bind — a sampler and a small
+    // uniform buffer — with this pass's own params behind binding 1.
+    if (!createShadowParamsSet(device, vkCtx_->getAllocator(), sizeof(ShadowCharParams),
+                               whiteTexture_->getImageView(), whiteTexture_->getSampler(),
+                               "CharacterRenderer", shadowParams_)) {
         return false;
     }
 
-    // Descriptor pool (1 set)
-    VkDescriptorPoolSize poolSizes[2]{};
-    poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[0].descriptorCount = 1;
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[1].descriptorCount = 1;
-    VkDescriptorPoolCreateInfo poolCI{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-    poolCI.maxSets = 1;
-    poolCI.poolSizeCount = 2;
-    poolCI.pPoolSizes = poolSizes;
-    if (vkCreateDescriptorPool(device, &poolCI, nullptr, &shadowParamsPool_) != VK_SUCCESS) {
-        LOG_ERROR("CharacterRenderer: failed to create shadow params pool");
-        return false;
-    }
-
-    // Allocate descriptor set
-    VkDescriptorSetAllocateInfo setAlloc{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-    setAlloc.descriptorPool = shadowParamsPool_;
-    setAlloc.descriptorSetCount = 1;
-    setAlloc.pSetLayouts = &shadowParamsLayout_;
-    if (vkAllocateDescriptorSets(device, &setAlloc, &shadowParamsSet_) != VK_SUCCESS) {
-        LOG_ERROR("CharacterRenderer: failed to allocate shadow params set");
-        return false;
-    }
-
-    // Write descriptors (white dummy texture + ShadowCharParams UBO)
-    VkDescriptorImageInfo imgInfo{};
-    imgInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imgInfo.imageView = whiteTexture_->getImageView();
-    imgInfo.sampler = whiteTexture_->getSampler();
-    VkDescriptorBufferInfo bufInfo{};
-    bufInfo.buffer = shadowParamsUBO_;
-    bufInfo.offset = 0;
-    bufInfo.range = sizeof(ShadowCharParams);
-    VkWriteDescriptorSet writes[2]{};
-    writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[0].dstSet = shadowParamsSet_;
-    writes[0].dstBinding = 0;
-    writes[0].descriptorCount = 1;
-    writes[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    writes[0].pImageInfo = &imgInfo;
-    writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    writes[1].dstSet = shadowParamsSet_;
-    writes[1].dstBinding = 1;
-    writes[1].descriptorCount = 1;
-    writes[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    writes[1].pBufferInfo = &bufInfo;
-    vkUpdateDescriptorSets(device, 2, writes, 0, nullptr);
-
-    // Pipeline layout: set 0 = perFrameLayout_ (dummy), set 1 = shadowParamsLayout_, set 2 = boneSetLayout_
+    // Pipeline layout: set 0 = perFrameLayout_ (dummy), set 1 = shadowParams_.layout, set 2 = boneSetLayout_
     // Push constant: 128 bytes (lightSpaceMatrix + model), VERTEX stage
-    VkDescriptorSetLayout setLayouts[] = {perFrameLayout_, shadowParamsLayout_, boneSetLayout_};
+    VkDescriptorSetLayout setLayouts[] = {perFrameLayout_, shadowParams_.layout, boneSetLayout_};
     VkPushConstantRange pc{};
     pc.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     pc.offset = 0;
@@ -3418,7 +3342,7 @@ bool CharacterRenderer::initializeShadow(VkRenderPass shadowRenderPass) {
 
 void CharacterRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& lightSpaceMatrix,
                                      const glm::vec3& shadowCenter, float shadowRadius) {
-    if (!shadowPipeline_ || !shadowParamsSet_) return;
+    if (!shadowPipeline_ || !shadowParams_.set) return;
     if (instances.empty() || models.empty()) return;
     if (boneDescPool_ == VK_NULL_HANDLE || boneSetLayout_ == VK_NULL_HANDLE) return;
 
@@ -3429,7 +3353,7 @@ void CharacterRenderer::renderShadow(VkCommandBuffer cmd, const glm::mat4& light
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline_);
     // Bind shadow params set at set 1
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipelineLayout_,
-        1, 1, &shadowParamsSet_, 0, nullptr);
+        1, 1, &shadowParams_.set, 0, nullptr);
 
     const float shadowRadiusSq = shadowRadius * shadowRadius;
     for (auto& pair : instances) {
