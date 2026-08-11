@@ -646,6 +646,15 @@ enum class ChatType : uint8_t {
     RESTRICTED = 0x2E,
     ACHIEVEMENT = 0x30,
     GUILD_ACHIEVEMENT = 0x31,
+    // 0x32 is CHAT_MSG_ARENA_POINTS, and is deliberately absent rather than
+    // overlooked: AzerothCore declares it in SharedDefines.h and never sends
+    // it — the only other mentions are the generated enum reflection. Naming
+    // it here would add a type nothing can arrive as.
+    //
+    // Checked while chasing CHAT_MSG_TARGETICONS, which FrameXML registers for
+    // and which looks like the gap at 0x32. It is not a wire type at all in
+    // 3.3.5a; the client generates that message itself when a raid marker is
+    // set, so nothing on the wire is missing for it either.
     PARTY_LEADER = 0x33,
 };
 
