@@ -268,17 +268,10 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate channelId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wgch", base, errors, warnings);
-    std::printf("validate-wgch: %s.wgch\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu channels, all channelIds "
+    return cli::reportValidation("wgch", base, jsonOut, errors, warnings,
+                                 formatted("%zu channels, all channelIds "
                     "+ names unique, AutoJoinOnZone "
-                    "channels have zoneDefaultMapId set\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "channels have zoneDefaultMapId set", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

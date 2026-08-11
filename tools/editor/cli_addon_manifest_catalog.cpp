@@ -250,17 +250,11 @@ int handleValidate(int& i, int argc, char** argv) {
                           trail +
                           " — addon-loader would deadlock");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wmod", base, errors, warnings);
-    std::printf("validate-wmod: %s.wmod\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu addons, all addonIds + "
+    return cli::reportValidation("wmod", base, jsonOut, errors, warnings,
+                                 formatted("%zu addons, all addonIds + "
                     "names unique, no required-dep cycle, "
                     "no missing required deps, no self-"
-                    "deps\n", c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "deps", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

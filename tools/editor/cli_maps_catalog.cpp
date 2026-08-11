@@ -398,15 +398,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         areaIdsSeen.push_back(a.areaId);
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wms", base, errors, warnings);
-    std::printf("validate-wms: %s.wms\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu maps, %zu areas, all IDs unique\n",
-                    c.maps.size(), c.areas.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wms", base, jsonOut, errors, warnings,
+                                 formatted("%zu maps, %zu areas, all IDs unique", c.maps.size(), c.areas.size()));
 }
 
 } // namespace

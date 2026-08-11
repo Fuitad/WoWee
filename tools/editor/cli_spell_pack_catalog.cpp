@@ -216,18 +216,11 @@ int handleValidate(int& i, int argc, char** argv) {
                 "an empty spellbook tab");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wspk", base, errors, warnings);
-    std::printf("validate-wspk: %s.wspk\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu packs, all packIds unique, "
+    return cli::reportValidation("wspk", base, jsonOut, errors, warnings,
+                                 formatted("%zu packs, all packIds unique, "
                     "(classId,tabIndex) unique, classId in "
                     "1..11, tabIndex in 0..3, no duplicate "
-                    "spellIds within any tab\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "spellIds within any tab", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

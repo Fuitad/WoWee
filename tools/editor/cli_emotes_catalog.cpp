@@ -434,16 +434,9 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.emoteId)) errors.push_back(ctx + ": duplicate emoteId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wemo", base, errors, warnings);
-    std::printf("validate-wemo: %s.wemo\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu emotes, all emoteIds + "
-                    "slash commands unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wemo", base, jsonOut, errors, warnings,
+                                 formatted("%zu emotes, all emoteIds + "
+                    "slash commands unique", c.entries.size()));
 }
 
 } // namespace

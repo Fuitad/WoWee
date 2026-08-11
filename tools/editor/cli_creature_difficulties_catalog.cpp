@@ -325,15 +325,8 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wcdf", base, errors, warnings);
-    std::printf("validate-wcdf: %s.wcdf\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu routes, all difficultyIds unique, all base ids set\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wcdf", base, jsonOut, errors, warnings,
+                                 formatted("%zu routes, all difficultyIds unique, all base ids set", c.entries.size()));
 }
 
 } // namespace

@@ -344,15 +344,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.tokenRewardId)) errors.push_back(ctx + ": duplicate tokenRewardId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wtbr", base, errors, warnings);
-    std::printf("validate-wtbr: %s.wtbr\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu rewards, all tokenRewardIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wtbr", base, jsonOut, errors, warnings,
+                                 formatted("%zu rewards, all tokenRewardIds unique", c.entries.size()));
 }
 
 } // namespace

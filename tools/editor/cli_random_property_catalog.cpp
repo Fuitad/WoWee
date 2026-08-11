@@ -232,19 +232,12 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate poolId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wirc", base, errors, warnings);
-    std::printf("validate-wirc: %s.wirc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu pools, all poolIds unique, "
+    return cli::reportValidation("wirc", base, jsonOut, errors, warnings,
+                                 formatted("%zu pools, all poolIds unique, "
                     "non-zero allowedSlotsMask, non-empty "
                     "enchant array, no zero-id enchants, no "
                     "duplicate enchants in same pool, "
-                    "totalWeight matches enchant-weight sum\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "totalWeight matches enchant-weight sum", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

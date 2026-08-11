@@ -397,15 +397,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.vehicleId)) errors.push_back(ctx + ": duplicate vehicleId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wvhc", base, errors, warnings);
-    std::printf("validate-wvhc: %s.wvhc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu vehicles, %zu seats, all vehicleIds unique\n",
-                    c.entries.size(), totalSeats(c));
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wvhc", base, jsonOut, errors, warnings,
+                                 formatted("%zu vehicles, %zu seats, all vehicleIds unique", c.entries.size(), totalSeats(c)));
 }
 
 } // namespace

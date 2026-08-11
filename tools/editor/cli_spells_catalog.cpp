@@ -404,15 +404,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.spellId)) errors.push_back(ctx + ": duplicate spellId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wspl", base, errors, warnings);
-    std::printf("validate-wspl: %s.wspl\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu spells, all spellIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wspl", base, jsonOut, errors, warnings,
+                                 formatted("%zu spells, all spellIds unique", c.entries.size()));
 }
 
 } // namespace

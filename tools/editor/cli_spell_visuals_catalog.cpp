@@ -285,15 +285,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.visualKitId)) errors.push_back(ctx + ": duplicate visualKitId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wsvk", base, errors, warnings);
-    std::printf("validate-wsvk: %s.wsvk\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu visual kits, all visualKitIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wsvk", base, jsonOut, errors, warnings,
+                                 formatted("%zu visual kits, all visualKitIds unique", c.entries.size()));
 }
 
 } // namespace

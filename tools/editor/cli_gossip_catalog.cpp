@@ -366,15 +366,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.menuId)) errors.push_back(ctx + ": duplicate menuId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wgsp", base, errors, warnings);
-    std::printf("validate-wgsp: %s.wgsp\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu menus (%u options), all menuIds unique\n",
-                    c.entries.size(), totalOptions(c));
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wgsp", base, jsonOut, errors, warnings,
+                                 formatted("%zu menus (%u options), all menuIds unique", c.entries.size(), totalOptions(c)));
 }
 
 } // namespace

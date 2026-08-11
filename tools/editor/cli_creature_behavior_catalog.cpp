@@ -320,20 +320,13 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate behaviorId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wbhv", base, errors, warnings);
-    std::printf("validate-wbhv: %s.wbhv\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu behaviors, all behaviorIds "
+    return cli::reportValidation("wbhv", base, jsonOut, errors, warnings,
+                                 formatted("%zu behaviors, all behaviorIds "
                     "unique, creatureKind 0..5, evadeBehavior "
                     "0..3, aggroRadius > 0, leashRadius >= "
                     "aggroRadius (creature can engage), no "
                     "zero-spellId specials, no duplicate "
-                    "specials within same behavior\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "specials within same behavior", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

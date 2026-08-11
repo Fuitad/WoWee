@@ -336,15 +336,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.setId)) errors.push_back(ctx + ": duplicate setId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wset", base, errors, warnings);
-    std::printf("validate-wset: %s.wset\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu sets, all setIds unique, all bonus thresholds reachable\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wset", base, jsonOut, errors, warnings,
+                                 formatted("%zu sets, all setIds unique, all bonus thresholds reachable", c.entries.size()));
 }
 
 } // namespace

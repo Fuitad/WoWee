@@ -310,18 +310,11 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate locationId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wloc", base, errors, warnings);
-    std::printf("validate-wloc: %s.wloc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu locations, all locationIds "
+    return cli::reportValidation("wloc", base, jsonOut, errors, warnings,
+                                 formatted("%zu locations, all locationIds "
                     "unique, locKind 0..6, factionAccess "
                     "0..3, all spawnable kinds (Rare/Herb/"
-                    "Mineral/Fishing) have respawnSec > 0\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "Mineral/Fishing) have respawnSec > 0", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

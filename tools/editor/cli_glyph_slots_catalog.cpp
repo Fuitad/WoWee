@@ -301,15 +301,8 @@ int handleValidate(int& i, int argc, char** argv) {
                 " for overlapping classMask — UI position collision");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wgfs", base, errors, warnings);
-    std::printf("validate-wgfs: %s.wgfs\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu slots, all slotIds unique, no UI overlaps\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wgfs", base, jsonOut, errors, warnings,
+                                 formatted("%zu slots, all slotIds unique, no UI overlaps", c.entries.size()));
 }
 
 } // namespace

@@ -318,20 +318,13 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate ruleId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wswp", base, errors, warnings);
-    std::printf("validate-wswp: %s.wswp\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu rules, all ruleIds unique, "
+    return cli::reportValidation("wswp", base, jsonOut, errors, warnings,
+                                 formatted("%zu rules, all ruleIds unique, "
                     "non-zero original+replacement sound, "
                     "no self-replacement, conditionKind "
                     "0..4, no duplicate trigger triples, "
                     "non-Always kinds have non-zero "
-                    "conditionValue\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "conditionValue", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

@@ -290,15 +290,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.encounterId)) errors.push_back(ctx + ": duplicate encounterId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wbos", base, errors, warnings);
-    std::printf("validate-wbos: %s.wbos\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu encounters, all encounterIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wbos", base, jsonOut, errors, warnings,
+                                 formatted("%zu encounters, all encounterIds unique", c.entries.size()));
 }
 
 } // namespace

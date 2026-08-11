@@ -294,15 +294,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.castTimeId)) errors.push_back(ctx + ": duplicate castTimeId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wsct", base, errors, warnings);
-    std::printf("validate-wsct: %s.wsct\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu buckets, all castTimeIds unique, all min<=max\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wsct", base, jsonOut, errors, warnings,
+                                 formatted("%zu buckets, all castTimeIds unique, all min<=max", c.entries.size()));
 }
 
 } // namespace

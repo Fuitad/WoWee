@@ -289,15 +289,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.sortId)) errors.push_back(ctx + ": duplicate sortId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wqso", base, errors, warnings);
-    std::printf("validate-wqso: %s.wqso\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu sorts, all sortIds unique, all kind-target pairings consistent\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wqso", base, jsonOut, errors, warnings,
+                                 formatted("%zu sorts, all sortIds unique, all kind-target pairings consistent", c.entries.size()));
 }
 
 } // namespace

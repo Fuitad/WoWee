@@ -398,16 +398,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate modeId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wlma", base, errors, warnings);
-    std::printf("validate-wlma: %s.wlma\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu modes, all modeIds unique, "
-                    "per-kind constraints satisfied\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wlma", base, jsonOut, errors, warnings,
+                                 formatted("%zu modes, all modeIds unique, "
+                    "per-kind constraints satisfied", c.entries.size()));
 }
 
 } // namespace

@@ -294,15 +294,8 @@ int handleValidate(int& i, int argc, char** argv) {
                 " (< 0) — curve shrinks with level, double-check");
         if (!idsSeen.add(e.curveId)) errors.push_back(ctx + ": duplicate curveId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wstm", base, errors, warnings);
-    std::printf("validate-wstm: %s.wstm\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu curves, all curveIds unique, all minLevel<=maxLevel\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wstm", base, jsonOut, errors, warnings,
+                                 formatted("%zu curves, all curveIds unique, all minLevel<=maxLevel", c.entries.size()));
 }
 
 } // namespace

@@ -305,15 +305,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.rangeId)) errors.push_back(ctx + ": duplicate rangeId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wsrg", base, errors, warnings);
-    std::printf("validate-wsrg: %s.wsrg\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu ranges, all rangeIds unique, all min<=max\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wsrg", base, jsonOut, errors, warnings,
+                                 formatted("%zu ranges, all rangeIds unique, all min<=max", c.entries.size()));
 }
 
 } // namespace

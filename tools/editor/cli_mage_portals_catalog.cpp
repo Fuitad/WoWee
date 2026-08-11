@@ -312,18 +312,11 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate portalId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wprt", base, errors, warnings);
-    std::printf("validate-wprt: %s.wprt\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu portals, all portalIds + "
+    return cli::reportValidation("wprt", base, jsonOut, errors, warnings,
+                                 formatted("%zu portals, all portalIds + "
                     "spellIds unique, factionAccess 0..3, "
                     "portalKind 0..1, levelRequirement >= 20, "
-                    "reagent matches kind\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "reagent matches kind", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

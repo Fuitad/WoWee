@@ -393,17 +393,10 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wrpr", base, errors, warnings);
-    std::printf("validate-wrpr: %s.wrpr\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu tiers, all tierIds + "
+    return cli::reportValidation("wrpr", base, jsonOut, errors, warnings,
+                                 formatted("%zu tiers, all tierIds + "
                     "(faction,standing) tuples unique, "
-                    "discounts monotonic per faction\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "discounts monotonic per faction", c.entries.size()));
 }
 
 } // namespace

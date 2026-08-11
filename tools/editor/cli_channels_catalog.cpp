@@ -293,15 +293,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.channelId)) errors.push_back(ctx + ": duplicate channelId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wchn", base, errors, warnings);
-    std::printf("validate-wchn: %s.wchn\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu channels, all channelIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wchn", base, jsonOut, errors, warnings,
+                                 formatted("%zu channels, all channelIds unique", c.entries.size()));
 }
 
 } // namespace

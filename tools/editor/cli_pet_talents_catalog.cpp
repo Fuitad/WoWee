@@ -410,20 +410,10 @@ int handleValidate(int& i, int argc, char** argv) {
                 " — prereqs must be in earlier tiers");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wptt", base, errors, warnings);
-    std::printf("validate-wptt: %s.wptt\n", base.c_str());
-    if (ok && warnings.empty()) {
-        size_t totalSpells = 0;
-        for (const auto& e : c.entries)
-            totalSpells += e.spellIdsByRank.size();
-        std::printf("  OK — %zu talents, %zu rank-spells, "
-                    "all talentIds + cells unique, prereqs "
-                    "valid + earlier-tier\n",
-                    c.entries.size(), totalSpells);
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    size_t totalSpells = 0;
+    for (const auto& e : c.entries) totalSpells += e.spellIdsByRank.size();
+    return cli::reportValidation("wptt", base, jsonOut, errors, warnings,
+                                 cli::formatted("%zu talents, %zu rank-spells, all talentIds + cells unique, prereqs valid + earlier-tier", c.entries.size(), totalSpells));
 }
 
 } // namespace

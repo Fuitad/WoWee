@@ -333,15 +333,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.profileId)) errors.push_back(ctx + ": duplicate profileId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wpsp", base, errors, warnings);
-    std::printf("validate-wpsp: %s.wpsp\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu profiles, all profileIds unique, all masks set\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wpsp", base, jsonOut, errors, warnings,
+                                 formatted("%zu profiles, all profileIds unique, all masks set", c.entries.size()));
 }
 
 } // namespace

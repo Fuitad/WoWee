@@ -311,15 +311,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.compId)) errors.push_back(ctx + ": duplicate compId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wgrp", base, errors, warnings);
-    std::printf("validate-wgrp: %s.wgrp\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu compositions, all compIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wgrp", base, jsonOut, errors, warnings,
+                                 formatted("%zu compositions, all compIds unique", c.entries.size()));
 }
 
 } // namespace

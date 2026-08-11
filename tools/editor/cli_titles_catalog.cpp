@@ -259,15 +259,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.titleId)) errors.push_back(ctx + ": duplicate titleId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wtit", base, errors, warnings);
-    std::printf("validate-wtit: %s.wtit\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu titles, all titleIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wtit", base, jsonOut, errors, warnings,
+                                 formatted("%zu titles, all titleIds unique", c.entries.size()));
 }
 
 } // namespace

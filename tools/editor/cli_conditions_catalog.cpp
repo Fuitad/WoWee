@@ -295,15 +295,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.conditionId)) errors.push_back(ctx + ": duplicate conditionId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wpcd", base, errors, warnings);
-    std::printf("validate-wpcd: %s.wpcd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu conditions, all conditionIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wpcd", base, jsonOut, errors, warnings,
+                                 formatted("%zu conditions, all conditionIds unique", c.entries.size()));
 }
 
 } // namespace

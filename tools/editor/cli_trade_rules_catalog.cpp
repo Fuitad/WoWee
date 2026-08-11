@@ -381,16 +381,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate ruleId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wtrd", base, errors, warnings);
-    std::printf("validate-wtrd: %s.wtrd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu rules, all ruleIds unique, "
-                    "per-kind constraints satisfied\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wtrd", base, jsonOut, errors, warnings,
+                                 formatted("%zu rules, all ruleIds unique, "
+                    "per-kind constraints satisfied", c.entries.size()));
 }
 
 } // namespace

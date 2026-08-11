@@ -319,15 +319,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.liquidId)) errors.push_back(ctx + ": duplicate liquidId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wliq", base, errors, warnings);
-    std::printf("validate-wliq: %s.wliq\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu liquids, all liquidIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wliq", base, jsonOut, errors, warnings,
+                                 formatted("%zu liquids, all liquidIds unique", c.entries.size()));
 }
 
 } // namespace

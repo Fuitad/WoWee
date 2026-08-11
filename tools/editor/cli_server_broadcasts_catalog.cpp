@@ -386,15 +386,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.broadcastId)) errors.push_back(ctx + ": duplicate broadcastId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wscb", base, errors, warnings);
-    std::printf("validate-wscb: %s.wscb\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu broadcasts, all ids unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wscb", base, jsonOut, errors, warnings,
+                                 formatted("%zu broadcasts, all ids unique", c.entries.size()));
 }
 
 } // namespace

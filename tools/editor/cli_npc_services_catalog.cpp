@@ -299,15 +299,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.serviceId)) errors.push_back(ctx + ": duplicate serviceId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wbkd", base, errors, warnings);
-    std::printf("validate-wbkd: %s.wbkd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu services, all serviceIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wbkd", base, jsonOut, errors, warnings,
+                                 formatted("%zu services, all serviceIds unique", c.entries.size()));
 }
 
 } // namespace

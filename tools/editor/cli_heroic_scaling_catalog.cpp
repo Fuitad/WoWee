@@ -329,16 +329,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate scalingId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("whrd", base, errors, warnings);
-    std::printf("validate-whrd: %s.whrd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu scalings, all scalingIds + "
-                    "(map,difficulty) tuples unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("whrd", base, jsonOut, errors, warnings,
+                                 formatted("%zu scalings, all scalingIds + "
+                    "(map,difficulty) tuples unique", c.entries.size()));
 }
 
 } // namespace

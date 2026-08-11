@@ -289,15 +289,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.eventId)) errors.push_back(ctx + ": duplicate eventId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wsea", base, errors, warnings);
-    std::printf("validate-wsea: %s.wsea\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu events, all eventIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wsea", base, jsonOut, errors, warnings,
+                                 formatted("%zu events, all eventIds unique", c.entries.size()));
 }
 
 } // namespace

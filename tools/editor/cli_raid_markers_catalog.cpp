@@ -338,16 +338,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate markerId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wmar", base, errors, warnings);
-    std::printf("validate-wmar: %s.wmar\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu markers, all markerIds + "
-                    "(kind,priority) tuples unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wmar", base, jsonOut, errors, warnings,
+                                 formatted("%zu markers, all markerIds + "
+                    "(kind,priority) tuples unique", c.entries.size()));
 }
 
 } // namespace

@@ -286,15 +286,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.tipId)) errors.push_back(ctx + ": duplicate tipId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wgtp", base, errors, warnings);
-    std::printf("validate-wgtp: %s.wgtp\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu tips, all tipIds unique, all level ranges valid\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wgtp", base, jsonOut, errors, warnings,
+                                 formatted("%zu tips, all tipIds unique, all level ranges valid", c.entries.size()));
 }
 
 } // namespace

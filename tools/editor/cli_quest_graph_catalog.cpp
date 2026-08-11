@@ -353,18 +353,11 @@ int handleValidate(int& i, int argc, char** argv) {
                           " — quests would be unreachable "
                           "(progression deadlock)");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wqgr", base, errors, warnings);
-    std::printf("validate-wqgr: %s.wqgr\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu quests, all questIds unique, "
+    return cli::reportValidation("wqgr", base, jsonOut, errors, warnings,
+                                 formatted("%zu quests, all questIds unique, "
                     "questType 0..4, factionAccess 0..3, no "
                     "self-prereq, no missing prereq questId, "
-                    "no DFS cycle (no progression deadlock)\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "no DFS cycle (no progression deadlock)", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

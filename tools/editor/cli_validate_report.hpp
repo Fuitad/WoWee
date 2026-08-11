@@ -61,6 +61,38 @@ inline int printValidationIssues(const std::vector<std::string>& errors,
     return errors.empty() ? 0 : 1;
 }
 
+/// printf into a std::string, for the one line a format writes about itself.
+template <typename... Args>
+inline std::string formatted(const char* fmt, Args... args) {
+    const int n = std::snprintf(nullptr, 0, fmt, args...);
+    if (n <= 0) return {};
+    std::string out(static_cast<size_t>(n), '\0');
+    std::snprintf(out.data(), static_cast<size_t>(n) + 1, fmt, args...);
+    return out;
+}
+
+/// The end of every --validate-* handler: the report, in whichever form was
+/// asked for, and the process exit code.
+///
+/// All 138 of them wrote this out: test whether there were errors, answer JSON
+/// if --json was given, print the file's name, print one line saying what OK
+/// means for this format when there is nothing to report, and otherwise list
+/// what there is. Only the tag and that one line differ, and the line is the
+/// one thing each format knows that this does not — so it is passed in already
+/// formatted.
+inline int reportValidation(const std::string& tag, const std::string& base, bool jsonOut,
+                            const std::vector<std::string>& errors,
+                            const std::vector<std::string>& warnings,
+                            const std::string& okLine) {
+    if (jsonOut) return printValidationJson(tag, base, errors, warnings);
+    std::printf("validate-%s: %s.%s\n", tag.c_str(), base.c_str(), tag.c_str());
+    if (errors.empty() && warnings.empty()) {
+        std::printf("  OK — %s\n", okLine.c_str());
+        return 0;
+    }
+    return printValidationIssues(errors, warnings);
+}
+
 /// Ids already seen while validating, so the second one can be reported.
 ///
 /// 84 handlers kept a std::vector and walked the whole of it for every entry,

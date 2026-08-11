@@ -351,19 +351,10 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate rollId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wmvc", base, errors, warnings);
-    std::printf("validate-wmvc: %s.wmvc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        size_t totalLines = 0;
-        for (const auto& e : c.entries) totalLines += e.lines.size();
-        std::printf("  OK — %zu blocks, %zu lines, all "
-                    "rollIds + per-cinematic orderHints "
-                    "unique\n",
-                    c.entries.size(), totalLines);
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    size_t totalLines = 0;
+    for (const auto& e : c.entries) totalLines += e.lines.size();
+    return cli::reportValidation("wmvc", base, jsonOut, errors, warnings,
+                                 cli::formatted("%zu blocks, %zu lines, all rollIds + per-cinematic orderHints unique", c.entries.size(), totalLines));
 }
 
 } // namespace

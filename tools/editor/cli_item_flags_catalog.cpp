@@ -293,15 +293,8 @@ int handleValidate(int& i, int argc, char** argv) {
             bitsSeen.push_back(e.bitMask);
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wifs", base, errors, warnings);
-    std::printf("validate-wifs: %s.wifs\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu flags, all flagIds + bitMasks unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wifs", base, jsonOut, errors, warnings,
+                                 formatted("%zu flags, all flagIds + bitMasks unique", c.entries.size()));
 }
 
 } // namespace

@@ -461,15 +461,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.questId)) errors.push_back(ctx + ": duplicate questId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wqt", base, errors, warnings);
-    std::printf("validate-wqt: %s.wqt\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu quests, all questIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wqt", base, jsonOut, errors, warnings,
+                                 formatted("%zu quests, all questIds unique", c.entries.size()));
 }
 
 } // namespace

@@ -470,16 +470,9 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wbab", base, errors, warnings);
-    std::printf("validate-wbab: %s.wbab\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu buffs, all buffIds unique, "
-                    "rank chain back-edges symmetric\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wbab", base, jsonOut, errors, warnings,
+                                 formatted("%zu buffs, all buffIds unique, "
+                    "rank chain back-edges symmetric", c.entries.size()));
 }
 
 } // namespace

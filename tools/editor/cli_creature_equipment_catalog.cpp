@@ -290,15 +290,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.equipmentId)) errors.push_back(ctx + ": duplicate equipmentId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wceq", base, errors, warnings);
-    std::printf("validate-wceq: %s.wceq\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu loadouts, all equipmentIds unique, all flag combos consistent\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wceq", base, jsonOut, errors, warnings,
+                                 formatted("%zu loadouts, all equipmentIds unique, all flag combos consistent", c.entries.size()));
 }
 
 } // namespace

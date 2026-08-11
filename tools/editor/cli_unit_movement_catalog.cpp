@@ -300,15 +300,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.moveTypeId)) errors.push_back(ctx + ": duplicate moveTypeId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wumv", base, errors, warnings);
-    std::printf("validate-wumv: %s.wumv\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu movement types, all moveTypeIds unique, all multipliers consistent\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wumv", base, jsonOut, errors, warnings,
+                                 formatted("%zu movement types, all moveTypeIds unique, all multipliers consistent", c.entries.size()));
 }
 
 } // namespace

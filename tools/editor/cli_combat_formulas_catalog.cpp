@@ -315,19 +315,12 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate formulaId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wcfr", base, errors, warnings);
-    std::printf("validate-wcfr: %s.wcfr\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu formulas, all formulaIds + "
+    return cli::reportValidation("wcfr", base, jsonOut, errors, warnings,
+                                 formatted("%zu formulas, all formulaIds + "
                     "(output,input,classMask,levelMin) quads "
                     "unique, outputStatKind 0..7, "
                     "inputStatKind 0..4, conversionRatio > 0, "
-                    "valid level range\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "valid level range", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

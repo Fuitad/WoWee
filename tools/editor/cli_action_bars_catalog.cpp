@@ -301,15 +301,8 @@ int handleValidate(int& i, int argc, char** argv) {
                 " for overlapping classMask — slot collision");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wact", base, errors, warnings);
-    std::printf("validate-wact: %s.wact\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu bindings, all bindingIds unique, no slot collisions\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wact", base, jsonOut, errors, warnings,
+                                 formatted("%zu bindings, all bindingIds unique, no slot collisions", c.entries.size()));
 }
 
 } // namespace

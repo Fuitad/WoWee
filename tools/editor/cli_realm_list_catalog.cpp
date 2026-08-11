@@ -488,15 +488,9 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.realmId)) errors.push_back(ctx + ": duplicate realmId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wmsp", base, errors, warnings);
-    std::printf("validate-wmsp: %s.wmsp\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu realms, all realmIds + names "
-                    "unique\n", c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wmsp", base, jsonOut, errors, warnings,
+                                 formatted("%zu realms, all realmIds + names "
+                    "unique", c.entries.size()));
 }
 
 } // namespace

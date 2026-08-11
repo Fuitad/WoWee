@@ -359,15 +359,8 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wtal", base, errors, warnings);
-    std::printf("validate-wtal: %s.wtal\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu trees, %u talents, all IDs unique\n",
-                    c.trees.size(), totalTalents(c));
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wtal", base, jsonOut, errors, warnings,
+                                 formatted("%zu trees, %u talents, all IDs unique", c.trees.size(), totalTalents(c)));
 }
 
 } // namespace

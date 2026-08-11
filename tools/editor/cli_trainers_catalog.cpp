@@ -404,17 +404,10 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.npcId)) errors.push_back(ctx + ": duplicate npcId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wtrn", base, errors, warnings);
-    std::printf("validate-wtrn: %s.wtrn\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu npcs, %u spell offers, %u item offers\n",
-                    c.entries.size(),
+    return cli::reportValidation("wtrn", base, jsonOut, errors, warnings,
+                                 formatted("%zu npcs, %u spell offers, %u item offers", c.entries.size(),
                     totalSpellOffers(c),
-                    totalItemOffers(c));
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    totalItemOffers(c)));
 }
 
 } // namespace

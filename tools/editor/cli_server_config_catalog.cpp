@@ -422,16 +422,10 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate configId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wcfg", base, errors, warnings);
-    std::printf("validate-wcfg: %s.wcfg\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu configs, all configIds + "
+    return cli::reportValidation("wcfg", base, jsonOut, errors, warnings,
+                                 formatted("%zu configs, all configIds + "
                     "names unique, per-kind value semantics "
-                    "satisfied\n", c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "satisfied", c.entries.size()));
 }
 
 } // namespace

@@ -301,15 +301,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.cinematicId)) errors.push_back(ctx + ": duplicate cinematicId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wcms", base, errors, warnings);
-    std::printf("validate-wcms: %s.wcms\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu cinematics, all cinematicIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wcms", base, jsonOut, errors, warnings,
+                                 formatted("%zu cinematics, all cinematicIds unique", c.entries.size()));
 }
 
 } // namespace

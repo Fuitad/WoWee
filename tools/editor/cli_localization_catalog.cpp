@@ -396,16 +396,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate stringId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wlan", base, errors, warnings);
-    std::printf("validate-wlan: %s.wlan\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu strings, all stringIds + "
-                    "(key,lang,ns) triples unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wlan", base, jsonOut, errors, warnings,
+                                 formatted("%zu strings, all stringIds + "
+                    "(key,lang,ns) triples unique", c.entries.size()));
 }
 
 } // namespace

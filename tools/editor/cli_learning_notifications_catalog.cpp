@@ -432,17 +432,10 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate notificationId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wldn", base, errors, warnings);
-    std::printf("validate-wldn: %s.wldn\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu notifications, all "
+    return cli::reportValidation("wldn", base, jsonOut, errors, warnings,
+                                 formatted("%zu notifications, all "
                     "notificationIds unique, triggerValues "
-                    "valid for kind\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "valid for kind", c.entries.size()));
 }
 
 } // namespace

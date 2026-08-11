@@ -347,16 +347,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate variantId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wspv", base, errors, warnings);
-    std::printf("validate-wspv: %s.wspv\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu variants, all variantIds + "
-                    "(base,kind,val,prio) tuples unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wspv", base, jsonOut, errors, warnings,
+                                 formatted("%zu variants, all variantIds + "
+                    "(base,kind,val,prio) tuples unique", c.entries.size()));
 }
 
 } // namespace

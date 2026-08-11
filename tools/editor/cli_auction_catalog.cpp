@@ -282,15 +282,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.houseId)) errors.push_back(ctx + ": duplicate houseId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wauc", base, errors, warnings);
-    std::printf("validate-wauc: %s.wauc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu houses, all houseIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wauc", base, jsonOut, errors, warnings,
+                                 formatted("%zu houses, all houseIds unique", c.entries.size()));
 }
 
 } // namespace

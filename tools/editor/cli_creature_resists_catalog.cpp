@@ -408,16 +408,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate resistId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wcre", base, errors, warnings);
-    std::printf("validate-wcre: %s.wcre\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu resist profiles, all "
-                    "resistIds + creatureEntries unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wcre", base, jsonOut, errors, warnings,
+                                 formatted("%zu resist profiles, all "
+                    "resistIds + creatureEntries unique", c.entries.size()));
 }
 
 } // namespace

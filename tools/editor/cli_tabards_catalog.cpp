@@ -403,16 +403,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate tabardId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wtbd", base, errors, warnings);
-    std::printf("validate-wtbd: %s.wtbd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu tabards, all tabardIds "
-                    "unique, contrasting colors\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wtbd", base, jsonOut, errors, warnings,
+                                 formatted("%zu tabards, all tabardIds "
+                    "unique, contrasting colors", c.entries.size()));
 }
 
 } // namespace

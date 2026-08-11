@@ -356,15 +356,8 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wpcn", base, errors, warnings);
-    std::printf("validate-wpcn: %s.wpcn\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu conditions, all conditionIds unique, all chains resolved\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wpcn", base, jsonOut, errors, warnings,
+                                 formatted("%zu conditions, all conditionIds unique, all chains resolved", c.entries.size()));
 }
 
 } // namespace

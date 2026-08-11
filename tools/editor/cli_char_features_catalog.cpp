@@ -327,16 +327,9 @@ int handleValidate(int& i, int argc, char** argv) {
         tupleSeen.insert(tuple);
         if (!idsSeen.add(e.featureId)) errors.push_back(ctx + ": duplicate featureId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wchf", base, errors, warnings);
-    std::printf("validate-wchf: %s.wchf\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu features, all featureIds unique, "
-                    "all (race,sex,kind,variation) tuples unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wchf", base, jsonOut, errors, warnings,
+                                 formatted("%zu features, all featureIds unique, "
+                    "all (race,sex,kind,variation) tuples unique", c.entries.size()));
 }
 
 } // namespace

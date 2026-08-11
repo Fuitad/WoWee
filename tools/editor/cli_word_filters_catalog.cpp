@@ -375,15 +375,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate filterId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wwfl", base, errors, warnings);
-    std::printf("validate-wwfl: %s.wwfl\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu filters, all filterIds + "
-                    "patterns unique\n", c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wwfl", base, jsonOut, errors, warnings,
+                                 formatted("%zu filters, all filterIds + "
+                    "patterns unique", c.entries.size()));
 }
 
 } // namespace

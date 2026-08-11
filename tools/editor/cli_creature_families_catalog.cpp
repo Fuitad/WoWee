@@ -397,15 +397,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.familyId)) errors.push_back(ctx + ": duplicate familyId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wcef", base, errors, warnings);
-    std::printf("validate-wcef: %s.wcef\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu families, all familyIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wcef", base, jsonOut, errors, warnings,
+                                 formatted("%zu families, all familyIds unique", c.entries.size()));
 }
 
 } // namespace

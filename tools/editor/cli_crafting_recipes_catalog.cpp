@@ -255,20 +255,13 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate recipeId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wcra", base, errors, warnings);
-    std::printf("validate-wcra: %s.wcra\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu recipes, all recipeIds + "
+    return cli::reportValidation("wcra", base, jsonOut, errors, warnings,
+                                 formatted("%zu recipes, all recipeIds + "
                     "spellIds unique, non-zero spellId/"
                     "tradeSkillId/producedItemId/"
                     "producedCount, no zero-item/zero-count "
                     "reagents, no duplicate reagent itemIds "
-                    "in same recipe, no self-reagent\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "in same recipe, no self-reagent", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

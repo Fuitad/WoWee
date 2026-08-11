@@ -302,15 +302,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.runeCostId)) errors.push_back(ctx + ": duplicate runeCostId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wrun", base, errors, warnings);
-    std::printf("validate-wrun: %s.wrun\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu rune costs, all runeCostIds unique, all costs within DK budget\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wrun", base, jsonOut, errors, warnings,
+                                 formatted("%zu rune costs, all runeCostIds unique, all costs within DK budget", c.entries.size()));
 }
 
 } // namespace

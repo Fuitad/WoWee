@@ -267,15 +267,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.glyphId)) errors.push_back(ctx + ": duplicate glyphId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wgly", base, errors, warnings);
-    std::printf("validate-wgly: %s.wgly\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu glyphs, all glyphIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wgly", base, jsonOut, errors, warnings,
+                                 formatted("%zu glyphs, all glyphIds unique", c.entries.size()));
 }
 
 } // namespace

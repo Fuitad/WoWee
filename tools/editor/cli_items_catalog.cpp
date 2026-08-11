@@ -397,15 +397,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.itemId)) errors.push_back(ctx + ": duplicate itemId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wit", base, errors, warnings);
-    std::printf("validate-wit: %s.wit\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu items, all itemIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wit", base, jsonOut, errors, warnings,
+                                 formatted("%zu items, all itemIds unique", c.entries.size()));
 }
 
 } // namespace

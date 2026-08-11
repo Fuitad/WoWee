@@ -275,18 +275,11 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate presetId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wcam", base, errors, warnings);
-    std::printf("validate-wcam: %s.wcam\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu presets, all presetIds "
+    return cli::reportValidation("wcam", base, jsonOut, errors, warnings,
+                                 formatted("%zu presets, all presetIds "
                     "unique, purposeKind 0..5, FOV in "
                     "(0,180), distanceFromTarget >= 0, "
-                    "pitch within (-89, +89)\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "pitch within (-89, +89)", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

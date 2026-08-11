@@ -304,20 +304,13 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate ahId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wauh", base, errors, warnings);
-    std::printf("validate-wauh: %s.wauh\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu houses, all ahIds + "
+    return cli::reportValidation("wauh", base, jsonOut, errors, warnings,
+                                 formatted("%zu houses, all ahIds + "
                     "(faction,name) + npcAuctioneerId "
                     "unique, factionAccess 0..3, "
                     "depositRatePct + cutPct in 0..10000 "
                     "and combined < 10000, valid "
-                    "min<=max listing duration\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "min<=max listing duration", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

@@ -411,16 +411,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate voiceId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wvox", base, errors, warnings);
-    std::printf("validate-wvox: %s.wvox\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu voice clips, all voiceIds + "
-                    "(npc,event,variant) triples unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wvox", base, jsonOut, errors, warnings,
+                                 formatted("%zu voice clips, all voiceIds + "
+                    "(npc,event,variant) triples unique", c.entries.size()));
 }
 
 } // namespace

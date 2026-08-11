@@ -300,20 +300,13 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate routeId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wtsc", base, errors, warnings);
-    std::printf("validate-wtsc: %s.wtsc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu routes, all routeIds + "
+    return cli::reportValidation("wtsc", base, jsonOut, errors, warnings,
+                                 formatted("%zu routes, all routeIds + "
                     "names unique, vehicleType 0..3, "
                     "factionAccess 0..3, no zero "
                     "intervals/travel, no scheduling "
                     "overflow (interval >= travel where "
-                    "capacity is finite)\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "capacity is finite)", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

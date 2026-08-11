@@ -317,15 +317,8 @@ int handleValidate(int& i, int argc, char** argv) {
         if (!idsSeen.add(e.worldStateId)) errors.push_back(ctx + ": duplicate worldStateId");
         varsSeen.push_back(e.variableIndex);
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wwui", base, errors, warnings);
-    std::printf("validate-wwui: %s.wwui\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu world states, all worldStateIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wwui", base, jsonOut, errors, warnings,
+                                 formatted("%zu world states, all worldStateIds unique", c.entries.size()));
 }
 
 } // namespace

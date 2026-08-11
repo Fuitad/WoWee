@@ -283,15 +283,9 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.macroId)) errors.push_back(ctx + ": duplicate macroId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wmac", base, errors, warnings);
-    std::printf("validate-wmac: %s.wmac\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu macros, all macroIds unique, "
-                    "all bodies within length cap\n", c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wmac", base, jsonOut, errors, warnings,
+                                 formatted("%zu macros, all macroIds unique, "
+                    "all bodies within length cap", c.entries.size()));
 }
 
 } // namespace

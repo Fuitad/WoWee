@@ -354,15 +354,8 @@ int handleValidate(int& i, int argc, char** argv) {
             spellsSeen.push_back(e.spellId);
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wspr", base, errors, warnings);
-    std::printf("validate-wspr: %s.wspr\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu reagent sets, all reagentSetIds unique, all spell ids set\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wspr", base, jsonOut, errors, warnings,
+                                 formatted("%zu reagent sets, all reagentSetIds unique, all spell ids set", c.entries.size()));
 }
 
 } // namespace

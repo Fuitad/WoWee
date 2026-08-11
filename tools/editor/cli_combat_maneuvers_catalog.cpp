@@ -380,18 +380,10 @@ int handleValidate(int& i, int argc, char** argv) {
             "(latest: groupId " + std::to_string(groupId) +
             ") — action bar mutex would be undecidable");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wcmg", base, errors, warnings);
-    std::printf("validate-wcmg: %s.wcmg\n", base.c_str());
-    if (ok && warnings.empty()) {
-        size_t totalSpells = 0;
-        for (const auto& e : c.entries) totalSpells += e.members.size();
-        std::printf("  OK — %zu groups, %zu member spells, all "
-                    "groupIds unique\n",
-                    c.entries.size(), totalSpells);
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    size_t totalSpells = 0;
+    for (const auto& e : c.entries) totalSpells += e.members.size();
+    return cli::reportValidation("wcmg", base, jsonOut, errors, warnings,
+                                 cli::formatted("%zu groups, %zu member spells, all groupIds unique", c.entries.size(), totalSpells));
 }
 
 } // namespace

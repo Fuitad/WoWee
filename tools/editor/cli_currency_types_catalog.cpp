@@ -310,15 +310,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.currencyId)) errors.push_back(ctx + ": duplicate currencyId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wctr", base, errors, warnings);
-    std::printf("validate-wctr: %s.wctr\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu currencies, all currencyIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wctr", base, jsonOut, errors, warnings,
+                                 formatted("%zu currencies, all currencyIds unique", c.entries.size()));
 }
 
 } // namespace

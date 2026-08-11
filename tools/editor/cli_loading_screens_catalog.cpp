@@ -298,15 +298,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.screenId)) errors.push_back(ctx + ": duplicate screenId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wlds", base, errors, warnings);
-    std::printf("validate-wlds: %s.wlds\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu screens, all screenIds unique, no overlap conflicts\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wlds", base, jsonOut, errors, warnings,
+                                 formatted("%zu screens, all screenIds unique, no overlap conflicts", c.entries.size()));
 }
 
 } // namespace

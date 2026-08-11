@@ -342,15 +342,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.bucketId)) errors.push_back(ctx + ": duplicate bucketId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wscd", base, errors, warnings);
-    std::printf("validate-wscd: %s.wscd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu buckets, all bucketIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wscd", base, jsonOut, errors, warnings,
+                                 formatted("%zu buckets, all bucketIds unique", c.entries.size()));
 }
 
 } // namespace

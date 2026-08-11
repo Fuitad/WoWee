@@ -366,15 +366,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         pathIdsSeen.push_back(p.pathId);
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wtax", base, errors, warnings);
-    std::printf("validate-wtax: %s.wtax\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu nodes, %zu paths, %u waypoints, all IDs unique\n",
-                    c.nodes.size(), c.paths.size(), totalWaypoints(c));
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wtax", base, jsonOut, errors, warnings,
+                                 formatted("%zu nodes, %zu paths, %u waypoints, all IDs unique", c.nodes.size(), c.paths.size(), totalWaypoints(c)));
 }
 
 } // namespace

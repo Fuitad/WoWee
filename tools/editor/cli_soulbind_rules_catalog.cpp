@@ -318,18 +318,11 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate ruleId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wbnd", base, errors, warnings);
-    std::printf("validate-wbnd: %s.wbnd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu rules, all ruleIds + "
+    return cli::reportValidation("wbnd", base, jsonOut, errors, warnings,
+                                 formatted("%zu rules, all ruleIds + "
                     "(bindKind,itemQualityFloor) unique, "
                     "bindKind 0..5, quality 0..7, no "
-                    "tradableForRaidGroup-with-window=0\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "tradableForRaidGroup-with-window=0", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

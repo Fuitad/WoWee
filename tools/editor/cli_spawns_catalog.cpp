@@ -322,18 +322,11 @@ int handleValidate(int& i, int argc, char** argv) {
                 ": entryId is 0 (no template referenced)");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wspn", base, errors, warnings);
-    std::printf("validate-wspn: %s.wspn\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu entries (creature=%u object=%u doodad=%u)\n",
-                    c.entries.size(),
+    return cli::reportValidation("wspn", base, jsonOut, errors, warnings,
+                                 formatted("%zu entries (creature=%u object=%u doodad=%u)", c.entries.size(),
                     c.countByKind(wowee::pipeline::WoweeSpawns::Creature),
                     c.countByKind(wowee::pipeline::WoweeSpawns::GameObject),
-                    c.countByKind(wowee::pipeline::WoweeSpawns::Doodad));
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    c.countByKind(wowee::pipeline::WoweeSpawns::Doodad)));
 }
 
 } // namespace

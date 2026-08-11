@@ -389,15 +389,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.materialId)) errors.push_back(ctx + ": duplicate materialId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wmat", base, errors, warnings);
-    std::printf("validate-wmat: %s.wmat\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu materials, all materialIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wmat", base, jsonOut, errors, warnings,
+                                 formatted("%zu materials, all materialIds unique", c.entries.size()));
 }
 
 } // namespace

@@ -235,19 +235,12 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate tabId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wgbk", base, errors, warnings);
-    std::printf("validate-wgbk: %s.wgbk\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu tabs, all tabIds + "
+    return cli::reportValidation("wgbk", base, jsonOut, errors, warnings,
+                                 formatted("%zu tabs, all tabIds + "
                     "(guildId,tabName) unique, slotCount "
                     "1..98, GM withdrawal > 0, per-rank "
                     "monotonicity (lower rank <= higher "
-                    "rank cap)\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "rank cap)", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

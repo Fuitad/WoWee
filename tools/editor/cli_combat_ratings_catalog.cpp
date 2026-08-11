@@ -284,15 +284,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.ratingType)) errors.push_back(ctx + ": duplicate ratingType");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wcrr", base, errors, warnings);
-    std::printf("validate-wcrr: %s.wcrr\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu ratings, all ratingTypes unique, all curves monotonic\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wcrr", base, jsonOut, errors, warnings,
+                                 formatted("%zu ratings, all ratingTypes unique, all curves monotonic", c.entries.size()));
 }
 
 } // namespace

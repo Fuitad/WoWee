@@ -319,19 +319,12 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate cmdId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wcmd", base, errors, warnings);
-    std::printf("validate-wcmd: %s.wcmd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu commands, all cmdIds + "
+    return cli::reportValidation("wcmd", base, jsonOut, errors, warnings,
+                                 formatted("%zu commands, all cmdIds + "
                     "names + aliases unique across flat "
                     "namespace, security 0..4, category "
                     "0..4, all command/alias names "
-                    "lowercase\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "lowercase", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

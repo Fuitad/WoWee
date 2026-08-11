@@ -440,16 +440,9 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate eventId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wanv", base, errors, warnings);
-    std::printf("validate-wanv: %s.wanv\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu events, all eventIds "
-                    "unique, calendar dates valid\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wanv", base, jsonOut, errors, warnings,
+                                 formatted("%zu events, all eventIds "
+                    "unique, calendar dates valid", c.entries.size()));
 }
 
 } // namespace

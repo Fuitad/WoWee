@@ -331,17 +331,10 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wmnl", base, errors, warnings);
-    std::printf("validate-wmnl: %s.wmnl\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu levels, all levelIds + "
+    return cli::reportValidation("wmnl", base, jsonOut, errors, warnings,
+                                 formatted("%zu levels, all levelIds + "
                     "per-area levelIndices unique, no "
-                    "Z-range overlaps\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "Z-range overlaps", c.entries.size()));
 }
 
 } // namespace

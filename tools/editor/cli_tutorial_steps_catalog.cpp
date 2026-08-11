@@ -291,18 +291,11 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate tutId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wtur", base, errors, warnings);
-    std::printf("validate-wtur: %s.wtur\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu steps, all tutIds unique, "
+    return cli::reportValidation("wtur", base, jsonOut, errors, warnings,
+                                 formatted("%zu steps, all tutIds unique, "
                     "title+body non-empty, triggerEvent "
                     "0..4, no duplicate (event,value,step) "
-                    "triples, hideAfterSec >= 5 when set\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "triples, hideAfterSec >= 5 when set", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

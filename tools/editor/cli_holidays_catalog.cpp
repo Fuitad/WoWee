@@ -318,15 +318,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.holidayId)) errors.push_back(ctx + ": duplicate holidayId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("whol", base, errors, warnings);
-    std::printf("validate-whol: %s.whol\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu holidays, all holidayIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("whol", base, jsonOut, errors, warnings,
+                                 formatted("%zu holidays, all holidayIds unique", c.entries.size()));
 }
 
 } // namespace

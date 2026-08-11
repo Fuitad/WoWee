@@ -250,19 +250,12 @@ int handleValidate(int& i, int argc, char** argv) {
             chk("baseArmor",    prev->baseArmor,    cur->baseArmor);
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wcst", base, errors, warnings);
-    std::printf("validate-wcst: %s.wcst\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu entries, all statIds + "
+    return cli::reportValidation("wcst", base, jsonOut, errors, warnings,
+                                 formatted("%zu entries, all statIds + "
                     "(classId,level) unique, classId 1..11, "
                     "level 1..60, no zero baseHealth, no "
                     "Warrior/Rogue mana, all stats "
-                    "monotonic over level\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "monotonic over level", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

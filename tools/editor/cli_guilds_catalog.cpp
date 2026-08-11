@@ -431,15 +431,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.guildId)) errors.push_back(ctx + ": duplicate guildId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wgld", base, errors, warnings);
-    std::printf("validate-wgld: %s.wgld\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu guilds, all guildIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wgld", base, jsonOut, errors, warnings,
+                                 formatted("%zu guilds, all guildIds unique", c.entries.size()));
 }
 
 } // namespace

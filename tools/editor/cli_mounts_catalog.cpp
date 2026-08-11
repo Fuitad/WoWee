@@ -323,15 +323,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.mountId)) errors.push_back(ctx + ": duplicate mountId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wmou", base, errors, warnings);
-    std::printf("validate-wmou: %s.wmou\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu mounts, all mountIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wmou", base, jsonOut, errors, warnings,
+                                 formatted("%zu mounts, all mountIds unique", c.entries.size()));
 }
 
 } // namespace

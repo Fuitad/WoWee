@@ -316,15 +316,8 @@ int handleValidate(int& i, int argc, char** argv) {
         orderSeen.insert(tuple);
         if (!idsSeen.add(e.bagSlotId)) errors.push_back(ctx + ": duplicate bagSlotId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wbnk", base, errors, warnings);
-    std::printf("validate-wbnk: %s.wbnk\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu slots, all bagSlotIds unique, no order ambiguity\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wbnk", base, jsonOut, errors, warnings,
+                                 formatted("%zu slots, all bagSlotIds unique, no order ambiguity", c.entries.size()));
 }
 
 } // namespace

@@ -274,19 +274,12 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate procRuleId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wprc", base, errors, warnings);
-    std::printf("validate-wprc: %s.wprc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu procs, all procRuleIds "
+    return cli::reportValidation("wprc", base, jsonOut, errors, warnings,
+                                 formatted("%zu procs, all procRuleIds "
                     "unique, sourceSpellId+procEffectSpellId "
                     "non-zero, triggerEvent 0..8, "
                     "procChancePct 1..10000, no infinite "
-                    "self-proc loop on OnCast\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "self-proc loop on OnCast", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

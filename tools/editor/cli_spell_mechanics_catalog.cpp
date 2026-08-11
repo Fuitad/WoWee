@@ -308,15 +308,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.mechanicId)) errors.push_back(ctx + ": duplicate mechanicId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wsmc", base, errors, warnings);
-    std::printf("validate-wsmc: %s.wsmc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu mechanics, all mechanicIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wsmc", base, jsonOut, errors, warnings,
+                                 formatted("%zu mechanics, all mechanicIds unique", c.entries.size()));
 }
 
 } // namespace

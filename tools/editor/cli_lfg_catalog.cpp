@@ -332,15 +332,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.dungeonId)) errors.push_back(ctx + ": duplicate dungeonId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wlfg", base, errors, warnings);
-    std::printf("validate-wlfg: %s.wlfg\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu dungeons, all dungeonIds unique, all level ranges valid\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wlfg", base, jsonOut, errors, warnings,
+                                 formatted("%zu dungeons, all dungeonIds unique, all level ranges valid", c.entries.size()));
 }
 
 } // namespace

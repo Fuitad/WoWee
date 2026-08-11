@@ -298,15 +298,8 @@ int handleValidate(int& i, int argc, char** argv) {
                 " for overlapping classMask — tab UI position collision");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wtle", base, errors, warnings);
-    std::printf("validate-wtle: %s.wtle\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu tabs, all tabIds unique, no UI overlaps\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wtle", base, jsonOut, errors, warnings,
+                                 formatted("%zu tabs, all tabIds unique, no UI overlaps", c.entries.size()));
 }
 
 } // namespace

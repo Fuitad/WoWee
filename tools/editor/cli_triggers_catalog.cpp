@@ -339,15 +339,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.triggerId)) errors.push_back(ctx + ": duplicate triggerId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wtrg", base, errors, warnings);
-    std::printf("validate-wtrg: %s.wtrg\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu triggers, all triggerIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wtrg", base, jsonOut, errors, warnings,
+                                 formatted("%zu triggers, all triggerIds unique", c.entries.size()));
 }
 
 } // namespace

@@ -359,15 +359,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.powerCostId)) errors.push_back(ctx + ": duplicate powerCostId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wspc", base, errors, warnings);
-    std::printf("validate-wspc: %s.wspc\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu buckets, all powerCostIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wspc", base, jsonOut, errors, warnings,
+                                 formatted("%zu buckets, all powerCostIds unique", c.entries.size()));
 }
 
 } // namespace

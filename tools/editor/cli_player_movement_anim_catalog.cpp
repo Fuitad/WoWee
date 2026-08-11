@@ -295,18 +295,11 @@ int handleValidate(int& i, int argc, char** argv) {
                 "animation hang");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wphm", base, errors, warnings);
-    std::printf("validate-wphm: %s.wphm\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu bindings, all mapIds unique, "
+    return cli::reportValidation("wphm", base, jsonOut, errors, warnings,
+                                 formatted("%zu bindings, all mapIds unique, "
                     "(race,gender,state) triple unique, "
                     "raceId 1..10, genderId 0..1, state "
-                    "0..7, no non-Idle baseAnim==0\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "0..7, no non-Idle baseAnim==0", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

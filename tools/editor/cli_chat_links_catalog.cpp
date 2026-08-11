@@ -287,18 +287,11 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate linkId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wlnk", base, errors, warnings);
-    std::printf("validate-wlnk: %s.wlnk\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu links, all linkIds unique, "
+    return cli::reportValidation("wlnk", base, jsonOut, errors, warnings,
+                                 formatted("%zu links, all linkIds unique, "
                     "linkKind 0..5, linkTemplate non-empty "
                     "with at least one %%d/%%s placeholder, "
-                    "non-zero colorRGBA\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "non-zero colorRGBA", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

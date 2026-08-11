@@ -295,15 +295,9 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.bindingId)) errors.push_back(ctx + ": duplicate bindingId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wkbd", base, errors, warnings);
-    std::printf("validate-wkbd: %s.wkbd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu bindings, all bindingIds unique, "
-                    "no key conflicts\n", c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wkbd", base, jsonOut, errors, warnings,
+                                 formatted("%zu bindings, all bindingIds unique, "
+                    "no key conflicts", c.entries.size()));
 }
 
 } // namespace

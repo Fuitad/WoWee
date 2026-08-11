@@ -352,15 +352,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.recipeId)) errors.push_back(ctx + ": duplicate recipeId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wtsk", base, errors, warnings);
-    std::printf("validate-wtsk: %s.wtsk\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu recipes, all recipeIds unique, all skill brackets monotonic\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wtsk", base, jsonOut, errors, warnings,
+                                 formatted("%zu recipes, all recipeIds unique, all skill brackets monotonic", c.entries.size()));
 }
 
 } // namespace

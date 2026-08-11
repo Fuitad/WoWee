@@ -312,15 +312,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         idsSeen.push_back(e.soundId);
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wsnd", base, errors, warnings);
-    std::printf("validate-wsnd: %s.wsnd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu entries, all sound IDs unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wsnd", base, jsonOut, errors, warnings,
+                                 formatted("%zu entries, all sound IDs unique", c.entries.size()));
 }
 
 } // namespace

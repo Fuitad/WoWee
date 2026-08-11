@@ -381,15 +381,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.achievementId)) errors.push_back(ctx + ": duplicate achievementId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wach", base, errors, warnings);
-    std::printf("validate-wach: %s.wach\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu achievements (%u criteria), all IDs unique\n",
-                    c.entries.size(), totalCriteria(c));
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wach", base, jsonOut, errors, warnings,
+                                 formatted("%zu achievements (%u criteria), all IDs unique", c.entries.size(), totalCriteria(c)));
 }
 
 } // namespace

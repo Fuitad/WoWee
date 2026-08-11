@@ -219,19 +219,12 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate rewardId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wbrd", base, errors, warnings);
-    std::printf("validate-wbrd: %s.wbrd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu stages, all rewardIds + "
+    return cli::reportValidation("wbrd", base, jsonOut, errors, warnings,
+                                 formatted("%zu stages, all rewardIds + "
                     "(bgId,bracket) pairs unique, "
                     "bracketIndex 1..6, minPlayersToStart "
                     "> 0, winHonor >= lossHonor, no "
-                    "bonus-count without bonus-itemId\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "bonus-count without bonus-itemId", c.entries.size()));
 }
 
 int handleExportJson(int& i, int argc, char** argv) {

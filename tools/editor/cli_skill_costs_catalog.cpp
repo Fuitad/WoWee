@@ -317,15 +317,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.costId)) errors.push_back(ctx + ": duplicate costId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wscs", base, errors, warnings);
-    std::printf("validate-wscs: %s.wscs\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu tiers, all costIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wscs", base, jsonOut, errors, warnings,
+                                 formatted("%zu tiers, all costIds unique", c.entries.size()));
 }
 
 } // namespace

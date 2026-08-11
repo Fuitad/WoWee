@@ -384,15 +384,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         minIds.push_back(m.minionId);
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wpet", base, errors, warnings);
-    std::printf("validate-wpet: %s.wpet\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu families, %zu minions, all IDs unique\n",
-                    c.families.size(), c.minions.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wpet", base, jsonOut, errors, warnings,
+                                 formatted("%zu families, %zu minions, all IDs unique", c.families.size(), c.minions.size()));
 }
 
 } // namespace

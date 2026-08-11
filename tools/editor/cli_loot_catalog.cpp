@@ -360,15 +360,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.creatureId)) errors.push_back(ctx + ": duplicate creatureId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wlot", base, errors, warnings);
-    std::printf("validate-wlot: %s.wlot\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu tables, %u total drops, all creatureIds unique\n",
-                    c.entries.size(), totalDrops(c));
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wlot", base, jsonOut, errors, warnings,
+                                 formatted("%zu tables, %u total drops, all creatureIds unique", c.entries.size(), totalDrops(c)));
 }
 
 } // namespace

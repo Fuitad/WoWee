@@ -333,15 +333,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.auraTypeId)) errors.push_back(ctx + ": duplicate auraTypeId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("waur", base, errors, warnings);
-    std::printf("validate-waur: %s.waur\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu auras, all auraTypeIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("waur", base, jsonOut, errors, warnings,
+                                 formatted("%zu auras, all auraTypeIds unique", c.entries.size()));
 }
 
 } // namespace

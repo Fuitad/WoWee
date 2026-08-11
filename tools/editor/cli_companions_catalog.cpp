@@ -316,15 +316,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.companionId)) errors.push_back(ctx + ": duplicate companionId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wcmp", base, errors, warnings);
-    std::printf("validate-wcmp: %s.wcmp\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu companions, all companionIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wcmp", base, jsonOut, errors, warnings,
+                                 formatted("%zu companions, all companionIds unique", c.entries.size()));
 }
 
 } // namespace

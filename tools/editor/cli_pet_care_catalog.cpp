@@ -382,16 +382,10 @@ int handleValidate(int& i, int argc, char** argv) {
             errors.push_back(ctx + ": duplicate actionId");
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wpcr", base, errors, warnings);
-    std::printf("validate-wpcr: %s.wpcr\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu actions, all actionIds "
+    return cli::reportValidation("wpcr", base, jsonOut, errors, warnings,
+                                 formatted("%zu actions, all actionIds "
                     "unique, per-kind constraints "
-                    "satisfied\n", c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "satisfied", c.entries.size()));
 }
 
 } // namespace

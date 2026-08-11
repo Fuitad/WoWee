@@ -368,15 +368,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         enchIdsSeen.push_back(e.enchantId);
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wgem", base, errors, warnings);
-    std::printf("validate-wgem: %s.wgem\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu gems, %zu enchantments, all IDs unique\n",
-                    c.gems.size(), c.enchantments.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wgem", base, jsonOut, errors, warnings,
+                                 formatted("%zu gems, %zu enchantments, all IDs unique", c.gems.size(), c.enchantments.size()));
 }
 
 } // namespace

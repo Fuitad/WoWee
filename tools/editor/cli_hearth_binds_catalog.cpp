@@ -372,15 +372,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.bindId)) errors.push_back(ctx + ": duplicate bindId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("whrt", base, errors, warnings);
-    std::printf("validate-whrt: %s.whrt\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu binds, all bindIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("whrt", base, jsonOut, errors, warnings,
+                                 formatted("%zu binds, all bindIds unique", c.entries.size()));
 }
 
 } // namespace

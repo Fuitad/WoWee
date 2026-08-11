@@ -308,15 +308,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.suffixId)) errors.push_back(ctx + ": duplicate suffixId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wsuf", base, errors, warnings);
-    std::printf("validate-wsuf: %s.wsuf\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu suffixes, all suffixIds unique, all stat slots paired\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wsuf", base, jsonOut, errors, warnings,
+                                 formatted("%zu suffixes, all suffixIds unique, all stat slots paired", c.entries.size()));
 }
 
 } // namespace

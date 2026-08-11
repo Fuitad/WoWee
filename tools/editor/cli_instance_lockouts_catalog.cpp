@@ -317,15 +317,8 @@ int handleValidate(int& i, int argc, char** argv) {
                 "lockout-bound kills, every visit is fresh");
         if (!idsSeen.add(e.lockoutId)) errors.push_back(ctx + ": duplicate lockoutId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("whld", base, errors, warnings);
-    std::printf("validate-whld: %s.whld\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu lockouts, all lockoutIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("whld", base, jsonOut, errors, warnings,
+                                 formatted("%zu lockouts, all lockoutIds unique", c.entries.size()));
 }
 
 } // namespace

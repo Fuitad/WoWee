@@ -355,17 +355,10 @@ int handleValidate(int& i, int argc, char** argv) {
             }
         }
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wprg", base, errors, warnings);
-    std::printf("validate-wprg: %s.wprg\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu ranks, all rankIds + "
+    return cli::reportValidation("wprg", base, jsonOut, errors, warnings,
+                                 formatted("%zu ranks, all rankIds + "
                     "(faction,tier) tuples unique, honor "
-                    "thresholds monotonic per faction\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+                    "thresholds monotonic per faction", c.entries.size()));
 }
 
 } // namespace

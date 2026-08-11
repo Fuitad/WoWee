@@ -312,15 +312,8 @@ int handleValidate(int& i, int argc, char** argv) {
         }
         if (!idsSeen.add(e.battlegroundId)) errors.push_back(ctx + ": duplicate battlegroundId");
     }
-    const bool ok = errors.empty();
-    if (jsonOut) return cli::printValidationJson("wbgd", base, errors, warnings);
-    std::printf("validate-wbgd: %s.wbgd\n", base.c_str());
-    if (ok && warnings.empty()) {
-        std::printf("  OK — %zu battlegrounds, all bgIds unique\n",
-                    c.entries.size());
-        return 0;
-    }
-    return cli::printValidationIssues(errors, warnings);
+    return cli::reportValidation("wbgd", base, jsonOut, errors, warnings,
+                                 formatted("%zu battlegrounds, all bgIds unique", c.entries.size()));
 }
 
 } // namespace
