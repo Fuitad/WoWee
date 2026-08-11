@@ -1275,6 +1275,20 @@ if (const auto* md = charRenderer->getModelData(modelId)) {
         bool hasHumanoidExtra = false;
         uint8_t extraRaceId = 0;
         uint8_t extraSexId = 0;
+        // 1 is the bald cap, and it is also what a missed lookup leaves here.
+        //
+        // That ambiguity was the standing suspect for "taking a helmet off does
+        // not bring the hair back" — if the CharHairGeosets lookup always
+        // missed, the selected scalp would always be bald, hair would be drawn
+        // by texture alone, and the helm path's erase-group-0-and-insert-1
+        // would be a visual no-op.
+        //
+        // Measured 2026-08-11 and it is not that. The DBC reads 339 records
+        // across 334 distinct (race, sex, variation) keys and all 21 races; 22
+        // set Showscalp and 25 more carry GeosetID 0, so 40 of 339 resolve to
+        // the bald cap by design and the other 299 select a real geoset. The
+        // lookup works. What is left of that bug is updateCharacterTextures,
+        // which has not been traced.
         uint16_t selectedHairScalp = 1;
         uint16_t selectedFacial100 = 100;
         uint16_t selectedFacial200 = 200;
