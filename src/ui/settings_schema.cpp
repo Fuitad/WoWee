@@ -59,9 +59,16 @@ constexpr SettingDesc kSchema[] = {
      "Ultra Quality (77%)|Quality (67%)|Balanced (59%)|Native (100%)", 3, "upscaling!=0"},
     {"fsrsharpness", "FSR sharpness", SettingKind::Float, 0, 2, 0.1f, "Upscaling", "",
      "Sharpening applied after upscaling.", "", 1.6f, "upscaling!=0"},
+    // Only when AMD's runtime is actually in the build. It is the one setting
+    // here with no in-tree implementation behind it: the temporal upscaler is
+    // this client's own compute shaders and runs either way, but frame
+    // generation is the SDK's alone. With the backend off the control would
+    // tick, save, and change nothing.
+#if WOWEE_HAS_AMD_FSR3_FRAMEGEN
     {"framegen", "Frame generation", SettingKind::Bool, 0, 0, 0, "Upscaling", "",
-     "Experimental. FSR 3 only, and only where AMD's runtime is present —\n"
-     "it is known broken on RADV/Mesa.", "", 0, "upscaling=2"},
+     "Experimental. FSR 3 only, and known broken on RADV/Mesa.",
+     "", 0, "upscaling=2"},
+#endif
     {"fsrjittersign", "Jitter sign", SettingKind::Float, -2, 2, 0.02f, "Upscaling", "FSR 3 tuning",
      "Which way FSR 3's sub-pixel jitter is applied. 0.38 is the value that\n"
      "currently looks right; the rest of the range is for finding out why.", "", 0.38f, "upscaling=2"},

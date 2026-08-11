@@ -99,7 +99,15 @@ jobs:
       run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DWOWEE_BUILD_TESTS=ON
 
     - name: Assert AMD FSR2 target
-      run: cmake --build build --target wowee_fsr2_amd_vk --parallel ${{ matrix.build_jobs }}
+      run: |
+        set -euo pipefail
+        # Built only when the backend is enabled. It is off by default now,
+        # so the target does not exist unless someone asks for it.
+        if cmake --build build --target help | grep -q 'wowee_fsr2_amd_vk'; then
+          cmake --build build --target wowee_fsr2_amd_vk --parallel ${{ matrix.build_jobs }}
+        else
+          echo "AMD FSR2 backend disabled; nothing to assert."
+        fi
 
     - name: Assert AMD FSR3 framegen probe target (if present)
       run: |
@@ -177,7 +185,15 @@ jobs:
           -DWOWEE_BUILD_TESTS=ON
 
     - name: Assert AMD FSR2 target
-      run: cmake --build build --target wowee_fsr2_amd_vk --parallel "$(sysctl -n hw.logicalcpu)"
+      run: |
+        set -euo pipefail
+        # Built only when the backend is enabled. It is off by default now,
+        # so the target does not exist unless someone asks for it.
+        if cmake --build build --target help | grep -q 'wowee_fsr2_amd_vk'; then
+          cmake --build build --target wowee_fsr2_amd_vk --parallel "$(sysctl -n hw.logicalcpu)"
+        else
+          echo "AMD FSR2 backend disabled; nothing to assert."
+        fi
 
     - name: Assert AMD FSR3 framegen probe target (if present)
       run: |
@@ -493,7 +509,15 @@ jobs:
 
     - name: Assert AMD FSR2 target
       shell: msys2 {0}
-      run: cmake --build build --target wowee_fsr2_amd_vk --parallel $(nproc)
+      run: |
+        set -euo pipefail
+        # Built only when the backend is enabled. It is off by default now,
+        # so the target does not exist unless someone asks for it.
+        if cmake --build build --target help | grep -q 'wowee_fsr2_amd_vk'; then
+          cmake --build build --target wowee_fsr2_amd_vk --parallel $(nproc)
+        else
+          echo "AMD FSR2 backend disabled; nothing to assert."
+        fi
 
     - name: Assert AMD FSR3 framegen probe target (if present)
       shell: msys2 {0}
@@ -587,7 +611,15 @@ jobs:
 
     - name: Assert AMD FSR2 target
       shell: msys2 {0}
-      run: cmake --build build --target wowee_fsr2_amd_vk --parallel $(nproc)
+      run: |
+        set -euo pipefail
+        # Built only when the backend is enabled. It is off by default now,
+        # so the target does not exist unless someone asks for it.
+        if cmake --build build --target help | grep -q 'wowee_fsr2_amd_vk'; then
+          cmake --build build --target wowee_fsr2_amd_vk --parallel $(nproc)
+        else
+          echo "AMD FSR2 backend disabled; nothing to assert."
+        fi
 
     - name: Assert AMD FSR3 framegen probe target (if present)
       shell: msys2 {0}
