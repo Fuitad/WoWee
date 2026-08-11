@@ -3278,6 +3278,10 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
     std::optional<float> bestFloor;
     float bestNormalZ = 1.0f;
     bool bestFromLowPlatform = false;
+    // For the "no floor where there plainly is one" report at the end.
+    bool overlappedInXY = false;
+    bool rejectedByZ = false;
+    float rejectedZMin = 0.0f, rejectedZMax = 0.0f;
 
     // A moving transport (elevator, ship hull) IS ordinary collision — you walk
     // up a docked ship's hull and you stand on a lift with no attachment at all
@@ -3418,11 +3422,25 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
         if (bestFloor && instance.worldBoundsMax.z <= (*bestFloor + 0.05f)) {
             continue;
         }
+        const bool insideXY = glX >= instance.worldBoundsMin.x && glX <= instance.worldBoundsMax.x &&
+                              glY >= instance.worldBoundsMin.y && glY <= instance.worldBoundsMax.y;
         if (glX < instance.worldBoundsMin.x || glX > instance.worldBoundsMax.x ||
             glY < instance.worldBoundsMin.y || glY > instance.worldBoundsMax.y ||
             glZ < instance.worldBoundsMin.z - zMarginDown || glZ > instance.worldBoundsMax.z + zMarginUp) {
+            // Over a building and rejected anyway: the only thing that can do
+            // that here is the Z window, and it is worth naming when the answer
+            // comes back "no floor" — falling through something you are
+            // standing on looks the same whether it was never considered or
+            // considered and missed.
+            if (insideXY) {
+                overlappedInXY = true;
+                rejectedByZ = true;
+                rejectedZMin = instance.worldBoundsMin.z;
+                rejectedZMax = instance.worldBoundsMax.z;
+            }
             continue;
         }
+        if (insideXY) overlappedInXY = true;
 
         // World-space pre-pass: check which groups' world XY bounds contain
         // the query point. For a vertical ray this eliminates most groups
@@ -3464,6 +3482,31 @@ std::optional<float> WMORenderer::getFloorHeight(float glX, float glY, float glZ
     }
 
     // Persistent grid cache disabled (see above comment about stairs fall-through)
+
+    // Standing over a building and told there is no floor.
+    //
+    // Falling through something looks the same whether the building was never
+    // considered, considered and rejected by the height window, or considered
+    // and simply missed by the ray — and those need different fixes. Said at
+    // most once a second, and only when the query was over one at all.
+    if (!bestFloor && overlappedInXY) {
+        using Clock = std::chrono::steady_clock;
+        static Clock::time_point lastAt{};
+        const auto now = Clock::now();
+        if (now - lastAt > std::chrono::seconds(1)) {
+            lastAt = now;
+            if (rejectedByZ) {
+                LOG_WARNING("No WMO floor at (", glX, ",", glY, ",", glZ,
+                            ") — a building covers that spot but its height window "
+                            "rejected the query: bounds z=[", rejectedZMin, "..",
+                            rejectedZMax, "]");
+            } else {
+                LOG_WARNING("No WMO floor at (", glX, ",", glY, ",", glZ,
+                            ") — a building covers that spot, was considered, and "
+                            "no triangle was hit");
+            }
+        }
+    }
 
     if (bestFloor && outNormalZ) {
         *outNormalZ = bestNormalZ;
