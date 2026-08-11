@@ -1189,32 +1189,6 @@ ChatPanel::SlashCommands ChatPanel::consumeSlashCommands() {
 }
 
 namespace {
-    bool isPortBotTarget(const std::string& target) {
-        std::string t = chat_utils::toLower(chat_utils::trim(target));
-        return t == "portbot" || t == "gmbot" || t == "telebot";
-    }
-
-    std::string buildPortBotCommand(const std::string& rawInput) {
-        std::string input = chat_utils::trim(rawInput);
-        if (input.empty()) return "";
-
-        std::string lower = chat_utils::toLower(input);
-        if (lower == "help" || lower == "?") return "__help__";
-
-        if (lower.rfind(".tele ", 0) == 0 || lower.rfind(".go ", 0) == 0) return input;
-        if (lower.rfind("xyz ", 0) == 0) return ".go " + input;
-
-        if (lower == "sw" || lower == "stormwind") return ".tele stormwind";
-        if (lower == "if" || lower == "ironforge") return ".tele ironforge";
-        if (lower == "darn" || lower == "darnassus") return ".tele darnassus";
-        if (lower == "org" || lower == "orgrimmar") return ".tele orgrimmar";
-        if (lower == "tb" || lower == "thunderbluff") return ".tele thunderbluff";
-        if (lower == "uc" || lower == "undercity") return ".tele undercity";
-        if (lower == "shatt" || lower == "shattrath") return ".tele shattrath";
-        if (lower == "dal" || lower == "dalaran") return ".tele dalaran";
-
-        return ".tele " + input;
-    }
 } // anonymous namespace
 
 // Collect all non-comment, non-empty lines from a macro body.
@@ -1386,7 +1360,7 @@ void ChatPanel::sendChatMessage(game::GameHandler& gameHandler) {
             if (gameHandler.hasTarget()) {
                 auto targetEntity = gameHandler.getTarget();
                 if (targetEntity) {
-                    targetName = chat_utils::getEntityDisplayName(targetEntity);
+                    targetName = game::entityDisplayName(targetEntity);
                     if (!targetName.empty()) targetNamePtr = &targetName;
                 }
             }
@@ -1443,13 +1417,13 @@ void ChatPanel::sendChatMessage(game::GameHandler& gameHandler) {
     }
 
     // PortBot whisper interception
-    if (type == game::ChatType::WHISPER && isPortBotTarget(target)) {
-        std::string cmd = buildPortBotCommand(message);
+    if (type == game::ChatType::WHISPER && chat_utils::isPortBotTarget(target)) {
+        std::string cmd = chat_utils::portBotCommandFor(message);
         game::MessageChatData msg;
         msg.type = game::ChatType::SYSTEM;
         msg.language = game::ChatLanguage::UNIVERSAL;
         if (cmd.empty() || cmd == "__help__") {
-            msg.message = "PortBot: /w PortBot <dest>. Aliases: sw if darn org tb uc shatt dal. Also supports '.tele ...' or 'xyz x y z [map [o]]'.";
+            msg.message = chat_utils::portBotHelpText();
             gameHandler.addLocalChatMessage(msg);
             chatInputBuffer_[0] = '\0';
             return;

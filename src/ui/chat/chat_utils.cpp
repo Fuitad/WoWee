@@ -16,18 +16,65 @@ std::string replaceGenderPlaceholders(const std::string& text,
     return game::resolveTextTokens(text, gameHandler);
 }
 
-std::string getEntityDisplayName(const std::shared_ptr<game::Entity>& entity) {
-    if (entity->getType() == game::ObjectType::PLAYER) {
-        auto player = std::static_pointer_cast<game::Player>(entity);
-        if (!player->getName().empty()) return player->getName();
-    } else if (entity->getType() == game::ObjectType::UNIT) {
-        auto unit = std::static_pointer_cast<game::Unit>(entity);
-        if (!unit->getName().empty()) return unit->getName();
-    } else if (entity->getType() == game::ObjectType::GAMEOBJECT) {
-        auto go = std::static_pointer_cast<game::GameObject>(entity);
-        if (!go->getName().empty()) return go->getName();
+namespace {
+
+/// Where PortBot can send you, and the words that ask for it.
+///
+/// One table rather than a run of `if`s, because the help line is built from
+/// it too: the two copies of this that existed both listed their aliases in a
+/// hand-written sentence, and an alias added to the branches would not have
+/// reached either sentence.
+struct PortBotDestination {
+    const char* shortAlias;
+    const char* fullName;
+};
+
+constexpr PortBotDestination kPortBotDestinations[] = {
+    {"sw",    "stormwind"},
+    {"if",    "ironforge"},
+    {"darn",  "darnassus"},
+    {"org",   "orgrimmar"},
+    {"tb",    "thunderbluff"},
+    {"uc",    "undercity"},
+    {"shatt", "shattrath"},
+    {"dal",   "dalaran"},
+};
+
+}  // namespace
+
+bool isPortBotTarget(const std::string& target) {
+    return toLower(trim(target)) == "portbot";
+}
+
+std::string portBotCommandFor(const std::string& rawInput) {
+    const std::string input = trim(rawInput);
+    if (input.empty()) return "";
+    const std::string lower = toLower(input);
+    if (lower == "help" || lower == "?") return "__help__";
+
+    // Already a command: passed through as typed, so anything the server
+    // understands and this table does not is still reachable.
+    if (lower.rfind(".tele ", 0) == 0 || lower.rfind(".go ", 0) == 0) return input;
+    if (lower.rfind("xyz ", 0) == 0) return ".go " + input;
+
+    for (const auto& dest : kPortBotDestinations) {
+        if (lower == dest.shortAlias || lower == dest.fullName) {
+            return std::string(".tele ") + dest.fullName;
+        }
     }
-    return "Unknown";
+    // Not an alias we know: handed to the server as a destination name, which
+    // is what makes every city this table does not list still work.
+    return ".tele " + input;
+}
+
+std::string portBotHelpText() {
+    std::string aliases;
+    for (const auto& dest : kPortBotDestinations) {
+        if (!aliases.empty()) aliases += " ";
+        aliases += dest.shortAlias;
+    }
+    return "PortBot: /w PortBot <dest>. Aliases: " + aliases +
+           ". Also supports '.tele ...' or 'xyz x y z [map [o]]'.";
 }
 
 } // namespace chat_utils

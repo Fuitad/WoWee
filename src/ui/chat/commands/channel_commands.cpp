@@ -11,44 +11,23 @@
 
 using wowee::ui::chat_utils::trim;
 using wowee::ui::chat_utils::toLower;
+namespace chat_utils = wowee::ui::chat_utils;
 
 namespace {
 
-bool isPortBotTarget(const std::string& target) {
-    std::string t = toLower(trim(target));
-    return t == "portbot" || t == "gmbot" || t == "telebot";
-}
-
-std::string buildPortBotCommand(const std::string& rawInput) {
-    std::string input = trim(rawInput);
-    if (input.empty()) return "";
-    std::string lower = toLower(input);
-    if (lower == "help" || lower == "?") return "__help__";
-    if (lower.rfind(".tele ", 0) == 0 || lower.rfind(".go ", 0) == 0) return input;
-    if (lower.rfind("xyz ", 0) == 0) return ".go " + input;
-    if (lower == "sw" || lower == "stormwind") return ".tele stormwind";
-    if (lower == "if" || lower == "ironforge") return ".tele ironforge";
-    if (lower == "darn" || lower == "darnassus") return ".tele darnassus";
-    if (lower == "org" || lower == "orgrimmar") return ".tele orgrimmar";
-    if (lower == "tb" || lower == "thunderbluff") return ".tele thunderbluff";
-    if (lower == "uc" || lower == "undercity") return ".tele undercity";
-    if (lower == "shatt" || lower == "shattrath") return ".tele shattrath";
-    if (lower == "dal" || lower == "dalaran") return ".tele dalaran";
-    return ".tele " + input;
-}
 
 // Send a whisper, intercepting PortBot targets for GM teleport commands.
 // Returns true if the whisper was handled (PortBot or normal send), false if empty.
 bool sendWhisperOrPortBot(wowee::game::GameHandler& gameHandler,
                           const std::string& target,
                           const std::string& message) {
-    if (isPortBotTarget(target)) {
-        std::string cmd = buildPortBotCommand(message);
+    if (chat_utils::isPortBotTarget(target)) {
+        std::string cmd = chat_utils::portBotCommandFor(message);
         wowee::game::MessageChatData msg;
         msg.type = wowee::game::ChatType::SYSTEM;
         msg.language = wowee::game::ChatLanguage::UNIVERSAL;
         if (cmd.empty() || cmd == "__help__") {
-            msg.message = "PortBot: /w PortBot <dest>. Aliases: sw if darn org tb uc shatt dal. Also supports '.tele ...' or 'xyz x y z [map [o]]'.";
+            msg.message = chat_utils::portBotHelpText();
             gameHandler.addLocalChatMessage(msg);
             return true;
         }

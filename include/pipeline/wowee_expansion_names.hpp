@@ -46,6 +46,21 @@ inline const char* expansionName(uint8_t e) {
     }
 }
 
+/// There is deliberately no factionName beside this, and the reason is worth
+/// writing down because the invitation to add one is obvious: nine of these
+/// formats have a switch answering "alliance", and they look like nine copies.
+///
+/// They are not. The formats number their factions five different ways —
+/// Alliance is 0 in chars, auction, channels and guilds; 1 in mounts, maps,
+/// events and achievements; and companions starts at AllianceOnly = 1 with no
+/// zero at all. Maps has a fourth value, Contested, that the others do not.
+/// A shared value-to-word function would answer confidently and wrongly for
+/// most of them.
+///
+/// What made the expansion words shareable is that all three formats that use
+/// them number identically, 0 to 3. That is a property of those three, not a
+/// rule about .w* formats, and it was checked rather than assumed.
+
 /// The value behind that word. Anything unrecognised reads as Classic.
 ///
 /// Not symmetrical with the above, and deliberately: a sidecar with a word this
